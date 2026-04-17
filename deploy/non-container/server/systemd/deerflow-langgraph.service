@@ -1,0 +1,15 @@
+[Unit]
+Description=DeerFlow LangGraph API
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/deer-flow/backend
+EnvironmentFile=/etc/deerflow/deerflow.env
+ExecStart=/usr/bin/env bash -lc 'cd /opt/deer-flow/backend && PYTHONIOENCODING=utf-8 uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port ${LANGGRAPH_PORT:-2025}'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+

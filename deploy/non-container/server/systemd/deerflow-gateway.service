@@ -1,0 +1,15 @@
+[Unit]
+Description=DeerFlow Gateway (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/deer-flow/backend
+EnvironmentFile=/etc/deerflow/deerflow.env
+ExecStart=/usr/bin/env bash -lc 'cd /opt/deer-flow/backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port ${GATEWAY_PORT:-8001} --workers 2'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+
