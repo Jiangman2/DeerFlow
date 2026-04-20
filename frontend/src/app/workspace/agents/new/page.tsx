@@ -141,7 +141,7 @@ export default function NewAgentPage() {
         <main className="flex flex-1 flex-col items-center justify-center px-4">
           <div className="w-full max-w-sm space-y-8">
             <div className="space-y-3 text-center">
-              <div className="bg-primary/10 mx-auto flex h-14 w-14 items-center justify-center rounded-full">
+              <div className="bg-[rgba(88,134,189,0.10)] mx-auto flex h-14 w-14 items-center justify-center rounded-full">
                 <BotIcon className="text-primary h-7 w-7" />
               </div>
               <div className="space-y-1">

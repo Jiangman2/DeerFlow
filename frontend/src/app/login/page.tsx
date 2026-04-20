@@ -16,13 +16,15 @@ export default async function LoginPage() {
         <div className="flex flex-col items-center gap-3">
           <BrandLogo variant="mark" priority className="h-10 w-auto" />
           <div className="text-center">
-            <div className="text-lg font-semibold">{brand.productName}</div>
+            <div className="text-slate-900 text-lg font-semibold">
+              {brand.productName}
+            </div>
             <div className="text-muted-foreground text-sm">
               {brand.organizationName}
             </div>
           </div>
         </div>
-        <div className="bg-card/75 text-card-foreground supports-[backdrop-filter]:backdrop-blur-xl border-border/70 rounded-2xl border p-6 shadow-[0_22px_80px_rgba(15,42,85,0.14)]">
+        <div className="bg-card text-card-foreground border-border rounded-2xl border p-6 shadow-[0_22px_80px_rgba(15,42,85,0.14)]">
           <LoginForm />
         </div>
       </div>

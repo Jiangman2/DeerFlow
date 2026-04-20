@@ -16,7 +16,7 @@ export type ArtifactProps = HTMLAttributes<HTMLDivElement>;
 export const Artifact = ({ className, ...props }: ArtifactProps) => (
   <div
     className={cn(
-      "bg-blue-50/35 flex flex-col overflow-hidden rounded-lg border border-blue-100 shadow-lg backdrop-blur-xs",
+      "bg-blue-50 flex flex-col overflow-hidden rounded-lg border border-blue-100 shadow-lg backdrop-blur-xs",
       className,
     )}
     {...props}
@@ -31,7 +31,7 @@ export const ArtifactHeader = ({
 }: ArtifactHeaderProps) => (
   <div
     className={cn(
-      "bg-blue-50/70 flex items-center justify-between border-b border-blue-100 px-4 py-3",
+      "bg-blue-50 flex items-center justify-between border-b border-blue-100 px-4 py-3",
       className,
     )}
     {...props}
@@ -144,7 +144,7 @@ export const ArtifactContent = ({
   ...props
 }: ArtifactContentProps) => (
   <div
-    className={cn("min-h-0 flex-1 overflow-auto bg-blue-50/20 p-4", className)}
+    className={cn("min-h-0 flex-1 overflow-auto bg-blue-50 p-4", className)}
     {...props}
   />
 );

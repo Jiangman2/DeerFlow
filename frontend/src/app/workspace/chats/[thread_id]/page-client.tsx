@@ -101,8 +101,7 @@ export default function ChatPageClient() {
         <div className="relative flex size-full min-h-0 justify-between">
           <header
             className={cn(
-              "absolute top-0 right-0 left-0 z-30 flex h-12 shrink-0 items-center border-b border-blue-100 bg-blue-50 px-4 shadow-xs",
-              isNewThread ? "backdrop-blur-none" : "backdrop-blur",
+              "absolute top-0 right-0 left-0 z-30 flex h-12 shrink-0 items-center border-b border-[#dbeafe] bg-[#eff6ff] px-4 shadow-xs",
             )}
           >
             <div className="flex w-full items-center text-sm font-medium">
@@ -134,14 +133,14 @@ export default function ChatPageClient() {
                 <div className="absolute -top-4 right-0 left-0 z-0">
                   <div className="absolute right-0 bottom-0 left-0">
                     <TodoList
-                      className="bg-background/5"
+                      className="bg-transparent"
                       todos={thread.values.todos ?? []}
                       hidden={!thread.values.todos || thread.values.todos.length === 0}
                     />
                   </div>
                 </div>
                 <InputBox
-                  className={cn("bg-background/5 w-full -translate-y-4")}
+                  className={cn("bg-transparent w-full -translate-y-4")}
                   isNewThread={isNewThread}
                   threadId={threadId}
                   autoFocus={isNewThread}
@@ -156,7 +155,7 @@ export default function ChatPageClient() {
                   onStop={handleStop}
                 />
                 {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" && (
-                  <div className="text-muted-foreground/67 w-full translate-y-12 text-center text-xs">
+                  <div className="text-muted-foreground w-full translate-y-12 text-center text-xs">
                     {t.common.notAvailableInDemoMode}
                   </div>
                 )}

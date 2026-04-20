@@ -83,7 +83,7 @@ export function CaseStudySection({ className }: { className?: string }) {
                     <h3 className="flex h-14 items-center text-xl font-bold text-shadow-black">
                       {caseStudy.title}
                     </h3>
-                    <p className="box-shadow-black overflow-hidden text-sm text-white/85 text-shadow-black">
+                    <p className="box-shadow-black overflow-hidden text-sm text-[rgba(255,255,255,0.85)] text-shadow-black">
                       {caseStudy.description}
                     </p>
                   </div>

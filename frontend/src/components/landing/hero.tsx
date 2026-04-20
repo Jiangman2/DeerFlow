@@ -16,8 +16,16 @@ export function Hero({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="absolute inset-0 z-0 bg-[url('/images/home-bg-light.png')] bg-cover bg-center bg-no-repeat" />
-      <div className="absolute inset-0 z-10 bg-white/22 backdrop-blur-xs" />
+      <div
+        className="absolute inset-0 z-0 bg-[url('/images/home-bg-light.png')] bg-cover bg-center bg-no-repeat"
+        style={{
+          filter: "blur(1px)",
+          WebkitFilter: "blur(1px)",
+          transform: "scale(1.05)",
+          transformOrigin: "center",
+        }}
+      />
+      <div className="absolute inset-0 z-10 bg-[rgba(255,255,255,0.22)]" />
       <div className="absolute top-6 left-6 z-20 md:top-8 md:left-8">
         <BrandLogo variant="full" priority className="h-10 w-auto md:h-12" />
       </div>

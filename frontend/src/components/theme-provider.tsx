@@ -8,10 +8,12 @@ export function ThemeProvider({
   ...props
 }: React.ComponentProps<typeof NextThemesProvider>) {
   const pathname = usePathname();
+  const forcedTheme =
+    pathname === "/" || pathname === "/login" ? "light" : undefined;
   return (
     <NextThemesProvider
       {...props}
-      forcedTheme={pathname === "/" ? "dark" : undefined}
+      forcedTheme={forcedTheme}
     >
       {children}
     </NextThemesProvider>

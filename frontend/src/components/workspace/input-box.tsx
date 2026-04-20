@@ -387,7 +387,7 @@ export function InputBox({
     <div ref={promptRootRef} className="relative">
       <PromptInput
         className={cn(
-          "bg-background/85 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out *:data-[slot='input-group']:rounded-2xl",
+          "bg-card rounded-2xl transition-all duration-300 ease-out *:data-[slot='input-group']:rounded-2xl",
           className,
         )}
         disabled={disabled}
@@ -474,7 +474,7 @@ export function InputBox({
                     className={cn(
                       context.mode === "flash"
                         ? "text-accent-foreground"
-                        : "text-muted-foreground/65",
+                        : "text-muted-foreground",
                     )}
                     onSelect={() => handleModeSelect("flash")}
                   >
@@ -504,7 +504,7 @@ export function InputBox({
                       className={cn(
                         context.mode === "thinking"
                           ? "text-accent-foreground"
-                          : "text-muted-foreground/65",
+                          : "text-muted-foreground",
                       )}
                       onSelect={() => handleModeSelect("thinking")}
                     >
@@ -534,7 +534,7 @@ export function InputBox({
                     className={cn(
                       context.mode === "pro"
                         ? "text-accent-foreground"
-                        : "text-muted-foreground/65",
+                        : "text-muted-foreground",
                     )}
                     onSelect={() => handleModeSelect("pro")}
                   >
@@ -562,7 +562,7 @@ export function InputBox({
                     className={cn(
                       context.mode === "ultra"
                         ? "text-accent-foreground"
-                        : "text-muted-foreground/65",
+                        : "text-muted-foreground",
                     )}
                     onSelect={() => handleModeSelect("ultra")}
                   >
@@ -617,7 +617,7 @@ export function InputBox({
                       className={cn(
                         context.reasoning_effort === "minimal"
                           ? "text-accent-foreground"
-                          : "text-muted-foreground/65",
+                          : "text-muted-foreground",
                       )}
                       onSelect={() => handleReasoningEffortSelect("minimal")}
                     >
@@ -639,7 +639,7 @@ export function InputBox({
                       className={cn(
                         context.reasoning_effort === "low"
                           ? "text-accent-foreground"
-                          : "text-muted-foreground/65",
+                          : "text-muted-foreground",
                       )}
                       onSelect={() => handleReasoningEffortSelect("low")}
                     >
@@ -661,7 +661,7 @@ export function InputBox({
                       className={cn(
                         context.reasoning_effort === "medium" || !context.reasoning_effort
                           ? "text-accent-foreground"
-                          : "text-muted-foreground/65",
+                          : "text-muted-foreground",
                       )}
                       onSelect={() => handleReasoningEffortSelect("medium")}
                     >
@@ -683,7 +683,7 @@ export function InputBox({
                       className={cn(
                         context.reasoning_effort === "high"
                           ? "text-accent-foreground"
-                          : "text-muted-foreground/65",
+                          : "text-muted-foreground",
                       )}
                       onSelect={() => handleReasoningEffortSelect("high")}
                     >
@@ -773,7 +773,7 @@ export function InputBox({
           <div className="absolute right-0 -top-20 left-0 z-20 flex items-center justify-center">
             <div className="flex items-center gap-2">
               {followupsLoading ? (
-                <div className="text-muted-foreground bg-background/80 rounded-full border px-4 py-2 text-xs backdrop-blur-sm">
+                <div className="text-muted-foreground bg-card rounded-full border px-4 py-2 text-xs">
                   {t.inputBox.followupLoading}
                 </div>
               ) : (

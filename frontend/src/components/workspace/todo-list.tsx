@@ -77,13 +77,13 @@ export function TodoList({
               <div className="flex items-center gap-2">
                 <QueueItemIndicator
                   className={
-                    todo.status === "in_progress" ? "bg-primary/70" : ""
+                    todo.status === "in_progress" ? "bg-primary opacity-70" : ""
                   }
                   completed={todo.status === "completed"}
                 />
                 <QueueItemContent
                   className={
-                    todo.status === "in_progress" ? "text-primary/70" : ""
+                    todo.status === "in_progress" ? "text-primary opacity-70" : ""
                   }
                   completed={todo.status === "completed"}
                 >

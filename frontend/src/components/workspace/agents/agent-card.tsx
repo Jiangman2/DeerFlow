@@ -57,7 +57,7 @@ export function AgentCard({ agent }: AgentCardProps) {
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
-              <div className="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+              <div className="bg-[rgba(88,134,189,0.10)] text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
                 <BotIcon className="h-5 w-5" />
               </div>
               <div className="min-w-0">

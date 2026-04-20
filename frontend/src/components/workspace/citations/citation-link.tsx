@@ -37,7 +37,7 @@ export function CitationLink({
         >
           <Badge
             variant="secondary"
-            className="hover:bg-secondary/80 mx-0.5 cursor-pointer gap-1 rounded-full px-2 py-0.5 text-xs font-normal"
+            className="hover:bg-secondary mx-0.5 cursor-pointer gap-1 rounded-full px-2 py-0.5 text-xs font-normal"
           >
             {displayText}
             <ExternalLinkIcon className="size-3" />

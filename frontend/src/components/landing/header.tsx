@@ -12,7 +12,7 @@ export async function Header() {
   const href = s?.user ? brand.links.workspace : brand.links.login;
   const label = s?.user ? "进入工作台" : "登录";
   return (
-    <header className="fixed top-0 right-0 left-0 z-20 w-full border-b border-border/70 bg-card/55 supports-[backdrop-filter]:backdrop-blur-md">
+    <header className="fixed top-0 right-0 left-0 z-20 w-full border-b border-border bg-card">
       <div className="container-md mx-auto flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-3">
           <BrandLogo variant="mark" priority className="h-11 w-auto md:h-14" />

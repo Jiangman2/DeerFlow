@@ -23,17 +23,17 @@ export function WorkspaceSidebar({
       <Sidebar
         variant="sidebar"
         collapsible="icon"
-        className="bg-blue-50/35 backdrop-blur-xs border-r border-black/10"
+        className="bg-[#eff6ff] border-r border-[#bfdbfe]"
         {...props}
       >
-        <SidebarHeader className="bg-blue-50 border-blue-100 py-0 rounded-md border backdrop-blur-xs mx-1 mt-2 mb-1">
+        <SidebarHeader className="bg-[#eff6ff] border-[#dbeafe] py-0 rounded-md border mx-1 mt-2 mb-1">
           <WorkspaceHeader />
         </SidebarHeader>
-        <SidebarContent className="bg-blue-50 border-blue-100 rounded-md border backdrop-blur-xs mx-1 mb-2">
+        <SidebarContent className="bg-[#eff6ff] border-[#dbeafe] rounded-md border mx-1 mb-2">
           <WorkspaceNavChatList />
           {isSidebarOpen && <RecentChatList />}
         </SidebarContent>
-        <SidebarFooter className="bg-blue-50 border-blue-100 rounded-md border backdrop-blur-xs mx-1 mb-2">
+        <SidebarFooter className="bg-[#eff6ff] border-[#dbeafe] rounded-md border mx-1 mb-2">
           <WorkspaceNavMenu />
         </SidebarFooter>
         <SidebarRail />

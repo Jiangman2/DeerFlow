@@ -5,20 +5,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-[rgba(88,134,189,0.35)] aria-invalid:ring-[3px] aria-invalid:ring-[rgba(204,48,48,0.25)] aria-invalid:border-destructive",
   {
     variants: {
       variant: {
         default:
-          "cursor-pointer bg-primary text-primary-foreground shadow-sm shadow-black/5 hover:bg-primary/90",
+          "cursor-pointer bg-primary text-primary-foreground shadow-sm hover:brightness-95",
         destructive:
-          "cursor-pointer bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "cursor-pointer bg-destructive text-white hover:brightness-95 focus-visible:ring-[rgba(204,48,48,0.25)] dark:bg-destructive",
         outline:
-          "cursor-pointer border border-border bg-card/40 text-foreground shadow-xs hover:bg-card/70 dark:bg-card/10 dark:hover:bg-card/20",
+          "cursor-pointer border border-border bg-card text-foreground shadow-xs hover:brightness-95 dark:bg-card",
         secondary:
-          "cursor-pointer bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "cursor-pointer bg-secondary text-secondary-foreground hover:brightness-95",
         ghost:
-          "cursor-pointer hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "cursor-pointer hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent",
         link: "cursor-pointer text-primary underline-offset-4 hover:underline",
       },
       size: {

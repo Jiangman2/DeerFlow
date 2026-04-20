@@ -350,7 +350,7 @@ export default function ProgressiveSkillsAnimation() {
               onClick={handlePlay}
               className="group flex flex-col items-center gap-4 transition-transform hover:scale-105 active:scale-95"
             >
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-all group-hover:bg-white/20">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[rgba(255,255,255,0.1)] backdrop-blur-md transition-all group-hover:bg-[rgba(255,255,255,0.2)]">
                 <Play
                   size={48}
                   className="ml-1 text-white transition-transform group-hover:scale-110"
@@ -372,7 +372,7 @@ export default function ProgressiveSkillsAnimation() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             onClick={handleTogglePlayPause}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition-all hover:scale-110 hover:bg-white/20 active:scale-95"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(255,255,255,0.1)] backdrop-blur-md transition-all hover:scale-110 hover:bg-[rgba(255,255,255,0.2)] active:scale-95"
           >
             {isPlaying ? (
               <Pause size={24} className="text-white" fill="white" />
@@ -456,7 +456,7 @@ export default function ProgressiveSkillsAnimation() {
         </div>
 
         {/* Right: Chat Interface */}
-        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/50">
+        <div className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[rgba(24,24,27,0.5)]">
           {/* Chat Header */}
           <div className="border-b border-zinc-800 p-4">
             <div className="flex items-center gap-2">
@@ -674,7 +674,7 @@ export default function ProgressiveSkillsAnimation() {
                         <motion.div
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          className="mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4"
+                          className="mt-4 rounded-xl border border-[rgba(34,197,94,0.3)] bg-[rgba(34,197,94,0.1)] p-4"
                         >
                           <div className="text-lg font-medium text-green-500">
                             ✅ Live at biotech-startup.vercel.app

@@ -137,7 +137,7 @@ function ThemePreviewCard({
       className={cn(
         "group flex h-full flex-col gap-3 rounded-lg border p-4 text-left transition-all",
         active
-          ? "border-primary ring-primary/30 shadow-sm ring-2"
+          ? "border-primary ring-2 ring-[rgba(88,134,189,0.30)] shadow-sm"
           : "hover:border-border hover:shadow-sm",
       )}
     >
@@ -160,33 +160,33 @@ function ThemePreviewCard({
             : "border-slate-200 bg-white text-slate-900",
         )}
       >
-        <div className="border-border/50 flex items-center gap-2 border-b px-3 py-2">
+        <div className="border-border flex items-center gap-2 border-b px-3 py-2">
           <div
             className={cn(
               "h-2 w-2 rounded-full",
               previewMode === "dark" ? "bg-emerald-400" : "bg-emerald-500",
             )}
           />
-          <div className="h-2 w-10 rounded-full bg-current/20" />
-          <div className="h-2 w-6 rounded-full bg-current/15" />
+          <div className="h-2 w-10 rounded-full bg-muted" />
+          <div className="h-2 w-6 rounded-full bg-muted" />
         </div>
         <div className="grid grid-cols-[1fr_240px] gap-3 px-3 py-3">
           <div className="space-y-2">
-            <div className="h-3 w-3/4 rounded-full bg-current/15" />
-            <div className="h-3 w-1/2 rounded-full bg-current/10" />
-            <div className="h-[90px] rounded-md border border-current/10 bg-current/5" />
+            <div className="h-3 w-3/4 rounded-full bg-muted" />
+            <div className="h-3 w-1/2 rounded-full bg-muted" />
+            <div className="h-[90px] rounded-md border border-border bg-muted" />
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-md bg-current/10" />
+              <div className="h-8 w-8 rounded-md bg-muted" />
               <div className="space-y-2">
-                <div className="h-2 w-14 rounded-full bg-current/15" />
-                <div className="h-2 w-10 rounded-full bg-current/10" />
+                <div className="h-2 w-14 rounded-full bg-muted" />
+                <div className="h-2 w-10 rounded-full bg-muted" />
               </div>
             </div>
-            <div className="flex flex-col gap-1 rounded-md border border-dashed border-current/15 p-2">
-              <div className="h-2 w-3/5 rounded-full bg-current/15" />
-              <div className="h-2 w-2/5 rounded-full bg-current/10" />
+            <div className="flex flex-col gap-1 rounded-md border border-dashed border-border p-2">
+              <div className="h-2 w-3/5 rounded-full bg-muted" />
+              <div className="h-2 w-2/5 rounded-full bg-muted" />
             </div>
           </div>
         </div>

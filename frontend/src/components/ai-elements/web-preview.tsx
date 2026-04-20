@@ -209,14 +209,14 @@ export const WebPreviewConsole = ({
 
   return (
     <Collapsible
-      className={cn("border-t bg-muted/50 font-mono text-sm", className)}
+      className={cn("border-t bg-muted font-mono text-sm", className)}
       onOpenChange={setConsoleOpen}
       open={consoleOpen}
       {...props}
     >
       <CollapsibleTrigger asChild>
         <Button
-          className="flex w-full items-center justify-between p-4 text-left font-medium hover:bg-muted/50"
+          className="flex w-full items-center justify-between p-4 text-left font-medium hover:bg-muted"
           variant="ghost"
         >
           Console

@@ -133,7 +133,7 @@ export const ChainOfThoughtStep = memo(
     const statusStyles = {
       complete: "text-muted-foreground",
       active: "text-foreground",
-      pending: "text-muted-foreground/50",
+      pending: "text-muted-foreground opacity-50",
     };
 
     return (

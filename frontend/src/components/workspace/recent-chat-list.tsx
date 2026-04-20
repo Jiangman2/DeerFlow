@@ -188,7 +188,7 @@ export function RecentChatList() {
                             <DropdownMenuTrigger asChild>
                               <SidebarMenuAction
                                 showOnHover
-                                className="bg-background/50 hover:bg-background"
+                                className="bg-background hover:bg-background"
                               >
                                 <MoreHorizontal />
                                 <span className="sr-only">{t.common.more}</span>
