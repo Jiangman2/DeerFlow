@@ -195,6 +195,10 @@ export const zhCN: Translations = {
     nameStepInvalidError: "名称无效，只允许字母、数字和连字符",
     nameStepAlreadyExistsError: "已存在同名智能体",
     nameStepCheckError: "无法验证名称可用性，请稍后重试",
+    builderModelLabel: "构建模型",
+    currentBuilderModel: "当前构建模型",
+    changeBuilderModel: "切换模型",
+    builderModelDialogTitle: "选择智能体构建模型",
     nameStepBootstrapMessage:
       "新智能体的名称是 {name}，现在开始为它生成 **SOUL**。",
     agentCreated: "智能体已创建！",

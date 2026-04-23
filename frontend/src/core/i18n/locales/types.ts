@@ -145,6 +145,10 @@ export interface Translations {
     nameStepInvalidError: string;
     nameStepAlreadyExistsError: string;
     nameStepCheckError: string;
+    builderModelLabel: string;
+    currentBuilderModel: string;
+    changeBuilderModel: string;
+    builderModelDialogTitle: string;
     nameStepBootstrapMessage: string;
     agentCreated: string;
     startChatting: string;

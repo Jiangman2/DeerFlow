@@ -207,6 +207,10 @@ export const enUS: Translations = {
       "Invalid name — use only letters, digits, and hyphens",
     nameStepAlreadyExistsError: "An agent with this name already exists",
     nameStepCheckError: "Could not verify name availability — please try again",
+    builderModelLabel: "Builder model",
+    currentBuilderModel: "Current builder model",
+    changeBuilderModel: "Change model",
+    builderModelDialogTitle: "Choose builder model",
     nameStepBootstrapMessage:
       "The new custom agent name is {name}. Let's bootstrap it's **SOUL**.",
     agentCreated: "Agent created!",
