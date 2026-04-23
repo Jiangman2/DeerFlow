@@ -34,12 +34,12 @@ export default function WorkspaceLayoutClient({
     <QueryClientProvider client={queryClient}>
       <WorkspaceUserProvider value={user}>
         <SidebarProvider
-          className="h-screen bg-background bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat dark:bg-background"
+          className="h-screen min-h-screen bg-background bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat dark:bg-background"
           open={open}
           onOpenChange={handleOpenChange}
         >
           <WorkspaceSidebar />
-          <SidebarInset className="min-w-0 bg-background bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat dark:bg-background">
+          <SidebarInset className="min-h-0 min-w-0 bg-background bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat dark:bg-background">
             {children}
           </SidebarInset>
         </SidebarProvider>

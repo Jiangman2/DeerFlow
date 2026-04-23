@@ -6,7 +6,13 @@
     }
   ],
   "settings": {
-    "python.defaultInterpreterPath": "C:\\\\Users\\\\15285\\\\Documents\\\\trae_projects\\\\DeerFlow\\\\backend\\\\.venv\\\\Scripts\\\\python.exe",
+    "typescript.tsdk": "${workspaceFolder}\\frontend\\node_modules\\typescript\\lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}\\backend\\.venv\\Scripts\\python.exe",
+    "python.analysis.extraPaths": [
+      "${workspaceFolder}\\backend",
+      "${workspaceFolder}\\backend\\packages\\harness"
+    ],
     "python-envs.pythonProjects": [
       {
         "path": "backend",

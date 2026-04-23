@@ -224,12 +224,16 @@ class Paths:
                     marker.touch(exist_ok=True)
 
         for d in [
+            self.sandbox_user_data_dir(thread_id, user_id=user_id),
             self.sandbox_work_dir(thread_id, user_id=user_id),
             self.sandbox_uploads_dir(thread_id, user_id=user_id),
             self.sandbox_outputs_dir(thread_id, user_id=user_id),
         ]:
             d.mkdir(parents=True, exist_ok=True)
-            d.chmod(0o777)
+            try:
+                d.chmod(0o777)
+            except Exception:
+                pass
 
     def resolve_virtual_path(self, thread_id: str, virtual_path: str, user_id: str | None = None) -> Path:
         """Resolve a sandbox virtual path to the actual host filesystem path.

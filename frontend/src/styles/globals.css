@@ -467,6 +467,52 @@
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
+
+  .df-user-bubble {
+    background-color: #eff6ff;
+    border: 1px solid #dbeafe;
+  }
+
+  .df-artifact-surface {
+    background-color: #eff6ff;
+    border: 1px solid #dbeafe;
+  }
+
+  .df-artifact-header {
+    background-color: #eff6ff;
+    border-bottom: 1px solid #dbeafe;
+  }
+
+  .df-artifact-content {
+    background-color: #eff6ff;
+  }
+
+  .df-panel-divider {
+    background-color: #dbeafe;
+  }
+
+  .dark .df-user-bubble {
+    background-color: rgba(30, 41, 59, 0.92);
+    border-color: rgba(130, 175, 235, 0.35);
+  }
+
+  .dark .df-artifact-surface {
+    background-color: rgba(30, 41, 59, 0.92);
+    border-color: rgba(130, 175, 235, 0.35);
+  }
+
+  .dark .df-artifact-header {
+    background-color: rgba(30, 41, 59, 0.92);
+    border-bottom-color: rgba(130, 175, 235, 0.35);
+  }
+
+  .dark .df-artifact-content {
+    background-color: rgba(30, 41, 59, 0.92);
+  }
+
+  .dark .df-panel-divider {
+    background-color: rgba(130, 175, 235, 0.35);
+  }
 }
 
 :root {

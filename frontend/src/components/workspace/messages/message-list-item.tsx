@@ -197,7 +197,9 @@ function MessageContent_({
       <div className={cn("ml-auto flex flex-col gap-2", className)}>
         {filesList}
         {messageResponse && (
-          <AIElementMessageContent className="w-fit">
+          <AIElementMessageContent
+            className="df-user-bubble ml-auto w-fit overflow-hidden rounded-lg px-4 py-3 text-foreground"
+          >
             {messageResponse}
           </AIElementMessageContent>
         )}

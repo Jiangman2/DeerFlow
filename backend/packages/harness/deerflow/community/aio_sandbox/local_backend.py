@@ -233,6 +233,8 @@ class LocalContainerBackend(SandboxBackend):
             [
                 "--rm",
                 "-d",
+                "-u",
+                "root",
                 "-p",
                 f"{port}:8080",
                 "--name",

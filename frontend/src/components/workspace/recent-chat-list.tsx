@@ -9,6 +9,7 @@ import {
   Share2,
   Trash2,
 } from "lucide-react";
+import type { ChangeEvent, KeyboardEvent } from "react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -269,9 +270,11 @@ export function RecentChatList() {
           <div className="py-4">
             <Input
               value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setRenameValue(e.target.value)
+              }
               placeholder={t.common.rename}
-              onKeyDown={(e) => {
+              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                 if (e.key === "Enter") {
                   handleRenameSubmit();
                 }

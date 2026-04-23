@@ -8,6 +8,7 @@ import {
   WrenchIcon,
   UsersIcon,
 } from "lucide-react";
+import type { ComponentProps } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -35,7 +36,7 @@ type SettingsSection =
   | "users"
   | "about";
 
-type SettingsDialogProps = React.ComponentProps<typeof Dialog> & {
+type SettingsDialogProps = ComponentProps<typeof Dialog> & {
   defaultSection?: SettingsSection;
 };
 

@@ -124,7 +124,9 @@ export default function AgentChatPageClient() {
                   size="sm"
                   variant="secondary"
                   onClick={() => {
-                    router.push(`/workspace/agents/${agent_name}/chats/new`);
+                    router.push(
+                      `/workspace/agents/${agent_name}/chats/new?ts=${Date.now()}`,
+                    );
                   }}
                 >
                   <PlusSquare /> {t.agents.newChat}

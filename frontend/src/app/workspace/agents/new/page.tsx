@@ -2,7 +2,8 @@
 
 import { ArrowLeftIcon, BotIcon, CheckCircleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import {
   PromptInput,
@@ -37,6 +38,7 @@ export default function NewAgentPage() {
   const [isCheckingName, setIsCheckingName] = useState(false);
   const [agentName, setAgentName] = useState("");
   const [agent, setAgent] = useState<Agent | null>(null);
+  const bootstrapStartedRef = useRef(false);
   // ── Step 2: chat ───────────────────────────────────────────────────────────
 
   // Stable thread ID — all turns belong to the same thread
@@ -47,6 +49,13 @@ export default function NewAgentPage() {
     context: {
       mode: "flash",
       is_bootstrap: true,
+    },
+    onStart: (id) => {
+      void fetch("/api/threads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ thread_id: id }),
+      }).catch(() => undefined);
     },
     onToolEnd({ name }) {
       if (name !== "setup_agent" || !agentName) return;
@@ -81,20 +90,44 @@ export default function NewAgentPage() {
     } finally {
       setIsCheckingName(false);
     }
+    bootstrapStartedRef.current = false;
     setAgentName(trimmed);
     setStep("chat");
-    await sendMessage(threadId, {
-      text: t.agents.nameStepBootstrapMessage.replace("{name}", trimmed),
-      files: [],
-    });
   }, [
     nameInput,
-    sendMessage,
-    threadId,
-    t.agents.nameStepBootstrapMessage,
     t.agents.nameStepInvalidError,
     t.agents.nameStepAlreadyExistsError,
     t.agents.nameStepCheckError,
+  ]);
+
+  useEffect(() => {
+    if (step !== "chat" || !agentName || bootstrapStartedRef.current) {
+      return;
+    }
+
+    if (thread.messages.length > 0) {
+      return;
+    }
+
+    bootstrapStartedRef.current = true;
+
+    void sendMessage(threadId, {
+      text: t.agents.nameStepBootstrapMessage.replace("{name}", agentName),
+      files: [],
+    }, {
+      agent_name: agentName,
+    }).catch(() => {
+      bootstrapStartedRef.current = false;
+      toast.error(t.agents.nameStepCheckError);
+    });
+  }, [
+    agentName,
+    sendMessage,
+    step,
+    t.agents.nameStepBootstrapMessage,
+    t.agents.nameStepCheckError,
+    thread.messages.length,
+    threadId,
   ]);
 
   const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

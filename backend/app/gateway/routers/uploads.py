@@ -76,6 +76,19 @@ def get_uploads_dir(thread_id: str, user_id: str) -> Path:
     return base_dir
 
 
+def _should_sync_uploads_to_sandbox(sandbox_provider: object, sandbox_id: str) -> bool:
+    if sandbox_id == "local":
+        return False
+
+    backend = getattr(sandbox_provider, "_backend", None)
+    return backend is None or backend.__class__.__name__ != "LocalContainerBackend"
+
+
+def _is_local_container_backend(sandbox_provider: object) -> bool:
+    backend = getattr(sandbox_provider, "_backend", None)
+    return backend is not None and backend.__class__.__name__ == "LocalContainerBackend"
+
+
 @router.post("", response_model=UploadResponse)
 async def upload_files(
     thread_id: str,
@@ -108,6 +121,7 @@ async def upload_files(
     sandbox_provider = get_sandbox_provider()
     sandbox_id = sandbox_provider.acquire(thread_id)
     sandbox = sandbox_provider.get(sandbox_id)
+    sync_to_sandbox = _should_sync_uploads_to_sandbox(sandbox_provider, sandbox_id)
 
     for file in files:
         if not file.filename:
@@ -128,10 +142,16 @@ async def upload_files(
             relative_path = str(paths.sandbox_uploads_dir(thread_id, user_id=x_df_user) / safe_filename)
             virtual_path = f"{VIRTUAL_PATH_PREFIX}/uploads/{safe_filename}"
 
-            if sandbox_id != "local":
+            if sync_to_sandbox:
                 if sandbox is None:
                     raise HTTPException(status_code=500, detail="Sandbox not available")
-                sandbox.update_file(virtual_path, content)
+                try:
+                    sandbox.update_file(virtual_path, content)
+                except Exception as e:
+                    if _is_local_container_backend(sandbox_provider) and "Permission denied" in str(e):
+                        pass
+                    else:
+                        raise
 
             file_info = {
                 "filename": safe_filename,
@@ -151,10 +171,16 @@ async def upload_files(
                     md_relative_path = str(paths.sandbox_uploads_dir(thread_id, user_id=x_df_user) / md_path.name)
                     md_virtual_path = f"{VIRTUAL_PATH_PREFIX}/uploads/{md_path.name}"
 
-                    if sandbox_id != "local":
+                    if sync_to_sandbox:
                         if sandbox is None:
                             raise HTTPException(status_code=500, detail="Sandbox not available")
-                        sandbox.update_file(md_virtual_path, md_path.read_bytes())
+                        try:
+                            sandbox.update_file(md_virtual_path, md_path.read_bytes())
+                        except Exception as e:
+                            if _is_local_container_backend(sandbox_provider) and "Permission denied" in str(e):
+                                pass
+                            else:
+                                raise
 
                     file_info["markdown_file"] = md_path.name
                     file_info["markdown_path"] = md_relative_path

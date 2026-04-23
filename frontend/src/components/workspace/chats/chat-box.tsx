@@ -149,13 +149,13 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
                   description="Select an artifact to view its details"
                 />
               ) : (
-                <div className="flex size-full max-w-(--container-width-sm) flex-col justify-center p-4 pt-8">
+                <div className="flex size-full max-w-[var(--container-width-sm)] flex-col justify-center p-4 pt-8">
                   <header className="shrink-0">
                     <h2 className="text-lg font-medium">Artifacts</h2>
                   </header>
                   <main className="min-h-0 grow">
                     <ArtifactFileList
-                      className="max-w-(--container-width-sm) p-4 pt-12"
+                      className="max-w-[var(--container-width-sm)] p-4 pt-12"
                       files={thread.values.artifacts ?? []}
                       threadId={threadId}
                     />

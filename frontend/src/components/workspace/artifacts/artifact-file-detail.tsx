@@ -255,7 +255,7 @@ export function ArtifactFileDetail({
           </ArtifactActions>
         </div>
       </ArtifactHeader>
-      <ArtifactContent className="bg-blue-50 p-0">
+      <ArtifactContent className="p-0">
         {isSupportPreview &&
           viewMode === "preview" &&
           (language === "markdown" || language === "html") && (
@@ -291,7 +291,7 @@ export function ArtifactFilePreview({
 }) {
   if (language === "markdown") {
     return (
-      <div className="size-full bg-blue-50 px-4">
+      <div className="size-full px-4">
         <Streamdown
           className="size-full"
           {...streamdownPlugins}

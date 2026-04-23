@@ -11,6 +11,11 @@ import { detectLocaleServer } from "@/core/i18n/server";
 export const metadata: Metadata = {
   title: brand.productName,
   description: `${brand.organizationName} · ${brand.productName}`,
+  icons: {
+    icon: "/images/cnooc.png",
+    shortcut: "/images/cnooc.png",
+    apple: "/images/cnooc.png",
+  },
 };
 
 export default async function RootLayout({

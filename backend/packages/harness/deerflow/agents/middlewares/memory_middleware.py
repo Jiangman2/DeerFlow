@@ -1,9 +1,6 @@
 """Middleware for memory mechanism."""
 
-import os
 import re
-import sqlite3
-from pathlib import Path
 from typing import Any
 
 from langchain.agents import AgentState
@@ -12,6 +9,7 @@ from langgraph.runtime import Runtime
 
 from deerflow.agents.memory.queue import get_memory_queue
 from deerflow.config.memory_config import get_memory_config
+from deerflow.config.user_context import resolve_thread_owner
 
 
 class MemoryMiddlewareState(AgentState):
@@ -132,7 +130,7 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         if isinstance(rt_ctx, dict):
             user_id = rt_ctx.get("user_id") or rt_ctx.get("x_df_user")
         if not user_id:
-            user_id = _resolve_thread_owner(thread_id)
+            user_id = resolve_thread_owner(thread_id)
         model_name = rt_ctx.get("model_name") if isinstance(rt_ctx, dict) else None
 
         # Get messages from state
@@ -162,23 +160,4 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
             model_name=model_name,
         )
 
-        return None
-
-
-def _db_path() -> Path:
-    base = os.getenv("DEER_FLOW_HOME") or os.path.join(Path.home(), ".deer-flow")
-    return Path(base).expanduser() / "deerflow.db"
-
-
-def _resolve_thread_owner(thread_id: str) -> str | None:
-    try:
-        conn = sqlite3.connect(_db_path().as_posix())
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT owner_user_id FROM threads WHERE thread_id = ?", (thread_id,))
-            row = cur.fetchone()
-            return row[0] if row else None
-        finally:
-            conn.close()
-    except Exception:
         return None

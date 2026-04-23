@@ -9,6 +9,7 @@ import yaml
 from pydantic import BaseModel
 
 from deerflow.config.paths import get_paths
+from deerflow.config.user_context import resolve_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -23,24 +24,6 @@ class AgentConfig(BaseModel):
     description: str = ""
     model: str | None = None
     tool_groups: list[str] | None = None
-
-
-def _get_user_id_from_langgraph_config() -> str | None:
-    try:
-        from langgraph.config import get_config
-
-        cfg = get_config()
-        ctx = cfg.get("context", {})
-        if isinstance(ctx, dict):
-            val = ctx.get("user_id") or ctx.get("x_df_user")
-            if isinstance(val, str) and val.strip():
-                return val
-        conf = cfg.get("configurable", {})
-        val = conf.get("user_id") or conf.get("x_df_user") if isinstance(conf, dict) else None
-        return val if isinstance(val, str) and val.strip() else None
-    except Exception:
-        return None
-
 
 def _agent_dir(name: str, user_id: str | None) -> Path:
     paths = get_paths()
@@ -73,7 +56,7 @@ def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentC
     if name is None:
         return None
 
-    user_id = user_id or _get_user_id_from_langgraph_config()
+    user_id = user_id or resolve_user_id()
 
     if not AGENT_NAME_PATTERN.match(name):
         raise ValueError(f"Invalid agent name '{name}'. Must match pattern: {AGENT_NAME_PATTERN.pattern}")
@@ -115,7 +98,7 @@ def load_agent_soul(agent_name: str | None, *, user_id: str | None = None) -> st
     Returns:
         The SOUL.md content as a string, or None if the file does not exist.
     """
-    user_id = user_id or _get_user_id_from_langgraph_config()
+    user_id = user_id or resolve_user_id()
     if agent_name:
         agent_dir = _agent_dir(agent_name, user_id)
     else:
@@ -133,7 +116,7 @@ def list_custom_agents(*, user_id: str | None = None) -> list[AgentConfig]:
     Returns:
         List of AgentConfig for each valid agent directory found.
     """
-    user_id = user_id or _get_user_id_from_langgraph_config()
+    user_id = user_id or resolve_user_id()
     agents_dir = _agents_dir(user_id)
 
     if not agents_dir.exists():

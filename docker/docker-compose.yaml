@@ -69,7 +69,7 @@ services:
       context: ../
       dockerfile: backend/Dockerfile
     container_name: deer-flow-gateway
-    command: sh -c "cd backend && mkdir -p /app/backend/.deer-flow && if [ ! -f /app/backend/.deer-flow/extensions_config.json ]; then if [ -f /app/backend/extensions_config.json ]; then cp -f /app/backend/extensions_config.json /app/backend/.deer-flow/extensions_config.json || true; else printf '{\"mcpServers\":{},\"skills\":{}}' > /app/backend/.deer-flow/extensions_config.json; fi; fi && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2"
+    command: sh -c "cd backend && mkdir -p /app/backend/.deer-flow && if [ ! -f /app/backend/.deer-flow/extensions_config.json ]; then if [ -f /app/backend/extensions_config.json ]; then cp -f /app/backend/extensions_config.json /app/backend/.deer-flow/extensions_config.json || true; else printf '{\"mcpServers\":{},\"skills\":{}}' > /app/backend/.deer-flow/extensions_config.json; fi; fi && export HOME=/root DEER_FLOW_CONFIG_PATH=/app/backend/config.yaml DEER_FLOW_EXTENSIONS_CONFIG_PATH=/app/backend/.deer-flow/extensions_config.json && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2"
     volumes:
       - ${DEER_FLOW_CONFIG_PATH}:/app/backend/config.yaml:ro
       - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH}:/app/backend/extensions_config.json:ro
@@ -93,7 +93,9 @@ services:
     working_dir: /app
     environment:
       - CI=true
+      - HOME=/root
       - DEER_FLOW_HOME=/app/backend/.deer-flow
+      - DEER_FLOW_CONFIG_PATH=/app/backend/config.yaml
       - DEERFLOW_PROXY_SECRET=${DEERFLOW_PROXY_SECRET}
       - LANGGRAPH_BASE_URL=http://langgraph:2024
       - DOCKER_HOST=${DEERFLOW_DOCKER_HOST:-}
@@ -123,7 +125,7 @@ services:
       context: ../
       dockerfile: backend/Dockerfile
     container_name: deer-flow-langgraph
-    command: sh -c "mkdir -p /app/backend/.deer-flow && if [ ! -f /app/backend/.deer-flow/extensions_config.json ]; then if [ -f /app/extensions_config.json ]; then cp -f /app/extensions_config.json /app/backend/.deer-flow/extensions_config.json || true; else printf '{\"mcpServers\":{},\"skills\":{}}' > /app/backend/.deer-flow/extensions_config.json; fi; fi && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024 --n-jobs-per-worker 50"
+    command: sh -c "mkdir -p /app/backend/.deer-flow && if [ ! -f /app/backend/.deer-flow/extensions_config.json ]; then if [ -f /app/extensions_config.json ]; then cp -f /app/extensions_config.json /app/backend/.deer-flow/extensions_config.json || true; else printf '{\"mcpServers\":{},\"skills\":{}}' > /app/backend/.deer-flow/extensions_config.json; fi; fi && export HOME=/root DEER_FLOW_CONFIG_PATH=/app/config.yaml DEER_FLOW_EXTENSIONS_CONFIG_PATH=/app/backend/.deer-flow/extensions_config.json && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024 --n-jobs-per-worker 50"
     volumes:
       - ${DEER_FLOW_CONFIG_PATH}:/app/config.yaml:ro
       - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH}:/app/extensions_config.json:ro
@@ -152,6 +154,7 @@ services:
           create_host_path: true
     environment:
       - CI=true
+      - HOME=/root
       - DEER_FLOW_HOME=/app/backend/.deer-flow
       - DEER_FLOW_CONFIG_PATH=/app/config.yaml
       - DEER_FLOW_EXTENSIONS_CONFIG_PATH=/app/backend/.deer-flow/extensions_config.json

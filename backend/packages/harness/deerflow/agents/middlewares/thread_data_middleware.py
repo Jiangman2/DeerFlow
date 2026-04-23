@@ -1,6 +1,3 @@
-import os
-import sqlite3
-from pathlib import Path
 from typing import NotRequired
 
 from langchain.agents import AgentState
@@ -10,25 +7,7 @@ from langgraph.runtime import Runtime
 
 from deerflow.agents.thread_state import ThreadDataState
 from deerflow.config.paths import Paths, get_paths
-
-
-def _db_path() -> Path:
-    base = os.getenv("DEER_FLOW_HOME") or os.path.join(Path.home(), ".deer-flow")
-    return Path(base).expanduser() / "deerflow.db"
-
-
-def _resolve_thread_owner(thread_id: str) -> str | None:
-    try:
-        conn = sqlite3.connect(_db_path().as_posix())
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT owner_user_id FROM threads WHERE thread_id = ?", (thread_id,))
-            row = cur.fetchone()
-            return row[0] if row else None
-        finally:
-            conn.close()
-    except Exception:
-        return None
+from deerflow.config.user_context import resolve_thread_owner
 
 
 class ThreadDataMiddlewareState(AgentState):
@@ -118,7 +97,7 @@ class ThreadDataMiddleware(AgentMiddleware[ThreadDataMiddlewareState]):
             raise ValueError("Thread ID is required in runtime context or config.configurable")
 
         if user_id is None:
-            user_id = _resolve_thread_owner(thread_id)
+            user_id = resolve_thread_owner(thread_id)
 
         if self._lazy_init:
             # Lazy initialization: only compute paths, don't create directories
