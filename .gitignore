@@ -35,6 +35,8 @@ coverage.xml
 coverage/
 .deer-flow/
 .claude/
+.codex
+.superpowers/
 skills/custom/*
 logs/
 log/
