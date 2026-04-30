@@ -2,7 +2,7 @@
 
 .PHONY: help config config-upgrade check install dev dev-daemon start stop up down clean docker-init docker-start docker-stop docker-logs docker-logs-frontend docker-logs-gateway
 
-PYTHON ?= python
+PYTHON ?= python3
 
 help:
 	@echo "DeerFlow Development Commands:"
