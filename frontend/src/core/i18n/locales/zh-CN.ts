@@ -77,6 +77,18 @@ export const zhCN: Translations = {
     createSkillPrompt:
       "我们一起用 skill-creator 来创建一个技能。请先问我这个技能要解决什么问题、适用场景和输出格式。\n最后请把技能打包成一个 .skill 文件，保存到 /mnt/user-data/outputs/ 下，并调用 present_files 把它展示出来，方便我在界面里点击“安装”。",
     addAttachments: "添加附件",
+    addShopCartAttachments: "从资料车添加附件",
+    shopCart: "资料车",
+    shopCartDialogTitle: "从资料车选择附件",
+    shopCartDialogDescription:
+      "这是本地 mock 资料车。请在 iframe 内勾选文件，然后点击下方按钮读取当前选择。",
+    shopCartAddSelected: "添加所选文件",
+    shopCartAdding: "读取中...",
+    shopCartEmptySelection: "请选择至少一个资料车文件",
+    shopCartNoResponse: "未获取到资料车文件，请重试",
+    shopCartUnknownFiles: "部分资料车文件无法识别，已跳过",
+    shopCartNoKnownFiles: "所选资料车文件均无法识别",
+    shopCartAddedFiles: (count: number) => `已添加 ${count} 个资料车附件`,
     mode: "模式",
     flashMode: "闪速",
     flashModeDescription: "快速且高效的完成任务，但可能不够精准",

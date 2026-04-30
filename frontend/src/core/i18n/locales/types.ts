@@ -62,6 +62,17 @@ export interface Translations {
     placeholder: string;
     createSkillPrompt: string;
     addAttachments: string;
+    addShopCartAttachments: string;
+    shopCart: string;
+    shopCartDialogTitle: string;
+    shopCartDialogDescription: string;
+    shopCartAddSelected: string;
+    shopCartAdding: string;
+    shopCartEmptySelection: string;
+    shopCartNoResponse: string;
+    shopCartUnknownFiles: string;
+    shopCartNoKnownFiles: string;
+    shopCartAddedFiles: (count: number) => string;
     mode: string;
     flashMode: string;
     flashModeDescription: string;

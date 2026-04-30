@@ -77,6 +77,19 @@ export const enUS: Translations = {
     createSkillPrompt:
       "We'll build a new skill step by step with `skill-creator`. First, ask me what the skill should do, when it should trigger, and the expected output format.\nAt the end, package it into a .skill file, save it under /mnt/user-data/outputs/, and call present_files so I can click “Install” in the UI.",
     addAttachments: "Add attachments",
+    addShopCartAttachments: "Add from shop cart",
+    shopCart: "Cart",
+    shopCartDialogTitle: "Select attachments from shop cart",
+    shopCartDialogDescription:
+      "This is a local mock shop cart. Select files in the iframe, then use the button below to read the current selection.",
+    shopCartAddSelected: "Add selected files",
+    shopCartAdding: "Reading...",
+    shopCartEmptySelection: "Select at least one shop cart file",
+    shopCartNoResponse: "Could not get shop cart files. Please retry.",
+    shopCartUnknownFiles: "Some shop cart files were not recognized and were skipped.",
+    shopCartNoKnownFiles: "None of the selected shop cart files were recognized.",
+    shopCartAddedFiles: (count: number) =>
+      `Added ${count} shop cart attachment${count === 1 ? "" : "s"}`,
     mode: "Mode",
     flashMode: "Flash",
     flashModeDescription: "Fast and efficient, but may not be accurate",
