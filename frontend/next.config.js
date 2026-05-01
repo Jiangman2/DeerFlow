@@ -12,6 +12,9 @@ const config = {
     "http://localhost",
     "http://127.0.0.1:3000",
     "http://localhost:3000",
+    "10.77.78.224",
+    "http://10.77.78.224",
+    "http://10.77.78.224:3000",
   ],
   output: "standalone",
   webpack: (config) => {

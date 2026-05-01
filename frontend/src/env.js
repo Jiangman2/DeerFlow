@@ -22,6 +22,8 @@ export const env = createEnv({
       .default("development"),
     DEERFLOW_GATEWAY_BASE_URL: z.string().optional(),
     DEERFLOW_PROXY_SECRET: z.string().optional(),
+    SHOP_CART_DOWNLOAD_TOKEN: z.string().optional(),
+    SHOP_CART_DOWNLOAD_TLS_VERIFY: z.string().optional(),
   },
 
   /**
@@ -34,6 +36,8 @@ export const env = createEnv({
     NEXT_PUBLIC_LANGGRAPH_BASE_URL: z.string().optional(),
     NEXT_PUBLIC_STATIC_WEBSITE_ONLY: z.string().optional(),
     NEXT_PUBLIC_ALLOW_PUBLIC_MODELS: z.string().optional(),
+    NEXT_PUBLIC_SHOP_CART_IFRAME_URL: z.string().optional(),
+    NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN: z.string().optional(),
   },
 
   /**
@@ -51,6 +55,9 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     DEERFLOW_GATEWAY_BASE_URL: process.env.DEERFLOW_GATEWAY_BASE_URL,
     DEERFLOW_PROXY_SECRET: process.env.DEERFLOW_PROXY_SECRET,
+    SHOP_CART_DOWNLOAD_TOKEN: process.env.SHOP_CART_DOWNLOAD_TOKEN,
+    SHOP_CART_DOWNLOAD_TLS_VERIFY:
+      process.env.SHOP_CART_DOWNLOAD_TLS_VERIFY,
 
     NEXT_PUBLIC_BACKEND_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_BASE_URL,
     NEXT_PUBLIC_LANGGRAPH_BASE_URL: process.env.NEXT_PUBLIC_LANGGRAPH_BASE_URL,
@@ -58,6 +65,10 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY,
     NEXT_PUBLIC_ALLOW_PUBLIC_MODELS:
       process.env.NEXT_PUBLIC_ALLOW_PUBLIC_MODELS,
+    NEXT_PUBLIC_SHOP_CART_IFRAME_URL:
+      process.env.NEXT_PUBLIC_SHOP_CART_IFRAME_URL,
+    NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN:
+      process.env.NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN,
     GITHUB_OAUTH_TOKEN: process.env.GITHUB_OAUTH_TOKEN,
   },
   /**

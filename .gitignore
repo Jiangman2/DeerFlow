@@ -79,3 +79,4 @@ _upstream_tmp/
 # Temporary local artifacts
 .tmp-*
 con.txt
+frontend/test.xlsx
