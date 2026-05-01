@@ -8,10 +8,12 @@ import "./src/env.js";
 const config = {
   devIndicators: false,
   allowedDevOrigins: [
-    "http://127.0.0.1",
-    "http://localhost",
-    "http://127.0.0.1:3000",
-    "http://localhost:3000",
+    "127.0.0.1",
+    "localhost",
+    "127.0.0.1:3000",
+    "localhost:3000",
+    "10.77.78.224",
+    "10.77.78.224:3000",
   ],
   output: "standalone",
   webpack: (config) => {
