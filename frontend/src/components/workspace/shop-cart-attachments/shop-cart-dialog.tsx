@@ -1,5 +1,6 @@
 "use client";
 
+import { ExternalLinkIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -13,23 +14,35 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "@/core/i18n/hooks";
+import type { getShopCartFrameConfig } from "@/core/shop-cart/config";
+import {
+  parseShopCartSelectedFiles,
+  type ShopCartSelectedFile,
+} from "@/core/shop-cart/selected-files";
 
 type ShopCartDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelectedIds: (ids: string[]) => boolean | void;
+  onReopenShopCart: () => void;
+  onSelectedFiles: (
+    files: ShopCartSelectedFile[],
+    isMockMode: boolean,
+  ) => boolean | void | Promise<boolean | void>;
+  shopCartConfig: ReturnType<typeof getShopCartFrameConfig> | null;
+  shopCartWindow: Window | null;
 };
 
-const SHOP_CART_IFRAME_SRC = "/mock/shop-cart-iframe";
 const REQUEST_TIMEOUT_MS = 2500;
 
 export function ShopCartDialog({
   open,
   onOpenChange,
-  onSelectedIds,
+  onReopenShopCart,
+  onSelectedFiles,
+  shopCartConfig,
+  shopCartWindow,
 }: ShopCartDialogProps) {
   const { t } = useI18n();
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [requesting, setRequesting] = useState(false);
 
@@ -56,11 +69,15 @@ export function ShopCartDialog({
       return;
     }
 
+    if (!shopCartConfig) {
+      return;
+    }
+
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) {
+      if (event.origin !== shopCartConfig.allowedOrigin) {
         return;
       }
-      if (event.source !== iframeRef.current?.contentWindow) {
+      if (shopCartWindow && event.source !== shopCartWindow) {
         return;
       }
       if (event.data?.type !== "shopCartSelectedIds") {
@@ -68,32 +85,50 @@ export function ShopCartDialog({
       }
 
       clearPendingRequest();
-      const ids = Array.isArray(event.data.data)
-        ? event.data.data.filter((id: unknown): id is string => typeof id === "string")
-        : [];
-      const shouldClose = onSelectedIds(ids);
-      if (shouldClose !== false) {
-        onOpenChange(false);
+      const result = parseShopCartSelectedFiles(event.data.data);
+      if (!result.ok) {
+        toast.error(t.inputBox.shopCartInvalidPayload);
+        return;
       }
+
+      void Promise.resolve(
+        onSelectedFiles(result.files, shopCartConfig.isMockMode),
+      ).then((shouldClose) => {
+        if (shouldClose !== false) {
+          onOpenChange(false);
+        }
+      });
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [clearPendingRequest, onOpenChange, onSelectedIds, open]);
+  }, [
+    clearPendingRequest,
+    onOpenChange,
+    onSelectedFiles,
+    open,
+    shopCartConfig,
+    shopCartWindow,
+    t.inputBox.shopCartInvalidPayload,
+  ]);
 
   const requestSelectedIds = useCallback(() => {
-    const targetWindow = iframeRef.current?.contentWindow;
-    if (!targetWindow) {
+    if (!shopCartWindow || shopCartWindow.closed) {
+      toast.error(t.inputBox.shopCartNoResponse);
+      return;
+    }
+
+    if (!shopCartConfig) {
       toast.error(t.inputBox.shopCartNoResponse);
       return;
     }
 
     setRequesting(true);
-    targetWindow.postMessage(
+    shopCartWindow.postMessage(
       {
         type: "getShopCartSelectedIds",
       },
-      window.location.origin,
+      shopCartConfig.allowedOrigin,
     );
 
     if (timeoutRef.current) {
@@ -104,11 +139,11 @@ export function ShopCartDialog({
       setRequesting(false);
       toast.error(t.inputBox.shopCartNoResponse);
     }, REQUEST_TIMEOUT_MS);
-  }, [t.inputBox.shopCartNoResponse]);
+  }, [shopCartConfig, shopCartWindow, t.inputBox.shopCartNoResponse]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[min(760px,calc(100vw-2rem))] gap-4 p-0">
+      <DialogContent className="max-w-[min(520px,calc(100vw-2rem))] gap-4 p-0">
         <DialogHeader className="px-5 pt-5">
           <DialogTitle>{t.inputBox.shopCartDialogTitle}</DialogTitle>
           <DialogDescription>
@@ -116,13 +151,8 @@ export function ShopCartDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-5">
-          <iframe
-            ref={iframeRef}
-            className="h-[440px] w-full rounded-md border bg-white"
-            src={SHOP_CART_IFRAME_SRC}
-            title={t.inputBox.shopCartDialogTitle}
-          />
+        <div className="px-5 text-sm text-muted-foreground">
+          {t.inputBox.shopCartWindowDescription}
         </div>
 
         <DialogFooter className="border-t px-5 py-4">
@@ -132,6 +162,10 @@ export function ShopCartDialog({
             onClick={() => onOpenChange(false)}
           >
             {t.common.cancel}
+          </Button>
+          <Button type="button" variant="outline" onClick={onReopenShopCart}>
+            <ExternalLinkIcon className="size-4" />
+            {t.inputBox.shopCartReopen}
           </Button>
           <Button
             disabled={requesting}

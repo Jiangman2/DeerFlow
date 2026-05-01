@@ -14,6 +14,7 @@ export default function MockShopCartIframePage() {
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const postSelectedIds = useCallback(() => {
+    const targetWindow = window.opener ?? window.parent;
     window.parent.postMessage(
       {
         type: "shopCartSelectedIds",
@@ -21,6 +22,15 @@ export default function MockShopCartIframePage() {
       },
       window.location.origin,
     );
+    if (targetWindow !== window.parent) {
+      targetWindow.postMessage(
+        {
+          type: "shopCartSelectedIds",
+          data: selectedIds,
+        },
+        window.location.origin,
+      );
+    }
   }, [selectedIds]);
 
   useEffect(() => {

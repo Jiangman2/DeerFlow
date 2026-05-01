@@ -66,10 +66,17 @@ export interface Translations {
     shopCart: string;
     shopCartDialogTitle: string;
     shopCartDialogDescription: string;
+    shopCartWindowDescription: string;
+    shopCartReopen: string;
+    shopCartPopupBlocked: string;
     shopCartAddSelected: string;
     shopCartAdding: string;
     shopCartEmptySelection: string;
     shopCartNoResponse: string;
+    shopCartInvalidPayload: string;
+    shopCartDownloading: string;
+    shopCartDownloadFailed: string;
+    shopCartPartialDownloadFailed: (failed: number) => string;
     shopCartUnknownFiles: string;
     shopCartNoKnownFiles: string;
     shopCartAddedFiles: (count: number) => string;

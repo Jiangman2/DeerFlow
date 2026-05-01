@@ -81,11 +81,21 @@ export const enUS: Translations = {
     shopCart: "Cart",
     shopCartDialogTitle: "Select attachments from shop cart",
     shopCartDialogDescription:
-      "This is a local mock shop cart. Select files in the iframe, then use the button below to read the current selection.",
+      "The shop cart opened in a new window. Select files there, then return here to add the selected files.",
+    shopCartWindowDescription:
+      "If the shop cart window did not open, reopen it. After selecting files, keep that window open and add the selected files here.",
+    shopCartReopen: "Reopen",
+    shopCartPopupBlocked:
+      "The shop cart window was blocked. Allow pop-ups and try again.",
     shopCartAddSelected: "Add selected files",
     shopCartAdding: "Reading...",
     shopCartEmptySelection: "Select at least one shop cart file",
     shopCartNoResponse: "Could not get shop cart files. Please retry.",
+    shopCartInvalidPayload: "The shop cart returned an unsupported data format.",
+    shopCartDownloading: "Downloading shop cart files...",
+    shopCartDownloadFailed: "Failed to download shop cart files. Please retry.",
+    shopCartPartialDownloadFailed: (failed: number) =>
+      `${failed} shop cart file${failed === 1 ? "" : "s"} failed to download.`,
     shopCartUnknownFiles: "Some shop cart files were not recognized and were skipped.",
     shopCartNoKnownFiles: "None of the selected shop cart files were recognized.",
     shopCartAddedFiles: (count: number) =>
