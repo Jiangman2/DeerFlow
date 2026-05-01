@@ -45,12 +45,15 @@ services:
       dockerfile: frontend/Dockerfile
       target: prod
       args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NPM_CONFIG_REGISTRY: ${NPM_CONFIG_REGISTRY:-https://registry.npmmirror.com}
         PNPM_STORE_PATH: ${PNPM_STORE_PATH:-/root/.local/share/pnpm/store}
         NEXT_PUBLIC_ALLOW_PUBLIC_MODELS: ${NEXT_PUBLIC_ALLOW_PUBLIC_MODELS:-true}
     container_name: deer-flow-frontend
     environment:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:${PORT:-2026}}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-localhost:${PORT:-2026}}
       - DEERFLOW_PROXY_SECRET=${DEERFLOW_PROXY_SECRET}
       - DEERFLOW_GATEWAY_BASE_URL=http://gateway:8001
       - BETTER_AUTH_DB_DIR=/app/data
@@ -66,10 +69,14 @@ services:
   # ── Gateway API ────────────────────────────────────────────────────────────
   gateway:
     build:
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1}
       context: ../
       dockerfile: backend/Dockerfile
     container_name: deer-flow-gateway
-    command: sh -c "cd backend && mkdir -p /app/backend/.deer-flow && if [ ! -f /app/backend/.deer-flow/extensions_config.json ]; then if [ -f /app/backend/extensions_config.json ]; then cp -f /app/backend/extensions_config.json /app/backend/.deer-flow/extensions_config.json || true; else printf '{\"mcpServers\":{},\"skills\":{}}' > /app/backend/.deer-flow/extensions_config.json; fi; fi && export HOME=/root DEER_FLOW_CONFIG_PATH=/app/backend/config.yaml DEER_FLOW_EXTENSIONS_CONFIG_PATH=/app/backend/.deer-flow/extensions_config.json && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2"
+    command: sh -c "cd backend && mkdir -p /app/backend/.deer-flow && if [ ! -f /app/backend/.deer-flow/extensions_config.json ]; then if [ -f /app/backend/extensions_config.json ]; then cp -f /app/backend/extensions_config.json /app/backend/.deer-flow/extensions_config.json || true; else printf '{\"mcpServers\":{},\"skills\":{}}' > /app/backend/.deer-flow/extensions_config.json; fi; fi && .venv/bin/uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 2"
     volumes:
       - ${DEER_FLOW_CONFIG_PATH}:/app/backend/config.yaml:ro
       - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH}:/app/backend/extensions_config.json:ro
@@ -92,6 +99,8 @@ services:
           create_host_path: true
     working_dir: /app
     environment:
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
       - CI=true
       - HOME=/root
       - DEER_FLOW_HOME=/app/backend/.deer-flow
@@ -122,10 +131,14 @@ services:
   # For now, use `langgraph dev` (no license required) with the standard backend image.
   langgraph:
     build:
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1}
       context: ../
       dockerfile: backend/Dockerfile
     container_name: deer-flow-langgraph
-    command: sh -c "mkdir -p /app/backend/.deer-flow && if [ ! -f /app/backend/.deer-flow/extensions_config.json ]; then if [ -f /app/extensions_config.json ]; then cp -f /app/extensions_config.json /app/backend/.deer-flow/extensions_config.json || true; else printf '{\"mcpServers\":{},\"skills\":{}}' > /app/backend/.deer-flow/extensions_config.json; fi; fi && export HOME=/root DEER_FLOW_CONFIG_PATH=/app/config.yaml DEER_FLOW_EXTENSIONS_CONFIG_PATH=/app/backend/.deer-flow/extensions_config.json && cd /app/backend && uv run langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024 --n-jobs-per-worker 50"
+    command: sh -c "mkdir -p /app/backend/.deer-flow && if [ ! -f /app/backend/.deer-flow/extensions_config.json ]; then if [ -f /app/extensions_config.json ]; then cp -f /app/extensions_config.json /app/backend/.deer-flow/extensions_config.json || true; else printf '{\"mcpServers\":{},\"skills\":{}}' > /app/backend/.deer-flow/extensions_config.json; fi; fi && cd /app/backend && .venv/bin/langgraph dev --no-browser --allow-blocking --no-reload --host 0.0.0.0 --port 2024 --n-jobs-per-worker 50"
     volumes:
       - ${DEER_FLOW_CONFIG_PATH}:/app/config.yaml:ro
       - ${DEER_FLOW_EXTENSIONS_CONFIG_PATH}:/app/extensions_config.json:ro
@@ -153,6 +166,8 @@ services:
         bind:
           create_host_path: true
     environment:
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
       - CI=true
       - HOME=/root
       - DEER_FLOW_HOME=/app/backend/.deer-flow
@@ -184,6 +199,10 @@ services:
     profiles:
       - provisioner
     build:
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1}
       context: ./provisioner
       dockerfile: Dockerfile
     container_name: deer-flow-provisioner

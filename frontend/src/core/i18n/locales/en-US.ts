@@ -77,6 +77,29 @@ export const enUS: Translations = {
     createSkillPrompt:
       "We'll build a new skill step by step with `skill-creator`. First, ask me what the skill should do, when it should trigger, and the expected output format.\nAt the end, package it into a .skill file, save it under /mnt/user-data/outputs/, and call present_files so I can click “Install” in the UI.",
     addAttachments: "Add attachments",
+    addShopCartAttachments: "Add from shop cart",
+    shopCart: "Cart",
+    shopCartDialogTitle: "Select attachments from shop cart",
+    shopCartDialogDescription:
+      "The shop cart opened in a new window. Select files there, then return here to add the selected files.",
+    shopCartWindowDescription:
+      "If the shop cart window did not open, reopen it. After selecting files, keep that window open and add the selected files here.",
+    shopCartReopen: "Reopen",
+    shopCartPopupBlocked:
+      "The shop cart window was blocked. Allow pop-ups and try again.",
+    shopCartAddSelected: "Add selected files",
+    shopCartAdding: "Reading...",
+    shopCartEmptySelection: "Select at least one shop cart file",
+    shopCartNoResponse: "Could not get shop cart files. Please retry.",
+    shopCartInvalidPayload: "The shop cart returned an unsupported data format.",
+    shopCartDownloading: "Downloading shop cart files...",
+    shopCartDownloadFailed: "Failed to download shop cart files. Please retry.",
+    shopCartPartialDownloadFailed: (failed: number) =>
+      `${failed} shop cart file${failed === 1 ? "" : "s"} failed to download.`,
+    shopCartUnknownFiles: "Some shop cart files were not recognized and were skipped.",
+    shopCartNoKnownFiles: "None of the selected shop cart files were recognized.",
+    shopCartAddedFiles: (count: number) =>
+      `Added ${count} shop cart attachment${count === 1 ? "" : "s"}`,
     mode: "Mode",
     flashMode: "Flash",
     flashModeDescription: "Fast and efficient, but may not be accurate",

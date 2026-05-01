@@ -81,6 +81,7 @@ import {
 
 import { useThread } from "./messages/context";
 import { ModeHoverGuide } from "./mode-hover-guide";
+import { ShopCartAttachmentButton } from "./shop-cart-attachments";
 import { Tooltip } from "./tooltip";
 
 type InputMode = "flash" | "thinking" | "pro" | "ultra";
@@ -424,9 +425,10 @@ export function InputBox({
               <PromptInputActionAddAttachments
                 label={t.inputBox.addAttachments}
               />
-            </PromptInputActionMenuContent>
+          </PromptInputActionMenuContent>
           </PromptInputActionMenu> */}
           <AddAttachmentsButton className="px-2!" />
+          <ShopCartAttachmentButton className="px-2!" />
           <PromptInputActionMenu>
             <ModeHoverGuide
               mode={

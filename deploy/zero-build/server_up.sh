@@ -9,7 +9,7 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! docker compose version >/dev/null 2>&1; then
+if ! docker-compose version >/dev/null 2>&1; then
   echo "docker compose not found"
   exit 1
 fi
@@ -39,7 +39,7 @@ if [ -z "${BETTER_AUTH_SECRET:-}" ]; then
 fi
 
 cd "$REPO_ROOT/docker"
-docker compose -f docker-compose.prebuilt.yaml up -d
+docker-compose -f docker-compose.prebuilt.yaml up -d
 
 echo "OK http://localhost:${PORT}"
 
