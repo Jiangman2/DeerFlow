@@ -60,6 +60,17 @@ export type ManagedUser = {
   isDisabled: boolean;
 };
 
+export type SsoUserInput = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type CreatedSsoSession = {
+  token: string;
+  expiresAt: Date;
+};
+
 type Db = {
   exec: (sql: string) => void;
   prepare: (sql: string) => {
@@ -237,6 +248,47 @@ export function updateUserIdentity(userId: string, patch: { name?: string; email
   parts.push("updatedAt = datetime('now')");
   values.push(userId);
   db.prepare(`UPDATE user SET ${parts.join(", ")} WHERE id = ?`).run(...values);
+}
+
+export function upsertSsoUser(input: SsoUserInput) {
+  const id = input.id.trim();
+  const name = input.name.trim();
+  const email = input.email.trim().toLowerCase();
+
+  if (!id) throw new Error("user id is required");
+  if (!name) throw new Error("user name is required");
+  if (!email) throw new Error("user email is required");
+  if (name.length > 80) throw new Error("name too long");
+  if (email.length > 320) throw new Error("email too long");
+
+  const db = openDb();
+  ensurePlatformTables(db);
+  db.prepare(
+    `
+    INSERT INTO user(id, name, email, emailVerified, image, createdAt, updatedAt)
+    VALUES(?, ?, ?, 1, NULL, datetime('now'), datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      name=excluded.name,
+      email=excluded.email,
+      emailVerified=1,
+      updatedAt=datetime('now')
+    `,
+  ).run(id, name, email);
+}
+
+export function createSsoSession(userId: string): CreatedSsoSession {
+  const id = crypto.randomBytes(18).toString("base64url");
+  const token = crypto.randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 24 * 7 * 1000);
+  const db = openDb();
+  ensurePlatformTables(db);
+  db.prepare(
+    `
+    INSERT INTO session(id, expiresAt, token, createdAt, updatedAt, ipAddress, userAgent, userId)
+    VALUES(?, ?, ?, datetime('now'), datetime('now'), NULL, NULL, ?)
+    `,
+  ).run(id, expiresAt.toISOString(), token, userId);
+  return { token, expiresAt };
 }
 
 function hashPassword(plain: string) {

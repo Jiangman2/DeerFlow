@@ -22,6 +22,12 @@ export const env = createEnv({
       .default("development"),
     DEERFLOW_GATEWAY_BASE_URL: z.string().optional(),
     DEERFLOW_PROXY_SECRET: z.string().optional(),
+    CNOOC_OAUTH_BASE_URL: z.string().optional(),
+    CNOOC_OAUTH_APP_NAME: z.string().optional(),
+    CNOOC_OAUTH_APP_ID: z.string().optional(),
+    CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN: z.string().optional(),
+    CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE: z.string().optional(),
+    CNOOC_OAUTH_USER_INFO_API_TOKEN: z.string().optional(),
   },
 
   /**
@@ -51,6 +57,15 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     DEERFLOW_GATEWAY_BASE_URL: process.env.DEERFLOW_GATEWAY_BASE_URL,
     DEERFLOW_PROXY_SECRET: process.env.DEERFLOW_PROXY_SECRET,
+    CNOOC_OAUTH_BASE_URL: process.env.CNOOC_OAUTH_BASE_URL,
+    CNOOC_OAUTH_APP_NAME: process.env.CNOOC_OAUTH_APP_NAME,
+    CNOOC_OAUTH_APP_ID: process.env.CNOOC_OAUTH_APP_ID,
+    CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN:
+      process.env.CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN,
+    CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE:
+      process.env.CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE,
+    CNOOC_OAUTH_USER_INFO_API_TOKEN:
+      process.env.CNOOC_OAUTH_USER_INFO_API_TOKEN,
 
     NEXT_PUBLIC_BACKEND_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_BASE_URL,
     NEXT_PUBLIC_LANGGRAPH_BASE_URL: process.env.NEXT_PUBLIC_LANGGRAPH_BASE_URL,
