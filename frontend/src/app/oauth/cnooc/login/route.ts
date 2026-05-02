@@ -5,6 +5,10 @@ import { NextResponse } from "next/server";
 import { createSsoSession, upsertSsoUser } from "@/server/admin/db";
 import { auth, ensureAuthMigrations } from "@/server/better-auth";
 import { checkCnoocToken, CnoocAuthError } from "@/server/cnooc-auth";
+import {
+  buildCnoocPlatformTokenCookieOptions,
+  CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
+} from "@/server/cnooc-auth/platform-token";
 
 import { buildCnoocLoginRedirectUrl } from "./route-helpers";
 
@@ -85,6 +89,11 @@ export async function GET(request: Request) {
         sameSite: "lax",
         secure: shouldUseSecureAuthCookies(),
       },
+    );
+    response.cookies.set(
+      CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
+      token,
+      buildCnoocPlatformTokenCookieOptions(shouldUseSecureAuthCookies()),
     );
     return response;
   } catch (error) {
