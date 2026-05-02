@@ -62,6 +62,8 @@ services:
       - ../frontend/.env
     volumes:
       - ${DEER_FLOW_HOME}:/app/data
+    extra_hosts:
+      - "datalake.cnooc:10.77.76.11"
     networks:
       - deer-flow
     restart: unless-stopped
