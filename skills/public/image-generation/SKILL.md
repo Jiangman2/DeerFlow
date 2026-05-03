@@ -36,9 +36,12 @@ Generate a structured JSON file in `/mnt/user-data/workspace/` with naming patte
 
 Always execute generation by calling the Python script via the `bash` tool. Do not claim that "the environment prevents calling image generation APIs" — this workflow is the supported way to generate images in DeerFlow.
 
-Provider selection:
-- If `ARK_API_KEY` (or `VOLCENGINE_API_KEY`) is set, the script will call Volcengine/BytePlus ModelArk image API (`/images/generations`). Set `ARK_IMAGE_MODEL` to a Seedream model ID (e.g. `seedream-5-0-260128`) and optionally `ARK_BASE_URL`.
-- Otherwise, it will fall back to Gemini API via `GEMINI_API_KEY`.
+Provider:
+- The script calls Alibaba Cloud Model Studio / DashScope Wan image API only.
+- Set `DASHSCOPE_API_KEY` before generation.
+- The default model is `wan2.7-image-pro`, which supports text-to-image, image editing, multi-image reference generation, and interactive editing. Override with `DASHSCOPE_IMAGE_MODEL` only when needed.
+- Optional environment variables: `DASHSCOPE_BASE_URL`, `DASHSCOPE_IMAGE_SIZE`, `DASHSCOPE_WATERMARK`, `DASHSCOPE_THINKING_MODE`.
+- When `--reference-images` are provided, the same Wan model receives those images as inline data URLs before the text prompt.
 
 Call the Python script:
 ```bash
