@@ -1,0 +1,27 @@
+# Capability Probe Report
+- Mode: strict-all
+- Total Steps: 21
+- Passed: 21
+- Failed: 0
+
+- [OK] project.init (allow_fail=False)
+- [OK] pipeline.total_md_split (allow_fail=False)
+- [OK] pipeline.svg_quality_pre (allow_fail=False)
+- [OK] probe.project_manager_help (allow_fail=False)
+- [OK] probe.total_md_split_help (allow_fail=False)
+- [OK] probe.finalize_svg_help (allow_fail=False)
+- [OK] probe.svg_to_pptx_help (allow_fail=False)
+- [OK] probe.analyze_images (allow_fail=False)
+- [OK] probe.rotate_images_auto (allow_fail=False)
+- [OK] probe.svg_position_calc (allow_fail=False)
+- [OK] probe.svg_position_analyze (allow_fail=False)
+- [OK] probe.check_annotations (allow_fail=False)
+- [OK] probe.update_spec_dry_run (allow_fail=False)
+- [OK] probe.image_gen_backends (allow_fail=False)
+- [OK] probe.image_search_help (allow_fail=False)
+- [OK] probe.batch_validate (allow_fail=False)
+- [OK] probe.notes_voice_list (allow_fail=False)
+- [OK] probe.pptx_animations_list (allow_fail=False)
+- [OK] pipeline.finalize_svg (allow_fail=False)
+- [OK] pipeline.svg_quality_post (allow_fail=False)
+- [OK] pipeline.export_pptx (allow_fail=False)

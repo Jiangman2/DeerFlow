@@ -1,0 +1,20 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1280 720">
+  <image x="0" y="0" width="1280" height="720" href="content_bg_user.png" xlink:href="content_bg_user.png"/>
+  <rect x="40" y="36" width="1200" height="84" fill="#FFFFFF"/>
+  <text x="56" y="88" fill="#004C8B" font-size="42" font-family="Microsoft YaHei" font-weight="700">关键痛点诊断</text>
+  <rect x="52" y="152" width="370" height="500" rx="20" fill="#F5F9FC" stroke="#D9DEE5"/>
+  <use data-icon="chunk-filled/alert-triangle" x="84" y="186" width="48" height="48" fill="#DE002B"/>
+  <text x="146" y="220" fill="#123B5E" font-size="30" font-family="Microsoft YaHei" font-weight="700">告警噪声高</text>
+  <text x="84" y="274" fill="#5B7185" font-size="22" font-family="Microsoft YaHei">- 日均告警 1,200+ 条</text>
+  <text x="84" y="314" fill="#5B7185" font-size="22" font-family="Microsoft YaHei">- 有效告警占比不足 30%</text>
+  <rect x="454" y="152" width="370" height="500" rx="20" fill="#F5F9FC" stroke="#D9DEE5"/>
+  <use data-icon="chunk-filled/database" x="486" y="186" width="48" height="48" fill="#0074CC"/>
+  <text x="548" y="220" fill="#123B5E" font-size="30" font-family="Microsoft YaHei" font-weight="700">数据口径不一</text>
+  <text x="486" y="274" fill="#5B7185" font-size="22" font-family="Microsoft YaHei">- 设备主数据缺失率 14%</text>
+  <text x="486" y="314" fill="#5B7185" font-size="22" font-family="Microsoft YaHei">- 跨系统追溯成本高</text>
+  <rect x="856" y="152" width="370" height="500" rx="20" fill="#F5F9FC" stroke="#D9DEE5"/>
+  <use data-icon="chunk-filled/settings" x="888" y="186" width="48" height="48" fill="#00A870"/>
+  <text x="950" y="220" fill="#123B5E" font-size="30" font-family="Microsoft YaHei" font-weight="700">处置链路长</text>
+  <text x="888" y="274" fill="#5B7185" font-size="22" font-family="Microsoft YaHei">- 平均处置时长 9.5 小时</text>
+  <text x="888" y="314" fill="#5B7185" font-size="22" font-family="Microsoft YaHei">- 经验复用效率偏低</text>
+</svg>

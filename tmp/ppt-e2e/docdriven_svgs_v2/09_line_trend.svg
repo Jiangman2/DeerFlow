@@ -1,0 +1,15 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1280 720">
+  <image x="0" y="0" width="1280" height="720" href="content_bg_user.png" xlink:href="content_bg_user.png"/>
+  <rect x="0" y="0" width="1280" height="720" fill="#FFFFFF" fill-opacity="0.04"/>
+  <text x="40" y="56" fill="#004C8B" font-size="36" font-family="Microsoft YaHei" font-weight="700">季度推进趋势（折线图）</text>
+  <text x="40" y="100" fill="#004C8B" font-size="24" font-family="Microsoft YaHei" font-weight="700">里程碑按期达成率持续提升</text>
+  <text x="40" y="134" fill="#004C8B" font-size="24" font-family="Microsoft YaHei" font-weight="700">CONTENT_AREA_LINE1：Q1~Q4 覆盖率 35% 到 85%</text>
+  <rect x="80" y="160" width="1120" height="480" rx="18" fill="#FFFFFF" stroke="#D9DEE5"/>
+  <line x1="170" y1="560" x2="1110" y2="560" stroke="#123B5E" stroke-width="3"/>
+  <line x1="170" y1="230" x2="170" y2="560" stroke="#123B5E" stroke-width="3"/>
+  <polyline points="220,520 450,460 680,380 910,280" fill="none" stroke="#0074CC" stroke-width="6"/>
+  <circle cx="220" cy="520" r="8" fill="#0074CC"/><circle cx="450" cy="460" r="8" fill="#0074CC"/><circle cx="680" cy="380" r="8" fill="#0074CC"/><circle cx="910" cy="280" r="8" fill="#0074CC"/>
+  <text x="200" y="600" fill="#123B5E" font-size="22" font-family="Arial">Q1</text><text x="430" y="600" fill="#123B5E" font-size="22" font-family="Arial">Q2</text><text x="660" y="600" fill="#123B5E" font-size="22" font-family="Arial">Q3</text><text x="890" y="600" fill="#123B5E" font-size="22" font-family="Arial">Q4</text>
+  <use data-icon="chunk-filled/chart-bar" x="1010" y="300" width="44" height="44" fill="#00A870"/>
+  <text x="1060" y="330" fill="#5B7185" font-size="20" font-family="Microsoft YaHei">推广覆盖率 85%</text>
+</svg>

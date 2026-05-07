@@ -2,6 +2,7 @@
 
 import logging
 import re
+from urllib.parse import unquote
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,7 @@ from deerflow.config.user_context import resolve_user_id
 logger = logging.getLogger(__name__)
 
 SOUL_FILENAME = "SOUL.md"
-AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
+AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
 
 
 class AgentConfig(BaseModel):
@@ -32,11 +33,36 @@ def _agent_dir(name: str, user_id: str | None) -> Path:
     return paths.agent_dir(name)
 
 
+def _agent_dir_candidates(name: str, user_id: str | None) -> list[Path]:
+    """Return lookup order for agent directories.
+
+    Order:
+      1) User-scoped agent dir (if user_id is present)
+      2) Global shared agent dir
+    """
+    paths = get_paths()
+    candidates: list[Path] = []
+    if user_id:
+        candidates.append(paths.user_agent_dir(user_id, name))
+    candidates.append(paths.agent_dir(name))
+    return candidates
+
+
 def _agents_dir(user_id: str | None) -> Path:
     paths = get_paths()
     if user_id:
         return paths.user_agents_dir(user_id)
     return paths.agents_dir
+
+
+def _normalize_lookup_name(name: str) -> str:
+    """Decode URL-encoded names defensively before validation/lookup."""
+    if "%" in name:
+        try:
+            return unquote(name)
+        except Exception:
+            return name
+    return name
 
 
 def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentConfig | None:
@@ -55,25 +81,33 @@ def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentC
 
     if name is None:
         return None
+    name = _normalize_lookup_name(name)
 
     user_id = user_id or resolve_user_id()
 
     if not AGENT_NAME_PATTERN.match(name):
         raise ValueError(f"Invalid agent name '{name}'. Must match pattern: {AGENT_NAME_PATTERN.pattern}")
-    agent_dir = _agent_dir(name, user_id)
-    config_file = agent_dir / "config.yaml"
+    errors: list[str] = []
+    config_file: Path | None = None
+    data: dict[str, Any] | None = None
+    for agent_dir in _agent_dir_candidates(name, user_id):
+        candidate_cfg = agent_dir / "config.yaml"
+        if not agent_dir.exists():
+            errors.append(f"Agent directory not found: {agent_dir}")
+            continue
+        if not candidate_cfg.exists():
+            errors.append(f"Agent config not found: {candidate_cfg}")
+            continue
+        try:
+            with open(candidate_cfg, encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+            config_file = candidate_cfg
+            break
+        except yaml.YAMLError as e:
+            raise ValueError(f"Failed to parse agent config {candidate_cfg}: {e}") from e
 
-    if not agent_dir.exists():
-        raise FileNotFoundError(f"Agent directory not found: {agent_dir}")
-
-    if not config_file.exists():
-        raise FileNotFoundError(f"Agent config not found: {config_file}")
-
-    try:
-        with open(config_file, encoding="utf-8") as f:
-            data: dict[str, Any] = yaml.safe_load(f) or {}
-    except yaml.YAMLError as e:
-        raise ValueError(f"Failed to parse agent config {config_file}: {e}") from e
+    if data is None or config_file is None:
+        raise FileNotFoundError("; ".join(errors) if errors else f"Agent '{name}' not found")
 
     # Ensure name is set from directory name if not in file
     if "name" not in data:
@@ -100,9 +134,15 @@ def load_agent_soul(agent_name: str | None, *, user_id: str | None = None) -> st
     """
     user_id = user_id or resolve_user_id()
     if agent_name:
-        agent_dir = _agent_dir(agent_name, user_id)
-    else:
-        agent_dir = get_paths().user_dir(user_id) if user_id else get_paths().base_dir
+        agent_name = _normalize_lookup_name(agent_name)
+        for agent_dir in _agent_dir_candidates(agent_name, user_id):
+            soul_path = agent_dir / SOUL_FILENAME
+            if soul_path.exists():
+                content = soul_path.read_text(encoding="utf-8").strip()
+                if content:
+                    return content
+        return None
+    agent_dir = get_paths().user_dir(user_id) if user_id else get_paths().base_dir
     soul_path = agent_dir / SOUL_FILENAME
     if not soul_path.exists():
         return None
@@ -117,27 +157,30 @@ def list_custom_agents(*, user_id: str | None = None) -> list[AgentConfig]:
         List of AgentConfig for each valid agent directory found.
     """
     user_id = user_id or resolve_user_id()
-    agents_dir = _agents_dir(user_id)
+    dirs: list[Path] = [get_paths().agents_dir]
+    user_agents_dir: Path | None = None
+    if user_id:
+        user_agents_dir = get_paths().user_agents_dir(user_id)
+        dirs.append(user_agents_dir)
 
-    if not agents_dir.exists():
-        return []
-
-    agents: list[AgentConfig] = []
-
-    for entry in sorted(agents_dir.iterdir()):
-        if not entry.is_dir():
+    merged: dict[str, AgentConfig] = {}
+    for agents_dir in dirs:
+        if not agents_dir.exists():
             continue
+        for entry in sorted(agents_dir.iterdir()):
+            if not entry.is_dir():
+                continue
+            config_file = entry / "config.yaml"
+            if not config_file.exists():
+                logger.debug(f"Skipping {entry.name}: no config.yaml")
+                continue
+            try:
+                # Resolve with explicit source scope to avoid accidental fallback.
+                scoped_user = user_id if (user_agents_dir is not None and agents_dir == user_agents_dir) else None
+                agent_cfg = load_agent_config(entry.name, user_id=scoped_user)
+                if agent_cfg is not None:
+                    merged[agent_cfg.name.lower()] = agent_cfg
+            except Exception as e:
+                logger.warning(f"Skipping agent '{entry.name}': {e}")
 
-        config_file = entry / "config.yaml"
-        if not config_file.exists():
-            logger.debug(f"Skipping {entry.name}: no config.yaml")
-            continue
-
-        try:
-            agent_cfg = load_agent_config(entry.name, user_id=user_id)
-            if agent_cfg is not None:
-                agents.append(agent_cfg)
-        except Exception as e:
-            logger.warning(f"Skipping agent '{entry.name}': {e}")
-
-    return agents
+    return [merged[k] for k in sorted(merged.keys())]

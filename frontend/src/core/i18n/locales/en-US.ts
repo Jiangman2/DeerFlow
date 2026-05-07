@@ -1,14 +1,3 @@
-import {
-  CompassIcon,
-  GraduationCapIcon,
-  ImageIcon,
-  MicroscopeIcon,
-  PenLineIcon,
-  ShapesIcon,
-  SparklesIcon,
-  VideoIcon,
-} from "lucide-react";
-
 import type { Translations } from "./types";
 
 export const enUS: Translations = {
@@ -136,40 +125,40 @@ export const enUS: Translations = {
       {
         suggestion: "Write",
         prompt: "Write a blog post about the latest trends on [topic]",
-        icon: PenLineIcon,
+        icon: "penLine",
       },
       {
         suggestion: "Research",
         prompt:
           "Conduct a deep dive research on [topic], and summarize the findings.",
-        icon: MicroscopeIcon,
+        icon: "microscope",
       },
       {
         suggestion: "Collect",
         prompt: "Collect data from [source] and create a report.",
-        icon: ShapesIcon,
+        icon: "shapes",
       },
       {
         suggestion: "Learn",
         prompt: "Learn about [topic] and create a tutorial.",
-        icon: GraduationCapIcon,
+        icon: "graduationCap",
       },
     ],
     suggestionsCreate: [
       {
         suggestion: "Webpage",
         prompt: "Create a webpage about [topic]",
-        icon: CompassIcon,
+        icon: "compass",
       },
       {
         suggestion: "Image",
         prompt: "Create an image about [topic]",
-        icon: ImageIcon,
+        icon: "image",
       },
       {
         suggestion: "Video",
         prompt: "Create a video about [topic]",
-        icon: VideoIcon,
+        icon: "video",
       },
       {
         type: "separator",
@@ -178,7 +167,7 @@ export const enUS: Translations = {
         suggestion: "Skill",
         prompt:
           "We're going to build a new skill step by step with `skill-creator`. To start, what do you want this skill to do?",
-        icon: SparklesIcon,
+        icon: "sparkles",
       },
     ],
   },
@@ -223,11 +212,11 @@ export const enUS: Translations = {
       "Describe the agent you want — I'll help you create it through conversation.",
     nameStepTitle: "Name your new Agent",
     nameStepHint:
-      "Letters, digits, and hyphens only — stored lowercase (e.g. code-reviewer)",
-    nameStepPlaceholder: "e.g. code-reviewer",
+      "Chinese letters, letters, digits, and hyphens only — stored lowercase (e.g. 月报助手 or code-reviewer)",
+    nameStepPlaceholder: "e.g. 月报助手",
     nameStepContinue: "Continue",
     nameStepInvalidError:
-      "Invalid name — use only letters, digits, and hyphens",
+      "Invalid name — use only Chinese letters, letters, digits, and hyphens",
     nameStepAlreadyExistsError: "An agent with this name already exists",
     nameStepCheckError: "Could not verify name availability — please try again",
     builderModelLabel: "Builder model",

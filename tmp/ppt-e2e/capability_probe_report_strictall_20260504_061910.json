@@ -1,0 +1,249 @@
+[
+  {
+    "name": "project.init",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/project_manager.py",
+      "init",
+      "haiyou_cn_report_hq_20260504_061905",
+      "--format",
+      "ppt169",
+      "--dir",
+      "/app/backend/projects"
+    ]
+  },
+  {
+    "name": "pipeline.total_md_split",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/total_md_split.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504"
+    ]
+  },
+  {
+    "name": "pipeline.svg_quality_pre",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/svg_quality_checker.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504"
+    ]
+  },
+  {
+    "name": "probe.project_manager_help",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/project_manager.py",
+      "-h"
+    ]
+  },
+  {
+    "name": "probe.total_md_split_help",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/total_md_split.py",
+      "-h"
+    ]
+  },
+  {
+    "name": "probe.finalize_svg_help",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/finalize_svg.py",
+      "-h"
+    ]
+  },
+  {
+    "name": "probe.svg_to_pptx_help",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/svg_to_pptx.py",
+      "-h"
+    ]
+  },
+  {
+    "name": "probe.analyze_images",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/analyze_images.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504/images",
+      "--canvas",
+      "ppt169"
+    ]
+  },
+  {
+    "name": "probe.rotate_images_auto",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/rotate_images.py",
+      "auto",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504/images"
+    ]
+  },
+  {
+    "name": "probe.svg_position_calc",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/svg_position_calculator.py",
+      "calc",
+      "bar",
+      "--data",
+      "基线:71,目标:93"
+    ]
+  },
+  {
+    "name": "probe.svg_position_analyze",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/svg_position_calculator.py",
+      "analyze",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504/svg_output/08_page.svg"
+    ]
+  },
+  {
+    "name": "probe.check_annotations",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/check_annotations.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504"
+    ]
+  },
+  {
+    "name": "probe.update_spec_dry_run",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/update_spec.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504",
+      "colors.primary=#004C8B",
+      "--dry-run"
+    ]
+  },
+  {
+    "name": "probe.image_gen_backends",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/image_gen.py",
+      "--list-backends"
+    ]
+  },
+  {
+    "name": "probe.image_search_help",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/image_search.py",
+      "-h"
+    ]
+  },
+  {
+    "name": "probe.batch_validate",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/batch_validate.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504"
+    ]
+  },
+  {
+    "name": "probe.notes_voice_list",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/notes_to_audio.py",
+      "--list-common-voices"
+    ]
+  },
+  {
+    "name": "probe.pptx_animations_list",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/pptx_animations.py",
+      "--list"
+    ]
+  },
+  {
+    "name": "pipeline.finalize_svg",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/finalize_svg.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504"
+    ]
+  },
+  {
+    "name": "pipeline.svg_quality_post",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/svg_quality_checker.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504"
+    ]
+  },
+  {
+    "name": "pipeline.export_pptx",
+    "ok": true,
+    "allow_fail": false,
+    "returncode": 0,
+    "command": [
+      "/app/backend/.venv/bin/python",
+      "/app/skills/public/ppt-master/scripts/svg_to_pptx.py",
+      "/app/backend/projects/haiyou_cn_report_hq_20260504_061905_ppt169_20260504",
+      "-s",
+      "final"
+    ]
+  }
+]

@@ -1,5 +1,6 @@
 """Middleware for intercepting clarification requests and presenting them to the user."""
 
+import json
 from collections.abc import Awaitable, Callable
 
 from langchain.agents import AgentState
@@ -54,7 +55,7 @@ class ClarificationMiddleware(AgentMiddleware[ClarificationMiddlewareState]):
         question = args.get("question", "")
         clarification_type = args.get("clarification_type", "missing_info")
         context = args.get("context")
-        options = args.get("options", [])
+        options = self._normalize_options(args.get("options", []))
 
         # Type-specific icons
         type_icons = {
@@ -86,6 +87,54 @@ class ClarificationMiddleware(AgentMiddleware[ClarificationMiddlewareState]):
                 message_parts.append(f"  {i}. {option}")
 
         return "\n".join(message_parts)
+
+    def _normalize_options(self, raw_options: object) -> list[str]:
+        """Normalize clarification options into a clean list of strings.
+
+        Some model providers may return `options` as a single string instead of
+        string array. This helper keeps such content intact (or line-splits it)
+        to avoid character-by-character numbered rendering.
+        """
+        normalized_input: list[object]
+
+        if isinstance(raw_options, str):
+            content = raw_options.strip()
+            if not content:
+                return []
+
+            parsed_json: object | None = None
+            if content.startswith("[") and content.endswith("]"):
+                try:
+                    parsed_json = json.loads(content)
+                except Exception:
+                    parsed_json = None
+
+            if isinstance(parsed_json, list):
+                normalized_input = list(parsed_json)
+            else:
+                # Prefer line split when model provided multiline options; fallback
+                # to a single option to prevent per-character enumeration.
+                lines = [line.strip() for line in content.splitlines() if line.strip()]
+                normalized_input = lines if len(lines) > 1 else [content]
+        elif isinstance(raw_options, (list, tuple)):
+            normalized_input = list(raw_options)
+        else:
+            return []
+
+        options: list[str] = []
+        for item in normalized_input:
+            if isinstance(item, str):
+                text = item.strip()
+            elif isinstance(item, dict):
+                label = item.get("label") or item.get("value") or item.get("name")
+                text = str(label).strip() if label is not None else ""
+            else:
+                text = str(item).strip()
+
+            if text:
+                options.append(text)
+
+        return options
 
     def _handle_clarification(self, request: ToolCallRequest) -> Command:
         """Handle clarification request and return command to interrupt execution.

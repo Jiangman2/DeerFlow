@@ -12,6 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 class SafeSummarizationMiddleware(SummarizationMiddleware):
+    _FAILED_SUMMARY_MARKERS = (
+        "Error generating summary:",
+        "too long to summarize",
+        "unable to summarize",
+        "无法总结",
+        "无法进行总结",
+        "无法完整总结",
+    )
+
     @staticmethod
     def _has_chinese(text: str) -> bool:
         return any("\u4e00" <= ch <= "\u9fff" for ch in text)
@@ -32,7 +41,9 @@ class SafeSummarizationMiddleware(SummarizationMiddleware):
             return False
         for m in messages:
             content = getattr(m, "content", None)
-            if isinstance(content, str) and "Error generating summary:" in content:
+            if isinstance(content, str) and any(
+                marker in content for marker in SafeSummarizationMiddleware._FAILED_SUMMARY_MARKERS
+            ):
                 return True
         return False
 

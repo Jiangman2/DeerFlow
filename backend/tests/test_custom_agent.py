@@ -428,6 +428,18 @@ class TestAgentsAPI:
         response = agent_client.post("/api/agents", json=payload)
         assert response.status_code == 422
 
+    def test_create_agent_with_chinese_name(self, agent_client):
+        payload = {
+            "name": "月报助手",
+            "description": "中文智能体",
+            "soul": "你是月报助手。",
+        }
+        response = agent_client.post("/api/agents", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["name"] == "月报助手"
+        assert data["description"] == "中文智能体"
+
     def test_create_duplicate_agent_409(self, agent_client):
         payload = {"name": "my-agent", "soul": "test"}
         agent_client.post("/api/agents", json=payload)

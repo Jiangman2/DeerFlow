@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <!-- 背景 -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- 顶部渐变条 -->
+  <defs>
+    <linearGradient id="top-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1E40AF"/>
+      <stop offset="100%" style="stop-color:#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1280" height="4" fill="url(#top-gradient)"/>
+  
+  <!-- ==================== 核心观点区域 (Exhibit/Takeaway) ==================== -->
+  <rect x="40" y="20" width="1200" height="60" fill="#0D1117"/>
+  <rect x="40" y="20" width="6" height="60" fill="#D4AF37"/>
+  <text x="60" y="58" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="18" font-weight="bold" letter-spacing="1">
+    结论：以场景优先级驱动能力建设节奏
+  </text>
+  
+  <!-- ==================== 内容区域 ==================== -->
+  <!-- 
+    AI 灵活布局区
+    可用空间: x=40, y=100, width=1200, height=520
+  -->
+  <rect x="40" y="100" width="1200" height="520" fill="#FFFFFF" rx="4"/>
+  <rect x="40" y="100" width="1200" height="520" fill="none" stroke="#E5E7EB" stroke-width="1" rx="4" stroke-dasharray="8,4"/>
+  <text x="640" y="370" text-anchor="middle" fill="#D1D5DB" font-family="Arial, sans-serif" font-size="14">
+    <g><rect x="54" y="112" width="500" height="490" rx="10" fill="#FFFFFF" stroke="#E5E7EB"/><rect x="66" y="124" width="470" height="84" rx="8" fill="#F8FAFC" stroke="#E5E7EB"/><use data-icon="tabler-filled/bolt" x="82" y="142" width="22" height="22" fill="#2563EB"/><text x="116" y="160" fill="#0F172A" font-family="Microsoft YaHei" font-size="20" font-weight="700">高价值低复杂场景优先上线</text><rect x="66" y="220" width="470" height="84" rx="8" fill="#F8FAFC" stroke="#E5E7EB"/><use data-icon="tabler-filled/database" x="82" y="238" width="22" height="22" fill="#2563EB"/><text x="116" y="256" fill="#0F172A" font-family="Microsoft YaHei" font-size="20" font-weight="700">中价值场景并行建设组件能力</text><rect x="66" y="316" width="470" height="84" rx="8" fill="#F8FAFC" stroke="#E5E7EB"/><use data-icon="tabler-filled/clock" x="82" y="334" width="22" height="22" fill="#2563EB"/><text x="116" y="352" fill="#0F172A" font-family="Microsoft YaHei" font-size="20" font-weight="700">高复杂高价值场景分阶段推进</text><rect x="66" y="412" width="470" height="84" rx="8" fill="#F8FAFC" stroke="#E5E7EB"/><use data-icon="tabler-filled/shield" x="82" y="430" width="22" height="22" fill="#2563EB"/><text x="116" y="448" fill="#0F172A" font-family="Microsoft YaHei" font-size="20" font-weight="700">低价值场景保持轻量试点</text><rect x="570" y="112" width="650" height="490" rx="10" fill="#FFFFFF" stroke="#E5E7EB"/><svg x="584" y="126" width="622" height="462" viewBox="0 0 1280 720"><!-- 
+    Matrix 2x2 Chart Template
+    Usage: Four-quadrant analysis
+    Scenarios: BCG Matrix, risk assessment, priority analysis, strategic evaluation
+    -->
+    <defs>
+        <!-- Quadrant Gradients -->
+        <linearGradient id="quadrant1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ECFDF5;stop-opacity:1" /> <!-- Emerald-50 -->
+            <stop offset="100%" style="stop-color:#D1FAE5;stop-opacity:1" /> <!-- Emerald-100 -->
+        </linearGradient>
+        <linearGradient id="quadrant2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#FFFBEB;stop-opacity:1" /> <!-- Amber-50 -->
+            <stop offset="100%" style="stop-color:#FEF3C7;stop-opacity:1" /> <!-- Amber-100 -->
+        </linearGradient>
+        <linearGradient id="quadrant3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#FFF1F2;stop-opacity:1" /> <!-- Rose-50 -->
+            <stop offset="100%" style="stop-color:#FFE4E6;stop-opacity:1" /> <!-- Rose-100 -->
+        </linearGradient>
+        <linearGradient id="quadrant4" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#EFF6FF;stop-opacity:1" /> <!-- Blue-50 -->
+            <stop offset="100%" style="stop-color:#DBEAFE;stop-opacity:1" /> <!-- Blue-100 -->
+        </linearGradient>
+        <!-- Drop Shadow for Cards & Bubbles -->
+        <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="130%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+            <feOffset dx="0" dy="2" result="offsetblur"/>
+            <feFlood flood-color="#0F172A" flood-opacity="0.1" result="shadowColor"/>
+            <feComposite in="shadowColor" in2="offsetblur" operator="in" result="shadow"/>
+            <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <!-- Axis Arrows -->
+        <marker id="arrowX" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto">
+            <path d="M 2,2 L 12,7 L 2,12 Z" fill="#0F172A"/>
+        </marker>
+        <marker id="arrowY" markerWidth="14" markerHeight="14" refX="7" refY="2" orient="auto">
+            <path d="M 2,12 L 7,2 L 12,12 Z" fill="#0F172A"/>
+        </marker>
+    </defs>
+    <!-- Background -->
+    <rect width="1280" height="720" fill="#F8FAFC"/>
+    <!-- Title Area -->
+    <text x="60" y="70" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+          font-size="36" font-weight="800" fill="#0F172A" letter-spacing="-0.5">Action Priority Matrix</text>
+    <text x="60" y="100" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+          font-size="14" font-weight="600" fill="#64748B" letter-spacing="1">EFFORT VS IMPACT · FEATURE PRIORITIZATION</text>
+    <text x="60" y="125" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+          font-size="14" font-weight="500" fill="#94A3B8">Business Impact vs Implementation Effort · Bubble size represents resource cost</text>
+    <!-- Matrix Main Area -->
+    <g id="matrixArea">
+        <!-- Quadrants -->
+        <!-- Q1: Top Right (Stars) -->
+        <rect x="565" y="170" width="480" height="240" fill="url(#quadrant1)" stroke="#FFFFFF" stroke-width="4" rx="4"/>
+        <!-- Q2: Top Left (Question Marks) -->
+        <rect x="85" y="170" width="480" height="240" fill="url(#quadrant2)" stroke="#FFFFFF" stroke-width="4" rx="4"/>
+        <!-- Q3: Bottom Left (Dogs) -->
+        <rect x="85" y="410" width="480" height="240" fill="url(#quadrant3)" stroke="#FFFFFF" stroke-width="4" rx="4"/>
+        <!-- Q4: Bottom Right (Cash Cows) -->
+        <rect x="565" y="410" width="480" height="240" fill="url(#quadrant4)" stroke="#FFFFFF" stroke-width="4" rx="4"/>
+        <!-- Axes -->
+        <line x1="85" y1="410" x2="1055" y2="410" stroke="#0F172A" stroke-width="3" marker-end="url(#arrowX)"/>
+        <line x1="565" y1="160" x2="565" y2="650" stroke="#0F172A" stroke-width="3" marker-start="url(#arrowY)"/>
+        <!-- X-Axis Labels -->
+        <text x="565" y="685" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+              font-size="15" font-weight="700" fill="#0F172A" text-anchor="middle">Implementation Effort</text>
+        <text x="220" y="685" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+              font-size="14" font-weight="600" fill="#64748B" text-anchor="middle">Low</text>
+        <text x="910" y="685" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+              font-size="14" font-weight="600" fill="#64748B" text-anchor="middle">High</text>
+        <!-- Y-Axis Labels -->
+        <text x="40" y="410" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+              font-size="15" font-weight="700" fill="#0F172A" text-anchor="middle" transform="rotate(-90, 40, 410)">Business Impact</text>
+        <text x="60" y="640" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+              font-size="14" font-weight="600" fill="#64748B" text-anchor="end">Low</text>
+        <text x="60" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+              font-size="14" font-weight="600" fill="#64748B" text-anchor="end">High</text>
+        <!-- Quadrant Labels -->
+        <!-- Q2: Quick Wins -->
+        <text x="110" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#047857">Quick Wins</text>
+        <text x="110" y="225" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#059669" letter-spacing="1">HIGH IMPACT · LOW EFFORT</text>
+        <!-- Q1: Major Projects -->
+        <text x="590" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#1D4ED8">Major Projects</text>
+        <text x="590" y="225" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#2563EB" letter-spacing="1">HIGH IMPACT · HIGH EFFORT</text>
+        <!-- Q3: Fill Ins -->
+        <text x="110" y="615" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#B45309">Fill Ins</text>
+        <text x="110" y="635" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#D97706" letter-spacing="1">LOW IMPACT · LOW EFFORT</text>
+        <!-- Q4: Time Wasters -->
+        <text x="590" y="615" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#BE123C">Thankless Tasks</text>
+        <text x="590" y="635" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#E11D48" letter-spacing="1">LOW IMPACT · HIGH EFFORT</text>
+        <!-- Product Data Bubbles -->
+        <!-- Feature A: Major Project -->
+        <g filter="url(#cardShadow)">
+            <circle cx="879" cy="247" r="55" fill="#3B82F6" opacity="0.95"/>
+            <text x="879" y="243" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">Feature A</text>
+            <text x="879" y="261" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">Score: 92</text>
+        </g>
+        <!-- Feature B: Time Waster -->
+        <g filter="url(#cardShadow)">
+            <circle cx="935" cy="544" r="70" fill="#F43F5E" opacity="0.95"/>
+            <text x="935" y="540" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" font-weight="700" fill="#FFFFFF" text-anchor="middle">Feature B</text>
+            <text x="935" y="560" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="600" fill="#FFFFFF" text-anchor="middle">Score: 35</text>
+        </g>
+        <!-- Feature C: Quick Win -->
+        <g filter="url(#cardShadow)">
+            <circle cx="269" cy="228" r="42" fill="#10B981" opacity="0.95"/>
+            <text x="269" y="225" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">Feature C</text>
+            <text x="269" y="243" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">Score: 88</text>
+        </g>
+        <!-- Feature D: Quick Win -->
+        <g filter="url(#cardShadow)">
+            <circle cx="325" cy="309" r="38" fill="#10B981" opacity="0.95"/>
+            <text x="325" y="306" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">Feature D</text>
+            <text x="325" y="323" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Score: 75</text>
+        </g>
+        <!-- Feature E: Fill In -->
+        <g filter="url(#cardShadow)">
+            <circle cx="195" cy="573" r="30" fill="#F59E0B" opacity="0.95"/>
+            <text x="195" y="571" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle">Feature E</text>
+            <text x="195" y="587" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#FFFFFF" text-anchor="middle">Score: 40</text>
+        </g>
+        <!-- Feature F: Time Waster -->
+        <g filter="url(#cardShadow)">
+            <circle cx="741" cy="506" r="45" fill="#F43F5E" opacity="0.95"/>
+            <text x="741" y="503" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">Feature F</text>
+            <text x="741" y="521" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">Score: 28</text>
+        </g>
+        <!-- Feature G: Major Project -->
+        <g filter="url(#cardShadow)">
+            <circle cx="695" cy="285" r="40" fill="#3B82F6" opacity="0.95"/>
+            <text x="695" y="282" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle">Feature G</text>
+            <text x="695" y="299" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle">Score: 82</text>
+        </g>
+    </g>
+    <!-- Strategic Recommendations Card -->
+    <g id="strategicRecommendations" filter="url(#cardShadow)">
+        <rect x="1070" y="170" width="165" height="250" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" rx="12"/>
+        <text x="1152" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A" text-anchor="middle">Action Plan</text>
+        <line x1="1085" y1="220" x2="1220" y2="220" stroke="#F1F5F9" stroke-width="2"/>
+        <!-- Quick Wins -->
+        <circle cx="1090" cy="245" r="6" fill="#10B981"/>
+        <text x="1105" y="250" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#047857">Quick Wins: DO</text>
+        <!-- Major Projects -->
+        <circle cx="1090" cy="285" r="6" fill="#3B82F6"/>
+        <text x="1105" y="290" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#1D4ED8">Projects: PLAN</text>
+        <!-- Fill Ins -->
+        <circle cx="1090" cy="325" r="6" fill="#F59E0B"/>
+        <text x="1105" y="330" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#B45309">Fill Ins: DELEGATE</text>
+        <!-- Time Wasters -->
+        <circle cx="1090" cy="365" r="6" fill="#F43F5E"/>
+        <text x="1105" y="370" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#BE123C">Thankless: DROP</text>
+        <text x="1152" y="405" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#94A3B8" text-anchor="middle">Bubble Size = Cost</text>
+    </g>
+    <!-- Source Footer -->
+    <text x="60" y="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="500" fill="#94A3B8">Source: Market Research Department</text></svg><text x="58" y="640" fill="#6B7280" font-family="Microsoft YaHei" font-size="14">图表示例：matrix_2x2</text></g>
+  </text>
+  
+  <!-- ==================== 页脚区域 ==================== -->
+  <line x1="40" y1="660" x2="1240" y2="660" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="40" y="695" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="10">Source: 内部测算与样例数据</text>
+  <text x="640" y="695" text-anchor="middle" fill="#D4AF37" font-family="Arial, sans-serif" font-size="10">CONFIDENTIAL</text>
+  <text x="1220" y="695" text-anchor="end" fill="#6B7280" font-family="Arial, sans-serif" font-size="12">8</text>
+</svg>

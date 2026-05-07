@@ -8,7 +8,7 @@ export async function listAgents(): Promise<Agent[]> {
 }
 
 export async function getAgent(name: string): Promise<Agent> {
-  const res = await fetch(`/api/agents/${name}`);
+  const res = await fetch(`/api/agents/${encodeURIComponent(name)}`);
   if (!res.ok) throw new Error(`Agent '${name}' not found`);
   return res.json() as Promise<Agent>;
 }
@@ -30,7 +30,7 @@ export async function updateAgent(
   name: string,
   request: UpdateAgentRequest,
 ): Promise<Agent> {
-  const res = await fetch(`/api/agents/${name}`, {
+  const res = await fetch(`/api/agents/${encodeURIComponent(name)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -43,7 +43,7 @@ export async function updateAgent(
 }
 
 export async function deleteAgent(name: string): Promise<void> {
-  const res = await fetch(`/api/agents/${name}`, {
+  const res = await fetch(`/api/agents/${encodeURIComponent(name)}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Failed to delete agent: ${res.statusText}`);

@@ -3,6 +3,7 @@
 import logging
 import re
 import shutil
+import unicodedata
 from typing import Annotated
 
 import yaml
@@ -16,7 +17,7 @@ from deerflow.config.paths import get_paths
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["agents"])
 
-AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
+AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
 
 
 class AgentResponse(BaseModel):
@@ -38,7 +39,7 @@ class AgentsListResponse(BaseModel):
 class AgentCreateRequest(BaseModel):
     """Request body for creating a custom agent."""
 
-    name: str = Field(..., description="Agent name (must match ^[A-Za-z0-9-]+$, stored as lowercase)")
+    name: str = Field(..., description="Agent name (letters/digits/Chinese/hyphen, stored as lowercase)")
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
@@ -63,10 +64,20 @@ def _validate_agent_name(name: str) -> None:
     Raises:
         HTTPException: 422 if the name is invalid.
     """
-    if not AGENT_NAME_PATTERN.match(name):
+    # Guard against invisible separators/punctuation even when broad unicode matching is enabled.
+    def _is_valid_char(ch: str) -> bool:
+        if ch == "-":
+            return True
+        category = unicodedata.category(ch)
+        return category.startswith("L") or category.startswith("N")
+
+    if (not AGENT_NAME_PATTERN.match(name)) or any(not _is_valid_char(ch) for ch in name):
         raise HTTPException(
             status_code=422,
-            detail=f"Invalid agent name '{name}'. Must match ^[A-Za-z0-9-]+$ (letters, digits, and hyphens only).",
+            detail=(
+                f"Invalid agent name '{name}'. "
+                "Use letters, digits, Chinese characters, and hyphens only."
+            ),
         )
 
 

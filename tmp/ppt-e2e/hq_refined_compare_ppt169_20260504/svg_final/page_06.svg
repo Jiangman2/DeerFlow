@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+    
+    <defs>
+        
+        <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="130%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="4" />
+            <feOffset dx="0" dy="2" result="offsetblur" />
+            <feFlood flood-color="#0F172A" flood-opacity="0.06" result="shadowColor" />
+            <feComposite in="shadowColor" in2="offsetblur" operator="in" result="shadow" />
+            <feMerge><feMergeNode in="shadow" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+    </defs>
+    
+    <rect width="1280" height="720" fill="#F8FAFC" />
+    
+    <path fill="#3B82F6" d="M44,32 H44 A4,4 0 0 1 48,36 V64 A4,4 0 0 1 44,68 H44 A4,4 0 0 1 40,64 V36 A4,4 0 0 1 44,32 Z" />
+    <text x="64" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="32" font-weight="800" fill="#0F172A">Enterprise 智能运营中台分层架构</text>
+    
+    <text x="64" y="90" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="600" fill="#64748B" letter-spacing="0.5">
+        THREE-TIER CAPABILITY STACK WITH UNIFIED OUTPUT AND SHARED FOUNDATIONAL INFRASTRUCTURE
+    </text>
+    
+    <path fill="#3B82F6" d="M48,140 H72 A8,8 0 0 1 80,148 V272 A8,8 0 0 1 72,280 H48 A8,8 0 0 1 40,272 V148 A8,8 0 0 1 48,140 Z" />
+    <text x="60" y="218" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="800" fill="#FFFFFF">01</text>
+    <path fill="#EFF6FF" fill-opacity="0.6" stroke="#93C5FD" stroke-width="1.5" stroke-dasharray="6 4" d="M108,140 H1034 A12,12 0 0 1 1046,152 V268 A12,12 0 0 1 1034,280 H108 A12,12 0 0 1 96,268 V152 A12,12 0 0 1 108,140 Z" />
+    <text x="571" y="166" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#2563EB" letter-spacing="1">APP LAYER · USER INTERFACES &amp; EXTERNAL ACCESS POINTS</text>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M122,184 H326 A8,8 0 0 1 334,192 V258 A8,8 0 0 1 326,266 H122 A8,8 0 0 1 114,258 V192 A8,8 0 0 1 122,184 Z" />
+        <path fill="#EFF6FF" d="M134,198 H154 A8,8 0 0 1 162,206 V226 A8,8 0 0 1 154,234 H134 A8,8 0 0 1 126,226 V206 A8,8 0 0 1 134,198 Z" />
+        <text x="144" y="222" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#3B82F6">W</text>
+        <text x="174" y="214" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Web Console</text>
+        <text x="174" y="230" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">React SPA</text>
+        <line x1="126" y1="244" x2="322" y2="244" stroke="#F1F5F9" stroke-width="1" />
+        <text x="126" y="258" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">HTTPS &amp; WebSocket interfaces</text>
+    </g>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M354,184 H558 A8,8 0 0 1 566,192 V258 A8,8 0 0 1 558,266 H354 A8,8 0 0 1 346,258 V192 A8,8 0 0 1 354,184 Z" />
+        <path fill="#EFF6FF" d="M366,198 H386 A8,8 0 0 1 394,206 V226 A8,8 0 0 1 386,234 H366 A8,8 0 0 1 358,226 V206 A8,8 0 0 1 366,198 Z" />
+        <text x="376" y="222" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#3B82F6">M</text>
+        <text x="406" y="214" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Mobile App</text>
+        <text x="406" y="230" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">iOS / Android</text>
+        <line x1="358" y1="244" x2="554" y2="244" stroke="#F1F5F9" stroke-width="1" />
+        <text x="358" y="258" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">Native HTTP/2 client access</text>
+    </g>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M586,184 H790 A8,8 0 0 1 798,192 V258 A8,8 0 0 1 790,266 H586 A8,8 0 0 1 578,258 V192 A8,8 0 0 1 586,184 Z" />
+        <path fill="#EFF6FF" d="M598,198 H618 A8,8 0 0 1 626,206 V226 A8,8 0 0 1 618,234 H598 A8,8 0 0 1 590,226 V206 A8,8 0 0 1 598,198 Z" />
+        <text x="608" y="222" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#3B82F6">O</text>
+        <text x="638" y="214" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Open API</text>
+        <text x="638" y="230" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">API Gateway</text>
+        <line x1="590" y1="244" x2="786" y2="244" stroke="#F1F5F9" stroke-width="1" />
+        <text x="590" y="258" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">REST &amp; GraphQL for partners</text>
+    </g>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M818,184 H1022 A8,8 0 0 1 1030,192 V258 A8,8 0 0 1 1022,266 H818 A8,8 0 0 1 810,258 V192 A8,8 0 0 1 818,184 Z" />
+        <path fill="#EFF6FF" d="M830,198 H850 A8,8 0 0 1 858,206 V226 A8,8 0 0 1 850,234 H830 A8,8 0 0 1 822,226 V206 A8,8 0 0 1 830,198 Z" />
+        <text x="840" y="222" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#3B82F6">C</text>
+        <text x="870" y="214" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">CLI Tools</text>
+        <text x="870" y="230" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">DevOps</text>
+        <line x1="822" y1="244" x2="1018" y2="244" stroke="#F1F5F9" stroke-width="1" />
+        <text x="822" y="258" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">Command-line automation &amp; CI</text>
+    </g>
+    
+    <path fill="#6366F1" d="M48,296 H72 A8,8 0 0 1 80,304 V428 A8,8 0 0 1 72,436 H48 A8,8 0 0 1 40,428 V304 A8,8 0 0 1 48,296 Z" />
+    <text x="60" y="374" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="800" fill="#FFFFFF">02</text>
+    <path fill="#EEF2FF" fill-opacity="0.6" stroke="#A5B4FC" stroke-width="1.5" stroke-dasharray="6 4" d="M108,296 H1034 A12,12 0 0 1 1046,308 V424 A12,12 0 0 1 1034,436 H108 A12,12 0 0 1 96,424 V308 A12,12 0 0 1 108,296 Z" />
+    <text x="571" y="322" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#4F46E5" letter-spacing="1">SERVICE LAYER · CORE BUSINESS LOGIC &amp; ORCHESTRATION</text>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M122,340 H326 A8,8 0 0 1 334,348 V414 A8,8 0 0 1 326,422 H122 A8,8 0 0 1 114,414 V348 A8,8 0 0 1 122,340 Z" />
+        <path fill="#EEF2FF" d="M134,354 H154 A8,8 0 0 1 162,362 V382 A8,8 0 0 1 154,390 H134 A8,8 0 0 1 126,382 V362 A8,8 0 0 1 134,354 Z" />
+        <text x="144" y="378" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#6366F1">G</text>
+        <text x="174" y="370" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Core Routing</text>
+        <text x="174" y="386" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">API Gateway</text>
+        <line x1="126" y1="400" x2="322" y2="400" stroke="#F1F5F9" stroke-width="1" />
+        <text x="126" y="414" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">Traffic control &amp; rate limiting</text>
+    </g>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M354,340 H558 A8,8 0 0 1 566,348 V414 A8,8 0 0 1 558,422 H354 A8,8 0 0 1 346,414 V348 A8,8 0 0 1 354,340 Z" />
+        <path fill="#EEF2FF" d="M366,354 H386 A8,8 0 0 1 394,362 V382 A8,8 0 0 1 386,390 H366 A8,8 0 0 1 358,382 V362 A8,8 0 0 1 366,354 Z" />
+        <text x="376" y="378" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#6366F1">M</text>
+        <text x="406" y="370" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Microservices</text>
+        <text x="406" y="386" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">Domain Logic</text>
+        <line x1="358" y1="400" x2="554" y2="400" stroke="#F1F5F9" stroke-width="1" />
+        <text x="358" y="414" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">Independent business services</text>
+    </g>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M586,340 H790 A8,8 0 0 1 798,348 V414 A8,8 0 0 1 790,422 H586 A8,8 0 0 1 578,414 V348 A8,8 0 0 1 586,340 Z" />
+        <path fill="#EEF2FF" d="M598,354 H618 A8,8 0 0 1 626,362 V382 A8,8 0 0 1 618,390 H598 A8,8 0 0 1 590,382 V362 A8,8 0 0 1 598,354 Z" />
+        <text x="608" y="378" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#6366F1">I</text>
+        <text x="638" y="370" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">IAM Service</text>
+        <text x="638" y="386" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">Auth &amp; Security</text>
+        <line x1="590" y1="400" x2="786" y2="400" stroke="#F1F5F9" stroke-width="1" />
+        <text x="590" y="414" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">Centralized SSO and RBAC</text>
+    </g>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M818,340 H1022 A8,8 0 0 1 1030,348 V414 A8,8 0 0 1 1022,422 H818 A8,8 0 0 1 810,414 V348 A8,8 0 0 1 818,340 Z" />
+        <path fill="#EEF2FF" d="M830,354 H850 A8,8 0 0 1 858,362 V382 A8,8 0 0 1 850,390 H830 A8,8 0 0 1 822,382 V362 A8,8 0 0 1 830,354 Z" />
+        <text x="840" y="378" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#6366F1">E</text>
+        <text x="870" y="370" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Event Bus</text>
+        <text x="870" y="386" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">Message Queue</text>
+        <line x1="822" y1="400" x2="1018" y2="400" stroke="#F1F5F9" stroke-width="1" />
+        <text x="822" y="414" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">Kafka-based async decoupling</text>
+    </g>
+    
+    <path fill="#8B5CF6" d="M48,452 H72 A8,8 0 0 1 80,460 V584 A8,8 0 0 1 72,592 H48 A8,8 0 0 1 40,584 V460 A8,8 0 0 1 48,452 Z" />
+    <text x="60" y="530" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="800" fill="#FFFFFF">03</text>
+    <path fill="#F5F3FF" fill-opacity="0.6" stroke="#C4B5FD" stroke-width="1.5" stroke-dasharray="6 4" d="M108,452 H1034 A12,12 0 0 1 1046,464 V580 A12,12 0 0 1 1034,592 H108 A12,12 0 0 1 96,580 V464 A12,12 0 0 1 108,452 Z" />
+    <text x="571" y="478" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#7C3AED" letter-spacing="1">DATA LAYER · PERSISTENT STORAGE &amp; CAPABILITIES</text>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M122,496 H406 A8,8 0 0 1 414,504 V570 A8,8 0 0 1 406,578 H122 A8,8 0 0 1 114,570 V504 A8,8 0 0 1 122,496 Z" />
+        <path fill="#F5F3FF" d="M134,510 H154 A8,8 0 0 1 162,518 V538 A8,8 0 0 1 154,546 H134 A8,8 0 0 1 126,538 V518 A8,8 0 0 1 134,510 Z" />
+        <text x="144" y="534" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#8B5CF6">R</text>
+        <text x="174" y="526" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Relational DB</text>
+        <text x="174" y="542" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">PostgreSQL</text>
+        <line x1="126" y1="556" x2="398" y2="556" stroke="#F1F5F9" stroke-width="1" />
+        <text x="126" y="570" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">ACID compliant core data storage</text>
+    </g>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M438,496 H722 A8,8 0 0 1 730,504 V570 A8,8 0 0 1 722,578 H438 A8,8 0 0 1 430,570 V504 A8,8 0 0 1 438,496 Z" />
+        <path fill="#F5F3FF" d="M450,510 H470 A8,8 0 0 1 478,518 V538 A8,8 0 0 1 470,546 H450 A8,8 0 0 1 442,538 V518 A8,8 0 0 1 450,510 Z" />
+        <text x="460" y="534" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#8B5CF6">C</text>
+        <text x="490" y="526" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Cache Layer</text>
+        <text x="490" y="542" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">Redis Cluster</text>
+        <line x1="442" y1="556" x2="714" y2="556" stroke="#F1F5F9" stroke-width="1" />
+        <text x="442" y="570" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">Sub-millisecond hot data access</text>
+    </g>
+    
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M754,496 H1022 A8,8 0 0 1 1030,504 V570 A8,8 0 0 1 1022,578 H754 A8,8 0 0 1 746,570 V504 A8,8 0 0 1 754,496 Z" />
+        <path fill="#F5F3FF" d="M766,510 H786 A8,8 0 0 1 794,518 V538 A8,8 0 0 1 786,546 H766 A8,8 0 0 1 758,538 V518 A8,8 0 0 1 766,510 Z" />
+        <text x="776" y="534" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="800" fill="#8B5CF6">O</text>
+        <text x="806" y="526" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A">Object Storage</text>
+        <text x="806" y="542" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#94A3B8">S3 Compatible</text>
+        <line x1="758" y1="556" x2="1014" y2="556" stroke="#F1F5F9" stroke-width="1" />
+        <text x="758" y="570" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" fill="#475569">Scalable unstructured data</text>
+    </g>
+    
+    <path fill="#10B981" d="M1208,140 H1232 A8,8 0 0 1 1240,148 V584 A8,8 0 0 1 1232,592 H1208 A8,8 0 0 1 1200,584 V148 A8,8 0 0 1 1208,140 Z" />
+    <text x="1220" y="374" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="800" fill="#FFFFFF">04</text>
+    <path fill="#ECFDF5" fill-opacity="0.6" stroke="#6EE7B7" stroke-width="1.5" stroke-dasharray="6 4" d="M1078,140 H1178 A12,12 0 0 1 1190,152 V580 A12,12 0 0 1 1178,592 H1078 A12,12 0 0 1 1066,580 V152 A12,12 0 0 1 1078,140 Z" />
+    <text x="1128" y="166" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#059669" letter-spacing="1">OUTPUT</text>
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1" d="M1088,186 H1168 A6,6 0 0 1 1174,192 V218 A6,6 0 0 1 1168,224 H1088 A6,6 0 0 1 1082,218 V192 A6,6 0 0 1 1088,186 Z" />
+        <text x="1128" y="210" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#065F46">Unified Portal</text>
+    </g>
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1" d="M1088,252 H1168 A6,6 0 0 1 1174,258 V284 A6,6 0 0 1 1168,290 H1088 A6,6 0 0 1 1082,284 V258 A6,6 0 0 1 1088,252 Z" />
+        <text x="1128" y="276" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#065F46">Open SDK</text>
+    </g>
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1" d="M1088,318 H1168 A6,6 0 0 1 1174,324 V350 A6,6 0 0 1 1168,356 H1088 A6,6 0 0 1 1082,350 V324 A6,6 0 0 1 1088,318 Z" />
+        <text x="1128" y="342" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#065F46">Ops Console</text>
+    </g>
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1" d="M1088,384 H1168 A6,6 0 0 1 1174,390 V416 A6,6 0 0 1 1168,422 H1088 A6,6 0 0 1 1082,416 V390 A6,6 0 0 1 1088,384 Z" />
+        <text x="1128" y="408" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#065F46">Data Market</text>
+    </g>
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1" d="M1088,450 H1168 A6,6 0 0 1 1174,456 V482 A6,6 0 0 1 1168,488 H1088 A6,6 0 0 1 1082,482 V456 A6,6 0 0 1 1088,450 Z" />
+        <text x="1128" y="474" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#065F46">Webhooks</text>
+    </g>
+    <g filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#A7F3D0" stroke-width="1" d="M1088,516 H1168 A6,6 0 0 1 1174,522 V548 A6,6 0 0 1 1168,554 H1088 A6,6 0 0 1 1082,548 V522 A6,6 0 0 1 1088,516 Z" />
+        <text x="1128" y="540" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#065F46">Partner API</text>
+    </g>
+    
+    <path fill="#64748B" d="M48,608 H72 A8,8 0 0 1 80,616 V680 A8,8 0 0 1 72,688 H48 A8,8 0 0 1 40,680 V616 A8,8 0 0 1 48,608 Z" />
+    <text x="60" y="654" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22" font-weight="800" fill="#FFFFFF">05</text>
+    <path fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" stroke-dasharray="6 4" d="M108,608 H1228 A12,12 0 0 1 1240,620 V676 A12,12 0 0 1 1228,688 H108 A12,12 0 0 1 96,676 V620 A12,12 0 0 1 108,608 Z" />
+    <text x="668" y="630" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#475569" letter-spacing="1">FOUNDATION · CROSS-CUTTING SHARED CAPABILITIES</text>
+    
+    <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M122,640 H254 A6,6 0 0 1 260,646 V668 A6,6 0 0 1 254,674 H122 A6,6 0 0 1 116,668 V646 A6,6 0 0 1 122,640 Z" />
+    <text x="188" y="662" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#334155">Log Aggregation</text>
+    <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M278,640 H410 A6,6 0 0 1 416,646 V668 A6,6 0 0 1 410,674 H278 A6,6 0 0 1 272,668 V646 A6,6 0 0 1 278,640 Z" />
+    <text x="344" y="662" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#334155">Metrics &amp; Alarms</text>
+    <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M434,640 H566 A6,6 0 0 1 572,646 V668 A6,6 0 0 1 566,674 H434 A6,6 0 0 1 428,668 V646 A6,6 0 0 1 434,640 Z" />
+    <text x="500" y="662" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#334155">Distributed Tracing</text>
+    <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M590,640 H722 A6,6 0 0 1 728,646 V668 A6,6 0 0 1 722,674 H590 A6,6 0 0 1 584,668 V646 A6,6 0 0 1 590,640 Z" />
+    <text x="656" y="662" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#334155">Config Center</text>
+    <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M746,640 H878 A6,6 0 0 1 884,646 V668 A6,6 0 0 1 878,674 H746 A6,6 0 0 1 740,668 V646 A6,6 0 0 1 746,640 Z" />
+    <text x="812" y="662" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#334155">CI / CD Pipeline</text>
+    <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M902,640 H1034 A6,6 0 0 1 1040,646 V668 A6,6 0 0 1 1034,674 H902 A6,6 0 0 1 896,668 V646 A6,6 0 0 1 902,640 Z" />
+    <text x="968" y="662" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#334155">Security &amp; Audit</text>
+    <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" d="M1058,640 H1190 A6,6 0 0 1 1196,646 V668 A6,6 0 0 1 1190,674 H1058 A6,6 0 0 1 1052,668 V646 A6,6 0 0 1 1058,640 Z" />
+    <text x="1124" y="662" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#334155">Resource Mgt</text>
+</svg>

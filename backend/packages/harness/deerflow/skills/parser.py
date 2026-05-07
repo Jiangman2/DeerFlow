@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+import yaml
+
 from .types import Skill
 
 
@@ -20,38 +22,40 @@ def parse_skill_file(skill_file: Path, category: str, relative_path: Path | None
 
     try:
         content = skill_file.read_text(encoding="utf-8")
+        # Be tolerant of UTF-8 BOM from editors on Windows.
+        if content.startswith("\ufeff"):
+            content = content.lstrip("\ufeff")
 
         # Extract YAML front matter
-        # Pattern: ---\nkey: value\n---
-        front_matter_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
+        # Pattern: --- ... --- (accept both \n and \r\n line endings)
+        front_matter_match = re.match(r"^---\s*\r?\n(.*?)\r?\n---\s*\r?\n", content, re.DOTALL)
 
         if not front_matter_match:
             return None
 
         front_matter = front_matter_match.group(1)
 
-        # Parse YAML front matter (simple key-value parsing)
-        metadata = {}
-        for line in front_matter.split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            if ":" in line:
-                key, value = line.split(":", 1)
-                metadata[key.strip()] = value.strip()
+        # Parse YAML front matter with full YAML support (multiline strings, folded style, etc.)
+        metadata = yaml.safe_load(front_matter)
+        if not isinstance(metadata, dict):
+            return None
 
         # Extract required fields
         name = metadata.get("name")
         description = metadata.get("description")
 
-        if not name or not description:
+        if not isinstance(name, str) or not name.strip():
+            return None
+        if not isinstance(description, str) or not description.strip():
             return None
 
         license_text = metadata.get("license")
+        if license_text is not None and not isinstance(license_text, str):
+            license_text = str(license_text)
 
         return Skill(
-            name=name,
-            description=description,
+            name=name.strip(),
+            description=description.strip(),
             license=license_text,
             skill_dir=skill_file.parent,
             skill_file=skill_file,

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1280 720">
+  <image x="0" y="0" width="1280" height="720" href="chapter_bg_155057_clean.png" xlink:href="chapter_bg_155057_clean.png"/>
+  <rect x="0" y="0" width="1280" height="720" fill="#FFFFFF" fill-opacity="0.04"/>
+  <text x="640" y="322" text-anchor="middle" fill="#004C8B" font-size="148" font-family="Arial" font-weight="700">{{CHAPTER_NUM}}</text>
+  <line x1="418" y1="382" x2="578" y2="382" stroke="#0074CC" stroke-width="4"/>
+  <line x1="578" y1="382" x2="702" y2="382" stroke="#DE002B" stroke-width="4"/>
+  <line x1="702" y1="382" x2="862" y2="382" stroke="#0074CC" stroke-width="4"/>
+  <text x="640" y="498" text-anchor="middle" fill="#004C8B" font-size="80" font-family="Microsoft YaHei" font-weight="700">{{CHAPTER_TITLE}}</text>
+</svg>

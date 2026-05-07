@@ -263,17 +263,53 @@ export function upsertSsoUser(input: SsoUserInput) {
 
   const db = openDb();
   ensurePlatformTables(db);
-  db.prepare(
-    `
-    INSERT INTO user(id, name, email, emailVerified, image, createdAt, updatedAt)
-    VALUES(?, ?, ?, 1, NULL, datetime('now'), datetime('now'))
-    ON CONFLICT(id) DO UPDATE SET
-      name=excluded.name,
-      email=excluded.email,
-      emailVerified=1,
-      updatedAt=datetime('now')
-    `,
-  ).run(id, name, email);
+
+  db.exec("BEGIN");
+  try {
+    const byId = db
+      .prepare("SELECT id FROM user WHERE id = ? LIMIT 1")
+      .get(id) as { id?: string } | undefined;
+
+    if (byId?.id) {
+      db.prepare(
+        `
+        UPDATE user
+        SET name = ?, email = ?, emailVerified = 1, updatedAt = datetime('now')
+        WHERE id = ?
+        `,
+      ).run(name, email, byId.id);
+      db.exec("COMMIT");
+      return byId.id;
+    }
+
+    const byEmail = db
+      .prepare("SELECT id FROM user WHERE lower(email) = ? LIMIT 1")
+      .get(email) as { id?: string } | undefined;
+
+    if (byEmail?.id) {
+      db.prepare(
+        `
+        UPDATE user
+        SET name = ?, email = ?, emailVerified = 1, updatedAt = datetime('now')
+        WHERE id = ?
+        `,
+      ).run(name, email, byEmail.id);
+      db.exec("COMMIT");
+      return byEmail.id;
+    }
+
+    db.prepare(
+      `
+      INSERT INTO user(id, name, email, emailVerified, image, createdAt, updatedAt)
+      VALUES(?, ?, ?, 1, NULL, datetime('now'), datetime('now'))
+      `,
+    ).run(id, name, email);
+    db.exec("COMMIT");
+    return id;
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 
 export function createSsoSession(userId: string): CreatedSsoSession {

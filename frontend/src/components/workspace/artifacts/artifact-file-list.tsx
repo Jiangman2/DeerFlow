@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { urlOfArtifact } from "@/core/artifacts/utils";
+import { findPreviewPdfPath, urlOfArtifact } from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
 import { installSkill } from "@/core/skills/api";
 import {
@@ -37,10 +37,11 @@ export function ArtifactFileList({
 
   const handleClick = useCallback(
     (filepath: string) => {
-      selectArtifact(filepath);
+      const previewPath = findPreviewPdfPath(filepath, files);
+      selectArtifact(previewPath ?? filepath);
       setOpen(true);
     },
-    [selectArtifact, setOpen],
+    [files, selectArtifact, setOpen],
   );
 
   const handleInstallSkill = useCallback(

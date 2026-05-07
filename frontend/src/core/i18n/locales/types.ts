@@ -1,4 +1,12 @@
-import type { LucideIcon } from "lucide-react";
+export type SuggestionIconName =
+  | "penLine"
+  | "microscope"
+  | "shapes"
+  | "graduationCap"
+  | "compass"
+  | "image"
+  | "video"
+  | "sparkles";
 
 export interface Translations {
   // Locale meta
@@ -109,13 +117,13 @@ export interface Translations {
     suggestions: {
       suggestion: string;
       prompt: string;
-      icon: LucideIcon;
+      icon: SuggestionIconName;
     }[];
     suggestionsCreate: (
       | {
           suggestion: string;
           prompt: string;
-          icon: LucideIcon;
+          icon: SuggestionIconName;
         }
       | {
           type: "separator";

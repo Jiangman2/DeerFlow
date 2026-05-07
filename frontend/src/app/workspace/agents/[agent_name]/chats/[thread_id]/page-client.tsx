@@ -37,20 +37,36 @@ function isThreadNotFound(error: unknown): boolean {
   return msg.includes("HTTP 404") && msg.includes("Thread with ID");
 }
 
+function decodeAgentName(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+const AGENT_AUTO_OPEN_QUERY: Record<string, string> = {
+  勘探开发图文智能检索工具: "打开 勘探开发图文智能检索工具",
+  科研报告自动生产智能体: "打开 科研报告自动生产智能体",
+  油气专业文档智能审查工具: "打开 油气专业文档智能审查工具",
+  源头采集自动化工具: "打开 源头采集自动化工具",
+};
+
 export default function AgentChatPageClient() {
   const { t } = useI18n();
   const [settings, setSettings] = useLocalSettings();
   const router = useRouter();
 
   const { agent_name } = useParams<{ agent_name: string }>();
-  const { agent } = useAgent(agent_name);
+  const resolvedAgentName = decodeAgentName(agent_name);
+  const { agent } = useAgent(resolvedAgentName);
 
   const { threadId, isNewThread, setThreadId, setIsNewThread } = useThreadChat();
 
   const { showNotification } = useNotification();
   const [thread, sendMessage] = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
-    context: { ...settings.context, agent_name: agent_name },
+    context: { ...settings.context, agent_name: resolvedAgentName },
     onStart: (id) => {
       void fetch("/api/threads", {
         method: "POST",
@@ -79,6 +95,7 @@ export default function AgentChatPageClient() {
   });
 
   const missingHandledRef = useRef(false);
+  const autoBootstrapSentRef = useRef(false);
   useEffect(() => {
     if (missingHandledRef.current) return;
     if (isNewThread) return;
@@ -88,13 +105,23 @@ export default function AgentChatPageClient() {
     missingHandledRef.current = true;
     toast.message("正在恢复对话历史，请稍后重试。");
     window.location.reload();
-  }, [agent_name, isNewThread, thread.error, threadId]);
+  }, [resolvedAgentName, isNewThread, thread.error, threadId]);
+
+  useEffect(() => {
+    if (autoBootstrapSentRef.current) return;
+    if (!isNewThread) return;
+    if (thread.isLoading) return;
+    const autoQuery = AGENT_AUTO_OPEN_QUERY[resolvedAgentName];
+    if (!autoQuery) return;
+    autoBootstrapSentRef.current = true;
+    void sendMessage(threadId, { text: autoQuery, files: [] }, { agent_name: resolvedAgentName });
+  }, [resolvedAgentName, isNewThread, thread.isLoading, threadId, sendMessage]);
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      void sendMessage(threadId, message, { agent_name });
+      void sendMessage(threadId, message, { agent_name: resolvedAgentName });
     },
-    [sendMessage, threadId, agent_name],
+    [sendMessage, threadId, resolvedAgentName],
   );
 
   const handleStop = useCallback(async () => {
@@ -112,7 +139,7 @@ export default function AgentChatPageClient() {
           >
             <div className="flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1">
               <BotIcon className="text-primary h-3.5 w-3.5" />
-              <span className="text-xs font-medium">{agent?.name ?? agent_name}</span>
+              <span className="text-xs font-medium">{agent?.name ?? resolvedAgentName}</span>
             </div>
 
             <div className="flex w-full items-center text-sm font-medium">
@@ -125,7 +152,7 @@ export default function AgentChatPageClient() {
                   variant="secondary"
                   onClick={() => {
                     router.push(
-                      `/workspace/agents/${agent_name}/chats/new?ts=${Date.now()}`,
+                      `/workspace/agents/${encodeURIComponent(resolvedAgentName)}/chats/new?ts=${Date.now()}`,
                     );
                   }}
                 >
@@ -174,7 +201,7 @@ export default function AgentChatPageClient() {
                   status={thread.error ? "error" : thread.isLoading ? "streaming" : "ready"}
                   context={settings.context}
                   extraHeader={
-                    isNewThread && <AgentWelcome agent={agent} agentName={agent_name} />
+                    isNewThread && <AgentWelcome agent={agent} agentName={resolvedAgentName} />
                   }
                   disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true"}
                   onContextChange={(context) => setSettings("context", context)}

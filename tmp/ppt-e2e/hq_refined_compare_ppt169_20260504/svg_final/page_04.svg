@@ -1,0 +1,144 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+    
+    <defs id="_edit_0">
+        
+        <linearGradient id="quadrant1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ECFDF5;stop-opacity:1" id="_edit_1" /> 
+            <stop offset="100%" style="stop-color:#D1FAE5;stop-opacity:1" id="_edit_2" /> 
+        </linearGradient>
+        <linearGradient id="quadrant2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#FFFBEB;stop-opacity:1" id="_edit_3" /> 
+            <stop offset="100%" style="stop-color:#FEF3C7;stop-opacity:1" id="_edit_4" /> 
+        </linearGradient>
+        <linearGradient id="quadrant3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#FFF1F2;stop-opacity:1" id="_edit_5" /> 
+            <stop offset="100%" style="stop-color:#FFE4E6;stop-opacity:1" id="_edit_6" /> 
+        </linearGradient>
+        <linearGradient id="quadrant4" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#EFF6FF;stop-opacity:1" id="_edit_7" /> 
+            <stop offset="100%" style="stop-color:#DBEAFE;stop-opacity:1" id="_edit_8" /> 
+        </linearGradient>
+        
+        <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="130%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="4" id="_edit_9" />
+            <feOffset dx="0" dy="2" result="offsetblur" id="_edit_10" />
+            <feFlood flood-color="#0F172A" flood-opacity="0.1" result="shadowColor" id="_edit_11" />
+            <feComposite in="shadowColor" in2="offsetblur" operator="in" result="shadow" id="_edit_12" />
+            <feMerge id="_edit_13"><feMergeNode in="shadow" id="_edit_14" /><feMergeNode in="SourceGraphic" id="_edit_15" /></feMerge>
+        </filter>
+        
+        <marker id="arrowX" markerWidth="14" markerHeight="14" refX="12" refY="7" orient="auto">
+            <path d="M 2,2 L 12,7 L 2,12 Z" fill="#0F172A" id="_edit_16" />
+        </marker>
+        <marker id="arrowY" markerWidth="14" markerHeight="14" refX="7" refY="2" orient="auto">
+            <path d="M 2,12 L 7,2 L 12,12 Z" fill="#0F172A" id="_edit_17" />
+        </marker>
+    </defs>
+    
+    <rect width="1280" height="720" fill="#F8FAFC" id="_edit_18" />
+    
+    <text x="60" y="70" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="38" font-weight="900" fill="#0F172A" letter-spacing="-0.5" id="_edit_19">建设优先级矩阵（精修）</text>
+    <text x="60" y="100" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="600" fill="#64748B" letter-spacing="1" id="_edit_20">价值影响 VS 实施复杂度 · 建设排序</text>
+    <text x="60" y="125" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="500" fill="#94A3B8" id="_edit_21">纵轴价值影响，横轴实施复杂度，气泡大小代表资源消耗</text>
+    
+    <g id="matrixArea">
+        
+        
+        <path fill="url(#quadrant1)" stroke="#FFFFFF" stroke-width="4" id="_edit_22" d="M569,170 H1041 A4,4 0 0 1 1045,174 V406 A4,4 0 0 1 1041,410 H569 A4,4 0 0 1 565,406 V174 A4,4 0 0 1 569,170 Z" />
+        
+        <path fill="url(#quadrant2)" stroke="#FFFFFF" stroke-width="4" id="_edit_23" d="M89,170 H561 A4,4 0 0 1 565,174 V406 A4,4 0 0 1 561,410 H89 A4,4 0 0 1 85,406 V174 A4,4 0 0 1 89,170 Z" />
+        
+        <path fill="url(#quadrant3)" stroke="#FFFFFF" stroke-width="4" id="_edit_24" d="M89,410 H561 A4,4 0 0 1 565,414 V646 A4,4 0 0 1 561,650 H89 A4,4 0 0 1 85,646 V414 A4,4 0 0 1 89,410 Z" />
+        
+        <path fill="url(#quadrant4)" stroke="#FFFFFF" stroke-width="4" id="_edit_25" d="M569,410 H1041 A4,4 0 0 1 1045,414 V646 A4,4 0 0 1 1041,650 H569 A4,4 0 0 1 565,646 V414 A4,4 0 0 1 569,410 Z" />
+        
+        <line x1="85" y1="410" x2="1055" y2="410" stroke="#0F172A" stroke-width="3" marker-end="url(#arrowX)" id="_edit_26" />
+        <line x1="565" y1="160" x2="565" y2="650" stroke="#0F172A" stroke-width="3" marker-start="url(#arrowY)" id="_edit_27" />
+        
+        <text x="565" y="685" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A" text-anchor="middle" id="_edit_28">Implementation Effort</text>
+        <text x="220" y="685" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="600" fill="#64748B" text-anchor="middle" id="_edit_29">Low</text>
+        <text x="910" y="685" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="600" fill="#64748B" text-anchor="middle" id="_edit_30">High</text>
+        
+        <text x="40" y="410" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A" text-anchor="middle" transform="rotate(-90, 40, 410)" id="_edit_31">Business Impact</text>
+        <text x="60" y="640" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="600" fill="#64748B" text-anchor="end" id="_edit_32">Low</text>
+        <text x="60" y="180" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="600" fill="#64748B" text-anchor="end" id="_edit_33">High</text>
+        
+        
+        <text x="110" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#047857" id="_edit_34">高价值快赢</text>
+        <text x="110" y="225" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#059669" letter-spacing="1" id="_edit_35">HIGH IMPACT · LOW EFFORT</text>
+        
+        <text x="590" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#1D4ED8" id="_edit_36">战略型项目</text>
+        <text x="590" y="225" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#2563EB" letter-spacing="1" id="_edit_37">HIGH IMPACT · HIGH EFFORT</text>
+        
+        <text x="110" y="615" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#B45309" id="_edit_38">机会型补充</text>
+        <text x="110" y="635" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#D97706" letter-spacing="1" id="_edit_39">LOW IMPACT · LOW EFFORT</text>
+        
+        <text x="590" y="615" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="800" fill="#BE123C" id="_edit_40">低收益事项</text>
+        <text x="590" y="635" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="700" fill="#E11D48" letter-spacing="1" id="_edit_41">LOW IMPACT · HIGH EFFORT</text>
+        
+        
+        <g filter="url(#cardShadow)" id="_edit_42">
+            <circle cx="879" cy="247" r="55" fill="#3B82F6" opacity="0.95" id="_edit_43" />
+            <text x="879" y="243" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle" id="_edit_44">Feature A</text>
+            <text x="879" y="261" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle" id="_edit_45">Score: 92</text>
+        </g>
+        
+        <g filter="url(#cardShadow)" id="_edit_46">
+            <circle cx="935" cy="544" r="70" fill="#F43F5E" opacity="0.95" id="_edit_47" />
+            <text x="935" y="540" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="18" font-weight="700" fill="#FFFFFF" text-anchor="middle" id="_edit_48">Feature B</text>
+            <text x="935" y="560" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="600" fill="#FFFFFF" text-anchor="middle" id="_edit_49">Score: 35</text>
+        </g>
+        
+        <g filter="url(#cardShadow)" id="_edit_50">
+            <circle cx="269" cy="228" r="42" fill="#10B981" opacity="0.95" id="_edit_51" />
+            <text x="269" y="225" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle" id="_edit_52">Feature C</text>
+            <text x="269" y="243" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle" id="_edit_53">Score: 88</text>
+        </g>
+        
+        <g filter="url(#cardShadow)" id="_edit_54">
+            <circle cx="325" cy="309" r="38" fill="#10B981" opacity="0.95" id="_edit_55" />
+            <text x="325" y="306" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle" id="_edit_56">Feature D</text>
+            <text x="325" y="323" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle" id="_edit_57">Score: 75</text>
+        </g>
+        
+        <g filter="url(#cardShadow)" id="_edit_58">
+            <circle cx="195" cy="573" r="30" fill="#F59E0B" opacity="0.95" id="_edit_59" />
+            <text x="195" y="571" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="700" fill="#FFFFFF" text-anchor="middle" id="_edit_60">Feature E</text>
+            <text x="195" y="587" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#FFFFFF" text-anchor="middle" id="_edit_61">Score: 40</text>
+        </g>
+        
+        <g filter="url(#cardShadow)" id="_edit_62">
+            <circle cx="741" cy="506" r="45" fill="#F43F5E" opacity="0.95" id="_edit_63" />
+            <text x="741" y="503" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle" id="_edit_64">Feature F</text>
+            <text x="741" y="521" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle" id="_edit_65">Score: 28</text>
+        </g>
+        
+        <g filter="url(#cardShadow)" id="_edit_66">
+            <circle cx="695" cy="285" r="40" fill="#3B82F6" opacity="0.95" id="_edit_67" />
+            <text x="695" y="282" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#FFFFFF" text-anchor="middle" id="_edit_68">Feature G</text>
+            <text x="695" y="299" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#FFFFFF" text-anchor="middle" id="_edit_69">Score: 82</text>
+        </g>
+    </g>
+    
+    <g id="strategicRecommendations" filter="url(#cardShadow)">
+        <path fill="#FFFFFF" stroke="#E2E8F0" stroke-width="1" id="_edit_70" d="M1082,170 H1223 A12,12 0 0 1 1235,182 V408 A12,12 0 0 1 1223,420 H1082 A12,12 0 0 1 1070,408 V182 A12,12 0 0 1 1082,170 Z" />
+        <text x="1152" y="205" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="15" font-weight="700" fill="#0F172A" text-anchor="middle" id="_edit_71">执行策略</text>
+        <line x1="1085" y1="220" x2="1220" y2="220" stroke="#F1F5F9" stroke-width="2" id="_edit_72" />
+        
+        <circle cx="1090" cy="245" r="6" fill="#10B981" id="_edit_73" />
+        <text x="1105" y="250" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#047857" id="_edit_74">高价值快赢: DO</text>
+        
+        <circle cx="1090" cy="285" r="6" fill="#3B82F6" id="_edit_75" />
+        <text x="1105" y="290" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#1D4ED8" id="_edit_76">战略项：分期落地</text>
+        
+        <circle cx="1090" cy="325" r="6" fill="#F59E0B" id="_edit_77" />
+        <text x="1105" y="330" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#B45309" id="_edit_78">机会型补充: DELEGATE</text>
+        
+        <circle cx="1090" cy="365" r="6" fill="#F43F5E" id="_edit_79" />
+        <text x="1105" y="370" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#BE123C" id="_edit_80">低收益：暂缓投入</text>
+        <text x="1152" y="405" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#94A3B8" text-anchor="middle" id="_edit_81">Bubble Size = Cost</text>
+    </g>
+    
+    <text x="60" y="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="13" font-weight="500" fill="#94A3B8" id="_edit_82">Source: 业务访谈、价值评估与架构评审</text>
+</svg>

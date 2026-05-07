@@ -1,0 +1,7 @@
+FROM deer-flow-backend:prebuilt
+
+WORKDIR /app
+
+# Overlay latest backend source without rebuilding base system deps.
+COPY backend /app/backend
+COPY extensions_config.json /app/extensions_config.json

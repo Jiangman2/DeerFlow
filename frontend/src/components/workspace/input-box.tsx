@@ -3,15 +3,22 @@
 import type { ChatStatus } from "ai";
 import {
   CheckIcon,
+  CompassIcon,
   GraduationCapIcon,
+  ImageIcon,
   LightbulbIcon,
+  MicroscopeIcon,
   PaperclipIcon,
+  PenLineIcon,
   PlusIcon,
+  ShapesIcon,
   SparklesIcon,
   RocketIcon,
   XIcon,
+  VideoIcon,
   ZapIcon,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -56,6 +63,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useI18n } from "@/core/i18n/hooks";
+import type { SuggestionIconName } from "@/core/i18n/locales/types";
 import { useModels } from "@/core/models/hooks";
 import type { AgentThreadContext } from "@/core/threads";
 import { textOfMessage } from "@/core/threads/utils";
@@ -831,6 +839,16 @@ export function InputBox({
 function SuggestionList() {
   const { t } = useI18n();
   const { textInput } = usePromptInputController();
+  const iconMap: Record<SuggestionIconName, LucideIcon> = {
+    penLine: PenLineIcon,
+    microscope: MicroscopeIcon,
+    shapes: ShapesIcon,
+    graduationCap: GraduationCapIcon,
+    compass: CompassIcon,
+    image: ImageIcon,
+    video: VideoIcon,
+    sparkles: SparklesIcon,
+  };
   const handleSuggestionClick = useCallback(
     (prompt: string | undefined) => {
       if (!prompt) return;
@@ -864,14 +882,14 @@ function SuggestionList() {
       {t.inputBox.suggestions.map((suggestion) => (
         <Suggestion
           key={suggestion.suggestion}
-          icon={suggestion.icon}
+          icon={iconMap[suggestion.icon]}
           suggestion={suggestion.suggestion}
           onClick={() => handleSuggestionClick(suggestion.prompt)}
         />
       ))}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Suggestion icon={PlusIcon} suggestion={t.common.create} />
+          <Suggestion icon={PlusIcon} suggestion={t.common.more} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuGroup>
@@ -884,7 +902,10 @@ function SuggestionList() {
                     key={suggestion.suggestion}
                     onClick={() => handleSuggestionClick(suggestion.prompt)}
                   >
-                    {suggestion.icon && <suggestion.icon className="size-4" />}
+                    {suggestion.icon && (() => {
+                      const Icon = iconMap[suggestion.icon];
+                      return <Icon className="size-4" />;
+                    })()}
                     {suggestion.suggestion}
                   </DropdownMenuItem>
                 )

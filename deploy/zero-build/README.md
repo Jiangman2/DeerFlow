@@ -1,5 +1,25 @@
 # DeerFlow 零构建迁移（容器）
 
+> **已废弃（Deprecated）**
+>
+> 本目录依赖 legacy `:prebuilt` 镜像标签和 `docker-compose.prebuilt.yaml`，
+> 与当前标准部署入口 `docker/docker-compose.yaml` 不一致，容易误用。
+> 请不要再使用本目录脚本。
+>
+> 请改用下面标准流程：
+>
+> ```bash
+> docker compose -f docker/docker-compose.yaml --env-file .env build gateway langgraph frontend
+> docker save -o deer-flow-images-<timestamp>.tar docker-gateway docker-langgraph docker-frontend nginx:alpine minio/minio:latest minio/mc:latest
+> ```
+>
+> 服务器启动：
+>
+> ```bash
+> docker load -i deer-flow-images-<timestamp>.tar
+> docker compose -f docker/docker-compose.yaml --env-file .env up -d
+> ```
+
 ## 目标
 在一台可联网并安装 Docker 的“构建机”上生成离线部署包；在公司内网 Ubuntu 服务器上仅执行解压 + 启动命令即可运行 DeerFlow。
 
@@ -39,4 +59,3 @@ sudo ./deploy/zero-build/server_up.sh
 
 访问：
 - `http://server-ip:2026`（默认）
-

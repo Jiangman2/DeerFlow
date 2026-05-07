@@ -1,14 +1,3 @@
-import {
-  CompassIcon,
-  GraduationCapIcon,
-  ImageIcon,
-  MicroscopeIcon,
-  PenLineIcon,
-  ShapesIcon,
-  SparklesIcon,
-  VideoIcon,
-} from "lucide-react";
-
 import type { Translations } from "./types";
 
 export const zhCN: Translations = {
@@ -56,7 +45,7 @@ export const zhCN: Translations = {
     greeting: "你好，欢迎回来！",
     greetingWithName: "你好，{name}，欢迎回来！",
     description:
-      "欢迎使用中海油智能体应用平台，一个面向油气业务的智能研究与协同作业平台。通过内置和自定义的 Skills，\n平台可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n图片、视频、播客及网页等产物，辅助完成复杂任务。",
+      "欢迎使用中海油智能体应用平台，一个面向油气业务的企业级通用智能体研究应用平台。\n平台联通勘探开发数据湖平台、内置记忆和专业研究Skills。\n平台可以帮你调研分析、分析数据、PPT编制，还能为你生产图片、视频及网页等产物，辅助完成复杂任务。",
 
     createYourOwnSkill: "创建你自己的 Agent SKill",
     createYourOwnSkillDescription:
@@ -119,7 +108,7 @@ export const zhCN: Translations = {
     reasoningEffortHighDescription: "全维度逻辑推演 + 多路径验证 + 反推校验",
     searchModels: "搜索模型...",
     surpriseMe: "小惊喜",
-    surpriseMePrompt: "给我一个小惊喜吧",
+    surpriseMePrompt: "给我一个油气业务场景的小惊喜。",
     followupLoading: "正在生成可能的后续问题...",
     followupConfirmTitle: "发送建议问题？",
     followupConfirmDescription: "当前输入框已有内容，选择发送方式。",
@@ -127,41 +116,41 @@ export const zhCN: Translations = {
     followupConfirmReplace: "替换并发送",
     suggestions: [
       {
-        suggestion: "写作",
-        prompt: "撰写一篇关于[主题]的博客文章",
-        icon: PenLineIcon,
+        suggestion: "深度研究",
+        prompt: "请围绕[主题]开展一次深度研究，并给出结构化结论、关键证据与行动建议。",
+        icon: "microscope",
       },
       {
-        suggestion: "研究",
-        prompt: "深入浅出的研究一下[主题]，并总结发现。",
-        icon: MicroscopeIcon,
+        suggestion: "数据分析",
+        prompt: "请对[数据/主题]进行数据分析，输出关键指标、趋势洞察和可视化建议。",
+        icon: "shapes",
       },
       {
-        suggestion: "收集",
-        prompt: "从[来源]收集数据并创建报告。",
-        icon: ShapesIcon,
+        suggestion: "报告生成",
+        prompt: "请基于[主题/资料]生成一份正式报告，包含背景、分析、结论与建议。",
+        icon: "penLine",
       },
       {
-        suggestion: "学习",
-        prompt: "学习关于[主题]并创建教程。",
-        icon: GraduationCapIcon,
+        suggestion: "幻灯片制作",
+        prompt: "请围绕[主题]制作一套用于汇报的幻灯片大纲，并给出每页要点。",
+        icon: "graduationCap",
       },
     ],
     suggestionsCreate: [
       {
         suggestion: "网页",
         prompt: "生成一个关于[主题]的网页",
-        icon: CompassIcon,
+        icon: "compass",
       },
       {
         suggestion: "图片",
         prompt: "生成一个关于[主题]的图片",
-        icon: ImageIcon,
+        icon: "image",
       },
       {
         suggestion: "视频",
         prompt: "生成一个关于[主题]的视频",
-        icon: VideoIcon,
+        icon: "video",
       },
       {
         type: "separator",
@@ -170,7 +159,7 @@ export const zhCN: Translations = {
         suggestion: "技能",
         prompt:
           "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
-        icon: SparklesIcon,
+        icon: "sparkles",
       },
     ],
   },
@@ -210,10 +199,10 @@ export const zhCN: Translations = {
     createPageSubtitle: "描述你想要的智能体，我来帮你通过对话创建。",
     nameStepTitle: "给新智能体起个名字",
     nameStepHint:
-      "只允许字母、数字和连字符，存储时自动转为小写（例如 code-reviewer）",
-    nameStepPlaceholder: "例如 code-reviewer",
+      "只允许中文、字母、数字和连字符，存储时自动转为小写（例如 月报助手 或 code-reviewer）",
+    nameStepPlaceholder: "例如 月报助手",
     nameStepContinue: "继续",
-    nameStepInvalidError: "名称无效，只允许字母、数字和连字符",
+    nameStepInvalidError: "名称无效，只允许中文、字母、数字和连字符",
     nameStepAlreadyExistsError: "已存在同名智能体",
     nameStepCheckError: "无法验证名称可用性，请稍后重试",
     builderModelLabel: "构建模型",

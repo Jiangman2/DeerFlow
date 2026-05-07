@@ -28,28 +28,13 @@ export const aboutMarkdown = `# 关于中海油智能体应用平台
 
 ---
 
-## 📜 License
+## 📜 许可证
 
-开源底座遵循 **MIT License**。
+开源底座遵循 **MIT 许可证**。
 
 ---
 
-## 🙌 Acknowledgments
+## 🙌 致谢
 
-We extend our heartfelt gratitude to the open source projects and contributors who have made this platform possible.
-
-### Core Frameworks
-- **[LangChain](https://github.com/langchain-ai/langchain)**: A phenomenal framework that powers our LLM interactions and chains.
-- **[LangGraph](https://github.com/langchain-ai/langgraph)**: Enabling sophisticated multi-agent orchestration.
-- **[Next.js](https://nextjs.org/)**: A cutting-edge framework for building web applications.
-
-### UI Libraries
-- **[Shadcn](https://ui.shadcn.com/)**: Minimalistic components that power our UI.
-- **[SToneX](https://github.com/stonexer)**: For his invaluable contribution to token-by-token visual effects.
-
-These outstanding projects form the backbone of this platform and exemplify the transformative power of open source collaboration.
-
-### Special Thanks
-- **[Daniel Walnut](https://github.com/hetaoBackend/)**
-- **[Henry Li](https://github.com/magiccube/)**
+感谢中海油研究总院数智研究院技术团队对平台建设与落地的专业支持。
 `;

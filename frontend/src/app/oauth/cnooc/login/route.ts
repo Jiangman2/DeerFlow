@@ -70,13 +70,13 @@ export async function GET(request: Request) {
 
   try {
     const checked = await checkCnoocToken(token);
-    upsertSsoUser({
+    const userId = upsertSsoUser({
       id: checked.user.deerflowUserId,
       name: checked.user.name,
       email: checked.user.email,
     });
 
-    const session = createSsoSession(checked.user.deerflowUserId);
+    const session = createSsoSession(userId);
     const redirectUrl = buildCnoocLoginRedirectUrl(request.url);
     const response = NextResponse.redirect(redirectUrl);
     response.cookies.set(

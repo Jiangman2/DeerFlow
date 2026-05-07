@@ -131,10 +131,15 @@ export function extractTextFromMessage(message: Message) {
     return splitInlineReasoningFromAIMessage(message)?.content ?? message.content.trim();
   }
   if (Array.isArray(message.content)) {
-    return message.content
-      .map((content) => (content.type === "text" ? content.text : ""))
-      .join("\n")
-      .trim();
+    const textParts = message.content
+      .filter((content) => content.type === "text")
+      .map((content) => content.text ?? "");
+    const nonTextCount = message.content.length - textParts.length;
+
+    // Some providers stream token-level text chunks as content[].
+    // Joining with newlines causes one-character-per-line rendering.
+    const glue = nonTextCount === 0 ? "" : "\n";
+    return textParts.join(glue).trim();
   }
   return "";
 }
@@ -171,6 +176,14 @@ export function extractContentFromMessage(message: Message) {
     return splitInlineReasoningFromAIMessage(message)?.content ?? message.content.trim();
   }
   if (Array.isArray(message.content)) {
+    const onlyText = message.content.every((content) => content.type === "text");
+    if (onlyText) {
+      return message.content
+        .map((content) => (content.type === "text" ? (content.text ?? "") : ""))
+        .join("")
+        .trim();
+    }
+
     return message.content
       .map((content) => {
         switch (content.type) {

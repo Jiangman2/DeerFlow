@@ -17,6 +17,19 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["artifacts"])
 
+_FORCE_BINARY_SUFFIXES = {
+    ".pdf",
+    ".ppt",
+    ".pptx",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".zip",
+    ".rar",
+    ".7z",
+}
+
 
 def _db_path() -> Path:
     base = os.getenv("DEER_FLOW_HOME") or os.path.join(Path.home(), ".deer-flow")
@@ -210,13 +223,27 @@ async def get_artifact(thread_id: str, path: str, request: Request) -> Response:
     if request.query_params.get("download"):
         return FileResponse(path=actual_path, filename=actual_path.name, media_type=mime_type, headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"})
 
+    # Some binary files may be misdetected as text by lightweight heuristics.
+    # Force binary response for common office/archive formats.
+    if actual_path.suffix.lower() in _FORCE_BINARY_SUFFIXES:
+        return Response(content=actual_path.read_bytes(), media_type=mime_type, headers={"Content-Disposition": f"inline; filename*=UTF-8''{encoded_filename}"})
+
     if mime_type and mime_type == "text/html":
-        return HTMLResponse(content=actual_path.read_text(encoding="utf-8"))
+        try:
+            return HTMLResponse(content=actual_path.read_text(encoding="utf-8"))
+        except UnicodeDecodeError:
+            return Response(content=actual_path.read_bytes(), media_type=mime_type, headers={"Content-Disposition": f"inline; filename*=UTF-8''{encoded_filename}"})
 
     if mime_type and mime_type.startswith("text/"):
-        return PlainTextResponse(content=actual_path.read_text(encoding="utf-8"), media_type=mime_type)
+        try:
+            return PlainTextResponse(content=actual_path.read_text(encoding="utf-8"), media_type=mime_type)
+        except UnicodeDecodeError:
+            return Response(content=actual_path.read_bytes(), media_type=mime_type, headers={"Content-Disposition": f"inline; filename*=UTF-8''{encoded_filename}"})
 
     if is_text_file_by_content(actual_path):
-        return PlainTextResponse(content=actual_path.read_text(encoding="utf-8"), media_type=mime_type)
+        try:
+            return PlainTextResponse(content=actual_path.read_text(encoding="utf-8"), media_type=mime_type)
+        except UnicodeDecodeError:
+            return Response(content=actual_path.read_bytes(), media_type=mime_type, headers={"Content-Disposition": f"inline; filename*=UTF-8''{encoded_filename}"})
 
     return Response(content=actual_path.read_bytes(), media_type=mime_type, headers={"Content-Disposition": f"inline; filename*=UTF-8''{encoded_filename}"})

@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 type Step = "name" | "chat";
 type BootstrapStatus = "idle" | "pending" | "starting" | "started" | "failed";
 
-const NAME_RE = /^[A-Za-z0-9-]+$/;
+const NAME_RE = /^[\p{L}\p{N}-]+$/u;
 
 export default function NewAgentPage() {
   const { t } = useI18n();

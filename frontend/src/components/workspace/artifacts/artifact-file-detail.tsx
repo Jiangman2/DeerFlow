@@ -31,7 +31,11 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CodeEditor } from "@/components/workspace/code-editor";
 import { useArtifactContent } from "@/core/artifacts/hooks";
-import { urlOfArtifact } from "@/core/artifacts/utils";
+import {
+  findPreviewPdfPath,
+  guessPreviewPdfPath,
+  urlOfArtifact,
+} from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
 import { installSkill } from "@/core/skills/api";
 import { streamdownPlugins } from "@/core/streamdown";
@@ -98,6 +102,59 @@ export function ArtifactFileDetail({
   const [viewMode, setViewMode] = useState<"code" | "preview">("code");
   const [isInstalling, setIsInstalling] = useState(false);
   const { isMock } = useThread();
+  const previewPathFromList = useMemo(
+    () => findPreviewPdfPath(filepath, artifacts ?? []),
+    [artifacts, filepath],
+  );
+  const guessedPreviewPath = useMemo(() => guessPreviewPdfPath(filepath), [filepath]);
+  const [resolvedPreviewPath, setResolvedPreviewPath] = useState<string | null>(
+    previewPathFromList,
+  );
+  useEffect(() => {
+    setResolvedPreviewPath(previewPathFromList);
+  }, [previewPathFromList, filepath]);
+  useEffect(() => {
+    if (previewPathFromList || !guessedPreviewPath || isCodeFile || isWriteFile) {
+      return;
+    }
+    const controller = new AbortController();
+    fetch(
+      urlOfArtifact({
+        filepath: guessedPreviewPath,
+        threadId,
+        isMock,
+      }),
+      {
+        method: "HEAD",
+        signal: controller.signal,
+      },
+    )
+      .then((resp) => {
+        if (resp.ok) {
+          setResolvedPreviewPath(guessedPreviewPath);
+        }
+      })
+      .catch(() => {
+        // Keep original .pptx path when sibling preview does not exist.
+      });
+    return () => controller.abort();
+  }, [
+    guessedPreviewPath,
+    isCodeFile,
+    isMock,
+    isWriteFile,
+    previewPathFromList,
+    threadId,
+  ]);
+  const preferredPreviewPath = resolvedPreviewPath ?? filepath;
+
+  const handleSelectArtifact = useCallback(
+    (artifactPath: string) => {
+      const nextPreviewPath = findPreviewPdfPath(artifactPath, artifacts ?? []);
+      select(nextPreviewPath ?? artifactPath);
+    },
+    [artifacts, select],
+  );
   useEffect(() => {
     if (isSupportPreview) {
       setViewMode("preview");
@@ -135,7 +192,7 @@ export function ArtifactFileDetail({
             {isWriteFile ? (
               <div className="px-2">{getFileName(filepath)}</div>
             ) : (
-              <Select value={filepath} onValueChange={select}>
+              <Select value={filepath} onValueChange={handleSelectArtifact}>
                 <SelectTrigger className="border-none bg-transparent! shadow-none select-none focus:outline-0 active:outline-0">
                   <SelectValue placeholder="Select a file" />
                 </SelectTrigger>
@@ -192,7 +249,10 @@ export function ArtifactFileDetail({
               </Tooltip>
             )}
             {!isWriteFile && (
-              <a href={urlOfArtifact({ filepath, threadId })} target="_blank">
+              <a
+                href={urlOfArtifact({ filepath: preferredPreviewPath, threadId })}
+                target="_blank"
+              >
                 <ArtifactAction
                   icon={SquareArrowOutUpRightIcon}
                   label={t.common.openInNewWindow}
@@ -274,7 +334,11 @@ export function ArtifactFileDetail({
         {!isCodeFile && (
           <iframe
             className="size-full"
-            src={urlOfArtifact({ filepath, threadId, isMock })}
+            src={urlOfArtifact({
+              filepath: preferredPreviewPath,
+              threadId,
+              isMock,
+            })}
           />
         )}
       </ArtifactContent>

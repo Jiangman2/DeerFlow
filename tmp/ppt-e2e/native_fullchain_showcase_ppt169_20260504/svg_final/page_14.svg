@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  
+  <rect width="1280" height="720" fill="#0D1117" />
+  
+  
+  <defs>
+    <linearGradient id="top-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1E40AF" />
+      <stop offset="100%" style="stop-color:#7C3AED" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1280" height="6" fill="url(#top-gradient)" />
+  
+  
+  <g stroke="#1E40AF" stroke-width="0.5" stroke-opacity="0.1">
+    <line x1="200" y1="100" x2="200" y2="620" />
+    <line x1="400" y1="100" x2="400" y2="620" />
+    <line x1="600" y1="100" x2="600" y2="620" />
+    <line x1="800" y1="100" x2="800" y2="620" />
+    <line x1="1000" y1="100" x2="1000" y2="620" />
+    <line x1="100" y1="200" x2="1180" y2="200" />
+    <line x1="100" y1="360" x2="1180" y2="360" />
+    <line x1="100" y1="520" x2="1180" y2="520" />
+  </g>
+  
+  
+  <text x="640" y="280" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="56" font-weight="bold" letter-spacing="4">
+    THANK YOU
+  </text>
+  
+  
+  <line x1="500" y1="320" x2="780" y2="320" stroke="#D4AF37" stroke-width="3" />
+  
+  
+  <text x="640" y="380" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="22" letter-spacing="2">
+    让智能体真正成为生产力
+  </text>
+  
+  
+  <path fill="#1F2937" d="M448,440 H832 A8,8 0 0 1 840,448 V532 A8,8 0 0 1 832,540 H448 A8,8 0 0 1 440,532 V448 A8,8 0 0 1 448,440 Z" />
+  <text x="640" y="490" text-anchor="middle" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+    企业数智化推进办公室
+  </text>
+  <text x="640" y="520" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="14">
+    contact@enterprise.ai
+  </text>
+  
+  
+  <line x1="200" y1="640" x2="1080" y2="640" stroke="#1F2937" stroke-width="1" />
+  <text x="640" y="680" text-anchor="middle" fill="#D4AF37" font-family="Arial, sans-serif" font-size="11">
+    CONFIDENTIAL · 2026 Enterprise AI Program
+  </text>
+</svg>

@@ -1,3 +1,6 @@
+# DEPRECATED:
+# This compose file targets legacy `:prebuilt` images and is retained only for compatibility.
+# Do not use for current deployment; use `docker/docker-compose.yaml` instead.
 services:
   nginx:
     image: nginx:alpine

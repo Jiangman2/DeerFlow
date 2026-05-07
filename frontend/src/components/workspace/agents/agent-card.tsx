@@ -38,7 +38,7 @@ export function AgentCard({ agent }: AgentCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   function handleChat() {
-    router.push(`/workspace/agents/${agent.name}/chats/new`);
+    router.push(`/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`);
   }
 
   async function handleDelete() {
@@ -56,12 +56,12 @@ export function AgentCard({ agent }: AgentCardProps) {
       <Card className="group flex flex-col transition-shadow hover:shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-start gap-2">
               <div className="bg-[rgba(88,134,189,0.10)] text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
                 <BotIcon className="h-5 w-5" />
               </div>
-              <div className="min-w-0">
-                <CardTitle className="truncate text-base">
+              <div className="min-w-0 flex-1">
+                <CardTitle className="line-clamp-2 break-all text-base leading-tight">
                   {agent.name}
                 </CardTitle>
                 {agent.model && (
@@ -73,7 +73,7 @@ export function AgentCard({ agent }: AgentCardProps) {
             </div>
           </div>
           {agent.description && (
-            <CardDescription className="mt-2 line-clamp-2 text-sm">
+            <CardDescription className="mt-2 line-clamp-2 break-all text-sm">
               {agent.description}
             </CardDescription>
           )}

@@ -53,7 +53,7 @@ services:
     container_name: deer-flow-frontend
     environment:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-localhost:${PORT:-2026}}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:${PORT:-2026}}
       - DEERFLOW_PROXY_SECRET=${DEERFLOW_PROXY_SECRET}
       - DEERFLOW_GATEWAY_BASE_URL=http://gateway:8001
       - BETTER_AUTH_DB_DIR=/app/data

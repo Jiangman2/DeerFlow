@@ -219,6 +219,11 @@ ask_clarification(
 )
 ```
 
+Important:
+- `options` MUST be a JSON array of complete choices, never a single string.
+- Good: `options=["A", "B", "C"]`
+- Bad: `options="A, B, C"`
+
 **Example:**
 User: "Deploy the application"
 You (thinking): Missing environment info - I MUST ask for clarification

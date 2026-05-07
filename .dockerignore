@@ -60,6 +60,10 @@ scripts/
 logs/
 docker/
 skills/
+!skills/
+!skills/public/
+!skills/public/ppt-master/
+!skills/public/ppt-master/requirements.txt
 frontend/.next
 frontend/node_modules
 backend/.venv
