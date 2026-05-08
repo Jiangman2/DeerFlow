@@ -55,6 +55,7 @@ DEFAULT_PORT = 8080
 DEFAULT_CONTAINER_PREFIX = "deer-flow-sandbox"
 DEFAULT_IDLE_TIMEOUT = 600  # 10 minutes in seconds
 DEFAULT_REPLICAS = 3  # Maximum concurrent sandbox containers
+DEFAULT_STARTUP_TIMEOUT = 120  # Seconds to wait for sandbox health when creating
 IDLE_CHECK_INTERVAL = 60  # Check every 60 seconds
 
 
@@ -150,6 +151,8 @@ class AioSandboxProvider(SandboxProvider):
             "container_prefix": sandbox_config.container_prefix or DEFAULT_CONTAINER_PREFIX,
             "idle_timeout": idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
             "replicas": replicas if replicas is not None else DEFAULT_REPLICAS,
+            "startup_timeout": getattr(sandbox_config, "startup_timeout", None) or DEFAULT_STARTUP_TIMEOUT,
+            "strict_replicas": bool(getattr(sandbox_config, "strict_replicas", False)),
             "mounts": sandbox_config.mounts or [],
             "environment": self._resolve_env_vars(sandbox_config.environment or {}),
             # provisioner URL for dynamic pod management (e.g. http://provisioner:8002)
@@ -524,17 +527,30 @@ class AioSandboxProvider(SandboxProvider):
             if evicted:
                 logger.info(f"Evicted warm-pool sandbox {evicted} to stay within replicas={replicas}")
             else:
+                active = len(self._sandboxes)
+                warm = len(self._warm_pool)
+                if self._config.get("strict_replicas", False):
+                    raise RuntimeError(
+                        "Sandbox capacity reached: "
+                        f"replicas={replicas}, active={active}, warm={warm}. "
+                        "Refusing to create beyond strict_replicas."
+                    )
                 # All slots are occupied by active sandboxes — proceed anyway and log.
-                # The replicas limit is a soft cap; we never forcibly stop a container
-                # that is actively serving a thread.
-                logger.warning(f"All {replicas} replica slots are in active use; creating sandbox {sandbox_id} beyond the soft limit")
+                # The replicas limit is a soft cap unless strict_replicas=true.
+                logger.warning(
+                    f"All {replicas} replica slots are in active use "
+                    f"(active={active}, warm={warm}); creating sandbox {sandbox_id} beyond the soft limit"
+                )
 
         info = self._backend.create(thread_id or "anon", sandbox_id, extra_mounts=extra_mounts or None)
 
         # Wait for sandbox to be ready
-        if not wait_for_sandbox_ready(info.sandbox_url, timeout=60):
+        startup_timeout = int(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT))
+        if not wait_for_sandbox_ready(info.sandbox_url, timeout=startup_timeout):
             self._backend.destroy(info)
-            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
+            raise RuntimeError(
+                f"Sandbox {sandbox_id} failed to become ready within {startup_timeout}s at {info.sandbox_url}"
+            )
 
         sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
         with self._lock:

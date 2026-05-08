@@ -112,15 +112,31 @@ class LocalContainerBackend(SandboxBackend):
         # 0.0.0.0 bind, but Docker's port-release can be slightly asynchronous,
         # so a reactive fallback here ensures we always make progress.
         _next_start = self._base_port
+        # In DooD mode (provider runs in container, Docker daemon on host), checking
+        # free ports inside the provider container namespace is unreliable for host
+        # published ports. Ask Docker to auto-assign host port instead.
+        sandbox_host = os.environ.get("DEER_FLOW_SANDBOX_HOST", "localhost")
+        use_dynamic_host_port = self._runtime == "docker" and sandbox_host not in {"localhost", "127.0.0.1"}
         container_id: str | None = None
         port: int = 0
         for _attempt in range(10):
-            port = get_free_port(start_port=_next_start)
+            if use_dynamic_host_port:
+                port = 0
+            else:
+                port = get_free_port(start_port=_next_start)
             try:
                 container_id = self._start_container(container_name, port, extra_mounts)
+                if use_dynamic_host_port:
+                    resolved_port = self._get_container_port(container_name)
+                    if resolved_port is None:
+                        if container_id:
+                            self._stop_container(container_id)
+                        raise RuntimeError("Failed to discover published host port for sandbox container")
+                    port = resolved_port
                 break
             except RuntimeError as exc:
-                release_port(port)
+                if not use_dynamic_host_port and port > 0:
+                    release_port(port)
                 err = str(exc)
                 err_lower = err.lower()
                 # Port already bound: skip this port and retry with the next one.
@@ -142,7 +158,6 @@ class LocalContainerBackend(SandboxBackend):
 
         # When running inside Docker (DooD), sandbox containers are reachable via
         # host.docker.internal rather than localhost (they run on the host daemon).
-        sandbox_host = os.environ.get("DEER_FLOW_SANDBOX_HOST", "localhost")
         return SandboxInfo(
             sandbox_id=sandbox_id,
             sandbox_url=f"http://{sandbox_host}:{port}",
@@ -236,7 +251,7 @@ class LocalContainerBackend(SandboxBackend):
                 "-u",
                 "root",
                 "-p",
-                f"{port}:8080",
+                ("0:8080" if port <= 0 else f"{port}:8080"),
                 "--name",
                 container_name,
             ]
