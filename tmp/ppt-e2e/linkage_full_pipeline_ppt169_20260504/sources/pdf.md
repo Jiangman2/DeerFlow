@@ -1,3 +1,0 @@
-# sample
-
-PDF linkage test
