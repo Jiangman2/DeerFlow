@@ -354,10 +354,10 @@ checkpointer:
 sandbox:
   use: deerflow.community.aio_sandbox:AioSandboxProvider
   image: deer-flow-sandbox:latest
-  replicas: 8
+  replicas: 20
   strict_replicas: true
   startup_timeout: 180
-  idle_timeout: 900
+  idle_timeout: 3600
 
   environment:
     GEMINI_API_KEY: $GEMINI_API_KEY

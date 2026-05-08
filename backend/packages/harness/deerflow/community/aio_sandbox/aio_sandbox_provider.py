@@ -57,6 +57,7 @@ DEFAULT_IDLE_TIMEOUT = 600  # 10 minutes in seconds
 DEFAULT_REPLICAS = 3  # Maximum concurrent sandbox containers
 DEFAULT_STARTUP_TIMEOUT = 120  # Seconds to wait for sandbox health when creating
 IDLE_CHECK_INTERVAL = 60  # Check every 60 seconds
+REUSE_HEALTHCHECK_TIMEOUT = 5  # Fast probe before reusing cached/warm sandboxes
 
 
 class AioSandboxProvider(SandboxProvider):
@@ -398,31 +399,53 @@ class AioSandboxProvider(SandboxProvider):
         """
         # ── Layer 1: In-process cache (fast path) ──
         if thread_id:
+            stale_id = None
             with self._lock:
                 if thread_id in self._thread_sandboxes:
                     existing_id = self._thread_sandboxes[thread_id]
                     if existing_id in self._sandboxes:
-                        logger.info(f"Reusing in-process sandbox {existing_id} for thread {thread_id}")
-                        self._last_activity[existing_id] = time.time()
-                        return existing_id
+                        info = self._sandbox_infos.get(existing_id)
+                        if info and self._is_sandbox_reusable(info):
+                            logger.info(f"Reusing in-process sandbox {existing_id} for thread {thread_id}")
+                            self._last_activity[existing_id] = time.time()
+                            return existing_id
+                        stale_id = existing_id
                     else:
                         del self._thread_sandboxes[thread_id]
+            if stale_id:
+                stale_info = self._purge_sandbox_state(stale_id)
+                if stale_info:
+                    try:
+                        self._backend.destroy(stale_info)
+                    except Exception as e:
+                        logger.warning(f"Failed to destroy unhealthy in-process sandbox {stale_id}: {e}")
+                logger.warning(f"Discarded unhealthy in-process sandbox {stale_id} for thread {thread_id}")
 
         # Deterministic ID for thread-specific, random for anonymous
         sandbox_id = self._deterministic_sandbox_id(thread_id) if thread_id else str(uuid.uuid4())[:8]
 
         # ── Layer 1.5: Warm pool (container still running, no cold-start) ──
         if thread_id:
+            bad_warm_info: SandboxInfo | None = None
             with self._lock:
                 if sandbox_id in self._warm_pool:
                     info, _ = self._warm_pool.pop(sandbox_id)
-                    sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
-                    self._sandboxes[sandbox_id] = sandbox
-                    self._sandbox_infos[sandbox_id] = info
-                    self._last_activity[sandbox_id] = time.time()
-                    self._thread_sandboxes[thread_id] = sandbox_id
-                    logger.info(f"Reclaimed warm-pool sandbox {sandbox_id} for thread {thread_id} at {info.sandbox_url}")
-                    return sandbox_id
+                    if not self._is_sandbox_reusable(info):
+                        bad_warm_info = info
+                    else:
+                        sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+                        self._sandboxes[sandbox_id] = sandbox
+                        self._sandbox_infos[sandbox_id] = info
+                        self._last_activity[sandbox_id] = time.time()
+                        self._thread_sandboxes[thread_id] = sandbox_id
+                        logger.info(f"Reclaimed warm-pool sandbox {sandbox_id} for thread {thread_id} at {info.sandbox_url}")
+                        return sandbox_id
+            if bad_warm_info is not None:
+                try:
+                    self._backend.destroy(bad_warm_info)
+                except Exception as e:
+                    logger.warning(f"Failed to destroy unhealthy warm-pool sandbox {sandbox_id}: {e}")
+                logger.warning(f"Discarded unhealthy warm-pool sandbox {sandbox_id} for thread {thread_id}")
 
         # ── Layer 2: Backend discovery + create (protected by cross-process lock) ──
         # Use a file lock so that two processes racing to create the same sandbox
@@ -449,25 +472,59 @@ class AioSandboxProvider(SandboxProvider):
             try:
                 _flock(lock_file, LOCK_EX)
                 # thread in this process won the race while we were waiting.
+                stale_info: SandboxInfo | None = None
+                bad_warm_info: SandboxInfo | None = None
+                healthy_warm_info: SandboxInfo | None = None
                 with self._lock:
                     if thread_id in self._thread_sandboxes:
                         existing_id = self._thread_sandboxes[thread_id]
                         if existing_id in self._sandboxes:
-                            logger.info(f"Reusing in-process sandbox {existing_id} for thread {thread_id} (post-lock check)")
-                            self._last_activity[existing_id] = time.time()
-                            return existing_id
+                            info = self._sandbox_infos.get(existing_id)
+                            if info and self._is_sandbox_reusable(info):
+                                logger.info(f"Reusing in-process sandbox {existing_id} for thread {thread_id} (post-lock check)")
+                                self._last_activity[existing_id] = time.time()
+                                return existing_id
+                            self._sandboxes.pop(existing_id, None)
+                            stale_info = self._sandbox_infos.pop(existing_id, None)
+                            self._last_activity.pop(existing_id, None)
+                            self._thread_sandboxes.pop(thread_id, None)
                     if sandbox_id in self._warm_pool:
                         info, _ = self._warm_pool.pop(sandbox_id)
-                        sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+                        if not self._is_sandbox_reusable(info):
+                            bad_warm_info = info
+                        else:
+                            healthy_warm_info = info
+                    if healthy_warm_info is not None:
+                        sandbox = AioSandbox(id=sandbox_id, base_url=healthy_warm_info.sandbox_url)
                         self._sandboxes[sandbox_id] = sandbox
-                        self._sandbox_infos[sandbox_id] = info
+                        self._sandbox_infos[sandbox_id] = healthy_warm_info
                         self._last_activity[sandbox_id] = time.time()
                         self._thread_sandboxes[thread_id] = sandbox_id
                         logger.info(f"Reclaimed warm-pool sandbox {sandbox_id} for thread {thread_id} (post-lock check)")
                         return sandbox_id
+                if stale_info:
+                    try:
+                        self._backend.destroy(stale_info)
+                    except Exception as e:
+                        logger.warning(f"Failed to destroy unhealthy in-process sandbox {existing_id} (post-lock): {e}")
+                    logger.warning(f"Discarded unhealthy in-process sandbox {existing_id} for thread {thread_id} (post-lock)")
+                if bad_warm_info:
+                    try:
+                        self._backend.destroy(bad_warm_info)
+                    except Exception as e:
+                        logger.warning(f"Failed to destroy unhealthy warm-pool sandbox {sandbox_id} (post-lock): {e}")
+                    logger.warning(f"Discarded unhealthy warm-pool sandbox {sandbox_id} for thread {thread_id} (post-lock)")
 
                 # Backend discovery: another process may have created the container.
                 discovered = self._backend.discover(sandbox_id)
+                if discovered is not None:
+                    if not self._is_sandbox_reusable(discovered):
+                        try:
+                            self._backend.destroy(discovered)
+                        except Exception as e:
+                            logger.warning(f"Failed to destroy unhealthy discovered sandbox {sandbox_id}: {e}")
+                        logger.warning(f"Discarded unhealthy discovered sandbox {sandbox_id} for thread {thread_id}")
+                        discovered = None
                 if discovered is not None:
                     sandbox = AioSandbox(id=discovered.sandbox_id, base_url=discovered.sandbox_url)
                     with self._lock:
@@ -501,6 +558,32 @@ class AioSandboxProvider(SandboxProvider):
             logger.error(f"Failed to destroy warm-pool sandbox {oldest_id}: {e}")
             return None
         return oldest_id
+
+    def _is_sandbox_reusable(self, info: SandboxInfo) -> bool:
+        """Check whether a sandbox can be safely reused."""
+        try:
+            if not self._backend.is_alive(info):
+                return False
+            return wait_for_sandbox_ready(info.sandbox_url, timeout=REUSE_HEALTHCHECK_TIMEOUT)
+        except Exception as e:
+            logger.warning(f"Reuse health check failed for sandbox {info.sandbox_id}: {e}")
+            return False
+
+    def _purge_sandbox_state(self, sandbox_id: str) -> SandboxInfo | None:
+        """Remove sandbox bookkeeping entries and return info for backend cleanup."""
+        with self._lock:
+            self._sandboxes.pop(sandbox_id, None)
+            info = self._sandbox_infos.pop(sandbox_id, None)
+            self._last_activity.pop(sandbox_id, None)
+            if info is None and sandbox_id in self._warm_pool:
+                info, _ = self._warm_pool.pop(sandbox_id)
+            else:
+                self._warm_pool.pop(sandbox_id, None)
+
+            thread_ids_to_remove = [tid for tid, sid in self._thread_sandboxes.items() if sid == sandbox_id]
+            for tid in thread_ids_to_remove:
+                del self._thread_sandboxes[tid]
+            return info
 
     def _create_sandbox(self, thread_id: str | None, sandbox_id: str) -> str:
         """Create a new sandbox via the backend.
