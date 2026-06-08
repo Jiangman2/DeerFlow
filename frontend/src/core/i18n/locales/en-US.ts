@@ -239,7 +239,7 @@ export const enUS: Translations = {
     changeBuilderModel: "Change model",
     builderModelDialogTitle: "Choose builder model",
     nameStepBootstrapMessage:
-      "The new custom agent name is {name}. Help me design its purpose, behavior, and SOUL.md before saving it.",
+      "The new custom agent name is {name}. Help me design its purpose, behavior, and SOUL.md before saving it. When saving, the agent description must be written in Simplified Chinese.",
     save: "Save agent",
     saving: "Saving agent...",
     saveRequested:
@@ -247,7 +247,7 @@ export const enUS: Translations = {
     saveHint:
       "You can save this agent at any time from the top-right menu, even if this is only a first draft.",
     saveCommandMessage:
-      "Please save this custom agent now based on everything we have discussed so far. Treat this as my explicit confirmation to save. If some details are still missing, make reasonable assumptions, generate a concise first SOUL.md in English, and call setup_agent immediately without asking me for more confirmation.",
+      "Please save this custom agent now based on everything we have discussed so far. Treat this as my explicit confirmation to save. If some details are still missing, make reasonable assumptions, generate a concise professional first SOUL.md, and call setup_agent immediately without asking me for more confirmation. When calling setup_agent, the description must be a single Simplified Chinese sentence for the agent card, summarizing the agent's purpose and capability; do not use an English description.",
     agentCreatedPendingRefresh:
       "The agent was created, but CNOOC Exploration and Development General Agent could not load it yet. Please refresh this page in a moment.",
     more: "More actions",
