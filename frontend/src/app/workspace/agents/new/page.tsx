@@ -503,7 +503,9 @@ export default function NewAgentPage() {
                       <Button
                         onClick={() =>
                           router.push(
-                            `/workspace/agents/${agentName}/chats/new`,
+                            `/workspace/agents/${encodeURIComponent(
+                              agentName,
+                            )}/chats/new`,
                           )
                         }
                       >

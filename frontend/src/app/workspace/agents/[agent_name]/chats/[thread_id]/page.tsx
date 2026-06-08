@@ -2,7 +2,7 @@
 
 import { BotIcon, PlusSquare } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,19 @@ export default function AgentChatPage() {
     agent_name: string;
   }>();
 
-  const { agent } = useAgent(agent_name);
+  const agentName = useMemo(() => {
+    try {
+      return decodeURIComponent(agent_name);
+    } catch {
+      return agent_name;
+    }
+  }, [agent_name]);
+  const encodedAgentName = useMemo(
+    () => encodeURIComponent(agentName),
+    [agentName],
+  );
+
+  const { agent } = useAgent(agentName);
 
   const { threadId, setThreadId, isNewThread, setIsNewThread, isMock } =
     useThreadChat();
@@ -72,7 +84,7 @@ export default function AgentChatPage() {
     loadMoreHistory,
   } = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
-    context: { ...settings.context, agent_name: agent_name },
+    context: { ...settings.context, agent_name: agentName },
     isMock,
     onSend: () => {
       setIsWelcomeMode(false);
@@ -84,7 +96,7 @@ export default function AgentChatPage() {
       history.replaceState(
         null,
         "",
-        `/workspace/agents/${agent_name}/chats/${createdThreadId}`,
+        `/workspace/agents/${encodedAgentName}/chats/${createdThreadId}`,
       );
     },
     onFinish: (state) => {
@@ -107,13 +119,15 @@ export default function AgentChatPage() {
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      const sendPromise = sendMessage(threadId, message, { agent_name });
+      const sendPromise = sendMessage(threadId, message, {
+        agent_name: agentName,
+      });
       if (message.files.length > 0) {
         return sendPromise;
       }
       void sendPromise;
     },
-    [sendMessage, threadId, agent_name],
+    [agentName, sendMessage, threadId],
   );
 
   const handleStop = useCallback(async () => {
@@ -141,7 +155,7 @@ export default function AgentChatPage() {
             <div className="flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1">
               <BotIcon className="text-primary h-3.5 w-3.5" />
               <span className="text-xs font-medium">
-                {agent?.name ?? agent_name}
+                {agent?.name ?? agentName}
               </span>
             </div>
 
@@ -154,7 +168,9 @@ export default function AgentChatPage() {
                   size="sm"
                   variant="secondary"
                   onClick={() => {
-                    router.push(`/workspace/agents/${agent_name}/chats/new`);
+                    router.push(
+                      `/workspace/agents/${encodedAgentName}/chats/new`,
+                    );
                   }}
                 >
                   <PlusSquare /> {t.agents.newChat}
@@ -248,7 +264,7 @@ export default function AgentChatPage() {
                   context={settings.context}
                   extraHeader={
                     isWelcomeMode && (
-                      <AgentWelcome agent={agent} agentName={agent_name} />
+                      <AgentWelcome agent={agent} agentName={agentName} />
                     )
                   }
                   disabled={
