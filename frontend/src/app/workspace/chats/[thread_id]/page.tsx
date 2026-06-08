@@ -175,12 +175,13 @@ export default function ChatPage() {
                 "right-0 bottom-0 left-0 z-30 flex justify-center px-4",
                 isWelcomeMode
                   ? "absolute"
-                  : "relative shrink-0 bg-gradient-to-t from-white/55 via-white/20 to-transparent pb-4",
+                  : "relative shrink-0 bg-transparent pb-4",
               )}
             >
               <div
                 className={cn(
                   "relative w-full",
+                  !isWelcomeMode && "bg-transparent",
                   isWelcomeMode && "-translate-y-[calc(50vh-96px)]",
                   isWelcomeMode
                     ? "max-w-(--container-width-sm)"
