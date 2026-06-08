@@ -32,6 +32,18 @@ const config = {
       "http://127.0.0.1:8001",
     );
 
+    // Auth pages use same-origin `/api/v1/auth/*` endpoints so HttpOnly
+    // cookies are issued for the frontend origin. Keep this proxy active even
+    // when NEXT_PUBLIC_BACKEND_BASE_URL is configured for other API clients.
+    rewrites.push({
+      source: "/api/v1/auth",
+      destination: `${gatewayURL}/api/v1/auth`,
+    });
+    rewrites.push({
+      source: "/api/v1/auth/:path*",
+      destination: `${gatewayURL}/api/v1/auth/:path*`,
+    });
+
     if (!process.env.NEXT_PUBLIC_LANGGRAPH_BASE_URL) {
       rewrites.push({
         source: "/api/langgraph",
