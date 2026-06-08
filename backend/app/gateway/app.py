@@ -16,6 +16,7 @@ from app.gateway.routers import (
     assistants_compat,
     auth,
     channels,
+    convert,
     feedback,
     mcp,
     memory,
@@ -276,6 +277,10 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
                 "description": "Access and download thread artifacts and generated files",
             },
             {
+                "name": "convert",
+                "description": "Convert generated content into downloadable file formats",
+            },
+            {
                 "name": "uploads",
                 "description": "Upload and manage user files for threads",
             },
@@ -344,6 +349,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Artifacts API is mounted at /api/threads/{thread_id}/artifacts
     app.include_router(artifacts.router)
+
+    # Convert API is mounted at /api/convert/*
+    app.include_router(convert.router)
 
     # Uploads API is mounted at /api/threads/{thread_id}/uploads
     app.include_router(uploads.router)
