@@ -21,7 +21,7 @@ from deerflow.runtime.user_context import get_effective_user_id
 logger = logging.getLogger(__name__)
 
 SOUL_FILENAME = "SOUL.md"
-AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
+AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
 
 
 def validate_agent_name(name: str | None) -> str | None:

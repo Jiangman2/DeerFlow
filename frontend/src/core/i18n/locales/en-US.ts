@@ -219,21 +219,25 @@ export const enUS: Translations = {
     newChat: "New chat",
     createPageTitle: "Design your Agent",
     createPageSubtitle:
-      "Describe the agent you want — I'll help you create it through conversation.",
+      "Describe the agent you want. I'll help you create it through conversation.",
     nameStepTitle: "Name your new Agent",
     nameStepHint:
-      "Letters, digits, and hyphens only — stored lowercase (e.g. code-reviewer)",
-    nameStepPlaceholder: "e.g. code-reviewer",
+      "Chinese characters, letters, digits, and hyphens only. Stored lowercase where applicable (e.g. 月报助手 or code-reviewer)",
+    nameStepPlaceholder: "e.g. 月报助手",
     nameStepContinue: "Continue",
     nameStepInvalidError:
-      "Invalid name — use only letters, digits, and hyphens",
+      "Invalid name. Use only Chinese characters, letters, digits, and hyphens",
     nameStepAlreadyExistsError: "An agent with this name already exists",
     nameStepNetworkError:
-      "Network request failed — check your network or backend connection",
-    nameStepCheckError: "Could not verify name availability — please try again",
+      "Network request failed. Check your network or backend connection",
+    nameStepCheckError: "Could not verify name availability. Please try again",
     nameStepCheckErrorWithDetail: "Name check failed: {detail}",
     nameStepApiDisabledError:
       "Custom agent management is not enabled on this server. Please contact your administrator.",
+    builderModelLabel: "Builder model",
+    currentBuilderModel: "Current builder model",
+    changeBuilderModel: "Change model",
+    builderModelDialogTitle: "Choose builder model",
     nameStepBootstrapMessage:
       "The new custom agent name is {name}. Help me design its purpose, behavior, and SOUL.md before saving it.",
     save: "Save agent",
@@ -251,7 +255,6 @@ export const enUS: Translations = {
     startChatting: "Start chatting",
     backToGallery: "Back to Gallery",
   },
-
   // Breadcrumb
   breadcrumb: {
     workspace: "Workspace",
@@ -286,7 +289,7 @@ export const enUS: Translations = {
     appName: "CNOOC Exploration and Development General Agent",
     chats: "Chats",
     newChat: "New chat",
-    untitled: "未命名",
+    untitled: "Untitled",
   },
 
   // Tool calls
@@ -486,7 +489,7 @@ export const enUS: Translations = {
       description: "Manage the configuration and enabled status of MCP tools.",
     },
     skills: {
-      title: "业务技能",
+      title: "Skills",
       description:
         "Manage the configuration and enabled status of the agent skills.",
       createSkill: "Create skill",

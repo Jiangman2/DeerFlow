@@ -11,11 +11,8 @@ export class AgentNameCheckError extends Error {
     public readonly reason: "backend_unreachable" | "request_failed",
     /**
      * Raw backend `detail` string when the failure came from a backend
-     * response carrying one. `null` when no detail was provided (e.g.
-     * network-layer failure, empty response body, unparseable body) — in
-     * which case `message` is a generated fallback like "Failed to check
-     * agent name: Bad Gateway" and the UI should prefer its own localized
-     * fallback instead of surfacing the generated string.
+     * response carrying one. `null` when no detail was provided, in which
+     * case the UI should prefer its own localized fallback.
      */
     public readonly detail: string | null = null,
   ) {
@@ -62,7 +59,9 @@ export async function listAgents(): Promise<Agent[]> {
 }
 
 export async function getAgent(name: string): Promise<Agent> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`);
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}`,
+  );
   if (!res.ok) throw new Error(`Agent '${name}' not found`);
   return res.json() as Promise<Agent>;
 }
@@ -88,11 +87,14 @@ export async function updateAgent(
   name: string,
   request: UpdateAgentRequest,
 ): Promise<Agent> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(request),
-  });
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as unknown;
     const detail = getErrorDetail(err);
@@ -102,9 +104,10 @@ export async function updateAgent(
 }
 
 export async function deleteAgent(name: string): Promise<void> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`, {
-    method: "DELETE",
-  });
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}`,
+    { method: "DELETE" },
+  );
   if (!res.ok) throw new Error(`Failed to delete agent: ${res.statusText}`);
 }
 

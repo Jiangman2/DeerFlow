@@ -163,6 +163,10 @@ export interface Translations {
     nameStepCheckError: string;
     nameStepCheckErrorWithDetail: string;
     nameStepApiDisabledError: string;
+    builderModelLabel: string;
+    currentBuilderModel: string;
+    changeBuilderModel: string;
+    builderModelDialogTitle: string;
     nameStepBootstrapMessage: string;
     save: string;
     saving: string;

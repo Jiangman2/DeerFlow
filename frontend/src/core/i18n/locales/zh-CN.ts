@@ -209,16 +209,20 @@ export const zhCN: Translations = {
     createPageSubtitle: "描述你想要的智能体，我来帮你通过对话创建。",
     nameStepTitle: "给新智能体起个名字",
     nameStepHint:
-      "只允许字母、数字和连字符，存储时自动转为小写（例如 code-reviewer）",
-    nameStepPlaceholder: "例如 code-reviewer",
+      "只允许中文、字母、数字和连字符，存储时自动转为小写（例如 月报助手 或 code-reviewer）",
+    nameStepPlaceholder: "例如 月报助手",
     nameStepContinue: "继续",
-    nameStepInvalidError: "名称无效，只允许字母、数字和连字符",
+    nameStepInvalidError: "名称无效，只允许中文、字母、数字和连字符",
     nameStepAlreadyExistsError: "已存在同名智能体",
     nameStepNetworkError: "网络请求失败，请检查网络或后端连接",
     nameStepCheckError: "无法验证名称可用性，请稍后重试",
     nameStepCheckErrorWithDetail: "名称校验失败：{detail}",
     nameStepApiDisabledError:
       "服务器未开启自定义智能体管理功能，请联系管理员。",
+    builderModelLabel: "构建模型",
+    currentBuilderModel: "当前构建模型",
+    changeBuilderModel: "切换模型",
+    builderModelDialogTitle: "选择智能体构建模型",
     nameStepBootstrapMessage:
       "新智能体的名称是 {name}。请先帮我设计它的用途、行为方式和 SOUL.md，再保存它。",
     save: "保存智能体",

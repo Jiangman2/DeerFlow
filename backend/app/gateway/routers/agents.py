@@ -3,6 +3,7 @@
 import logging
 import re
 import shutil
+import unicodedata
 
 import yaml
 from fastapi import APIRouter, HTTPException
@@ -16,13 +17,13 @@ from deerflow.runtime.user_context import get_effective_user_id
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["agents"])
 
-AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
+AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
 
 
 class AgentResponse(BaseModel):
     """Response model for a custom agent."""
 
-    name: str = Field(..., description="Agent name (hyphen-case)")
+    name: str = Field(..., description="Agent name")
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
@@ -39,7 +40,13 @@ class AgentsListResponse(BaseModel):
 class AgentCreateRequest(BaseModel):
     """Request body for creating a custom agent."""
 
-    name: str = Field(..., description="Agent name (must match ^[A-Za-z0-9-]+$, stored as lowercase)")
+    name: str = Field(
+        ...,
+        description=(
+            "Agent name (letters, digits, Chinese characters, and hyphens; "
+            "stored as lowercase where applicable)"
+        ),
+    )
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
@@ -66,10 +73,21 @@ def _validate_agent_name(name: str) -> None:
     Raises:
         HTTPException: 422 if the name is invalid.
     """
-    if not AGENT_NAME_PATTERN.match(name):
+    def _is_valid_char(ch: str) -> bool:
+        if ch == "-":
+            return True
+        category = unicodedata.category(ch)
+        return category.startswith("L") or category.startswith("N")
+
+    if not AGENT_NAME_PATTERN.fullmatch(name) or any(
+        not _is_valid_char(ch) for ch in name
+    ):
         raise HTTPException(
             status_code=422,
-            detail=f"Invalid agent name '{name}'. Must match ^[A-Za-z0-9-]+$ (letters, digits, and hyphens only).",
+            detail=(
+                f"Invalid agent name '{name}'. Use letters, digits, Chinese "
+                "characters, and hyphens only."
+            ),
         )
 
 
