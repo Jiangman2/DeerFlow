@@ -8,6 +8,14 @@ export const env = createEnv({
    */
   server: {
     GITHUB_OAUTH_TOKEN: z.string().optional(),
+    SHOP_CART_DOWNLOAD_TOKEN: z.string().optional(),
+    SHOP_CART_DOWNLOAD_TLS_VERIFY: z.string().optional(),
+    CNOOC_OAUTH_BASE_URL: z.string().optional(),
+    CNOOC_OAUTH_APP_NAME: z.string().optional(),
+    CNOOC_OAUTH_APP_ID: z.string().optional(),
+    CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN: z.string().optional(),
+    CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE: z.string().optional(),
+    CNOOC_OAUTH_USER_INFO_API_TOKEN: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -21,6 +29,8 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_BACKEND_BASE_URL: z.string().optional(),
     NEXT_PUBLIC_LANGGRAPH_BASE_URL: z.string().optional(),
+    NEXT_PUBLIC_SHOP_CART_IFRAME_URL: z.string().optional(),
+    NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN: z.string().optional(),
     NEXT_PUBLIC_STATIC_WEBSITE_ONLY: z.string().optional(),
   },
 
@@ -33,9 +43,24 @@ export const env = createEnv({
 
     NEXT_PUBLIC_BACKEND_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_BASE_URL,
     NEXT_PUBLIC_LANGGRAPH_BASE_URL: process.env.NEXT_PUBLIC_LANGGRAPH_BASE_URL,
+    NEXT_PUBLIC_SHOP_CART_IFRAME_URL:
+      process.env.NEXT_PUBLIC_SHOP_CART_IFRAME_URL,
+    NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN:
+      process.env.NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN,
     NEXT_PUBLIC_STATIC_WEBSITE_ONLY:
       process.env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY,
     GITHUB_OAUTH_TOKEN: process.env.GITHUB_OAUTH_TOKEN,
+    SHOP_CART_DOWNLOAD_TOKEN: process.env.SHOP_CART_DOWNLOAD_TOKEN,
+    SHOP_CART_DOWNLOAD_TLS_VERIFY: process.env.SHOP_CART_DOWNLOAD_TLS_VERIFY,
+    CNOOC_OAUTH_BASE_URL: process.env.CNOOC_OAUTH_BASE_URL,
+    CNOOC_OAUTH_APP_NAME: process.env.CNOOC_OAUTH_APP_NAME,
+    CNOOC_OAUTH_APP_ID: process.env.CNOOC_OAUTH_APP_ID,
+    CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN:
+      process.env.CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN,
+    CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE:
+      process.env.CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE,
+    CNOOC_OAUTH_USER_INFO_API_TOKEN:
+      process.env.CNOOC_OAUTH_USER_INFO_API_TOKEN,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -83,6 +83,27 @@ export const zhCN: Translations = {
     createSkillPrompt:
       "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
     addAttachments: "添加附件",
+    addShopCartAttachments: "从资料车添加附件",
+    shopCart: "资料车",
+    shopCartDialogTitle: "从资料车选择附件",
+    shopCartDialogDescription:
+      "资料车已在新窗口打开。请在资料车中选择文件，然后回到这里添加所选文件。",
+    shopCartWindowDescription:
+      "如果资料车窗口没有打开，请点击重新打开。选择完成后，保持资料车窗口打开并点击添加所选文件。",
+    shopCartReopen: "重新打开",
+    shopCartPopupBlocked: "资料车窗口被浏览器拦截，请允许弹出窗口后重试",
+    shopCartAddSelected: "添加所选文件",
+    shopCartAdding: "读取中...",
+    shopCartEmptySelection: "请选择至少一个资料车文件",
+    shopCartNoResponse: "未获取到资料车文件，请重试",
+    shopCartInvalidPayload: "资料车返回的数据格式无法识别",
+    shopCartDownloading: "正在下载资料车文件...",
+    shopCartDownloadFailed: "资料车文件下载失败，请重试",
+    shopCartPartialDownloadFailed: (failed: number) =>
+      `部分资料车文件下载失败，失败 ${failed} 个`,
+    shopCartUnknownFiles: "部分资料车文件无法识别，已跳过",
+    shopCartNoKnownFiles: "所选资料车文件均无法识别",
+    shopCartAddedFiles: (count: number) => `已添加 ${count} 个资料车附件`,
     mode: "模式",
     flashMode: "闪速",
     flashModeDescription: "快速且高效的完成任务，但可能不够精准",
