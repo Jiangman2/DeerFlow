@@ -144,6 +144,8 @@ export interface Translations {
     newAgent: string;
     emptyTitle: string;
     emptyDescription: string;
+    apiDisabledTitle: string;
+    apiDisabledDescription: string;
     chat: string;
     delete: string;
     deleteConfirm: string;

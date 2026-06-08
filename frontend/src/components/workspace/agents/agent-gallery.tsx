@@ -4,15 +4,16 @@ import { BotIcon, PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { useAgents } from "@/core/agents";
+import { AgentsApiDisabledError, useAgents } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 
 import { AgentCard } from "./agent-card";
 
 export function AgentGallery() {
   const { t } = useI18n();
-  const { agents, isLoading } = useAgents();
+  const { agents, isLoading, error } = useAgents();
   const router = useRouter();
+  const agentsApiDisabled = error instanceof AgentsApiDisabledError;
 
   const handleNewAgent = () => {
     router.push("/workspace/agents/new");
@@ -39,6 +40,18 @@ export function AgentGallery() {
         {isLoading ? (
           <div className="text-muted-foreground flex h-40 items-center justify-center text-sm">
             {t.common.loading}
+          </div>
+        ) : agentsApiDisabled ? (
+          <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+            <div className="bg-muted flex h-14 w-14 items-center justify-center rounded-full">
+              <BotIcon className="text-muted-foreground h-7 w-7" />
+            </div>
+            <div>
+              <p className="font-medium">{t.agents.apiDisabledTitle}</p>
+              <p className="text-muted-foreground mt-1 max-w-md text-sm">
+                {t.agents.apiDisabledDescription}
+              </p>
+            </div>
           </div>
         ) : agents.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">

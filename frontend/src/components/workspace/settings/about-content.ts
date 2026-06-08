@@ -2,9 +2,9 @@
  * About markdown content. Inlined to avoid raw-loader dependency
  * (Turbopack cannot resolve raw-loader for .md imports).
  */
-export const aboutMarkdown = `# 关于海油AI
+export const aboutMarkdown = `# 关于中海油勘探开发通用智能体
 
-海油AI是面向油气勘探开发业务的多智能体工作平台，基于上游 2.0 官方主分支能力构建，并保留官方 gateway auth 认证体系。
+中海油勘探开发通用智能体是面向油气勘探开发业务的多智能体工作平台，基于上游 2.0 官方主分支能力构建，并保留官方 gateway auth 认证体系。
 
 ## 平台能力
 

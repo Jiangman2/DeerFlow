@@ -62,11 +62,11 @@ export const enUS: Translations = {
   welcome: {
     greeting: "Hello, again!",
     description:
-      "Welcome to Haiyou AI, a multi-agent workspace for oil and gas exploration and development. With built-in and custom skills, it helps with research, data analysis, report generation, document review, and professional office workflows.",
+      "Welcome to CNOOC Exploration and Development General Agent, a multi-agent workspace for oil and gas exploration and development. With built-in and custom skills, it helps with research, data analysis, report generation, document review, and professional office workflows.",
 
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
-      "Create your own skill to extend Haiyou AI. Custom skills can capture expert workflows,\nconnect business tools, and generate reports, slides,\nweb pages, and other working artifacts.",
+      "Create your own skill to extend CNOOC Exploration and Development General Agent. Custom skills can capture expert workflows,\nconnect business tools, and generate reports, slides,\nweb pages, and other working artifacts.",
   },
 
   // Clipboard
@@ -208,6 +208,9 @@ export const enUS: Translations = {
     emptyTitle: "No custom agents yet",
     emptyDescription:
       "Create your first custom agent with a specialized system prompt.",
+    apiDisabledTitle: "Agent management is disabled",
+    apiDisabledDescription:
+      "Set agents_api.enabled=true in the backend configuration, then restart the backend service.",
     chat: "Chat",
     delete: "Delete",
     deleteConfirm:
@@ -236,13 +239,13 @@ export const enUS: Translations = {
     save: "Save agent",
     saving: "Saving agent...",
     saveRequested:
-      "Save requested. Haiyou AI is generating and saving an initial version now.",
+      "Save requested. CNOOC Exploration and Development General Agent is generating and saving an initial version now.",
     saveHint:
       "You can save this agent at any time from the top-right menu, even if this is only a first draft.",
     saveCommandMessage:
       "Please save this custom agent now based on everything we have discussed so far. Treat this as my explicit confirmation to save. If some details are still missing, make reasonable assumptions, generate a concise first SOUL.md in English, and call setup_agent immediately without asking me for more confirmation.",
     agentCreatedPendingRefresh:
-      "The agent was created, but Haiyou AI could not load it yet. Please refresh this page in a moment.",
+      "The agent was created, but CNOOC Exploration and Development General Agent could not load it yet. Please refresh this page in a moment.",
     more: "More actions",
     agentCreated: "Agent created!",
     startChatting: "Start chatting",
@@ -263,7 +266,7 @@ export const enUS: Translations = {
     visitGithub: "View platform repository",
     reportIssue: "Report a issue",
     contactUs: "Contact us",
-    about: "About Haiyou AI",
+    about: "About CNOOC Exploration and Development General Agent",
     logout: "Log out",
   },
 
@@ -280,7 +283,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "Haiyou AI",
+    appName: "CNOOC Exploration and Development General Agent",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",
@@ -306,7 +309,8 @@ export const enUS: Translations = {
     writeFile: "Write file",
     clickToViewContent: "Click to view file content",
     writeTodos: "Update to-do list",
-    skillInstallTooltip: "Install skill and make it available to Haiyou AI",
+    skillInstallTooltip:
+      "Install skill and make it available to CNOOC Exploration and Development General Agent",
   },
 
   // Subtasks
@@ -366,7 +370,7 @@ export const enUS: Translations = {
     actions: "Actions",
     keyboardShortcuts: "Keyboard Shortcuts",
     keyboardShortcutsDescription:
-      "Navigate Haiyou AI faster with keyboard shortcuts.",
+      "Navigate CNOOC Exploration and Development General Agent faster with keyboard shortcuts.",
     openCommandPalette: "Open Command Palette",
     toggleSidebar: "Toggle Sidebar",
   },
@@ -374,7 +378,8 @@ export const enUS: Translations = {
   // Settings
   settings: {
     title: "Settings",
-    description: "Adjust how Haiyou AI looks and behaves for you.",
+    description:
+      "Adjust how CNOOC Exploration and Development General Agent looks and behaves for you.",
     sections: {
       account: "Account",
       appearance: "Appearance",
@@ -387,7 +392,7 @@ export const enUS: Translations = {
     memory: {
       title: "Memory",
       description:
-        "Haiyou AI automatically learns from your conversations in the background. These memories help the platform understand you better and deliver a more personalized experience.",
+        "CNOOC Exploration and Development General Agent automatically learns from your conversations in the background. These memories help the platform understand you better and deliver a more personalized experience.",
       empty: "No memory data to display.",
       rawJson: "Raw JSON",
       exportButton: "Export memory",
@@ -493,12 +498,12 @@ export const enUS: Translations = {
     notification: {
       title: "Notification",
       description:
-        "Haiyou AI only sends a completion notification when the window is not active. This is especially useful for long-running tasks so you can switch to other work and get notified when done.",
+        "CNOOC Exploration and Development General Agent only sends a completion notification when the window is not active. This is especially useful for long-running tasks so you can switch to other work and get notified when done.",
       requestPermission: "Request notification permission",
       deniedHint:
         "Notification permission was denied. You can enable it in your browser's site settings to receive completion alerts.",
       testButton: "Send test notification",
-      testTitle: "Haiyou AI",
+      testTitle: "CNOOC Exploration and Development General Agent",
       testBody: "This is a test notification.",
       notSupported: "Your browser does not support notifications.",
       disableNotification: "Disable notification",

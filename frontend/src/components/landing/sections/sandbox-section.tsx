@@ -15,8 +15,8 @@ export function SandboxSection({ className }: { className?: string }) {
       title="Agent Runtime Environment"
       subtitle={
         <p>
-          Haiyou AI can execute commands, manage files, and run long tasks in a
-          secure Docker-based sandbox.
+          CNOOC Exploration and Development General Agent can execute commands,
+          manage files, and run long tasks in a secure Docker-based sandbox.
         </p>
       }
     >

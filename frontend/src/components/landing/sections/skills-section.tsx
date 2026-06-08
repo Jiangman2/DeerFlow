@@ -15,8 +15,8 @@ export function SkillsSection({ className }: { className?: string }) {
           Agent Skills are loaded progressively, only what&apos;s needed, when
           it&apos;s needed.
           <br />
-          Extend Haiyou AI with your own skill files, or use the built-in
-          library.
+          Extend CNOOC Exploration and Development General Agent with your own
+          skill files, or use the built-in library.
         </div>
       }
     >

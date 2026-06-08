@@ -62,11 +62,11 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用海油AI，面向油气勘探开发业务的多智能体工作平台。通过内置和自定义 Skills，\n平台可以帮你开展资料检索、数据分析、报告生成、\n文档审查与智能办公等专业工作。",
+      "欢迎使用中海油勘探开发通用智能体，面向油气勘探开发业务的多智能体工作平台。通过内置和自定义 Skills，\n平台可以帮你开展资料检索、数据分析、报告生成、\n文档审查与智能办公等专业工作。",
 
     createYourOwnSkill: "创建你自己的 Agent SKill",
     createYourOwnSkillDescription:
-      "创建你的 Agent Skill 来扩展海油AI能力。通过自定义技能，平台\n可以沉淀专业流程、调用业务工具，并生成报告、幻灯片、\n网页等工作产物。",
+      "创建你的 Agent Skill 来扩展中海油勘探开发通用智能体能力。通过自定义技能，平台\n可以沉淀专业流程、调用业务工具，并生成报告、幻灯片、\n网页等工作产物。",
   },
 
   // Clipboard
@@ -197,6 +197,9 @@ export const zhCN: Translations = {
     newAgent: "新建智能体",
     emptyTitle: "还没有自定义智能体",
     emptyDescription: "创建你的第一个自定义智能体，设置专属系统提示词。",
+    apiDisabledTitle: "智能体管理未开启",
+    apiDisabledDescription:
+      "请在后端配置中设置 agents_api.enabled=true，然后重启后端服务。",
     chat: "对话",
     delete: "删除",
     deleteConfirm: "确定要删除该智能体吗？此操作不可撤销。",
@@ -248,7 +251,7 @@ export const zhCN: Translations = {
     visitGithub: "查看平台仓库",
     reportIssue: "报告问题",
     contactUs: "联系我们",
-    about: "关于海油AI",
+    about: "关于中海油勘探开发通用智能体",
     logout: "退出登录",
   },
 
@@ -265,7 +268,7 @@ export const zhCN: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "海油AI",
+    appName: "中海油勘探开发通用智能体",
     chats: "对话",
     newChat: "新对话",
     untitled: "未命名",
@@ -290,7 +293,7 @@ export const zhCN: Translations = {
     writeFile: "写入文件",
     clickToViewContent: "点击查看文件内容",
     writeTodos: "更新 To-do 列表",
-    skillInstallTooltip: "安装技能并使其可在海油AI中使用",
+    skillInstallTooltip: "安装技能并使其可在中海油勘探开发通用智能体中使用",
   },
 
   uploads: {
@@ -347,7 +350,7 @@ export const zhCN: Translations = {
     noResults: "未找到结果。",
     actions: "操作",
     keyboardShortcuts: "键盘快捷键",
-    keyboardShortcutsDescription: "使用键盘快捷键更快地操作海油AI。",
+    keyboardShortcutsDescription: "使用键盘快捷键更快地操作中海油勘探开发通用智能体。",
     openCommandPalette: "打开命令面板",
     toggleSidebar: "切换侧边栏",
   },
@@ -355,7 +358,7 @@ export const zhCN: Translations = {
   // Settings
   settings: {
     title: "设置",
-    description: "根据你的偏好调整海油AI的界面和行为。",
+    description: "根据你的偏好调整中海油勘探开发通用智能体的界面和行为。",
     sections: {
       account: "账号",
       appearance: "外观",
@@ -368,7 +371,7 @@ export const zhCN: Translations = {
     memory: {
       title: "记忆",
       description:
-        "海油AI会在后台不断从你的对话中自动学习。这些记忆能帮助平台更好地理解你，并提供更个性化的体验。",
+        "中海油勘探开发通用智能体会在后台不断从你的对话中自动学习。这些记忆能帮助平台更好地理解你，并提供更个性化的体验。",
       empty: "暂无可展示的记忆数据。",
       rawJson: "原始 JSON",
       exportButton: "导出记忆",
@@ -470,12 +473,12 @@ export const zhCN: Translations = {
     notification: {
       title: "通知",
       description:
-        "海油AI只会在窗口不活跃时发送完成通知，特别适合长时间任务：你可以先去做别的事，完成后会收到提醒。",
+        "中海油勘探开发通用智能体只会在窗口不活跃时发送完成通知，特别适合长时间任务：你可以先去做别的事，完成后会收到提醒。",
       requestPermission: "请求通知权限",
       deniedHint:
         "通知权限已被拒绝。可在浏览器的网站设置中重新开启，以接收完成提醒。",
       testButton: "发送测试通知",
-      testTitle: "海油AI",
+      testTitle: "中海油勘探开发通用智能体",
       testBody: "这是一条测试通知。",
       notSupported: "当前浏览器不支持通知功能。",
       disableNotification: "关闭通知",
