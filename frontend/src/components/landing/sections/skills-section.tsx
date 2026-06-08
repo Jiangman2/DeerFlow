@@ -12,10 +12,10 @@ export function SkillsSection({ className }: { className?: string }) {
       title="Agent Skills"
       subtitle={
         <div>
-          Agent Skills are loaded progressively — only what&apos;s needed, when
+          Agent Skills are loaded progressively, only what&apos;s needed, when
           it&apos;s needed.
           <br />
-          Extend DeerFlow with your own skill files, or use our built-in
+          Extend Haiyou AI with your own skill files, or use the built-in
           library.
         </div>
       }

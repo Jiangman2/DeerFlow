@@ -1,0 +1,20 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg3" x1="24" y1="20" x2="232" y2="236" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEE4FF"/>
+      <stop offset="1" stop-color="#D7C6FF"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="120" fill="url(#bg3)"/>
+  <circle cx="128" cy="102" r="50" fill="#FFDAB8"/>
+  <path d="M80 106C80 74 101 52 128 52C155 52 176 74 176 106V110H80V106Z" fill="#41355E"/>
+  <circle cx="108" cy="104" r="5.5" fill="#2A2A2A"/>
+  <circle cx="148" cy="104" r="5.5" fill="#2A2A2A"/>
+  <path d="M112 126C118 132 138 132 144 126" stroke="#9B5C4D" stroke-width="4" stroke-linecap="round"/>
+  <path d="M76 210C82 168 100 150 128 150C156 150 174 168 180 210" fill="#6550A6"/>
+  <rect x="98" y="165" width="60" height="20" rx="10" fill="#FFFFFF" opacity="0.94"/>
+  <ellipse cx="194" cy="170" rx="24" ry="10" fill="#FFFFFF" opacity="0.96"/>
+  <path d="M170 170V188C170 193 181 197 194 197C207 197 218 193 218 188V170" fill="#FFFFFF" opacity="0.96"/>
+  <path d="M170 179C170 184 181 188 194 188C207 188 218 184 218 179" stroke="#6A51B3" stroke-width="4"/>
+  <path d="M170 188C170 193 181 197 194 197C207 197 218 193 218 188" stroke="#6A51B3" stroke-width="4"/>
+</svg>

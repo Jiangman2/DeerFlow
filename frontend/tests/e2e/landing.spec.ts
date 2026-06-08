@@ -6,15 +6,11 @@ test.describe("Landing page", () => {
   test("renders the header and hero section", async ({ page }) => {
     await page.goto("/");
 
-    // Header brand name
     await expect(
-      page.locator("header h1", { hasText: "DeerFlow" }),
+      page.getByRole("heading", { name: "中海油勘探开发通用智能体" }),
     ).toBeVisible();
 
-    // "Get Started" call-to-action button in hero
-    await expect(
-      page.getByRole("link", { name: /get started/i }),
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "开始使用" })).toBeVisible();
   });
 
   test("Get Started link navigates to workspace", async ({ page }) => {
@@ -22,7 +18,7 @@ test.describe("Landing page", () => {
 
     await page.goto("/");
 
-    const getStarted = page.getByRole("link", { name: /get started/i });
+    const getStarted = page.getByRole("link", { name: "开始使用" });
     await getStarted.click();
 
     // Should redirect to /workspace/chats/new

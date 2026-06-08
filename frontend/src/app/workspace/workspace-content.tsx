@@ -26,7 +26,9 @@ export async function WorkspaceContent({
     <QueryClientProvider>
       <SidebarProvider className="h-screen" defaultOpen={initialSidebarOpen}>
         <WorkspaceSidebar />
-        <SidebarInset className="min-w-0">{children}</SidebarInset>
+        <SidebarInset className="min-w-0 bg-[#f7fbff] bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center">
+          {children}
+        </SidebarInset>
       </SidebarProvider>
       <CommandPalette />
       <Toaster position="top-center" />

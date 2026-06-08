@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+
 import { test } from "vitest";
 
 const { createMockShopCartFiles, SHOP_CART_MOCK_FILES } = await import(

@@ -11,7 +11,7 @@ const features: BentoCardProps[] = [
     color: COLOR,
     label: "Context Engineering",
     title: "Long/Short-term Memory",
-    description: "Now the agent can better understand you",
+    description: "Better continuity for professional workflows",
   },
   {
     color: COLOR,
@@ -24,15 +24,13 @@ const features: BentoCardProps[] = [
     color: COLOR,
     label: "Extensible",
     title: "Skills and Tools",
-    description:
-      "Plug, play, or even swap built-in tools. Build the agent you want.",
+    description: "Plug in business skills and reusable agent workflows.",
   },
-
   {
     color: COLOR,
     label: "Persistent",
     title: "Sandbox with File System",
-    description: "Read, write, run — like a real computer",
+    description: "Read, write, and run work in an isolated workspace",
   },
   {
     color: COLOR,
@@ -42,8 +40,8 @@ const features: BentoCardProps[] = [
   },
   {
     color: COLOR,
-    label: "Free",
-    title: "Open Source",
+    label: "Deployable",
+    title: "Self-hosted Platform",
     description: "MIT License, self-hosted, full control",
   },
 ];
@@ -52,8 +50,8 @@ export function WhatsNewSection({ className }: { className?: string }) {
   return (
     <Section
       className={cn("", className)}
-      title="Whats New in DeerFlow 2.0"
-      subtitle="DeerFlow is now evolving from a Deep Research agent into a full-stack Super Agent"
+      title="平台能力升级"
+      subtitle="基于官方 2.0 主分支，面向油气业务沉淀工作流、技能与智能体"
     >
       <div className="flex w-full items-center justify-center">
         <MagicBento data={features} />

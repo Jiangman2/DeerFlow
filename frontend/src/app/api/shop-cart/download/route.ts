@@ -6,9 +6,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "@/env";
 import {
-  CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
-  resolveCnoocPlatformToken,
-} from "@/server/cnooc-auth/platform-token";
+  resolveShopCartPlatformToken,
+  SHOP_CART_PLATFORM_TOKEN_COOKIE_NAME,
+} from "@/server/shop-cart/platform-token";
 
 const DATA_LAKE_DOWNLOAD_BASE =
   "https://datalake.cnooc/jsearch/bd_search/external-download/api/cart/download";
@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(DATA_LAKE_DOWNLOAD_BASE);
   url.searchParams.set("fileId", fileId);
-  const token = resolveCnoocPlatformToken(
-    request.cookies.get(CNOOC_PLATFORM_TOKEN_COOKIE_NAME)?.value,
+  const token = resolveShopCartPlatformToken(
+    request.cookies.get(SHOP_CART_PLATFORM_TOKEN_COOKIE_NAME)?.value,
     env.SHOP_CART_DOWNLOAD_TOKEN,
   );
 

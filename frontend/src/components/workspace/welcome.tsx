@@ -22,13 +22,20 @@ export function Welcome({
   const isUltra = useMemo(() => mode === "ultra", [mode]);
   const colors = useMemo(() => {
     if (isUltra) {
-      return ["#efefbb", "#e9c665", "#e3a812"];
+      return ["#005bac", "#00a3e0", "#f2b705"];
     }
     return ["var(--color-foreground)"];
   }, [isUltra]);
+
   useEffect(() => {
     waved = true;
   }, []);
+
+  const skillMode = searchParams.get("mode") === "skill";
+  const description = skillMode
+    ? t.welcome.createYourOwnSkillDescription
+    : t.welcome.description;
+
   return (
     <div
       className={cn(
@@ -37,38 +44,27 @@ export function Welcome({
       )}
     >
       <div className="text-2xl font-bold">
-        {searchParams.get("mode") === "skill" ? (
-          `✨ ${t.welcome.createYourOwnSkill} ✨`
+        {skillMode ? (
+          <span>{t.welcome.createYourOwnSkill}</span>
         ) : (
           <div className="flex items-center gap-2">
-            <div className={cn("inline-block", !waved ? "animate-wave" : "")}>
-              {isUltra ? "🚀" : "👋"}
-            </div>
+            <span
+              className={cn(
+                "inline-flex size-2 rounded-full bg-[#0067b1]",
+                !waved ? "animate-pulse" : "",
+              )}
+            />
             <AuroraText colors={colors}>{t.welcome.greeting}</AuroraText>
           </div>
         )}
       </div>
-      {searchParams.get("mode") === "skill" ? (
-        <div className="text-muted-foreground text-sm">
-          {t.welcome.createYourOwnSkillDescription.includes("\n") ? (
-            <pre className="font-sans whitespace-pre">
-              {t.welcome.createYourOwnSkillDescription}
-            </pre>
-          ) : (
-            <p>{t.welcome.createYourOwnSkillDescription}</p>
-          )}
-        </div>
-      ) : (
-        <div className="text-muted-foreground text-sm">
-          {t.welcome.description.includes("\n") ? (
-            <pre className="font-sans whitespace-pre">
-              {t.welcome.description}
-            </pre>
-          ) : (
-            <p>{t.welcome.description}</p>
-          )}
-        </div>
-      )}
+      <div className="text-muted-foreground text-sm">
+        {description.includes("\n") ? (
+          <pre className="font-sans whitespace-pre">{description}</pre>
+        ) : (
+          <p>{description}</p>
+        )}
+      </div>
     </div>
   );
 }

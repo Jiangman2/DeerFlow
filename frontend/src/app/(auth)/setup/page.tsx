@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
+import { brand } from "@/brand";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
-import { FlickeringGrid } from "@/components/ui/flickering-grid";
 import { Input } from "@/components/ui/input";
 import { getCsrfHeaders } from "@/core/api/fetcher";
 import { useAuth } from "@/core/auth/AuthProvider";
@@ -16,17 +16,13 @@ type SetupMode = "loading" | "init_admin" | "change_password";
 export default function SetupPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const { theme, resolvedTheme } = useTheme();
   const [mode, setMode] = useState<SetupMode>("loading");
 
-  // --- Shared state ---
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // --- Change-password mode only ---
   const [currentPassword, setCurrentPassword] = useState("");
 
   useEffect(() => {
@@ -35,7 +31,6 @@ export default function SetupPage() {
     if (isAuthenticated && user?.needs_setup) {
       setMode("change_password");
     } else if (!isAuthenticated) {
-      // Check if the system has no users yet
       void fetch("/api/v1/auth/setup-status")
         .then((r) => r.json())
         .then((data: { needs_setup?: boolean }) => {
@@ -43,7 +38,6 @@ export default function SetupPage() {
           if (data.needs_setup) {
             setMode("init_admin");
           } else {
-            // System already set up and user is not logged in — go to login
             router.push("/login");
           }
         })
@@ -51,7 +45,6 @@ export default function SetupPage() {
           if (!cancelled) router.push("/login");
         });
     } else {
-      // Authenticated but needs_setup is false — already set up
       router.push("/workspace");
     }
 
@@ -60,7 +53,6 @@ export default function SetupPage() {
     };
   }, [isAuthenticated, user, router]);
 
-  // ── Init-admin handler ─────────────────────────────────────────────
   const handleInitAdmin = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError("");
@@ -76,16 +68,12 @@ export default function SetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          email,
-          password: newPassword,
-        }),
+        body: JSON.stringify({ email, password: newPassword }),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        const authError = parseAuthError(data);
-        setError(authError.message);
+        setError(parseAuthError(data).message);
         return;
       }
 
@@ -97,7 +85,6 @@ export default function SetupPage() {
     }
   };
 
-  // ── Change-password handler ────────────────────────────────────────
   const handleChangePassword = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setError("");
@@ -129,8 +116,7 @@ export default function SetupPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        const authError = parseAuthError(data);
-        setError(authError.message);
+        setError(parseAuthError(data).message);
         return;
       }
 
@@ -142,146 +128,160 @@ export default function SetupPage() {
     }
   };
 
-  const actualTheme = theme === "system" ? resolvedTheme : theme;
-
   if (mode === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground text-sm">Loading…</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#eef7ff]">
+        <p className="text-sm text-slate-500">Loading...</p>
       </div>
     );
   }
 
-  // ── Admin initialization form ──────────────────────────────────────
   if (mode === "init_admin") {
     return (
-      <div className="bg-background flex min-h-screen items-center justify-center">
-        <FlickeringGrid
-          className="absolute inset-0 z-0 mask-[url(/images/deer.svg)] mask-size-[100vw] mask-center mask-no-repeat md:mask-size-[72vh]"
-          squareSize={4}
-          gridGap={4}
-          color={actualTheme === "dark" ? "white" : "black"}
-          maxOpacity={0.3}
-          flickerChance={0.25}
-        />
-        <div className="border-border/20 bg-background/5 w-full max-w-md space-y-6 rounded-3xl border p-8 backdrop-blur-sm">
-          <div className="text-center">
-            <h1 className="font-serif text-3xl">DeerFlow</h1>
-            <p className="text-muted-foreground mt-2">Create admin account</p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Set up the administrator account to get started.
-            </p>
-          </div>
-          <form onSubmit={handleInitAdmin} className="space-y-2">
-            <div className="flex flex-col space-y-1">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex flex-col space-y-1">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Password (min. 8 characters)"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                minLength={8}
-              />
-            </div>
-            <div className="flex flex-col space-y-1">
-              <label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm Password
-              </label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={8}
-              />
-            </div>
-            {error && <p className="ms-1 text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account…" : "Create Admin Account"}
-            </Button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Change-password form (needs_setup after login) ─────────────────
-  return (
-    <div className="bg-background flex min-h-screen items-center justify-center">
-      <FlickeringGrid
-        className="absolute inset-0 z-0 mask-[url(/images/deer.svg)] mask-size-[100vw] mask-center mask-no-repeat md:mask-size-[72vh]"
-        squareSize={4}
-        gridGap={4}
-        color={actualTheme === "dark" ? "white" : "black"}
-        maxOpacity={0.3}
-        flickerChance={0.25}
-      />
-      <div className="border-border/20 bg-background/5 w-full max-w-md space-y-6 rounded-3xl border p-8 backdrop-blur-sm">
-        <div className="text-center">
-          <h1 className="font-serif text-3xl">DeerFlow</h1>
-          <p className="text-muted-foreground mt-2">
-            Complete admin account setup
-          </p>
-          <p className="text-muted-foreground mt-1 text-xs">
-            Set your real email and a new password.
-          </p>
-        </div>
-        <form onSubmit={handleChangePassword} className="space-y-4">
-          <Input
+      <AuthShell
+        title="Create admin account"
+        description="Set up the administrator account to get started."
+      >
+        <form onSubmit={handleInitAdmin} className="space-y-3">
+          <LabeledInput
+            id="email"
+            label="Email"
             type="email"
-            placeholder="Your email"
+            placeholder="you@example.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
+            onChange={setEmail}
           />
-          <Input
+          <LabeledInput
+            id="password"
+            label="Password"
             type="password"
-            placeholder="Current password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            required
-          />
-          <Input
-            type="password"
-            placeholder="New password"
+            placeholder="Password (min. 8 characters)"
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
+            onChange={setNewPassword}
             minLength={8}
           />
-          <Input
+          <LabeledInput
+            id="confirmPassword"
+            label="Confirm Password"
             type="password"
-            placeholder="Confirm new password"
+            placeholder="Confirm password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
+            onChange={setConfirmPassword}
             minLength={8}
           />
           {error && <p className="text-sm text-red-500">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Setting up…" : "Complete Setup"}
+            {loading ? "Creating account..." : "Create Admin Account"}
           </Button>
         </form>
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell
+      title="Complete admin account setup"
+      description="Set your real email and a new password."
+    >
+      <form onSubmit={handleChangePassword} className="space-y-3">
+        <Input
+          type="email"
+          placeholder="Your email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <Input
+          type="password"
+          placeholder="Current password"
+          value={currentPassword}
+          onChange={(e) => setCurrentPassword(e.target.value)}
+          required
+        />
+        <Input
+          type="password"
+          placeholder="New password"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          required
+          minLength={8}
+        />
+        <Input
+          type="password"
+          placeholder="Confirm new password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          required
+          minLength={8}
+        />
+        {error && <p className="text-sm text-red-500">{error}</p>}
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? "Setting up..." : "Complete Setup"}
+        </Button>
+      </form>
+    </AuthShell>
+  );
+}
+
+function AuthShell({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef7ff] px-4">
+      <div className="absolute inset-0 bg-[url('/images/home-bg-light.png')] bg-cover bg-center opacity-35" />
+      <div className="absolute inset-0 bg-white/55" />
+      <div className="relative z-10 w-full max-w-md space-y-6 rounded-lg border border-[#bfdbfe] bg-white/90 p-8 shadow-[0_24px_80px_rgba(15,42,85,0.18)] backdrop-blur">
+        <div className="flex flex-col items-center text-center">
+          <BrandLogo variant="full" priority className="h-12 w-auto" />
+          <h1 className="mt-5 text-xl font-semibold text-slate-950">
+            {brand.shortName}
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">{title}</p>
+          <p className="mt-1 text-xs text-slate-400">{description}</p>
+        </div>
+        {children}
       </div>
+    </div>
+  );
+}
+
+function LabeledInput({
+  id,
+  label,
+  type,
+  placeholder,
+  value,
+  onChange,
+  minLength,
+}: {
+  id: string;
+  label: string;
+  type: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+  minLength?: number;
+}) {
+  return (
+    <div className="flex flex-col space-y-1">
+      <label htmlFor={id} className="text-sm font-medium">
+        {label}
+      </label>
+      <Input
+        id={id}
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        minLength={minLength}
+      />
     </div>
   );
 }
