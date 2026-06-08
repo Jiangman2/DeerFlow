@@ -56,9 +56,10 @@ export function WorkspaceHeader({ className }: { className?: string }) {
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname === "/workspace/chats/new"}
+            className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm [&>svg]:text-[#8b939d]"
             asChild
           >
-            <Link className="text-muted-foreground" href="/workspace/chats/new">
+            <Link href="/workspace/chats/new">
               <MessageSquarePlus size={16} />
               <span>{t.sidebar.newChat}</span>
             </Link>

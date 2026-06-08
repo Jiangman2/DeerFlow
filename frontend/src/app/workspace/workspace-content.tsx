@@ -24,9 +24,12 @@ export async function WorkspaceContent({
 
   return (
     <QueryClientProvider>
-      <SidebarProvider className="h-screen" defaultOpen={initialSidebarOpen}>
+      <SidebarProvider
+        className="h-screen bg-[#eaf1fb]"
+        defaultOpen={initialSidebarOpen}
+      >
         <WorkspaceSidebar />
-        <SidebarInset className="min-w-0 bg-[#f7fbff] bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center">
+        <SidebarInset className="min-w-0 border-l border-[#d8e2f1] bg-white bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center">
           {children}
         </SidebarInset>
       </SidebarProvider>
