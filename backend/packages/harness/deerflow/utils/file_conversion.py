@@ -17,6 +17,10 @@ No FastAPI or HTTP dependencies — pure utility functions.
 import asyncio
 import logging
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 from deerflow.config.app_config import get_app_config
@@ -102,6 +106,94 @@ def _convert_with_markitdown(file_path: Path) -> str:
     return md.convert(str(file_path)).text_content
 
 
+def _which_soffice() -> str | None:
+    """Find LibreOffice across PATH and common install locations."""
+    candidates = [
+        shutil.which("soffice"),
+        shutil.which("libreoffice"),
+        r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        "/usr/bin/soffice",
+        "/usr/bin/libreoffice",
+        "/usr/lib/libreoffice/program/soffice",
+        "/snap/bin/libreoffice",
+        "/snap/bin/soffice",
+    ]
+    for candidate in candidates:
+        if candidate and Path(candidate).exists():
+            return candidate
+    return None
+
+
+def _convert_doc_with_pipeline(file_path: Path) -> str | None:
+    """Convert legacy .doc files without feeding binary content to MarkItDown.
+
+    MarkItDown handles modern Office formats much better than old binary .doc.
+    Prefer LibreOffice to normalize .doc to .docx, then fall back to antiword
+    plaintext extraction when LibreOffice is not available.
+    """
+    soffice = _which_soffice()
+    if soffice:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_dir = Path(tmp_dir)
+            profile_dir = out_dir / "lo_profile"
+            profile_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                completed = subprocess.run(
+                    [
+                        soffice,
+                        "--headless",
+                        "--nologo",
+                        "--norestore",
+                        "--nolockcheck",
+                        "--nodefault",
+                        "--nofirststartwizard",
+                        f"-env:UserInstallation={profile_dir.as_uri()}",
+                        "--convert-to",
+                        "docx",
+                        "--outdir",
+                        str(out_dir),
+                        str(file_path),
+                    ],
+                    check=False,
+                    capture_output=True,
+                    timeout=180,
+                )
+                converted = out_dir / f"{file_path.stem}.docx"
+                if completed.returncode == 0 and converted.exists():
+                    logger.info("Converted legacy .doc via LibreOffice: %s", file_path.name)
+                    return _convert_with_markitdown(converted)
+                logger.warning(
+                    "LibreOffice did not produce .docx for %s: returncode=%s stdout=%s stderr=%s",
+                    file_path.name,
+                    completed.returncode,
+                    completed.stdout.decode("utf-8", errors="replace")[-1000:],
+                    completed.stderr.decode("utf-8", errors="replace")[-2000:],
+                )
+            except subprocess.TimeoutExpired:
+                logger.error("Timed out converting legacy .doc with LibreOffice: %s", file_path.name)
+            except Exception as e:
+                logger.warning("LibreOffice conversion failed for %s: %s", file_path.name, e)
+
+    antiword = shutil.which("antiword")
+    if antiword:
+        try:
+            completed = subprocess.run(
+                [antiword, str(file_path)],
+                check=True,
+                capture_output=True,
+                timeout=60,
+            )
+            logger.info("Converted legacy .doc via antiword: %s", file_path.name)
+            return completed.stdout.decode("utf-8", errors="replace")
+        except subprocess.TimeoutExpired:
+            logger.error("Timed out converting legacy .doc with antiword: %s", file_path.name)
+        except Exception as e:
+            logger.warning("antiword conversion failed for %s: %s", file_path.name, e)
+
+    return None
+
+
 def _do_convert(file_path: Path, pdf_converter: str) -> str:
     """Synchronous conversion — called directly or via asyncio.to_thread.
 
@@ -149,6 +241,16 @@ async def convert_file_to_markdown(file_path: Path) -> Path | None:
         Path to the generated .md file, or None if conversion failed.
     """
     try:
+        if file_path.suffix.lower() == ".doc":
+            text = await asyncio.to_thread(_convert_doc_with_pipeline, file_path)
+            if text is None:
+                logger.warning("Legacy .doc conversion unavailable for %s", file_path.name)
+                return None
+            md_path = file_path.with_suffix(".md")
+            md_path.write_text(text, encoding="utf-8")
+            logger.info("Converted %s to markdown: %s (%d chars)", file_path.name, md_path.name, len(text))
+            return md_path
+
         pdf_converter = _get_pdf_converter()
         file_size = file_path.stat().st_size
 
