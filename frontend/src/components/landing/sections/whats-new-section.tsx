@@ -9,40 +9,39 @@ const COLOR = "#0a0a0a";
 const features: BentoCardProps[] = [
   {
     color: COLOR,
-    label: "Context Engineering",
-    title: "Long/Short-term Memory",
-    description: "Better continuity for professional workflows",
+    label: "上下文工程",
+    title: "长期与短期记忆",
+    description: "围绕业务人员、项目背景和任务过程持续沉淀上下文",
   },
   {
     color: COLOR,
-    label: "Long Task Running",
-    title: "Planning and Sub-tasking",
-    description:
-      "Plans ahead, reasons through complexity, then executes sequentially or in parallel",
+    label: "长任务执行",
+    title: "规划与子任务协同",
+    description: "面向复杂研究、资料分析和报告编制任务进行分解、执行与汇总",
   },
   {
     color: COLOR,
-    label: "Extensible",
-    title: "Skills and Tools",
-    description: "Plug in business skills and reusable agent workflows.",
+    label: "可扩展",
+    title: "业务技能与工具",
+    description: "接入 MinIO 文档、检索、脚本工具和可复用业务流程",
   },
   {
     color: COLOR,
-    label: "Persistent",
-    title: "Sandbox with File System",
-    description: "Read, write, and run work in an isolated workspace",
+    label: "可沉淀",
+    title: "安全工作区",
+    description: "在受控工作区内读写文件、生成产物并保留任务过程",
   },
   {
     color: COLOR,
-    label: "Flexible",
-    title: "Multi-Model Support",
-    description: "Doubao, DeepSeek, OpenAI, Gemini, etc.",
+    label: "模型接入",
+    title: "百炼 Qwen 模型",
+    description: "统一使用百炼 Qwen 能力支撑对话、分析与生成任务",
   },
   {
     color: COLOR,
-    label: "Deployable",
-    title: "Self-hosted Platform",
-    description: "MIT License, self-hosted, full control",
+    label: "私有部署",
+    title: "企业级工作台",
+    description: "保留官方 gateway auth，适配内部部署与受控使用场景",
   },
 ];
 

@@ -118,7 +118,7 @@ export async function checkAgentName(
     );
   } catch {
     throw new AgentNameCheckError(
-      "Could not reach the DeerFlow backend.",
+      "无法连接中海油勘探开发通用智能体后端服务。",
       "backend_unreachable",
     );
   }
@@ -131,7 +131,7 @@ export async function checkAgentName(
     }
     if (BACKEND_UNAVAILABLE_STATUSES.has(res.status)) {
       throw new AgentNameCheckError(
-        "Could not reach the DeerFlow backend.",
+        "无法连接中海油勘探开发通用智能体后端服务。",
         "backend_unreachable",
       );
     }

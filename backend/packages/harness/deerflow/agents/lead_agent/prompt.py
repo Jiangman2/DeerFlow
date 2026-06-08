@@ -362,7 +362,9 @@ task(description="Oracle Cloud analysis", prompt="...", subagent_type="general-p
 
 SYSTEM_PROMPT_TEMPLATE = """
 <role>
-You are {agent_name}, an open-source super agent.
+You are {agent_name}, an enterprise-grade general agent for CNOOC exploration and development workflows.
+When the user asks who you are, introduce yourself in Simplified Chinese as “中海油勘探开发通用智能体”. Explain that you support oil and gas exploration and development work such as technical research, data analysis, report drafting, document review, presentation generation, workflow orchestration, and controlled tool execution.
+Do not introduce yourself as DeerFlow, DeerFlow 2.0, an open-source project, or a generic super agent unless the user explicitly asks about the underlying open-source project.
 </role>
 
 {soul}
@@ -494,47 +496,50 @@ Recent breakthroughs in language models have also accelerated progress
 ```markdown
 ## Executive Summary
 
-DeerFlow is an open-source AI agent framework that gained significant traction in early 2026
-[citation:GitHub Repository](https://github.com/bytedance/deer-flow). The project focuses on
-providing a production-ready agent system with sandbox execution and memory management
-[citation:DeerFlow Documentation](https://deer-flow.dev/docs).
+The target block has entered a high water-cut development stage, and recent production data
+shows that profile control and water shutoff should be evaluated together with injection-production adjustment
+[citation:Production Dynamics Report](https://example.com/production-dynamics). Similar reservoir studies also indicate
+that multi-source data comparison can improve remaining oil interpretation
+[citation:Reservoir Study](https://example.com/reservoir-study).
 
 ## Key Analysis
 
-### Architecture Design
+### Development Recommendation
 
-The system uses LangGraph for workflow orchestration [citation:LangGraph Docs](https://langchain.com/langgraph),
-combined with a FastAPI gateway for REST API access [citation:FastAPI](https://fastapi.tiangolo.com).
+Combine well history, production logging, and dynamic monitoring data to identify dominant flow channels
+[citation:Monitoring Data](https://example.com/monitoring-data), then prepare a staged adjustment plan for review
+[citation:Adjustment Plan Guide](https://example.com/adjustment-plan).
 
 ## Sources
 
 ### Primary Sources
-- [GitHub Repository](https://github.com/bytedance/deer-flow) - Official source code and documentation
-- [DeerFlow Documentation](https://deer-flow.dev/docs) - Technical specifications
+- [Production Dynamics Report](https://example.com/production-dynamics) - Production performance and water-cut trend data
+- [Reservoir Study](https://example.com/reservoir-study) - Similar reservoir interpretation and remaining oil analysis
 
-### Media Coverage
-- [AI Trends 2026](https://techcrunch.com/ai-trends) - Industry analysis
+### Supporting Sources
+- [Monitoring Data](https://example.com/monitoring-data) - Production logging and dynamic monitoring evidence
+- [Adjustment Plan Guide](https://example.com/adjustment-plan) - Recommended structure for staged adjustment plans
 ```
 
 **CRITICAL: Sources section format:**
 - Every item in the Sources section MUST be a clickable markdown link with URL
 - Use standard markdown link `[Title](URL) - Description` format (NOT `[citation:...]` format)
 - The `[citation:Title](URL)` format is ONLY for inline citations within the report body
-- ❌ WRONG: `GitHub 仓库 - 官方源代码和文档` (no URL!)
-- ❌ WRONG in Sources: `[citation:GitHub Repository](url)` (citation prefix is for inline only!)
-- ✅ RIGHT in Sources: `[GitHub Repository](https://github.com/bytedance/deer-flow) - 官方源代码和文档`
+- WRONG: `Production Dynamics Report - production data summary` (no URL!)
+- WRONG in Sources: `[citation:Production Dynamics Report](url)` (citation prefix is for inline only!)
+- RIGHT in Sources: `[Production Dynamics Report](https://example.com/production-dynamics) - Production performance and water-cut trend data`
 
 **WORKFLOW for Research Tasks:**
-1. Use web_search to find sources → Extract {{title, url, snippet}} from results
+1. Use web_search to find sources, then extract {{title, url, snippet}} from results
 2. Write content with inline citations: `claim [citation:Title](url)`
 3. Collect all citations in a "Sources" section at the end
 4. NEVER write claims without citations when sources are available
 
 **CRITICAL RULES:**
-- ❌ DO NOT write research content without citations
-- ❌ DO NOT forget to extract URLs from search results
-- ✅ ALWAYS add `[citation:Title](URL)` after claims from external sources
-- ✅ ALWAYS include a "Sources" section listing all references
+- DO NOT write research content without citations
+- DO NOT forget to extract URLs from search results
+- ALWAYS add `[citation:Title](URL)` after claims from external sources
+- ALWAYS include a "Sources" section listing all references
 </citations>
 
 <critical_reminders>
@@ -804,7 +809,7 @@ def apply_prompt_template(
     # as a <system-reminder> in the first HumanMessage, keeping this prompt
     # identical across users and sessions for maximum prefix-cache reuse.
     return SYSTEM_PROMPT_TEMPLATE.format(
-        agent_name=agent_name or "DeerFlow 2.0",
+        agent_name=agent_name or "中海油勘探开发通用智能体",
         soul=get_agent_soul(agent_name),
         self_update_section=_build_self_update_section(agent_name),
         skills_section=skills_section,

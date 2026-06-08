@@ -39,7 +39,7 @@ export function Welcome({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full flex-col items-center justify-center gap-2 px-8 py-4 text-center",
+        "mx-auto flex w-full flex-col items-center justify-center gap-2 px-4 py-4 text-center sm:px-8",
         className,
       )}
     >
@@ -58,9 +58,9 @@ export function Welcome({
           </div>
         )}
       </div>
-      <div className="text-muted-foreground text-sm">
+      <div className="text-muted-foreground max-w-3xl text-sm leading-6">
         {description.includes("\n") ? (
-          <pre className="font-sans whitespace-pre">{description}</pre>
+          <pre className="font-sans whitespace-pre-wrap">{description}</pre>
         ) : (
           <p>{description}</p>
         )}

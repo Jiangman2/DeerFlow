@@ -41,11 +41,11 @@ export function WorkspaceHeader({ className }: { className?: string }) {
           <div className="flex items-center justify-between gap-2">
             {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? (
               <Link href={brand.links.home} className="ml-2 flex items-center">
-                <BrandLogo variant="full" className="h-8 w-auto" />
+                <BrandLogo variant="full" priority className="h-8 w-auto" />
               </Link>
             ) : (
               <div className="ml-2 flex cursor-default items-center">
-                <BrandLogo variant="full" className="h-8 w-auto" />
+                <BrandLogo variant="full" priority className="h-8 w-auto" />
               </div>
             )}
             <SidebarTrigger />

@@ -44,7 +44,7 @@ export function ThreadTitle({
   }
   return (
     <FlipDisplay uniqueKey={threadId}>
-      {thread.values.title ?? "Untitled"}
+      {thread.values.title ?? t.pages.untitled}
     </FlipDisplay>
   );
 }

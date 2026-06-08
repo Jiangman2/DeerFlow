@@ -286,7 +286,7 @@ export const enUS: Translations = {
     appName: "CNOOC Exploration and Development General Agent",
     chats: "Chats",
     newChat: "New chat",
-    untitled: "Untitled",
+    untitled: "未命名",
   },
 
   // Tool calls
@@ -486,7 +486,7 @@ export const enUS: Translations = {
       description: "Manage the configuration and enabled status of MCP tools.",
     },
     skills: {
-      title: "Agent Skills",
+      title: "业务技能",
       description:
         "Manage the configuration and enabled status of the agent skills.",
       createSkill: "Create skill",

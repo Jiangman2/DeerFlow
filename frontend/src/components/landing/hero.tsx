@@ -29,7 +29,7 @@ export function Hero({ className }: { className?: string }) {
       <div className="absolute top-6 left-6 z-20 md:top-8 md:left-8">
         <BrandLogo variant="full" priority className="h-10 w-auto md:h-12" />
       </div>
-      <div className="container-md relative z-20 mx-auto flex h-full flex-col items-center justify-center px-6">
+      <div className="container-md relative z-20 mx-auto flex h-full flex-col items-center justify-center px-5 sm:px-6">
         <h1 className="max-w-5xl text-center text-4xl font-bold tracking-normal text-slate-950 md:text-6xl">
           {brand.productName}
         </h1>

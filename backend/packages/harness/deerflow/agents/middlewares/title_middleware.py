@@ -104,6 +104,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
         prompt = config.prompt_template.format(
             max_words=config.max_words,
+            max_chars=config.max_chars,
             user_msg=user_msg[:500],
             assistant_msg=assistant_msg[:500],
         )

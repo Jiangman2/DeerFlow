@@ -8,15 +8,13 @@ import { Section } from "../section";
 export function SkillsSection({ className }: { className?: string }) {
   return (
     <Section
-      className={cn("h-[calc(100vh-64px)] w-full bg-white/2", className)}
-      title="Agent Skills"
+      className={cn("min-h-[calc(100vh-64px)] w-full bg-white/2", className)}
+      title="业务技能"
       subtitle={
         <div>
-          Agent Skills are loaded progressively, only what&apos;s needed, when
-          it&apos;s needed.
+          按任务动态加载所需技能，减少无关上下文干扰。
           <br />
-          Extend CNOOC Exploration and Development General Agent with your own
-          skill files, or use the built-in library.
+          支持沉淀勘探开发资料检索、数据分析、报告编制和办公自动化流程。
         </div>
       }
     >
