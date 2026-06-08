@@ -266,7 +266,7 @@ export const enUS: Translations = {
     visitGithub: "View platform repository",
     reportIssue: "Report a issue",
     contactUs: "Contact us",
-    about: "About CNOOC Exploration and Development General Agent",
+    about: "About",
     logout: "Log out",
   },
 

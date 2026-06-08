@@ -251,7 +251,7 @@ export const zhCN: Translations = {
     visitGithub: "查看平台仓库",
     reportIssue: "报告问题",
     contactUs: "联系我们",
-    about: "关于中海油勘探开发通用智能体",
+    about: "关于",
     logout: "退出登录",
   },
 
