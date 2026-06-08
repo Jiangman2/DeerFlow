@@ -193,7 +193,9 @@ export default function AgentChatPage() {
             <div
               className={cn(
                 "right-0 bottom-0 left-0 z-30 flex justify-center px-4",
-                isWelcomeMode ? "absolute" : "relative shrink-0 pb-4",
+                isWelcomeMode
+                  ? "absolute"
+                  : "relative shrink-0 bg-gradient-to-t from-white/55 via-white/20 to-transparent pb-4",
               )}
             >
               <div
@@ -229,7 +231,7 @@ export default function AgentChatPage() {
 
                 <InputBox
                   className={cn(
-                    "bg-background/5 w-full",
+                    "w-full",
                     isWelcomeMode && "-translate-y-4",
                   )}
                   isWelcomeMode={isWelcomeMode}
