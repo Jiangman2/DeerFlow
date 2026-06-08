@@ -6,9 +6,12 @@ from types import SimpleNamespace
 present_file_tool_module = importlib.import_module("deerflow.tools.builtins.present_file_tool")
 
 
-def _make_runtime(outputs_path: str) -> SimpleNamespace:
+def _make_runtime(outputs_path: str, workspace_path: str | None = None) -> SimpleNamespace:
+    thread_data = {"outputs_path": outputs_path}
+    if workspace_path is not None:
+        thread_data["workspace_path"] = workspace_path
     return SimpleNamespace(
-        state={"thread_data": {"outputs_path": outputs_path}},
+        state={"thread_data": thread_data},
         context={"thread_id": "thread-1"},
         config={},
     )
@@ -77,6 +80,25 @@ def test_present_files_uses_config_thread_id_when_context_missing(tmp_path, monk
 
     assert result.update["artifacts"] == ["/mnt/user-data/outputs/summary.json"]
     assert result.update["messages"][0].content == "Successfully presented files"
+
+
+def test_present_files_copies_workspace_file_to_outputs(tmp_path):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    workspace_dir = tmp_path / "threads" / "thread-1" / "user-data" / "workspace"
+    outputs_dir.mkdir(parents=True)
+    workspace_dir.mkdir(parents=True)
+    deck_path = workspace_dir / "ppt-project" / "exports" / "deck.pptx"
+    deck_path.parent.mkdir(parents=True)
+    deck_path.write_bytes(b"pptx")
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime(str(outputs_dir), str(workspace_dir)),
+        filepaths=[str(deck_path)],
+        tool_call_id="tc-workspace",
+    )
+
+    assert result.update["artifacts"] == ["/mnt/user-data/outputs/deck.pptx"]
+    assert (outputs_dir / "deck.pptx").read_bytes() == b"pptx"
 
 
 def test_present_files_rejects_paths_outside_outputs(tmp_path):

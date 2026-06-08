@@ -71,6 +71,18 @@ models:
   #   temperature: 0.7
   #   supports_vision: true # Enable vision support for view_image tool
 
+  # Example: in-house HECC/OpenAI-compatible gateway with custom TLS/proxy handling
+  # - name: hecc-deepseek
+  #   display_name: HECC DeepSeek
+  #   use: deerflow.models.hecc_openai:HeccChatOpenAI
+  #   model: deepseek
+  #   api_key: $HECC_API_KEY
+  #   base_url: $HECC_BASE_URL
+  #   tls_verify: false
+  #   trust_env: false
+  #   timeout: 240
+  #   max_tokens: 8192
+
   # Example: OpenAI Responses API model
   # - name: gpt-5-responses
   #   display_name: GPT-5 (Responses API)
@@ -526,6 +538,27 @@ tools:
   #   image_search_time_range: 10
   #   # Image size filter. Options: "l" (large), "m" (medium), "i" (icon).
   #   image_size: "i"
+
+  # MinIO/S3-compatible shared document tools
+  # Use these only when uploaded/local files are insufficient or the user asks
+  # to search shared storage.
+  # - name: minio_list
+  #   group: data:read
+  #   use: deerflow.community.minio.tools:minio_list_tool
+  #   endpoint: $MINIO_ENDPOINT
+  #   access_key: $MINIO_ACCESS_KEY
+  #   secret_key: $MINIO_SECRET_KEY
+  #   bucket: $MINIO_BUCKET
+  #   secure: $MINIO_SECURE
+  #
+  # - name: minio_fetch
+  #   group: data:read
+  #   use: deerflow.community.minio.tools:minio_fetch_tool
+  #   endpoint: $MINIO_ENDPOINT
+  #   access_key: $MINIO_ACCESS_KEY
+  #   secret_key: $MINIO_SECRET_KEY
+  #   bucket: $MINIO_BUCKET
+  #   secure: $MINIO_SECURE
 
   # File operations tools
   - name: ls

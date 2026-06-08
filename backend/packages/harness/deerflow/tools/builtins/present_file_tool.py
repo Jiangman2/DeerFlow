@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from typing import Annotated
 
@@ -74,8 +75,28 @@ def _normalize_presented_filepath(
 
     try:
         relative_path = actual_path.relative_to(outputs_dir)
-    except ValueError as exc:
-        raise ValueError(f"Only files in {OUTPUTS_VIRTUAL_PREFIX} can be presented: {filepath}") from exc
+    except ValueError:
+        thread_data = runtime.state.get("thread_data") or {}
+        workspace_path = thread_data.get("workspace_path")
+        if not workspace_path:
+            raise ValueError(f"Only files in {OUTPUTS_VIRTUAL_PREFIX} can be presented: {filepath}") from None
+
+        workspace_dir = Path(workspace_path).resolve()
+        try:
+            workspace_relative = actual_path.relative_to(workspace_dir)
+        except ValueError:
+            raise ValueError(
+                f"Only files in {OUTPUTS_VIRTUAL_PREFIX} or the current workspace can be presented: {filepath}"
+            ) from None
+
+        if not actual_path.is_file():
+            raise ValueError(f"Only files can be presented: {filepath}")
+
+        target_path = outputs_dir / workspace_relative.name
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        if actual_path.resolve() != target_path.resolve():
+            shutil.copy2(actual_path, target_path)
+        relative_path = target_path.relative_to(outputs_dir)
 
     return f"{OUTPUTS_VIRTUAL_PREFIX}/{relative_path.as_posix()}"
 
@@ -99,11 +120,11 @@ def present_file_tool(
     - For temporary or intermediate files not meant for user viewing
 
     Notes:
-    - You should call this tool after creating files and moving them to the `/mnt/user-data/outputs` directory.
+    - You should call this tool after creating files. Files already in `/mnt/user-data/outputs` are presented directly; files in the current `/mnt/user-data/workspace` are copied into outputs before being presented.
     - This tool can be safely called in parallel with other tools. State updates are handled by a reducer to prevent conflicts.
 
     Args:
-        filepaths: List of absolute file paths to present to the user. **Only** files in `/mnt/user-data/outputs` can be presented.
+        filepaths: List of absolute file paths to present to the user. Files must be in `/mnt/user-data/outputs` or the current `/mnt/user-data/workspace`.
     """
     try:
         normalized_paths = [_normalize_presented_filepath(runtime, filepath) for filepath in filepaths]

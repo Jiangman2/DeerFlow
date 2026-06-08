@@ -190,6 +190,12 @@ class TestCreateFilesMessage:
         msg = mw._create_files_message([self._new_file()], [])
         assert "read_file" in msg
 
+    def test_uploaded_files_must_be_read_before_external_search(self, tmp_path):
+        mw = _middleware(tmp_path)
+        msg = mw._create_files_message([self._new_file()], [])
+        assert "before searching MinIO" in msg
+        assert "other external data sources" in msg
+
     def test_empty_new_files_produces_empty_marker(self, tmp_path):
         mw = _middleware(tmp_path)
         msg = mw._create_files_message([], [])

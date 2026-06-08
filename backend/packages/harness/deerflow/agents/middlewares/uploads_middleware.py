@@ -138,6 +138,8 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
 
         lines.append("To work with these files:")
         lines.append("- Read from the file first — use the outline line numbers and `read_file` to locate relevant sections.")
+        lines.append("- If the user's request refers to this file, this report, an attachment, or uploaded content,")
+        lines.append("  use `read_file` with the uploaded path above before searching MinIO or other external data sources.")
         lines.append("- Use `grep` to search for keywords when you are not sure which section to look at")
         lines.append("  (e.g. `grep(pattern='revenue', path='/mnt/user-data/uploads/')`).")
         lines.append("- Use `glob` to find files by name pattern")
