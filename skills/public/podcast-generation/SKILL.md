@@ -172,7 +172,8 @@ After generation:
 
 ## Requirements
 
-The following environment variables must be set:
+The following environment variables must be set for one provider:
+- For DashScope / Bailian CosyVoice: `DASHSCOPE_API_KEY`
 - For Volcengine: `VOLCENGINE_TTS_APPID` and `VOLCENGINE_TTS_ACCESS_TOKEN`
 - For MiniMax: `MINIMAX_API_KEY`
 - `VOLCENGINE_TTS_CLUSTER`: Volcengine TTS cluster (optional, defaults to "volcano_tts")
@@ -185,13 +186,29 @@ The following environment variables must be set:
 - Complex notations (formulas, code) should be translated to plain language in the script
 - Long content may result in longer podcasts
 
-## Providers (Volcengine / MiniMax)
+## Providers (DashScope / Volcengine / MiniMax)
 
 Auto-selected by environment variables:
 
+- `VOLCENGINE_TTS_APPID` + `VOLCENGINE_TTS_ACCESS_TOKEN` set -> Volcengine TTS.
+- Only `DASHSCOPE_API_KEY` set -> DashScope CosyVoice
+  (`/services/audio/tts/SpeechSynthesizer`).
+- Only `MINIMAX_API_KEY` set -> MiniMax TTS (`/v1/t2a_v2`).
+- Force with `PODCAST_GENERATION_PROVIDER=dashscope|bailian|volcengine|minimax`.
+
+DashScope overrides: `DASHSCOPE_BASE_URL` (default
+`https://dashscope.aliyuncs.com/api/v1`), `DASHSCOPE_TTS_MODEL`
+(default `cosyvoice-v3-flash`), `DASHSCOPE_TTS_VOICE_MALE`
+(default `longcheng`), `DASHSCOPE_TTS_VOICE_FEMALE` (default
+`longxiaochun`), `DASHSCOPE_TTS_FORMAT` (default `mp3`),
+`DASHSCOPE_TTS_SAMPLE_RATE` (default `24000`), and optional
+`DASHSCOPE_TTS_LANGUAGE_HINT` / `DASHSCOPE_TTS_INSTRUCTION`.
+
+Legacy aliases:
+
 - `VOLCENGINE_TTS_APPID` + `VOLCENGINE_TTS_ACCESS_TOKEN` set → Volcengine TTS (default).
 - Only `MINIMAX_API_KEY` set → MiniMax TTS (`/v1/t2a_v2`).
-- Force with `PODCAST_GENERATION_PROVIDER=volcengine|minimax`.
+- `bailian` and `qwen` are accepted as aliases for `dashscope`.
 
 MiniMax overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.com`),
 `MINIMAX_TTS_MODEL` (default `speech-2.6-hd`), `MINIMAX_TTS_VOICE_MALE`

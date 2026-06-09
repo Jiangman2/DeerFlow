@@ -7,8 +7,8 @@ description: Use this skill when the user requests to generate, create, compose,
 
 ## Overview
 
-This skill generates songs (vocal or instrumental) from a structured JSON spec using the
-MiniMax music generation API (`/v1/music_generation`). You describe the style/mood/scene in
+This skill generates songs (vocal or instrumental) from a structured JSON spec using
+DashScope/Bailian Fun-Music or the MiniMax music generation API. You describe the style/mood/scene in
 `prompt`, optionally provide `lyrics`, and the script returns an MP3.
 
 ## Workflow
@@ -38,6 +38,10 @@ Fields:
 - `is_instrumental` (optional, bool): set `true` for a pure instrumental track (no lyrics needed).
 
 Behavior:
+
+DashScope Fun-Music accepts either `lyrics` or `prompt`. MiniMax additionally
+supports a dedicated instrumental flag and lyrics optimizer; the script maps the
+same JSON spec to each provider's closest supported API shape.
 - `lyrics` provided → those lyrics are sung.
 - `is_instrumental: true` → instrumental, no vocals.
 - neither → the model auto-writes lyrics from `prompt` (`lyrics_optimizer`).
@@ -59,7 +63,23 @@ Do NOT read the python file, just call it with the parameters.
 
 ## Environment
 
-- `MINIMAX_API_KEY` (required): your MiniMax interface key.
+Set one provider:
+
+- `DASHSCOPE_API_KEY`: DashScope / Bailian API key.
+- `MINIMAX_API_KEY`: MiniMax interface key.
+- `MUSIC_GENERATION_PROVIDER` (optional): force `dashscope`, `bailian`, or `minimax`.
+
+DashScope overrides:
+
+- `DASHSCOPE_BASE_URL` (optional): default `https://dashscope.aliyuncs.com/api/v1`.
+- `DASHSCOPE_MUSIC_MODEL` (optional): default `fun-music-v1`; `fun-music-preview`
+  is also supported by the API.
+- `DASHSCOPE_MUSIC_GENDER` (optional): default `female`; accepts `male` or `female`.
+- `DASHSCOPE_MUSIC_FORMAT` (optional): default `mp3`; `wav` is also supported.
+- `DASHSCOPE_MUSIC_AIGC_WATERMARK` (optional): set `true` to enable the API watermark.
+
+MiniMax overrides:
+
 - `MINIMAX_API_HOST` (optional): default `https://api.minimaxi.com`.
 - `MINIMAX_MUSIC_MODEL` (optional): default `music-2.6-free` (works for all API-key users);
   paid/Token-Plan users can set `music-2.6` for higher limits.

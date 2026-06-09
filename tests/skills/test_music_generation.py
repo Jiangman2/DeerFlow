@@ -11,7 +11,10 @@ mus = load("music-generation")
 
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
-    for k in ["MINIMAX_API_KEY", "MINIMAX_API_HOST", "MINIMAX_MUSIC_MODEL"]:
+    for k in ["MINIMAX_API_KEY", "MINIMAX_API_HOST", "MINIMAX_MUSIC_MODEL",
+              "DASHSCOPE_API_KEY", "DASHSCOPE_BASE_URL", "DASHSCOPE_MUSIC_MODEL",
+              "DASHSCOPE_MUSIC_GENDER", "DASHSCOPE_MUSIC_FORMAT",
+              "DASHSCOPE_MUSIC_AIGC_WATERMARK", "MUSIC_GENERATION_PROVIDER"]:
         monkeypatch.delenv(k, raising=False)
 
 
@@ -27,6 +30,7 @@ def _post_ok(captured):
 
 def test_with_lyrics_payload_and_writes(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("MUSIC_GENERATION_PROVIDER", "minimax")
     captured = {}
     monkeypatch.setattr(mus.requests, "post", _post_ok(captured))
     spec = tmp_path / "s.json"
@@ -45,6 +49,7 @@ def test_with_lyrics_payload_and_writes(monkeypatch, tmp_path):
 
 def test_instrumental_sets_flag(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("MUSIC_GENERATION_PROVIDER", "minimax")
     captured = {}
     monkeypatch.setattr(mus.requests, "post", _post_ok(captured))
     spec = tmp_path / "s.json"
@@ -57,6 +62,7 @@ def test_instrumental_sets_flag(monkeypatch, tmp_path):
 
 def test_no_lyrics_uses_optimizer(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("MUSIC_GENERATION_PROVIDER", "minimax")
     captured = {}
     monkeypatch.setattr(mus.requests, "post", _post_ok(captured))
     spec = tmp_path / "s.json"
@@ -68,6 +74,7 @@ def test_no_lyrics_uses_optimizer(monkeypatch, tmp_path):
 
 def test_model_override(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("MUSIC_GENERATION_PROVIDER", "minimax")
     monkeypatch.setenv("MINIMAX_MUSIC_MODEL", "music-2.6")
     captured = {}
     monkeypatch.setattr(mus.requests, "post", _post_ok(captured))
@@ -79,6 +86,7 @@ def test_model_override(monkeypatch, tmp_path):
 
 def test_raises_on_base_resp_error(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("MUSIC_GENERATION_PROVIDER", "minimax")
 
     def fake_post(url, headers=None, json=None, **kw):
         return FakeResp({"base_resp": {"status_code": 1008, "status_msg": "no balance"}})
@@ -95,11 +103,12 @@ def test_missing_api_key_returns_message(monkeypatch, tmp_path):
     spec = tmp_path / "s.json"
     spec.write_text('{"prompt":"x"}', encoding="utf-8")
     msg = mus.generate_music(str(spec), str(tmp_path / "o.mp3"))
-    assert "MINIMAX_API_KEY" in msg
+    assert "DASHSCOPE_API_KEY or MINIMAX_API_KEY" in msg
 
 
 def test_raises_on_missing_audio_data(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("MUSIC_GENERATION_PROVIDER", "minimax")
 
     def fake_post(url, headers=None, json=None, **kw):
         return FakeResp({"base_resp": {"status_code": 0}})  # no "data" key
@@ -113,6 +122,7 @@ def test_raises_on_missing_audio_data(monkeypatch, tmp_path):
 
 def test_empty_prompt_raises(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("MUSIC_GENERATION_PROVIDER", "minimax")
 
     def fake_post(url, headers=None, json=None, **kw):  # pragma: no cover
         raise AssertionError("must not call the API when prompt is missing")
@@ -126,6 +136,7 @@ def test_empty_prompt_raises(monkeypatch, tmp_path):
 
 def test_empty_lyrics_falls_back_to_optimizer(monkeypatch, tmp_path):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    monkeypatch.setenv("MUSIC_GENERATION_PROVIDER", "minimax")
     captured = {}
     monkeypatch.setattr(mus.requests, "post", _post_ok(captured))
     spec = tmp_path / "s.json"
@@ -133,3 +144,52 @@ def test_empty_lyrics_falls_back_to_optimizer(monkeypatch, tmp_path):
     mus.generate_music(str(spec), str(tmp_path / "o.mp3"))
     assert captured["json"]["lyrics_optimizer"] is True
     assert "lyrics" not in captured["json"]
+
+
+def test_dashscope_with_lyrics_downloads_audio(monkeypatch, tmp_path):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, **kw):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["json"] = json
+        return FakeResp({"output": {"audio": {"url": "https://example.test/song.mp3"}}})
+
+    def fake_get(url, **kw):
+        captured["download_url"] = url
+        return FakeResp(content=b"dash-song")
+
+    monkeypatch.setattr(mus.requests, "post", fake_post)
+    monkeypatch.setattr(mus.requests, "get", fake_get)
+    spec = tmp_path / "s.json"
+    spec.write_text('{"prompt":"ignored","lyrics":"[verse]\\n海风吹来","gender":"male"}',
+                    encoding="utf-8")
+    out = tmp_path / "o.mp3"
+    msg = mus.generate_music(str(spec), str(out))
+    assert out.read_bytes() == b"dash-song"
+    assert captured["url"].endswith("/services/audio/music/generation")
+    assert captured["headers"]["Authorization"] == "Bearer d"
+    assert captured["json"]["model"] == "fun-music-v1"
+    assert captured["json"]["input"]["lyrics"] == "[verse]\n海风吹来"
+    assert captured["json"]["input"]["gender"] == "male"
+    assert "prompt" not in captured["json"]["input"]
+    assert captured["download_url"] == "https://example.test/song.mp3"
+    assert "Successfully generated music" in msg
+
+
+def test_dashscope_instrumental_prompt_hint(monkeypatch, tmp_path):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, **kw):
+        captured["json"] = json
+        return FakeResp({"output": {"audio": {"data": "ZGFzaC1zb25n"}}})
+
+    monkeypatch.setattr(mus.requests, "post", fake_post)
+    spec = tmp_path / "s.json"
+    spec.write_text('{"prompt":"舒缓电子氛围","is_instrumental":true}', encoding="utf-8")
+    out = tmp_path / "o.mp3"
+    mus.generate_music(str(spec), str(out))
+    assert out.read_bytes() == b"dash-song"
+    assert "纯音乐" in captured["json"]["input"]["prompt"]

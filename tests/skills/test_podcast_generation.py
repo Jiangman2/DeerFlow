@@ -14,7 +14,10 @@ def clean_env(monkeypatch):
     for k in ["VOLCENGINE_TTS_APPID", "VOLCENGINE_TTS_ACCESS_TOKEN", "VOLCENGINE_TTS_CLUSTER",
               "MINIMAX_API_KEY", "PODCAST_GENERATION_PROVIDER", "MINIMAX_API_HOST",
               "MINIMAX_TTS_MODEL", "MINIMAX_TTS_VOICE_MALE", "MINIMAX_TTS_VOICE_FEMALE",
-              "MINIMAX_TTS_MAX_RETRIES"]:
+              "MINIMAX_TTS_MAX_RETRIES", "DASHSCOPE_API_KEY", "DASHSCOPE_BASE_URL",
+              "DASHSCOPE_TTS_MODEL", "DASHSCOPE_TTS_VOICE_MALE",
+              "DASHSCOPE_TTS_VOICE_FEMALE", "DASHSCOPE_TTS_FORMAT",
+              "DASHSCOPE_TTS_SAMPLE_RATE"]:
         monkeypatch.delenv(k, raising=False)
     # never actually sleep during backoff in tests
     monkeypatch.setattr(pod.time, "sleep", lambda *_: None)
@@ -29,6 +32,11 @@ def test_resolve_prefers_volcengine(monkeypatch):
 def test_resolve_falls_back_to_minimax(monkeypatch):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
     assert pod._resolve_tts_provider() == "minimax"
+
+
+def test_resolve_falls_back_to_dashscope(monkeypatch):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
+    assert pod._resolve_tts_provider() == "dashscope"
 
 
 def test_resolve_override(monkeypatch):
@@ -61,6 +69,49 @@ def test_minimax_tts_decodes_hex(monkeypatch):
     assert captured["url"].endswith("/v1/t2a_v2")
     assert captured["json"]["voice_setting"]["voice_id"] == "male-qn-qingse"
     assert captured["json"]["output_format"] == "hex"
+
+
+def test_dashscope_tts_downloads_audio_url(monkeypatch):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, **kw):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["json"] = json
+        return FakeResp({
+            "output": {"audio": {"url": "https://example.test/audio.mp3"}},
+            "usage": {"characters": 5},
+        })
+
+    def fake_get(url, **kw):
+        captured["download_url"] = url
+        return FakeResp(content=b"dash-audio")
+
+    monkeypatch.setattr(pod.requests, "post", fake_post)
+    monkeypatch.setattr(pod.requests, "get", fake_get)
+    out = pod.text_to_speech_dashscope("hello", "longcheng")
+    assert out == b"dash-audio"
+    assert captured["url"].endswith("/services/audio/tts/SpeechSynthesizer")
+    assert captured["headers"]["Authorization"] == "Bearer d"
+    assert captured["json"]["model"] == "cosyvoice-v3-flash"
+    assert captured["json"]["input"]["voice"] == "longcheng"
+    assert captured["download_url"] == "https://example.test/audio.mp3"
+
+
+def test_process_line_dashscope_voice_mapping(monkeypatch):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
+    seen = {}
+
+    def fake_tts(text, voice_id):
+        seen["voice_id"] = voice_id
+        return b"x"
+
+    monkeypatch.setattr(pod, "text_to_speech_dashscope", fake_tts)
+    line = pod.ScriptLine(speaker="female", paragraph="hi")
+    idx, audio = pod._process_line((0, line, 1, "dashscope"))
+    assert audio == b"x"
+    assert seen["voice_id"] == "longxiaochun"
 
 
 def test_process_line_minimax_voice_mapping(monkeypatch):
@@ -247,6 +298,27 @@ def test_tts_node_keeps_four_worker_default_for_volcengine(monkeypatch):
 
     monkeypatch.setattr(pod, "ThreadPoolExecutor", CapturingExecutor)
     monkeypatch.setattr(pod, "text_to_speech_volcengine", fake_tts)
+    script = pod.Script(lines=[pod.ScriptLine("male", "a"), pod.ScriptLine("female", "b")])
+
+    assert pod.tts_node(script) == [b"x", b"x"]
+    assert captured["max_workers"] == 4
+
+
+def test_tts_node_keeps_four_worker_default_for_dashscope(monkeypatch):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
+    captured = {}
+    real_executor = pod.ThreadPoolExecutor
+
+    class CapturingExecutor(real_executor):
+        def __init__(self, *args, **kwargs):
+            captured["max_workers"] = kwargs.get("max_workers", args[0] if args else None)
+            super().__init__(*args, **kwargs)
+
+    def fake_tts(text, voice_id):
+        return b"x"
+
+    monkeypatch.setattr(pod, "ThreadPoolExecutor", CapturingExecutor)
+    monkeypatch.setattr(pod, "text_to_speech_dashscope", fake_tts)
     script = pod.Script(lines=[pod.ScriptLine("male", "a"), pod.ScriptLine("female", "b")])
 
     assert pod.tts_node(script) == [b"x", b"x"]
