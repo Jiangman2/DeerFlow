@@ -353,9 +353,9 @@ def _process_line(args: tuple[int, ScriptLine, int, str]) -> tuple[int, Optional
         audio = text_to_speech_minimax(line.paragraph, voice)
     elif provider == "dashscope":
         if line.speaker == "male":
-            voice = os.getenv("DASHSCOPE_TTS_VOICE_MALE", "longcheng")
+            voice = os.getenv("DASHSCOPE_TTS_VOICE_MALE", "longcheng_v3")
         else:
-            voice = os.getenv("DASHSCOPE_TTS_VOICE_FEMALE", "longxiaochun")
+            voice = os.getenv("DASHSCOPE_TTS_VOICE_FEMALE", "longxiaochun_v3")
         audio = text_to_speech_dashscope(line.paragraph, voice)
     else:
         if line.speaker == "male":

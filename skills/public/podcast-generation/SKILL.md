@@ -199,8 +199,8 @@ Auto-selected by environment variables:
 DashScope overrides: `DASHSCOPE_BASE_URL` (default
 `https://dashscope.aliyuncs.com/api/v1`), `DASHSCOPE_TTS_MODEL`
 (default `cosyvoice-v3-flash`), `DASHSCOPE_TTS_VOICE_MALE`
-(default `longcheng`), `DASHSCOPE_TTS_VOICE_FEMALE` (default
-`longxiaochun`), `DASHSCOPE_TTS_FORMAT` (default `mp3`),
+(default `longcheng_v3`), `DASHSCOPE_TTS_VOICE_FEMALE` (default
+`longxiaochun_v3`), `DASHSCOPE_TTS_FORMAT` (default `mp3`),
 `DASHSCOPE_TTS_SAMPLE_RATE` (default `24000`), and optional
 `DASHSCOPE_TTS_LANGUAGE_HINT` / `DASHSCOPE_TTS_INSTRUCTION`.
 

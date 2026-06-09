@@ -111,7 +111,7 @@ def test_process_line_dashscope_voice_mapping(monkeypatch):
     line = pod.ScriptLine(speaker="female", paragraph="hi")
     idx, audio = pod._process_line((0, line, 1, "dashscope"))
     assert audio == b"x"
-    assert seen["voice_id"] == "longxiaochun"
+    assert seen["voice_id"] == "longxiaochun_v3"
 
 
 def test_process_line_minimax_voice_mapping(monkeypatch):
