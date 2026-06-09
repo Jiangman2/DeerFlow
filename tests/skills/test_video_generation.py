@@ -13,7 +13,9 @@ vid = load("video-generation")
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
     for k in ["GEMINI_API_KEY", "MINIMAX_API_KEY", "VIDEO_GENERATION_PROVIDER",
-              "MINIMAX_API_HOST", "MINIMAX_VIDEO_MODEL"]:
+              "MINIMAX_API_HOST", "MINIMAX_VIDEO_MODEL", "DASHSCOPE_API_KEY",
+              "DASHSCOPE_BASE_URL", "DASHSCOPE_VIDEO_MODEL",
+              "DASHSCOPE_VIDEO_SIZE", "DASHSCOPE_VIDEO_DURATION"]:
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(vid.time, "sleep", lambda *_: None)
 
@@ -25,6 +27,12 @@ def test_resolve_prefers_gemini():
 def test_resolve_falls_back_to_minimax(monkeypatch):
     monkeypatch.setenv("MINIMAX_API_KEY", "m")
     assert vid._resolve_provider("VIDEO_GENERATION_PROVIDER", "gemini", False) == "minimax"
+
+
+def test_resolve_prefers_dashscope_before_minimax(monkeypatch):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
+    monkeypatch.setenv("MINIMAX_API_KEY", "m")
+    assert vid._resolve_provider("VIDEO_GENERATION_PROVIDER", "gemini", False) == "dashscope"
 
 
 def test_resolve_override(monkeypatch):
@@ -144,6 +152,39 @@ def test_minimax_task_fail_keeps_task_context(monkeypatch, tmp_path):
     pf.write_text("x", encoding="utf-8")
     with pytest.raises(Exception, match="task T1 failed"):
         vid.generate_video(str(pf), [], str(tmp_path / "v.mp4"), "16:9")
+
+
+def test_dashscope_full_flow(monkeypatch, tmp_path):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "d")
+    monkeypatch.setenv("VIDEO_GENERATION_PROVIDER", "dashscope")
+    monkeypatch.setenv("DASHSCOPE_VIDEO_MODEL", "wan2.6-t2v")
+    posts = {}
+
+    def fake_post(url, headers=None, json=None, **kw):
+        posts["url"] = url
+        posts["headers"] = headers
+        posts["json"] = json
+        return FakeResp({"output": {"task_id": "T1", "task_status": "PENDING"}})
+
+    def fake_get(url, headers=None, **kw):
+        if url.endswith("/tasks/T1"):
+            return FakeResp({"output": {"task_status": "SUCCEEDED", "video_url": "https://dl/v.mp4"}})
+        return FakeResp(content=b"MP4DATA")
+
+    monkeypatch.setattr(vid.requests, "post", fake_post)
+    monkeypatch.setattr(vid.requests, "get", fake_get)
+    pf = tmp_path / "p.txt"
+    pf.write_text("a cinematic offshore platform sunrise", encoding="utf-8")
+    out = tmp_path / "v.mp4"
+    msg = vid.generate_video(str(pf), [], str(out), "16:9")
+
+    assert out.read_bytes() == b"MP4DATA"
+    assert posts["url"].endswith("/services/aigc/video-generation/video-synthesis")
+    assert posts["headers"]["Authorization"] == "Bearer d"
+    assert posts["headers"]["X-DashScope-Async"] == "enable"
+    assert posts["json"]["model"] == "wan2.6-t2v"
+    assert posts["json"]["parameters"]["size"] == "1280*720"
+    assert "successfully" in msg.lower()
 
 
 def test_gemini_download_raises_on_http_error(monkeypatch, tmp_path):
