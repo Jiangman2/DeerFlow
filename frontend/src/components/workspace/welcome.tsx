@@ -46,7 +46,7 @@ export function Welcome({
           </div>
         )}
       </div>
-      <div className="text-muted-foreground max-w-3xl text-sm leading-6">
+      <div className="text-muted-foreground max-w-5xl text-sm leading-6">
         {description.includes("\n") ? (
           <pre className="font-sans whitespace-pre-wrap">{description}</pre>
         ) : (
