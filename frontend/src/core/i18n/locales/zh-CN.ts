@@ -61,7 +61,7 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用中海油智能体应用平台，一个面向油气业务的智能研究与协同作业平台。通过内置和自定义的 Skills，\n平台可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n图片、视频、播客及网页等产物，辅助完成复杂任务。",
+      "欢迎使用中海油智能体应用平台，一个面向油气业务的企业级通用智能体研究应用平台。平台联通勘探开发数据湖平台、内置记忆和 专业研究Skills。\n平台可以帮你调研分析、分析数据、PPT编制，还能为你生产图片、视频及网页等产物，辅助完成复杂任务。",
 
     createYourOwnSkill: "创建你自己的 Agent SKill",
     createYourOwnSkillDescription:
