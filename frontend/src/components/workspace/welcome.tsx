@@ -46,9 +46,18 @@ export function Welcome({
           </div>
         )}
       </div>
-      <div className="text-muted-foreground max-w-5xl text-sm leading-6">
+      <div className="text-muted-foreground max-w-[min(96vw,1400px)] text-sm leading-6">
         {description.includes("\n") ? (
-          <pre className="font-sans whitespace-pre-wrap">{description}</pre>
+          <div className="flex flex-col items-center">
+            {description.split("\n").map((line) => (
+              <span
+                key={line}
+                className="whitespace-normal sm:whitespace-nowrap"
+              >
+                {line}
+              </span>
+            ))}
+          </div>
         ) : (
           <p>{description}</p>
         )}
