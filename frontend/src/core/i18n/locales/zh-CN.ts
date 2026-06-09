@@ -1,6 +1,5 @@
 ﻿import {
   CompassIcon,
-  GraduationCapIcon,
   ImageIcon,
   MicroscopeIcon,
   PenLineIcon,
@@ -151,11 +150,6 @@ export const zhCN: Translations = {
         suggestion: "数据分析",
         prompt: "分析上传的 Excel/CSV 文件，生成统计摘要、SQL 查询结果或结构化数据洞察。",
         icon: PenLineIcon,
-      },
-      {
-        suggestion: "学习",
-        prompt: "学习关于[主题]并创建教程。",
-        icon: GraduationCapIcon,
       },
     ],
     suggestionsCreate: [
