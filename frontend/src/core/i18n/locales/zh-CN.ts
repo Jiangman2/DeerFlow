@@ -62,7 +62,7 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用中海油勘探开发通用智能体，面向油气勘探开发业务的多智能体工作平台。通过内置和自定义 Skills，\n平台可以帮你开展资料检索、数据分析、报告生成、\n文档审查与智能办公等专业工作。",
+      "欢迎使用中海油智能体应用平台，一个面向油气业务的智能研究与协同作业平台。通过内置和自定义的 Skills，\n平台可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n图片、视频、播客及网页等产物，辅助完成复杂任务。",
 
     createYourOwnSkill: "创建你自己的 Agent SKill",
     createYourOwnSkillDescription:
@@ -133,19 +133,24 @@ export const zhCN: Translations = {
     followupConfirmReplace: "替换并发送",
     suggestions: [
       {
-        suggestion: "写作",
-        prompt: "撰写一篇关于[主题]的博客文章",
-        icon: PenLineIcon,
+        suggestion: "图片生成",
+        prompt: "生成一个关于[主题]的图片",
+        icon: ImageIcon,
       },
       {
-        suggestion: "研究",
+        suggestion: "PPT生成",
+        prompt: "生成一个关于[主题]的PPT",
+        icon: ShapesIcon,
+      },
+      {
+        suggestion: "深度研究",
         prompt: "深入浅出的研究一下[主题]，并总结发现。",
         icon: MicroscopeIcon,
       },
       {
-        suggestion: "收集",
-        prompt: "从[来源]收集数据并创建报告。",
-        icon: ShapesIcon,
+        suggestion: "数据分析",
+        prompt: "分析上传的 Excel/CSV 文件，生成统计摘要、SQL 查询结果或结构化数据洞察。",
+        icon: PenLineIcon,
       },
       {
         suggestion: "学习",
@@ -158,11 +163,6 @@ export const zhCN: Translations = {
         suggestion: "网页",
         prompt: "生成一个关于[主题]的网页",
         icon: CompassIcon,
-      },
-      {
-        suggestion: "图片",
-        prompt: "生成一个关于[主题]的图片",
-        icon: ImageIcon,
       },
       {
         suggestion: "视频",
