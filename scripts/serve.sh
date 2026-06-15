@@ -37,6 +37,17 @@ if [ -f "$REPO_ROOT/.env" ]; then
     set +a
 fi
 
+_pick_python() {
+    local candidate
+    for candidate in python3 python py; do
+        if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info.major >= 3 else 1)' >/dev/null 2>&1; then
+            printf '%s\n' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ── Argument parsing ─────────────────────────────────────────────────────────
 
 DEV_MODE=true
@@ -84,6 +95,16 @@ DEERFLOW_ROOTS="$(
 # the ".../deer-flow" root.
 _is_deerflow_pid() {
     local pid=$1 files root
+
+    # Daemon children inherit DEERFLOW_DAEMON_ROOT from run_service. Checking
+    # it (Linux only — macOS has no /proc) identifies processes like
+    # next-server that lsof misses, so the name/port reaps in stop_all can
+    # claim them.
+    if [ -r "/proc/$pid/environ" ] &&
+        tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | grep -Fxq "DEERFLOW_DAEMON_ROOT=$REPO_ROOT"; then
+        return 0
+    fi
+
     files=$(lsof -p "$pid" 2>/dev/null) || return 1
     while IFS= read -r root; do
         [ -n "$root" ] || continue
@@ -274,11 +295,7 @@ fi
 if $DEV_MODE; then
     FRONTEND_CMD="pnpm run dev"
 else
-    if command -v python3 >/dev/null 2>&1; then
-        PYTHON_BIN="python3"
-    elif command -v python >/dev/null 2>&1; then
-        PYTHON_BIN="python"
-    else
+    if ! PYTHON_BIN="$(_pick_python)"; then
         echo "Python is required to generate BETTER_AUTH_SECRET."
         exit 1
     fi
@@ -337,15 +354,10 @@ fi
 
 # ── Install dependencies ────────────────────────────────────────────────────
 
-# Pick a Python for the extras detector. Falls back to plain `python` for
-# Windows/Git Bash where only `python` is on PATH.
-if command -v python3 >/dev/null 2>&1; then
-    DETECT_PYTHON="python3"
-elif command -v python >/dev/null 2>&1; then
-    DETECT_PYTHON="python"
-else
-    DETECT_PYTHON=""
-fi
+# Pick a runnable Python for the extras detector. On Windows/Git Bash,
+# `python3` can resolve to the Microsoft Store alias in WindowsApps, which is
+# present on PATH but not executable from Bash.
+DETECT_PYTHON="$(_pick_python || true)"
 
 # Resolve uv extras (postgres, etc.) from UV_EXTRAS or config.yaml so that
 # `uv sync` does not wipe out optional dependencies on every restart. See
@@ -421,7 +433,10 @@ run_service() {
 
     echo "Starting $name..."
     if $DAEMON_MODE; then
-        nohup sh -c "$cmd" > /dev/null 2>&1 &
+        # Tag the daemon so every descendant (pnpm → next → next-server)
+        # carries DEERFLOW_DAEMON_ROOT in its environment, letting
+        # _is_deerflow_pid recognize it at stop time.
+        nohup env DEERFLOW_DAEMON_ROOT="$REPO_ROOT" sh -c "$cmd" > /dev/null 2>&1 &
     else
         sh -c "$cmd" &
     fi
