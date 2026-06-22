@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/core/auth/AuthProvider";
 import { parseAuthError } from "@/core/auth/types";
+import { useI18n } from "@/core/i18n/hooks";
 
 function validateNextParam(next: string | null): string | null {
   if (!next) return null;
@@ -23,11 +24,22 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated } = useAuth();
+  const { t } = useI18n();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
-  const [error, setError] = useState("");
+  const [ssoProviders, setSsoProviders] = useState<
+    { id: string; display_name: string; type: string }[]
+  >([]);
+  const errorParam = searchParams.get("error");
+  const [error, setError] = useState(
+    errorParam
+      ? (t.login.errors[errorParam as keyof typeof t.login.errors] ??
+          t.login.authFailed)
+      : "",
+  );
+  const [showSsoHint, setShowSsoHint] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const redirectPath = validateNextParam(searchParams.get("next")) ?? "/workspace";
@@ -52,6 +64,21 @@ export default function LoginPage() {
         // Stay on the login page if setup status is temporarily unavailable.
       });
 
+    void fetch("/api/v1/auth/providers")
+      .then((r) => r.json())
+      .then(
+        (data: {
+          providers: { id: string; display_name: string; type: string }[];
+        }) => {
+          if (!cancelled) {
+            setSsoProviders(data.providers ?? []);
+          }
+        },
+      )
+      .catch(() => {
+        // Ignore errors; no SSO providers shown.
+      });
+
     return () => {
       cancelled = true;
     };
@@ -60,6 +87,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setShowSsoHint(false);
     setLoading(true);
 
     try {
@@ -82,13 +110,17 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        setError(parseAuthError(data).message);
+        const authError = parseAuthError(data);
+        setError(authError.message);
+        if (isLogin && ssoProviders.length > 0) {
+          setShowSsoHint(true);
+        }
         return;
       }
 
       router.push(redirectPath);
     } catch {
-      setError("Network error. Please try again.");
+      setError(t.login.networkError);
     } finally {
       setLoading(false);
     }
@@ -112,27 +144,27 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex flex-col space-y-1">
             <label htmlFor="email" className="text-sm font-medium">
-              Email
+              {t.login.email}
             </label>
             <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
+              placeholder={t.login.emailPlaceholder}
               required
             />
           </div>
           <div className="flex flex-col space-y-1">
             <label htmlFor="password" className="text-sm font-medium">
-              Password
+              {t.login.password}
             </label>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
+              placeholder={t.login.passwordPlaceholder}
               required
               minLength={isLogin ? 6 : 8}
             />
@@ -141,9 +173,49 @@ export default function LoginPage() {
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+            {loading
+              ? t.login.pleaseWait
+              : isLogin
+                ? t.login.signIn
+                : t.login.createAccount}
           </Button>
         </form>
+
+        {ssoProviders.length > 0 && (
+          <div className="space-y-2">
+            {isLogin && (
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-slate-500">
+                    {t.login.orContinueWith}
+                  </span>
+                </div>
+              </div>
+            )}
+            {showSsoHint && (
+              <p className="text-center text-sm text-slate-500">
+                {t.login.ssoHint}
+              </p>
+            )}
+            {ssoProviders.map((provider) => (
+              <Button
+                key={provider.id}
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={loading}
+                onClick={() => {
+                  window.location.href = `/api/v1/auth/oauth/${provider.id}?next=${encodeURIComponent(redirectPath)}`;
+                }}
+              >
+                {t.login.continueWith(provider.display_name)}
+              </Button>
+            ))}
+          </div>
+        )}
 
         <div className="text-center text-sm">
           <button
@@ -151,18 +223,17 @@ export default function LoginPage() {
             onClick={() => {
               setIsLogin(!isLogin);
               setError("");
+              setShowSsoHint(false);
             }}
             className="text-blue-600 hover:underline"
           >
-            {isLogin
-              ? "Don't have an account? Sign up"
-              : "Already have an account? Sign in"}
+            {isLogin ? t.login.noAccountSignUp : t.login.haveAccountSignIn}
           </button>
         </div>
 
         <div className="text-center text-xs text-slate-500">
           <Link href={brand.links.home} className="hover:underline">
-            Back to home
+            {t.login.backToHome}
           </Link>
         </div>
       </div>
