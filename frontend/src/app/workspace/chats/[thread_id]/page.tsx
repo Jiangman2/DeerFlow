@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -59,12 +59,7 @@ export default function ChatPage() {
     isMock,
   });
   const backendTokenUsage = threadTokenUsageToTokenUsage(threadTokenUsage.data);
-  const mountedRef = useRef(false);
   useSpecificChatMode();
-
-  useEffect(() => {
-    mountedRef.current = true;
-  }, []);
 
   // Keep welcome layout in sync when navigating between threads (sidebar
   // clicks, "new chat" button).  Submitting in /chats/new flips the layout
@@ -264,46 +259,34 @@ export default function ChatPage() {
                     </div>
                   </div>
                 )}
-                {mountedRef.current ? (
-                  <InputBox
-                    className={cn(
-                      "bg-background/5 w-full",
-                      isWelcomeMode && "-translate-y-2 sm:-translate-y-4",
-                    )}
-                    isWelcomeMode={isWelcomeMode}
-                    threadId={threadId}
-                    autoFocus={isWelcomeMode}
-                    status={
-                      thread.error
-                        ? "error"
-                        : thread.isLoading
-                          ? "streaming"
-                          : "ready"
-                    }
-                    context={settings.context}
-                    extraHeader={
-                      isWelcomeMode && <Welcome mode={settings.context.mode} />
-                    }
-                    disabled={
-                      isMock ||
-                      env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
-                      isUploading
-                    }
-                    onContextChange={(context) =>
-                      setSettings("context", context)
-                    }
-                    onSubmit={handleSubmit}
-                    onStop={handleStop}
-                  />
-                ) : (
-                  <div
-                    aria-hidden="true"
-                    className={cn(
-                      "bg-background/5 h-32 w-full rounded-2xl",
-                      isWelcomeMode && "-translate-y-2 sm:-translate-y-4",
-                    )}
-                  />
-                )}
+                <InputBox
+                  className={cn(
+                    "bg-background/5 w-full",
+                    isWelcomeMode && "-translate-y-2 sm:-translate-y-4",
+                  )}
+                  isWelcomeMode={isWelcomeMode}
+                  threadId={threadId}
+                  autoFocus={isWelcomeMode}
+                  status={
+                    thread.error
+                      ? "error"
+                      : thread.isLoading
+                        ? "streaming"
+                        : "ready"
+                  }
+                  context={settings.context}
+                  extraHeader={
+                    isWelcomeMode && <Welcome mode={settings.context.mode} />
+                  }
+                  disabled={
+                    isMock ||
+                    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
+                    isUploading
+                  }
+                  onContextChange={(context) => setSettings("context", context)}
+                  onSubmit={handleSubmit}
+                  onStop={handleStop}
+                />
                 {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" && (
                   <div className="text-muted-foreground/67 w-full translate-y-12 text-center text-xs">
                     {t.common.notAvailableInDemoMode}

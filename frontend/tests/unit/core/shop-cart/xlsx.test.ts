@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 
-import { test } from "vitest";
+import { test } from "@rstest/core";
 
-const { parseFirstWorkbookSheetName, readFirstXlsxSheetName } = await import(
-  new URL("../../../../src/core/shop-cart/xlsx.ts", import.meta.url).href
-);
+import {
+  parseFirstWorkbookSheetName,
+  readFirstXlsxSheetName,
+} from "@/core/shop-cart/xlsx";
 
 const textEncoder = new TextEncoder();
 

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 
-import { test } from "vitest";
+import { test } from "@rstest/core";
 
-const { chooseShopCartFilename, parseContentDispositionFilename } =
-  await import(
-    new URL("../../../../src/core/shop-cart/filenames.ts", import.meta.url).href
-  );
+import {
+  chooseShopCartFilename,
+  parseContentDispositionFilename,
+} from "@/core/shop-cart/filenames";
 
 void test("parses content-disposition filename", () => {
   assert.equal(

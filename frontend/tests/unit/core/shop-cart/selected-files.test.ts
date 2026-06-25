@@ -1,11 +1,8 @@
 import assert from "node:assert/strict";
 
-import { test } from "vitest";
+import { test } from "@rstest/core";
 
-const { parseShopCartSelectedFiles } = await import(
-  new URL("../../../../src/core/shop-cart/selected-files.ts", import.meta.url)
-    .href
-);
+import { parseShopCartSelectedFiles } from "@/core/shop-cart/selected-files";
 
 void test("parses string ID arrays", () => {
   const result = parseShopCartSelectedFiles(["a", "b"]);

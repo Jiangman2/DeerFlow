@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 
-import { test } from "vitest";
+import { test } from "@rstest/core";
 
-const { createMockShopCartFiles, SHOP_CART_MOCK_FILES } = await import(
-  new URL("../../../../src/core/shop-cart/mock-files.ts", import.meta.url).href
-);
+import {
+  createMockShopCartFiles,
+  SHOP_CART_MOCK_FILES,
+} from "@/core/shop-cart/mock-files";
 
 void test("creates File objects for known shop cart IDs and reports unknown IDs", async () => {
   const originalFetch = globalThis.fetch;
