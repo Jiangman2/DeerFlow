@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  ActivityIcon,
   ChevronsUpDown,
   InfoIcon,
   Settings2Icon,
   SettingsIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -84,6 +86,12 @@ export function WorkspaceNavMenu() {
                 sideOffset={4}
               >
                 <DropdownMenuGroup>
+                  <DropdownMenuItem asChild>
+                    <Link href="/workspace/admin/observability">
+                      <ActivityIcon />
+                      运维监控
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => {
                       setSettingsDefaultSection("appearance");
