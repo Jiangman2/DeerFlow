@@ -45,6 +45,13 @@ debug.log
 # Local git hooks (keep only on this machine, do not push)
 .githooks/
 
+# Local generated outputs, scratch checkouts, and runtime databases
+/outputs/
+/third_party/
+*.db
+*.sqlite
+*.sqlite3
+
 # pnpm
 .pnpm-store
 sandbox_image_cache.tar
