@@ -55,6 +55,60 @@ async def test_record_and_list_audit_logs() -> None:
         await engine.dispose()
 
 
+async def test_audit_operation_type_filter_keeps_management_logs_after_limit() -> None:
+    repo, _sf, engine = await _repo()
+    try:
+        await repo.record_audit(
+            {
+                "created_at": datetime.now(UTC) - timedelta(minutes=10),
+                "user_id": "admin",
+                "user_email": "admin@example.com",
+                "user_role": "admin",
+                "action": "site_navigation.create",
+                "resource_type": "site_navigation",
+                "resource_id": "site-1",
+                "method": "POST",
+                "path": "/api/admin/site-navigation",
+                "status_code": 200,
+                "result": "success",
+                "duration_ms": 10,
+                "client_ip": "127.0.0.1",
+                "user_agent": "pytest",
+                "error": None,
+                "details_json": {},
+            }
+        )
+        for idx in range(3):
+            await repo.record_audit(
+                {
+                    "created_at": datetime.now(UTC) - timedelta(minutes=idx),
+                    "user_id": "u1",
+                    "user_email": "user@example.com",
+                    "user_role": "user",
+                    "action": "thread.get",
+                    "resource_type": "thread",
+                    "resource_id": f"t{idx}",
+                    "method": "GET",
+                    "path": f"/api/threads/t{idx}",
+                    "status_code": 200,
+                    "result": "success",
+                    "duration_ms": 5,
+                    "client_ip": "127.0.0.1",
+                    "user_agent": "pytest",
+                    "error": None,
+                    "details_json": {},
+                }
+            )
+
+        rows = await repo.list_audit_logs(limit=1, operation_type="management")
+
+        assert len(rows) == 1
+        assert rows[0]["action"] == "site_navigation.create"
+        assert rows[0]["operation_type"] == "management"
+    finally:
+        await engine.dispose()
+
+
 async def test_snapshot_aggregates_metrics_errors_and_traces() -> None:
     repo, sf, engine = await _repo()
     now = datetime.now(UTC)
@@ -111,12 +165,14 @@ async def test_snapshot_aggregates_metrics_errors_and_traces() -> None:
         assert snapshot["metrics"]["runs_window"] == 2
         assert snapshot["metrics"]["tokens_window"] == 50
         assert snapshot["health"]["error_rate"] == 0.5
+        assert snapshot["health"]["status"] == "degraded"
         assert {item["name"] for item in snapshot["component_health"]} >= {
             "PostgreSQL",
             "LangGraph 检查点",
             "运行事件写入",
             "模型供应商",
-            "Sandbox",
+            "Sandbox 执行环境",
+            "用户数据存储",
             "文件/制品存储",
             "工作负载",
         }
@@ -142,6 +198,121 @@ async def test_snapshot_aggregates_metrics_errors_and_traces() -> None:
         assert ranged["window_start"]
         assert ranged["window_end"]
         assert ranged["metrics"]["runs_window"] == 1
+    finally:
+        await engine.dispose()
+
+
+async def test_user_activity_summarizes_runs_and_artifacts() -> None:
+    repo, sf, engine = await _repo()
+    now = datetime.now(UTC)
+    try:
+        async with sf() as session:
+            session.add(UserRow(id="u1", email="admin@example.com", system_role="admin"))
+            session.add(UserRow(id="u2", email="user@example.com", system_role="user"))
+            session.add(UserRow(id="u3", email="disabled@example.com", system_role="user", is_disabled=True))
+            session.add_all(
+                [
+                    RunRow(
+                        run_id="r1",
+                        thread_id="t1",
+                        user_id="u1",
+                        status="success",
+                        assistant_id="ppt-master",
+                        model_name="gpt-test",
+                        total_input_tokens=10,
+                        total_output_tokens=20,
+                        total_tokens=30,
+                        llm_call_count=2,
+                        created_at=now - timedelta(hours=2),
+                        updated_at=now - timedelta(hours=2, minutes=-1),
+                    ),
+                    RunRow(
+                        run_id="r2",
+                        thread_id="t2",
+                        user_id="u1",
+                        status="error",
+                        assistant_id="ppt-master",
+                        model_name="gpt-test",
+                        total_tokens=40,
+                        llm_call_count=1,
+                        created_at=now - timedelta(hours=1),
+                        updated_at=now,
+                    ),
+                    RunRow(
+                        run_id="r3",
+                        thread_id="t3",
+                        user_id="u2",
+                        status="success",
+                        assistant_id="researcher",
+                        model_name="qwen",
+                        total_tokens=50,
+                        llm_call_count=3,
+                        created_at=now - timedelta(minutes=30),
+                        updated_at=now - timedelta(minutes=20),
+                    ),
+                ]
+            )
+            await session.commit()
+
+        await repo.record_audit(
+            {
+                "created_at": now - timedelta(minutes=15),
+                "user_id": "u1",
+                "user_email": "admin@example.com",
+                "user_role": "admin",
+                "action": "thread.post",
+                "resource_type": "thread",
+                "resource_id": "t1",
+                "method": "POST",
+                "path": "/api/threads/t1/uploads",
+                "status_code": 200,
+                "result": "success",
+                "duration_ms": 10,
+                "client_ip": "127.0.0.1",
+                "user_agent": "pytest",
+                "error": None,
+                "details_json": {},
+            }
+        )
+        await repo.record_audit(
+            {
+                "created_at": now - timedelta(minutes=10),
+                "user_id": "u1",
+                "user_email": "admin@example.com",
+                "user_role": "admin",
+                "action": "thread.get",
+                "resource_type": "thread",
+                "resource_id": "t1",
+                "method": "GET",
+                "path": "/api/threads/t1/artifacts/report.pptx",
+                "status_code": 200,
+                "result": "success",
+                "duration_ms": 10,
+                "client_ip": "127.0.0.1",
+                "user_agent": "pytest",
+                "error": None,
+                "details_json": {},
+            }
+        )
+
+        report = await repo.user_activity(hours=24)
+
+        assert report["summary"]["total_users"] == 2
+        assert report["summary"]["active_users"] == 2
+        assert report["summary"]["activation_rate"] == 1
+        assert report["summary"]["total_runs"] == 3
+        assert report["summary"]["error_rate"] == 0.3333
+        user = next(item for item in report["users"] if item["user_id"] == "u1")
+        assert user["email"] == "admin@example.com"
+        assert user["runs"] == 2
+        assert user["error_runs"] == 1
+        assert user["threads"] == 2
+        assert user["tokens"] == 70
+        assert user["uploads"] == 1
+        assert user["downloads"] == 1
+        assert user["agents"] == ["ppt-master"]
+        assert user["models"] == ["gpt-test"]
+        assert report["trend"]
     finally:
         await engine.dispose()
 

@@ -101,6 +101,18 @@ async def get_observability_analytics(
     return await _repo().analytics(hours=hours, bucket=bucket, limit=limit, start_at=start_at, end_at=end_at)
 
 
+@router.get("/user-activity")
+async def get_user_activity(
+    request: Request,
+    hours: int = Query(default=24, ge=1, le=24 * 30),
+    limit: int = Query(default=100, ge=1, le=500),
+    start_at: datetime | None = Query(default=None),
+    end_at: datetime | None = Query(default=None),
+):
+    await require_admin_user(request, detail="Admin privileges are required to view user activity analytics")
+    return await _repo().user_activity(hours=hours, start_at=start_at, end_at=end_at, limit=limit)
+
+
 @router.get("/audit-logs")
 async def list_audit_logs(
     request: Request,

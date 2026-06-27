@@ -5,6 +5,7 @@ import {
   getObservabilitySnapshot,
   getRunDiagnostics,
   getTraceEvents,
+  getUserActivity,
   recordRunDisposition,
   searchAuditLogs,
   searchTraces,
@@ -19,7 +20,8 @@ export function useObservabilitySnapshot(
   return useQuery({
     queryKey: ["observability", "snapshot", hours, startAt, endAt],
     queryFn: () => getObservabilitySnapshot(hours, startAt, endAt),
-    refetchInterval: 15_000,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -32,7 +34,21 @@ export function useObservabilityAnalytics(
   return useQuery({
     queryKey: ["observability", "analytics", hours, bucket, startAt, endAt],
     queryFn: () => getObservabilityAnalytics(hours, bucket, startAt, endAt),
-    refetchInterval: 30_000,
+    staleTime: 20_000,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useUserActivity(
+  hours = 24,
+  startAt?: string,
+  endAt?: string,
+) {
+  return useQuery({
+    queryKey: ["observability", "user-activity", hours, startAt, endAt],
+    queryFn: () => getUserActivity(hours, startAt, endAt),
+    staleTime: 20_000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -48,7 +64,8 @@ export function useObservabilityTraces(filters: TraceFilters) {
   return useQuery({
     queryKey: ["observability", "traces", filters],
     queryFn: () => searchTraces(filters),
-    refetchInterval: 15_000,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -56,7 +73,8 @@ export function useObservabilityAuditLogs(filters: AuditFilters) {
   return useQuery({
     queryKey: ["observability", "audit-logs", filters],
     queryFn: () => searchAuditLogs(filters),
-    refetchInterval: 15_000,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
   });
 }
 

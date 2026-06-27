@@ -213,6 +213,57 @@ export interface ObservabilityAnalytics {
   by_agent: CostBreakdown[];
 }
 
+export interface UserActivitySummary {
+  total_users: number;
+  active_users: number;
+  activation_rate: number;
+  total_runs: number;
+  success_runs: number;
+  error_runs: number;
+  error_rate: number;
+  total_tokens: number;
+  avg_runs_per_active_user: number;
+  avg_tokens_per_active_user: number;
+}
+
+export interface UserActivityTrendBucket {
+  period_start: string;
+  active_users: number;
+  runs: number;
+  tokens: number;
+}
+
+export interface UserActivityItem {
+  user_id: string;
+  email: string | null;
+  runs: number;
+  success_runs: number;
+  error_runs: number;
+  error_rate: number;
+  tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  llm_calls: number;
+  threads: number;
+  avg_duration_ms: number;
+  uploads: number;
+  downloads: number;
+  last_active_at: string;
+  agents: string[];
+  models: string[];
+}
+
+export interface UserActivityReport {
+  generated_at: string;
+  window_hours: number;
+  window_start: string;
+  window_end: string;
+  bucket: "hour" | "day" | string;
+  summary: UserActivitySummary;
+  trend: UserActivityTrendBucket[];
+  users: UserActivityItem[];
+}
+
 export interface DispositionInput {
   action:
     | "copy_run_id"

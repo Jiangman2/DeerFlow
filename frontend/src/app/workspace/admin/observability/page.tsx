@@ -7,6 +7,7 @@ import {
   ClockIcon,
   CopyIcon,
   DatabaseIcon,
+  DownloadIcon,
   ExternalLinkIcon,
   FileSearchIcon,
   MessageSquareIcon,
@@ -52,6 +53,7 @@ import {
   useObservabilityTraces,
   useRecordRunDisposition,
   useRunDiagnostics,
+  useUserActivity,
 } from "@/core/observability";
 import type {
   AuditLog,
@@ -60,6 +62,8 @@ import type {
   ObservabilityAnalytics,
   TraceEvent,
   TraceSummary,
+  UserActivityItem,
+  UserActivityReport,
 } from "@/core/observability";
 
 function compactNumber(value: number): string {
@@ -137,6 +141,71 @@ function stringifyDetail(value: unknown): string {
   if (value === null || value === undefined) return "-";
   if (typeof value === "string") return value || "-";
   return JSON.stringify(value, null, 2);
+}
+
+function csvCell(value: unknown): string {
+  let text = "";
+  if (typeof value === "string") {
+    text = value;
+  } else if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    text = value.toString();
+  } else if (typeof value === "symbol") {
+    text = value.description ?? "";
+  } else if (value !== null && value !== undefined) {
+    text = JSON.stringify(value);
+  }
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function downloadUserActivityCsv(report: UserActivityReport, label: string) {
+  const headers = [
+    "用户",
+    "用户ID",
+    "运行次数",
+    "成功次数",
+    "失败次数",
+    "错误率",
+    "Token",
+    "LLM调用",
+    "线程数",
+    "平均耗时",
+    "上传",
+    "下载",
+    "常用智能体",
+    "常用模型",
+    "最近活跃",
+  ];
+  const rows = report.users.map((user) => [
+    user.email ?? user.user_id,
+    user.user_id,
+    user.runs,
+    user.success_runs,
+    user.error_runs,
+    percent(user.error_rate),
+    user.tokens,
+    user.llm_calls,
+    user.threads,
+    duration(user.avg_duration_ms),
+    user.uploads,
+    user.downloads,
+    user.agents.join(" / "),
+    user.models.join(" / "),
+    shortTime(user.last_active_at),
+  ]);
+  const csv = [headers, ...rows]
+    .map((row) => row.map(csvCell).join(","))
+    .join("\n");
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `user-activity-${label.replace(/\s+/g, "-")}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function statusTone(status: string): string {
@@ -512,6 +581,146 @@ function CostBreakdownTable({
   );
 }
 
+function UserActivityTrend({
+  report,
+}: {
+  report: UserActivityReport | undefined;
+}) {
+  if (!report) {
+    return (
+      <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-sm text-slate-500">正在加载用户趋势</p>
+      </section>
+    );
+  }
+  const maxActive = Math.max(...report.trend.map((row) => row.active_users), 1);
+  const maxRuns = Math.max(...report.trend.map((row) => row.runs), 1);
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-slate-950">活跃趋势</h2>
+        <span className="text-xs text-slate-500">
+          {report.bucket === "day" ? "按天" : "按小时"}
+        </span>
+      </div>
+      {report.trend.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">暂无用户活跃数据</p>
+      ) : (
+        <div className="mt-4 flex h-48 items-end gap-2 overflow-x-auto pb-1">
+          {report.trend.map((row) => (
+            <div
+              key={row.period_start}
+              className="flex min-w-10 flex-1 flex-col items-center justify-end gap-2"
+              title={`${shortTime(row.period_start)} 活跃 ${row.active_users} 人 / ${row.runs} 次运行`}
+            >
+              <div className="flex h-36 w-full items-end gap-1">
+                <div
+                  className="min-h-2 flex-1 rounded-t bg-cyan-600"
+                  style={{ height: `${Math.max(8, (row.active_users / maxActive) * 136)}px` }}
+                />
+                <div
+                  className="min-h-2 flex-1 rounded-t bg-amber-500"
+                  style={{ height: `${Math.max(8, (row.runs / maxRuns) * 136)}px` }}
+                />
+              </div>
+              <span className="text-[10px] tabular-nums text-slate-500">
+                {row.active_users}/{row.runs}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-3 flex gap-4 text-xs text-slate-500">
+        <span className="inline-flex items-center gap-1">
+          <span className="size-2 rounded bg-cyan-600" />
+          活跃用户
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="size-2 rounded bg-amber-500" />
+          运行次数
+        </span>
+      </div>
+    </section>
+  );
+}
+
+function UserActivityTable({
+  rows,
+}: {
+  rows: UserActivityItem[];
+}) {
+  return (
+    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+      <h2 className="text-base font-semibold text-slate-950">用户明细</h2>
+      <div className="mt-4 overflow-x-auto rounded border border-slate-100">
+        <div className="min-w-[1040px]">
+          <div className="grid grid-cols-[1.5fr_72px_72px_88px_88px_88px_88px_1fr_1fr_120px] gap-3 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500">
+            <span>用户</span>
+            <span className="text-right">运行</span>
+            <span className="text-right">错误</span>
+            <span className="text-right">Token</span>
+            <span className="text-right">线程</span>
+            <span className="text-right">上传</span>
+            <span className="text-right">下载</span>
+            <span>智能体</span>
+            <span>模型</span>
+            <span className="text-right">最近活跃</span>
+          </div>
+          {rows.length === 0 ? (
+            <p className="px-3 py-6 text-sm text-slate-500">暂无用户使用数据</p>
+          ) : (
+            rows.map((user) => (
+              <div
+                key={user.user_id}
+                className="grid grid-cols-[1.5fr_72px_72px_88px_88px_88px_88px_1fr_1fr_120px] gap-3 border-t border-slate-100 px-3 py-3 text-sm"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-slate-900">
+                    {user.email ?? user.user_id}
+                  </span>
+                  <span className="block truncate text-xs text-slate-500">
+                    {user.user_id}
+                  </span>
+                </span>
+                <span className="text-right tabular-nums text-slate-600">
+                  {user.runs}
+                </span>
+                <span className="text-right tabular-nums text-slate-600">
+                  {user.error_runs}
+                  <span className="ml-1 text-xs text-slate-400">
+                    {percent(user.error_rate)}
+                  </span>
+                </span>
+                <span className="text-right tabular-nums text-slate-600">
+                  {compactNumber(user.tokens)}
+                </span>
+                <span className="text-right tabular-nums text-slate-600">
+                  {user.threads}
+                </span>
+                <span className="text-right tabular-nums text-slate-600">
+                  {user.uploads}
+                </span>
+                <span className="text-right tabular-nums text-slate-600">
+                  {user.downloads}
+                </span>
+                <span className="truncate text-slate-600">
+                  {user.agents.length ? user.agents.join(" / ") : "-"}
+                </span>
+                <span className="truncate text-slate-600">
+                  {user.models.length ? user.models.join(" / ") : "-"}
+                </span>
+                <span className="text-right text-xs text-slate-500">
+                  {shortTime(user.last_active_at)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SearchBox({
   value,
   onChange,
@@ -760,6 +969,7 @@ export default function ObservabilityPage() {
     rangeStart,
     rangeEnd,
   );
+  const userActivityQuery = useUserActivity(hours, rangeStart, rangeEnd);
   const traceFilters = useMemo(
     () => ({
       hours,
@@ -972,6 +1182,7 @@ export default function ObservabilityPage() {
               onClick={() => {
                 void snapshotQuery.refetch();
                 void analyticsQuery.refetch();
+                void userActivityQuery.refetch();
                 void tracesQuery.refetch();
                 void auditLogsQuery.refetch();
               }}
@@ -1016,6 +1227,10 @@ export default function ObservabilityPage() {
             <TabsTrigger value="overview">
               <ActivityIcon className="size-4" />
               总览
+            </TabsTrigger>
+            <TabsTrigger value="users">
+              <UsersIcon className="size-4" />
+              用户
             </TabsTrigger>
             <TabsTrigger value="traces">
               <WorkflowIcon className="size-4" />
@@ -1129,6 +1344,72 @@ export default function ObservabilityPage() {
                 )}
               </div>
             </section>
+          </TabsContent>
+
+          <TabsContent value="users" className="grid gap-4 xl:grid-cols-2">
+            <section className="grid gap-4 md:grid-cols-2 xl:col-span-2 xl:grid-cols-4">
+              <MetricCard
+                icon={UsersIcon}
+                label="活跃用户"
+                value={compactNumber(userActivityQuery.data?.summary.active_users ?? 0)}
+                detail={`活跃率 ${percent(userActivityQuery.data?.summary.activation_rate ?? 0)} / 注册 ${compactNumber(userActivityQuery.data?.summary.total_users ?? 0)}`}
+              />
+              <MetricCard
+                icon={ActivityIcon}
+                label="用户运行"
+                value={compactNumber(userActivityQuery.data?.summary.total_runs ?? 0)}
+                detail={`人均 ${userActivityQuery.data?.summary.avg_runs_per_active_user ?? 0} 次运行`}
+              />
+              <MetricCard
+                icon={AlertTriangleIcon}
+                label="失败情况"
+                value={percent(userActivityQuery.data?.summary.error_rate ?? 0)}
+                detail={`${compactNumber(userActivityQuery.data?.summary.error_runs ?? 0)} 次失败 / ${compactNumber(userActivityQuery.data?.summary.success_runs ?? 0)} 次成功`}
+              />
+              <MetricCard
+                icon={DatabaseIcon}
+                label="用户 Token"
+                value={compactNumber(userActivityQuery.data?.summary.total_tokens ?? 0)}
+                detail={`活跃用户人均 ${compactNumber(userActivityQuery.data?.summary.avg_tokens_per_active_user ?? 0)} token`}
+              />
+            </section>
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">
+                  用户活跃与应用使用
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {windowLabel(activeHours, rangeStart, rangeEnd)}
+                  {userActivityQuery.isFetching ? " / 正在刷新" : ""}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!userActivityQuery.data?.users.length}
+                onClick={() => {
+                  if (userActivityQuery.data) {
+                    downloadUserActivityCsv(
+                      userActivityQuery.data,
+                      windowLabel(activeHours, rangeStart, rangeEnd),
+                    );
+                  }
+                }}
+              >
+                <DownloadIcon className="size-4" />
+                导出 CSV
+              </Button>
+            </section>
+            <UserActivityTrend report={userActivityQuery.data} />
+            <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+              <h2 className="text-base font-semibold text-slate-950">使用口径</h2>
+              <div className="mt-4 grid gap-3 text-sm text-slate-600">
+                <p>活跃用户按当前时间窗口内有运行记录或上传下载记录的注册用户统计。</p>
+                <p>上传和下载来自审计日志中的 uploads、files、artifacts、download 路径。</p>
+                <p>智能体和模型取每个用户在窗口内最常使用的前三项。</p>
+              </div>
+            </section>
+            <UserActivityTable rows={userActivityQuery.data?.users ?? []} />
           </TabsContent>
 
           <TabsContent value="traces" className="grid gap-4">

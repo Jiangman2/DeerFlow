@@ -11,6 +11,7 @@ import type {
   TraceEvent,
   TraceFilters,
   TraceSummary,
+  UserActivityReport,
 } from "./types";
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -59,6 +60,26 @@ export async function getObservabilityAnalytics(
     `${getBackendBaseURL()}/api/admin/observability/analytics?${params}`,
   );
   return readJson<ObservabilityAnalytics>(response);
+}
+
+export async function getUserActivity(
+  hours = 24,
+  startAt?: string,
+  endAt?: string,
+  limit = 100,
+): Promise<UserActivityReport> {
+  const params = new URLSearchParams({
+    hours: String(hours),
+    limit: String(limit),
+  });
+  appendParams(params, {
+    start_at: startAt,
+    end_at: endAt,
+  });
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/admin/observability/user-activity?${params}`,
+  );
+  return readJson<UserActivityReport>(response);
 }
 
 export async function getAuditLogs(limit = 100): Promise<AuditLog[]> {

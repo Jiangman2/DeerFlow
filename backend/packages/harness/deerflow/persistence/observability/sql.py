@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import time
-from collections import deque
+from collections import Counter, deque
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -27,6 +27,11 @@ _MEMORY_AUDIT_LOGS: deque[dict[str, Any]] = deque(maxlen=1000)
 _TERMINAL_ERROR_STATUSES = {"error", "timeout", "interrupted"}
 _ACTIVE_STATUSES = {"pending", "running"}
 _MANAGEMENT_ACTIONS = {
+    "announcement.create",
+    "announcement.update",
+    "announcement.status.published",
+    "announcement.status.draft",
+    "announcement.status.archived",
     "agent.post",
     "agent.put",
     "agent.patch",
@@ -43,8 +48,26 @@ _MANAGEMENT_ACTIONS = {
     "mcp.put",
     "mcp.patch",
     "mcp.delete",
+    "site_navigation.create",
+    "site_navigation.update",
+    "site_navigation.delete",
+    "user.post",
+    "user.put",
+    "user.patch",
+    "user.delete",
 }
-_MANAGEMENT_RESOURCES = {"agent", "skill", "channel", "mcp", "config"}
+_MANAGEMENT_RESOURCES = {
+    "agent",
+    "announcement",
+    "channel",
+    "config",
+    "knowledge",
+    "mcp",
+    "site_navigation",
+    "skill",
+    "user",
+    "users",
+}
 _CAUSE_LABELS = {
     "model_timeout": "模型超时",
     "tool_failure": "工具失败",
@@ -504,7 +527,8 @@ class ObservabilityRepository:
                 needle = q.lower()
                 rows = [row for row in rows if needle in json.dumps(row, ensure_ascii=False).lower()]
             return rows[:bounded_limit]
-        stmt = select(AuditLogRow).order_by(desc(AuditLogRow.created_at)).limit(bounded_limit)
+        query_limit = min(max(bounded_limit * 5, bounded_limit), 2500) if operation_type and operation_type != "all" else bounded_limit
+        stmt = select(AuditLogRow).order_by(desc(AuditLogRow.created_at)).limit(query_limit)
         if hours or start_at or end_at:
             since, until, _window_hours = _window_bounds(hours=hours, start_at=start_at, end_at=end_at)
             stmt = stmt.where(AuditLogRow.created_at >= since, AuditLogRow.created_at <= until)
@@ -531,7 +555,7 @@ class ObservabilityRepository:
             rows = [_row_dict(row) for row in result.scalars()]
         if operation_type and operation_type != "all":
             rows = [row for row in rows if row.get("operation_type") == operation_type]
-        return rows
+        return rows[:bounded_limit]
 
     async def list_traces(
         self,
@@ -768,6 +792,207 @@ class ObservabilityRepository:
             "by_agent": breakdown(lambda row: row.assistant_id),
         }
 
+    async def user_activity(
+        self,
+        *,
+        hours: int = 24,
+        start_at: datetime | None = None,
+        end_at: datetime | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        since, until, window_hours = _window_bounds(hours=hours, start_at=start_at, end_at=end_at)
+        generated_at = datetime.now(UTC)
+        empty_summary = {
+            "total_users": 0,
+            "active_users": 0,
+            "activation_rate": 0,
+            "total_runs": 0,
+            "success_runs": 0,
+            "error_runs": 0,
+            "error_rate": 0,
+            "total_tokens": 0,
+            "avg_runs_per_active_user": 0,
+            "avg_tokens_per_active_user": 0,
+        }
+        if self._sf is None:
+            return {
+                "generated_at": _iso(generated_at),
+                "window_hours": window_hours,
+                "window_start": _iso(since),
+                "window_end": _iso(until),
+                "bucket": "day" if window_hours > 72 else "hour",
+                "summary": empty_summary,
+                "trend": [],
+                "users": [],
+            }
+
+        bounded_limit = min(max(limit, 1), 500)
+        bucket = "day" if window_hours > 72 else "hour"
+        async with self._sf() as session:
+            rows = (
+                await session.execute(
+                    select(RunRow)
+                    .where(RunRow.created_at >= since, RunRow.created_at <= until)
+                    .order_by(desc(RunRow.created_at))
+                    .limit(20_000)
+                )
+            ).scalars().all()
+            users_total = (
+                await session.scalar(
+                    select(func.count()).select_from(UserRow).where(UserRow.is_disabled.is_(False))
+                )
+                or 0
+            )
+            user_rows = await session.execute(select(UserRow.id, UserRow.email, UserRow.is_disabled))
+            user_email = {uid: email for uid, email, _disabled in user_rows.all()}
+            audit_rows = (
+                await session.execute(
+                    select(
+                        AuditLogRow.user_id,
+                        AuditLogRow.path,
+                        AuditLogRow.method,
+                        AuditLogRow.created_at,
+                    )
+                    .where(
+                        AuditLogRow.created_at >= since,
+                        AuditLogRow.created_at <= until,
+                        AuditLogRow.user_id.is_not(None),
+                        or_(
+                            AuditLogRow.path.ilike("%upload%"),
+                            AuditLogRow.path.ilike("%artifact%"),
+                            AuditLogRow.path.ilike("%download%"),
+                            AuditLogRow.path.ilike("%/files%"),
+                        ),
+                    )
+                    .order_by(desc(AuditLogRow.created_at))
+                    .limit(20_000)
+                )
+            ).all()
+
+        users: dict[str, dict[str, Any]] = {}
+        durations: dict[str, list[int]] = {}
+        thread_ids: dict[str, set[str]] = {}
+        agent_counts: dict[str, Counter[str]] = {}
+        model_counts: dict[str, Counter[str]] = {}
+        trend_map: dict[str, dict[str, Any]] = {}
+        trend_users: dict[str, set[str]] = {}
+        active_user_ids: set[str] = set()
+
+        def ensure_user(user_id: str | None) -> dict[str, Any]:
+            key = user_id or "anonymous"
+            return users.setdefault(
+                key,
+                {
+                    "user_id": key,
+                    "email": user_email.get(key),
+                    "runs": 0,
+                    "success_runs": 0,
+                    "error_runs": 0,
+                    "error_rate": 0,
+                    "tokens": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "llm_calls": 0,
+                    "threads": 0,
+                    "avg_duration_ms": 0,
+                    "uploads": 0,
+                    "downloads": 0,
+                    "last_active_at": None,
+                    "agents": [],
+                    "models": [],
+                },
+            )
+
+        for row in rows:
+            user_id = row.user_id or "anonymous"
+            if row.user_id:
+                active_user_ids.add(row.user_id)
+            item = ensure_user(user_id)
+            item["runs"] += 1
+            item["success_runs"] += 1 if row.status == "success" else 0
+            item["error_runs"] += 1 if row.status in _TERMINAL_ERROR_STATUSES else 0
+            item["tokens"] += row.total_tokens or 0
+            item["input_tokens"] += row.total_input_tokens or 0
+            item["output_tokens"] += row.total_output_tokens or 0
+            item["llm_calls"] += row.llm_call_count or 0
+            if row.thread_id:
+                thread_ids.setdefault(user_id, set()).add(row.thread_id)
+            duration = _duration_ms(row.created_at, row.updated_at)
+            if duration:
+                durations.setdefault(user_id, []).append(duration)
+            if row.assistant_id:
+                agent_counts.setdefault(user_id, Counter())[row.assistant_id] += 1
+            if row.model_name:
+                model_counts.setdefault(user_id, Counter())[row.model_name] += 1
+            created_at = _aware(row.created_at)
+            if created_at and (not item["last_active_at"] or created_at > item["last_active_at"]):
+                item["last_active_at"] = created_at
+            period = _bucket_key(row.created_at, bucket)
+            bucket_item = trend_map.setdefault(
+                period,
+                {"period_start": period, "active_users": 0, "runs": 0, "tokens": 0},
+            )
+            bucket_item["runs"] += 1
+            bucket_item["tokens"] += row.total_tokens or 0
+            if row.user_id:
+                trend_users.setdefault(period, set()).add(row.user_id)
+
+        for user_id, path, method, created_at in audit_rows:
+            item = ensure_user(user_id)
+            if user_id:
+                active_user_ids.add(user_id)
+            lower_path = (path or "").lower()
+            upper_method = (method or "").upper()
+            if upper_method in {"POST", "PUT", "PATCH"} and ("upload" in lower_path or "/files" in lower_path):
+                item["uploads"] += 1
+            if upper_method == "GET" and ("artifact" in lower_path or "download" in lower_path):
+                item["downloads"] += 1
+            audit_created_at = _aware(created_at)
+            if audit_created_at and (not item["last_active_at"] or audit_created_at > item["last_active_at"]):
+                item["last_active_at"] = audit_created_at
+
+        for user_id, item in users.items():
+            item["threads"] = len(thread_ids.get(user_id, set()))
+            item_durations = durations.get(user_id, [])
+            item["avg_duration_ms"] = int(sum(item_durations) / len(item_durations)) if item_durations else 0
+            terminal_runs = item["success_runs"] + item["error_runs"]
+            item["error_rate"] = round(item["error_runs"] / terminal_runs, 4) if terminal_runs else 0
+            item["agents"] = [key for key, _count in agent_counts.get(user_id, Counter()).most_common(3)]
+            item["models"] = [key for key, _count in model_counts.get(user_id, Counter()).most_common(3)]
+            item["last_active_at"] = _iso(item["last_active_at"])
+
+        for period, item in trend_map.items():
+            item["active_users"] = len(trend_users.get(period, set()))
+
+        total_runs = len(rows)
+        success_runs = sum(1 for row in rows if row.status == "success")
+        error_runs = sum(1 for row in rows if row.status in _TERMINAL_ERROR_STATUSES)
+        terminal_runs = success_runs + error_runs
+        total_tokens = sum(row.total_tokens or 0 for row in rows)
+        active_users = len(active_user_ids)
+        summary = {
+            "total_users": users_total,
+            "active_users": active_users,
+            "activation_rate": round(active_users / users_total, 4) if users_total else 0,
+            "total_runs": total_runs,
+            "success_runs": success_runs,
+            "error_runs": error_runs,
+            "error_rate": round(error_runs / terminal_runs, 4) if terminal_runs else 0,
+            "total_tokens": total_tokens,
+            "avg_runs_per_active_user": round(total_runs / active_users, 2) if active_users else 0,
+            "avg_tokens_per_active_user": int(total_tokens / active_users) if active_users else 0,
+        }
+        return {
+            "generated_at": _iso(generated_at),
+            "window_hours": window_hours,
+            "window_start": _iso(since),
+            "window_end": _iso(until),
+            "bucket": bucket,
+            "summary": summary,
+            "trend": [trend_map[key] for key in sorted(trend_map)],
+            "users": sorted(users.values(), key=lambda item: (item["runs"], item["tokens"]), reverse=True)[:bounded_limit],
+        }
+
     async def snapshot(
         self,
         *,
@@ -897,11 +1122,63 @@ class ObservabilityRepository:
 
         event_status = "healthy" if run_event_total > 0 else "unknown"
         workload_status = "degraded" if error_rate >= 0.2 else "healthy"
-        sandbox_status, sandbox_latency_ms, sandbox_error = _probe_file_writable("sandbox")
+        userdata_status, userdata_latency_ms, userdata_error = _probe_file_writable("userdata")
         storage_status, storage_latency_ms, storage_error = _probe_file_writable("artifact")
         model_names = sorted({row.model_name for row in window_rows if row.model_name})
         model_status = "healthy" if model_names else "unknown"
         checkpointer_status = "healthy" if database_status == "healthy" else "degraded"
+        overall_status = (
+            "degraded"
+            if any(
+                status == "degraded"
+                for status in (
+                    database_status,
+                    checkpointer_status,
+                    userdata_status,
+                    storage_status,
+                    workload_status,
+                )
+            )
+            else "healthy"
+        )
+        component_health = [
+            _component("网关服务", "healthy", "管理监控接口可正常响应", latency_ms=0, checked_at=checked_at),
+            _component("PostgreSQL", database_status, "应用数据库连接可用，用户、运行、审计等表可查询", metric=f"{users_total} 个用户", latency_ms=db_latency_ms, checked_at=checked_at, error=db_error),
+            _component("LangGraph 检查点", checkpointer_status, "检查点使用当前配置的持久化数据库后端", metric="已配置", latency_ms=db_latency_ms, checked_at=checked_at, error=db_error),
+            _component(
+                "运行事件写入",
+                event_status,
+                "链路追踪事件表可查询，且能看到运行事件写入",
+                metric=f"{run_event_total} 条事件 · 最新 {_iso(latest_event_at) or '-'}",
+                latency_ms=db_latency_ms,
+                checked_at=checked_at,
+            ),
+            _component("模型供应商", model_status, "根据当前窗口内的模型运行记录判断供应商是否可用", metric=", ".join(model_names[:3]) or "当前窗口无模型运行", checked_at=checked_at),
+            _component(
+                "Sandbox 执行环境",
+                "unknown",
+                "业务监控不主动创建 sandbox；K8s 模式需结合 provisioner 与 sandbox Pod 监控判断",
+                checked_at=checked_at,
+            ),
+            _component(
+                "用户数据存储",
+                userdata_status,
+                "Gateway 挂载的数据目录可写入和读回；K8s 模式下应对应 userdata PVC",
+                latency_ms=userdata_latency_ms,
+                checked_at=checked_at,
+                error=userdata_error,
+            ),
+            _component(
+                "文件/制品存储",
+                storage_status,
+                "文件与制品存储路径可写入和读回",
+                metric=f"{audit_total} 条审计 · 最新 {_iso(latest_audit_at) or '-'}",
+                latency_ms=storage_latency_ms,
+                checked_at=checked_at,
+                error=storage_error,
+            ),
+            _component("工作负载", workload_status, "当前窗口运行错误率阈值为 20%", metric=f"{error_rate:.1%} 错误率", checked_at=checked_at),
+        ]
 
         return {
             "generated_at": _iso(checked_at),
@@ -909,36 +1186,12 @@ class ObservabilityRepository:
             "window_start": _iso(since),
             "window_end": _iso(until),
             "health": {
-                "status": "degraded" if error_rate >= 0.2 else "healthy",
-                "database": "connected",
+                "status": overall_status,
+                "database": "connected" if database_status == "healthy" else database_status,
                 "active_runs": active_runs,
                 "error_rate": error_rate,
             },
-            "component_health": [
-                _component("网关服务", "healthy", "管理监控接口可正常响应", latency_ms=0, checked_at=checked_at),
-                _component("PostgreSQL", database_status, "应用数据库连接可用，用户、运行、审计等表可查询", metric=f"{users_total} 个用户", latency_ms=db_latency_ms, checked_at=checked_at, error=db_error),
-                _component("LangGraph 检查点", checkpointer_status, "检查点使用当前配置的持久化数据库后端", metric="已配置", latency_ms=db_latency_ms, checked_at=checked_at, error=db_error),
-                _component(
-                    "运行事件写入",
-                    event_status,
-                    "链路追踪事件表可查询，且能看到运行事件写入",
-                    metric=f"{run_event_total} 条事件 · 最新 {_iso(latest_event_at) or '-'}",
-                    latency_ms=db_latency_ms,
-                    checked_at=checked_at,
-                ),
-                _component("模型供应商", model_status, "根据当前窗口内的模型运行记录判断供应商是否可用", metric=", ".join(model_names[:3]) or "当前窗口无模型运行", checked_at=checked_at),
-                _component("Sandbox", sandbox_status, "本地 Sandbox 探针目录可写入和读回", latency_ms=sandbox_latency_ms, checked_at=checked_at, error=sandbox_error),
-                _component(
-                    "文件/制品存储",
-                    storage_status,
-                    "文件与制品存储路径可写入和读回",
-                    metric=f"{audit_total} 条审计 · 最新 {_iso(latest_audit_at) or '-'}",
-                    latency_ms=storage_latency_ms,
-                    checked_at=checked_at,
-                    error=storage_error,
-                ),
-                _component("工作负载", workload_status, "当前窗口运行错误率阈值为 20%", metric=f"{error_rate:.1%} 错误率", checked_at=checked_at),
-            ],
+            "component_health": component_health,
             "metrics": {
                 "users_total": users_total,
                 "active_users": len(user_usage),
