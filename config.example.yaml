@@ -1320,6 +1320,27 @@ skill_evolution:
   moderation_model_name: null # Model for LLM-based security scanning (null = use default model)
 
 # ============================================================================
+# User-private Knowledge Base / RAG
+# ============================================================================
+# Uploaded knowledge files are chunked and indexed per user. When PostgreSQL has
+# the pgvector extension and the embedding API is configured, DeerFlow performs
+# semantic vector retrieval first and merges it with keyword fallback.
+knowledge:
+  semantic_search_enabled: true
+  # OpenAI-compatible embedding endpoint. DashScope text-embedding-v4 defaults
+  # to 1024 dimensions and supports multilingual retrieval.
+  embedding_model: text-embedding-v4
+  embedding_dimensions: 1024
+  embedding_api_key: $DASHSCOPE_API_KEY
+  embedding_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  embedding_batch_size: 10
+  semantic_candidates: 50
+  keyword_candidates: 300
+  semantic_weight: 0.75
+  keyword_weight: 0.25
+  fallback_to_keyword: true
+
+# ============================================================================
 # Checkpointer Configuration (DEPRECATED 鈥?use `database` instead)
 # ============================================================================
 # Legacy standalone checkpointer config. Kept for backward compatibility.

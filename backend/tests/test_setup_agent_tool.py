@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from deerflow.tools.builtins.setup_agent_tool import setup_agent
 
@@ -122,12 +123,35 @@ class TestSetupAgentNoDataLoss:
 
     def test_successful_setup_creates_files(self, tmp_path: Path):
         """Happy path: setup_agent creates config.yaml and SOUL.md."""
-        _call_setup_agent(tmp_path, soul="# My Agent", description="A test agent")
+        _call_setup_agent(tmp_path, soul="# My Agent", description="测试智能体")
 
         agent_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "test-agent"
         assert agent_dir.exists()
         assert (agent_dir / "SOUL.md").read_text() == "# My Agent"
         assert (agent_dir / "config.yaml").exists()
+
+    def test_successful_setup_persists_private_knowledge_defaults(self, tmp_path: Path):
+        """Agent creation should persist default private knowledge settings."""
+        runtime = _DummyRuntime(
+            context={
+                "agent_name": "test-agent",
+                "use_private_knowledge": True,
+                "knowledge_scope_paths": ["Projects/Alpha", "brief.md"],
+            },
+            tool_call_id="tool-knowledge",
+        )
+
+        with patch("deerflow.tools.builtins.setup_agent_tool.get_paths", return_value=_make_paths_mock(tmp_path)):
+            setup_agent.func(
+                soul="# My Agent",
+                description="测试智能体",
+                runtime=runtime,
+            )
+
+        config_path = tmp_path / "users" / "test-user-autouse" / "agents" / "test-agent" / "config.yaml"
+        config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        assert config["use_private_knowledge"] is True
+        assert config["knowledge_scope_paths"] == ["Projects/Alpha", "brief.md"]
 
     @pytest.mark.no_auto_user
     def test_runtime_user_id_used_when_contextvar_missing(self, tmp_path: Path):
@@ -140,7 +164,7 @@ class TestSetupAgentNoDataLoss:
         with patch("deerflow.tools.builtins.setup_agent_tool.get_paths", return_value=_make_paths_mock(tmp_path)):
             setup_agent.func(
                 soul="# My Agent",
-                description="A test agent",
+                description="测试智能体",
                 runtime=runtime,
             )
 

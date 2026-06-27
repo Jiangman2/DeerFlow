@@ -2,7 +2,10 @@
 
 import type { ChatStatus } from "ai";
 import {
+  BookOpenIcon,
   CheckIcon,
+  FileTextIcon,
+  FolderIcon,
   GraduationCapIcon,
   LightbulbIcon,
   PaperclipIcon,
@@ -58,9 +61,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
+import { useKnowledgeFiles } from "@/core/knowledge";
+import {
+  buildKnowledgeScopeOptions,
+  expandKnowledgeScopePaths,
+  isKnowledgeScopeOptionChecked,
+  updateKnowledgeScopeSelection,
+} from "@/core/knowledge/scope";
 import { isHiddenFromUIMessage } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import type { Skill } from "@/core/skills";
@@ -83,6 +94,7 @@ import {
 import { Suggestion, Suggestions } from "../ai-elements/suggestion";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -216,6 +228,7 @@ export function InputBox({
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const { models } = useModels();
+  const { files: knowledgeFiles } = useKnowledgeFiles();
   const { thread, isMock } = useThread();
   const { textInput } = usePromptInputController();
   const { skills } = useSkills();
@@ -282,6 +295,34 @@ export function InputBox({
     () => selectedModel?.supports_reasoning_effort ?? false,
     [selectedModel],
   );
+  const usePrivateKnowledge = context.use_private_knowledge !== false;
+  const knowledgeScopeOptions = useMemo(
+    () => buildKnowledgeScopeOptions(knowledgeFiles),
+    [knowledgeFiles],
+  );
+  const selectedKnowledgeScopePaths = useMemo(
+    () =>
+      Array.isArray(context.knowledge_scope_paths)
+        ? context.knowledge_scope_paths.filter((item) => typeof item === "string")
+        : [],
+    [context.knowledge_scope_paths],
+  );
+  const selectedKnowledgeFileSet = useMemo(
+    () =>
+      expandKnowledgeScopePaths(
+        selectedKnowledgeScopePaths,
+        knowledgeScopeOptions,
+      ),
+    [knowledgeScopeOptions, selectedKnowledgeScopePaths],
+  );
+  const knowledgeScopeLabel =
+    selectedKnowledgeScopePaths.length === 0
+      ? t.inputBox.privateKnowledgeScopeAll
+      : selectedKnowledgeScopePaths.length === 1
+        ? selectedKnowledgeScopePaths[0]
+        : t.inputBox.privateKnowledgeScopeSelected(
+            selectedKnowledgeScopePaths.length,
+          );
 
   const promptHistory = useMemo(() => {
     const history: string[] = [];
@@ -365,6 +406,41 @@ export function InputBox({
     },
     [onContextChange, context],
   );
+
+  const handlePrivateKnowledgeChange = useCallback(
+    (checked: boolean) => {
+      onContextChange?.({
+        ...context,
+        use_private_knowledge: checked,
+      });
+    },
+    [onContextChange, context],
+  );
+
+  const handleKnowledgeScopeChange = useCallback(
+    (option: (typeof knowledgeScopeOptions)[number], checked: boolean) => {
+      const current = Array.isArray(context.knowledge_scope_paths)
+        ? context.knowledge_scope_paths.filter((item) => typeof item === "string")
+        : [];
+      onContextChange?.({
+        ...context,
+        knowledge_scope_paths: updateKnowledgeScopeSelection(
+          current,
+          option,
+          checked,
+          knowledgeScopeOptions,
+        ),
+      });
+    },
+    [onContextChange, context, knowledgeScopeOptions],
+  );
+
+  const handleKnowledgeScopeClear = useCallback(() => {
+    onContextChange?.({
+      ...context,
+      knowledge_scope_paths: [],
+    });
+  }, [onContextChange, context]);
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
@@ -891,6 +967,100 @@ export function InputBox({
           </PromptInputActionMenu> */}
             <AddAttachmentsButton className="px-2!" />
             <ShopCartAttachmentButton className="px-2!" />
+            <Tooltip
+              content={
+                usePrivateKnowledge
+                  ? t.inputBox.privateKnowledgeOnDescription
+                  : t.inputBox.privateKnowledgeOffDescription
+              }
+            >
+              <label
+                className={cn(
+                  "border-input/60 bg-background/60 hover:bg-accent hover:text-accent-foreground flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2 transition-colors",
+                  disabled && "pointer-events-none opacity-50",
+                )}
+              >
+                <BookOpenIcon className="size-3.5 shrink-0" />
+                <span className="hidden text-xs font-normal whitespace-nowrap sm:inline">
+                  {t.inputBox.privateKnowledge}
+                </span>
+                <Switch
+                  aria-label={t.inputBox.privateKnowledge}
+                  checked={usePrivateKnowledge}
+                  disabled={disabled}
+                  onCheckedChange={handlePrivateKnowledgeChange}
+                />
+              </label>
+            </Tooltip>
+            <DropdownMenu>
+              <Tooltip content={t.inputBox.privateKnowledgeScopeDescription}>
+                <DropdownMenuTrigger asChild>
+                  <PromptInputButton
+                    className="max-w-40 gap-1 px-2! sm:max-w-56"
+                    disabled={
+                      Boolean(disabled) ||
+                      !usePrivateKnowledge ||
+                      knowledgeScopeOptions.length === 0
+                    }
+                  >
+                    <FolderIcon className="size-3.5 shrink-0" />
+                    <span className="truncate text-xs font-normal">
+                      {knowledgeScopeLabel}
+                    </span>
+                  </PromptInputButton>
+                </DropdownMenuTrigger>
+              </Tooltip>
+              <DropdownMenuContent className="max-h-80 w-72 overflow-y-auto">
+                <DropdownMenuLabel className="text-muted-foreground text-xs">
+                  {t.inputBox.privateKnowledgeScope}
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    handleKnowledgeScopeClear();
+                  }}
+                >
+                  <BookOpenIcon className="size-4" />
+                  {t.inputBox.privateKnowledgeScopeAll}
+                  {selectedKnowledgeScopePaths.length === 0 && (
+                    <CheckIcon className="ml-auto size-4" />
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {knowledgeScopeOptions.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    {t.inputBox.privateKnowledgeScopeEmpty}
+                  </DropdownMenuItem>
+                ) : (
+                  knowledgeScopeOptions.map((option) => (
+                    <DropdownMenuCheckboxItem
+                      key={`${option.type}:${option.path}`}
+                      checked={isKnowledgeScopeOptionChecked(
+                        option,
+                        selectedKnowledgeFileSet,
+                      )}
+                      className="min-w-0"
+                      onCheckedChange={(checked) =>
+                        handleKnowledgeScopeChange(option, checked)
+                      }
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      <div
+                        className="flex min-w-0 items-center gap-2"
+                        style={{ paddingLeft: `${option.level * 12}px` }}
+                      >
+                        {option.type === "folder" ? (
+                          <FolderIcon className="text-muted-foreground size-4 shrink-0" />
+                        ) : (
+                          <FileTextIcon className="text-muted-foreground size-4 shrink-0" />
+                        )}
+                        <span className="truncate">{option.label}</span>
+                      </div>
+                    </DropdownMenuCheckboxItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <PromptInputActionMenu>
               <ModeHoverGuide
                 mode={

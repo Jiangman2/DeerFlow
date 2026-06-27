@@ -21,6 +21,7 @@ from app.gateway.routers import (
     channels,
     convert,
     feedback,
+    knowledge,
     mcp,
     memory,
     models,
@@ -397,6 +398,8 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Uploads API is mounted at /api/threads/{thread_id}/uploads
     app.include_router(uploads.router)
+    # User-private knowledge base API is mounted at /api/knowledge
+    app.include_router(knowledge.router)
 
     # Thread cleanup API is mounted at /api/threads/{thread_id}
     app.include_router(threads.router)

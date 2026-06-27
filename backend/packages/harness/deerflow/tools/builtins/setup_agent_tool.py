@@ -20,6 +20,14 @@ def _has_cjk(text: str) -> bool:
     return bool(_CJK_RE.search(text))
 
 
+def _knowledge_scope_paths_from_runtime(runtime: Runtime) -> list[str] | None:
+    raw = runtime.context.get("knowledge_scope_paths") if runtime.context else None
+    if not isinstance(raw, list | tuple):
+        return None
+    paths = [item for item in raw if isinstance(item, str) and item.strip()]
+    return paths if paths else []
+
+
 @tool(parse_docstring=True)
 def setup_agent(
     soul: str,
@@ -84,6 +92,12 @@ def setup_agent(
                 config_data["description"] = description
             if skills is not None:
                 config_data["skills"] = skills
+            if runtime.context:
+                if isinstance(runtime.context.get("use_private_knowledge"), bool):
+                    config_data["use_private_knowledge"] = runtime.context["use_private_knowledge"]
+                scope_paths = _knowledge_scope_paths_from_runtime(runtime)
+                if scope_paths is not None:
+                    config_data["knowledge_scope_paths"] = scope_paths
 
             config_file = agent_dir / "config.yaml"
             with open(config_file, "w", encoding="utf-8") as f:
