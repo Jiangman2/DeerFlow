@@ -367,6 +367,12 @@ async def get_current_user_from_request(request: Request):
             detail=AuthErrorResponse(code=AuthErrorCode.USER_NOT_FOUND, message="User not found").model_dump(),
         )
 
+    if getattr(user, "is_disabled", False):
+        raise HTTPException(
+            status_code=401,
+            detail=AuthErrorResponse(code=AuthErrorCode.USER_DISABLED, message="User is disabled").model_dump(),
+        )
+
     # Token version mismatch → password was changed, token is stale
     if user.token_version != payload.ver:
         raise HTTPException(

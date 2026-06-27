@@ -45,6 +45,7 @@ class SQLiteUserRepository(UserRepository):
             oauth_provider=row.oauth_provider,
             oauth_id=row.oauth_id,
             needs_setup=row.needs_setup,
+            is_disabled=row.is_disabled,
             token_version=row.token_version,
         )
 
@@ -59,6 +60,7 @@ class SQLiteUserRepository(UserRepository):
             oauth_provider=user.oauth_provider,
             oauth_id=user.oauth_id,
             needs_setup=user.needs_setup,
+            is_disabled=user.is_disabled,
             token_version=user.token_version,
         )
 
@@ -105,6 +107,7 @@ class SQLiteUserRepository(UserRepository):
             row.oauth_provider = user.oauth_provider
             row.oauth_id = user.oauth_id
             row.needs_setup = user.needs_setup
+            row.is_disabled = user.is_disabled
             row.token_version = user.token_version
             await session.commit()
         return user

@@ -352,7 +352,7 @@ async def register(request: Request, response: Response, body: RegisterRequest):
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
 
-    return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role, oauth_provider=user.oauth_provider)
+    return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role, is_disabled=user.is_disabled, oauth_provider=user.oauth_provider)
 
 
 @router.post("/logout", response_model=MessageResponse)
@@ -427,6 +427,7 @@ async def get_me(request: Request):
         email=user.email,
         system_role=user.system_role,
         needs_setup=user.needs_setup,
+        is_disabled=user.is_disabled,
         oauth_provider=user.oauth_provider,
     )
 
@@ -537,7 +538,7 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
 
-    return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role, oauth_provider=user.oauth_provider)
+    return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role, is_disabled=user.is_disabled, oauth_provider=user.oauth_provider)
 
 
 # ── OIDC / SSO Endpoints ────────────────────────────────────────────────
@@ -582,6 +583,9 @@ async def cnooc_token_login(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="An account with this email already exists. Contact your administrator to link it to your SSO account.",
                 ) from exc
+
+    if user.is_disabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
 
     access_token = create_access_token(str(user.id), token_version=user.token_version)
     redirect_path = validate_next_param(next) or "/workspace/chats/new"

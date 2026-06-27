@@ -40,6 +40,9 @@ class LocalAuthProvider(AuthProvider):
         if user is None:
             return None
 
+        if user.is_disabled:
+            return None
+
         if user.password_hash is None:
             # OAuth user without local password
             return None

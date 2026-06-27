@@ -13,7 +13,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import warnings
 
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import SAWarning
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 
@@ -26,6 +29,77 @@ logger = logging.getLogger(__name__)
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+
+
+async def _ensure_compatible_schema(backend: str) -> None:
+    """Apply tiny compatibility ALTERs for create_all-managed deployments."""
+    if _engine is None or backend not in {"sqlite", "postgres"}:
+        return
+
+    async with _engine.begin() as conn:
+        def _user_columns(sync_conn) -> set[str]:
+            inspector = inspect(sync_conn)
+            if "users" not in inspector.get_table_names():
+                return set()
+            return {column["name"] for column in inspector.get_columns("users")}
+
+        columns = await conn.run_sync(_user_columns)
+        if columns and "is_disabled" not in columns:
+            if backend == "postgres":
+                await conn.execute(text("ALTER TABLE users ADD COLUMN is_disabled BOOLEAN NOT NULL DEFAULT FALSE"))
+            else:
+                await conn.execute(text("ALTER TABLE users ADD COLUMN is_disabled BOOLEAN NOT NULL DEFAULT 0"))
+
+            logger.info("Applied compatibility schema update: users.is_disabled")
+
+    async with _engine.begin() as conn:
+        def _table_columns(sync_conn, table_name: str) -> set[str]:
+            inspector = inspect(sync_conn)
+            if table_name not in inspector.get_table_names():
+                return set()
+            # SQLAlchemy does not natively understand pgvector's `vector`
+            # column type. We only need column names for compatibility ALTERs,
+            # so suppress the harmless type-reflection warning.
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=SAWarning, message="Did not recognize type 'vector'.*")
+                return {column["name"] for column in inspector.get_columns(table_name)}
+
+        file_columns = await conn.run_sync(_table_columns, "knowledge_files")
+        if file_columns and "folder_path" not in file_columns:
+            await conn.execute(text("ALTER TABLE knowledge_files ADD COLUMN folder_path TEXT NOT NULL DEFAULT ''"))
+            logger.info("Applied compatibility schema update: knowledge_files.folder_path")
+
+        if backend == "postgres" and file_columns:
+            await conn.execute(text("ALTER TABLE knowledge_files DROP CONSTRAINT IF EXISTS uq_knowledge_files_user_sha256"))
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_knowledge_files_user_sha256_folder "
+                    "ON knowledge_files (user_id, sha256, folder_path)"
+                )
+            )
+
+        chunk_columns = await conn.run_sync(_table_columns, "knowledge_chunks")
+        if not chunk_columns:
+            return
+
+        chunk_updates: list[tuple[str, str]] = []
+        if "embedding_model" not in chunk_columns:
+            chunk_updates.append(("embedding_model", "VARCHAR(128)"))
+        if "embedding_dim" not in chunk_columns:
+            chunk_updates.append(("embedding_dim", "INTEGER"))
+        if "embedding_text_hash" not in chunk_columns:
+            chunk_updates.append(("embedding_text_hash", "VARCHAR(64)"))
+        if "embedding_json" not in chunk_columns:
+            chunk_updates.append(("embedding_json", "TEXT"))
+
+        for column_name, column_type in chunk_updates:
+            await conn.execute(text(f"ALTER TABLE knowledge_chunks ADD COLUMN {column_name} {column_type}"))
+
+        if chunk_updates:
+            logger.info(
+                "Applied compatibility schema update: knowledge_chunks.%s",
+                ",".join(column_name for column_name, _ in chunk_updates),
+            )
 
 
 async def _auto_create_postgres_db(url: str) -> None:
@@ -167,6 +241,8 @@ async def init_engine(
             await bootstrap_schema(_engine, backend=backend)
         else:
             raise
+
+    await _ensure_compatible_schema(backend)
 
     logger.info("Persistence engine initialized: backend=%s", backend)
 

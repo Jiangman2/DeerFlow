@@ -7,10 +7,15 @@ export const userSchema = z.object({
   email: z.string().email(),
   system_role: z.enum(["admin", "user"]),
   needs_setup: z.boolean().optional().default(false),
+  is_disabled: z.boolean().optional().default(false),
   oauth_provider: z.string().nullable().optional().default(null),
 });
 
-export type User = Omit<z.infer<typeof userSchema>, "oauth_provider"> & {
+export type User = Omit<
+  z.infer<typeof userSchema>,
+  "oauth_provider" | "is_disabled"
+> & {
+  is_disabled?: boolean;
   oauth_provider?: string | null;
 };
 
@@ -39,6 +44,7 @@ const AUTH_ERROR_CODES = [
   "token_expired",
   "token_invalid",
   "user_not_found",
+  "user_disabled",
   "email_already_exists",
   "provider_not_found",
   "not_authenticated",

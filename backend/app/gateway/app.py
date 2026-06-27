@@ -6,14 +6,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.gateway.audit_middleware import AuditLogMiddleware
 from app.gateway.auth_disabled import warn_if_auth_disabled_enabled
 from app.gateway.auth_middleware import AuthMiddleware
-from app.gateway.audit_middleware import AuditLogMiddleware
 from app.gateway.config import get_gateway_config
 from app.gateway.csrf_middleware import CSRFMiddleware, get_configured_cors_origins
 from app.gateway.deps import langgraph_runtime
 from app.gateway.routers import (
+    admin_users,
     agents,
+    announcements,
     artifacts,
     assistants_compat,
     auth,
@@ -27,6 +29,7 @@ from app.gateway.routers import (
     models,
     observability,
     runs,
+    site_navigation,
     skills,
     suggestions,
     thread_runs,
@@ -349,6 +352,18 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
                 "description": "Admin audit logs, operational metrics, and trace inspection endpoints",
             },
             {
+                "name": "announcements",
+                "description": "Workspace announcements and admin announcement management",
+            },
+            {
+                "name": "site-navigation",
+                "description": "Workspace site shortcuts and admin site navigation management",
+            },
+            {
+                "name": "users",
+                "description": "Admin user management endpoints",
+            },
+            {
                 "name": "health",
                 "description": "Health check and system status endpoints",
             },
@@ -433,6 +448,15 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Admin observability API (audit logs, metrics, traces)
     app.include_router(observability.router)
+
+    # Admin users API
+    app.include_router(admin_users.router)
+
+    # Announcements API (workspace banner + admin management)
+    app.include_router(announcements.router)
+
+    # Site navigation API (workspace shortcuts + admin management)
+    app.include_router(site_navigation.router)
 
     @app.get("/health", tags=["health"])
     async def health_check() -> dict[str, str]:
