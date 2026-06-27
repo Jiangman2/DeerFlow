@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 
 def test_wait_for_kubeconfig_rejects_directory(tmp_path, provisioner_module):
     """Directory mount at kubeconfig path should fail fast with clear error."""
@@ -97,3 +99,51 @@ def test_init_k8s_client_falls_back_to_incluster_when_missing(tmp_path, monkeypa
 
     assert calls["incluster"] == 1
     assert result == "core-v1"
+
+
+def test_ensure_namespace_skips_when_disabled(provisioner_module):
+    """K8s deployments can avoid cluster-scope namespace permissions."""
+    calls: list[str] = []
+
+    class FakeCoreV1:
+        def read_namespace(self, _name):
+            calls.append("read")
+
+        def create_namespace(self, _namespace):
+            calls.append("create")
+
+    provisioner_module.K8S_CREATE_NAMESPACE = False
+    provisioner_module.core_v1 = FakeCoreV1()
+
+    provisioner_module._ensure_namespace()
+
+    assert calls == []
+
+
+def test_ensure_namespace_creates_when_enabled(monkeypatch, provisioner_module):
+    """External/local provisioner mode can still create the namespace on demand."""
+    created: list[str] = []
+
+    class FakeCoreV1:
+        def read_namespace(self, _name):
+            raise provisioner_module.ApiException(status=404)
+
+        def create_namespace(self, namespace):
+            created.append(namespace.metadata.name)
+
+    monkeypatch.setattr(
+        provisioner_module.k8s_client,
+        "V1Namespace",
+        lambda metadata: SimpleNamespace(metadata=metadata),
+    )
+    monkeypatch.setattr(
+        provisioner_module.k8s_client,
+        "V1ObjectMeta",
+        lambda **kwargs: SimpleNamespace(**kwargs),
+    )
+    provisioner_module.K8S_CREATE_NAMESPACE = True
+    provisioner_module.core_v1 = FakeCoreV1()
+
+    provisioner_module._ensure_namespace()
+
+    assert created == [provisioner_module.K8S_NAMESPACE]

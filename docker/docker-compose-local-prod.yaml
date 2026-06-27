@@ -1,0 +1,14 @@
+services:
+  frontend:
+    image: deer-flow-frontend:latest
+    build: null
+
+  gateway:
+    image: deer-flow-gateway:latest
+    build: null
+
+  provisioner:
+    image: deer-flow-provisioner:latest
+    build: null
+    environment:
+      - K8S_API_SERVER=${K8S_API_SERVER:-https://host.docker.internal:58084}

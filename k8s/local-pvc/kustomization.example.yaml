@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - storage.yaml
+  - postgres.yaml
+  - deer-flow-pvc-stack.yaml
+
+# Copy this file to kustomization.yaml or update kustomization.yaml in CI.
+# Use immutable tags, ideally tied to the git commit or release version.
+images:
+  - name: deer-flow-gateway
+    newName: registry.example.com/deer-flow-gateway
+    newTag: 2026.06.26-gitsha
+  - name: deer-flow-frontend
+    newName: registry.example.com/deer-flow-frontend
+    newTag: 2026.06.26-gitsha
+  - name: deer-flow-provisioner
+    newName: registry.example.com/deer-flow-provisioner
+    newTag: 2026.06.26-gitsha

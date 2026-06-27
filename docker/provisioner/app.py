@@ -54,9 +54,21 @@ logging.basicConfig(
 # ── Configuration (all tuneable via environment variables) ───────────────
 
 K8S_NAMESPACE = os.environ.get("K8S_NAMESPACE", "deer-flow")
+K8S_CREATE_NAMESPACE = os.environ.get("K8S_CREATE_NAMESPACE", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 SANDBOX_IMAGE = os.environ.get(
     "SANDBOX_IMAGE",
-    "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest",
+    "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox@sha256:742062f99915e5495df8d4bfeaf40a93197c87c7c47b4e2407cd2b6356df8f48",
+)
+SANDBOX_READINESS_INITIAL_DELAY_SECONDS = int(
+    os.environ.get("SANDBOX_READINESS_INITIAL_DELAY_SECONDS", "10")
+)
+SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS = int(
+    os.environ.get("SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS", "120")
 )
 SKILLS_HOST_PATH = os.environ.get("SKILLS_HOST_PATH", "/skills")
 THREADS_HOST_PATH = os.environ.get("THREADS_HOST_PATH", "/.deer-flow/threads")
@@ -74,12 +86,22 @@ KUBECONFIG_PATH = os.environ.get("KUBECONFIG_PATH", "/root/.kube/config")
 # services on the host Kubernetes node.  On Docker Desktop for macOS this
 # is ``host.docker.internal``; on Linux it may be the host's LAN IP.
 NODE_HOST = os.environ.get("NODE_HOST", "host.docker.internal")
+SANDBOX_ACCESS_MODE = os.environ.get("SANDBOX_ACCESS_MODE", "nodeport").strip().lower()
+CLUSTER_SERVICE_MODES = {"cluster", "clusterip", "service"}
 
 
 def join_host_path(base: str, *parts: str) -> str:
     """Join host filesystem path segments while preserving native style."""
     if not parts:
         return base
+
+    if base.startswith("/"):
+        from pathlib import PurePosixPath
+
+        result = PurePosixPath(base)
+        for part in parts:
+            result /= part
+        return str(result)
 
     if re.match(r"^[A-Za-z]:[\\/]", base) or base.startswith("\\\\") or "\\" in base:
         from pathlib import PureWindowsPath
@@ -173,6 +195,10 @@ def _wait_for_kubeconfig(timeout: int = 30) -> None:
 
 def _ensure_namespace() -> None:
     """Create the K8s namespace if it does not yet exist."""
+    if not K8S_CREATE_NAMESPACE:
+        logger.info("Namespace auto-creation is disabled")
+        return
+
     try:
         core_v1.read_namespace(K8S_NAMESPACE)
         logger.info(f"Namespace '{K8S_NAMESPACE}' already exists")
@@ -235,12 +261,43 @@ def _svc_name(sandbox_id: str) -> str:
     return f"sandbox-{sandbox_id}-svc"
 
 
-def _sandbox_url(node_port: int) -> str:
-    """Build the sandbox URL using the configured NODE_HOST."""
+def _uses_cluster_service() -> bool:
+    return SANDBOX_ACCESS_MODE in CLUSTER_SERVICE_MODES
+
+
+def _sandbox_url(sandbox_id: str, node_port: int | None = None) -> str:
+    """Build the sandbox URL for the backend runtime.
+
+    ``nodeport`` is for Docker/host-side gateways. ``cluster`` is for Gateways
+    running in the same Kubernetes namespace; it keeps all sandbox traffic on
+    cluster DNS instead of depending on host node names.
+    """
+    if _uses_cluster_service():
+        return f"http://{_svc_name(sandbox_id)}.{K8S_NAMESPACE}.svc.cluster.local:8080"
+    if node_port is None:
+        raise ValueError("node_port is required when SANDBOX_ACCESS_MODE is nodeport")
     return f"http://{NODE_HOST}:{node_port}"
 
 
-def _build_volumes(thread_id: str) -> list[k8s_client.V1Volume]:
+def _userdata_host_path(thread_id: str, user_id: str = DEFAULT_USER_ID) -> str:
+    """Return the hostPath source for a user-scoped thread user-data tree.
+
+    Historically THREADS_HOST_PATH pointed at ``{base}/threads`` and hostPath
+    mode mounted ``{base}/threads/{thread_id}/user-data``.  Authenticated
+    Gateway writes now live under ``{base}/users/{user_id}/threads/{thread_id}``,
+    matching the PVC subPath layout.  Accept both ``{base}`` and
+    ``{base}/threads`` as THREADS_HOST_PATH values so existing local env files
+    keep working.
+    """
+    normalized = THREADS_HOST_PATH.rstrip("\\/")
+    tail = re.split(r"[\\/]", normalized)[-1]
+    base = normalized
+    if tail == "threads":
+        base = normalized[: -len(tail)].rstrip("\\/")
+    return join_host_path(base, "users", user_id, "threads", thread_id, "user-data")
+
+
+def _build_volumes(thread_id: str, user_id: str = DEFAULT_USER_ID) -> list[k8s_client.V1Volume]:
     """Build volume list: PVC when configured, otherwise hostPath."""
     if SKILLS_PVC_NAME:
         skills_vol = k8s_client.V1Volume(
@@ -270,7 +327,7 @@ def _build_volumes(thread_id: str) -> list[k8s_client.V1Volume]:
         userdata_vol = k8s_client.V1Volume(
             name="user-data",
             host_path=k8s_client.V1HostPathVolumeSource(
-                path=join_host_path(THREADS_HOST_PATH, thread_id, "user-data"),
+                path=_userdata_host_path(thread_id, user_id=user_id),
                 type="DirectoryOrCreate",
             ),
         )
@@ -329,7 +386,7 @@ def _build_pod(sandbox_id: str, thread_id: str, user_id: str = DEFAULT_USER_ID) 
                             path="/v1/sandbox",
                             port=8080,
                         ),
-                        initial_delay_seconds=5,
+                        initial_delay_seconds=SANDBOX_READINESS_INITIAL_DELAY_SECONDS,
                         period_seconds=5,
                         timeout_seconds=3,
                         failure_threshold=3,
@@ -339,7 +396,7 @@ def _build_pod(sandbox_id: str, thread_id: str, user_id: str = DEFAULT_USER_ID) 
                             path="/v1/sandbox",
                             port=8080,
                         ),
-                        initial_delay_seconds=10,
+                        initial_delay_seconds=SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS,
                         period_seconds=10,
                         timeout_seconds=3,
                         failure_threshold=3,
@@ -363,14 +420,14 @@ def _build_pod(sandbox_id: str, thread_id: str, user_id: str = DEFAULT_USER_ID) 
                     ),
                 )
             ],
-            volumes=_build_volumes(thread_id),
+            volumes=_build_volumes(thread_id, user_id=user_id),
             restart_policy="Always",
         ),
     )
 
 
 def _build_service(sandbox_id: str) -> k8s_client.V1Service:
-    """Construct a NodePort Service manifest (port auto-allocated by K8s)."""
+    """Construct the sandbox Service manifest."""
     return k8s_client.V1Service(
         metadata=k8s_client.V1ObjectMeta(
             name=_svc_name(sandbox_id),
@@ -383,7 +440,7 @@ def _build_service(sandbox_id: str) -> k8s_client.V1Service:
             },
         ),
         spec=k8s_client.V1ServiceSpec(
-            type="NodePort",
+            type="ClusterIP" if _uses_cluster_service() else "NodePort",
             ports=[
                 k8s_client.V1ServicePort(
                     name="http",
@@ -400,10 +457,22 @@ def _build_service(sandbox_id: str) -> k8s_client.V1Service:
     )
 
 
+def _get_service(sandbox_id: str) -> k8s_client.V1Service | None:
+    """Read the sandbox Service if it exists."""
+    try:
+        return core_v1.read_namespaced_service(_svc_name(sandbox_id), K8S_NAMESPACE)
+    except ApiException as exc:
+        if exc.status != 404:
+            raise
+    return None
+
+
 def _get_node_port(sandbox_id: str) -> int | None:
     """Read the K8s-allocated NodePort from the Service."""
     try:
-        svc = core_v1.read_namespaced_service(_svc_name(sandbox_id), K8S_NAMESPACE)
+        svc = _get_service(sandbox_id)
+        if not svc:
+            return None
         for port in svc.spec.ports or []:
             if port.name == "http":
                 return port.node_port
@@ -449,11 +518,12 @@ async def create_sandbox(req: CreateSandboxRequest):
     )
 
     # ── Fast path: sandbox already exists ────────────────────────────
-    existing_port = _get_node_port(sandbox_id)
-    if existing_port:
+    existing_service = _get_service(sandbox_id)
+    if existing_service:
+        existing_port = _get_node_port(sandbox_id) if not _uses_cluster_service() else None
         return SandboxResponse(
             sandbox_id=sandbox_id,
-            sandbox_url=_sandbox_url(existing_port),
+            sandbox_url=_sandbox_url(sandbox_id, existing_port),
             status=_get_pod_phase(sandbox_id),
         )
 
@@ -483,6 +553,13 @@ async def create_sandbox(req: CreateSandboxRequest):
             )
 
     # ── Read the auto-allocated NodePort ─────────────────────────────
+    if _uses_cluster_service():
+        return SandboxResponse(
+            sandbox_id=sandbox_id,
+            sandbox_url=_sandbox_url(sandbox_id),
+            status=_get_pod_phase(sandbox_id),
+        )
+
     node_port: int | None = None
     for _ in range(20):
         node_port = _get_node_port(sandbox_id)
@@ -497,7 +574,7 @@ async def create_sandbox(req: CreateSandboxRequest):
 
     return SandboxResponse(
         sandbox_id=sandbox_id,
-        sandbox_url=_sandbox_url(node_port),
+        sandbox_url=_sandbox_url(sandbox_id, node_port),
         status=_get_pod_phase(sandbox_id),
     )
 
@@ -534,13 +611,16 @@ async def destroy_sandbox(sandbox_id: str):
 @app.get("/api/sandboxes/{sandbox_id}", response_model=SandboxResponse)
 async def get_sandbox(sandbox_id: str):
     """Return current status and URL for a sandbox."""
-    node_port = _get_node_port(sandbox_id)
-    if not node_port:
+    service = _get_service(sandbox_id)
+    if not service:
         raise HTTPException(status_code=404, detail=f"Sandbox '{sandbox_id}' not found")
+    node_port = _get_node_port(sandbox_id) if not _uses_cluster_service() else None
+    if not _uses_cluster_service() and not node_port:
+        raise HTTPException(status_code=404, detail=f"Sandbox '{sandbox_id}' not ready")
 
     return SandboxResponse(
         sandbox_id=sandbox_id,
-        sandbox_url=_sandbox_url(node_port),
+        sandbox_url=_sandbox_url(sandbox_id, node_port),
         status=_get_pod_phase(sandbox_id),
     )
 
@@ -564,17 +644,19 @@ async def list_sandboxes():
         if not sid:
             continue
         node_port = None
-        for port in svc.spec.ports or []:
-            if port.name == "http":
-                node_port = port.node_port
-                break
-        if node_port:
-            sandboxes.append(
-                SandboxResponse(
-                    sandbox_id=sid,
-                    sandbox_url=_sandbox_url(node_port),
-                    status=_get_pod_phase(sid),
-                )
+        if not _uses_cluster_service():
+            for port in svc.spec.ports or []:
+                if port.name == "http":
+                    node_port = port.node_port
+                    break
+            if not node_port:
+                continue
+        sandboxes.append(
+            SandboxResponse(
+                sandbox_id=sid,
+                sandbox_url=_sandbox_url(sid, node_port),
+                status=_get_pod_phase(sid),
             )
+        )
 
     return {"sandboxes": sandboxes, "count": len(sandboxes)}

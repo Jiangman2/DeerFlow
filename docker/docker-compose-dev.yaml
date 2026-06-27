@@ -29,6 +29,8 @@ services:
     environment:
       - K8S_NAMESPACE=deer-flow
       - SANDBOX_IMAGE=enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
+      - SANDBOX_READINESS_INITIAL_DELAY_SECONDS=${SANDBOX_READINESS_INITIAL_DELAY_SECONDS:-10}
+      - SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS=${SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS:-120}
       # Host paths for K8s HostPath volumes (must be absolute paths accessible by K8s node)
       # On Docker Desktop/OrbStack, use your actual host paths like /Users/username/...
       # Set these in your shell before running docker-compose:
@@ -38,19 +40,20 @@ services:
       # Production: use PVC instead of hostPath to avoid data loss on node failure.
       # When set, hostPath vars above are ignored for the corresponding volume.
       # USERDATA_PVC_NAME uses subPath (deer-flow/users/{user_id}/threads/{thread_id}/user-data) automatically.
-      # - SKILLS_PVC_NAME=deer-flow-skills-pvc
-      # - USERDATA_PVC_NAME=deer-flow-userdata-pvc
+      - SKILLS_PVC_NAME=${SKILLS_PVC_NAME:-}
+      - USERDATA_PVC_NAME=${USERDATA_PVC_NAME:-}
       - KUBECONFIG_PATH=/root/.kube/config
-      - NODE_HOST=host.docker.internal
+      - NODE_HOST=${NODE_HOST:-desktop-control-plane}
       # Override K8S API server URL since kubeconfig uses 127.0.0.1
       # which is unreachable from inside the container
-      - K8S_API_SERVER=https://host.docker.internal:26443
+      - K8S_API_SERVER=${K8S_API_SERVER:-https://host.docker.internal:26443}
     env_file:
       - ../.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
       - deer-flow-dev
+      - kind
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
@@ -93,7 +96,7 @@ services:
         PNPM_STORE_PATH: ${PNPM_STORE_PATH:-/root/.local/share/pnpm/store}
         NPM_REGISTRY: ${NPM_REGISTRY:-}
     container_name: deer-flow-frontend
-    command: sh -c "cd frontend && pnpm run dev > /app/logs/frontend.log 2>&1"
+    command: sh -c "cd frontend && pnpm exec next dev --webpack > /app/logs/frontend.log 2>&1"
     volumes:
       - ../frontend/src:/app/frontend/src
       - ../frontend/public:/app/frontend/public
@@ -182,8 +185,8 @@ services:
       - DEER_FLOW_SANDBOX_HOST=host.docker.internal
       # Proxy values (HTTP_PROXY/HTTPS_PROXY/ALL_PROXY) are inherited from ../.env via env_file.
       # Only NO_PROXY is declared here so internal service hostnames are always exempt from the proxy.
-      - NO_PROXY=${NO_PROXY:-}${NO_PROXY:+,}localhost,127.0.0.1,::1,gateway,frontend,nginx,provisioner,host.docker.internal
-      - no_proxy=${no_proxy:-}${no_proxy:+,}localhost,127.0.0.1,::1,gateway,frontend,nginx,provisioner,host.docker.internal
+      - NO_PROXY=${NO_PROXY:-}${NO_PROXY:+,}localhost,127.0.0.1,::1,gateway,frontend,nginx,provisioner,host.docker.internal,desktop-control-plane,172.18.0.2
+      - no_proxy=${no_proxy:-}${no_proxy:+,}localhost,127.0.0.1,::1,gateway,frontend,nginx,provisioner,host.docker.internal,desktop-control-plane,172.18.0.2
     env_file:
       - ../.env
     extra_hosts:
@@ -191,6 +194,7 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - deer-flow-dev
+      - kind
     restart: unless-stopped
 
 volumes:
@@ -205,3 +209,5 @@ networks:
     ipam:
       config:
         - subnet: 192.168.200.0/24
+  kind:
+    external: true
