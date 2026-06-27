@@ -455,6 +455,8 @@ def test_context_merges_into_configurable():
         "thinking_enabled": True,
         "is_plan_mode": True,
         "subagent_enabled": True,
+        "use_private_knowledge": False,
+        "knowledge_scope_paths": ["Projects/Alpha"],
         "max_concurrent_subagents": 5,
         "thread_id": "should-be-ignored",
     }
@@ -466,6 +468,8 @@ def test_context_merges_into_configurable():
         "reasoning_effort",
         "is_plan_mode",
         "subagent_enabled",
+        "use_private_knowledge",
+        "knowledge_scope_paths",
         "max_concurrent_subagents",
     }
     configurable = config.setdefault("configurable", {})
@@ -477,6 +481,8 @@ def test_context_merges_into_configurable():
     assert config["configurable"]["thinking_enabled"] is True
     assert config["configurable"]["is_plan_mode"] is True
     assert config["configurable"]["subagent_enabled"] is True
+    assert config["configurable"]["use_private_knowledge"] is False
+    assert config["configurable"]["knowledge_scope_paths"] == ["Projects/Alpha"]
     assert config["configurable"]["max_concurrent_subagents"] == 5
     assert config["configurable"]["reasoning_effort"] == "high"
     assert config["configurable"]["mode"] == "ultra"
@@ -497,12 +503,25 @@ def test_merge_run_context_overrides_propagates_to_runtime_context():
     from app.gateway.services import build_run_config, merge_run_context_overrides
 
     config = build_run_config("thread-1", None, None)
-    merge_run_context_overrides(config, {"agent_name": "my-agent", "is_bootstrap": True, "thread_id": "ignored"})
+    merge_run_context_overrides(
+        config,
+        {
+            "agent_name": "my-agent",
+            "is_bootstrap": True,
+            "use_private_knowledge": False,
+            "knowledge_scope_paths": ["Projects/Beta"],
+            "thread_id": "ignored",
+        },
+    )
 
     assert config["configurable"]["agent_name"] == "my-agent"
     assert config["configurable"]["is_bootstrap"] is True
+    assert config["configurable"]["use_private_knowledge"] is False
+    assert config["configurable"]["knowledge_scope_paths"] == ["Projects/Beta"]
     assert config["context"]["agent_name"] == "my-agent"
     assert config["context"]["is_bootstrap"] is True
+    assert config["context"]["use_private_knowledge"] is False
+    assert config["context"]["knowledge_scope_paths"] == ["Projects/Beta"]
     # Non-whitelisted keys are not forwarded.
     assert "thread_id" not in config["context"]
 
@@ -531,6 +550,8 @@ def test_context_does_not_override_existing_configurable():
         "model_name": "deepseek-v3",
         "is_plan_mode": True,
         "subagent_enabled": True,
+        "use_private_knowledge": False,
+        "knowledge_scope_paths": ["Projects/Gamma"],
     }
 
     _CONTEXT_CONFIGURABLE_KEYS = {
@@ -540,6 +561,8 @@ def test_context_does_not_override_existing_configurable():
         "reasoning_effort",
         "is_plan_mode",
         "subagent_enabled",
+        "use_private_knowledge",
+        "knowledge_scope_paths",
         "max_concurrent_subagents",
     }
     configurable = config.setdefault("configurable", {})
@@ -552,6 +575,8 @@ def test_context_does_not_override_existing_configurable():
     assert config["configurable"]["is_plan_mode"] is False
     # New values should be added
     assert config["configurable"]["subagent_enabled"] is True
+    assert config["configurable"]["use_private_knowledge"] is False
+    assert config["configurable"]["knowledge_scope_paths"] == ["Projects/Gamma"]
 
 
 def test_inject_authenticated_user_context_overrides_client_user_id():
