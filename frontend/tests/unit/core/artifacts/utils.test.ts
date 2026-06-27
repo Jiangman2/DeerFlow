@@ -73,4 +73,41 @@ describe("artifact URL helpers", () => {
       resolveArtifactURL("/mnt/user-data/outputs/style.css", "thread-1"),
     ).toBe("/demo/threads/thread-1/user-data/outputs/style.css");
   });
+
+  test("builds artifact URLs with download and format query params", async () => {
+    setEnv("NEXT_PUBLIC_BACKEND_BASE_URL", "http://127.0.0.1:8001");
+
+    const { urlOfArtifact } = await loadFreshArtifactUtils();
+
+    expect(
+      urlOfArtifact({
+        filepath: "/mnt/user-data/outputs/report.md",
+        threadId: "thread-1",
+        download: true,
+        format: "pdf",
+      }),
+    ).toBe(
+      "http://127.0.0.1:8001/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.md?download=true&format=pdf",
+    );
+  });
+
+  test("finds sibling PDF previews for PowerPoint artifacts", async () => {
+    const { findPreviewPdfPath, guessPreviewPdfPath } =
+      await loadFreshArtifactUtils();
+
+    expect(guessPreviewPdfPath("/mnt/user-data/outputs/deck.pptx")).toBe(
+      "/mnt/user-data/outputs/deck.preview.pdf",
+    );
+    expect(
+      findPreviewPdfPath("/mnt/user-data/outputs/deck.pptx", [
+        "/mnt/user-data/outputs/deck.pptx",
+        "/mnt/user-data/outputs/deck.preview.pdf",
+      ]),
+    ).toBe("/mnt/user-data/outputs/deck.preview.pdf");
+    expect(
+      findPreviewPdfPath("/mnt/user-data/outputs/deck.pptx", [
+        "/mnt/user-data/outputs/deck.pptx",
+      ]),
+    ).toBeNull();
+  });
 });

@@ -17,6 +17,17 @@ def _make_runtime(outputs_path: str, workspace_path: str | None = None) -> Simpl
     )
 
 
+def _make_runtime_with_sandbox(outputs_path: str, sandbox_id: str = "sandbox-1") -> SimpleNamespace:
+    return SimpleNamespace(
+        state={
+            "thread_data": {"outputs_path": outputs_path},
+            "sandbox": {"sandbox_id": sandbox_id},
+        },
+        context={"thread_id": "thread-1"},
+        config={},
+    )
+
+
 def test_present_files_normalizes_host_outputs_path(tmp_path):
     outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
     outputs_dir.mkdir(parents=True)
@@ -52,6 +63,77 @@ def test_present_files_keeps_virtual_outputs_path(tmp_path, monkeypatch):
     )
 
     assert result.update["artifacts"] == ["/mnt/user-data/outputs/summary.json"]
+
+
+def test_present_files_rejects_missing_virtual_outputs_path(tmp_path, monkeypatch):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    artifact_path = outputs_dir / "missing.json"
+
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_paths",
+        lambda: SimpleNamespace(resolve_virtual_path=lambda thread_id, path, *, user_id=None: artifact_path),
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime(str(outputs_dir)),
+        filepaths=["/mnt/user-data/outputs/missing.json"],
+        tool_call_id="tc-missing",
+    )
+
+    assert "artifacts" not in result.update
+    message = result.update["messages"][0]
+    assert message.content == "Error: Only files can be presented: /mnt/user-data/outputs/missing.json"
+    assert message.name == "present_files"
+    assert message.status == "error"
+
+
+def test_present_files_downloads_virtual_output_from_active_sandbox(tmp_path, monkeypatch):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    artifact_path = outputs_dir / "remote.txt"
+
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_paths",
+        lambda: SimpleNamespace(resolve_virtual_path=lambda thread_id, path, *, user_id=None: artifact_path),
+    )
+    sandbox = SimpleNamespace(download_file=lambda path: b"from sandbox")
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get=lambda sandbox_id: sandbox),
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime_with_sandbox(str(outputs_dir)),
+        filepaths=["/mnt/user-data/outputs/remote.txt"],
+        tool_call_id="tc-remote",
+    )
+
+    assert result.update["artifacts"] == ["/mnt/user-data/outputs/remote.txt"]
+    assert artifact_path.read_bytes() == b"from sandbox"
+
+
+def test_present_files_auto_includes_pptx_preview_pdf(tmp_path):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    deck_path = outputs_dir / "deck.pptx"
+    preview_path = outputs_dir / "deck.preview.pdf"
+    deck_path.write_bytes(b"pptx")
+    preview_path.write_bytes(b"pdf")
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime(str(outputs_dir)),
+        filepaths=[str(deck_path)],
+        tool_call_id="tc-pptx",
+    )
+
+    assert result.update["artifacts"] == [
+        "/mnt/user-data/outputs/deck.pptx",
+        "/mnt/user-data/outputs/deck.preview.pdf",
+    ]
 
 
 def test_present_files_uses_config_thread_id_when_context_missing(tmp_path, monkeypatch):

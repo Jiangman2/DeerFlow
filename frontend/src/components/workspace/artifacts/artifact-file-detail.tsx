@@ -37,7 +37,11 @@ import {
   getArtifactViewState,
   HTML_PREVIEW_SCROLL_MESSAGE_SOURCE,
 } from "@/core/artifacts/preview";
-import { urlOfArtifact } from "@/core/artifacts/utils";
+import {
+  findPreviewPdfPath,
+  guessPreviewPdfPath,
+  urlOfArtifact,
+} from "@/core/artifacts/utils";
 import { writeTextToClipboard } from "@/core/clipboard";
 import { useI18n } from "@/core/i18n/hooks";
 import { findToolCallResult } from "@/core/messages/utils";
@@ -99,9 +103,6 @@ export function ArtifactFileDetail({
     }
     return checkCodeFile(filepath);
   }, [filepath, isWriteFile, isSkillFile]);
-  const canPreviewInBrowser = useMemo(() => {
-    return canBrowserPreviewFile(filepath);
-  }, [filepath]);
   const isSupportPreview = useMemo(() => {
     return language === "html" || language === "markdown";
   }, [language]);
@@ -126,6 +127,15 @@ export function ArtifactFileDetail({
     filepath: filepathFromProps,
     enabled: isCodeFile && !isWriteFile,
   });
+  const previewPathFromList = useMemo(() => {
+    return findPreviewPdfPath(filepath, artifacts ?? []);
+  }, [artifacts, filepath]);
+  const guessedPreviewPath = useMemo(() => {
+    return guessPreviewPdfPath(filepath);
+  }, [filepath]);
+  const [resolvedPreviewPath, setResolvedPreviewPath] = useState<string | null>(
+    previewPathFromList,
+  );
 
   const displayContent = content ?? "";
   const isWritingFile = isWriteFile && toolResult === undefined;
@@ -142,6 +152,49 @@ export function ArtifactFileDetail({
   useEffect(() => {
     setViewMode(artifactViewState.initialViewMode);
   }, [artifactViewState.initialViewMode]);
+  useEffect(() => {
+    setResolvedPreviewPath(previewPathFromList);
+  }, [filepath, previewPathFromList]);
+  useEffect(() => {
+    if (previewPathFromList || !guessedPreviewPath || isCodeFile || isWriteFile) {
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch(
+      urlOfArtifact({
+        filepath: guessedPreviewPath,
+        threadId,
+        isMock,
+      }),
+      {
+        method: "HEAD",
+        signal: controller.signal,
+      },
+    )
+      .then((response) => {
+        if (response.ok) {
+          setResolvedPreviewPath(guessedPreviewPath);
+        }
+      })
+      .catch(() => {
+        // Keep the original file selected when no sibling preview exists.
+      });
+
+    return () => controller.abort();
+  }, [
+    guessedPreviewPath,
+    isCodeFile,
+    isMock,
+    isWriteFile,
+    previewPathFromList,
+    threadId,
+  ]);
+
+  const browserPreviewPath = resolvedPreviewPath ?? filepath;
+  const canPreviewInBrowser = useMemo(() => {
+    return canBrowserPreviewFile(browserPreviewPath);
+  }, [browserPreviewPath]);
 
   const handleInstallSkill = useCallback(async () => {
     if (isInstalling) return;
@@ -235,7 +288,11 @@ export function ArtifactFileDetail({
                 tooltip={t.common.openInNewWindow}
                 onClick={() => {
                   const w = window.open(
-                    urlOfArtifact({ filepath, threadId, isMock }),
+                    urlOfArtifact({
+                      filepath: browserPreviewPath,
+                      threadId,
+                      isMock,
+                    }),
                     "_blank",
                     "noopener,noreferrer",
                   );
@@ -316,7 +373,11 @@ export function ArtifactFileDetail({
         {!isCodeFile && canPreviewInBrowser && (
           <iframe
             className="size-full"
-            src={urlOfArtifact({ filepath, threadId, isMock })}
+            src={urlOfArtifact({
+              filepath: browserPreviewPath,
+              threadId,
+              isMock,
+            })}
           />
         )}
         {!isCodeFile && !canPreviewInBrowser && (

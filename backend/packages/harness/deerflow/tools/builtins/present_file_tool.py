@@ -1,4 +1,5 @@
 import shutil
+import logging
 from pathlib import Path
 from typing import Annotated
 
@@ -9,9 +10,11 @@ from langgraph.types import Command
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
 from deerflow.runtime.user_context import get_effective_user_id
+from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 from deerflow.tools.types import Runtime
 
 OUTPUTS_VIRTUAL_PREFIX = f"{VIRTUAL_PATH_PREFIX}/outputs"
+logger = logging.getLogger(__name__)
 
 
 def _get_thread_id(runtime: Runtime) -> str | None:
@@ -29,6 +32,55 @@ def _get_thread_id(runtime: Runtime) -> str | None:
         return get_config().get("configurable", {}).get("thread_id")
     except RuntimeError:
         return None
+
+
+def _get_active_sandbox(runtime: Runtime):
+    state = getattr(runtime, "state", None)
+    if not isinstance(state, dict):
+        return None
+
+    sandbox_state = state.get("sandbox")
+    if not isinstance(sandbox_state, dict):
+        return None
+
+    sandbox_id = sandbox_state.get("sandbox_id")
+    if not sandbox_id:
+        return None
+
+    try:
+        return get_sandbox_provider().get(sandbox_id)
+    except Exception:
+        logger.exception("Failed to resolve sandbox %s while presenting file", sandbox_id)
+        return None
+
+
+def _download_virtual_file_to_host(runtime: Runtime, virtual_path: str, actual_path: Path) -> bool:
+    stripped = virtual_path.lstrip("/")
+    virtual_prefix = VIRTUAL_PATH_PREFIX.lstrip("/")
+    if not (stripped == virtual_prefix or stripped.startswith(virtual_prefix + "/")):
+        return False
+
+    sandbox = _get_active_sandbox(runtime)
+    if sandbox is None:
+        return False
+
+    try:
+        data = sandbox.download_file(virtual_path)
+        actual_path.parent.mkdir(parents=True, exist_ok=True)
+        actual_path.write_bytes(data)
+        return True
+    except Exception:
+        logger.exception("Failed to download presented file from sandbox: %s", virtual_path)
+        return False
+
+
+def _preview_pdf_path_for(filepath: str) -> str | None:
+    lower = filepath.lower()
+    if lower.endswith(".pptx"):
+        return filepath[:-5] + ".preview.pdf"
+    if lower.endswith(".ppt"):
+        return filepath[:-4] + ".preview.pdf"
+    return None
 
 
 def _normalize_presented_filepath(
@@ -64,8 +116,9 @@ def _normalize_presented_filepath(
     outputs_dir = Path(outputs_path).resolve()
     stripped = filepath.lstrip("/")
     virtual_prefix = VIRTUAL_PATH_PREFIX.lstrip("/")
+    is_virtual_path = stripped == virtual_prefix or stripped.startswith(virtual_prefix + "/")
 
-    if stripped == virtual_prefix or stripped.startswith(virtual_prefix + "/"):
+    if is_virtual_path:
         try:
             actual_path = get_paths().resolve_virtual_path(thread_id, filepath, user_id=get_effective_user_id())
         except TypeError:
@@ -89,6 +142,9 @@ def _normalize_presented_filepath(
                 f"Only files in {OUTPUTS_VIRTUAL_PREFIX} or the current workspace can be presented: {filepath}"
             ) from None
 
+        if not actual_path.is_file() and is_virtual_path:
+            _download_virtual_file_to_host(runtime, filepath, actual_path)
+
         if not actual_path.is_file():
             raise ValueError(f"Only files can be presented: {filepath}")
 
@@ -98,7 +154,41 @@ def _normalize_presented_filepath(
             shutil.copy2(actual_path, target_path)
         relative_path = target_path.relative_to(outputs_dir)
 
+    if not actual_path.is_file() and is_virtual_path:
+        _download_virtual_file_to_host(runtime, filepath, actual_path)
+
+    if not actual_path.is_file():
+        raise ValueError(f"Only files can be presented: {filepath}")
+
     return f"{OUTPUTS_VIRTUAL_PREFIX}/{relative_path.as_posix()}"
+
+
+def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) -> list[str]:
+    normalized_path = _normalize_presented_filepath(runtime, filepath)
+    normalized_paths = [normalized_path]
+
+    preview_candidates = [
+        candidate
+        for candidate in (
+            _preview_pdf_path_for(filepath),
+            _preview_pdf_path_for(normalized_path),
+        )
+        if candidate
+    ]
+    seen_candidates = set()
+    for preview_path in preview_candidates:
+        if preview_path in seen_candidates:
+            continue
+        seen_candidates.add(preview_path)
+        try:
+            preview_normalized_path = _normalize_presented_filepath(runtime, preview_path)
+            if preview_normalized_path not in normalized_paths:
+                normalized_paths.append(preview_normalized_path)
+        except ValueError:
+            # Preview PDFs are optional. The PPTX itself should still be shown.
+            pass
+
+    return normalized_paths
 
 
 @tool("present_files", parse_docstring=True)
@@ -127,16 +217,23 @@ def present_file_tool(
         filepaths: List of absolute file paths to present to the user. Files must be in `/mnt/user-data/outputs` or the current `/mnt/user-data/workspace`.
     """
     try:
-        normalized_paths = [_normalize_presented_filepath(runtime, filepath) for filepath in filepaths]
+        normalized_paths = []
+        seen_paths = set()
+        for filepath in filepaths:
+            for normalized_path in _normalize_presented_filepath_with_preview(runtime, filepath):
+                if normalized_path in seen_paths:
+                    continue
+                normalized_paths.append(normalized_path)
+                seen_paths.add(normalized_path)
     except ValueError as exc:
         return Command(
-            update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]},
+            update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id, name="present_files", status="error")]},
         )
 
     # The merge_artifacts reducer will handle merging and deduplication
     return Command(
         update={
             "artifacts": normalized_paths,
-            "messages": [ToolMessage("Successfully presented files", tool_call_id=tool_call_id)],
+            "messages": [ToolMessage("Successfully presented files", tool_call_id=tool_call_id, name="present_files")],
         },
     )
