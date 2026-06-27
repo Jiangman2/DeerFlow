@@ -7,7 +7,9 @@ import {
   MessageSquareIcon,
   ScanTextIcon,
   ShieldIcon,
+  Share2Icon,
   Trash2Icon,
+  Undo2Icon,
   UserIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -38,13 +40,20 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useDeleteAgent } from "@/core/agents";
+import {
+  useDeleteAgent,
+  usePublishAgent,
+  useUnpublishTeamAgent,
+} from "@/core/agents";
 import type { Agent } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
 interface AgentCardProps {
   agent: Agent;
+  showDelete?: boolean;
+  showPublish?: boolean;
+  showUnpublish?: boolean;
 }
 
 type AgentDisplayConfig = {
@@ -153,11 +162,19 @@ function TruncatedBadge({
   );
 }
 
-export function AgentCard({ agent }: AgentCardProps) {
+export function AgentCard({
+  agent,
+  showDelete = true,
+  showPublish = false,
+  showUnpublish = false,
+}: AgentCardProps) {
   const { t } = useI18n();
   const router = useRouter();
   const deleteAgent = useDeleteAgent();
+  const publishAgent = usePublishAgent();
+  const unpublishTeamAgent = useUnpublishTeamAgent();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [unpublishOpen, setUnpublishOpen] = useState(false);
   const displayConfig = AGENT_DISPLAY_CONFIG[agent.name];
   const displayName = displayConfig?.title ?? agent.name;
   const DomainIcon = displayConfig?.domainIcon;
@@ -171,6 +188,25 @@ export function AgentCard({ agent }: AgentCardProps) {
       await deleteAgent.mutateAsync(agent.name);
       toast.success(t.agents.deleteSuccess);
       setDeleteOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handlePublish() {
+    try {
+      await publishAgent.mutateAsync(agent.name);
+      toast.success(t.agents.publishSuccess);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleUnpublish() {
+    try {
+      await unpublishTeamAgent.mutateAsync(agent.name);
+      toast.success(t.agents.unpublishSuccess);
+      setUnpublishOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     }
@@ -294,17 +330,45 @@ export function AgentCard({ agent }: AgentCardProps) {
             <MessageSquareIcon className="mr-1.5 h-3.5 w-3.5" />
             {t.agents.chat}
           </Button>
-          <div className="flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-destructive hover:text-destructive h-8 w-8 shrink-0 rounded-lg transition-colors hover:bg-red-500/10"
-              onClick={() => setDeleteOpen(true)}
-              title={t.agents.delete}
-            >
-              <Trash2Icon className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+          {(showPublish || showUnpublish || showDelete) && (
+            <div className="flex gap-1">
+              {showPublish && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-primary hover:text-primary h-8 w-8 shrink-0 rounded-lg transition-colors hover:bg-primary/10"
+                  onClick={() => void handlePublish()}
+                  disabled={publishAgent.isPending}
+                  title={t.agents.publishToSquare}
+                >
+                  <Share2Icon className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {showUnpublish && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-lg transition-colors hover:bg-muted"
+                  onClick={() => setUnpublishOpen(true)}
+                  disabled={unpublishTeamAgent.isPending}
+                  title={t.agents.unpublishFromSquare}
+                >
+                  <Undo2Icon className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {showDelete && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive h-8 w-8 shrink-0 rounded-lg transition-colors hover:bg-red-500/10"
+                  onClick={() => setDeleteOpen(true)}
+                  title={t.agents.delete}
+                >
+                  <Trash2Icon className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          )}
         </CardFooter>
       </Card>
 
@@ -328,6 +392,35 @@ export function AgentCard({ agent }: AgentCardProps) {
               disabled={deleteAgent.isPending}
             >
               {deleteAgent.isPending ? t.common.loading : t.common.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unpublishOpen} onOpenChange={setUnpublishOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.agents.unpublishFromSquare}</DialogTitle>
+            <DialogDescription>
+              {t.agents.unpublishConfirm}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setUnpublishOpen(false)}
+              disabled={unpublishTeamAgent.isPending}
+            >
+              {t.common.cancel}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleUnpublish()}
+              disabled={unpublishTeamAgent.isPending}
+            >
+              {unpublishTeamAgent.isPending
+                ? t.common.loading
+                : t.agents.unpublishFromSquare}
             </Button>
           </DialogFooter>
         </DialogContent>

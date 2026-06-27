@@ -4,7 +4,11 @@ import {
   createAgent,
   deleteAgent,
   getAgent,
+  getTeamAgent,
   listAgents,
+  listTeamAgents,
+  publishAgent,
+  unpublishTeamAgent,
   updateAgent,
 } from "./api";
 import type { CreateAgentRequest, UpdateAgentRequest } from "./types";
@@ -17,10 +21,27 @@ export function useAgents() {
   return { agents: data ?? [], isLoading, error };
 }
 
+export function useTeamAgents() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["team-agents"],
+    queryFn: () => listTeamAgents(),
+  });
+  return { agents: data ?? [], isLoading, error };
+}
+
 export function useAgent(name: string | null | undefined) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["agents", name],
     queryFn: () => getAgent(name!),
+    enabled: !!name,
+  });
+  return { agent: data ?? null, isLoading, error };
+}
+
+export function useTeamAgent(name: string | null | undefined) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["team-agents", name],
+    queryFn: () => getTeamAgent(name!),
     enabled: !!name,
   });
   return { agent: data ?? null, isLoading, error };
@@ -59,6 +80,26 @@ export function useDeleteAgent() {
     mutationFn: (name: string) => deleteAgent(name),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["agents"] });
+    },
+  });
+}
+
+export function usePublishAgent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => publishAgent(name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
+    },
+  });
+}
+
+export function useUnpublishTeamAgent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => unpublishTeamAgent(name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
     },
   });
 }

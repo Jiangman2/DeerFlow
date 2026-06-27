@@ -112,6 +112,14 @@ export interface Translations {
     reasoningEffortMediumDescription: string;
     reasoningEffortHigh: string;
     reasoningEffortHighDescription: string;
+    privateKnowledge: string;
+    privateKnowledgeOnDescription: string;
+    privateKnowledgeOffDescription: string;
+    privateKnowledgeScope: string;
+    privateKnowledgeScopeAll: string;
+    privateKnowledgeScopeSelected: (count: number) => string;
+    privateKnowledgeScopeDescription: string;
+    privateKnowledgeScopeEmpty: string;
     searchModels: string;
     surpriseMe: string;
     surpriseMePrompt: string;
@@ -152,6 +160,8 @@ export interface Translations {
   agents: {
     title: string;
     description: string;
+    myAgents: string;
+    agentSquare: string;
     newAgent: string;
     emptyTitle: string;
     emptyDescription: string;
@@ -161,6 +171,13 @@ export interface Translations {
     delete: string;
     deleteConfirm: string;
     deleteSuccess: string;
+    publishToSquare: string;
+    publishSuccess: string;
+    unpublishFromSquare: string;
+    unpublishConfirm: string;
+    unpublishSuccess: string;
+    squareEmptyTitle: string;
+    squareEmptyDescription: string;
     newChat: string;
     createPageTitle: string;
     createPageSubtitle: string;

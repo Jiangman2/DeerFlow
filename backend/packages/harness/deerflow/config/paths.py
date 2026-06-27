@@ -173,6 +173,15 @@ class Paths:
         """Legacy per-agent directory (no user isolation): `{base_dir}/agents/{name}/`."""
         return self.agents_dir / name.lower()
 
+    @property
+    def team_agents_dir(self) -> Path:
+        """Team-shared custom agents root: `{base_dir}/team_agents/`."""
+        return self.base_dir / "team_agents"
+
+    def team_agent_dir(self, name: str) -> Path:
+        """Team-shared per-agent directory: `{base_dir}/team_agents/{name}/`."""
+        return self.team_agents_dir / name.lower()
+
     def agent_memory_file(self, name: str) -> Path:
         """Legacy per-agent memory file: `{base_dir}/agents/{name}/memory.json`."""
         return self.agent_dir(name) / "memory.json"
@@ -222,6 +231,18 @@ class Paths:
     def user_agent_memory_file(self, user_id: str, agent_name: str) -> Path:
         """Per-user per-agent memory: `{base_dir}/users/{user_id}/agents/{name}/memory.json`."""
         return self.user_agent_dir(user_id, agent_name) / "memory.json"
+
+    def user_knowledge_dir(self, user_id: str) -> Path:
+        """Per-user private knowledge base root: `{base_dir}/users/{user_id}/knowledge/`."""
+        return self.user_dir(user_id) / "knowledge"
+
+    def user_knowledge_files_dir(self, user_id: str) -> Path:
+        """Original files uploaded to the user's private knowledge base."""
+        return self.user_knowledge_dir(user_id) / "files"
+
+    def user_knowledge_markdown_dir(self, user_id: str) -> Path:
+        """Markdown/text extracted from private knowledge base files."""
+        return self.user_knowledge_dir(user_id) / "markdown"
 
     def thread_dir(self, thread_id: str, *, user_id: str | None = None) -> Path:
         """

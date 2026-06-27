@@ -1,10 +1,11 @@
 """Configuration and loaders for custom agents.
 
 Custom agents are stored per-user under ``{base_dir}/users/{user_id}/agents/{name}/``.
-A legacy shared layout at ``{base_dir}/agents/{name}/`` is still readable so that
-installations that pre-date user isolation continue to work until they run the
-``scripts/migrate_user_isolation.py`` migration. New writes always target the
-per-user layout.
+Team-shared agents live under ``{base_dir}/team_agents/{name}/``. A legacy shared
+layout at ``{base_dir}/agents/{name}/`` is still readable so that installations
+that pre-date user isolation continue to work until they run the
+``scripts/migrate_user_isolation.py`` migration. New personal writes always target
+the per-user layout.
 """
 
 import logging
@@ -42,6 +43,8 @@ class AgentConfig(BaseModel):
     description: str = ""
     model: str | None = None
     tool_groups: list[str] | None = None
+    use_private_knowledge: bool | None = None
+    knowledge_scope_paths: list[str] | None = None
     # skills controls which skills are loaded into the agent's prompt:
     # - None (or omitted): load all enabled skills (default fallback behavior)
     # - [] (explicit empty list): disable all skills
@@ -72,6 +75,10 @@ def resolve_agent_dir(name: str, *, user_id: str | None = None) -> Path:
     if user_path.exists() and (user_path / "config.yaml").exists():
         return user_path
 
+    team_path = paths.team_agent_dir(name)
+    if team_path.exists() and (team_path / "config.yaml").exists():
+        return team_path
+
     legacy_path = paths.agent_dir(name)
     if legacy_path.exists() and (legacy_path / "config.yaml").exists():
         return legacy_path
@@ -82,8 +89,8 @@ def resolve_agent_dir(name: str, *, user_id: str | None = None) -> Path:
 def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentConfig | None:
     """Load the custom or default agent's config from its directory.
 
-    Reads from the per-user layout first; falls back to the legacy shared layout
-    for installations that have not yet been migrated.
+    Reads from the per-user layout first, then the team-shared layout, then the
+    legacy shared layout for installations that have not yet been migrated.
 
     Args:
         name: The agent name.
@@ -154,11 +161,11 @@ def load_agent_soul(agent_name: str | None, *, user_id: str | None = None) -> st
 
 
 def list_custom_agents(*, user_id: str | None = None) -> list[AgentConfig]:
-    """Scan the agents directory and return all valid custom agents.
+    """Scan the current user's personal agents directory.
 
-    Returns the union of agents in the per-user layout and the legacy shared
-    layout, so that pre-migration installations remain visible until they are
-    migrated. Per-user entries shadow legacy entries with the same name.
+    Legacy shared agents are intentionally excluded from this list so the UI can
+    keep "My Agents" personal-only. Legacy shared agents are listed by
+    :func:`list_team_agents` for the agent square.
 
     Args:
         user_id: Owner whose agents to list. Defaults to the effective user
@@ -170,13 +177,43 @@ def list_custom_agents(*, user_id: str | None = None) -> list[AgentConfig]:
     paths = get_paths()
     effective_user = user_id or get_effective_user_id()
 
-    seen: set[str] = set()
     agents: list[AgentConfig] = []
 
     user_root = paths.user_agents_dir(effective_user)
-    legacy_root = paths.agents_dir
+    if not user_root.exists():
+        return []
 
-    for root in (user_root, legacy_root):
+    for entry in sorted(user_root.iterdir()):
+        if not entry.is_dir():
+            continue
+        config_file = entry / "config.yaml"
+        if not config_file.exists():
+            logger.debug(f"Skipping {entry.name}: no config.yaml")
+            continue
+
+        try:
+            agent_cfg = load_agent_config(entry.name, user_id=effective_user)
+            if agent_cfg is None:
+                continue
+            agents.append(agent_cfg)
+        except Exception as e:
+            logger.warning(f"Skipping agent '{entry.name}': {e}")
+
+    agents.sort(key=lambda a: a.name)
+    return agents
+
+
+def list_team_agents() -> list[AgentConfig]:
+    """Scan team-shared and legacy shared directories and return valid agents.
+
+    Team-published agents shadow legacy shared agents with the same name.
+    """
+    paths = get_paths()
+
+    seen: set[str] = set()
+    agents: list[AgentConfig] = []
+
+    for root in (paths.team_agents_dir, paths.agents_dir):
         if not root.exists():
             continue
         for entry in sorted(root.iterdir()):
@@ -186,17 +223,21 @@ def list_custom_agents(*, user_id: str | None = None) -> list[AgentConfig]:
                 continue
             config_file = entry / "config.yaml"
             if not config_file.exists():
-                logger.debug(f"Skipping {entry.name}: no config.yaml")
+                logger.debug(f"Skipping shared agent {entry.name}: no config.yaml")
                 continue
 
             try:
-                agent_cfg = load_agent_config(entry.name, user_id=effective_user)
-                if agent_cfg is None:
-                    continue
-                agents.append(agent_cfg)
+                with open(config_file, encoding="utf-8") as f:
+                    data: dict[str, Any] = yaml.safe_load(f) or {}
+                if "name" not in data:
+                    data["name"] = entry.name
+
+                known_fields = set(AgentConfig.model_fields.keys())
+                data = {k: v for k, v in data.items() if k in known_fields}
+                agents.append(AgentConfig(**data))
                 seen.add(entry.name)
             except Exception as e:
-                logger.warning(f"Skipping agent '{entry.name}': {e}")
+                logger.warning(f"Skipping shared agent '{entry.name}': {e}")
 
     agents.sort(key=lambda a: a.name)
     return agents

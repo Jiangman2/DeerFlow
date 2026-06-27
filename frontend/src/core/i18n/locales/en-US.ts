@@ -108,14 +108,16 @@ export const enUS: Translations = {
     shopCartAdding: "Reading...",
     shopCartEmptySelection: "Select at least one shop cart file",
     shopCartNoResponse: "Could not get shop cart files. Please retry.",
-    shopCartInvalidPayload: "The shop cart returned an unsupported data format.",
+    shopCartInvalidPayload:
+      "The shop cart returned an unsupported data format.",
     shopCartDownloading: "Downloading shop cart files...",
     shopCartDownloadFailed: "Failed to download shop cart files. Please retry.",
     shopCartPartialDownloadFailed: (failed: number) =>
       `${failed} shop cart file${failed === 1 ? "" : "s"} failed to download.`,
     shopCartUnknownFiles:
       "Some shop cart files were not recognized and were skipped.",
-    shopCartNoKnownFiles: "None of the selected shop cart files were recognized.",
+    shopCartNoKnownFiles:
+      "None of the selected shop cart files were recognized.",
     shopCartAddedFiles: (count: number) =>
       `Added ${count} shop cart attachment${count === 1 ? "" : "s"}`,
     mode: "Mode",
@@ -141,6 +143,17 @@ export const enUS: Translations = {
     reasoningEffortHigh: "High",
     reasoningEffortHighDescription:
       "Full-dimensional Logic Deduction + Multi-path Verification + Backward Check",
+    privateKnowledge: "Knowledge",
+    privateKnowledgeOnDescription:
+      "This turn will automatically search your private knowledge base",
+    privateKnowledgeOffDescription:
+      "This turn will not automatically search your private knowledge base",
+    privateKnowledgeScope: "Knowledge scope",
+    privateKnowledgeScopeAll: "All knowledge",
+    privateKnowledgeScopeSelected: (count: number) => `${count} scopes selected`,
+    privateKnowledgeScopeDescription:
+      "Limit this task to selected private knowledge folders or files",
+    privateKnowledgeScopeEmpty: "No knowledge files yet",
     searchModels: "Search models...",
     surpriseMe: "Surprise",
     surpriseMePrompt: "Surprise me",
@@ -217,7 +230,9 @@ export const enUS: Translations = {
   agents: {
     title: "Agents",
     description:
-      "Create and manage custom agents with specialized prompts and capabilities.",
+      "Create personal agents and publish mature agents to the team square.",
+    myAgents: "My Agents",
+    agentSquare: "Agent Square",
     newAgent: "New Agent",
     emptyTitle: "No custom agents yet",
     emptyDescription:
@@ -230,6 +245,15 @@ export const enUS: Translations = {
     deleteConfirm:
       "Are you sure you want to delete this agent? This action cannot be undone.",
     deleteSuccess: "Agent deleted",
+    publishToSquare: "Publish to Agent Square",
+    publishSuccess: "Published to Agent Square",
+    unpublishFromSquare: "Unpublish",
+    unpublishConfirm:
+      "Remove this agent from the Agent Square? Other users will no longer see or use it from the square.",
+    unpublishSuccess: "Unpublished from Agent Square",
+    squareEmptyTitle: "No shared agents in the square yet",
+    squareEmptyDescription:
+      "Publish a personal agent from My Agents. Once published, everyone can see and use it.",
     newChat: "New chat",
     createPageTitle: "Design your Agent",
     createPageSubtitle:

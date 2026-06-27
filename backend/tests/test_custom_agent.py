@@ -38,6 +38,36 @@ def _write_agent(base_dir: Path, name: str, config: dict, soul: str = "You are h
     (agent_dir / "SOUL.md").write_text(soul, encoding="utf-8")
 
 
+def _write_team_agent(base_dir: Path, name: str, config: dict, soul: str = "You are helpful.") -> None:
+    """Write a team-shared agent directory with config.yaml and SOUL.md."""
+    agent_dir = base_dir / "team_agents" / name
+    agent_dir.mkdir(parents=True, exist_ok=True)
+
+    config_copy = dict(config)
+    if "name" not in config_copy:
+        config_copy["name"] = name
+
+    with open(agent_dir / "config.yaml", "w") as f:
+        yaml.dump(config_copy, f)
+
+    (agent_dir / "SOUL.md").write_text(soul, encoding="utf-8")
+
+
+def _write_user_agent(base_dir: Path, user_id: str, name: str, config: dict, soul: str = "You are helpful.") -> None:
+    """Write a per-user agent directory with config.yaml and SOUL.md."""
+    agent_dir = base_dir / "users" / user_id / "agents" / name
+    agent_dir.mkdir(parents=True, exist_ok=True)
+
+    config_copy = dict(config)
+    if "name" not in config_copy:
+        config_copy["name"] = name
+
+    with open(agent_dir / "config.yaml", "w") as f:
+        yaml.dump(config_copy, f)
+
+    (agent_dir / "SOUL.md").write_text(soul, encoding="utf-8")
+
+
 # ===========================================================================
 # 1. Paths class – agent path methods
 # ===========================================================================
@@ -51,6 +81,11 @@ class TestPaths:
     def test_agent_dir(self, tmp_path):
         paths = _make_paths(tmp_path)
         assert paths.agent_dir("code-reviewer") == tmp_path / "agents" / "code-reviewer"
+
+    def test_team_agent_dir(self, tmp_path):
+        paths = _make_paths(tmp_path)
+        assert paths.team_agents_dir == tmp_path / "team_agents"
+        assert paths.team_agent_dir("code-reviewer") == tmp_path / "team_agents" / "code-reviewer"
 
     def test_agent_memory_file(self, tmp_path):
         paths = _make_paths(tmp_path)
@@ -165,6 +200,19 @@ class TestLoadAgentConfig:
             cfg = load_agent_config("restricted")
 
         assert cfg.tool_groups == ["file:read", "file:write"]
+
+    def test_load_config_falls_back_to_team_agent(self, tmp_path):
+        config_dict = {"name": "team-helper", "description": "Team helper", "model": "deepseek-v3"}
+        _write_team_agent(tmp_path, "team-helper", config_dict)
+
+        with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
+            from deerflow.config.agents_config import load_agent_config
+
+            cfg = load_agent_config("team-helper", user_id="u1")
+
+        assert cfg.name == "team-helper"
+        assert cfg.description == "Team helper"
+        assert cfg.model == "deepseek-v3"
 
     def test_load_config_with_skills_empty_list(self, tmp_path):
         config_dict = {"name": "no-skills-agent", "skills": []}
@@ -338,8 +386,8 @@ class TestListCustomAgents:
         assert agents == []
 
     def test_discovers_multiple_agents(self, tmp_path):
-        _write_agent(tmp_path, "agent-a", {"name": "agent-a"})
-        _write_agent(tmp_path, "agent-b", {"name": "agent-b", "description": "B"})
+        _write_user_agent(tmp_path, "test-user-autouse", "agent-a", {"name": "agent-a"})
+        _write_user_agent(tmp_path, "test-user-autouse", "agent-b", {"name": "agent-b", "description": "B"})
 
         with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
             from deerflow.config.agents_config import list_custom_agents
@@ -352,9 +400,9 @@ class TestListCustomAgents:
 
     def test_skips_dirs_without_config_yaml(self, tmp_path):
         # Valid agent
-        _write_agent(tmp_path, "valid-agent", {"name": "valid-agent"})
+        _write_user_agent(tmp_path, "test-user-autouse", "valid-agent", {"name": "valid-agent"})
         # Invalid dir (no config.yaml)
-        (tmp_path / "agents" / "invalid-dir").mkdir(parents=True)
+        (tmp_path / "users" / "test-user-autouse" / "agents" / "invalid-dir").mkdir(parents=True)
 
         with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
             from deerflow.config.agents_config import list_custom_agents
@@ -366,10 +414,10 @@ class TestListCustomAgents:
 
     def test_skips_non_directory_entries(self, tmp_path):
         # Create the agents dir with a file (not a dir)
-        agents_dir = tmp_path / "agents"
+        agents_dir = tmp_path / "users" / "test-user-autouse" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "not-a-dir.txt").write_text("hello")
-        _write_agent(tmp_path, "real-agent", {"name": "real-agent"})
+        _write_user_agent(tmp_path, "test-user-autouse", "real-agent", {"name": "real-agent"})
 
         with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
             from deerflow.config.agents_config import list_custom_agents
@@ -380,9 +428,9 @@ class TestListCustomAgents:
         assert agents[0].name == "real-agent"
 
     def test_returns_sorted_by_name(self, tmp_path):
-        _write_agent(tmp_path, "z-agent", {"name": "z-agent"})
-        _write_agent(tmp_path, "a-agent", {"name": "a-agent"})
-        _write_agent(tmp_path, "m-agent", {"name": "m-agent"})
+        _write_user_agent(tmp_path, "test-user-autouse", "z-agent", {"name": "z-agent"})
+        _write_user_agent(tmp_path, "test-user-autouse", "a-agent", {"name": "a-agent"})
+        _write_user_agent(tmp_path, "test-user-autouse", "m-agent", {"name": "m-agent"})
 
         with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
             from deerflow.config.agents_config import list_custom_agents
@@ -391,6 +439,46 @@ class TestListCustomAgents:
 
         names = [a.name for a in agents]
         assert names == sorted(names)
+
+    def test_excludes_legacy_shared_agents_from_my_agents(self, tmp_path):
+        _write_agent(tmp_path, "legacy-agent", {"name": "legacy-agent"})
+        _write_user_agent(tmp_path, "test-user-autouse", "personal-agent", {"name": "personal-agent"})
+
+        with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
+            from deerflow.config.agents_config import list_custom_agents
+
+            agents = list_custom_agents()
+
+        names = [a.name for a in agents]
+        assert "personal-agent" in names
+        assert "legacy-agent" not in names
+
+
+class TestListTeamAgents:
+    def test_includes_team_and_legacy_shared_agents(self, tmp_path):
+        _write_team_agent(tmp_path, "team-agent", {"name": "team-agent"})
+        _write_agent(tmp_path, "legacy-agent", {"name": "legacy-agent"})
+
+        with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
+            from deerflow.config.agents_config import list_team_agents
+
+            agents = list_team_agents()
+
+        names = [a.name for a in agents]
+        assert "team-agent" in names
+        assert "legacy-agent" in names
+
+    def test_team_agent_shadows_legacy_agent_with_same_name(self, tmp_path):
+        _write_agent(tmp_path, "shared-name", {"name": "shared-name", "description": "legacy"})
+        _write_team_agent(tmp_path, "shared-name", {"name": "shared-name", "description": "team"})
+
+        with patch("deerflow.config.agents_config.get_paths", return_value=_make_paths(tmp_path)):
+            from deerflow.config.agents_config import list_team_agents
+
+            agents = list_team_agents()
+
+        assert len([a for a in agents if a.name == "shared-name"]) == 1
+        assert agents[0].description == "team"
 
 
 # ===========================================================================
@@ -638,6 +726,94 @@ class TestAgentsAPI:
         response = agent_client.post("/api/agents", json={"name": "legacy-agent", "soul": "x"})
         assert response.status_code == 409
 
+    def test_team_agents_list_includes_legacy_shared_agents(self, agent_client, tmp_path):
+        legacy_dir = tmp_path / "agents" / "legacy-square-agent"
+        legacy_dir.mkdir(parents=True)
+        (legacy_dir / "config.yaml").write_text("name: legacy-square-agent\ndescription: Old shared\n", encoding="utf-8")
+        (legacy_dir / "SOUL.md").write_text("legacy shared soul", encoding="utf-8")
+
+        response = agent_client.get("/api/team-agents")
+        assert response.status_code == 200
+        agents = response.json()["agents"]
+        shared = next(a for a in agents if a["name"] == "legacy-square-agent")
+        assert shared["description"] == "Old shared"
+        assert shared["soul"] == "legacy shared soul"
+
+        my_agents_response = agent_client.get("/api/agents")
+        assert my_agents_response.status_code == 200
+        my_agent_names = [a["name"] for a in my_agents_response.json()["agents"]]
+        assert "legacy-square-agent" not in my_agent_names
+
+    def test_publish_agent_to_team_square(self, agent_client, tmp_path):
+        agent_client.post(
+            "/api/agents",
+            json={
+                "name": "publish-me",
+                "description": "Publishable",
+                "model": "deepseek-v3",
+                "skills": ["reporting"],
+                "soul": "shared soul",
+            },
+        )
+
+        response = agent_client.post("/api/agents/publish-me/publish", json={"overwrite": True})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "publish-me"
+        assert data["description"] == "Publishable"
+        assert data["model"] == "deepseek-v3"
+        assert data["skills"] == ["reporting"]
+        assert data["soul"] == "shared soul"
+        assert data["source"] == "team"
+        assert data["published_by_user_id"] == "test-user-autouse"
+        assert data["published_by_current_user"] is True
+
+        team_dir = tmp_path / "team_agents" / "publish-me"
+        assert team_dir.exists()
+        assert (team_dir / "SOUL.md").read_text(encoding="utf-8") == "shared soul"
+        assert not (team_dir / "memory.json").exists()
+
+        square_response = agent_client.get("/api/team-agents")
+        names = [a["name"] for a in square_response.json()["agents"]]
+        assert "publish-me" in names
+
+    def test_unpublish_team_agent_removes_published_copy(self, agent_client, tmp_path):
+        agent_client.post("/api/agents", json={"name": "unpublish-me", "soul": "shared soul"})
+        agent_client.post("/api/agents/unpublish-me/publish", json={"overwrite": True})
+
+        team_dir = tmp_path / "team_agents" / "unpublish-me"
+        assert team_dir.exists()
+
+        response = agent_client.delete("/api/team-agents/unpublish-me")
+        assert response.status_code == 204
+        assert not team_dir.exists()
+
+        square_response = agent_client.get("/api/team-agents")
+        names = [a["name"] for a in square_response.json()["agents"]]
+        assert "unpublish-me" not in names
+
+    def test_unpublish_legacy_shared_agent_rejected(self, agent_client, tmp_path):
+        legacy_dir = tmp_path / "agents" / "legacy-cannot-unpublish"
+        legacy_dir.mkdir(parents=True)
+        (legacy_dir / "config.yaml").write_text("name: legacy-cannot-unpublish\n", encoding="utf-8")
+        (legacy_dir / "SOUL.md").write_text("legacy soul", encoding="utf-8")
+
+        response = agent_client.delete("/api/team-agents/legacy-cannot-unpublish")
+        assert response.status_code == 409
+        assert legacy_dir.exists()
+
+    def test_update_team_only_agent_rejected_as_personal_update(self, agent_client, tmp_path):
+        _write_team_agent(tmp_path, "team-only", {"name": "team-only"}, soul="team")
+
+        response = agent_client.put("/api/agents/team-only", json={"description": "personal edit"})
+        assert response.status_code == 409
+
+    def test_delete_team_only_agent_rejected_as_personal_delete(self, agent_client, tmp_path):
+        _write_team_agent(tmp_path, "team-only-delete", {"name": "team-only-delete"}, soul="team")
+
+        response = agent_client.delete("/api/agents/team-only-delete")
+        assert response.status_code == 409
+
 
 # ===========================================================================
 # 9. Gateway API – User Profile endpoints
@@ -707,3 +883,12 @@ class TestAgentsApiDisabled:
 
         assert get_response.status_code == 403
         assert put_response.status_code == 403
+
+    def test_team_agent_routes_return_403(self, disabled_agent_client):
+        list_response = disabled_agent_client.get("/api/team-agents")
+        get_response = disabled_agent_client.get("/api/team-agents/example-agent")
+        delete_response = disabled_agent_client.delete("/api/team-agents/example-agent")
+
+        assert list_response.status_code == 403
+        assert get_response.status_code == 403
+        assert delete_response.status_code == 403

@@ -132,6 +132,15 @@ export const zhCN: Translations = {
     reasoningEffortMediumDescription: "多层逻辑分析 + 基础验证",
     reasoningEffortHigh: "高",
     reasoningEffortHighDescription: "全维度逻辑推演 + 多路径验证 + 反推校验",
+    privateKnowledge: "个人知识库",
+    privateKnowledgeOnDescription: "本轮会自动检索你的个人知识库",
+    privateKnowledgeOffDescription: "本轮不会自动检索你的个人知识库",
+    privateKnowledgeScope: "知识库范围",
+    privateKnowledgeScopeAll: "全部知识库",
+    privateKnowledgeScopeSelected: (count: number) => `已选 ${count} 个范围`,
+    privateKnowledgeScopeDescription:
+      "限定本次任务只检索选中的知识库文件夹或文件",
+    privateKnowledgeScopeEmpty: "暂无知识库文件",
     searchModels: "搜索模型...",
     surpriseMe: "小惊喜",
     surpriseMePrompt: "给我一个小惊喜吧",
@@ -159,7 +168,8 @@ export const zhCN: Translations = {
       },
       {
         suggestion: "数据分析",
-        prompt: "分析上传的 Excel/CSV 文件，生成统计摘要、SQL 查询结果或结构化数据洞察。",
+        prompt:
+          "分析上传的 Excel/CSV 文件，生成统计摘要、SQL 查询结果或结构化数据洞察。",
         icon: PenLineIcon,
       },
     ],
@@ -199,7 +209,9 @@ export const zhCN: Translations = {
   // Agents
   agents: {
     title: "智能体",
-    description: "创建和管理具有专属 Prompt 与能力的自定义智能体。",
+    description: "创建个人智能体，并将成熟的智能体发布到团队广场共享使用。",
+    myAgents: "我的智能体",
+    agentSquare: "智能体广场",
     newAgent: "新建智能体",
     emptyTitle: "还没有自定义智能体",
     emptyDescription: "创建你的第一个自定义智能体，设置专属系统提示词。",
@@ -210,6 +222,15 @@ export const zhCN: Translations = {
     delete: "删除",
     deleteConfirm: "确定要删除该智能体吗？此操作不可撤销。",
     deleteSuccess: "智能体已删除",
+    publishToSquare: "发布到智能体广场",
+    publishSuccess: "已发布到智能体广场",
+    unpublishFromSquare: "取消发布",
+    unpublishConfirm:
+      "确定要将该智能体从智能体广场移除吗？移除后其他人将无法再从广场看到或使用它。",
+    unpublishSuccess: "已从智能体广场取消发布",
+    squareEmptyTitle: "智能体广场还没有共享智能体",
+    squareEmptyDescription:
+      "你可以在“我的智能体”中将个人智能体发布到广场，发布后所有人都能看到和使用。",
     newChat: "新对话",
     createPageTitle: "设计你的智能体",
     createPageSubtitle: "描述你想要的智能体，我来帮你通过对话创建。",
@@ -233,8 +254,7 @@ export const zhCN: Translations = {
       "新智能体的名称是 {name}。请先帮我设计它的用途、行为方式和 SOUL.md，再保存它。保存时，智能体简介 description 必须使用简体中文。",
     save: "保存智能体",
     saving: "正在保存智能体...",
-    saveRequested:
-      "已提交保存请求，平台正在根据当前对话生成并保存初版智能体。",
+    saveRequested: "已提交保存请求，平台正在根据当前对话生成并保存初版智能体。",
     saveHint:
       "你可以在右上角的菜单里随时保存这个智能体，就算目前还只是初稿也可以。",
     saveCommandMessage:
@@ -398,7 +418,8 @@ export const zhCN: Translations = {
     noResults: "未找到结果。",
     actions: "操作",
     keyboardShortcuts: "键盘快捷键",
-    keyboardShortcutsDescription: "使用键盘快捷键更快地操作中海油勘探开发通用智能体。",
+    keyboardShortcutsDescription:
+      "使用键盘快捷键更快地操作中海油勘探开发通用智能体。",
     openCommandPalette: "打开命令面板",
     toggleSidebar: "切换侧边栏",
   },
