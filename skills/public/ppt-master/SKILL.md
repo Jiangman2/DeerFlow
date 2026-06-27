@@ -311,10 +311,13 @@ python3 ${SKILL_DIR}/scripts/finalize_svg.py <project_path>
 ```bash
 python3 ${SKILL_DIR}/scripts/svg_to_pptx.py <project_path>
 # Output:
+#   exports/<project_name>_<timestamp>.preview.pdf    -> browser preview PDF paired with the main pptx
 #   exports/<project_name>_<timestamp>.pptx           ← main native pptx (reads svg_output/, high fidelity)
 #   backup/<timestamp>/<project_name>_svg.pptx        ← SVG preview pptx (reads svg_final/)
 #   backup/<timestamp>/svg_output/                    ← Executor SVG source backup
 ```
+
+After export, present the main `.pptx` from `/mnt/user-data/outputs`. The corresponding `.preview.pdf` is generated and synced with the same stem; it must remain available so the client can preview the PPTX by rendering the PDF while preserving PPTX download.
 
 > The two products now read from different sources by design: native pptx
 > consumes `svg_output/` so the converter can preserve high-fidelity primitives
