@@ -22,6 +22,7 @@ from app.gateway.csrf_middleware import CSRFMiddleware
         "/api/v1/auth/register",
         "/api/v1/auth/logout",
         "/api/v1/auth/setup-status",
+        "/api/v1/auth/cnooc/login",
     ],
 )
 def test_public_paths(path: str):
@@ -62,6 +63,7 @@ def test_protected_paths(path: str):
         "/api/v1/auth/register/",
         "/api/v1/auth/logout/",
         "/api/v1/auth/setup-status/",
+        "/api/v1/auth/cnooc/login/",
     ],
 )
 def test_public_auth_paths_with_trailing_slash(path: str):

@@ -87,6 +87,71 @@ models:
   #   temperature: 0.7
   #   supports_vision: true # Enable vision support for view_image tool
 
+  # Example: CNOOC internal OpenAI-compatible models
+  # - name: deepseek-v4-flash
+  #   display_name: DeepSeek-V4-Flash
+  #   use: langchain_openai:ChatOpenAI
+  #   model: DeepSeek-V4-Flash
+  #   api_key: $DeepSeek_V4_API_KEY
+  #   base_url: http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1
+  #   max_tokens: 32768
+  #   timeout: 600
+  #   profile:
+  #     max_input_tokens: 1048576
+  #   reasoning_effort: high
+  #   supports_thinking: true
+  #   supports_vision: false
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       enable_thinking: true
+  #       thinking_budget: 4096
+  # - name: hecc-deepseek-v3-2
+  #   display_name: HECC DeepSeek V3.2
+  #   use: deerflow.models.hecc_openai:HeccChatOpenAI
+  #   model: deepseek-v3.2
+  #   api_key: $HECC_API_KEY
+  #   base_url: https://hecc.ai.cnooc:30119/heai/Deepseek_V3.2_671B_64K/v1/
+  #   tls_verify: false
+  #   max_tokens: 8192
+  #   timeout: 1200
+  #   profile:
+  #     max_input_tokens: 131072
+  #   supports_thinking: true
+  #   supports_vision: false
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       enable_thinking: true
+  #       thinking_budget: 512
+  # - name: deepseek-v3.1
+  #   display_name: DeepSeek-V3.1-671B
+  #   use: langchain_openai:ChatOpenAI
+  #   model: deepseek-siliconflow
+  #   api_key: $DEEPSEEK_SILICONFLOW_API_KEY
+  #   base_url: http://model.ai.cnooc/member1/deepseek-siliconflow/v1
+  #   max_tokens: 8192
+  #   temperature: 0.0
+  #   timeout: 600
+  #   profile:
+  #     max_input_tokens: 131072
+  #   supports_thinking: false
+  #   supports_vision: false
+  # - name: qwen3.6-35B-A3B
+  #   display_name: Qwen3.6-35B-A3B
+  #   use: langchain_openai:ChatOpenAI
+  #   model: qwen3.6
+  #   api_key: local
+  #   base_url: http://model.ai.cnooc/member1/qwen36-35b-18538/v1/
+  #   max_tokens: 8192
+  #   timeout: 600
+  #   profile:
+  #     max_input_tokens: 65536
+  #   supports_thinking: true
+  #   supports_vision: false
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       thinking:
+  #         type: enabled
+
   # Example: in-house HECC/OpenAI-compatible gateway with custom TLS/proxy handling
   # - name: hecc-deepseek
   #   display_name: HECC DeepSeek

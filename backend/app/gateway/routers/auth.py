@@ -18,6 +18,7 @@ from app.gateway.auth import (
     UserResponse,
     create_access_token,
 )
+from app.gateway.auth.cnooc import CnoocAuthError, check_cnooc_token
 from app.gateway.auth.config import get_auth_config
 from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse
 from app.gateway.auth.oidc import OIDCError, OIDCService
@@ -146,6 +147,9 @@ class MessageResponse(BaseModel):
     message: str
 
 
+CNOOC_PLATFORM_TOKEN_COOKIE_NAME = "cnooc.platform_token"
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
@@ -160,6 +164,17 @@ def _set_session_cookie(response: Response, token: str, request: Request) -> Non
         secure=is_https,
         samesite="lax",
         max_age=config.token_expiry_days * 24 * 3600 if is_https else None,
+    )
+
+
+def _set_cnooc_platform_token_cookie(response: Response, token: str, request: Request) -> None:
+    response.set_cookie(
+        key=CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=is_secure_request(request),
+        samesite="lax",
+        max_age=7 * 24 * 3600,
     )
 
 
@@ -526,6 +541,56 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
 
 
 # ── OIDC / SSO Endpoints ────────────────────────────────────────────────
+
+@router.get("/cnooc/login")
+async def cnooc_token_login(
+    request: Request,
+    token: str | None = None,
+    next: str | None = None,  # noqa: A002
+):
+    """Log in from the CNOOC data-lake platform token redirect."""
+    if not token:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="token is required")
+
+    try:
+        checked = await check_cnooc_token(token)
+    except CnoocAuthError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    provider = get_local_provider()
+    user = await provider.get_user_by_oauth("cnooc", checked.user.platform_user_id)
+    if user is None:
+        existing_email_user = await provider.get_user_by_email(checked.user.email)
+        if existing_email_user is not None:
+            if existing_email_user.oauth_provider == "cnooc" and existing_email_user.oauth_id == checked.user.platform_user_id:
+                user = existing_email_user
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="An account with this email already exists. Contact your administrator to link it to your SSO account.",
+                )
+        else:
+            try:
+                user = await provider.create_oauth_user(
+                    email=checked.user.email,
+                    oauth_provider="cnooc",
+                    oauth_id=checked.user.platform_user_id,
+                    system_role="user",
+                )
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="An account with this email already exists. Contact your administrator to link it to your SSO account.",
+                ) from exc
+
+    access_token = create_access_token(str(user.id), token_version=user.token_version)
+    redirect_path = validate_next_param(next) or "/workspace/chats/new"
+    redirect_response = RedirectResponse(url=redirect_path, status_code=status.HTTP_302_FOUND)
+    _set_session_cookie(redirect_response, access_token, request)
+    _set_csrf_cookie(redirect_response, request)
+    _set_cnooc_platform_token_cookie(redirect_response, token, request)
+    return redirect_response
+
 
 _OIDC_PROVIDER_KEY_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 

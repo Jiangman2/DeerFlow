@@ -75,6 +75,14 @@ export interface Translations {
     shopCartWindowDescription: string;
     shopCartReopen: string;
     shopCartPopupBlocked: string;
+    newShopCartDialogDescription: string;
+    newShopCartLoading: string;
+    newShopCartEmpty: string;
+    newShopCartRefresh: string;
+    newShopCartLoadFailed: string;
+    newShopCartComplete: string;
+    newShopCartProcessing: string;
+    newShopCartSelectionSummary: (selected: number, total: number) => string;
     shopCartAddSelected: string;
     shopCartAdding: string;
     shopCartEmptySelection: string;

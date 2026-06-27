@@ -94,6 +94,16 @@ export const enUS: Translations = {
     shopCartReopen: "Reopen",
     shopCartPopupBlocked:
       "The shop cart window was blocked. Allow pop-ups and try again.",
+    newShopCartDialogDescription:
+      "Select files from the shop cart and add them as chat attachments.",
+    newShopCartLoading: "Loading shop cart files...",
+    newShopCartEmpty: "No files in the shop cart",
+    newShopCartRefresh: "Refresh",
+    newShopCartLoadFailed: "Failed to load shop cart files. Please retry.",
+    newShopCartComplete: "Ready",
+    newShopCartProcessing: "Processing",
+    newShopCartSelectionSummary: (selected: number, total: number) =>
+      `${selected} / ${total} files selected`,
     shopCartAddSelected: "Add selected files",
     shopCartAdding: "Reading...",
     shopCartEmptySelection: "Select at least one shop cart file",
