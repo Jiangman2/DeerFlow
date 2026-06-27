@@ -1073,7 +1073,10 @@ export function useThreadStream({
                   return [
                     {
                       ...humanMessage,
-                      additional_kwargs: { files: uploadedFiles },
+                      additional_kwargs: {
+                        ...(humanMessage.additional_kwargs ?? {}),
+                        files: uploadedFiles,
+                      },
                     },
                     ...messages.slice(1),
                   ];

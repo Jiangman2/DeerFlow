@@ -12,6 +12,8 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
   context: {
     model_name: undefined,
     mode: undefined,
+    use_private_knowledge: true,
+    knowledge_scope_paths: [],
     reasoning_effort: undefined,
   },
 };
