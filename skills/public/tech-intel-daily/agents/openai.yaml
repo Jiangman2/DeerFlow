@@ -1,0 +1,4 @@
+﻿interface:
+  display_name: "科技管理情报日报"
+  short_description: "跟踪科技管理政策资讯并生成日报、标签更新和知识库沉淀"
+  default_prompt: "Use $tech-intel-daily to generate today's technology management intelligence daily briefing and update the knowledge base."
