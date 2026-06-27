@@ -40,6 +40,7 @@ import {
   useUploadKnowledgeFiles,
 } from "@/core/knowledge";
 import type { KnowledgeFile, KnowledgeFolder } from "@/core/knowledge";
+import { knowledgeFilesFromInput } from "@/core/knowledge/upload";
 import { cn } from "@/lib/utils";
 
 import { SettingsSection } from "./settings-section";
@@ -434,8 +435,7 @@ export function KnowledgeSettingsPage() {
     });
   }
 
-  async function handleSelectedFiles(fileList: FileList | null) {
-    const selected = Array.from(fileList ?? []);
+  async function handleSelectedFiles(selected: File[]) {
     if (selected.length === 0) return;
     setUploadMessage(`正在上传 ${selected.length} 个文件...`);
     try {
@@ -457,7 +457,7 @@ export function KnowledgeSettingsPage() {
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files;
+    const selected = knowledgeFilesFromInput(event.target.files);
     event.target.value = "";
     await handleSelectedFiles(selected);
   }

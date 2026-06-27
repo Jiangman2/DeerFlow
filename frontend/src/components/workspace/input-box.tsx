@@ -999,8 +999,7 @@ export function InputBox({
                     className="max-w-40 gap-1 px-2! sm:max-w-56"
                     disabled={
                       Boolean(disabled) ||
-                      !usePrivateKnowledge ||
-                      knowledgeScopeOptions.length === 0
+                      !usePrivateKnowledge
                     }
                   >
                     <FolderIcon className="size-3.5 shrink-0" />

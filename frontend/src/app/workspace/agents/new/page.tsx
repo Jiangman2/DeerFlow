@@ -507,10 +507,7 @@ export default function NewAgentPage() {
                       type="button"
                       variant="outline"
                       className="w-full justify-start"
-                      disabled={
-                        !usePrivateKnowledge ||
-                        knowledgeScopeOptions.length === 0
-                      }
+                      disabled={!usePrivateKnowledge}
                     >
                       <FolderIcon className="h-4 w-4" />
                       <span className="truncate">{knowledgeScopeLabel}</span>
