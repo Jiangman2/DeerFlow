@@ -152,13 +152,46 @@ class TestErrorObservationRetry:
         def mock_exec(command, **kwargs):
             nonlocal call_count
             call_count += 1
-            return SimpleNamespace(data=SimpleNamespace(output="all good"))
+            marker = command.rsplit("__DEER_FLOW_EXIT_CODE_", 1)[1].split("__:", 1)[0]
+            return SimpleNamespace(data=SimpleNamespace(output=f"all good\n__DEER_FLOW_EXIT_CODE_{marker}__:0"))
 
         sandbox._client.shell.exec_command = mock_exec
 
         result = sandbox.execute_command("echo hello")
         assert result == "all good"
         assert call_count == 1
+
+    def test_nonzero_exit_code_is_returned_in_output(self, sandbox):
+        """AIO shell output should expose command failure like local sandbox does."""
+
+        def mock_exec(command, **kwargs):
+            marker = command.rsplit("__DEER_FLOW_EXIT_CODE_", 1)[1].split("__:", 1)[0]
+            return SimpleNamespace(
+                data=SimpleNamespace(
+                    output=(
+                        "python3: can't open file '/missing.py': [Errno 2] No such file or directory\n"
+                        f"__DEER_FLOW_EXIT_CODE_{marker}__:2"
+                    )
+                )
+            )
+
+        sandbox._client.shell.exec_command = mock_exec
+
+        result = sandbox.execute_command("python3 /missing.py")
+
+        assert "can't open file" in result
+        assert "Exit Code: 2" in result
+
+    def test_success_without_output_stays_no_output(self, sandbox):
+        """The hidden exit marker should not leak for successful silent commands."""
+
+        def mock_exec(command, **kwargs):
+            marker = command.rsplit("__DEER_FLOW_EXIT_CODE_", 1)[1].split("__:", 1)[0]
+            return SimpleNamespace(data=SimpleNamespace(output=f"__DEER_FLOW_EXIT_CODE_{marker}__:0"))
+
+        sandbox._client.shell.exec_command = mock_exec
+
+        assert sandbox.execute_command("true") == "(no output)"
 
 
 class TestListDirSerialization:

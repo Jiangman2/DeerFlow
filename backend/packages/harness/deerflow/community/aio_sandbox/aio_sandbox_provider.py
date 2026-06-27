@@ -42,10 +42,11 @@ from .sandbox_info import SandboxInfo
 logger = logging.getLogger(__name__)
 
 # Default configuration
-DEFAULT_IMAGE = "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest"
+DEFAULT_IMAGE = "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox@sha256:742062f99915e5495df8d4bfeaf40a93197c87c7c47b4e2407cd2b6356df8f48"
 DEFAULT_PORT = 8080
 DEFAULT_CONTAINER_PREFIX = "deer-flow-sandbox"
 DEFAULT_IDLE_TIMEOUT = 600  # 10 minutes in seconds
+DEFAULT_STARTUP_TIMEOUT = 60
 DEFAULT_REPLICAS = 3  # Maximum concurrent sandbox containers
 IDLE_CHECK_INTERVAL = 60  # Check every 60 seconds
 THREAD_LOCK_EXECUTOR_WORKERS = min(32, (os.cpu_count() or 1) + 4)
@@ -165,9 +166,11 @@ class AioSandboxProvider(SandboxProvider):
 
         Local container backends bind-mount the thread data directories, so files
         written by the gateway are already visible when the sandbox starts.
-        Remote backends may require explicit file sync.
+        Provisioner-backed remote sandboxes also mount per-thread user-data,
+        either through hostPath or PVC subPath, so gateway-written uploads are
+        visible without starting a sandbox just to sync files.
         """
-        return isinstance(self._backend, LocalContainerBackend)
+        return isinstance(self._backend, (LocalContainerBackend, RemoteSandboxBackend))
 
     # ── Factory methods ──────────────────────────────────────────────────
 
@@ -202,6 +205,7 @@ class AioSandboxProvider(SandboxProvider):
         sandbox_config = config.sandbox
 
         idle_timeout = getattr(sandbox_config, "idle_timeout", None)
+        startup_timeout = getattr(sandbox_config, "startup_timeout", None)
         replicas = getattr(sandbox_config, "replicas", None)
 
         return {
@@ -209,6 +213,7 @@ class AioSandboxProvider(SandboxProvider):
             "port": sandbox_config.port or DEFAULT_PORT,
             "container_prefix": sandbox_config.container_prefix or DEFAULT_CONTAINER_PREFIX,
             "idle_timeout": idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
+            "startup_timeout": startup_timeout if startup_timeout is not None else DEFAULT_STARTUP_TIMEOUT,
             "replicas": replicas if replicas is not None else DEFAULT_REPLICAS,
             "mounts": sandbox_config.mounts or [],
             "environment": self._resolve_env_vars(sandbox_config.environment or {}),
@@ -868,7 +873,8 @@ class AioSandboxProvider(SandboxProvider):
         info = self._backend.create(thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
 
         # Wait for sandbox to be ready
-        if not wait_for_sandbox_ready(info.sandbox_url, timeout=60):
+        startup_timeout = int(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT))
+        if not wait_for_sandbox_ready(info.sandbox_url, timeout=startup_timeout):
             self._backend.destroy(info)
             raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
 
@@ -889,7 +895,8 @@ class AioSandboxProvider(SandboxProvider):
         info = await asyncio.to_thread(self._backend.create, thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
 
         # Wait for sandbox to be ready without blocking the event loop.
-        if not await wait_for_sandbox_ready_async(info.sandbox_url, timeout=60):
+        startup_timeout = int(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT))
+        if not await wait_for_sandbox_ready_async(info.sandbox_url, timeout=startup_timeout):
             await asyncio.to_thread(self._backend.destroy, info)
             raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
 

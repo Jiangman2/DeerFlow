@@ -268,6 +268,33 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
             status=result.status,
         )
 
+    @staticmethod
+    def _tool_message_text(message: ToolMessage) -> str:
+        if isinstance(message.content, list):
+            parts = []
+            for item in message.content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    parts.append(str(item.get("text") or ""))
+                else:
+                    parts.append(str(item))
+            return "\n".join(parts)
+        return str(message.content)
+
+    def _mark_failed_bash_result(self, result: ToolMessage | Command) -> ToolMessage | Command:
+        """Preserve bash output but mark obvious command failures as tool errors."""
+        if not isinstance(result, ToolMessage):
+            return result
+        text = self._tool_message_text(result)
+        if not (text.startswith("Error:") or "\nExit Code: " in text or text.startswith("Exit Code: ")):
+            return result
+        return ToolMessage(
+            content=result.content,
+            tool_call_id=result.tool_call_id,
+            name=result.name,
+            status="error",
+            artifact=getattr(result, "artifact", None),
+        )
+
     # ------------------------------------------------------------------
     # Input sanitisation
     # ------------------------------------------------------------------
@@ -341,6 +368,7 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
             reason = reject_reason or "security violation detected"
             return self._build_block_message(request, reason)
         result = handler(request)
+        result = self._mark_failed_bash_result(result)
         if verdict == "warn":
             result = self._append_warn_to_result(result, command)
         return result
@@ -359,6 +387,7 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
             reason = reject_reason or "security violation detected"
             return self._build_block_message(request, reason)
         result = await handler(request)
+        result = self._mark_failed_bash_result(result)
         if verdict == "warn":
             result = self._append_warn_to_result(result, command)
         return result

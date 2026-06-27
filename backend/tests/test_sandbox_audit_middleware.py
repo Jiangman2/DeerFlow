@@ -439,6 +439,34 @@ class TestSandboxAuditMiddlewareWrapToolCall:
         assert called, f"handler SHOULD be called for safe cmd: {cmd!r}"
         assert result == handler.return_value
 
+    def test_failed_bash_output_is_marked_error(self):
+        request = _make_request("python3 /missing.py")
+        handler = _make_handler(
+            ToolMessage(
+                content="python3: can't open file '/missing.py'\nExit Code: 2",
+                tool_call_id="call-123",
+                name="bash",
+            )
+        )
+        with patch.object(self.mw, "_write_audit"):
+            result = self.mw.wrap_tool_call(request, handler)
+        assert handler.called
+        assert result.status == "error"
+        assert "Exit Code: 2" in result.content
+
+    def test_error_prefix_bash_output_is_marked_error(self):
+        request = _make_request("python3 /missing.py")
+        handler = _make_handler(
+            ToolMessage(
+                content="Error: Unexpected error executing command",
+                tool_call_id="call-123",
+                name="bash",
+            )
+        )
+        with patch.object(self.mw, "_write_audit"):
+            result = self.mw.wrap_tool_call(request, handler)
+        assert result.status == "error"
+
     # --- Audit log is written for every bash call ---
 
     def test_audit_log_written_for_safe_command(self):

@@ -18,6 +18,31 @@ _MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 _ERROR_OBSERVATION_SIGNATURE = "'ErrorObservation' object has no attribute 'exit_code'"
 
 
+def _wrap_command_with_exit_marker(command: str, marker: str) -> str:
+    quoted_command = shlex.quote(command)
+    inner_script = (
+        f"bash -lc {quoted_command}; "
+        "__deer_flow_status=$?; "
+        f"printf '\\n{marker}%s\\n' \"$__deer_flow_status\"; "
+        "exit 0"
+    )
+    return f"sh -c {shlex.quote(inner_script)}"
+
+
+def _strip_exit_marker(output: str, marker: str) -> tuple[str, int | None]:
+    marker_index = output.rfind(marker)
+    if marker_index < 0:
+        return output, None
+
+    command_output = output[:marker_index].rstrip("\n")
+    status_text = output[marker_index + len(marker) :].strip().splitlines()[0].strip()
+    try:
+        exit_code = int(status_text)
+    except ValueError:
+        return output, None
+    return command_output, exit_code
+
+
 class AioSandbox(Sandbox):
     """Sandbox implementation using the agent-infra/sandbox Docker container.
 
@@ -128,7 +153,9 @@ class AioSandbox(Sandbox):
         """
         with self._lock:
             try:
-                result = self._client.shell.exec_command(command=command, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                marker = f"__DEER_FLOW_EXIT_CODE_{uuid.uuid4().hex}__:"
+                wrapped_command = _wrap_command_with_exit_marker(command, marker)
+                result = self._client.shell.exec_command(command=wrapped_command, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
                 output = result.data.output if result.data else ""
 
                 if output and _ERROR_OBSERVATION_SIGNATURE in output:
@@ -139,7 +166,7 @@ class AioSandbox(Sandbox):
                     fresh_id = str(uuid.uuid4())
                     self._client.shell.create_session(id=fresh_id)
                     try:
-                        result = self._client.shell.exec_command(command=command, id=fresh_id, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                        result = self._client.shell.exec_command(command=wrapped_command, id=fresh_id, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
                         output = result.data.output if result.data else ""
                     finally:
                         # Release the one-shot recovery session, best-effort, so
@@ -149,6 +176,10 @@ class AioSandbox(Sandbox):
                         except Exception as cleanup_error:
                             logger.warning(f"Failed to release recovery session {fresh_id}: {cleanup_error}")
 
+                output, exit_code = _strip_exit_marker(output, marker)
+                if exit_code and exit_code != 0:
+                    suffix = f"Exit Code: {exit_code}"
+                    output = f"{output}\n{suffix}" if output else suffix
                 return output if output else "(no output)"
             except Exception as e:
                 logger.error(f"Failed to execute command in sandbox: {e}")

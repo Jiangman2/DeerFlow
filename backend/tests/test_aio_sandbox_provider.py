@@ -10,6 +10,12 @@ import pytest
 from deerflow.config.paths import Paths, join_host_path
 from deerflow.runtime.user_context import reset_current_user, set_current_user
 
+
+@pytest.fixture(autouse=True)
+def clear_host_base_dir(monkeypatch):
+    """Keep mount-path tests independent from the caller's deployment env."""
+    monkeypatch.delenv("DEER_FLOW_HOST_BASE_DIR", raising=False)
+
 # ── ensure_thread_dirs ───────────────────────────────────────────────────────
 
 
@@ -410,6 +416,51 @@ def test_remote_backend_create_prefers_explicit_user_id(monkeypatch):
     backend.create("thread-42", "sandbox-42", user_id="ou-user")
 
     assert posted["json"]["user_id"] == "ou-user"
+
+
+def test_remote_provisioner_backend_uses_thread_data_mounts(tmp_path):
+    """Provisioner sandboxes mount user-data, so uploads should not start a sync sandbox."""
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    remote_mod = importlib.import_module("deerflow.community.aio_sandbox.remote_backend")
+    provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
+    provider._backend = remote_mod.RemoteSandboxBackend("http://provisioner:8002")
+
+    assert provider.uses_thread_data_mounts is True
+
+
+def test_create_sandbox_uses_configured_startup_timeout(tmp_path, monkeypatch):
+    """Sandbox readiness should honor sandbox.startup_timeout instead of a fixed 60s."""
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    provider = _make_provider(tmp_path)
+    provider._config = {"replicas": 3, "startup_timeout": 123}
+    provider._thread_locks = {}
+    provider._warm_pool = {}
+    provider._sandbox_infos = {}
+    provider._thread_sandboxes = {}
+    provider._last_activity = {}
+    provider._lock = aio_mod.threading.Lock()
+    provider._backend = SimpleNamespace(
+        create=MagicMock(
+            return_value=aio_mod.SandboxInfo(
+                sandbox_id="sandbox-timeout",
+                sandbox_url="http://sandbox-timeout",
+            )
+        ),
+        destroy=MagicMock(),
+    )
+
+    readiness_calls: list[tuple[str, int]] = []
+    monkeypatch.setattr(provider, "_get_extra_mounts", lambda _thread_id, *, user_id=None: [])
+    monkeypatch.setattr(
+        aio_mod,
+        "wait_for_sandbox_ready",
+        lambda sandbox_url, timeout=30: readiness_calls.append((sandbox_url, timeout)) or True,
+    )
+
+    sandbox_id = provider._create_sandbox("thread-timeout", "sandbox-timeout", user_id="user-timeout")
+
+    assert sandbox_id == "sandbox-timeout"
+    assert readiness_calls == [("http://sandbox-timeout", 123)]
 
 
 # ── Sandbox client teardown (#2872) ──────────────────────────────────────────
