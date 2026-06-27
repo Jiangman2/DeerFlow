@@ -1,7 +1,7 @@
 """Memory API router for retrieving and managing global memory data."""
 
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from deerflow.agents.memory.updater import (
@@ -48,6 +48,11 @@ class ContextSection(BaseModel):
     summary: str = Field(default="", description="Summary content")
     updatedAt: str = Field(default="", description="Last update timestamp")
 
+    @field_validator("summary", "updatedAt", mode="before")
+    @classmethod
+    def _none_to_empty_string(cls, value):
+        return "" if value is None else value
+
 
 class UserContext(BaseModel):
     """Model for user context."""
@@ -76,6 +81,11 @@ class Fact(BaseModel):
     source: str = Field(default="unknown", description="Source thread ID")
     sourceError: str | None = Field(default=None, description="Optional description of the prior mistake or wrong approach")
 
+    @field_validator("createdAt", "source", mode="before")
+    @classmethod
+    def _none_to_empty_string(cls, value):
+        return "" if value is None else value
+
 
 class MemoryResponse(BaseModel):
     """Response model for memory data."""
@@ -85,6 +95,11 @@ class MemoryResponse(BaseModel):
     user: UserContext = Field(default_factory=UserContext)
     history: HistoryContext = Field(default_factory=HistoryContext)
     facts: list[Fact] = Field(default_factory=list)
+
+    @field_validator("version", "lastUpdated", mode="before")
+    @classmethod
+    def _none_to_empty_string(cls, value):
+        return "" if value is None else value
 
 
 def _map_memory_fact_value_error(exc: ValueError) -> HTTPException:

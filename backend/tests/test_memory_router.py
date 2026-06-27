@@ -124,6 +124,39 @@ def test_import_memory_route_preserves_source_error() -> None:
     assert response.json()["facts"][0]["sourceError"] == "The agent previously suggested npm start."
 
 
+def test_export_memory_route_normalizes_optional_string_nulls() -> None:
+    app = FastAPI()
+    app.include_router(memory.router)
+    exported_memory = _sample_memory(
+        facts=[
+            {
+                "id": "fact_nulls",
+                "content": "Imported legacy memory can contain null strings.",
+                "category": "context",
+                "confidence": 0.8,
+                "createdAt": None,
+                "source": None,
+            }
+        ]
+    )
+    exported_memory["version"] = None
+    exported_memory["lastUpdated"] = None
+    exported_memory["user"]["workContext"]["summary"] = None
+    exported_memory["user"]["workContext"]["updatedAt"] = None
+
+    with patch("app.gateway.routers.memory.get_memory_data", return_value=exported_memory):
+        with TestClient(app) as client:
+            response = client.get("/api/memory/export")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"] == ""
+    assert payload["lastUpdated"] == ""
+    assert payload["user"]["workContext"] == {"summary": "", "updatedAt": ""}
+    assert payload["facts"][0]["createdAt"] == ""
+    assert payload["facts"][0]["source"] == ""
+
+
 def test_clear_memory_route_returns_cleared_memory() -> None:
     app = FastAPI()
     app.include_router(memory.router)

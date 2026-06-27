@@ -3,6 +3,7 @@ import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from langchain.agents.middleware.types import ModelRequest
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -124,6 +125,7 @@ def test_skill_activation_middleware_injects_hidden_human_context_for_model_call
     assert activation_msg.additional_kwargs["hide_from_ui"] is True
     assert "Use pandas." in activation_msg.content
     assert "<user_request>\nanalyze uploads/foo.csv\n</user_request>" in activation_msg.content
+    assert "Do not infer generic root entry points such as `main.py`" in activation_msg.content
     assert user_msg.content == original.content
     assert request.state["messages"] == [original]
 
@@ -501,7 +503,10 @@ def test_skill_activation_middleware_rejects_skill_file_outside_skills_root(monk
     outside_dir.mkdir()
     outside_file = outside_dir / "SKILL.md"
     outside_file.write_text("# Leaked\nDo not read me.", encoding="utf-8")
-    (skill_dir / "SKILL.md").symlink_to(outside_file)
+    try:
+        (skill_dir / "SKILL.md").symlink_to(outside_file)
+    except OSError as exc:
+        pytest.skip(f"symlink creation is not available in this environment: {exc}")
     skill = Skill(
         name="data-analysis",
         description="Description for data-analysis",

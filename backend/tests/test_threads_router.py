@@ -126,6 +126,22 @@ def test_delete_thread_route_cleans_thread_directory(tmp_path):
     assert not thread_dir.exists()
 
 
+def test_delete_thread_route_is_idempotent_after_first_delete(tmp_path):
+    paths = Paths(tmp_path)
+
+    app = make_authed_test_app()
+    app.include_router(threads.router)
+
+    with patch("app.gateway.routers.threads.get_paths", return_value=paths):
+        with TestClient(app) as client:
+            first = client.delete("/api/threads/thread-route")
+            second = client.delete("/api/threads/thread-route")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["success"] is True
+
+
 def test_delete_thread_route_rejects_invalid_thread_id(tmp_path):
     paths = Paths(tmp_path)
 

@@ -69,6 +69,7 @@ def test_get_skills_prompt_section_includes_slash_activation_guidance(monkeypatc
     assert "Explicit Slash Skill Activation" in result
     assert "The runtime injects the activated skill content" in result
     assert "do not call `read_file` for that SKILL.md again" in result
+    assert "do not infer generic root entry points such as `main.py`" in result
 
 
 def test_get_skills_prompt_section_includes_self_evolution_rules(monkeypatch):

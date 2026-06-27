@@ -155,6 +155,11 @@ Treat the task text as:
 
 Follow this skill before choosing a general workflow. Load supporting resources from the same skill directory only when needed.
 
+Execution rules:
+- Use only commands, scripts, and entry points explicitly documented in this SKILL.md or its referenced resources.
+- Do not infer generic root entry points such as `main.py` unless the skill documentation explicitly lists them.
+- If a documented command fails, inspect its output and recover through documented troubleshooting steps before trying alternatives.
+
 <skill name="{escaped_skill_name}" category="{escaped_category}" path="{escaped_path}" sha256="{escaped_content_hash}">
 <skill_content encoding="xml-escaped">
 {escaped_skill_content}
