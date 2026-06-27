@@ -203,6 +203,18 @@ make dev
 
 Direct access: Gateway at http://localhost:8001
 
+**Terminal Workbench (TUI)** — a terminal-native UI over the embedded harness,
+no services required:
+
+```bash
+uv pip install 'deerflow-harness[tui]'   # optional 'textual' dependency
+deerflow                                 # launch the TUI
+deerflow --print "summarize this repo"   # headless one-shot
+```
+
+Sessions opened in the TUI appear in the Web UI sidebar (it writes the shared
+`threads_meta` store under the local default user). See [docs/TUI.md](docs/TUI.md).
+
 ---
 
 ## Project Structure
@@ -364,7 +376,34 @@ make gateway    # Run Gateway API without reload (port 8001)
 make lint       # Run linter (ruff)
 make format     # Format code (ruff)
 make detect-blocking-io  # Inventory blocking IO that may block the backend event loop
+make migrate-rev MSG="..."  # Autogenerate a new alembic revision against the live ORM models
 ```
+
+### Schema Migrations
+
+DeerFlow's application tables (`runs`, `threads_meta`, `feedback`, `users`,
+`run_events`, and the `channel_*` tables) are owned by alembic. The Gateway
+runs `alembic upgrade head` automatically on startup via
+`bootstrap_schema(engine, backend=...)`, so operators do not run `alembic`
+manually in production. Bootstrap is concurrency-safe (Postgres advisory lock
+across processes; per-engine `asyncio.Lock` inside one SQLite process) and
+idempotent against pre-existing schemas (empty / legacy / versioned).
+
+When you add or change an ORM model, ship the change as a new revision under
+`packages/harness/deerflow/persistence/migrations/versions/`:
+
+```bash
+make migrate-rev MSG="add foo column to runs"
+```
+
+The target invokes `scripts/_autogen_revision.py`, which builds a fresh temp
+SQLite at `head` and diffs the live models against it — so a clean checkout
+does not need a pre-existing `./data/deerflow.db`. Review the generated file
+and switch raw `op.add_column` / `op.drop_column` calls to the idempotent
+helpers in `migrations/_helpers.py` before committing. There is no
+`make migrate` / `make migrate-stamp` target on purpose — Gateway startup is
+the only execution path, which keeps operational mistakes off the table. See
+`backend/CLAUDE.md` (Schema Migrations) for the full design.
 
 ### Code Style
 
