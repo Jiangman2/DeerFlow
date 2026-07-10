@@ -1,11 +1,11 @@
-from . import announcements, artifacts, assistants_compat, convert, knowledge, mcp, models, site_navigation, skills, suggestions, thread_runs, threads, uploads
+from . import announcements, artifacts, assistants_compat, convert, dashboard, mcp, models, site_navigation, skills, suggestions, thread_runs, threads, uploads, weknora
 
 __all__ = [
     "announcements",
     "artifacts",
     "assistants_compat",
     "convert",
-    "knowledge",
+    "dashboard",
     "mcp",
     "models",
     "site_navigation",
@@ -14,4 +14,5 @@ __all__ = [
     "threads",
     "thread_runs",
     "uploads",
+    "weknora",
 ]

@@ -49,6 +49,34 @@ kubectl rollout restart statefulset/postgres -n deer-flow
 kubectl rollout restart deployment/gateway deployment/frontend -n deer-flow
 ```
 
+## CNOOC data-lake SSO
+
+When DeerFlow is opened from the data-lake platform, the platform redirects to
+`/oauth/cnooc/login?token=<platform-token>`. Gateway validates that token and
+then sets the normal DeerFlow `access_token` cookie. Add these values to the
+`.env` file used to create `deer-flow-env`:
+
+```dotenv
+CNOOC_OAUTH_BASE_URL=https://datalake.cnooc
+CNOOC_OAUTH_APP_NAME=deerflow
+CNOOC_OAUTH_APP_ID=replace-me
+CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN=replace-me
+CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE=replace-me
+CNOOC_OAUTH_USER_INFO_API_TOKEN=replace-me
+CNOOC_OAUTH_TLS_VERIFY=true
+```
+
+After changing these values, recreate `deer-flow-env` and restart Gateway:
+
+```powershell
+kubectl create secret generic deer-flow-env `
+  -n deer-flow `
+  --from-env-file=.env `
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl rollout restart deployment/gateway -n deer-flow
+```
+
 ## Production
 
 Use a real secret-management workflow instead of committed Secret YAML:
@@ -65,4 +93,3 @@ Required production rules:
 - Rotate all local/default credentials before exposing the app.
 - Treat base64 Secret data as plaintext, not encryption.
 - Avoid printing Secret YAML in CI logs, screenshots, issue reports, or chat.
-

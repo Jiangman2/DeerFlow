@@ -130,6 +130,67 @@ def test_skill_activation_middleware_injects_hidden_human_context_for_model_call
     assert request.state["messages"] == [original]
 
 
+def test_skill_activation_middleware_does_not_add_ppt_master_specific_guardrails(monkeypatch, tmp_path):
+    skill = _make_skill(tmp_path, "ppt-master", content="# PPT Master\nGenerate slides.")
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    middleware = SkillActivationMiddleware()
+    original = HumanMessage(content="/ppt-master make a deck", id="msg-1")
+    captured = {}
+
+    def handler(model_request: ModelRequest):
+        captured["messages"] = model_request.messages
+        return AIMessage(content="ok")
+
+    result = middleware.wrap_model_call(_make_model_request([original]), handler)
+
+    assert isinstance(result, AIMessage)
+    activation_msg = captured["messages"][0]
+    assert is_slash_skill_activation_reminder(activation_msg)
+    assert "Generate slides." in activation_msg.content
+    assert "Additional platform guardrails for `ppt-master`" not in activation_msg.content
+
+
+def test_skill_activation_middleware_activates_natural_language_skill_request(monkeypatch, tmp_path):
+    skill = _make_skill(tmp_path, "ppt-master", content="# PPT Master\nGenerate slides.")
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    middleware = SkillActivationMiddleware()
+    original = HumanMessage(content="请使用ppt-master技能，使用海油模板，做一个20页PPT", id="msg-1")
+    captured = {}
+
+    def handler(model_request: ModelRequest):
+        captured["messages"] = model_request.messages
+        return AIMessage(content="ok")
+
+    result = middleware.wrap_model_call(_make_model_request([original]), handler)
+
+    assert isinstance(result, AIMessage)
+    activation_msg, user_msg = captured["messages"]
+    assert is_slash_skill_activation_reminder(activation_msg)
+    assert "Generate slides." in activation_msg.content
+    assert "<user_request>\n请使用ppt-master技能，使用海油模板，做一个20页PPT\n</user_request>" in activation_msg.content
+    assert user_msg.content == original.content
+
+
+def test_skill_activation_middleware_ignores_negated_natural_language_skill_request(monkeypatch, tmp_path):
+    skill = _make_skill(tmp_path, "ppt-master", content="# PPT Master\nGenerate slides.")
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    middleware = SkillActivationMiddleware()
+    original = HumanMessage(content="这次不要用ppt-master技能，直接普通回答", id="msg-1")
+    captured = {}
+
+    def handler(model_request: ModelRequest):
+        captured["messages"] = model_request.messages
+        return AIMessage(content="ok")
+
+    result = middleware.wrap_model_call(_make_model_request([original]), handler)
+
+    assert isinstance(result, AIMessage)
+    assert captured["messages"] == [original]
+
+
 def test_skill_activation_middleware_does_not_duplicate_existing_activation(monkeypatch, tmp_path):
     skill = _make_skill(tmp_path, "data-analysis", content="# Data Analysis\nUse pandas.")
     monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))

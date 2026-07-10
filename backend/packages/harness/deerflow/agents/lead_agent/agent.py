@@ -305,6 +305,10 @@ def build_middlewares(
 
     middlewares.append(DynamicContextMiddleware(agent_name=agent_name, app_config=resolved_app_config))
 
+    from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware
+
+    middlewares.append(WeKnoraScopeMiddleware())
+
     # Deterministically load a full SKILL.md when the user starts the turn with
     # /skill-name. This keeps the base system prompt metadata-only while giving
     # explicit user activation priority over model-side relevance guessing.

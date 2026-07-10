@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 
 from app.gateway.authz import require_permission
+from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.path_utils import resolve_thread_virtual_path
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,45 @@ ACTIVE_CONTENT_MIME_TYPES = {
     "application/xhtml+xml",
     "image/svg+xml",
 }
+
+INLINE_BINARY_MIME_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.ms-excel",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/zip",
+}
+
+INLINE_BINARY_SUFFIXES = {
+    ".doc",
+    ".docx",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".mp3",
+    ".mp4",
+    ".pdf",
+    ".png",
+    ".ppt",
+    ".pptx",
+    ".wav",
+    ".webp",
+    ".xls",
+    ".xlsx",
+    ".zip",
+}
+
+BINARY_MAGIC_PREFIXES = (
+    b"%PDF",
+    b"PK\x03\x04",
+    b"\x89PNG\r\n\x1a\n",
+    b"\xff\xd8\xff",
+    b"GIF87a",
+    b"GIF89a",
+)
 
 MAX_SKILL_ARCHIVE_MEMBER_BYTES = 16 * 1024 * 1024
 _SKILL_ARCHIVE_READ_CHUNK_SIZE = 64 * 1024
@@ -37,15 +77,50 @@ def _build_attachment_headers(filename: str, extra_headers: dict[str, str] | Non
     return headers
 
 
+def _build_inline_headers(filename: str, extra_headers: dict[str, str] | None = None) -> dict[str, str]:
+    headers = {"Content-Disposition": _build_content_disposition("inline", filename)}
+    if extra_headers:
+        headers.update(extra_headers)
+    return headers
+
+
+def _resolve_artifact_user_id(request: Request | None) -> str | None:
+    if request is None:
+        return None
+
+    trusted_owner = get_trusted_internal_owner_user_id(request)
+    if trusted_owner:
+        return trusted_owner
+
+    user = getattr(getattr(request, "state", None), "user", None)
+    user_id = getattr(user, "id", None)
+    return str(user_id) if user_id is not None else None
+
+
 def is_text_file_by_content(path: Path, sample_size: int = 8192) -> bool:
-    """Check if file is text by examining content for null bytes."""
+    """Check if file is text by examining common binary markers and UTF-8."""
     try:
         with open(path, "rb") as f:
             chunk = f.read(sample_size)
-            # Text files shouldn't contain null bytes
-            return b"\x00" not in chunk
+        if chunk.startswith(BINARY_MAGIC_PREFIXES):
+            return False
+        if b"\x00" in chunk:
+            return False
+        try:
+            chunk.decode("utf-8")
+        except UnicodeDecodeError:
+            return False
+        return True
     except Exception:
         return False
+
+
+def _should_stream_inline_binary(path: Path, mime_type: str | None) -> bool:
+    if path.suffix.lower() in INLINE_BINARY_SUFFIXES:
+        return True
+    if not mime_type:
+        return False
+    return mime_type in INLINE_BINARY_MIME_TYPES or mime_type.startswith(("audio/", "image/", "video/"))
 
 
 def _read_skill_archive_member(zip_ref: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
@@ -123,8 +198,9 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
     Stat probes, MIME sniffing (``mimetypes`` lazily stats the system MIME
     database on first use), and full-file reads are all blocking filesystem IO.
     Returns a ``(kind, mime_type, payload)`` plan the handler turns into a
-    response on the loop: ``("file", mime, None)`` (let ``FileResponse`` stream
-    it), ``("text", mime, str)``, or ``("bytes", mime, bytes)``. Behavior/error
+    response on the loop: ``("attachment", mime, None)`` for forced download,
+    ``("file", mime, None)`` for inline ``FileResponse`` streaming,
+    ``("text", mime, str)``, or ``("bytes", mime, bytes)``. Behavior/error
     codes match the previous inline logic.
     """
     if not actual_path.exists():
@@ -134,6 +210,8 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
     mime_type, _ = mimetypes.guess_type(actual_path)
     # Active content / explicit download is streamed by FileResponse — no read here.
     if download or mime_type in ACTIVE_CONTENT_MIME_TYPES:
+        return ("attachment", mime_type, None)
+    if _should_stream_inline_binary(actual_path, mime_type):
         return ("file", mime_type, None)
     if mime_type and mime_type.startswith("text/"):
         return ("text", mime_type, actual_path.read_text(encoding="utf-8"))
@@ -142,8 +220,9 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
     return ("bytes", mime_type, actual_path.read_bytes())
 
 
-@router.get(
+@router.api_route(
     "/threads/{thread_id}/artifacts/{path:path}",
+    methods=["GET", "HEAD"],
     summary="Get Artifact File",
     description="Retrieve an artifact file generated by the AI agent. Text and binary files can be viewed inline, while active web content is always downloaded.",
 )
@@ -189,7 +268,8 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         skill_file_path = path[: marker_pos + len(".skill")]  # e.g., "mnt/user-data/outputs/my-skill.skill"
         internal_path = path[marker_pos + len(skill_marker) :]  # e.g., "SKILL.md"
 
-        actual_skill_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, skill_file_path)
+        artifact_user_id = _resolve_artifact_user_id(request)
+        actual_skill_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, skill_file_path, user_id=artifact_user_id)
 
         # Offload the stat probes + ZIP open/extract + MIME sniff (blocking filesystem IO).
         content, mime_type = await asyncio.to_thread(_load_skill_archive_member, actual_skill_path, skill_file_path, internal_path)
@@ -209,19 +289,38 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         except UnicodeDecodeError:
             return Response(content=content, media_type=mime_type or "application/octet-stream", headers=cache_headers)
 
-    actual_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, path)
+    artifact_user_id = _resolve_artifact_user_id(request)
+    actual_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, path, user_id=artifact_user_id)
 
     logger.info(f"Resolving artifact path: thread_id={thread_id}, requested_path={path}, actual_path={actual_path}")
+
+    if request.method == "HEAD":
+        if not actual_path.exists():
+            raise HTTPException(status_code=404, detail=f"Artifact not found: {path}")
+        if not actual_path.is_file():
+            raise HTTPException(status_code=400, detail=f"Path is not a file: {path}")
+        mime_type, _ = mimetypes.guess_type(actual_path)
+        return Response(
+            status_code=200,
+            media_type=mime_type,
+            headers={
+                "Content-Length": str(actual_path.stat().st_size),
+                "Content-Disposition": _build_content_disposition("inline", actual_path.name),
+            },
+        )
 
     # Offload path stat + MIME sniff + file reads (all blocking filesystem IO).
     # Active content and explicit downloads are streamed by FileResponse, so the
     # worker only reports the kind; inline text/binary payloads are read in-thread.
     kind, mime_type, payload = await asyncio.to_thread(_read_artifact_payload, actual_path, path, download)
 
-    if kind == "file":
+    if kind == "attachment":
         # Always force download for active content types to prevent script
         # execution in the application origin when users open generated artifacts.
         return FileResponse(path=actual_path, filename=actual_path.name, media_type=mime_type, headers=_build_attachment_headers(actual_path.name))
+
+    if kind == "file":
+        return FileResponse(path=actual_path, media_type=mime_type, headers=_build_inline_headers(actual_path.name))
 
     if kind == "text":
         return PlainTextResponse(content=payload, media_type=mime_type)

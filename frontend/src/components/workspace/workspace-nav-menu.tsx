@@ -4,6 +4,7 @@ import {
   ActivityIcon,
   ChevronsUpDown,
   InfoIcon,
+  LayoutDashboardIcon,
   Settings2Icon,
   SettingsIcon,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 
 import { SettingsDialog } from "./settings";
@@ -55,7 +57,9 @@ export function WorkspaceNavMenu() {
   >("appearance");
   const [mounted, setMounted] = useState(false);
   const { open: isSidebarOpen } = useSidebar();
+  const { user } = useAuth();
   const { t } = useI18n();
+  const isAdmin = user?.system_role === "admin";
 
   useEffect(() => {
     setMounted(true);
@@ -86,12 +90,22 @@ export function WorkspaceNavMenu() {
                 sideOffset={4}
               >
                 <DropdownMenuGroup>
-                  <DropdownMenuItem asChild>
-                    <Link href="/workspace/admin/observability">
-                      <ActivityIcon />
-                      运维监控
-                    </Link>
-                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/workspace/admin/dashboard">
+                          <LayoutDashboardIcon />
+                          看板
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/workspace/admin/observability">
+                          <ActivityIcon />
+                          运维监控
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuItem
                     onClick={() => {
                       setSettingsDefaultSection("appearance");

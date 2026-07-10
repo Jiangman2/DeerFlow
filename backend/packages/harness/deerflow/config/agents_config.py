@@ -43,8 +43,6 @@ class AgentConfig(BaseModel):
     description: str = ""
     model: str | None = None
     tool_groups: list[str] | None = None
-    use_private_knowledge: bool | None = None
-    knowledge_scope_paths: list[str] | None = None
     # skills controls which skills are loaded into the agent's prompt:
     # - None (or omitted): load all enabled skills (default fallback behavior)
     # - [] (explicit empty list): disable all skills

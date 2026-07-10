@@ -30,6 +30,7 @@ from deerflow.config.app_config import AppConfig
 from deerflow.runtime.serialization import serialize
 from deerflow.runtime.stream_bridge import StreamBridge
 from deerflow.runtime.user_context import get_effective_user_id
+from deerflow.runtime.weknora_context import reset_current_weknora_access_token, set_current_weknora_access_token
 from deerflow.tracing import inject_langfuse_metadata
 
 from .manager import RunManager, RunRecord
@@ -150,6 +151,7 @@ async def run_agent(
     llm_error_fallback_message: str | None = None
 
     journal = None
+    weknora_token_context = None
 
     # Track whether "events" was requested but skipped
     if "events" in requested_modes:
@@ -216,6 +218,9 @@ async def run_agent(
         # manually here because we drive the graph through ``agent.astream(config=...)``
         # without passing the official ``context=`` parameter.
         runtime_ctx = _build_runtime_context(thread_id, run_id, config.get("context"), ctx.app_config)
+        weknora_access_token = runtime_ctx.get("weknora_access_token")
+        if isinstance(weknora_access_token, str) and weknora_access_token.strip():
+            weknora_token_context = set_current_weknora_access_token(weknora_access_token.strip())
         # Expose the run-scoped journal under a sentinel key so middleware can
         # write audit events (e.g. SafetyFinishReasonMiddleware recording
         # suppressed tool calls). Double-underscore prefix marks it as a
@@ -395,6 +400,9 @@ async def run_agent(
         )
 
     finally:
+        if weknora_token_context is not None:
+            reset_current_weknora_access_token(weknora_token_context)
+
         # Flush any buffered journal events and persist completion data
         if journal is not None:
             try:

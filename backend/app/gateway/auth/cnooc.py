@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import time
@@ -12,7 +13,11 @@ from typing import Any
 
 import httpx
 
-APP_CODE_TTL_SECONDS = 10 * 60
+# Match the original frontend SSO implementation. The data-lake appCode is
+# long-lived enough to reuse, but stale appCodes are cleared and retried once
+# by check_cnooc_token.
+APP_CODE_TTL_SECONDS = 110 * 60
+logger = logging.getLogger(__name__)
 
 
 class CnoocAuthError(Exception):
@@ -90,7 +95,13 @@ def _query_payload(key: str, token: str) -> str:
 
 def _api_success(payload: dict[str, Any], label: str, status_code: int = 502) -> None:
     if payload.get("code") != 200:
-        raise CnoocAuthError(f"{label} failed", status_code)
+        code = payload.get("code")
+        msg = payload.get("msg") or payload.get("message")
+        logger.warning("%s failed: code=%r msg=%r", label, code, msg)
+        detail = f"{label} failed"
+        if code is not None or msg:
+            detail = f"{detail}: code={code!r} msg={str(msg)[:200]!r}"
+        raise CnoocAuthError(detail, status_code)
 
 
 async def _read_json(response: httpx.Response, label: str) -> dict[str, Any]:

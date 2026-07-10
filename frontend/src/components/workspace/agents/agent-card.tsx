@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  ActivityIcon,
   BotIcon,
   DatabaseIcon,
+  ExternalLinkIcon,
   FileTextIcon,
   MessageSquareIcon,
   ScanTextIcon,
@@ -56,8 +58,7 @@ interface AgentCardProps {
   showUnpublish?: boolean;
 }
 
-type AgentDisplayConfig = {
-  title: string;
+type AgentVisualConfig = {
   cardClassName: string;
   accentBarClassName: string;
   avatarClassName: string;
@@ -65,9 +66,26 @@ type AgentDisplayConfig = {
   domainIcon: LucideIcon;
 };
 
-const AGENT_DISPLAY_CONFIG: Record<string, AgentDisplayConfig> = {
-  勘探开发图文智能检索工具: {
-    title: "专业文档解析专家",
+const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
+  "http://10.57.128.79:6000/": {
+    cardClassName:
+      "border-cyan-200/70 from-cyan-50/80 via-background to-blue-50/55 hover:border-cyan-400/60 hover:shadow-cyan-500/10",
+    accentBarClassName: "from-cyan-400/45 via-cyan-300/10 to-blue-400/35",
+    avatarClassName:
+      "bg-[linear-gradient(145deg,rgba(6,182,212,0.24),rgba(37,99,235,0.16))] text-cyan-800 ring-cyan-500/25",
+    avatarUrl: "/images/experts/expert-analysis.svg",
+    domainIcon: ActivityIcon,
+  },
+  "http://10.57.128.79:7860/": {
+    cardClassName:
+      "border-amber-200/70 from-amber-50/75 via-background to-orange-50/50 hover:border-amber-400/60 hover:shadow-amber-500/10",
+    accentBarClassName: "from-amber-400/45 via-amber-300/10 to-orange-400/35",
+    avatarClassName:
+      "bg-[linear-gradient(145deg,rgba(245,158,11,0.24),rgba(249,115,22,0.16))] text-amber-800 ring-amber-500/25",
+    avatarUrl: "/images/experts/expert-report.svg",
+    domainIcon: FileTextIcon,
+  },
+  "http://10.57.128.79:8100/": {
     cardClassName:
       "border-blue-200/70 from-blue-50/80 via-background to-sky-50/55 hover:border-blue-400/60 hover:shadow-blue-500/10",
     accentBarClassName: "from-blue-400/45 via-blue-300/10 to-sky-400/35",
@@ -76,19 +94,7 @@ const AGENT_DISPLAY_CONFIG: Record<string, AgentDisplayConfig> = {
     avatarUrl: "/images/experts/expert-analysis.svg",
     domainIcon: ScanTextIcon,
   },
-  油气专业文档智能审查工具: {
-    title: "专业报告校审专家",
-    cardClassName:
-      "border-emerald-200/70 from-emerald-50/75 via-background to-green-50/50 hover:border-emerald-400/60 hover:shadow-emerald-500/10",
-    accentBarClassName:
-      "from-emerald-400/45 via-emerald-300/10 to-green-400/35",
-    avatarClassName:
-      "bg-[linear-gradient(145deg,rgba(16,185,129,0.25),rgba(34,197,94,0.16))] text-emerald-800 ring-emerald-500/25",
-    avatarUrl: "/images/experts/expert-review.svg",
-    domainIcon: ShieldIcon,
-  },
-  源头采集自动化工具: {
-    title: "自动数采专家",
+  "http://10.57.128.79:5000/": {
     cardClassName:
       "border-violet-200/70 from-violet-50/75 via-background to-fuchsia-50/45 hover:border-violet-400/60 hover:shadow-violet-500/10",
     accentBarClassName:
@@ -98,15 +104,15 @@ const AGENT_DISPLAY_CONFIG: Record<string, AgentDisplayConfig> = {
     avatarUrl: "/images/experts/expert-data.svg",
     domainIcon: DatabaseIcon,
   },
-  科研报告自动生产智能体: {
-    title: "前期研究报告编写专家",
+  "http://10.57.128.79:5001/": {
     cardClassName:
-      "border-amber-200/70 from-amber-50/75 via-background to-orange-50/50 hover:border-amber-400/60 hover:shadow-amber-500/10",
-    accentBarClassName: "from-amber-400/45 via-amber-300/10 to-orange-400/35",
+      "border-emerald-200/70 from-emerald-50/75 via-background to-green-50/50 hover:border-emerald-400/60 hover:shadow-emerald-500/10",
+    accentBarClassName:
+      "from-emerald-400/45 via-emerald-300/10 to-green-400/35",
     avatarClassName:
-      "bg-[linear-gradient(145deg,rgba(245,158,11,0.24),rgba(249,115,22,0.16))] text-amber-800 ring-amber-500/25",
-    avatarUrl: "/images/experts/expert-report.svg",
-    domainIcon: FileTextIcon,
+      "bg-[linear-gradient(145deg,rgba(16,185,129,0.25),rgba(34,197,94,0.16))] text-emerald-800 ring-emerald-500/25",
+    avatarUrl: "/images/experts/expert-review.svg",
+    domainIcon: ShieldIcon,
   },
 };
 
@@ -175,12 +181,17 @@ export function AgentCard({
   const unpublishTeamAgent = useUnpublishTeamAgent();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [unpublishOpen, setUnpublishOpen] = useState(false);
-  const displayConfig = AGENT_DISPLAY_CONFIG[agent.name];
-  const displayName = displayConfig?.title ?? agent.name;
+  const externalUrl = agent.external_url?.trim();
+  const isExternalAgent = Boolean(externalUrl);
+  const displayConfig = externalUrl
+    ? EXTERNAL_AGENT_VISUAL_CONFIG[externalUrl]
+    : undefined;
   const DomainIcon = displayConfig?.domainIcon;
 
   function handleChat() {
-    router.push(`/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`);
+    router.push(
+      `/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`,
+    );
   }
 
   async function handleDelete() {
@@ -239,11 +250,11 @@ export function AgentCard({
                     "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 transition-transform duration-300 group-hover:scale-105",
                     displayConfig.avatarClassName,
                   )}
-                  aria-label={displayName}
+                  aria-label={agent.name}
                 >
                   <img
                     src={displayConfig.avatarUrl}
-                    alt={displayName}
+                    alt={agent.name}
                     className="h-7 w-7 rounded-full border border-white/70 object-cover shadow-sm"
                     loading="lazy"
                     onError={(e) => {
@@ -262,23 +273,23 @@ export function AgentCard({
                   )}
                 </div>
               ) : (
-                <div className="bg-primary/12 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ring-primary/15 transition-transform duration-300 group-hover:scale-105">
+                <div className="bg-primary/12 text-primary ring-primary/15 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 transition-transform duration-300 group-hover:scale-105">
                   <BotIcon className="h-5 w-5" />
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <TruncatedTooltip text={displayName}>
-                  <CardTitle className="truncate whitespace-nowrap text-sm leading-6 tracking-tight sm:text-base">
-                    {displayName}
+                <TruncatedTooltip text={agent.name}>
+                  <CardTitle
+                    className={cn(
+                      "text-sm leading-6 tracking-tight sm:text-base",
+                      isExternalAgent
+                        ? "line-clamp-2 break-words whitespace-normal"
+                        : "truncate whitespace-nowrap",
+                    )}
+                  >
+                    {agent.name}
                   </CardTitle>
                 </TruncatedTooltip>
-                {displayConfig && (
-                  <TruncatedTooltip text={agent.name}>
-                    <p className="text-muted-foreground truncate text-xs">
-                      {agent.name}
-                    </p>
-                  </TruncatedTooltip>
-                )}
                 {agent.model && (
                   <TruncatedBadge
                     label={agent.model}
@@ -291,7 +302,7 @@ export function AgentCard({
           </div>
           {agent.description && (
             <TruncatedTooltip text={agent.description}>
-              <CardDescription className="text-muted-foreground/90 mt-2 line-clamp-2 break-all text-sm leading-relaxed">
+              <CardDescription className="text-muted-foreground/90 mt-2 line-clamp-2 text-sm leading-relaxed break-all">
                 {agent.description}
               </CardDescription>
             </TruncatedTooltip>
@@ -322,21 +333,34 @@ export function AgentCard({
         )}
 
         <CardFooter className="mt-auto flex items-center justify-between gap-2 border-t pt-3">
-          <Button
-            size="sm"
-            className="flex-1 rounded-lg shadow-sm transition-all duration-300 group-hover:shadow"
-            onClick={handleChat}
-          >
-            <MessageSquareIcon className="mr-1.5 h-3.5 w-3.5" />
-            {t.agents.chat}
-          </Button>
+          {externalUrl ? (
+            <Button
+              asChild
+              size="sm"
+              className="flex-1 rounded-lg shadow-sm transition-all duration-300 group-hover:shadow"
+            >
+              <a href={externalUrl} target="_blank" rel="noreferrer">
+                <ExternalLinkIcon className="mr-1.5 h-3.5 w-3.5" />
+                {t.agents.openExternal}
+              </a>
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="flex-1 rounded-lg shadow-sm transition-all duration-300 group-hover:shadow"
+              onClick={handleChat}
+            >
+              <MessageSquareIcon className="mr-1.5 h-3.5 w-3.5" />
+              {t.agents.chat}
+            </Button>
+          )}
           {(showPublish || showUnpublish || showDelete) && (
             <div className="flex gap-1">
               {showPublish && (
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="text-primary hover:text-primary h-8 w-8 shrink-0 rounded-lg transition-colors hover:bg-primary/10"
+                  className="text-primary hover:text-primary hover:bg-primary/10 h-8 w-8 shrink-0 rounded-lg transition-colors"
                   onClick={() => void handlePublish()}
                   disabled={publishAgent.isPending}
                   title={t.agents.publishToSquare}
@@ -348,7 +372,7 @@ export function AgentCard({
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 rounded-lg transition-colors hover:bg-muted"
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted h-8 w-8 shrink-0 rounded-lg transition-colors"
                   onClick={() => setUnpublishOpen(true)}
                   disabled={unpublishTeamAgent.isPending}
                   title={t.agents.unpublishFromSquare}
@@ -401,9 +425,7 @@ export function AgentCard({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t.agents.unpublishFromSquare}</DialogTitle>
-            <DialogDescription>
-              {t.agents.unpublishConfirm}
-            </DialogDescription>
+            <DialogDescription>{t.agents.unpublishConfirm}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button

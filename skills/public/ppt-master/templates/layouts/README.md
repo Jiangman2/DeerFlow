@@ -258,4 +258,4 @@ cp templates/layouts/government_red/* projects/<project>/templates/
 | `<g opacity="...">` | Set opacity on each child element individually |
 
 ---
-| `haiyou` | Government/Enterprise | CNOOC clean-style reports, project initiation, architecture briefings | CNOOC Blue `#0060A6` + Red `#DE002B` | Pure clean style, light visuals, executive-ready |
+| `haiyou_pure_svg` | Government/Enterprise | CNOOC clean-style reports, project initiation, architecture briefings; matches the "海油" keyword in `layouts_index.json` | CNOOC Blue `#0060A6` + Red `#DE002B` | Pure clean style, light visuals, executive-ready |

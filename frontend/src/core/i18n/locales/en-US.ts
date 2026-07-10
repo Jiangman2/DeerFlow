@@ -143,17 +143,6 @@ export const enUS: Translations = {
     reasoningEffortHigh: "High",
     reasoningEffortHighDescription:
       "Full-dimensional Logic Deduction + Multi-path Verification + Backward Check",
-    privateKnowledge: "Knowledge",
-    privateKnowledgeOnDescription:
-      "This turn will automatically search your private knowledge base",
-    privateKnowledgeOffDescription:
-      "This turn will not automatically search your private knowledge base",
-    privateKnowledgeScope: "Knowledge scope",
-    privateKnowledgeScopeAll: "All knowledge",
-    privateKnowledgeScopeSelected: (count: number) => `${count} scopes selected`,
-    privateKnowledgeScopeDescription:
-      "Limit this task to selected private knowledge folders or files",
-    privateKnowledgeScopeEmpty: "No knowledge files yet",
     searchModels: "Search models...",
     surpriseMe: "Surprise",
     surpriseMePrompt: "Surprise me",
@@ -241,6 +230,7 @@ export const enUS: Translations = {
     apiDisabledDescription:
       "Set agents_api.enabled=true in the backend configuration, then restart the backend service.",
     chat: "Chat",
+    openExternal: "Open tool",
     delete: "Delete",
     deleteConfirm:
       "Are you sure you want to delete this agent? This action cannot be undone.",

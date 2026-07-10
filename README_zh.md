@@ -1,264 +1,217 @@
-# 🦌 DeerFlow - 2.0
+﻿# 馃 DeerFlow - 2.0
 
-[English](./README.md) | 中文 | [日本語](./README_ja.md) | [Français](./README_fr.md) | [Русский](./README_ru.md)
+[English](./README.md) | 涓枃 | [鏃ユ湰瑾瀅(./README_ja.md) | [Fran莽ais](./README_fr.md) | [袪褍褋褋泻懈泄](./README_ru.md)
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](./backend/pyproject.toml)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white)](./Makefile)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 <a href="https://trendshift.io/repositories/14699" target="_blank"><img src="https://trendshift.io/api/badge/repositories/14699" alt="bytedance%2Fdeer-flow | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-> 2026 年 2 月 28 日，DeerFlow 2 发布后登上 GitHub Trending 第 1 名。非常感谢社区的支持，这是大家一起做到的。
-
-DeerFlow（**D**eep **E**xploration and **E**fficient **R**esearch **Flow**）是一个开源的 **super agent harness**。它把 **sub-agents**、**memory** 和 **sandbox** 组织在一起，再配合可扩展的 **skills**，让 agent 可以完成几乎任何事情。
-
+> 2026 骞?2 鏈?28 鏃ワ紝DeerFlow 2 鍙戝竷鍚庣櫥涓?GitHub Trending 绗?1 鍚嶃€傞潪甯告劅璋㈢ぞ鍖虹殑鏀寔锛岃繖鏄ぇ瀹朵竴璧峰仛鍒扮殑銆?
+DeerFlow锛?*D**eep **E**xploration and **E**fficient **R**esearch **Flow**锛夋槸涓€涓紑婧愮殑 **super agent harness**銆傚畠鎶?**sub-agents**銆?*memory** 鍜?**sandbox** 缁勭粐鍦ㄤ竴璧凤紝鍐嶉厤鍚堝彲鎵╁睍鐨?**skills**锛岃 agent 鍙互瀹屾垚鍑犱箮浠讳綍浜嬫儏銆?
 https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18
 
 > [!NOTE]
-> **DeerFlow 2.0 是一次彻底重写。** 它和 v1 没有共用代码。如果你要找的是最初的 Deep Research 框架，可以前往 [`1.x` 分支](https://github.com/bytedance/deer-flow/tree/main-1.x)。那里仍然欢迎贡献；当前的主要开发已经转向 2.0。
+> **DeerFlow 2.0 鏄竴娆″交搴曢噸鍐欍€?* 瀹冨拰 v1 娌℃湁鍏辩敤浠ｇ爜銆傚鏋滀綘瑕佹壘鐨勬槸鏈€鍒濈殑 Deep Research 妗嗘灦锛屽彲浠ュ墠寰€ [`1.x` 鍒嗘敮](https://github.com/bytedance/deer-flow/tree/main-1.x)銆傞偅閲屼粛鐒舵杩庤础鐚紱褰撳墠鐨勪富瑕佸紑鍙戝凡缁忚浆鍚?2.0銆?
+## 瀹樼綉
 
-## 官网
+鎯充簡瑙ｆ洿澶氾紝鎴栬€呯洿鎺ョ湅**鐪熷疄婕旂ず**锛屽彲浠ヨ闂甗**瀹樼綉**](https://deerflow.tech)銆?
+## 瀛楄妭璺冲姩鐏北寮曟搸鏂硅垷 Coding Plan
 
-想了解更多，或者直接看**真实演示**，可以访问[**官网**](https://deerflow.tech)。
+- 鎴戜滑鎺ㄨ崘浣跨敤 Doubao-Seed-2.0-Code銆丏eepSeek v3.2 鍜?Kimi 2.5 杩愯 DeerFlow
+- [鐜板湪灏卞姞鍏?Coding Plan](https://www.volcengine.com/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
+- [娴峰鍦板尯鐨勫紑鍙戣€呰鐐瑰嚮杩欓噷](https://www.byteplus.com/en/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
 
-## 字节跳动火山引擎方舟 Coding Plan
+## 鐩綍
 
-- 我们推荐使用 Doubao-Seed-2.0-Code、DeepSeek v3.2 和 Kimi 2.5 运行 DeerFlow
-- [现在就加入 Coding Plan](https://www.volcengine.com/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
-- [海外地区的开发者请点击这里](https://www.byteplus.com/en/activity/codingplan?utm_campaign=deer_flow&utm_content=deer_flow&utm_medium=devrel&utm_source=OWO&utm_term=deer_flow)
-
-## 目录
-
-- [🦌 DeerFlow - 2.0](#-deerflow---20)
-  - [官网](#官网)
+- [馃 DeerFlow - 2.0](#-deerflow---20)
+  - [瀹樼綉](#瀹樼綉)
   - [InfoQuest](#infoquest)
-  - [目录](#目录)
-  - [一句话交给 Coding Agent 安装](#一句话交给-coding-agent-安装)
-  - [快速开始](#快速开始)
-    - [配置](#配置)
-    - [运行应用](#运行应用)
-      - [部署建议与资源规划](#部署建议与资源规划)
-      - [方式一：Docker（推荐）](#方式一docker推荐)
-      - [方式二：本地开发](#方式二本地开发)
-    - [进阶配置](#进阶配置)
-      - [Sandbox 模式](#sandbox-模式)
+  - [鐩綍](#鐩綍)
+  - [涓€鍙ヨ瘽浜ょ粰 Coding Agent 瀹夎](#涓€鍙ヨ瘽浜ょ粰-coding-agent-瀹夎)
+  - [蹇€熷紑濮媇(#蹇€熷紑濮?
+    - [閰嶇疆](#閰嶇疆)
+    - [杩愯搴旂敤](#杩愯搴旂敤)
+      - [閮ㄧ讲寤鸿涓庤祫婧愯鍒抅(#閮ㄧ讲寤鸿涓庤祫婧愯鍒?
+      - [鏂瑰紡涓€锛欴ocker锛堟帹鑽愶級](#鏂瑰紡涓€docker鎺ㄨ崘)
+      - [鏂瑰紡浜岋細鏈湴寮€鍙慮(#鏂瑰紡浜屾湰鍦板紑鍙?
+    - [杩涢樁閰嶇疆](#杩涢樁閰嶇疆)
+      - [Sandbox 妯″紡](#sandbox-妯″紡)
       - [MCP Server](#mcp-server)
-      - [IM 渠道](#im-渠道)
-      - [LangSmith 链路追踪](#langsmith-链路追踪)
-  - [从 Deep Research 到 Super Agent Harness](#从-deep-research-到-super-agent-harness)
-  - [核心特性](#核心特性)
-    - [Skills 与 Tools](#skills-与-tools)
-      - [Claude Code 集成](#claude-code-集成)
+      - [IM 娓犻亾](#im-娓犻亾)
+      - [LangSmith 閾捐矾杩借釜](#langsmith-閾捐矾杩借釜)
+  - [浠?Deep Research 鍒?Super Agent Harness](#浠?deep-research-鍒?super-agent-harness)
+  - [鏍稿績鐗规€(#鏍稿績鐗规€?
+    - [Skills 涓?Tools](#skills-涓?tools)
+      - [Claude Code 闆嗘垚](#claude-code-闆嗘垚)
     - [Sub-Agents](#sub-agents)
-    - [Sandbox 与文件系统](#sandbox-与文件系统)
+    - [Sandbox 涓庢枃浠剁郴缁焆(#sandbox-涓庢枃浠剁郴缁?
     - [Context Engineering](#context-engineering)
-    - [长期记忆](#长期记忆)
-  - [推荐模型](#推荐模型)
-  - [内嵌 Python Client](#内嵌-python-client)
-  - [终端工作台 (TUI)](#终端工作台-tui)
-  - [文档](#文档)
-  - [⚠️ 安全使用](#️-安全使用)
-  - [参与贡献](#参与贡献)
-  - [许可证](#许可证)
-  - [致谢](#致谢)
-    - [核心贡献者](#核心贡献者)
+    - [闀挎湡璁板繂](#闀挎湡璁板繂)
+  - [鎺ㄨ崘妯″瀷](#鎺ㄨ崘妯″瀷)
+  - [鍐呭祵 Python Client](#鍐呭祵-python-client)
+  - [缁堢宸ヤ綔鍙?(TUI)](#缁堢宸ヤ綔鍙?tui)
+  - [鏂囨。](#鏂囨。)
+  - [鈿狅笍 瀹夊叏浣跨敤](#锔?瀹夊叏浣跨敤)
+  - [鍙備笌璐＄尞](#鍙備笌璐＄尞)
+  - [璁稿彲璇乚(#璁稿彲璇?
+  - [鑷磋阿](#鑷磋阿)
+    - [鏍稿績璐＄尞鑰匽(#鏍稿績璐＄尞鑰?
   - [Star History](#star-history)
 
-## 一句话交给 Coding Agent 安装
+## 涓€鍙ヨ瘽浜ょ粰 Coding Agent 瀹夎
 
-如果你在用 Claude Code、Codex、Cursor、Windsurf 或其他 coding agent，可以直接把下面这句话发给它：
-
+濡傛灉浣犲湪鐢?Claude Code銆丆odex銆丆ursor銆乄indsurf 鎴栧叾浠?coding agent锛屽彲浠ョ洿鎺ユ妸涓嬮潰杩欏彞璇濆彂缁欏畠锛?
 ```text
-如果还没 clone DeerFlow，就先 clone，然后按照 https://raw.githubusercontent.com/bytedance/deer-flow/main/Install.md 把它的本地开发环境初始化好
-```
+濡傛灉杩樻病 clone DeerFlow锛屽氨鍏?clone锛岀劧鍚庢寜鐓?https://raw.githubusercontent.com/bytedance/deer-flow/main/Install.md 鎶婂畠鐨勬湰鍦板紑鍙戠幆澧冨垵濮嬪寲濂?```
 
-这条提示词是给 coding agent 用的。它会在需要时先 clone 仓库，优先选择 Docker，完成初始化，并在结束时告诉你下一条启动命令，以及还缺哪些配置需要你补充。
+杩欐潯鎻愮ず璇嶆槸缁?coding agent 鐢ㄧ殑銆傚畠浼氬湪闇€瑕佹椂鍏?clone 浠撳簱锛屼紭鍏堥€夋嫨 Docker锛屽畬鎴愬垵濮嬪寲锛屽苟鍦ㄧ粨鏉熸椂鍛婅瘔浣犱笅涓€鏉″惎鍔ㄥ懡浠わ紝浠ュ強杩樼己鍝簺閰嶇疆闇€瑕佷綘琛ュ厖銆?
+## 蹇€熷紑濮?
+### 閰嶇疆
 
-## 快速开始
-
-### 配置
-
-1. **克隆 DeerFlow 仓库**
+1. **鍏嬮殕 DeerFlow 浠撳簱**
 
    ```bash
    git clone https://github.com/bytedance/deer-flow.git
    cd deer-flow
    ```
 
-2. **生成本地配置文件**
+2. **鐢熸垚鏈湴閰嶇疆鏂囦欢**
 
-   在项目根目录（`deer-flow/`）执行：
+   鍦ㄩ」鐩牴鐩綍锛坄deer-flow/`锛夋墽琛岋細
 
    ```bash
    make config
    ```
 
-   这个命令会基于示例模板生成本地配置文件。
+   杩欎釜鍛戒护浼氬熀浜庣ず渚嬫ā鏉跨敓鎴愭湰鍦伴厤缃枃浠躲€?
+3. **閰嶇疆浣犺浣跨敤鐨勬ā鍨?*
 
-3. **配置你要使用的模型**
-
-   编辑 `config.yaml`，至少定义一个模型：
+   缂栬緫 `config.yaml`锛岃嚦灏戝畾涔変竴涓ā鍨嬶細
 
    ```yaml
    models:
-     - name: gpt-4                       # 内部标识
-       display_name: GPT-4               # 展示名称
-       use: langchain_openai:ChatOpenAI  # LangChain 类路径
-       model: gpt-4                      # API 使用的模型标识
-       api_key: $OPENAI_API_KEY          # API key（推荐使用环境变量）
-       max_tokens: 4096                  # 单次请求最大 tokens
-       temperature: 0.7                  # 采样温度
+     - name: gpt-4                       # 鍐呴儴鏍囪瘑
+       display_name: GPT-4               # 灞曠ず鍚嶇О
+       use: langchain_openai:ChatOpenAI  # LangChain 绫昏矾寰?       model: gpt-4                      # API 浣跨敤鐨勬ā鍨嬫爣璇?       api_key: $OPENAI_API_KEY          # API key锛堟帹鑽愪娇鐢ㄧ幆澧冨彉閲忥級
+       max_tokens: 4096                  # 鍗曟璇锋眰鏈€澶?tokens
+       temperature: 0.7                  # 閲囨牱娓╁害
 
      - name: openrouter-gemini-2.5-flash
        display_name: Gemini 2.5 Flash (OpenRouter)
        use: langchain_openai:ChatOpenAI
        model: google/gemini-2.5-flash-preview
-       api_key: $OPENAI_API_KEY          # 这里 OpenRouter 依然沿用 OpenAI 兼容字段名
-       base_url: https://openrouter.ai/api/v1
+       api_key: $OPENAI_API_KEY          # 杩欓噷 OpenRouter 渚濈劧娌跨敤 OpenAI 鍏煎瀛楁鍚?       base_url: https://openrouter.ai/api/v1
    ```
 
-   OpenRouter 以及类似的 OpenAI 兼容网关，建议通过 `langchain_openai:ChatOpenAI` 配合 `base_url` 来配置。如果你更想用 provider 自己的环境变量名，也可以直接把 `api_key` 指向对应变量，例如 `api_key: $OPENROUTER_API_KEY`。
+   OpenRouter 浠ュ強绫讳技鐨?OpenAI 鍏煎缃戝叧锛屽缓璁€氳繃 `langchain_openai:ChatOpenAI` 閰嶅悎 `base_url` 鏉ラ厤缃€傚鏋滀綘鏇存兂鐢?provider 鑷繁鐨勭幆澧冨彉閲忓悕锛屼篃鍙互鐩存帴鎶?`api_key` 鎸囧悜瀵瑰簲鍙橀噺锛屼緥濡?`api_key: $OPENROUTER_API_KEY`銆?
+4. **涓哄凡閰嶇疆鐨勬ā鍨嬭缃?API key**
 
-4. **为已配置的模型设置 API key**
+   鍙换閫変互涓嬩竴绉嶆柟寮忥細
 
-   可任选以下一种方式：
-
-- 方式 A：编辑项目根目录下的 `.env` 文件（推荐）
+- 鏂瑰紡 A锛氱紪杈戦」鐩牴鐩綍涓嬬殑 `.env` 鏂囦欢锛堟帹鑽愶級
 
    ```bash
    TAVILY_API_KEY=your-tavily-api-key
    OPENAI_API_KEY=your-openai-api-key
-   # 如果配置使用的是 langchain_openai:ChatOpenAI + base_url，OpenRouter 也会读取 OPENAI_API_KEY
-   # 其他 provider 的 key 按需补充
+   # 濡傛灉閰嶇疆浣跨敤鐨勬槸 langchain_openai:ChatOpenAI + base_url锛孫penRouter 涔熶細璇诲彇 OPENAI_API_KEY
+   # 鍏朵粬 provider 鐨?key 鎸夐渶琛ュ厖
    INFOQUEST_API_KEY=your-infoquest-api-key
    ```
 
-- 方式 B：在 shell 中导出环境变量
-
+- 鏂瑰紡 B锛氬湪 shell 涓鍑虹幆澧冨彉閲?
    ```bash
    export OPENAI_API_KEY=your-openai-api-key
    ```
 
-- 方式 C：直接编辑 `config.yaml`（不建议用于生产环境）
-
+- 鏂瑰紡 C锛氱洿鎺ョ紪杈?`config.yaml`锛堜笉寤鸿鐢ㄤ簬鐢熶骇鐜锛?
    ```yaml
    models:
      - name: gpt-4
-       api_key: your-actual-api-key-here  # 替换为真实 key
+       api_key: your-actual-api-key-here  # 鏇挎崲涓虹湡瀹?key
    ```
 
-### 运行应用
+### 杩愯搴旂敤
 
-#### 部署建议与资源规划
+#### 閮ㄧ讲寤鸿涓庤祫婧愯鍒?
+鍙互鍏堟寜涓嬮潰鐨勮祫婧愭。浣嶆潵閫夋嫨 DeerFlow 鐨勮繍琛屾柟寮忥細
 
-可以先按下面的资源档位来选择 DeerFlow 的运行方式：
-
-| 部署场景 | 起步配置 | 推荐配置 | 说明 |
+| 閮ㄧ讲鍦烘櫙 | 璧锋閰嶇疆 | 鎺ㄨ崘閰嶇疆 | 璇存槑 |
 |---------|-----------|------------|-------|
-| 本地体验 / `make dev` | 4 vCPU、8 GB 内存、20 GB SSD 可用空间 | 8 vCPU、16 GB 内存 | 适合单个开发者或单个轻量会话，且模型走外部 API。`2 核 / 4 GB` 通常跑不稳。 |
-| Docker 开发 / `make docker-start` | 4 vCPU、8 GB 内存、25 GB SSD 可用空间 | 8 vCPU、16 GB 内存 | 镜像构建、源码挂载和 sandbox 容器都会比纯本地模式更吃资源。 |
-| 长期运行服务 / `make up` | 8 vCPU、16 GB 内存、40 GB SSD 可用空间 | 16 vCPU、32 GB 内存 | 更适合共享环境、多 agent 任务、报告生成或更重的 sandbox 负载。 |
+| 鏈湴浣撻獙 / `make dev` | 4 vCPU銆? GB 鍐呭瓨銆?0 GB SSD 鍙敤绌洪棿 | 8 vCPU銆?6 GB 鍐呭瓨 | 閫傚悎鍗曚釜寮€鍙戣€呮垨鍗曚釜杞婚噺浼氳瘽锛屼笖妯″瀷璧板閮?API銆俙2 鏍?/ 4 GB` 閫氬父璺戜笉绋炽€?|
+| Docker 寮€鍙?/ `make docker-start` | 4 vCPU銆? GB 鍐呭瓨銆?5 GB SSD 鍙敤绌洪棿 | 8 vCPU銆?6 GB 鍐呭瓨 | 闀滃儚鏋勫缓銆佹簮鐮佹寕杞藉拰 sandbox 瀹瑰櫒閮戒細姣旂函鏈湴妯″紡鏇村悆璧勬簮銆?|
+| 闀挎湡杩愯鏈嶅姟 / `make up` | 8 vCPU銆?6 GB 鍐呭瓨銆?0 GB SSD 鍙敤绌洪棿 | 16 vCPU銆?2 GB 鍐呭瓨 | 鏇撮€傚悎鍏变韩鐜銆佸 agent 浠诲姟銆佹姤鍛婄敓鎴愭垨鏇撮噸鐨?sandbox 璐熻浇銆?|
 
-- 上面的配置只覆盖 DeerFlow 本身；如果你还要本机部署本地大模型，请单独为模型服务预留资源。
-- 持续运行的服务更推荐使用 Linux + Docker。macOS 和 Windows 更适合作为开发机或体验环境。
-- 如果 CPU 或内存长期打满，先降低并发会话或重任务数量，再考虑升级到更高一档配置。
+- 涓婇潰鐨勯厤缃彧瑕嗙洊 DeerFlow 鏈韩锛涘鏋滀綘杩樿鏈満閮ㄧ讲鏈湴澶фā鍨嬶紝璇峰崟鐙负妯″瀷鏈嶅姟棰勭暀璧勬簮銆?- 鎸佺画杩愯鐨勬湇鍔℃洿鎺ㄨ崘浣跨敤 Linux + Docker銆俶acOS 鍜?Windows 鏇撮€傚悎浣滀负寮€鍙戞満鎴栦綋楠岀幆澧冦€?- 濡傛灉 CPU 鎴栧唴瀛橀暱鏈熸墦婊★紝鍏堥檷浣庡苟鍙戜細璇濇垨閲嶄换鍔℃暟閲忥紝鍐嶈€冭檻鍗囩骇鍒版洿楂樹竴妗ｉ厤缃€?
+#### 鏂瑰紡涓€锛欴ocker锛堟帹鑽愶級
 
-#### 方式一：Docker（推荐）
-
-**开发模式**（支持热更新，挂载源码）：
-
+**寮€鍙戞ā寮?*锛堟敮鎸佺儹鏇存柊锛屾寕杞芥簮鐮侊級锛?
 ```bash
-make docker-init    # 拉取 sandbox 镜像（首次运行或镜像更新时执行）
-make docker-start   # 启动服务（会根据 config.yaml 自动判断 sandbox 模式）
-```
+make docker-init    # 鎷夊彇 sandbox 闀滃儚锛堥娆¤繍琛屾垨闀滃儚鏇存柊鏃舵墽琛岋級
+make docker-start   # 鍚姩鏈嶅姟锛堜細鏍规嵁 config.yaml 鑷姩鍒ゆ柇 sandbox 妯″紡锛?```
 
-如果 `config.yaml` 使用的是 provisioner 模式（`sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider` 且配置了 `provisioner_url`），`make docker-start` 才会启动 `provisioner`。
-
-**生产模式**（本地构建镜像，并挂载运行期配置与数据）：
-
+濡傛灉 `config.yaml` 浣跨敤鐨勬槸 provisioner 妯″紡锛坄sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider` 涓旈厤缃簡 `provisioner_url`锛夛紝`make docker-start` 鎵嶄細鍚姩 `provisioner`銆?
+**鐢熶骇妯″紡**锛堟湰鍦版瀯寤洪暅鍍忥紝骞舵寕杞借繍琛屾湡閰嶇疆涓庢暟鎹級锛?
 ```bash
-make up     # 构建镜像并启动全部生产服务
-make down   # 停止并移除容器
-```
+make up     # 鏋勫缓闀滃儚骞跺惎鍔ㄥ叏閮ㄧ敓浜ф湇鍔?make down   # 鍋滄骞剁Щ闄ゅ鍣?```
 
 > [!NOTE]
-> 当前 Agent 运行时嵌入在 Gateway 中运行，`/api/langgraph/*` 会由 nginx 重写到 Gateway 的 LangGraph-compatible API。
+> 褰撳墠 Agent 杩愯鏃跺祵鍏ュ湪 Gateway 涓繍琛岋紝`/api/langgraph/*` 浼氱敱 nginx 閲嶅啓鍒?Gateway 鐨?LangGraph-compatible API銆?
+璁块棶鍦板潃锛歨ttp://localhost:2026
 
-访问地址：http://localhost:2026
+鏇村畬鏁寸殑 Docker 寮€鍙戣鏄庤 [CONTRIBUTING.md](CONTRIBUTING.md)銆?
+#### 鏂瑰紡浜岋細鏈湴寮€鍙?
+濡傛灉浣犳洿甯屾湜鐩存帴鍦ㄦ湰鍦板惎鍔ㄥ悇涓湇鍔★細
 
-更完整的 Docker 开发说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-#### 方式二：本地开发
-
-如果你更希望直接在本地启动各个服务：
-
-前提：先完成上面的“配置”步骤（`make config` 和模型 API key 配置）。`make dev` 需要有效配置文件，默认读取项目根目录下的 `config.yaml`。可以用 `DEER_FLOW_PROJECT_ROOT` 显式指定项目根目录，也可以用 `DEER_FLOW_CONFIG_PATH` 指向某个具体配置文件。运行期状态默认写到项目根目录下的 `.deer-flow`，可用 `DEER_FLOW_HOME` 覆盖；skills 默认读取项目根目录下的 `skills/`，可用 `DEER_FLOW_SKILLS_PATH` 覆盖。
-在 Windows 上，请使用 Git Bash 运行本地开发流程。基于 bash 的服务脚本不支持直接在原生 `cmd.exe` 或 PowerShell 中执行，且 WSL 也不保证可用，因为部分脚本依赖 Git for Windows 的 `cygpath` 等工具。
-
-1. **检查依赖环境**：
-   ```bash
-   make check  # 校验 Node.js 22+、pnpm、uv、nginx
+鍓嶆彁锛氬厛瀹屾垚涓婇潰鐨勨€滈厤缃€濇楠わ紙`make config` 鍜屾ā鍨?API key 閰嶇疆锛夈€俙make dev` 闇€瑕佹湁鏁堥厤缃枃浠讹紝榛樿璇诲彇椤圭洰鏍圭洰褰曚笅鐨?`config.yaml`銆傚彲浠ョ敤 `DEER_FLOW_PROJECT_ROOT` 鏄惧紡鎸囧畾椤圭洰鏍圭洰褰曪紝涔熷彲浠ョ敤 `DEER_FLOW_CONFIG_PATH` 鎸囧悜鏌愪釜鍏蜂綋閰嶇疆鏂囦欢銆傝繍琛屾湡鐘舵€侀粯璁ゅ啓鍒伴」鐩牴鐩綍涓嬬殑 `.deer-flow`锛屽彲鐢?`DEER_FLOW_HOME` 瑕嗙洊锛泂kills 榛樿璇诲彇椤圭洰鏍圭洰褰曚笅鐨?`skills/`锛屽彲鐢?`DEER_FLOW_SKILLS_PATH` 瑕嗙洊銆?鍦?Windows 涓婏紝璇蜂娇鐢?Git Bash 杩愯鏈湴寮€鍙戞祦绋嬨€傚熀浜?bash 鐨勬湇鍔¤剼鏈笉鏀寔鐩存帴鍦ㄥ師鐢?`cmd.exe` 鎴?PowerShell 涓墽琛岋紝涓?WSL 涔熶笉淇濊瘉鍙敤锛屽洜涓洪儴鍒嗚剼鏈緷璧?Git for Windows 鐨?`cygpath` 绛夊伐鍏枫€?
+1. **妫€鏌ヤ緷璧栫幆澧?*锛?   ```bash
+   make check  # 鏍￠獙 Node.js 22+銆乸npm銆乽v銆乶ginx
    ```
 
-2. **安装依赖**：
-   ```bash
-   make install  # 安装 backend + frontend 依赖
+2. **瀹夎渚濊禆**锛?   ```bash
+   make install  # 瀹夎 backend + frontend 渚濊禆
    ```
 
-3. **（可选）预拉取 sandbox 镜像**：
-   ```bash
-   # 如果使用 Docker / Container sandbox，建议先执行
+3. **锛堝彲閫夛級棰勬媺鍙?sandbox 闀滃儚**锛?   ```bash
+   # 濡傛灉浣跨敤 Docker / Container sandbox锛屽缓璁厛鎵ц
    make setup-sandbox
    ```
 
-4. **启动服务**：
-   ```bash
+4. **鍚姩鏈嶅姟**锛?   ```bash
    make dev
    ```
 
-5. **访问地址**：http://localhost:2026
+5. **璁块棶鍦板潃**锛歨ttp://localhost:2026
 
-### 进阶配置
-#### Sandbox 模式
+### 杩涢樁閰嶇疆
+#### Sandbox 妯″紡
 
-DeerFlow 支持多种 sandbox 执行方式：
-- **本地执行**（直接在宿主机上运行 sandbox 代码）
-- **Docker 执行**（在隔离的 Docker 容器里运行 sandbox 代码）
-- **Docker + Kubernetes 执行**（通过 provisioner 服务在 Kubernetes Pod 中运行 sandbox 代码）
-
-Docker 开发时，服务启动行为会遵循 `config.yaml` 里的 sandbox 模式。在 Local / Docker 模式下，不会启动 `provisioner`。
-
-如果要配置你自己的模式，参见 [Sandbox 配置指南](backend/docs/CONFIGURATION.md#sandbox)。
-
+DeerFlow 鏀寔澶氱 sandbox 鎵ц鏂瑰紡锛?- **鏈湴鎵ц**锛堢洿鎺ュ湪瀹夸富鏈轰笂杩愯 sandbox 浠ｇ爜锛?- **Docker 鎵ц**锛堝湪闅旂鐨?Docker 瀹瑰櫒閲岃繍琛?sandbox 浠ｇ爜锛?- **Docker + Kubernetes 鎵ц**锛堥€氳繃 provisioner 鏈嶅姟鍦?Kubernetes Pod 涓繍琛?sandbox 浠ｇ爜锛?
+Docker 寮€鍙戞椂锛屾湇鍔″惎鍔ㄨ涓轰細閬靛惊 `config.yaml` 閲岀殑 sandbox 妯″紡銆傚湪 Local / Docker 妯″紡涓嬶紝涓嶄細鍚姩 `provisioner`銆?
+濡傛灉瑕侀厤缃綘鑷繁鐨勬ā寮忥紝鍙傝 [Sandbox 閰嶇疆鎸囧崡](backend/docs/CONFIGURATION.md#sandbox)銆?
 #### MCP Server
 
-DeerFlow 支持可配置的 MCP Server 和 skills，用来扩展能力。
-对于 HTTP/SSE MCP Server，还支持 OAuth token 流程（`client_credentials`、`refresh_token`）。
-详细说明见 [MCP Server 指南](backend/docs/MCP_SERVER.md)。
+DeerFlow 鏀寔鍙厤缃殑 MCP Server 鍜?skills锛岀敤鏉ユ墿灞曡兘鍔涖€?瀵逛簬 HTTP/SSE MCP Server锛岃繕鏀寔 OAuth token 娴佺▼锛坄client_credentials`銆乣refresh_token`锛夈€?璇︾粏璇存槑瑙?[MCP Server 鎸囧崡](backend/docs/MCP_SERVER.md)銆?
+#### IM 娓犻亾
 
-#### IM 渠道
-
-DeerFlow 支持从即时通讯应用接收任务。只要配置完成，对应渠道会自动启动，而且都不需要公网 IP。
-
-| 渠道 | 传输方式 | 上手难度 |
+DeerFlow 鏀寔浠庡嵆鏃堕€氳搴旂敤鎺ユ敹浠诲姟銆傚彧瑕侀厤缃畬鎴愶紝瀵瑰簲娓犻亾浼氳嚜鍔ㄥ惎鍔紝鑰屼笖閮戒笉闇€瑕佸叕缃?IP銆?
+| 娓犻亾 | 浼犺緭鏂瑰紡 | 涓婃墜闅惧害 |
 |---------|-----------|------------|
-| Telegram | Bot API（long-polling） | 简单 |
-| Slack | Socket Mode | 中等 |
-| Feishu / Lark | WebSocket | 中等 |
-| 企业微信智能机器人 | WebSocket | 中等 |
-| 钉钉 | Stream Push（WebSocket） | 中等 |
+| Telegram | Bot API锛坙ong-polling锛?| 绠€鍗?|
+| Slack | Socket Mode | 涓瓑 |
+| Feishu / Lark | WebSocket | 涓瓑 |
+| 浼佷笟寰俊鏅鸿兘鏈哄櫒浜?| WebSocket | 涓瓑 |
+| 閽夐拤 | Stream Push锛圵ebSocket锛?| 涓瓑 |
 
-**`config.yaml` 中的配置示例：**
+**`config.yaml` 涓殑閰嶇疆绀轰緥锛?*
 
 ```yaml
 channels:
-  # LangGraph-compatible Gateway API base URL（默认：http://localhost:8001/api）
-  langgraph_url: http://localhost:8001/api
-  # Gateway API URL（默认：http://localhost:8001）
-  gateway_url: http://localhost:8001
+  # LangGraph-compatible Gateway API base URL锛堥粯璁わ細http://localhost:8001/api锛?  langgraph_url: http://localhost:8001/api
+  # Gateway API URL锛堥粯璁わ細http://localhost:8001锛?  gateway_url: http://localhost:8001
 
-  # 可选：所有移动端渠道共用的全局 session 默认值
-  session:
-    assistant_id: lead_agent  # 也可以填自定义 agent 名；渠道层会自动转换为 lead_agent + agent_name
+  # 鍙€夛細鎵€鏈夌Щ鍔ㄧ娓犻亾鍏辩敤鐨勫叏灞€ session 榛樿鍊?  session:
+    assistant_id: lead_agent  # 涔熷彲浠ュ～鑷畾涔?agent 鍚嶏紱娓犻亾灞備細鑷姩杞崲涓?lead_agent + agent_name
     config:
       recursion_limit: 100
     context:
@@ -270,9 +223,7 @@ channels:
     enabled: true
     app_id: $FEISHU_APP_ID
     app_secret: $FEISHU_APP_SECRET
-    # domain: https://open.feishu.cn       # 国内版（默认）
-    # domain: https://open.larksuite.com   # 国际版
-
+    # domain: https://open.feishu.cn       # 鍥藉唴鐗堬紙榛樿锛?    # domain: https://open.larksuite.com   # 鍥介檯鐗?
   wecom:
     enabled: true
     bot_id: $WECOM_BOT_ID
@@ -281,18 +232,16 @@ channels:
   slack:
     enabled: true
     bot_token: $SLACK_BOT_TOKEN     # xoxb-...
-    app_token: $SLACK_APP_TOKEN     # xapp-...（Socket Mode）
-    allowed_users: []               # 留空表示允许所有人
+    app_token: $SLACK_APP_TOKEN     # xapp-...锛圫ocket Mode锛?    allowed_users: []               # 鐣欑┖琛ㄧず鍏佽鎵€鏈変汉
 
   telegram:
     enabled: true
     bot_token: $TELEGRAM_BOT_TOKEN
-    allowed_users: []               # 留空表示允许所有人
+    allowed_users: []               # 鐣欑┖琛ㄧず鍏佽鎵€鏈変汉
 
-    # 可选：按渠道 / 按用户单独覆盖 session 配置
+    # 鍙€夛細鎸夋笭閬?/ 鎸夌敤鎴峰崟鐙鐩?session 閰嶇疆
     session:
-      assistant_id: mobile-agent  # 这里同样支持自定义 agent 名
-      context:
+      assistant_id: mobile-agent  # 杩欓噷鍚屾牱鏀寔鑷畾涔?agent 鍚?      context:
         thinking_enabled: false
       users:
         "123456789":
@@ -305,18 +254,14 @@ channels:
 
   dingtalk:
     enabled: true
-    client_id: $DINGTALK_CLIENT_ID             # 钉钉开放平台 ClientId
-    client_secret: $DINGTALK_CLIENT_SECRET     # 钉钉开放平台 ClientSecret
-    allowed_users: []                          # 留空表示允许所有人
-    card_template_id: ""                       # 可选：AI 卡片模板 ID，用于流式打字机效果
+    client_id: $DINGTALK_CLIENT_ID             # 閽夐拤寮€鏀惧钩鍙?ClientId
+    client_secret: $DINGTALK_CLIENT_SECRET     # 閽夐拤寮€鏀惧钩鍙?ClientSecret
+    allowed_users: []                          # 鐣欑┖琛ㄧず鍏佽鎵€鏈変汉
+    card_template_id: ""                       # 鍙€夛細AI 鍗＄墖妯℃澘 ID锛岀敤浜庢祦寮忔墦瀛楁満鏁堟灉
 ```
 
-说明：
-- `assistant_id: lead_agent` 会直接调用默认的 LangGraph assistant。
-- 如果 `assistant_id` 填的是自定义 agent 名，DeerFlow 仍然会走 `lead_agent`，同时把该值注入为 `agent_name`，这样 IM 渠道也会生效对应 agent 的 SOUL 和配置。
-
-在 `.env` 里设置对应的 API key：
-
+璇存槑锛?- `assistant_id: lead_agent` 浼氱洿鎺ヨ皟鐢ㄩ粯璁ょ殑 LangGraph assistant銆?- 濡傛灉 `assistant_id` 濉殑鏄嚜瀹氫箟 agent 鍚嶏紝DeerFlow 浠嶇劧浼氳蛋 `lead_agent`锛屽悓鏃舵妸璇ュ€兼敞鍏ヤ负 `agent_name`锛岃繖鏍?IM 娓犻亾涔熶細鐢熸晥瀵瑰簲 agent 鐨?SOUL 鍜岄厤缃€?
+鍦?`.env` 閲岃缃搴旂殑 API key锛?
 ```bash
 # Telegram
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
@@ -329,69 +274,45 @@ SLACK_APP_TOKEN=xapp-...
 FEISHU_APP_ID=cli_xxxx
 FEISHU_APP_SECRET=your_app_secret
 
-# 企业微信智能机器人
-WECOM_BOT_ID=your_bot_id
+# 浼佷笟寰俊鏅鸿兘鏈哄櫒浜?WECOM_BOT_ID=your_bot_id
 WECOM_BOT_SECRET=your_bot_secret
 
-# 钉钉
+# 閽夐拤
 DINGTALK_CLIENT_ID=your_client_id
 DINGTALK_CLIENT_SECRET=your_client_secret
 ```
 
-**Telegram 配置**
+**Telegram 閰嶇疆**
 
-1. 打开 [@BotFather](https://t.me/BotFather)，发送 `/newbot`，复制生成的 HTTP API token。
-2. 在 `.env` 中设置 `TELEGRAM_BOT_TOKEN`，并在 `config.yaml` 里启用该渠道。
+1. 鎵撳紑 [@BotFather](https://t.me/BotFather)锛屽彂閫?`/newbot`锛屽鍒剁敓鎴愮殑 HTTP API token銆?2. 鍦?`.env` 涓缃?`TELEGRAM_BOT_TOKEN`锛屽苟鍦?`config.yaml` 閲屽惎鐢ㄨ娓犻亾銆?
+**Slack 閰嶇疆**
 
-**Slack 配置**
+1. 鍓嶅線 [api.slack.com/apps](https://api.slack.com/apps) 鍒涘缓 Slack App锛欳reate New App 鈫?From scratch銆?2. 鍦?**OAuth & Permissions** 涓坊鍔?Bot Token Scopes锛歚app_mentions:read`銆乣chat:write`銆乣im:history`銆乣im:read`銆乣im:write`銆乣files:write`銆?3. 鍚敤 **Socket Mode**锛岀敓鎴愬甫 `connections:write` 鏉冮檺鐨?App-Level Token锛坄xapp-...`锛夈€?4. 鍦?**Event Subscriptions** 涓闃?bot events锛歚app_mention`銆乣message.im`銆?5. 鍦?`.env` 涓缃?`SLACK_BOT_TOKEN` 鍜?`SLACK_APP_TOKEN`锛屽苟鍦?`config.yaml` 涓惎鐢ㄨ娓犻亾銆?
+**Feishu / Lark 閰嶇疆**
 
-1. 前往 [api.slack.com/apps](https://api.slack.com/apps) 创建 Slack App：Create New App → From scratch。
-2. 在 **OAuth & Permissions** 中添加 Bot Token Scopes：`app_mentions:read`、`chat:write`、`im:history`、`im:read`、`im:write`、`files:write`。
-3. 启用 **Socket Mode**，生成带 `connections:write` 权限的 App-Level Token（`xapp-...`）。
-4. 在 **Event Subscriptions** 中订阅 bot events：`app_mention`、`message.im`。
-5. 在 `.env` 中设置 `SLACK_BOT_TOKEN` 和 `SLACK_APP_TOKEN`，并在 `config.yaml` 中启用该渠道。
+1. 鍦?[椋炰功寮€鏀惧钩鍙癩(https://open.feishu.cn/) 鍒涘缓搴旂敤锛屽苟鍚敤 **Bot** 鑳藉姏銆?2. 娣诲姞鏉冮檺锛歚im:message`銆乣im:message.p2p_msg:readonly`銆乣im:resource`銆?3. 鍦?**浜嬩欢璁㈤槄** 涓闃?`im.message.receive_v1`锛岃繛鎺ユ柟寮忛€夋嫨 **闀胯繛鎺?*銆?4. 澶嶅埗 App ID 鍜?App Secret锛屽湪 `.env` 涓缃?`FEISHU_APP_ID` 鍜?`FEISHU_APP_SECRET`锛屽苟鍦?`config.yaml` 涓惎鐢ㄨ娓犻亾銆?
+**浼佷笟寰俊鏅鸿兘鏈哄櫒浜洪厤缃?*
 
-**Feishu / Lark 配置**
+1. 鍦ㄤ紒涓氬井淇℃櫤鑳芥満鍣ㄤ汉骞冲彴鍒涘缓鏈哄櫒浜猴紝鑾峰彇 `bot_id` 鍜?`bot_secret`銆?2. 鍦?`config.yaml` 涓惎鐢?`channels.wecom`锛屽苟濉叆 `bot_id` / `bot_secret`銆?3. 鍦?`.env` 涓缃?`WECOM_BOT_ID` 鍜?`WECOM_BOT_SECRET`銆?4. 瀹夎鍚庣渚濊禆鏃剁‘淇濆寘鍚?`wecom-aibot-python-sdk`锛屾笭閬撲細閫氳繃 WebSocket 闀胯繛鎺ユ帴鏀舵秷鎭紝鏃犻渶鍏綉鍥炶皟鍦板潃銆?5. 褰撳墠鏀寔鏂囨湰銆佸浘鐗囧拰鏂囦欢鍏ョ珯娑堟伅锛沘gent 鐢熸垚鐨勬渶缁堝浘鐗?鏂囦欢涔熶細鍥炰紶鍒颁紒涓氬井淇′細璇濅腑銆?
+**閽夐拤閰嶇疆**
 
-1. 在 [飞书开放平台](https://open.feishu.cn/) 创建应用，并启用 **Bot** 能力。
-2. 添加权限：`im:message`、`im:message.p2p_msg:readonly`、`im:resource`。
-3. 在 **事件订阅** 中订阅 `im.message.receive_v1`，连接方式选择 **长连接**。
-4. 复制 App ID 和 App Secret，在 `.env` 中设置 `FEISHU_APP_ID` 和 `FEISHU_APP_SECRET`，并在 `config.yaml` 中启用该渠道。
+1. 鍦?[閽夐拤寮€鏀惧钩鍙癩(https://open.dingtalk.com/) 鍒涘缓搴旂敤锛屽苟鍚敤 **鏈哄櫒浜?* 鑳藉姏銆?2. 鍦ㄦ満鍣ㄤ汉閰嶇疆椤甸潰璁剧疆娑堟伅鎺ユ敹妯″紡涓?**Stream妯″紡**銆?3. 澶嶅埗 `Client ID` 鍜?`Client Secret`锛屽湪 `.env` 涓缃?`DINGTALK_CLIENT_ID` 鍜?`DINGTALK_CLIENT_SECRET`锛屽苟鍦?`config.yaml` 涓惎鐢ㄨ娓犻亾銆?4. *锛堝彲閫夛級* 濡傞渶寮€鍚祦寮?AI 鍗＄墖鍥炲锛堟墦瀛楁満鏁堟灉锛夛紝璇峰湪[閽夐拤鍗＄墖骞冲彴](https://open.dingtalk.com/document/dingstart/typewriter-effect-streaming-ai-card)鍒涘缓 **AI 鍗＄墖**妯℃澘锛岀劧鍚庡湪 `config.yaml` 涓皢 `card_template_id` 璁句负璇ユā鏉?ID銆傚悓鏃堕渶瑕佺敵璇?`Card.Streaming.Write` 鍜?`Card.Instance.Write` 鏉冮檺銆?
+**鍛戒护**
 
-**企业微信智能机器人配置**
-
-1. 在企业微信智能机器人平台创建机器人，获取 `bot_id` 和 `bot_secret`。
-2. 在 `config.yaml` 中启用 `channels.wecom`，并填入 `bot_id` / `bot_secret`。
-3. 在 `.env` 中设置 `WECOM_BOT_ID` 和 `WECOM_BOT_SECRET`。
-4. 安装后端依赖时确保包含 `wecom-aibot-python-sdk`，渠道会通过 WebSocket 长连接接收消息，无需公网回调地址。
-5. 当前支持文本、图片和文件入站消息；agent 生成的最终图片/文件也会回传到企业微信会话中。
-
-**钉钉配置**
-
-1. 在 [钉钉开放平台](https://open.dingtalk.com/) 创建应用，并启用 **机器人** 能力。
-2. 在机器人配置页面设置消息接收模式为 **Stream模式**。
-3. 复制 `Client ID` 和 `Client Secret`，在 `.env` 中设置 `DINGTALK_CLIENT_ID` 和 `DINGTALK_CLIENT_SECRET`，并在 `config.yaml` 中启用该渠道。
-4. *（可选）* 如需开启流式 AI 卡片回复（打字机效果），请在[钉钉卡片平台](https://open.dingtalk.com/document/dingstart/typewriter-effect-streaming-ai-card)创建 **AI 卡片**模板，然后在 `config.yaml` 中将 `card_template_id` 设为该模板 ID。同时需要申请 `Card.Streaming.Write` 和 `Card.Instance.Write` 权限。
-
-**命令**
-
-渠道连接完成后，你可以直接在聊天窗口里和 DeerFlow 交互：
-
-| 命令 | 说明 |
+娓犻亾杩炴帴瀹屾垚鍚庯紝浣犲彲浠ョ洿鎺ュ湪鑱婂ぉ绐楀彛閲屽拰 DeerFlow 浜や簰锛?
+| 鍛戒护 | 璇存槑 |
 |---------|-------------|
-| `/new` | 开启新对话 |
-| `/status` | 查看当前 thread 信息 |
-| `/models` | 列出可用模型 |
-| `/memory` | 查看 memory |
-| `/help` | 查看帮助 |
+| `/new` | 寮€鍚柊瀵硅瘽 |
+| `/status` | 鏌ョ湅褰撳墠 thread 淇℃伅 |
+| `/models` | 鍒楀嚭鍙敤妯″瀷 |
+| `/memory` | 鏌ョ湅 memory |
+| `/help` | 鏌ョ湅甯姪 |
 
-> 没有命令前缀的消息会被当作普通聊天处理。DeerFlow 会自动创建 thread，并以对话方式回复。
+> 娌℃湁鍛戒护鍓嶇紑鐨勬秷鎭細琚綋浣滄櫘閫氳亰澶╁鐞嗐€侱eerFlow 浼氳嚜鍔ㄥ垱寤?thread锛屽苟浠ュ璇濇柟寮忓洖澶嶃€?
+#### LangSmith 閾捐矾杩借釜
 
-#### LangSmith 链路追踪
-
-DeerFlow 内置了 [LangSmith](https://smith.langchain.com) 集成，用于可观测性。启用后，所有 LLM 调用、agent 运行和工具执行都会被追踪，并在 LangSmith 仪表盘中展示。
-
-在 `.env` 文件中添加以下配置：
+DeerFlow 鍐呯疆浜?[LangSmith](https://smith.langchain.com) 闆嗘垚锛岀敤浜庡彲瑙傛祴鎬с€傚惎鐢ㄥ悗锛屾墍鏈?LLM 璋冪敤銆乤gent 杩愯鍜屽伐鍏锋墽琛岄兘浼氳杩借釜锛屽苟鍦?LangSmith 浠〃鐩樹腑灞曠ず銆?
+鍦?`.env` 鏂囦欢涓坊鍔犱互涓嬮厤缃細
 
 ```bash
 LANGSMITH_TRACING=true
@@ -400,126 +321,89 @@ LANGSMITH_API_KEY=lsv2_pt_xxxxxxxxxxxxxxxx
 LANGSMITH_PROJECT=xxx
 ```
 
-Docker 部署时，追踪默认关闭。在 `.env` 中设置 `LANGSMITH_TRACING=true` 和 `LANGSMITH_API_KEY` 即可启用。
+Docker 閮ㄧ讲鏃讹紝杩借釜榛樿鍏抽棴銆傚湪 `.env` 涓缃?`LANGSMITH_TRACING=true` 鍜?`LANGSMITH_API_KEY` 鍗冲彲鍚敤銆?
+## 浠?Deep Research 鍒?Super Agent Harness
 
-## 从 Deep Research 到 Super Agent Harness
+DeerFlow 鏈€鍒濇槸涓€涓?Deep Research 妗嗘灦锛屽悗鏉ョぞ鍖烘妸瀹冧竴璺帹鍒颁簡鏇磋繙鐨勫湴鏂广€備笂绾夸箣鍚庯紝寮€鍙戣€呮嬁瀹冨幓鍋氱殑浜嬫儏鏃╁氨涓嶆鐮旂┒锛氭惌鏁版嵁娴佹按绾裤€佺敓鎴愭紨绀烘枃绋裤€佸揩閫熻捣 dashboard銆佽嚜鍔ㄥ寲鍐呭娴佺▼锛屽緢澶氭柟鍚戜竴寮€濮嬭繛鎴戜滑鑷繁閮芥病鎯冲埌銆?
+杩欒鎴戜滑鎰忚瘑鍒颁竴浠朵簨锛欴eerFlow 涓嶅彧鏄竴涓爺绌跺伐鍏枫€傚畠鏇村儚涓€涓?**harness**锛屼竴涓湡姝ｈ agents 鎶婁簨鎯呭仛瀹岀殑杩愯鏃跺熀纭€璁炬柦銆?
+鎵€浠ユ垜浠妸瀹冧粠澶撮噸鍋氫簡涓€閬嶃€?
+DeerFlow 2.0 涓嶅啀鏄竴涓渶瑕佷綘鑷繁鎷艰鐨?framework銆傚畠鏄竴涓紑绠卞嵆鐢ㄣ€佸悓鏃跺張瓒冲鍙墿灞曠殑 super agent harness銆傚熀浜?LangGraph 鍜?LangChain 鏋勫缓锛岄粯璁ゅ氨甯︿笂浜?agent 鐪熸浼氱敤鍒扮殑鍏抽敭鑳藉姏锛氭枃浠剁郴缁熴€乵emory銆乻kills銆乻andbox 鎵ц鐜锛屼互鍙婁负澶嶆潅澶氭楠や换鍔″仛瑙勫垝銆佹媺璧?sub-agents 鐨勮兘鍔涖€?
+浣犲彲浠ョ洿鎺ユ嬁鏉ョ敤锛屼篃鍙互鎷嗗紑閲嶇粍锛屾敼鎴愪綘鑷繁鐨勬牱瀛愩€?
+## 鏍稿績鐗规€?
+### Skills 涓?Tools
 
-DeerFlow 最初是一个 Deep Research 框架，后来社区把它一路推到了更远的地方。上线之后，开发者拿它去做的事情早就不止研究：搭数据流水线、生成演示文稿、快速起 dashboard、自动化内容流程，很多方向一开始连我们自己都没想到。
-
-这让我们意识到一件事：DeerFlow 不只是一个研究工具。它更像一个 **harness**，一个真正让 agents 把事情做完的运行时基础设施。
-
-所以我们把它从头重做了一遍。
-
-DeerFlow 2.0 不再是一个需要你自己拼装的 framework。它是一个开箱即用、同时又足够可扩展的 super agent harness。基于 LangGraph 和 LangChain 构建，默认就带上了 agent 真正会用到的关键能力：文件系统、memory、skills、sandbox 执行环境，以及为复杂多步骤任务做规划、拉起 sub-agents 的能力。
-
-你可以直接拿来用，也可以拆开重组，改成你自己的样子。
-
-## 核心特性
-
-### Skills 与 Tools
-
-Skills 是 DeerFlow 能做“几乎任何事”的关键。
-
-标准的 Agent Skill 是一种结构化能力模块，通常就是一个 Markdown 文件，里面定义了工作流、最佳实践，以及相关的参考资源。DeerFlow 自带一批内置 skills，覆盖研究、报告生成、演示文稿制作、网页生成、图像和视频生成等场景。真正有意思的地方在于它的扩展性：你可以加自己的 skills，替换内置 skills，或者把多个 skills 组合成复合工作流。
-
-Skills 采用按需渐进加载，不会一次性把所有内容都塞进上下文。只有任务确实需要时才加载，这样能把上下文窗口控制得更干净，也更适合对 token 比较敏感的模型。
-
-通过 Gateway 安装 `.skill` 压缩包时，DeerFlow 会接受标准的可选 frontmatter 元数据，比如 `version`、`author`、`compatibility`，不会把本来合法的外部 skill 拒之门外。
-
-Tools 也是同样的思路。DeerFlow 自带一组核心工具：网页搜索、网页抓取、文件操作、bash 执行；同时也支持通过 MCP Server 和 Python 函数扩展自定义工具。你可以替换任何一项，也可以继续往里加。
-
-Gateway 生成后续建议时，现在会先把普通字符串输出和 block/list 风格的富文本内容统一归一化，再去解析 JSON 数组响应，因此不同 provider 的内容包装方式不会再悄悄把建议吞掉。
-
+Skills 鏄?DeerFlow 鑳藉仛鈥滃嚑涔庝换浣曚簨鈥濈殑鍏抽敭銆?
+鏍囧噯鐨?Agent Skill 鏄竴绉嶇粨鏋勫寲鑳藉姏妯″潡锛岄€氬父灏辨槸涓€涓?Markdown 鏂囦欢锛岄噷闈㈠畾涔変簡宸ヤ綔娴併€佹渶浣冲疄璺碉紝浠ュ強鐩稿叧鐨勫弬鑰冭祫婧愩€侱eerFlow 鑷甫涓€鎵瑰唴缃?skills锛岃鐩栫爺绌躲€佹姤鍛婄敓鎴愩€佹紨绀烘枃绋垮埗浣溿€佺綉椤电敓鎴愩€佸浘鍍忓拰瑙嗛鐢熸垚绛夊満鏅€傜湡姝ｆ湁鎰忔€濈殑鍦版柟鍦ㄤ簬瀹冪殑鎵╁睍鎬э細浣犲彲浠ュ姞鑷繁鐨?skills锛屾浛鎹㈠唴缃?skills锛屾垨鑰呮妸澶氫釜 skills 缁勫悎鎴愬鍚堝伐浣滄祦銆?
+Skills 閲囩敤鎸夐渶娓愯繘鍔犺浇锛屼笉浼氫竴娆℃€ф妸鎵€鏈夊唴瀹归兘濉炶繘涓婁笅鏂囥€傚彧鏈変换鍔＄‘瀹為渶瑕佹椂鎵嶅姞杞斤紝杩欐牱鑳芥妸涓婁笅鏂囩獥鍙ｆ帶鍒跺緱鏇村共鍑€锛屼篃鏇撮€傚悎瀵?token 姣旇緝鏁忔劅鐨勬ā鍨嬨€?
+閫氳繃 Gateway 瀹夎 `.skill` 鍘嬬缉鍖呮椂锛孌eerFlow 浼氭帴鍙楁爣鍑嗙殑鍙€?frontmatter 鍏冩暟鎹紝姣斿 `version`銆乣author`銆乣compatibility`锛屼笉浼氭妸鏈潵鍚堟硶鐨勫閮?skill 鎷掍箣闂ㄥ銆?
+Tools 涔熸槸鍚屾牱鐨勬€濊矾銆侱eerFlow 鑷甫涓€缁勬牳蹇冨伐鍏凤細缃戦〉鎼滅储銆佺綉椤垫姄鍙栥€佹枃浠舵搷浣溿€乥ash 鎵ц锛涘悓鏃朵篃鏀寔閫氳繃 MCP Server 鍜?Python 鍑芥暟鎵╁睍鑷畾涔夊伐鍏枫€備綘鍙互鏇挎崲浠讳綍涓€椤癸紝涔熷彲浠ョ户缁線閲屽姞銆?
+Gateway 鐢熸垚鍚庣画寤鸿鏃讹紝鐜板湪浼氬厛鎶婃櫘閫氬瓧绗︿覆杈撳嚭鍜?block/list 椋庢牸鐨勫瘜鏂囨湰鍐呭缁熶竴褰掍竴鍖栵紝鍐嶅幓瑙ｆ瀽 JSON 鏁扮粍鍝嶅簲锛屽洜姝や笉鍚?provider 鐨勫唴瀹瑰寘瑁呮柟寮忎笉浼氬啀鎮勬倓鎶婂缓璁悶鎺夈€?
 ```text
-# sandbox 容器内的路径
+# sandbox 瀹瑰櫒鍐呯殑璺緞
 /mnt/skills/public
-├── research/SKILL.md
-├── report-generation/SKILL.md
-├── slide-creation/SKILL.md
-├── web-page/SKILL.md
-└── image-generation/SKILL.md
+鈹溾攢鈹€ research/SKILL.md
+鈹溾攢鈹€ report-generation/SKILL.md
+鈹溾攢鈹€ slide-creation/SKILL.md
+鈹溾攢鈹€ web-page/SKILL.md
+鈹斺攢鈹€ image-generation/SKILL.md
 
 /mnt/skills/custom
-└── your-custom-skill/SKILL.md      ← 你的 skill
+鈹斺攢鈹€ your-custom-skill/SKILL.md      鈫?浣犵殑 skill
 ```
 
-#### Claude Code 集成
+#### Claude Code 闆嗘垚
 
-借助 `claude-to-deerflow` skill，你可以直接在 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 里和正在运行的 DeerFlow 实例交互。不用离开终端，就能下发研究任务、查看状态、管理 threads。
-
-**安装这个 skill：**
+鍊熷姪 `claude-to-deerflow` skill锛屼綘鍙互鐩存帴鍦?[Claude Code](https://docs.anthropic.com/en/docs/claude-code) 閲屽拰姝ｅ湪杩愯鐨?DeerFlow 瀹炰緥浜や簰銆備笉鐢ㄧ寮€缁堢锛屽氨鑳戒笅鍙戠爺绌朵换鍔°€佹煡鐪嬬姸鎬併€佺鐞?threads銆?
+**瀹夎杩欎釜 skill锛?*
 
 ```bash
 npx skills add https://github.com/bytedance/deer-flow --skill claude-to-deerflow
 ```
 
-然后确认 DeerFlow 已经启动（默认地址是 `http://localhost:2026`），在 Claude Code 里使用 `/claude-to-deerflow` 命令即可。
-
-**你可以做的事情包括：**
-- 给 DeerFlow 发送消息，并接收流式响应
-- 选择执行模式：flash（更快）、standard、pro（规划模式）、ultra（sub-agents 模式）
-- 检查 DeerFlow 健康状态，列出 models / skills / agents
-- 管理 threads 和会话历史
-- 上传文件做分析
-
-**环境变量**（可选，用于自定义端点）：
-
+鐒跺悗纭 DeerFlow 宸茬粡鍚姩锛堥粯璁ゅ湴鍧€鏄?`http://localhost:2026`锛夛紝鍦?Claude Code 閲屼娇鐢?`/claude-to-deerflow` 鍛戒护鍗冲彲銆?
+**浣犲彲浠ュ仛鐨勪簨鎯呭寘鎷細**
+- 缁?DeerFlow 鍙戦€佹秷鎭紝骞舵帴鏀舵祦寮忓搷搴?- 閫夋嫨鎵ц妯″紡锛歠lash锛堟洿蹇級銆乻tandard銆乸ro锛堣鍒掓ā寮忥級銆乽ltra锛坰ub-agents 妯″紡锛?- 妫€鏌?DeerFlow 鍋ュ悍鐘舵€侊紝鍒楀嚭 models / skills / agents
+- 绠＄悊 threads 鍜屼細璇濆巻鍙?- 涓婁紶鏂囦欢鍋氬垎鏋?
+**鐜鍙橀噺**锛堝彲閫夛紝鐢ㄤ簬鑷畾涔夌鐐癸級锛?
 ```bash
-DEERFLOW_URL=http://localhost:2026            # 统一代理基地址
+DEERFLOW_URL=http://localhost:2026            # 缁熶竴浠ｇ悊鍩哄湴鍧€
 DEERFLOW_GATEWAY_URL=http://localhost:2026    # Gateway API
 DEERFLOW_LANGGRAPH_URL=http://localhost:2026/api/langgraph  # LangGraph API
 ```
 
-完整 API 说明见 [`skills/public/claude-to-deerflow/SKILL.md`](skills/public/claude-to-deerflow/SKILL.md)。
-
+瀹屾暣 API 璇存槑瑙?[`skills/public/claude-to-deerflow/SKILL.md`](skills/public/claude-to-deerflow/SKILL.md)銆?
 ### Sub-Agents
 
-复杂任务通常不可能一次完成，DeerFlow 会先拆解，再执行。
-
-lead agent 可以按需动态拉起 sub-agents。每个 sub-agent 都有自己独立的上下文、工具和终止条件。只要条件允许，它们就会并行运行，返回结构化结果，最后再由 lead agent 汇总成一份完整输出。
-
-这也是 DeerFlow 能处理从几分钟到几小时任务的原因。比如一个研究任务，可以拆成十几个 sub-agents，分别探索不同方向，最后合并成一份报告，或者一个网站，或者一套带生成视觉内容的演示文稿。一个 harness，多路并行。
-
-### Sandbox 与文件系统
-
-DeerFlow 不只是“会说它能做”，它是真的有一台自己的“电脑”。
-
-每个任务都运行在隔离的 Docker 容器里，里面有完整的文件系统，包括 skills、workspace、uploads、outputs。agent 可以读写和编辑文件，可以执行 bash 命令和代码，也可以查看图片。整个过程都在 sandbox 内完成，可审计、会隔离，不会在不同 session 之间互相污染。
-
-这就是“带工具的聊天机器人”和“真正有执行环境的 agent”之间的差别。
-
+澶嶆潅浠诲姟閫氬父涓嶅彲鑳戒竴娆″畬鎴愶紝DeerFlow 浼氬厛鎷嗚В锛屽啀鎵ц銆?
+lead agent 鍙互鎸夐渶鍔ㄦ€佹媺璧?sub-agents銆傛瘡涓?sub-agent 閮芥湁鑷繁鐙珛鐨勪笂涓嬫枃銆佸伐鍏峰拰缁堟鏉′欢銆傚彧瑕佹潯浠跺厑璁革紝瀹冧滑灏变細骞惰杩愯锛岃繑鍥炵粨鏋勫寲缁撴灉锛屾渶鍚庡啀鐢?lead agent 姹囨€绘垚涓€浠藉畬鏁磋緭鍑恒€?
+杩欎篃鏄?DeerFlow 鑳藉鐞嗕粠鍑犲垎閽熷埌鍑犲皬鏃朵换鍔＄殑鍘熷洜銆傛瘮濡備竴涓爺绌朵换鍔★紝鍙互鎷嗘垚鍗佸嚑涓?sub-agents锛屽垎鍒帰绱笉鍚屾柟鍚戯紝鏈€鍚庡悎骞舵垚涓€浠芥姤鍛婏紝鎴栬€呬竴涓綉绔欙紝鎴栬€呬竴濂楀甫鐢熸垚瑙嗚鍐呭鐨勬紨绀烘枃绋裤€備竴涓?harness锛屽璺苟琛屻€?
+### Sandbox 涓庢枃浠剁郴缁?
+DeerFlow 涓嶅彧鏄€滀細璇村畠鑳藉仛鈥濓紝瀹冩槸鐪熺殑鏈変竴鍙拌嚜宸辩殑鈥滅數鑴戔€濄€?
+姣忎釜浠诲姟閮借繍琛屽湪闅旂鐨?Docker 瀹瑰櫒閲岋紝閲岄潰鏈夊畬鏁寸殑鏂囦欢绯荤粺锛屽寘鎷?skills銆亀orkspace銆乽ploads銆乷utputs銆俛gent 鍙互璇诲啓鍜岀紪杈戞枃浠讹紝鍙互鎵ц bash 鍛戒护鍜屼唬鐮侊紝涔熷彲浠ユ煡鐪嬪浘鐗囥€傛暣涓繃绋嬮兘鍦?sandbox 鍐呭畬鎴愶紝鍙璁°€佷細闅旂锛屼笉浼氬湪涓嶅悓 session 涔嬮棿浜掔浉姹℃煋銆?
+杩欏氨鏄€滃甫宸ュ叿鐨勮亰澶╂満鍣ㄤ汉鈥濆拰鈥滅湡姝ｆ湁鎵ц鐜鐨?agent鈥濅箣闂寸殑宸埆銆?
 ```text
-# sandbox 容器内的路径
+# sandbox 瀹瑰櫒鍐呯殑璺緞
 /mnt/user-data/
-├── uploads/          ← 你的文件
-├── workspace/        ← agents 的工作目录
-└── outputs/          ← 最终交付物
+鈹溾攢鈹€ uploads/          鈫?浣犵殑鏂囦欢
+鈹溾攢鈹€ workspace/        鈫?agents 鐨勫伐浣滅洰褰?鈹斺攢鈹€ outputs/          鈫?鏈€缁堜氦浠樼墿
 ```
 
 ### Context Engineering
 
-**隔离的 Sub-Agent Context**：每个 sub-agent 都在自己独立的上下文里运行。它看不到主 agent 的上下文，也看不到其他 sub-agents 的上下文。这样做的目的很直接，就是让它只聚焦当前任务，不被无关信息干扰。
+**闅旂鐨?Sub-Agent Context**锛氭瘡涓?sub-agent 閮藉湪鑷繁鐙珛鐨勪笂涓嬫枃閲岃繍琛屻€傚畠鐪嬩笉鍒颁富 agent 鐨勪笂涓嬫枃锛屼篃鐪嬩笉鍒板叾浠?sub-agents 鐨勪笂涓嬫枃銆傝繖鏍峰仛鐨勭洰鐨勫緢鐩存帴锛屽氨鏄瀹冨彧鑱氱劍褰撳墠浠诲姟锛屼笉琚棤鍏充俊鎭共鎵般€?
+**鎽樿鍘嬬缉**锛氬湪鍗曚釜 session 鍐咃紝DeerFlow 浼氭瘮杈冪Н鏋佸湴绠＄悊涓婁笅鏂囷紝鍖呮嫭鎬荤粨宸插畬鎴愮殑瀛愪换鍔°€佹妸涓棿缁撴灉杞瓨鍒版枃浠剁郴缁熴€佸帇缂╂殏鏃朵笉閲嶈鐨勪俊鎭€傝繖鏍峰湪闀块摼璺€佸姝ラ浠诲姟閲岋紝瀹冧篃鑳戒繚鎸佽仛鐒︼紝鑰屼笉浼氳交鏄撴妸涓婁笅鏂囩獥鍙ｆ墦鐖嗐€?
+### 闀挎湡璁板繂
 
-**摘要压缩**：在单个 session 内，DeerFlow 会比较积极地管理上下文，包括总结已完成的子任务、把中间结果转存到文件系统、压缩暂时不重要的信息。这样在长链路、多步骤任务里，它也能保持聚焦，而不会轻易把上下文窗口打爆。
+澶у鏁?agents 浼氬湪瀵硅瘽缁撴潫鍚庢妸涓€鍒囬兘蹇樻帀锛孌eerFlow 涓嶄竴鏍枫€?
+璺?session 浣跨敤鏃讹紝DeerFlow 浼氶€愭绉疮鍏充簬浣犵殑鎸佷箙 memory锛屽寘鎷綘鐨勪釜浜哄亸濂姐€佺煡璇嗚儗鏅紝浠ュ強闀挎湡娌夋穩涓嬫潵鐨勫伐浣滀範鎯€備綘鐢ㄥ緱瓒婂锛屽畠瓒婁簡瑙ｄ綘鐨勫啓浣滈鏍笺€佹妧鏈爤鍜岄噸澶嶅嚭鐜扮殑宸ヤ綔娴併€俶emory 淇濆瓨鍦ㄦ湰鍦帮紝鎺у埗鏉冧篃濮嬬粓鍦ㄤ綘鎵嬮噷銆?
+## 鎺ㄨ崘妯″瀷
 
-### 长期记忆
+DeerFlow 瀵规ā鍨嬫病鏈夊己缁戝畾锛屽彧瑕佸疄鐜颁簡 OpenAI 鍏煎 API 鐨?LLM锛岀悊璁轰笂閮藉彲浠ユ帴鍏ャ€備笉杩囧湪涓嬮潰杩欎簺鑳藉姏涓婅〃鐜版洿寮虹殑妯″瀷锛岄€氬父浼氭洿閫傚悎 DeerFlow锛?
+- **闀夸笂涓嬫枃绐楀彛**锛?00k+ tokens锛夛紝閫傚悎娣卞害鐮旂┒鍜屽姝ラ浠诲姟
+- **鎺ㄧ悊鑳藉姏**锛岄€傚悎鑷€傚簲瑙勫垝鍜屽鏉傛媶瑙?- **澶氭ā鎬佽緭鍏?*锛岄€傚悎鐞嗚В鍥剧墖鍜岃棰?- **绋冲畾鐨?tool use 鑳藉姏**锛岄€傚悎鍙潬鐨勫嚱鏁拌皟鐢ㄥ拰缁撴瀯鍖栬緭鍑?
+## 鍐呭祵 Python Client
 
-大多数 agents 会在对话结束后把一切都忘掉，DeerFlow 不一样。
-
-跨 session 使用时，DeerFlow 会逐步积累关于你的持久 memory，包括你的个人偏好、知识背景，以及长期沉淀下来的工作习惯。你用得越多，它越了解你的写作风格、技术栈和重复出现的工作流。memory 保存在本地，控制权也始终在你手里。
-
-## 推荐模型
-
-DeerFlow 对模型没有强绑定，只要实现了 OpenAI 兼容 API 的 LLM，理论上都可以接入。不过在下面这些能力上表现更强的模型，通常会更适合 DeerFlow：
-
-- **长上下文窗口**（100k+ tokens），适合深度研究和多步骤任务
-- **推理能力**，适合自适应规划和复杂拆解
-- **多模态输入**，适合理解图片和视频
-- **稳定的 tool use 能力**，适合可靠的函数调用和结构化输出
-
-## 内嵌 Python Client
-
-DeerFlow 也可以作为内嵌的 Python 库使用，不必启动完整的 HTTP 服务。`DeerFlowClient` 提供了进程内的直接访问方式，覆盖所有 agent 和 Gateway 能力，返回的数据结构与 HTTP Gateway API 保持一致：
+DeerFlow 涔熷彲浠ヤ綔涓哄唴宓岀殑 Python 搴撲娇鐢紝涓嶅繀鍚姩瀹屾暣鐨?HTTP 鏈嶅姟銆俙DeerFlowClient` 鎻愪緵浜嗚繘绋嬪唴鐨勭洿鎺ヨ闂柟寮忥紝瑕嗙洊鎵€鏈?agent 鍜?Gateway 鑳藉姏锛岃繑鍥炵殑鏁版嵁缁撴瀯涓?HTTP Gateway API 淇濇寔涓€鑷达細
 
 ```python
 from deerflow.client import DeerFlowClient
@@ -529,89 +413,62 @@ client = DeerFlowClient()
 # Chat
 response = client.chat("Analyze this paper for me", thread_id="my-thread")
 
-# Streaming（LangGraph SSE 协议：values、messages-tuple、end）
-for event in client.stream("hello"):
+# Streaming锛圠angGraph SSE 鍗忚锛歷alues銆乵essages-tuple銆乪nd锛?for event in client.stream("hello"):
     if event.type == "messages-tuple" and event.data.get("type") == "ai":
         print(event.data["content"])
 
-# 配置与管理：返回值与 Gateway 对齐的 dict
+# 閰嶇疆涓庣鐞嗭細杩斿洖鍊间笌 Gateway 瀵归綈鐨?dict
 models = client.list_models()        # {"models": [...]}
 skills = client.list_skills()        # {"skills": [...]}
 client.update_skill("web-search", enabled=True)
 client.upload_files("thread-1", ["./report.pdf"])  # {"success": True, "files": [...]}
 ```
 
-所有返回 dict 的方法都会在 CI 中通过 Gateway 的 Pydantic 响应模型校验（`TestGatewayConformance`），以确保内嵌 client 始终和 HTTP API schema 保持同步。完整 API 说明见 `backend/packages/harness/deerflow/client.py`。
+鎵€鏈夎繑鍥?dict 鐨勬柟娉曢兘浼氬湪 CI 涓€氳繃 Gateway 鐨?Pydantic 鍝嶅簲妯″瀷鏍￠獙锛坄TestGatewayConformance`锛夛紝浠ョ‘淇濆唴宓?client 濮嬬粓鍜?HTTP API schema 淇濇寔鍚屾銆傚畬鏁?API 璇存槑瑙?`backend/packages/harness/deerflow/client.py`銆?
+## 缁堢宸ヤ綔鍙?(TUI)
 
-## 终端工作台 (TUI)
-
-`deerflow` 是一个面向终端用户的工作台，**内嵌**运行在 `DeerFlowClient` 之上——无需启动 Gateway、前端、nginx 或 Docker，同时沿用与 DeerFlow 其它部分相同的 `config.yaml`、checkpointer、技能、记忆、MCP 和沙箱配置。
-
+`deerflow` 鏄竴涓潰鍚戠粓绔敤鎴风殑宸ヤ綔鍙帮紝**鍐呭祵**杩愯鍦?`DeerFlowClient` 涔嬩笂鈥斺€旀棤闇€鍚姩 Gateway銆佸墠绔€乶ginx 鎴?Docker锛屽悓鏃舵部鐢ㄤ笌 DeerFlow 鍏跺畠閮ㄥ垎鐩稿悓鐨?`config.yaml`銆乧heckpointer銆佹妧鑳姐€佽蹇嗐€丮CP 鍜屾矙绠遍厤缃€?
 ![DeerFlow TUI](docs/tui/tui-preview.svg)
 
 ```bash
-uv pip install 'deerflow-harness[tui]'        # 可选的 'textual' 依赖
+uv pip install 'deerflow-harness[tui]'        # 鍙€夌殑 'textual' 渚濊禆
 
-deerflow                                      # 启动终端 UI（需要 TTY）
-deerflow --continue                           # 恢复最近一次会话
-deerflow --resume THREAD                      # 按 id 恢复指定会话
-deerflow --print "总结一下这个仓库"             # 无头模式，结果打印到 stdout
-deerflow --json  "hello"                       # 无头模式，输出按行分隔的 StreamEvent
+deerflow                                      # 鍚姩缁堢 UI锛堥渶瑕?TTY锛?deerflow --continue                           # 鎭㈠鏈€杩戜竴娆′細璇?deerflow --resume THREAD                      # 鎸?id 鎭㈠鎸囧畾浼氳瘽
+deerflow --print "鎬荤粨涓€涓嬭繖涓粨搴?             # 鏃犲ご妯″紡锛岀粨鏋滄墦鍗板埌 stdout
+deerflow --json  "hello"                       # 鏃犲ご妯″紡锛岃緭鍑烘寜琛屽垎闅旂殑 StreamEvent
 ```
 
-键盘驱动的对话界面：流式渲染的对话区（回答按 Markdown 渲染）、紧凑的工具活动卡片、`/` 斜杠命令面板、`/model` 与 `/threads` 选择器、输入历史，以及 `Esc` / `Ctrl+C` 打断。在 TUI 里开启的会话也会出现在 Web UI 侧边栏——它会以本地默认用户身份写入共享的会话存储，因此终端与网页保持同步，**无需运行 Gateway**。
+閿洏椹卞姩鐨勫璇濈晫闈細娴佸紡娓叉煋鐨勫璇濆尯锛堝洖绛旀寜 Markdown 娓叉煋锛夈€佺揣鍑戠殑宸ュ叿娲诲姩鍗＄墖銆乣/` 鏂滄潬鍛戒护闈㈡澘銆乣/model` 涓?`/threads` 閫夋嫨鍣ㄣ€佽緭鍏ュ巻鍙诧紝浠ュ強 `Esc` / `Ctrl+C` 鎵撴柇銆傚湪 TUI 閲屽紑鍚殑浼氳瘽涔熶細鍑虹幇鍦?Web UI 渚ц竟鏍忊€斺€斿畠浼氫互鏈湴榛樿鐢ㄦ埛韬唤鍐欏叆鍏变韩鐨勪細璇濆瓨鍌紝鍥犳缁堢涓庣綉椤典繚鎸佸悓姝ワ紝**鏃犻渶杩愯 Gateway**銆?
+瀹屾暣璇存槑瑙?[backend/docs/TUI.md](backend/docs/TUI.md)銆?
+## 鏂囨。
 
-完整说明见 [backend/docs/TUI.md](backend/docs/TUI.md)。
+- [璐＄尞鎸囧崡](CONTRIBUTING.md) - 寮€鍙戠幆澧冩惌寤轰笌鍗忎綔娴佺▼
+- [閰嶇疆鎸囧崡](backend/docs/CONFIGURATION.md) - 瀹夎涓庨厤缃鏄?- [鏋舵瀯姒傝](backend/CLAUDE.md) - 鎶€鏈灦鏋勮鏄?- [鍚庣鏋舵瀯](backend/README.md) - 鍚庣鏋舵瀯涓?API 鍙傝€?
+## 鈿狅笍 瀹夊叏浣跨敤
 
-## 文档
+### 涓嶆伆褰撶殑閮ㄧ讲鍙兘瀵艰嚧瀹夊叏椋庨櫓
 
-- [贡献指南](CONTRIBUTING.md) - 开发环境搭建与协作流程
-- [配置指南](backend/docs/CONFIGURATION.md) - 安装与配置说明
-- [架构概览](backend/CLAUDE.md) - 技术架构说明
-- [后端架构](backend/README.md) - 后端架构与 API 参考
+DeerFlow 鍏峰**绯荤粺鎸囦护鎵ц銆佽祫婧愭搷浣溿€佷笟鍔￠€昏緫璋冪敤**绛夊叧閿珮鏉冮檺鑳藉姏锛岄粯璁よ璁′负**閮ㄧ讲鍦ㄦ湰鍦板彲淇＄幆澧冿紙浠呮湰鏈?127.0.0.1 鍥炵幆璁块棶锛?*銆傝嫢鎮ㄥ皢 agent 閮ㄧ讲鑷充笉鍙俊灞€鍩熺綉銆佸叕缃戜簯鏈嶅姟鍣ㄧ瓑鍙澶氱粓绔闂殑缃戠粶鐜锛屼笖鏈噰鍙栦弗鏍肩殑瀹夊叏闃叉姢鎺柦锛屽彲鑳藉鑷村畨鍏ㄩ闄╋紝渚嬪锛?
+- **鏈巿鏉冪殑闈炴硶璋冪敤**锛歛gent 鍔熻兘琚湭鎺堟潈鐨勭涓夋柟銆佸叕缃戞伓鎰忔壂鎻忕▼搴忔帰娴嬪埌锛岃繘鑰屽彂璧锋壒閲忛潪娉曡皟鐢ㄨ姹傦紝鎵ц绯荤粺鍛戒护銆佹枃浠惰鍐欑瓑楂樺嵄鎿嶄綔锛屽彲鑳藉鑷村畨鍏ㄥ悗鏋溿€?- **鍚堣涓庢硶寰嬮闄?*锛氳嫢 agent 琚潪娉曡皟鐢ㄧ敤浜庡疄鏂界綉缁滄敾鍑汇€佷俊鎭獌鍙栫瓑杩濇硶杩濊琛屼负锛屽彲鑳戒骇鐢熸硶寰嬭矗浠讳笌鍚堣椋庨櫓銆?
+### 瀹夊叏浣跨敤寤鸿
 
-## ⚠️ 安全使用
+**娉ㄦ剰锛氬缓璁偍灏?DeerFlow 閮ㄧ讲鍦ㄦ湰鍦板彲淇＄殑缃戠粶鐜涓嬨€?* 鑻ユ偍鏈夎法璁惧銆佽法缃戠粶鐨勯儴缃查渶姹傦紝蹇呴』鍔犲叆涓ユ牸鐨勫畨鍏ㄦ帾鏂姐€備緥濡傦紝閲囧彇濡備笅鎵嬫锛?
+- **璁剧疆璁块棶 IP 鐧藉悕鍗?*锛氫娇鐢?`iptables`锛屾垨閮ㄧ讲纭欢闃茬伀澧?/ 甯﹁闂帶鍒讹紙ACL锛夊姛鑳界殑浜ゆ崲鏈虹瓑锛?*閰嶇疆瑙勫垯璁剧疆 IP 鐧藉悕鍗?*锛屾嫆缁濆叾浠栨墍鏈?IP 杩涜璁块棶銆?- **鍓嶇疆韬唤楠岃瘉**锛氶厤缃弽鍚戜唬鐞嗭紙nginx 绛夛級锛屽苟**寮€鍚珮寮哄害鐨勫墠缃韩浠介獙璇佸姛鑳?*锛岀姝㈡棤浠讳綍韬唤楠岃瘉鐨勮闂€?- **缃戠粶闅旂**锛氳嫢鏈夊彲鑳斤紝寤鸿灏?agent 鍜屽彲淇¤澶囧垝鍒嗗埌**鍚屼竴涓笓鐢?VLAN**锛屼笌鍏朵粬缃戠粶璁惧鍋氶殧绂汇€?- **鎸佺画鍏虫敞椤圭洰鏇存柊**锛氳鎸佺画鍏虫敞 DeerFlow 椤圭洰鐨勫畨鍏ㄥ姛鑳芥洿鏂般€?
+## 鍙備笌璐＄尞
 
-### 不恰当的部署可能导致安全风险
+娆㈣繋鍙備笌璐＄尞銆傚紑鍙戠幆澧冦€佸伐浣滄祦鍜岀浉鍏宠鑼冭 [CONTRIBUTING.md](CONTRIBUTING.md)銆?
+鐩墠鍥炲綊娴嬭瘯宸茬粡瑕嗙洊 Docker sandbox 妯″紡璇嗗埆锛屼互鍙?`backend/tests/` 涓?provisioner kubeconfig-path 澶勭悊鐩稿叧娴嬭瘯銆?
+## 璁稿彲璇?
+鏈」鐩噰鐢?[MIT License](./LICENSE) 寮€婧愬彂甯冦€?
+## 鑷磋阿
 
-DeerFlow 具备**系统指令执行、资源操作、业务逻辑调用**等关键高权限能力，默认设计为**部署在本地可信环境（仅本机 127.0.0.1 回环访问）**。若您将 agent 部署至不可信局域网、公网云服务器等可被多终端访问的网络环境，且未采取严格的安全防护措施，可能导致安全风险，例如：
+DeerFlow 寤虹珛鍦ㄥ紑婧愮ぞ鍖哄ぇ閲忎紭绉€宸ヤ綔鐨勫熀纭€涓娿€傛墍鏈夎 DeerFlow 鎴愪负鍙兘鐨勯」鐩拰璐＄尞鑰咃紝鎴戜滑閮藉績鎬€鎰熻阿銆傛涓嶅じ寮犲湴璇达紝鎴戜滑鏄珯鍦ㄥ法浜虹殑鑲╄唨涓婄户缁線鍓嶈蛋銆?
+鐗瑰埆鎰熻阿浠ヤ笅椤圭洰甯︽潵鐨勫叧閿敮鎸侊細
 
-- **未授权的非法调用**：agent 功能被未授权的第三方、公网恶意扫描程序探测到，进而发起批量非法调用请求，执行系统命令、文件读写等高危操作，可能导致安全后果。
-- **合规与法律风险**：若 agent 被非法调用用于实施网络攻击、信息窃取等违法违规行为，可能产生法律责任与合规风险。
-
-### 安全使用建议
-
-**注意：建议您将 DeerFlow 部署在本地可信的网络环境下。** 若您有跨设备、跨网络的部署需求，必须加入严格的安全措施。例如，采取如下手段：
-
-- **设置访问 IP 白名单**：使用 `iptables`，或部署硬件防火墙 / 带访问控制（ACL）功能的交换机等，**配置规则设置 IP 白名单**，拒绝其他所有 IP 进行访问。
-- **前置身份验证**：配置反向代理（nginx 等），并**开启高强度的前置身份验证功能**，禁止无任何身份验证的访问。
-- **网络隔离**：若有可能，建议将 agent 和可信设备划分到**同一个专用 VLAN**，与其他网络设备做隔离。
-- **持续关注项目更新**：请持续关注 DeerFlow 项目的安全功能更新。
-
-## 参与贡献
-
-欢迎参与贡献。开发环境、工作流和相关规范见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-
-目前回归测试已经覆盖 Docker sandbox 模式识别，以及 `backend/tests/` 中 provisioner kubeconfig-path 处理相关测试。
-
-## 许可证
-
-本项目采用 [MIT License](./LICENSE) 开源发布。
-
-## 致谢
-
-DeerFlow 建立在开源社区大量优秀工作的基础上。所有让 DeerFlow 成为可能的项目和贡献者，我们都心怀感谢。毫不夸张地说，我们是站在巨人的肩膀上继续往前走。
-
-特别感谢以下项目带来的关键支持：
-
-- **[LangChain](https://github.com/langchain-ai/langchain)**：它们提供的优秀框架支撑了我们的 LLM 交互与 chains，让整体集成和能力编排顺畅可用。
-- **[LangGraph](https://github.com/langchain-ai/langgraph)**：它们在多 agent 编排上的创新方式，是 DeerFlow 复杂工作流得以成立的重要基础。
-
-这些项目体现了开源协作真正的力量，我们也很高兴能继续建立在这些基础之上。
-
-### 核心贡献者
-
-感谢 `DeerFlow` 的核心作者，是他们的判断、投入和持续推进，才让这个项目真正落地：
+- **[LangChain](https://github.com/langchain-ai/langchain)**锛氬畠浠彁渚涚殑浼樼妗嗘灦鏀拺浜嗘垜浠殑 LLM 浜や簰涓?chains锛岃鏁翠綋闆嗘垚鍜岃兘鍔涚紪鎺掗『鐣呭彲鐢ㄣ€?- **[LangGraph](https://github.com/langchain-ai/langgraph)**锛氬畠浠湪澶?agent 缂栨帓涓婄殑鍒涙柊鏂瑰紡锛屾槸 DeerFlow 澶嶆潅宸ヤ綔娴佸緱浠ユ垚绔嬬殑閲嶈鍩虹銆?
+杩欎簺椤圭洰浣撶幇浜嗗紑婧愬崗浣滅湡姝ｇ殑鍔涢噺锛屾垜浠篃寰堥珮鍏磋兘缁х画寤虹珛鍦ㄨ繖浜涘熀纭€涔嬩笂銆?
+### 鏍稿績璐＄尞鑰?
+鎰熻阿 `DeerFlow` 鐨勬牳蹇冧綔鑰咃紝鏄粬浠殑鍒ゆ柇銆佹姇鍏ュ拰鎸佺画鎺ㄨ繘锛屾墠璁╄繖涓」鐩湡姝ｈ惤鍦帮細
 
 - **[Daniel Walnut](https://github.com/hetaoBackend/)**
 - **[Henry Li](https://github.com/magiccube/)**

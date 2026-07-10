@@ -30,6 +30,27 @@ def test_wait_for_kubeconfig_accepts_file(tmp_path, provisioner_module):
     provisioner_module._wait_for_kubeconfig(timeout=1)
 
 
+def test_kubeconfig_wait_seconds_skips_inside_kubernetes(monkeypatch, provisioner_module):
+    monkeypatch.delenv("KUBECONFIG_WAIT_SECONDS", raising=False)
+    monkeypatch.setenv("KUBERNETES_SERVICE_HOST", "10.96.0.1")
+
+    assert provisioner_module._kubeconfig_wait_seconds() == 0
+
+
+def test_kubeconfig_wait_seconds_honors_explicit_env(monkeypatch, provisioner_module):
+    monkeypatch.setenv("KUBECONFIG_WAIT_SECONDS", "7")
+    monkeypatch.setenv("KUBERNETES_SERVICE_HOST", "10.96.0.1")
+
+    assert provisioner_module._kubeconfig_wait_seconds() == 7
+
+
+def test_kubeconfig_wait_seconds_defaults_for_external_mode(monkeypatch, provisioner_module):
+    monkeypatch.delenv("KUBECONFIG_WAIT_SECONDS", raising=False)
+    monkeypatch.delenv("KUBERNETES_SERVICE_HOST", raising=False)
+
+    assert provisioner_module._kubeconfig_wait_seconds() == 30
+
+
 def test_init_k8s_client_rejects_directory_path(tmp_path, provisioner_module):
     """KUBECONFIG_PATH that resolves to a directory should be rejected."""
     kubeconfig_dir = tmp_path / "config_dir"

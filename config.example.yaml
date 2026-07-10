@@ -105,53 +105,6 @@ models:
   #     extra_body:
   #       enable_thinking: true
   #       thinking_budget: 4096
-  # - name: hecc-deepseek-v3-2
-  #   display_name: HECC DeepSeek V3.2
-  #   use: deerflow.models.hecc_openai:HeccChatOpenAI
-  #   model: deepseek-v3.2
-  #   api_key: $HECC_API_KEY
-  #   base_url: https://hecc.ai.cnooc:30119/heai/Deepseek_V3.2_671B_64K/v1/
-  #   tls_verify: false
-  #   max_tokens: 8192
-  #   timeout: 1200
-  #   profile:
-  #     max_input_tokens: 131072
-  #   supports_thinking: true
-  #   supports_vision: false
-  #   when_thinking_enabled:
-  #     extra_body:
-  #       enable_thinking: true
-  #       thinking_budget: 512
-  # - name: deepseek-v3.1
-  #   display_name: DeepSeek-V3.1-671B
-  #   use: langchain_openai:ChatOpenAI
-  #   model: deepseek-siliconflow
-  #   api_key: $DEEPSEEK_SILICONFLOW_API_KEY
-  #   base_url: http://model.ai.cnooc/member1/deepseek-siliconflow/v1
-  #   max_tokens: 8192
-  #   temperature: 0.0
-  #   timeout: 600
-  #   profile:
-  #     max_input_tokens: 131072
-  #   supports_thinking: false
-  #   supports_vision: false
-  # - name: qwen3.6-35B-A3B
-  #   display_name: Qwen3.6-35B-A3B
-  #   use: langchain_openai:ChatOpenAI
-  #   model: qwen3.6
-  #   api_key: local
-  #   base_url: http://model.ai.cnooc/member1/qwen36-35b-18538/v1/
-  #   max_tokens: 8192
-  #   timeout: 600
-  #   profile:
-  #     max_input_tokens: 65536
-  #   supports_thinking: true
-  #   supports_vision: false
-  #   when_thinking_enabled:
-  #     extra_body:
-  #       thinking:
-  #         type: enabled
-
   # Example: in-house HECC/OpenAI-compatible gateway with custom TLS/proxy handling
   # - name: hecc-deepseek
   #   display_name: HECC DeepSeek
@@ -623,6 +576,7 @@ models:
 
 tool_groups:
   - name: web
+  - name: knowledge
   - name: file:read
   - name: file:write
   - name: bash
@@ -800,6 +754,28 @@ tools:
     use: deerflow.community.image_search.tools:image_search_tool
     max_results: 5
 
+  # WeKnora knowledge tools (self-hosted knowledge platform)
+  # Deploy WeKnora separately, then enable these tools so DeerFlow agents can
+  # search or ask selected WeKnora knowledge bases during task execution.
+  # Use Docker/K8s service DNS instead of localhost when Gateway runs in a container.
+  # Browser-initiated runs prefer the current user's WeKnora bearer token; api_key
+  # is only a fallback for non-user/background execution.
+  # - name: weknora_search
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_search_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  #   knowledge_base_ids: $WEKNORA_KNOWLEDGE_BASE_IDS
+  #   max_results: 8
+  #
+  # - name: weknora_ask
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_ask_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  #   knowledge_base_ids: $WEKNORA_KNOWLEDGE_BASE_IDS
+  #   # agent_id: $WEKNORA_AGENT_ID
+
   # Image search tool (uses InfoQuest)
   # - name: image_search
   #   group: web
@@ -809,26 +785,26 @@ tools:
   #   # Image size filter. Options: "l" (large), "m" (medium), "i" (icon).
   #   image_size: "i"
 
-  # MinIO/S3-compatible shared document tools
+  # MinIO/S3-compatible shared document tools.
   # Use these only when uploaded/local files are insufficient or the user asks
   # to search shared storage.
-  # - name: minio_list
-  #   group: data:read
-  #   use: deerflow.community.minio.tools:minio_list_tool
-  #   endpoint: $MINIO_ENDPOINT
-  #   access_key: $MINIO_ACCESS_KEY
-  #   secret_key: $MINIO_SECRET_KEY
-  #   bucket: $MINIO_BUCKET
-  #   secure: $MINIO_SECURE
-  #
-  # - name: minio_fetch
-  #   group: data:read
-  #   use: deerflow.community.minio.tools:minio_fetch_tool
-  #   endpoint: $MINIO_ENDPOINT
-  #   access_key: $MINIO_ACCESS_KEY
-  #   secret_key: $MINIO_SECRET_KEY
-  #   bucket: $MINIO_BUCKET
-  #   secure: $MINIO_SECURE
+  - name: minio_list
+    group: data:read
+    use: deerflow.community.minio.tools:minio_list_tool
+    endpoint: $MINIO_ENDPOINT
+    access_key: $MINIO_ACCESS_KEY
+    secret_key: $MINIO_SECRET_KEY
+    bucket: $MINIO_BUCKET
+    secure: $MINIO_SECURE
+
+  - name: minio_fetch
+    group: data:read
+    use: deerflow.community.minio.tools:minio_fetch_tool
+    endpoint: $MINIO_ENDPOINT
+    access_key: $MINIO_ACCESS_KEY
+    secret_key: $MINIO_SECRET_KEY
+    bucket: $MINIO_BUCKET
+    secure: $MINIO_SECURE
 
   # Image search tool (uses Serper - Google Images API, requires SERPER_API_KEY)
   # Serper provides real-time Google Images results. Sign up at https://serper.dev
@@ -1202,7 +1178,7 @@ title:
   enabled: true
   max_words: 6
   max_chars: 60
-  model_name: null # Use default model (first model in models list)
+  model_name: null # null = use the run/default model; set a model name to use a dedicated title model
 
 # ============================================================================
 # Summarization Configuration
@@ -1318,27 +1294,6 @@ agents_api:
 skill_evolution:
   enabled: false # Set to true to allow agent-managed writes under skills/custom
   moderation_model_name: null # Model for LLM-based security scanning (null = use default model)
-
-# ============================================================================
-# User-private Knowledge Base / RAG
-# ============================================================================
-# Uploaded knowledge files are chunked and indexed per user. When PostgreSQL has
-# the pgvector extension and the embedding API is configured, DeerFlow performs
-# semantic vector retrieval first and merges it with keyword fallback.
-knowledge:
-  semantic_search_enabled: true
-  # OpenAI-compatible embedding endpoint. DashScope text-embedding-v4 defaults
-  # to 1024 dimensions and supports multilingual retrieval.
-  embedding_model: text-embedding-v4
-  embedding_dimensions: 1024
-  embedding_api_key: $DASHSCOPE_API_KEY
-  embedding_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
-  embedding_batch_size: 10
-  semantic_candidates: 50
-  keyword_candidates: 300
-  semantic_weight: 0.75
-  keyword_weight: 0.25
-  fallback_to_keyword: true
 
 # ============================================================================
 # Checkpointer Configuration (DEPRECATED 鈥?use `database` instead)

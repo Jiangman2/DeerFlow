@@ -151,11 +151,9 @@ def _build_runtime_middlewares(
     ]
 
     if include_uploads:
-        from deerflow.agents.middlewares.knowledge_middleware import KnowledgeMiddleware
         from deerflow.agents.middlewares.uploads_middleware import UploadsMiddleware
 
         middlewares.insert(2, UploadsMiddleware())
-        middlewares.insert(3, KnowledgeMiddleware())
 
     if include_dangling_tool_call_patch:
         from deerflow.agents.middlewares.dangling_tool_call_middleware import DanglingToolCallMiddleware

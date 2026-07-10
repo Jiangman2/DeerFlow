@@ -132,15 +132,6 @@ export const zhCN: Translations = {
     reasoningEffortMediumDescription: "多层逻辑分析 + 基础验证",
     reasoningEffortHigh: "高",
     reasoningEffortHighDescription: "全维度逻辑推演 + 多路径验证 + 反推校验",
-    privateKnowledge: "个人知识库",
-    privateKnowledgeOnDescription: "本轮会自动检索你的个人知识库",
-    privateKnowledgeOffDescription: "本轮不会自动检索你的个人知识库",
-    privateKnowledgeScope: "知识库范围",
-    privateKnowledgeScopeAll: "全部知识库",
-    privateKnowledgeScopeSelected: (count: number) => `已选 ${count} 个范围`,
-    privateKnowledgeScopeDescription:
-      "限定本次任务只检索选中的知识库文件夹或文件",
-    privateKnowledgeScopeEmpty: "暂无知识库文件",
     searchModels: "搜索模型...",
     surpriseMe: "小惊喜",
     surpriseMePrompt: "给我一个小惊喜吧",
@@ -219,6 +210,7 @@ export const zhCN: Translations = {
     apiDisabledDescription:
       "请在后端配置中设置 agents_api.enabled=true，然后重启后端服务。",
     chat: "对话",
+    openExternal: "访问工具",
     delete: "删除",
     deleteConfirm: "确定要删除该智能体吗？此操作不可撤销。",
     deleteSuccess: "智能体已删除",

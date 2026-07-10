@@ -279,6 +279,9 @@ class AioSandbox(Sandbox):
                     existing = self.read_file(path)
                     if not existing.startswith("Error:"):
                         content = existing + content
+                parent = shlex.quote(path.rsplit("/", 1)[0]) if "/" in path.rstrip("/") else ""
+                if parent:
+                    self._client.shell.exec_command(command=f"mkdir -p {parent}", no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
                 self._client.file.write_file(file=path, content=content)
             except Exception as e:
                 logger.error(f"Failed to write file in sandbox: {e}")

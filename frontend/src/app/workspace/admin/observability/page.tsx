@@ -21,7 +21,8 @@ import {
   XIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,12 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   useObservabilityAnalytics,
@@ -123,11 +119,7 @@ function hoursBetween(startAt?: string, endAt?: string): number | null {
   return Math.max(1, Math.ceil((end - start) / 3_600_000));
 }
 
-function windowLabel(
-  hours: number,
-  startAt?: string,
-  endAt?: string,
-): string {
+function windowLabel(hours: number, startAt?: string, endAt?: string): string {
   if (startAt && endAt) {
     return `${shortTime(startAt)} - ${shortTime(endAt)}`;
   }
@@ -210,9 +202,7 @@ function downloadUserActivityCsv(report: UserActivityReport, label: string) {
 
 function statusTone(status: string): string {
   if (
-    ["error", "timeout", "interrupted", "failure", "degraded"].includes(
-      status,
-    )
+    ["error", "timeout", "interrupted", "failure", "degraded"].includes(status)
   ) {
     return "bg-red-50 text-red-700";
   }
@@ -289,7 +279,7 @@ function ComponentHealthGrid({
               {component.detail}
             </p>
             {component.metric && (
-              <p className="mt-3 text-xs font-medium tabular-nums text-slate-700">
+              <p className="mt-3 text-xs font-medium text-slate-700 tabular-nums">
                 {component.metric}
               </p>
             )}
@@ -329,7 +319,7 @@ function StatusBars({ statuses }: { statuses: Record<string, number> }) {
                 style={{ width: `${Math.max(6, (count / max) * 100)}%` }}
               />
             </div>
-            <span className="text-right text-sm tabular-nums text-slate-600">
+            <span className="text-right text-sm text-slate-600 tabular-nums">
               {count}
             </span>
           </div>
@@ -365,7 +355,7 @@ function HourlyTrend({
                 className="w-full rounded-t bg-cyan-600"
                 style={{ height: `${Math.max(8, (row.runs / max) * 132)}px` }}
               />
-              <span className="text-[10px] tabular-nums text-slate-500">
+              <span className="text-[10px] text-slate-500 tabular-nums">
                 {row.runs}
               </span>
             </div>
@@ -384,7 +374,12 @@ function ComparisonCard({
 }: {
   label: string;
   metric: string;
-  value: { current: number; previous: number; delta: number; change_rate: number };
+  value: {
+    current: number;
+    previous: number;
+    delta: number;
+    change_rate: number;
+  };
   renderValue: (value: number) => string;
 }) {
   return (
@@ -470,14 +465,16 @@ function TrendAndComparison({
               <div className="flex w-full items-end gap-1">
                 <div
                   className="flex-1 rounded-t bg-cyan-600"
-                  style={{ height: `${Math.max(8, (row.runs / maxRuns) * 132)}px` }}
+                  style={{
+                    height: `${Math.max(8, (row.runs / maxRuns) * 132)}px`,
+                  }}
                 />
                 <div
                   className="w-2 rounded-t bg-red-400"
                   style={{ height: `${Math.max(4, row.error_rate * 132)}px` }}
                 />
               </div>
-              <span className="text-[10px] tabular-nums text-slate-500">
+              <span className="text-[10px] text-slate-500 tabular-nums">
                 {row.runs}
               </span>
             </div>
@@ -521,8 +518,10 @@ function RunRanking({
                   {run.email ?? run.user_id ?? "-"} · {run.model ?? "unknown"}
                 </span>
               </span>
-              <span className="text-right tabular-nums text-slate-700">
-                {metric === "duration" ? duration(run.duration_ms) : compactNumber(run.tokens)}
+              <span className="text-right text-slate-700 tabular-nums">
+                {metric === "duration"
+                  ? duration(run.duration_ms)
+                  : compactNumber(run.tokens)}
               </span>
             </button>
           ))
@@ -561,16 +560,16 @@ function CostBreakdownTable({
               <span className="truncate text-slate-800">
                 {row.email ?? row.key}
               </span>
-              <span className="text-right tabular-nums text-slate-600">
+              <span className="text-right text-slate-600 tabular-nums">
                 {row.runs}
               </span>
-              <span className="text-right tabular-nums text-slate-600">
+              <span className="text-right text-slate-600 tabular-nums">
                 {compactNumber(row.tokens)}
               </span>
-              <span className="text-right tabular-nums text-slate-600">
+              <span className="text-right text-slate-600 tabular-nums">
                 {duration(row.avg_duration_ms)}
               </span>
-              <span className="text-right tabular-nums text-slate-600">
+              <span className="text-right text-slate-600 tabular-nums">
                 {duration(row.tool_duration_ms)}
               </span>
             </div>
@@ -616,14 +615,18 @@ function UserActivityTrend({
               <div className="flex h-36 w-full items-end gap-1">
                 <div
                   className="min-h-2 flex-1 rounded-t bg-cyan-600"
-                  style={{ height: `${Math.max(8, (row.active_users / maxActive) * 136)}px` }}
+                  style={{
+                    height: `${Math.max(8, (row.active_users / maxActive) * 136)}px`,
+                  }}
                 />
                 <div
                   className="min-h-2 flex-1 rounded-t bg-amber-500"
-                  style={{ height: `${Math.max(8, (row.runs / maxRuns) * 136)}px` }}
+                  style={{
+                    height: `${Math.max(8, (row.runs / maxRuns) * 136)}px`,
+                  }}
                 />
               </div>
-              <span className="text-[10px] tabular-nums text-slate-500">
+              <span className="text-[10px] text-slate-500 tabular-nums">
                 {row.active_users}/{row.runs}
               </span>
             </div>
@@ -644,11 +647,7 @@ function UserActivityTrend({
   );
 }
 
-function UserActivityTable({
-  rows,
-}: {
-  rows: UserActivityItem[];
-}) {
+function UserActivityTable({ rows }: { rows: UserActivityItem[] }) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
       <h2 className="text-base font-semibold text-slate-950">用户明细</h2>
@@ -682,25 +681,25 @@ function UserActivityTable({
                     {user.user_id}
                   </span>
                 </span>
-                <span className="text-right tabular-nums text-slate-600">
+                <span className="text-right text-slate-600 tabular-nums">
                   {user.runs}
                 </span>
-                <span className="text-right tabular-nums text-slate-600">
+                <span className="text-right text-slate-600 tabular-nums">
                   {user.error_runs}
                   <span className="ml-1 text-xs text-slate-400">
                     {percent(user.error_rate)}
                   </span>
                 </span>
-                <span className="text-right tabular-nums text-slate-600">
+                <span className="text-right text-slate-600 tabular-nums">
                   {compactNumber(user.tokens)}
                 </span>
-                <span className="text-right tabular-nums text-slate-600">
+                <span className="text-right text-slate-600 tabular-nums">
                   {user.threads}
                 </span>
-                <span className="text-right tabular-nums text-slate-600">
+                <span className="text-right text-slate-600 tabular-nums">
                   {user.uploads}
                 </span>
-                <span className="text-right tabular-nums text-slate-600">
+                <span className="text-right text-slate-600 tabular-nums">
                   {user.downloads}
                 </span>
                 <span className="truncate text-slate-600">
@@ -732,16 +731,16 @@ function SearchBox({
 }) {
   return (
     <div className="relative min-w-0 flex-1">
-      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+      <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
       <Input
-        className="pl-9 pr-9"
+        className="pr-9 pl-9"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
       />
       {value && (
         <Button
-          className="absolute right-1 top-1/2 size-7 -translate-y-1/2"
+          className="absolute top-1/2 right-1 size-7 -translate-y-1/2"
           size="icon"
           variant="ghost"
           onClick={() => onChange("")}
@@ -798,10 +797,10 @@ function TraceList({
               {trace.email ?? trace.user_id ?? "-"}
             </span>
             <StatusPill status={trace.status} />
-            <span className="tabular-nums text-slate-600">
+            <span className="text-slate-600 tabular-nums">
               {duration(trace.duration_ms)}
             </span>
-            <span className="tabular-nums text-slate-600">
+            <span className="text-slate-600 tabular-nums">
               {trace.event_count}
             </span>
           </button>
@@ -853,12 +852,12 @@ function AuditTable({
                 {log.action}
               </span>
               <span className="block truncate text-xs text-slate-500">
-                {log.operation_type === "management" ? "管理操作" : "普通调用"} ·{" "}
-                {log.method} {log.path}
+                {log.operation_type === "management" ? "管理操作" : "普通调用"}{" "}
+                · {log.method} {log.path}
               </span>
             </span>
             <StatusPill status={log.result} />
-            <span className="tabular-nums text-slate-600">
+            <span className="text-slate-600 tabular-nums">
               {duration(log.duration_ms)}
             </span>
           </button>
@@ -878,7 +877,7 @@ function DetailGrid({
       {rows.map(([label, value]) => (
         <div key={label} className="rounded-md bg-slate-50 px-3 py-2">
           <p className="text-xs text-slate-500">{label}</p>
-          <p className="mt-1 break-all text-sm text-slate-900">
+          <p className="mt-1 text-sm break-all text-slate-900">
             {value ?? "-"}
           </p>
         </div>
@@ -929,13 +928,17 @@ function TraceEventList({
 }
 
 export default function ObservabilityPage() {
+  const searchParams = useSearchParams();
+  const initialRunId = searchParams.get("run_id") ?? "";
   const [hours, setHours] = useState(24);
   const [rangeMode, setRangeMode] = useState<"preset" | "custom">("preset");
   const [customStart, setCustomStart] = useState(() =>
     toDateTimeLocal(new Date(Date.now() - 24 * 60 * 60 * 1000)),
   );
   const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(
+    initialRunId || null,
+  );
   const [selectedAuditLog, setSelectedAuditLog] = useState<AuditLog | null>(
     null,
   );
@@ -945,7 +948,7 @@ export default function ObservabilityPage() {
   const [traceModel, setTraceModel] = useState("all");
   const [traceAgent, setTraceAgent] = useState("all");
   const [traceThread, setTraceThread] = useState("");
-  const [traceRunId, setTraceRunId] = useState("");
+  const [traceRunId, setTraceRunId] = useState(initialRunId);
   const [traceErrorType, setTraceErrorType] = useState("all");
   const [auditQuery, setAuditQuery] = useState("");
   const [auditResult, setAuditResult] = useState("all");
@@ -961,6 +964,13 @@ export default function ObservabilityPage() {
   const rangeEnd = rangeMode === "custom" ? draftEnd : undefined;
   const activeHours = rangeMode === "custom" ? (draftHours ?? hours) : hours;
   const trendBucket: "hour" | "day" = activeHours > 72 ? "day" : "hour";
+
+  useEffect(() => {
+    const runId = searchParams.get("run_id") ?? "";
+    if (!runId) return;
+    setTraceRunId(runId);
+    setSelectedRunId(runId);
+  }, [searchParams]);
 
   const snapshotQuery = useObservabilitySnapshot(hours, rangeStart, rangeEnd);
   const analyticsQuery = useObservabilityAnalytics(
@@ -1033,20 +1043,16 @@ export default function ObservabilityPage() {
 
   const traceStatusOptions = useMemo(() => {
     const statuses = new Set(
-      [
-        ...(snapshot?.recent_traces ?? []),
-        ...(tracesQuery.data ?? []),
-      ].map((trace) => trace.status),
+      [...(snapshot?.recent_traces ?? []), ...(tracesQuery.data ?? [])].map(
+        (trace) => trace.status,
+      ),
     );
     return ["all", ...Array.from(statuses).sort()];
   }, [snapshot, tracesQuery.data]);
 
   const traceModelOptions = useMemo(() => {
     const models = new Set(
-      [
-        ...(snapshot?.recent_traces ?? []),
-        ...(tracesQuery.data ?? []),
-      ]
+      [...(snapshot?.recent_traces ?? []), ...(tracesQuery.data ?? [])]
         .map((trace) => trace.model)
         .filter((model): model is string => Boolean(model)),
     );
@@ -1055,10 +1061,7 @@ export default function ObservabilityPage() {
 
   const traceAgentOptions = useMemo(() => {
     const agents = new Set(
-      [
-        ...(snapshot?.recent_traces ?? []),
-        ...(tracesQuery.data ?? []),
-      ]
+      [...(snapshot?.recent_traces ?? []), ...(tracesQuery.data ?? [])]
         .map((trace) => trace.agent)
         .filter((agent): agent is string => Boolean(agent)),
     );
@@ -1293,10 +1296,10 @@ export default function ObservabilityPage() {
                       <span className="truncate text-slate-800">
                         {user.email ?? user.user_id}
                       </span>
-                      <span className="text-right tabular-nums text-slate-600">
+                      <span className="text-right text-slate-600 tabular-nums">
                         {user.runs} 次
                       </span>
-                      <span className="text-right tabular-nums text-slate-600">
+                      <span className="text-right text-slate-600 tabular-nums">
                         {compactNumber(user.tokens)} token
                       </span>
                     </div>
@@ -1351,13 +1354,17 @@ export default function ObservabilityPage() {
               <MetricCard
                 icon={UsersIcon}
                 label="活跃用户"
-                value={compactNumber(userActivityQuery.data?.summary.active_users ?? 0)}
+                value={compactNumber(
+                  userActivityQuery.data?.summary.active_users ?? 0,
+                )}
                 detail={`活跃率 ${percent(userActivityQuery.data?.summary.activation_rate ?? 0)} / 注册 ${compactNumber(userActivityQuery.data?.summary.total_users ?? 0)}`}
               />
               <MetricCard
                 icon={ActivityIcon}
                 label="用户运行"
-                value={compactNumber(userActivityQuery.data?.summary.total_runs ?? 0)}
+                value={compactNumber(
+                  userActivityQuery.data?.summary.total_runs ?? 0,
+                )}
                 detail={`人均 ${userActivityQuery.data?.summary.avg_runs_per_active_user ?? 0} 次运行`}
               />
               <MetricCard
@@ -1369,7 +1376,9 @@ export default function ObservabilityPage() {
               <MetricCard
                 icon={DatabaseIcon}
                 label="用户 Token"
-                value={compactNumber(userActivityQuery.data?.summary.total_tokens ?? 0)}
+                value={compactNumber(
+                  userActivityQuery.data?.summary.total_tokens ?? 0,
+                )}
                 detail={`活跃用户人均 ${compactNumber(userActivityQuery.data?.summary.avg_tokens_per_active_user ?? 0)} token`}
               />
             </section>
@@ -1402,10 +1411,17 @@ export default function ObservabilityPage() {
             </section>
             <UserActivityTrend report={userActivityQuery.data} />
             <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-base font-semibold text-slate-950">使用口径</h2>
+              <h2 className="text-base font-semibold text-slate-950">
+                使用口径
+              </h2>
               <div className="mt-4 grid gap-3 text-sm text-slate-600">
-                <p>活跃用户按当前时间窗口内有运行记录或上传下载记录的注册用户统计。</p>
-                <p>上传和下载来自审计日志中的 uploads、files、artifacts、download 路径。</p>
+                <p>
+                  活跃用户按当前时间窗口内有运行记录或上传下载记录的注册用户统计。
+                </p>
+                <p>
+                  上传和下载来自审计日志中的 uploads、files、artifacts、download
+                  路径。
+                </p>
                 <p>智能体和模型取每个用户在窗口内最常使用的前三项。</p>
               </div>
             </section>
@@ -1582,7 +1598,8 @@ export default function ObservabilityPage() {
           <DialogHeader>
             <DialogTitle>错误诊断详情</DialogTitle>
             <DialogDescription>
-              Run 级别指标、工具调用、节点和错误原因，用于定位一次请求为什么失败或变慢。
+              Run
+              级别指标、工具调用、节点和错误原因，用于定位一次请求为什么失败或变慢。
             </DialogDescription>
           </DialogHeader>
           {diagnosticsQuery.isLoading ? (
@@ -1673,12 +1690,15 @@ export default function ObservabilityPage() {
                 />
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs text-slate-500">
-                    当前状态：{diagnosticsQuery.data.disposition_status ?? "未处理"}
+                    当前状态：
+                    {diagnosticsQuery.data.disposition_status ?? "未处理"}
                   </span>
                   <Button
                     size="sm"
                     variant="outline"
-                    disabled={!dispositionNote.trim() || dispositionMutation.isPending}
+                    disabled={
+                      !dispositionNote.trim() || dispositionMutation.isPending
+                    }
                     onClick={async () => {
                       await recordDisposition("add_note", {
                         note: dispositionNote,
@@ -1732,7 +1752,7 @@ export default function ObservabilityPage() {
               />
               <div className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
                 <p className="text-xs text-slate-500">用户问题</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
+                <p className="mt-1 text-sm whitespace-pre-wrap text-slate-900">
                   {diagnosticsQuery.data.user_question ?? "-"}
                 </p>
               </div>
@@ -1751,7 +1771,7 @@ export default function ObservabilityPage() {
               {diagnosticsQuery.data.error_stack && (
                 <div className="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
                   <p className="mb-2 font-medium">错误栈 / 错误信息</p>
-                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">
+                  <pre className="max-h-48 overflow-auto text-xs whitespace-pre-wrap">
                     {diagnosticsQuery.data.error_stack}
                   </pre>
                 </div>
@@ -1774,7 +1794,9 @@ export default function ObservabilityPage() {
                         </span>
                         <StatusPill status={tool.status} />
                         <span className="line-clamp-2 text-xs text-slate-600">
-                          {tool.error ?? tool.result_preview ?? stringifyDetail(tool.args)}
+                          {tool.error ??
+                            tool.result_preview ??
+                            stringifyDetail(tool.args)}
                         </span>
                       </div>
                     ))}

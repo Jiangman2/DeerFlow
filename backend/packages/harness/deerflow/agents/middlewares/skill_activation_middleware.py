@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import html
 import logging
+import re
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
@@ -16,7 +17,7 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain.agents.middleware.types import ModelRequest, ModelResponse
 from langchain_core.messages import AIMessage, HumanMessage
 
-from deerflow.skills.slash import parse_slash_skill_reference, resolve_slash_skill
+from deerflow.skills.slash import parse_slash_skill_reference
 from deerflow.skills.storage import get_or_new_skill_storage
 from deerflow.skills.storage.skill_storage import SkillStorage
 from deerflow.skills.types import SKILL_MD_FILE
@@ -29,7 +30,15 @@ logger = logging.getLogger(__name__)
 
 _SLASH_SKILL_ACTIVATION_KEY = "slash_skill_activation"
 _SLASH_SKILL_ACTIVATION_TARGET_ID_KEY = "slash_skill_activation_target_id"
+
 _SUMMARY_MESSAGE_NAME = "summary"
+
+_NATURAL_LANGUAGE_SKILL_ACTIVATION_PATTERNS = (
+    r"(?:使用|用|采用|调用|启用|激活|按照|基于)\s*{skill}\s*(?:技能|skill|工作流)?",
+    r"{skill}\s*(?:技能|skill|工作流)",
+    r"(?:use|using|with|activate|run|apply)\s+(?:the\s+)?{skill}\s*(?:skill|workflow)?",
+)
+_NATURAL_LANGUAGE_NEGATION_MARKERS = ("不", "别", "禁止", "不要", "不用", "not ", "no ", "don't ", "do not ")
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +55,12 @@ class _Activation:
 class _ActivationResolution:
     activation: _Activation | None = None
     failure_message: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _ActivationReference:
+    name: str
+    remaining_text: str
 
 
 def is_slash_skill_activation_reminder(message: object) -> bool:
@@ -82,6 +97,30 @@ class SkillActivationMiddleware(AgentMiddleware):
         return get_or_new_skill_storage()
 
     @staticmethod
+    def _parse_explicit_skill_reference(text: str, skills: list) -> _ActivationReference | None:
+        slash_reference = parse_slash_skill_reference(text)
+        if slash_reference is not None:
+            return _ActivationReference(name=slash_reference.name, remaining_text=slash_reference.remaining_text)
+
+        normalized = " ".join(text.split())
+        if not normalized:
+            return None
+
+        for skill in sorted(skills, key=lambda candidate: len(candidate.name), reverse=True):
+            escaped = re.escape(skill.name)
+            quoted_skill = rf"[`'\"“”‘’]?{escaped}[`'\"“”‘’]?"
+            for pattern in _NATURAL_LANGUAGE_SKILL_ACTIVATION_PATTERNS:
+                match = re.search(pattern.format(skill=quoted_skill), normalized, flags=re.IGNORECASE)
+                if match and not SkillActivationMiddleware._is_negated_skill_match(normalized, match.start()):
+                    return _ActivationReference(name=skill.name, remaining_text=text)
+        return None
+
+    @staticmethod
+    def _is_negated_skill_match(text: str, match_start: int) -> bool:
+        prefix = text[max(0, match_start - 12) : match_start].lower()
+        return any(marker in prefix for marker in _NATURAL_LANGUAGE_NEGATION_MARKERS)
+
+    @staticmethod
     def _read_skill_content(skill_file: Path, skills_root: Path) -> str:
         if skill_file.name != SKILL_MD_FILE:
             raise ValueError(f"Expected {SKILL_MD_FILE}, got {skill_file.name}")
@@ -96,12 +135,12 @@ class SkillActivationMiddleware(AgentMiddleware):
         return resolved_file.read_text(encoding="utf-8")
 
     def _resolve_activation(self, text: str) -> _ActivationResolution | None:
-        reference = parse_slash_skill_reference(text)
+        storage = self._storage()
+        skills = storage.load_skills(enabled_only=False)
+        reference = self._parse_explicit_skill_reference(text, skills)
         if reference is None:
             return None
 
-        storage = self._storage()
-        skills = storage.load_skills(enabled_only=False)
         skill = next((candidate for candidate in skills if candidate.name == reference.name), None)
         if skill is None:
             return _ActivationResolution(failure_message=f"Skill `/{reference.name}` is not installed.")
@@ -110,30 +149,21 @@ class SkillActivationMiddleware(AgentMiddleware):
         if self._available_skills is not None and reference.name not in self._available_skills:
             return _ActivationResolution(failure_message=f"Skill `/{reference.name}` is not available for this agent.")
 
-        resolved = resolve_slash_skill(
-            text,
-            skills,
-            available_skills=self._available_skills,
-            container_base_path=storage.get_container_root(),
-        )
-        if resolved is None:
-            return _ActivationResolution(failure_message=f"Skill `/{reference.name}` could not be resolved.")
-
         try:
-            skill_content = self._read_skill_content(resolved.skill.skill_file, storage.get_skills_root_path())
+            skill_content = self._read_skill_content(skill.skill_file, storage.get_skills_root_path())
         except (OSError, ValueError):
-            logger.exception("Failed to read slash-activated skill %s", resolved.skill.name)
+            logger.exception("Failed to read activated skill %s", skill.name)
             return _ActivationResolution(failure_message=f"Skill `/{reference.name}` could not be loaded safely. Please check the skill installation.")
 
         content_hash = hashlib.sha256(skill_content.encode("utf-8")).hexdigest()
         return _ActivationResolution(
             activation=_Activation(
-                skill_name=resolved.skill.name,
-                category=str(resolved.skill.category),
-                container_file_path=resolved.container_file_path,
+                skill_name=skill.name,
+                category=str(skill.category),
+                container_file_path=skill.get_container_file_path(storage.get_container_root()),
                 skill_content=skill_content,
                 content_hash=content_hash,
-                remaining_text=resolved.remaining_text,
+                remaining_text=reference.remaining_text,
             )
         )
 

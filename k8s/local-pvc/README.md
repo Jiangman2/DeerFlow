@@ -39,7 +39,7 @@ For local Docker Desktop Kubernetes, tag freshly built images with explicit
 local version tags and keep those tags in `kustomization.yaml`:
 
 ```powershell
-docker tag deer-flow-gateway:latest deer-flow-gateway:dev-YYYYMMDD-N
+docker build -f backend/Dockerfile --target runtime --build-arg UV_EXTRAS=postgres -t deer-flow-gateway:dev-YYYYMMDD-N .
 docker tag deer-flow-provisioner:latest deer-flow-provisioner:dev-YYYYMMDD-N
 docker tag deer-flow-frontend:latest deer-flow-frontend:dev-YYYYMMDD-N
 

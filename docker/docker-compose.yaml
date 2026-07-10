@@ -55,9 +55,11 @@ services:
     environment:
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - DEER_FLOW_INTERNAL_GATEWAY_BASE_URL=http://gateway:8001
-      - NEXT_PUBLIC_SHOP_CART_MODE=${NEXT_PUBLIC_SHOP_CART_MODE:-legacy}
+      - NEXT_PUBLIC_SHOP_CART_MODE=${NEXT_PUBLIC_SHOP_CART_MODE:-api}
       - NEXT_PUBLIC_SHOP_CART_IFRAME_URL=${NEXT_PUBLIC_SHOP_CART_IFRAME_URL:-}
       - NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN=${NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN:-}
+      - NEXT_PUBLIC_WEKNORA_FRONTEND_URL=${NEXT_PUBLIC_WEKNORA_FRONTEND_URL:-}
+      - WEKNORA_FRONTEND_URL=${WEKNORA_FRONTEND_URL:-}
       - SHOP_CART_API_BASE_URL=${SHOP_CART_API_BASE_URL:-https://datalake.cnooc}
       - SHOP_CART_DOWNLOAD_TOKEN=${SHOP_CART_DOWNLOAD_TOKEN:-}
       - SHOP_CART_DOWNLOAD_TLS_VERIFY=${SHOP_CART_DOWNLOAD_TLS_VERIFY:-true}
@@ -94,7 +96,7 @@ services:
       # for aio (pure-DooD) sandbox mode via the opt-in docker-compose.dood.yaml
       # overlay (appended by scripts/deploy.sh). See backend/docs/CONFIGURATION.md
       # Security Note section for details.
-       
+
       # CLI auth dirs (Claude Code / Codex) are NOT mounted by default: they
       # expose the entire ~/.claude and ~/.codex (history, projects, global
       # config, credentials) into the container. Mount them only when you use

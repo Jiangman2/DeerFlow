@@ -173,6 +173,36 @@ class TestBuildPodVolumes:
         userdata_mount = pod.spec.containers[0].volume_mounts[1]
         assert userdata_mount.sub_path == "deer-flow/users/user-7/threads/thread-1/user-data"
 
+    def test_pod_forwards_qwen_image_generation_env(self, monkeypatch, provisioner_module):
+        """Sandbox Pods need the same image-generation env as the provisioner."""
+        monkeypatch.delenv("QWEN_API_KEY", raising=False)
+        monkeypatch.setenv("DASHSCOPE_API_KEY", "sk-dashscope")
+        monkeypatch.setenv("IMAGE_BACKEND", "qwen")
+        monkeypatch.setenv("QWEN_MODEL", "qwen-image-2.0-pro")
+        monkeypatch.setenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com")
+
+        pod = provisioner_module._build_pod("sandbox-1", "thread-1")
+        env = {item.name: item.value for item in pod.spec.containers[0].env}
+
+        assert env["IMAGE_BACKEND"] == "qwen"
+        assert env["QWEN_API_KEY"] == "sk-dashscope"
+        assert env["DASHSCOPE_API_KEY"] == "sk-dashscope"
+        assert env["QWEN_MODEL"] == "qwen-image-2.0-pro"
+        assert env["QWEN_BASE_URL"] == "https://dashscope.aliyuncs.com"
+
+    def test_pod_defaults_image_generation_to_qwen(self, monkeypatch, provisioner_module):
+        """A missing IMAGE_BACKEND should still default to the Bailian Qwen backend."""
+        for name in ("IMAGE_BACKEND", "IMAGE_GENERATION_PROVIDER", "QWEN_MODEL", "QWEN_BASE_URL"):
+            monkeypatch.delenv(name, raising=False)
+
+        pod = provisioner_module._build_pod("sandbox-1", "thread-1")
+        env = {item.name: item.value for item in pod.spec.containers[0].env}
+
+        assert env["IMAGE_BACKEND"] == "qwen"
+        assert env["IMAGE_GENERATION_PROVIDER"] == "qwen"
+        assert env["QWEN_MODEL"] == "qwen-image-2.0-pro"
+        assert env["QWEN_BASE_URL"] == "https://dashscope.aliyuncs.com"
+
 
 class TestSandboxServiceAccessMode:
     """Sandbox Services should match the configured access mode."""

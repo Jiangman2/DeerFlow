@@ -48,6 +48,9 @@ spec:
         - name: provisioner
           image: deer-flow-provisioner
           imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: deer-flow-env
           ports:
             - containerPort: 8002
           env:
@@ -56,47 +59,62 @@ spec:
             - name: K8S_CREATE_NAMESPACE
               value: "false"
             - name: SANDBOX_IMAGE
-              value: enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox@sha256:742062f99915e5495df8d4bfeaf40a93197c87c7c47b4e2407cd2b6356df8f48
+              value: deer-flow-aio-sandbox:ppt-master-full-20260626-1
             - name: SKILLS_PVC_NAME
               value: deer-flow-skills-pvc
             - name: USERDATA_PVC_NAME
               value: deer-flow-userdata-pvc
             - name: SANDBOX_ACCESS_MODE
               value: cluster
+            - name: KUBECONFIG_WAIT_SECONDS
+              value: "0"
             - name: SANDBOX_READINESS_INITIAL_DELAY_SECONDS
               value: "45"
             - name: SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS
               value: "180"
+            - name: IMAGE_BACKEND
+              value: qwen
+            - name: IMAGE_GENERATION_PROVIDER
+              value: qwen
+            - name: QWEN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: DASHSCOPE_API_KEY
+            - name: QWEN_MODEL
+              value: qwen-image-2.0-pro
+            - name: QWEN_BASE_URL
+              value: https://dashscope.aliyuncs.com
           readinessProbe:
             httpGet:
               path: /health
               port: 8002
             initialDelaySeconds: 3
             periodSeconds: 5
-            timeoutSeconds: 2
-            failureThreshold: 3
+            timeoutSeconds: 5
+            failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /health
               port: 8002
             initialDelaySeconds: 30
             periodSeconds: 10
-            timeoutSeconds: 2
-            failureThreshold: 3
+            timeoutSeconds: 5
+            failureThreshold: 6
           startupProbe:
             httpGet:
               path: /health
               port: 8002
             periodSeconds: 2
-            timeoutSeconds: 2
+            timeoutSeconds: 5
             failureThreshold: 30
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 250m
+              memory: 256Mi
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: "1"
+              memory: 1Gi
 ---
 apiVersion: v1
 kind: Service
@@ -160,6 +178,46 @@ spec:
               value: http://gateway:8001/api
             - name: DEER_FLOW_CHANNELS_GATEWAY_URL
               value: http://gateway:8001
+            - name: WEKNORA_DB_HOST
+              value: weknora-postgres
+            - name: WEKNORA_DB_PORT
+              value: "5432"
+            - name: WEKNORA_DB_USER
+              value: postgres
+            - name: WEKNORA_DB_NAME
+              value: WeKnora
+            - name: WEKNORA_DB_CONNECT_TIMEOUT_SECONDS
+              value: "3"
+            - name: WEKNORA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: DB_PASSWORD
+                  optional: true
+            - name: LLM_MODEL_NAME
+              value: qwen-plus
+            - name: LLM_BASE_URL
+              value: https://dashscope.aliyuncs.com/compatible-mode/v1
+            - name: LLM_PROVIDER
+              value: aliyun
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: LLM_API_KEY
+                  optional: true
+            - name: EMBEDDING_MODEL_NAME
+              value: text-embedding-v4
+            - name: EMBEDDING_BASE_URL
+              value: https://dashscope.aliyuncs.com/compatible-mode/v1
+            - name: EMBEDDING_PROVIDER
+              value: aliyun
+            - name: EMBEDDING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: EMBEDDING_API_KEY
+                  optional: true
             - name: NO_PROXY
               value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,.svc,.cluster.local
             - name: no_proxy
@@ -264,6 +322,8 @@ spec:
           env:
             - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
               value: http://gateway:8001
+            - name: WEKNORA_FRONTEND_URL
+              value: http://localhost:8090/platform/knowledge-bases
           readinessProbe:
             httpGet:
               path: /

@@ -3,6 +3,7 @@ Dockerfile
 .dockerignore
 .git
 .gitignore
+.codex_tmp/
 docker/
 
 # Python
@@ -77,6 +78,7 @@ backend/__pycache__
 backend/sandbox
 backend/config.yaml
 backend/C*/
+backend/C*/**
 backend/htmlcov
 backend/.coverage
 *.md

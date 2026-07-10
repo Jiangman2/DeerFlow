@@ -1,5 +1,6 @@
 import shutil
 import logging
+import zipfile
 from pathlib import Path
 from typing import Annotated
 
@@ -54,7 +55,7 @@ def _get_active_sandbox(runtime: Runtime):
         return None
 
 
-def _download_virtual_file_to_host(runtime: Runtime, virtual_path: str, actual_path: Path) -> bool:
+def _download_virtual_file_to_host(runtime: Runtime, virtual_path: str, actual_path: Path, *, log_errors: bool = True) -> bool:
     stripped = virtual_path.lstrip("/")
     virtual_prefix = VIRTUAL_PATH_PREFIX.lstrip("/")
     if not (stripped == virtual_prefix or stripped.startswith(virtual_prefix + "/")):
@@ -70,7 +71,10 @@ def _download_virtual_file_to_host(runtime: Runtime, virtual_path: str, actual_p
         actual_path.write_bytes(data)
         return True
     except Exception:
-        logger.exception("Failed to download presented file from sandbox: %s", virtual_path)
+        if log_errors:
+            logger.exception("Failed to download presented file from sandbox: %s", virtual_path)
+        else:
+            logger.debug("Optional presented file is not available in sandbox: %s", virtual_path, exc_info=True)
         return False
 
 
@@ -83,9 +87,29 @@ def _preview_pdf_path_for(filepath: str) -> str | None:
     return None
 
 
+def _validate_pptx_file(path: Path) -> None:
+    """Reject files that merely use a .pptx suffix but are not PowerPoint packages."""
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            names = set(archive.namelist())
+    except zipfile.BadZipFile:
+        raise ValueError(f"Invalid PPTX file: {path.name} is not a ZIP-based PowerPoint file") from None
+
+    required = {"[Content_Types].xml", "ppt/presentation.xml"}
+    if not required.issubset(names):
+        raise ValueError(f"Invalid PPTX file: {path.name} is missing required PowerPoint package entries")
+
+
+def _validate_presented_file(actual_path: Path) -> None:
+    if actual_path.suffix.lower() == ".pptx":
+        _validate_pptx_file(actual_path)
+
+
 def _normalize_presented_filepath(
     runtime: Runtime,
     filepath: str,
+    *,
+    log_missing_virtual_download: bool = True,
 ) -> str:
     """Normalize a presented file path to the `/mnt/user-data/outputs/*` contract.
 
@@ -143,7 +167,7 @@ def _normalize_presented_filepath(
             ) from None
 
         if not actual_path.is_file() and is_virtual_path:
-            _download_virtual_file_to_host(runtime, filepath, actual_path)
+            _download_virtual_file_to_host(runtime, filepath, actual_path, log_errors=log_missing_virtual_download)
 
         if not actual_path.is_file():
             raise ValueError(f"Only files can be presented: {filepath}")
@@ -155,10 +179,12 @@ def _normalize_presented_filepath(
         relative_path = target_path.relative_to(outputs_dir)
 
     if not actual_path.is_file() and is_virtual_path:
-        _download_virtual_file_to_host(runtime, filepath, actual_path)
+        _download_virtual_file_to_host(runtime, filepath, actual_path, log_errors=log_missing_virtual_download)
 
     if not actual_path.is_file():
         raise ValueError(f"Only files can be presented: {filepath}")
+
+    _validate_presented_file(actual_path)
 
     return f"{OUTPUTS_VIRTUAL_PREFIX}/{relative_path.as_posix()}"
 
@@ -181,7 +207,7 @@ def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) 
             continue
         seen_candidates.add(preview_path)
         try:
-            preview_normalized_path = _normalize_presented_filepath(runtime, preview_path)
+            preview_normalized_path = _normalize_presented_filepath(runtime, preview_path, log_missing_virtual_download=False)
             if preview_normalized_path not in normalized_paths:
                 normalized_paths.append(preview_normalized_path)
         except ValueError:

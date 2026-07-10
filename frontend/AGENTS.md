@@ -1,4 +1,4 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with the DeerFlow frontend. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 
@@ -10,10 +10,10 @@ DeerFlow Frontend is a Next.js 16 web interface for an AI agent system. It commu
 
 ### Core dependencies
 
-- **LangGraph SDK** (`@langchain/langgraph-sdk` ^1.5.3) — Agent orchestration and streaming
-- **LangChain Core** (`@langchain/core` ^1.1.15) — Fundamental AI building blocks
-- **TanStack Query** (`@tanstack/react-query` ^5.90.17) — Server state management
-- **UI**: Shadcn UI, MagicUI, React Bits, and Vercel AI SDK elements (generated from registries — see Code Style)
+- **LangGraph SDK** (`@langchain/langgraph-sdk` ^1.5.3) 鈥?Agent orchestration and streaming
+- **LangChain Core** (`@langchain/core` ^1.1.15) 鈥?Fundamental AI building blocks
+- **TanStack Query** (`@tanstack/react-query` ^5.90.17) 鈥?Server state management
+- **UI**: Shadcn UI, MagicUI, React Bits, and Vercel AI SDK elements (generated from registries 鈥?see Code Style)
 
 ## Commands
 
@@ -37,33 +37,33 @@ E2E tests live under `tests/e2e/` and use Playwright with Chromium. They mock al
 ## Architecture
 
 ```
-Frontend (Next.js) ──▶ LangGraph SDK ──▶ LangGraph Backend (lead_agent)
-                                              ├── Sub-Agents
-                                              └── Tools & Skills
+Frontend (Next.js) 鈹€鈹€鈻?LangGraph SDK 鈹€鈹€鈻?LangGraph Backend (lead_agent)
+                                              鈹溾攢鈹€ Sub-Agents
+                                              鈹斺攢鈹€ Tools & Skills
 ```
 
 The frontend is a stateful chat application. Users create **threads** (conversations), send messages, and receive streamed AI responses. The backend orchestrates agents that can produce **artifacts** (files/code) and **todos**.
 
 ### Source Layout (`src/`)
 
-- **`app/`** — Next.js App Router. Routes include `/` (landing), `/workspace/chats/[thread_id]` (chat), `/workspace/agents/[agent_name]` and `/workspace/agents/new` (custom agents), `/blog/…`, the `(auth)/{login,setup,auth/callback}` flow, `/[lang]/docs/…`, and `/api/…` route handlers (e.g. `/api/memory`).
-- **`components/`** — React components:
-  - `ui/` — Shadcn UI primitives (auto-generated, ESLint-ignored)
-  - `ai-elements/` — Vercel AI SDK elements (auto-generated, ESLint-ignored)
-  - `workspace/` — Chat page components (messages, artifacts, settings)
-  - `landing/` — Landing page sections
-  - `docs/` — Docs / MDX rendering components
-- **`core/`** — Business logic, the heart of the app. Domains include `threads/` (creation, streaming, state), `api/` (LangGraph client singleton), `agents/` (custom agents), `auth/` (authentication), `artifacts/`, `channels/` (IM connections), `i18n/` (en-US, zh-CN), `settings/`, `memory/`, `skills/`, `messages/`, `mcp/`, `models/`, `suggestions/`, `tasks/`, `todos/`, `tools/`, `config/`, `notification/`, `blog/`, plus rendering helpers (`rehype/`, `streamdown/`) and `utils/`.
-- **`hooks/`** — Shared React hooks
-- **`lib/`** — Utilities (`cn()` from clsx + tailwind-merge)
-- **`content/`** — MDX content (blog posts, docs) rendered by the app
-- **`styles/`** — Global CSS with Tailwind v4 `@import` syntax and CSS variables for theming
-- **`typings/`** — Ambient TypeScript declarations
+- **`app/`** 鈥?Next.js App Router. Routes include `/` (landing), `/workspace/chats/[thread_id]` (chat), `/workspace/agents/[agent_name]` and `/workspace/agents/new` (custom agents), `/workspace/knowledge` (WeKnora knowledge-base management), `/blog/鈥, the `(auth)/{login,setup,auth/callback}` flow, `/[lang]/docs/鈥, and `/api/鈥 route handlers (e.g. `/api/memory`).
+- **`components/`** 鈥?React components:
+  - `ui/` 鈥?Shadcn UI primitives (auto-generated, ESLint-ignored)
+  - `ai-elements/` 鈥?Vercel AI SDK elements (auto-generated, ESLint-ignored)
+  - `workspace/` 鈥?Chat page components (messages, artifacts, settings)
+  - `landing/` 鈥?Landing page sections
+  - `docs/` 鈥?Docs / MDX rendering components
+- **`core/`** 鈥?Business logic, the heart of the app. Domains include `threads/` (creation, streaming, state), `api/` (LangGraph client singleton), `agents/` (custom agents), `auth/` (authentication), `artifacts/`, `channels/` (IM connections), `i18n` (en-US, zh-CN), `settings/`, `memory/`, `skills/`, `messages/`, `mcp/`, `models/`, `weknora/` (Gateway-proxied WeKnora knowledge APIs and hooks), `suggestions/`, `tasks/`, `todos/`, `tools/`, `config/`, `notification/`, `blog/`, plus rendering helpers (`rehype/`, `streamdown/`) and `utils/`.
+- **`hooks/`** 鈥?Shared React hooks
+- **`lib/`** 鈥?Utilities (`cn()` from clsx + tailwind-merge)
+- **`content/`** 鈥?MDX content (blog posts, docs) rendered by the app
+- **`styles/`** 鈥?Global CSS with Tailwind v4 `@import` syntax and CSS variables for theming
+- **`typings/`** 鈥?Ambient TypeScript declarations
 - Root files: `env.js` (env validation), `mdx-components.ts` (MDX component map)
 
 ### Data Flow
 
-1. User input → thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming
+1. User input 鈫?thread hooks (`core/threads/hooks.ts`) 鈫?LangGraph SDK streaming
 2. Stream events update thread state (messages, artifacts, todos)
 3. TanStack Query manages server state; localStorage stores user settings
 4. Components subscribe to thread state and render updates
@@ -82,11 +82,11 @@ The frontend is a stateful chat application. Users create **threads** (conversat
 
 ## Code Style
 
-- **Imports**: Enforced ordering (builtin → external → internal → parent → sibling), alphabetized, newlines between groups. Use inline type imports: `import { type Foo }`.
+- **Imports**: Enforced ordering (builtin 鈫?external 鈫?internal 鈫?parent 鈫?sibling), alphabetized, newlines between groups. Use inline type imports: `import { type Foo }`.
 - **Unused variables**: Prefix with `_`.
 - **Class names**: Use `cn()` from `@/lib/utils` for conditional Tailwind classes.
 - **Path alias**: `@/*` maps to `src/*`.
-- **Components**: `ui/` and `ai-elements/` are generated from registries (Shadcn, MagicUI, React Bits, Vercel AI SDK) — don't manually edit these.
+- **Components**: `ui/` and `ai-elements/` are generated from registries (Shadcn, MagicUI, React Bits, Vercel AI SDK) 鈥?don't manually edit these.
 
 ## Environment
 

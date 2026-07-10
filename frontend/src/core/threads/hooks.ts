@@ -215,7 +215,10 @@ export function buildVisibleHistoryMessages(
     (message) => !supersededRunIds.has(message.run_id),
   );
   return dedupeMessagesByIdentity([
-    ...visibleRows.map((message) => message.content),
+    ...visibleRows.map((message) => ({
+      ...message.content,
+      run_id: message.run_id,
+    })),
     ...appendedMessages,
   ]);
 }
@@ -306,8 +309,13 @@ export function mergeMessages(
   // separate state channel instead of participating in this overlap heuristic.
 
   const savedTurnDurations = new Map<string, number>();
+  const savedRunIds = new Map<string, string>();
   for (const msg of historyMessages) {
     const identity = messageIdentity(msg);
+    const runId = (msg as { run_id?: unknown }).run_id;
+    if (identity && typeof runId === "string" && runId.length > 0) {
+      savedRunIds.set(identity, runId);
+    }
     if (identity && msg.additional_kwargs?.turn_duration !== undefined) {
       savedTurnDurations.set(
         identity,
@@ -348,20 +356,31 @@ export function mergeMessages(
 
   return merged.map((message) => {
     const identity = messageIdentity(message);
+    let nextMessage: Message & { run_id?: string } = message;
+    if (
+      identity &&
+      savedRunIds.has(identity) &&
+      typeof (message as { run_id?: unknown }).run_id !== "string"
+    ) {
+      nextMessage = {
+        ...nextMessage,
+        run_id: savedRunIds.get(identity),
+      };
+    }
     if (
       identity &&
       savedTurnDurations.has(identity) &&
-      message.additional_kwargs?.turn_duration === undefined
+      nextMessage.additional_kwargs?.turn_duration === undefined
     ) {
       return {
-        ...message,
+        ...nextMessage,
         additional_kwargs: {
-          ...message.additional_kwargs,
+          ...nextMessage.additional_kwargs,
           turn_duration: savedTurnDurations.get(identity),
         },
       } as Message;
     }
-    return message;
+    return nextMessage;
   });
 }
 

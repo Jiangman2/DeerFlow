@@ -22,8 +22,8 @@ from app.gateway.routers import (
     channel_connections,
     channels,
     convert,
+    dashboard,
     feedback,
-    knowledge,
     mcp,
     memory,
     models,
@@ -35,6 +35,7 @@ from app.gateway.routers import (
     thread_runs,
     threads,
     uploads,
+    weknora,
 )
 from deerflow.config import app_config as deerflow_app_config
 from deerflow.config.app_config import apply_logging_level
@@ -352,12 +353,20 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
                 "description": "Admin audit logs, operational metrics, and trace inspection endpoints",
             },
             {
+                "name": "dashboard",
+                "description": "Admin business dashboard and usage analytics endpoints",
+            },
+            {
                 "name": "announcements",
                 "description": "Workspace announcements and admin announcement management",
             },
             {
                 "name": "site-navigation",
                 "description": "Workspace site shortcuts and admin site navigation management",
+            },
+            {
+                "name": "weknora",
+                "description": "Proxy endpoints for external WeKnora knowledge bases and document ingestion",
             },
             {
                 "name": "users",
@@ -413,11 +422,12 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Uploads API is mounted at /api/threads/{thread_id}/uploads
     app.include_router(uploads.router)
-    # User-private knowledge base API is mounted at /api/knowledge
-    app.include_router(knowledge.router)
 
     # Thread cleanup API is mounted at /api/threads/{thread_id}
     app.include_router(threads.router)
+
+    # WeKnora knowledge API proxy is mounted at /api/weknora
+    app.include_router(weknora.router)
 
     # Agents API is mounted at /api/agents
     app.include_router(agents.router)
@@ -448,6 +458,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Admin observability API (audit logs, metrics, traces)
     app.include_router(observability.router)
+
+    # Admin business dashboard API
+    app.include_router(dashboard.router)
 
     # Admin users API
     app.include_router(admin_users.router)

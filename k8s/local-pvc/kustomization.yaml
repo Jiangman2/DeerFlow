@@ -9,10 +9,10 @@ resources:
 images:
   - name: deer-flow-gateway
     newName: deer-flow-gateway
-    newTag: knowledge-file-manager-20260627-1
+    newTag: weknora-counts-20260702-2
   - name: deer-flow-frontend
     newName: deer-flow-frontend
-    newTag: knowledge-file-manager-20260627-1
+    newTag: agent-square-shared-tools-20260708-3
   - name: deer-flow-provisioner
     newName: deer-flow-provisioner
-    newTag: clusterip-rbac-20260626-1
+    newTag: sandbox-qwen-env-20260702-1

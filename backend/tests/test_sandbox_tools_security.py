@@ -8,6 +8,7 @@ import pytest
 from deerflow.sandbox.exceptions import SandboxError
 from deerflow.sandbox.tools import (
     VIRTUAL_PATH_PREFIX,
+    _apply_remote_cwd_prefix,
     _apply_cwd_prefix,
     _compiled_mask_patterns,
     _get_custom_mount_for_path,
@@ -15,6 +16,7 @@ from deerflow.sandbox.tools import (
     _is_acp_workspace_path,
     _is_custom_mount_path,
     _is_skills_path,
+    _normalize_remote_sandbox_path,
     _reject_path_traversal,
     _resolve_acp_workspace_path,
     _resolve_and_validate_user_data_path,
@@ -817,6 +819,45 @@ def test_apply_cwd_prefix_quotes_path_with_spaces() -> None:
     thread_data = {**_THREAD_DATA, "workspace_path": "/tmp/my workspace/t1"}
     result = _apply_cwd_prefix("echo hello", thread_data)
     assert result == "cd '/tmp/my workspace/t1' && echo hello"
+
+
+def test_normalize_remote_sandbox_path_anchors_relative_paths_to_workspace() -> None:
+    assert _normalize_remote_sandbox_path("projects/deck/01.svg") == "/mnt/user-data/workspace/projects/deck/01.svg"
+    assert _normalize_remote_sandbox_path("./projects/deck") == "/mnt/user-data/workspace/projects/deck"
+
+
+def test_normalize_remote_sandbox_path_repairs_missing_virtual_leading_slash() -> None:
+    assert _normalize_remote_sandbox_path("mnt/user-data/outputs/deck.pptx") == "/mnt/user-data/outputs/deck.pptx"
+
+
+def test_apply_remote_cwd_prefix_anchors_bash_to_workspace() -> None:
+    assert _apply_remote_cwd_prefix("pwd") == "cd /mnt/user-data/workspace && pwd"
+
+
+def test_write_file_remote_sandbox_normalizes_relative_path(monkeypatch) -> None:
+    class RemoteSandbox:
+        id = "remote-1"
+
+        def __init__(self) -> None:
+            self.writes: list[tuple[str, str, bool]] = []
+
+        def write_file(self, path: str, content: str, append: bool = False) -> None:
+            self.writes.append((path, content, append))
+
+    sandbox = RemoteSandbox()
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_sandbox_initialized", lambda runtime: sandbox)
+    monkeypatch.setattr("deerflow.sandbox.tools.ensure_thread_directories_exist", lambda runtime: None)
+    monkeypatch.setattr("deerflow.sandbox.tools.is_local_sandbox", lambda runtime: False)
+
+    result = write_file_tool.func(
+        runtime=SimpleNamespace(state={}, context={"thread_id": "thread-1"}, config={}),
+        description="write svg",
+        path="projects/demo/01.svg",
+        content="<svg />",
+    )
+
+    assert result == "OK"
+    assert sandbox.writes == [("/mnt/user-data/workspace/projects/demo/01.svg", "<svg />", False)]
 
 
 def test_validate_local_bash_command_paths_allows_mcp_filesystem_paths() -> None:

@@ -565,6 +565,10 @@ async def cnooc_token_login(
         if existing_email_user is not None:
             if existing_email_user.oauth_provider == "cnooc" and existing_email_user.oauth_id == checked.user.platform_user_id:
                 user = existing_email_user
+            elif existing_email_user.oauth_provider in (None, "cnooc"):
+                existing_email_user.oauth_provider = "cnooc"
+                existing_email_user.oauth_id = checked.user.platform_user_id
+                user = await provider.update_user(existing_email_user)
             else:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,

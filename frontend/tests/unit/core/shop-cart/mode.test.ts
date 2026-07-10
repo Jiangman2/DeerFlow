@@ -9,8 +9,13 @@ void test("uses api mode when configured explicitly", () => {
   assert.equal(resolveShopCartMode(" api "), "api");
 });
 
-void test("falls back to legacy mode for empty or unknown values", () => {
-  assert.equal(resolveShopCartMode(undefined), "legacy");
-  assert.equal(resolveShopCartMode(""), "legacy");
-  assert.equal(resolveShopCartMode("iframe"), "legacy");
+void test("uses legacy mode only when configured explicitly", () => {
+  assert.equal(resolveShopCartMode("legacy"), "legacy");
+  assert.equal(resolveShopCartMode(" legacy "), "legacy");
+});
+
+void test("falls back to api mode for empty or unknown values", () => {
+  assert.equal(resolveShopCartMode(undefined), "api");
+  assert.equal(resolveShopCartMode(""), "api");
+  assert.equal(resolveShopCartMode("iframe"), "api");
 });

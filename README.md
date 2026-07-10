@@ -38,6 +38,19 @@ DeerFlow has newly integrated the intelligent search and crawling toolset indepe
 
 ---
 
+## WeKnora Knowledge Bases
+
+DeerFlow can connect to Tencent WeKnora as an external knowledge platform. The
+workspace includes a Knowledge page for listing/creating the current user's own,
+joined, team, and public WeKnora knowledge bases, uploading files, creating
+manual Markdown knowledge, and checking parse status. During chat, users can
+select WeKnora knowledge-base scope in the composer; DeerFlow logs into WeKnora
+as the current DeerFlow user and passes the selected IDs into the agent run, so
+`weknora_search` or `weknora_ask` retrieve only knowledge that user can access.
+See [`docs/weknora_integration.md`](docs/weknora_integration.md) for setup.
+
+---
+
 ## Table of Contents
 
 - [🦌 DeerFlow - 2.0](#-deerflow---20)

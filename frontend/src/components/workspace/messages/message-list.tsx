@@ -12,6 +12,7 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Button } from "@/components/ui/button";
+import type { FeedbackData } from "@/core/api/feedback";
 import { useI18n } from "@/core/i18n/hooks";
 import {
   buildTokenDebugSteps,
@@ -42,12 +43,11 @@ import { cn } from "@/lib/utils";
 
 import { ArtifactFileList } from "../artifacts/artifact-file-list";
 import { CopyButton } from "../copy-button";
-import { StreamingIndicator } from "../streaming-indicator";
 import { Tooltip } from "../tooltip";
 
 import { MarkdownContent } from "./markdown-content";
 import { MessageGroup } from "./message-group";
-import { MessageListItem } from "./message-list-item";
+import { FeedbackButtons, MessageListItem } from "./message-list-item";
 import {
   MessageTokenUsageDebugList,
   MessageTokenUsageList,
@@ -58,6 +58,38 @@ import { SubtaskCard } from "./subtask-card";
 export const MESSAGE_LIST_DEFAULT_PADDING_BOTTOM = 24;
 
 const LOAD_MORE_HISTORY_THROTTLE_MS = 1200;
+
+type MessageFeedbackProps = {
+  feedback?: FeedbackData | null;
+  run_id?: string;
+};
+
+function getMessageFeedbackProps(message: Message) {
+  const feedbackMessage = message as MessageFeedbackProps;
+  return {
+    feedback: feedbackMessage.feedback ?? null,
+    runId: feedbackMessage.run_id,
+  };
+}
+
+function getAssistantFeedbackTarget(
+  messages: Message[],
+): { feedback: FeedbackData | null; runId: string } | null {
+  const target = [...messages]
+    .reverse()
+    .find((message) => message.type === "ai");
+  if (!target) {
+    return null;
+  }
+  const feedbackProps = getMessageFeedbackProps(target);
+  if (!feedbackProps.runId) {
+    return null;
+  }
+  return {
+    feedback: feedbackProps.feedback,
+    runId: feedbackProps.runId,
+  };
+}
 
 function LoadMoreHistoryIndicator({
   isLoading,
@@ -257,6 +289,9 @@ export function MessageList({
       enableRegenerateForTurn: boolean,
     ) => {
       const clipboardData = getAssistantTurnCopyData(messages, { isStreaming });
+      const feedbackTarget = isStreaming
+        ? null
+        : getAssistantFeedbackTarget(messages);
       const regenerateTarget = [...messages]
         .reverse()
         .find((message) => message.type === "ai" && message.id);
@@ -265,12 +300,19 @@ export function MessageList({
         .map((message) => message.id)
         .filter((id): id is string => typeof id === "string");
 
-      if (!clipboardData && !regenerateTarget) {
+      if (!clipboardData && !regenerateTarget && !feedbackTarget) {
         return null;
       }
 
       return (
         <div className="mt-2 flex justify-start gap-1 opacity-0 transition-opacity delay-200 duration-300 group-hover/assistant-turn:opacity-100">
+          {feedbackTarget && (
+            <FeedbackButtons
+              threadId={threadId}
+              runId={feedbackTarget.runId}
+              initialFeedback={feedbackTarget.feedback}
+            />
+          )}
           {clipboardData && <CopyButton clipboardData={clipboardData} />}
           {enableRegenerateForTurn &&
             regenerateTarget?.id &&
@@ -316,6 +358,7 @@ export function MessageList({
       onRegenerateMessage,
       regeneratingMessageId,
       t.common.regenerate,
+      threadId,
     ],
   );
 
@@ -455,19 +498,38 @@ export function MessageList({
             }
             return (
               <div className="w-full" key={group.id}>
-                {group.messages[0] && hasContent(group.messages[0]) && (
-                  <MarkdownContent
-                    content={extractContentFromMessage(group.messages[0])}
-                    isLoading={thread.isLoading}
-                    rehypePlugins={rehypePlugins}
-                    className="mb-4"
-                  />
-                )}
+                {group.messages[0] &&
+                  hasContent(group.messages[0]) &&
+                  (() => {
+                    const message = group.messages[0];
+                    return (
+                      <MessageListItem
+                        className="mb-4"
+                        message={message}
+                        isLoading={thread.isLoading}
+                        threadId={threadId}
+                        showCopyButton={false}
+                        turnStartTime={
+                          groupIndex === groupedMessages.length - 1
+                            ? turnStartTime
+                            : null
+                        }
+                      />
+                    );
+                  })()}
                 <ArtifactFileList files={files} threadId={threadId} />
                 {renderTokenUsage({
                   messages: group.messages,
                   turnUsageMessages,
                 })}
+                {renderAssistantActions(
+                  group.messages,
+                  isAssistantMessageGroupStreaming(
+                    group.messages,
+                    streamingMessages,
+                  ),
+                  group.id === latestAssistantGroupId,
+                )}
               </div>
             );
           } else if (group.type === "assistant:subagent") {

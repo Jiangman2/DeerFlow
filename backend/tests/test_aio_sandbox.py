@@ -269,6 +269,25 @@ class TestNoChangeTimeout:
 class TestConcurrentFileWrites:
     """Verify file write paths do not lose concurrent updates."""
 
+    def test_write_file_creates_parent_directory_before_remote_write(self, sandbox):
+        exec_calls = []
+
+        def mock_exec(command, **kwargs):
+            exec_calls.append((command, kwargs))
+            return SimpleNamespace(data=SimpleNamespace(output=""))
+
+        sandbox._client.shell.exec_command = mock_exec
+        sandbox._client.file.write_file = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace()))
+
+        sandbox.write_file("/mnt/user-data/workspace/projects/demo/01.svg", "<svg />")
+
+        assert exec_calls
+        assert exec_calls[0][0] == "mkdir -p /mnt/user-data/workspace/projects/demo"
+        sandbox._client.file.write_file.assert_called_once_with(
+            file="/mnt/user-data/workspace/projects/demo/01.svg",
+            content="<svg />",
+        )
+
     def test_append_should_preserve_both_parallel_writes(self, sandbox):
         storage = {"content": "seed\n"}
         active_reads = 0

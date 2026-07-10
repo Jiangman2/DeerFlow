@@ -112,14 +112,6 @@ export interface Translations {
     reasoningEffortMediumDescription: string;
     reasoningEffortHigh: string;
     reasoningEffortHighDescription: string;
-    privateKnowledge: string;
-    privateKnowledgeOnDescription: string;
-    privateKnowledgeOffDescription: string;
-    privateKnowledgeScope: string;
-    privateKnowledgeScopeAll: string;
-    privateKnowledgeScopeSelected: (count: number) => string;
-    privateKnowledgeScopeDescription: string;
-    privateKnowledgeScopeEmpty: string;
     searchModels: string;
     surpriseMe: string;
     surpriseMePrompt: string;
@@ -168,6 +160,7 @@ export interface Translations {
     apiDisabledTitle: string;
     apiDisabledDescription: string;
     chat: string;
+    openExternal: string;
     delete: string;
     deleteConfirm: string;
     deleteSuccess: string;

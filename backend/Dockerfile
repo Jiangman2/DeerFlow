@@ -13,6 +13,8 @@ FROM python:3.12-slim-bookworm AS builder
 ARG NODE_MAJOR=22
 ARG APT_MIRROR
 ARG UV_INDEX_URL
+# Increase for slow or inspected enterprise networks.
+ARG UV_HTTP_TIMEOUT=120
 # Optional extras to install (e.g. "postgres" for PostgreSQL support)
 # Usage: docker build --build-arg UV_EXTRAS=postgres ...
 ARG UV_EXTRAS
@@ -42,13 +44,18 @@ COPY --from=uv-source /uv /uvx /usr/local/bin/
 # Set working directory
 WORKDIR /app
 
-# Copy backend source code
-COPY backend ./backend
-
-# Install dependencies with cache mount
-# When UV_EXTRAS is set (e.g. "postgres"), installs optional dependencies.
+# Install third-party dependencies before copying the full backend source. This
+# keeps the expensive dependency layer reusable when only application code
+# changes.
+COPY backend/pyproject.toml backend/uv.lock backend/README.md ./backend/
+COPY backend/packages/harness/pyproject.toml ./backend/packages/harness/pyproject.toml
 RUN --mount=type=cache,target=/root/.cache/uv \
-    sh -c "cd backend && UV_INDEX_URL=${UV_INDEX_URL:-https://pypi.org/simple} uv sync ${UV_EXTRAS:+--extra $UV_EXTRAS}"
+    sh -c "cd backend && UV_INDEX_URL=${UV_INDEX_URL:-https://pypi.org/simple} UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT} uv sync --frozen --no-install-workspace ${UV_EXTRAS:+--extra $UV_EXTRAS}"
+
+# Copy backend source code and install the editable workspace packages.
+COPY backend ./backend
+RUN --mount=type=cache,target=/root/.cache/uv \
+    sh -c "cd backend && UV_INDEX_URL=${UV_INDEX_URL:-https://pypi.org/simple} UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT} uv sync --frozen ${UV_EXTRAS:+--extra $UV_EXTRAS}"
 
 # UTF-8 locale prevents UnicodeEncodeError on Chinese/emoji content in minimal
 # containers where locale configuration may be missing and the default encoding is not UTF-8.
@@ -70,7 +77,7 @@ CMD ["sh", "-c", "cd backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app 
 
 # ── Stage 3: Runtime ──────────────────────────────────────────────────────────
 # Clean image without build-essential — reduces size (~200 MB) and attack surface.
-FROM python:3.12-slim-bookworm
+FROM python:3.12-slim-bookworm AS runtime
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8

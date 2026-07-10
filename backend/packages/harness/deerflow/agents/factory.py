@@ -194,14 +194,12 @@ def _assemble_from_features(
         if isinstance(feat.sandbox, AgentMiddleware):
             chain.append(feat.sandbox)
         else:
-            from deerflow.agents.middlewares.knowledge_middleware import KnowledgeMiddleware
             from deerflow.agents.middlewares.thread_data_middleware import ThreadDataMiddleware
             from deerflow.agents.middlewares.uploads_middleware import UploadsMiddleware
             from deerflow.sandbox.middleware import SandboxMiddleware
 
             chain.append(ThreadDataMiddleware(lazy_init=True))
             chain.append(UploadsMiddleware())
-            chain.append(KnowledgeMiddleware())
             chain.append(SandboxMiddleware(lazy_init=True))
 
     # --- [3] DanglingToolCall (always) ---

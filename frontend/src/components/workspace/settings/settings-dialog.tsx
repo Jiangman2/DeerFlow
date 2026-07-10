@@ -3,7 +3,6 @@
 import {
   BellIcon,
   CableIcon,
-  DatabaseIcon,
   InfoIcon,
   BrainIcon,
   MapPinnedIcon,
@@ -29,7 +28,6 @@ import { AccountSettingsPage } from "@/components/workspace/settings/account-set
 import { AnnouncementSettingsPage } from "@/components/workspace/settings/announcement-settings-page";
 import { AppearanceSettingsPage } from "@/components/workspace/settings/appearance-settings-page";
 import { ChannelsSettingsPage } from "@/components/workspace/settings/channels-settings-page";
-import { KnowledgeSettingsPage } from "@/components/workspace/settings/knowledge-settings-page";
 import { MemorySettingsPage } from "@/components/workspace/settings/memory-settings-page";
 import { NotificationSettingsPage } from "@/components/workspace/settings/notification-settings-page";
 import { SiteNavigationSettingsPage } from "@/components/workspace/settings/site-navigation-settings-page";
@@ -44,7 +42,6 @@ type SettingsSection =
   | "account"
   | "appearance"
   | "channels"
-  | "knowledge"
   | "memory"
   | "tools"
   | "skills"
@@ -101,11 +98,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
         label: t.settings.sections.memory,
         icon: BrainIcon,
       },
-      {
-        id: "knowledge",
-        label: t.inputBox.privateKnowledge,
-        icon: DatabaseIcon,
-      },
       { id: "tools", label: t.settings.sections.tools, icon: WrenchIcon },
       { id: "skills", label: t.settings.sections.skills, icon: SparklesIcon },
       ...(isAdmin
@@ -134,7 +126,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
       t.settings.sections.appearance,
       t.settings.sections.channels,
       t.settings.sections.memory,
-      t.inputBox.privateKnowledge,
       t.settings.sections.tools,
       t.settings.sections.skills,
       t.settings.sections.notification,
@@ -184,7 +175,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
               {activeSection === "account" && <AccountSettingsPage />}
               {activeSection === "appearance" && <AppearanceSettingsPage />}
               {activeSection === "memory" && <MemorySettingsPage />}
-              {activeSection === "knowledge" && <KnowledgeSettingsPage />}
               {activeSection === "tools" && <ToolSettingsPage />}
               {activeSection === "skills" && (
                 <SkillSettingsPage

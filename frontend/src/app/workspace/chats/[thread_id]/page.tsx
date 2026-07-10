@@ -144,30 +144,13 @@ export default function ChatPage() {
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      const usePrivateKnowledge =
-        settings.context.use_private_knowledge !== false;
-      const knowledgeScopePaths = Array.isArray(
-        settings.context.knowledge_scope_paths,
-      )
-        ? settings.context.knowledge_scope_paths
-        : [];
-      const sendPromise = sendMessage(threadId, message, undefined, {
-        additionalKwargs: {
-          use_private_knowledge: usePrivateKnowledge,
-          knowledge_scope_paths: knowledgeScopePaths,
-        },
-      });
+      const sendPromise = sendMessage(threadId, message);
       if (message.files.length > 0) {
         return sendPromise;
       }
       void sendPromise;
     },
-    [
-      sendMessage,
-      settings.context.knowledge_scope_paths,
-      settings.context.use_private_knowledge,
-      threadId,
-    ],
+    [sendMessage, threadId],
   );
   const handleStop = useCallback(async () => {
     await thread.stop();

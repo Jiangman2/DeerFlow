@@ -188,11 +188,11 @@ def test_normalize_input_handles_non_human_roles():
 
 
 def test_build_run_config_basic():
-    from app.gateway.services import build_run_config
+    from app.gateway.services import DEFAULT_RUN_RECURSION_LIMIT, build_run_config
 
     config = build_run_config("thread-1", None, None)
     assert config["configurable"]["thread_id"] == "thread-1"
-    assert config["recursion_limit"] == 100
+    assert config["recursion_limit"] == DEFAULT_RUN_RECURSION_LIMIT
 
 
 def test_build_run_config_with_overrides():
@@ -455,9 +455,9 @@ def test_context_merges_into_configurable():
         "thinking_enabled": True,
         "is_plan_mode": True,
         "subagent_enabled": True,
-        "use_private_knowledge": False,
-        "knowledge_scope_paths": ["Projects/Alpha"],
         "max_concurrent_subagents": 5,
+        "weknora_knowledge_base_ids": ["kb-1", "kb-2"],
+        "weknora_knowledge_bases": [{"id": "kb-1", "name": "Team KB"}],
         "thread_id": "should-be-ignored",
     }
 
@@ -468,9 +468,9 @@ def test_context_merges_into_configurable():
         "reasoning_effort",
         "is_plan_mode",
         "subagent_enabled",
-        "use_private_knowledge",
-        "knowledge_scope_paths",
         "max_concurrent_subagents",
+        "weknora_knowledge_base_ids",
+        "weknora_knowledge_bases",
     }
     configurable = config.setdefault("configurable", {})
     for key in _CONTEXT_CONFIGURABLE_KEYS:
@@ -481,11 +481,11 @@ def test_context_merges_into_configurable():
     assert config["configurable"]["thinking_enabled"] is True
     assert config["configurable"]["is_plan_mode"] is True
     assert config["configurable"]["subagent_enabled"] is True
-    assert config["configurable"]["use_private_knowledge"] is False
-    assert config["configurable"]["knowledge_scope_paths"] == ["Projects/Alpha"]
     assert config["configurable"]["max_concurrent_subagents"] == 5
     assert config["configurable"]["reasoning_effort"] == "high"
     assert config["configurable"]["mode"] == "ultra"
+    assert config["configurable"]["weknora_knowledge_base_ids"] == ["kb-1", "kb-2"]
+    assert config["configurable"]["weknora_knowledge_bases"] == [{"id": "kb-1", "name": "Team KB"}]
     # thread_id from context should NOT override the one from build_run_config
     assert config["configurable"]["thread_id"] == "thread-1"
     # Non-allowlisted keys should not appear
@@ -508,20 +508,14 @@ def test_merge_run_context_overrides_propagates_to_runtime_context():
         {
             "agent_name": "my-agent",
             "is_bootstrap": True,
-            "use_private_knowledge": False,
-            "knowledge_scope_paths": ["Projects/Beta"],
             "thread_id": "ignored",
         },
     )
 
     assert config["configurable"]["agent_name"] == "my-agent"
     assert config["configurable"]["is_bootstrap"] is True
-    assert config["configurable"]["use_private_knowledge"] is False
-    assert config["configurable"]["knowledge_scope_paths"] == ["Projects/Beta"]
     assert config["context"]["agent_name"] == "my-agent"
     assert config["context"]["is_bootstrap"] is True
-    assert config["context"]["use_private_knowledge"] is False
-    assert config["context"]["knowledge_scope_paths"] == ["Projects/Beta"]
     # Non-whitelisted keys are not forwarded.
     assert "thread_id" not in config["context"]
 
@@ -550,8 +544,6 @@ def test_context_does_not_override_existing_configurable():
         "model_name": "deepseek-v3",
         "is_plan_mode": True,
         "subagent_enabled": True,
-        "use_private_knowledge": False,
-        "knowledge_scope_paths": ["Projects/Gamma"],
     }
 
     _CONTEXT_CONFIGURABLE_KEYS = {
@@ -561,9 +553,9 @@ def test_context_does_not_override_existing_configurable():
         "reasoning_effort",
         "is_plan_mode",
         "subagent_enabled",
-        "use_private_knowledge",
-        "knowledge_scope_paths",
         "max_concurrent_subagents",
+        "weknora_knowledge_base_ids",
+        "weknora_knowledge_bases",
     }
     configurable = config.setdefault("configurable", {})
     for key in _CONTEXT_CONFIGURABLE_KEYS:
@@ -575,8 +567,6 @@ def test_context_does_not_override_existing_configurable():
     assert config["configurable"]["is_plan_mode"] is False
     # New values should be added
     assert config["configurable"]["subagent_enabled"] is True
-    assert config["configurable"]["use_private_knowledge"] is False
-    assert config["configurable"]["knowledge_scope_paths"] == ["Projects/Gamma"]
 
 
 def test_inject_authenticated_user_context_overrides_client_user_id():
@@ -815,7 +805,7 @@ def test_build_run_config_with_context():
     assert config["context"]["user_id"] == "u-42"
     assert config["context"]["thread_id"] == "thread-1"
     assert "configurable" not in config
-    assert config["recursion_limit"] == 100
+    assert config["recursion_limit"] == 250
 
 
 def test_build_run_config_context_injects_thread_id():

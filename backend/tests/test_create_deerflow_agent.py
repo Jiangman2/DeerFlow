@@ -794,7 +794,6 @@ def test_full_chain_order(mock_create_agent):
     expected_order = [
         "ThreadDataMiddleware",
         "UploadsMiddleware",
-        "KnowledgeMiddleware",
         "SandboxMiddleware",
         "DanglingToolCallMiddleware",
         "MyGuardrail",

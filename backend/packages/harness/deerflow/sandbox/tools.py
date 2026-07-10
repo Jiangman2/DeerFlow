@@ -637,6 +637,32 @@ def _reject_path_traversal(path: str) -> None:
             raise PermissionError("Access denied: path traversal detected")
 
 
+def _normalize_remote_sandbox_path(path: str) -> str:
+    """Anchor relative paths to the mounted thread workspace in remote sandboxes."""
+    if not path:
+        return path
+
+    normalised = path.replace("\\", "/")
+    _reject_path_traversal(normalised)
+
+    # Users and models sometimes omit the leading slash from mounted paths.
+    if normalised == VIRTUAL_PATH_PREFIX.lstrip("/") or normalised.startswith(f"{VIRTUAL_PATH_PREFIX.lstrip('/')}/"):
+        normalised = f"/{normalised}"
+
+    if posixpath.isabs(normalised):
+        return normalised
+
+    workspace = f"{VIRTUAL_PATH_PREFIX}/workspace"
+    if normalised in {".", "./"}:
+        return workspace
+    return posixpath.normpath(posixpath.join(workspace, normalised))
+
+
+def _apply_remote_cwd_prefix(command: str) -> str:
+    """Run remote sandbox commands from the mounted thread workspace by default."""
+    return f"cd {shlex.quote(f'{VIRTUAL_PATH_PREFIX}/workspace')} && {command}"
+
+
 def validate_local_tool_path(path: str, thread_data: ThreadDataState | None, *, read_only: bool = False) -> None:
     """Validate that a virtual path is allowed for local-sandbox access.
 
@@ -1425,7 +1451,7 @@ def bash_tool(runtime: Runtime, description: str, command: str) -> str:
             max_chars = sandbox_cfg.bash_output_max_chars if sandbox_cfg else 20000
         except Exception:
             max_chars = 20000
-        return _truncate_bash_output(sandbox.execute_command(command), max_chars)
+        return _truncate_bash_output(sandbox.execute_command(_apply_remote_cwd_prefix(command)), max_chars)
     except SandboxError as e:
         return f"Error: {e}"
     except PermissionError as e:
@@ -1464,6 +1490,8 @@ def ls_tool(runtime: Runtime, description: str, path: str) -> str:
             elif not _is_custom_mount_path(path):
                 path = _resolve_and_validate_user_data_path(path, thread_data)
             # Custom mount paths are resolved by LocalSandbox._resolve_path()
+        else:
+            path = _normalize_remote_sandbox_path(path)
         children = sandbox.list_dir(path)
         if not children:
             return "(empty)"
@@ -1529,6 +1557,8 @@ def glob_tool(
             if thread_data is None:
                 raise SandboxRuntimeError("Thread data not available for local sandbox")
             path = _resolve_local_read_path(path, thread_data)
+        else:
+            path = _normalize_remote_sandbox_path(path)
         matches, truncated = sandbox.glob(path, pattern, include_dirs=include_dirs, max_results=effective_max_results)
         if thread_data is not None:
             matches = [mask_local_paths_in_output(match, thread_data) for match in matches]
@@ -1605,6 +1635,8 @@ def grep_tool(
             if thread_data is None:
                 raise SandboxRuntimeError("Thread data not available for local sandbox")
             path = _resolve_local_read_path(path, thread_data)
+        else:
+            path = _normalize_remote_sandbox_path(path)
         matches, truncated = sandbox.grep(
             path,
             pattern,
@@ -1693,6 +1725,8 @@ def read_file_tool(
             elif not _is_custom_mount_path(path):
                 path = _resolve_and_validate_user_data_path(path, thread_data)
             # Custom mount paths are resolved by LocalSandbox._resolve_path()
+        else:
+            path = _normalize_remote_sandbox_path(path)
         content = sandbox.read_file(path)
         if not content:
             return "(empty)"
@@ -1813,6 +1847,8 @@ def write_file_tool(
             if not _is_custom_mount_path(path):
                 path = _resolve_and_validate_user_data_path(path, thread_data)
             # Custom mount paths are resolved by LocalSandbox._resolve_path()
+        else:
+            path = _normalize_remote_sandbox_path(path)
         with get_file_operation_lock(sandbox, path):
             sandbox.write_file(path, content, append)
         return "OK"
@@ -1876,6 +1912,8 @@ def str_replace_tool(
             if not _is_custom_mount_path(path):
                 path = _resolve_and_validate_user_data_path(path, thread_data)
             # Custom mount paths are resolved by LocalSandbox._resolve_path()
+        else:
+            path = _normalize_remote_sandbox_path(path)
         with get_file_operation_lock(sandbox, path):
             content = sandbox.read_file(path)
             if not content:

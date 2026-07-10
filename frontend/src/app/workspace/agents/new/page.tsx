@@ -2,13 +2,10 @@
 
 import {
   ArrowLeftIcon,
-  BookOpenIcon,
   BotIcon,
   CheckIcon,
   CheckCircleIcon,
   ChevronsUpDownIcon,
-  FileTextIcon,
-  FolderIcon,
   InfoIcon,
   MoreHorizontalIcon,
   SaveIcon,
@@ -36,15 +33,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { MessageList } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
@@ -56,13 +49,6 @@ import {
   getAgent,
 } from "@/core/agents/api";
 import { useI18n } from "@/core/i18n/hooks";
-import { useKnowledgeFiles } from "@/core/knowledge";
-import {
-  buildKnowledgeScopeOptions,
-  expandKnowledgeScopePaths,
-  isKnowledgeScopeOptionChecked,
-  updateKnowledgeScopeSelection,
-} from "@/core/knowledge/scope";
 import { useModels } from "@/core/models/hooks";
 import { useThreadStream } from "@/core/threads/hooks";
 import { uuid } from "@/core/utils/uuid";
@@ -109,10 +95,7 @@ export default function NewAgentPage() {
   const [showSaveHint, setShowSaveHint] = useState(false);
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const { models } = useModels();
-  const { files: knowledgeFiles } = useKnowledgeFiles();
   const [selectedModelName, setSelectedModelName] = useState<string>();
-  const [usePrivateKnowledge, setUsePrivateKnowledge] = useState(true);
-  const [knowledgeScopePaths, setKnowledgeScopePaths] = useState<string[]>([]);
   const [setupAgentStatus, setSetupAgentStatus] =
     useState<SetupAgentStatus>("idle");
 
@@ -124,8 +107,6 @@ export default function NewAgentPage() {
       mode: "flash",
       is_bootstrap: true,
       model_name: selectedModelName,
-      use_private_knowledge: usePrivateKnowledge,
-      knowledge_scope_paths: knowledgeScopePaths,
     },
     onFinish() {
       if (!agent && setupAgentStatus === "requested") {
@@ -158,35 +139,6 @@ export default function NewAgentPage() {
     }
     return models.find((model) => model.name === selectedModelName) ?? models[0];
   }, [models, selectedModelName]);
-
-  const knowledgeScopeOptions = useMemo(
-    () => buildKnowledgeScopeOptions(knowledgeFiles),
-    [knowledgeFiles],
-  );
-  const selectedKnowledgeFileSet = useMemo(
-    () => expandKnowledgeScopePaths(knowledgeScopePaths, knowledgeScopeOptions),
-    [knowledgeScopeOptions, knowledgeScopePaths],
-  );
-  const knowledgeScopeLabel =
-    knowledgeScopePaths.length === 0
-      ? t.inputBox.privateKnowledgeScopeAll
-      : knowledgeScopePaths.length === 1
-        ? knowledgeScopePaths[0]
-        : t.inputBox.privateKnowledgeScopeSelected(knowledgeScopePaths.length);
-
-  const handleKnowledgeScopeChange = useCallback(
-    (option: (typeof knowledgeScopeOptions)[number], checked: boolean) => {
-      setKnowledgeScopePaths((current) => {
-        return updateKnowledgeScopeSelection(
-          current,
-          option,
-          checked,
-          knowledgeScopeOptions,
-        );
-      });
-    },
-    [knowledgeScopeOptions],
-  );
 
   useEffect(() => {
     if (typeof window === "undefined" || step !== "chat") {
@@ -263,8 +215,6 @@ export default function NewAgentPage() {
       {
         agent_name: trimmed,
         model_name: selectedModel?.name,
-        use_private_knowledge: usePrivateKnowledge,
-        knowledge_scope_paths: knowledgeScopePaths,
       },
     );
   }, [
@@ -278,8 +228,6 @@ export default function NewAgentPage() {
     t.agents.nameStepCheckError,
     t.agents.nameStepCheckErrorWithDetail,
     t.agents.nameStepInvalidError,
-    usePrivateKnowledge,
-    knowledgeScopePaths,
     threadId,
   ]);
 
@@ -298,22 +246,14 @@ export default function NewAgentPage() {
         threadId,
         { text: trimmed, files: [] },
         { agent_name: agentName, model_name: selectedModel?.name },
-        {
-          additionalKwargs: {
-            use_private_knowledge: usePrivateKnowledge,
-            knowledge_scope_paths: knowledgeScopePaths,
-          },
-        },
       );
     },
     [
       agentName,
-      knowledgeScopePaths,
       selectedModel?.name,
       sendMessage,
       thread.isLoading,
       threadId,
-      usePrivateKnowledge,
     ],
   );
 
@@ -336,8 +276,6 @@ export default function NewAgentPage() {
         {
           agent_name: agentName,
           model_name: selectedModel?.name,
-          use_private_knowledge: usePrivateKnowledge,
-          knowledge_scope_paths: knowledgeScopePaths,
         },
         { additionalKwargs: { hide_from_ui: true } },
       );
@@ -349,7 +287,6 @@ export default function NewAgentPage() {
   }, [
     agent,
     agentName,
-    knowledgeScopePaths,
     sendMessage,
     selectedModel?.name,
     setupAgentStatus,
@@ -357,7 +294,6 @@ export default function NewAgentPage() {
     t.agents.saveRequested,
     thread.isLoading,
     threadId,
-    usePrivateKnowledge,
   ]);
 
   const header = (
@@ -480,91 +416,6 @@ export default function NewAgentPage() {
                   </ModelSelector>
                 </div>
               )}
-              <div className="bg-muted/40 space-y-3 rounded-lg border px-3 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <BookOpenIcon className="text-muted-foreground h-4 w-4 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">
-                        {t.inputBox.privateKnowledge}
-                      </p>
-                      <p className="text-muted-foreground truncate text-xs">
-                        {usePrivateKnowledge
-                          ? t.inputBox.privateKnowledgeOnDescription
-                          : t.inputBox.privateKnowledgeOffDescription}
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={usePrivateKnowledge}
-                    onCheckedChange={setUsePrivateKnowledge}
-                    aria-label={t.inputBox.privateKnowledge}
-                  />
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-start"
-                      disabled={!usePrivateKnowledge}
-                    >
-                      <FolderIcon className="h-4 w-4" />
-                      <span className="truncate">{knowledgeScopeLabel}</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="max-h-80 w-72 overflow-y-auto">
-                    <DropdownMenuLabel className="text-muted-foreground text-xs">
-                      {t.inputBox.privateKnowledgeScope}
-                    </DropdownMenuLabel>
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        setKnowledgeScopePaths([]);
-                      }}
-                    >
-                      <BookOpenIcon className="h-4 w-4" />
-                      {t.inputBox.privateKnowledgeScopeAll}
-                      {knowledgeScopePaths.length === 0 && (
-                        <CheckIcon className="ml-auto h-4 w-4" />
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    {knowledgeScopeOptions.length === 0 ? (
-                      <DropdownMenuItem disabled>
-                        {t.inputBox.privateKnowledgeScopeEmpty}
-                      </DropdownMenuItem>
-                    ) : (
-                      knowledgeScopeOptions.map((option) => (
-                        <DropdownMenuCheckboxItem
-                          key={`${option.type}:${option.path}`}
-                          checked={isKnowledgeScopeOptionChecked(
-                            option,
-                            selectedKnowledgeFileSet,
-                          )}
-                          className="min-w-0"
-                          onCheckedChange={(checked) =>
-                            handleKnowledgeScopeChange(option, checked)
-                          }
-                          onSelect={(event) => event.preventDefault()}
-                        >
-                          <div
-                            className="flex min-w-0 items-center gap-2"
-                            style={{ paddingLeft: `${option.level * 12}px` }}
-                          >
-                            {option.type === "folder" ? (
-                              <FolderIcon className="text-muted-foreground h-4 w-4 shrink-0" />
-                            ) : (
-                              <FileTextIcon className="text-muted-foreground h-4 w-4 shrink-0" />
-                            )}
-                            <span className="truncate">{option.label}</span>
-                          </div>
-                        </DropdownMenuCheckboxItem>
-                      ))
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
               <Button
                 className="w-full"
                 onClick={() => void handleConfirmName()}

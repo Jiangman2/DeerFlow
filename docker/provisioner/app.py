@@ -78,6 +78,30 @@ SAFE_THREAD_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
 SAFE_USER_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
 DEFAULT_USER_ID = "default"
 
+SANDBOX_ENV_ALLOWLIST = (
+    "IMAGE_BACKEND",
+    "IMAGE_GENERATION_PROVIDER",
+    "QWEN_API_KEY",
+    "QWEN_MODEL",
+    "QWEN_BASE_URL",
+    "DASHSCOPE_API_KEY",
+    "DASHSCOPE_BASE_URL",
+    "GEMINI_API_KEY",
+    "GEMINI_MODEL",
+    "GEMINI_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
+    "OPENAI_BASE_URL",
+    "PEXELS_API_KEY",
+    "PIXABAY_API_KEY",
+    "NO_PROXY",
+    "no_proxy",
+    "HTTP_PROXY",
+    "http_proxy",
+    "HTTPS_PROXY",
+    "https_proxy",
+)
+
 # Path to the kubeconfig *inside* the provisioner container.
 # Typically the host's ~/.kube/config is mounted here.
 KUBECONFIG_PATH = os.environ.get("KUBECONFIG_PATH", "/root/.kube/config")
@@ -86,6 +110,22 @@ KUBECONFIG_PATH = os.environ.get("KUBECONFIG_PATH", "/root/.kube/config")
 # services on the host Kubernetes node.  On Docker Desktop for macOS this
 # is ``host.docker.internal``; on Linux it may be the host's LAN IP.
 NODE_HOST = os.environ.get("NODE_HOST", "host.docker.internal")
+
+
+def _kubeconfig_wait_seconds() -> int:
+    raw = os.environ.get("KUBECONFIG_WAIT_SECONDS")
+    if raw is not None:
+        try:
+            return max(0, int(raw))
+        except ValueError:
+            logger.warning("Invalid KUBECONFIG_WAIT_SECONDS=%r; falling back to automatic mode", raw)
+
+    # When the provisioner itself runs inside Kubernetes, in-cluster service
+    # account credentials are immediately available. Waiting for a host
+    # kubeconfig only slows startup and can trip probes during restarts.
+    if os.environ.get("KUBERNETES_SERVICE_HOST"):
+        return 0
+    return 30
 SANDBOX_ACCESS_MODE = os.environ.get("SANDBOX_ACCESS_MODE", "nodeport").strip().lower()
 CLUSTER_SERVICE_MODES = {"cluster", "clusterip", "service"}
 
@@ -171,6 +211,10 @@ def _init_k8s_client() -> k8s_client.CoreV1Api:
 
 def _wait_for_kubeconfig(timeout: int = 30) -> None:
     """Wait for kubeconfig file if configured, then continue with fallback support."""
+    if timeout <= 0:
+        logger.info("Skipping kubeconfig wait; will attempt Kubernetes config immediately")
+        return
+
     deadline = time.time() + timeout
     while time.time() < deadline:
         if os.path.exists(KUBECONFIG_PATH):
@@ -225,7 +269,7 @@ def _ensure_namespace() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     global core_v1
-    _wait_for_kubeconfig()
+    _wait_for_kubeconfig(_kubeconfig_wait_seconds())
     core_v1 = _init_k8s_client()
     _ensure_namespace()
     logger.info("Provisioner is ready (using host Kubernetes)")
@@ -355,6 +399,24 @@ def _build_volume_mounts(thread_id: str, user_id: str = DEFAULT_USER_ID) -> list
     ]
 
 
+def _build_sandbox_env() -> list[k8s_client.V1EnvVar]:
+    """Forward selected provider settings into sandbox Pods."""
+    env_vars: dict[str, str] = {}
+    for name in SANDBOX_ENV_ALLOWLIST:
+        value = os.environ.get(name)
+        if value is not None:
+            env_vars[name] = value
+
+    if "QWEN_API_KEY" not in env_vars and env_vars.get("DASHSCOPE_API_KEY"):
+        env_vars["QWEN_API_KEY"] = env_vars["DASHSCOPE_API_KEY"]
+    env_vars.setdefault("IMAGE_BACKEND", "qwen")
+    env_vars.setdefault("IMAGE_GENERATION_PROVIDER", env_vars["IMAGE_BACKEND"])
+    env_vars.setdefault("QWEN_MODEL", "qwen-image-2.0-pro")
+    env_vars.setdefault("QWEN_BASE_URL", os.environ.get("QWEN_BASE_URL", "https://dashscope.aliyuncs.com"))
+
+    return [k8s_client.V1EnvVar(name=name, value=value) for name, value in sorted(env_vars.items())]
+
+
 def _build_pod(sandbox_id: str, thread_id: str, user_id: str = DEFAULT_USER_ID) -> k8s_client.V1Pod:
     """Construct a Pod manifest for a single sandbox."""
     return k8s_client.V1Pod(
@@ -413,6 +475,7 @@ def _build_pod(sandbox_id: str, thread_id: str, user_id: str = DEFAULT_USER_ID) 
                             "ephemeral-storage": "500Mi",
                         },
                     ),
+                    env=_build_sandbox_env(),
                     volume_mounts=_build_volume_mounts(thread_id, user_id=user_id),
                     security_context=k8s_client.V1SecurityContext(
                         privileged=False,

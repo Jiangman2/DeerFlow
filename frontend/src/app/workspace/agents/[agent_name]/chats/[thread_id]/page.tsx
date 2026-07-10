@@ -2,7 +2,7 @@
 
 import { BotIcon, PlusSquare } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,6 @@ export default function AgentChatPage() {
   );
 
   const { agent } = useAgent(agentName);
-  const appliedAgentDefaultsRef = useRef<string | null>(null);
 
   const { threadId, setThreadId, isNewThread, setIsNewThread, isMock } =
     useThreadChat();
@@ -77,26 +76,6 @@ export default function AgentChatPage() {
     isMock,
   });
   const backendTokenUsage = threadTokenUsageToTokenUsage(threadTokenUsage.data);
-
-  useEffect(() => {
-    if (!agent || appliedAgentDefaultsRef.current === agent.name) {
-      return;
-    }
-    const contextPatch: {
-      use_private_knowledge?: boolean;
-      knowledge_scope_paths?: string[];
-    } = {};
-    if (typeof agent.use_private_knowledge === "boolean") {
-      contextPatch.use_private_knowledge = agent.use_private_knowledge;
-    }
-    if (Array.isArray(agent.knowledge_scope_paths)) {
-      contextPatch.knowledge_scope_paths = agent.knowledge_scope_paths;
-    }
-    appliedAgentDefaultsRef.current = agent.name;
-    if (Object.keys(contextPatch).length > 0) {
-      setSettings("context", contextPatch);
-    }
-  }, [agent, setSettings]);
 
   const { showNotification } = useNotification();
 
@@ -178,24 +157,11 @@ export default function AgentChatPage() {
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      const usePrivateKnowledge =
-        settings.context.use_private_knowledge !== false;
-      const knowledgeScopePaths = Array.isArray(
-        settings.context.knowledge_scope_paths,
-      )
-        ? settings.context.knowledge_scope_paths
-        : [];
       const sendPromise = sendMessage(
         threadId,
         message,
         {
           agent_name: agentName,
-        },
-        {
-          additionalKwargs: {
-            use_private_knowledge: usePrivateKnowledge,
-            knowledge_scope_paths: knowledgeScopePaths,
-          },
         },
       );
       if (message.files.length > 0) {
@@ -206,8 +172,6 @@ export default function AgentChatPage() {
     [
       agentName,
       sendMessage,
-      settings.context.knowledge_scope_paths,
-      settings.context.use_private_knowledge,
       threadId,
     ],
   );

@@ -43,9 +43,39 @@ def _save_memory_to_file(memory_data: dict[str, Any], agent_name: str | None = N
     return get_memory_storage().save(memory_data, agent_name, user_id=user_id)
 
 
+def _ensure_memory_shape(memory_data: dict[str, Any]) -> dict[str, Any]:
+    """Return memory data with all required top-level sections present."""
+    if not isinstance(memory_data, dict):
+        return create_empty_memory()
+
+    defaults = create_empty_memory()
+    normalized = {**defaults, **memory_data}
+
+    for section in ("user", "history"):
+        existing_section = memory_data.get(section)
+        default_section = defaults[section]
+        if not isinstance(existing_section, dict):
+            normalized[section] = default_section
+            continue
+
+        section_data = {**default_section, **existing_section}
+        for key, default_value in default_section.items():
+            value = section_data.get(key)
+            if not isinstance(value, dict):
+                section_data[key] = default_value
+            else:
+                section_data[key] = {**default_value, **value}
+        normalized[section] = section_data
+
+    if not isinstance(normalized.get("facts"), list):
+        normalized["facts"] = []
+
+    return normalized
+
+
 def get_memory_data(agent_name: str | None = None, *, user_id: str | None = None) -> dict[str, Any]:
     """Get the current memory data via storage provider."""
-    return get_memory_storage().load(agent_name, user_id=user_id)
+    return _ensure_memory_shape(get_memory_storage().load(agent_name, user_id=user_id))
 
 
 def reload_memory_data(agent_name: str | None = None, *, user_id: str | None = None) -> dict[str, Any]:
@@ -610,6 +640,7 @@ class MemoryUpdater:
         """
         config = get_memory_config()
         now = utc_now_iso_z()
+        current_memory = _ensure_memory_shape(current_memory)
 
         # Update user sections
         user_updates = update_data.get("user", {})

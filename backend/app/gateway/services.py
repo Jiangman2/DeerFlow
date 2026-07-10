@@ -23,6 +23,7 @@ from langgraph.types import Command
 from app.gateway.deps import get_checkpointer, get_run_context, get_run_manager, get_stream_bridge
 from app.gateway.internal_auth import INTERNAL_SYSTEM_ROLE, get_trusted_internal_owner_user_id
 from app.gateway.utils import sanitize_log_param
+from app.gateway.weknora_identity import ensure_weknora_session_for_deerflow_user
 from deerflow.config.app_config import get_app_config
 from deerflow.runtime import (
     END_SENTINEL,
@@ -40,6 +41,7 @@ from deerflow.runtime.runs.naming import resolve_root_run_name
 from deerflow.runtime.user_context import reset_current_user, set_current_user
 
 logger = logging.getLogger(__name__)
+DEFAULT_RUN_RECURSION_LIMIT = 250
 
 
 # ---------------------------------------------------------------------------
@@ -133,11 +135,11 @@ _CONTEXT_CONFIGURABLE_KEYS: frozenset[str] = frozenset(
         "reasoning_effort",
         "is_plan_mode",
         "subagent_enabled",
-        "use_private_knowledge",
-        "knowledge_scope_paths",
         "max_concurrent_subagents",
         "agent_name",
         "is_bootstrap",
+        "weknora_knowledge_base_ids",
+        "weknora_knowledge_bases",
     }
 )
 
@@ -192,6 +194,38 @@ def inject_authenticated_user_context(config: dict[str, Any], request: Request) 
         runtime_context["oauth_id"] = getattr(user, "oauth_id", None)
 
 
+async def inject_weknora_user_context(config: dict[str, Any], request: Request) -> None:
+    """Attach a per-user WeKnora token for tools in the background run.
+
+    The browser only sends selected WeKnora knowledge-base IDs. The actual
+    WeKnora credential is derived server-side from the authenticated DeerFlow
+    user so clients never receive or spoof tool credentials.
+    """
+
+    user = getattr(request.state, "user", None)
+    user_id = getattr(user, "id", None)
+    if user_id is None or getattr(user, "system_role", None) == INTERNAL_SYSTEM_ROLE:
+        return
+    runtime_context = config.setdefault("context", {})
+    selected_ids = runtime_context.get("weknora_knowledge_base_ids") if isinstance(runtime_context, dict) else None
+    if not selected_ids:
+        return
+    try:
+        session = await ensure_weknora_session_for_deerflow_user(user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Failed to prepare WeKnora user session for run", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"WeKnora SSO is unavailable: {exc}") from exc
+
+    if isinstance(runtime_context, dict):
+        runtime_context["weknora_access_token"] = session.token
+        runtime_context["weknora_user_id"] = str(session.user.get("id") or "")
+        tenant_id = session.tenant.get("id")
+        if tenant_id is not None:
+            runtime_context["weknora_tenant_id"] = str(tenant_id)
+
+
 def resolve_agent_factory(assistant_id: str | None):
     """Resolve the agent factory callable from config.
 
@@ -235,7 +269,7 @@ def build_run_config(
     # subagent inside ONE lead tools-node step, and subagents enforce their own
     # limit via `subagents.max_turns`. Do not conflate this 100 with the
     # general-purpose subagent's max_turns.
-    config: dict[str, Any] = {"recursion_limit": 100}
+    config: dict[str, Any] = {"recursion_limit": DEFAULT_RUN_RECURSION_LIMIT}
     if request_config:
         # LangGraph >= 0.6.0 introduced ``context`` as the preferred way to
         # pass thread-level data and rejects requests that include both
@@ -474,6 +508,7 @@ async def start_run(
         # Only agent-relevant keys are forwarded; unknown keys (e.g. thread_id) are ignored.
         merge_run_context_overrides(config, getattr(body, "context", None))
         inject_authenticated_user_context(config, request)
+        await inject_weknora_user_context(config, request)
 
         stream_modes = normalize_stream_modes(body.stream_mode)
 

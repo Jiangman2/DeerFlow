@@ -27,6 +27,7 @@ import {
 } from "@/components/ai-elements/reasoning";
 import { Task, TaskTrigger } from "@/components/ai-elements/task";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   deleteFeedback,
   upsertFeedback,
@@ -46,10 +47,11 @@ import { SafeReasoningContent } from "@/core/streamdown/components";
 import { cn } from "@/lib/utils";
 
 import { CopyButton } from "../copy-button";
+import { Tooltip } from "../tooltip";
 
 import { MarkdownContent } from "./markdown-content";
 
-function FeedbackButtons({
+export function FeedbackButtons({
   threadId,
   runId,
   initialFeedback,
@@ -86,32 +88,36 @@ function FeedbackButtons({
 
   return (
     <div className="flex gap-1">
-      <button
-        type="button"
-        className={cn(
-          "text-muted-foreground hover:text-foreground rounded-md p-1 transition-colors",
-          feedback?.rating === 1 && "text-foreground",
-        )}
-        onClick={() => handleClick(1)}
-        disabled={isSubmitting}
-      >
-        <ThumbsUpIcon
-          className={cn("size-4", feedback?.rating === 1 && "fill-current")}
-        />
-      </button>
-      <button
-        type="button"
-        className={cn(
-          "text-muted-foreground hover:text-foreground rounded-md p-1 transition-colors",
-          feedback?.rating === -1 && "text-foreground",
-        )}
-        onClick={() => handleClick(-1)}
-        disabled={isSubmitting}
-      >
-        <ThumbsDownIcon
-          className={cn("size-4", feedback?.rating === -1 && "fill-current")}
-        />
-      </button>
+      <Tooltip content="Like">
+        <Button
+          aria-label="Like"
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+          className={cn(feedback?.rating === 1 && "text-foreground")}
+          onClick={() => handleClick(1)}
+          disabled={isSubmitting}
+        >
+          <ThumbsUpIcon
+            className={cn("size-3", feedback?.rating === 1 && "fill-current")}
+          />
+        </Button>
+      </Tooltip>
+      <Tooltip content="Dislike">
+        <Button
+          aria-label="Dislike"
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+          className={cn(feedback?.rating === -1 && "text-foreground")}
+          onClick={() => handleClick(-1)}
+          disabled={isSubmitting}
+        >
+          <ThumbsDownIcon
+            className={cn("size-3", feedback?.rating === -1 && "fill-current")}
+          />
+        </Button>
+      </Tooltip>
     </div>
   );
 }
@@ -120,8 +126,6 @@ export function MessageListItem({
   className,
   message,
   isLoading,
-  feedback,
-  runId,
   threadId,
   showCopyButton = true,
   turnStartTime,
@@ -130,8 +134,6 @@ export function MessageListItem({
   message: Message;
   isLoading?: boolean;
   threadId: string;
-  feedback?: FeedbackData | null;
-  runId?: string;
   showCopyButton?: boolean;
   turnStartTime?: number | null;
 }) {
@@ -158,18 +160,13 @@ export function MessageListItem({
           )}
         >
           <div className="pointer-events-auto flex gap-1">
-            <CopyButton
-              clipboardData={
-                extractContentFromMessage(message) ??
-                extractReasoningContentFromMessage(message) ??
-                ""
-              }
-            />
-            {feedback !== undefined && runId && threadId && (
-              <FeedbackButtons
-                threadId={threadId}
-                runId={runId}
-                initialFeedback={feedback}
+            {showCopyButton && (
+              <CopyButton
+                clipboardData={
+                  extractContentFromMessage(message) ??
+                  extractReasoningContentFromMessage(message) ??
+                  ""
+                }
               />
             )}
           </div>
@@ -243,7 +240,7 @@ function MessageContent_({
       clientTurnDurations.set(`${threadId}:${message.id}`, rawTurnDuration);
       setCachedDuration(rawTurnDuration);
     }
-  }, [rawTurnDuration, message.id]);
+  }, [rawTurnDuration, message.id, threadId]);
 
   const handleDurationChange = useCallback(
     (d: number | undefined) => {
@@ -252,7 +249,7 @@ function MessageContent_({
         setCachedDuration(d);
       }
     },
-    [message.id],
+    [message.id, threadId],
   );
 
   useEffect(() => {

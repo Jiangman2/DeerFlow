@@ -28,8 +28,6 @@ class AgentResponse(BaseModel):
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
-    use_private_knowledge: bool | None = Field(default=None, description="Default private knowledge setting for this agent")
-    knowledge_scope_paths: list[str] | None = Field(default=None, description="Default private knowledge scope paths")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all, []=none)")
     soul: str | None = Field(default=None, description="SOUL.md content")
     source: str | None = Field(default=None, description="Agent source: personal, team, or legacy")
@@ -56,8 +54,6 @@ class AgentCreateRequest(BaseModel):
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
-    use_private_knowledge: bool | None = Field(default=None, description="Default private knowledge setting for this agent")
-    knowledge_scope_paths: list[str] | None = Field(default=None, description="Default private knowledge scope paths")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all enabled, []=none)")
     soul: str = Field(default="", description="SOUL.md content — agent personality and behavioral guardrails")
 
@@ -68,8 +64,6 @@ class AgentUpdateRequest(BaseModel):
     description: str | None = Field(default=None, description="Updated description")
     model: str | None = Field(default=None, description="Updated model override")
     tool_groups: list[str] | None = Field(default=None, description="Updated tool group whitelist")
-    use_private_knowledge: bool | None = Field(default=None, description="Updated default private knowledge setting")
-    knowledge_scope_paths: list[str] | None = Field(default=None, description="Updated default private knowledge scope paths")
     skills: list[str] | None = Field(default=None, description="Updated skill whitelist (None=all, []=none)")
     soul: str | None = Field(default=None, description="Updated SOUL.md content")
 
@@ -132,8 +126,6 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
         description=agent_cfg.description,
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
-        use_private_knowledge=agent_cfg.use_private_knowledge,
-        knowledge_scope_paths=agent_cfg.knowledge_scope_paths,
         skills=agent_cfg.skills,
         soul=soul,
         source="personal",
@@ -175,8 +167,6 @@ def _agent_dir_to_response(agent_dir, *, fallback_name: str, include_soul: bool 
         description=agent_cfg.description,
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
-        use_private_knowledge=agent_cfg.use_private_knowledge,
-        knowledge_scope_paths=agent_cfg.knowledge_scope_paths,
         skills=agent_cfg.skills,
         soul=soul,
         source=source,
@@ -379,10 +369,6 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
                 config_data["model"] = request.model
             if request.tool_groups is not None:
                 config_data["tool_groups"] = request.tool_groups
-            if request.use_private_knowledge is not None:
-                config_data["use_private_knowledge"] = request.use_private_knowledge
-            if request.knowledge_scope_paths is not None:
-                config_data["knowledge_scope_paths"] = request.knowledge_scope_paths
             if request.skills is not None:
                 config_data["skills"] = request.skills
 
@@ -586,8 +572,6 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
                 "description",
                 "model",
                 "tool_groups",
-                "use_private_knowledge",
-                "knowledge_scope_paths",
                 "skills",
             }
         )
@@ -604,22 +588,6 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
             new_tool_groups = request.tool_groups if "tool_groups" in fields_set else agent_cfg.tool_groups
             if new_tool_groups is not None:
                 updated["tool_groups"] = new_tool_groups
-
-            new_use_private_knowledge = (
-                request.use_private_knowledge
-                if "use_private_knowledge" in fields_set
-                else agent_cfg.use_private_knowledge
-            )
-            if new_use_private_knowledge is not None:
-                updated["use_private_knowledge"] = new_use_private_knowledge
-
-            new_knowledge_scope_paths = (
-                request.knowledge_scope_paths
-                if "knowledge_scope_paths" in fields_set
-                else agent_cfg.knowledge_scope_paths
-            )
-            if new_knowledge_scope_paths is not None:
-                updated["knowledge_scope_paths"] = new_knowledge_scope_paths
 
             # skills: None = inherit all, [] = no skills, ["a","b"] = whitelist
             if "skills" in fields_set:

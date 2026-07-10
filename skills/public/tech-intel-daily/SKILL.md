@@ -7,7 +7,7 @@ description: Generate Chinese technology-management intelligence daily reports f
 
 ## Activation Contract
 
-This Skill is designed for DeerFlow native slash activation.
+This Skill is designed for native slash activation.
 
 When the user starts a turn with `/tech-intel-daily`, treat this `SKILL.md` as the controlling instruction for the turn. The task is not complete until the pipeline script has run and `daily_report.html` has been presented as a file.
 
@@ -15,7 +15,7 @@ Do not satisfy this Skill with a normal chat answer, generic web search, or Mark
 
 ## Required Entrypoint
 
-Prefer the step-level pipeline entrypoint so the user can see progress through DeerFlow's visible TodoList:
+Prefer the step-level pipeline entrypoint so the user can see progress through the visible TodoList:
 
 ```bash
 python /mnt/skills/public/tech-intel-daily/scripts/run_step.py --step <STEP> --date <YYYY-MM-DD> --output-root /mnt/user-data/outputs/tech-intel-daily
@@ -41,7 +41,7 @@ Do not satisfy this Skill with ad-hoc web search or a Markdown-only report.
 
 ## Visible TodoList Protocol
 
-This Skill must make progress visible to the user when DeerFlow exposes the `write_todos` tool.
+This Skill must make progress visible to the user when the platform exposes the `write_todos` tool.
 
 Before running the first command, if `write_todos` is available, create this visible TodoList:
 
