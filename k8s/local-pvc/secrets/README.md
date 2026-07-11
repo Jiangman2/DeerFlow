@@ -64,7 +64,13 @@ CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN=replace-me
 CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE=replace-me
 CNOOC_OAUTH_USER_INFO_API_TOKEN=replace-me
 CNOOC_OAUTH_TLS_VERIFY=true
+NEXT_PUBLIC_AUTH_LOGIN_URL=https://datalake.cnooc/path/to/deerflow-login
 ```
+
+`NEXT_PUBLIC_AUTH_LOGIN_URL` is the browser-facing data-lake login entry used
+when an existing DeerFlow session expires. DeerFlow appends a `next` query
+parameter so the platform can redirect back through
+`/api/v1/auth/cnooc/login?token=<platform-token>&next=<path>`.
 
 After changing these values, recreate `deer-flow-env` and restart Gateway:
 

@@ -116,6 +116,33 @@ const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
   },
 };
 
+const EXTERNAL_AGENT_PROXY_PATHS: Record<string, string> = {
+  "http://10.57.128.79:8100": "/agent-tools/doc-parse/",
+  "http://10.57.128.79:6000": "/agent-tools/seismic-resolution/",
+  "http://10.57.128.79:5001": "/agent-tools/report-review/",
+  "http://10.57.128.79:5000": "/agent-tools/auto-data-collection/",
+  "http://10.57.128.79:7860": "/agent-tools/report-writing/",
+};
+
+function buildExternalAgentHref(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    const proxyBasePath = EXTERNAL_AGENT_PROXY_PATHS[url.origin];
+
+    if (!proxyBasePath) {
+      return rawUrl;
+    }
+
+    const normalizedBasePath = proxyBasePath.replace(/\/?$/, "/");
+    const pathSuffix =
+      url.pathname === "/" ? "" : url.pathname.replace(/^\/+/, "");
+
+    return `${normalizedBasePath}${pathSuffix}${url.search}${url.hash}`;
+  } catch {
+    return rawUrl;
+  }
+}
+
 function TruncatedTooltip({
   text,
   children,
@@ -183,6 +210,9 @@ export function AgentCard({
   const [unpublishOpen, setUnpublishOpen] = useState(false);
   const externalUrl = agent.external_url?.trim();
   const isExternalAgent = Boolean(externalUrl);
+  const externalHref = externalUrl
+    ? buildExternalAgentHref(externalUrl)
+    : undefined;
   const displayConfig = externalUrl
     ? EXTERNAL_AGENT_VISUAL_CONFIG[externalUrl]
     : undefined;
@@ -273,7 +303,7 @@ export function AgentCard({
                   )}
                 </div>
               ) : (
-                <div className="bg-primary/12 text-primary ring-primary/15 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 transition-transform duration-300 group-hover:scale-105">
+                <div className="bg-primary text-primary-foreground ring-primary/20 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 transition-transform duration-300 group-hover:scale-105">
                   <BotIcon className="h-5 w-5" />
                 </div>
               )}
@@ -339,7 +369,7 @@ export function AgentCard({
               size="sm"
               className="flex-1 rounded-lg shadow-sm transition-all duration-300 group-hover:shadow"
             >
-              <a href={externalUrl} target="_blank" rel="noreferrer">
+              <a href={externalHref} target="_blank" rel="noreferrer">
                 <ExternalLinkIcon className="mr-1.5 h-3.5 w-3.5" />
                 {t.agents.openExternal}
               </a>

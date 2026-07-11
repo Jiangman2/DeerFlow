@@ -27,7 +27,6 @@ export function WorkspaceNavChatList() {
   const { t } = useI18n();
   const pathname = usePathname();
   const [weknoraFrontendUrl, setWeKnoraFrontendUrl] = useState<string>();
-  const knowledgeHref = weknoraFrontendUrl ?? "/workspace/knowledge";
 
   useEffect(() => {
     let active = true;
@@ -83,7 +82,7 @@ export function WorkspaceNavChatList() {
             className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm [&>svg]:text-[#8b939d]"
             asChild
           >
-            <Link href={knowledgeHref}>
+            <Link href="/workspace/knowledge">
               <BookOpenIcon />
               <span>知识库</span>
             </Link>

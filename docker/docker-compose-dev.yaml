@@ -95,6 +95,7 @@ services:
       args:
         PNPM_STORE_PATH: ${PNPM_STORE_PATH:-/root/.local/share/pnpm/store}
         NPM_REGISTRY: ${NPM_REGISTRY:-}
+        NEXT_PUBLIC_AUTH_LOGIN_URL: ${NEXT_PUBLIC_AUTH_LOGIN_URL:-}
     container_name: deer-flow-frontend
     command: sh -c "cd frontend && pnpm exec next dev --webpack > /app/logs/frontend.log 2>&1"
     volumes:
@@ -114,6 +115,7 @@ services:
       - NEXT_PUBLIC_SHOP_CART_IFRAME_URL=${NEXT_PUBLIC_SHOP_CART_IFRAME_URL:-}
       - NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN=${NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN:-}
       - NEXT_PUBLIC_WEKNORA_FRONTEND_URL=${NEXT_PUBLIC_WEKNORA_FRONTEND_URL:-}
+      - NEXT_PUBLIC_AUTH_LOGIN_URL=${NEXT_PUBLIC_AUTH_LOGIN_URL:-}
       - WEKNORA_FRONTEND_URL=${WEKNORA_FRONTEND_URL:-}
       - SHOP_CART_API_BASE_URL=${SHOP_CART_API_BASE_URL:-https://datalake.cnooc}
       - SHOP_CART_DOWNLOAD_TOKEN=${SHOP_CART_DOWNLOAD_TOKEN:-}

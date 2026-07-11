@@ -34,7 +34,19 @@ export function assertNever(x: never): never {
 }
 
 export function buildLoginUrl(returnPath: string): string {
-  return `/login?next=${encodeURIComponent(returnPath)}`;
+  const externalLoginUrl = process.env.NEXT_PUBLIC_AUTH_LOGIN_URL?.trim();
+  if (!externalLoginUrl) {
+    return `/login?next=${encodeURIComponent(returnPath)}`;
+  }
+
+  if (externalLoginUrl.startsWith("/")) {
+    const separator = externalLoginUrl.includes("?") ? "&" : "?";
+    return `${externalLoginUrl}${separator}next=${encodeURIComponent(returnPath)}`;
+  }
+
+  const loginUrl = new URL(externalLoginUrl);
+  loginUrl.searchParams.set("next", returnPath);
+  return loginUrl.toString();
 }
 
 // ── Backend error response parsing ────────────────────────────────

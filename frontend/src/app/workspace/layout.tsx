@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { GatewayOfflineFallback } from "@/components/workspace/gateway-offline-fallback";
 import { AuthProvider } from "@/core/auth/AuthProvider";
 import { getServerSideUser } from "@/core/auth/server";
-import { assertNever } from "@/core/auth/types";
+import { assertNever, buildLoginUrl } from "@/core/auth/types";
 
 import { WorkspaceContent } from "./workspace-content";
 
@@ -26,7 +26,7 @@ export default async function WorkspaceLayout({
     case "system_setup_required":
       redirect("/setup");
     case "unauthenticated":
-      redirect("/login");
+      redirect(buildLoginUrl("/workspace"));
     case "gateway_unavailable":
       // GatewayOfflineFallback supplies the AuthProvider; WorkspaceContent
       // already mounts the banner inside its sidebar layout, so renderBanner

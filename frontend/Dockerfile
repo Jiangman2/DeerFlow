@@ -5,6 +5,7 @@
 
 ARG PNPM_STORE_PATH=/root/.local/share/pnpm/store
 ARG NPM_REGISTRY
+ARG NEXT_PUBLIC_AUTH_LOGIN_URL
 
 # ── Base: shared setup ────────────────────────────────────────────────────────
 FROM node:22-alpine AS base
@@ -30,6 +31,8 @@ EXPOSE 3000
 
 # ── Builder: install + compile Next.js ───────────────────────────────────────
 FROM base AS builder
+ARG NEXT_PUBLIC_AUTH_LOGIN_URL
+ENV NEXT_PUBLIC_AUTH_LOGIN_URL=${NEXT_PUBLIC_AUTH_LOGIN_URL}
 RUN cd /app/frontend && pnpm install --frozen-lockfile
 # Skip env validation — runtime vars are injected by nginx/container
 RUN cd /app/frontend && SKIP_ENV_VALIDATION=1 pnpm build

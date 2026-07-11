@@ -29,6 +29,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SHOP_CART_IFRAME_URL: z.string().optional(),
     NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN: z.string().optional(),
     NEXT_PUBLIC_WEKNORA_FRONTEND_URL: z.string().optional(),
+    NEXT_PUBLIC_AUTH_LOGIN_URL: z.string().optional(),
     NEXT_PUBLIC_STATIC_WEBSITE_ONLY: z.string().optional(),
   },
 
@@ -48,6 +49,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_SHOP_CART_ALLOWED_ORIGIN,
     NEXT_PUBLIC_WEKNORA_FRONTEND_URL:
       process.env.NEXT_PUBLIC_WEKNORA_FRONTEND_URL,
+    NEXT_PUBLIC_AUTH_LOGIN_URL: process.env.NEXT_PUBLIC_AUTH_LOGIN_URL,
     NEXT_PUBLIC_STATIC_WEBSITE_ONLY:
       process.env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY,
     GITHUB_OAUTH_TOKEN: process.env.GITHUB_OAUTH_TOKEN,

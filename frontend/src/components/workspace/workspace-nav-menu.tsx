@@ -101,7 +101,7 @@ export function WorkspaceNavMenu() {
                       <DropdownMenuItem asChild>
                         <Link href="/workspace/admin/observability">
                           <ActivityIcon />
-                          运维监控
+                          运维
                         </Link>
                       </DropdownMenuItem>
                     </>

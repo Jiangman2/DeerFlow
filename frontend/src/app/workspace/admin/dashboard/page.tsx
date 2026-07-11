@@ -2,16 +2,12 @@
 
 import {
   ActivityIcon,
-  AlertTriangleIcon,
   BarChart3Icon,
   BotIcon,
-  CpuIcon,
-  DatabaseIcon,
   ExternalLinkIcon,
   FileArchiveIcon,
   FilterIcon,
   LineChartIcon,
-  PackageIcon,
   RefreshCwIcon,
   ThumbsUpIcon,
   UsersIcon,
@@ -32,14 +28,10 @@ import {
 import { useDashboardSummary } from "@/core/dashboard";
 import type {
   AgentUsageItem,
-  ArtifactSummary,
   BusinessValueSummary,
   DashboardFilters,
   FeedbackSummary,
   FeatureUsageItem,
-  ModelUsageItem,
-  RecentBusinessEventItem,
-  RecentFailureItem,
   UserActivityPoint,
 } from "@/core/dashboard";
 import { cn } from "@/lib/utils";
@@ -289,47 +281,6 @@ function AgentRanking({ items }: { items: AgentUsageItem[] }) {
   );
 }
 
-function ModelRanking({ items }: { items: ModelUsageItem[] }) {
-  if (items.length === 0) return <EmptyState label="暂无模型使用数据" />;
-
-  return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px_52px_52px] gap-2 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 sm:grid-cols-[minmax(0,1fr)_72px_96px_96px] sm:gap-3 sm:px-4">
-        <div>模型</div>
-        <div className="text-right">运行</div>
-        <div className="text-right">Token</div>
-        <div className="text-right">成功率</div>
-      </div>
-      {items.map((item) => (
-        <div
-          key={item.model_name}
-          className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px_52px_52px] gap-2 border-t px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_72px_96px_96px] sm:gap-3 sm:px-4"
-        >
-          <div className="min-w-0">
-            <div
-              className="truncate font-medium text-slate-800"
-              title={item.model_name}
-            >
-              {item.model_name}
-            </div>
-            <div className="truncate text-xs text-slate-500">
-              调用 {compactNumber(item.llm_calls)}，均耗时{" "}
-              {duration(item.avg_duration_ms)}
-            </div>
-          </div>
-          <div className="text-right text-slate-700">{item.runs}</div>
-          <div className="text-right text-slate-700">
-            {compactNumber(item.total_tokens)}
-          </div>
-          <div className="text-right text-slate-700">
-            {percent(item.success_rate)}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function BusinessValue({ summary }: { summary?: BusinessValueSummary }) {
   const contributions = summary?.contributions ?? [];
 
@@ -405,82 +356,6 @@ function BusinessValue({ summary }: { summary?: BusinessValueSummary }) {
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ArtifactPanel({ summary }: { summary?: ArtifactSummary }) {
-  const max = Math.max(
-    0,
-    ...(summary?.by_type ?? []).map((item) => item.count),
-  );
-  return (
-    <Card className="min-w-0 rounded-lg shadow-none">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <PackageIcon className="size-4" />
-          产物统计
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid min-w-0 grid-cols-2 gap-3">
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-sm text-slate-500">产物总数</div>
-            <div className="mt-2 text-2xl font-semibold">
-              {compactNumber(summary?.total ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-sm text-slate-500">可预览产物</div>
-            <div className="mt-2 text-2xl font-semibold">
-              {compactNumber(summary?.previewable ?? 0)}
-            </div>
-          </div>
-        </div>
-        {(summary?.by_type.length ?? 0) > 0 ? (
-          <div className="space-y-3">
-            {summary?.by_type.map((item) => (
-              <BarRow
-                key={item.type}
-                label={item.type}
-                value={item.count}
-                max={max}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyState label="暂无产物类型数据" />
-        )}
-        {(summary?.recent.length ?? 0) > 0 ? (
-          <div className="space-y-2">
-            {summary?.recent.map((item) => (
-              <div
-                key={`${item.run_id}-${item.path}`}
-                className="rounded-lg border p-3 text-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                    {item.type}
-                  </span>
-                  <Link
-                    href={`/workspace/admin/observability?run_id=${encodeURIComponent(item.run_id)}`}
-                    className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-950"
-                  >
-                    诊断
-                    <ExternalLinkIcon className="size-3" />
-                  </Link>
-                </div>
-                <div className="mt-2 truncate text-slate-700" title={item.path}>
-                  {item.path}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {shortTime(item.created_at)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
       </CardContent>
     </Card>
   );
@@ -614,100 +489,6 @@ function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
   );
 }
 
-function RecentFailures({ items }: { items: RecentFailureItem[] }) {
-  if (items.length === 0)
-    return <EmptyState label="当前时间范围内没有失败任务" />;
-
-  return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="grid min-w-0 grid-cols-[64px_48px_minmax(0,1fr)_54px] gap-2 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 sm:grid-cols-[140px_96px_minmax(0,1fr)_96px_92px] sm:gap-3 sm:px-4">
-        <div>时间</div>
-        <div>状态</div>
-        <div>错误</div>
-        <div className="hidden text-right sm:block">处置</div>
-        <div className="text-right">操作</div>
-      </div>
-      {items.map((item) => (
-        <div
-          key={item.run_id}
-          className="grid min-w-0 grid-cols-[64px_48px_minmax(0,1fr)_54px] gap-2 border-t px-3 py-3 text-sm sm:grid-cols-[140px_96px_minmax(0,1fr)_96px_92px] sm:gap-3 sm:px-4"
-        >
-          <div className="text-slate-500">{shortTime(item.started_at)}</div>
-          <div>
-            <span className="rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
-              {item.status}
-            </span>
-          </div>
-          <div
-            className="min-w-0 truncate text-slate-700"
-            title={item.error ?? item.run_id}
-          >
-            {item.error ?? item.run_id}
-          </div>
-          <div className="hidden text-right sm:block">
-            <span className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-              {item.disposition_status ?? "未处置"}
-            </span>
-          </div>
-          <div className="text-right">
-            <Link
-              href={item.diagnostics_url}
-              className="inline-flex items-center justify-end gap-1 text-xs text-slate-600 hover:text-slate-950"
-            >
-              诊断
-              <ExternalLinkIcon className="size-3" />
-            </Link>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function BusinessEvents({ items }: { items: RecentBusinessEventItem[] }) {
-  if (items.length === 0) return <EmptyState label="暂无结构化业务事件" />;
-
-  return (
-    <div className="space-y-2">
-      {items.map((item) => (
-        <div
-          key={`${item.run_id}-${item.created_at}-${item.event_type}`}
-          className="rounded-lg border p-3 text-sm"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span className="truncate font-medium text-slate-700">
-              {item.event_type}
-            </span>
-            <Link
-              href={`/workspace/admin/observability?run_id=${encodeURIComponent(item.run_id)}`}
-              className="inline-flex shrink-0 items-center gap-1 text-xs text-slate-500 hover:text-slate-950"
-            >
-              诊断
-              <ExternalLinkIcon className="size-3" />
-            </Link>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {item.features.map((feature) => (
-              <span
-                key={feature}
-                className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-600"
-              >
-                {feature}
-              </span>
-            ))}
-          </div>
-          <div className="mt-2 line-clamp-2 text-slate-500">
-            {item.snippet || item.run_id}
-          </div>
-          <div className="mt-1 text-xs text-slate-400">
-            {shortTime(item.created_at)}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   const [hours, setHours] = useState(168);
   const [status, setStatus] = useState("all");
@@ -771,7 +552,7 @@ export default function DashboardPage() {
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-normal">业务看板</h1>
             <p className="mt-1 max-w-full text-sm break-words text-slate-500">
-              {windowLabel}，展示业务价值、用户活跃、运行质量和近期失败任务。
+              {windowLabel}，展示业务价值、用户活跃和运行质量。
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -935,22 +716,6 @@ export default function DashboardPage() {
 
         <BusinessValue summary={summary?.business_value} />
 
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <ArtifactPanel summary={summary?.artifact_summary} />
-
-          <Card className="min-w-0 rounded-lg shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ActivityIcon className="size-4" />
-                业务事件
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BusinessEvents items={summary?.recent_business_events ?? []} />
-            </CardContent>
-          </Card>
-        </div>
-
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
           <Card className="min-w-0 rounded-lg shadow-none">
             <CardHeader>
@@ -1000,83 +765,8 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <Card className="min-w-0 rounded-lg shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <DatabaseIcon className="size-4" />
-                知识库使用
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid min-w-0 grid-cols-2 gap-3">
-                <div className="rounded-lg border bg-white p-4">
-                  <div className="text-sm text-slate-500">检索运行</div>
-                  <div className="mt-2 text-2xl font-semibold">
-                    {compactNumber(summary?.knowledge_usage.runs ?? 0)}
-                  </div>
-                </div>
-                <div className="rounded-lg border bg-white p-4">
-                  <div className="text-sm text-slate-500">检索事件</div>
-                  <div className="mt-2 text-2xl font-semibold">
-                    {compactNumber(summary?.knowledge_usage.tool_calls ?? 0)}
-                  </div>
-                </div>
-              </div>
-              {(summary?.knowledge_usage.recent_tool_calls.length ?? 0) > 0 ? (
-                <div className="space-y-2">
-                  {summary?.knowledge_usage.recent_tool_calls.map((item) => (
-                    <div
-                      key={`${item.run_id}-${item.created_at}`}
-                      className="rounded-lg border p-3 text-sm"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="font-medium text-slate-700">
-                          {item.event_type}
-                        </span>
-                        <span className="text-xs text-slate-500">
-                          {shortTime(item.created_at)}
-                        </span>
-                      </div>
-                      <div className="mt-1 line-clamp-2 text-slate-500">
-                        {item.snippet || item.run_id}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState label="暂无知识库检索记录" />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <Card className="min-w-0 rounded-lg shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CpuIcon className="size-4" />
-                模型排行
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="min-w-0 overflow-hidden">
-              <ModelRanking items={summary?.model_usage ?? []} />
-            </CardContent>
-          </Card>
-
           <FeedbackPanel summary={summary?.feedback} />
         </div>
-
-        <Card className="min-w-0 rounded-lg shadow-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangleIcon className="size-4" />
-              近期失败任务
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RecentFailures items={summary?.recent_failures ?? []} />
-          </CardContent>
-        </Card>
       </div>
     </main>
   );
