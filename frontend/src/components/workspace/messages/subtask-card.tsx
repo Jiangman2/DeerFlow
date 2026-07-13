@@ -3,6 +3,8 @@ import {
   ChevronUp,
   ClipboardListIcon,
   Loader2Icon,
+  SparklesIcon,
+  WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -16,11 +18,14 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { ShineBorder } from "@/components/ui/shine-border";
 import { useI18n } from "@/core/i18n/hooks";
+import { formatTokenCount } from "@/core/messages/usage";
 import { hasToolCalls } from "@/core/messages/utils";
+import { useModels } from "@/core/models/hooks";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { streamdownPluginsWithWordAnimation } from "@/core/streamdown";
 import { SafeStreamdown } from "@/core/streamdown/components";
 import { useSubtask } from "@/core/tasks/context";
+import { stepsForDisplay } from "@/core/tasks/steps";
 import { explainLastToolCall } from "@/core/tools/utils";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +47,18 @@ export function SubtaskCard({
   const [collapsed, setCollapsed] = useState(true);
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const task = useSubtask(taskId)!;
+  const { models, tokenUsageEnabled } = useModels();
+  const modelLabel = task.modelName
+    ? (models.find((model) => model.name === task.modelName)?.display_name ??
+      task.modelName)
+    : undefined;
+  const tokenLabel =
+    tokenUsageEnabled && task.usage
+      ? `${formatTokenCount(task.usage.totalTokens)} ${t.tokenUsage.label}`
+      : tokenUsageEnabled && task.status === "in_progress"
+        ? t.tokenUsage.collecting
+        : undefined;
+  const displaySteps = stepsForDisplay(task.steps, task.status);
   const icon = useMemo(() => {
     if (task.status === "completed") {
       return <CheckCircleIcon className="size-3" />;
@@ -99,6 +116,16 @@ export function SubtaskCard({
                       task.status === "failed" ? "text-red-500 opacity-67" : "",
                     )}
                   >
+                    {modelLabel && (
+                      <span className="max-w-32 truncate" title={modelLabel}>
+                        {modelLabel}
+                      </span>
+                    )}
+                    {tokenLabel && (
+                      <span className="max-w-28 truncate" title={tokenLabel}>
+                        {tokenLabel}
+                      </span>
+                    )}
                     {icon}
                     <FlipDisplay
                       className="max-w-[420px] truncate pb-1"
@@ -136,6 +163,7 @@ export function SubtaskCard({
             ></ChainOfThoughtStep>
           )}
           {task.status === "in_progress" &&
+            displaySteps.length === 0 &&
             task.latestMessage &&
             hasToolCalls(task.latestMessage) && (
               <ChainOfThoughtStep
@@ -145,6 +173,36 @@ export function SubtaskCard({
                 {explainLastToolCall(task.latestMessage, t)}
               </ChainOfThoughtStep>
             )}
+          {displaySteps.map((step, index) => {
+            const isLastWhileRunning =
+              task.status === "in_progress" && index === displaySteps.length - 1;
+            const stepIcon = isLastWhileRunning ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : step.kind === "tool" ? (
+              <WrenchIcon className="size-4" />
+            ) : (
+              <SparklesIcon className="size-4" />
+            );
+            return (
+              <ChainOfThoughtStep
+                key={`${step.message_index}-${index}`}
+                label={
+                  step.kind === "tool" ? (
+                    (step.tool_name ?? t.subtasks[task.status])
+                  ) : (
+                    <div className="text-muted-foreground line-clamp-3 text-sm">
+                      <MarkdownContent
+                        content={step.text}
+                        isLoading={false}
+                        rehypePlugins={rehypePlugins}
+                      />
+                    </div>
+                  )
+                }
+                icon={stepIcon}
+              />
+            );
+          })}
           {task.status === "completed" && (
             <>
               <ChainOfThoughtStep
