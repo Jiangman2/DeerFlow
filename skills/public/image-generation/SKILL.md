@@ -178,18 +178,13 @@ For scenarios where visual accuracy is critical, **use the `image_search` tool f
 
 This approach significantly improves generation quality by providing the model with concrete visual guidance rather than relying solely on text descriptions.
 
-## Providers (Gemini / Qwen / MiniMax)
+## Providers (Gemini / MiniMax)
 
 This skill auto-selects the provider by environment variables (no CLI change):
 
 - `GEMINI_API_KEY` set → use Gemini (default, unchanged).
-- Only `QWEN_API_KEY` or `DASHSCOPE_API_KEY` set → use Alibaba Qwen image generation.
 - Only `MINIMAX_API_KEY` set → use MiniMax (`/v1/image_generation`, model `image-01`).
-- Force one explicitly with `IMAGE_GENERATION_PROVIDER=gemini|qwen|minimax`.
-
-Qwen optional overrides: `QWEN_BASE_URL` (default `https://dashscope.aliyuncs.com`),
-`QWEN_MODEL` (default `qwen-image-2.0-pro`). The Qwen path uses the DashScope
-multimodal generation endpoint and ignores local `--reference-images`.
+- Force one explicitly with `IMAGE_GENERATION_PROVIDER=gemini|minimax`.
 
 MiniMax optional overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.com`),
 `MINIMAX_IMAGE_MODEL` (default `image-01`). Reference images are sent as the MiniMax

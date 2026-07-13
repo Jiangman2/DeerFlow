@@ -5,8 +5,6 @@ import time
 import requests
 
 MINIMAX_DEFAULT_HOST = "https://api.minimaxi.com"
-DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
-DASHSCOPE_DEFAULT_VIDEO_MODEL = "wan2.6-t2v"
 
 
 def _resolve_provider(override_env: str, existing_provider: str, has_existing_creds: bool) -> str:
@@ -16,14 +14,11 @@ def _resolve_provider(override_env: str, existing_provider: str, has_existing_cr
         return override.strip().lower()
     if has_existing_creds:
         return existing_provider
-    if os.getenv("DASHSCOPE_API_KEY"):
-        return "dashscope"
     if os.getenv("MINIMAX_API_KEY"):
         return "minimax"
     raise ValueError(
         f"No credentials found. Set GEMINI_API_KEY for {existing_provider}, "
-        f"DASHSCOPE_API_KEY for dashscope, or MINIMAX_API_KEY for minimax "
-        f"(optionally force with {override_env})."
+        f"or MINIMAX_API_KEY for minimax (optionally force with {override_env})."
     )
 
 
@@ -107,86 +102,6 @@ def _download(url: str, output_file: str) -> None:
     _ensure_output_dir(output_file)
     with open(output_file, "wb") as f:
         f.write(response.content)
-
-
-def _dashscope_base_url() -> str:
-    return os.getenv("DASHSCOPE_BASE_URL", DASHSCOPE_DEFAULT_BASE_URL).rstrip("/")
-
-
-def _dashscope_size(aspect_ratio: str) -> str:
-    return {
-        "16:9": "1280*720",
-        "9:16": "720*1280",
-        "1:1": "960*960",
-        "4:3": "1280*960",
-        "3:4": "960*1280",
-    }.get(aspect_ratio, "1280*720")
-
-
-def _poll_dashscope_task(base_url: str, api_key: str, task_id: str,
-                         max_attempts: int = 180, interval: int = 5) -> str:
-    for _ in range(max_attempts):
-        response = requests.get(
-            f"{base_url}/tasks/{task_id}",
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=30,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        output = payload.get("output") or {}
-        status = output.get("task_status")
-        if status == "SUCCEEDED":
-            video_url = output.get("video_url")
-            if not video_url:
-                raise Exception(f"DashScope task {task_id} succeeded without video_url: {payload}")
-            return video_url
-        if status == "FAILED":
-            raise Exception(f"DashScope video task {task_id} failed: {payload}")
-        time.sleep(interval)
-    raise Exception(f"DashScope video task {task_id} timed out after {max_attempts} polls")
-
-
-def _generate_video_dashscope(
-    prompt: str, reference_images: list[str], output_file: str, aspect_ratio: str
-) -> str:
-    api_key = os.getenv("DASHSCOPE_API_KEY")
-    if not api_key:
-        return "DASHSCOPE_API_KEY is not set"
-    if reference_images:
-        print("Note: DashScope text-to-video provider ignores local reference images.")
-    base_url = _dashscope_base_url()
-    body = {
-        "model": os.getenv("DASHSCOPE_VIDEO_MODEL", DASHSCOPE_DEFAULT_VIDEO_MODEL),
-        "input": {"prompt": prompt[:1500]},
-        "parameters": {
-            "size": os.getenv("DASHSCOPE_VIDEO_SIZE", _dashscope_size(aspect_ratio)),
-            "duration": int(os.getenv("DASHSCOPE_VIDEO_DURATION", "5")),
-            "prompt_extend": True,
-            "watermark": False,
-        },
-    }
-    if os.getenv("DASHSCOPE_VIDEO_SHOT_TYPE"):
-        body["parameters"]["shot_type"] = os.getenv("DASHSCOPE_VIDEO_SHOT_TYPE")
-
-    response = requests.post(
-        f"{base_url}/services/aigc/video-generation/video-synthesis",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "X-DashScope-Async": "enable",
-        },
-        json=body,
-        timeout=60,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    output = payload.get("output") or {}
-    task_id = output.get("task_id")
-    if not task_id:
-        raise Exception(f"DashScope returned no task_id: {payload}")
-    video_url = _poll_dashscope_task(base_url, api_key, task_id)
-    _download(video_url, output_file)
-    return f"The video has been generated successfully to {output_file}"
 
 
 def _generate_video_minimax(
@@ -283,11 +198,9 @@ def generate_video(
     if provider == "minimax":
         # MiniMax video uses resolution/duration, not aspect_ratio; aspect_ratio ignored.
         return _generate_video_minimax(prompt, reference_images, output_file)
-    if provider in ("dashscope", "bailian", "wan", "qwen"):
-        return _generate_video_dashscope(prompt, reference_images, output_file, aspect_ratio)
     if provider in ("gemini", "google"):
         return _generate_video_gemini(prompt, reference_images, output_file)
-    raise ValueError(f"Unknown video provider: {provider!r} (use 'gemini', 'dashscope', or 'minimax')")
+    raise ValueError(f"Unknown video provider: {provider!r} (use 'gemini' or 'minimax')")
 
 
 if __name__ == "__main__":

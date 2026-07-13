@@ -56,7 +56,7 @@ export function textOfMessage(message: Message) {
 }
 
 export function titleOfThread(thread: AgentThread) {
-  return thread.values?.title ?? "未命名";
+  return thread.values?.title ?? "Untitled";
 }
 
 const CHANNEL_PROVIDER_LABELS: Record<string, string> = {

@@ -15,6 +15,9 @@ def resolve_thread_virtual_path(thread_id: str, virtual_path: str, *, user_id: s
         thread_id: The thread ID.
         virtual_path: The virtual path as seen inside the sandbox
                       (e.g., /mnt/user-data/outputs/file.txt).
+        user_id: The user whose storage to resolve under. Defaults to the
+                 effective user when not given; callers acting on behalf of a
+                 specific owner (e.g. trusted internal callers) pass it explicitly.
 
     Returns:
         The resolved filesystem path.

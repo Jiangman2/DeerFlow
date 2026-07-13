@@ -5,8 +5,6 @@ import os
 import requests
 
 MINIMAX_DEFAULT_HOST = "https://api.minimaxi.com"
-QWEN_DEFAULT_ENDPOINT = "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation"
-QWEN_DEFAULT_MODEL = "qwen-image-2.0-pro"
 # MiniMax image-01 caps the prompt at 1500 characters and rejects longer requests
 # with a generic "invalid params" error, so validate before calling the API.
 MINIMAX_PROMPT_MAX_CHARS = 1500
@@ -27,10 +25,6 @@ def validate_image(image_path: str) -> bool:
         return False
 
 
-def _has_qwen_creds() -> bool:
-    return bool(os.getenv("QWEN_API_KEY") or os.getenv("DASHSCOPE_API_KEY"))
-
-
 def _resolve_provider(override_env: str, existing_provider: str, has_existing_creds: bool) -> str:
     """Pick the generation provider.
 
@@ -43,14 +37,11 @@ def _resolve_provider(override_env: str, existing_provider: str, has_existing_cr
         return override.strip().lower()
     if has_existing_creds:
         return existing_provider
-    if _has_qwen_creds():
-        return "qwen"
     if os.getenv("MINIMAX_API_KEY"):
         return "minimax"
     raise ValueError(
         f"No credentials found. Set GEMINI_API_KEY for {existing_provider}, "
-        f"QWEN_API_KEY/DASHSCOPE_API_KEY for qwen, or MINIMAX_API_KEY for minimax "
-        f"(optionally force with {override_env})."
+        f"or MINIMAX_API_KEY for minimax (optionally force with {override_env})."
     )
 
 
@@ -88,53 +79,6 @@ def _ensure_output_dir(output_file: str) -> None:
     output_dir = os.path.dirname(output_file)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-
-
-def _resolve_qwen_url(base_url: str) -> str:
-    base = base_url.rstrip("/")
-    if base.endswith("/generation"):
-        return base
-    return base + "/api/v1/services/aigc/multimodal-generation/generation"
-
-
-def _qwen_size(aspect_ratio: str) -> str:
-    return {
-        "1:1": "2048*2048",
-        "16:9": "1664*928",
-        "9:16": "928*1664",
-        "4:3": "1472*1104",
-        "3:4": "1104*1472",
-        "3:2": "1536*1024",
-        "2:3": "1024*1536",
-    }.get(aspect_ratio, "1664*928")
-
-
-def _qwen_prompt(raw: str) -> tuple[str, str | None]:
-    text = raw.strip()
-    try:
-        data = json.loads(text)
-    except (ValueError, json.JSONDecodeError):
-        return text, None
-    if not isinstance(data, dict):
-        return text, None
-
-    prompt = data.get("prompt")
-    if not isinstance(prompt, str) or not prompt.strip():
-        prompt = json.dumps(data, ensure_ascii=False)
-
-    detail_parts = []
-    for key in ("style", "composition", "lighting", "color_palette"):
-        value = data.get(key)
-        if isinstance(value, str) and value.strip():
-            detail_parts.append(f"{key}: {value.strip()}")
-    technical = data.get("technical")
-    if isinstance(technical, dict):
-        detail_parts.append("technical: " + json.dumps(technical, ensure_ascii=False))
-    if detail_parts:
-        prompt = prompt.strip() + "\n" + "\n".join(detail_parts)
-
-    negative = data.get("negative_prompt")
-    return prompt.strip(), negative.strip() if isinstance(negative, str) and negative.strip() else None
 
 
 def _minimax_prompt(raw: str) -> str:
@@ -204,58 +148,6 @@ def _generate_image_minimax(
     return f"Successfully generated image to {output_file}"
 
 
-def _generate_image_qwen(
-    prompt: str, reference_images: list[str], output_file: str, aspect_ratio: str
-) -> str:
-    api_key = os.getenv("QWEN_API_KEY") or os.getenv("DASHSCOPE_API_KEY")
-    if not api_key:
-        return "QWEN_API_KEY or DASHSCOPE_API_KEY is not set"
-    if reference_images:
-        print("Note: Qwen text-to-image provider ignores local reference images.")
-    positive_prompt, negative_prompt = _qwen_prompt(prompt)
-    base_url = os.getenv("QWEN_BASE_URL") or "https://dashscope.aliyuncs.com"
-    model = os.getenv("QWEN_MODEL", QWEN_DEFAULT_MODEL)
-    body = {
-        "model": model,
-        "input": {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [{"text": positive_prompt}],
-                }
-            ]
-        },
-        "parameters": {
-            "size": _qwen_size(aspect_ratio),
-            "prompt_extend": True,
-            "watermark": False,
-        },
-    }
-    if negative_prompt:
-        body["parameters"]["negative_prompt"] = negative_prompt[:500]
-
-    response = requests.post(
-        _resolve_qwen_url(base_url),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json=body,
-        timeout=300,
-    )
-    response.raise_for_status()
-    payload = response.json()
-    choices = ((payload.get("output") or {}).get("choices") or [])
-    content = (((choices[0] if choices else {}).get("message") or {}).get("content") or [])
-    image_url = content[0].get("image") if content else None
-    if not image_url:
-        raise Exception(f"Qwen returned no image URL: {payload}")
-
-    downloaded = requests.get(image_url, timeout=300)
-    downloaded.raise_for_status()
-    _ensure_output_dir(output_file)
-    with open(output_file, "wb") as f:
-        f.write(downloaded.content)
-    return f"Successfully generated image to {output_file}"
-
-
 def _generate_image_gemini(
     prompt: str, reference_images: list[str], output_file: str, aspect_ratio: str
 ) -> str:
@@ -312,11 +204,9 @@ def generate_image(
     )
     if provider == "minimax":
         return _generate_image_minimax(prompt, reference_images, output_file, aspect_ratio)
-    if provider in ("qwen", "dashscope", "bailian"):
-        return _generate_image_qwen(prompt, reference_images, output_file, aspect_ratio)
     if provider in ("gemini", "google"):
         return _generate_image_gemini(prompt, reference_images, output_file, aspect_ratio)
-    raise ValueError(f"Unknown image provider: {provider!r} (use 'gemini', 'qwen', or 'minimax')")
+    raise ValueError(f"Unknown image provider: {provider!r} (use 'gemini' or 'minimax')")
 
 
 if __name__ == "__main__":

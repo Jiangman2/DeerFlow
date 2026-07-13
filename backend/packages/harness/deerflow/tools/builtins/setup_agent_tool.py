@@ -1,5 +1,4 @@
 import logging
-import re
 
 import yaml
 from langchain_core.messages import ToolMessage
@@ -13,12 +12,6 @@ from deerflow.tools.types import Runtime
 
 logger = logging.getLogger(__name__)
 
-_CJK_RE = re.compile(r"[\u3400-\u9fff]")
-
-
-def _has_cjk(text: str) -> bool:
-    return bool(_CJK_RE.search(text))
-
 
 @tool(parse_docstring=True)
 def setup_agent(
@@ -27,11 +20,11 @@ def setup_agent(
     runtime: Runtime,
     skills: list[str] | None = None,
 ) -> Command:
-    """Setup the custom CNOOC agent.
+    """Setup the custom DeerFlow agent.
 
     Args:
         soul: Full SOUL.md content defining the agent's personality and behavior.
-        description: One Simplified Chinese sentence shown on the agent card. It must summarize what the agent does and must not be written in English.
+        description: One-line description of what the agent does.
         skills: Optional list of skill names this agent should use. None means use all enabled skills, empty list means no skills.
     """
 
@@ -76,11 +69,6 @@ def setup_agent(
             # If agent_name is provided, we are creating a custom agent in the agents/ directory
             config_data: dict = {"name": agent_name}
             if description:
-                if not _has_cjk(description):
-                    raise ValueError(
-                        "Agent description must be a Simplified Chinese sentence for the card display. "
-                        "Please call setup_agent again with a Chinese description."
-                    )
                 config_data["description"] = description
             if skills is not None:
                 config_data["skills"] = skills

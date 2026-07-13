@@ -1,4 +1,4 @@
-﻿# AGENTS.md
+# AGENTS.md
 
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with the DeerFlow frontend. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 
@@ -10,10 +10,10 @@ DeerFlow Frontend is a Next.js 16 web interface for an AI agent system. It commu
 
 ### Core dependencies
 
-- **LangGraph SDK** (`@langchain/langgraph-sdk` ^1.5.3) 鈥?Agent orchestration and streaming
-- **LangChain Core** (`@langchain/core` ^1.1.15) 鈥?Fundamental AI building blocks
-- **TanStack Query** (`@tanstack/react-query` ^5.90.17) 鈥?Server state management
-- **UI**: Shadcn UI, MagicUI, React Bits, and Vercel AI SDK elements (generated from registries 鈥?see Code Style)
+- **LangGraph SDK** (`@langchain/langgraph-sdk` ^1.5.3) — Agent orchestration and streaming
+- **LangChain Core** (`@langchain/core` ^1.1.15) — Fundamental AI building blocks
+- **TanStack Query** (`@tanstack/react-query` ^5.90.17) — Server state management
+- **UI**: Shadcn UI, MagicUI, React Bits, and Vercel AI SDK elements (generated from registries — see Code Style)
 
 ## Commands
 
@@ -37,36 +37,43 @@ E2E tests live under `tests/e2e/` and use Playwright with Chromium. They mock al
 ## Architecture
 
 ```
-Frontend (Next.js) 鈹€鈹€鈻?LangGraph SDK 鈹€鈹€鈻?LangGraph Backend (lead_agent)
-                                              鈹溾攢鈹€ Sub-Agents
-                                              鈹斺攢鈹€ Tools & Skills
+Frontend (Next.js) ──▶ LangGraph SDK ──▶ LangGraph Backend (lead_agent)
+                                              ├── Sub-Agents
+                                              └── Tools & Skills
 ```
 
-The frontend is a stateful chat application. Users create **threads** (conversations), send messages, and receive streamed AI responses. The backend orchestrates agents that can produce **artifacts** (files/code) and **todos**.
+The frontend is a stateful chat application. Users create **threads** (conversations), send messages, set thread-scoped `/goal` completion conditions, and receive streamed AI responses. The backend orchestrates agents that can produce **artifacts** (files/code), **todos**, and goal state updates.
 
 ### Source Layout (`src/`)
 
-- **`app/`** 鈥?Next.js App Router. Routes include `/` (landing), `/workspace/chats/[thread_id]` (chat), `/workspace/agents/[agent_name]` and `/workspace/agents/new` (custom agents), `/workspace/knowledge` (WeKnora knowledge-base management), `/blog/鈥, the `(auth)/{login,setup,auth/callback}` flow, `/[lang]/docs/鈥, and `/api/鈥 route handlers (e.g. `/api/memory`).
-- **`components/`** 鈥?React components:
-  - `ui/` 鈥?Shadcn UI primitives (auto-generated, ESLint-ignored)
-  - `ai-elements/` 鈥?Vercel AI SDK elements (auto-generated, ESLint-ignored)
-  - `workspace/` 鈥?Chat page components (messages, artifacts, settings)
-  - `landing/` 鈥?Landing page sections
-  - `docs/` 鈥?Docs / MDX rendering components
-- **`core/`** 鈥?Business logic, the heart of the app. Domains include `threads/` (creation, streaming, state), `api/` (LangGraph client singleton), `agents/` (custom agents), `auth/` (authentication), `artifacts/`, `channels/` (IM connections), `i18n` (en-US, zh-CN), `settings/`, `memory/`, `skills/`, `messages/`, `mcp/`, `models/`, `weknora/` (Gateway-proxied WeKnora knowledge APIs and hooks), `suggestions/`, `tasks/`, `todos/`, `tools/`, `config/`, `notification/`, `blog/`, plus rendering helpers (`rehype/`, `streamdown/`) and `utils/`.
-- **`hooks/`** 鈥?Shared React hooks
-- **`lib/`** 鈥?Utilities (`cn()` from clsx + tailwind-merge)
-- **`content/`** 鈥?MDX content (blog posts, docs) rendered by the app
-- **`styles/`** 鈥?Global CSS with Tailwind v4 `@import` syntax and CSS variables for theming
-- **`typings/`** 鈥?Ambient TypeScript declarations
+- **`app/`** — Next.js App Router. Routes include `/` (landing), `/workspace/chats/[thread_id]` (chat), `/workspace/agents/[agent_name]` and `/workspace/agents/new` (custom agents), `/blog/…`, the `(auth)/{login,setup,auth/callback}` flow, `/[lang]/docs/…`, and `/api/…` route handlers (e.g. `/api/memory`).
+- **`components/`** — React components:
+  - `ui/` — Shadcn UI primitives (auto-generated, ESLint-ignored)
+  - `ai-elements/` — Vercel AI SDK elements (auto-generated, ESLint-ignored)
+  - `workspace/` — Chat page components (messages, artifacts, settings)
+  - `landing/` — Landing page sections
+  - `docs/` — Docs / MDX rendering components
+- **`core/`** — Business logic, the heart of the app. Domains include `threads/` (creation, streaming, state), `api/` (LangGraph client singleton), `agents/` (custom agents), `auth/` (authentication), `artifacts/`, `channels/` (IM connections), `i18n/` (en-US, zh-CN), `settings/`, `memory/`, `skills/`, `messages/`, `mcp/`, `models/`, `input-polish/` (pre-send draft rewrite API), `voice-input/` (browser speech-recognition helpers), `suggestions/`, `tasks/`, `todos/`, `tools/`, `workspace-changes/` (run-scoped changed-file summaries and diff fetching), `config/`, `notification/`, `blog/`, plus rendering helpers (`rehype/`, `streamdown/`) and `utils/`.
+- **`hooks/`** — Shared React hooks
+- **`lib/`** — Utilities (`cn()` from clsx + tailwind-merge)
+- **`content/`** — MDX content (blog posts, docs) rendered by the app
+- **`styles/`** — Global CSS with Tailwind v4 `@import` syntax and CSS variables for theming
+- **`typings/`** — Ambient TypeScript declarations
 - Root files: `env.js` (env validation), `mdx-components.ts` (MDX component map)
 
 ### Data Flow
 
-1. User input 鈫?thread hooks (`core/threads/hooks.ts`) 鈫?LangGraph SDK streaming
-2. Stream events update thread state (messages, artifacts, todos)
-3. TanStack Query manages server state; localStorage stores user settings
-4. Components subscribe to thread state and render updates
+1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission, and `core/voice-input` can transcribe browser microphone input into that same local draft; confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming
+2. Stream events update thread state (messages, artifacts, todos, goal)
+3. Stop actions call the LangGraph SDK stream stop path; `core/threads/hooks.ts` invalidates current-thread, token-usage, and sidebar/search caches immediately and schedules one follow-up refetch because SDK stop may finish via abort + fire-and-forget cancel before backend title finalization commits
+4. TanStack Query manages server state; localStorage stores user settings
+5. Components subscribe to thread state and render updates
+
+`/goal` and `/compact` are built-in composer commands, not skill activations. `src/components/workspace/input-box.tsx` intercepts `/goal`, `/goal clear`, and `/goal <condition>` before normal chat submission, calling Gateway `GET/PUT/DELETE /api/threads/{thread_id}/goal`. Setting `/goal <condition>` also submits the condition text as the next user task so the agent starts running immediately; status and clear do not start a run. Goal and compact requests are tied to the current `threadId` with an `AbortController`, so switching threads or unmounting the composer aborts in-flight requests and stale responses cannot update the new thread's composer state. The chat pages render `GoalStatus` above the composer from `AgentThreadState.goal`, with local optimistic state until the next stream `values` update arrives. `/compact` calls `POST /api/threads/{thread_id}/compact` to summarize older active context while leaving the full visible chat history intact; it is skipped on new/empty threads and blocked server-side while a run is in flight.
+
+Human input requests are a structured message protocol layered on normal chat history. The backend writes request payloads to `ToolMessage.artifact.human_input`, `src/core/messages/human-input.ts` owns the runtime validators/types, and `src/components/workspace/messages/human-input-card.tsx` renders the reusable card. `MessageList` owns answered/latest/pending state for visible cards, but derives answered responses from raw `thread.messages` because replies are hidden; pending cards clear when the hidden reply appears, when dispatch is dropped, or when a new `thread.error` reports an async stream failure. Page-level submit callbacks must send a normal human message and put `hide_from_ui: true` plus the response payload in the fourth `sendMessage(..., options)` argument as `options.additionalKwargs`; the third argument remains run context such as `{ agent_name }`. Composer entry points should disable normal bottom input while `hasOpenHumanInputRequest(...)` is true so users answer through the card and preserve response metadata.
+
+Tool-calling AI messages can contain user-visible text as well as `tool_calls`. `core/messages/utils.ts` keeps these turns in an `assistant:processing` group, and `components/workspace/messages/message-group.tsx` must render the visible text as a processing step instead of treating the message as only tool metadata. This preserves provider text such as error explanations or "trying another approach" notes during tool-heavy runs.
 
 ### Key Patterns
 
@@ -74,19 +81,23 @@ The frontend is a stateful chat application. Users create **threads** (conversat
 - **Thread hooks** (`useThreadStream`, `useSubmitThread`, `useThreads`) are the primary API interface
 - **LangGraph client** is a singleton obtained via `getAPIClient()` in `core/api/`
 - **Environment validation** uses `@t3-oss/env-nextjs` with Zod schemas (`src/env.js`). Skip with `SKIP_ENV_VALIDATION=1`
+- **Subtask step history and runtime metadata** (`core/tasks/`) — the subtask card shows a subagent's full step timeline (#3779): its assistant reasoning turns interleaved with the tools it ran. `Subtask.steps[]` is accumulated live from `task_running` events (appended via `mergeSteps`, not overwritten) and backfilled on expand for historical runs by `fetchSubtaskSteps`, which pages the events endpoint scoped to one task (GET `/runs/{runId}/events?event_types=subagent.step&task_id=…&after_seq=…`) until a short page, so the run-wide limit can't truncate the timeline. `task_started` carries the effective `model_name`; `task_running` carries a cumulative usage snapshot after each completed LLM call. `core/tasks/lifecycle.ts` normalizes these additive events, and `computeNextSubtask` keeps the largest cumulative total so replayed or late SSE frames cannot double-count or roll the folded card backward. Terminal ToolMessage metadata (`subagent_model_name` / `subagent_token_usage`) restores the same values from normal history after reload; no per-card event fetch is needed. `core/tasks/steps.ts` is the pure step model: `messageToStep` (live), `eventsToSteps` (reload), `mergeSteps` (dedup by `message_index`), and `stepsForDisplay` (what the card renders — keeps tool steps + AI steps with text, drops the trailing final-answer AI step when completed since it's shown as `result`). `core/tasks/context.tsx`'s `useUpdateSubtask` applies updates against a `tasksRef` mirroring the latest state (not a closure snapshot), so a late-resolving `fetchSubtaskSteps` backfill merges into current state instead of clobbering SSE steps or sibling subtasks that arrived meanwhile. The owning `run_id` is carried onto history content messages in `buildVisibleHistoryMessages` so the card can resolve the events endpoint.
 
 ### Interaction Ownership
 
 - `src/app/workspace/chats/[thread_id]/page.tsx` owns composer busy-state wiring.
+- `src/app/workspace/chats/[thread_id]/page.tsx` owns branch-from-turn submission and navigation; sidecar `MessageList` instances do not receive the branch action.
+- `src/app/workspace/chats/[thread_id]/page.tsx` and `src/app/workspace/agents/[agent_name]/chats/[thread_id]/page.tsx` own active-goal display state for their composer overlays.
+- `src/components/workspace/messages/message-list.tsx` owns human-input card answered/latest/pending gating; entry pages only translate a submitted card response into `sendMessage` calls.
 - `src/core/threads/hooks.ts` owns pre-submit upload state and thread submission.
 
 ## Code Style
 
-- **Imports**: Enforced ordering (builtin 鈫?external 鈫?internal 鈫?parent 鈫?sibling), alphabetized, newlines between groups. Use inline type imports: `import { type Foo }`.
+- **Imports**: Enforced ordering (builtin → external → internal → parent → sibling), alphabetized, newlines between groups. Use inline type imports: `import { type Foo }`.
 - **Unused variables**: Prefix with `_`.
 - **Class names**: Use `cn()` from `@/lib/utils` for conditional Tailwind classes.
 - **Path alias**: `@/*` maps to `src/*`.
-- **Components**: `ui/` and `ai-elements/` are generated from registries (Shadcn, MagicUI, React Bits, Vercel AI SDK) 鈥?don't manually edit these.
+- **Components**: `ui/` and `ai-elements/` are generated from registries (Shadcn, MagicUI, React Bits, Vercel AI SDK) — don't manually edit these.
 
 ## Environment
 

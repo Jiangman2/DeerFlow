@@ -24,21 +24,11 @@ class TitleConfig(BaseModel):
     )
     model_name: str | None = Field(
         default=None,
-        description="Model name to use for title generation (None = use default model)",
+        description="Model name to use for LLM title generation (None = use local fallback title)",
     )
     prompt_template: str = Field(
-        default=(
-            "请为下面这段对话生成一个简洁的中文标题，最多 {max_words} 个词，最多 {max_chars} 个字符。\n"
-            "要求：\n"
-            "1. 必须使用简体中文。\n"
-            "2. 不要输出英文标题，除非用户原始主题是无法翻译的专有名词。\n"
-            "3. 不要加引号、句号、解释或前缀。\n"
-            "4. 标题应概括用户任务，而不是描述助手身份。\n\n"
-            "用户：{user_msg}\n"
-            "助手：{assistant_msg}\n\n"
-            "只返回标题。"
-        ),
-        description="Prompt template for title generation",
+        default=("Generate a concise title (max {max_words} words) for this conversation.\nUser: {user_msg}\nAssistant: {assistant_msg}\n\nReturn ONLY the title, no quotes, no explanation."),
+        description="Prompt template for LLM title generation when model_name is set",
     )
 
 

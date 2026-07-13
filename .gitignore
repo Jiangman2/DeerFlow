@@ -20,6 +20,12 @@ __pycache__/
 .venv
 venv/
 
+# Benchmark outputs
+bench_results.jsonl
+bench_optimized.jsonl
+results.jsonl
+backend/scripts/benchmark/*.jsonl
+
 # Environment variables
 .env
 
@@ -44,13 +50,6 @@ debug.log
 
 # Local git hooks (keep only on this machine, do not push)
 .githooks/
-
-# Local generated outputs, scratch checkouts, and runtime databases
-/outputs/
-/third_party/
-*.db
-*.sqlite
-*.sqlite3
 
 # pnpm
 .pnpm-store

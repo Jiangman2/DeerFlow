@@ -133,6 +133,19 @@ export async function deleteAgent(name: string): Promise<void> {
   if (!res.ok) throw new Error(`Failed to delete agent: ${res.statusText}`);
 }
 
+interface FeaturesResponse {
+  agents_api: { enabled: boolean };
+}
+
+export async function fetchAgentsApiEnabled(): Promise<boolean> {
+  const res = await fetch(`${getBackendBaseURL()}/api/features`);
+  if (!res.ok) {
+    throw new Error(`Failed to load features: ${res.statusText}`);
+  }
+  const data = (await res.json()) as FeaturesResponse;
+  return data.agents_api.enabled;
+}
+
 export async function publishAgent(name: string): Promise<Agent> {
   const res = await fetch(
     `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}/publish`,

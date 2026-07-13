@@ -44,8 +44,8 @@ def main() -> int:
     parser.add_argument("--show-token", action="store_true", help="Print the token in full. Avoid unless debugging.")
     args = parser.parse_args()
 
-    app_id = os.environ.get("WECHAT_MP_APP_ID")
-    app_secret = os.environ.get("WECHAT_MP_APP_SECRET")
+    app_id = os.getenv("WECHAT_MP_APP_ID")
+    app_secret = os.getenv("WECHAT_MP_APP_SECRET")
     if not app_id or not app_secret:
         raise SystemExit("Set WECHAT_MP_APP_ID and WECHAT_MP_APP_SECRET before running this script.")
 

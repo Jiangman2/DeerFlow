@@ -1,30 +1,20 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
 import { AuroraText } from "../ui/aurora-text";
 
+let waved = false;
+
 function WelcomeDescription({ children }: { children: string }) {
-  const lines = children.split("\n");
-  if (lines.length === 1) {
-    return (
-      <p className="max-w-full text-wrap break-words whitespace-pre-line">
-        {children}
-      </p>
-    );
-  }
   return (
-    <div className="flex max-w-full flex-col items-center">
-      {lines.map((line) => (
-        <span key={line} className="whitespace-normal sm:whitespace-nowrap">
-          {line}
-        </span>
-      ))}
-    </div>
+    <p className="max-w-full text-wrap break-words whitespace-pre-line">
+      {children}
+    </p>
   );
 }
 
@@ -40,16 +30,13 @@ export function Welcome({
   const isUltra = useMemo(() => mode === "ultra", [mode]);
   const colors = useMemo(() => {
     if (isUltra) {
-      return ["#005bac", "#00a3e0", "#f2b705"];
+      return ["#efefbb", "#e9c665", "#e3a812"];
     }
     return ["var(--color-foreground)"];
   }, [isUltra]);
-
-  const skillMode = searchParams.get("mode") === "skill";
-  const description = skillMode
-    ? t.welcome.createYourOwnSkillDescription
-    : t.welcome.description;
-
+  useEffect(() => {
+    waved = true;
+  }, []);
   return (
     <div
       className={cn(
@@ -58,17 +45,28 @@ export function Welcome({
       )}
     >
       <div className="max-w-full text-2xl font-bold">
-        {skillMode ? (
-          <span>{t.welcome.createYourOwnSkill}</span>
+        {searchParams.get("mode") === "skill" ? (
+          `✨ ${t.welcome.createYourOwnSkill} ✨`
         ) : (
           <div className="flex max-w-full flex-wrap items-center justify-center gap-2">
+            <div className={cn("inline-block", !waved ? "animate-wave" : "")}>
+              {isUltra ? "🚀" : "👋"}
+            </div>
             <AuroraText colors={colors}>{t.welcome.greeting}</AuroraText>
           </div>
         )}
       </div>
-      <div className="text-muted-foreground max-w-[min(96vw,1400px)] text-sm leading-6">
-        <WelcomeDescription>{description}</WelcomeDescription>
-      </div>
+      {searchParams.get("mode") === "skill" ? (
+        <div className="text-muted-foreground max-w-full text-sm">
+          <WelcomeDescription>
+            {t.welcome.createYourOwnSkillDescription}
+          </WelcomeDescription>
+        </div>
+      ) : (
+        <div className="text-muted-foreground max-w-full text-sm">
+          <WelcomeDescription>{t.welcome.description}</WelcomeDescription>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from app.gateway.authz import require_permission
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.path_utils import resolve_thread_virtual_path
+from deerflow.config.paths import make_safe_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -90,11 +91,11 @@ def _resolve_artifact_user_id(request: Request | None) -> str | None:
 
     trusted_owner = get_trusted_internal_owner_user_id(request)
     if trusted_owner:
-        return trusted_owner
+        return make_safe_user_id(trusted_owner)
 
     user = getattr(getattr(request, "state", None), "user", None)
     user_id = getattr(user, "id", None)
-    return str(user_id) if user_id is not None else None
+    return make_safe_user_id(str(user_id)) if user_id is not None else None
 
 
 def is_text_file_by_content(path: Path, sample_size: int = 8192) -> bool:
@@ -260,6 +261,15 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         - Download file: `/api/threads/abc123/artifacts/mnt/user-data/outputs/data.csv?download=true`
         - Active web content such as `.html`, `.xhtml`, and `.svg` artifacts is always downloaded
     """
+    # Trusted internal callers may act on behalf of a thread's owner via the
+    # owner-user-id header (honored only after the internal token validates).
+    # The header carries the raw platform owner id, while runs store files
+    # under the make_safe_user_id bucket (the same normalization the channel
+    # file pipeline and the memory router apply), so resolution uses the
+    # normalized id. Browser/API callers get None here and fall back to the
+    # effective user.
+    artifact_user_id = _resolve_artifact_user_id(request)
+
     # Check if this is a request for a file inside a .skill archive (e.g., xxx.skill/SKILL.md)
     if ".skill/" in path:
         # Split the path at ".skill/" to get the ZIP file path and internal path
@@ -268,7 +278,6 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         skill_file_path = path[: marker_pos + len(".skill")]  # e.g., "mnt/user-data/outputs/my-skill.skill"
         internal_path = path[marker_pos + len(skill_marker) :]  # e.g., "SKILL.md"
 
-        artifact_user_id = _resolve_artifact_user_id(request)
         actual_skill_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, skill_file_path, user_id=artifact_user_id)
 
         # Offload the stat probes + ZIP open/extract + MIME sniff (blocking filesystem IO).
@@ -289,7 +298,6 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         except UnicodeDecodeError:
             return Response(content=content, media_type=mime_type or "application/octet-stream", headers=cache_headers)
 
-    artifact_user_id = _resolve_artifact_user_id(request)
     actual_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, path, user_id=artifact_user_id)
 
     logger.info(f"Resolving artifact path: thread_id={thread_id}, requested_path={path}, actual_path={actual_path}")

@@ -42,11 +42,12 @@ import {
   guessPreviewPdfPath,
   urlOfArtifact,
 } from "@/core/artifacts/utils";
+import { useAuth } from "@/core/auth/AuthProvider";
+import { extractCitationSources } from "@/core/citations/sources";
 import { writeTextToClipboard } from "@/core/clipboard";
 import { useI18n } from "@/core/i18n/hooks";
 import { findToolCallResult } from "@/core/messages/utils";
-import { installSkill } from "@/core/skills/api";
-import { streamdownPlugins } from "@/core/streamdown";
+import { installSkill, SkillRequestError } from "@/core/skills/api";
 import { SafeStreamdown } from "@/core/streamdown/components";
 import {
   canBrowserPreviewFile,
@@ -59,10 +60,12 @@ import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 import { ArtifactLink } from "../citations/artifact-link";
+import { CitationSourcesPanel } from "../citations/citation-sources-panel";
 import { useThread } from "../messages/context";
 import { Tooltip } from "../tooltip";
 
 import { useArtifacts } from "./context";
+import { artifactMarkdownPlugins } from "./markdown-preview-plugins";
 
 const WRITE_FILE_PREVIEW_REFRESH_INTERVAL_MS = 3000;
 
@@ -76,6 +79,8 @@ export function ArtifactFileDetail({
   threadId: string;
 }) {
   const { t } = useI18n();
+  const { user } = useAuth();
+  const isAdmin = user?.system_role === "admin";
   const { artifacts, setOpen, select } = useArtifacts();
   const { thread, isMock } = useThread();
   const isWriteFile = useMemo(() => {
@@ -88,6 +93,41 @@ export function ArtifactFileDetail({
     }
     return filepathFromProps;
   }, [filepathFromProps, isWriteFile]);
+  // Keep these local because ChatBox replaces context artifacts with thread state.
+  const [openedPresentedFilepaths, setOpenedPresentedFilepaths] = useState<
+    string[]
+  >(() => {
+    if (isWriteFile || artifacts.includes(filepath)) {
+      return [];
+    }
+    return [filepath];
+  });
+  useEffect(() => {
+    if (isWriteFile || artifacts.includes(filepath)) {
+      return;
+    }
+    setOpenedPresentedFilepaths((current) => {
+      if (current.includes(filepath)) {
+        return current;
+      }
+      return [...current, filepath];
+    });
+  }, [artifacts, filepath, isWriteFile]);
+  const artifactOptions = useMemo(() => {
+    if (isWriteFile) {
+      return artifacts;
+    }
+    const currentIsPresented = !artifacts.includes(filepath);
+    const presentedFilepaths =
+      currentIsPresented && !openedPresentedFilepaths.includes(filepath)
+        ? [...openedPresentedFilepaths, filepath]
+        : openedPresentedFilepaths;
+    const presentedSet = new Set(presentedFilepaths);
+    return [
+      ...presentedFilepaths,
+      ...artifacts.filter((artifact) => !presentedSet.has(artifact)),
+    ];
+  }, [artifacts, filepath, isWriteFile, openedPresentedFilepaths]);
   const isSkillFile = useMemo(() => {
     return filepath.endsWith(".skill");
   }, [filepath]);
@@ -212,11 +252,15 @@ export function ArtifactFileDetail({
       }
     } catch (error) {
       console.error("Failed to install skill:", error);
-      toast.error("Failed to install skill");
+      if (error instanceof SkillRequestError && error.isAdminRequired) {
+        toast.error(t.settings.skills.installAdminRequired);
+      } else {
+        toast.error("Failed to install skill");
+      }
     } finally {
       setIsInstalling(false);
     }
-  }, [threadId, filepath, isInstalling]);
+  }, [threadId, filepath, isInstalling, t]);
   return (
     <Artifact className={cn(className)}>
       <ArtifactHeader className="px-2">
@@ -231,9 +275,9 @@ export function ArtifactFileDetail({
                 </SelectTrigger>
                 <SelectContent className="select-none">
                   <SelectGroup>
-                    {(artifacts ?? []).map((filepath) => (
-                      <SelectItem key={filepath} value={filepath}>
-                        {getFileName(filepath)}
+                    {artifactOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {getFileName(option)}
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -267,7 +311,7 @@ export function ArtifactFileDetail({
         </div>
         <div className="flex items-center gap-2">
           <ArtifactActions>
-            {!isWriteFile && filepath.endsWith(".skill") && (
+            {!isWriteFile && filepath.endsWith(".skill") && isAdmin && (
               <Tooltip content={t.toolCalls.skillInstallTooltip}>
                 <ArtifactAction
                   icon={isInstalling ? LoaderIcon : PackageIcon}
@@ -455,6 +499,11 @@ export function ArtifactFilePreview({
     [scrollKey],
   );
   const [htmlPreviewUrl, setHtmlPreviewUrl] = useState<string>();
+  const citationSources = useMemo(
+    () =>
+      language === "markdown" ? extractCitationSources(content ?? "") : [],
+    [content, language],
+  );
 
   useEffect(() => {
     scrollPositionRef.current = { x: 0, y: 0 };
@@ -522,14 +571,15 @@ export function ArtifactFilePreview({
 
   if (language === "markdown") {
     return (
-      <div className="size-full px-4">
+      <div className="size-full overflow-auto px-4 py-3">
         <SafeStreamdown
-          className="size-full"
-          {...streamdownPlugins}
+          className="min-w-0"
+          {...artifactMarkdownPlugins}
           components={{ a: ArtifactLink }}
         >
           {content ?? ""}
         </SafeStreamdown>
+        <CitationSourcesPanel sources={citationSources} className="mb-4" />
       </div>
     );
   }

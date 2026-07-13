@@ -1,5 +1,5 @@
-import shutil
 import logging
+import shutil
 import zipfile
 from pathlib import Path
 from typing import Annotated
@@ -236,7 +236,7 @@ def present_file_tool(
     - For temporary or intermediate files not meant for user viewing
 
     Notes:
-    - You should call this tool after creating files. Files already in `/mnt/user-data/outputs` are presented directly; files in the current `/mnt/user-data/workspace` are copied into outputs before being presented.
+    - You should call this tool after creating files and moving them to the `/mnt/user-data/outputs` directory.
     - This tool can be safely called in parallel with other tools. State updates are handled by a reducer to prevent conflicts.
 
     Args:

@@ -1,4 +1,21 @@
-from . import announcements, artifacts, assistants_compat, convert, dashboard, mcp, models, site_navigation, skills, suggestions, thread_runs, threads, uploads, weknora
+from . import (
+    announcements,
+    artifacts,
+    assistants_compat,
+    convert,
+    dashboard,
+    input_polish,
+    mcp,
+    models,
+    scheduled_tasks,
+    site_navigation,
+    skills,
+    suggestions,
+    thread_runs,
+    threads,
+    uploads,
+    weknora,
+)
 
 __all__ = [
     "announcements",
@@ -6,13 +23,15 @@ __all__ = [
     "assistants_compat",
     "convert",
     "dashboard",
+    "input_polish",
     "mcp",
     "models",
+    "scheduled_tasks",
     "site_navigation",
     "skills",
     "suggestions",
-    "threads",
     "thread_runs",
+    "threads",
     "uploads",
     "weknora",
 ]

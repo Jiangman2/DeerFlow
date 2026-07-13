@@ -240,13 +240,9 @@ export function RecentChatList() {
                     key={thread.thread_id}
                     className="group/side-menu-item"
                   >
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm"
-                      asChild
-                    >
+                    <SidebarMenuButton isActive={isActive} asChild>
                       <Link
-                        className="flex min-w-0 w-full items-center gap-1.5 pr-7 whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
+                        className="text-muted-foreground min-w-0 whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
                         href={pathOfThread(thread)}
                       >
                         <ThreadChannelIcon source={channelSource} />

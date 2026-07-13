@@ -7,18 +7,35 @@ test.describe("Landing page", () => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: "中海油勘探开发通用智能体" }),
+      page.locator("header").first().getByText("DeerFlow", { exact: true }),
     ).toBeVisible();
+    await expect(page.locator("h1")).toHaveCount(1);
+    await expect(page.locator("h1")).toContainText("DeerFlow");
 
-    await expect(page.getByRole("link", { name: "开始使用" })).toBeVisible();
+    // "Get Started" call-to-action button in hero
+    await expect(
+      page.getByRole("link", { name: /get started/i }),
+    ).toBeVisible();
   });
+
+  for (const width of [320, 375, 390]) {
+    test(`does not overflow at ${width}px width`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 812 });
+      await page.goto("/");
+
+      await expect
+        .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+        .toBeLessThanOrEqual(width);
+      await expect(page.locator("main").first()).toBeInViewport();
+    });
+  }
 
   test("Get Started link navigates to workspace", async ({ page }) => {
     mockLangGraphAPI(page);
 
     await page.goto("/");
 
-    const getStarted = page.getByRole("link", { name: "开始使用" });
+    const getStarted = page.getByRole("link", { name: /get started/i });
     await getStarted.click();
 
     // Should redirect to /workspace/chats/new

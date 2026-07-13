@@ -138,19 +138,13 @@ After generation:
 - Reference image enhance generation quality significantly
 - Iterative refinement is normal for optimal results
 
-## Providers (Gemini / DashScope / MiniMax)
+## Providers (Gemini / MiniMax)
 
 Auto-selected by environment variables (CLI unchanged):
 
 - `GEMINI_API_KEY` set → Gemini Veo (default, unchanged).
-- Only `DASHSCOPE_API_KEY` set → DashScope Wan text-to-video.
 - Only `MINIMAX_API_KEY` set → MiniMax video (`/v1/video_generation`, async 3-step poll/download).
-- Force with `VIDEO_GENERATION_PROVIDER=gemini|dashscope|minimax`.
-
-DashScope overrides: `DASHSCOPE_BASE_URL` (default `https://dashscope.aliyuncs.com/api/v1`),
-`DASHSCOPE_VIDEO_MODEL` (default `wan2.6-t2v`), `DASHSCOPE_VIDEO_SIZE`
-(default derived from `--aspect-ratio`), `DASHSCOPE_VIDEO_DURATION` (default `5`).
-The DashScope path uses Wan text-to-video and ignores local `--reference-images`.
+- Force with `VIDEO_GENERATION_PROVIDER=gemini|minimax`.
 
 MiniMax overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.com`),
 `MINIMAX_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3`). The first reference image is used

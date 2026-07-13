@@ -4,27 +4,33 @@ import asyncio
 import logging
 import re
 import shutil
-import unicodedata
 
 import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from deerflow.config.agents_api_config import get_agents_api_config
-from deerflow.config.agents_config import AgentConfig, list_custom_agents, list_team_agents, load_agent_config, load_agent_soul
+from deerflow.config.agents_config import (
+    AgentConfig,
+    list_custom_agents,
+    list_team_agents,
+    load_agent_config,
+    load_agent_soul,
+    preserve_non_managed_fields,
+)
 from deerflow.config.paths import get_paths
 from deerflow.runtime.user_context import get_effective_user_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["agents"])
 
-AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
+AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
 
 
 class AgentResponse(BaseModel):
     """Response model for a custom agent."""
 
-    name: str = Field(..., description="Agent name")
+    name: str = Field(..., description="Agent name (hyphen-case)")
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
@@ -44,13 +50,7 @@ class AgentsListResponse(BaseModel):
 class AgentCreateRequest(BaseModel):
     """Request body for creating a custom agent."""
 
-    name: str = Field(
-        ...,
-        description=(
-            "Agent name (letters, digits, Chinese characters, and hyphens; "
-            "stored as lowercase where applicable)"
-        ),
-    )
+    name: str = Field(..., description="Agent name (must match ^[A-Za-z0-9-]+$, stored as lowercase)")
     description: str = Field(default="", description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
@@ -83,21 +83,10 @@ def _validate_agent_name(name: str) -> None:
     Raises:
         HTTPException: 422 if the name is invalid.
     """
-    def _is_valid_char(ch: str) -> bool:
-        if ch == "-":
-            return True
-        category = unicodedata.category(ch)
-        return category.startswith("L") or category.startswith("N")
-
-    if not AGENT_NAME_PATTERN.fullmatch(name) or any(
-        not _is_valid_char(ch) for ch in name
-    ):
+    if not AGENT_NAME_PATTERN.match(name):
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"Invalid agent name '{name}'. Use letters, digits, Chinese "
-                "characters, and hyphens only."
-            ),
+            detail=f"Invalid agent name '{name}'. Must match ^[A-Za-z0-9-]+$ (letters, digits, and hyphens only).",
         )
 
 
@@ -596,6 +585,17 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
                 new_skills = agent_cfg.skills
             if new_skills is not None:
                 updated["skills"] = new_skills
+
+            # Carry forward every top-level AgentConfig field this route does
+            # not manage (currently ``github:``, plus any future field added
+            # to :class:`AgentConfig`). The harness ``update_agent`` tool uses
+            # the same helper, so an operator editing the agent description
+            # from the Web UI does not silently strip a hand-authored
+            # ``github:`` binding — which would otherwise leave the next
+            # webhook delivery unable to find the agent in the registry and
+            # silently no-op.
+            for key, value in preserve_non_managed_fields(agent_cfg).items():
+                updated.setdefault(key, value)
 
             config_file = agent_dir / "config.yaml"
             with open(config_file, "w", encoding="utf-8") as f:
