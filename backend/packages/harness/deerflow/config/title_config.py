@@ -24,7 +24,7 @@ class TitleConfig(BaseModel):
     )
     model_name: str | None = Field(
         default=None,
-        description="Model name to use for title generation (None = use default model)",
+        description="Model name to use for LLM title generation (None = use local fallback title)",
     )
     prompt_template: str = Field(
         default=(
@@ -38,7 +38,7 @@ class TitleConfig(BaseModel):
             "助手：{assistant_msg}\n\n"
             "只返回标题。"
         ),
-        description="Prompt template for title generation",
+        description="Prompt template for LLM title generation when model_name is set",
     )
 
 

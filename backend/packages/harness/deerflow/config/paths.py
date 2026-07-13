@@ -195,7 +195,7 @@ class Paths:
 
         A previous branch revision used SHA-1 for unsafe external user IDs.
         New IDs use SHA-256; the legacy bucket name is recomputed from the same
-        raw ID, so only this user's own old bucket can ever be moved — a
+        raw ID, so only this user's own old bucket can ever be moved - a
         different raw ID sharing the sanitized prefix produces a different
         legacy digest and is never touched.
         """
@@ -231,6 +231,19 @@ class Paths:
     def user_agent_memory_file(self, user_id: str, agent_name: str) -> Path:
         """Per-user per-agent memory: `{base_dir}/users/{user_id}/agents/{name}/memory.json`."""
         return self.user_agent_dir(user_id, agent_name) / "memory.json"
+
+    def user_skills_dir(self, user_id: str) -> Path:
+        """Per-user root for that user's custom skills: `{base_dir}/users/{user_id}/skills/`."""
+        return self.user_dir(user_id) / "skills"
+
+    def user_custom_skills_dir(self, user_id: str) -> Path:
+        """Per-user custom skills directory: `{base_dir}/users/{user_id}/skills/custom/`.
+
+        This is the user-scoped replacement for the global ``{base_dir}/skills/custom/``
+        directory. Custom skills are written here; public skills remain under the
+        global ``{base_dir}/skills/public/`` (read-only).
+        """
+        return self.user_skills_dir(user_id) / "custom"
 
     def user_knowledge_dir(self, user_id: str) -> Path:
         """Per-user private knowledge base root: `{base_dir}/users/{user_id}/knowledge/`."""
