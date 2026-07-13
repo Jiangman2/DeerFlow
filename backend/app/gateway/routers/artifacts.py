@@ -11,6 +11,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from app.gateway.authz import require_permission
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.path_utils import resolve_thread_virtual_path
+from deerflow.config.paths import make_safe_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ def _resolve_artifact_user_id(request: Request | None) -> str | None:
 
     trusted_owner = get_trusted_internal_owner_user_id(request)
     if trusted_owner:
-        return trusted_owner
+        return make_safe_user_id(trusted_owner)
 
     user = getattr(getattr(request, "state", None), "user", None)
     user_id = getattr(user, "id", None)
