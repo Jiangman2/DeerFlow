@@ -18,13 +18,16 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { ShineBorder } from "@/components/ui/shine-border";
 import { useI18n } from "@/core/i18n/hooks";
-import { formatTokenCount } from "@/core/messages/usage";
 import { hasToolCalls } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { streamdownPluginsWithWordAnimation } from "@/core/streamdown";
 import { SafeStreamdown } from "@/core/streamdown/components";
 import { useSubtask } from "@/core/tasks/context";
+import {
+  formatSubtaskTokenUsage,
+  resolveSubtaskModelLabel,
+} from "@/core/tasks/presentation";
 import { stepsForDisplay } from "@/core/tasks/steps";
 import { explainLastToolCall } from "@/core/tools/utils";
 import { cn } from "@/lib/utils";
@@ -48,13 +51,11 @@ export function SubtaskCard({
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const task = useSubtask(taskId)!;
   const { models, tokenUsageEnabled } = useModels();
-  const modelLabel = task.modelName
-    ? (models.find((model) => model.name === task.modelName)?.display_name ??
-      task.modelName)
-    : undefined;
+  const modelLabel = resolveSubtaskModelLabel(task.modelName, models);
+  const formattedUsage = formatSubtaskTokenUsage(task.usage);
   const tokenLabel =
-    tokenUsageEnabled && task.usage
-      ? `${formatTokenCount(task.usage.totalTokens)} ${t.tokenUsage.label}`
+    tokenUsageEnabled && formattedUsage
+      ? `${formattedUsage} ${t.tokenUsage.label}`
       : tokenUsageEnabled && task.status === "in_progress"
         ? t.tokenUsage.collecting
         : undefined;

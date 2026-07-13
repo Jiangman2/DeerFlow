@@ -7,19 +7,18 @@ import {
   useState,
 } from "react";
 
+import { computeNextSubtask, subtaskNotification } from "./subtask-update";
 import type { Subtask } from "./types";
-
-function isTerminalSubtaskStatus(status: Subtask["status"] | undefined) {
-  return status === "completed" || status === "failed";
-}
 
 export interface SubtaskContextValue {
   tasks: Record<string, Subtask>;
+  tasksRef: React.RefObject<Record<string, Subtask>>;
   setTasks: (tasks: Record<string, Subtask>) => void;
 }
 
 export const SubtaskContext = createContext<SubtaskContextValue>({
   tasks: {},
+  tasksRef: { current: {} },
   setTasks: () => {
     /* noop */
   },
@@ -27,8 +26,10 @@ export const SubtaskContext = createContext<SubtaskContextValue>({
 
 export function SubtasksProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<Record<string, Subtask>>({});
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
   return (
-    <SubtaskContext.Provider value={{ tasks, setTasks }}>
+    <SubtaskContext.Provider value={{ tasks, tasksRef, setTasks }}>
       {children}
     </SubtaskContext.Provider>
   );
@@ -50,7 +51,7 @@ export function useSubtask(id: string) {
 }
 
 export function useUpdateSubtask() {
-  const { tasks, setTasks } = useSubtaskContext();
+  const { tasksRef, setTasks } = useSubtaskContext();
   const shouldNotifyAfterRenderRef = useRef(false);
   // No deps: must run after every render to check the ref set during render.
   useEffect(() => {
@@ -58,37 +59,27 @@ export function useUpdateSubtask() {
       return;
     }
     shouldNotifyAfterRenderRef.current = false;
-    setTasks({ ...tasks });
+    setTasks({ ...tasksRef.current });
   });
 
   const updateSubtask = useCallback(
     (task: Partial<Subtask> & { id: string }) => {
-      const previous = tasks[task.id];
-      const previousStatus = previous?.status;
-      // MessageList writes the pending task tool-call state before parsing the
-      // matching ToolMessage in the same render. Keep terminal results stable
-      // across the next render so the refresh notification does not loop.
-      const next = {
-        ...previous,
-        ...task,
-        ...(task.status === "in_progress" &&
-        isTerminalSubtaskStatus(previousStatus)
-          ? { status: previousStatus }
-          : {}),
-      } as Subtask;
+      const current = tasksRef.current;
+      const { next, becameTerminal, changed } = computeNextSubtask(
+        current[task.id],
+        task,
+      );
 
-      const becameTerminal =
-        isTerminalSubtaskStatus(next.status) && previousStatus !== next.status;
+      current[task.id] = next;
 
-      tasks[task.id] = next;
-
-      if (task.latestMessage) {
-        setTasks({ ...tasks });
-      } else if (becameTerminal) {
+      const notify = subtaskNotification(task, { becameTerminal, changed });
+      if (notify === "eager") {
+        setTasks({ ...current });
+      } else if (notify === "deferred") {
         shouldNotifyAfterRenderRef.current = true;
       }
     },
-    [tasks, setTasks],
+    [tasksRef, setTasks],
   );
 
   return updateSubtask;
