@@ -34,6 +34,7 @@ import {
   type FeedbackData,
 } from "@/core/api/feedback";
 import { resolveArtifactURL } from "@/core/artifacts/utils";
+import { extractCitationSources } from "@/core/citations/sources";
 import { useI18n } from "@/core/i18n/hooks";
 import {
   extractContentFromMessage,
@@ -47,6 +48,7 @@ import { SafeReasoningContent } from "@/core/streamdown/components";
 import { cn } from "@/lib/utils";
 
 import { WorkspaceChangeBadge } from "../changes";
+import { CitationSourcesPanel } from "../citations/citation-sources-panel";
 import { CopyButton } from "../copy-button";
 import { Tooltip } from "../tooltip";
 
@@ -321,6 +323,10 @@ function MessageContent_({
     files && files.length > 0 ? (
       <RichFilesList files={files} threadId={threadId} />
     ) : null;
+  const citationSources = useMemo(
+    () => (isHuman ? [] : extractCitationSources(contentToDisplay)),
+    [contentToDisplay, isHuman],
+  );
 
   // Uploading state: mock AI message shown while files upload
   if (message.additional_kwargs?.element === "task") {
@@ -403,6 +409,7 @@ function MessageContent_({
         className="my-3"
         components={components}
       />
+      <CitationSourcesPanel sources={citationSources} />
       <WorkspaceChangeBadge
         threadId={threadId}
         runId={runId}
