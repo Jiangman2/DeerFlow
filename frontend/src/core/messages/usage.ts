@@ -83,6 +83,38 @@ export function addUsage(base: TokenUsage, delta: TokenUsage): TokenUsage {
   };
 }
 
+export function normalizeTokenUsage(value: unknown): TokenUsage | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const input =
+    typeof record.inputTokens === "number"
+      ? record.inputTokens
+      : typeof record.input_tokens === "number"
+        ? record.input_tokens
+        : 0;
+  const output =
+    typeof record.outputTokens === "number"
+      ? record.outputTokens
+      : typeof record.output_tokens === "number"
+        ? record.output_tokens
+        : 0;
+  const total =
+    typeof record.totalTokens === "number"
+      ? record.totalTokens
+      : typeof record.total_tokens === "number"
+        ? record.total_tokens
+        : input + output;
+
+  return {
+    inputTokens: input,
+    outputTokens: output,
+    totalTokens: total,
+  };
+}
+
 export function selectHeaderTokenUsage({
   backendUsage,
   messages,

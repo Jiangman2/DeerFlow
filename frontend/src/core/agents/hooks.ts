@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 import {
   createAgent,
   deleteAgent,
+  fetchAgentsApiEnabled,
   getAgent,
   getTeamAgent,
   listAgents,
@@ -11,7 +13,39 @@ import {
   unpublishTeamAgent,
   updateAgent,
 } from "./api";
+import {
+  readCachedAgentsApiEnabled,
+  resolveAgentsApiEnabled,
+  writeCachedAgentsApiEnabled,
+} from "./feature-cache";
 import type { CreateAgentRequest, UpdateAgentRequest } from "./types";
+
+export function useAgentsApiEnabled() {
+  const { data, isPending } = useQuery({
+    queryKey: ["features", "agents_api"],
+    queryFn: () => fetchAgentsApiEnabled(),
+    staleTime: 0,
+    refetchOnMount: true,
+    retry: false,
+  });
+
+  const [cachedEnabled, setCachedEnabled] = useState<boolean | null>(null);
+  useEffect(() => {
+    setCachedEnabled(readCachedAgentsApiEnabled() ?? null);
+  }, []);
+
+  useEffect(() => {
+    if (typeof data === "boolean") {
+      writeCachedAgentsApiEnabled(data);
+      setCachedEnabled(data);
+    }
+  }, [data]);
+
+  return {
+    enabled: resolveAgentsApiEnabled(data, cachedEnabled ?? undefined),
+    isLoading: isPending && cachedEnabled === null,
+  };
+}
 
 export function useAgents() {
   const { data, isLoading, error } = useQuery({

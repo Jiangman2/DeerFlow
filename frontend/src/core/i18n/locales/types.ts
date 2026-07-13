@@ -40,6 +40,8 @@ export interface Translations {
     exportAsJSON: string;
     exportSuccess: string;
     regenerate: string;
+    branch: string;
+    showArtifacts: string;
   };
 
   home: {
@@ -61,6 +63,34 @@ export interface Translations {
     copiedToClipboard: string;
     failedToCopyToClipboard: string;
     linkCopied: string;
+  };
+
+  // Citations
+  citations: {
+    sourcesSummary: (count: number) => string;
+    citeCount: (count: number) => string;
+    copyReference: (title: string) => string;
+    copiedReference: (title: string) => string;
+  };
+
+  // Workspace Changes
+  workspaceChanges: {
+    title: string;
+    editedTitle: (count: number) => string;
+    badge: (count: number, additions: number, deletions: number) => string;
+    viewChanges: string;
+    created: string;
+    modified: string;
+    deleted: string;
+    openFile: string;
+    loading: string;
+    noChanges: string;
+    diffUnavailable: string;
+    binaryUnavailable: string;
+    largeUnavailable: string;
+    sensitiveUnavailable: string;
+    truncatedUnavailable: string;
+    truncatedSummary: string;
   };
 
   // Input Box
@@ -121,6 +151,38 @@ export interface Translations {
     followupConfirmAppend: string;
     followupConfirmReplace: string;
     suggestionPlaceholderRequired: string;
+    inputPolish: string;
+    inputPolishing: string;
+    inputPolishNoChanges: string;
+    inputPolishFailed: string;
+    inputPolishUndo: string;
+    inputPolishCancel: string;
+    voiceInputStartLabel: string;
+    voiceInputStopLabel: string;
+    voiceInputStart: string;
+    voiceInputStop: string;
+    voiceInputListening: string;
+    voiceInputUnsupported: string;
+    voiceInputPermissionDenied: string;
+    voiceInputMicrophoneUnavailable: string;
+    voiceInputUnsupportedLanguage: string;
+    voiceInputNetworkError: string;
+    voiceInputNoSpeech: string;
+    voiceInputFailed: string;
+    goalCommandDescription: string;
+    compactCommandDescription: string;
+    goalLabel: string;
+    goalContinuing: string;
+    goalContinuationTooltip: string;
+    goalSet: string;
+    goalCleared: string;
+    goalNone: string;
+    goalActive: string;
+    goalFailed: string;
+    compactSuccess: string;
+    compactSkipped: string;
+    compactFailed: string;
+    pleaseWaitStreaming: string;
     suggestions: {
       suggestion: string;
       prompt: string;
@@ -145,7 +207,127 @@ export interface Translations {
     chats: string;
     demoChats: string;
     agents: string;
+    scheduledTasks: string;
+    agentsDisabledTooltip: string;
     channels: string;
+  };
+
+  // Scheduled tasks
+  scheduledTasks: {
+    scheduleType: { cron: string; once: string };
+    preset: {
+      label: string;
+      hourly: string;
+      daily: string;
+      weekly: string;
+      monthly: string;
+      custom: string;
+    };
+    fields: {
+      minute: string;
+      time: string;
+      weekday: string;
+      dayOfMonth: string;
+      cron: string;
+      cronPlaceholder: string;
+      runAt: string;
+      timezone: string;
+    };
+    weekdays: {
+      mon: string;
+      tue: string;
+      wed: string;
+      thu: string;
+      fri: string;
+      sat: string;
+      sun: string;
+    };
+    preview: string;
+    cronHelp: string;
+    create: {
+      title: string;
+      taskTitle: string;
+      prompt: string;
+      submit: string;
+      fillRequired: string;
+    };
+    context: {
+      fresh: string;
+      reuse: string;
+      threadIdPlaceholder: string;
+    };
+    filters: {
+      allStatuses: string;
+      enabled: string;
+      paused: string;
+      completed: string;
+      failed: string;
+      allTypes: string;
+      cron: string;
+      once: string;
+    };
+    detail: {
+      contextMode: string;
+      thread: string;
+      lastThread: string;
+      schedule: string;
+      nextRun: string;
+      lastRun: string;
+      lastRunId: string;
+      lastError: string;
+      runsCount: string;
+      runsCountOne: string;
+      noRuns: string;
+      noSelection: string;
+      filteredByThread: string;
+      loadFailed: string;
+    };
+    actions: {
+      edit: string;
+      cancelEdit: string;
+      pause: string;
+      resume: string;
+      trigger: string;
+      delete: string;
+    };
+    deleteConfirm: string;
+    errors: {
+      create: string;
+      update: string;
+      pause: string;
+      resume: string;
+      trigger: string;
+      delete: string;
+    };
+    edit: {
+      titlePlaceholder: string;
+      promptPlaceholder: string;
+      submit: string;
+    };
+    status: {
+      enabled: string;
+      paused: string;
+      running: string;
+      completed: string;
+      failed: string;
+      cancelled: string;
+    };
+    runTrigger: { scheduled: string; manual: string };
+    runStatus: {
+      queued: string;
+      running: string;
+      success: string;
+      failed: string;
+      skipped: string;
+      interrupted: string;
+    };
+    recipes: {
+      label: string;
+      trending: { title: string; desc: string };
+      news: { title: string; desc: string };
+      issues: { title: string; desc: string };
+      weekly: { title: string; desc: string };
+    };
   };
 
   // Agents
@@ -159,6 +341,8 @@ export interface Translations {
     emptyDescription: string;
     apiDisabledTitle: string;
     apiDisabledDescription: string;
+    featureDisabledTitle: string;
+    featureDisabledDescription: string;
     chat: string;
     openExternal: string;
     delete: string;
@@ -225,6 +409,8 @@ export interface Translations {
   conversation: {
     noMessages: string;
     startConversation: string;
+    branchCreated: string;
+    branchFailed: string;
   };
 
   // Chats
@@ -259,6 +445,31 @@ export interface Translations {
     connectedAs: (name: string) => string;
   };
 
+  // Sidecar
+  sidecar: {
+    title: string;
+    open: string;
+    close: string;
+    delete: string;
+    deleteConfirm: string;
+    deleteSuccess: string;
+    deleteFailed: string;
+    addToConversation: string;
+    askInSideChat: string;
+    reference: string;
+    selectedTextFragment: string;
+    selectedTextFragments: string;
+    clearReferences: string;
+    emptyTitle: string;
+    emptyDescription: string;
+    placeholder: string;
+    send: string;
+    sendFailed: string;
+    noContext: string;
+    continuing: string;
+    selectionCrossesMessages: string;
+  };
+
   // Page titles (document title)
   pages: {
     appName: string;
@@ -289,10 +500,29 @@ export interface Translations {
     skillInstallTooltip: string;
   };
 
+  humanInput: {
+    answered: string;
+    pending: string;
+    readOnly: string;
+    otherLabel: string;
+    otherPlaceholder: string;
+    submit: string;
+    emptyError: string;
+    answeredValue: (value: string) => string;
+  };
+
   // Uploads
   uploads: {
     uploading: string;
     uploadingFiles: string;
+    limitsHint: (
+      maxFiles: number,
+      maxFileSize: string,
+      maxTotalSize: string,
+    ) => string;
+    filesTooLarge: (files: string, maxFileSize: string) => string;
+    tooManyFiles: (count: number, maxFiles: number) => string;
+    totalSizeTooLarge: (count: number, maxTotalSize: string) => string;
   };
 
   // Subtasks
@@ -314,6 +544,7 @@ export interface Translations {
     view: string;
     unavailable: string;
     unavailableShort: string;
+    collecting: string;
     note: string;
     presets: {
       off: string;
