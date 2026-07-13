@@ -3,6 +3,7 @@
 import {
   BotIcon,
   BookOpenIcon,
+  CalendarClock,
   ExternalLinkIcon,
   MessagesSquare,
 } from "lucide-react";
@@ -133,6 +134,18 @@ export function WorkspaceNavChatList() {
               </a>
             </SidebarMenuAction>
           )}
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            isActive={pathname.startsWith("/workspace/scheduled-tasks")}
+            className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm [&>svg]:text-[#8b939d]"
+            asChild
+          >
+            <Link href="/workspace/scheduled-tasks">
+              <CalendarClock />
+              <span>{t.sidebar.scheduledTasks}</span>
+            </Link>
+          </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
