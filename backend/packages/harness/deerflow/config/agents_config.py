@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from deerflow.config.paths import get_paths
 from deerflow.runtime.user_context import get_effective_user_id
@@ -23,6 +23,65 @@ logger = logging.getLogger(__name__)
 
 SOUL_FILENAME = "SOUL.md"
 AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
+
+
+def _blank_to_none(value: str | None) -> str | None:
+    """Normalize a whitespace-only string to ``None``; leave real values untouched."""
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
+class GitHubTriggerConfig(BaseModel):
+    """Per-event trigger filter inside a :class:`GitHubBinding`."""
+
+    actions: list[str] | None = None
+    require_mention: bool = False
+    allow_authors: list[str] = Field(default_factory=list)
+    mention_login: str | None = None
+
+    @field_validator("mention_login")
+    @classmethod
+    def _normalize_mention_login(cls, value: str | None) -> str | None:
+        return _blank_to_none(value)
+
+
+class GitHubBinding(BaseModel):
+    """One agent-to-repository binding with per-event trigger overrides."""
+
+    repo: str
+    triggers: dict[str, GitHubTriggerConfig] = Field(default_factory=dict)
+
+
+class GitHubAgentConfig(BaseModel):
+    """Top-level ``github:`` block on a custom agent's ``config.yaml``."""
+
+    installation_id: int | None = None
+    bot_login: str | None = None
+    recursion_limit: int | None = None
+    bindings: list[GitHubBinding] = Field(default_factory=list)
+
+    @field_validator("bot_login")
+    @classmethod
+    def _normalize_bot_login(cls, value: str | None) -> str | None:
+        return _blank_to_none(value)
+
+    @model_validator(mode="after")
+    def _unique_binding_repos(self) -> "GitHubAgentConfig":
+        """Reject duplicate ``repo`` values across ``bindings``."""
+        seen: set[str] = set()
+        dupes: set[str] = set()
+        for binding in self.bindings:
+            if binding.repo in seen:
+                dupes.add(binding.repo)
+            seen.add(binding.repo)
+        if dupes:
+            raise ValueError(
+                f"Agent github.bindings has duplicate repos {sorted(dupes)}. "
+                "Each repo must appear at most once; merge their `triggers:` maps into a single binding."
+            )
+        return self
 
 
 def validate_agent_name(name: str | None) -> str | None:
@@ -48,6 +107,17 @@ class AgentConfig(BaseModel):
     # - [] (explicit empty list): disable all skills
     # - ["skill1", "skill2"]: load only the specified skills
     skills: list[str] | None = None
+    # Optional binding to GitHub repositories so this agent can respond to
+    # webhook events from the gateway dispatcher. None preserves existing agents.
+    github: GitHubAgentConfig | None = None
+
+
+MANAGED_AGENT_CONFIG_FIELDS: frozenset[str] = frozenset({"name", "description", "model", "tool_groups", "skills"})
+
+
+def preserve_non_managed_fields(existing_cfg: AgentConfig) -> dict[str, object]:
+    """Return top-level config fields that update surfaces do not manage."""
+    return existing_cfg.model_dump(exclude_unset=True, exclude=MANAGED_AGENT_CONFIG_FIELDS)
 
 
 def resolve_agent_dir(name: str, *, user_id: str | None = None) -> Path:
