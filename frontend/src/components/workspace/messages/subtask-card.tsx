@@ -7,7 +7,7 @@ import {
   WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ChainOfThought,
@@ -23,7 +23,8 @@ import { useModels } from "@/core/models/hooks";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { streamdownPluginsWithWordAnimation } from "@/core/streamdown";
 import { SafeStreamdown } from "@/core/streamdown/components";
-import { useSubtask } from "@/core/tasks/context";
+import { fetchSubtaskSteps } from "@/core/tasks/api";
+import { useSubtask, useUpdateSubtask } from "@/core/tasks/context";
 import {
   formatSubtaskTokenUsage,
   resolveSubtaskModelLabel,
@@ -40,16 +41,21 @@ import { MarkdownContent } from "./markdown-content";
 export function SubtaskCard({
   className,
   taskId,
+  threadId,
+  runId,
   isLoading,
 }: {
   className?: string;
   taskId: string;
+  threadId?: string;
+  runId?: string;
   isLoading: boolean;
 }) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(true);
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const task = useSubtask(taskId)!;
+  const updateSubtask = useUpdateSubtask();
   const { models, tokenUsageEnabled } = useModels();
   const modelLabel = resolveSubtaskModelLabel(task.modelName, models);
   const formattedUsage = formatSubtaskTokenUsage(task.usage);
@@ -60,6 +66,26 @@ export function SubtaskCard({
         ? t.tokenUsage.collecting
         : undefined;
   const displaySteps = stepsForDisplay(task.steps, task.status);
+  const stepsCount = task.steps?.length ?? 0;
+  const backfilledRef = useRef(false);
+  useEffect(() => {
+    if (collapsed || backfilledRef.current || stepsCount > 0) {
+      return;
+    }
+    if (!threadId || !runId) {
+      return;
+    }
+    backfilledRef.current = true;
+    fetchSubtaskSteps(threadId, runId, taskId)
+      .then((steps) => {
+        if (steps.length > 0) {
+          updateSubtask({ id: taskId, steps });
+        }
+      })
+      .catch(() => {
+        backfilledRef.current = false;
+      });
+  }, [collapsed, runId, stepsCount, taskId, threadId, updateSubtask]);
   const icon = useMemo(() => {
     if (task.status === "completed") {
       return <CheckCircleIcon className="size-3" />;
