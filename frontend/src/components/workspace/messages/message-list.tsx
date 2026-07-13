@@ -446,6 +446,11 @@ export function MessageList({
                         groupIndex === groupedMessages.length - 1
                       }
                       threadId={threadId}
+                      runId={
+                        group.type === "assistant"
+                          ? (msg as { run_id?: string }).run_id
+                          : undefined
+                      }
                       showCopyButton={group.type !== "assistant"}
                       turnStartTime={
                         groupIndex === groupedMessages.length - 1
@@ -508,6 +513,7 @@ export function MessageList({
                         message={message}
                         isLoading={thread.isLoading}
                         threadId={threadId}
+                        runId={(message as { run_id?: string }).run_id}
                         showCopyButton={false}
                         turnStartTime={
                           groupIndex === groupedMessages.length - 1

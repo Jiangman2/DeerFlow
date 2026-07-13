@@ -46,6 +46,7 @@ import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { SafeReasoningContent } from "@/core/streamdown/components";
 import { cn } from "@/lib/utils";
 
+import { WorkspaceChangeBadge } from "../changes";
 import { CopyButton } from "../copy-button";
 import { Tooltip } from "../tooltip";
 
@@ -127,6 +128,7 @@ export function MessageListItem({
   message,
   isLoading,
   threadId,
+  runId,
   showCopyButton = true,
   turnStartTime,
 }: {
@@ -134,6 +136,7 @@ export function MessageListItem({
   message: Message;
   isLoading?: boolean;
   threadId: string;
+  runId?: string;
   showCopyButton?: boolean;
   turnStartTime?: number | null;
 }) {
@@ -148,6 +151,7 @@ export function MessageListItem({
         message={message}
         isLoading={isLoading}
         threadId={threadId}
+        runId={runId}
         turnStartTime={turnStartTime}
       />
       {!isLoading && showCopyButton && (
@@ -213,12 +217,14 @@ function MessageContent_({
   message,
   isLoading = false,
   threadId,
+  runId,
   turnStartTime,
 }: {
   className?: string;
   message: Message;
   isLoading?: boolean;
   threadId: string;
+  runId?: string;
   turnStartTime?: number | null;
 }) {
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
@@ -396,6 +402,11 @@ function MessageContent_({
         rehypePlugins={rehypePlugins}
         className="my-3"
         components={components}
+      />
+      <WorkspaceChangeBadge
+        threadId={threadId}
+        runId={runId}
+        disabled={isLoading}
       />
     </AIElementMessageContent>
   );
