@@ -1,0 +1,5 @@
+# Existing files that this PR is allowed to modify.
+# Keep this list empty for the guardrail-only PR.
+# Future PRs may add entries, but each entry must be additive/compatible and
+# described in the PR body.
+

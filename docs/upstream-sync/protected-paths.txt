@@ -1,0 +1,30 @@
+# Enterprise customization paths that must remain identical to main unless a PR
+# explicitly updates this policy and explains the behavior impact.
+frontend/public/favicon.ico
+frontend/public/images
+frontend/src/brand.ts
+frontend/src/components/brand
+frontend/src/app/page.tsx
+frontend/src/app/layout.tsx
+frontend/src/components/landing
+frontend/src/components/workspace/workspace-header.tsx
+frontend/src/components/workspace/workspace-sidebar.tsx
+frontend/src/components/workspace/workspace-container.tsx
+frontend/src/styles/globals.css
+frontend/src/components/workspace/settings/about-content.ts
+frontend/src/components/workspace/settings/about.md
+frontend/src/app/oauth
+frontend/src/server/cnooc-auth
+frontend/src/server/shop-cart
+backend/app/gateway/auth/cnooc.py
+backend/app/gateway/routers/auth.py
+backend/app/gateway/auth_middleware.py
+backend/app/gateway/routers/weknora.py
+k8s
+docker/docker-compose.yaml
+docker/docker-compose-dev.yaml
+docker/provisioner/app.py
+skills/public/ppt-master
+skills/public/web-opener
+frontend/src/components/ui/word-rotate.tsx
+
