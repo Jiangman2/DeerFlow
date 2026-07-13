@@ -58,7 +58,9 @@ export type ThreadStreamOptions = {
 };
 
 type SendMessageOptions = {
+  additionalInputMessages?: Message[];
   additionalKwargs?: Record<string, unknown>;
+  onSent?: () => void;
 };
 
 type RegeneratePrepareResponse = {
@@ -1062,6 +1064,7 @@ export function useThreadStream({
       setOptimisticMessages(newOptimistic);
 
       listeners.current.onSend?.(threadId);
+      options?.onSent?.();
 
       let uploadedFileInfo: UploadedFileInfo[] = [];
 
@@ -1148,6 +1151,7 @@ export function useThreadStream({
         await thread.submit(
           {
             messages: [
+              ...(options?.additionalInputMessages ?? []),
               {
                 type: "human",
                 content: [

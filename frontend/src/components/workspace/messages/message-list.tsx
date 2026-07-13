@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Conversation,
   ConversationContent,
+  type ConversationProps,
 } from "@/components/ai-elements/conversation";
 import {
   Reasoning,
@@ -210,6 +211,7 @@ function LoadMoreHistoryIndicator({
 
 export function MessageList({
   className,
+  testId,
   threadId,
   thread,
   paddingBottom = MESSAGE_LIST_DEFAULT_PADDING_BOTTOM,
@@ -220,8 +222,12 @@ export function MessageList({
   onRegenerateMessage,
   onSubmitHumanInput,
   canRegenerate = false,
+  sidecarSurface: _sidecarSurface = false,
+  initialScroll = "smooth",
+  resizeScroll = "smooth",
 }: {
   className?: string;
+  testId?: string;
   threadId: string;
   thread: BaseStream<AgentThreadState>;
   paddingBottom?: number;
@@ -238,6 +244,9 @@ export function MessageList({
     response: HumanInputResponse,
   ) => HumanInputSubmitResult | Promise<HumanInputSubmitResult>;
   canRegenerate?: boolean;
+  sidecarSurface?: boolean;
+  initialScroll?: ConversationProps["initial"];
+  resizeScroll?: ConversationProps["resize"];
 }) {
   const { t } = useI18n();
   const [turnStartTime, setTurnStartTime] = useState<number | null>(null);
@@ -484,6 +493,9 @@ export function MessageList({
   return (
     <Conversation
       className={cn("flex size-full flex-col justify-center", className)}
+      data-testid={testId}
+      initial={initialScroll}
+      resize={resizeScroll}
     >
       <ConversationContent className="mx-auto w-full max-w-(--container-width-md) gap-8 pt-8">
         <LoadMoreHistoryIndicator
