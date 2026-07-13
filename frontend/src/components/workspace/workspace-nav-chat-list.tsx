@@ -17,6 +17,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useAgentsApiEnabled } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 
 interface RuntimeConfig {
@@ -27,6 +33,7 @@ export function WorkspaceNavChatList() {
   const { t } = useI18n();
   const pathname = usePathname();
   const [weknoraFrontendUrl, setWeKnoraFrontendUrl] = useState<string>();
+  const { enabled: agentsEnabled } = useAgentsApiEnabled();
 
   useEffect(() => {
     let active = true;
@@ -65,16 +72,39 @@ export function WorkspaceNavChatList() {
           </SidebarMenuButton>
         </SidebarMenuItem>
         <SidebarMenuItem>
-          <SidebarMenuButton
-            isActive={pathname.startsWith("/workspace/agents")}
-            className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm [&>svg]:text-[#8b939d]"
-            asChild
-          >
-            <Link href="/workspace/agents">
-              <BotIcon />
-              <span>{t.sidebar.agents}</span>
-            </Link>
-          </SidebarMenuButton>
+          {agentsEnabled ? (
+            <SidebarMenuButton
+              isActive={pathname.startsWith("/workspace/agents")}
+              className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm [&>svg]:text-[#8b939d]"
+              asChild
+            >
+              <Link href="/workspace/agents">
+                <BotIcon />
+                <span>{t.sidebar.agents}</span>
+              </Link>
+            </SidebarMenuButton>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="block w-full cursor-not-allowed">
+                  <SidebarMenuButton
+                    className="text-[#4f5967]/50 [&>svg]:text-[#8b939d]/50"
+                    aria-disabled
+                    aria-describedby="agents-disabled-reason"
+                  >
+                    <BotIcon />
+                    <span>{t.sidebar.agents}</span>
+                  </SidebarMenuButton>
+                  <span id="agents-disabled-reason" className="sr-only">
+                    {t.sidebar.agentsDisabledTooltip}
+                  </span>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                {t.sidebar.agentsDisabledTooltip}
+              </TooltipContent>
+            </Tooltip>
+          )}
         </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton
