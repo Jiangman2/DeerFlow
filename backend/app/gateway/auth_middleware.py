@@ -25,7 +25,12 @@ from app.gateway.auth_disabled import (
     is_auth_disabled,
 )
 from app.gateway.authz import _ALL_PERMISSIONS, AuthContext
-from app.gateway.internal_auth import INTERNAL_AUTH_HEADER_NAME, get_internal_user, is_valid_internal_auth_token
+from app.gateway.internal_auth import (
+    INTERNAL_AUTH_HEADER_NAME,
+    INTERNAL_OWNER_USER_ID_HEADER_NAME,
+    get_internal_user,
+    is_valid_internal_auth_token,
+)
 from deerflow.runtime.user_context import reset_current_user, set_current_user
 
 # Paths that never require authentication.
@@ -36,6 +41,9 @@ _PUBLIC_PATH_PREFIXES: tuple[str, ...] = (
     "/openapi.json",
     "/api/v1/auth/oauth/",
     "/api/v1/auth/callback/",
+    # Inbound webhooks authenticate themselves via provider-specific signatures
+    # (e.g. GitHub's X-Hub-Signature-256), not session cookies.
+    "/api/webhooks/",
 )
 
 # Exact auth paths that are public (login/register/status check).
@@ -89,7 +97,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         internal_user = None
         if is_valid_internal_auth_token(request.headers.get(INTERNAL_AUTH_HEADER_NAME)):
-            internal_user = get_internal_user()
+            # Trusted internal callers can stamp the real channel owner so
+            # downstream per-user storage resolves to that account.
+            owner_user_id = request.headers.get(INTERNAL_OWNER_USER_ID_HEADER_NAME)
+            if owner_user_id:
+                owner_user_id = owner_user_id.strip()
+            internal_user = get_internal_user(owner_user_id=owner_user_id or None)
 
         auth_source = AUTH_SOURCE_SESSION
         access_token = request.cookies.get("access_token")
