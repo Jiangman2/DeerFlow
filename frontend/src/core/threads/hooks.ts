@@ -22,6 +22,8 @@ import { isHiddenFromUIMessage } from "../messages/utils";
 import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
 import { useUpdateSubtask } from "../tasks/context";
+import { taskEventToSubtaskUpdate } from "../tasks/lifecycle";
+import { messageToStep } from "../tasks/steps";
 import type { UploadedFileInfo } from "../uploads";
 import { promptInputFilePartToFile, uploadFiles } from "../uploads";
 
@@ -825,18 +827,33 @@ export function useThreadStream({
       }
     },
     onCustomEvent(event: unknown) {
+      const eventType =
+        typeof event === "object" && event !== null && "type" in event
+          ? (event as { type: unknown }).type
+          : undefined;
+
+      const taskUpdate = taskEventToSubtaskUpdate(event);
+      if (taskUpdate) {
+        updateSubtask(taskUpdate);
+      }
+
       if (
         typeof event === "object" &&
         event !== null &&
         "type" in event &&
-        event.type === "task_running"
+        eventType === "task_running"
       ) {
         const e = event as {
           type: "task_running";
           task_id: string;
           message: AIMessage;
+          message_index?: number;
         };
-        updateSubtask({ id: e.task_id, latestMessage: e.message });
+        updateSubtask({
+          id: e.task_id,
+          latestMessage: e.message,
+          steps: [messageToStep(e.message, e.message_index ?? 0)],
+        });
         return;
       }
 
@@ -844,7 +861,7 @@ export function useThreadStream({
         typeof event === "object" &&
         event !== null &&
         "type" in event &&
-        event.type === "llm_retry" &&
+        eventType === "llm_retry" &&
         "message" in event &&
         typeof event.message === "string" &&
         event.message.trim()
