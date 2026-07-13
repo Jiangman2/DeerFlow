@@ -15,6 +15,13 @@ import { Button } from "@/components/ui/button";
 import type { FeedbackData } from "@/core/api/feedback";
 import { useI18n } from "@/core/i18n/hooks";
 import {
+  deriveHumanInputThreadState,
+  extractHumanInputRequest,
+  shouldClearPendingHumanInputOnThreadError,
+  type HumanInputRequest,
+  type HumanInputResponse,
+} from "@/core/messages/human-input";
+import {
   buildTokenDebugSteps,
   type TokenUsageInlineMode,
 } from "@/core/messages/usage-model";
@@ -30,6 +37,7 @@ import {
   hasPresentFiles,
   hasReasoning,
   isAssistantMessageGroupStreaming,
+  isHiddenFromUIMessage,
 } from "@/core/messages/utils";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import type { Subtask } from "@/core/tasks";
@@ -45,6 +53,10 @@ import { ArtifactFileList } from "../artifacts/artifact-file-list";
 import { CopyButton } from "../copy-button";
 import { Tooltip } from "../tooltip";
 
+import {
+  HumanInputCard,
+  type HumanInputSubmitResult,
+} from "./human-input-card";
 import { MarkdownContent } from "./markdown-content";
 import { MessageGroup } from "./message-group";
 import { FeedbackButtons, MessageListItem } from "./message-list-item";
@@ -206,6 +218,7 @@ export function MessageList({
   loadMoreHistory,
   isHistoryLoading,
   onRegenerateMessage,
+  onSubmitHumanInput,
   canRegenerate = false,
 }: {
   className?: string;
@@ -220,6 +233,10 @@ export function MessageList({
     messageId: string,
     supersededMessageIds: string[],
   ) => void | Promise<void>;
+  onSubmitHumanInput?: (
+    request: HumanInputRequest,
+    response: HumanInputResponse,
+  ) => HumanInputSubmitResult | Promise<HumanInputSubmitResult>;
   canRegenerate?: boolean;
 }) {
   const { t } = useI18n();
@@ -237,6 +254,58 @@ export function MessageList({
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<
     string | null
   >(null);
+  const [pendingHumanInputRequestIds, setPendingHumanInputRequestIds] =
+    useState<Set<string>>(() => new Set());
+  const previousThreadErrorRef = useRef<unknown>(thread.error);
+  const humanInputState = useMemo(
+    () => deriveHumanInputThreadState(messages, (message) => !isHiddenFromUIMessage(message)),
+    [messages],
+  );
+
+  useEffect(() => {
+    if (
+      shouldClearPendingHumanInputOnThreadError({
+        currentError: thread.error,
+        pendingRequestCount: pendingHumanInputRequestIds.size,
+        previousError: previousThreadErrorRef.current,
+      })
+    ) {
+      setPendingHumanInputRequestIds(new Set());
+    }
+    previousThreadErrorRef.current = thread.error;
+  }, [pendingHumanInputRequestIds.size, thread.error]);
+
+  const handleSubmitHumanInput = useCallback(
+    async (request: HumanInputRequest, response: HumanInputResponse) => {
+      if (!onSubmitHumanInput) {
+        return false;
+      }
+      setPendingHumanInputRequestIds((current) => {
+        const next = new Set(current);
+        next.add(request.request_id);
+        return next;
+      });
+      try {
+        const result = await onSubmitHumanInput(request, response);
+        if (result === false) {
+          setPendingHumanInputRequestIds((current) => {
+            const next = new Set(current);
+            next.delete(request.request_id);
+            return next;
+          });
+        }
+        return result;
+      } catch (error) {
+        setPendingHumanInputRequestIds((current) => {
+          const next = new Set(current);
+          next.delete(request.request_id);
+          return next;
+        });
+        throw error;
+      }
+    },
+    [onSubmitHumanInput],
+  );
   const hasActiveAssistantText = useMemo(() => {
     let lastHumanIndex = -1;
     for (let i = groupedMessages.length - 1; i >= 0; i--) {
@@ -477,6 +546,46 @@ export function MessageList({
             );
           } else if (group.type === "assistant:clarification") {
             const message = group.messages[0];
+            if (!message) {
+              return null;
+            }
+            const humanInputRequest = extractHumanInputRequest(message);
+            if (humanInputRequest) {
+              const answeredResponse =
+                humanInputState.answeredResponses.get(
+                  humanInputRequest.request_id,
+                ) ?? null;
+              const pending = pendingHumanInputRequestIds.has(
+                humanInputRequest.request_id,
+              );
+              return (
+                <div key={group.id} className="w-full">
+                  <HumanInputCard
+                    answeredResponse={answeredResponse}
+                    disabled={
+                      thread.isLoading ||
+                      pending ||
+                      Boolean(answeredResponse) ||
+                      humanInputState.latestOpenRequestId !==
+                        humanInputRequest.request_id ||
+                      !onSubmitHumanInput
+                    }
+                    pending={pending}
+                    request={humanInputRequest}
+                    onSubmit={
+                      onSubmitHumanInput
+                        ? (response) =>
+                            handleSubmitHumanInput(humanInputRequest, response)
+                        : undefined
+                    }
+                  />
+                  {renderTokenUsage({
+                    messages: group.messages,
+                    turnUsageMessages,
+                  })}
+                </div>
+              );
+            }
             if (message && hasContent(message)) {
               return (
                 <div key={group.id} className="w-full">

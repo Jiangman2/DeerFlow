@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -26,6 +26,13 @@ import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicato
 import { useActiveGoal } from "@/components/workspace/use-active-goal";
 import { Welcome } from "@/components/workspace/welcome";
 import { useI18n } from "@/core/i18n/hooks";
+import {
+  buildHumanInputResponseText,
+  hasOpenHumanInputRequest,
+  type HumanInputRequest,
+  type HumanInputResponse,
+} from "@/core/messages/human-input";
+import { isHiddenFromUIMessage } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings, useThreadSettings } from "@/core/settings";
@@ -155,6 +162,25 @@ export default function ChatPage() {
     },
     [sendMessage, threadId],
   );
+  const handleSubmitHumanInput = useCallback(
+    async (request: HumanInputRequest, response: HumanInputResponse) => {
+      await sendMessage(
+        threadId,
+        {
+          text: buildHumanInputResponseText(request, response),
+          files: [],
+        },
+        undefined,
+        {
+          additionalKwargs: {
+            hide_from_ui: true,
+            human_input_response: response,
+          },
+        },
+      );
+    },
+    [sendMessage, threadId],
+  );
   const handleStop = useCallback(async () => {
     await thread.stop();
   }, [thread]);
@@ -169,6 +195,14 @@ export default function ChatPage() {
     : "off";
   const hasTodos = (thread.values.todos?.length ?? 0) > 0;
   const { activeGoal, hasGoal } = useActiveGoal(threadId, thread.values.goal);
+  const hasOpenHumanInputCard = useMemo(
+    () =>
+      hasOpenHumanInputRequest(
+        thread.messages,
+        (message) => !isHiddenFromUIMessage(message),
+      ),
+    [thread.messages],
+  );
 
   return (
     <ThreadContext.Provider value={{ thread, isMock }}>
@@ -224,6 +258,7 @@ export default function ChatPage() {
                   !thread.isLoading
                 }
                 onRegenerateMessage={handleRegenerate}
+                onSubmitHumanInput={handleSubmitHumanInput}
               />
             </div>
             <div
@@ -292,7 +327,8 @@ export default function ChatPage() {
                   disabled={
                     isMock ||
                     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
-                    isUploading
+                    isUploading ||
+                    hasOpenHumanInputCard
                   }
                   onContextChange={(context) => setSettings("context", context)}
                   onSubmit={handleSubmit}
