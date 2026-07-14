@@ -16,7 +16,7 @@ ARG UV_INDEX_URL
 # Increase for slow or inspected enterprise networks.
 ARG UV_HTTP_TIMEOUT=120
 # Optional extras to install (e.g. "postgres" for PostgreSQL support)
-# Usage: docker build --build-arg UV_EXTRAS=postgres ...
+# Usage: docker build --build-arg UV_EXTRAS=postgres,discord ...
 ARG UV_EXTRAS
 
 # Optionally override apt mirror for restricted networks (e.g. APT_MIRROR=mirrors.aliyun.com)
@@ -50,12 +50,36 @@ WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock backend/README.md ./backend/
 COPY backend/packages/harness/pyproject.toml ./backend/packages/harness/pyproject.toml
 RUN --mount=type=cache,target=/root/.cache/uv \
-    sh -c "cd backend && UV_INDEX_URL=${UV_INDEX_URL:-https://pypi.org/simple} UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT} uv sync --frozen --no-install-workspace ${UV_EXTRAS:+--extra $UV_EXTRAS}"
+    sh -c 'cd backend && \
+    set -f; \
+    extras_flags=""; \
+    for extra in $(printf "%s" "$UV_EXTRAS" | tr "," " "); do \
+        case "$extra" in \
+            [!A-Za-z]* | *[!A-Za-z0-9_-]*) \
+                echo "UV_EXTRAS entry $extra is invalid (must match [A-Za-z][A-Za-z0-9_-]*)" >&2; \
+                exit 1; \
+                ;; \
+        esac; \
+        extras_flags="$extras_flags --extra $extra"; \
+    done; \
+    UV_INDEX_URL=${UV_INDEX_URL:-https://pypi.org/simple} UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT} uv sync --frozen --no-install-workspace --extra redis $extras_flags'
 
 # Copy backend source code and install the editable workspace packages.
 COPY backend ./backend
 RUN --mount=type=cache,target=/root/.cache/uv \
-    sh -c "cd backend && UV_INDEX_URL=${UV_INDEX_URL:-https://pypi.org/simple} UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT} uv sync --frozen ${UV_EXTRAS:+--extra $UV_EXTRAS}"
+    sh -c 'cd backend && \
+    set -f; \
+    extras_flags=""; \
+    for extra in $(printf "%s" "$UV_EXTRAS" | tr "," " "); do \
+        case "$extra" in \
+            [!A-Za-z]* | *[!A-Za-z0-9_-]*) \
+                echo "UV_EXTRAS entry $extra is invalid (must match [A-Za-z][A-Za-z0-9_-]*)" >&2; \
+                exit 1; \
+                ;; \
+        esac; \
+        extras_flags="$extras_flags --extra $extra"; \
+    done; \
+    UV_INDEX_URL=${UV_INDEX_URL:-https://pypi.org/simple} UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT} uv sync --frozen --extra redis $extras_flags'
 
 # UTF-8 locale prevents UnicodeEncodeError on Chinese/emoji content in minimal
 # containers where locale configuration may be missing and the default encoding is not UTF-8.

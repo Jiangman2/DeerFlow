@@ -35,6 +35,8 @@ ARG NEXT_PUBLIC_AUTH_LOGIN_URL
 ENV NEXT_PUBLIC_AUTH_LOGIN_URL=${NEXT_PUBLIC_AUTH_LOGIN_URL}
 RUN cd /app/frontend && pnpm install --frozen-lockfile
 # Skip env validation — runtime vars are injected by nginx/container
+ARG APP_VERSION=""
+ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
 RUN cd /app/frontend && SKIP_ENV_VALIDATION=1 pnpm build
 
 # ── Prod: minimal runtime with pre-built output ───────────────────────────────
