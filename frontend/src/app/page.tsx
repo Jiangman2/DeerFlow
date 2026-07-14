@@ -2,7 +2,7 @@ import { Hero } from "@/components/landing/hero";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen w-full bg-white text-slate-900">
+    <div className="min-h-screen w-full overflow-x-clip bg-white text-slate-900">
       <main className="flex w-full flex-col overflow-hidden">
         <Hero />
       </main>
