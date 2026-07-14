@@ -11,8 +11,11 @@ export class AgentNameCheckError extends Error {
     public readonly reason: "backend_unreachable" | "request_failed",
     /**
      * Raw backend `detail` string when the failure came from a backend
-     * response carrying one. `null` when no detail was provided, in which
-     * case the UI should prefer its own localized fallback.
+     * response carrying one. `null` when no detail was provided (e.g.
+     * network-layer failure, empty response body, unparseable body) - in
+     * which case `message` is a generated fallback like "Failed to check
+     * agent name: Bad Gateway" and the UI should prefer its own localized
+     * fallback instead of surfacing the generated string.
      */
     public readonly detail: string | null = null,
   ) {
