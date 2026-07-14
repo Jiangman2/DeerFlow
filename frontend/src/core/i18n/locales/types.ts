@@ -693,6 +693,8 @@ export interface Translations {
       title: string;
       description: string;
       createSkill: string;
+      adminRequired: string;
+      installAdminRequired: string;
       emptyTitle: string;
       emptyDescription: string;
       emptyButton: string;

@@ -788,6 +788,8 @@ export const zhCN: Translations = {
       title: "技能",
       description: "管理 Agent Skill 配置和启用状态。",
       createSkill: "新建技能",
+      adminRequired: "需要管理员权限才能管理技能。",
+      installAdminRequired: "需要管理员权限才能安装技能。",
       emptyTitle: "还没有技能",
       emptyDescription:
         "将你的 Agent Skill 文件夹放在项目根目录下的 `/skills/custom` 文件夹中。",

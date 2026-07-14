@@ -830,6 +830,8 @@ export const enUS: Translations = {
       description:
         "Manage the configuration and enabled status of the agent skills.",
       createSkill: "Create skill",
+      adminRequired: "Admin privileges are required to manage skills.",
+      installAdminRequired: "Admin privileges are required to install skills.",
       emptyTitle: "No agent skill yet",
       emptyDescription:
         "Put your agent skill folders under the `/skills/custom` folder under the project root.",
