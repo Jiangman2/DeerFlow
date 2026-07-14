@@ -9,6 +9,11 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/core/auth/AuthProvider";
+import {
+  canCreateRegularAccount,
+  fetchSetupStatus,
+  type SetupStatusResponse,
+} from "@/core/auth/setup";
 import { parseAuthError } from "@/core/auth/types";
 import { useI18n } from "@/core/i18n/hooks";
 
@@ -32,6 +37,10 @@ export default function LoginPage() {
   const [ssoProviders, setSsoProviders] = useState<
     { id: string; display_name: string; type: string }[]
   >([]);
+  const [setupStatus, setSetupStatus] = useState<SetupStatusResponse | null>(
+    null,
+  );
+  const [setupStatusChecked, setSetupStatusChecked] = useState(false);
   const errorParam = searchParams.get("error");
   const [error, setError] = useState(
     errorParam
@@ -43,6 +52,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const redirectPath = validateNextParam(searchParams.get("next")) ?? "/workspace";
+  const regularSignupAllowed = canCreateRegularAccount({
+    checked: setupStatusChecked,
+    status: setupStatus,
+  });
+  const systemNeedsAdminSetup = setupStatus?.needs_setup === true;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -53,15 +67,23 @@ export default function LoginPage() {
   useEffect(() => {
     let cancelled = false;
 
-    void fetch("/api/v1/auth/setup-status")
-      .then((r) => r.json())
-      .then((data: { needs_setup?: boolean }) => {
-        if (!cancelled && data.needs_setup) {
-          router.push("/setup");
+    void fetchSetupStatus()
+      .then((data) => {
+        if (cancelled) return;
+        setSetupStatus(data);
+        if (data.needs_setup) {
+          setIsLogin(true);
         }
       })
       .catch(() => {
-        // Stay on the login page if setup status is temporarily unavailable.
+        if (!cancelled) {
+          setSetupStatus(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSetupStatusChecked(true);
+        }
       });
 
     void fetch("/api/v1/auth/providers")
@@ -82,13 +104,19 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setShowSsoHint(false);
     setLoading(true);
+
+    if (!isLogin && !regularSignupAllowed) {
+      setError(t.login.adminSetupRequiredDescription);
+      setLoading(false);
+      return;
+    }
 
     try {
       const endpoint = isLogin
@@ -140,6 +168,23 @@ export default function LoginPage() {
             {isLogin ? "登录后进入工作台" : "创建新的平台账号"}
           </p>
         </div>
+
+        {systemNeedsAdminSetup && (
+          <div className="border-l-2 border-blue-600 ps-3 text-sm">
+            <p className="font-medium text-slate-950">
+              {t.login.adminSetupRequiredTitle}
+            </p>
+            <p className="mt-1 text-slate-500">
+              {t.login.adminSetupRequiredDescription}
+            </p>
+            <Link
+              href="/setup"
+              className="mt-2 inline-block font-medium text-blue-600 hover:underline"
+            >
+              {t.login.createAdminAccount}
+            </Link>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex flex-col space-y-1">
@@ -217,19 +262,21 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className="text-center text-sm">
-          <button
-            type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError("");
-              setShowSsoHint(false);
-            }}
-            className="text-blue-600 hover:underline"
-          >
-            {isLogin ? t.login.noAccountSignUp : t.login.haveAccountSignIn}
-          </button>
-        </div>
+        {regularSignupAllowed && (
+          <div className="text-center text-sm">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError("");
+                setShowSsoHint(false);
+              }}
+              className="text-blue-600 hover:underline"
+            >
+              {isLogin ? t.login.noAccountSignUp : t.login.haveAccountSignIn}
+            </button>
+          </div>
+        )}
 
         <div className="text-center text-xs text-slate-500">
           <Link href={brand.links.home} className="hover:underline">
