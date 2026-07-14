@@ -49,6 +49,13 @@ import {
   getAgent,
 } from "@/core/agents/api";
 import { useI18n } from "@/core/i18n/hooks";
+import {
+  buildHumanInputResponseText,
+  hasOpenHumanInputRequest,
+  type HumanInputRequest,
+  type HumanInputResponse,
+} from "@/core/messages/human-input";
+import { isHiddenFromUIMessage } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import { useThreadStream } from "@/core/threads/hooks";
 import { uuid } from "@/core/utils/uuid";
@@ -139,6 +146,14 @@ export default function NewAgentPage() {
     }
     return models.find((model) => model.name === selectedModelName) ?? models[0];
   }, [models, selectedModelName]);
+  const hasOpenHumanInputCard = useMemo(
+    () =>
+      hasOpenHumanInputRequest(
+        thread.messages,
+        (message) => !isHiddenFromUIMessage(message),
+      ),
+    [thread.messages],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined" || step !== "chat") {
@@ -241,7 +256,7 @@ export default function NewAgentPage() {
   const handleChatSubmit = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || thread.isLoading) return;
+      if (!trimmed || thread.isLoading || hasOpenHumanInputCard) return;
       await sendMessage(
         threadId,
         { text: trimmed, files: [] },
@@ -250,11 +265,41 @@ export default function NewAgentPage() {
     },
     [
       agentName,
+      hasOpenHumanInputCard,
       selectedModel?.name,
       sendMessage,
       thread.isLoading,
       threadId,
     ],
+  );
+
+  const handleSubmitHumanInput = useCallback(
+    async (request: HumanInputRequest, response: HumanInputResponse) => {
+      if (!agentName) {
+        return false;
+      }
+
+      let sent = false;
+      await sendMessage(
+        threadId,
+        {
+          text: buildHumanInputResponseText(request, response),
+          files: [],
+        },
+        { agent_name: agentName, model_name: selectedModel?.name },
+        {
+          additionalKwargs: {
+            hide_from_ui: true,
+            human_input_response: response,
+          },
+          onSent: () => {
+            sent = true;
+          },
+        },
+      );
+      return sent;
+    },
+    [agentName, selectedModel?.name, sendMessage, threadId],
   );
 
   const handleSaveAgent = useCallback(async () => {
@@ -502,6 +547,7 @@ export default function NewAgentPage() {
                 className={cn("size-full", showSaveHint ? "pt-4" : "pt-10")}
                 threadId={threadId}
                 thread={thread}
+                onSubmitHumanInput={handleSubmitHumanInput}
               />
             </div>
 
@@ -538,10 +584,12 @@ export default function NewAgentPage() {
                     <PromptInputTextarea
                       autoFocus
                       placeholder={t.agents.createPageSubtitle}
-                      disabled={thread.isLoading}
+                      disabled={thread.isLoading || hasOpenHumanInputCard}
                     />
                     <PromptInputFooter className="justify-end">
-                      <PromptInputSubmit disabled={thread.isLoading} />
+                      <PromptInputSubmit
+                        disabled={thread.isLoading || hasOpenHumanInputCard}
+                      />
                     </PromptInputFooter>
                   </PromptInput>
                 )}
