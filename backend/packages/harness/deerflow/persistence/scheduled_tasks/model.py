@@ -18,6 +18,7 @@ class ScheduledTaskRow(Base):
     assistant_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     prompt: Mapped[str] = mapped_column(Text)
+    run_context: Mapped[dict] = mapped_column(JSON, default=dict)
     schedule_type: Mapped[str] = mapped_column(String(16))
     schedule_spec: Mapped[dict] = mapped_column(JSON, default=dict)
     timezone: Mapped[str] = mapped_column(String(64))

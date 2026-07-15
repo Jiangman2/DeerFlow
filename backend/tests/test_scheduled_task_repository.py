@@ -27,11 +27,20 @@ async def test_scheduled_task_repository_create_and_list(tmp_path):
         schedule_spec={"cron": "0 9 * * *"},
         timezone="Asia/Shanghai",
         next_run_at=datetime(2026, 7, 2, 1, 0, tzinfo=UTC),
+        run_context={
+            "model_name": "qwen-bailian",
+            "mode": "ultra",
+            "thinking_enabled": True,
+            "subagent_enabled": True,
+        },
     )
 
     assert created["id"] == "task-1"
+    assert created["run_context"]["model_name"] == "qwen-bailian"
+    assert created["run_context"]["subagent_enabled"] is True
     listed = await repo.list_by_user("user-1")
     assert [task["id"] for task in listed] == ["task-1"]
+    assert listed[0]["run_context"]["mode"] == "ultra"
 
     await close_engine()
 

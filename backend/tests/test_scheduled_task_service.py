@@ -72,6 +72,14 @@ async def test_service_claims_and_dispatches_due_task():
         assert kwargs["owner_user_id"] == "user-1"
         assert kwargs["metadata"]["scheduled_task_id"] == "task-1"
         assert kwargs["metadata"]["scheduled_trigger"] == "scheduled"
+        assert kwargs["run_context"] == {
+            "model_name": "qwen-bailian",
+            "mode": "ultra",
+            "thinking_enabled": True,
+            "is_plan_mode": True,
+            "subagent_enabled": True,
+            "reasoning_effort": "high",
+        }
         return {"run_id": "run-1", "thread_id": kwargs["thread_id"]}
 
     task_repo = DummyTaskRepo(
@@ -83,6 +91,14 @@ async def test_service_claims_and_dispatches_due_task():
                 "context_mode": "reuse_thread",
                 "assistant_id": "lead_agent",
                 "prompt": "Summarize thread",
+                "run_context": {
+                    "model_name": "qwen-bailian",
+                    "mode": "ultra",
+                    "thinking_enabled": True,
+                    "is_plan_mode": True,
+                    "subagent_enabled": True,
+                    "reasoning_effort": "high",
+                },
                 "schedule_type": "once",
                 "schedule_spec": {"run_at": "2026-07-02T01:00:00+00:00"},
                 "timezone": "UTC",

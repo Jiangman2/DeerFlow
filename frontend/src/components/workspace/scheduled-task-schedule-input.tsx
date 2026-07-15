@@ -109,8 +109,15 @@ export function ScheduledTaskScheduleInput({
       : "",
   );
   const [timezone, setTimezone] = useState<string>(
-    initial.timezone || detectBrowserTimezone(),
+    initial.timezone || "UTC",
   );
+
+  useEffect(() => {
+    if (initial.timezone) {
+      return;
+    }
+    setTimezone(detectBrowserTimezone());
+  }, [initial.timezone]);
 
   // Hold the latest onChange in a ref so the effect below does not depend on
   // it. This avoids a re-render loop: if the parent passes an inline
@@ -181,6 +188,8 @@ export function ScheduledTaskScheduleInput({
     { scheduleType, preset, parts, runAtLocal, timezone },
     schedLocale,
   );
+  const timezoneLabel = (tzOption: string) =>
+    tzOption === "Asia/Shanghai" ? labels.fields.timezoneShanghai : tzOption;
 
   return (
     <div className="flex flex-col gap-2" data-testid="schedule-input">
@@ -247,8 +256,8 @@ export function ScheduledTaskScheduleInput({
           )}
 
           {preset === "weekly" && (
-            <div className="flex flex-wrap gap-1">
-              <span className="text-muted-foreground w-full text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground shrink-0 text-sm">
                 {labels.fields.weekday}
               </span>
               {WEEKDAYS.map((w) => {
@@ -282,22 +291,12 @@ export function ScheduledTaskScheduleInput({
           )}
 
           {preset === "custom" && (
-            <div className="flex flex-col gap-1">
-              <Input
-                value={parts.raw ?? ""}
-                onChange={(e) => updateParts({ raw: e.target.value })}
-                placeholder={labels.fields.cronPlaceholder}
-                aria-label={labels.fields.cron}
-              />
-              <a
-                href="https://crontab.guru/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-muted-foreground text-xs hover:underline"
-              >
-                {labels.cronHelp} ↗
-              </a>
-            </div>
+            <Input
+              value={parts.raw ?? ""}
+              onChange={(e) => updateParts({ raw: e.target.value })}
+              placeholder={labels.fields.cronPlaceholder}
+              aria-label={labels.fields.cron}
+            />
           )}
         </>
       ) : (
@@ -316,7 +315,7 @@ export function ScheduledTaskScheduleInput({
         <SelectContent>
           {TIMEZONE_OPTIONS.map((tzOption) => (
             <SelectItem key={tzOption} value={tzOption}>
-              {tzOption}
+              {timezoneLabel(tzOption)}
             </SelectItem>
           ))}
         </SelectContent>

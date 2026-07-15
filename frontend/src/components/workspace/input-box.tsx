@@ -2487,10 +2487,6 @@ export function InputBox({
           </PromptInputTools>
         </PromptInputFooter>
       </PromptInput>
-      {!isWelcomeMode && (
-        <div className="bg-background absolute right-0 -bottom-[17px] left-0 z-0 h-4"></div>
-      )}
-
       {isWelcomeMode &&
         searchParams.get("mode") !== "skill" &&
         !selectedSlashSkill &&

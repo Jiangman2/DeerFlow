@@ -106,7 +106,9 @@ export function WorkspaceBody({
       )}
       {...props}
     >
-      <div className="flex h-full w-full flex-col items-center">{children}</div>
+      <div className="flex h-full min-h-0 w-full flex-col items-center">
+        {children}
+      </div>
     </main>
   );
 }
@@ -118,5 +120,8 @@ function nameOfSegment(
   if (!segment) return t.common.home;
   if (segment === "workspace") return t.breadcrumb.workspace;
   if (segment === "chats") return t.breadcrumb.chats;
+  if (segment === "agents") return t.sidebar.agents;
+  if (segment === "knowledge") return "知识库";
+  if (segment === "scheduled-tasks") return t.sidebar.scheduledTasks;
   return segment[0]?.toUpperCase() + segment.slice(1);
 }

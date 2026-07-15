@@ -40,6 +40,7 @@ class ScheduledTaskCreateRequest(BaseModel):
     context_mode: str = "fresh_thread_per_run"
     title: str = Field(min_length=1)
     prompt: str = Field(min_length=1)
+    run_context: dict[str, Any] = Field(default_factory=dict)
     schedule_type: str
     schedule_spec: dict[str, Any]
     timezone: str
@@ -50,8 +51,30 @@ class ScheduledTaskUpdateRequest(BaseModel):
     thread_id: str | None = None
     title: str | None = Field(default=None, min_length=1)
     prompt: str | None = Field(default=None, min_length=1)
+    run_context: dict[str, Any] | None = None
     schedule_spec: dict[str, Any] | None = None
     timezone: str | None = None
+
+
+_SCHEDULED_TASK_RUN_CONTEXT_KEYS: frozenset[str] = frozenset(
+    {
+        "model_name",
+        "mode",
+        "thinking_enabled",
+        "reasoning_effort",
+        "is_plan_mode",
+        "subagent_enabled",
+        "max_concurrent_subagents",
+        "weknora_knowledge_base_ids",
+        "weknora_knowledge_bases",
+    }
+)
+
+
+def _sanitize_run_context(value: dict[str, Any] | None) -> dict[str, Any]:
+    if not value:
+        return {}
+    return {key: value[key] for key in _SCHEDULED_TASK_RUN_CONTEXT_KEYS if key in value}
 
 
 @router.get("/scheduled-tasks")
@@ -116,6 +139,7 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
         assistant_id="lead_agent",
         title=body.title,
         prompt=body.prompt,
+        run_context=_sanitize_run_context(body.run_context),
         schedule_type=body.schedule_type,
         schedule_spec=schedule_spec,
         timezone=body.timezone,
@@ -150,6 +174,8 @@ async def update_scheduled_task(task_id: str, request: Request, body: ScheduledT
     _ensure_task_mutable(existing)
 
     updates = body.model_dump(exclude_none=True)
+    if "run_context" in updates:
+        updates["run_context"] = _sanitize_run_context(updates["run_context"])
     if "context_mode" in updates:
         if updates["context_mode"] not in {"fresh_thread_per_run", "reuse_thread"}:
             raise HTTPException(status_code=422, detail="Unsupported context_mode")

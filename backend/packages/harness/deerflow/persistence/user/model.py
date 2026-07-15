@@ -26,6 +26,7 @@ class UserRow(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
 
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
+    display_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     # "admin" | "user" — kept as plain string to avoid ALTER TABLE pain

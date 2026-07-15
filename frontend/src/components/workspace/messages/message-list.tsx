@@ -28,6 +28,7 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Button } from "@/components/ui/button";
+import type { FeedbackData } from "@/core/api/feedback";
 import { extractArtifactsFromThread } from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
 import {
@@ -80,7 +81,7 @@ import {
 } from "./human-input-card";
 import { MarkdownContent } from "./markdown-content";
 import { MessageGroup } from "./message-group";
-import { MessageListItem } from "./message-list-item";
+import { FeedbackButtons, MessageListItem } from "./message-list-item";
 import {
   MessageTokenUsageDebugList,
   MessageTokenUsageList,
@@ -103,6 +104,11 @@ type SelectionToolbarState = {
   x: number;
   y: number;
   placement: "top" | "bottom";
+};
+
+type FeedbackMessage = Message & {
+  feedback?: FeedbackData | null;
+  run_id?: string;
 };
 
 function LoadMoreHistoryIndicator({
@@ -550,17 +556,32 @@ export function MessageList({
       const actionTarget = [...messages]
         .reverse()
         .find((message) => message.type === "ai" && message.id);
+      const feedbackTarget = [...messages]
+        .reverse()
+        .find((message): message is FeedbackMessage => {
+          if (message.type !== "ai") {
+            return false;
+          }
+          return typeof (message as FeedbackMessage).run_id === "string";
+        });
       const assistantMessageIds = messages
         .filter((message) => message.type === "ai" && message.id)
         .map((message) => message.id)
         .filter((id): id is string => typeof id === "string");
-      if (!clipboardData && !actionTarget) {
+      if (!clipboardData && !actionTarget && !feedbackTarget) {
         return null;
       }
 
       return (
         <div className="mt-2 flex justify-start gap-1 opacity-0 transition-opacity delay-200 duration-300 group-hover/assistant-turn:opacity-100">
           {clipboardData && <CopyButton clipboardData={clipboardData} />}
+          {!isStreaming && feedbackTarget?.run_id && (
+            <FeedbackButtons
+              threadId={threadId}
+              runId={feedbackTarget.run_id}
+              initialFeedback={feedbackTarget.feedback ?? null}
+            />
+          )}
           {!isStreaming && actionTarget?.id && onBranchTurn && (
             <Tooltip content={t.common.branch}>
               <Button
@@ -638,6 +659,7 @@ export function MessageList({
       regeneratingMessageId,
       t.common.branch,
       t.common.regenerate,
+      threadId,
     ],
   );
 

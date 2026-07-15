@@ -37,6 +37,7 @@ class SQLiteUserRepository(UserRepository):
         return User(
             id=UUID(row.id),
             email=row.email,
+            display_name=row.display_name,
             password_hash=row.password_hash,
             system_role=row.system_role,  # type: ignore[arg-type]
             # SQLite loses tzinfo on read; reattach UTC so downstream
@@ -54,6 +55,7 @@ class SQLiteUserRepository(UserRepository):
         return UserRow(
             id=str(user.id),
             email=user.email,
+            display_name=user.display_name,
             password_hash=user.password_hash,
             system_role=user.system_role,
             created_at=user.created_at,
@@ -102,6 +104,7 @@ class SQLiteUserRepository(UserRepository):
                 # a row that no longer exists.
                 raise UserNotFoundError(f"User {user.id} no longer exists")
             row.email = user.email
+            row.display_name = user.display_name
             row.password_hash = user.password_hash
             row.system_role = user.system_role
             row.oauth_provider = user.oauth_provider

@@ -112,7 +112,7 @@ export function HumanInputCard({
   return (
     <section
       aria-labelledby={titleId}
-      className="border-border bg-card/70 text-card-foreground rounded-lg border p-4 shadow-xs"
+      className="rounded-lg border border-[#c7d8ec] bg-white/78 p-4 text-slate-950 shadow-[0_18px_55px_rgba(31,67,120,0.10)] backdrop-blur-sm"
       data-testid="human-input-card"
     >
       <div className="flex items-start gap-3">

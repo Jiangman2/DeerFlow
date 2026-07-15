@@ -1,6 +1,6 @@
 ---
 name: tech-intel-daily
-description: Generate Chinese technology-management intelligence daily reports for CNOOC-style marine oil and gas R&D management. Use for 科技情报日报、科技管理情报跟踪、政策/行业/科研动态采集筛选、日报 HTML 生成、科技管理知识库更新、全文标注与研判分析.
+description: Slash-activated Chinese technology-management intelligence daily report pipeline for CNOOC-style marine oil and gas R&D management. Use only when the user explicitly starts with /tech-intel-daily and needs daily_report.html.
 ---
 
 # Tech Intel Daily
@@ -8,6 +8,11 @@ description: Generate Chinese technology-management intelligence daily reports f
 ## Activation Contract
 
 This Skill is designed for native slash activation.
+
+Only use this Skill when the user starts the turn with `/tech-intel-daily`.
+If the user did not explicitly slash-activate it, stop following this Skill and
+answer with the normal agent/tool workflow instead. Scheduled-task recipes that
+ask for a Markdown news summary are not slash activation.
 
 When the user starts a turn with `/tech-intel-daily`, treat this `SKILL.md` as the controlling instruction for the turn. The task is not complete until the pipeline script has run and `daily_report.html` has been presented as a file.
 
@@ -117,9 +122,14 @@ If the command returns a non-zero exit code:
 - Do not write a substitute report in chat.
 - Do not invent article titles, policy names, standards, counts, audit IDs, deadlines, or conclusions.
 - Read the exact error output.
-- Fix path, dependency, date, or script issues when possible.
-- Retry the same entrypoint.
-- If it still fails, report the exact blocker and the command that failed.
+- Fix only obvious path, dependency, date, or script invocation issues.
+- Retry the same entrypoint at most once.
+- Do not call unrelated scripts from other Skills, create fake diagnostics, manually overwrite `collection_diagnostics.json`, activate a virtual environment that was not created by this pipeline, or run ad-hoc web collection to bypass the pipeline.
+- If it still fails, stop and report the exact blocker and the command that failed.
+
+If a step command returns empty stdout, invalid JSON, or times out, treat that as
+a failed step. Retry the same step once. If the retry still does not produce a
+valid JSON result, stop and report the failed step instead of trying other tools.
 
 If no articles are selected, still generate and present `daily_report.html`. The report must explain whether the result came from no candidates, access limitations, date mismatch, or filtering rules.
 

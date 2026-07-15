@@ -19,6 +19,7 @@ class User(BaseModel):
 
     id: UUID = Field(default_factory=uuid4, description="Primary key")
     email: EmailStr = Field(..., description="Unique email address")
+    display_name: str | None = Field(None, description="Human-readable display name from SSO or admin profile")
     password_hash: str | None = Field(None, description="bcrypt hash, nullable for OAuth users")
     system_role: Literal["admin", "user"] = Field(default="user")
     created_at: datetime = Field(default_factory=_utc_now)
@@ -38,6 +39,7 @@ class UserResponse(BaseModel):
 
     id: str
     email: str
+    display_name: str | None = None
     system_role: Literal["admin", "user"]
     needs_setup: bool = False
     is_disabled: bool = False

@@ -45,6 +45,17 @@ export interface AgentUsageItem {
   avg_duration_ms: number;
 }
 
+export interface UserUsageItem {
+  user_id: string;
+  display_name: string;
+  account: string;
+  email: string | null;
+  runs: number;
+  threads: number;
+  success_rate: number;
+  last_active_at: string | null;
+}
+
 export interface ModelUsageItem {
   model_name: string;
   runs: number;
@@ -57,6 +68,8 @@ export interface ModelUsageItem {
 
 export interface DashboardFilters {
   hours?: number;
+  start_at?: string;
+  end_at?: string;
   status?: string;
   model?: string;
   agent?: string;
@@ -178,6 +191,7 @@ export interface DashboardSummary {
   feature_usage: FeatureUsageItem[];
   recent_business_events: RecentBusinessEventItem[];
   agent_usage: AgentUsageItem[];
+  user_usage: UserUsageItem[];
   model_usage: ModelUsageItem[];
   business_value: BusinessValueSummary;
   artifact_summary: ArtifactSummary;

@@ -6,7 +6,7 @@ from typing import Any
 from unittest.mock import AsyncMock, call
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.checkpoint.base import empty_checkpoint
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -154,6 +154,52 @@ async def test_run_agent_marks_llm_error_fallback_as_error_status():
     assert fetched is not None
     assert fetched.status == RunStatus.error
     assert fetched.error == "Connection error."
+    bridge.publish_end.assert_awaited_once_with(record.run_id)
+
+
+@pytest.mark.anyio
+async def test_run_agent_marks_open_clarification_as_interrupted():
+    run_manager = RunManager()
+    record = await run_manager.create("thread-clarify")
+    bridge = SimpleNamespace(
+        publish=AsyncMock(),
+        publish_end=AsyncMock(),
+        cleanup=AsyncMock(),
+    )
+    clarification = ToolMessage(
+        content="Need your help",
+        name="ask_clarification",
+        tool_call_id="call-clarify",
+        artifact={"human_input": {"request_id": "req-clarify"}},
+    )
+    checkpointer = SimpleNamespace(
+        aget_tuple=AsyncMock(
+            return_value=SimpleNamespace(
+                checkpoint={"channel_values": {"messages": [clarification]}}
+            )
+        )
+    )
+
+    class DummyAgent:
+        async def astream(self, graph_input, config=None, stream_mode=None, subgraphs=False):
+            yield {"messages": [clarification]}
+
+    def factory(*, config):
+        return DummyAgent()
+
+    await run_agent(
+        bridge,
+        run_manager,
+        record,
+        ctx=RunContext(checkpointer=checkpointer),
+        agent_factory=factory,
+        graph_input={},
+        config={},
+    )
+
+    fetched = await run_manager.get(record.run_id)
+    assert fetched is not None
+    assert fetched.status == RunStatus.interrupted
     bridge.publish_end.assert_awaited_once_with(record.run_id)
 
 

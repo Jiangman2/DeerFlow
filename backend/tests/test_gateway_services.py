@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -625,6 +626,48 @@ def test_inject_authenticated_user_context_skips_internal_role():
     inject_authenticated_user_context(config, request)
 
     assert config["context"]["user_id"] == "channel-user-7"
+
+
+@pytest.mark.asyncio
+async def test_launch_scheduled_thread_run_preserves_saved_run_context(monkeypatch):
+    from app.gateway import services
+
+    captured = {}
+
+    async def fake_start_run(body, thread_id, request):
+        captured["body_context"] = body.context
+        captured["thread_id"] = thread_id
+        return SimpleNamespace(run_id="run-1", thread_id=thread_id)
+
+    monkeypatch.setattr(services, "start_run", fake_start_run)
+
+    result = await services.launch_scheduled_thread_run(
+        thread_id="thread-1",
+        assistant_id="lead_agent",
+        prompt="do work",
+        app=SimpleNamespace(state=SimpleNamespace()),
+        owner_user_id="user-1",
+        run_context={
+            "model_name": "qwen-bailian",
+            "mode": "ultra",
+            "thinking_enabled": True,
+            "is_plan_mode": True,
+            "subagent_enabled": True,
+            "reasoning_effort": "high",
+        },
+    )
+
+    assert result == {"run_id": "run-1", "thread_id": "thread-1"}
+    assert captured["body_context"] == {
+        "model_name": "qwen-bailian",
+        "mode": "ultra",
+        "thinking_enabled": True,
+        "is_plan_mode": True,
+        "subagent_enabled": True,
+        "reasoning_effort": "high",
+        "non_interactive": True,
+        "user_id": "user-1",
+    }
 
 
 async def _capture_start_run_graph_input(body):

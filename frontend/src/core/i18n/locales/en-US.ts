@@ -194,12 +194,10 @@ export const enUS: Translations = {
     inputPolishCancel: "Cancel polishing",
     voiceInputStartLabel: "Dictate with voice",
     voiceInputStopLabel: "Stop voice input",
-    voiceInputStart:
-      "Dictate with voice. CNOOC Exploration and Development General Agent receives only transcribed text; audio is handled by your browser or system speech service.",
+    voiceInputStart: "Click to dictate",
     voiceInputStop: "Stop voice input",
-    voiceInputListening: "Listening... Click to stop voice input.",
-    voiceInputUnsupported:
-      "Voice input is not supported in this browser. Try Chrome or Edge.",
+    voiceInputListening: "Listening. Click to stop.",
+    voiceInputUnsupported: "Voice input is not supported here.",
     voiceInputPermissionDenied:
       "Microphone access was denied. Allow microphone access and try again.",
     voiceInputMicrophoneUnavailable:
@@ -311,8 +309,11 @@ export const enUS: Translations = {
       dayOfMonth: "Day of month",
       cron: "Cron expression",
       cronPlaceholder: "0 9 * * *",
+      cronHint:
+        "Use 5 fields: minute hour day month weekday. Every minute is * * * * * or */1 * * * *; 1 * * * * means the 1st minute of every hour.",
       runAt: "Run at",
       timezone: "Timezone",
+      timezoneShanghai: "Beijing time (Asia/Shanghai)",
     },
     weekdays: {
       mon: "Mon",
@@ -324,13 +325,31 @@ export const enUS: Translations = {
       sun: "Sun",
     },
     preview: "Preview",
-    cronHelp: "Open crontab.guru",
+    cronHelp: "Optional: validate with crontab.guru",
     create: {
       title: "Create scheduled task",
+      description:
+        "Set a prompt and a schedule. DeerFlow will launch the task in the background without asking follow-up questions.",
       taskTitle: "Task title",
       prompt: "Prompt",
       submit: "Create",
       fillRequired: "Fill all required fields",
+      adviceTitle: "Creation tips",
+      adviceFresh:
+        "Fresh thread is best for recurring digests, reports, and monitoring summaries.",
+      adviceReuse:
+        "Reuse thread is best when every run should continue the same topic.",
+      adviceCron: "Cron uses 5 positions to describe when a task repeats.",
+      adviceCronFormat: "minute, hour, day of month, month, weekday",
+      adviceCronExamples: [
+        "* * * * *: run every minute.",
+        "*/5 * * * *: run every 5 minutes.",
+        "0 9 * * *: run every day at 09:00.",
+        "30 8 * * 1: run every Monday at 08:30.",
+        "1 * * * *: run at minute 1 of every hour; it does not mean every minute.",
+      ],
+      adviceCronExternal:
+        "If crontab.guru is unavailable on the intranet, use these examples directly.",
     },
     context: {
       fresh: "Fresh thread",
@@ -338,6 +357,7 @@ export const enUS: Translations = {
       threadIdPlaceholder: "Thread ID",
     },
     filters: {
+      label: "Filters",
       allStatuses: "All statuses",
       enabled: "Enabled",
       paused: "Paused",
@@ -352,6 +372,7 @@ export const enUS: Translations = {
       thread: "Thread",
       lastThread: "Last thread",
       schedule: "Schedule",
+      expression: "Expression",
       nextRun: "Next run",
       lastRun: "Last run",
       lastRunId: "Last run id",
@@ -360,6 +381,9 @@ export const enUS: Translations = {
       runsCountOne: "{count} run",
       noRuns: "No runs yet",
       noSelection: "No scheduled task selected",
+      emptyTitle: "No scheduled tasks yet",
+      emptyDescription:
+        "Create a scheduled task to run prompts automatically and track status, next run time, and history here.",
       filteredByThread: "Filtered by thread: {id}",
       loadFailed: "Failed to load scheduled tasks",
     },
@@ -413,9 +437,9 @@ export const enUS: Translations = {
         title: "Daily tech news digest",
         desc: "Collect and summarize the day's top tech news",
       },
-      issues: {
-        title: "GitHub Issue triage",
-        desc: "Triage a repo's open issues (fill in {{repo}})",
+      energyIntel: {
+        title: "Daily energy tech intelligence",
+        desc: "Track energy technology and oilfield AI updates",
       },
       weekly: {
         title: "Weekly report",

@@ -768,6 +768,7 @@ async def launch_scheduled_thread_run(
     request: Request | None = None,
     app: Any | None = None,
     owner_user_id: str | None = None,
+    run_context: Mapping[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if request is None:
@@ -785,6 +786,11 @@ async def launch_scheduled_thread_run(
     # SimpleNamespace stands in for the Pydantic run-request body that the
     # HTTP path parses. If start_run gains a new body.* attribute that it reads
     # directly, add the matching field here so the scheduler path stays in sync.
+    scheduled_context = dict(run_context or {})
+    scheduled_context["non_interactive"] = True
+    if owner_user_id:
+        scheduled_context["user_id"] = owner_user_id
+
     body = SimpleNamespace(
         assistant_id=assistant_id,
         input={"messages": [{"role": "user", "content": prompt}]},
@@ -795,7 +801,7 @@ async def launch_scheduled_thread_run(
         # runtime-context consumers without a ContextVar fallback (e.g.
         # user-scoped GuardrailMiddleware providers) see the owning user;
         # ``inject_authenticated_user_context`` skips the internal user.
-        context=({"non_interactive": True, "user_id": owner_user_id} if owner_user_id else {"non_interactive": True}),
+        context=scheduled_context,
         webhook=None,
         checkpoint_id=None,
         checkpoint=None,

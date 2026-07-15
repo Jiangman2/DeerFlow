@@ -10,9 +10,9 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
     inlineMode: "per_turn",
   },
   context: {
-    model_name: undefined,
-    mode: undefined,
-    reasoning_effort: undefined,
+    model_name: "qwen-bailian",
+    mode: "ultra",
+    reasoning_effort: "high",
   },
 };
 

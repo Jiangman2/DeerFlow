@@ -47,3 +47,25 @@ def test_next_run_at_for_cron_uses_timezone():
         now=now,
     )
     assert result == datetime(2026, 7, 1, 1, 0, tzinfo=UTC)
+
+
+def test_next_run_at_for_every_minute_cron():
+    now = datetime(2026, 7, 1, 0, 30, 15, tzinfo=UTC)
+    result = next_run_at(
+        "cron",
+        {"cron": "* * * * *"},
+        "UTC",
+        now=now,
+    )
+    assert result == datetime(2026, 7, 1, 0, 31, tzinfo=UTC)
+
+
+def test_next_run_at_for_first_minute_of_every_hour_cron():
+    now = datetime(2026, 7, 1, 0, 30, tzinfo=UTC)
+    result = next_run_at(
+        "cron",
+        {"cron": "1 * * * *"},
+        "UTC",
+        now=now,
+    )
+    assert result == datetime(2026, 7, 1, 1, 1, tzinfo=UTC)

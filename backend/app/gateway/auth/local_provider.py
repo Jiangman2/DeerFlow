@@ -65,7 +65,14 @@ class LocalAuthProvider(AuthProvider):
         """Get user by ID."""
         return await self._repo.get_user_by_id(user_id)
 
-    async def create_user(self, email: str, password: str | None = None, system_role: str = "user", needs_setup: bool = False) -> User:
+    async def create_user(
+        self,
+        email: str,
+        password: str | None = None,
+        system_role: str = "user",
+        needs_setup: bool = False,
+        display_name: str | None = None,
+    ) -> User:
         """Create a new local user.
 
         Args:
@@ -80,6 +87,7 @@ class LocalAuthProvider(AuthProvider):
         password_hash = await hash_password_async(password) if password else None
         user = User(
             email=email,
+            display_name=display_name,
             password_hash=password_hash,
             system_role=system_role,
             needs_setup=needs_setup,
@@ -112,6 +120,7 @@ class LocalAuthProvider(AuthProvider):
         oauth_provider: str,
         oauth_id: str,
         system_role: str = "user",
+        display_name: str | None = None,
     ) -> User:
         """Create a new user from an OAuth/OIDC login.
 
@@ -126,6 +135,7 @@ class LocalAuthProvider(AuthProvider):
         """
         user = User(
             email=email,
+            display_name=display_name,
             password_hash=None,
             system_role=system_role,
             needs_setup=False,

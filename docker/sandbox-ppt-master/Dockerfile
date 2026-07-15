@@ -1,4 +1,5 @@
-FROM enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest
+ARG SANDBOX_BASE_IMAGE=enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox@sha256:742062f99915e5495df8d4bfeaf40a93197c87c7c47b4e2407cd2b6356df8f48
+FROM ${SANDBOX_BASE_IMAGE}
 
 USER root
 

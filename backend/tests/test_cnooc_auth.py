@@ -36,15 +36,18 @@ class _FakeProvider:
         oauth_provider: str,
         oauth_id: str,
         system_role: str = "user",
+        display_name: str | None = None,
     ) -> User:
         self.created_oauth_user_args = {
             "email": email,
             "oauth_provider": oauth_provider,
             "oauth_id": oauth_id,
             "system_role": system_role,
+            "display_name": display_name,
         }
         return User(
             email=email,
+            display_name=display_name,
             password_hash=None,
             system_role=system_role,
             oauth_provider=oauth_provider,
@@ -158,6 +161,7 @@ def test_cnooc_login_creates_oauth_user_and_sets_session_cookies(monkeypatch):
         "oauth_provider": "cnooc",
         "oauth_id": "CNOOC-001",
         "system_role": "user",
+        "display_name": "CNOOC User",
     }
 
     cookie_headers = _set_cookie_headers(response)
@@ -197,6 +201,7 @@ def test_cnooc_login_links_existing_local_account_by_email(monkeypatch):
     assert provider.updated_user is provider.email_user
     assert provider.updated_user.oauth_provider == "cnooc"
     assert provider.updated_user.oauth_id == "CNOOC-001"
+    assert provider.updated_user.display_name == "CNOOC User"
     assert provider.created_oauth_user_args is None
 
 
@@ -221,6 +226,7 @@ def test_cnooc_login_refreshes_existing_cnooc_email_link(monkeypatch):
     assert provider.updated_user is provider.email_user
     assert provider.updated_user.oauth_provider == "cnooc"
     assert provider.updated_user.oauth_id == "CNOOC-001"
+    assert provider.updated_user.display_name == "CNOOC User"
     assert provider.created_oauth_user_args is None
 
 

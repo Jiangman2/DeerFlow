@@ -1,71 +1,76 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import {
   ActivityIcon,
   BarChart3Icon,
   BotIcon,
-  ExternalLinkIcon,
-  FileArchiveIcon,
-  FilterIcon,
-  LineChartIcon,
+  CheckCircle2Icon,
+  ClockIcon,
+  HeartIcon,
   RefreshCwIcon,
-  ThumbsUpIcon,
+  SparklesIcon,
+  TrendingUpIcon,
   UsersIcon,
   ZapIcon,
 } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { useDashboardSummary } from "@/core/dashboard";
 import type {
-  AgentUsageItem,
   BusinessValueSummary,
   DashboardFilters,
-  FeedbackSummary,
   FeatureUsageItem,
+  FeedbackSummary,
   UserActivityPoint,
+  UserUsageItem,
 } from "@/core/dashboard";
 import { cn } from "@/lib/utils";
+
+const FEATURE_LABELS: Record<string, string> = {
+  artifacts: "产物生成",
+  artifact: "产物生成",
+  knowledge: "知识库问答",
+  file_processing: "文件处理",
+  presentation: "汇报材料",
+  image: "图像处理",
+  deep_research: "深度研究",
+  scheduled_task: "定时任务",
+  agent: "智能体",
+  chat: "对话问答",
+};
 
 function compactNumber(value: number): string {
   return Intl.NumberFormat("zh-CN", { notation: "compact" }).format(value);
 }
 
 function percent(value: number): string {
+  if (!Number.isFinite(value)) return "-";
   return `${Math.round(value * 1000) / 10}%`;
 }
 
 function duration(ms: number): string {
   if (!ms) return "-";
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) return `${Math.round(ms)}ms`;
   if (ms < 60_000) return `${Math.round(ms / 100) / 10}s`;
-  return `${Math.round(ms / 6000) / 10}m`;
+  return `${Math.round(ms / 6000) / 10} 分钟`;
 }
 
 function minutes(value: number): string {
   if (!value) return "-";
-  if (value < 60) return `${value} 分钟`;
+  if (value < 60) return `${Math.round(value)} 分钟`;
   return `${Math.round(value / 6) / 10} 小时`;
 }
 
-function shortTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return "-";
-  return date.toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function safeRatio(part: number, total: number): number {
+  if (!total || total <= 0) return 0;
+  return part / total;
+}
+
+function featureLabel(name: string): string {
+  return FEATURE_LABELS[name] ?? FEATURE_LABELS[name.toLowerCase()] ?? name;
 }
 
 function shortDate(value: string): string {
@@ -77,145 +82,159 @@ function shortDate(value: string): string {
   });
 }
 
-function statusLabel(value: string | null | undefined): string {
-  const labels: Record<string, string> = {
-    all: "全部状态",
-    success: "成功",
-    error: "失败",
-    timeout: "超时",
-    interrupted: "中断",
-    running: "运行中",
-    pending: "等待中",
-  };
-  return labels[value ?? ""] ?? value ?? "-";
+function toDateTimeLocal(value: Date): string {
+  const offsetMs = value.getTimezoneOffset() * 60_000;
+  return new Date(value.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
-function valueProfileLabel(value: string | undefined): string {
-  if (value === "standard") return "标准折算";
-  return "保守折算";
+function isoFromDateTimeLocal(value: string): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return undefined;
+  return date.toISOString();
 }
 
-function uniqueOptions(
-  current: string,
-  items: Array<{ value: string; label: string }>,
-) {
-  if (
-    !current ||
-    current === "all" ||
-    items.some((item) => item.value === current)
-  ) {
-    return items;
+function hoursBetween(startAt?: string, endAt?: string): number | null {
+  if (!startAt || !endAt) return null;
+  const start = new Date(startAt).valueOf();
+  const end = new Date(endAt).valueOf();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+  return Math.max(1, Math.ceil((end - start) / 3_600_000));
+}
+
+function windowLabel(hours: number, startAt?: string, endAt?: string): string {
+  if (startAt && endAt) {
+    return `自定义区间 · ${hours} 小时`;
   }
-  return [{ value: current, label: current }, ...items];
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  tone = "slate",
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  icon: typeof ActivityIcon;
-  tone?: "slate" | "green" | "amber" | "red";
-}) {
-  const toneClass = {
-    slate: "bg-slate-50 text-slate-700",
-    green: "bg-emerald-50 text-emerald-700",
-    amber: "bg-amber-50 text-amber-700",
-    red: "bg-red-50 text-red-700",
-  }[tone];
-
-  return (
-    <Card className="min-w-0 gap-4 rounded-lg py-5 shadow-none">
-      <CardHeader className="flex-row items-center justify-between gap-3 px-5">
-        <CardTitle className="text-sm font-medium text-slate-600">
-          {label}
-        </CardTitle>
-        <span className={cn("rounded-md p-2", toneClass)}>
-          <Icon className="size-4" />
-        </span>
-      </CardHeader>
-      <CardContent className="px-5">
-        <div className="text-2xl font-semibold break-words text-slate-950">
-          {value}
-        </div>
-        <div className="mt-2 text-xs text-slate-500">{detail}</div>
-      </CardContent>
-    </Card>
-  );
+  if (hours === 1) return "最近 1 小时";
+  if (hours === 24) return "最近 24 小时";
+  if (hours === 168) return "最近 7 天";
+  return `最近 ${hours} 小时`;
 }
 
 function EmptyState({ label }: { label: string }) {
   return (
-    <div className="flex min-h-28 items-center justify-center rounded-lg border border-dashed text-sm text-slate-500">
+    <div className="flex min-h-32 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
       {label}
     </div>
   );
 }
 
-function BarRow({
-  label,
+function ExecutiveMetric({
+  title,
   value,
-  max,
-  detail,
+  caption,
+  icon: Icon,
+  tone = "blue",
+  progress,
 }: {
-  label: string;
-  value: number;
-  max: number;
-  detail?: string;
+  title: string;
+  value: string;
+  caption: string;
+  icon: LucideIcon;
+  tone?: "blue" | "green" | "amber" | "red" | "slate";
+  progress?: number;
 }) {
-  const width = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
+  const toneClass = {
+    blue: "bg-blue-50 text-blue-700",
+    green: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
+    red: "bg-red-50 text-red-700",
+    slate: "bg-slate-100 text-slate-700",
+  }[tone];
+
+  const barClass = {
+    blue: "bg-blue-600",
+    green: "bg-emerald-600",
+    amber: "bg-amber-500",
+    red: "bg-red-500",
+    slate: "bg-slate-500",
+  }[tone];
+
   return (
-    <div className="grid min-w-0 grid-cols-[minmax(72px,140px)_minmax(0,1fr)_auto] items-center gap-3 text-sm sm:grid-cols-[minmax(96px,160px)_minmax(0,1fr)_auto]">
-      <div className="min-w-0 truncate text-slate-700" title={label}>
-        {label}
+    <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-medium text-slate-600">{title}</div>
+          <div className="mt-2 text-2xl font-semibold text-slate-950">
+            {value}
+          </div>
+        </div>
+        <span className={cn("rounded-md p-2", toneClass)}>
+          <Icon className="size-4" />
+        </span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="h-full rounded-full bg-slate-800"
-          style={{ width: `${width}%` }}
-        />
+      <div className="mt-2 text-xs leading-5 text-slate-500">{caption}</div>
+      {progress !== undefined ? (
+        <div className="mt-3 h-1.5 rounded-full bg-slate-100">
+          <div
+            className={cn("h-1.5 rounded-full", barClass)}
+            style={{
+              width: `${Math.max(3, Math.min(100, progress * 100))}%`,
+            }}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function InsightBlock({
+  title,
+  value,
+  detail,
+  icon: Icon,
+}: {
+  title: string;
+  value: string;
+  detail: string;
+  icon: LucideIcon;
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+      <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <Icon className="size-4 text-blue-700" />
+        {title}
       </div>
-      <div className="min-w-16 text-right text-slate-500">
-        {detail ?? compactNumber(value)}
-      </div>
+      <div className="mt-2 text-xl font-semibold text-slate-950">{value}</div>
+      <div className="mt-1 text-xs leading-5 text-slate-500">{detail}</div>
     </div>
   );
 }
 
 function ActivityTrend({ items }: { items: UserActivityPoint[] }) {
-  const max = Math.max(1, ...items.map((item) => item.runs));
-  if (items.length === 0) return <EmptyState label="暂无活跃数据" />;
+  if (items.length === 0) {
+    return <EmptyState label="暂无活跃趋势数据" />;
+  }
+
+  const maxRuns = Math.max(...items.map((item) => item.runs), 1);
+  const maxActive = Math.max(...items.map((item) => item.active_users), 1);
 
   return (
-    <div className="flex h-56 min-w-0 items-end gap-1 overflow-hidden border-b border-l border-slate-200 px-2 pt-4 sm:gap-2">
+    <div className="grid min-h-64 grid-cols-[repeat(auto-fit,minmax(34px,1fr))] items-end gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-4">
       {items.map((item) => {
-        const height = Math.max(6, Math.round((item.runs / max) * 100));
+        const runHeight = Math.max(8, Math.round((item.runs / maxRuns) * 100));
+        const activeHeight = Math.max(
+          8,
+          Math.round((item.active_users / maxActive) * 100),
+        );
         return (
           <div
             key={item.date}
-            className="flex min-w-0 flex-1 flex-col items-center gap-2"
+            className="flex min-w-0 flex-col items-center gap-2"
+            title={`${shortDate(item.date)}：${item.active_users} 位活跃用户，${item.runs} 次运行`}
           >
-            <div className="flex w-full min-w-0 items-end justify-center gap-1">
+            <div className="flex h-44 items-end gap-1">
               <div
-                className="w-full max-w-3 min-w-[2px] rounded-t bg-slate-800"
-                style={{ height: `${height}%`, minHeight: item.runs ? 8 : 2 }}
-                title={`${item.runs} 次运行`}
+                className="w-2 rounded-t-sm bg-blue-600"
+                style={{ height: `${runHeight}%` }}
               />
               <div
-                className="w-full max-w-3 min-w-[2px] rounded-t bg-emerald-500"
-                style={{
-                  height: `${Math.max(4, Math.round((item.active_users / Math.max(1, max)) * 100))}%`,
-                  minHeight: item.active_users ? 8 : 2,
-                }}
-                title={`${item.active_users} 个活跃用户`}
+                className="w-2 rounded-t-sm bg-emerald-500"
+                style={{ height: `${activeHeight}%` }}
               />
             </div>
-            <div className="w-full truncate text-center text-xs text-slate-500">
+            <div className="truncate text-[11px] text-slate-500">
               {shortDate(item.date)}
             </div>
           </div>
@@ -225,16 +244,50 @@ function ActivityTrend({ items }: { items: UserActivityPoint[] }) {
   );
 }
 
+function BarRow({
+  label,
+  value,
+  max,
+  suffix,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  suffix?: string;
+}) {
+  const width = max > 0 ? Math.max(3, Math.round((value / max) * 100)) : 0;
+  return (
+    <div className="grid gap-2">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="truncate text-slate-700">{label}</span>
+        <span className="shrink-0 font-medium text-slate-950">
+          {compactNumber(value)}
+          {suffix}
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-slate-100">
+        <div
+          className="h-2 rounded-full bg-blue-600"
+          style={{ width: `${width}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function FeatureUsage({ items }: { items: FeatureUsageItem[] }) {
-  const max = Math.max(0, ...items.map((item) => item.count));
-  if (items.length === 0) return <EmptyState label="暂无功能使用数据" />;
+  const topItems = items.slice(0, 6);
+  if (topItems.length === 0) {
+    return <EmptyState label="暂无能力使用数据" />;
+  }
+  const max = Math.max(...topItems.map((item) => item.count), 1);
 
   return (
-    <div className="space-y-3">
-      {items.map((item) => (
+    <div className="grid gap-4">
+      {topItems.map((item) => (
         <BarRow
           key={item.name}
-          label={item.name}
+          label={featureLabel(item.name)}
           value={item.count}
           max={max}
         />
@@ -243,37 +296,47 @@ function FeatureUsage({ items }: { items: FeatureUsageItem[] }) {
   );
 }
 
-function AgentRanking({ items }: { items: AgentUsageItem[] }) {
-  if (items.length === 0) return <EmptyState label="暂无智能体使用数据" />;
+function UserUsageRanking({ items }: { items: UserUsageItem[] }) {
+  const topItems = items.slice(0, 5);
+  if (topItems.length === 0) {
+    return <EmptyState label="暂无用户使用数据" />;
+  }
 
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px_40px_56px] gap-2 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 sm:grid-cols-[minmax(0,1fr)_84px_84px_96px] sm:gap-3 sm:px-4">
-        <div>智能体</div>
-        <div className="text-right">运行</div>
-        <div className="text-right">用户</div>
-        <div className="text-right">成功率</div>
-      </div>
-      {items.map((item) => (
+    <div className="grid gap-3">
+      {topItems.map((item, index) => (
         <div
-          key={item.assistant_id ?? item.name}
-          className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px_40px_56px] gap-2 border-t px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_84px_84px_96px] sm:gap-3 sm:px-4"
+          key={item.user_id}
+          className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3"
         >
-          <div className="min-w-0">
-            <div
-              className="truncate font-medium text-slate-800"
-              title={item.name}
-            >
-              {item.name}
-            </div>
-            <div className="truncate text-xs text-slate-500">
-              平均耗时 {duration(item.avg_duration_ms)}
-            </div>
+          <div className="flex size-8 items-center justify-center rounded-md bg-white text-sm font-semibold text-blue-700 shadow-sm">
+            {index + 1}
           </div>
-          <div className="text-right text-slate-700">{item.runs}</div>
-          <div className="text-right text-slate-700">{item.users}</div>
-          <div className="text-right text-slate-700">
-            {percent(item.success_rate)}
+          <div className="min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate font-medium text-slate-900">
+                  {item.display_name || item.account}
+                </div>
+                <div className="mt-0.5 truncate text-xs text-slate-500">
+                  {item.account}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-base font-semibold text-slate-950">
+                  {compactNumber(item.runs)}
+                </div>
+                <div className="text-xs text-slate-500">次使用</div>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500">
+              <div className="rounded bg-white px-2 py-1">
+                会话 {compactNumber(item.threads)}
+              </div>
+              <div className="rounded bg-white px-2 py-1">
+                成功率 {percent(item.success_rate)}
+              </div>
+            </div>
           </div>
         </div>
       ))}
@@ -281,492 +344,365 @@ function AgentRanking({ items }: { items: AgentUsageItem[] }) {
   );
 }
 
-function BusinessValue({ summary }: { summary?: BusinessValueSummary }) {
-  const contributions = summary?.contributions ?? [];
+function BusinessValuePanel({ summary }: { summary?: BusinessValueSummary }) {
+  const contributions = summary?.contributions?.slice(0, 5) ?? [];
+  const max = Math.max(
+    ...contributions.map((item) => item.estimated_minutes),
+    1,
+  );
 
   return (
-    <Card className="min-w-0 rounded-lg shadow-none">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <LineChartIcon className="size-4" />
-          业务价值
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid min-w-0 gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="rounded-lg border bg-slate-900 p-4 text-white">
-            <div className="text-xs text-slate-300">
-              {valueProfileLabel(summary?.profile)}
-            </div>
-            <div className="mt-2 text-2xl font-semibold">
-              {minutes(summary?.estimated_minutes_saved ?? 0)}
-            </div>
-            <div className="mt-2 text-xs text-slate-300">
-              基于运行事件、产物记录和业务动作做粗略折算
-            </div>
-          </div>
-          {contributions.length > 0 ? (
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              {contributions.map((item) => (
-                <div key={item.name} className="rounded-lg border bg-white p-4">
-                  <div className="text-xs text-slate-500">{item.name}</div>
-                  <div className="mt-2 text-2xl font-semibold text-slate-950">
-                    {compactNumber(item.count)}
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {item.minutes_per_event} 分钟/次，贡献{" "}
-                    {minutes(item.estimated_minutes)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState label="暂无可折算的业务价值事件" />
-          )}
+    <div className="grid gap-4">
+      <div className="rounded-md border border-blue-100 bg-blue-50 p-4">
+        <div className="text-sm text-blue-700">保守估算节省时间</div>
+        <div className="mt-1 text-2xl font-semibold text-blue-950">
+          {minutes(summary?.estimated_minutes_saved ?? 0)}
         </div>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">产物生成</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.artifact_runs ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">知识检索</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.knowledge_runs ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">文件处理</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.file_processing_runs ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">材料生成</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.presentation_runs ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">图片生成</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.image_runs ?? 0)}
-            </div>
-          </div>
+        <div className="mt-1 text-xs text-blue-700/80">
+          只统计可识别的文件处理、产物生成、知识库和汇报相关能力。
         </div>
-      </CardContent>
-    </Card>
+      </div>
+      {contributions.length > 0 ? (
+        contributions.map((item) => (
+          <BarRow
+            key={item.name}
+            label={featureLabel(item.name)}
+            value={item.estimated_minutes}
+            max={max}
+            suffix=" 分钟"
+          />
+        ))
+      ) : (
+        <EmptyState label="暂无可估算的业务价值数据" />
+      )}
+    </div>
   );
 }
 
 function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
   const total = summary?.total ?? 0;
+  const positive = summary?.positive ?? 0;
+  const negative = summary?.negative ?? 0;
+  const satisfaction = summary?.satisfaction_rate ?? 0;
+
+  if (total === 0) {
+    return (
+      <EmptyState label="暂无用户反馈数据，建议在试点阶段引导用户评价回答质量" />
+    );
+  }
+
   return (
-    <Card className="min-w-0 rounded-lg shadow-none">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <ThumbsUpIcon className="size-4" />
-          用户反馈
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="min-w-0 space-y-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-sm text-slate-500">反馈数</div>
-            <div className="mt-2 text-2xl font-semibold">
-              {compactNumber(total)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-sm text-slate-500">好评</div>
-            <div className="mt-2 text-2xl font-semibold text-emerald-700">
-              {compactNumber(summary?.positive ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-sm text-slate-500">差评</div>
-            <div className="mt-2 text-2xl font-semibold text-red-700">
-              {compactNumber(summary?.negative ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-sm text-slate-500">满意率</div>
-            <div className="mt-2 text-2xl font-semibold">
-              {percent(summary?.satisfaction_rate ?? 0)}
-            </div>
+    <div className="grid gap-4">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <div className="text-xs text-slate-500">反馈总数</div>
+          <div className="mt-1 text-xl font-semibold text-slate-950">
+            {compactNumber(total)}
           </div>
         </div>
-        {(summary?.by_feature.length ?? 0) > 0 ? (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-700">功能满意度</div>
-            {summary?.by_feature.slice(0, 5).map((item) => (
-              <div
-                key={item.name}
-                className="grid min-w-0 grid-cols-[minmax(0,1fr)_48px_48px_56px] gap-2 rounded-lg border px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_64px_64px_72px]"
-              >
-                <div className="truncate text-slate-700" title={item.name}>
-                  {item.name}
-                </div>
-                <div className="text-right text-emerald-700">
-                  好 {item.positive}
-                </div>
-                <div className="text-right text-red-700">
-                  差 {item.negative}
-                </div>
-                <div className="text-right text-slate-500">
-                  {percent(item.satisfaction_rate)}
-                </div>
-              </div>
-            ))}
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+          <div className="text-xs text-emerald-700">正向反馈</div>
+          <div className="mt-1 text-xl font-semibold text-emerald-950">
+            {compactNumber(positive)}
           </div>
-        ) : null}
-        {(summary?.recent_negative.length ?? 0) > 0 ? (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-700">近期负反馈</div>
-            {summary?.recent_negative.map((item) => (
-              <div
-                key={`${item.run_id}-${item.created_at}-negative`}
-                className="rounded-lg border border-red-100 bg-red-50/40 p-3 text-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
-                    待复盘
-                  </span>
-                  <Link
-                    href={item.diagnostics_url}
-                    className="inline-flex items-center gap-1 text-xs text-red-700 hover:text-red-900"
-                  >
-                    查看诊断
-                    <ExternalLinkIcon className="size-3" />
-                  </Link>
-                </div>
-                <div className="mt-2 line-clamp-2 text-slate-700">
-                  {item.comment ?? item.run_id}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {shortTime(item.created_at)}
-                </div>
-              </div>
-            ))}
+        </div>
+        <div className="rounded-md border border-red-200 bg-red-50 p-3">
+          <div className="text-xs text-red-700">待改进</div>
+          <div className="mt-1 text-xl font-semibold text-red-950">
+            {compactNumber(negative)}
           </div>
-        ) : null}
-        {(summary?.recent_comments.length ?? 0) > 0 ? (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-700">近期反馈</div>
-            {summary?.recent_comments.map((item) => (
-              <div
-                key={`${item.run_id}-${item.created_at}`}
-                className="rounded-lg border p-3 text-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span
-                    className={cn(
-                      "rounded px-2 py-1 text-xs font-medium",
-                      item.rating > 0
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-red-50 text-red-700",
-                    )}
-                  >
-                    {item.rating > 0 ? "好评" : "差评"}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {shortTime(item.created_at)}
-                  </span>
-                </div>
-                <div className="mt-2 line-clamp-2 text-slate-600">
-                  {item.comment}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState label="暂无文字反馈" />
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+      <div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-slate-600">满意率</span>
+          <span className="font-medium text-slate-950">
+            {percent(satisfaction)}
+          </span>
+        </div>
+        <div className="mt-2 h-2 rounded-full bg-slate-100">
+          <div
+            className="h-2 rounded-full bg-emerald-600"
+            style={{ width: `${Math.max(3, satisfaction * 100)}%` }}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function DashboardPage() {
-  const [hours, setHours] = useState(168);
-  const [status, setStatus] = useState("all");
-  const [model, setModel] = useState("all");
-  const [agent, setAgent] = useState("all");
-  const [feature, setFeature] = useState("all");
-  const [valueProfile, setValueProfile] = useState("conservative");
+  const [hours, setHours] = useState(24);
+  const [rangeMode, setRangeMode] = useState<"preset" | "custom">("preset");
+  const [customStart, setCustomStart] = useState(() =>
+    toDateTimeLocal(new Date(Date.now() - 24 * 60 * 60 * 1000)),
+  );
+  const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
+  const rangeStart =
+    rangeMode === "custom" ? isoFromDateTimeLocal(customStart) : undefined;
+  const rangeEnd =
+    rangeMode === "custom" ? isoFromDateTimeLocal(customEnd) : undefined;
+  const customHours = hoursBetween(rangeStart, rangeEnd);
+  const activeHours = rangeMode === "custom" ? (customHours ?? hours) : hours;
+  const canApplyCustomRange = Boolean(
+    isoFromDateTimeLocal(customStart) &&
+      isoFromDateTimeLocal(customEnd) &&
+      hoursBetween(isoFromDateTimeLocal(customStart), isoFromDateTimeLocal(customEnd)),
+  );
   const filters = useMemo<DashboardFilters>(
     () => ({
-      hours,
-      status,
-      model,
-      agent,
-      feature,
-      value_profile: valueProfile,
+      hours: activeHours,
+      start_at: rangeStart,
+      end_at: rangeEnd,
+      value_profile: "conservative",
     }),
-    [agent, feature, hours, model, status, valueProfile],
+    [activeHours, rangeEnd, rangeStart],
   );
   const summaryQuery = useDashboardSummary(filters);
   const summary = summaryQuery.data;
+  const overview = summary?.overview;
 
-  const windowLabel = useMemo(() => {
-    if (!summary) return "加载中";
-    return `${shortTime(summary.window.start_at)} - ${shortTime(summary.window.end_at)}`;
-  }, [summary]);
-  const hasAdvancedFilters =
-    status !== "all" || model !== "all" || agent !== "all" || feature !== "all";
-  const modelOptions = uniqueOptions(
-    model,
-    (summary?.model_usage ?? []).map((item) => ({
-      value: item.model_name,
-      label: item.model_name,
-    })),
-  );
-  const agentOptions = uniqueOptions(
-    agent,
-    (summary?.agent_usage ?? []).map((item) => ({
-      value: item.assistant_id ?? "default",
-      label: item.name,
-    })),
-  );
-  const featureOptions = uniqueOptions(
-    feature,
-    (summary?.feature_usage ?? []).map((item) => ({
-      value: item.name,
-      label: item.name,
-    })),
-  );
-
-  const resetFilters = () => {
-    setStatus("all");
-    setModel("all");
-    setAgent("all");
-    setFeature("all");
-  };
+  const totalUsers = overview?.total_users ?? 0;
+  const activeUsers = overview?.active_users ?? 0;
+  const newUsers = overview?.new_users ?? 0;
+  const runs = overview?.runs ?? 0;
+  const threads = overview?.threads ?? 0;
+  const failedRuns = overview?.failed_runs ?? 0;
+  const successRate = overview?.success_rate ?? 0;
+  const avgDuration = overview?.avg_run_duration_ms ?? 0;
+  const satisfactionRate = overview?.satisfaction_rate ?? 0;
+  const feedbackTotal = overview?.feedback_total ?? 0;
+  const activationRate = safeRatio(activeUsers, totalUsers);
+  const runsPerActive = activeUsers ? Math.round((runs / activeUsers) * 10) / 10 : 0;
+  const valueMinutes =
+    summary?.business_value?.estimated_minutes_saved ??
+    overview?.estimated_minutes_saved ??
+    0;
+  const qualityTone = successRate >= 0.95 ? "green" : successRate >= 0.85 ? "amber" : "red";
+  const satisfactionTone =
+    feedbackTotal === 0 ? "slate" : satisfactionRate >= 0.9 ? "green" : satisfactionRate >= 0.75 ? "amber" : "red";
 
   return (
-    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50/60 px-4 py-6 text-slate-950 sm:px-6">
-      <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6">
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-normal">业务看板</h1>
-            <p className="mt-1 max-w-full text-sm break-words text-slate-500">
-              {windowLabel}，展示业务价值、用户活跃和运行质量。
+    <main className="h-full overflow-auto bg-slate-50/80 p-6 text-slate-950">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-950">运营看板</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              聚焦采用规模、使用深度、运行质量、业务价值和用户满意度。
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Select
-              value={String(hours)}
-              onValueChange={(value) => setHours(Number(value))}
-            >
-              <SelectTrigger className="w-36 bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="24">最近 24 小时</SelectItem>
-                <SelectItem value="168">最近 7 天</SelectItem>
-                <SelectItem value="720">最近 30 天</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            {[1, 24, 168].map((value) => (
+              <Button
+                key={value}
+                size="sm"
+                variant={
+                  rangeMode === "preset" && hours === value
+                    ? "default"
+                    : "outline"
+                }
+                onClick={() => {
+                  setRangeMode("preset");
+                  setHours(value);
+                }}
+              >
+                {value === 1 ? "1小时" : value === 168 ? "7天" : "24小时"}
+              </Button>
+            ))}
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1">
+              <Input
+                aria-label="开始时间"
+                className="h-8 w-[168px]"
+                type="datetime-local"
+                value={customStart}
+                onChange={(event) => setCustomStart(event.target.value)}
+              />
+              <span className="text-xs text-slate-400">至</span>
+              <Input
+                aria-label="结束时间"
+                className="h-8 w-[168px]"
+                type="datetime-local"
+                value={customEnd}
+                onChange={(event) => setCustomEnd(event.target.value)}
+              />
+              <Button
+                size="sm"
+                variant={rangeMode === "custom" ? "default" : "outline"}
+                disabled={!canApplyCustomRange}
+                onClick={() => setRangeMode("custom")}
+              >
+                应用区间
+              </Button>
+            </div>
+            <span className="text-xs text-slate-500">
+              {windowLabel(activeHours, rangeStart, rangeEnd)}
+            </span>
             <Button
               variant="outline"
-              className="bg-white"
+              size="sm"
               onClick={() => summaryQuery.refetch()}
               disabled={summaryQuery.isFetching}
             >
               <RefreshCwIcon
                 className={cn(
-                  "size-4",
+                  "mr-2 size-4",
                   summaryQuery.isFetching && "animate-spin",
                 )}
               />
               刷新
             </Button>
           </div>
-        </div>
+        </header>
 
-        <Card className="min-w-0 rounded-lg py-4 shadow-none">
-          <CardContent className="flex flex-col gap-3 px-4 sm:px-5">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <FilterIcon className="size-4" />
-              多维筛选
-            </div>
-            <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value="success">成功</SelectItem>
-                  <SelectItem value="error">失败</SelectItem>
-                  <SelectItem value="timeout">超时</SelectItem>
-                  <SelectItem value="interrupted">中断</SelectItem>
-                  <SelectItem value="running">运行中</SelectItem>
-                  <SelectItem value="pending">等待中</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={feature} onValueChange={setFeature}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="全部功能" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部功能</SelectItem>
-                  {featureOptions.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="全部模型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部模型</SelectItem>
-                  {modelOptions.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={agent} onValueChange={setAgent}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="全部智能体" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部智能体</SelectItem>
-                  {agentOptions.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={valueProfile} onValueChange={setValueProfile}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="conservative">保守折算</SelectItem>
-                  <SelectItem value="standard">标准折算</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {hasAdvancedFilters ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                <span className="min-w-0 break-words">
-                  当前筛选：{statusLabel(status)} /{" "}
-                  {feature === "all" ? "全部功能" : feature} /{" "}
-                  {model === "all" ? "全部模型" : model} /{" "}
-                  {agent === "all" ? "全部智能体" : agent}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={resetFilters}
-                >
-                  清空筛选
-                </Button>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        {summaryQuery.isError ? (
-          <Card className="rounded-lg border-red-200 bg-red-50 py-5 text-red-700 shadow-none">
-            <CardContent>
-              看板数据加载失败：{summaryQuery.error.message}
-            </CardContent>
-          </Card>
-        ) : null}
-
-        <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="活跃用户"
-            value={compactNumber(summary?.overview.active_users ?? 0)}
-            detail={`总用户 ${compactNumber(summary?.overview.total_users ?? 0)}，新增 ${compactNumber(summary?.overview.new_users ?? 0)}`}
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <ExecutiveMetric
+            title="用户采用"
+            value={`${compactNumber(activeUsers)} / ${compactNumber(totalUsers)}`}
+            caption={`新增 ${compactNumber(newUsers)} 人，激活率 ${percent(activationRate)}`}
             icon={UsersIcon}
-            tone="green"
+            tone="blue"
+            progress={activationRate}
           />
-          <MetricCard
-            label="任务运行"
-            value={compactNumber(summary?.overview.runs ?? 0)}
-            detail={`会话 ${compactNumber(summary?.overview.threads ?? 0)}，运行中 ${compactNumber(summary?.overview.running_runs ?? 0)}`}
+          <ExecutiveMetric
+            title="使用规模"
+            value={compactNumber(runs)}
+            caption={`${compactNumber(threads)} 个会话，人均 ${runsPerActive || "-"} 次运行`}
             icon={ActivityIcon}
+            tone="slate"
           />
-          <MetricCard
-            label="成功率"
-            value={percent(summary?.overview.success_rate ?? 0)}
-            detail={`成功 ${compactNumber(summary?.overview.successful_runs ?? 0)}，失败 ${compactNumber(summary?.overview.failed_runs ?? 0)}`}
+          <ExecutiveMetric
+            title="运行质量"
+            value={percent(successRate)}
+            caption={`${compactNumber(failedRuns)} 次失败，平均耗时 ${duration(avgDuration)}`}
+            icon={CheckCircle2Icon}
+            tone={qualityTone}
+            progress={successRate}
+          />
+          <ExecutiveMetric
+            title="业务价值"
+            value={minutes(valueMinutes)}
+            caption="按保守口径估算可节省的人工作业时间"
             icon={ZapIcon}
-            tone={(summary?.overview.failed_runs ?? 0) > 0 ? "amber" : "green"}
+            tone="amber"
           />
-          <MetricCard
-            label="业务价值"
-            value={minutes(summary?.overview.estimated_minutes_saved ?? 0)}
-            detail={`产物 ${compactNumber(summary?.overview.artifact_runs ?? 0)}，知识检索 ${compactNumber(summary?.overview.knowledge_runs ?? 0)}`}
-            icon={LineChartIcon}
+          <ExecutiveMetric
+            title="用户满意"
+            value={feedbackTotal ? percent(satisfactionRate) : "-"}
+            caption={`${compactNumber(feedbackTotal)} 条反馈，越高代表回答越被认可`}
+            icon={HeartIcon}
+            tone={satisfactionTone}
+            progress={feedbackTotal ? satisfactionRate : undefined}
           />
-        </div>
+        </section>
 
-        <BusinessValue summary={summary?.business_value} />
+        <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <SparklesIcon className="size-4 text-blue-700" />
+            <h2 className="text-base font-semibold text-slate-950">
+              关键运营洞察
+            </h2>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <InsightBlock
+              title="使用深度"
+              value={runsPerActive ? `人均 ${runsPerActive} 次运行` : "暂无活跃"}
+              detail="反映用户是否把智能体真正用于日常工作，而不仅是登录试用。"
+              icon={TrendingUpIcon}
+            />
+            <InsightBlock
+              title="能力覆盖"
+              value={`${compactNumber(summary?.feature_usage?.length ?? 0)} 类能力被调用`}
+              detail="能力类型越丰富，说明产品从问答向文件、知识库、产物等工作流扩展。"
+              icon={BotIcon}
+            />
+            <InsightBlock
+              title="质量风险"
+              value={failedRuns ? `${compactNumber(failedRuns)} 次失败` : "无明显风险"}
+              detail="失败运行和低满意反馈需要优先进入运维页排查。"
+              icon={ClockIcon}
+            />
+          </div>
+        </section>
 
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-          <Card className="min-w-0 rounded-lg shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BarChart3Icon className="size-4" />
-                用户活跃趋势
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ActivityTrend items={summary?.user_activity ?? []} />
-              <div className="mt-3 flex gap-4 text-xs text-slate-500">
-                <span className="inline-flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-slate-800" />
-                  运行次数
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <span className="size-2 rounded-full bg-emerald-500" />
-                  活跃用户
-                </span>
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">
+                  活跃与运行趋势
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  蓝色代表运行次数，绿色代表活跃用户数。
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <BarChart3Icon className="size-5 text-slate-400" />
+            </div>
+            <ActivityTrend items={summary?.user_activity ?? []} />
+          </div>
 
-          <Card className="min-w-0 rounded-lg shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <FileArchiveIcon className="size-4" />
-                功能使用
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FeatureUsage items={summary?.feature_usage ?? []} />
-            </CardContent>
-          </Card>
-        </div>
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">
+                  用户满意度
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  用真实反馈衡量回答质量和产品信任度。
+                </p>
+              </div>
+              <HeartIcon className="size-5 text-slate-400" />
+            </div>
+            <FeedbackPanel summary={summary?.feedback} />
+          </div>
+        </section>
 
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <Card className="min-w-0 rounded-lg shadow-none">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BotIcon className="size-4" />
-                智能体排行
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AgentRanking items={summary?.agent_usage ?? []} />
-            </CardContent>
-          </Card>
+        <section className="grid gap-5 xl:grid-cols-3">
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">
+                  能力使用分布
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  看用户主要把产品用于哪些高价值场景。
+                </p>
+              </div>
+              <ActivityIcon className="size-5 text-slate-400" />
+            </div>
+            <FeatureUsage items={summary?.feature_usage ?? []} />
+          </div>
 
-          <FeedbackPanel summary={summary?.feedback} />
-        </div>
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">
+                  用户使用排行榜
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  展示数据湖 SSO 用户的中文名、账号和使用次数。
+                </p>
+              </div>
+              <UsersIcon className="size-5 text-slate-400" />
+            </div>
+            <UserUsageRanking items={summary?.user_usage ?? []} />
+          </div>
+
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">
+                  业务价值贡献
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  只展示能直接体现提效的能力，不做复杂归因。
+                </p>
+              </div>
+              <ZapIcon className="size-5 text-slate-400" />
+            </div>
+            <BusinessValuePanel summary={summary?.business_value} />
+          </div>
+        </section>
       </div>
     </main>
   );

@@ -301,7 +301,9 @@ export default function ChatPage() {
                   testId="main-message-list"
                   threadId={threadId}
                   thread={thread}
-                  paddingBottom={MESSAGE_LIST_DEFAULT_PADDING_BOTTOM}
+                  paddingBottom={
+                    isWelcomeMode ? MESSAGE_LIST_DEFAULT_PADDING_BOTTOM : 180
+                  }
                   hasMoreHistory={hasMoreHistory}
                   loadMoreHistory={loadMoreHistory}
                   isHistoryLoading={isHistoryLoading}
@@ -333,7 +335,7 @@ export default function ChatPage() {
               <div
                 className={cn(
                   "right-0 bottom-0 left-0 z-30 flex justify-center px-3 sm:px-4",
-                  isWelcomeMode ? "absolute" : "relative shrink-0 pb-4",
+                  isWelcomeMode ? "absolute" : "absolute pb-4",
                 )}
               >
                 <div

@@ -275,6 +275,7 @@ export function buildVisibleHistoryMessages(
     ...visibleRows.map((message) => ({
       ...message.content,
       run_id: message.run_id,
+      feedback: message.feedback ?? null,
     })),
     ...appendedMessages,
   ]);

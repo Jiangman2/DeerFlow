@@ -180,12 +180,10 @@ export const zhCN: Translations = {
     inputPolishCancel: "取消优化",
     voiceInputStartLabel: "语音输入",
     voiceInputStopLabel: "停止语音输入",
-    voiceInputStart:
-      "语音输入。平台只接收转写文本，音频由浏览器或系统语音服务处理。",
+    voiceInputStart: "点击开始语音输入",
     voiceInputStop: "停止语音输入",
-    voiceInputListening: "正在聆听... 点击停止语音输入。",
-    voiceInputUnsupported:
-      "当前浏览器不支持语音输入。建议使用 Chrome 或 Edge。",
+    voiceInputListening: "正在聆听，点击停止",
+    voiceInputUnsupported: "当前浏览器不支持语音输入",
     voiceInputPermissionDenied: "麦克风权限被拒绝。请允许麦克风访问后重试。",
     voiceInputMicrophoneUnavailable: "未检测到麦克风。请检查设备输入后重试。",
     voiceInputUnsupportedLanguage: "当前浏览器不支持该语言的语音输入。",
@@ -287,8 +285,11 @@ export const zhCN: Translations = {
       dayOfMonth: "几号",
       cron: "cron 表达式",
       cronPlaceholder: "0 9 * * *",
+      cronHint:
+        "使用 5 段 cron：分钟 小时 日期 月份 星期。每分钟执行请填 * * * * * 或 */1 * * * *；1 * * * * 表示每小时第 1 分钟执行。",
       runAt: "运行时间",
       timezone: "时区",
+      timezoneShanghai: "北京时间 (Asia/Shanghai)",
     },
     weekdays: {
       mon: "周一",
@@ -300,13 +301,28 @@ export const zhCN: Translations = {
       sun: "周日",
     },
     preview: "预览",
-    cronHelp: "打开 crontab.guru",
+    cronHelp: "可选：用 crontab.guru 校验表达式",
     create: {
       title: "创建定时任务",
+      description: "设定提示词和运行时间后，系统会在后台自动发起非交互式任务。",
       taskTitle: "任务标题",
       prompt: "提示词",
       submit: "创建",
       fillRequired: "请填写所有必填项",
+      adviceTitle: "创建建议",
+      adviceFresh: "新线程适合日报、周报、监控摘要等周期性任务。",
+      adviceReuse: "复用线程适合围绕同一主题持续补充上下文。",
+      adviceCron: "cron 用 5 个位置描述任务什么时候重复执行。",
+      adviceCronFormat: "分钟、小时、日期、月份、星期",
+      adviceCronExamples: [
+        "* * * * *：每分钟执行一次。",
+        "*/5 * * * *：每 5 分钟执行一次。",
+        "0 9 * * *：每天 09:00 执行一次。",
+        "30 8 * * 1：每周一 08:30 执行一次。",
+        "1 * * * *：每小时第 1 分钟执行，不是每分钟执行。",
+      ],
+      adviceCronExternal:
+        "若打不开 crontab.guru，直接按这里的格式和例子填写即可。",
     },
     context: {
       fresh: "新线程",
@@ -314,6 +330,7 @@ export const zhCN: Translations = {
       threadIdPlaceholder: "线程 ID",
     },
     filters: {
+      label: "筛选",
       allStatuses: "全部状态",
       enabled: "已启用",
       paused: "已暂停",
@@ -328,6 +345,7 @@ export const zhCN: Translations = {
       thread: "线程",
       lastThread: "上个线程",
       schedule: "调度",
+      expression: "计划",
       nextRun: "下次运行",
       lastRun: "上次运行",
       lastRunId: "上次运行 ID",
@@ -336,6 +354,8 @@ export const zhCN: Translations = {
       runsCountOne: "{count} 次运行",
       noRuns: "暂无运行",
       noSelection: "未选择定时任务",
+      emptyTitle: "还没有定时任务",
+      emptyDescription: "创建一个定时任务后，它会按计划自动运行，并在这里展示状态、下次运行时间和历史记录。",
       filteredByThread: "按线程筛选：{id}",
       loadFailed: "加载定时任务失败",
     },
@@ -381,16 +401,16 @@ export const zhCN: Translations = {
     recipes: {
       label: "快速创建",
       trending: {
-        title: "GitHub Trending 日榜",
-        desc: "总结今日 Trending 前十仓库",
+        title: "开源项目热榜日报",
+        desc: "总结今日开源热门项目前十",
       },
       news: {
         title: "每日科技新闻摘要",
         desc: "收集并总结当日科技要闻",
       },
-      issues: {
-        title: "GitHub Issue 分诊",
-        desc: "分诊某仓库的 open issues（填入 {{repo}}）",
+      energyIntel: {
+        title: "每日能源科技情报简报",
+        desc: "汇总能源科技与油气智能化动态",
       },
       weekly: {
         title: "每周周报",

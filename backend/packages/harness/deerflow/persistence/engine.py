@@ -51,6 +51,9 @@ async def _ensure_compatible_schema(backend: str) -> None:
                 await conn.execute(text("ALTER TABLE users ADD COLUMN is_disabled BOOLEAN NOT NULL DEFAULT 0"))
 
             logger.info("Applied compatibility schema update: users.is_disabled")
+        if columns and "display_name" not in columns:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN display_name VARCHAR(128)"))
+            logger.info("Applied compatibility schema update: users.display_name")
 
     async with _engine.begin() as conn:
         def _table_columns(sync_conn, table_name: str) -> set[str]:

@@ -95,6 +95,17 @@ class AgentUsageItem(BaseModel):
     avg_duration_ms: int
 
 
+class UserUsageItem(BaseModel):
+    user_id: str
+    display_name: str
+    account: str
+    email: str | None
+    runs: int
+    threads: int
+    success_rate: float
+    last_active_at: datetime | None
+
+
 class ModelUsageItem(BaseModel):
     model_name: str
     runs: int
@@ -200,6 +211,7 @@ class DashboardSummary(BaseModel):
     feature_usage: list[FeatureUsageItem]
     recent_business_events: list[RecentBusinessEventItem]
     agent_usage: list[AgentUsageItem]
+    user_usage: list[UserUsageItem]
     model_usage: list[ModelUsageItem]
     business_value: BusinessValueSummary
     artifact_summary: ArtifactSummary
@@ -225,6 +237,14 @@ class _ModelBucket:
     durations: list[int] = field(default_factory=list)
     total_tokens: int = 0
     llm_calls: int = 0
+
+
+@dataclass
+class _UserBucket:
+    runs: int = 0
+    successes: int = 0
+    threads: set[str] = field(default_factory=set)
+    last_active_at: datetime | None = None
 
 
 def _session_factory():
@@ -477,6 +497,26 @@ def _assistant_key(run: RunRow, thread_meta: dict[str, ThreadMetaRow]) -> str:
     return run.assistant_id or (meta.assistant_id if meta else None) or "default"
 
 
+def _user_display_name(row: UserRow | None, user_id: str) -> str:
+    if row is None:
+        return user_id
+    display_name = getattr(row, "display_name", None)
+    if isinstance(display_name, str) and display_name.strip():
+        return display_name.strip()
+    account = row.email.split("@", 1)[0] if row.email else ""
+    if account:
+        return account
+    return row.oauth_id or user_id
+
+
+def _user_account(row: UserRow | None, user_id: str) -> str:
+    if row is None:
+        return user_id
+    if row.email:
+        return row.email
+    return row.oauth_id or user_id
+
+
 @router.get("/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(
     request: Request,
@@ -683,6 +723,45 @@ async def get_dashboard_summary(
         for key, bucket in sorted(agent_buckets.items(), key=lambda item: item[1].runs, reverse=True)[:limit]
     ]
 
+    user_buckets: dict[str, _UserBucket] = {}
+    for thread in threads:
+        if not thread.user_id:
+            continue
+        bucket = user_buckets.setdefault(thread.user_id, _UserBucket())
+        bucket.threads.add(thread.thread_id)
+        created_at = _coerce_aware(thread.created_at)
+        if created_at and (bucket.last_active_at is None or created_at > bucket.last_active_at):
+            bucket.last_active_at = created_at
+    for run in runs:
+        if not run.user_id:
+            continue
+        bucket = user_buckets.setdefault(run.user_id, _UserBucket())
+        bucket.runs += 1
+        if run.status == "success":
+            bucket.successes += 1
+        bucket.threads.add(run.thread_id)
+        created_at = _coerce_aware(run.created_at)
+        if created_at and (bucket.last_active_at is None or created_at > bucket.last_active_at):
+            bucket.last_active_at = created_at
+
+    user_usage = [
+        UserUsageItem(
+            user_id=user_id,
+            display_name=_user_display_name(users_by_id.get(user_id), user_id),
+            account=_user_account(users_by_id.get(user_id), user_id),
+            email=users_by_id.get(user_id).email if user_id in users_by_id else None,
+            runs=bucket.runs,
+            threads=len(bucket.threads),
+            success_rate=_success_rate(bucket.successes, bucket.runs),
+            last_active_at=bucket.last_active_at,
+        )
+        for user_id, bucket in sorted(
+            user_buckets.items(),
+            key=lambda item: (item[1].runs, len(item[1].threads), item[1].last_active_at or start),
+            reverse=True,
+        )[:limit]
+    ]
+
     model_buckets: dict[str, _ModelBucket] = {}
     for run in runs:
         model_name = run.model_name or "未记录模型"
@@ -867,6 +946,7 @@ async def get_dashboard_summary(
         feature_usage=feature_usage,
         recent_business_events=recent_business_events,
         agent_usage=agent_usage,
+        user_usage=user_usage,
         model_usage=model_usage,
         business_value=BusinessValueSummary(
             artifact_runs=artifact_runs,

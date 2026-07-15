@@ -64,7 +64,7 @@ import { SlashSkillChip } from "../slash-skill-chip";
 import { MarkdownContent } from "./markdown-content";
 import { createMarkdownLinkComponent } from "./markdown-link";
 
-function FeedbackButtons({
+export function FeedbackButtons({
   threadId,
   runId,
   initialFeedback,
@@ -77,6 +77,10 @@ function FeedbackButtons({
     initialFeedback,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setFeedback(initialFeedback);
+  }, [initialFeedback]);
 
   const handleClick = useCallback(
     async (rating: number) => {

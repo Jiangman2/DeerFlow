@@ -576,6 +576,7 @@ async def cnooc_token_login(
             elif existing_email_user.oauth_provider in (None, "cnooc"):
                 existing_email_user.oauth_provider = "cnooc"
                 existing_email_user.oauth_id = checked.user.platform_user_id
+                existing_email_user.display_name = checked.user.name
                 user = await provider.update_user(existing_email_user)
             else:
                 raise HTTPException(
@@ -589,6 +590,7 @@ async def cnooc_token_login(
                     oauth_provider="cnooc",
                     oauth_id=checked.user.platform_user_id,
                     system_role="user",
+                    display_name=checked.user.name,
                 )
             except ValueError as exc:
                 raise HTTPException(
@@ -598,6 +600,9 @@ async def cnooc_token_login(
 
     if user.is_disabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
+    if user.display_name != checked.user.name:
+        user.display_name = checked.user.name
+        user = await provider.update_user(user)
 
     access_token = create_access_token(str(user.id), token_version=user.token_version)
     redirect_path = validate_next_param(next) or "/workspace/chats/new"
