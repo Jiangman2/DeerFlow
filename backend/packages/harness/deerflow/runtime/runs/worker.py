@@ -24,9 +24,11 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any, Literal, cast
 
+from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.checkpoint.base import empty_checkpoint
 
 from deerflow.agents.goal_state import GoalEvaluation, GoalState
+from deerflow.agents.human_input import read_human_input_response
 from deerflow.config.app_config import AppConfig
 from deerflow.runtime.goal import (
     DEFAULT_MAX_GOAL_CONTINUATIONS,
@@ -65,6 +67,48 @@ logger = logging.getLogger(__name__)
 
 # Valid stream_mode values for LangGraph's graph.astream()
 _VALID_LG_MODES = {"values", "updates", "checkpoints", "tasks", "debug", "messages", "custom"}
+
+
+def _has_open_clarification(messages: list[Any]) -> bool:
+    """Return True when the latest clarification request has no user response yet."""
+    open_request_ids: list[str] = []
+
+    for message in messages:
+        if isinstance(message, ToolMessage) and message.name == "ask_clarification":
+            artifact = message.artifact if isinstance(message.artifact, dict) else {}
+            human_input = artifact.get("human_input")
+            if isinstance(human_input, dict):
+                request_id = human_input.get("request_id")
+                if isinstance(request_id, str) and request_id:
+                    open_request_ids.append(request_id)
+                    continue
+            if message.id:
+                open_request_ids.append(str(message.id))
+            continue
+
+        if isinstance(message, HumanMessage):
+            response = read_human_input_response(message.additional_kwargs)
+            if response is not None and response["request_id"] in open_request_ids:
+                open_request_ids = [request_id for request_id in open_request_ids if request_id != response["request_id"]]
+
+    return bool(open_request_ids)
+
+
+async def _checkpoint_has_open_clarification(checkpointer: Any, thread_id: str) -> bool:
+    if checkpointer is None:
+        return False
+    try:
+        ckpt_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+        ckpt_tuple = await checkpointer.aget_tuple(ckpt_config)
+        if ckpt_tuple is None:
+            return False
+        ckpt = getattr(ckpt_tuple, "checkpoint", {}) or {}
+        values = ckpt.get("channel_values", {}) if isinstance(ckpt, dict) else {}
+        messages = values.get("messages", []) if isinstance(values, dict) else []
+        return isinstance(messages, list) and _has_open_clarification(messages)
+    except Exception:
+        logger.debug("Failed to inspect checkpoint for pending clarification on thread %s", thread_id, exc_info=True)
+        return False
 
 
 def _build_runtime_context(
@@ -489,7 +533,10 @@ async def run_agent(
 
         # 7. Stream the requested turn, then optionally continue hidden goal turns.
         await _stream_once(graph_input, initial_runnable_config)
-        while not record.abort_event.is_set() and not llm_error_fallback_message and (journal is None or not journal.had_llm_error_fallback):
+        pending_clarification = await _checkpoint_has_open_clarification(checkpointer, thread_id)
+        if pending_clarification:
+            logger.info("Run %s paused goal continuation for pending clarification", run_id)
+        while not pending_clarification and not record.abort_event.is_set() and not llm_error_fallback_message and (journal is None or not journal.had_llm_error_fallback):
             continuation_input = await _prepare_goal_continuation_input(
                 bridge=bridge,
                 checkpointer=checkpointer,
@@ -503,6 +550,9 @@ async def run_agent(
             if continuation_input is None or record.abort_event.is_set():
                 break
             await _stream_once(continuation_input, _continuation_runnable_config())
+            pending_clarification = await _checkpoint_has_open_clarification(checkpointer, thread_id)
+            if pending_clarification:
+                logger.info("Run %s paused goal continuation for pending clarification", run_id)
 
         # 8. Final status
         if record.abort_event.is_set():
