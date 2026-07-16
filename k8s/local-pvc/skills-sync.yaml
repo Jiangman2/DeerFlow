@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: skills-sync
+  namespace: deer-flow
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: sync
+          image: deer-flow-skills
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              find /mnt/skills -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+              cp -a /seed/skills/. /mnt/skills/
+              touch /mnt/skills/.deerflow-skills-ready
+          volumeMounts:
+            - name: skills
+              mountPath: /mnt/skills
+      volumes:
+        - name: skills
+          persistentVolumeClaim:
+            claimName: deer-flow-skills-pvc

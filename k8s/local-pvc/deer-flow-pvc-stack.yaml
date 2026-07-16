@@ -1,0 +1,466 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deer-flow-provisioner
+  namespace: deer-flow
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: deer-flow-provisioner
+  namespace: deer-flow
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: deer-flow-provisioner
+  namespace: deer-flow
+subjects:
+  - kind: ServiceAccount
+    name: deer-flow-provisioner
+    namespace: deer-flow
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: deer-flow-provisioner
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provisioner
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: provisioner
+  template:
+    metadata:
+      labels:
+        app: provisioner
+    spec:
+      serviceAccountName: deer-flow-provisioner
+      containers:
+        - name: provisioner
+          image: deer-flow-provisioner
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: deer-flow-env
+          ports:
+            - containerPort: 8002
+          env:
+            - name: K8S_NAMESPACE
+              value: deer-flow
+            - name: K8S_CREATE_NAMESPACE
+              value: "false"
+            - name: SANDBOX_IMAGE
+              value: deer-flow-aio-sandbox:ppt-master-dev-20260716-1
+            - name: SKILLS_PVC_NAME
+              value: deer-flow-skills-pvc
+            - name: USERDATA_PVC_NAME
+              value: deer-flow-userdata-pvc
+            - name: SANDBOX_ACCESS_MODE
+              value: cluster
+            - name: KUBECONFIG_WAIT_SECONDS
+              value: "0"
+            - name: SANDBOX_READINESS_INITIAL_DELAY_SECONDS
+              value: "45"
+            - name: SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS
+              value: "180"
+            - name: IMAGE_BACKEND
+              value: qwen
+            - name: IMAGE_GENERATION_PROVIDER
+              value: qwen
+            - name: QWEN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: DASHSCOPE_API_KEY
+            - name: QWEN_MODEL
+              value: qwen-image-2.0-pro
+            - name: QWEN_BASE_URL
+              value: https://dashscope.aliyuncs.com
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            periodSeconds: 2
+            timeoutSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: provisioner
+  namespace: deer-flow
+spec:
+  selector:
+    app: provisioner
+  ports:
+    - name: http
+      port: 8002
+      targetPort: 8002
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      initContainers:
+        - name: wait-for-skills
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - until test -f /app/skills/.deerflow-skills-ready; do sleep 2; done
+          volumeMounts:
+            - name: skills
+              mountPath: /app/skills
+              readOnly: true
+      containers:
+        - name: gateway
+          image: deer-flow-gateway
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - cd backend && PYTHONPATH=. uv run --no-sync uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --workers 1
+          ports:
+            - containerPort: 8001
+          envFrom:
+            - secretRef:
+                name: deer-flow-env
+          env:
+            - name: CI
+              value: "true"
+            - name: GATEWAY_PORT
+              value: "8001"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: DATABASE_URL
+            - name: DEER_FLOW_PROJECT_ROOT
+              value: /app
+            - name: DEER_FLOW_HOME
+              value: /app/backend/.deer-flow
+            - name: DEER_FLOW_CONFIG_PATH
+              value: /app/backend/config.yaml
+            - name: DEER_FLOW_EXTENSIONS_CONFIG_PATH
+              value: /app/backend/extensions_config.json
+            - name: DEER_FLOW_CHANNELS_LANGGRAPH_URL
+              value: http://gateway:8001/api
+            - name: DEER_FLOW_CHANNELS_GATEWAY_URL
+              value: http://gateway:8001
+            - name: WEKNORA_DB_HOST
+              value: weknora-postgres
+            - name: WEKNORA_DB_PORT
+              value: "5432"
+            - name: WEKNORA_DB_USER
+              value: postgres
+            - name: WEKNORA_DB_NAME
+              value: WeKnora
+            - name: WEKNORA_DB_CONNECT_TIMEOUT_SECONDS
+              value: "3"
+            - name: WEKNORA_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: DB_PASSWORD
+                  optional: true
+            - name: LLM_MODEL_NAME
+              value: qwen-plus
+            - name: LLM_BASE_URL
+              value: https://dashscope.aliyuncs.com/compatible-mode/v1
+            - name: LLM_PROVIDER
+              value: aliyun
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: LLM_API_KEY
+                  optional: true
+            - name: EMBEDDING_MODEL_NAME
+              value: text-embedding-v4
+            - name: EMBEDDING_BASE_URL
+              value: https://dashscope.aliyuncs.com/compatible-mode/v1
+            - name: EMBEDDING_PROVIDER
+              value: aliyun
+            - name: EMBEDDING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: EMBEDDING_API_KEY
+                  optional: true
+            - name: NO_PROXY
+              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,.svc,.cluster.local
+            - name: no_proxy
+              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,.svc,.cluster.local
+          volumeMounts:
+            - name: config
+              mountPath: /app/backend/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: extensions-config
+              mountPath: /app/backend/extensions_config.json
+              subPath: extensions_config.json
+              readOnly: true
+            - name: userdata
+              mountPath: /app/backend/.deer-flow
+              subPath: deer-flow
+            - name: skills
+              mountPath: /app/skills
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /api/v1/auth/setup-status
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 4
+          startupProbe:
+            httpGet:
+              path: /api/v1/auth/setup-status
+              port: 8001
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+      volumes:
+        - name: config
+          configMap:
+            name: deer-flow-config
+        - name: extensions-config
+          configMap:
+            name: deer-flow-extensions-config
+        - name: userdata
+          persistentVolumeClaim:
+            claimName: deer-flow-userdata-pvc
+        - name: skills
+          persistentVolumeClaim:
+            claimName: deer-flow-skills-pvc
+            readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: deer-flow
+spec:
+  selector:
+    app: gateway
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: deer-flow-frontend
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: deer-flow-env
+          env:
+            - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
+              value: http://gateway:8001
+            - name: WEKNORA_FRONTEND_URL
+              value: http://localhost:8090/platform/knowledge-bases
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 4
+          startupProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: deer-flow
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - |
+              cp /etc/nginx/nginx.conf.template /tmp/nginx.conf
+              sed -i 's|resolver 127.0.0.11 valid=10s ipv6=off;|# Static Kubernetes Service upstreams do not need Docker DNS.|' /tmp/nginx.conf
+              sed -i 's|set $gateway_upstream gateway:8001;|# gateway upstream is a Kubernetes Service.|' /tmp/nginx.conf
+              sed -i 's|set $frontend_upstream frontend:3000;|# frontend upstream is a Kubernetes Service.|' /tmp/nginx.conf
+              sed -i 's|set $provisioner_upstream provisioner:8002;|# provisioner upstream is a Kubernetes Service.|' /tmp/nginx.conf
+              sed -i 's|proxy_pass http://$gateway_upstream;|proxy_pass http://gateway:8001;|g' /tmp/nginx.conf
+              sed -i 's|proxy_pass http://$frontend_upstream;|proxy_pass http://frontend:3000;|g' /tmp/nginx.conf
+              sed -i 's|proxy_pass http://$provisioner_upstream;|proxy_pass http://provisioner:8002;|g' /tmp/nginx.conf
+              nginx -c /tmp/nginx.conf -g 'daemon off;'
+          ports:
+            - containerPort: 2026
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf.template
+              subPath: nginx.conf
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /api/v1/auth/setup-status
+              port: 2026
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 2026
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 4
+          startupProbe:
+            httpGet:
+              path: /api/v1/auth/setup-status
+              port: 2026
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: deer-flow-nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+  namespace: deer-flow
+spec:
+  selector:
+    app: nginx
+  ports:
+    - name: http
+      port: 2026
+      targetPort: 2026

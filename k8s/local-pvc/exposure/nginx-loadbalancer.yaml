@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-public
+  namespace: deer-flow
+  labels:
+    app: nginx
+    exposure: public
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - name: http
+      port: 80
+      targetPort: 2026
+    - name: app-http
+      port: 2026
+      targetPort: 2026

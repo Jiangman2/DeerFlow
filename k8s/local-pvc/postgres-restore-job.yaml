@@ -1,0 +1,81 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-restore
+  namespace: deer-flow
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: pg-restore
+          image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pgvector/pgvector:pg16
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: deer-flow-postgres
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: POSTGRES_PASSWORD
+            # Set this to a file name that exists in /backups before applying.
+            - name: RESTORE_FILE
+              value: deerflow-CHANGE-ME.dump
+            # Safe default: restore into a scratch database first.
+            - name: RESTORE_DATABASE
+              value: deerflow_restore_check
+            # Set to "true" only when intentionally restoring over POSTGRES_DB.
+            - name: ALLOW_PRODUCTION_RESTORE
+              value: "false"
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              test -f "/backups/${RESTORE_FILE}"
+              if [ "$RESTORE_DATABASE" = "$POSTGRES_DB" ] && [ "$ALLOW_PRODUCTION_RESTORE" != "true" ]; then
+                echo "Refusing to restore over POSTGRES_DB without ALLOW_PRODUCTION_RESTORE=true" >&2
+                exit 2
+              fi
+              if [ "$RESTORE_DATABASE" != "$POSTGRES_DB" ]; then
+                dropdb -h postgres -U "$POSTGRES_USER" --if-exists "$RESTORE_DATABASE"
+                createdb -h postgres -U "$POSTGRES_USER" "$RESTORE_DATABASE"
+                pg_restore \
+                  -h postgres \
+                  -U "$POSTGRES_USER" \
+                  -d "$RESTORE_DATABASE" \
+                  --no-owner \
+                  --no-privileges \
+                  "/backups/${RESTORE_FILE}"
+              else
+                pg_restore \
+                  -h postgres \
+                  -U "$POSTGRES_USER" \
+                  -d "$POSTGRES_DB" \
+                  --clean \
+                  --if-exists \
+                  --no-owner \
+                  --no-privileges \
+                  "/backups/${RESTORE_FILE}"
+              fi
+              psql -h postgres -U "$POSTGRES_USER" -d "$RESTORE_DATABASE" -Atc "select 'users=' || count(*) from users;"
+              psql -h postgres -U "$POSTGRES_USER" -d "$RESTORE_DATABASE" -Atc "select 'threads_meta=' || count(*) from threads_meta;"
+              psql -h postgres -U "$POSTGRES_USER" -d "$RESTORE_DATABASE" -Atc "select 'runs=' || count(*) from runs;"
+              psql -h postgres -U "$POSTGRES_USER" -d "$RESTORE_DATABASE" -Atc "select 'run_events=' || count(*) from run_events;"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+      volumes:
+        - name: backups
+          persistentVolumeClaim:
+            claimName: deer-flow-postgres-backups-pvc

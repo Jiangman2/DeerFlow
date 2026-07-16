@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - storage.yaml
+  - postgres.yaml
+  - skills-sync.yaml
+  - deer-flow-pvc-stack.yaml
+
+images:
+  - name: deer-flow-gateway
+    newName: deer-flow-gateway
+    newTag: dev-20260716-1
+  - name: deer-flow-frontend
+    newName: deer-flow-frontend
+    newTag: dev-20260716-1
+  - name: deer-flow-provisioner
+    newName: deer-flow-provisioner
+    newTag: dev-20260716-1
+  - name: deer-flow-skills
+    newName: deer-flow-skills
+    newTag: dev-20260716-1

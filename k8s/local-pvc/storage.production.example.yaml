@@ -1,0 +1,65 @@
+# Example only. Adapt storageClassName, access modes, and sizes to your
+# production Kubernetes platform before creating a new environment. Do not apply
+# this file to an environment that already has bound PVCs with these names; PVC
+# storage class and access mode are immutable after binding.
+#
+# User data is mounted by Gateway and sandbox Pods. In multi-node clusters,
+# prefer an RWX-capable storage class so sandboxes can run on any node while
+# seeing the same task files as Gateway.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deer-flow-userdata-pvc
+  namespace: deer-flow
+spec:
+  storageClassName: replace-with-rwx-storage-class
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+---
+# Skills are mounted read-only by Gateway and sandbox Pods. Use RWX/ROX-capable
+# storage, or bake immutable skills into an image and remove this shared PVC.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deer-flow-skills-pvc
+  namespace: deer-flow
+spec:
+  storageClassName: replace-with-rwx-or-rox-storage-class
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+# PostgreSQL data usually stays RWO and should use a durable block storage class
+# with snapshot/backup support.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-postgres-0
+  namespace: deer-flow
+spec:
+  storageClassName: replace-with-durable-rwo-storage-class
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+# Backup storage should be protected independently from the primary database
+# volume. Prefer object storage export in production if available.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deer-flow-postgres-backups-pvc
+  namespace: deer-flow
+spec:
+  storageClassName: replace-with-backup-storage-class
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
