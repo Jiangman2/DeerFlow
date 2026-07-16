@@ -8,6 +8,14 @@ resources:
   - skills-sync.yaml
   - deer-flow-pvc-stack.yaml
 
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: deer-flow-nginx-config
+    files:
+      - nginx.conf
+
 images:
   - name: deer-flow-gateway
     newName: deer-flow-gateway

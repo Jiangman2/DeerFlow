@@ -8,6 +8,14 @@ resources:
   - skills-sync.yaml
   - deer-flow-pvc-stack.yaml
 
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: deer-flow-nginx-config
+    files:
+      - nginx.conf
+
 # Copy this file to kustomization.yaml or update kustomization.yaml in CI.
 # Use immutable tags, ideally tied to the git commit or release version.
 images:
