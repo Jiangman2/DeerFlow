@@ -89,6 +89,7 @@ def test_apply_prompt_template_includes_relative_path_guidance(monkeypatch):
     config = SimpleNamespace(
         sandbox=SimpleNamespace(mounts=[]),
         skills=SimpleNamespace(container_path="/mnt/skills", use="deerflow.skills.storage.local_skill_storage:LocalSkillStorage", get_skills_path=lambda: Path("/tmp/skills")),
+        skill_evolution=SimpleNamespace(enabled=False),
     )
     monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
     monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
@@ -101,6 +102,26 @@ def test_apply_prompt_template_includes_relative_path_guidance(monkeypatch):
 
     assert "Treat `/mnt/user-data/workspace` as your default current working directory" in prompt
     assert "`hello.txt`, `../uploads/data.csv`, and `../outputs/report.md`" in prompt
+
+
+def test_apply_prompt_template_uses_enterprise_identity(monkeypatch):
+    config = SimpleNamespace(
+        sandbox=SimpleNamespace(mounts=[]),
+        skills=SimpleNamespace(container_path="/mnt/skills", use="deerflow.skills.storage.local_skill_storage:LocalSkillStorage", get_skills_path=lambda: Path("/tmp/skills")),
+        skill_evolution=SimpleNamespace(enabled=False),
+    )
+    monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
+    monkeypatch.setattr(prompt_module, "get_deferred_tools_prompt_section", lambda **kwargs: "")
+    monkeypatch.setattr(prompt_module, "_build_acp_section", lambda **kwargs: "")
+    monkeypatch.setattr(prompt_module, "_get_memory_context", lambda agent_name=None, **kwargs: "")
+    monkeypatch.setattr(prompt_module, "get_agent_soul", lambda agent_name=None: "")
+
+    prompt = prompt_module.apply_prompt_template(app_config=config)
+
+    assert "中海油勘探开发通用智能体" in prompt
+    assert "面向油气勘探开发业务的企业级多智能体工作平台" in prompt
+    assert "DeerFlow" not in prompt
+    assert "github.com/bytedance" not in prompt
 
 
 def test_apply_prompt_template_includes_memory_tool_guidance_only_in_tool_mode(monkeypatch):
