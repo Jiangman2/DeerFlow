@@ -703,6 +703,23 @@ export function MessageList({
   }
 
   const artifactPaths = extractArtifactsFromThread(thread);
+  const messagePresentedArtifactPaths = new Set<string>();
+  for (const group of groupedMessages) {
+    if (group.type !== "assistant:present-files") {
+      continue;
+    }
+    for (const message of group.messages) {
+      if (!hasPresentFiles(message)) {
+        continue;
+      }
+      for (const filepath of extractPresentFilesFromMessage(message)) {
+        messagePresentedArtifactPaths.add(filepath);
+      }
+    }
+  }
+  const unrenderedArtifactPaths = artifactPaths.filter(
+    (filepath) => !messagePresentedArtifactPaths.has(filepath),
+  );
 
   return (
     <>
@@ -863,11 +880,13 @@ export function MessageList({
               }
               return null;
             } else if (group.type === "assistant:present-files") {
-              const files: string[] = [];
+              const files = new Set<string>();
               for (const message of group.messages) {
                 if (hasPresentFiles(message)) {
                   const presentFiles = extractPresentFilesFromMessage(message);
-                  files.push(...presentFiles);
+                  for (const filepath of presentFiles) {
+                    files.add(filepath);
+                  }
                 }
               }
               return (
@@ -880,7 +899,10 @@ export function MessageList({
                       className="mb-4"
                     />
                   )}
-                  <ArtifactFileList files={files} threadId={threadId} />
+                  <ArtifactFileList
+                    files={[...files]}
+                    threadId={threadId}
+                  />
                   {renderTokenUsage({
                     messages: group.messages,
                     turnUsageMessages,
@@ -1021,6 +1043,14 @@ export function MessageList({
           <div style={{ height: `${paddingBottom}px` }} />
         </ConversationContent>
       </Conversation>
+      {unrenderedArtifactPaths.length > 0 && (
+        <div className="mx-auto w-full max-w-(--container-width-md) px-4 pb-4">
+          <ArtifactFileList
+            files={unrenderedArtifactPaths}
+            threadId={threadId}
+          />
+        </div>
+      )}
       {selectionToolbar && sidecar && (
         <div
           className={cn(
