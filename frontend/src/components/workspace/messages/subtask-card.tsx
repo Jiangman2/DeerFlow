@@ -121,7 +121,7 @@ export function SubtaskCard({
         <>
           <ShineBorder
             borderWidth={1.5}
-            shineColor={["#A07CFE", "#FE8FB5", "#FFBE7B"]}
+            shineColor={["#1f70c1", "#36a5cf", "#74c8e5"]}
           />
         </>
       )}

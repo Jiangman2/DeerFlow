@@ -44,7 +44,7 @@ export function WorkspaceHeader({
   return (
     <header
       className={cn(
-        "top-0 right-0 left-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-[#e1e6ee] bg-white/95 text-[#2d3440] transition-[width,height] ease-out group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
+        "border-border bg-card/95 text-foreground top-0 right-0 left-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 border-b shadow-[0_1px_12px_oklch(0.49_0.17_252/0.08)] backdrop-blur transition-[width,height] ease-out group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
         className,
       )}
       {...props}

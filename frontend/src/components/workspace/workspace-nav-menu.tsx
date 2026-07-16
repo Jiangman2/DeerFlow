@@ -33,14 +33,14 @@ function NavMenuButtonContent({
   t: ReturnType<typeof useI18n>["t"];
 }) {
   return isSidebarOpen ? (
-    <div className="flex w-full items-center gap-2 text-left text-sm text-[#4f5967]">
-      <SettingsIcon className="size-4 text-[#8b939d]" />
+    <div className="text-sidebar-foreground/80 flex w-full items-center gap-2 text-left text-sm">
+      <SettingsIcon className="text-primary/65 size-4" />
       <span>{t.workspace.settingsAndMore}</span>
-      <ChevronsUpDown className="ml-auto size-4 text-[#8b939d]" />
+      <ChevronsUpDown className="text-primary/65 ml-auto size-4" />
     </div>
   ) : (
     <div className="flex size-full items-center justify-center">
-      <SettingsIcon className="size-4 text-[#8b939d]" />
+      <SettingsIcon className="text-primary/65 size-4" />
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function WorkspaceNavMenu() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="hover:bg-white/80 data-[state=open]:bg-white data-[state=open]:text-[#222832] data-[state=open]:shadow-sm"
+                  className="hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent data-[state=open]:text-primary data-[state=open]:shadow-sm"
                 >
                   <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
                 </SidebarMenuButton>

@@ -30,7 +30,7 @@ export function Welcome({
   const isUltra = useMemo(() => mode === "ultra", [mode]);
   const colors = useMemo(() => {
     if (isUltra) {
-      return ["#efefbb", "#e9c665", "#e3a812"];
+      return ["#c9e8f8", "#70bce1", "#1f70c1"];
     }
     return ["var(--color-foreground)"];
   }, [isUltra]);
