@@ -29,9 +29,11 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any, Literal, cast
 
+from langchain_core.messages import HumanMessage, ToolMessage
 from langgraph.checkpoint.base import empty_checkpoint
 
 from deerflow.agents.goal_state import GoalEvaluation, GoalState
+from deerflow.agents.human_input import read_human_input_response
 from deerflow.config.app_config import AppConfig
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
 from deerflow.runtime.goal import (
@@ -92,6 +94,66 @@ async def _checkpoint_thread_lock(thread_id: str) -> AsyncIterator[None]:
 
 # Valid stream_mode values for LangGraph's graph.astream()
 _VALID_LG_MODES = {"values", "updates", "checkpoints", "tasks", "debug", "messages", "custom"}
+
+
+def _has_open_clarification(messages: list[Any]) -> bool:
+    """Return whether a clarification request is still awaiting a response."""
+    open_request_ids: list[str] = []
+
+    for message in messages:
+        if isinstance(message, ToolMessage) and message.name == "ask_clarification":
+            artifact = message.artifact if isinstance(message.artifact, dict) else {}
+            human_input = artifact.get("human_input")
+            if isinstance(human_input, dict):
+                request_id = human_input.get("request_id")
+                if isinstance(request_id, str) and request_id:
+                    open_request_ids.append(request_id)
+                    continue
+            if message.id:
+                open_request_ids.append(str(message.id))
+            continue
+
+        if isinstance(message, HumanMessage):
+            response = read_human_input_response(message.additional_kwargs)
+            if response is not None and response["request_id"] in open_request_ids:
+                open_request_ids = [
+                    request_id for request_id in open_request_ids if request_id != response["request_id"]
+                ]
+
+    return bool(open_request_ids)
+
+
+def _chunk_has_open_clarification(chunk: Any) -> bool:
+    """Detect clarification in a raw stream chunk before checkpoint durability."""
+    if isinstance(chunk, dict):
+        messages = chunk.get("messages")
+        if isinstance(messages, list) and _has_open_clarification(messages):
+            return True
+        return any(_chunk_has_open_clarification(value) for value in chunk.values())
+
+    if isinstance(chunk, (list, tuple)):
+        return any(_chunk_has_open_clarification(value) for value in chunk)
+
+    return isinstance(chunk, ToolMessage) and chunk.name == "ask_clarification"
+
+
+async def _checkpoint_has_open_clarification(checkpointer: Any, thread_id: str) -> bool:
+    """Check durable thread state as a final clarification fallback."""
+    if checkpointer is None:
+        return False
+    try:
+        ckpt_tuple = await checkpointer.aget_tuple(
+            {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+        )
+        if ckpt_tuple is None:
+            return False
+        checkpoint = getattr(ckpt_tuple, "checkpoint", {}) or {}
+        channel_values = checkpoint.get("channel_values", {}) if isinstance(checkpoint, dict) else {}
+        messages = channel_values.get("messages", []) if isinstance(channel_values, dict) else []
+        return isinstance(messages, list) and _has_open_clarification(messages)
+    except Exception:
+        logger.debug("Could not inspect checkpoint for pending clarification", exc_info=True)
+        return False
 
 
 def _build_runtime_context(
@@ -271,6 +333,17 @@ async def run_agent(
     workspace_changes_user_id: str | None = None
     snapshot_capture_failed = False
     llm_error_fallback_message: str | None = None
+    stream_clarification_seen = False
+    pending_clarification = False
+    stream_end_published = False
+
+    async def _publish_stream_end() -> None:
+        """Publish the terminal stream event at most once."""
+        nonlocal stream_end_published
+        if stream_end_published:
+            return
+        await bridge.publish_end(run_id)
+        stream_end_published = True
     # Message ids checkpointed *before* this run started. The stream loop uses
     # this set to mask out ``deerflow_error_fallback`` markers that belong to
     # earlier runs on the same thread — without it, one stale fallback in
@@ -361,6 +434,8 @@ async def run_agent(
         # manually here because we drive the graph through ``agent.astream(config=...)``
         # without passing the official ``context=`` parameter.
         runtime_ctx = _build_runtime_context(thread_id, run_id, config.get("context"), ctx.app_config)
+        clarification_event = asyncio.Event()
+        runtime_ctx["__clarification_event"] = clarification_event
         runtime_ctx[CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY] = frozenset(pre_existing_message_ids)
         incoming_metadata = config.get("metadata") if isinstance(config.get("metadata"), dict) else {}
         deerflow_trace_id = normalize_trace_id(incoming_metadata.get(DEERFLOW_TRACE_METADATA_KEY)) or get_current_trace_id()
@@ -479,8 +554,8 @@ async def run_agent(
                 )
             return goal_evaluator_model
 
-        async def _stream_once(input_payload: Any, stream_config: RunnableConfig) -> None:
-            nonlocal llm_error_fallback_message
+        async def _consume_stream(input_payload: Any, stream_config: RunnableConfig) -> None:
+            nonlocal llm_error_fallback_message, stream_clarification_seen
             async with _checkpoint_thread_lock(thread_id):
                 if len(lg_modes) == 1 and not stream_subgraphs:
                     # Single mode, no subgraphs: astream yields raw chunks
@@ -490,6 +565,7 @@ async def run_agent(
                             logger.info("Run %s abort requested — stopping", run_id)
                             break
                         llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
+                        stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
                         sse_event = _lg_mode_to_sse_event(single_mode)
                         await bridge.publish(run_id, sse_event, serialize(chunk, mode=single_mode))
                         if single_mode == "custom":
@@ -511,10 +587,44 @@ async def run_agent(
                         continue
 
                     llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
+                    stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
                     sse_event = _lg_mode_to_sse_event(mode)
                     await bridge.publish(run_id, sse_event, serialize(chunk, mode=mode))
                     if mode == "custom":
                         await subagent_events.add(chunk)
+
+        async def _stream_once(input_payload: Any, stream_config: RunnableConfig) -> None:
+            nonlocal stream_clarification_seen
+            stream_task = asyncio.create_task(_consume_stream(input_payload, stream_config))
+            event_task = asyncio.create_task(clarification_event.wait())
+            try:
+                done, _ = await asyncio.wait(
+                    {stream_task, event_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if event_task in done and not stream_task.done():
+                    stream_clarification_seen = True
+                    try:
+                        await asyncio.wait_for(asyncio.shield(stream_task), timeout=1.0)
+                    except TimeoutError:
+                        logger.warning(
+                            "Run %s stream did not close after clarification; cancelling stream task",
+                            run_id,
+                        )
+                        stream_task.cancel()
+                        try:
+                            await stream_task
+                        except asyncio.CancelledError:
+                            pass
+                else:
+                    await stream_task
+            finally:
+                if not event_task.done():
+                    event_task.cancel()
+                    try:
+                        await event_task
+                    except asyncio.CancelledError:
+                        pass
 
         # 7. Stream the requested turn, then optionally continue hidden goal turns.
         # Clear any stale stop_reason before the first (user-visible) turn only.
@@ -524,7 +634,13 @@ async def run_agent(
         if isinstance(runtime.context, dict):
             runtime.context.pop("stop_reason", None)
         await _stream_once(graph_input, initial_runnable_config)
-        while not record.abort_event.is_set() and not llm_error_fallback_message and (journal is None or not journal.had_llm_error_fallback):
+        pending_clarification = stream_clarification_seen or await _checkpoint_has_open_clarification(checkpointer, thread_id)
+        if pending_clarification:
+            logger.info("Run %s paused goal continuation for pending clarification", run_id)
+            await run_manager.set_status(run_id, RunStatus.success, stop_reason="awaiting_human_input")
+            await _publish_stream_end()
+
+        while not pending_clarification and not record.abort_event.is_set() and not llm_error_fallback_message and (journal is None or not journal.had_llm_error_fallback):
             continuation_input = await _prepare_goal_continuation_input(
                 bridge=bridge,
                 checkpointer=checkpointer,
@@ -540,6 +656,11 @@ async def run_agent(
             if continuation_input is None or record.abort_event.is_set():
                 break
             await _stream_once(continuation_input, _continuation_runnable_config())
+            pending_clarification = stream_clarification_seen or await _checkpoint_has_open_clarification(checkpointer, thread_id)
+            if pending_clarification:
+                logger.info("Run %s paused goal continuation for pending clarification", run_id)
+                await run_manager.set_status(run_id, RunStatus.success, stop_reason="awaiting_human_input")
+                await _publish_stream_end()
 
         # 8. Final status
         if record.abort_event.is_set():
@@ -567,6 +688,9 @@ async def run_agent(
                 error_msg = journal.llm_error_fallback_message
             error_msg = error_msg or "LLM provider failed after retries"
             await run_manager.set_status(run_id, RunStatus.error, error=error_msg)
+        elif pending_clarification:
+            # Status and stream end were published when the open request was detected.
+            pass
         else:
             runtime_context = runtime.context if isinstance(runtime.context, dict) else None
             # Guard middlewares that hard-stop a run by stripping tool_calls
@@ -707,7 +831,7 @@ async def run_agent(
         if record.finalizing:
             await run_manager.set_finalizing(run_id, False)
 
-        await bridge.publish_end(run_id)
+        await _publish_stream_end()
         asyncio.create_task(bridge.cleanup(run_id, delay=60))
 
 

@@ -330,6 +330,16 @@ class TestClarificationDisabled:
         assert isinstance(result, Command)
         assert result.goto == "__end__"
 
+    def test_not_disabled_signals_worker_before_interrupting(self, middleware):
+        """The worker must stop hidden continuations immediately, before checkpoint flush."""
+        import asyncio
+
+        clarification_event = asyncio.Event()
+        request = self._request(runtime_context={"__clarification_event": clarification_event})
+        middleware.wrap_tool_call(request, lambda _req: pytest.fail("handler should not be called"))
+
+        assert clarification_event.is_set()
+
     def test_no_runtime_context_still_interrupts(self, middleware):
         """Defensive: missing runtime/context falls back to interrupting."""
         from langgraph.types import Command

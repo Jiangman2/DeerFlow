@@ -208,6 +208,16 @@ class ClarificationMiddleware(AgentMiddleware[ClarificationMiddlewareState]):
         logger.info("Intercepted clarification request")
         logger.debug("Clarification question: %s", question)
 
+        # Signal the gateway worker before the checkpoint is durable. This
+        # prevents hidden goal-continuation turns from starting while the user
+        # is still expected to answer the clarification card.
+        runtime = getattr(request, "runtime", None)
+        context = getattr(runtime, "context", None)
+        clarification_event = context.get("__clarification_event") if isinstance(context, dict) else None
+        signal = getattr(clarification_event, "set", None)
+        if callable(signal):
+            signal()
+
         # Format the clarification message
         formatted_message = self._format_clarification_message(args)
 
