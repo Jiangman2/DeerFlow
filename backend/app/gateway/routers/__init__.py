@@ -10,6 +10,7 @@ from . import (
     thread_runs,
     threads,
     uploads,
+    weknora,
 )
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "threads",
     "thread_runs",
     "uploads",
+    "weknora",
 ]

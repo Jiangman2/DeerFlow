@@ -33,6 +33,7 @@ from app.gateway.routers import (
     thread_runs,
     threads,
     uploads,
+    weknora,
 )
 from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
 from deerflow.config import app_config as deerflow_app_config
@@ -525,6 +526,11 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Stateless Runs API (stream/wait without a pre-existing thread)
     app.include_router(runs.router)
+
+    # WeKnora integration API is mounted at /api/weknora.
+    # The router is an enterprise extension and remains isolated from the
+    # official thread, memory, and run lifecycle routers above.
+    app.include_router(weknora.router)
 
     # GitHub webhooks API is mounted at /api/webhooks/github
     # Exempt from auth and CSRF middleware (see auth_middleware._PUBLIC_PATH_PREFIXES
