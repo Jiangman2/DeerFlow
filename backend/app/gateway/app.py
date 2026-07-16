@@ -6,19 +6,23 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.gateway.audit_middleware import AuditLogMiddleware
 from app.gateway.auth_disabled import warn_if_auth_disabled_enabled
 from app.gateway.auth_middleware import AuthMiddleware
 from app.gateway.config import get_gateway_config
 from app.gateway.csrf_middleware import CSRFMiddleware, get_configured_cors_origins
 from app.gateway.deps import langgraph_runtime
 from app.gateway.routers import (
+    admin_users,
     agents,
+    announcements,
     artifacts,
     assistants_compat,
     auth,
     channel_connections,
     channels,
     console,
+    dashboard,
     features,
     feedback,
     github_webhooks,
@@ -26,8 +30,10 @@ from app.gateway.routers import (
     mcp,
     memory,
     models,
+    observability,
     runs,
     scheduled_tasks,
+    site_navigation,
     skills,
     suggestions,
     thread_runs,
@@ -445,6 +451,10 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # CSRF: Double Submit Cookie pattern for state-changing requests
     app.add_middleware(CSRFMiddleware)
 
+    # Enterprise audit logging is an additive middleware. It records request
+    # outcomes without changing the official auth or run lifecycle.
+    app.add_middleware(AuditLogMiddleware)
+
     # CORS: the unified nginx endpoint is same-origin by default. Split-origin
     # browser clients must opt in with this explicit Gateway allowlist so CORS
     # and CSRF origin checks share the same source of truth.
@@ -526,6 +536,12 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Stateless Runs API (stream/wait without a pre-existing thread)
     app.include_router(runs.router)
+
+    app.include_router(observability.router)
+    app.include_router(dashboard.router)
+    app.include_router(admin_users.router)
+    app.include_router(announcements.router)
+    app.include_router(site_navigation.router)
 
     # WeKnora integration API is mounted at /api/weknora.
     # The router is an enterprise extension and remains isolated from the
