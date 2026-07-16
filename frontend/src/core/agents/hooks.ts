@@ -7,6 +7,9 @@ import {
   fetchAgentsApiEnabled,
   getAgent,
   listAgents,
+  listTeamAgents,
+  publishAgent,
+  unpublishTeamAgent,
   updateAgent,
 } from "./api";
 import {
@@ -72,6 +75,14 @@ export function useAgent(name: string | null | undefined) {
   return { agent: data ?? null, isLoading, error };
 }
 
+export function useTeamAgents() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["team-agents"],
+    queryFn: () => listTeamAgents(),
+  });
+  return { agents: data ?? [], isLoading, error };
+}
+
 export function useCreateAgent() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -105,6 +116,26 @@ export function useDeleteAgent() {
     mutationFn: (name: string) => deleteAgent(name),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["agents"] });
+    },
+  });
+}
+
+export function usePublishAgent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => publishAgent(name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
+    },
+  });
+}
+
+export function useUnpublishTeamAgent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => unpublishTeamAgent(name),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
     },
   });
 }

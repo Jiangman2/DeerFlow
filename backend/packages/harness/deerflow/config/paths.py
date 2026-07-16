@@ -173,6 +173,15 @@ class Paths:
         """Legacy per-agent directory (no user isolation): `{base_dir}/agents/{name}/`."""
         return self.agents_dir / name.lower()
 
+    @property
+    def team_agents_dir(self) -> Path:
+        """Root for enterprise team-shared agents: `{base_dir}/team_agents/`."""
+        return self.base_dir / "team_agents"
+
+    def team_agent_dir(self, name: str) -> Path:
+        """Directory for one enterprise team-shared agent."""
+        return self.team_agents_dir / name.lower()
+
     def agent_memory_file(self, name: str) -> Path:
         """Legacy per-agent memory file: `{base_dir}/agents/{name}/memory.json`."""
         return self.agent_dir(name) / "memory.json"

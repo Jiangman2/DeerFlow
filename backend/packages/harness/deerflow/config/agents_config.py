@@ -5,6 +5,9 @@ A legacy shared layout at ``{base_dir}/agents/{name}/`` is still readable so tha
 installations that pre-date user isolation continue to work until they run the
 ``scripts/migrate_user_isolation.py`` migration. New writes always target the
 per-user layout.
+
+Enterprise team agents are stored separately under ``{base_dir}/team_agents``.
+They are readable by every user but remain distinct from personal agents.
 """
 
 import logging
@@ -227,6 +230,10 @@ def resolve_agent_dir(name: str, *, user_id: str | None = None) -> Path:
     if user_path.exists() and (user_path / "config.yaml").exists():
         return user_path
 
+    team_path = paths.team_agent_dir(name)
+    if team_path.exists() and (team_path / "config.yaml").exists():
+        return team_path
+
     legacy_path = paths.agent_dir(name)
     if legacy_path.exists() and (legacy_path / "config.yaml").exists():
         return legacy_path
@@ -377,4 +384,46 @@ def list_custom_agents(*, user_id: str | None = None) -> list[AgentConfig]:
                 logger.warning(f"Skipping agent '{entry.name}': {e}")
 
     agents.sort(key=lambda a: a.name)
+    return agents
+
+
+def list_team_agents() -> list[AgentConfig]:
+    """List enterprise team agents plus legacy shared agents.
+
+    A current team agent shadows a legacy agent with the same name. Personal
+    agents deliberately do not appear here: the agent square is a shared
+    catalog, not another view of a user's private workspace.
+    """
+    paths = get_paths()
+    seen: set[str] = set()
+    agents: list[AgentConfig] = []
+
+    for root in (paths.team_agents_dir, paths.agents_dir):
+        if not root.exists():
+            continue
+        for entry in sorted(root.iterdir()):
+            if not entry.is_dir() or entry.name in seen:
+                continue
+            config_file = entry / "config.yaml"
+            if not config_file.exists():
+                continue
+            try:
+                with open(config_file, encoding="utf-8") as file:
+                    data: dict[str, Any] = yaml.safe_load(file) or {}
+                data.setdefault("name", entry.name)
+                known_fields = set(AgentConfig.model_fields.keys())
+                agents.append(
+                    AgentConfig(
+                        **{
+                            key: value
+                            for key, value in data.items()
+                            if key in known_fields
+                        }
+                    )
+                )
+                seen.add(entry.name)
+            except Exception as exc:
+                logger.warning("Skipping team agent '%s': %s", entry.name, exc)
+
+    agents.sort(key=lambda agent: agent.name)
     return agents

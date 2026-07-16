@@ -38,6 +38,23 @@ def _write_agent(base_dir: Path, name: str, config: dict, soul: str = "You are h
     (agent_dir / "SOUL.md").write_text(soul, encoding="utf-8")
 
 
+def _write_team_agent(
+    base_dir: Path,
+    name: str,
+    config: dict,
+    soul: str = "You are helpful.",
+) -> None:
+    """Write an enterprise team-agent directory."""
+    agent_dir = base_dir / "team_agents" / name
+    agent_dir.mkdir(parents=True, exist_ok=True)
+
+    config_copy = dict(config)
+    config_copy.setdefault("name", name)
+    with open(agent_dir / "config.yaml", "w", encoding="utf-8") as file:
+        yaml.safe_dump(config_copy, file, allow_unicode=True)
+    (agent_dir / "SOUL.md").write_text(soul, encoding="utf-8")
+
+
 # ===========================================================================
 # 1. Paths class – agent path methods
 # ===========================================================================
@@ -51,6 +68,11 @@ class TestPaths:
     def test_agent_dir(self, tmp_path):
         paths = _make_paths(tmp_path)
         assert paths.agent_dir("code-reviewer") == tmp_path / "agents" / "code-reviewer"
+
+    def test_team_agent_dir(self, tmp_path):
+        paths = _make_paths(tmp_path)
+        assert paths.team_agents_dir == tmp_path / "team_agents"
+        assert paths.team_agent_dir("code-reviewer") == tmp_path / "team_agents" / "code-reviewer"
 
     def test_agent_memory_file(self, tmp_path):
         paths = _make_paths(tmp_path)
@@ -154,6 +176,24 @@ class TestLoadAgentConfig:
             cfg = load_agent_config("inferred-name")
 
         assert cfg.name == "inferred-name"
+
+    def test_load_team_agent_config(self, tmp_path):
+        _write_team_agent(
+            tmp_path,
+            "team-reviewer",
+            {"description": "Shared review agent"},
+        )
+
+        with patch(
+            "deerflow.config.agents_config.get_paths",
+            return_value=_make_paths(tmp_path),
+        ):
+            from deerflow.config.agents_config import load_agent_config
+
+            cfg = load_agent_config("team-reviewer")
+
+        assert cfg is not None
+        assert cfg.description == "Shared review agent"
 
     def test_load_config_with_tool_groups(self, tmp_path):
         config_dict = {"name": "restricted", "tool_groups": ["file:read", "file:write"]}
@@ -774,6 +814,57 @@ class TestAgentsAPI:
 
         response = agent_client.post("/api/agents", json={"name": "legacy-agent", "soul": "x"})
         assert response.status_code == 409
+
+    def test_team_agents_are_listed_and_loaded(self, agent_client, tmp_path):
+        _write_team_agent(
+            tmp_path,
+            "shared-reviewer",
+            {"description": "A shared review agent"},
+            soul="Review documents carefully.",
+        )
+
+        response = agent_client.get("/api/team-agents")
+
+        assert response.status_code == 200
+        agent = response.json()["agents"][0]
+        assert agent["name"] == "shared-reviewer"
+        assert agent["source"] == "team"
+        assert agent["soul"] == "Review documents carefully."
+
+    def test_publish_and_unpublish_team_agent(self, agent_client, tmp_path):
+        agent_client.post(
+            "/api/agents",
+            json={
+                "name": "publish-me",
+                "description": "Publishable agent",
+                "soul": "Shared soul",
+            },
+        )
+
+        publish_response = agent_client.post(
+            "/api/agents/publish-me/publish",
+            json={"overwrite": True},
+        )
+
+        assert publish_response.status_code == 200
+        published = publish_response.json()
+        assert published["source"] == "team"
+        assert published["published_by_current_user"] is True
+        team_dir = tmp_path / "team_agents" / "publish-me"
+        assert (team_dir / "config.yaml").exists()
+        assert (team_dir / "SOUL.md").read_text(encoding="utf-8") == "Shared soul"
+
+        unpublish_response = agent_client.delete("/api/team-agents/publish-me")
+        assert unpublish_response.status_code == 204
+        assert not team_dir.exists()
+
+    def test_personal_delete_does_not_remove_team_agent(self, agent_client, tmp_path):
+        _write_team_agent(tmp_path, "team-only", {"description": "Shared"})
+
+        response = agent_client.delete("/api/agents/team-only")
+
+        assert response.status_code == 409
+        assert (tmp_path / "team_agents" / "team-only" / "config.yaml").exists()
 
 
 # ===========================================================================

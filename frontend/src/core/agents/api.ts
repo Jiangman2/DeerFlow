@@ -42,6 +42,16 @@ export async function listAgents(): Promise<Agent[]> {
   return data.agents;
 }
 
+export async function listTeamAgents(): Promise<Agent[]> {
+  const res = await fetch(`${getBackendBaseURL()}/api/team-agents`);
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? `Failed to load team agents: ${res.statusText}`);
+  }
+  const data = (await res.json()) as { agents: Agent[] };
+  return data.agents;
+}
+
 export async function getAgent(name: string): Promise<Agent> {
   const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`);
   if (!res.ok) throw new Error(`Agent '${name}' not found`);
@@ -85,6 +95,33 @@ export async function deleteAgent(name: string): Promise<void> {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Failed to delete agent: ${res.statusText}`);
+}
+
+export async function publishAgent(name: string): Promise<Agent> {
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}/publish`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ overwrite: true }),
+    },
+  );
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? `Failed to publish agent: ${res.statusText}`);
+  }
+  return res.json() as Promise<Agent>;
+}
+
+export async function unpublishTeamAgent(name: string): Promise<void> {
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/team-agents/${encodeURIComponent(name)}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? `Failed to unpublish team agent: ${res.statusText}`);
+  }
 }
 
 interface FeaturesResponse {
