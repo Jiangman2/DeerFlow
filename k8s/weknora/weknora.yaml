@@ -1,0 +1,443 @@
+﻿apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-postgres-data
+  namespace: deer-flow
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-data-files
+  namespace: deer-flow
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-docreader-tmp
+  namespace: deer-flow
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: weknora-postgres
+  namespace: deer-flow
+spec:
+  serviceName: weknora-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weknora-postgres
+  template:
+    metadata:
+      labels:
+        app: weknora-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: paradedb/paradedb:v0.22.2-pg17
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: DB_PASSWORD
+            - name: POSTGRES_DB
+              value: WeKnora
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: weknora-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-postgres
+  namespace: deer-flow
+spec:
+  selector:
+    app: weknora-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-redis
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weknora-redis
+  template:
+    metadata:
+      labels:
+        app: weknora-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.0-alpine
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: REDIS_PASSWORD
+          ports:
+            - containerPort: 6379
+              name: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-redis
+  namespace: deer-flow
+spec:
+  selector:
+    app: weknora-redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-docreader
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weknora-docreader
+  template:
+    metadata:
+      labels:
+        app: weknora-docreader
+    spec:
+      containers:
+        - name: docreader
+          image: wechatopenai/weknora-docreader:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DOCREADER_IMAGE_OUTPUT_DIR
+              value: /tmp/docreader
+            - name: DOCREADER_ODL_MAX_WORKERS
+              value: "1"
+            - name: DOCREADER_MARKITDOWN_MAX_WORKERS
+              value: "1"
+            - name: DOCREADER_PDF_RENDER_MAX_WORKERS
+              value: "1"
+          ports:
+            - containerPort: 50051
+              name: grpc
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp/docreader
+      volumes:
+        - name: tmp
+          persistentVolumeClaim:
+            claimName: weknora-docreader-tmp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-docreader
+  namespace: deer-flow
+spec:
+  selector:
+    app: weknora-docreader
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-app
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weknora-app
+  template:
+    metadata:
+      labels:
+        app: weknora-app
+    spec:
+      containers:
+        - name: app
+          image: wechatopenai/weknora-app:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: GIN_MODE
+              value: release
+            - name: LOG_LEVEL
+              value: info
+            - name: TZ
+              value: Asia/Shanghai
+            - name: WEKNORA_LANGUAGE
+              value: zh-CN
+            - name: DISABLE_REGISTRATION
+              value: "false"
+            - name: DB_DRIVER
+              value: postgres
+            - name: DB_HOST
+              value: weknora-postgres
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: postgres
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: DB_PASSWORD
+            - name: DB_NAME
+              value: WeKnora
+            - name: RETRIEVE_DRIVER
+              value: postgres
+            - name: STORAGE_TYPE
+              value: local
+            - name: LOCAL_STORAGE_BASE_DIR
+              value: /data/files
+            - name: STREAM_MANAGER_TYPE
+              value: redis
+            - name: REDIS_ADDR
+              value: weknora-redis:6379
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: REDIS_PASSWORD
+            - name: DOCREADER_ADDR
+              value: weknora-docreader:50051
+            - name: DOCREADER_TRANSPORT
+              value: grpc
+            - name: TENANT_AES_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: TENANT_AES_KEY
+            - name: SYSTEM_AES_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: SYSTEM_AES_KEY
+            - name: LLM_MODEL_NAME
+              value: qwen-plus
+            - name: LLM_BASE_URL
+              value: https://dashscope.aliyuncs.com/compatible-mode/v1
+            - name: LLM_PROVIDER
+              value: aliyun
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: LLM_API_KEY
+            - name: EMBEDDING_MODEL_NAME
+              value: text-embedding-v4
+            - name: EMBEDDING_BASE_URL
+              value: https://dashscope.aliyuncs.com/compatible-mode/v1
+            - name: EMBEDDING_PROVIDER
+              value: aliyun
+            - name: EMBEDDING_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: EMBEDDING_API_KEY
+          ports:
+            - containerPort: 8080
+              name: http
+          volumeMounts:
+            - name: config
+              mountPath: /app/config/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: config
+              mountPath: /app/config/builtin_models.yaml
+              subPath: builtin_models.yaml
+              readOnly: true
+            - name: data-files
+              mountPath: /data/files
+            - name: docreader-tmp
+              mountPath: /tmp/docreader
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18
+      volumes:
+        - name: config
+          configMap:
+            name: weknora-config
+        - name: data-files
+          persistentVolumeClaim:
+            claimName: weknora-data-files
+        - name: docreader-tmp
+          persistentVolumeClaim:
+            claimName: weknora-docreader-tmp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-app
+  namespace: deer-flow
+spec:
+  selector:
+    app: weknora-app
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-app-nodeport
+  namespace: deer-flow
+spec:
+  type: NodePort
+  selector:
+    app: weknora-app
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 32080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-frontend
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weknora-frontend
+  template:
+    metadata:
+      labels:
+        app: weknora-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: wechatopenai/weknora-ui@sha256:da9a3a0a939ddd1ed6f4b510b74a0562a21b898439f907cd6ee529a3680283d8
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MAX_FILE_SIZE_MB
+              value: "50"
+            - name: APP_HOST
+              value: weknora-app
+            - name: APP_PORT
+              value: "8080"
+            - name: APP_SCHEME
+              value: http
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - name: ui-patch
+              mountPath: /usr/share/nginx/html/assets/index-DeX5ZUuT.js
+              subPath: index-DeX5ZUuT.js
+              readOnly: true
+            - name: ui-patch
+              mountPath: /usr/share/nginx/html/assets/Login-JaWLYwhw.js
+              subPath: Login-JaWLYwhw.js
+              readOnly: true
+            - name: ui-patch
+              mountPath: /usr/share/nginx/html/assets/weknora-BoLwP3xK.png
+              subPath: weknora-BoLwP3xK.png
+              readOnly: true
+            - name: ui-patch
+              mountPath: /usr/share/nginx/html/assets/favicon-bEsoBimf.ico
+              subPath: favicon-bEsoBimf.ico
+              readOnly: true
+            - name: ui-patch
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+              readOnly: true
+            - name: ui-patch
+              mountPath: /usr/share/nginx/html/config.js
+              subPath: config.js
+              readOnly: true
+            - name: ui-patch
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+      volumes:
+        - name: ui-patch
+          configMap:
+            name: weknora-ui-patch
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-frontend
+  namespace: deer-flow
+spec:
+  selector:
+    app: weknora-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-frontend-nodeport
+  namespace: deer-flow
+spec:
+  type: NodePort
+  selector:
+    app: weknora-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 32090

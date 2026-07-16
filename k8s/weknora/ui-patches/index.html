@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <title>知识库</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="renderer" content="webkit">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="shortcut icon" type="image/x-icon" href="/assets/favicon-bEsoBimf.ico">
+    <link rel="icon" type="image/x-icon" href="/assets/favicon-bEsoBimf.ico">
+    <link rel="apple-touch-icon" href="/assets/favicon-bEsoBimf.ico">
+    <script type="module" crossorigin src="/assets/main-pzt9Cxn1.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-highlight-2iXUmHrb.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-mermaid-WsNc9-GI.js">
+    <link rel="modulepreload" crossorigin href="/assets/tdesign-icon-offline-DpBpi-YD.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-markdown-CR0bZxsY.js">
+    <link rel="modulepreload" crossorigin href="/assets/index-DeX5ZUuT.js">
+    <link rel="modulepreload" crossorigin href="/assets/settings-CwixRhv-.js">
+    <link rel="modulepreload" crossorigin href="/assets/security-DMhmaURM.js">
+    <link rel="stylesheet" crossorigin href="/assets/vendor-highlight-BiJVEjr2.css">
+    <link rel="stylesheet" crossorigin href="/assets/tdesign-icon-offline-DgdVyyX-.css">
+    <link rel="stylesheet" crossorigin href="/assets/vendor-markdown-CfVKi3_s.css">
+    <link rel="stylesheet" crossorigin href="/assets/main-CG2i0oYS.css">
+</head>
+<body>
+<script>
+(function(){
+  var t=localStorage.getItem('WeKnora_theme')||'light';
+  if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+  document.documentElement.setAttribute('theme-mode',t);
+  var bg=t==='dark'?'#181818':'#eee';
+  document.documentElement.style.background=bg;
+  document.documentElement.style.minHeight='100%';
+  document.documentElement.style.colorScheme=t==='dark'?'dark':'light';
+  document.body.style.background=bg;
+  document.body.style.minHeight='100%';
+})();
+</script>
+<script>
+(function(){
+  try {
+    if (localStorage.getItem('weknora_lite_mode') !== 'true') return;
+    var saved = sessionStorage.getItem('weknora_lite_last_path');
+    if (!saved || saved.indexOf('/platform/') !== 0 || saved.indexOf('/platform/organizations') === 0) return;
+    var path = window.location.pathname;
+    if (path !== '/' && path !== '/platform' && path !== '/platform/knowledge-bases') return;
+    var target = saved.indexOf('#') >= 0 ? saved.slice(0, saved.indexOf('#')) : saved;
+    if (!target) return;
+    var current = window.location.pathname + window.location.search;
+    if (target !== current) window.history.replaceState(window.history.state, '', target);
+  } catch (e) {}
+})();
+</script>
+<script src="/config.js"></script>
+<script src="/tdesign-icons/0.4.1/fonts/index.js"></script>
+<div id="app"></div>
+<script>
+(function(){
+  var t=localStorage.getItem('WeKnora_theme')||'light';
+  if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
+  var bg=t==='dark'?'#181818':'#eee';
+  var el=document.getElementById('app');
+  if(el){ el.style.background=bg; el.style.minHeight='100%'; }
+})();
+</script>
+</body>
+</html>

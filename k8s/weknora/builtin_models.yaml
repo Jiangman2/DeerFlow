@@ -1,0 +1,27 @@
+builtin_models:
+  - id: deerflow-qwen-plus
+    tenant_id: 10000
+    name: ${LLM_MODEL_NAME}
+    type: KnowledgeQA
+    source: remote
+    description: DeerFlow WeKnora chat model
+    is_default: true
+    parameters:
+      base_url: ${LLM_BASE_URL}
+      api_key: ${LLM_API_KEY}
+      provider: ${LLM_PROVIDER}
+
+  - id: deerflow-dashscope-embedding
+    tenant_id: 10000
+    name: ${EMBEDDING_MODEL_NAME}
+    type: Embedding
+    source: remote
+    description: DeerFlow WeKnora embedding model
+    is_default: true
+    parameters:
+      base_url: ${EMBEDDING_BASE_URL}
+      api_key: ${EMBEDDING_API_KEY}
+      provider: ${EMBEDDING_PROVIDER}
+      embedding_parameters:
+        dimension: 1024
+        truncate_prompt_tokens: 0
