@@ -10,6 +10,14 @@ function getInternalServiceURL(envKey, fallbackURL) {
     ? configured.replace(/\/+$/, "")
     : fallbackURL;
 }
+
+const enterpriseToolRoutes = [
+  ["/agent-tools/doc-parse/:path*", "http://10.57.128.79:8100/:path*"],
+  ["/agent-tools/seismic-resolution/:path*", "http://10.57.128.79:6000/:path*"],
+  ["/agent-tools/report-review/:path*", "http://10.57.128.79:5001/:path*"],
+  ["/agent-tools/auto-data-collection/:path*", "http://10.57.128.79:5000/:path*"],
+  ["/agent-tools/report-writing/:path*", "http://10.57.128.79:7860/:path*"],
+];
 import nextra from "nextra";
 
 const withNextra = nextra({});
@@ -72,6 +80,10 @@ const config = {
         source: "/api/:path*",
         destination: `${gatewayURL}/api/:path*`,
       });
+    }
+
+    for (const [source, destination] of enterpriseToolRoutes) {
+      rewrites.push({ source, destination });
     }
 
     return rewrites;

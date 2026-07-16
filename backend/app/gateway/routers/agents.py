@@ -10,7 +10,14 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from deerflow.config.agents_api_config import get_agents_api_config
-from deerflow.config.agents_config import AgentConfig, list_custom_agents, load_agent_config, load_agent_soul, preserve_non_managed_fields
+from deerflow.config.agents_config import (
+    AgentConfig,
+    list_custom_agents,
+    list_team_agents,
+    load_agent_config,
+    load_agent_soul,
+    preserve_non_managed_fields,
+)
 from deerflow.config.paths import get_paths
 from deerflow.runtime.user_context import get_effective_user_id
 
@@ -29,6 +36,9 @@ class AgentResponse(BaseModel):
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all, []=none)")
     soul: str | None = Field(default=None, description="SOUL.md content")
+    source: str | None = Field(default=None, description="Agent source: personal, team, or legacy")
+    published_by_user_id: str | None = Field(default=None, description="User id that published this team agent")
+    published_by_current_user: bool = Field(default=False, description="Whether the current user published this team agent")
 
 
 class AgentsListResponse(BaseModel):
@@ -56,6 +66,12 @@ class AgentUpdateRequest(BaseModel):
     tool_groups: list[str] | None = Field(default=None, description="Updated tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Updated skill whitelist (None=all, []=none)")
     soul: str | None = Field(default=None, description="Updated SOUL.md content")
+
+
+class AgentPublishRequest(BaseModel):
+    """Request body for publishing a personal agent to the team square."""
+
+    overwrite: bool = Field(default=True, description="Whether to replace an existing team agent with the same name")
 
 
 def _validate_agent_name(name: str) -> None:
@@ -88,7 +104,13 @@ def _require_agents_api_enabled() -> None:
         )
 
 
-def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False, *, user_id: str | None = None) -> AgentResponse:
+def _agent_config_to_response(
+    agent_cfg: AgentConfig,
+    include_soul: bool = False,
+    *,
+    user_id: str | None = None,
+    source: str | None = "personal",
+) -> AgentResponse:
     """Convert AgentConfig to AgentResponse."""
     soul: str | None = None
     if include_soul:
@@ -101,6 +123,49 @@ def _agent_config_to_response(agent_cfg: AgentConfig, include_soul: bool = False
         tool_groups=agent_cfg.tool_groups,
         skills=agent_cfg.skills,
         soul=soul,
+        source=source,
+    )
+
+
+def _shared_agent_dir(name: str):
+    paths = get_paths()
+    team_dir = paths.team_agent_dir(name)
+    if (team_dir / "config.yaml").exists():
+        return team_dir, "team"
+    legacy_dir = paths.agent_dir(name)
+    if (legacy_dir / "config.yaml").exists():
+        return legacy_dir, "legacy"
+    raise FileNotFoundError(name)
+
+
+def _shared_agent_response(
+    name: str,
+    *,
+    current_user_id: str | None,
+) -> AgentResponse:
+    agent_dir, source = _shared_agent_dir(name)
+    with open(agent_dir / "config.yaml", encoding="utf-8") as file:
+        raw_config = yaml.safe_load(file) or {}
+    raw_config.setdefault("name", name)
+    known_fields = set(AgentConfig.model_fields.keys())
+    agent_cfg = AgentConfig(
+        **{key: value for key, value in raw_config.items() if key in known_fields}
+    )
+    soul_path = agent_dir / "SOUL.md"
+    published_by = raw_config.get("published_by_user_id")
+    published_by_user_id = str(published_by) if published_by is not None else None
+    return AgentResponse(
+        name=agent_cfg.name,
+        description=agent_cfg.description,
+        model=agent_cfg.model,
+        tool_groups=agent_cfg.tool_groups,
+        skills=agent_cfg.skills,
+        soul=soul_path.read_text(encoding="utf-8").strip() if soul_path.exists() else "",
+        source=source,
+        published_by_user_id=published_by_user_id,
+        published_by_current_user=bool(
+            current_user_id and published_by_user_id == current_user_id
+        ),
     )
 
 
@@ -125,6 +190,61 @@ async def list_agents() -> AgentsListResponse:
     except Exception as e:
         logger.error(f"Failed to list agents: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
+
+
+@router.get(
+    "/team-agents",
+    response_model=AgentsListResponse,
+    summary="List Team Agents",
+    description="List the shared enterprise agent square, including legacy shared agents.",
+)
+async def list_team_agents_endpoint() -> AgentsListResponse:
+    """List team-shared agents that are available to every user."""
+    _require_agents_api_enabled()
+    current_user_id = get_effective_user_id()
+
+    def _list() -> list[AgentResponse]:
+        return [
+            _shared_agent_response(agent.name, current_user_id=current_user_id)
+            for agent in list_team_agents()
+        ]
+
+    try:
+        return AgentsListResponse(agents=await asyncio.to_thread(_list))
+    except Exception as e:
+        logger.error("Failed to list team agents", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list team agents: {str(e)}",
+        )
+
+
+@router.get(
+    "/team-agents/{name}",
+    response_model=AgentResponse,
+    summary="Get Team Agent",
+    description="Retrieve a shared enterprise agent.",
+)
+async def get_team_agent(name: str) -> AgentResponse:
+    """Return one team-shared agent and its SOUL.md content."""
+    _require_agents_api_enabled()
+    _validate_agent_name(name)
+    name = _normalize_agent_name(name)
+    current_user_id = get_effective_user_id()
+    try:
+        return await asyncio.to_thread(
+            _shared_agent_response,
+            name,
+            current_user_id=current_user_id,
+        )
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Team agent '{name}' not found")
+    except Exception as e:
+        logger.error("Failed to get team agent '%s'", name, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get team agent: {str(e)}",
+        )
 
 
 @router.get(
@@ -270,6 +390,113 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
     return response
 
 
+@router.post(
+    "/agents/{name}/publish",
+    response_model=AgentResponse,
+    summary="Publish Custom Agent",
+    description="Publish a personal custom agent to the enterprise agent square.",
+)
+async def publish_agent(name: str, request: AgentPublishRequest) -> AgentResponse:
+    """Copy a personal agent into the shared team-agent catalog."""
+    _require_agents_api_enabled()
+    _validate_agent_name(name)
+    name = _normalize_agent_name(name)
+    user_id = get_effective_user_id()
+    paths = get_paths()
+
+    def _publish() -> AgentResponse | None:
+        source_dir = paths.user_agent_dir(user_id, name)
+        config_file = source_dir / "config.yaml"
+        if not config_file.exists():
+            raise FileNotFoundError(name)
+
+        team_dir = paths.team_agent_dir(name)
+        if team_dir.exists():
+            if not request.overwrite:
+                return None
+            shutil.rmtree(team_dir)
+        team_dir.mkdir(parents=True, exist_ok=False)
+
+        with open(config_file, encoding="utf-8") as file:
+            config_data = yaml.safe_load(file) or {}
+        config_data["name"] = name
+        config_data["published_by_user_id"] = user_id
+        with open(team_dir / "config.yaml", "w", encoding="utf-8") as file:
+            yaml.safe_dump(config_data, file, default_flow_style=False, allow_unicode=True)
+
+        soul_path = source_dir / "SOUL.md"
+        (team_dir / "SOUL.md").write_text(
+            soul_path.read_text(encoding="utf-8") if soul_path.exists() else "",
+            encoding="utf-8",
+        )
+        return _shared_agent_response(name, current_user_id=user_id)
+
+    try:
+        response = await asyncio.to_thread(_publish)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Personal agent '{name}' not found")
+    except Exception as e:
+        logger.error("Failed to publish agent '%s'", name, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to publish agent: {str(e)}",
+        )
+
+    if response is None:
+        raise HTTPException(status_code=409, detail=f"Team agent '{name}' already exists")
+    return response
+
+
+@router.delete(
+    "/team-agents/{name}",
+    status_code=204,
+    summary="Unpublish Team Agent",
+    description="Remove a team-published agent from the enterprise agent square.",
+)
+async def unpublish_team_agent(name: str) -> None:
+    """Remove a shared agent, limited to the user who published it."""
+    _require_agents_api_enabled()
+    _validate_agent_name(name)
+    name = _normalize_agent_name(name)
+    user_id = get_effective_user_id()
+    paths = get_paths()
+
+    def _unpublish() -> str:
+        team_dir = paths.team_agent_dir(name)
+        config_file = team_dir / "config.yaml"
+        if not config_file.exists():
+            return "legacy" if (paths.agent_dir(name) / "config.yaml").exists() else "missing"
+        with open(config_file, encoding="utf-8") as file:
+            config_data = yaml.safe_load(file) or {}
+        published_by = config_data.get("published_by_user_id")
+        if published_by is not None and str(published_by) != user_id:
+            return "forbidden"
+        shutil.rmtree(team_dir)
+        return "deleted"
+
+    try:
+        outcome = await asyncio.to_thread(_unpublish)
+    except Exception as e:
+        logger.error("Failed to unpublish team agent '%s'", name, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to unpublish team agent: {str(e)}",
+        )
+
+    if outcome == "missing":
+        raise HTTPException(status_code=404, detail=f"Team agent '{name}' not found")
+    if outcome == "legacy":
+        raise HTTPException(
+            status_code=409,
+            detail="Legacy shared agents cannot be unpublished through the team square.",
+        )
+    if outcome == "forbidden":
+        raise HTTPException(
+            status_code=403,
+            detail=f"Only the publisher can unpublish team agent '{name}'",
+        )
+
+
 @router.put(
     "/agents/{name}",
     response_model=AgentResponse,
@@ -309,11 +536,20 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
     # fall through to a silent fork of a brand-new config.yaml/SOUL.md
     # into the memory-only directory instead of blocking (mirrors
     # resolve_agent_dir's guard, see #3390).
-    if not (agent_dir / "config.yaml").exists() and (legacy_dir / "config.yaml").exists():
-        raise HTTPException(
-            status_code=409,
-            detail=(f"Agent '{name}' only exists in the legacy shared layout and is not scoped to a user. Run scripts/migrate_user_isolation.py to move legacy agents into the per-user layout before updating."),
-        )
+    if not (agent_dir / "config.yaml").exists():
+        if (paths.team_agent_dir(name) / "config.yaml").exists():
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Agent '{name}' exists in the team square but is not scoped "
+                    "to the current user. Create a personal copy before updating it."
+                ),
+            )
+        if (legacy_dir / "config.yaml").exists():
+            raise HTTPException(
+                status_code=409,
+                detail=(f"Agent '{name}' only exists in the legacy shared layout and is not scoped to a user. Run scripts/migrate_user_isolation.py to move legacy agents into the per-user layout before updating."),
+            )
 
     try:
         # Update config if any config fields changed
@@ -468,7 +704,10 @@ async def delete_agent(name: str) -> None:
         # that must stay off the event loop.
         agent_dir = paths.user_agent_dir(user_id, name)
         if not agent_dir.exists():
-            outcome = "legacy" if paths.agent_dir(name).exists() else "missing"
+            if (paths.team_agent_dir(name) / "config.yaml").exists():
+                outcome = "team"
+            else:
+                outcome = "legacy" if paths.agent_dir(name).exists() else "missing"
             return outcome, str(agent_dir)
         shutil.rmtree(agent_dir)
         return "deleted", str(agent_dir)
@@ -483,6 +722,11 @@ async def delete_agent(name: str) -> None:
         raise HTTPException(
             status_code=409,
             detail=(f"Agent '{name}' only exists in the legacy shared layout and is not scoped to a user. Run scripts/migrate_user_isolation.py to move legacy agents into the per-user layout before deleting."),
+        )
+    if outcome == "team":
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Agent '{name}' exists in the team square and cannot be deleted as a personal agent."),
         )
     if outcome == "missing":
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")

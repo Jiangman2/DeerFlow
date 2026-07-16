@@ -437,6 +437,16 @@ export const enUS: Translations = {
     featureDisabledTitle: "Agents feature is not enabled",
     featureDisabledDescription:
       "This feature is not enabled on this server. Please contact your administrator.",
+    myAgents: "My agents",
+    agentSquare: "Agent square",
+    squareEmptyTitle: "No shared agents yet",
+    squareEmptyDescription:
+      "Published team agents and enterprise tools will appear here.",
+    openExternal: "Open tool",
+    publishToSquare: "Publish to square",
+    unpublishFromSquare: "Remove from square",
+    publishSuccess: "Agent published to the square",
+    unpublishSuccess: "Agent removed from the square",
     chat: "Chat",
     delete: "Delete",
     deleteConfirm:

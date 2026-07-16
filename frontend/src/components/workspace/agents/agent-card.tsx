@@ -1,6 +1,13 @@
 "use client";
 
-import { BotIcon, MessageSquareIcon, Trash2Icon } from "lucide-react";
+import {
+  BotIcon,
+  ExternalLinkIcon,
+  MessageSquareIcon,
+  Share2Icon,
+  Trash2Icon,
+  Undo2Icon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type ReactElement, useState } from "react";
 import { toast } from "sonner";
@@ -28,13 +35,41 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useDeleteAgent } from "@/core/agents";
+import {
+  useDeleteAgent,
+  usePublishAgent,
+  useUnpublishTeamAgent,
+} from "@/core/agents";
 import type { Agent } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
 interface AgentCardProps {
   agent: Agent;
+  showDelete?: boolean;
+  showPublish?: boolean;
+  showUnpublish?: boolean;
+}
+
+const EXTERNAL_AGENT_PROXY_PATHS: Record<string, string> = {
+  "http://10.57.128.79:8100": "/agent-tools/doc-parse/",
+  "http://10.57.128.79:6000": "/agent-tools/seismic-resolution/",
+  "http://10.57.128.79:5001": "/agent-tools/report-review/",
+  "http://10.57.128.79:5000": "/agent-tools/auto-data-collection/",
+  "http://10.57.128.79:7860": "/agent-tools/report-writing/",
+};
+
+function buildExternalAgentHref(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    const proxyBasePath = EXTERNAL_AGENT_PROXY_PATHS[url.origin];
+    if (!proxyBasePath) return rawUrl;
+    const pathSuffix =
+      url.pathname === "/" ? "" : url.pathname.replace(/^\/+/, "");
+    return `${proxyBasePath}${pathSuffix}${url.search}${url.hash}`;
+  } catch {
+    return rawUrl;
+  }
 }
 
 /**
@@ -100,11 +135,22 @@ function TruncatedBadge({
   );
 }
 
-export function AgentCard({ agent }: AgentCardProps) {
+export function AgentCard({
+  agent,
+  showDelete = true,
+  showPublish = false,
+  showUnpublish = false,
+}: AgentCardProps) {
   const { t } = useI18n();
   const router = useRouter();
   const deleteAgent = useDeleteAgent();
+  const publishAgent = usePublishAgent();
+  const unpublishTeamAgent = useUnpublishTeamAgent();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const externalUrl = agent.external_url?.trim();
+  const externalHref = externalUrl
+    ? buildExternalAgentHref(externalUrl)
+    : undefined;
 
   function handleChat() {
     router.push(`/workspace/agents/${agent.name}/chats/new`);
@@ -115,6 +161,24 @@ export function AgentCard({ agent }: AgentCardProps) {
       await deleteAgent.mutateAsync(agent.name);
       toast.success(t.agents.deleteSuccess);
       setDeleteOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handlePublish() {
+    try {
+      await publishAgent.mutateAsync(agent.name);
+      toast.success(t.agents.publishSuccess);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function handleUnpublish() {
+    try {
+      await unpublishTeamAgent.mutateAsync(agent.name);
+      toast.success(t.agents.unpublishSuccess);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : String(err));
     }
@@ -178,21 +242,58 @@ export function AgentCard({ agent }: AgentCardProps) {
         )}
 
         <CardFooter className="mt-auto flex items-center justify-between gap-2 pt-3">
-          <Button size="sm" className="flex-1" onClick={handleChat}>
-            <MessageSquareIcon className="mr-1.5 h-3.5 w-3.5" />
-            {t.agents.chat}
-          </Button>
-          <div className="flex gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="text-destructive hover:text-destructive h-8 w-8 shrink-0"
-              onClick={() => setDeleteOpen(true)}
-              title={t.agents.delete}
-            >
-              <Trash2Icon className="h-3.5 w-3.5" />
+          {externalHref ? (
+            <Button size="sm" className="flex-1" asChild>
+              <a href={externalHref} target="_blank" rel="noreferrer">
+                <ExternalLinkIcon className="mr-1.5 h-3.5 w-3.5" />
+                {t.agents.openExternal}
+              </a>
             </Button>
-          </div>
+          ) : (
+            <Button size="sm" className="flex-1" onClick={handleChat}>
+              <MessageSquareIcon className="mr-1.5 h-3.5 w-3.5" />
+              {t.agents.chat}
+            </Button>
+          )}
+          {(showDelete || showPublish || showUnpublish) && (
+            <div className="flex gap-1">
+              {showPublish && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 shrink-0"
+                  onClick={handlePublish}
+                  disabled={publishAgent.isPending}
+                  title={t.agents.publishToSquare}
+                >
+                  <Share2Icon className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {showUnpublish && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 shrink-0"
+                  onClick={handleUnpublish}
+                  disabled={unpublishTeamAgent.isPending}
+                  title={t.agents.unpublishFromSquare}
+                >
+                  <Undo2Icon className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {showDelete && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive h-8 w-8 shrink-0"
+                  onClick={() => setDeleteOpen(true)}
+                  title={t.agents.delete}
+                >
+                  <Trash2Icon className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          )}
         </CardFooter>
       </Card>
 
