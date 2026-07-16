@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { brand } from "@/brand";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { AuroraText } from "@/components/ui/aurora-text";
 import { Button } from "@/components/ui/button";
 import { FlickeringGrid } from "@/components/ui/flickering-grid";
@@ -36,7 +38,8 @@ export function Hero({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="absolute inset-0 z-0 bg-black/40">
+      <div className="absolute inset-0 z-0 bg-[url('/images/home-bg-light.png')] bg-cover bg-center bg-no-repeat" />
+      <div className="absolute inset-0 z-0 bg-white/35">
         <Galaxy
           mouseRepulsion={false}
           starSpeed={0.2}
@@ -54,13 +57,16 @@ export function Hero({ className }: { className?: string }) {
         maxOpacity={0.3}
         flickerChance={0.25}
       />
+      <div className="absolute top-6 left-6 z-10 md:top-8 md:left-8">
+        <BrandLogo variant="full" priority className="h-10 w-auto md:h-12" />
+      </div>
       <div className="container-md relative z-10 mx-auto flex min-h-[92svh] flex-col items-center justify-center px-4 pt-20 pb-14">
-        <h1 className="text-center text-5xl leading-tight font-bold break-words md:text-6xl">
-          DeerFlow
+        <h1 className="text-center text-4xl leading-tight font-bold break-words text-slate-950 md:text-6xl">
+          {brand.productName}
         </h1>
         <div className="mt-3 flex w-full max-w-full min-w-0 items-center justify-center gap-x-2 text-center text-2xl font-semibold md:text-4xl">
           <HeroWordRotate words={HERO_WORDS} />
-          <span className="whitespace-nowrap">SuperAgent</span>
+          <span className="whitespace-nowrap text-slate-900">多智能体业务工作平台</span>
         </div>
         {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY && (
           <a
@@ -74,14 +80,12 @@ export function Hero({ className }: { className?: string }) {
             </div>
           </a>
         )}
-        <p className="text-muted-foreground mt-8 max-w-4xl text-center text-base leading-7 text-shadow-sm sm:text-xl md:text-2xl">
-          An open-source SuperAgent harness that researches, codes, and creates.
-          With the help of sandboxes, memories, tools, skills and subagents, it
-          handles different levels of tasks that could take minutes to hours.
+        <p className="mt-8 max-w-4xl text-center text-base leading-7 text-slate-700 sm:text-xl md:text-2xl">
+          面向油气勘探开发业务，集深度研究、专业报告、数据分析与智能办公于一体。
         </p>
-        <Link href="/workspace">
+        <Link href={brand.links.workspace}>
           <Button className="mt-8 h-11 px-5" size="lg">
-            <span className="text-md">Get Started with 2.0</span>
+            <span className="text-md">开始使用</span>
             <ChevronRightIcon className="size-4" />
           </Button>
         </Link>
