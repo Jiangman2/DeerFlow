@@ -53,7 +53,7 @@ export function WhatsNewSection({ className }: { className?: string }) {
     <Section
       className={cn("", className)}
       title="功能更新"
-      subtitle="The platform supports research, coding, automation, and enterprise workflows"
+      subtitle="本平台支持研究、编程、自动化和企业工作流"
     >
       <div className="flex w-full items-center justify-center">
         <MagicBento data={features} />

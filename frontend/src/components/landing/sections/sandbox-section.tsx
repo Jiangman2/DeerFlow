@@ -15,9 +15,7 @@ export function SandboxSection({ className }: { className?: string }) {
       title="Agent Runtime Environment"
       subtitle={
         <p>
-          The platform can use a sandboxed workspace, which can execute commands,
-          manage files, and run long tasks — all in a secure Docker-based
-          sandbox
+          本平台可在安全的 Docker 沙箱中执行命令、管理文件并运行长时间任务。
         </p>
       }
     >

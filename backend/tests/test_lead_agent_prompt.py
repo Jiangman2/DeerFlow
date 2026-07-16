@@ -118,7 +118,7 @@ def test_apply_prompt_template_uses_enterprise_identity(monkeypatch):
 
     prompt = prompt_module.apply_prompt_template(app_config=config)
 
-    assert "中海油勘探开发通用智能体" in prompt
+    assert "中海油勘探开发智能体" in prompt
     assert "面向油气勘探开发业务的企业级多智能体工作平台" in prompt
     assert "DeerFlow" not in prompt
     assert "github.com/bytedance" not in prompt
