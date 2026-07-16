@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from deerflow.runtime.runs import worker
 from deerflow.runtime.runs.manager import RunRecord
 from deerflow.runtime.runs.schemas import DisconnectMode, RunStatus
-from deerflow.runtime.runs.worker import _has_open_clarification
+from deerflow.runtime.runs.worker import _chunk_has_open_clarification, _has_open_clarification
 
 
 def _clarification_tool_message(request_id: str) -> ToolMessage:
@@ -57,6 +57,10 @@ def test_open_clarification_keeps_unmatched_request_open() -> None:
             _human_input_response("other-request"),
         ]
     )
+
+
+def test_stream_chunk_detects_nested_clarification_update() -> None:
+    assert _chunk_has_open_clarification({"lead_agent": {"messages": [_clarification_tool_message("req-1")]}})
 
 
 @pytest.mark.asyncio
