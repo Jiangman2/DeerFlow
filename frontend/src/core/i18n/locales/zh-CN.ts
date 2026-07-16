@@ -210,19 +210,24 @@ export const zhCN: Translations = {
     compactFailed: "上下文压缩失败。",
     suggestions: [
       {
-        suggestion: "写作",
-        prompt: "撰写一篇关于[主题]的博客文章",
-        icon: PenLineIcon,
+        suggestion: "图片生成",
+        prompt: "生成一个关于[主题]的图片",
+        icon: ImageIcon,
       },
       {
-        suggestion: "研究",
+        suggestion: "PPT生成",
+        prompt: "生成一个关于[主题]的PPT",
+        icon: ShapesIcon,
+      },
+      {
+        suggestion: "深度研究",
         prompt: "深入浅出的研究一下[主题]，并总结发现。",
         icon: MicroscopeIcon,
       },
       {
-        suggestion: "收集",
-        prompt: "从[来源]收集数据并创建报告。",
-        icon: ShapesIcon,
+        suggestion: "数据分析",
+        prompt: "分析上传的 Excel/CSV 文件，生成统计摘要、SQL 查询结果或结构化数据洞察。",
+        icon: PenLineIcon,
       },
       {
         suggestion: "学习",
@@ -235,11 +240,6 @@ export const zhCN: Translations = {
         suggestion: "网页",
         prompt: "生成一个关于[主题]的网页",
         icon: CompassIcon,
-      },
-      {
-        suggestion: "图片",
-        prompt: "生成一个关于[主题]的图片",
-        icon: ImageIcon,
       },
       {
         suggestion: "视频",
