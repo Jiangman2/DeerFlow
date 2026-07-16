@@ -4,6 +4,8 @@ import { MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { brand } from "@/brand";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -29,20 +31,21 @@ export function WorkspaceHeader({ className }: { className?: string }) {
       >
         {state === "collapsed" ? (
           <div className="group-has-data-[collapsible=icon]/sidebar-wrapper:-translate-y flex w-full cursor-pointer items-center justify-center">
-            <div className="text-primary block pt-1 font-serif group-hover/workspace-header:hidden">
-              DF
-            </div>
+            <BrandLogo
+              variant="mark"
+              className="block size-7 object-contain group-hover/workspace-header:hidden"
+            />
             <SidebarTrigger className="hidden pl-2 group-hover/workspace-header:block" />
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2">
             {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ? (
-              <Link href="/" className="text-primary ml-2 font-serif">
-                DeerFlow
+              <Link href={brand.links.home} className="ml-2 flex items-center">
+                <BrandLogo variant="full" priority className="h-8 w-auto" />
               </Link>
             ) : (
-              <div className="text-primary ml-2 cursor-default font-serif">
-                DeerFlow
+              <div className="ml-2 flex cursor-default items-center">
+                <BrandLogo variant="full" priority className="h-8 w-auto" />
               </div>
             )}
             <SidebarTrigger />

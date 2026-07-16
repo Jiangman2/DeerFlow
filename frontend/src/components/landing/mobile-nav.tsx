@@ -4,6 +4,7 @@ import { MenuIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -29,7 +30,9 @@ export function MobileNav({ links }: { links: MobileNavLink[] }) {
       </SheetTrigger>
       <SheetContent side="right" className="w-64">
         <SheetHeader>
-          <SheetTitle className="font-serif text-xl">DeerFlow</SheetTitle>
+          <SheetTitle>
+            <BrandLogo variant="full" className="h-8 w-auto" />
+          </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-1 px-4 text-base font-medium">
           {links.map((link) => (

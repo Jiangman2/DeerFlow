@@ -3,13 +3,15 @@ import "@/styles/globals.css";
 
 import { type Metadata } from "next";
 
+import { brand } from "@/brand";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/core/i18n/context";
 import { detectLocaleServer } from "@/core/i18n/server";
 
 export const metadata: Metadata = {
-  title: "DeerFlow",
-  description: "A LangChain-based framework for building super agents.",
+  title: brand.productName,
+  description: "面向油气勘探开发业务的多智能体工作平台。",
+  icons: { apple: brand.logo.markSrc },
 };
 
 export default async function RootLayout({
