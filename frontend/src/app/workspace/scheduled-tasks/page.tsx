@@ -190,18 +190,11 @@ export default function ScheduledTasksPage() {
   return (
     <WorkspaceContainer>
       <WorkspaceHeader />
-      <WorkspaceBody className="bg-[url('/images/workspace-bg-light.png')] bg-cover bg-top bg-no-repeat">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-6">
-          <header className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold">{t.sidebar.scheduledTasks}</h1>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {st.detail.emptyDescription}
-              </p>
-            </div>
-          </header>
+      <WorkspaceBody>
+        <div className="mx-auto flex w-full max-w-(--container-width-md) flex-col gap-4 p-6">
+          <h1 className="text-2xl font-semibold">{t.sidebar.scheduledTasks}</h1>
           <div
-            className="grid gap-3 rounded-lg border border-primary/20 bg-background/90 p-4 shadow-sm backdrop-blur-sm"
+            className="grid gap-2 rounded-lg border p-4"
             data-testid="scheduled-task-create-form"
           >
             <div className="font-medium">{st.create.title}</div>
@@ -336,7 +329,7 @@ export default function ScheduledTasksPage() {
               {st.detail.loadFailed}: {queryError.message}
             </div>
           ) : null}
-          <div className="flex flex-wrap gap-2 rounded-lg border bg-background/90 p-3 shadow-sm backdrop-blur-sm">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={statusFilter === "all" ? "default" : "outline"}
               size="sm"
@@ -408,10 +401,8 @@ export default function ScheduledTasksPage() {
                     onClick={() => setSelectedTaskId(task.id)}
                     data-testid={`scheduled-task-item-${task.id}`}
                     className={cn(
-                      "group rounded-lg border bg-background/90 p-4 text-left shadow-sm transition-shadow hover:shadow-md",
-                      isSelected
-                        ? "border-primary ring-1 ring-primary/20"
-                        : "border-border hover:border-primary/40",
+                      "rounded-lg border p-4 text-left",
+                      isSelected ? "border-foreground" : "border-border",
                     )}
                   >
                     <div className="font-medium">{task.title}</div>
@@ -423,7 +414,7 @@ export default function ScheduledTasksPage() {
               })}
             </div>
             <div
-              className="rounded-lg border bg-background/95 p-4 shadow-sm backdrop-blur-sm lg:sticky lg:top-4"
+              className="rounded-lg border p-4"
               data-testid="scheduled-task-detail"
             >
               {selectedTask ? (
