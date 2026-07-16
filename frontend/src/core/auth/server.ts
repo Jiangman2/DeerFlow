@@ -7,7 +7,18 @@ import { getGatewayConfig } from "./gateway-config";
 import { STATIC_WEBSITE_USER } from "./static-user";
 import { type AuthResult, userSchema } from "./types";
 
-const SSR_AUTH_TIMEOUT_MS = 5_000;
+const DEFAULT_SSR_AUTH_TIMEOUT_MS = 15_000;
+
+function getSsrAuthTimeoutMs() {
+  const raw = process.env.DEER_FLOW_SSR_AUTH_TIMEOUT_MS?.trim();
+  if (!raw) {
+    return DEFAULT_SSR_AUTH_TIMEOUT_MS;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_SSR_AUTH_TIMEOUT_MS;
+}
 
 /**
  * Fetch the authenticated user from the gateway using the request's cookies.
@@ -41,9 +52,10 @@ export async function getServerSideUser(): Promise<AuthResult> {
   if (!sessionCookie) {
     // No session — check whether the system has been initialised yet.
     const setupController = new AbortController();
+    const timeoutMs = getSsrAuthTimeoutMs();
     const setupTimeout = setTimeout(
       () => setupController.abort(),
-      SSR_AUTH_TIMEOUT_MS,
+      timeoutMs,
     );
     try {
       const setupRes = await fetch(
@@ -68,7 +80,10 @@ export async function getServerSideUser(): Promise<AuthResult> {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SSR_AUTH_TIMEOUT_MS);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    getSsrAuthTimeoutMs(),
+  );
 
   try {
     const res = await fetch(`${internalGatewayUrl}/api/v1/auth/me`, {
