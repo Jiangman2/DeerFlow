@@ -21,16 +21,21 @@ export function WorkspaceSidebar({
   const { open: isSidebarOpen } = useSidebar();
   return (
     <>
-      <Sidebar variant="sidebar" collapsible="icon" {...props}>
-        <SidebarHeader className="py-0">
+      <Sidebar
+        variant="sidebar"
+        collapsible="icon"
+        className="border-r border-[#d4dfef] bg-[linear-gradient(180deg,#eef5ff_0%,#e8f0fb_48%,#e3ecf8_100%)] text-[#4c5664]"
+        {...props}
+      >
+        <SidebarHeader className="mx-1 rounded-md border border-transparent bg-transparent py-0">
           <WorkspaceHeader />
         </SidebarHeader>
-        <SidebarContent>
+        <SidebarContent className="mx-1 rounded-md border border-transparent bg-transparent">
           <WorkspaceNavChatList />
           <WorkspaceChannelsList />
           {isSidebarOpen && <RecentChatList />}
         </SidebarContent>
-        <SidebarFooter>
+        <SidebarFooter className="mx-1 rounded-md border border-transparent bg-transparent">
           <WorkspaceNavMenu />
         </SidebarFooter>
         <SidebarRail />

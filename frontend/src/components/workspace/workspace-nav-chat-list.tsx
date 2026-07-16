@@ -26,8 +26,12 @@ export function WorkspaceNavChatList() {
     <SidebarGroup className="pt-1">
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton isActive={pathname === "/workspace/chats"} asChild>
-            <Link className="text-muted-foreground" href="/workspace/chats">
+          <SidebarMenuButton
+            isActive={pathname === "/workspace/chats"}
+            className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm [&>svg]:text-[#8b939d]"
+            asChild
+          >
+            <Link href="/workspace/chats">
               <MessagesSquare />
               <span>{t.sidebar.chats}</span>
             </Link>
@@ -78,6 +82,7 @@ export function WorkspaceNavChatList() {
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname.startsWith("/workspace/scheduled-tasks")}
+            className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm [&>svg]:text-[#8b939d]"
             asChild
           >
             <Link

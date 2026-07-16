@@ -33,14 +33,14 @@ function NavMenuButtonContent({
   t: ReturnType<typeof useI18n>["t"];
 }) {
   return isSidebarOpen ? (
-    <div className="text-muted-foreground flex w-full items-center gap-2 text-left text-sm">
-      <SettingsIcon className="size-4" />
+    <div className="flex w-full items-center gap-2 text-left text-sm text-[#4f5967]">
+      <SettingsIcon className="size-4 text-[#8b939d]" />
       <span>{t.workspace.settingsAndMore}</span>
-      <ChevronsUpDown className="text-muted-foreground ml-auto size-4" />
+      <ChevronsUpDown className="ml-auto size-4 text-[#8b939d]" />
     </div>
   ) : (
     <div className="flex size-full items-center justify-center">
-      <SettingsIcon className="text-muted-foreground size-4" />
+      <SettingsIcon className="size-4 text-[#8b939d]" />
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function WorkspaceNavMenu() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  className="hover:bg-white/80 data-[state=open]:bg-white data-[state=open]:text-[#222832] data-[state=open]:shadow-sm"
                 >
                   <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
                 </SidebarMenuButton>
@@ -105,7 +105,10 @@ export function WorkspaceNavMenu() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <SidebarMenuButton size="lg" className="pointer-events-none">
+            <SidebarMenuButton
+              size="lg"
+              className="pointer-events-none hover:bg-white/80"
+            >
               <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
             </SidebarMenuButton>
           )}
