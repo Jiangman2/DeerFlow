@@ -236,7 +236,7 @@ export function RecentChatList() {
                   >
                     <SidebarMenuButton
                       isActive={isActive}
-                      className="text-[#4f5967] hover:bg-white/80 hover:text-[#222832] data-[active=true]:bg-white data-[active=true]:text-[#222832] data-[active=true]:shadow-sm"
+                      className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm"
                       asChild
                     >
                       <Link
