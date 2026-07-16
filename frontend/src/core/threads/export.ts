@@ -15,7 +15,7 @@ import { titleOfThread } from "./utils";
 /**
  * Optional debug switches for advanced exports.
  *
- * Bytedance/deer-flow issue #3107 BUG-006 explicitly prescribes that the
+ * The export compatibility contract prescribes that the
  * default export includes only the user-visible transcript and excludes
  * thinking/reasoning content, tool calls, tool results, hidden messages,
  * memory injection, and `<system-reminder>` payloads. These options let a

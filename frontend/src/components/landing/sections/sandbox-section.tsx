@@ -15,7 +15,7 @@ export function SandboxSection({ className }: { className?: string }) {
       title="Agent Runtime Environment"
       subtitle={
         <p>
-          We give DeerFlow a &quot;computer&quot;, which can execute commands,
+          The platform can use a sandboxed workspace, which can execute commands,
           manage files, and run long tasks — all in a secure Docker-based
           sandbox
         </p>
@@ -76,7 +76,7 @@ export function SandboxSection({ className }: { className?: string }) {
             </p>
             <h2 className="text-4xl font-bold tracking-tight lg:text-5xl">
               <a
-                href="https://github.com/agent-infra/sandbox"
+                href="#"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -89,7 +89,7 @@ export function SandboxSection({ className }: { className?: string }) {
             <p>
               We recommend using{" "}
               <a
-                href="https://github.com/agent-infra/sandbox"
+                href="#"
                 className="underline"
                 target="_blank"
                 rel="noopener noreferrer"

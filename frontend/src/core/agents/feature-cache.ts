@@ -6,7 +6,7 @@
 // back the 403 storm (#3757). Persisting the last definitive answer lets a
 // cold start during an outage fall back to it instead of failing open.
 
-const AGENTS_API_ENABLED_KEY = "deerflow.features.agents_api";
+const AGENTS_API_ENABLED_KEY = "platform.features.agents_api";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";

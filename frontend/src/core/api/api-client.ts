@@ -47,7 +47,7 @@ function injectCsrfHeader(_url: URL, init: RequestInit): RequestInit {
 // first message after a reload never sends. The ``joinStream`` wrapper below
 // short-circuits these *before* joining.
 //
-// ``interrupted`` is included because in DeerFlow it is only ever written by
+// ``interrupted`` is included because it is only ever written by
 // ``RunManager.cancel()`` (a user-initiated stop); the resumable human-in-the-
 // loop path uses ``Command(goto=END)`` (``ClarificationMiddleware``), which
 // ends the run as ``success``, not ``interrupted``. So an interrupted run has

@@ -429,7 +429,7 @@ export default function ProgressiveSkillsAnimation() {
                       item.done
                         ? "text-green-500"
                         : item.highlight
-                          ? "text-purple-400"
+                        ? "text-purple-400"
                           : ""
                     }
                   />
@@ -440,7 +440,7 @@ export default function ProgressiveSkillsAnimation() {
                       item.done
                         ? "text-green-500"
                         : item.highlight
-                          ? "text-purple-400"
+                        ? "text-purple-400"
                           : ""
                     }
                   />
@@ -448,7 +448,7 @@ export default function ProgressiveSkillsAnimation() {
                 <span>{item.name}</span>
                 {item.done && <Check size={16} className="text-green-500" />}
                 {item.highlight && !item.done && (
-                  <Sparkles size={16} className="text-purple-400" />
+                  <Sparkles size={16} className="text-teal-400" />
                 )}
               </motion.div>
             ))}
@@ -461,7 +461,7 @@ export default function ProgressiveSkillsAnimation() {
           <div className="border-b border-zinc-800 p-4">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-green-500" />
-              <span className="text-sm text-zinc-400">DeerFlow Agent</span>
+              <span className="text-sm text-zinc-400">中海油智能体</span>
             </div>
           </div>
 
@@ -691,7 +691,7 @@ export default function ProgressiveSkillsAnimation() {
           {/* Chat Input (decorative) */}
           <div className="border-t border-zinc-800 p-4">
             <div className="rounded-xl bg-zinc-800 px-4 py-3 text-sm text-zinc-500">
-              Ask DeerFlow anything...
+              请输入任务...
             </div>
           </div>
         </div>

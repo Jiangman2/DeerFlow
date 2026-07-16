@@ -11,7 +11,11 @@ import { detectLocaleServer } from "@/core/i18n/server";
 export const metadata: Metadata = {
   title: brand.productName,
   description: "面向油气勘探开发业务的多智能体工作平台。",
-  icons: { apple: brand.logo.markSrc },
+  icons: {
+    icon: brand.logo.markSrc,
+    shortcut: brand.logo.markSrc,
+    apple: brand.logo.markSrc,
+  },
 };
 
 export default async function RootLayout({

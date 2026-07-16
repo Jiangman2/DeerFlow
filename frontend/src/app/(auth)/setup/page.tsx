@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
+import { brand } from "@/brand";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
-import { FlickeringGrid } from "@/components/ui/flickering-grid";
 import { Input } from "@/components/ui/input";
 import { getCsrfHeaders } from "@/core/api/fetcher";
 import { useAuth } from "@/core/auth/AuthProvider";
@@ -20,7 +20,6 @@ type SetupMode = "loading" | "init_admin" | "change_password";
 export default function SetupPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  const { theme, resolvedTheme } = useTheme();
   const [mode, setMode] = useState<SetupMode>("loading");
 
   // --- Shared state ---
@@ -149,8 +148,6 @@ export default function SetupPage() {
     }
   };
 
-  const actualTheme = theme === "system" ? resolvedTheme : theme;
-
   if (mode === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -163,26 +160,23 @@ export default function SetupPage() {
   if (mode === "init_admin") {
     return (
       <div className="bg-background flex min-h-screen items-center justify-center">
-        <FlickeringGrid
-          className="absolute inset-0 z-0 mask-[url(/images/deer.svg)] mask-size-[100vw] mask-center mask-no-repeat md:mask-size-[72vh]"
-          squareSize={4}
-          gridGap={4}
-          color={actualTheme === "dark" ? "white" : "black"}
-          maxOpacity={0.3}
-          flickerChance={0.25}
-        />
-        <div className="border-border/20 bg-background/5 w-full max-w-md space-y-6 rounded-3xl border p-8 backdrop-blur-sm">
-          <div className="text-center">
-            <h1 className="font-serif text-3xl">DeerFlow</h1>
-            <p className="text-muted-foreground mt-2">Create admin account</p>
+        <div className="absolute inset-0 z-0 bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat opacity-70" />
+        <div className="absolute inset-0 z-0 bg-background/70 backdrop-blur-sm" />
+        <div className="border-border/20 bg-background/5 relative z-10 w-full max-w-md space-y-5 rounded-3xl border p-6 backdrop-blur-sm sm:space-y-6 sm:p-8">
+          <div className="flex flex-col items-center text-center">
+            <BrandLogo variant="full" priority className="h-12 w-auto" />
+            <h1 className="text-foreground mt-5 text-xl font-semibold">
+              {brand.shortName}
+            </h1>
+            <p className="text-muted-foreground mt-2">创建管理员账号</p>
             <p className="text-muted-foreground mt-1 text-xs">
-              Set up the administrator account to get started.
+              首次使用前需要先完成管理员初始化。
             </p>
           </div>
-          <form onSubmit={handleInitAdmin} className="space-y-2">
+          <form onSubmit={handleInitAdmin} className="space-y-3">
             <div className="flex flex-col space-y-1">
               <label htmlFor="email" className="text-sm font-medium">
-                Email
+                邮箱
               </label>
               <Input
                 id="email"
@@ -195,7 +189,7 @@ export default function SetupPage() {
             </div>
             <div className="flex flex-col space-y-1">
               <label htmlFor="password" className="text-sm font-medium">
-                Password
+                密码
               </label>
               <Input
                 id="password"
@@ -209,7 +203,7 @@ export default function SetupPage() {
             </div>
             <div className="flex flex-col space-y-1">
               <label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm Password
+                确认密码
               </label>
               <Input
                 id="confirmPassword"
@@ -223,7 +217,7 @@ export default function SetupPage() {
             </div>
             {error && <p className="ms-1 text-sm text-red-500">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account…" : "Create Admin Account"}
+              {loading ? "正在创建..." : "创建管理员账号"}
             </Button>
           </form>
         </div>
@@ -234,42 +228,39 @@ export default function SetupPage() {
   // ── Change-password form (needs_setup after login) ─────────────────
   return (
     <div className="bg-background flex min-h-screen items-center justify-center">
-      <FlickeringGrid
-        className="absolute inset-0 z-0 mask-[url(/images/deer.svg)] mask-size-[100vw] mask-center mask-no-repeat md:mask-size-[72vh]"
-        squareSize={4}
-        gridGap={4}
-        color={actualTheme === "dark" ? "white" : "black"}
-        maxOpacity={0.3}
-        flickerChance={0.25}
-      />
-      <div className="border-border/20 bg-background/5 w-full max-w-md space-y-6 rounded-3xl border p-8 backdrop-blur-sm">
-        <div className="text-center">
-          <h1 className="font-serif text-3xl">DeerFlow</h1>
+      <div className="absolute inset-0 z-0 bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat opacity-70" />
+      <div className="absolute inset-0 z-0 bg-background/70 backdrop-blur-sm" />
+      <div className="border-border/20 bg-background/5 relative z-10 w-full max-w-md space-y-5 rounded-3xl border p-6 backdrop-blur-sm sm:space-y-6 sm:p-8">
+        <div className="flex flex-col items-center text-center">
+          <BrandLogo variant="full" priority className="h-12 w-auto" />
+          <h1 className="text-foreground mt-5 text-xl font-semibold">
+            {brand.shortName}
+          </h1>
           <p className="text-muted-foreground mt-2">
-            Complete admin account setup
+            完成管理员账号设置
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
-            Set your real email and a new password.
+            请设置真实邮箱和新密码。
           </p>
         </div>
-        <form onSubmit={handleChangePassword} className="space-y-4">
+        <form onSubmit={handleChangePassword} className="space-y-3">
           <Input
             type="email"
-            placeholder="Your email"
+            placeholder="邮箱"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
           <Input
             type="password"
-            placeholder="Current password"
+            placeholder="当前密码"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             required
           />
           <Input
             type="password"
-            placeholder="New password"
+            placeholder="新密码"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             required
@@ -277,7 +268,7 @@ export default function SetupPage() {
           />
           <Input
             type="password"
-            placeholder="Confirm new password"
+            placeholder="确认新密码"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
@@ -285,7 +276,7 @@ export default function SetupPage() {
           />
           {error && <p className="text-sm text-red-500">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Setting up…" : "Complete Setup"}
+            {loading ? "正在设置..." : "完成设置"}
           </Button>
         </form>
       </div>

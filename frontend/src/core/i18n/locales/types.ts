@@ -267,6 +267,7 @@ export interface Translations {
       once: string;
     };
     detail: {
+      emptyDescription: string;
       contextMode: string;
       thread: string;
       lastThread: string;
@@ -382,16 +383,14 @@ export interface Translations {
   breadcrumb: {
     workspace: string;
     chats: string;
+    agents: string;
+    knowledge: string;
+    scheduledTasks: string;
   };
 
   // Workspace
   workspace: {
-    officialWebsite: string;
-    githubTooltip: string;
     settingsAndMore: string;
-    visitGithub: string;
-    reportIssue: string;
-    contactUs: string;
     about: string;
     logout: string;
     gatewayUnavailable: string;

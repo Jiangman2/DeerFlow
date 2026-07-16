@@ -2,7 +2,7 @@ import type { AgentThread } from "@/core/threads";
 
 import { normalizeSidecarContexts, type SidecarContext } from "./context";
 
-export const SIDECAR_METADATA_KEY = "deerflow_sidecar";
+export const SIDECAR_METADATA_KEY = "platform_sidecar";
 
 export type SidecarThreadMetadata = {
   [SIDECAR_METADATA_KEY]: true;

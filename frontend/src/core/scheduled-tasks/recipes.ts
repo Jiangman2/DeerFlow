@@ -20,7 +20,7 @@ export const RECIPES: Recipe[] = [
     icon: "🔥",
     titleKey: "trending",
     prompt:
-      "Use web_search to open today's GitHub Trending page, then summarize the top 10 repositories. For each: name, primary language, today's star delta, and a one-line description of what it is and why it's trending. Output as a markdown list.",
+      "Use web_search to review today's notable open-source project updates, then summarize the top 10 projects. For each: name, primary language or technology area, recent activity signal, and a one-line description of what it is and why it matters. Output as a markdown list.",
     schedule: {
       schedule_type: "cron",
       schedule_spec: { cron: "0 9 * * *" },

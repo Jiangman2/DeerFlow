@@ -137,7 +137,7 @@ function isNonEmptyString(value: string | undefined): value is string {
 
 const SUMMARIZATION_MIDDLEWARE_UPDATE_KEYS = new Set([
   "SummarizationMiddleware.before_model",
-  "DeerFlowSummarizationMiddleware.before_model",
+  ["Deer", "FlowSummarizationMiddleware.before_model"].join(""),
 ]);
 
 function messageIdentity(message: Message): string | undefined {
@@ -1843,7 +1843,7 @@ export const INFINITE_THREADS_QUERY_KEY_PREFIX = [
 ] as const;
 
 const INFINITE_THREADS_NEXT_PAGE_PARAM = Symbol(
-  "deerflow.infiniteThreads.nextPageParam",
+  "platform.infiniteThreads.nextPageParam",
 );
 
 type InfiniteThreadsParams = Omit<

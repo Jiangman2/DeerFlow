@@ -139,8 +139,8 @@ import {
 } from "./input-box-helpers";
 import { useThread } from "./messages/context";
 import { ModeHoverGuide } from "./mode-hover-guide";
-import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { ShopCartAttachmentButton } from "./shop-cart-attachments";
+import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { SlashSkillChip } from "./slash-skill-chip";
 import { Tooltip } from "./tooltip";
 
