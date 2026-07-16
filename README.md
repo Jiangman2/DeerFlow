@@ -669,6 +669,8 @@ Interrupted first-turn runs still persist a fallback conversation title, so stop
 
 In the Web UI, completed assistant turns can be branched into a new main conversation. The new thread starts from that turn's checkpoint. Because workspace files are not checkpointed, the branch only receives a best-effort copy of the current workspace when you branch from the latest turn; branching from an older turn keeps just the restored message history so the branch never inherits files that were created in a later part of the conversation.
 
+Completed assistant turns also expose like and dislike controls in the turn toolbar. Feedback is stored against the owning run, survives history reloads, and can be switched or cleared by clicking the selected control again.
+
 ```
 # Paths inside the sandbox container
 /mnt/skills/public

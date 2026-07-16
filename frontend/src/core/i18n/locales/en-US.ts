@@ -51,6 +51,8 @@ export const enUS: Translations = {
     exportSuccess: "Conversation exported",
     regenerate: "Regenerate",
     branch: "Branch conversation",
+    likeResponse: "Like response",
+    dislikeResponse: "Dislike response",
     showArtifacts: "Show artifacts of this conversation",
   },
 

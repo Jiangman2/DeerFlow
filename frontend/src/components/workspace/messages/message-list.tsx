@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { extractArtifactsFromThread } from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
+import { findAssistantTurnFeedbackTarget } from "@/core/messages/feedback";
 import {
   deriveHumanInputThreadState,
   extractHumanInputRequest,
@@ -81,7 +82,7 @@ import {
 } from "./human-input-card";
 import { MarkdownContent } from "./markdown-content";
 import { MessageGroup } from "./message-group";
-import { MessageListItem } from "./message-list-item";
+import { FeedbackButtons, MessageListItem } from "./message-list-item";
 import {
   MessageTokenUsageDebugList,
   MessageTokenUsageList,
@@ -556,17 +557,25 @@ export function MessageList({
       const actionTarget = [...messages]
         .reverse()
         .find((message) => message.type === "ai" && message.id);
+      const feedbackTarget = findAssistantTurnFeedbackTarget(messages);
       const assistantMessageIds = messages
         .filter((message) => message.type === "ai" && message.id)
         .map((message) => message.id)
         .filter((id): id is string => typeof id === "string");
-      if (!clipboardData && !actionTarget) {
+      if (!clipboardData && !actionTarget && !feedbackTarget) {
         return null;
       }
 
       return (
         <div className="mt-2 flex justify-start gap-1 opacity-0 transition-opacity delay-200 duration-300 group-hover/assistant-turn:opacity-100">
           {clipboardData && <CopyButton clipboardData={clipboardData} />}
+          {!isStreaming && feedbackTarget && (
+            <FeedbackButtons
+              threadId={threadId}
+              runId={feedbackTarget.runId}
+              initialFeedback={feedbackTarget.feedback}
+            />
+          )}
           {enableBranchForTurn &&
             !isStreaming &&
             actionTarget?.id &&
@@ -649,6 +658,7 @@ export function MessageList({
       regeneratingMessageId,
       t.common.branch,
       t.common.regenerate,
+      threadId,
     ],
   );
 

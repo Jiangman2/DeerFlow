@@ -550,6 +550,8 @@ Gateway 生成后续建议时，现在会先把普通字符串输出和 block/li
 
 Web UI 支持从已完成的 assistant 回复分叉出一个新的主对话。新 thread 会从该回复对应的 checkpoint 开始，并尽力复制当前 thread 的工作区文件。
 
+已完成的 assistant 回复还会在操作栏中显示点赞和点踩按钮。反馈按所属 run 持久化，刷新历史记录后仍会保留；用户可以切换评价，或再次点击已选按钮来取消评价。
+
 ```text
 # sandbox 容器内的路径
 /mnt/skills/public

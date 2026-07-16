@@ -64,7 +64,7 @@ import { SlashSkillChip } from "../slash-skill-chip";
 import { MarkdownContent } from "./markdown-content";
 import { createMarkdownLinkComponent } from "./markdown-link";
 
-function FeedbackButtons({
+export function FeedbackButtons({
   threadId,
   runId,
   initialFeedback,
@@ -73,10 +73,15 @@ function FeedbackButtons({
   runId: string;
   initialFeedback: FeedbackData | null;
 }) {
+  const { t } = useI18n();
   const [feedback, setFeedback] = useState<FeedbackData | null>(
     initialFeedback,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setFeedback(initialFeedback);
+  }, [initialFeedback]);
 
   const handleClick = useCallback(
     async (rating: number) => {
@@ -103,6 +108,8 @@ function FeedbackButtons({
     <div className="flex gap-1">
       <button
         type="button"
+        aria-label={t.common.likeResponse}
+        aria-pressed={feedback?.rating === 1}
         className={cn(
           "text-muted-foreground hover:text-foreground rounded-md p-1 transition-colors",
           feedback?.rating === 1 && "text-foreground",
@@ -116,6 +123,8 @@ function FeedbackButtons({
       </button>
       <button
         type="button"
+        aria-label={t.common.dislikeResponse}
+        aria-pressed={feedback?.rating === -1}
         className={cn(
           "text-muted-foreground hover:text-foreground rounded-md p-1 transition-colors",
           feedback?.rating === -1 && "text-foreground",
