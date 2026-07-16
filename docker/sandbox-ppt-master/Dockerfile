@@ -5,7 +5,7 @@ USER root
 ARG APT_MIRROR=
 
 # Keep the sandbox runtime aligned with the ppt-master skill dependency list.
-COPY skills/public/ppt-master/requirements.txt /tmp/ppt-master-requirements.txt
+COPY --from=ppt-master-skill requirements.txt /tmp/ppt-master-requirements.txt
 
 # CairoSVG needs native Cairo libraries at runtime.
 RUN if [ -n "${APT_MIRROR}" ]; then \

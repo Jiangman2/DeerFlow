@@ -83,6 +83,14 @@ DEFAULT_USER_ID = "default"
 # Typically the host's ~/.kube/config is mounted here.
 KUBECONFIG_PATH = os.environ.get("KUBECONFIG_PATH", "/root/.kube/config")
 PROVISIONER_API_KEY = os.environ.get("PROVISIONER_API_KEY", "")
+KUBECONFIG_WAIT_SECONDS_RAW = os.environ.get("KUBECONFIG_WAIT_SECONDS", "30")
+K8S_CREATE_NAMESPACE = os.environ.get("K8S_CREATE_NAMESPACE", "true").lower() in {"1", "true", "yes", "on"}
+try:
+    KUBECONFIG_WAIT_SECONDS = int(KUBECONFIG_WAIT_SECONDS_RAW)
+except ValueError as exc:
+    raise RuntimeError(
+        f"Invalid KUBECONFIG_WAIT_SECONDS={KUBECONFIG_WAIT_SECONDS_RAW!r}; expected an integer"
+    ) from exc
 
 # The hostname / IP that the backend uses to reach NodePort services. On Docker
 # Desktop for macOS this is ``host.docker.internal``; on Linux it may be the
@@ -170,6 +178,9 @@ def _wait_for_kubeconfig(timeout: int = 30) -> None:
 
 def _ensure_namespace() -> None:
     """Create the K8s namespace if it does not yet exist."""
+    if not K8S_CREATE_NAMESPACE:
+        logger.info(f"Skipping namespace check/create for '{K8S_NAMESPACE}' because K8S_CREATE_NAMESPACE=false")
+        return
     try:
         core_v1.read_namespace(K8S_NAMESPACE)
         logger.info(f"Namespace '{K8S_NAMESPACE}' already exists")
@@ -196,7 +207,7 @@ def _ensure_namespace() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     global core_v1
-    _wait_for_kubeconfig()
+    _wait_for_kubeconfig(timeout=max(KUBECONFIG_WAIT_SECONDS, 0))
     core_v1 = _init_k8s_client()
     _ensure_namespace()
     logger.info("Provisioner is ready (using host Kubernetes)")

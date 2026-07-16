@@ -59,7 +59,7 @@ spec:
             - name: K8S_CREATE_NAMESPACE
               value: "false"
             - name: SANDBOX_IMAGE
-              value: deer-flow-aio-sandbox:ppt-master-dev-20260716-1
+              value: deer-flow-aio-sandbox:ppt-master-dev-20260716-6
             - name: SKILLS_PVC_NAME
               value: deer-flow-skills-pvc
             - name: USERDATA_PVC_NAME
@@ -334,7 +334,7 @@ spec:
             - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
               value: http://gateway:8001
             - name: WEKNORA_FRONTEND_URL
-              value: http://localhost:8090/platform/knowledge-bases
+              value: http://127.0.0.1:32090/platform/knowledge-bases
           readinessProbe:
             httpGet:
               path: /

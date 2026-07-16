@@ -65,6 +65,12 @@ frontend/node_modules
 backend/.venv
 backend/htmlcov
 backend/.coverage
+backend/config.yaml
+backend/extensions_config.json
+backend/.deer-flow
+backend/.langgraph_api
+backend/.pytest_cache
+backend/.ruff_cache
 *.md
 !README.md
 !frontend/README.md

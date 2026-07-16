@@ -31,7 +31,7 @@ spec:
         fsGroup: 999
       containers:
         - name: postgres
-          image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pgvector/pgvector:pg16
+          image: postgres:16
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
@@ -115,7 +115,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: pg-dump
-              image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pgvector/pgvector:pg16
+              image: postgres:16
               imagePullPolicy: IfNotPresent
               envFrom:
                 - secretRef:

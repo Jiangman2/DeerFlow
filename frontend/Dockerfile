@@ -21,16 +21,18 @@ RUN pnpm config set store-dir ${PNPM_STORE_PATH}
 # Optionally override npm registry for restricted networks (e.g. NPM_REGISTRY=https://registry.npmmirror.com)
 RUN if [ -n "${NPM_REGISTRY}" ]; then pnpm config set registry "${NPM_REGISTRY}"; fi
 WORKDIR /app
-COPY frontend ./frontend
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./frontend/
 
 # ── Dev: install only, CMD is overridden by docker-compose ───────────────────
 FROM base AS dev
 RUN cd /app/frontend && pnpm install --frozen-lockfile
+COPY frontend ./frontend
 EXPOSE 3000
 
 # ── Builder: install + compile Next.js ───────────────────────────────────────
 FROM base AS builder
 RUN cd /app/frontend && pnpm install --frozen-lockfile
+COPY frontend ./frontend
 # Skip env validation — runtime vars are injected by nginx/container
 # App version stamp for the About page. Nightly CI passes
 # APP_VERSION=<base>-nightly.<date>-<sha>; release/local builds leave it empty

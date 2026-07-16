@@ -1,14 +1,14 @@
 services:
   frontend:
-    image: deer-flow-frontend:${DEER_FLOW_IMAGE_TAG:-dev-20260716-1}
+    image: deer-flow-frontend:${DEER_FLOW_IMAGE_TAG:-dev-20260716-6}
     build: null
 
   gateway:
-    image: deer-flow-gateway:${DEER_FLOW_IMAGE_TAG:-dev-20260716-1}
+    image: deer-flow-gateway:${DEER_FLOW_IMAGE_TAG:-dev-20260716-6}
     build: null
 
   provisioner:
-    image: deer-flow-provisioner:${DEER_FLOW_IMAGE_TAG:-dev-20260716-1}
+    image: deer-flow-provisioner:${DEER_FLOW_IMAGE_TAG:-dev-20260716-6}
     build: null
     environment:
       - K8S_API_SERVER=${K8S_API_SERVER:-https://host.docker.internal:58084}
