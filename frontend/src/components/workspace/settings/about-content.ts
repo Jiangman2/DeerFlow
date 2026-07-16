@@ -4,66 +4,30 @@
  */
 import { APP_VERSION } from "@/version";
 
-export const aboutMarkdown = `# 🦌 [About DeerFlow ${APP_VERSION}](https://github.com/bytedance/deer-flow)
+export const aboutMarkdown = `# 关于中海油勘探开发通用智能体 ${APP_VERSION}
 
-> **From Open Source, Back to Open Source**
+> **中海油智能体应用平台**
 
-DeerFlow (**D**eep **E**xploration and **E**fficient **R**esearch **Flow**) is an open-source **super agent harness** that orchestrates **sub-agents**, **memory**, and **sandboxes** to do almost anything — powered by **extensible skills**.
-
----
-
-## 🚀 Core Features
-
-* **Skills & Tools**: With built-in and extensible skills and tools, DeerFlow can do almost anything.
-* **Sub-Agents**: Sub-Agents help the main agent to do the tasks that are too complex to be done by the main agent.
-* **Sandbox & File System**: Safely execute code and manipulate files in the sandbox.
-* **Context Engineering**: Isolated sub-agent context, summarization to keep the context window sharp.
-* **Long-Term Memory**: Keep recording the user's profile, top of mind, and conversation history.
+本平台面向油气业务的智能研究与协同作业场景，提供统一工作台、对话线程管理、知识接入、工具编排与产物沉淀能力，支撑业务分析、方案编制与知识复用等任务。
 
 ---
 
-## 🌟 GitHub Repository
+## 核心能力
+
+* **多模型接入**：按任务选择合适的推理与生成能力。
+* **知识与资料接入**：支持文档、知识库、表格与业务资料的统一使用。
+* **专业技能扩展**：通过内置和自定义 Skills 持续扩展业务能力。
+* **安全执行与产物沉淀**：在受控沙箱中执行任务并保留可追溯结果。
+
+---
+
+## 开源基础
 
 ![Star History Chart](https://api.star-history.com/svg?repos=bytedance/deer-flow&type=Date)
 
-Explore DeerFlow on GitHub: [github.com/bytedance/deer-flow](https://github.com/bytedance/deer-flow)
+本平台构建于开源 DeerFlow 能力之上：[github.com/bytedance/deer-flow](https://github.com/bytedance/deer-flow)
 
-## 🌐 Official Website
+## 许可证
 
-Visit the official website of DeerFlow: [deerflow.tech](https://deerflow.tech/)
-
-## 📧 Support
-
-If you have any questions or need help, please contact us at [support@deerflow.tech](mailto:support@deerflow.tech).
-
----
-
-## 📜 License
-
-DeerFlow is proudly open source and distributed under the **MIT License**.
-
----
-
-## 🙌 Acknowledgments
-
-We extend our heartfelt gratitude to the open source projects and contributors who have made DeerFlow a reality. We truly stand on the shoulders of giants.
-
-### Core Frameworks
-- **[LangChain](https://github.com/langchain-ai/langchain)**: A phenomenal framework that powers our LLM interactions and chains.
-- **[LangGraph](https://github.com/langchain-ai/langgraph)**: Enabling sophisticated multi-agent orchestration.
-- **[Next.js](https://nextjs.org/)**: A cutting-edge framework for building web applications.
-
-### UI Libraries
-- **[Shadcn](https://ui.shadcn.com/)**: Minimalistic components that power our UI.
-- **[SToneX](https://github.com/stonexer)**: For his invaluable contribution to token-by-token visual effects.
-
-These outstanding projects form the backbone of DeerFlow and exemplify the transformative power of open source collaboration.
-
-### Special Thanks
-Finally, we want to express our heartfelt gratitude to the core authors of DeerFlow 1.0 and 2.0:
-
-- **[Daniel Walnut](https://github.com/hetaoBackend/)**
-- **[Henry Li](https://github.com/magiccube/)**
-
-Without their vision, passion and dedication, \`DeerFlow\` would not be what it is today.
+DeerFlow 以 MIT License 开源发布；本企业版本在遵循该许可证的基础上进行集成与定制。
 `;
