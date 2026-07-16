@@ -1,11 +1,14 @@
 "use client";
 
 import {
+  ActivityIcon,
   ChevronsUpDown,
   InfoIcon,
+  LayoutDashboardIcon,
   Settings2Icon,
   SettingsIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import {
@@ -13,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -21,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 
 import { SettingsDialog } from "./settings";
@@ -52,7 +57,9 @@ export function WorkspaceNavMenu() {
   >("appearance");
   const [mounted, setMounted] = useState(false);
   const { open: isSidebarOpen } = useSidebar();
+  const { user } = useAuth();
   const { t } = useI18n();
+  const isAdmin = user?.system_role === "admin";
 
   useEffect(() => {
     setMounted(true);
@@ -83,6 +90,22 @@ export function WorkspaceNavMenu() {
                 sideOffset={4}
               >
                 <DropdownMenuGroup>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/workspace/admin/dashboard">
+                          <LayoutDashboardIcon />
+                          看板
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/workspace/admin/observability">
+                          <ActivityIcon />
+                          运维检测
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuItem
                     onClick={() => {
                       setSettingsDefaultSection("appearance");
@@ -93,6 +116,7 @@ export function WorkspaceNavMenu() {
                     {t.common.settings}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
                     setSettingsDefaultSection("about");
@@ -107,7 +131,7 @@ export function WorkspaceNavMenu() {
           ) : (
             <SidebarMenuButton
               size="lg"
-              className="pointer-events-none hover:bg-white/80"
+              className="hover:bg-sidebar-accent pointer-events-none"
             >
               <NavMenuButtonContent isSidebarOpen={isSidebarOpen} t={t} />
             </SidebarMenuButton>
