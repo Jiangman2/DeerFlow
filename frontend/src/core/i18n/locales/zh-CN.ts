@@ -65,7 +65,7 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用 🦌 DeerFlow，一个完全开源的超级智能体。通过内置和自定义的 Skills，\nDeerFlow 可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n图片、视频、播客及网页等，几乎可以做任何事情。",
+      "欢迎使用中海油智能体应用平台，面向油气业务的智能研究与协同作业平台。通过内置和自定义 Skills，\n平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，\n将复杂任务沉淀为可复用的业务成果。",
 
     createYourOwnSkill: "创建你自己的 Agent SKill",
     createYourOwnSkillDescription:
