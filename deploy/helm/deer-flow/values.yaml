@@ -47,6 +47,11 @@ frontend:
       cpu: "1"
       memory: 512Mi
 
+# -- WeKnora web UI URL exposed to the browser. The frontend app appends its
+#    knowledge-base route and uses the same host to perform DeerFlow SSO.
+weknora:
+  frontendUrl: "http://127.0.0.1:32090"
+
 # -- nginx reverse-proxy deployment (preserves compose routing).
 nginx:
   replicas: 1

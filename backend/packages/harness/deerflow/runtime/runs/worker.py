@@ -292,6 +292,16 @@ async def run_agent(
 
     journal = None
     weknora_token_context = None
+    stream_end_published = False
+
+    async def _publish_stream_end() -> None:
+        """Close the client stream once, even when a run pauses for input."""
+        nonlocal stream_end_published
+        if stream_end_published:
+            return
+        await bridge.publish_end(run_id)
+        stream_end_published = True
+
     # Buffers subagent step events for batched persistence (#3779); assigned once
     # streaming starts and flushed in the finally block. Pre-bound to None so the
     # finally is safe even if an exception fires before streaming begins.
@@ -536,6 +546,11 @@ async def run_agent(
         pending_clarification = await _checkpoint_has_open_clarification(checkpointer, thread_id)
         if pending_clarification:
             logger.info("Run %s paused goal continuation for pending clarification", run_id)
+            # The clarification card is the user-facing end of this turn. Close
+            # the SSE stream now so the client leaves its loading state and can
+            # submit the response; checkpoint/journal cleanup continues below.
+            await run_manager.set_status(run_id, RunStatus.success)
+            await _publish_stream_end()
         while not pending_clarification and not record.abort_event.is_set() and not llm_error_fallback_message and (journal is None or not journal.had_llm_error_fallback):
             continuation_input = await _prepare_goal_continuation_input(
                 bridge=bridge,
@@ -553,6 +568,8 @@ async def run_agent(
             pending_clarification = await _checkpoint_has_open_clarification(checkpointer, thread_id)
             if pending_clarification:
                 logger.info("Run %s paused goal continuation for pending clarification", run_id)
+                await run_manager.set_status(run_id, RunStatus.success)
+                await _publish_stream_end()
 
         # 8. Final status
         if record.abort_event.is_set():
@@ -580,6 +597,10 @@ async def run_agent(
                 error_msg = journal.llm_error_fallback_message
             error_msg = error_msg or "LLM provider failed after retries"
             await run_manager.set_status(run_id, RunStatus.error, error=error_msg)
+        elif pending_clarification:
+            # The terminal status and stream end were published as soon as the
+            # open clarification was detected above.
+            pass
         else:
             await run_manager.set_status(run_id, RunStatus.success)
 
@@ -689,7 +710,7 @@ async def run_agent(
         if record.finalizing:
             await run_manager.set_finalizing(run_id, False)
 
-        await bridge.publish_end(run_id)
+        await _publish_stream_end()
         asyncio.create_task(bridge.cleanup(run_id, delay=60))
 
 

@@ -110,5 +110,9 @@ DeerFlow SSO request is unavailable. Keep the host name aligned between
 DeerFlow and WeKnora, for example `127.0.0.1:2026` and `127.0.0.1:8090`, so
 the DeerFlow cookie is sent.
 
+The API container uses a TCP readiness probe because this WeKnora image protects
+its HTTP health endpoints with authentication. A 401 from `/health` is therefore
+not a container-readiness failure.
+
 For production, replace the local NodePorts with an Ingress or LoadBalancer and
 rotate all secrets.

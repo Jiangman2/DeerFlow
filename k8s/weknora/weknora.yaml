@@ -207,7 +207,7 @@ spec:
       containers:
         - name: app
           image: wechatopenai/weknora-app:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           env:
             - name: GIN_MODE
               value: release
@@ -303,8 +303,7 @@ spec:
               mountPath: /tmp/docreader
               readOnly: true
           readinessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10

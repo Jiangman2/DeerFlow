@@ -46,6 +46,8 @@ spec:
               value: production
             - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
               value: http://gateway:8001
+            - name: WEKNORA_FRONTEND_URL
+              value: {{ .Values.weknora.frontendUrl | quote }}
             - name: BETTER_AUTH_SECRET
               valueFrom:
                 secretKeyRef:

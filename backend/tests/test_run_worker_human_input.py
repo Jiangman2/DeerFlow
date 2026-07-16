@@ -95,11 +95,14 @@ async def test_run_agent_ends_without_goal_continuation_when_clarification_is_op
             record.finalizing = finalizing
 
     class FakeBridge:
+        def __init__(self) -> None:
+            self.events = []
+
         async def publish(self, *_args, **_kwargs):
             return None
 
         async def publish_end(self, *_args, **_kwargs):
-            return None
+            self.events.append("end")
 
         async def cleanup(self, *_args, **_kwargs):
             return None
@@ -139,8 +142,9 @@ async def test_run_agent_ends_without_goal_continuation_when_clarification_is_op
     )
     record.abort_event = asyncio.Event()
 
+    bridge = FakeBridge()
     await worker.run_agent(
-        FakeBridge(),
+        bridge,
         FakeRunManager(),
         record,
         ctx=worker.RunContext(checkpointer=FakeCheckpointer()),
@@ -151,3 +155,4 @@ async def test_run_agent_ends_without_goal_continuation_when_clarification_is_op
 
     assert len(fake_agent.inputs) == 1
     assert record.status == RunStatus.success
+    assert bridge.events == ["end"]

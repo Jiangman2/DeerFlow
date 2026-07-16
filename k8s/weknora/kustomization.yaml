@@ -18,7 +18,7 @@ configMapGenerator:
       - favicon-bEsoBimf.ico=ui-patches/favicon-bEsoBimf.ico
       - index.html=ui-patches/index.html
       - config.js=ui-patches/config.js
-      - default.conf=ui-patches/default.conf
+      - default.conf=ui-patches/default-ascii.conf
 
 generatorOptions:
   disableNameSuffixHash: true

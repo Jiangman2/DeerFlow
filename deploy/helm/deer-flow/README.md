@@ -8,6 +8,9 @@ that spawns code-execution Pods on demand).
 This chart translates the production `docker/docker-compose.yaml` into native
 Kubernetes resources. No existing repo files are modified.
 
+The Nginx template routes `/api/runtime-config` to the Next.js frontend before
+the generic `/api/` Gateway proxy, because that endpoint is a frontend route.
+
 ## Prerequisites
 
 - A Kubernetes cluster (Docker Desktop K8s, OrbStack, kind, k3d, or a real cluster).
@@ -96,6 +99,9 @@ ingress:
 secrets:
   OPENAI_API_KEY: sk-...
   # add channel tokens, search keys, etc. as needed
+
+weknora:
+  frontendUrl: http://127.0.0.1:32090
 ```
 
 Provide your model config under `config` (keep secrets as `$VAR` references —

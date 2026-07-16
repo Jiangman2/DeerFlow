@@ -13,7 +13,7 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
 - **Provisioner** (port 8002, optional in Docker dev): Started only when sandbox is configured for provisioner/Kubernetes mode
 
 **Runtime**:
-- `make dev`, Docker dev, and production all run the agent runtime in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Nginx exposes that runtime at `/api/langgraph/*` and rewrites it to Gateway's native `/api/*` routers.
+- `make dev`, Docker dev, and production all run the agent runtime in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Nginx exposes that runtime at `/api/langgraph/*` and rewrites it to Gateway's native `/api/*` routers. When a run creates an unanswered `ask_clarification` request, the worker marks that turn successful and closes its stream immediately; the checkpoint remains open for the next response while journal and workspace cleanup may finish afterward.
 
 **Project Structure**:
 ```
