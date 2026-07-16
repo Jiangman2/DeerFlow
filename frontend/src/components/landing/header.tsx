@@ -7,6 +7,8 @@ import type { Locale } from "@/core/i18n/locale";
 import { getI18n } from "@/core/i18n/server";
 import { cn } from "@/lib/utils";
 
+import { MobileNav } from "./mobile-nav";
+
 export type HeaderProps = {
   className?: string;
   homeURL?: string;
@@ -28,12 +30,16 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
           href={homeURL ?? brand.links.home}
           target={isExternalHome ? "_blank" : "_self"}
           rel={isExternalHome ? "noopener noreferrer" : undefined}
-          className="font-serif text-xl whitespace-nowrap"
+          className="flex min-w-0 items-center font-serif text-xl whitespace-nowrap"
         >
-          <BrandLogo variant="full" priority className="h-8 w-auto" />
+          <BrandLogo
+            variant="full"
+            priority
+            className="h-7 w-auto max-w-[13rem] sm:h-8 sm:max-w-none"
+          />
         </a>
       </div>
-      <nav className="ml-auto flex items-center gap-3 text-sm font-medium">
+      <nav className="ml-auto hidden items-center gap-3 text-sm font-medium sm:flex">
         <Button variant="outline" size="sm" asChild>
           <Link href={brand.links.login}>{t.login.signIn}</Link>
         </Button>
@@ -41,6 +47,12 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
           <Link href={brand.links.workspace}>{t.sidebar.newChat}</Link>
         </Button>
       </nav>
+      <MobileNav
+        links={[
+          { href: brand.links.login, label: t.login.signIn },
+          { href: brand.links.workspace, label: t.sidebar.newChat },
+        ]}
+      />
       <hr className="from-border/0 via-border/45 to-border/0 absolute right-0 bottom-0 left-0 z-10 m-0 h-px w-full border-none bg-linear-to-r" />
     </header>
   );
