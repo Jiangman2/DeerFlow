@@ -22,6 +22,7 @@ from app.gateway.routers import (
     channel_connections,
     channels,
     console,
+    convert,
     dashboard,
     features,
     feedback,
@@ -536,6 +537,8 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Stateless Runs API (stream/wait without a pre-existing thread)
     app.include_router(runs.router)
+
+    app.include_router(convert.router)
 
     app.include_router(observability.router)
     app.include_router(dashboard.router)
