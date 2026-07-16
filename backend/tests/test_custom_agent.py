@@ -126,6 +126,14 @@ class TestAgentConfig:
         assert cfg.model == "gpt-4"
         assert cfg.tool_groups is None
 
+    def test_agent_name_accepts_chinese_and_rejects_unsafe_characters(self):
+        from deerflow.config.agents_config import validate_agent_name
+
+        assert validate_agent_name("月报助手-2026") == "月报助手-2026"
+        for invalid_name in ("月报 助手", "月报_助手", "../月报助手", "月报/助手"):
+            with pytest.raises(ValueError, match="Invalid agent name"):
+                validate_agent_name(invalid_name)
+
 
 # ===========================================================================
 # 3. load_agent_config
@@ -613,6 +621,17 @@ class TestAgentsAPI:
         assert data["name"] == "code-reviewer"
         assert data["description"] == "Reviews code"
         assert data["soul"] == "You are a code reviewer."
+
+    def test_create_agent_with_chinese_name(self, agent_client):
+        payload = {
+            "name": "月报助手-2026",
+            "description": "生成业务月报",
+            "soul": "你是月报助手。",
+        }
+        response = agent_client.post("/api/agents", json=payload)
+
+        assert response.status_code == 201
+        assert response.json()["name"] == "月报助手-2026"
 
     def test_create_agent_invalid_name(self, agent_client):
         payload = {"name": "Code Reviewer!", "soul": "test"}

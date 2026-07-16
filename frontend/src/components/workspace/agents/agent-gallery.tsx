@@ -51,7 +51,7 @@ export function AgentGallery() {
             {t.agents.description}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <TabsList>
             <TabsTrigger value="mine">
               <UserIcon className="h-4 w-4" />
@@ -62,7 +62,7 @@ export function AgentGallery() {
               {t.agents.agentSquare}
             </TabsTrigger>
           </TabsList>
-          <Button onClick={handleNewAgent}>
+          <Button onClick={handleNewAgent} size="sm" className="sm:h-9">
             <PlusIcon className="mr-1.5 h-4 w-4" />
             {t.agents.newAgent}
           </Button>
@@ -70,7 +70,7 @@ export function AgentGallery() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         <TabsContent value="mine" className="mt-0">
           {agentsApiDisabled ? (
             <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
@@ -99,13 +99,17 @@ export function AgentGallery() {
                   {t.agents.emptyDescription}
                 </p>
               </div>
-              <Button variant="outline" className="mt-2" onClick={handleNewAgent}>
+              <Button
+                variant="outline"
+                className="mt-2"
+                onClick={handleNewAgent}
+              >
                 <PlusIcon className="mr-1.5 h-4 w-4" />
                 {t.agents.newAgent}
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {agents.map((agent) => (
                 <AgentCard key={agent.name} agent={agent} showPublish />
               ))}
@@ -130,7 +134,7 @@ export function AgentGallery() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {squareAgents.map((agent) => (
                 <AgentCard
                   key={agent.name}

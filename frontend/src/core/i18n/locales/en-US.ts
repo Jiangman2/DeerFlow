@@ -142,8 +142,7 @@ export const enUS: Translations = {
     shopCartInvalidPayload:
       "The shop cart returned an unsupported data format.",
     shopCartDownloading: "Downloading shop cart files...",
-    shopCartDownloadFailed:
-      "Failed to download shop cart files. Please retry.",
+    shopCartDownloadFailed: "Failed to download shop cart files. Please retry.",
     shopCartPartialDownloadFailed: (failed: number) =>
       `${failed} shop cart file${failed === 1 ? "" : "s"} failed to download.`,
     shopCartUnknownFiles:
@@ -441,6 +440,8 @@ export const enUS: Translations = {
     openExternal: "Open tool",
     publishToSquare: "Publish to square",
     unpublishFromSquare: "Remove from square",
+    unpublishConfirm:
+      "Are you sure you want to remove this agent from the square?",
     publishSuccess: "Agent published to the square",
     unpublishSuccess: "Agent removed from the square",
     chat: "Chat",
@@ -454,11 +455,11 @@ export const enUS: Translations = {
       "Describe the agent you want — I'll help you create it through conversation.",
     nameStepTitle: "Name your new Agent",
     nameStepHint:
-      "Letters, digits, and hyphens only — stored lowercase (e.g. code-reviewer)",
-    nameStepPlaceholder: "e.g. code-reviewer",
+      "Chinese characters, letters, digits, and hyphens only (e.g. 月报助手 or code-reviewer)",
+    nameStepPlaceholder: "e.g. 月报助手",
     nameStepContinue: "Continue",
     nameStepInvalidError:
-      "Invalid name — use only letters, digits, and hyphens",
+      "Invalid name — use only Chinese characters, letters, digits, and hyphens",
     nameStepAlreadyExistsError: "An agent with this name already exists",
     nameStepNetworkError:
       "Network request failed — check your network or backend connection",
@@ -466,6 +467,10 @@ export const enUS: Translations = {
     nameStepCheckErrorWithDetail: "Name check failed: {detail}",
     nameStepApiDisabledError:
       "Custom agent management is not enabled on this server. Please contact your administrator.",
+    builderModelLabel: "Builder model",
+    currentBuilderModel: "Current builder model",
+    changeBuilderModel: "Change model",
+    builderModelDialogTitle: "Choose builder model",
     nameStepBootstrapMessage:
       "The new custom agent name is {name}. Help me design its purpose, behavior, and SOUL.md before saving it.",
     save: "Save agent",
