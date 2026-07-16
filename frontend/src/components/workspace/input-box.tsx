@@ -140,6 +140,7 @@ import {
 import { useThread } from "./messages/context";
 import { ModeHoverGuide } from "./mode-hover-guide";
 import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
+import { ShopCartAttachmentButton } from "./shop-cart-attachments";
 import { SlashSkillChip } from "./slash-skill-chip";
 import { Tooltip } from "./tooltip";
 
@@ -2006,6 +2007,7 @@ export function InputBox({
               disabled={composerLocked}
               uploadLimits={uploadLimits}
             />
+            <ShopCartAttachmentButton disabled={composerLocked} />
             <VoiceInputButton
               disabled={composerLocked}
               listening={voiceListening}
