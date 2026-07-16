@@ -28,7 +28,7 @@ from deerflow.client import DeerFlowClient, StreamEvent
 from deerflow.config.app_config import reload_app_config, reset_app_config, set_app_config
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_ROOT_CONFIG = _REPO_ROOT / "config.yaml"
+_ROOT_CONFIG = Path(os.environ.get("DEER_FLOW_CONFIG_PATH") or (_REPO_ROOT / "config.yaml")).resolve()
 
 _skip_reason = None
 if os.environ.get("CI"):

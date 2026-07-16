@@ -81,6 +81,7 @@ def _setup_executor_classes():
         sys.modules[name] = MagicMock()
     storage_module = ModuleType("deerflow.skills.storage")
     storage_module.get_or_new_skill_storage = lambda **kwargs: SimpleNamespace(load_skills=lambda *, enabled_only: [])
+    storage_module.get_or_new_user_skill_storage = lambda **kwargs: SimpleNamespace(load_skills=lambda *, enabled_only: [])
     sys.modules["deerflow.skills.storage"] = storage_module
 
     # Import real classes inside fixture
@@ -1539,7 +1540,11 @@ class TestSkillAllowedTools:
         async def load_skills():
             return [_skill("empty", []), _skill("reader", ["read_file"])]
 
-        with patch.object(executor, "_load_skills", load_skills), patch.object(executor, "_create_agent", return_value=mock_agent) as create_agent_mock, caplog.at_level("INFO"):
+        with (
+            patch.object(executor, "_load_skills", load_skills),
+            patch.object(executor, "_create_agent", return_value=mock_agent) as create_agent_mock,
+            caplog.at_level("INFO", logger="deerflow.skills.tool_policy"),
+        ):
             await executor._aexecute("Task")
 
         assert [tool.name for tool in create_agent_mock.call_args.args[0]] == ["read_file"]
