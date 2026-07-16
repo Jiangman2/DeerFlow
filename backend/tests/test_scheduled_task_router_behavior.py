@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import ValidationError
 
 from app.gateway.routers import scheduled_tasks
 
@@ -604,6 +605,148 @@ async def test_create_once_task_enforces_minimum_delay():
         scheduled_tasks.get_optional_user_from_request = old_user
 
     assert "once schedule must be at least" in str(exc_info.value)
+
+
+def test_create_request_rejects_whitespace_only_title_and_prompt():
+    with pytest.raises(ValidationError):
+        scheduled_tasks.ScheduledTaskCreateRequest(
+            title="   ",
+            prompt="\t\n",
+            schedule_type="cron",
+            schedule_spec={"cron": "0 9 * * *"},
+            timezone="UTC",
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_request_trims_user_text_before_persisting():
+    repo = _Repo()
+    body = scheduled_tasks.ScheduledTaskCreateRequest(
+        title="  Daily summary  ",
+        prompt="  Summarize the configured sources.  ",
+        schedule_type="cron",
+        schedule_spec={"cron": "0 9 * * *"},
+        timezone="UTC",
+    )
+    user = SimpleNamespace(id="user-1")
+
+    old_repo = scheduled_tasks.get_scheduled_task_repo
+    old_thread_store = scheduled_tasks.get_thread_store
+    old_config = scheduled_tasks.get_config
+    old_user = scheduled_tasks.get_optional_user_from_request
+    try:
+        scheduled_tasks.get_scheduled_task_repo = lambda _request: repo
+        scheduled_tasks.get_thread_store = lambda _request: SimpleNamespace()
+        scheduled_tasks.get_config = lambda: _Config()
+        scheduled_tasks.get_optional_user_from_request = AsyncMock(return_value=user)
+        result = await scheduled_tasks.create_scheduled_task.__wrapped__(
+            request=SimpleNamespace(),
+            body=body,
+        )
+    finally:
+        scheduled_tasks.get_scheduled_task_repo = old_repo
+        scheduled_tasks.get_thread_store = old_thread_store
+        scheduled_tasks.get_config = old_config
+        scheduled_tasks.get_optional_user_from_request = old_user
+
+    assert result["title"] == "Daily summary"
+    assert result["prompt"] == "Summarize the configured sources."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("terminal_status", ["completed", "failed", "cancelled"])
+async def test_pause_rejects_terminal_task(terminal_status):
+    repo = _Repo()
+    task = await repo.create(
+        task_id="task-terminal",
+        user_id="user-1",
+        thread_id=None,
+        context_mode="fresh_thread_per_run",
+        assistant_id="lead_agent",
+        title="Terminal task",
+        prompt="Prompt",
+        schedule_type="once",
+        schedule_spec={"run_at": "2026-07-01T00:00:00+00:00"},
+        timezone="UTC",
+        next_run_at=None,
+    )
+    task["status"] = terminal_status
+    user = SimpleNamespace(id="user-1")
+
+    old_repo = scheduled_tasks.get_scheduled_task_repo
+    old_user = scheduled_tasks.get_optional_user_from_request
+    try:
+        scheduled_tasks.get_scheduled_task_repo = lambda _request: repo
+        scheduled_tasks.get_optional_user_from_request = AsyncMock(return_value=user)
+        with pytest.raises(Exception) as exc_info:
+            await scheduled_tasks.pause_scheduled_task.__wrapped__(
+                task_id=task["id"],
+                request=SimpleNamespace(),
+            )
+    finally:
+        scheduled_tasks.get_scheduled_task_repo = old_repo
+        scheduled_tasks.get_optional_user_from_request = old_user
+
+    assert "cannot be paused" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_resume_rejects_task_that_is_not_paused():
+    repo = _Repo()
+    task = await repo.create(
+        task_id="task-enabled",
+        user_id="user-1",
+        thread_id=None,
+        context_mode="fresh_thread_per_run",
+        assistant_id="lead_agent",
+        title="Enabled task",
+        prompt="Prompt",
+        schedule_type="cron",
+        schedule_spec={"cron": "0 9 * * *"},
+        timezone="UTC",
+        next_run_at=None,
+    )
+    user = SimpleNamespace(id="user-1")
+
+    old_repo = scheduled_tasks.get_scheduled_task_repo
+    old_user = scheduled_tasks.get_optional_user_from_request
+    try:
+        scheduled_tasks.get_scheduled_task_repo = lambda _request: repo
+        scheduled_tasks.get_optional_user_from_request = AsyncMock(return_value=user)
+        with pytest.raises(Exception) as exc_info:
+            await scheduled_tasks.resume_scheduled_task.__wrapped__(
+                task_id=task["id"],
+                request=SimpleNamespace(),
+            )
+    finally:
+        scheduled_tasks.get_scheduled_task_repo = old_repo
+        scheduled_tasks.get_optional_user_from_request = old_user
+
+    assert "cannot be resumed" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_capabilities_report_actual_poller_state_and_non_interactive_mode():
+    user = SimpleNamespace(id="user-1")
+    service = SimpleNamespace(is_running=False)
+
+    old_service = scheduled_tasks.get_scheduled_task_service
+    old_user = scheduled_tasks.get_optional_user_from_request
+    try:
+        scheduled_tasks.get_scheduled_task_service = lambda _request: service
+        scheduled_tasks.get_optional_user_from_request = AsyncMock(return_value=user)
+        result = await scheduled_tasks.get_scheduled_task_capabilities.__wrapped__(
+            request=SimpleNamespace(),
+        )
+    finally:
+        scheduled_tasks.get_scheduled_task_service = old_service
+        scheduled_tasks.get_optional_user_from_request = old_user
+
+    assert result == {
+        "scheduler_enabled": False,
+        "execution_mode": "non_interactive",
+        "supports_clarification": False,
+    }
 
 
 @pytest.mark.asyncio

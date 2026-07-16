@@ -49,7 +49,7 @@ export function CaseStudySection({ className }: { className?: string }) {
     <Section
       className={className}
       title="Case Studies"
-      subtitle="See how the platform supports real workflows"
+      subtitle="了解本平台如何支持真实业务工作流"
     >
       <div className="container-md mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 md:px-20 lg:grid-cols-3">
         {caseStudies.map((caseStudy) => (

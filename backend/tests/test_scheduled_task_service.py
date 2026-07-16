@@ -519,6 +519,32 @@ async def test_run_once_claims_only_into_remaining_global_budget():
 
 
 @pytest.mark.asyncio
+async def test_run_once_continues_dispatching_after_one_claimed_task_crashes(monkeypatch):
+    """One malformed/unhealthy task must not block the rest of a claimed batch."""
+    rows = [{"id": "task-broken"}, {"id": "task-healthy"}]
+    service = _make_service(DummyTaskRepo(rows), DummyRunRepo())
+    attempted: list[str] = []
+
+    async def fake_dispatch(task, *, now, trigger):
+        attempted.append(task["id"])
+        if task["id"] == "task-broken":
+            raise RuntimeError("broken task row")
+        return {"outcome": "launched"}
+
+    monkeypatch.setattr(service, "dispatch_task", fake_dispatch)
+
+    await service.run_once(now=datetime.now(UTC))
+
+    assert attempted == ["task-broken", "task-healthy"]
+
+
+def test_service_reports_background_poller_as_stopped_before_start():
+    service = _make_service(DummyTaskRepo([]), DummyRunRepo())
+
+    assert service.is_running is False
+
+
+@pytest.mark.asyncio
 async def test_launch_bookkeeping_passes_protect_terminal():
     async def fake_launch(**kwargs):
         return {"run_id": "run-pt", "thread_id": kwargs["thread_id"]}

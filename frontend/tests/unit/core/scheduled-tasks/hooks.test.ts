@@ -7,6 +7,7 @@ rs.mock("@/core/api/fetcher", () => ({
 import { fetch } from "@/core/api/fetcher";
 import {
   createScheduledTask,
+  fetchScheduledTaskCapabilities,
   fetchScheduledTasks,
   type ScheduledTaskPayload,
 } from "@/core/scheduled-tasks/api";
@@ -72,6 +73,23 @@ describe("scheduled tasks api", () => {
     expect(url).toContain("/api/scheduled-tasks");
     expect(call?.[1]?.method).toBeUndefined();
     expect(result).toEqual([SAMPLE_TASK]);
+  });
+
+  it("fetchScheduledTaskCapabilities exposes the real poller state", async () => {
+    const capabilities = {
+      scheduler_enabled: false,
+      execution_mode: "non_interactive" as const,
+      supports_clarification: false,
+    };
+    mockedFetch.mockResolvedValue(jsonResponse(capabilities));
+
+    const result = await fetchScheduledTaskCapabilities();
+
+    const call = mockedFetch.mock.calls[0];
+    expect(call).toBeDefined();
+    const url = String(call?.[0] as string);
+    expect(url).toContain("/api/scheduled-tasks/capabilities");
+    expect(result).toEqual(capabilities);
   });
 
   it("createScheduledTask hits POST /api/scheduled-tasks with payload", async () => {

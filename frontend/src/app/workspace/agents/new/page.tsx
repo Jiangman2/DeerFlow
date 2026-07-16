@@ -3,7 +3,9 @@
 import {
   ArrowLeftIcon,
   BotIcon,
+  CheckIcon,
   CheckCircleIcon,
+  ChevronsUpDownIcon,
   InfoIcon,
   MoreHorizontalIcon,
   SaveIcon,
@@ -12,6 +14,15 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  ModelSelector,
+  ModelSelectorContent,
+  ModelSelectorInput,
+  ModelSelectorItem,
+  ModelSelectorList,
+  ModelSelectorName,
+  ModelSelectorTrigger,
+} from "@/components/ai-elements/model-selector";
 import {
   PromptInput,
   PromptInputFooter,
@@ -45,6 +56,7 @@ import {
   type HumanInputResponse,
 } from "@/core/messages/human-input";
 import { isHiddenFromUIMessage } from "@/core/messages/utils";
+import { useModels } from "@/core/models/hooks";
 import { useThreadStream } from "@/core/threads/hooks";
 import { uuid } from "@/core/utils/uuid";
 import { isIMEComposing } from "@/lib/ime";
@@ -53,7 +65,7 @@ import { cn } from "@/lib/utils";
 type Step = "name" | "chat";
 type SetupAgentStatus = "idle" | "requested" | "completed";
 
-const NAME_RE = /^[A-Za-z0-9-]+$/;
+const NAME_RE = /^[\p{L}\p{N}-]+$/u;
 const SAVE_HINT_STORAGE_KEY = "platform.agent-create.save-hint-seen";
 const AGENT_READ_RETRY_DELAYS_MS = [200, 500, 1_000, 2_000];
 
@@ -88,6 +100,9 @@ export default function NewAgentPage() {
   const [agentName, setAgentName] = useState("");
   const [agent, setAgent] = useState<Agent | null>(null);
   const [showSaveHint, setShowSaveHint] = useState(false);
+  const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  const [selectedModelName, setSelectedModelName] = useState<string>();
+  const { models } = useModels();
   const [setupAgentStatus, setSetupAgentStatus] =
     useState<SetupAgentStatus>("idle");
 
@@ -98,6 +113,7 @@ export default function NewAgentPage() {
     context: {
       mode: "flash",
       is_bootstrap: true,
+      model_name: selectedModelName,
     },
     onFinish() {
       if (!agent && setupAgentStatus === "requested") {
@@ -125,6 +141,21 @@ export default function NewAgentPage() {
       ),
     [thread.messages],
   );
+
+  useEffect(() => {
+    if (!selectedModelName && models.length > 0) {
+      setSelectedModelName(models[0]?.name);
+    }
+  }, [models, selectedModelName]);
+
+  const selectedModel = useMemo(() => {
+    if (models.length === 0) {
+      return undefined;
+    }
+    return (
+      models.find((model) => model.name === selectedModelName) ?? models[0]
+    );
+  }, [models, selectedModelName]);
 
   useEffect(() => {
     if (typeof window === "undefined" || step !== "chat") {
@@ -198,11 +229,12 @@ export default function NewAgentPage() {
         text: t.agents.nameStepBootstrapMessage.replace("{name}", trimmed),
         files: [],
       },
-      { agent_name: trimmed },
+      { agent_name: trimmed, model_name: selectedModel?.name },
     );
   }, [
     nameInput,
     sendMessage,
+    selectedModel?.name,
     t.agents.nameStepAlreadyExistsError,
     t.agents.nameStepApiDisabledError,
     t.agents.nameStepNetworkError,
@@ -227,10 +259,17 @@ export default function NewAgentPage() {
       await sendMessage(
         threadId,
         { text: trimmed, files: [] },
-        { agent_name: agentName },
+        { agent_name: agentName, model_name: selectedModel?.name },
       );
     },
-    [agentName, hasOpenHumanInputCard, sendMessage, thread.isLoading, threadId],
+    [
+      agentName,
+      hasOpenHumanInputCard,
+      selectedModel?.name,
+      sendMessage,
+      thread.isLoading,
+      threadId,
+    ],
   );
 
   const handleSubmitHumanInput = useCallback(
@@ -246,7 +285,7 @@ export default function NewAgentPage() {
           text: buildHumanInputResponseText(request, response),
           files: [],
         },
-        { agent_name: agentName },
+        { agent_name: agentName, model_name: selectedModel?.name },
         {
           additionalKwargs: {
             hide_from_ui: true,
@@ -259,7 +298,7 @@ export default function NewAgentPage() {
       );
       return sent;
     },
-    [agentName, sendMessage, threadId],
+    [agentName, selectedModel?.name, sendMessage, threadId],
   );
 
   const handleSaveAgent = useCallback(async () => {
@@ -278,7 +317,7 @@ export default function NewAgentPage() {
       await sendMessage(
         threadId,
         { text: t.agents.saveCommandMessage, files: [] },
-        { agent_name: agentName },
+        { agent_name: agentName, model_name: selectedModel?.name },
         { additionalKwargs: { hide_from_ui: true } },
       );
       toast.success(t.agents.saveRequested);
@@ -290,12 +329,44 @@ export default function NewAgentPage() {
     agent,
     agentName,
     sendMessage,
+    selectedModel?.name,
     setupAgentStatus,
     t.agents.saveCommandMessage,
     t.agents.saveRequested,
     thread.isLoading,
     threadId,
   ]);
+
+  const modelSelector = selectedModel ? (
+    <ModelSelector open={modelDialogOpen} onOpenChange={setModelDialogOpen}>
+      <ModelSelectorTrigger asChild>
+        <Button variant="outline" size="sm" disabled={thread.isLoading}>
+          {t.agents.changeBuilderModel}
+          <ChevronsUpDownIcon className="ml-2 h-4 w-4 opacity-60" />
+        </Button>
+      </ModelSelectorTrigger>
+      <ModelSelectorContent title={t.agents.builderModelDialogTitle}>
+        <ModelSelectorInput placeholder={t.inputBox.searchModels} />
+        <ModelSelectorList>
+          {models.map((model) => (
+            <ModelSelectorItem
+              key={model.name}
+              value={`${model.display_name} ${model.name}`}
+              onSelect={() => {
+                setSelectedModelName(model.name);
+                setModelDialogOpen(false);
+              }}
+            >
+              <ModelSelectorName>{model.display_name}</ModelSelectorName>
+              {model.name === selectedModel.name ? (
+                <CheckIcon className="size-4" />
+              ) : null}
+            </ModelSelectorItem>
+          ))}
+        </ModelSelectorList>
+      </ModelSelectorContent>
+    </ModelSelector>
+  ) : null;
 
   const header = (
     <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
@@ -372,6 +443,19 @@ export default function NewAgentPage() {
               {nameError ? (
                 <p className="text-destructive text-sm">{nameError}</p>
               ) : null}
+              {selectedModel ? (
+                <div className="bg-muted/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-muted-foreground text-xs">
+                      {t.agents.builderModelLabel}
+                    </p>
+                    <p className="truncate text-sm font-medium">
+                      {selectedModel.display_name}
+                    </p>
+                  </div>
+                  {modelSelector}
+                </div>
+              ) : null}
               <Button
                 className="w-full"
                 onClick={() => void handleConfirmName()}
@@ -393,6 +477,21 @@ export default function NewAgentPage() {
           {header}
 
           <main className="flex min-h-0 flex-1 flex-col">
+            {selectedModel ? (
+              <div className="bg-muted/30 border-b px-4 py-2">
+                <div className="mx-auto flex w-full max-w-(--container-width-md) items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-muted-foreground text-xs">
+                      {t.agents.currentBuilderModel}
+                    </p>
+                    <p className="truncate text-sm font-medium">
+                      {selectedModel.display_name}
+                    </p>
+                  </div>
+                  {modelSelector}
+                </div>
+              </div>
+            ) : null}
             {showSaveHint ? (
               <div className="px-4 pt-4">
                 <div className="mx-auto w-full max-w-(--container-width-md)">
@@ -425,7 +524,9 @@ export default function NewAgentPage() {
                       <Button
                         onClick={() =>
                           router.push(
-                            `/workspace/agents/${agentName}/chats/new`,
+                            `/workspace/agents/${encodeURIComponent(
+                              agentName,
+                            )}/chats/new`,
                           )
                         }
                       >

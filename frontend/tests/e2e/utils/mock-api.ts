@@ -57,6 +57,7 @@ export type MockAPIOptions = {
   threads?: MockThread[];
   agents?: MockAgent[];
   skills?: MockSkill[];
+  schedulerEnabled?: boolean;
   scheduledTasks?: Array<{
     id: string;
     thread_id: string | null;
@@ -322,6 +323,21 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ enabled: false }),
+      });
+    }
+    return route.fallback();
+  });
+
+  void page.route("**/api/scheduled-tasks/capabilities", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          scheduler_enabled: options?.schedulerEnabled ?? true,
+          execution_mode: "non_interactive",
+          supports_clarification: false,
+        }),
       });
     }
     return route.fallback();

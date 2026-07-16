@@ -24,6 +24,12 @@ export type ScheduledTask = {
   updated_at: string;
 };
 
+export type ScheduledTaskCapabilities = {
+  scheduler_enabled: boolean;
+  execution_mode: "non_interactive";
+  supports_clarification: false;
+};
+
 export type ScheduledTaskRun = {
   id: string;
   task_id: string;

@@ -36,3 +36,10 @@ def test_router_registers_create_route():
         },
     )
     assert response.status_code != 404
+
+
+def test_router_registers_capabilities_before_dynamic_task_route():
+    static_index = next(index for index, route in enumerate(scheduled_tasks.router.routes) if route.path == "/api/scheduled-tasks/capabilities")
+    dynamic_index = next(index for index, route in enumerate(scheduled_tasks.router.routes) if route.path == "/api/scheduled-tasks/{task_id}" and "GET" in route.methods)
+
+    assert static_index < dynamic_index

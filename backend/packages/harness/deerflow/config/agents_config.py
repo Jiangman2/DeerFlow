@@ -12,6 +12,7 @@ They are readable by every user but remain distinct from personal agents.
 
 import logging
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +25,7 @@ from deerflow.runtime.user_context import get_effective_user_id
 logger = logging.getLogger(__name__)
 
 SOUL_FILENAME = "SOUL.md"
-AGENT_NAME_PATTERN = re.compile(r"^[A-Za-z0-9-]+$")
+AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
 
 
 def _blank_to_none(value: str | None) -> str | None:
@@ -154,7 +155,10 @@ def validate_agent_name(name: str | None) -> str | None:
         return None
     if not isinstance(name, str):
         raise ValueError("Invalid agent name. Expected a string or None.")
-    if not AGENT_NAME_PATTERN.fullmatch(name):
+    is_safe = bool(name) and AGENT_NAME_PATTERN.fullmatch(name) and all(
+        char == "-" or unicodedata.category(char)[0] in {"L", "N"} for char in name
+    )
+    if not is_safe:
         raise ValueError(f"Invalid agent name '{name}'. Must match pattern: {AGENT_NAME_PATTERN.pattern}")
     return name
 

@@ -244,6 +244,12 @@ export interface Translations {
     };
     preview: string;
     cronHelp: string;
+    notice: {
+      nonInteractiveTitle: string;
+      nonInteractiveDescription: string;
+      schedulerDisabledTitle: string;
+      schedulerDisabledDescription: string;
+    };
     create: {
       title: string;
       taskTitle: string;
@@ -339,17 +345,18 @@ export interface Translations {
     emptyTitle: string;
     emptyDescription: string;
     featureDisabledTitle: string;
-      featureDisabledDescription: string;
-      myAgents: string;
-      agentSquare: string;
-      squareEmptyTitle: string;
-      squareEmptyDescription: string;
-      openExternal: string;
-      publishToSquare: string;
-      unpublishFromSquare: string;
-      publishSuccess: string;
-      unpublishSuccess: string;
-      chat: string;
+    featureDisabledDescription: string;
+    myAgents: string;
+    agentSquare: string;
+    squareEmptyTitle: string;
+    squareEmptyDescription: string;
+    openExternal: string;
+    publishToSquare: string;
+    unpublishFromSquare: string;
+    unpublishConfirm: string;
+    publishSuccess: string;
+    unpublishSuccess: string;
+    chat: string;
     delete: string;
     deleteConfirm: string;
     deleteSuccess: string;
@@ -366,6 +373,10 @@ export interface Translations {
     nameStepCheckError: string;
     nameStepCheckErrorWithDetail: string;
     nameStepApiDisabledError: string;
+    builderModelLabel: string;
+    currentBuilderModel: string;
+    changeBuilderModel: string;
+    builderModelDialogTitle: string;
     nameStepBootstrapMessage: string;
     save: string;
     saving: string;

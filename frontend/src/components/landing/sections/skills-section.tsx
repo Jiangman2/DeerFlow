@@ -15,8 +15,7 @@ export function SkillsSection({ className }: { className?: string }) {
           Agent Skills are loaded progressively — only what&apos;s needed, when
           it&apos;s needed.
           <br />
-          Extend the platform with your own skill files, or use our built-in
-          library.
+          使用自定义技能文件扩展本平台，也可以直接使用内置技能库。
         </div>
       }
     >
