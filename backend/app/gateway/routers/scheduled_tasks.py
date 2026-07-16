@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.gateway.authz import require_permission
 from app.gateway.deps import (
@@ -36,22 +36,40 @@ def _ensure_task_mutable(task: dict[str, Any]) -> None:
 
 
 class ScheduledTaskCreateRequest(BaseModel):
-    thread_id: str | None = None
+    thread_id: str | None = Field(default=None, max_length=64)
     context_mode: str = "fresh_thread_per_run"
-    title: str = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=255)
     prompt: str = Field(min_length=1)
     schedule_type: str
     schedule_spec: dict[str, Any]
-    timezone: str
+    timezone: str = Field(max_length=64)
+
+    @field_validator("title", "prompt")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
 
 
 class ScheduledTaskUpdateRequest(BaseModel):
     context_mode: str | None = None
-    thread_id: str | None = None
-    title: str | None = Field(default=None, min_length=1)
+    thread_id: str | None = Field(default=None, max_length=64)
+    title: str | None = Field(default=None, min_length=1, max_length=255)
     prompt: str | None = Field(default=None, min_length=1)
     schedule_spec: dict[str, Any] | None = None
-    timezone: str | None = None
+    timezone: str | None = Field(default=None, max_length=64)
+
+    @field_validator("title", "prompt")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
 
 
 @router.get("/scheduled-tasks")
@@ -62,6 +80,20 @@ async def list_scheduled_tasks(request: Request):
     if user is None:
         return []
     return await repo.list_by_user(str(user.id))
+
+
+@router.get("/scheduled-tasks/capabilities")
+@require_permission("threads", "read")
+async def get_scheduled_task_capabilities(request: Request):
+    user = await get_optional_user_from_request(request)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    service = get_scheduled_task_service(request)
+    return {
+        "scheduler_enabled": service.is_running,
+        "execution_mode": "non_interactive",
+        "supports_clarification": False,
+    }
 
 
 @router.post("/scheduled-tasks")
@@ -226,6 +258,11 @@ async def pause_scheduled_task(task_id: str, request: Request):
     if existing is None:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
     _ensure_task_mutable(existing)
+    if existing.get("status") != "enabled":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Scheduled task in status '{existing.get('status')}' cannot be paused",
+        )
     updated = await repo.update(task_id, user_id=str(user.id), updates={"status": "paused"})
     if updated is None:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
@@ -243,6 +280,11 @@ async def resume_scheduled_task(task_id: str, request: Request):
     if existing is None:
         raise HTTPException(status_code=404, detail="Scheduled task not found")
     _ensure_task_mutable(existing)
+    if existing.get("status") != "paused":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Scheduled task in status '{existing.get('status')}' cannot be resumed",
+        )
     updated = await repo.update(task_id, user_id=str(user.id), updates={"status": "enabled"})
     if updated is None:
         raise HTTPException(status_code=404, detail="Scheduled task not found")

@@ -36,6 +36,11 @@ class ScheduledTaskService:
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
 
+    @property
+    def is_running(self) -> bool:
+        """Whether this process currently has a live background poller."""
+        return self._task is not None and not self._task.done()
+
     async def run_once(self, *, now: datetime) -> None:
         # ``max_concurrent_runs`` is a global cap on active scheduled runs, not
         # just a per-poll claim batch: long runs accumulate across poll cycles,
@@ -51,7 +56,17 @@ class ScheduledTaskService:
             limit=budget,
         )
         for task in claimed:
-            await self.dispatch_task(task, now=now, trigger="scheduled")
+            try:
+                await self.dispatch_task(task, now=now, trigger="scheduled")
+            except Exception:
+                # A corrupt row or one task-specific persistence failure must
+                # not prevent later rows in the same claimed batch from being
+                # dispatched. The failed row keeps its lease and becomes
+                # reclaimable through the normal lease-expiry path.
+                logger.exception(
+                    "Scheduled task dispatch crashed for task %s; continuing batch",
+                    task.get("id", "<unknown>"),
+                )
 
     @staticmethod
     def _is_overlap_conflict(exc: Exception) -> bool:

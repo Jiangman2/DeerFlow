@@ -301,6 +301,14 @@ export const zhCN: Translations = {
     },
     preview: "预览",
     cronHelp: "打开 crontab.guru",
+    notice: {
+      nonInteractiveTitle: "后台非交互执行",
+      nonInteractiveDescription:
+        "运行过程中无法向你提问或等待确认。请把输入、范围、输出要求和必要授权一次写清；需要验证码、临时文件、人工审批、风险确认或动态选择的任务不适合作为定时任务。",
+      schedulerDisabledTitle: "自动调度器未运行",
+      schedulerDisabledDescription:
+        "任务可以保存并手动触发，但不会按设定时间自动运行。请让管理员启用 config.yaml 中的 scheduler.enabled 并重启 Gateway。",
+    },
     create: {
       title: "创建定时任务",
       taskTitle: "任务标题",

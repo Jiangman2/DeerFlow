@@ -319,6 +319,14 @@ export const enUS: Translations = {
     },
     preview: "Preview",
     cronHelp: "Open crontab.guru",
+    notice: {
+      nonInteractiveTitle: "Non-interactive background execution",
+      nonInteractiveDescription:
+        "A scheduled run cannot ask questions or wait for confirmation. Include all inputs, scope, output requirements, and permissions up front. Tasks that need one-time codes, runtime uploads, human approval, risk confirmation, or dynamic choices are not suitable for scheduling.",
+      schedulerDisabledTitle: "Automatic scheduler is stopped",
+      schedulerDisabledDescription:
+        "Tasks can be saved and triggered manually, but they are not running automatically. Ask an administrator to enable scheduler.enabled in config.yaml and restart the Gateway.",
+    },
     create: {
       title: "Create scheduled task",
       taskTitle: "Task title",

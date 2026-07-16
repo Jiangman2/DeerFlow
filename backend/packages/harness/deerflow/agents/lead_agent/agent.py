@@ -53,6 +53,16 @@ logger = logging.getLogger(__name__)
 
 _BOOTSTRAP_SKILL_NAMES = {"bootstrap"}
 _NON_INTERACTIVE_DISABLED_TOOL_NAMES = frozenset({"ask_clarification"})
+_NON_INTERACTIVE_PROMPT_SUFFIX = """
+
+<non_interactive_execution>
+You are running unattended, non-interactive work.
+- Do not ask the user a question or wait for confirmation; no user can respond during this run.
+- If required inputs, credentials, permissions, or approvals are missing, stop safely and explain what is needed in the final result.
+- Do not perform a destructive action or external side effect that would normally require confirmation unless the scheduled task prompt explicitly authorizes that exact action and scope.
+- Make only low-risk, reversible assumptions. State any assumptions in the final result.
+</non_interactive_execution>
+"""
 
 # Channels whose inbound messages originate from untrusted external
 # commenters (anyone on a GitHub repo, etc.) and whose run context is
@@ -61,6 +71,12 @@ _NON_INTERACTIVE_DISABLED_TOOL_NAMES = frozenset({"ask_clarification"})
 # itself is plumbed into ``run_context`` by
 # ``ChannelManager._resolve_run_params``.
 _WEBHOOK_CHANNELS: frozenset[str] = frozenset({"github"})
+
+
+def _with_non_interactive_guidance(prompt: str, *, enabled: bool) -> str:
+    if not enabled:
+        return prompt
+    return f"{prompt.rstrip()}\n{_NON_INTERACTIVE_PROMPT_SUFFIX}"
 
 
 def _default_max_total_subagents(app_config: object) -> int:
@@ -556,15 +572,18 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
                 mcp_routing_middleware=mcp_routing_middleware,
                 user_id=resolved_user_id,
             ),
-            system_prompt=apply_prompt_template(
-                subagent_enabled=subagent_enabled,
-                max_concurrent_subagents=max_concurrent_subagents,
-                max_total_subagents=max_total_subagents,
-                available_skills=set(_BOOTSTRAP_SKILL_NAMES),
-                app_config=resolved_app_config,
-                deferred_names=setup.deferred_names,
-                user_id=resolved_user_id,
-                skill_names=skill_setup.skill_names or None,
+            system_prompt=_with_non_interactive_guidance(
+                apply_prompt_template(
+                    subagent_enabled=subagent_enabled,
+                    max_concurrent_subagents=max_concurrent_subagents,
+                    max_total_subagents=max_total_subagents,
+                    available_skills=set(_BOOTSTRAP_SKILL_NAMES),
+                    app_config=resolved_app_config,
+                    deferred_names=setup.deferred_names,
+                    user_id=resolved_user_id,
+                    skill_names=skill_setup.skill_names or None,
+                ),
+                enabled=non_interactive,
             ),
             state_schema=ThreadState,
         )
@@ -623,17 +642,20 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             mcp_routing_middleware=mcp_routing_middleware,
             user_id=resolved_user_id,
         ),
-        system_prompt=apply_prompt_template(
-            subagent_enabled=subagent_enabled,
-            max_concurrent_subagents=max_concurrent_subagents,
-            max_total_subagents=max_total_subagents,
-            agent_name=agent_name,
-            available_skills=available_skills,
-            app_config=resolved_app_config,
-            deferred_names=setup.deferred_names,
-            mcp_routing_hints_section=mcp_routing_hints_section,
-            user_id=resolved_user_id,
-            skill_names=skill_setup.skill_names or None,
+        system_prompt=_with_non_interactive_guidance(
+            apply_prompt_template(
+                subagent_enabled=subagent_enabled,
+                max_concurrent_subagents=max_concurrent_subagents,
+                max_total_subagents=max_total_subagents,
+                agent_name=agent_name,
+                available_skills=available_skills,
+                app_config=resolved_app_config,
+                deferred_names=setup.deferred_names,
+                mcp_routing_hints_section=mcp_routing_hints_section,
+                user_id=resolved_user_id,
+                skill_names=skill_setup.skill_names or None,
+            ),
+            enabled=non_interactive,
         ),
         state_schema=ThreadState,
     )

@@ -2,7 +2,11 @@ import { throwGatewayApiError } from "@/core/api/errors";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
-import type { ScheduledTask, ScheduledTaskRun } from "./types";
+import type {
+  ScheduledTask,
+  ScheduledTaskCapabilities,
+  ScheduledTaskRun,
+} from "./types";
 
 function scheduledTasksUrl(path: string): string {
   return `${getBackendBaseURL()}/api/scheduled-tasks${path}`;
@@ -14,6 +18,17 @@ export async function fetchScheduledTasks(): Promise<ScheduledTask[]> {
     await throwGatewayApiError(
       response,
       `Failed to load scheduled tasks: ${response.statusText}`,
+    );
+  }
+  return response.json();
+}
+
+export async function fetchScheduledTaskCapabilities(): Promise<ScheduledTaskCapabilities> {
+  const response = await fetch(scheduledTasksUrl("/capabilities"));
+  if (!response.ok) {
+    await throwGatewayApiError(
+      response,
+      `Failed to load scheduled task capabilities: ${response.statusText}`,
     );
   }
   return response.json();

@@ -244,6 +244,12 @@ export interface Translations {
     };
     preview: string;
     cronHelp: string;
+    notice: {
+      nonInteractiveTitle: string;
+      nonInteractiveDescription: string;
+      schedulerDisabledTitle: string;
+      schedulerDisabledDescription: string;
+    };
     create: {
       title: string;
       taskTitle: string;

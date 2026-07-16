@@ -829,6 +829,8 @@ Current MVP capabilities:
 - Pause, resume, trigger, inspect history, and delete tasks
 - Execute scheduled work through the normal DeerFlow run lifecycle
 
+Scheduled execution is deliberately **non-interactive**: after a run starts, it cannot pause to ask the user a question, wait for confirmation, or collect temporary input. It is a good fit for fully specified recurring summaries, fixed-scope analysis, monitoring checks, and report generation. It is not a good fit for work that needs one-time codes, runtime uploads, temporary authorization, human approval, risk confirmation, dynamic choices, or iterative review. Move those inputs and approvals ahead of the run, or use a normal interactive thread instead.
+
 Current MVP limits:
 
 - No conversation-created `schedule_task` tool yet
@@ -836,7 +838,7 @@ Current MVP limits:
 - No channel or GitHub dispatch targets
 - No `interval` schedule type in this first cut
 
-Enable background polling with `config.yaml -> scheduler.enabled`. Manual trigger uses the same scheduled-task resource and execution path.
+Enable background polling with `config.yaml -> scheduler.enabled` and restart the Gateway. The page reports the automatic poller's actual state in the current process; when it is stopped, tasks can still be saved and triggered manually, but they will not run automatically at their scheduled time. Manual trigger uses the same non-interactive scheduled-task execution path.
 
 ## Terminal Workbench (TUI)
 

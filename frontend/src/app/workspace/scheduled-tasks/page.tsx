@@ -30,6 +30,7 @@ import {
   useDeleteScheduledTask,
   usePauseScheduledTask,
   useResumeScheduledTask,
+  useScheduledTaskCapabilities,
   useScheduledTaskRuns,
   useScheduledTasks,
   useTriggerScheduledTask,
@@ -70,6 +71,7 @@ export default function ScheduledTasksPage() {
   const searchParams = useSearchParams();
   const threadId = searchParams.get("thread_id");
   const allTasksQuery = useScheduledTasks();
+  const capabilitiesQuery = useScheduledTaskCapabilities();
   const threadTasksQuery = useThreadScheduledTasks(threadId);
   const data = threadId ? threadTasksQuery.data : allTasksQuery.data;
   const queryError = threadId ? threadTasksQuery.error : allTasksQuery.error;
@@ -193,6 +195,31 @@ export default function ScheduledTasksPage() {
       <WorkspaceBody>
         <div className="mx-auto flex w-full max-w-(--container-width-md) flex-col gap-4 p-6">
           <h1 className="text-2xl font-semibold">{t.sidebar.scheduledTasks}</h1>
+          {capabilitiesQuery.data?.scheduler_enabled === false && (
+            <div
+              className="border-destructive/35 bg-destructive/5 rounded-lg border p-4"
+              data-testid="scheduled-task-scheduler-disabled"
+              role="alert"
+            >
+              <div className="text-destructive font-medium">
+                {st.notice.schedulerDisabledTitle}
+              </div>
+              <div className="text-muted-foreground mt-1 text-sm">
+                {st.notice.schedulerDisabledDescription}
+              </div>
+            </div>
+          )}
+          <div
+            className="border-primary/25 bg-primary/5 rounded-lg border p-4"
+            data-testid="scheduled-task-non-interactive-notice"
+          >
+            <div className="font-medium">
+              {st.notice.nonInteractiveTitle}
+            </div>
+            <div className="text-muted-foreground mt-1 text-sm">
+              {st.notice.nonInteractiveDescription}
+            </div>
+          </div>
           <div
             className="grid gap-2 rounded-lg border p-4"
             data-testid="scheduled-task-create-form"
@@ -263,14 +290,17 @@ export default function ScheduledTasksPage() {
             )}
             <Button
               onClick={() => {
+                const cleanTitle = title.trim();
+                const cleanPrompt = prompt.trim();
+                const cleanTargetThreadId = targetThreadId.trim();
                 const hasSchedule =
                   Boolean(createSchedule.schedule_spec.cron) ||
                   Boolean(createSchedule.schedule_spec.run_at);
                 if (
-                  !title ||
-                  !prompt ||
+                  !cleanTitle ||
+                  !cleanPrompt ||
                   !hasSchedule ||
-                  (contextMode === "reuse_thread" && !targetThreadId)
+                  (contextMode === "reuse_thread" && !cleanTargetThreadId)
                 ) {
                   setFormError(st.create.fillRequired);
                   return;
@@ -280,9 +310,11 @@ export default function ScheduledTasksPage() {
                   {
                     context_mode: contextMode,
                     thread_id:
-                      contextMode === "reuse_thread" ? targetThreadId : null,
-                    title,
-                    prompt,
+                      contextMode === "reuse_thread"
+                        ? cleanTargetThreadId
+                        : null,
+                    title: cleanTitle,
+                    prompt: cleanPrompt,
                     schedule_type: createSchedule.schedule_type,
                     schedule_spec: createSchedule.schedule_spec,
                     timezone: createSchedule.timezone || "UTC",
@@ -305,11 +337,11 @@ export default function ScheduledTasksPage() {
                 );
               }}
               disabled={
-                !title ||
-                !prompt ||
+                !title.trim() ||
+                !prompt.trim() ||
                 (!createSchedule.schedule_spec.cron &&
                   !createSchedule.schedule_spec.run_at) ||
-                (contextMode === "reuse_thread" && !targetThreadId) ||
+                (contextMode === "reuse_thread" && !targetThreadId.trim()) ||
                 createTask.isPending
               }
             >
@@ -481,13 +513,17 @@ export default function ScheduledTasksPage() {
                         size="sm"
                         onClick={() =>
                           updateTask.mutate({
-                            title: editTitle,
-                            prompt: editPrompt,
+                            title: editTitle.trim(),
+                            prompt: editPrompt.trim(),
                             schedule_spec: editSchedule.schedule_spec,
                             timezone: editSchedule.timezone || "UTC",
                           })
                         }
-                        disabled={updateTask.isPending}
+                        disabled={
+                          updateTask.isPending ||
+                          !editTitle.trim() ||
+                          !editPrompt.trim()
+                        }
                       >
                         {st.edit.submit}
                       </Button>
@@ -496,23 +532,28 @@ export default function ScheduledTasksPage() {
                     <div className="text-sm">{selectedTask.prompt}</div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        selectedTask.status === "paused"
-                          ? resumeTask.mutate(selectedTask.id)
-                          : pauseTask.mutate(selectedTask.id)
-                      }
-                    >
-                      {selectedTask.status === "paused"
-                        ? st.actions.resume
-                        : st.actions.pause}
-                    </Button>
+                    {(selectedTask.status === "enabled" ||
+                      selectedTask.status === "paused") && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          selectedTask.status === "paused"
+                            ? resumeTask.mutate(selectedTask.id)
+                            : pauseTask.mutate(selectedTask.id)
+                        }
+                        disabled={pauseTask.isPending || resumeTask.isPending}
+                      >
+                        {selectedTask.status === "paused"
+                          ? st.actions.resume
+                          : st.actions.pause}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => triggerTask.mutate(selectedTask.id)}
+                      disabled={triggerTask.isPending}
                     >
                       {st.actions.trigger}
                     </Button>
