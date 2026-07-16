@@ -254,6 +254,7 @@ export function buildVisibleHistoryMessages(
     ...visibleRows.map((message) => ({
       ...message.content,
       run_id: message.run_id,
+      feedback: message.feedback ?? null,
     })),
   ]);
 }
@@ -316,8 +317,21 @@ export function mergeMessages(
   optimisticMessages: Message[],
 ): Message[] {
   const savedTurnDurations = new Map<string, number>();
+  const savedRunIds = new Map<string, string>();
+  const savedFeedback = new Map<
+    string,
+    Exclude<RunMessage["feedback"], undefined>
+  >();
   for (const msg of historyMessages) {
     const identity = messageIdentity(msg);
+    const historical = msg as Message & {
+      feedback?: RunMessage["feedback"];
+      run_id?: string;
+    };
+    if (identity && typeof historical.run_id === "string") {
+      savedRunIds.set(identity, historical.run_id);
+      savedFeedback.set(identity, historical.feedback ?? null);
+    }
     if (identity && msg.additional_kwargs?.turn_duration !== undefined) {
       savedTurnDurations.set(
         identity,
@@ -412,20 +426,31 @@ export function mergeMessages(
 
   return merged.map((message) => {
     const identity = messageIdentity(message);
+    let nextMessage = message as Message & {
+      feedback?: RunMessage["feedback"];
+      run_id?: string;
+    };
+    if (identity && savedRunIds.has(identity)) {
+      nextMessage = {
+        ...nextMessage,
+        run_id: savedRunIds.get(identity),
+        feedback: savedFeedback.get(identity) ?? null,
+      };
+    }
     if (
       identity &&
       savedTurnDurations.has(identity) &&
-      message.additional_kwargs?.turn_duration === undefined
+      nextMessage.additional_kwargs?.turn_duration === undefined
     ) {
       return {
-        ...message,
+        ...nextMessage,
         additional_kwargs: {
-          ...message.additional_kwargs,
+          ...nextMessage.additional_kwargs,
           turn_duration: savedTurnDurations.get(identity),
         },
       } as Message;
     }
-    return message;
+    return nextMessage;
   });
 }
 

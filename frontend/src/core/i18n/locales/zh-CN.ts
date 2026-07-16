@@ -51,6 +51,8 @@ export const zhCN: Translations = {
     exportSuccess: "对话已导出",
     regenerate: "重新生成",
     branch: "分叉",
+    likeResponse: "点赞回答",
+    dislikeResponse: "点踩回答",
     showArtifacts: "查看此对话的文件",
   },
 

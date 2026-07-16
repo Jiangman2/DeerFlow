@@ -1,5 +1,6 @@
 import type { Message, Thread } from "@langchain/langgraph-sdk";
 
+import type { FeedbackData } from "../api/feedback";
 import type { Todo } from "../todos";
 
 export interface GoalState {
@@ -55,6 +56,7 @@ export interface RunMessage {
   run_id: string;
   seq?: number;
   content: Message;
+  feedback?: FeedbackData | null;
   metadata: {
     caller: string;
     [key: string]: unknown;

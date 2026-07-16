@@ -613,8 +613,8 @@ test("buildVisibleHistoryMessages filters superseded runs but keeps regenerated 
   // run_id is carried onto each content message (#3779) so historical subtask
   // cards can fetch their persisted step history on expand.
   expect(buildVisibleHistoryMessages(rows, new Set(["run-old"]))).toEqual([
-    { ...newHuman, run_id: "run-new" },
-    { ...newAi, run_id: "run-new" },
+    { ...newHuman, run_id: "run-new", feedback: null },
+    { ...newAi, run_id: "run-new", feedback: null },
   ]);
 });
 
@@ -631,6 +631,56 @@ test("buildVisibleHistoryMessages attaches run_id to each content message (#3779
   const result = buildVisibleHistoryMessages(rows, new Set());
 
   expect((result[0] as { run_id?: string }).run_id).toBe("run-1");
+});
+
+test("buildVisibleHistoryMessages preserves feedback on historical answers", () => {
+  const rows: RunMessage[] = [
+    {
+      run_id: "run-feedback",
+      content: { id: "ai-feedback", type: "ai", content: "answer" } as Message,
+      feedback: { feedback_id: "feedback-1", rating: -1, comment: null },
+      metadata: { caller: "lead_agent" },
+      created_at: "2026-07-16T00:00:00Z",
+    },
+  ];
+
+  const result = buildVisibleHistoryMessages(rows, new Set());
+
+  expect((result[0] as { feedback?: unknown }).feedback).toEqual({
+    feedback_id: "feedback-1",
+    rating: -1,
+    comment: null,
+  });
+});
+
+test("mergeMessages keeps canonical run feedback when live state replaces content", () => {
+  const history = {
+    id: "ai-feedback-overlap",
+    type: "ai",
+    content: "persisted answer",
+    run_id: "run-feedback-overlap",
+    feedback: { feedback_id: "feedback-overlap", rating: 1, comment: null },
+  } as unknown as Message;
+  const live = {
+    id: "ai-feedback-overlap",
+    type: "ai",
+    content: "fresher live answer",
+  } as Message;
+
+  const [result] = mergeMessages([history], [live], []) as Array<
+    Message & {
+      run_id?: string;
+      feedback?: RunMessage["feedback"];
+    }
+  >;
+
+  expect(result?.content).toBe("fresher live answer");
+  expect(result?.run_id).toBe("run-feedback-overlap");
+  expect(result?.feedback).toEqual({
+    feedback_id: "feedback-overlap",
+    rating: 1,
+    comment: null,
+  });
 });
 
 // Regression coverage for #3825: after context summarization the backend emits

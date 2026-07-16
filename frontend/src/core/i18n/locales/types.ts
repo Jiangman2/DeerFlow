@@ -41,6 +41,8 @@ export interface Translations {
     exportSuccess: string;
     regenerate: string;
     branch: string;
+    likeResponse: string;
+    dislikeResponse: string;
     showArtifacts: string;
   };
 
