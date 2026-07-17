@@ -2,8 +2,9 @@
 
 import {
   BotIcon,
+  BookOpenIcon,
   CalendarClock,
-  DatabaseIcon,
+  ExternalLinkIcon,
   MessagesSquare,
 } from "lucide-react";
 import Link from "next/link";
@@ -13,6 +14,7 @@ import { useEffect, useState } from "react";
 import {
   SidebarGroup,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
@@ -28,27 +30,22 @@ export function WorkspaceNavChatList() {
   const { t } = useI18n();
   const pathname = usePathname();
   const { enabled: agentsEnabled } = useAgentsApiEnabled();
-  const [knowledgeUrl, setKnowledgeUrl] = useState<string | null>(null);
+  const [knowledgeUrl, setKnowledgeUrl] = useState<string>();
 
   useEffect(() => {
-    const controller = new AbortController();
-    void fetch("/api/runtime-config", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        const data = (await response.json()) as {
-          weknoraFrontendUrl?: unknown;
-        };
-        return typeof data.weknoraFrontendUrl === "string"
-          ? data.weknoraFrontendUrl
-          : null;
+    let active = true;
+    void fetch("/api/runtime-config", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((config: { weknoraFrontendUrl?: string | null } | null) => {
+        const url = config?.weknoraFrontendUrl?.trim();
+        if (active && url) setKnowledgeUrl(url);
       })
-      .then(setKnowledgeUrl)
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          setKnowledgeUrl(null);
-        }
+      .catch(() => {
+        if (active) setKnowledgeUrl(undefined);
       });
-    return () => controller.abort();
+    return () => {
+      active = false;
+    };
   }, []);
   return (
     <SidebarGroup className="pt-1">
@@ -65,19 +62,34 @@ export function WorkspaceNavChatList() {
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
-        {knowledgeUrl && (
-          <SidebarMenuItem>
+        <SidebarMenuItem>
             <SidebarMenuButton
-              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&>svg]:text-current"
+              isActive={pathname.startsWith("/workspace/knowledge")}
+              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
               asChild
             >
-              <a href={knowledgeUrl}>
-                <DatabaseIcon />
+              <Link href="/workspace/knowledge">
+                <BookOpenIcon />
                 <span>{t.sidebar.knowledge}</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
+            {knowledgeUrl && (
+              <SidebarMenuAction
+                asChild
+                className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                title="打开知识库平台"
+              >
+                <a
+                  href={knowledgeUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label="打开知识库平台"
+                >
+                  <ExternalLinkIcon />
+                </a>
+              </SidebarMenuAction>
+            )}
           </SidebarMenuItem>
-        )}
         <SidebarMenuItem>
           {agentsEnabled ? (
             <SidebarMenuButton
