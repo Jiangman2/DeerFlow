@@ -6,7 +6,6 @@ import { useI18n } from "@/core/i18n/hooks";
 import {
   createScheduledTask,
   deleteScheduledTask,
-  fetchScheduledTaskCapabilities,
   fetchScheduledTaskRuns,
   fetchScheduledTasks,
   fetchThreadScheduledTasks,
@@ -16,14 +15,6 @@ import {
   updateScheduledTask,
   type ScheduledTaskPayload,
 } from "./api";
-
-export function useScheduledTaskCapabilities() {
-  return useQuery({
-    queryKey: ["scheduled-tasks", "capabilities"],
-    queryFn: fetchScheduledTaskCapabilities,
-    staleTime: 30_000,
-  });
-}
 
 export function useScheduledTasks() {
   return useQuery({

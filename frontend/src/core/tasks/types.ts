@@ -6,7 +6,7 @@ import type { SubtaskStep } from "./steps";
 
 export interface Subtask {
   id: string;
-  status: "in_progress" | "completed" | "failed";
+  status: "in_progress" | "completed" | "failed" | "incomplete";
   subagent_type: string;
   description: string;
   /** Effective model selected for this subagent run. */

@@ -65,6 +65,23 @@ DEER_FLOW_HOST_BASE_DIR = os.environ.get("DEER_FLOW_HOST_BASE_DIR", "/.deer-flow
 SKILLS_PVC_NAME = os.environ.get("SKILLS_PVC_NAME", "")
 USERDATA_PVC_NAME = os.environ.get("USERDATA_PVC_NAME", "")
 SKILLS_PVC_SUBPATH_TEMPLATE = os.environ.get("SKILLS_PVC_SUBPATH_TEMPLATE", "")
+SANDBOX_ENV_SECRET_NAME = os.environ.get("SANDBOX_ENV_SECRET_NAME", "")
+SANDBOX_SECRET_ENV_KEYS = tuple(
+    key.strip()
+    for key in os.environ.get(
+        "SANDBOX_SECRET_ENV_KEYS",
+        "DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,GEMINI_API_KEY",
+    ).split(",")
+    if key.strip()
+)
+SANDBOX_PASSTHROUGH_ENV_KEYS = tuple(
+    key.strip()
+    for key in os.environ.get(
+        "SANDBOX_PASSTHROUGH_ENV_KEYS",
+        "IMAGE_BACKEND,QWEN_MODEL,QWEN_BASE_URL,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY",
+    ).split(",")
+    if key.strip()
+)
 SANDBOX_CONTAINER_PORT_RAW = os.environ.get("SANDBOX_CONTAINER_PORT", "8080")
 SANDBOX_SERVICE_TYPE = os.environ.get("SANDBOX_SERVICE_TYPE", "NodePort")
 try:
@@ -452,6 +469,22 @@ def _build_pod(
                             protocol="TCP",
                         )
                     ],
+                    # A cold AIO sandbox can take 30-40 seconds to start all
+                    # supervised services. Gate readiness/liveness until the
+                    # HTTP API is actually available so kubelet does not kill
+                    # a healthy-but-still-starting container at that boundary.
+                    startup_probe=k8s_client.V1Probe(
+                        http_get=k8s_client.V1HTTPGetAction(
+                            path="/v1/sandbox",
+                            port=SANDBOX_CONTAINER_PORT,
+                        ),
+                        period_seconds=5,
+                        timeout_seconds=3,
+                        # Five minutes prevents kubelet from restarting a
+                        # healthy AIO process during temporary node contention.
+                        # Gateway startup_timeout remains the user-facing bound.
+                        failure_threshold=60,
+                    ),
                     readiness_probe=k8s_client.V1Probe(
                         http_get=k8s_client.V1HTTPGetAction(
                             path="/v1/sandbox",
@@ -484,6 +517,7 @@ def _build_pod(
                             "ephemeral-storage": "500Mi",
                         },
                     ),
+                    env=_build_sandbox_env(),
                     volume_mounts=_build_volume_mounts(
                         thread_id,
                         user_id=user_id,
@@ -503,6 +537,35 @@ def _build_pod(
             restart_policy="Always",
         ),
     )
+
+
+def _build_sandbox_env() -> list[k8s_client.V1EnvVar]:
+    """Build explicit Sandbox env entries without embedding secret values.
+
+    Secret-backed entries use ``secretKeyRef`` so credentials remain in the
+    Kubernetes Secret rather than being copied into the Pod specification.
+    Missing optional provider keys do not prevent a Sandbox from starting.
+    """
+    env: list[k8s_client.V1EnvVar] = []
+    if SANDBOX_ENV_SECRET_NAME:
+        for key in SANDBOX_SECRET_ENV_KEYS:
+            env.append(
+                k8s_client.V1EnvVar(
+                    name=key,
+                    value_from=k8s_client.V1EnvVarSource(
+                        secret_key_ref=k8s_client.V1SecretKeySelector(
+                            name=SANDBOX_ENV_SECRET_NAME,
+                            key=key,
+                            optional=True,
+                        )
+                    ),
+                )
+            )
+    for key in SANDBOX_PASSTHROUGH_ENV_KEYS:
+        value = os.environ.get(key)
+        if value is not None:
+            env.append(k8s_client.V1EnvVar(name=key, value=value))
+    return env
 
 
 def _build_service(sandbox_id: str) -> k8s_client.V1Service:

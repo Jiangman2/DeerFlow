@@ -203,7 +203,10 @@ export function derivePendingSubtaskStatus(
   if (isCurrentTurnLoading || hasSubtaskToolResult(toolCallId, messages)) {
     return "in_progress";
   }
-  return "failed";
+  // A missing ToolMessage only proves that the parent run ended before the
+  // subtask returned (for example, the user pressed Stop). It is not evidence
+  // that the subagent itself failed.
+  return "incomplete";
 }
 
 interface StructuredStatus {

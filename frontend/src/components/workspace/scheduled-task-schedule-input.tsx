@@ -109,8 +109,15 @@ export function ScheduledTaskScheduleInput({
       : "",
   );
   const [timezone, setTimezone] = useState<string>(
-    initial.timezone || detectBrowserTimezone(),
+    initial.timezone || "UTC",
   );
+
+  useEffect(() => {
+    if (initial.timezone) {
+      return;
+    }
+    setTimezone(detectBrowserTimezone());
+  }, [initial.timezone]);
 
   // Hold the latest onChange in a ref so the effect below does not depend on
   // it. This avoids a re-render loop: if the parent passes an inline
@@ -181,9 +188,14 @@ export function ScheduledTaskScheduleInput({
     { scheduleType, preset, parts, runAtLocal, timezone },
     schedLocale,
   );
+  const timezoneLabel = (tzOption: string) =>
+    tzOption === "Asia/Shanghai" ? labels.fields.timezoneShanghai : tzOption;
 
   return (
-    <div className="flex flex-col gap-2" data-testid="schedule-input">
+    <div
+      className="flex min-w-0 max-w-full flex-col gap-2 overflow-x-hidden"
+      data-testid="schedule-input"
+    >
       {!scheduleTypeLocked && (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -247,8 +259,8 @@ export function ScheduledTaskScheduleInput({
           )}
 
           {preset === "weekly" && (
-            <div className="flex flex-wrap gap-1">
-              <span className="text-muted-foreground w-full text-sm">
+            <div className="grid min-w-0 grid-cols-4 items-center gap-2 sm:grid-cols-8">
+              <span className="text-muted-foreground col-span-4 text-sm sm:col-span-1">
                 {labels.fields.weekday}
               </span>
               {WEEKDAYS.map((w) => {
@@ -258,6 +270,7 @@ export function ScheduledTaskScheduleInput({
                     key={w}
                     variant={active ? "default" : "outline"}
                     size="sm"
+                    className="min-w-0 px-2"
                     onClick={() => toggleWeekday(w)}
                     aria-pressed={active}
                   >
@@ -282,22 +295,12 @@ export function ScheduledTaskScheduleInput({
           )}
 
           {preset === "custom" && (
-            <div className="flex flex-col gap-1">
-              <Input
-                value={parts.raw ?? ""}
-                onChange={(e) => updateParts({ raw: e.target.value })}
-                placeholder={labels.fields.cronPlaceholder}
-                aria-label={labels.fields.cron}
-              />
-              <a
-                href="https://crontab.guru/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-muted-foreground text-xs hover:underline"
-              >
-                {labels.cronHelp} ↗
-              </a>
-            </div>
+            <Input
+              value={parts.raw ?? ""}
+              onChange={(e) => updateParts({ raw: e.target.value })}
+              placeholder={labels.fields.cronPlaceholder}
+              aria-label={labels.fields.cron}
+            />
           )}
         </>
       ) : (
@@ -316,7 +319,7 @@ export function ScheduledTaskScheduleInput({
         <SelectContent>
           {TIMEZONE_OPTIONS.map((tzOption) => (
             <SelectItem key={tzOption} value={tzOption}>
-              {tzOption}
+              {timezoneLabel(tzOption)}
             </SelectItem>
           ))}
         </SelectContent>

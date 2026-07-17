@@ -75,7 +75,7 @@ class SubagentOverrideConfig(BaseModel):
     )
     skills: list[str] | None = Field(
         default=None,
-        description="Skill names whitelist for this subagent (None = inherit all enabled skills, [] = no skills)",
+        description="Skill names whitelist for this subagent (None = retain the agent's built-in default, [] = no skills)",
     )
     token_budget: TokenBudgetConfig | None = Field(
         default=None,

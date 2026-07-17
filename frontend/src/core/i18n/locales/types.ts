@@ -209,6 +209,7 @@ export interface Translations {
     chats: string;
     demoChats: string;
     agents: string;
+    knowledge: string;
     scheduledTasks: string;
     agentsDisabledTooltip: string;
     channels: string;
@@ -232,8 +233,10 @@ export interface Translations {
       dayOfMonth: string;
       cron: string;
       cronPlaceholder: string;
+      cronHint: string;
       runAt: string;
       timezone: string;
+      timezoneShanghai: string;
     };
     weekdays: {
       mon: string;
@@ -246,18 +249,20 @@ export interface Translations {
     };
     preview: string;
     cronHelp: string;
-    notice: {
-      nonInteractiveTitle: string;
-      nonInteractiveDescription: string;
-      schedulerDisabledTitle: string;
-      schedulerDisabledDescription: string;
-    };
     create: {
       title: string;
+      description: string;
       taskTitle: string;
       prompt: string;
       submit: string;
       fillRequired: string;
+      adviceTitle: string;
+      adviceFresh: string;
+      adviceReuse: string;
+      adviceCron: string;
+      adviceCronFormat: string;
+      adviceCronExamples: string[];
+      adviceCronExternal: string;
     };
     context: {
       fresh: string;
@@ -265,6 +270,7 @@ export interface Translations {
       threadIdPlaceholder: string;
     };
     filters: {
+      label: string;
       allStatuses: string;
       enabled: string;
       paused: string;
@@ -275,11 +281,11 @@ export interface Translations {
       once: string;
     };
     detail: {
-      emptyDescription: string;
       contextMode: string;
       thread: string;
       lastThread: string;
       schedule: string;
+      expression: string;
       nextRun: string;
       lastRun: string;
       lastRunId: string;
@@ -288,6 +294,8 @@ export interface Translations {
       runsCountOne: string;
       noRuns: string;
       noSelection: string;
+      emptyTitle: string;
+      emptyDescription: string;
       filteredByThread: string;
       loadFailed: string;
     };
@@ -334,7 +342,7 @@ export interface Translations {
       label: string;
       trending: { title: string; desc: string };
       news: { title: string; desc: string };
-      issues: { title: string; desc: string };
+      energyIntel: { title: string; desc: string };
       weekly: { title: string; desc: string };
     };
   };
@@ -537,6 +545,7 @@ export interface Translations {
     in_progress: string;
     completed: string;
     failed: string;
+    incomplete: string;
   };
 
   // Token Usage

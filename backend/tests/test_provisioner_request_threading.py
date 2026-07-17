@@ -187,6 +187,8 @@ def test_create_sandbox_route_builds_expected_skills_mount_layout(
         ready_after_service_reads={"sandbox-layout": 1},
     )
     monkeypatch.setattr(provisioner_module, "core_v1", fake_core_v1)
+    monkeypatch.setattr(provisioner_module, "SKILLS_PVC_NAME", "")
+    monkeypatch.setattr(provisioner_module, "USERDATA_PVC_NAME", "")
 
     response = provisioner_module.create_sandbox(
         provisioner_module.CreateSandboxRequest(
@@ -203,6 +205,34 @@ def test_create_sandbox_route_builds_expected_skills_mount_layout(
     mount_names = [mount.name for mount in pod.spec.containers[0].volume_mounts]
     assert volume_names == expected_mount_names
     assert mount_names == expected_mount_names
+
+
+def test_sandbox_pod_uses_startup_probe_to_protect_slow_cold_starts(provisioner_module) -> None:
+    pod = provisioner_module._build_pod("slow-start", "thread-1")
+    container = pod.spec.containers[0]
+
+    assert container.startup_probe.http_get.path == "/v1/sandbox"
+    assert container.startup_probe.http_get.port == provisioner_module.SANDBOX_CONTAINER_PORT
+    assert container.startup_probe.period_seconds * container.startup_probe.failure_threshold >= 300
+    assert container.liveness_probe is not None
+    assert container.readiness_probe is not None
+
+
+def test_sandbox_pod_references_provider_secrets_without_copying_values(monkeypatch, provisioner_module) -> None:
+    monkeypatch.setattr(provisioner_module, "SANDBOX_ENV_SECRET_NAME", "deer-flow-env")
+    monkeypatch.setattr(provisioner_module, "SANDBOX_SECRET_ENV_KEYS", ("DASHSCOPE_API_KEY",))
+    monkeypatch.setattr(provisioner_module, "SANDBOX_PASSTHROUGH_ENV_KEYS", ("IMAGE_BACKEND",))
+    monkeypatch.setenv("IMAGE_BACKEND", "qwen")
+
+    container = provisioner_module._build_pod("provider-env", "thread-1").spec.containers[0]
+    entries = {item.name: item for item in container.env}
+
+    secret_entry = entries["DASHSCOPE_API_KEY"]
+    assert secret_entry.value is None
+    assert secret_entry.value_from.secret_key_ref.name == "deer-flow-env"
+    assert secret_entry.value_from.secret_key_ref.key == "DASHSCOPE_API_KEY"
+    assert secret_entry.value_from.secret_key_ref.optional is True
+    assert entries["IMAGE_BACKEND"].value == "qwen"
 
 
 def test_create_sandbox_retries_transient_service_read_errors(monkeypatch: pytest.MonkeyPatch, provisioner_module) -> None:

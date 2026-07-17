@@ -181,6 +181,7 @@ class SkillActivationMiddleware(AgentMiddleware):
         escaped_skill_name = html.escape(activation.skill_name, quote=True)
         escaped_category = html.escape(activation.category, quote=True)
         escaped_path = html.escape(activation.container_file_path, quote=True)
+        escaped_skill_dir = html.escape(posixpath.dirname(activation.container_file_path), quote=True)
         escaped_content_hash = html.escape(activation.content_hash, quote=True)
         editable_str = "true" if activation.editable else "false"
         return f"""<slash_skill_activation>
@@ -191,6 +192,8 @@ Treat the task text as:
 </user_request>
 
 Follow this skill before choosing a general workflow. Load supporting resources from the same skill directory only when needed.
+The runtime skill directory is discovered from the activated skill path. For shell commands that use `${{SKILL_DIR}}`, prepend the following declaration in each new sandbox shell command (shell exports do not persist across independent tool calls):
+export SKILL_DIR='{escaped_skill_dir}'
 
 <skill name="{escaped_skill_name}" category="{escaped_category}" path="{escaped_path}" sha256="{escaped_content_hash}" editable="{editable_str}">
 <skill_content encoding="xml-escaped">

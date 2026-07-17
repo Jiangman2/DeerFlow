@@ -70,6 +70,15 @@ Skill quality review note:
   [backend/AGENTS.md](backend/AGENTS.md) for the non-activation, SkillScan, and
   `skill-creator` ownership boundaries.
 
+Academic research skill note:
+- `skills/public/academic-research/` is the single platform-visible compatibility
+  entry for the vendored academic research package.
+- The package itself lives at `skills/third_party/academic-research-skills/`, outside
+  the recursively scanned public/custom/legacy categories. Keep the adapter runtime
+  paths under `/mnt/skills/third_party/academic-research-skills/`, upstream license,
+  and package manifest aligned; its component `SKILL.md` files must not be exposed as
+  separate DeerFlow public skills.
+
 Scheduled-task note:
 - The scheduled-task MVP adds a workspace page at `/workspace/scheduled-tasks` plus a background scheduler service gated by `config.yaml -> scheduler.enabled`.
 - Scheduled background runs are intentionally non-interactive: they execute through the normal run lifecycle, but the lead-agent toolset excludes `ask_clarification` when `context.non_interactive=true`. The key is honored only for internally-authenticated callers (the scheduler launch path); client-supplied `context.non_interactive` is dropped.

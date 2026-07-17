@@ -1,8 +1,14 @@
 "use client";
 
-import { BotIcon, CalendarClock, MessagesSquare } from "lucide-react";
+import {
+  BotIcon,
+  CalendarClock,
+  DatabaseIcon,
+  MessagesSquare,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   SidebarGroup,
@@ -22,13 +28,35 @@ export function WorkspaceNavChatList() {
   const { t } = useI18n();
   const pathname = usePathname();
   const { enabled: agentsEnabled } = useAgentsApiEnabled();
+  const [knowledgeUrl, setKnowledgeUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/runtime-config", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const data = (await response.json()) as {
+          weknoraFrontendUrl?: unknown;
+        };
+        return typeof data.weknoraFrontendUrl === "string"
+          ? data.weknoraFrontendUrl
+          : null;
+      })
+      .then(setKnowledgeUrl)
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setKnowledgeUrl(null);
+        }
+      });
+    return () => controller.abort();
+  }, []);
   return (
     <SidebarGroup className="pt-1">
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname === "/workspace/chats"}
-            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-primary/65 data-[active=true]:shadow-sm"
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
             asChild
           >
             <Link href="/workspace/chats">
@@ -37,13 +65,27 @@ export function WorkspaceNavChatList() {
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
+        {knowledgeUrl && (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&>svg]:text-current"
+              asChild
+            >
+              <a href={knowledgeUrl}>
+                <DatabaseIcon />
+                <span>{t.sidebar.knowledge}</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )}
         <SidebarMenuItem>
           {agentsEnabled ? (
             <SidebarMenuButton
               isActive={pathname.startsWith("/workspace/agents")}
+              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
               asChild
             >
-              <Link className="text-muted-foreground" href="/workspace/agents">
+              <Link href="/workspace/agents">
                 <BotIcon />
                 <span>{t.sidebar.agents}</span>
               </Link>
@@ -61,7 +103,7 @@ export function WorkspaceNavChatList() {
                     still receives pointer events), not the inert button. */}
                 <span className="block w-full cursor-not-allowed">
                   <SidebarMenuButton
-                    className="text-muted-foreground/50"
+                    className="text-muted-foreground/50 [&>svg]:text-current"
                     aria-disabled
                     aria-describedby="agents-disabled-reason"
                   >
@@ -82,13 +124,10 @@ export function WorkspaceNavChatList() {
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname.startsWith("/workspace/scheduled-tasks")}
-            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-primary/65 data-[active=true]:shadow-sm"
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
             asChild
           >
-            <Link
-              className="text-muted-foreground"
-              href="/workspace/scheduled-tasks"
-            >
+            <Link href="/workspace/scheduled-tasks">
               <CalendarClock />
               <span>{t.sidebar.scheduledTasks}</span>
             </Link>

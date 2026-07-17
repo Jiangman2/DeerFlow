@@ -2,13 +2,13 @@
 
 import {
   ActivityIcon,
+  AlertTriangleIcon,
   BarChart3Icon,
   BotIcon,
+  ClockIcon,
   ExternalLinkIcon,
-  FileArchiveIcon,
-  FilterIcon,
-  LineChartIcon,
   RefreshCwIcon,
+  ShieldCheckIcon,
   ThumbsUpIcon,
   UsersIcon,
   ZapIcon,
@@ -18,22 +18,21 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { useDashboardSummary } from "@/core/dashboard";
 import type {
   AgentUsageItem,
-  BusinessValueSummary,
   DashboardFilters,
   FeedbackSummary,
-  FeatureUsageItem,
+  ModelUsageItem,
+  RecentFailureItem,
   UserActivityPoint,
 } from "@/core/dashboard";
+import {
+  useObservabilityAnalytics,
+  useObservabilityAuditLogs,
+} from "@/core/observability";
+import type { AuditLog, TraceSummary } from "@/core/observability";
 import { cn } from "@/lib/utils";
 
 function compactNumber(value: number): string {
@@ -49,12 +48,6 @@ function duration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   if (ms < 60_000) return `${Math.round(ms / 100) / 10}s`;
   return `${Math.round(ms / 6000) / 10}m`;
-}
-
-function minutes(value: number): string {
-  if (!value) return "-";
-  if (value < 60) return `${value} 分钟`;
-  return `${Math.round(value / 6) / 10} 小时`;
 }
 
 function shortTime(value: string): string {
@@ -77,36 +70,24 @@ function shortDate(value: string): string {
   });
 }
 
-function statusLabel(value: string | null | undefined): string {
-  const labels: Record<string, string> = {
-    all: "全部状态",
-    success: "成功",
-    error: "失败",
-    timeout: "超时",
-    interrupted: "中断",
-    running: "运行中",
-    pending: "等待中",
-  };
-  return labels[value ?? ""] ?? value ?? "-";
+function toDateTimeLocal(value: Date): string {
+  const offsetMs = value.getTimezoneOffset() * 60_000;
+  return new Date(value.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
-function valueProfileLabel(value: string | undefined): string {
-  if (value === "standard") return "标准折算";
-  return "保守折算";
+function isoFromDateTimeLocal(value: string): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return undefined;
+  return date.toISOString();
 }
 
-function uniqueOptions(
-  current: string,
-  items: Array<{ value: string; label: string }>,
-) {
-  if (
-    !current ||
-    current === "all" ||
-    items.some((item) => item.value === current)
-  ) {
-    return items;
-  }
-  return [{ value: current, label: current }, ...items];
+function hoursBetween(startAt?: string, endAt?: string): number | null {
+  if (!startAt || !endAt) return null;
+  const start = new Date(startAt).valueOf();
+  const end = new Date(endAt).valueOf();
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
+  return Math.max(1, Math.ceil((end - start) / 3_600_000));
 }
 
 function MetricCard({
@@ -157,36 +138,6 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
-function BarRow({
-  label,
-  value,
-  max,
-  detail,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  detail?: string;
-}) {
-  const width = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0;
-  return (
-    <div className="grid min-w-0 grid-cols-[minmax(72px,140px)_minmax(0,1fr)_auto] items-center gap-3 text-sm sm:grid-cols-[minmax(96px,160px)_minmax(0,1fr)_auto]">
-      <div className="min-w-0 truncate text-slate-700" title={label}>
-        {label}
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-        <div
-          className="h-full rounded-full bg-slate-800"
-          style={{ width: `${width}%` }}
-        />
-      </div>
-      <div className="min-w-16 text-right text-slate-500">
-        {detail ?? compactNumber(value)}
-      </div>
-    </div>
-  );
-}
-
 function ActivityTrend({ items }: { items: UserActivityPoint[] }) {
   const max = Math.max(1, ...items.map((item) => item.runs));
   if (items.length === 0) return <EmptyState label="暂无活跃数据" />;
@@ -221,24 +172,6 @@ function ActivityTrend({ items }: { items: UserActivityPoint[] }) {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function FeatureUsage({ items }: { items: FeatureUsageItem[] }) {
-  const max = Math.max(0, ...items.map((item) => item.count));
-  if (items.length === 0) return <EmptyState label="暂无功能使用数据" />;
-
-  return (
-    <div className="space-y-3">
-      {items.map((item) => (
-        <BarRow
-          key={item.name}
-          label={item.name}
-          value={item.count}
-          max={max}
-        />
-      ))}
     </div>
   );
 }
@@ -281,81 +214,166 @@ function AgentRanking({ items }: { items: AgentUsageItem[] }) {
   );
 }
 
-function BusinessValue({ summary }: { summary?: BusinessValueSummary }) {
-  const contributions = summary?.contributions ?? [];
+function ModelRanking({ items }: { items: ModelUsageItem[] }) {
+  if (items.length === 0) return <EmptyState label="暂无模型调用数据" />;
+  return (
+    <div className="space-y-3">
+      {items.slice(0, 8).map((item) => (
+        <div
+          key={item.model_name}
+          className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border px-3 py-3 text-sm"
+        >
+          <div className="min-w-0">
+            <div className="truncate font-medium text-slate-800">
+              {item.model_name}
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              {item.llm_calls} 次调用 · {compactNumber(item.total_tokens)} Token
+            </div>
+          </div>
+          <div className="text-right text-xs text-slate-500">
+            <div>{percent(item.success_rate)} 成功</div>
+            <div className="mt-1">平均 {duration(item.avg_duration_ms)}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
+function RunRanking({ title, rows }: { title: string; rows: TraceSummary[] }) {
   return (
     <Card className="min-w-0 rounded-lg shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <LineChartIcon className="size-4" />
-          业务价值
+          <ClockIcon className="size-4" />
+          {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid min-w-0 gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="rounded-lg border bg-slate-900 p-4 text-white">
-            <div className="text-xs text-slate-300">
-              {valueProfileLabel(summary?.profile)}
-            </div>
-            <div className="mt-2 text-2xl font-semibold">
-              {minutes(summary?.estimated_minutes_saved ?? 0)}
-            </div>
-            <div className="mt-2 text-xs text-slate-300">
-              基于运行事件、产物记录和业务动作做粗略折算
-            </div>
-          </div>
-          {contributions.length > 0 ? (
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              {contributions.map((item) => (
-                <div key={item.name} className="rounded-lg border bg-white p-4">
-                  <div className="text-xs text-slate-500">{item.name}</div>
-                  <div className="mt-2 text-2xl font-semibold text-slate-950">
-                    {compactNumber(item.count)}
+      <CardContent>
+        {rows.length === 0 ? (
+          <EmptyState label="当前时间范围内暂无数据" />
+        ) : (
+          <div className="space-y-2">
+            {rows.slice(0, 8).map((run) => (
+              <div
+                key={run.run_id}
+                className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border px-3 py-3 text-sm"
+              >
+                <div className="min-w-0">
+                  <div
+                    className="truncate font-medium text-slate-800"
+                    title={run.run_id}
+                  >
+                    {run.run_id}
                   </div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    {item.minutes_per_event} 分钟/次，贡献{" "}
-                    {minutes(item.estimated_minutes)}
+                  <div className="mt-1 truncate text-xs text-slate-500">
+                    {run.model ?? "未记录模型"} · {run.agent ?? "默认智能体"}
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState label="暂无可折算的业务价值事件" />
-          )}
-        </div>
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">产物生成</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.artifact_runs ?? 0)}
-            </div>
+                <div className="text-right text-xs text-slate-500">
+                  <div>{duration(run.duration_ms)}</div>
+                  <div className="mt-1">{compactNumber(run.tokens)} Token</div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">知识检索</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.knowledge_runs ?? 0)}
-            </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RecentFailures({ rows }: { rows: RecentFailureItem[] }) {
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <AlertTriangleIcon className="size-4" />
+          近期失败运行
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <EmptyState label="当前时间范围内没有失败运行" />
+        ) : (
+          <div className="space-y-2">
+            {rows.slice(0, 10).map((row) => (
+              <div
+                key={row.run_id}
+                className="rounded-lg border border-red-100 bg-red-50/30 p-3 text-sm"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate font-medium text-slate-800">
+                    {row.run_id}
+                  </span>
+                  <Link
+                    className="shrink-0 text-xs text-red-700 hover:text-red-900"
+                    href={row.chat_url}
+                  >
+                    查看原对话 <ExternalLinkIcon className="inline size-3" />
+                  </Link>
+                </div>
+                <div className="mt-2 line-clamp-2 text-xs text-red-700">
+                  {row.error ?? row.status}
+                </div>
+                <div className="mt-2 text-xs text-slate-500">
+                  {shortTime(row.updated_at)}
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">文件处理</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.file_processing_runs ?? 0)}
-            </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ManagementAudit({ rows }: { rows: AuditLog[] }) {
+  const managementRows = rows.filter((row) => row.is_management).slice(0, 10);
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ShieldCheckIcon className="size-4" />
+          管理操作审计
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {managementRows.length === 0 ? (
+          <EmptyState label="当前时间范围内暂无管理操作" />
+        ) : (
+          <div className="overflow-hidden rounded-lg border text-sm">
+            {managementRows.map((row) => (
+              <div
+                key={row.id}
+                className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b px-3 py-3 last:border-b-0"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-medium text-slate-800">
+                    {row.action}
+                  </div>
+                  <div className="mt-1 truncate text-xs text-slate-500">
+                    {row.user_email ?? row.user_id ?? "系统"} · {row.method}{" "}
+                    {row.path}
+                  </div>
+                </div>
+                <div className="text-right text-xs text-slate-500">
+                  <div
+                    className={
+                      row.result === "success"
+                        ? "text-emerald-700"
+                        : "text-red-700"
+                    }
+                  >
+                    {row.result}
+                  </div>
+                  <div className="mt-1">{shortTime(row.created_at)}</div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">材料生成</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.presentation_runs ?? 0)}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-xs text-slate-500">图片生成</div>
-            <div className="mt-2 text-xl font-semibold text-slate-950">
-              {compactNumber(summary?.image_runs ?? 0)}
-            </div>
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -490,61 +508,47 @@ function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
 }
 
 export default function DashboardPage() {
-  const [hours, setHours] = useState(168);
-  const [status, setStatus] = useState("all");
-  const [model, setModel] = useState("all");
-  const [agent, setAgent] = useState("all");
-  const [feature, setFeature] = useState("all");
-  const [valueProfile, setValueProfile] = useState("conservative");
+  const [hours, setHours] = useState(24);
+  const [rangeMode, setRangeMode] = useState<"preset" | "custom">("preset");
+  const [customStart, setCustomStart] = useState(() =>
+    toDateTimeLocal(new Date(Date.now() - 24 * 3_600_000)),
+  );
+  const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
+  const draftStart = isoFromDateTimeLocal(customStart);
+  const draftEnd = isoFromDateTimeLocal(customEnd);
+  const draftHours = hoursBetween(draftStart, draftEnd);
+  const canApplyCustomRange = draftHours !== null && draftHours <= 24 * 90;
+  const rangeStart = rangeMode === "custom" ? draftStart : undefined;
+  const rangeEnd = rangeMode === "custom" ? draftEnd : undefined;
+  const activeHours = rangeMode === "custom" ? (draftHours ?? hours) : hours;
   const filters = useMemo<DashboardFilters>(
     () => ({
-      hours,
-      status,
-      model,
-      agent,
-      feature,
-      value_profile: valueProfile,
+      hours: activeHours,
+      start_at: rangeStart,
+      end_at: rangeEnd,
     }),
-    [agent, feature, hours, model, status, valueProfile],
+    [activeHours, rangeEnd, rangeStart],
   );
   const summaryQuery = useDashboardSummary(filters);
+  const analyticsQuery = useObservabilityAnalytics(
+    activeHours,
+    activeHours > 48 ? "day" : "hour",
+    rangeStart,
+    rangeEnd,
+  );
+  const auditQuery = useObservabilityAuditLogs({
+    hours: activeHours,
+    start_at: rangeStart,
+    end_at: rangeEnd,
+    limit: 100,
+    operation_type: "management",
+  });
   const summary = summaryQuery.data;
 
   const windowLabel = useMemo(() => {
     if (!summary) return "加载中";
     return `${shortTime(summary.window.start_at)} - ${shortTime(summary.window.end_at)}`;
   }, [summary]);
-  const hasAdvancedFilters =
-    status !== "all" || model !== "all" || agent !== "all" || feature !== "all";
-  const modelOptions = uniqueOptions(
-    model,
-    (summary?.model_usage ?? []).map((item) => ({
-      value: item.model_name,
-      label: item.model_name,
-    })),
-  );
-  const agentOptions = uniqueOptions(
-    agent,
-    (summary?.agent_usage ?? []).map((item) => ({
-      value: item.assistant_id ?? "default",
-      label: item.name,
-    })),
-  );
-  const featureOptions = uniqueOptions(
-    feature,
-    (summary?.feature_usage ?? []).map((item) => ({
-      value: item.name,
-      label: item.name,
-    })),
-  );
-
-  const resetFilters = () => {
-    setStatus("all");
-    setModel("all");
-    setAgent("all");
-    setFeature("all");
-  };
-
   return (
     <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50/60 px-4 py-6 text-slate-950 sm:px-6">
       <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6">
@@ -556,126 +560,85 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Select
-              value={String(hours)}
-              onValueChange={(value) => setHours(Number(value))}
-            >
-              <SelectTrigger className="w-36 bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="24">最近 24 小时</SelectItem>
-                <SelectItem value="168">最近 7 天</SelectItem>
-                <SelectItem value="720">最近 30 天</SelectItem>
-              </SelectContent>
-            </Select>
+            {[1, 24, 168].map((value) => (
+              <Button
+                key={value}
+                size="sm"
+                variant={
+                  rangeMode === "preset" && hours === value
+                    ? "default"
+                    : "outline"
+                }
+                onClick={() => {
+                  setRangeMode("preset");
+                  setHours(value);
+                }}
+              >
+                {value === 1 ? "1小时" : value === 168 ? "7天" : "24小时"}
+              </Button>
+            ))}
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1">
+              <Input
+                aria-label="开始时间"
+                className="h-8 w-[168px]"
+                type="datetime-local"
+                value={customStart}
+                onChange={(event) => setCustomStart(event.target.value)}
+              />
+              <span className="text-xs text-slate-400">至</span>
+              <Input
+                aria-label="结束时间"
+                className="h-8 w-[168px]"
+                type="datetime-local"
+                value={customEnd}
+                onChange={(event) => setCustomEnd(event.target.value)}
+              />
+              <Button
+                size="sm"
+                variant={rangeMode === "custom" ? "default" : "outline"}
+                disabled={!canApplyCustomRange}
+                onClick={() => setRangeMode("custom")}
+              >
+                应用区间
+              </Button>
+            </div>
+            <span className="text-xs text-slate-500">
+              {rangeMode === "custom"
+                ? windowLabel
+                : hours === 1
+                  ? "最近 1 小时"
+                  : hours === 168
+                    ? "最近 7 天"
+                    : "最近 24 小时"}
+            </span>
             <Button
+              size="sm"
               variant="outline"
               className="bg-white"
-              onClick={() => summaryQuery.refetch()}
-              disabled={summaryQuery.isFetching}
+              onClick={() => {
+                void summaryQuery.refetch();
+                void analyticsQuery.refetch();
+                void auditQuery.refetch();
+              }}
+              disabled={
+                summaryQuery.isFetching ||
+                analyticsQuery.isFetching ||
+                auditQuery.isFetching
+              }
             >
               <RefreshCwIcon
                 className={cn(
                   "size-4",
-                  summaryQuery.isFetching && "animate-spin",
+                  (summaryQuery.isFetching ||
+                    analyticsQuery.isFetching ||
+                    auditQuery.isFetching) &&
+                    "animate-spin",
                 )}
               />
               刷新
             </Button>
           </div>
         </div>
-
-        <Card className="min-w-0 rounded-lg py-4 shadow-none">
-          <CardContent className="flex flex-col gap-3 px-4 sm:px-5">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <FilterIcon className="size-4" />
-              多维筛选
-            </div>
-            <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-5">
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部状态</SelectItem>
-                  <SelectItem value="success">成功</SelectItem>
-                  <SelectItem value="error">失败</SelectItem>
-                  <SelectItem value="timeout">超时</SelectItem>
-                  <SelectItem value="interrupted">中断</SelectItem>
-                  <SelectItem value="running">运行中</SelectItem>
-                  <SelectItem value="pending">等待中</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={feature} onValueChange={setFeature}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="全部功能" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部功能</SelectItem>
-                  {featureOptions.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={model} onValueChange={setModel}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="全部模型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部模型</SelectItem>
-                  {modelOptions.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={agent} onValueChange={setAgent}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue placeholder="全部智能体" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">全部智能体</SelectItem>
-                  {agentOptions.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={valueProfile} onValueChange={setValueProfile}>
-                <SelectTrigger className="bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="conservative">保守折算</SelectItem>
-                  <SelectItem value="standard">标准折算</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {hasAdvancedFilters ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                <span className="min-w-0 break-words">
-                  当前筛选：{statusLabel(status)} /{" "}
-                  {feature === "all" ? "全部功能" : feature} /{" "}
-                  {model === "all" ? "全部模型" : model} /{" "}
-                  {agent === "all" ? "全部智能体" : agent}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={resetFilters}
-                >
-                  清空筛选
-                </Button>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
 
         {summaryQuery.isError ? (
           <Card className="rounded-lg border-red-200 bg-red-50 py-5 text-red-700 shadow-none">
@@ -707,14 +670,12 @@ export default function DashboardPage() {
             tone={(summary?.overview.failed_runs ?? 0) > 0 ? "amber" : "green"}
           />
           <MetricCard
-            label="业务价值"
-            value={minutes(summary?.overview.estimated_minutes_saved ?? 0)}
-            detail={`产物 ${compactNumber(summary?.overview.artifact_runs ?? 0)}，知识检索 ${compactNumber(summary?.overview.knowledge_runs ?? 0)}`}
-            icon={LineChartIcon}
+            label="Token 与模型调用"
+            value={compactNumber(summary?.overview.total_tokens ?? 0)}
+            detail={`${compactNumber(summary?.overview.llm_calls ?? 0)} 次 LLM 调用，平均耗时 ${duration(summary?.overview.avg_run_duration_ms ?? 0)}`}
+            icon={BarChart3Icon}
           />
         </div>
-
-        <BusinessValue summary={summary?.business_value} />
 
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
           <Card className="min-w-0 rounded-lg shadow-none">
@@ -742,12 +703,12 @@ export default function DashboardPage() {
           <Card className="min-w-0 rounded-lg shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <FileArchiveIcon className="size-4" />
-                功能使用
+                <BarChart3Icon className="size-4" />
+                模型使用
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <FeatureUsage items={summary?.feature_usage ?? []} />
+              <ModelRanking items={summary?.model_usage ?? []} />
             </CardContent>
           </Card>
         </div>
@@ -766,6 +727,26 @@ export default function DashboardPage() {
           </Card>
 
           <FeedbackPanel summary={summary?.feedback} />
+        </div>
+
+        <div className="border-t border-slate-200 pt-2">
+          <h2 className="text-xl font-semibold text-slate-950">运行与审计</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            以下数据直接来自运行记录、Token 统计、失败记录和管理审计日志。
+          </p>
+        </div>
+
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <RunRanking
+            title="慢运行排行"
+            rows={analyticsQuery.data?.slow_runs ?? []}
+          />
+          <RunRanking
+            title="高 Token 运行排行"
+            rows={analyticsQuery.data?.high_token_runs ?? []}
+          />
+          <RecentFailures rows={summary?.recent_failures ?? []} />
+          <ManagementAudit rows={auditQuery.data ?? []} />
         </div>
       </div>
     </main>

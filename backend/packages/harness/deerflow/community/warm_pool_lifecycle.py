@@ -66,6 +66,23 @@ class WarmPoolLifecycleMixin[WarmEntryT]:
         self._destroy_warm_entry(sandbox_id, entry, reason="replica_enforcement")
         return sandbox_id
 
+    def _evict_warm_until_capacity(self, *, reserve: int = 0) -> list[str]:
+        """Evict warm entries until ``total + reserve <= replicas``.
+
+        ``reserve=1`` is used before creating a new sandbox.  Active entries are
+        deliberately never stopped here; if active use alone exceeds the limit,
+        the configured replica count remains a soft cap.
+        """
+        evicted: list[str] = []
+        while True:
+            replicas, total = self._replica_count()
+            if total + reserve <= replicas:
+                return evicted
+            sandbox_id = self._evict_oldest_warm()
+            if sandbox_id is None:
+                return evicted
+            evicted.append(sandbox_id)
+
     def _reap_expired_warm(self, idle_timeout: float | None = None) -> None:
         """Remove and destroy warm entries older than ``idle_timeout`` seconds."""
         timeout = float(self._config.get("idle_timeout", DEFAULT_IDLE_TIMEOUT) if idle_timeout is None else idle_timeout)

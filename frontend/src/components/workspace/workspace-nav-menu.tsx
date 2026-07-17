@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ActivityIcon,
   ChevronsUpDown,
   InfoIcon,
   LayoutDashboardIcon,
@@ -96,12 +95,6 @@ export function WorkspaceNavMenu() {
                         <Link href="/workspace/admin/dashboard">
                           <LayoutDashboardIcon />
                           看板
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/workspace/admin/observability">
-                          <ActivityIcon />
-                          运维检测
                         </Link>
                       </DropdownMenuItem>
                     </>

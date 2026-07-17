@@ -160,7 +160,7 @@ async def test_acquire_async_uses_async_readiness_polling(monkeypatch):
     """AioSandboxProvider async creation must not use sync readiness polling."""
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
     provider = _make_provider(None)
-    provider._config = {"replicas": 3}
+    provider._config = {"replicas": 3, "startup_timeout": 180}
     provider._thread_locks = {}
     provider._warm_pool = {}
     provider._sandbox_infos = {}
@@ -189,7 +189,7 @@ async def test_acquire_async_uses_async_readiness_polling(monkeypatch):
     sandbox_id = await provider._create_sandbox_async("thread-async", "sandbox-async", user_id="user-async")
 
     assert sandbox_id == "sandbox-async"
-    assert async_readiness_calls == [("http://sandbox", 60)]
+    assert async_readiness_calls == [("http://sandbox", 180)]
     assert provider._backend.destroy.call_count == 0
     assert provider._thread_sandboxes[("user-async", "thread-async")] == "sandbox-async"
 
@@ -693,3 +693,43 @@ def test_create_sandbox_evicts_oldest_warm_replica_via_shared_lifecycle(tmp_path
     assert "warm-oldest" not in provider._warm_pool
     assert provider._warm_pool == {"warm-newest": (newest_info, 20.0)}
     assert provider._sandbox_infos["created"] is created_info
+
+
+def test_create_sandbox_evicts_all_excess_warm_replicas(tmp_path, monkeypatch):
+    """A restart backlog must converge in one acquire, not one Pod per acquire."""
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    provider = _make_provider(tmp_path)
+    provider._lock = aio_mod.threading.Lock()
+    provider._config = {"replicas": 2}
+    provider._sandboxes = {}
+    provider._sandbox_infos = {}
+    provider._thread_sandboxes = {}
+    provider._last_activity = {}
+    warm_infos = [aio_mod.SandboxInfo(sandbox_id=f"warm-{i}", sandbox_url=f"http://warm-{i}") for i in range(4)]
+    provider._warm_pool = {info.sandbox_id: (info, float(i)) for i, info in enumerate(warm_infos)}
+    created_info = aio_mod.SandboxInfo(sandbox_id="created", sandbox_url="http://created")
+    provider._backend = SimpleNamespace(create=MagicMock(return_value=created_info), destroy=MagicMock())
+    monkeypatch.setattr(aio_mod.AioSandboxProvider, "_get_extra_mounts", lambda _self, _thread_id, *, user_id=None: [])
+    monkeypatch.setattr(aio_mod, "wait_for_sandbox_ready", lambda _url, *, timeout=60: True)
+
+    provider._create_sandbox(None, "created", user_id="default")
+
+    assert list(provider._warm_pool) == ["warm-3"]
+    assert [call.args[0].sandbox_id for call in provider._backend.destroy.call_args_list] == ["warm-0", "warm-1", "warm-2"]
+
+
+def test_reconcile_orphans_enforces_replica_limit_and_preserves_age_order(tmp_path):
+    """Gateway restart must immediately prune adopted orphan Pods to replicas."""
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    provider = _make_provider(tmp_path)
+    provider._lock = aio_mod.threading.Lock()
+    provider._config = {"replicas": 2}
+    provider._sandboxes = {}
+    provider._warm_pool = {}
+    infos = [aio_mod.SandboxInfo(sandbox_id=f"orphan-{i}", sandbox_url=f"http://orphan-{i}", created_at=float(i + 1)) for i in range(4)]
+    provider._backend = SimpleNamespace(list_running=MagicMock(return_value=infos), destroy=MagicMock())
+
+    provider._reconcile_orphans()
+
+    assert set(provider._warm_pool) == {"orphan-2", "orphan-3"}
+    assert [call.args[0].sandbox_id for call in provider._backend.destroy.call_args_list] == ["orphan-0", "orphan-1"]

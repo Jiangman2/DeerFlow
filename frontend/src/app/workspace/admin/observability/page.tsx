@@ -54,7 +54,6 @@ import {
 import type {
   AuditLog,
   CostBreakdown,
-  ComponentHealth,
   ObservabilityAnalytics,
   TraceEvent,
   TraceSummary,
@@ -248,53 +247,6 @@ function MetricCard({
         </div>
       </div>
       <p className="mt-3 truncate text-xs text-slate-500">{detail}</p>
-    </section>
-  );
-}
-
-function ComponentHealthGrid({
-  components,
-}: {
-  components: ComponentHealth[];
-}) {
-  return (
-    <section className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold text-slate-950">组件健康</h2>
-        <span className="text-xs text-slate-500">实时探针</span>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {components.map((component) => (
-          <div
-            key={component.name}
-            className="rounded-md border border-slate-100 bg-slate-50 px-3 py-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium text-slate-900">
-                {component.name}
-              </span>
-              <StatusPill status={component.status} />
-            </div>
-            <p className="mt-2 line-clamp-2 text-xs text-slate-500">
-              {component.detail}
-            </p>
-            {component.metric && (
-              <p className="mt-3 text-xs font-medium text-slate-700 tabular-nums">
-                {component.metric}
-              </p>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
-              <span>延迟 {component.latency_ms ?? 0}ms</span>
-              <span>{shortTime(component.last_checked_at)}</span>
-            </div>
-            {component.error && (
-              <p className="mt-2 line-clamp-2 text-xs text-red-700">
-                {component.error}
-              </p>
-            )}
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -1222,8 +1174,6 @@ export default function ObservabilityPage() {
             detail={`平均耗时 ${duration(snapshot.metrics.avg_run_duration_ms)} · DB ${snapshot.health.database}`}
           />
         </section>
-
-        <ComponentHealthGrid components={snapshot.component_health ?? []} />
 
         <Tabs defaultValue="overview" className="gap-4">
           <TabsList className="bg-white">

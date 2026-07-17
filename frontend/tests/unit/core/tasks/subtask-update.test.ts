@@ -210,6 +210,7 @@ describe("isTerminalSubtaskStatus", () => {
   it("recognizes terminal statuses only", () => {
     expect(isTerminalSubtaskStatus("completed")).toBe(true);
     expect(isTerminalSubtaskStatus("failed")).toBe(true);
+    expect(isTerminalSubtaskStatus("incomplete")).toBe(true);
     expect(isTerminalSubtaskStatus("in_progress")).toBe(false);
     expect(isTerminalSubtaskStatus(undefined)).toBe(false);
   });

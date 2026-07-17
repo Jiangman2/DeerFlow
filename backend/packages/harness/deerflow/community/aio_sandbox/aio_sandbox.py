@@ -40,18 +40,28 @@ class AioSandbox(Sandbox):
     from corrupting the container's single persistent session (see #1433).
     """
 
-    def __init__(self, id: str, base_url: str, home_dir: str | None = None):
+    def __init__(
+        self,
+        id: str,
+        base_url: str,
+        home_dir: str | None = None,
+        default_env: dict[str, str] | None = None,
+    ):
         """Initialize the AIO sandbox.
 
         Args:
             id: Unique identifier for this sandbox instance.
             base_url: URL of the sandbox API (e.g., http://localhost:8080).
             home_dir: Home directory inside the sandbox. If None, will be fetched from the sandbox.
+            default_env: Environment variables injected into every command. Remote
+                provisioner sandboxes use this to receive ``sandbox.environment``
+                without persisting credentials in the Pod specification.
         """
         super().__init__(id)
         self._base_url = base_url
         self._client = AioSandboxClient(base_url=base_url, timeout=600)
         self._home_dir = home_dir
+        self._default_env = dict(default_env or {})
         self._lock = threading.Lock()
         self._closed = False
         # Set to True after bash.exec answers 404 (image predates /v1/bash/*),
@@ -174,9 +184,10 @@ class AioSandbox(Sandbox):
         # keys; enforcing the POSIX env-var name rule keeps the contract
         # consistent with the local and e2b sandboxes and catches unsafe keys
         # early. ``_validate_extra_env`` is a no-op when ``env`` is None or empty.
-        _validate_extra_env(env)
-        if env:
-            return self._execute_with_env(command, env)
+        command_env = {**self._default_env, **(env or {})}
+        _validate_extra_env(command_env)
+        if command_env:
+            return self._execute_with_env(command, command_env)
         with self._lock:
             try:
                 result = self._client.shell.exec_command(command=command, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)

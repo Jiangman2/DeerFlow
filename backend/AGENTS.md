@@ -129,6 +129,18 @@ Regression tests related to Docker/provisioner behavior:
   endpoints as sync FastAPI handlers so synchronous K8s client calls run in the
   Starlette worker pool instead of on the ASGI event loop)
 
+In provisioner/Kubernetes mode, `sandbox.environment` is injected through the
+AIO sandbox's structured per-command `bash.exec` environment. The remote backend
+must not silently discard these values or persist credentials in Pod manifests;
+request-scoped secrets override configured values for the command that uses them.
+The sandbox image must support `/v1/bash/exec` (all-in-one-sandbox 1.9.3+).
+
+Sandbox capacity is reconciled when the Gateway starts: provisioner-managed
+Pods left by a previous Gateway process are adopted as warm entries and the
+oldest entries are immediately removed until `sandbox.replicas` is satisfied.
+Creation also removes every excess warm entry needed to reserve one slot; active
+Sandboxes remain a soft-cap exception and are reclaimed by `idle_timeout`.
+
 Blocking-IO runtime gate (`tests/blocking_io/`):
 - Wraps every item under `tests/blocking_io/` with a strict Blockbuster
   context scoped to `app.*` and `deerflow.*` (see
@@ -450,6 +462,7 @@ Additional providers also live here (`boxlite`, `brave`, `browserless`, `crawl4a
 - **Location**: `deer-flow/skills/{public,custom}/`
 - **Format**: Directory with `SKILL.md` (YAML frontmatter: name, description, license, allowed-tools, required-secrets)
 - **Loading**: `load_skills()` recursively scans `skills/{public,custom}` for `SKILL.md`, parses metadata, and reads enabled state from extensions_config.json
+- **Vendored runtime packages**: Third-party packages containing nested `SKILL.md` files must live outside the scanned `public`, `custom`, and `legacy` category roots. For example, `skills/third_party/academic-research-skills/` is runtime content reached through the single public `academic-research` adapter; its internal components are not independently registered platform skills.
 - **Injection (legacy / default)**: Enabled skills are listed in the agent system prompt with full metadata and container paths (`<available_skills>` block). Controlled by `skills.deferred_discovery: false` (default).
 - **Deferred discovery** (`skills.deferred_discovery: true`): Skills are listed by name only in a compact `<skill_index>` block, keeping the system prompt prefix-cache friendly. The agent calls the `describe_skill` tool at runtime to fetch full metadata for skills it wants to use, then loads the SKILL.md via `read_file`. Two new modules support this path:
   - `skills/catalog.py` — `SkillCatalog` (immutable, searchable; query forms: `select:a,b`, `+prefix`, free-text regex); `select:` returns all requested skills without a result cap; other modes cap at `MAX_RESULTS=5`.
@@ -741,6 +754,11 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
 - `title` - Auto-title generation (enabled, max_words, max_chars, model_name; null model_name uses fast local fallback, explicit model_name uses the prompt_template LLM path)
 - `summarization` - Context summarization (enabled, trigger conditions, keep policy)
 - `subagents.enabled` - Master switch for subagent delegation
+- Built-in `general-purpose` and `bash` subagents load no Skills by default.
+  This prevents lead-agent-only workflow instructions (especially `task`
+  delegation) from leaking into non-recursive child contexts. To use a
+  compatible Skill in a child, configure it explicitly under
+  `subagents.agents.<name>.skills` (or the custom agent's `skills` list).
 - `memory` - Memory system (enabled, storage_path, debounce_seconds, shutdown_flush_timeout_seconds, model_name, max_facts, fact_confidence_threshold, injection_enabled, max_injection_tokens, staleness_review_enabled, staleness_age_days, staleness_min_candidates, staleness_max_removals_per_cycle, staleness_protected_categories, staleness_max_lifetime_multiplier, staleness_max_extension_days)
 
 **`extensions_config.json`**:

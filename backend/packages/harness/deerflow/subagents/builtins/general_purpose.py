@@ -64,6 +64,11 @@ You have access to the same sandbox environment as the parent agent:
 """,
     tools=None,  # Inherit all tools from parent
     disallowed_tools=["task", "ask_clarification", "present_files"],  # Prevent nesting and clarification
+    # Do not inject every enabled Skill into a delegated execution context.
+    # Some Skills are lead-agent workflows and instruct the model to call
+    # `task`, which is deliberately unavailable to prevent recursive dispatch.
+    # Compatible Skills can still be enabled explicitly in config.yaml.
+    skills=[],
     model="inherit",
     max_turns=150,
 )

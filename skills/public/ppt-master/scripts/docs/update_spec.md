@@ -1,5 +1,9 @@
 # update_spec.py
 
+> **Scope boundary**: this tool updates only deterministic global color and font
+> substitutions, writes the authoritative `spec_lock.md` first, and relies on
+> version control for rollback instead of creating parallel backups.
+
 Propagate a `spec_lock.md` value change to both the lock file and every `svg_output/*.svg`. The single edit surface for bulk style tweaks after generation.
 
 ## Usage

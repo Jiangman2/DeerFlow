@@ -59,7 +59,7 @@ spec:
             - name: K8S_CREATE_NAMESPACE
               value: "false"
             - name: SANDBOX_IMAGE
-              value: deer-flow-aio-sandbox:ppt-master-dev-20260716-6
+              value: deer-flow-aio-sandbox:ppt-master-dev-20260717-17
             - name: SKILLS_PVC_NAME
               value: deer-flow-skills-pvc
             - name: USERDATA_PVC_NAME
@@ -72,6 +72,10 @@ spec:
               value: "45"
             - name: SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS
               value: "180"
+            - name: SANDBOX_ENV_SECRET_NAME
+              value: deer-flow-env
+            - name: SANDBOX_SECRET_ENV_KEYS
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,GEMINI_API_KEY
             - name: IMAGE_BACKEND
               value: qwen
             - name: IMAGE_GENERATION_PROVIDER

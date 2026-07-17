@@ -1156,6 +1156,8 @@ sandbox:
 #
 #   # Optional: Base port for sandbox containers (default: 8080)
 #   # port: 8080
+#   # Optional: Maximum cold-start readiness wait (default: 180 seconds)
+#   # startup_timeout: 180
 
 #   # Optional: Maximum number of concurrent sandbox containers (default: 3)
 #   # When the limit is reached the least-recently-used sandbox is evicted to
@@ -1224,6 +1226,8 @@ sandbox:
 #   # the provisioner rejects all /api/* requests when PROVISIONER_API_KEY is unset.
 #   # Generate a strong key: openssl rand -hex 32
 #   # provisioner_api_key: $PROVISIONER_API_KEY
+#   # Allow enough time for AIO Pods to initialize under node contention.
+#   # startup_timeout: 180
 #   # Note: provisioner-created Pods use the provisioner's SANDBOX_IMAGE
 #   # environment variable, not sandbox.image from this config file.
 
@@ -1270,7 +1274,7 @@ sandbox:
 #       # token_budget:        # per-agent override of the global token_budget above
 #       #   max_tokens: 3000000  # raise the ceiling for deep-research tasks
 #       # model: qwen3:32b     # Use a specific model (default: inherit from lead agent)
-#       # skills:               # Skill whitelist (default: inherit all enabled skills)
+#       # skills:               # Skill whitelist (built-in defaults are no Skills)
 #       #   - web-search
 #       #   - data-analysis
 #     bash:

@@ -66,7 +66,9 @@ export function SubtaskCard({
       ? `${tokenLabel} ${t.tokenUsage.label}`
       : task.status === "in_progress"
         ? t.tokenUsage.collecting
-        : t.tokenUsage.unavailableShort
+        : task.status === "incomplete"
+          ? undefined
+          : t.tokenUsage.unavailableShort
     : undefined;
 
   // The card shows the subagent's step timeline (#3779): its reasoning turns
@@ -102,13 +104,18 @@ export function SubtaskCard({
       return <CheckCircleIcon className="size-3" />;
     } else if (task.status === "failed") {
       return <XCircleIcon className="size-3 text-red-500" />;
+    } else if (task.status === "incomplete") {
+      return <XCircleIcon className="text-muted-foreground size-3" />;
     } else if (task.status === "in_progress") {
       return <Loader2Icon className="size-3 animate-spin" />;
     }
   }, [task.status]);
   return (
     <ChainOfThought
-      className={cn("relative w-full gap-2 rounded-lg border py-0", className)}
+      className={cn(
+        "relative max-w-full min-w-0 gap-2 overflow-hidden rounded-lg border py-0",
+        className,
+      )}
       open={!collapsed}
     >
       <div
@@ -125,32 +132,42 @@ export function SubtaskCard({
           />
         </>
       )}
-      <div className="bg-background/95 flex w-full flex-col rounded-lg">
-        <div className="flex w-full items-center justify-between p-0.5">
+      <div className="bg-background/95 flex w-full min-w-0 flex-col rounded-lg">
+        <div className="flex w-full min-w-0 items-center justify-between p-0.5">
           <Button
-            className="w-full items-start justify-start text-left"
+            className="h-auto w-full min-w-0 items-start justify-start overflow-hidden text-left"
             variant="ghost"
             onClick={() => setCollapsed(!collapsed)}
           >
-            <div className="flex w-full items-center justify-between">
+            <div className="flex w-full min-w-0 items-center justify-between gap-3">
               <ChainOfThoughtStep
-                className="font-normal"
+                className="min-w-0 flex-1 font-normal"
                 label={
                   task.status === "in_progress" ? (
-                    <Shimmer duration={3} spread={3}>
-                      {task.description}
-                    </Shimmer>
+                    <span
+                      className="block min-w-0 truncate"
+                      title={task.description}
+                    >
+                      <Shimmer duration={3} spread={3}>
+                        {task.description}
+                      </Shimmer>
+                    </span>
                   ) : (
-                    task.description
+                    <span
+                      className="block min-w-0 truncate"
+                      title={task.description}
+                    >
+                      {task.description}
+                    </span>
                   )
                 }
                 icon={<ClipboardListIcon />}
               ></ChainOfThoughtStep>
-              <div className="flex items-center gap-1">
+              <div className="flex max-w-[55%] min-w-0 shrink-0 items-center gap-1 overflow-hidden">
                 {collapsed && (
                   <div
                     className={cn(
-                      "text-muted-foreground flex items-center gap-1 text-xs font-normal",
+                      "text-muted-foreground flex min-w-0 items-center gap-1 overflow-hidden text-xs font-normal",
                       task.status === "failed" ? "text-red-500 opacity-67" : "",
                     )}
                   >
@@ -182,7 +199,7 @@ export function SubtaskCard({
                 )}
                 <ChevronUp
                   className={cn(
-                    "text-muted-foreground size-4",
+                    "text-muted-foreground size-4 shrink-0",
                     !collapsed ? "" : "rotate-180",
                   )}
                 />
@@ -256,6 +273,16 @@ export function SubtaskCard({
             <ChainOfThoughtStep
               label={<div className="text-red-500">{task.error}</div>}
               icon={<XCircleIcon className="size-4 text-red-500" />}
+            ></ChainOfThoughtStep>
+          )}
+          {task.status === "incomplete" && (
+            <ChainOfThoughtStep
+              label={
+                <div className="text-muted-foreground">
+                  {t.subtasks.incomplete}
+                </div>
+              }
+              icon={<XCircleIcon className="text-muted-foreground size-4" />}
             ></ChainOfThoughtStep>
           )}
         </ChainOfThoughtContent>

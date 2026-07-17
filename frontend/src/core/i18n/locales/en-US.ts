@@ -282,6 +282,7 @@ export const enUS: Translations = {
     recentChats: "Recent chats",
     demoChats: "Demo chats",
     agents: "Agents",
+    knowledge: "Knowledge",
     scheduledTasks: "Scheduled tasks",
     agentsDisabledTooltip: "Feature not enabled",
   },
@@ -307,8 +308,11 @@ export const enUS: Translations = {
       dayOfMonth: "Day of month",
       cron: "Cron expression",
       cronPlaceholder: "0 9 * * *",
+      cronHint:
+        "Use 5 fields: minute hour day month weekday. Every minute is * * * * * or */1 * * * *; 1 * * * * means the 1st minute of every hour.",
       runAt: "Run at",
       timezone: "Timezone",
+      timezoneShanghai: "Beijing time (Asia/Shanghai)",
     },
     weekdays: {
       mon: "Mon",
@@ -320,21 +324,31 @@ export const enUS: Translations = {
       sun: "Sun",
     },
     preview: "Preview",
-    cronHelp: "Open crontab.guru",
-    notice: {
-      nonInteractiveTitle: "Non-interactive background execution",
-      nonInteractiveDescription:
-        "A scheduled run cannot ask questions or wait for confirmation. Include all inputs, scope, output requirements, and permissions up front. Tasks that need one-time codes, runtime uploads, human approval, risk confirmation, or dynamic choices are not suitable for scheduling.",
-      schedulerDisabledTitle: "Automatic scheduler is stopped",
-      schedulerDisabledDescription:
-        "Tasks can be saved and triggered manually, but they are not running automatically. Ask an administrator to enable scheduler.enabled in config.yaml and restart the Gateway.",
-    },
+    cronHelp: "Optional: validate with crontab.guru",
     create: {
       title: "Create scheduled task",
+      description:
+        "Set a prompt and a schedule. DeerFlow will launch the task in the background without asking follow-up questions.",
       taskTitle: "Task title",
       prompt: "Prompt",
       submit: "Create",
       fillRequired: "Fill all required fields",
+      adviceTitle: "Creation tips",
+      adviceFresh:
+        "Fresh thread is best for recurring digests, reports, and monitoring summaries.",
+      adviceReuse:
+        "Reuse thread is best when every run should continue the same topic.",
+      adviceCron: "Cron uses 5 positions to describe when a task repeats.",
+      adviceCronFormat: "minute, hour, day of month, month, weekday",
+      adviceCronExamples: [
+        "* * * * *: run every minute.",
+        "*/5 * * * *: run every 5 minutes.",
+        "0 9 * * *: run every day at 09:00.",
+        "30 8 * * 1: run every Monday at 08:30.",
+        "1 * * * *: run at minute 1 of every hour; it does not mean every minute.",
+      ],
+      adviceCronExternal:
+        "If crontab.guru is unavailable on the intranet, use these examples directly.",
     },
     context: {
       fresh: "Fresh thread",
@@ -342,6 +356,7 @@ export const enUS: Translations = {
       threadIdPlaceholder: "Thread ID",
     },
     filters: {
+      label: "Filters",
       allStatuses: "All statuses",
       enabled: "Enabled",
       paused: "Paused",
@@ -352,12 +367,11 @@ export const enUS: Translations = {
       once: "Once",
     },
     detail: {
-      emptyDescription:
-        "Create, review, and manage recurring background tasks.",
       contextMode: "Context mode",
       thread: "Thread",
       lastThread: "Last thread",
       schedule: "Schedule",
+      expression: "Expression",
       nextRun: "Next run",
       lastRun: "Last run",
       lastRunId: "Last run id",
@@ -366,6 +380,9 @@ export const enUS: Translations = {
       runsCountOne: "{count} run",
       noRuns: "No runs yet",
       noSelection: "No scheduled task selected",
+      emptyTitle: "No scheduled tasks yet",
+      emptyDescription:
+        "Create a scheduled task to run prompts automatically and track status, next run time, and history here.",
       filteredByThread: "Filtered by thread: {id}",
       loadFailed: "Failed to load scheduled tasks",
     },
@@ -412,16 +429,16 @@ export const enUS: Translations = {
     recipes: {
       label: "Quick create",
       trending: {
-        title: "Open-source project digest",
+        title: "GitHub Trending daily",
         desc: "Summarize today's top 10 trending repos",
       },
       news: {
         title: "Daily tech news digest",
         desc: "Collect and summarize the day's top tech news",
       },
-      issues: {
-        title: "Issue triage",
-        desc: "Triage a repo's open issues (fill in {{repo}})",
+      energyIntel: {
+        title: "Daily energy tech intelligence",
+        desc: "Track energy technology and oilfield AI updates",
       },
       weekly: {
         title: "Weekly report",
@@ -656,6 +673,7 @@ export const enUS: Translations = {
     in_progress: "Running subtask",
     completed: "Subtask completed",
     failed: "Subtask failed",
+    incomplete: "Subtask not completed",
   },
 
   // Token Usage

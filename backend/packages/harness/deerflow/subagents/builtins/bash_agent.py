@@ -45,6 +45,9 @@ You have access to the sandbox environment:
 """,
     tools=["bash", "ls", "read_file", "write_file", "str_replace"],  # Sandbox tools only
     disallowed_tools=["task", "ask_clarification", "present_files"],
+    # Bash delegates execute commands directly; loading every enabled Skill can
+    # inject lead-agent-only orchestration instructions into this context.
+    skills=[],
     model="inherit",
     max_turns=60,
 )

@@ -114,11 +114,11 @@ describe("derivePendingSubtaskStatus", () => {
     );
   });
 
-  it("does not revive an earlier unfinished task during a later turn", () => {
+  it("marks an earlier task without a result as incomplete, not failed", () => {
     const messages = [{ type: "ai" }] as Message[];
 
     expect(derivePendingSubtaskStatus("call_task_1", messages, false)).toBe(
-      "failed",
+      "incomplete",
     );
   });
 

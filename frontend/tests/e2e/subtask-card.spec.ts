@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 
 import { mockLangGraphAPI, MOCK_THREAD_ID } from "./utils/mock-api";
 
-const STOPPED_TASK_DESCRIPTION = "Research stopped reload regression";
+const STOPPED_TASK_DESCRIPTION =
+  "Research stopped reload regression with an intentionally very long subtask description that must remain inside the card instead of widening the entire conversation viewport";
 const STOPPED_TASK_PROMPT =
   "Investigate why the stopped subtask card should not remain running after reload.";
 
@@ -121,7 +122,7 @@ const parallelCompletedSubtaskMessages = [
 ];
 
 test.describe("Subtask card", () => {
-  test("shows failed after a stopped task thread is reloaded", async ({
+  test("shows incomplete after a stopped task thread is reloaded", async ({
     page,
   }) => {
     mockLangGraphAPI(page, {
@@ -141,8 +142,15 @@ test.describe("Subtask card", () => {
     await expect(page.getByText(STOPPED_TASK_DESCRIPTION)).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText("Subtask failed")).toBeVisible();
+    await expect(page.getByText("Subtask not completed")).toBeVisible();
     await expect(page.getByText("Running subtask")).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      )
+      .toBe(true);
   });
 
   test("keeps two completed parallel subtasks isolated after reload", async ({

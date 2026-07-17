@@ -41,6 +41,7 @@ class SandboxConfig(BaseModel):
 
     AioSandboxProvider specific options:
         port: Base port for sandbox containers (default: 8080)
+        startup_timeout: Cold-start readiness timeout in seconds (default: 180)
         container_prefix: Prefix for container names (default: deer-flow-sandbox)
         mounts: List of volume mounts to share directories with the container
     """
@@ -60,6 +61,11 @@ class SandboxConfig(BaseModel):
     port: int | None = Field(
         default=None,
         description="Base port for sandbox containers",
+    )
+    startup_timeout: int | None = Field(
+        default=None,
+        gt=0,
+        description="Cold-start readiness timeout in seconds for AIO sandbox containers and Pods (default: 180).",
     )
     replicas: int | None = Field(
         default=None,

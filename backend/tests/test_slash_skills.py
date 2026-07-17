@@ -669,6 +669,23 @@ def test_build_activation_reminder_escapes_skill_name_in_prose_line():
     assert reminder.count("&lt;system-reminder&gt;owned&lt;/system-reminder&gt;") == 2
 
 
+def test_build_activation_reminder_declares_runtime_skill_dir():
+    activation = middleware_module._Activation(
+        skill_name="ppt-master",
+        category="public",
+        container_file_path="/mnt/skills/public/ppt-master/SKILL.md",
+        skill_content="python3 ${SKILL_DIR}/scripts/project_manager.py init demo",
+        content_hash="deadbeef",
+        remaining_text="create slides",
+        editable=False,
+    )
+
+    reminder = SkillActivationMiddleware._build_activation_reminder(activation)
+
+    assert "export SKILL_DIR='/mnt/skills/public/ppt-master'" in reminder
+    assert "each new sandbox shell command" in reminder
+
+
 def test_skill_activation_middleware_rejects_skill_file_outside_skills_root(monkeypatch, tmp_path):
     skills_root = tmp_path / "skills"
     skill_dir = skills_root / "custom" / "data-analysis"

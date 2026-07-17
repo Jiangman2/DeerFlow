@@ -64,6 +64,11 @@ spec:
                 - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             failureThreshold: 30
             periodSeconds: 5
+            # Docker Desktop Kubernetes can briefly stall exec probes while
+            # images or sandbox containers are being created. The default is
+            # one second, which caused healthy PostgreSQL instances to be
+            # restarted under load.
+            timeoutSeconds: 5
           readinessProbe:
             exec:
               command:
@@ -72,6 +77,8 @@ spec:
                 - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             initialDelaySeconds: 5
             periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 6
           livenessProbe:
             exec:
               command:
@@ -80,6 +87,8 @@ spec:
                 - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
             initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           resources:
             requests:
               cpu: 250m

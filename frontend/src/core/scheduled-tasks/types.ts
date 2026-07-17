@@ -4,6 +4,7 @@ export type ScheduledTask = {
   context_mode: "fresh_thread_per_run" | "reuse_thread";
   title: string;
   prompt: string;
+  run_context?: Record<string, unknown>;
   schedule_type: "once" | "cron";
   schedule_spec: Record<string, unknown>;
   timezone: string;
@@ -22,12 +23,6 @@ export type ScheduledTask = {
   run_count: number;
   created_at: string;
   updated_at: string;
-};
-
-export type ScheduledTaskCapabilities = {
-  scheduler_enabled: boolean;
-  execution_mode: "non_interactive";
-  supports_clarification: false;
 };
 
 export type ScheduledTaskRun = {

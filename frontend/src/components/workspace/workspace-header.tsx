@@ -33,7 +33,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
           <div className="group-has-data-[collapsible=icon]/sidebar-wrapper:-translate-y flex w-full cursor-pointer items-center justify-center">
             <BrandLogo
               variant="mark"
-              className="block size-7 object-contain group-hover/workspace-header:hidden"
+              className="block size-7 translate-x-0.5 -translate-y-px object-contain group-hover/workspace-header:hidden"
             />
             <SidebarTrigger className="hidden pl-2 group-hover/workspace-header:block" />
           </div>
@@ -56,7 +56,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname === "/workspace/chats/new"}
-            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-primary/65 data-[active=true]:shadow-sm"
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
             asChild
           >
             <Link href="/workspace/chats/new">

@@ -110,5 +110,19 @@ DeerFlow SSO request is unavailable. Keep the host name aligned between
 DeerFlow and WeKnora, for example `127.0.0.1:2026` and `127.0.0.1:8090`, so
 the DeerFlow cookie is sent.
 
+The same UI patch embeds a branding layer in the mounted `index.html`. It
+changes user-visible `WeKnora` product labels to `知识库` at runtime (including
+content rendered after navigation) and aligns the native UI's primary blue,
+active, focus, and page-background colors with the DeerFlow landing/workspace
+palette. Internal API paths, storage keys, container names, and integration
+identifiers deliberately remain unchanged.
+
+Do not mount `config.js` or `/etc/nginx/conf.d/default.conf` read-only: the
+upstream UI image regenerates both files in `/docker-entrypoint.sh` on every
+start. The image builds the proxy configuration from `APP_HOST`, `APP_PORT`,
+and `APP_SCHEME`; the patched authentication chunk has the DeerFlow SSO URL as
+its fallback. The frontend can therefore restart normally without either
+generated-file mount.
+
 For production, replace the local NodePorts with an Ingress or LoadBalancer and
 rotate all secrets.

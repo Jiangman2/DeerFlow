@@ -57,6 +57,8 @@ export interface ModelUsageItem {
 
 export interface DashboardFilters {
   hours?: number;
+  start_at?: string;
+  end_at?: string;
   status?: string;
   model?: string;
   agent?: string;

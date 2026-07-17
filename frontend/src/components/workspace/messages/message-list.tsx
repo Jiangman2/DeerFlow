@@ -300,6 +300,13 @@ export function MessageList({
   const rehypePlugins = useRehypeSplitWordsIntoSpans(thread.isLoading);
   const updateSubtask = useUpdateSubtask();
   const lastGroupIndex = groupedMessages.length - 1;
+  let lastHumanGroupIndex = -1;
+  for (let index = lastGroupIndex; index >= 0; index--) {
+    if (groupedMessages[index]?.type === "human") {
+      lastHumanGroupIndex = index;
+      break;
+    }
+  }
   const turnUsageMessagesByGroupIndex =
     getAssistantTurnUsageMessages(groupedMessages);
   const tokenDebugSteps = useMemo(
@@ -749,6 +756,12 @@ export function MessageList({
             const turnUsageMessages = turnUsageMessagesByGroupIndex[groupIndex];
             const groupIsLoading =
               thread.isLoading && groupIndex === lastGroupIndex;
+            // One assistant turn can render as several adjacent groups (for
+            // example: task calls followed by a skill-loading/tool step). A
+            // subtask group remains live for the whole current human turn,
+            // even when a newer processing group is appended after it.
+            const currentTurnGroupIsLoading =
+              thread.isLoading && groupIndex > lastHumanGroupIndex;
 
             if (group.type === "human" || group.type === "assistant") {
               return (
@@ -909,10 +922,7 @@ export function MessageList({
                       className="mb-4"
                     />
                   )}
-                  <ArtifactFileList
-                    files={[...files]}
-                    threadId={threadId}
-                  />
+                  <ArtifactFileList files={[...files]} threadId={threadId} />
                   {renderTokenUsage({
                     messages: group.messages,
                     turnUsageMessages,
@@ -932,7 +942,7 @@ export function MessageList({
                       const status = derivePendingSubtaskStatus(
                         taskId,
                         group.messages,
-                        groupIsLoading,
+                        currentTurnGroupIsLoading,
                       );
                       const task: Subtask = {
                         id: taskId,
@@ -980,7 +990,7 @@ export function MessageList({
                     <MessageGroup
                       key={"thinking-group-" + message.id}
                       messages={[message]}
-                      isLoading={groupIsLoading}
+                      isLoading={currentTurnGroupIsLoading}
                       tokenDebugSteps={tokenDebugSteps.filter(
                         (step) => step.messageId === message.id,
                       )}
@@ -1010,7 +1020,7 @@ export function MessageList({
               return (
                 <div
                   key={"subtask-group-" + group.id}
-                  className="relative z-1 flex flex-col gap-2"
+                  className="relative z-1 flex max-w-full min-w-0 flex-col gap-2 overflow-hidden"
                 >
                   {results}
                   {renderTokenUsage({

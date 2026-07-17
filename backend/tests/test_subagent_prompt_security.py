@@ -69,3 +69,12 @@ def test_general_purpose_subagent_prompt_prohibits_task_tool() -> None:
     assert "task" in prompt.lower()
     assert "NOT available" in prompt or "must NEVER" in prompt
     assert "disallowed_tools" not in prompt  # don't leak internal implementation details
+
+
+def test_builtin_subagents_do_not_load_all_enabled_skills_by_default() -> None:
+    """Avoid conflicting lead-agent workflow instructions in child contexts."""
+    from deerflow.subagents.builtins.bash_agent import BASH_AGENT_CONFIG
+    from deerflow.subagents.builtins.general_purpose import GENERAL_PURPOSE_CONFIG
+
+    assert GENERAL_PURPOSE_CONFIG.skills == []
+    assert BASH_AGENT_CONFIG.skills == []

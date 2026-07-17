@@ -11,19 +11,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const HERO_WORDS = [
-  "Deep Research",
-  "Collect Data",
-  "Analyze Data",
-  "Generate Webpages",
-  "Vibe Coding",
-  "Generate Slides",
-  "Generate Images",
-  "Generate Podcasts",
-  "Generate Videos",
-  "Generate Songs",
-  "Organize Emails",
-  "Do Anything",
-  "Learn Anything",
+  "深度研究",
+  "专业报告",
+  "数据分析",
+  "智能办公",
 ];
 
 export function Hero({ className }: { className?: string }) {
@@ -50,7 +41,10 @@ export function Hero({ className }: { className?: string }) {
           面向油气勘探开发业务，集深度研究、专业报告、数据分析与智能办公于一体。
         </p>
         <Link href={brand.links.workspace}>
-          <Button className="mt-9 h-12 rounded-xl px-6 shadow-sm" size="lg">
+          <Button
+            className="mt-9 h-12 rounded-xl border border-[#07569f] bg-[#0868bd] px-7 text-white shadow-[0_8px_20px_rgba(8,104,189,0.24)] hover:-translate-y-0.5 hover:bg-[#075aa5] hover:shadow-[0_12px_26px_rgba(8,104,189,0.3)] active:translate-y-0 active:bg-[#064c8c] focus-visible:ring-[#0868bd]/35"
+            size="lg"
+          >
             <span className="text-md">开始使用</span>
             <ChevronRightIcon className="size-4" />
           </Button>
@@ -91,7 +85,7 @@ function HeroWordRotate({
           <AuroraText
             className="max-w-full [overflow-wrap:anywhere] whitespace-normal"
             speed={3}
-            colors={["#0d6e8c", "#16a394", "#d09a32"]}
+            colors={["#07569f", "#1687c9", "#35a7c9"]}
           >
             {words[index]}
           </AuroraText>

@@ -245,6 +245,35 @@ class TestBashExecUnsupportedFailFast:
         assert sandbox._client.bash.exec.call_count == 2
 
 
+class TestConfiguredEnvironmentInjection:
+    def test_default_environment_is_injected_into_commands(self, sandbox):
+        sandbox._default_env = {
+            "IMAGE_BACKEND": "qwen",
+            "QWEN_API_KEY": "configured-key",
+        }
+        sandbox._client.bash.exec = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None)))
+
+        assert sandbox.execute_command("python generate.py") == "ok"
+        assert sandbox._client.bash.exec.call_args.kwargs["env"] == {
+            "IMAGE_BACKEND": "qwen",
+            "QWEN_API_KEY": "configured-key",
+        }
+
+    def test_request_scoped_environment_overrides_configured_environment(self, sandbox):
+        sandbox._default_env = {
+            "QWEN_API_KEY": "configured-key",
+            "IMAGE_BACKEND": "qwen",
+        }
+        sandbox._client.bash.exec = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None)))
+
+        sandbox.execute_command("python generate.py", env={"QWEN_API_KEY": "request-key"})
+
+        assert sandbox._client.bash.exec.call_args.kwargs["env"] == {
+            "QWEN_API_KEY": "request-key",
+            "IMAGE_BACKEND": "qwen",
+        }
+
+
 class TestListDirSerialization:
     """Verify that list_dir also acquires the lock."""
 

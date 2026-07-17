@@ -54,6 +54,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_IMAGE = "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest"
 DEFAULT_PORT = 8080
 DEFAULT_CONTAINER_PREFIX = "deer-flow-sandbox"
+DEFAULT_STARTUP_TIMEOUT = 180
 IDLE_CHECK_INTERVAL = _SHARED_IDLE_CHECK_INTERVAL
 THREAD_LOCK_EXECUTOR_WORKERS = min(32, (os.cpu_count() or 1) + 4)
 _THREAD_LOCK_EXECUTOR = ThreadPoolExecutor(max_workers=THREAD_LOCK_EXECUTOR_WORKERS, thread_name_prefix="sandbox-lock-wait")
@@ -126,6 +127,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         port: 8080                      # Base port for local containers
         container_prefix: deer-flow-sandbox
         idle_timeout: 600               # Idle timeout in seconds (0 to disable)
+        startup_timeout: 180             # Cold-start readiness timeout in seconds
         replicas: 3                     # Max concurrent sandbox containers (LRU eviction when exceeded)
         mounts:                         # Volume mounts for local containers
           - host_path: /path/on/host
@@ -202,6 +204,20 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             environment=self._config["environment"],
         )
 
+    def _new_sandbox(self, sandbox_id: str, sandbox_url: str) -> AioSandbox:
+        """Create a client and bridge configured env into remote sandboxes.
+
+        Local containers already receive the environment at container creation.
+        Provisioner-managed Pods do not, so their command client injects it through
+        the structured per-command environment supported by ``bash.exec``.
+        """
+        default_env = self._config["environment"] if isinstance(self._backend, RemoteSandboxBackend) else None
+        return AioSandbox(
+            id=sandbox_id,
+            base_url=sandbox_url,
+            default_env=default_env,
+        )
+
     # ── Configuration ────────────────────────────────────────────────────
 
     def _load_config(self) -> dict:
@@ -211,6 +227,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
 
         idle_timeout = getattr(sandbox_config, "idle_timeout", None)
         replicas = getattr(sandbox_config, "replicas", None)
+        startup_timeout = getattr(sandbox_config, "startup_timeout", None)
 
         return {
             "image": sandbox_config.image or DEFAULT_IMAGE,
@@ -218,6 +235,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             "container_prefix": sandbox_config.container_prefix or DEFAULT_CONTAINER_PREFIX,
             "idle_timeout": idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
             "replicas": replicas if replicas is not None else DEFAULT_REPLICAS,
+            "startup_timeout": startup_timeout if startup_timeout is not None else DEFAULT_STARTUP_TIMEOUT,
             "mounts": sandbox_config.mounts or [],
             "environment": self._resolve_env_vars(sandbox_config.environment or {}),
             # provisioner URL for dynamic pod management (e.g. http://provisioner:8002)
@@ -276,11 +294,21 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             with self._lock:
                 if info.sandbox_id in self._sandboxes or info.sandbox_id in self._warm_pool:
                     continue
-                self._warm_pool[info.sandbox_id] = (info, current_time)
+                # Preserve age ordering across Gateway restarts so capacity
+                # reconciliation removes the oldest orphaned Pods first.
+                timestamp = info.created_at if info.created_at > 0 else current_time
+                self._warm_pool[info.sandbox_id] = (info, timestamp)
             adopted += 1
             logger.info(f"Adopted container {info.sandbox_id} into warm pool (age: {age:.0f}s)")
 
-        logger.info(f"Startup reconciliation complete: {adopted} adopted into warm pool, {len(running)} total found")
+        evicted = self._evict_warm_until_capacity()
+        logger.info(
+            "Startup reconciliation complete: %s adopted, %s total found, %s evicted to enforce replicas=%s",
+            adopted,
+            len(running),
+            len(evicted),
+            self._config.get("replicas", DEFAULT_REPLICAS),
+        )
 
     # ── Deterministic ID ─────────────────────────────────────────────────
 
@@ -573,7 +601,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             if warm_item is None:
                 return None
             info, _ = warm_item
-            sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+            sandbox = self._new_sandbox(sandbox_id, info.sandbox_url)
             self._sandboxes[sandbox_id] = sandbox
             self._sandbox_infos[sandbox_id] = info
             self._last_activity[sandbox_id] = time.time()
@@ -594,7 +622,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
 
     def _register_discovered_sandbox(self, thread_id: str, info: SandboxInfo, *, user_id: str) -> str:
         """Track a sandbox discovered through the backend."""
-        sandbox = AioSandbox(id=info.sandbox_id, base_url=info.sandbox_url)
+        sandbox = self._new_sandbox(info.sandbox_id, info.sandbox_url)
         key = self._thread_key(thread_id, user_id)
         with self._lock:
             self._sandboxes[info.sandbox_id] = sandbox
@@ -607,7 +635,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
 
     def _register_created_sandbox(self, thread_id: str | None, sandbox_id: str, info: SandboxInfo, *, user_id: str | None = None) -> str:
         """Track a newly-created sandbox in the active maps."""
-        sandbox = AioSandbox(id=sandbox_id, base_url=info.sandbox_url)
+        sandbox = self._new_sandbox(sandbox_id, info.sandbox_url)
         with self._lock:
             self._sandboxes[sandbox_id] = sandbox
             self._sandbox_infos[sandbox_id] = info
@@ -876,19 +904,21 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         effective_user_id = self._effective_acquire_user_id(user_id)
         extra_mounts = self._get_extra_mounts(thread_id, user_id=effective_user_id)
 
-        # Enforce replicas: only warm-pool containers count toward eviction budget.
-        # Active sandboxes are in use by live threads and must not be forcibly stopped.
-        replicas, total = self._replica_count()
+        # Make room for the new sandbox. A restart may have adopted many stale
+        # Pods, so evict repeatedly rather than removing only one per creation.
+        replicas, _ = self._replica_count()
+        evicted = self._evict_warm_until_capacity(reserve=1)
+        _, total = self._replica_count()
         if total >= replicas:
-            evicted = self._evict_oldest_warm()
-            self._log_replicas_soft_cap(replicas, sandbox_id, evicted)
+            self._log_replicas_soft_cap(replicas, sandbox_id, evicted[-1] if evicted else None)
 
         info = self._backend.create(thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
 
         # Wait for sandbox to be ready
-        if not wait_for_sandbox_ready(info.sandbox_url, timeout=60):
+        startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
+        if not wait_for_sandbox_ready(info.sandbox_url, timeout=startup_timeout):
             self._backend.destroy(info)
-            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
+            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
 
         return self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
 
@@ -897,19 +927,20 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         effective_user_id = self._effective_acquire_user_id(user_id)
         extra_mounts = await asyncio.to_thread(self._get_extra_mounts, thread_id, user_id=effective_user_id)
 
-        # Enforce replicas: only warm-pool containers count toward eviction budget.
-        # Active sandboxes are in use by live threads and must not be forcibly stopped.
-        replicas, total = self._replica_count()
+        # Async counterpart of the repeated warm-pool capacity reconciliation.
+        replicas, _ = self._replica_count()
+        evicted = await asyncio.to_thread(self._evict_warm_until_capacity, reserve=1)
+        _, total = self._replica_count()
         if total >= replicas:
-            evicted = await asyncio.to_thread(self._evict_oldest_warm)
-            self._log_replicas_soft_cap(replicas, sandbox_id, evicted)
+            self._log_replicas_soft_cap(replicas, sandbox_id, evicted[-1] if evicted else None)
 
         info = await asyncio.to_thread(self._backend.create, thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
 
         # Wait for sandbox to be ready without blocking the event loop.
-        if not await wait_for_sandbox_ready_async(info.sandbox_url, timeout=60):
+        startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
+        if not await wait_for_sandbox_ready_async(info.sandbox_url, timeout=startup_timeout):
             await asyncio.to_thread(self._backend.destroy, info)
-            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within timeout at {info.sandbox_url}")
+            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
 
         return self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
 

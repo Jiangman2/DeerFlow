@@ -1,261 +1,125 @@
-# Page Layout Template Library (21 Templates)
+# Layout Templates
 
-Pre-built PPT page layout templates supporting multiple styles and use cases.
+**Layout = a structure-only reusable template bundle.** It owns canvas,
+Master/Layout structure, page types, slot geometry, and the SVG roster. It does
+not own color, typography, logo, voice, or icon style. Those identity decisions
+come from an explicit brand/deck source or from the Strategist confirmation
+stage.
 
-- **Full Index**: [README.md](./README.md) (human browsing — includes categories, primary colors, detailed tone)
-- **Slim Index**: [layouts_index.json](./layouts_index.json) (lightweight lookup — `label` / `summary` / `keywords` only)
+Neutral colors and safe fonts may appear in SVG prototypes so the structure is
+reviewable. They are preview paint, not a locked identity segment. Non-mirror
+projects repaint and retype the selected structure from the project lock.
 
-> **Template selection is opt-in.** The main workflow defaults to free design and does NOT read `layouts_index.json` unless the user explicitly requests a template. See `SKILL.md` Step 3.
+| Axis | Layout behavior |
+|---|---|
+| Template kind | `layout`: structure only |
+| Creation mode | `standard` / `fidelity` author a new system; `mirror` materializes validated source-package facts into a new workspace |
+| Downstream adherence | Strategist selects `strict` or `adaptive` when the package is used |
+| PPTX structure | Always `structured`; `flat` is reserved for free design and brand-only routes |
 
----
-
-## Quick Template Index
-
-| Template Name | Category | Use Cases | Primary Color | Design Tone |
-|---------------|----------|-----------|---------------|-------------|
-| `google_style` | Brand | Annual reports, tech sharing, data presentation | Google Four Colors `#4285F4` `#EA4335` `#FBBC04` `#34A853` | Modern clean, data-driven, ample whitespace |
-| `mckinsey` | Brand | Strategic consulting, executive reports, investment analysis | McKinsey Blue `#005587` | Structured thinking, minimalist premium, MECE principle |
-| `anthropic` | Brand | AI tech sharing, developer conferences, product launches | Anthropic Orange `#D97757` | Tech-forward, conclusion-first, dark cover |
-| `china_telecom_template` | Brand | Telecom solutions, digital transformation plans,政企汇报 | Telecom Red `#C00000` | Restrained, authoritative, telecom enterprise style |
-| `中汽研_常规` | Brand | Product certification, evaluation & testing | Deep Blue `#004098` | [Standard] Professional authority, consulting style |
-| `中汽研_商务` | Brand | Business visits, technical exchanges | Blue Gradient `#003366` | [Business] Modern tech, composed and sophisticated |
-| `中汽研_现代` | Brand | Strategic launches, future tech | Deep Blue `#001529` | [Future] Future Tech, neon glow |
-| `中国电建_常规` | Brand | Power & energy, engineering, state-owned enterprise reports | PowerChina Blue `#00418D` | Craftsmanship, steady and reliable |
-| `中国电建_现代` | Brand | International engineering, premium roadshows, tech innovation | Deep Sea Blue `#001F45` | [Modern] Grand narrative, digital tech |
-| `招商银行` | Brand | Premium reports, VIP services, annual reports | CMB Red `#C41230` | Minimalist luxury, financial texture, borderless |
-| `exhibit` | General | Exhibit-driven strategic reports, executive presentations, board briefings | Gradient top bar + Gold accents | Conclusion-first, data-driven, confidential |
-| `academic_defense` | Scenario | Thesis defense, academic reports, grant proposals | Deep Blue + Red accents | Clear hierarchy, academic standards |
-| `psychology_attachment` | Scenario | Psychotherapy training, counseling lectures | Blue-green gradient + Colorful semantic colors | Warm professional, therapeutic feel |
-| `medical_university` | Scenario | Medical reports, case discussions, research presentations | Medical Blue `#0066B3` | Professional rigorous, life-affirming |
-| `government_red` | Government/Enterprise | Government work reports, party-building presentations | Government Red `#8B0000` | Solemn authority, grand and imposing |
-| `government_blue` | Government/Enterprise | Smart cities, open governance, digital transformation | Tech Blue `#0050B3` | Modern tech, rigorous and rational |
-| `ai_ops` | Government/Enterprise | Telecom AI ops, IT system overview, digital intelligence solutions | Telecom Red `#C00000` + Blue `#2E75B6` | High information density, modular layout, telecom style |
-| `pixel_retro` | Special | Git/tech introductions, retro gaming themes | Neon colors `#00FF41` `#FF0080` | Pixel art, cyberpunk |
-| `科技蓝商务` | General | Corporate reports, product launches, proposals | Tech Blue `#0078D7` | Tech, business, professional, clean |
-| `smart_red` | General | Tech company profiles, education solutions | Smart Red-Orange `#DE3545` | Modern, vibrant, geometric |
-| `重庆大学` | Scenario | Academic defense, research presentations | CQU Blue `#006BB7` | Academic solidity, mountain-city character |
----
-
-## Template Categories
-
-### 1. Brand Style Templates
-
-Templates mimicking **specific well-known brands/institutions** with their exclusive design style.
-> **Characteristics**: Distinctive brand identity (specific logos, color schemes, VI standards), suitable for internal or external presentations of that organization. Examples: Google, McKinsey, PowerChina.
-
-| Template | Description |
-|----------|-------------|
-| `google_style` | Google Material Design style, four-color brand identity |
-| `mckinsey` | McKinsey consulting style, data-driven and structured |
-| `anthropic` | Anthropic AI style, dark tech-forward aesthetic |
-| `china_telecom_template` | China Telecom brand style, red-gray structural header + ribbon footer |
-| `中汽研_常规` | CATARC standard style (v1), suitable for certification and evaluation |
-| `中汽研_商务` | CATARC business style (v2), modern tech business, composed and sophisticated |
-| `中汽研_现代` | CATARC modern style (v3 Future), Future Tech style, deep blue + neon cyan |
-| `中国电建_常规` | PowerChina standard style (v1), suitable for power, energy, and engineering SOEs |
-| `中国电建_现代` | PowerChina modern style (v2), emphasis on grand narrative and digital tech |
-| `招商银行` | China Merchants Bank v2.0, minimalist luxury, borderless open layout |
-
-### 2. General Style Templates
-
-Universal business styles not tied to any specific brand, broadly applicable.
-
-| Template | Description |
-|----------|-------------|
-| `exhibit` | Exhibit-driven style, conclusion-first layout with Exhibit takeaway bar, gradient top bar, grid decoration |
-| `科技蓝商务` | Tech business style, rigorous and professional, hexagonal texture |
-| `smart_red` | Smart red-orange business style, modern and vibrant, geometric cutaway design |
-
-### 3. Scenario-Specific Templates
-
-Designed for **specific use cases**, with content structures tailored to scenario requirements.
-
-| Template | Description |
-|----------|-------------|
-| `academic_defense` | Academic defense, clear research content hierarchy |
-| `psychology_attachment` | Psychotherapy theme, warm and professional color palette |
-| `medical_university` | Hospital / medical university template, suitable for medical reports |
-| `重庆大学` | Chongqing University template, blending mountain-city layered imagery with modern academic style |
-
-### 4. Government & Enterprise Templates
-
-Industry-standard designs for **government agencies and general state-owned enterprises**.
-> **Distinction**: Unlike brand styles, these are not targeted at specific organizations but provide templates matching the common aesthetic preferences of government/SOE contexts (e.g., official document red, smart governance blue).
-
-| Template | Description |
-|----------|-------------|
-| `government_red` | Red government style, suitable for government work reports, party-building events |
-| `government_blue` | Blue government style, suitable for smart cities, digital governance reports |
-| `ai_ops` | Enterprise digital intelligence style, telecom AI ops architecture, high-density reports (includes `reference_style.svg` style reference) |
-
-### 5. Special Style Templates
-
-Unconventional visual styles for specific creative scenarios.
-
-| Template | Description |
-|----------|-------------|
-| `pixel_retro` | Pixel retro style, cyberpunk / gaming themes |
-
-> **Design philosophy**: Style and scenario are **orthogonal** concepts. Scenario templates define content structure; style templates define visual presentation. In theory, scenario templates can be combined with different styles.
+The discovery source of truth is [`layouts_index.json`](./layouts_index.json)
+(`layout_id → { summary, canvas_format, page_count, page_types }`). This README
+defines the kind and intentionally does not enumerate installed layouts. The
+shared kind and workspace model lives in the parent
+[`README.md`](../README.md).
 
 ---
 
-## Template File Structure
+## Trigger and identity boundary
 
-Each template should contain the following standard files (TOC page is optional):
+Selection is opt-in through an explicit workspace-root path such as
+`skills/ppt-master/templates/layouts/<layout_id>/`. Supplying a bare ID or
+reading the discovery index does not trigger template use. A layout path alone
+locks structure while identity remains a downstream decision. Combined with a
+brand or deck, the layout replaces the complete structure segment.
 
-| Filename | Required | Purpose | Description |
-|----------|----------|---------|-------------|
-| `design_spec.md` | Yes | Design specification | Complete color, typography, and layout specs |
-| `01_cover.svg` | Yes | Cover page | Title, subtitle, date, organization |
-| `02_toc.svg` | Optional | Table of contents | Chapter list, navigation |
-| `02_chapter.svg` | Yes | Chapter page | Chapter number, chapter title |
-| `03_content.svg` | Yes | Content page | Fixed header/footer, flexible content area |
-| `04_ending.svg` | Yes | Ending page | Thank-you message, contact info |
-
-> **Design philosophy**: Templates define visual consistency and structural pages; content pages maintain maximum flexibility, letting AI determine layout based on actual content.
+Current packages resolve `templates/design_spec.md`; compatible flat-directory
+current-contract roots may resolve `design_spec.md` directly. Semantic-legacy
+packages must be replaced through Create Template rather than upgraded in
+place. See [`SKILL.md`](../../SKILL.md) Step 3.
 
 ---
 
-## design_spec.md Standard Structure
+## `design_spec.md` contract
 
-All template design specification documents should follow this chapter structure:
+The spec stores portable structural metadata plus rules unique to this layout.
+It omits the deck-only Template Overview and every identity section. The
+frontmatter `summary` carries the concise selection context.
 
 ```markdown
-# [Template Name] - Design Specification
+---
+layout_id: <slug>
+kind: layout
+category: general | scenario | government | special
+summary: <one-line structural use case>
+canvas_format: ppt169
+canvas_width: 1280
+canvas_height: 720
+canvas_viewbox: "0 0 1280 720"
+replication_mode: standard | fidelity | mirror
+native_structure_mode: structured
+page_count: <N>
+page_types: [cover, toc, chapter, content, ending]
+---
 
-> One-line description of applicable scenarios
+# [Layout Name] — Design Specification
 
-## I. Template Overview
-## II. Canvas Specification
-## III. Color Scheme
-## IV. Typography System
-## V. Page Structure
-## VI. Page Types
-## VII. Layout Modes (Recommended)
-## VIII. Spacing Specification
-## IX. SVG Technical Constraints
-## X. Placeholder Specification
-## XI. Usage Guide (Recommended)
+## IV. Signature Design Elements
+## V. Page Roster
+## VII. Placeholder Overrides      # omit when none
 ```
 
----
-
-## Placeholder Specification
-
-Templates use `{{PLACEHOLDER}}` format to mark replaceable content:
-
-> For **newly created library templates**, use the canonical placeholder contract below. Some existing templates still contain legacy placeholder variants; those should be treated as historical exceptions rather than the standard for new assets.
-
-### General Placeholders
-
-| Placeholder | Purpose | Applicable Pages |
-|-------------|---------|-----------------|
-| `{{TITLE}}` | Main title | Cover |
-| `{{SUBTITLE}}` | Subtitle | Cover |
-| `{{DATE}}` | Date | Cover, Ending |
-| `{{AUTHOR}}` | Author / Organization (Chinese) | Cover |
-| `{{AUTHOR_EN}}` | Author / Organization (English) | Cover |
-
-### Chapter-Related
-
-| Placeholder | Purpose | Applicable Pages |
-|-------------|---------|-----------------|
-| `{{CHAPTER_NUM}}` | Chapter number | Chapter, Content |
-| `{{CHAPTER_TITLE}}` | Chapter title | Chapter |
-| `{{CHAPTER_TITLE_EN}}` | Chapter English subtitle | Chapter |
-
-### Content Page
-
-| Placeholder | Purpose | Applicable Pages |
-|-------------|---------|-----------------|
-| `{{PAGE_TITLE}}` | Page title | Content |
-| `{{CONTENT_AREA}}` | Content area placeholder | Content |
-| `{{PAGE_NUM}}` | Page number | Content, Ending |
-| `{{SOURCE}}` | Data source | Content footer |
-
-### Table of Contents
-
-| Placeholder | Purpose |
-|-------------|---------|
-| `{{TOC_ITEM_1_TITLE}}` ~ `{{TOC_ITEM_N_TITLE}}` | TOC item titles |
-| `{{TOC_ITEM_1_DESC}}` ~ `{{TOC_ITEM_N_DESC}}` | Optional TOC item descriptions |
-| `{{TOC_ITEM_1}}` ~ `{{TOC_ITEM_N}}` | Legacy simple TOC items; do not use for new templates unless no description field is needed |
-
-### Ending Page
-
-| Placeholder | Purpose |
-|-------------|---------|
-| `{{THANK_YOU}}` | Thank-you message |
-| `{{ENDING_SUBTITLE}}` | Ending page subtitle |
-| `{{CLOSING_MESSAGE}}` | Closing message |
-| `{{CONTACT_INFO}}` | Contact information |
+`Signature Design Elements` describes only reusable structure: grids, zones,
+image behavior, density rhythm, and slot conventions. It must not introduce a
+brand palette or typography system. `Page Roster` lists every SVG with its
+Layout key, PowerPoint picker name, intended content, and slot behavior.
 
 ---
 
-## Usage
+## Structured SVG and slot contract
 
-### Copy from Template Library to Project
+Every SVG is a complete preview and declares one root Master and Layout.
+Master/Layout fixed visuals are direct atoms. A reusable slot is a top-level
+`<g id>` with positive design-zone bounds and exactly one compatible carrier;
+zero-slot Layouts are valid. A typed `picture`, `chart`, or `table` slot does
+not by itself promise an inserted picture or native data object: the generated
+Slide supplies its content, and Chart/Table native replacement remains an
+explicit export choice.
 
-```bash
-# Copy exhibit style template to project
-cp templates/layouts/exhibit/* projects/<project>/templates/
+Use canonical `{{PLACEHOLDER}}` names where they fit. A layout with intentional
+vocabulary overrides declares a `placeholders:` map in frontmatter. Full rules:
+[`template-designer.md`](../../references/template-designer.md#4-placeholder-reference-canonical-convention-overridable-per-template).
 
-# Copy Google style template to project
-cp templates/layouts/google_style/* projects/<project>/templates/
+`standard` and `fidelity` author new SVGs and a new Master/Layout/slot system.
+`mirror` preserves existing source identities, parentage, assignments,
+placeholder facts, and supported visuals in a new workspace without semantic
+synthesis. Legacy semantic contracts are not upgraded in place; create a new
+workspace through [`create-template`](../../workflows/create-template.md). A
+flat directory shape alone is not a legacy signal.
 
-# Copy government style template to project (e.g., government red)
-cp templates/layouts/government_red/* projects/<project>/templates/
+---
+
+## Workspace and creation
+
+```text
+<template_workspace>/
+├── templates/                # design_spec.md + SVG prototypes
+├── images/                   # optional bitmaps; SVG href is ../images/<name>
+├── icons/
+│   └── imported/             # optional canonical imported vectors
+└── exports/                  # review evidence; ignored during template use
+    └── <layout_id>_template_preview.pptx
 ```
 
-### After Copying
+Library scope writes `skills/ppt-master/templates/layouts/<layout_id>/` and
+updates the index. Project scope uses an initialized `projects/<name>/`
+workspace and does not register globally. Empty optional directories are
+omitted.
 
-1. Read `design_spec.md` to understand the design specification
-2. Adjust colors based on project requirements (if needed)
-3. Place logo files in the `images/` directory
-4. Use the Executor role to generate SVG pages based on templates
+1. Enter [`workflows/create-template.md`](../../workflows/create-template.md), which dispatches structure-only output to [`create-layout.md`](../../workflows/create-template/create-layout.md).
+2. Validate with `svg_quality_checker.py --template-mode`.
+3. Run `template_preview_pptx.py` when review is requested and always when the roster declares multiple Masters.
+4. In library scope, register with `register_template.py <id> --kind layout`.
 
----
-
-## Template Development Guide
-
-### Creating New Templates
-
-1. Create a new directory under `templates/layouts/`
-2. Create required files following the existing template structure
-3. Ensure `design_spec.md` follows the standard chapter structure
-4. All SVGs use `viewBox="0 0 1280 720"`
-5. Follow SVG technical constraints (see below)
-6. Validate the template directory with `python3 scripts/svg_quality_checker.py templates/layouts/<template_name> --format ppt169`
-7. Register the new template in `templates/layouts/layouts_index.json` with three fields: `label`, `summary`, `keywords`
-
-`layouts_index.json` is the lightweight lookup used when a user explicitly opts into the template flow. A template folder without an index entry will not be discoverable by that flow.
-
-### SVG Technical Constraints (All Templates Must Comply)
-
-#### Required
-
-- viewBox: `0 0 1280 720`
-- Backgrounds use `<rect>` elements
-- Text wrapping uses `<tspan>`
-- Transparency uses `fill-opacity` / `stroke-opacity`
-- Gradients use `<defs>` with `<linearGradient>`
-
-#### Forbidden (PPT Incompatible)
-
-| Banned Element | Alternative |
-|----------------|-------------|
-| HTML named entities in text (`&nbsp;` `&mdash;` `&copy;` `&ndash;` `&reg;` …) | Write the raw Unicode character directly (`—` `–` `©` `®` `→` NBSP …); see shared-standards.md §1.0 |
-| Bare `&` `<` `>` `"` `'` in text or attribute values | Escape as XML entities `&amp;` `&lt;` `&gt;` `&quot;` `&apos;` (e.g. `R&amp;D`, `error &lt; 5%`) |
-| `<foreignObject>` | Use `<text>` + `<tspan>` |
-| `clipPath` on shapes / groups / text | Draw the target geometry directly with the matching native element (`<circle>` / `<ellipse>` / `<rect rx>` / `<polygon>` / `<path>`). `clipPath` on `<image>` elements is conditionally allowed — see shared-standards.md §1.2 |
-| `mask` | Use `fill-opacity` |
-| `<style>` / `class` | Use inline styles |
-| `textPath` | Use plain `<text>` |
-| `animate*` | Static design |
-| `script` | No interactivity supported |
-| `rgba()` | Use HEX + `fill-opacity` |
-| `<g opacity="...">` | Set opacity on each child element individually |
-
----
-| `haiyou_pure_svg` | Government/Enterprise | CNOOC clean-style reports, project initiation, architecture briefings; matches the "海油" keyword in `layouts_index.json` | CNOOC Blue `#0060A6` + Red `#DE002B` | Pure clean style, light visuals, executive-ready |
+General SVG/PPT rules remain authoritative in
+[`shared-standards.md`](../../references/shared-standards.md).
