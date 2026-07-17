@@ -1,8 +1,9 @@
+import { brand } from "@/brand";
 import { APP_VERSION } from "@/version";
 
-export const aboutMarkdown = `# 关于中海油勘探开发智能体 ${APP_VERSION}
+export const aboutMarkdown = `# 关于${brand.productName} ${APP_VERSION}
 
-> **中海油勘探开发智能体**
+> **${brand.productName}**
 
 本平台面向油气勘探开发业务，提供统一的智能工作区、对话线程管理、知识库接入、资料车附件、工具编排、定时任务与成果沉淀能力，支撑资料检索、数据分析、报告生成、文档审查和专业协同作业。
 

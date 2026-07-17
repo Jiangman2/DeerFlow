@@ -1,6 +1,10 @@
 import { expect, test, rs } from "@rstest/core";
 
 import {
+  LEGACY_SIDECAR_METADATA_KEY,
+  SIDECAR_METADATA_KEY,
+} from "@/core/sidecar/thread";
+import {
   buildThreadsSearchQueryOptions,
   DEFAULT_THREAD_SEARCH_PARAMS,
   THREAD_SEARCH_REFETCH_INTERVAL_MS,
@@ -34,13 +38,14 @@ test("thread search query refreshes so IM-created sessions appear in the sidebar
 });
 
 test("thread search hides sidecar threads from primary lists by default", async () => {
-  const search = rs
-    .fn()
-    .mockResolvedValue([
-      makeThread("primary-1"),
-      makeThread("sidecar-1", { deerflow_sidecar: true }),
-      makeThread("primary-2"),
-    ]);
+  const search = rs.fn().mockResolvedValue([
+    makeThread("primary-1"),
+    makeThread("sidecar-1", { [SIDECAR_METADATA_KEY]: true }),
+    makeThread("legacy-sidecar-1", {
+      [LEGACY_SIDECAR_METADATA_KEY]: true,
+    }),
+    makeThread("primary-2"),
+  ]);
   const options = buildThreadsSearchQueryOptions(
     { threads: { search } },
     DEFAULT_THREAD_SEARCH_PARAMS,
@@ -54,7 +59,7 @@ test("thread search hides sidecar threads from primary lists by default", async 
 
 test("thread search can explicitly include sidecar threads for parent lookup", async () => {
   const sidecar = makeThread("sidecar-1", {
-    deerflow_sidecar: true,
+    [SIDECAR_METADATA_KEY]: true,
     parent_thread_id: "parent-1",
   });
   const search = rs.fn().mockResolvedValue([sidecar]);
@@ -63,7 +68,7 @@ test("thread search can explicitly include sidecar threads for parent lookup", a
     {
       ...DEFAULT_THREAD_SEARCH_PARAMS,
       metadata: {
-        deerflow_sidecar: true,
+        [SIDECAR_METADATA_KEY]: true,
         parent_thread_id: "parent-1",
       },
     },

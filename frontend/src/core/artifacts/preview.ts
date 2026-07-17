@@ -259,7 +259,10 @@ export function appendHtmlPreviewScrollRestoration(
   content: string,
   scrollKey = "default",
 ) {
-  if (content.includes("data-platform-artifact-scroll-restoration")) {
+  if (
+    content.includes("data-platform-artifact-scroll-restoration") ||
+    content.includes("data-deerflow-artifact-scroll-restoration")
+  ) {
     return content;
   }
   const script = htmlScrollRestorationScript(

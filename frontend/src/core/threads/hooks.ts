@@ -21,7 +21,7 @@ import { useI18n } from "../i18n/hooks";
 import { isHiddenFromUIMessage } from "../messages/utils";
 import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
-import { isSidecarThread, SIDECAR_METADATA_KEY } from "../sidecar/thread";
+import { isSidecarThread, SIDECAR_METADATA_KEYS } from "../sidecar/thread";
 import { useUpdateSubtask } from "../tasks/context";
 import { taskEventToSubtaskUpdate } from "../tasks/lifecycle";
 import { messageToStep } from "../tasks/steps";
@@ -2144,39 +2144,41 @@ export async function findSidecarThreadIdsForParent(
   apiClient: ThreadSidecarSearchClient,
   parentThreadId: string,
 ) {
-  const threadIds: string[] = [];
+  const threadIds = new Set<string>();
   const limit = 100;
-  let offset = 0;
+  for (const metadataKey of SIDECAR_METADATA_KEYS) {
+    let offset = 0;
 
-  while (true) {
-    const response = await apiClient.threads.search({
-      metadata: {
-        [SIDECAR_METADATA_KEY]: true,
-        parent_thread_id: parentThreadId,
-      },
-      limit,
-      offset,
-      sortBy: "updated_at",
-      sortOrder: "desc",
-      select: ["thread_id", "metadata"],
-    });
+    while (true) {
+      const response = await apiClient.threads.search({
+        metadata: {
+          [metadataKey]: true,
+          parent_thread_id: parentThreadId,
+        },
+        limit,
+        offset,
+        sortBy: "updated_at",
+        sortOrder: "desc",
+        select: ["thread_id", "metadata"],
+      });
 
-    for (const thread of response) {
-      if (
-        isSidecarThread(thread) &&
-        thread.metadata?.parent_thread_id === parentThreadId
-      ) {
-        threadIds.push(thread.thread_id);
+      for (const thread of response) {
+        if (
+          isSidecarThread(thread) &&
+          thread.metadata?.parent_thread_id === parentThreadId
+        ) {
+          threadIds.add(thread.thread_id);
+        }
       }
-    }
 
-    if (response.length < limit) {
-      break;
+      if (response.length < limit) {
+        break;
+      }
+      offset += response.length;
     }
-    offset += response.length;
   }
 
-  return threadIds;
+  return [...threadIds];
 }
 
 async function deleteSidecarThreadsForParent(

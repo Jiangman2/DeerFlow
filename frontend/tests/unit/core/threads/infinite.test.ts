@@ -5,6 +5,7 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 
+import { SIDECAR_METADATA_KEY } from "@/core/sidecar/thread";
 import {
   fetchInfiniteThreadsPage,
   filterInfiniteThreadsCache,
@@ -96,7 +97,9 @@ describe("fetchInfiniteThreadsPage", () => {
     const search = rs
       .fn()
       .mockResolvedValueOnce([
-        makeThread("sidecar-1", "Sidecar", { deerflow_sidecar: true }),
+        makeThread("sidecar-1", "Sidecar", {
+          [SIDECAR_METADATA_KEY]: true,
+        }),
         makeThread("primary-1"),
       ])
       .mockResolvedValueOnce([makeThread("primary-2")]);
@@ -130,7 +133,7 @@ describe("fetchInfiniteThreadsPage", () => {
   test("keeps sidecar rows when the caller explicitly searches for sidecars", async () => {
     const search = rs.fn().mockResolvedValueOnce([
       makeThread("sidecar-1", "Sidecar", {
-        deerflow_sidecar: true,
+        [SIDECAR_METADATA_KEY]: true,
         parent_thread_id: "parent-1",
       }),
     ]);
@@ -140,7 +143,10 @@ describe("fetchInfiniteThreadsPage", () => {
       {
         sortBy: "updated_at",
         sortOrder: "desc",
-        metadata: { deerflow_sidecar: true, parent_thread_id: "parent-1" },
+        metadata: {
+          [SIDECAR_METADATA_KEY]: true,
+          parent_thread_id: "parent-1",
+        },
       },
       0,
       2,

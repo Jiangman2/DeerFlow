@@ -14,6 +14,10 @@ import {
   createSidecarThread,
   findLatestSidecarThread,
 } from "@/core/sidecar/api";
+import {
+  LEGACY_SIDECAR_METADATA_KEY,
+  SIDECAR_METADATA_KEY,
+} from "@/core/sidecar/thread";
 import type { AgentThread } from "@/core/threads";
 
 const fetchWithAuth = rs.mocked(fetcher);
@@ -53,10 +57,16 @@ const context: SidecarContext = {
 
 test("finds the latest sidecar thread for a parent thread", async () => {
   const sidecar = makeThread("sidecar-1", {
-    deerflow_sidecar: true,
+    [SIDECAR_METADATA_KEY]: true,
     parent_thread_id: "parent-1",
   });
-  const search = rs.fn().mockResolvedValue([sidecar]);
+  const search = rs
+    .fn()
+    .mockImplementation(({ metadata }) =>
+      Reflect.get(metadata, SIDECAR_METADATA_KEY) === true
+        ? Promise.resolve([sidecar])
+        : Promise.resolve([]),
+    );
 
   await expect(
     findLatestSidecarThread({
@@ -65,9 +75,9 @@ test("finds the latest sidecar thread for a parent thread", async () => {
     }),
   ).resolves.toBe(sidecar);
 
-  expect(search).toHaveBeenCalledWith({
+  expect(search).toHaveBeenNthCalledWith(1, {
     metadata: {
-      deerflow_sidecar: true,
+      [SIDECAR_METADATA_KEY]: true,
       parent_thread_id: "parent-1",
     },
     limit: 1,
@@ -75,6 +85,37 @@ test("finds the latest sidecar thread for a parent thread", async () => {
     sortBy: "updated_at",
     sortOrder: "desc",
   });
+  expect(search).toHaveBeenNthCalledWith(2, {
+    metadata: {
+      [LEGACY_SIDECAR_METADATA_KEY]: true,
+      parent_thread_id: "parent-1",
+    },
+    limit: 1,
+    offset: 0,
+    sortBy: "updated_at",
+    sortOrder: "desc",
+  });
+});
+
+test("finds a legacy sidecar thread created before the enterprise rename", async () => {
+  const legacySidecar = makeThread("legacy-sidecar-1", {
+    [LEGACY_SIDECAR_METADATA_KEY]: true,
+    parent_thread_id: "parent-1",
+  });
+  const search = rs
+    .fn()
+    .mockImplementation(({ metadata }) =>
+      Reflect.get(metadata, LEGACY_SIDECAR_METADATA_KEY) === true
+        ? Promise.resolve([legacySidecar])
+        : Promise.resolve([]),
+    );
+
+  await expect(
+    findLatestSidecarThread({
+      parentThreadId: "parent-1",
+      apiClient: { threads: { search } },
+    }),
+  ).resolves.toBe(legacySidecar);
 });
 
 test("ignores malformed sidecar search results", async () => {
@@ -91,7 +132,7 @@ test("ignores malformed sidecar search results", async () => {
 test("ignores sidecar search results from another parent thread", async () => {
   const search = rs.fn().mockResolvedValue([
     makeThread("sidecar-1", {
-      deerflow_sidecar: true,
+      [SIDECAR_METADATA_KEY]: true,
       parent_thread_id: "parent-2",
     }),
   ]);

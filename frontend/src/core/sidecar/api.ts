@@ -5,7 +5,7 @@ import type { AgentThread } from "@/core/threads";
 
 import type { SidecarContext } from "./context";
 import {
-  SIDECAR_METADATA_KEY,
+  SIDECAR_METADATA_KEYS,
   buildSidecarThreadMetadata,
   isSidecarThread,
 } from "./thread";
@@ -79,22 +79,32 @@ export async function findLatestSidecarThread({
   isMock?: boolean;
   apiClient?: SidecarThreadSearchClient;
 }): Promise<AgentThread | null> {
-  const response = await apiClient.threads.search({
-    metadata: {
-      [SIDECAR_METADATA_KEY]: true,
-      parent_thread_id: parentThreadId,
-    },
-    limit: 1,
-    offset: 0,
-    sortBy: "updated_at",
-    sortOrder: "desc",
-  });
+  const candidates = new Map<string, AgentThread>();
+  for (const metadataKey of SIDECAR_METADATA_KEYS) {
+    const response = await apiClient.threads.search({
+      metadata: {
+        [metadataKey]: true,
+        parent_thread_id: parentThreadId,
+      },
+      limit: 1,
+      offset: 0,
+      sortBy: "updated_at",
+      sortOrder: "desc",
+    });
 
-  return (
-    response.find(
+    const candidate = response.find(
       (thread) =>
         isSidecarThread(thread) &&
         thread.metadata?.parent_thread_id === parentThreadId,
-    ) ?? null
+    );
+    if (candidate) {
+      candidates.set(candidate.thread_id, candidate);
+    }
+  }
+
+  return (
+    [...candidates.values()].sort((left, right) =>
+      right.updated_at.localeCompare(left.updated_at),
+    )[0] ?? null
   );
 }
