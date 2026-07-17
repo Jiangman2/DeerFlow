@@ -328,7 +328,7 @@ export const enUS: Translations = {
     create: {
       title: "Create scheduled task",
       description:
-        "Set a prompt and a schedule. DeerFlow will launch the task in the background without asking follow-up questions.",
+        "Set a prompt and a schedule. The assistant will launch the task in the background without asking follow-up questions.",
       taskTitle: "Task title",
       prompt: "Prompt",
       submit: "Create",
