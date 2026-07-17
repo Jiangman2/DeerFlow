@@ -1,7 +1,7 @@
 import type { ThreadsClient } from "@langchain/langgraph-sdk/client";
 
 import {
-  SIDECAR_METADATA_KEY,
+  SIDECAR_METADATA_KEYS,
   shouldShowInPrimaryThreadLists,
 } from "@/core/sidecar/thread";
 
@@ -34,7 +34,9 @@ export function shouldIncludeSidecarThreads(params: ThreadSearchFilterParams) {
     typeof metadata === "object" &&
     metadata !== null &&
     !Array.isArray(metadata) &&
-    Reflect.get(metadata, SIDECAR_METADATA_KEY) === true
+    SIDECAR_METADATA_KEYS.some(
+      (metadataKey) => Reflect.get(metadata, metadataKey) === true,
+    )
   );
 }
 

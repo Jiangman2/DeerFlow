@@ -3,6 +3,11 @@ import type { AgentThread } from "@/core/threads";
 import { normalizeSidecarContexts, type SidecarContext } from "./context";
 
 export const SIDECAR_METADATA_KEY = "platform_sidecar";
+export const LEGACY_SIDECAR_METADATA_KEY = "deerflow_sidecar";
+export const SIDECAR_METADATA_KEYS = [
+  SIDECAR_METADATA_KEY,
+  LEGACY_SIDECAR_METADATA_KEY,
+] as const;
 
 export type SidecarThreadMetadata = {
   [SIDECAR_METADATA_KEY]: true;
@@ -52,7 +57,9 @@ export function isSidecarThread(
     | Pick<AgentThread, "metadata">
     | { metadata?: Record<string, unknown> },
 ) {
-  return thread.metadata?.[SIDECAR_METADATA_KEY] === true;
+  return SIDECAR_METADATA_KEYS.some(
+    (metadataKey) => thread.metadata?.[metadataKey] === true,
+  );
 }
 
 export function shouldShowInPrimaryThreadLists(

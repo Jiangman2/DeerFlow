@@ -1,6 +1,7 @@
 import { expect, test } from "@rstest/core";
 
 import {
+  LEGACY_SIDECAR_METADATA_KEY,
   SIDECAR_METADATA_KEY,
   buildSidecarThreadMetadata,
   isSidecarThread,
@@ -103,4 +104,14 @@ test("identifies sidecar threads and hides them from primary thread lists", () =
   expect(shouldShowInPrimaryThreadLists(sidecar)).toBe(false);
   expect(isSidecarThread(primary)).toBe(false);
   expect(shouldShowInPrimaryThreadLists(primary)).toBe(true);
+});
+
+test("recognizes sidecar threads created with the legacy metadata key", () => {
+  const legacySidecar = {
+    thread_id: "legacy-sidecar-1",
+    metadata: { [LEGACY_SIDECAR_METADATA_KEY]: true },
+  };
+
+  expect(isSidecarThread(legacySidecar)).toBe(true);
+  expect(shouldShowInPrimaryThreadLists(legacySidecar)).toBe(false);
 });

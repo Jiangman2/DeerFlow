@@ -1,5 +1,9 @@
 import { expect, rs, test } from "@rstest/core";
 
+import {
+  LEGACY_SIDECAR_METADATA_KEY,
+  SIDECAR_METADATA_KEY,
+} from "@/core/sidecar/thread";
 import { findSidecarThreadIdsForParent } from "@/core/threads/hooks";
 import type { AgentThread } from "@/core/threads/types";
 
@@ -17,18 +21,28 @@ function makeThread(
   } as unknown as AgentThread;
 }
 
-test("finds only sidecar threads attached to the deleted parent thread", async () => {
-  const search = rs.fn().mockResolvedValueOnce([
-    makeThread("sidecar-1", {
-      deerflow_sidecar: true,
-      parent_thread_id: "parent-1",
-    }),
-    makeThread("sidecar-other-parent", {
-      deerflow_sidecar: true,
-      parent_thread_id: "parent-2",
-    }),
-    makeThread("primary-1"),
-  ]);
+test("finds current and legacy sidecars attached to the deleted parent", async () => {
+  const currentSidecar = makeThread("sidecar-1", {
+    [SIDECAR_METADATA_KEY]: true,
+    parent_thread_id: "parent-1",
+  });
+  const legacySidecar = makeThread("legacy-sidecar-1", {
+    [LEGACY_SIDECAR_METADATA_KEY]: true,
+    parent_thread_id: "parent-1",
+  });
+  const search = rs.fn().mockImplementation(({ metadata }) => {
+    if (Reflect.get(metadata, SIDECAR_METADATA_KEY) === true) {
+      return Promise.resolve([
+        currentSidecar,
+        makeThread("sidecar-other-parent", {
+          [SIDECAR_METADATA_KEY]: true,
+          parent_thread_id: "parent-2",
+        }),
+        makeThread("primary-1"),
+      ]);
+    }
+    return Promise.resolve([legacySidecar, currentSidecar]);
+  });
 
   await expect(
     findSidecarThreadIdsForParent(
@@ -39,11 +53,22 @@ test("finds only sidecar threads attached to the deleted parent thread", async (
       },
       "parent-1",
     ),
-  ).resolves.toEqual(["sidecar-1"]);
+  ).resolves.toEqual(["sidecar-1", "legacy-sidecar-1"]);
 
-  expect(search).toHaveBeenCalledWith({
+  expect(search).toHaveBeenNthCalledWith(1, {
     metadata: {
-      deerflow_sidecar: true,
+      [SIDECAR_METADATA_KEY]: true,
+      parent_thread_id: "parent-1",
+    },
+    limit: 100,
+    offset: 0,
+    sortBy: "updated_at",
+    sortOrder: "desc",
+    select: ["thread_id", "metadata"],
+  });
+  expect(search).toHaveBeenNthCalledWith(2, {
+    metadata: {
+      [LEGACY_SIDECAR_METADATA_KEY]: true,
       parent_thread_id: "parent-1",
     },
     limit: 100,

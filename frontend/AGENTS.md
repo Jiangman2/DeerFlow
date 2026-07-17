@@ -76,6 +76,11 @@ Human input requests are a structured message protocol layered on normal chat hi
 
 Tool-calling AI messages can contain user-visible text as well as `tool_calls`. `core/messages/utils.ts` keeps these turns in an `assistant:processing` group, and `components/workspace/messages/message-group.tsx` must render the visible text as a processing step instead of treating the message as only tool metadata. This preserves provider text such as error explanations or "trying another approach" notes during tool-heavy runs.
 
+Sidecar threads use `metadata.platform_sidecar` for newly created records. Thread
+lookup, primary-list filtering, and parent-thread cascade deletion must also recognize
+the legacy `metadata.deerflow_sidecar` marker so enterprise-branded deployments retain
+access to sidecars created before the metadata rename.
+
 ### Key Patterns
 
 - **Server Components by default**, `"use client"` only for interactive components
