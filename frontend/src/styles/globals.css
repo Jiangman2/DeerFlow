@@ -425,3 +425,37 @@
   --container-width-md: calc(var(--spacing) * 204);
   --container-width-lg: calc(var(--spacing) * 256);
 }
+@keyframes announcement-shine {
+  0%,
+  55% {
+    transform: translateX(-30%) skewX(-20deg);
+    opacity: 0;
+  }
+  65% {
+    opacity: 1;
+  }
+  85%,
+  100% {
+    transform: translateX(430%) skewX(-20deg);
+    opacity: 0;
+  }
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  10% {
+    transform: rotate(-8deg);
+  }
+  20% {
+    transform: rotate(8deg);
+  }
+  30% {
+    transform: rotate(-4deg);
+  }
+  40% {
+    transform: rotate(0deg);
+  }
+}

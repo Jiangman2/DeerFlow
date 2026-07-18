@@ -14,6 +14,7 @@ from app.gateway.deps import langgraph_runtime
 from app.gateway.routers import (
     admin_users,
     agents,
+    announcements,
     artifacts,
     assistants_compat,
     auth,
@@ -535,6 +536,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     app.include_router(observability.router)
     app.include_router(dashboard.router)
+    app.include_router(announcements.router)
     app.include_router(admin_users.router)
     # WeKnora integration API is mounted at /api/weknora.
     # The router is an enterprise extension and remains isolated from the

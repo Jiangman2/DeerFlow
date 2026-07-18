@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { QueryClientProvider } from "@/components/query-client-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { CommandPalette } from "@/components/workspace/command-palette";
+import { AnnouncementBanner } from "@/components/workspace/announcement-banner";
 import { GatewayOfflineBanner } from "@/components/workspace/gateway-offline-banner";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 
@@ -36,6 +37,7 @@ export async function WorkspaceContent({
         <WorkspaceSidebar />
         <SidebarInset className="border-border bg-background min-w-0 border-l bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center dark:bg-none">
           <GatewayOfflineBanner gatewayUnavailable={gatewayUnavailable} />
+          {!gatewayUnavailable && <AnnouncementBanner />}
           {children}
         </SidebarInset>
       </SidebarProvider>

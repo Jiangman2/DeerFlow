@@ -5,6 +5,7 @@ import {
   CableIcon,
   InfoIcon,
   BrainIcon,
+  MegaphoneIcon,
   PaletteIcon,
   SparklesIcon,
   UserIcon,
@@ -21,6 +22,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AboutSettingsPage } from "@/components/workspace/settings/about-settings-page";
 import { AccountSettingsPage } from "@/components/workspace/settings/account-settings-page";
+import { AnnouncementSettingsPage } from "@/components/workspace/settings/announcement-settings-page";
 import { AppearanceSettingsPage } from "@/components/workspace/settings/appearance-settings-page";
 import { ChannelsSettingsPage } from "@/components/workspace/settings/channels-settings-page";
 import { MemorySettingsPage } from "@/components/workspace/settings/memory-settings-page";
@@ -28,10 +30,12 @@ import { NotificationSettingsPage } from "@/components/workspace/settings/notifi
 import { SkillSettingsPage } from "@/components/workspace/settings/skill-settings-page";
 import { ToolSettingsPage } from "@/components/workspace/settings/tool-settings-page";
 import { useI18n } from "@/core/i18n/hooks";
+import { useAuth } from "@/core/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 
 type SettingsSection =
   | "account"
+  | "announcements"
   | "appearance"
   | "channels"
   | "memory"
@@ -47,6 +51,8 @@ type SettingsDialogProps = React.ComponentProps<typeof Dialog> & {
 export function SettingsDialog(props: SettingsDialogProps) {
   const { defaultSection = "appearance", ...dialogProps } = props;
   const { t } = useI18n();
+  const { user } = useAuth();
+  const isAdmin = user?.system_role === "admin";
   const [activeSection, setActiveSection] =
     useState<SettingsSection>(defaultSection);
 
@@ -87,6 +93,9 @@ export function SettingsDialog(props: SettingsDialogProps) {
       },
       { id: "tools", label: t.settings.sections.tools, icon: WrenchIcon },
       { id: "skills", label: t.settings.sections.skills, icon: SparklesIcon },
+      ...(isAdmin
+        ? [{ id: "announcements", label: "公告", icon: MegaphoneIcon }]
+        : []),
       { id: "about", label: t.settings.sections.about, icon: InfoIcon },
     ],
     [
@@ -98,6 +107,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       t.settings.sections.skills,
       t.settings.sections.notification,
       t.settings.sections.about,
+      isAdmin,
     ],
   );
   return (
@@ -143,6 +153,9 @@ export function SettingsDialog(props: SettingsDialogProps) {
           <ScrollArea className="h-full min-h-0 rounded-lg border">
             <div className="space-y-8 p-6">
               {activeSection === "account" && <AccountSettingsPage />}
+              {activeSection === "announcements" && isAdmin && (
+                <AnnouncementSettingsPage />
+              )}
               {activeSection === "appearance" && <AppearanceSettingsPage />}
               {activeSection === "memory" && <MemorySettingsPage />}
               {activeSection === "tools" && <ToolSettingsPage />}
