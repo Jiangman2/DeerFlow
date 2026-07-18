@@ -43,6 +43,17 @@ def test_build_subagent_section_includes_bash_when_available(monkeypatch) -> Non
     assert "available tools (bash, ls, read_file, web_search, etc.)" in section
 
 
+def test_build_subagent_section_requires_first_delegation_for_explicit_parallel_work(monkeypatch) -> None:
+    """Ultra-style parallel requests must not be handled by direct main-agent tools first."""
+    monkeypatch.setattr(prompt_module, "get_available_subagent_names", lambda: ["general-purpose", "bash"])
+
+    section = prompt_module._build_subagent_section(3)
+
+    assert "DELEGATION OVERRIDE FOR EXPLICIT PARALLEL REQUESTS" in section
+    assert "first tool response MUST be one batch of `task` calls" in section
+    assert "Do **not** run `bash`, `read_file`, web tools, or a Skill workflow yourself" in section
+
+
 def test_bash_subagent_prompt_mentions_workspace_relative_paths() -> None:
     from deerflow.subagents.builtins.bash_agent import BASH_AGENT_CONFIG
 

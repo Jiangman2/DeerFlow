@@ -52,7 +52,7 @@ RUN if [ -n "${APT_MIRROR}" ]; then \
 # that happen to be present in the base image. Playwright is an upstream
 # runtime requirement of visual_review.py and extract_svg_pictures.py, but is
 # not yet declared in the upstream requirements.txt.
-RUN python3 -m pip install --root-user-action=ignore --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir \
     --timeout 60 --retries 3 --prefer-binary --ignore-installed \
     -r /tmp/ppt-master-requirements.txt \
     "playwright>=1.50.0" "pydantic>=2.12.5,<3.0.0" \
@@ -63,7 +63,7 @@ RUN python3 -m pip install --root-user-action=ignore --no-cache-dir \
 # The base image contains Pydantic 2.12.4. Reinstall after the upstream batch
 # because pip's --ignore-installed mode can leave that older distribution
 # visible even when a newer wheel was selected by the resolver.
-RUN python3 -m pip install --root-user-action=ignore --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir \
     --upgrade --force-reinstall "pydantic>=2.12.5,<3.0.0" \
     && python3 -c "import pydantic; from packaging.version import Version; assert Version(pydantic.__version__) >= Version('2.12.5'), pydantic.__version__"
 

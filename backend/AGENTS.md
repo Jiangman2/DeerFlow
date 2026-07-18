@@ -15,6 +15,7 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
 **Runtime**:
 - `make dev`, Docker dev, and production all run the agent runtime in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Nginx exposes that runtime at `/api/langgraph/*` and rewrites it to Gateway's native `/api/*` routers.
 - Scheduled-task executions must reuse that same Gateway run lifecycle. The scheduler may decide *when* work runs, but it must dispatch through the existing run path rather than introducing a parallel execution stack.
+- Run persistence records the effective model resolved by the agent factory even when callers omit `context.model_name`, so new default-model runs remain attributable in admin usage reports.
 
 **Project Structure**:
 ```
@@ -55,7 +56,7 @@ deer-flow/
 │   ├── app/                   # Application layer (import: app.*)
 │   │   ├── gateway/           # FastAPI Gateway API
 │   │   │   ├── app.py         # FastAPI application
-│   │   │   └── routers/       # FastAPI route modules (models, mcp, memory, skills, uploads, threads, artifacts, agents, suggestions, channels)
+│   │   │   └── routers/       # FastAPI route modules (models, mcp, memory, skills, uploads, threads, artifacts, agents, suggestions, channels, announcements)
 │   │   └── channels/          # IM platform integrations
 │   ├── tests/                 # Test suite
 │   └── docs/                  # Documentation
@@ -316,6 +317,8 @@ Configuration priority:
 4. `extensions_config.json` in parent directory (project root - **recommended location**)
 
 ### Gateway API (`app/gateway/`)
+
+Workspace announcements are SQL-backed by `deerflow.persistence.announcement`. Signed-in users read the currently published, in-window item from `GET /api/announcements/active`; admin-only `/api/admin/announcements` endpoints create, edit, publish, and archive items. Publishing rejects overlapping active windows so the workspace has one unambiguous announcement.
 
 FastAPI application on port 8001 with health check at `GET /health`. Set `GATEWAY_ENABLE_DOCS=false` to disable `/docs`, `/redoc`, and `/openapi.json` in production (default: enabled).
 
@@ -910,6 +913,17 @@ Automatic conversation summarization when approaching token limits:
   read/write checkpoints.
 
 See [docs/summarization.md](docs/summarization.md) for details.
+
+### WeKnora identity bridge
+
+`app/gateway/weknora_identity.py` provisions or reuses a WeKnora account with
+the DeerFlow user's email and a deterministic service-managed credential. Each
+successful SSO login mirrors DeerFlow `system_role=admin` to WeKnora's
+`is_system_admin` and `can_access_all_tenants` flags; regular users are
+explicitly kept non-admin. Keep this role sync covered by
+`tests/test_weknora_default_models.py` when changing the bridge. Proxy requests
+reuse the linked session for `WEKNORA_SESSION_CACHE_TTL_S` seconds (default 900)
+so list and upload endpoints do not repeat registration/login on every call.
 
 ### Vision Support
 

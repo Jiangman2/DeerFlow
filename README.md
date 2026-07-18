@@ -254,8 +254,9 @@ way to make configured media-provider variables available to PPT/image-generatio
 scripts; use an all-in-one-sandbox image with `/v1/bash/exec` support (1.9.3+).
 
 The administrator business dashboard is the consolidated operations view. It
-shows database-backed usage, model/agent activity, tokens, failures, slow or
-high-token runs, feedback, and management audit events. The former standalone
+shows database-backed user rankings, model/agent activity, external-agent launch
+clicks, tokens, failures, slow or high-token runs, and feedback. Slow and
+high-token entries link back to their original chats. The former standalone
 observability page redirects to the dashboard; incomplete health heuristics are
 not presented as live monitoring.
 
@@ -389,6 +390,8 @@ See the [MCP Server Guide](backend/docs/MCP_SERVER.md) for detailed instructions
 DeerFlow supports receiving tasks from messaging apps. Channels auto-start when configured — no public IP required for any of them.
 
 DeerFlow can also expose user-owned IM channel connections in the workspace UI. When `channel_connections` is enabled, logged-in users can bind Telegram, Slack, Discord, Feishu/Lark, DingTalk, WeChat, or WeCom from the sidebar / Settings > Channels. It reuses the existing outbound `channels.*` transports, so no public IP or provider callback URL is required. Incoming IM messages then run under the connected DeerFlow user account. See [IM Channel Connections](backend/docs/IM_CHANNEL_CONNECTIONS.md) for setup and security notes.
+
+Administrators can create, schedule, publish, and archive workspace announcements from Settings > Announcement Management. The active announcement is shown to signed-in users as a prominent animated workspace card; severity, display window, and whether users may dismiss it are configurable.
 
 | Channel       | Transport                    | Difficulty |
 | ------------- | ---------------------------- | ---------- |
@@ -819,6 +822,13 @@ Most agents forget everything the moment a conversation ends. DeerFlow remembers
 Across sessions, DeerFlow builds a persistent memory of your profile, preferences, and accumulated knowledge. The more you use it, the better it knows you — your writing style, your technical stack, your recurring workflows. Memory is stored locally and stays under your control.
 
 Memory updates now skip duplicate fact entries at apply time, so repeated preferences and context do not accumulate endlessly across sessions.
+
+### Knowledge Base SSO
+
+The workspace knowledge-base integration uses the current DeerFlow identity to
+create or reuse a matching WeKnora account, then forwards knowledge-base and
+document operations with that user's bearer token. DeerFlow administrator roles
+are synchronized to the linked knowledge platform during SSO.
 
 ## Recommended Models
 

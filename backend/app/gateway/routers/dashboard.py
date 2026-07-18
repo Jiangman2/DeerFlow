@@ -17,7 +17,7 @@ from app.gateway.deps import require_admin_user
 from deerflow.persistence.engine import get_session_factory
 from deerflow.persistence.feedback.model import FeedbackRow
 from deerflow.persistence.models.run_event import RunEventRow
-from deerflow.persistence.observability.model import OperationDispositionRow
+from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.thread_meta.model import ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
@@ -79,6 +79,21 @@ class UserActivityPoint(BaseModel):
     active_users: int
     threads: int
     runs: int
+
+
+class UserUsageItem(BaseModel):
+    user_id: str
+    email: str | None
+    runs: int
+    threads: int
+    total_tokens: int
+    success_rate: float
+
+
+class ExternalAgentClickItem(BaseModel):
+    name: str
+    clicks: int
+    users: int
 
 
 class FeatureUsageItem(BaseModel):
@@ -197,6 +212,8 @@ class DashboardSummary(BaseModel):
     window: DashboardWindow
     overview: DashboardOverview
     user_activity: list[UserActivityPoint]
+    user_usage: list[UserUsageItem]
+    external_agent_clicks: list[ExternalAgentClickItem]
     feature_usage: list[FeatureUsageItem]
     recent_business_events: list[RecentBusinessEventItem]
     agent_usage: list[AgentUsageItem]
@@ -525,6 +542,13 @@ async def get_dashboard_summary(
         disposition_stmt = select(OperationDispositionRow).where(OperationDispositionRow.created_at >= start, OperationDispositionRow.created_at <= end).order_by(desc(OperationDispositionRow.created_at)).limit(_EVENT_FETCH_LIMIT)
         disposition_rows = list((await session.execute(disposition_stmt)).scalars().all())
 
+        click_stmt = select(AuditLogRow).where(
+            AuditLogRow.created_at >= start,
+            AuditLogRow.created_at <= end,
+            AuditLogRow.action == "external_agent.click",
+        )
+        external_click_rows = list((await session.execute(click_stmt)).scalars().all())
+
     all_events = events
     all_feedback_rows = feedback_rows
     run_features: dict[str, set[str]] = defaultdict(set)
@@ -626,6 +650,40 @@ async def get_dashboard_summary(
         )
         for key, value in sorted(buckets.items())
     ]
+
+    user_buckets: dict[str, dict[str, Any]] = {}
+    for run in runs:
+        if not run.user_id:
+            continue
+        bucket = user_buckets.setdefault(
+            run.user_id,
+            {"runs": 0, "successes": 0, "threads": set(), "tokens": 0},
+        )
+        bucket["runs"] += 1
+        bucket["successes"] += int(run.status == "success")
+        bucket["threads"].add(run.thread_id)
+        bucket["tokens"] += run.total_tokens or 0
+    user_usage = [
+        UserUsageItem(
+            user_id=user_id,
+            email=users_by_id.get(user_id).email if user_id in users_by_id else None,
+            runs=bucket["runs"],
+            threads=len(bucket["threads"]),
+            total_tokens=bucket["tokens"],
+            success_rate=_success_rate(bucket["successes"], bucket["runs"]),
+        )
+        for user_id, bucket in sorted(user_buckets.items(), key=lambda item: (item[1]["runs"], item[1]["tokens"]), reverse=True)[:limit]
+    ]
+
+    click_buckets: dict[str, dict[str, Any]] = {}
+    for row in external_click_rows:
+        if not row.resource_id:
+            continue
+        bucket = click_buckets.setdefault(row.resource_id, {"clicks": 0, "users": set()})
+        bucket["clicks"] += 1
+        if row.user_id:
+            bucket["users"].add(row.user_id)
+    external_agent_clicks = [ExternalAgentClickItem(name=name, clicks=bucket["clicks"], users=len(bucket["users"])) for name, bucket in sorted(click_buckets.items(), key=lambda item: item[1]["clicks"], reverse=True)]
 
     agent_buckets: dict[str, _AgentBucket] = {}
     for run in runs:
@@ -822,6 +880,8 @@ async def get_dashboard_summary(
             estimated_minutes_saved=estimated_minutes_saved,
         ),
         user_activity=user_activity,
+        user_usage=user_usage,
+        external_agent_clicks=external_agent_clicks,
         feature_usage=feature_usage,
         recent_business_events=recent_business_events,
         agent_usage=agent_usage,

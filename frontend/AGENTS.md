@@ -117,6 +117,12 @@ Admin operational data is consolidated in `/workspace/admin/dashboard`. The
 former `/workspace/admin/observability` route redirects there, and the UI only
 surfaces database-backed usage, run, failure, token, feedback, and management
 audit data. Incomplete component-health heuristics are intentionally hidden.
+The dashboard ranks users by run volume, reports launch clicks for the five
+built-in external agents, and links slow/high-token runs back to their chats.
+
+### Workspace announcements
+
+Administrators manage announcements in Settings > Announcement Management. `WorkspaceContent` mounts the active announcement above workspace pages, and the presentation uses a severity-aware animated card with reduced-motion fallbacks. Dismissal is stored per announcement revision, so editing and republishing an announcement makes the updated content visible again.
 
 ## Environment
 

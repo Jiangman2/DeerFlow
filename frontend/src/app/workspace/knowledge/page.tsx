@@ -236,7 +236,7 @@ export default function KnowledgePage() {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-[#202938]">知识库</h1>
           <p className="mt-1 text-sm text-[#687386]">
-            管理 WeKnora 知识库，并在对话中选择任务检索范围
+            管理知识库，并在对话中选择任务检索范围
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -283,6 +283,16 @@ export default function KnowledgePage() {
               <div className="flex items-center gap-2 px-2 py-8 text-sm text-[#687386]">
                 <Loader2Icon className="size-4 animate-spin" />
                 加载中
+              </div>
+            )}
+            {knowledgeBasesQuery.isError && (
+              <div className="space-y-2 px-2 py-8 text-sm text-[#b42318]">
+                <div>知识库加载失败，请稍后重试。</div>
+                <div className="break-words text-xs text-[#687386]">
+                  {knowledgeBasesQuery.error instanceof Error
+                    ? knowledgeBasesQuery.error.message
+                    : "服务暂时不可用"}
+                </div>
               </div>
             )}
             {!knowledgeBasesQuery.isLoading &&
@@ -344,7 +354,7 @@ export default function KnowledgePage() {
               </h2>
               <p className="mt-1 truncate text-sm text-[#687386]">
                 {selectedKb?.description ??
-                  "上传文件或新建手工文档后，WeKnora 会自动解析并建立索引"}
+                  "上传文件或新建手工文档后，系统会自动解析并建立索引"}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">

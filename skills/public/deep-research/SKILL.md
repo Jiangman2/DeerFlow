@@ -30,6 +30,10 @@ This skill provides a systematic methodology for conducting thorough web researc
 
 **Never generate content based solely on general knowledge.** The quality of your output directly depends on the quality and quantity of research conducted beforehand. A single search query is NEVER enough.
 
+## Execution Constraint
+
+This package is a methodology-only Skill and contains **no executable scripts**. Do not invent or call paths such as `/mnt/skills/public/deep-research/main.py`. Carry out the workflow with the available research tools (for example `web_search` and `web_fetch`) and report clearly if those tools are unavailable.
+
 ## Research Methodology
 
 ### Phase 1: Broad Exploration

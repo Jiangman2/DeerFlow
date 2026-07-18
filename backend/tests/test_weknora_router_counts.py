@@ -56,3 +56,26 @@ async def test_enrich_knowledge_base_counts_keeps_list_on_count_failure(monkeypa
     await weknora._enrich_knowledge_base_counts(items, "token")
 
     assert items == [{"id": "kb-1", "name": "Team KB", "knowledge_count": 0, "chunk_count": 0}]
+
+
+@pytest.mark.asyncio
+async def test_enrich_knowledge_base_counts_trusts_complete_upstream_counts(monkeypatch):
+    async def fail_request(*args, **kwargs):
+        raise AssertionError("complete list rows must not trigger per-document requests")
+
+    monkeypatch.setattr(weknora, "_request", fail_request)
+    items = [
+        {
+            "id": "kb-1",
+            "name": "Team KB",
+            "knowledge_count": 12,
+            "chunk_count": 34,
+            "processing_count": 0,
+            "is_processing": False,
+        }
+    ]
+
+    await weknora._enrich_knowledge_base_counts(items, "token")
+
+    assert items[0]["knowledge_count"] == 12
+    assert items[0]["chunk_count"] == 34

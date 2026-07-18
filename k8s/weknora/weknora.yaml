@@ -154,7 +154,7 @@ spec:
     spec:
       containers:
         - name: docreader
-          image: wechatopenai/weknora-docreader:latest
+          image: wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b
           imagePullPolicy: IfNotPresent
           env:
             - name: DOCREADER_IMAGE_OUTPUT_DIR
@@ -259,6 +259,14 @@ spec:
                   name: weknora-secret
                   key: TENANT_AES_KEY
             - name: SYSTEM_AES_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-secret
+                  key: SYSTEM_AES_KEY
+            # Keep WeKnora access/refresh tokens valid across pod restarts.
+            # Reuse the existing stable 32-byte deployment secret rather than
+            # allowing the application to generate an ephemeral JWT key.
+            - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: weknora-secret
@@ -400,6 +408,10 @@ spec:
             - name: ui-patch
               mountPath: /usr/share/nginx/html/index.html
               subPath: index.html
+              readOnly: true
+            - name: ui-patch
+              mountPath: /usr/share/nginx/html/config.js
+              subPath: config.js
               readOnly: true
       volumes:
         - name: ui-patch

@@ -191,6 +191,8 @@ async def _enrich_knowledge_base_counts(items: list[dict[str, Any]], access_toke
         kb_id = str(item.get("id") or "")
         if not kb_id:
             return
+        if all(key in item for key in ("knowledge_count", "chunk_count", "processing_count", "is_processing")):
+            return
         try:
             async with semaphore:
                 item.update(await _knowledge_base_counts(kb_id, access_token))

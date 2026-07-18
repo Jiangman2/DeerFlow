@@ -116,7 +116,17 @@ export function getMessageGroups(messages: Message[]): MessageGroup[] {
       const becomesAssistantBubble =
         hasContent(message) && !hasToolCalls(message);
 
-      if (hasPresentFiles(message)) {
+      const hasClarificationCall = message.tool_calls?.some(
+        (toolCall) => toolCall.name === "ask_clarification",
+      );
+
+      if (hasClarificationCall) {
+        groups.push({
+          id: message.id,
+          type: "assistant:clarification",
+          messages: [message],
+        });
+      } else if (hasPresentFiles(message)) {
         groups.push({
           id: message.id,
           type: "assistant:present-files",

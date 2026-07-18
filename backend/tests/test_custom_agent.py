@@ -603,6 +603,20 @@ def disabled_agent_client(tmp_path):
 
 
 class TestAgentsAPI:
+    def test_external_agent_click_accepts_builtin_agent(self, agent_client):
+        response = agent_client.post(
+            "/api/agent-analytics/external-click",
+            json={"agent_name": "专业文档解析专家"},
+        )
+        assert response.status_code == 204
+
+    def test_external_agent_click_rejects_unknown_agent(self, agent_client):
+        response = agent_client.post(
+            "/api/agent-analytics/external-click",
+            json={"agent_name": "unknown"},
+        )
+        assert response.status_code == 422
+
     def test_list_agents_empty(self, agent_client):
         response = agent_client.get("/api/agents")
         assert response.status_code == 200

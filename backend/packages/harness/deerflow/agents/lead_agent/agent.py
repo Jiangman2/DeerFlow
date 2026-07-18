@@ -373,6 +373,13 @@ def build_middlewares(
     # Add SubagentLimitMiddleware to truncate excess parallel task calls
     subagent_enabled = cfg.get("subagent_enabled", False)
     if subagent_enabled:
+        # Explicit Ultra-style requests with multiple independent workstreams
+        # must begin by delegating. This prevents a lead model from treating a
+        # methodology-only Skill as a shell script and looping on missing files.
+        if is_plan_mode:
+            from deerflow.agents.middlewares.explicit_parallel_delegation_middleware import ExplicitParallelDelegationMiddleware
+
+            middlewares.append(ExplicitParallelDelegationMiddleware())
         max_concurrent_subagents = cfg.get("max_concurrent_subagents", 3)
         max_total_subagents = cfg.get("max_total_subagents", _default_max_total_subagents(resolved_app_config))
         middlewares.append(SubagentLimitMiddleware(max_concurrent=max_concurrent_subagents, max_total=max_total_subagents))
@@ -418,6 +425,20 @@ def _available_skill_names(agent_config, is_bootstrap: bool) -> set[str] | None:
     if agent_config and agent_config.skills is not None:
         return set(agent_config.skills)
     return None
+
+
+def _restore_task_tool_for_subagent_mode(raw_tools, filtered_tools, *, subagent_enabled: bool):
+    """Keep the framework ``task`` tool when lead-agent delegation is enabled.
+
+    Skill ``allowed-tools`` declarations restrict domain tools, but cannot remove
+    the lead agent's only orchestration primitive after the runtime has enabled
+    subagents and the prompt has advertised delegation.  This deliberately
+    restores only ``task`` and only for the lead-agent subagent mode.
+    """
+    if not subagent_enabled or any(getattr(tool, "name", None) == "task" for tool in filtered_tools):
+        return filtered_tools
+    task_tool = next((tool for tool in raw_tools if getattr(tool, "name", None) == "task"), None)
+    return [*filtered_tools, task_tool] if task_tool is not None else filtered_tools
 
 
 def _load_enabled_skills_for_tool_policy(available_skills: set[str] | None, *, app_config: AppConfig, user_id: str | None = None) -> list[Skill]:
@@ -616,6 +637,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     # Default lead agent (unchanged behavior)
     raw_tools = get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled, app_config=resolved_app_config)
     filtered = filter_tools_by_skill_allowed_tools(raw_tools + extra_tools, skills_for_tool_policy, always_allowed_tool_names=ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES)
+    filtered = _restore_task_tool_for_subagent_mode(raw_tools, filtered, subagent_enabled=subagent_enabled)
     if non_interactive:
         filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
     final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)

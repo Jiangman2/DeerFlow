@@ -20,12 +20,21 @@ from deerflow.config.agents_config import (
     preserve_non_managed_fields,
 )
 from deerflow.config.paths import get_paths
+from deerflow.persistence.engine import get_session_factory
+from deerflow.persistence.observability.model import AuditLogRow
 from deerflow.runtime.user_context import get_effective_user_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["agents"])
 
 AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
+EXTERNAL_AGENT_NAMES = {
+    "专业文档解析专家",
+    "地震数据分辨率提升工具",
+    "专业报告校审专家",
+    "自动数采专家",
+    "前期研究报告编写专家",
+}
 
 
 class AgentResponse(BaseModel):
@@ -76,6 +85,41 @@ class AgentPublishRequest(BaseModel):
     """Request body for publishing a personal agent to the team square."""
 
     overwrite: bool = Field(default=True, description="Whether to replace an existing team agent with the same name")
+
+
+class ExternalAgentClickRequest(BaseModel):
+    agent_name: str = Field(..., max_length=128)
+
+
+@router.post("/agent-analytics/external-click", status_code=204)
+async def record_external_agent_click(body: ExternalAgentClickRequest) -> None:
+    """Record a launch click for one of the five built-in external agents."""
+    if body.agent_name not in EXTERNAL_AGENT_NAMES:
+        raise HTTPException(status_code=422, detail="Unknown external agent")
+    session_factory = get_session_factory()
+    if session_factory is None:
+        return
+    async with session_factory() as session:
+        session.add(
+            AuditLogRow(
+                user_id=get_effective_user_id(),
+                user_email=None,
+                user_role=None,
+                action="external_agent.click",
+                resource_type="external_agent",
+                resource_id=body.agent_name,
+                method="POST",
+                path="/api/agent-analytics/external-click",
+                status_code=204,
+                result="success",
+                duration_ms=0,
+                client_ip=None,
+                user_agent=None,
+                error=None,
+                details_json={},
+            )
+        )
+        await session.commit()
 
 
 def _validate_agent_name(name: str) -> None:

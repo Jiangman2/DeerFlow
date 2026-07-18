@@ -50,7 +50,7 @@ COPY backend ./backend
 # to Redis (DEER_FLOW_STREAM_BRIDGE_REDIS_URL); it is an optional extra elsewhere
 # so slim non-Docker installs do not pull it.
 # When UV_EXTRAS is set (comma- or whitespace-separated), installs optional dependencies.
-RUN \
+RUN --mount=type=cache,target=/root/.cache/uv \
     sh -c 'cd backend && \
     set -f; \
     extras_flags=""; \

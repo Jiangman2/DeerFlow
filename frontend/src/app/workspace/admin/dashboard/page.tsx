@@ -4,11 +4,11 @@ import {
   ActivityIcon,
   AlertTriangleIcon,
   BarChart3Icon,
-  BotIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClockIcon,
   ExternalLinkIcon,
   RefreshCwIcon,
-  ShieldCheckIcon,
   ThumbsUpIcon,
   UsersIcon,
   ZapIcon,
@@ -21,18 +21,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useDashboardSummary } from "@/core/dashboard";
 import type {
-  AgentUsageItem,
   DashboardFilters,
+  ExternalAgentClickItem,
   FeedbackSummary,
-  ModelUsageItem,
   RecentFailureItem,
   UserActivityPoint,
+  UserUsageItem,
 } from "@/core/dashboard";
-import {
-  useObservabilityAnalytics,
-  useObservabilityAuditLogs,
-} from "@/core/observability";
-import type { AuditLog, TraceSummary } from "@/core/observability";
+import { useObservabilityAnalytics } from "@/core/observability";
+import type { TraceSummary } from "@/core/observability";
 import { cn } from "@/lib/utils";
 
 function compactNumber(value: number): string {
@@ -176,72 +173,139 @@ function ActivityTrend({ items }: { items: UserActivityPoint[] }) {
   );
 }
 
-function AgentRanking({ items }: { items: AgentUsageItem[] }) {
-  if (items.length === 0) return <EmptyState label="暂无智能体使用数据" />;
-
+function UserRanking({ items }: { items: UserUsageItem[] }) {
+  const pageSize = 5;
+  const [page, setPage] = useState(0);
+  if (items.length === 0) return <EmptyState label="暂无用户使用数据" />;
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageItems = items.slice(
+    currentPage * pageSize,
+    (currentPage + 1) * pageSize,
+  );
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px_40px_56px] gap-2 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-500 sm:grid-cols-[minmax(0,1fr)_84px_84px_96px] sm:gap-3 sm:px-4">
-        <div>智能体</div>
-        <div className="text-right">运行</div>
-        <div className="text-right">用户</div>
-        <div className="text-right">成功率</div>
+    <div className="space-y-3">
+      <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+        {pageItems.map((item, index) => (
+          <div
+            key={item.user_id}
+            className="flex items-center gap-3 rounded-lg border border-slate-200/80 bg-white/70 px-3 py-3"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+              {currentPage * pageSize + index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-slate-800">
+                {item.email ?? item.user_id}
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                {item.threads} 个会话 · {compactNumber(item.total_tokens)} Token
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-semibold text-slate-900">
+                {item.runs}
+              </div>
+              <div className="text-xs text-slate-500">次运行</div>
+            </div>
+          </div>
+        ))}
       </div>
-      {items.map((item) => (
-        <div
-          key={item.assistant_id ?? item.name}
-          className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px_40px_56px] gap-2 border-t px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_84px_84px_96px] sm:gap-3 sm:px-4"
-        >
-          <div className="min-w-0">
-            <div
-              className="truncate font-medium text-slate-800"
-              title={item.name}
-            >
-              {item.name}
-            </div>
-            <div className="truncate text-xs text-slate-500">
-              平均耗时 {duration(item.avg_duration_ms)}
-            </div>
-          </div>
-          <div className="text-right text-slate-700">{item.runs}</div>
-          <div className="text-right text-slate-700">{item.users}</div>
-          <div className="text-right text-slate-700">
-            {percent(item.success_rate)}
-          </div>
-        </div>
-      ))}
+      <RankingPagination
+        page={currentPage}
+        totalPages={totalPages}
+        onPageChange={setPage}
+      />
     </div>
   );
 }
 
-function ModelRanking({ items }: { items: ModelUsageItem[] }) {
-  if (items.length === 0) return <EmptyState label="暂无模型调用数据" />;
+function RankingPagination({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-end gap-2 border-t pt-3 text-xs text-slate-500">
+      <span>
+        {page + 1} / {totalPages}
+      </span>
+      <Button
+        size="icon"
+        variant="outline"
+        className="size-7"
+        disabled={page === 0}
+        onClick={() => onPageChange(page - 1)}
+        aria-label="上一页"
+      >
+        <ChevronLeftIcon className="size-3.5" />
+      </Button>
+      <Button
+        size="icon"
+        variant="outline"
+        className="size-7"
+        disabled={page >= totalPages - 1}
+        onClick={() => onPageChange(page + 1)}
+        aria-label="下一页"
+      >
+        <ChevronRightIcon className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
+function ExternalAgentClicks({ items }: { items: ExternalAgentClickItem[] }) {
+  const names = [
+    "专业文档解析专家",
+    "地震数据分辨率提升工具",
+    "专业报告校审专家",
+    "自动数采专家",
+    "前期研究报告编写专家",
+  ];
+  const counts = new Map(items.map((item) => [item.name, item]));
+  const max = Math.max(1, ...items.map((item) => item.clicks));
   return (
     <div className="space-y-3">
-      {items.slice(0, 8).map((item) => (
-        <div
-          key={item.model_name}
-          className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border px-3 py-3 text-sm"
-        >
-          <div className="min-w-0">
-            <div className="truncate font-medium text-slate-800">
-              {item.model_name}
+      {names.map((name) => {
+        const item = counts.get(name);
+        const clicks = item?.clicks ?? 0;
+        return (
+          <div key={name} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="truncate text-slate-700">{name}</span>
+              <span className="shrink-0 font-semibold text-cyan-700">
+                {clicks} 次
+              </span>
             </div>
-            <div className="mt-1 text-xs text-slate-500">
-              {item.llm_calls} 次调用 · {compactNumber(item.total_tokens)} Token
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600"
+                style={{
+                  width: `${Math.max(clicks ? 8 : 0, (clicks / max) * 100)}%`,
+                }}
+              />
             </div>
           </div>
-          <div className="text-right text-xs text-slate-500">
-            <div>{percent(item.success_rate)} 成功</div>
-            <div className="mt-1">平均 {duration(item.avg_duration_ms)}</div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function RunRanking({ title, rows }: { title: string; rows: TraceSummary[] }) {
+  const pageSize = 5;
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageRows = rows.slice(
+    currentPage * pageSize,
+    (currentPage + 1) * pageSize,
+  );
   return (
     <Card className="min-w-0 rounded-lg shadow-none">
       <CardHeader>
@@ -254,29 +318,44 @@ function RunRanking({ title, rows }: { title: string; rows: TraceSummary[] }) {
         {rows.length === 0 ? (
           <EmptyState label="当前时间范围内暂无数据" />
         ) : (
-          <div className="space-y-2">
-            {rows.slice(0, 8).map((run) => (
-              <div
-                key={run.run_id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border px-3 py-3 text-sm"
-              >
-                <div className="min-w-0">
-                  <div
-                    className="truncate font-medium text-slate-800"
-                    title={run.run_id}
-                  >
-                    {run.run_id}
+          <div className="space-y-3">
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              {pageRows.map((run) => (
+                <div
+                  key={run.run_id}
+                  className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border px-3 py-3 text-sm"
+                >
+                  <div className="min-w-0">
+                    <div
+                      className="truncate font-medium text-slate-800"
+                      title={run.run_id}
+                    >
+                      {run.run_id}
+                    </div>
+                    <div className="mt-1 truncate text-xs text-slate-500">
+                      {run.model ?? "未记录模型"} · {run.agent ?? "默认智能体"}
+                    </div>
                   </div>
-                  <div className="mt-1 truncate text-xs text-slate-500">
-                    {run.model ?? "未记录模型"} · {run.agent ?? "默认智能体"}
+                  <div className="text-right text-xs text-slate-500">
+                    <div>{duration(run.duration_ms)}</div>
+                    <div className="mt-1">
+                      {compactNumber(run.tokens)} Token
+                    </div>
+                    <Link
+                      className="mt-2 inline-flex items-center gap-1 text-cyan-700 hover:text-cyan-900"
+                      href={`/workspace/chats/${run.thread_id}`}
+                    >
+                      查看原对话 <ExternalLinkIcon className="size-3" />
+                    </Link>
                   </div>
                 </div>
-                <div className="text-right text-xs text-slate-500">
-                  <div>{duration(run.duration_ms)}</div>
-                  <div className="mt-1">{compactNumber(run.tokens)} Token</div>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <RankingPagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </CardContent>
@@ -329,56 +408,6 @@ function RecentFailures({ rows }: { rows: RecentFailureItem[] }) {
   );
 }
 
-function ManagementAudit({ rows }: { rows: AuditLog[] }) {
-  const managementRows = rows.filter((row) => row.is_management).slice(0, 10);
-  return (
-    <Card className="min-w-0 rounded-lg shadow-none">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <ShieldCheckIcon className="size-4" />
-          管理操作审计
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {managementRows.length === 0 ? (
-          <EmptyState label="当前时间范围内暂无管理操作" />
-        ) : (
-          <div className="overflow-hidden rounded-lg border text-sm">
-            {managementRows.map((row) => (
-              <div
-                key={row.id}
-                className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b px-3 py-3 last:border-b-0"
-              >
-                <div className="min-w-0">
-                  <div className="truncate font-medium text-slate-800">
-                    {row.action}
-                  </div>
-                  <div className="mt-1 truncate text-xs text-slate-500">
-                    {row.user_email ?? row.user_id ?? "系统"} · {row.method}{" "}
-                    {row.path}
-                  </div>
-                </div>
-                <div className="text-right text-xs text-slate-500">
-                  <div
-                    className={
-                      row.result === "success"
-                        ? "text-emerald-700"
-                        : "text-red-700"
-                    }
-                  >
-                    {row.result}
-                  </div>
-                  <div className="mt-1">{shortTime(row.created_at)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
   const total = summary?.total ?? 0;
   return (
@@ -390,7 +419,7 @@ function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-3 gap-3">
           <div className="rounded-lg border bg-white p-4">
             <div className="text-sm text-slate-500">反馈数</div>
             <div className="mt-2 text-2xl font-semibold">
@@ -409,99 +438,7 @@ function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
               {compactNumber(summary?.negative ?? 0)}
             </div>
           </div>
-          <div className="rounded-lg border bg-white p-4">
-            <div className="text-sm text-slate-500">满意率</div>
-            <div className="mt-2 text-2xl font-semibold">
-              {percent(summary?.satisfaction_rate ?? 0)}
-            </div>
-          </div>
         </div>
-        {(summary?.by_feature.length ?? 0) > 0 ? (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-700">功能满意度</div>
-            {summary?.by_feature.slice(0, 5).map((item) => (
-              <div
-                key={item.name}
-                className="grid min-w-0 grid-cols-[minmax(0,1fr)_48px_48px_56px] gap-2 rounded-lg border px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_64px_64px_72px]"
-              >
-                <div className="truncate text-slate-700" title={item.name}>
-                  {item.name}
-                </div>
-                <div className="text-right text-emerald-700">
-                  好 {item.positive}
-                </div>
-                <div className="text-right text-red-700">
-                  差 {item.negative}
-                </div>
-                <div className="text-right text-slate-500">
-                  {percent(item.satisfaction_rate)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {(summary?.recent_negative.length ?? 0) > 0 ? (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-700">近期负反馈</div>
-            {summary?.recent_negative.map((item) => (
-              <div
-                key={`${item.run_id}-${item.created_at}-negative`}
-                className="rounded-lg border border-red-100 bg-red-50/40 p-3 text-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700">
-                    待复盘
-                  </span>
-                  <Link
-                    href={item.diagnostics_url}
-                    className="inline-flex items-center gap-1 text-xs text-red-700 hover:text-red-900"
-                  >
-                    查看诊断
-                    <ExternalLinkIcon className="size-3" />
-                  </Link>
-                </div>
-                <div className="mt-2 line-clamp-2 text-slate-700">
-                  {item.comment ?? item.run_id}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {shortTime(item.created_at)}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {(summary?.recent_comments.length ?? 0) > 0 ? (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-700">近期反馈</div>
-            {summary?.recent_comments.map((item) => (
-              <div
-                key={`${item.run_id}-${item.created_at}`}
-                className="rounded-lg border p-3 text-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span
-                    className={cn(
-                      "rounded px-2 py-1 text-xs font-medium",
-                      item.rating > 0
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-red-50 text-red-700",
-                    )}
-                  >
-                    {item.rating > 0 ? "好评" : "差评"}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {shortTime(item.created_at)}
-                  </span>
-                </div>
-                <div className="mt-2 line-clamp-2 text-slate-600">
-                  {item.comment}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState label="暂无文字反馈" />
-        )}
       </CardContent>
     </Card>
   );
@@ -536,13 +473,6 @@ export default function DashboardPage() {
     rangeStart,
     rangeEnd,
   );
-  const auditQuery = useObservabilityAuditLogs({
-    hours: activeHours,
-    start_at: rangeStart,
-    end_at: rangeEnd,
-    limit: 100,
-    operation_type: "management",
-  });
   const summary = summaryQuery.data;
 
   const windowLabel = useMemo(() => {
@@ -550,7 +480,7 @@ export default function DashboardPage() {
     return `${shortTime(summary.window.start_at)} - ${shortTime(summary.window.end_at)}`;
   }, [summary]);
   return (
-    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50/60 px-4 py-6 text-slate-950 sm:px-6">
+    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,#e0f2fe_0,transparent_28%),linear-gradient(to_bottom,#f8fafc,#eef2f7)] px-4 py-6 text-slate-950 sm:px-6">
       <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -580,7 +510,7 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1">
               <Input
                 aria-label="开始时间"
-                className="h-8 w-[168px]"
+                className="h-8 w-[220px] min-w-[220px] shrink-0"
                 type="datetime-local"
                 value={customStart}
                 onChange={(event) => setCustomStart(event.target.value)}
@@ -588,7 +518,7 @@ export default function DashboardPage() {
               <span className="text-xs text-slate-400">至</span>
               <Input
                 aria-label="结束时间"
-                className="h-8 w-[168px]"
+                className="h-8 w-[220px] min-w-[220px] shrink-0"
                 type="datetime-local"
                 value={customEnd}
                 onChange={(event) => setCustomEnd(event.target.value)}
@@ -618,20 +548,13 @@ export default function DashboardPage() {
               onClick={() => {
                 void summaryQuery.refetch();
                 void analyticsQuery.refetch();
-                void auditQuery.refetch();
               }}
-              disabled={
-                summaryQuery.isFetching ||
-                analyticsQuery.isFetching ||
-                auditQuery.isFetching
-              }
+              disabled={summaryQuery.isFetching || analyticsQuery.isFetching}
             >
               <RefreshCwIcon
                 className={cn(
                   "size-4",
-                  (summaryQuery.isFetching ||
-                    analyticsQuery.isFetching ||
-                    auditQuery.isFetching) &&
+                  (summaryQuery.isFetching || analyticsQuery.isFetching) &&
                     "animate-spin",
                 )}
               />
@@ -677,7 +600,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div className="min-w-0">
           <Card className="min-w-0 rounded-lg shadow-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -699,41 +622,35 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          <Card className="min-w-0 rounded-lg shadow-none">
+        <FeedbackPanel summary={summary?.feedback} />
+
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <BarChart3Icon className="size-4" />
-                模型使用
+                <UsersIcon className="size-4 text-cyan-700" />
+                用户使用排行
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ModelRanking items={summary?.model_usage ?? []} />
+              <UserRanking items={summary?.user_usage ?? []} />
             </CardContent>
           </Card>
-        </div>
-
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <Card className="min-w-0 rounded-lg shadow-none">
+          <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                <BotIcon className="size-4" />
-                智能体排行
+                <ExternalLinkIcon className="size-4 text-cyan-700" />
+                外部智能体点击
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <AgentRanking items={summary?.agent_usage ?? []} />
+              <ExternalAgentClicks
+                items={summary?.external_agent_clicks ?? []}
+              />
             </CardContent>
           </Card>
-
-          <FeedbackPanel summary={summary?.feedback} />
-        </div>
-
-        <div className="border-t border-slate-200 pt-2">
-          <h2 className="text-xl font-semibold text-slate-950">运行与审计</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            以下数据直接来自运行记录、Token 统计、失败记录和管理审计日志。
-          </p>
         </div>
 
         <div className="grid min-w-0 gap-4 xl:grid-cols-2">
@@ -746,7 +663,6 @@ export default function DashboardPage() {
             rows={analyticsQuery.data?.high_token_runs ?? []}
           />
           <RecentFailures rows={summary?.recent_failures ?? []} />
-          <ManagementAudit rows={auditQuery.data ?? []} />
         </div>
       </div>
     </main>

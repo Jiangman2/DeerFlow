@@ -1,8 +1,37 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <title>知识库</title>
     <meta charset="utf-8">
+    <title>知识库</title>
+    <script>try{localStorage.removeItem('weknora_auto_setup_failed')}catch(e){}</script>
+    <script>
+    (function(){
+      try {
+        var nativeFetch = window.fetch.bind(window);
+        window.fetch = function(input, init) {
+          return nativeFetch(input, init).then(function(response) {
+            try {
+              var url = typeof input === 'string' ? input : (input && input.url) || '';
+              if (response.ok && url.indexOf('/api/weknora/sso-session') >= 0) {
+                response.clone().json().then(function(data) {
+                  var tenant = data && (data.active_tenant || data.tenant);
+                  if (!data || !data.success || !data.token || !tenant) return;
+                  localStorage.removeItem('weknora_auto_setup_failed');
+                  localStorage.setItem('weknora_token', data.token);
+                  if (data.refresh_token) localStorage.setItem('weknora_refresh_token', data.refresh_token);
+                  if (data.user) localStorage.setItem('weknora_user', JSON.stringify(data.user));
+                  localStorage.setItem('weknora_tenant', JSON.stringify(tenant));
+                  localStorage.setItem('weknora_memberships', JSON.stringify(data.memberships || []));
+                  if (tenant.id != null) localStorage.setItem('weknora_selected_tenant_id', String(tenant.id));
+                }).catch(function(){});
+              }
+            } catch (e) {}
+            return response;
+          });
+        };
+      } catch (e) {}
+    })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="renderer" content="webkit">
@@ -12,7 +41,13 @@
     <link rel="shortcut icon" type="image/x-icon" href="/assets/favicon-bEsoBimf.ico">
     <link rel="icon" type="image/x-icon" href="/assets/favicon-bEsoBimf.ico">
     <link rel="apple-touch-icon" href="/assets/favicon-bEsoBimf.ico">
-    <script type="module" crossorigin src="/assets/main-pzt9Cxn1.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/tdesign-icon-offline-DpBpi-YD.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-highlight-2iXUmHrb.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-mermaid-WsNc9-GI.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-markdown-CR0bZxsY.js">
+    <link rel="modulepreload" crossorigin href="/assets/settings-CwixRhv-.js">
+    <link rel="modulepreload" crossorigin href="/assets/security-DMhmaURM.js">
+    <link rel="modulepreload" crossorigin href="/assets/index-DeX5ZUuT.js">
     <link rel="modulepreload" crossorigin href="/assets/vendor-highlight-2iXUmHrb.js">
     <link rel="modulepreload" crossorigin href="/assets/vendor-mermaid-WsNc9-GI.js">
     <link rel="modulepreload" crossorigin href="/assets/tdesign-icon-offline-DpBpi-YD.js">
@@ -26,46 +61,32 @@
     <link rel="stylesheet" crossorigin href="/assets/main-CG2i0oYS.css">
 </head>
 <body>
-<script>
-(function(){
-  var t=localStorage.getItem('WeKnora_theme')||'light';
-  if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
-  document.documentElement.setAttribute('theme-mode',t);
-  var bg=t==='dark'?'#181818':'#eee';
-  document.documentElement.style.background=bg;
-  document.documentElement.style.minHeight='100%';
-  document.documentElement.style.colorScheme=t==='dark'?'dark':'light';
-  document.body.style.background=bg;
-  document.body.style.minHeight='100%';
-})();
-</script>
-<script>
-(function(){
-  try {
-    if (localStorage.getItem('weknora_lite_mode') !== 'true') return;
-    var saved = sessionStorage.getItem('weknora_lite_last_path');
-    if (!saved || saved.indexOf('/platform/') !== 0 || saved.indexOf('/platform/organizations') === 0) return;
-    var path = window.location.pathname;
-    if (path !== '/' && path !== '/platform' && path !== '/platform/knowledge-bases') return;
-    var target = saved.indexOf('#') >= 0 ? saved.slice(0, saved.indexOf('#')) : saved;
-    if (!target) return;
-    var current = window.location.pathname + window.location.search;
-    if (target !== current) window.history.replaceState(window.history.state, '', target);
-  } catch (e) {}
-})();
-</script>
 <script src="/config.js"></script>
-<script src="/tdesign-icons/0.4.1/fonts/index.js"></script>
-<div id="app"></div>
-<script>
-(function(){
-  var t=localStorage.getItem('WeKnora_theme')||'light';
-  if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
-  var bg=t==='dark'?'#181818':'#eee';
-  var el=document.getElementById('app');
-  if(el){ el.style.background=bg; el.style.minHeight='100%'; }
-})();
+<script type="module">
+try {
+  const ssoUrl = globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL ||
+    `${location.protocol}//${location.hostname}:2026/api/weknora/sso-session`;
+  const response = await fetch(ssoUrl, { credentials: 'include', cache: 'no-store' });
+  if (response.ok) {
+    const data = await response.json();
+    const tenant = data && (data.active_tenant || data.tenant);
+    if (data?.success && data.token && data.user && tenant) {
+      localStorage.removeItem('weknora_auto_setup_failed');
+      localStorage.setItem('weknora_token', data.token);
+      if (data.refresh_token) localStorage.setItem('weknora_refresh_token', data.refresh_token);
+      localStorage.setItem('weknora_user', JSON.stringify(data.user));
+      localStorage.setItem('weknora_tenant', JSON.stringify(tenant));
+      localStorage.setItem('weknora_memberships', JSON.stringify(data.memberships || []));
+      if (tenant.id != null) localStorage.setItem('weknora_selected_tenant_id', String(tenant.id));
+    }
+  }
+} catch (error) {
+  console.warn('[deerflow-sso-bootstrap] session exchange failed', error);
+}
+await import('/assets/main-pzt9Cxn1.js');
 </script>
+<script defer src="/tdesign-icons/0.4.1/fonts/index.js"></script>
+<div id="app"></div>
 <style id="deerflow-brand-theme">
 :root,[theme-mode="light"]{--td-brand-color-1:#eef7ff;--td-brand-color-2:#dceeff;--td-brand-color-3:#b8dcf8;--td-brand-color-4:#82bfe9;--td-brand-color-5:#4b9ed7;--td-brand-color-6:#1687c9;--td-brand-color-7:#0868bd;--td-brand-color-8:#07569f;--td-brand-color-9:#06477f;--td-brand-color-10:#053963;--td-brand-color:#0868bd;--td-brand-color-hover:#075aa5;--td-brand-color-active:#064c8c;--td-brand-color-focus:#0868bd;--td-bg-color-page:#f8fafc;--td-bg-color-container:#fff}
 html,body,#app{background-color:#f8fafc!important}
@@ -76,17 +97,21 @@ html,body,#app{background-color:#f8fafc!important}
 </style>
 <script id="deerflow-brand-text">
 (function(){
-  var pattern=/WeKnora/gi,name='知识库';
+  var pattern=/WeKnora/gi;
+  var name='\u77e5\u8bc6\u5e93';
+  var hiddenUserLinks=['Claw Skill','Chrome \u63d2\u4ef6','GitHub'];
   function replace(value){return typeof value==='string'?value.replace(pattern,name):value}
+  function brandTitle(){var current=document.title;var next=replace(current)||name;if(next!==current)document.title=next}
   function brand(node){
-    if(node.nodeType===Node.TEXT_NODE){var parent=node.parentElement;if(parent&&!parent.closest('script,style,code,pre'))node.nodeValue=replace(node.nodeValue);return}
+    if(node.nodeType===Node.TEXT_NODE){var parent=node.parentElement;if(parent&&!parent.closest('script,style,code,pre')){var current=node.nodeValue;var next=replace(current);if(next!==current)node.nodeValue=next;var item=parent.closest('.user-dropdown .menu-item');if(item&&hiddenUserLinks.some(function(label){return (item.textContent||'').indexOf(label)>=0}))item.remove()}return}
     if(!(node instanceof Element))return;
-    ['aria-label','alt','placeholder','title'].forEach(function(attr){if(node.hasAttribute(attr))node.setAttribute(attr,replace(node.getAttribute(attr)))});
-    node.childNodes.forEach(brand);
+    var item=node.closest('.user-dropdown .menu-item');if(item&&hiddenUserLinks.some(function(label){return (item.textContent||'').indexOf(label)>=0})){item.remove();return}
+    ['aria-label','alt','placeholder','title'].forEach(function(attr){if(node.hasAttribute(attr)){var current=node.getAttribute(attr);var next=replace(current);if(next!==current)node.setAttribute(attr,next)}});
+    Array.from(node.childNodes).forEach(brand);
   }
   function start(){
-    document.title=replace(document.title)||name;if(document.body)brand(document.body);
-    new MutationObserver(function(records){records.forEach(function(record){record.addedNodes.forEach(brand);if(record.type==='characterData')brand(record.target)});document.title=replace(document.title)||name}).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
+    brandTitle();if(document.body)brand(document.body);
+    new MutationObserver(function(records){records.forEach(function(record){record.addedNodes.forEach(brand);if(record.type==='characterData')brand(record.target)});brandTitle()}).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

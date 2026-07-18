@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,6 +38,8 @@ _DEFAULT_MODELS_MANAGED_BY = "deerflow-sso"
 
 _default_models_lock = asyncio.Lock()
 _default_models_seeded = False
+_session_cache_lock = asyncio.Lock()
+_session_cache: dict[str, tuple[float, Any]] = {}
 
 
 @dataclass(frozen=True)
@@ -260,6 +263,57 @@ async def _connect_weknora_database() -> Any:
     )
 
 
+async def sync_weknora_role(user: Any, session: WeKnoraSession) -> WeKnoraSession:
+    """Mirror DeerFlow's system role onto the matching WeKnora user."""
+
+    if not _weknora_database_is_configured():
+        return session
+
+    is_admin = str(getattr(user, "system_role", "user") or "user").lower() == "admin"
+    user_id = str(session.user.get("id") or "")
+    email = str(session.user.get("email") or getattr(user, "email", "") or "").strip().lower()
+    if not user_id or not email:
+        return session
+
+    try:
+        connection = await _connect_weknora_database()
+    except Exception:
+        logger.warning("Failed to connect to WeKnora database while syncing the DeerFlow role.", exc_info=True)
+        return session
+
+    try:
+        await connection.execute(
+            """
+            UPDATE users
+            SET is_system_admin = $1,
+                can_access_all_tenants = $1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2 OR lower(email) = $3
+            """,
+            is_admin,
+            user_id,
+            email,
+        )
+    except Exception:
+        logger.warning("Failed to sync DeerFlow role for WeKnora user %s.", user_id, exc_info=True)
+        return session
+    finally:
+        await connection.close()
+
+    synced_user = {
+        **session.user,
+        "is_system_admin": is_admin,
+        "can_access_all_tenants": is_admin,
+    }
+    return WeKnoraSession(
+        token=session.token,
+        refresh_token=session.refresh_token,
+        user=synced_user,
+        tenant=session.tenant,
+        memberships=session.memberships,
+    )
+
+
 async def ensure_weknora_default_models() -> None:
     """Ensure DeerFlow's platform built-in WeKnora models exist.
 
@@ -334,7 +388,7 @@ async def ensure_weknora_default_models() -> None:
             await connection.close()
 
 
-async def ensure_weknora_session_for_deerflow_user(user: Any) -> WeKnoraSession:
+async def _create_weknora_session(user: Any) -> WeKnoraSession:
     """Create/reuse the matching WeKnora account and return a user JWT."""
 
     user_id = str(getattr(user, "id", "") or "")
@@ -384,5 +438,40 @@ async def ensure_weknora_session_for_deerflow_user(user: Any) -> WeKnoraSession:
     if not isinstance(data, dict):
         raise HTTPException(status_code=502, detail="Unexpected WeKnora login response shape.")
     session = _normalise_login_response(data)
+    session = await sync_weknora_role(user, session)
     await ensure_weknora_default_models()
     return session
+
+
+def _session_cache_ttl() -> float:
+    try:
+        return max(0.0, float(os.getenv("WEKNORA_SESSION_CACHE_TTL_S", "900")))
+    except ValueError:
+        return 900.0
+
+
+async def ensure_weknora_session_for_deerflow_user(user: Any) -> WeKnoraSession:
+    """Return a cached WeKnora session, provisioning it only when needed."""
+
+    user_id = str(getattr(user, "id", "") or "")
+    email = str(getattr(user, "email", "") or "").strip().lower()
+    role = str(getattr(user, "system_role", "user") or "user").lower()
+    if not user_id or not email:
+        raise HTTPException(status_code=401, detail="Authenticated DeerFlow user is missing id or email.")
+
+    cache_key = f"{user_id}:{email}:{role}"
+    now = time.monotonic()
+    cached = _session_cache.get(cache_key)
+    if cached is not None and cached[0] > now:
+        return cached[1]
+
+    async with _session_cache_lock:
+        now = time.monotonic()
+        cached = _session_cache.get(cache_key)
+        if cached is not None and cached[0] > now:
+            return cached[1]
+        session = await _create_weknora_session(user)
+        ttl = _session_cache_ttl()
+        if ttl > 0:
+            _session_cache[cache_key] = (now + ttl, session)
+        return session

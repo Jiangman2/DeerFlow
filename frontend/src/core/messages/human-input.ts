@@ -220,14 +220,86 @@ export function parseHumanInputResponse(
 export function extractHumanInputRequest(
   message: Message,
 ): HumanInputRequest | null {
-  if (message.type !== "tool") {
+  // The gateway normally persists the request in ToolMessage.artifact. Some
+  // LangGraph SDK versions drop custom ToolMessage fields while replaying a
+  // thread, though, leaving only the original AI tool call. Keep both forms
+  // compatible so a clarification never degrades into a raw function call.
+  if (message.type === "tool") {
+    const artifact = Reflect.get(message, "artifact");
+    const direct = isRecord(artifact)
+      ? parseHumanInputRequest(artifact.human_input)
+      : null;
+    if (direct) {
+      return direct;
+    }
+
+    const additionalKwargs = message.additional_kwargs;
+    const nestedArtifact =
+      isRecord(additionalKwargs) && isRecord(additionalKwargs.artifact)
+        ? additionalKwargs.artifact
+        : null;
+    const nested = nestedArtifact
+      ? parseHumanInputRequest(nestedArtifact.human_input)
+      : isRecord(additionalKwargs)
+        ? parseHumanInputRequest(additionalKwargs.human_input)
+        : null;
+    if (nested) {
+      return nested;
+    }
+  }
+
+  if (message.type !== "ai") {
     return null;
   }
-  const artifact = Reflect.get(message, "artifact");
-  if (!isRecord(artifact)) {
+
+  const clarificationCall = message.tool_calls?.find(
+    (toolCall) => toolCall.name === "ask_clarification",
+  );
+  if (!clarificationCall || !isRecord(clarificationCall.args)) {
     return null;
   }
-  return parseHumanInputRequest(artifact.human_input);
+
+  const args = clarificationCall.args;
+  const question = args.question;
+  if (!isNonEmptyString(question)) {
+    return null;
+  }
+  const rawOptions = args.options;
+  const optionValues = Array.isArray(rawOptions)
+    ? rawOptions.filter(isNonEmptyString)
+    : [];
+  const requestId =
+    (isNonEmptyString(clarificationCall.id) && clarificationCall.id) ||
+    (isNonEmptyString(message.id) && message.id) ||
+    `clarification-${question.slice(0, 32)}`;
+  const inputMode: HumanInputMode = optionValues.length
+    ? "choice_with_other"
+    : "free_text";
+
+  return {
+    version: 1,
+    kind: "human_input_request",
+    source: "ask_clarification",
+    request_id: requestId,
+    ...(isNonEmptyString(clarificationCall.id)
+      ? { tool_call_id: clarificationCall.id }
+      : {}),
+    ...(isNonEmptyString(args.clarification_type)
+      ? { clarification_type: args.clarification_type }
+      : {}),
+    question,
+    ...(typeof args.context === "string" ? { context: args.context } : {}),
+    input_mode: inputMode,
+    ...(optionValues.length
+      ? {
+          options: optionValues.map((value, index) => ({
+            id: `option-${index + 1}`,
+            label: value,
+            value,
+          })),
+        }
+      : {}),
+  };
 }
 
 export function extractHumanInputResponse(

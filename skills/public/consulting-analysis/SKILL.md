@@ -20,6 +20,10 @@ The output adheres to McKinsey/BCG consulting voice standards. The report langua
 - **NO Hallucinations**: Do not invent, estimate, or simulate data. If data is missing, state "Data not available" rather than fabricating numbers.
 - **Traceable Sources**: Every major claim and chart must be traceable back to the input data package.
 
+## Execution Constraint
+
+This package is a methodology-only Skill and contains **no executable scripts**. Do not invent or call paths such as `/mnt/skills/public/consulting-analysis/main.py`. Use the available tools to collect and analyse data, then produce the report from those verified inputs.
+
 ## Core Capabilities
 
 - **Design analysis frameworks** from scratch given only a research subject and scope

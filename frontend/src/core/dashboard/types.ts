@@ -31,6 +31,21 @@ export interface UserActivityPoint {
   runs: number;
 }
 
+export interface UserUsageItem {
+  user_id: string;
+  email: string | null;
+  runs: number;
+  threads: number;
+  total_tokens: number;
+  success_rate: number;
+}
+
+export interface ExternalAgentClickItem {
+  name: string;
+  clicks: number;
+  users: number;
+}
+
 export interface FeatureUsageItem {
   name: string;
   count: number;
@@ -177,6 +192,8 @@ export interface DashboardSummary {
   window: DashboardWindow;
   overview: DashboardOverview;
   user_activity: UserActivityPoint[];
+  user_usage: UserUsageItem[];
+  external_agent_clicks: ExternalAgentClickItem[];
   feature_usage: FeatureUsageItem[];
   recent_business_events: RecentBusinessEventItem[];
   agent_usage: AgentUsageItem[];

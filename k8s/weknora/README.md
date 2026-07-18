@@ -36,6 +36,10 @@ also keeps the DeerFlow default WeKnora models present as platform built-ins
 tenants created after the deployment. The local PVC stack wires these values
 from `weknora-secret`:
 
+The WeKnora application also uses the existing stable `SYSTEM_AES_KEY` as its
+`JWT_SECRET`. This keeps SSO access and refresh tokens valid across application
+pod restarts without adding another local secret to maintain.
+
 ```text
 WEKNORA_DB_HOST=weknora-postgres
 WEKNORA_DB_PORT=5432

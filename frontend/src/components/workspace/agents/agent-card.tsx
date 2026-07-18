@@ -48,6 +48,7 @@ import {
   useUnpublishTeamAgent,
 } from "@/core/agents";
 import type { Agent } from "@/core/agents";
+import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
@@ -218,6 +219,16 @@ export function AgentCard({
     : undefined;
   const DomainIcon = displayConfig?.domainIcon;
 
+  function recordExternalClick() {
+    if (!externalUrl) return;
+    void fetch(`${getBackendBaseURL()}/api/agent-analytics/external-click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agent_name: agent.name }),
+      keepalive: true,
+    }).catch(() => undefined);
+  }
+
   function handleChat() {
     router.push(
       `/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`,
@@ -369,7 +380,12 @@ export function AgentCard({
               size="sm"
               className="flex-1 rounded-lg shadow-sm transition-all duration-300 group-hover:shadow"
             >
-              <a href={externalHref} target="_blank" rel="noreferrer">
+              <a
+                href={externalHref}
+                target="_blank"
+                rel="noreferrer"
+                onClick={recordExternalClick}
+              >
                 <ExternalLinkIcon className="mr-1.5 h-3.5 w-3.5" />
                 {t.agents.openExternal}
               </a>

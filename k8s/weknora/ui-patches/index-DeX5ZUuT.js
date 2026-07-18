@@ -1,1 +1,216 @@
-﻿import{p as t,g as a,b as o,i as c}from"./tdesign-icon-offline-DpBpi-YD.js";import"./vendor-highlight-2iXUmHrb.js";import"./vendor-mermaid-WsNc9-GI.js";const r=e=>c.global.t(e);function p(e,s){const n=e?.tenant_id!==void 0&&e?.tenant_id!==null&&e.tenant_id!==""?e.tenant_id:s??"";return{id:e?.id||"",username:e?.username||"",email:e?.email||"",avatar:e?.avatar,tenant_id:String(n)||"",can_access_all_tenants:e?.can_access_all_tenants===!0,is_system_admin:e?.is_system_admin===!0,preferences:e?.preferences,created_at:e?.created_at||new Date().toISOString(),updated_at:e?.updated_at||new Date().toISOString()}}async function l(e){try{return await t("/api/v1/auth/login",e)}catch(s){return{success:!1,message:s.message||r("error.auth.loginFailed")}}}async function f(e){try{return await a(`/api/v1/auth/oidc/url?redirect_uri=${encodeURIComponent(e)}`)}catch(s){return{success:!1,message:s.message||r("error.auth.loginFailed")}}}async function h(){try{return await a("/api/v1/auth/oidc/config")}catch(e){return{success:!1,enabled:!1,message:e.message||r("error.auth.loginFailed")}}}async function m(){try{return await a("/api/v1/auth/config")}catch{return{success:!1,registration_mode:"self_serve"}}}async function d(e){try{return await t("/api/v1/auth/register",e)}catch(s){return{success:!1,message:s.message||r("error.auth.registerFailed")}}}async function y(){try{const e=globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL||`${location.protocol}//${location.hostname}:2026/api/weknora/sso-session`,s=await fetch(e,{credentials:"include"});if(s.ok){const n=await s.json();if(n&&n.success)return n}}catch{}try{return await t("/api/v1/auth/auto-setup",{})}catch(e){return{success:!1,message:e.message||"Auto-setup unavailable"}}}async function v(){try{return await a("/api/v1/auth/me")}catch(e){return{success:!1,message:e.message||r("error.auth.getUserFailed")}}}async function _(e){try{return await o("/api/v1/auth/me/preferences",e)}catch(s){return{success:!1,message:s.message||r("error.auth.updatePreferencesFailed")}}}async function w(){try{return await a("/api/v1/auth/tenant")}catch(e){return{success:!1,message:e.message||r("error.auth.getTenantFailed")}}}async function k(e){try{const s=await t("/api/v1/auth/refresh",{refreshToken:e});return s&&s.success&&(s.access_token||s.refresh_token)?{success:!0,data:{token:s.access_token,refreshToken:s.refresh_token}}:{success:!1,message:s?.message||r("error.auth.refreshTokenFailed")}}catch(s){return{success:!1,message:s.message||r("error.auth.refreshTokenFailed")}}}async function F(){try{return await t("/api/v1/auth/logout",{}),{success:!0}}catch(e){return{success:!1,message:e.message||r("error.auth.logoutFailed")}}}async function T(){try{return await a("/api/v1/auth/validate")}catch(e){return{success:!1,valid:!1,message:e.message||r("error.auth.validateTokenFailed")}}}async function I(e){try{return await t("/api/v1/auth/invitations/lookup",{token:e})}catch(s){return{success:!1,message:s.message||""}}}async function C(e){try{return await t("/api/v1/auth/register-by-invite",e)}catch(s){return{success:!1,message:s.message||r("error.auth.registerFailed")}}}export{y as autoSetup,m as getAuthConfig,w as getCurrentTenant,v as getCurrentUser,I as getInvitationByToken,f as getOIDCAuthorizationURL,h as getOIDCConfig,l as login,F as logout,k as refreshToken,d as register,C as registerByInvite,_ as updateMyPreferences,p as userInfoFromApi,T as validateToken};
+import { p as post, g as get, b as put, i as i18n } from "./tdesign-icon-offline-DpBpi-YD.js";
+import "./vendor-highlight-2iXUmHrb.js";
+import "./vendor-mermaid-WsNc9-GI.js";
+
+const translate = (key) => i18n.global.t(key);
+
+function userInfoFromApi(user, tenantId) {
+  const resolvedTenantId =
+    user?.tenant_id !== undefined && user?.tenant_id !== null && user.tenant_id !== ""
+      ? user.tenant_id
+      : (tenantId ?? "");
+  return {
+    id: user?.id || "",
+    username: user?.username || "",
+    email: user?.email || "",
+    avatar: user?.avatar,
+    tenant_id: String(resolvedTenantId) || "",
+    can_access_all_tenants: user?.can_access_all_tenants === true,
+    is_system_admin: user?.is_system_admin === true,
+    preferences: user?.preferences,
+    created_at: user?.created_at || new Date().toISOString(),
+    updated_at: user?.updated_at || new Date().toISOString(),
+  };
+}
+
+async function login(payload) {
+  try {
+    return await post("/api/v1/auth/login", payload);
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.loginFailed") };
+  }
+}
+
+async function getOIDCAuthorizationURL(redirectUri) {
+  try {
+    return await get(`/api/v1/auth/oidc/url?redirect_uri=${encodeURIComponent(redirectUri)}`);
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.loginFailed") };
+  }
+}
+
+async function getOIDCConfig() {
+  try {
+    return await get("/api/v1/auth/oidc/config");
+  } catch (error) {
+    return { success: false, enabled: false, message: error.message || translate("error.auth.loginFailed") };
+  }
+}
+
+async function getAuthConfig() {
+  try {
+    return await get("/api/v1/auth/config");
+  } catch {
+    return { success: false, registration_mode: "self_serve" };
+  }
+}
+
+async function register(payload) {
+  try {
+    return await post("/api/v1/auth/register", payload);
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.registerFailed") };
+  }
+}
+
+let currentSsoSession;
+let ssoBootstrapPromise;
+
+function persistSsoSession(data) {
+  const tenant = data?.tenant || data?.active_tenant;
+  if (!data?.token || !data?.user || !tenant) return;
+  currentSsoSession = { ...data, tenant, active_tenant: tenant };
+  localStorage.setItem("weknora_token", data.token);
+  if (data.refresh_token) localStorage.setItem("weknora_refresh_token", data.refresh_token);
+  localStorage.setItem("weknora_user", JSON.stringify(data.user));
+  localStorage.setItem("weknora_tenant", JSON.stringify(tenant));
+  localStorage.setItem("weknora_memberships", JSON.stringify(data.memberships || []));
+  if (tenant.id != null) localStorage.setItem("weknora_selected_tenant_id", String(tenant.id));
+}
+
+function currentUserResponse(data) {
+  const tenant = data.tenant || data.active_tenant;
+  return {
+    success: true,
+    data: { user: data.user, tenant, memberships: data.memberships || [] },
+    user: data.user,
+    tenant,
+    active_tenant: tenant,
+    memberships: data.memberships || [],
+    token: data.token,
+    refresh_token: data.refresh_token,
+  };
+}
+
+async function autoSetup() {
+  try {
+    const url =
+      globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL ||
+      `${location.protocol}//${location.hostname}:2026/api/weknora/sso-session`;
+    const response = await fetch(url, { credentials: "include", cache: "no-store" });
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.success && data.token && data.user && (data.tenant || data.active_tenant)) {
+        persistSsoSession(data);
+        return currentSsoSession;
+      }
+    }
+  } catch {
+    // The caller handles an unavailable DeerFlow session by showing login.
+  }
+  return { success: false, message: "DeerFlow SSO unavailable" };
+}
+
+async function getCurrentUser() {
+  if (globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL) {
+    // Always exchange the current DeerFlow cookie for a fresh WeKnora session
+    // when this document boots. A token left in localStorage can become invalid
+    // after WeKnora restarts; trusting it lets the application fire its model
+    // and knowledge-base requests with a stale bearer token before SSO runs.
+    // Share one exchange across concurrent auth guards in the same document.
+    if (!ssoBootstrapPromise) {
+      ssoBootstrapPromise = autoSetup().finally(() => {
+        if (!currentSsoSession) ssoBootstrapPromise = undefined;
+      });
+    }
+    const session = currentSsoSession || (await ssoBootstrapPromise);
+    if (session?.success && session.user && (session.tenant || session.active_tenant)) {
+      persistSsoSession(session);
+      return currentUserResponse(currentSsoSession);
+    }
+    return { success: false, message: session?.message || "DeerFlow SSO unavailable" };
+  }
+  try {
+    return await get("/api/v1/auth/me");
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.getUserFailed") };
+  }
+}
+
+async function updateMyPreferences(payload) {
+  try {
+    return await put("/api/v1/auth/me/preferences", payload);
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.updatePreferencesFailed") };
+  }
+}
+
+async function getCurrentTenant() {
+  try {
+    return await get("/api/v1/auth/tenant");
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.getTenantFailed") };
+  }
+}
+
+async function refreshToken(refreshTokenValue) {
+  try {
+    const response = await post("/api/v1/auth/refresh", { refreshToken: refreshTokenValue });
+    return response?.success && (response.access_token || response.refresh_token)
+      ? { success: true, data: { token: response.access_token, refreshToken: response.refresh_token } }
+      : { success: false, message: response?.message || translate("error.auth.refreshTokenFailed") };
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.refreshTokenFailed") };
+  }
+}
+
+async function logout() {
+  try {
+    await post("/api/v1/auth/logout", {});
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.logoutFailed") };
+  }
+}
+
+async function validateToken() {
+  try {
+    return await get("/api/v1/auth/validate");
+  } catch (error) {
+    return { success: false, valid: false, message: error.message || translate("error.auth.validateTokenFailed") };
+  }
+}
+
+async function getInvitationByToken(token) {
+  try {
+    return await post("/api/v1/auth/invitations/lookup", { token });
+  } catch (error) {
+    return { success: false, message: error.message || "" };
+  }
+}
+
+async function registerByInvite(payload) {
+  try {
+    return await post("/api/v1/auth/register-by-invite", payload);
+  } catch (error) {
+    return { success: false, message: error.message || translate("error.auth.registerFailed") };
+  }
+}
+
+export {
+  autoSetup,
+  getAuthConfig,
+  getCurrentTenant,
+  getCurrentUser,
+  getInvitationByToken,
+  getOIDCAuthorizationURL,
+  getOIDCConfig,
+  login,
+  logout,
+  refreshToken,
+  register,
+  registerByInvite,
+  updateMyPreferences,
+  userInfoFromApi,
+  validateToken,
+};

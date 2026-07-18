@@ -91,6 +91,19 @@ never receives a global WeKnora API key. The supported management flows are:
 - create manual Markdown knowledge and publish it for processing;
 - list document parse status and refresh processing results.
 
+The identity bridge is idempotent: it attempts registration with a stable,
+service-managed credential and then logs in, so the first visit creates the
+matching WeKnora account while later visits reuse it. After login, DeerFlow
+mirrors `system_role=admin` to WeKnora's system-admin and all-tenant flags;
+regular DeerFlow users remain regular WeKnora users and keep the owner/member
+role returned for their own tenant.
+
+Gateway proxy calls reuse each linked WeKnora session for a short configurable
+window (`WEKNORA_SESSION_CACHE_TTL_S`, 900 seconds by default), avoiding a
+register/login round trip for every list or upload request. Knowledge-base list
+rows also keep WeKnora's aggregate document/chunk/processing counts when those
+fields are already present instead of issuing per-document count requests.
+
 The chat composer includes a "knowledge base" scope selector. Selected knowledge
 base IDs are sent with the LangGraph run context as
 `weknora_knowledge_base_ids`, plus display names as `weknora_knowledge_bases`.
