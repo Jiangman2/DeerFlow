@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.gateway.deps import require_admin_user
 from deerflow.persistence.announcement import AnnouncementRepository
@@ -55,10 +55,21 @@ class AnnouncementWriteRequest(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
 
+    @field_validator("title", "content")
+    @classmethod
+    def strip_required_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("starts_at", "ends_at")
+    @classmethod
+    def normalize_datetime(cls, value: datetime | None) -> datetime | None:
+        return _normalize_dt(value)
+
     @model_validator(mode="after")
     def validate_window(self) -> AnnouncementWriteRequest:
-        self.starts_at = _normalize_dt(self.starts_at)
-        self.ends_at = _normalize_dt(self.ends_at)
         if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
             raise ValueError("ends_at must be later than starts_at")
         return self
@@ -73,13 +84,20 @@ class AnnouncementPatchRequest(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
 
-    @model_validator(mode="after")
-    def validate_window(self) -> AnnouncementPatchRequest:
-        self.starts_at = _normalize_dt(self.starts_at)
-        self.ends_at = _normalize_dt(self.ends_at)
-        if self.starts_at and self.ends_at and self.ends_at <= self.starts_at:
-            raise ValueError("ends_at must be later than starts_at")
-        return self
+    @field_validator("title", "content")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be blank")
+        return value
+
+    @field_validator("starts_at", "ends_at")
+    @classmethod
+    def normalize_datetime(cls, value: datetime | None) -> datetime | None:
+        return _normalize_dt(value)
 
 
 class StatusRequest(BaseModel):

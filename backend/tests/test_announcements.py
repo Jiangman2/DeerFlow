@@ -126,3 +126,126 @@ async def test_published_announcements_cannot_overlap(monkeypatch: pytest.Monkey
             assert response.status_code == 409
     finally:
         await engine.dispose()
+
+
+async def test_scheduled_announcement_only_appears_inside_its_window() -> None:
+    sf, engine = await _session_factory()
+    now = datetime.now(UTC)
+    repo = AnnouncementRepository(sf)
+    try:
+        item = await repo.create(
+            {
+                "title": "定时公告",
+                "content": "仅在排期内展示",
+                "status": "published",
+                "starts_at": now + timedelta(hours=1),
+                "ends_at": now + timedelta(hours=2),
+            }
+        )
+        assert await repo.get_active(at=now) is None
+        assert (await repo.get_active(at=now + timedelta(hours=1, minutes=1)))["id"] == item["id"]
+        assert await repo.get_active(at=now + timedelta(hours=2)) is None
+    finally:
+        await engine.dispose()
+
+
+async def test_adjacent_published_windows_are_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
+    sf, engine = await _session_factory()
+    now = datetime.now(UTC)
+    repo = AnnouncementRepository(sf)
+    try:
+        await repo.create(
+            {
+                "title": "公告一",
+                "content": "第一段时间",
+                "status": "published",
+                "starts_at": now,
+                "ends_at": now + timedelta(hours=1),
+            }
+        )
+        with _make_client(sf, monkeypatch) as client:
+            response = client.post(
+                "/api/admin/announcements",
+                json={
+                    "title": "公告二",
+                    "content": "紧邻第一段时间",
+                    "status": "published",
+                    "starts_at": (now + timedelta(hours=1)).isoformat(),
+                    "ends_at": (now + timedelta(hours=2)).isoformat(),
+                },
+            )
+            assert response.status_code == 200
+    finally:
+        await engine.dispose()
+
+
+async def test_published_announcement_can_be_withdrawn_and_republished(monkeypatch: pytest.MonkeyPatch) -> None:
+    sf, engine = await _session_factory()
+    try:
+        with _make_client(sf, monkeypatch) as client:
+            created = client.post(
+                "/api/admin/announcements",
+                json={"title": "临时公告", "content": "可撤下", "status": "published"},
+            ).json()["item"]
+
+            withdrawn = client.post(
+                f"/api/admin/announcements/{created['id']}/status",
+                json={"status": "draft"},
+            )
+            assert withdrawn.status_code == 200
+            assert withdrawn.json()["item"]["status"] == "draft"
+            assert client.get("/api/announcements/active").json()["announcement"] is None
+
+            republished = client.post(
+                f"/api/admin/announcements/{created['id']}/status",
+                json={"status": "published"},
+            )
+            assert republished.status_code == 200
+            assert client.get("/api/announcements/active").json()["announcement"]["id"] == created["id"]
+    finally:
+        await engine.dispose()
+
+
+async def test_update_can_clear_schedule_and_validates_merged_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    sf, engine = await _session_factory()
+    now = datetime.now(UTC)
+    try:
+        with _make_client(sf, monkeypatch) as client:
+            created = client.post(
+                "/api/admin/announcements",
+                json={
+                    "title": "排期草稿",
+                    "content": "测试时间窗口",
+                    "starts_at": now.isoformat(),
+                    "ends_at": (now + timedelta(hours=2)).isoformat(),
+                },
+            ).json()["item"]
+
+            invalid = client.patch(
+                f"/api/admin/announcements/{created['id']}",
+                json={"ends_at": (now - timedelta(minutes=1)).isoformat()},
+            )
+            assert invalid.status_code == 422
+
+            cleared = client.patch(
+                f"/api/admin/announcements/{created['id']}",
+                json={"starts_at": None, "ends_at": None},
+            )
+            assert cleared.status_code == 200
+            assert cleared.json()["item"]["starts_at"] is None
+            assert cleared.json()["item"]["ends_at"] is None
+    finally:
+        await engine.dispose()
+
+
+async def test_blank_title_and_content_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    sf, engine = await _session_factory()
+    try:
+        with _make_client(sf, monkeypatch) as client:
+            response = client.post(
+                "/api/admin/announcements",
+                json={"title": "   ", "content": "\n\t", "status": "draft"},
+            )
+            assert response.status_code == 422
+    finally:
+        await engine.dispose()

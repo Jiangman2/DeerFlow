@@ -2,11 +2,14 @@
 
 import {
   ArchiveIcon,
+  CalendarClockIcon,
   CheckCircle2Icon,
+  EyeOffIcon,
   LoaderCircleIcon,
   MegaphoneIcon,
   PencilIcon,
   PlusIcon,
+  RotateCcwIcon,
   SendIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -30,6 +33,10 @@ import {
   useSetAnnouncementStatus,
   useUpdateAnnouncement,
 } from "@/core/announcements/hooks";
+import {
+  getAnnouncementDisplayStatus,
+  validateAnnouncementWindow,
+} from "@/core/announcements/presentation";
 import type {
   Announcement,
   AnnouncementInput,
@@ -57,12 +64,6 @@ const severityLabels: Record<AnnouncementSeverity, string> = {
   success: "完成",
   warning: "提醒",
   critical: "紧急",
-};
-
-const statusLabels: Record<AnnouncementStatus, string> = {
-  draft: "草稿",
-  published: "已发布",
-  archived: "已归档",
 };
 
 function toDatetimeLocal(value: string | null | undefined): string {
@@ -118,6 +119,10 @@ function getStatusVariant(status: AnnouncementStatus) {
   return "outline";
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "操作失败，请稍后重试。";
+}
+
 export function AnnouncementSettingsPage() {
   const { announcements, isLoading } = useAnnouncements();
   const createMutation = useCreateAnnouncement();
@@ -154,28 +159,59 @@ export function AnnouncementSettingsPage() {
       toast.error("标题和内容不能为空");
       return;
     }
-    if (selectedId) {
-      await updateMutation.mutateAsync({ id: selectedId, input });
-      toast.success(nextStatus === "published" ? "公告已发布" : "公告已保存");
-    } else {
-      const created = await createMutation.mutateAsync(input);
-      setSelectedId(created.id);
-      setForm(itemToForm(created));
-      toast.success(input.status === "published" ? "公告已发布" : "草稿已创建");
+    const startsAt = input.starts_at
+      ? new Date(input.starts_at).getTime()
+      : null;
+    const endsAt = input.ends_at ? new Date(input.ends_at).getTime() : null;
+    const windowError = validateAnnouncementWindow(
+      input.starts_at,
+      input.ends_at,
+    );
+    if (windowError) {
+      toast.error(windowError);
+      return;
+    }
+    try {
+      const item = selectedId
+        ? await updateMutation.mutateAsync({ id: selectedId, input })
+        : await createMutation.mutateAsync(input);
+      setSelectedId(item.id);
+      setForm(itemToForm(item));
+      if (input.status === "published") {
+        toast.success(
+          startsAt !== null && startsAt > Date.now()
+            ? "公告已排期"
+            : "公告已发布",
+        );
+      } else {
+        toast.success(selectedId ? "公告已保存" : "草稿已创建");
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error));
     }
   };
 
   const setStatus = async (status: AnnouncementStatus) => {
     if (!selectedId) return;
-    const item = await statusMutation.mutateAsync({ id: selectedId, status });
-    setForm(itemToForm(item));
-    toast.success(status === "archived" ? "公告已归档" : "公告状态已更新");
+    try {
+      const item = await statusMutation.mutateAsync({ id: selectedId, status });
+      setForm(itemToForm(item));
+      toast.success(
+        status === "archived"
+          ? "公告已归档"
+          : status === "draft"
+            ? "公告已撤下并转为草稿"
+            : "公告已发布",
+      );
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
   };
 
   return (
     <SettingsSection
       title="公告管理"
-      description="发布工作区顶部公告，支持时间窗口、级别和关闭策略。"
+      description="先保存草稿，再发布或排期；同一时段仅展示一条公告。"
     >
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <form
@@ -185,7 +221,18 @@ export function AnnouncementSettingsPage() {
             void save();
           }}
         >
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px_160px]">
+          <div className="bg-muted/30 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm">
+            <span className="text-muted-foreground">
+              {selected ? "正在编辑" : "正在创建新公告"}
+            </span>
+            <Badge
+              variant={selected ? getStatusVariant(selected.status) : "outline"}
+            >
+              {selected ? getAnnouncementDisplayStatus(selected) : "未保存"}
+            </Badge>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
             <label className="space-y-1.5 text-sm font-medium">
               <span>标题</span>
               <Input
@@ -215,29 +262,6 @@ export function AnnouncementSettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(severityLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-            <label className="space-y-1.5 text-sm font-medium">
-              <span>状态</span>
-              <Select
-                value={form.status}
-                onValueChange={(value) =>
-                  setForm((current) => ({
-                    ...current,
-                    status: value as AnnouncementStatus,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(statusLabels).map(([value, label]) => (
                     <SelectItem key={value} value={value}>
                       {label}
                     </SelectItem>
@@ -291,6 +315,13 @@ export function AnnouncementSettingsPage() {
             </label>
           </div>
 
+          <div className="text-muted-foreground bg-muted/40 flex items-start gap-2 rounded-lg px-3 py-2 text-xs leading-relaxed">
+            <CalendarClockIcon className="mt-0.5 size-4 shrink-0" />
+            <span>
+              开始时间留空表示发布后立即展示，结束时间留空表示持续展示。未来时间发布后会进入“已排期”状态。
+            </span>
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2">
             <label className="flex items-center gap-3 text-sm font-medium">
               <Switch
@@ -315,20 +346,48 @@ export function AnnouncementSettingsPage() {
                 ) : (
                   <PencilIcon />
                 )}
-                保存
+                {selected?.status === "published"
+                  ? "保存并更新展示"
+                  : "保存草稿"}
               </Button>
-              <Button
-                type="button"
-                disabled={busy}
-                onClick={() => void save("published")}
-              >
-                {busy ? (
-                  <LoaderCircleIcon className="animate-spin" />
-                ) : (
-                  <SendIcon />
-                )}
-                发布
-              </Button>
+              {selected?.status === "published" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void setStatus("draft")}
+                >
+                  <EyeOffIcon />
+                  撤下
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void save("published")}
+                >
+                  {busy ? (
+                    <LoaderCircleIcon className="animate-spin" />
+                  ) : (
+                    <SendIcon />
+                  )}
+                  {form.starts_at &&
+                  new Date(form.starts_at).getTime() > Date.now()
+                    ? "排期发布"
+                    : "立即发布"}
+                </Button>
+              )}
+              {selected?.status === "archived" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void setStatus("draft")}
+                >
+                  <RotateCcwIcon />
+                  恢复为草稿
+                </Button>
+              ) : null}
               {selected && selected.status !== "archived" ? (
                 <Button
                   type="button"
@@ -381,7 +440,7 @@ export function AnnouncementSettingsPage() {
                       {item.status === "published" ? (
                         <CheckCircle2Icon />
                       ) : null}
-                      {statusLabels[item.status]}
+                      {getAnnouncementDisplayStatus(item)}
                     </Badge>
                   </div>
                   <div className="text-muted-foreground mt-2 line-clamp-2 text-xs">

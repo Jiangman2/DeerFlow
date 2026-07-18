@@ -68,6 +68,7 @@ export function getAnnouncementDismissedKey(announcement: Announcement) {
 export function AnnouncementBanner() {
   const { data: announcement } = useActiveAnnouncement();
   const [hiddenKey, setHiddenKey] = useState<string | null>(null);
+  const [checkedKey, setCheckedKey] = useState<string | null>();
 
   const dismissedKey = useMemo(
     () => (announcement ? getAnnouncementDismissedKey(announcement) : null),
@@ -77,14 +78,20 @@ export function AnnouncementBanner() {
   useEffect(() => {
     if (!dismissedKey) {
       setHiddenKey(null);
+      setCheckedKey(null);
       return;
     }
     setHiddenKey(
       window.localStorage.getItem(dismissedKey) ? dismissedKey : null,
     );
+    setCheckedKey(dismissedKey);
   }, [dismissedKey]);
 
-  if (!announcement || (dismissedKey && hiddenKey === dismissedKey)) {
+  if (
+    !announcement ||
+    checkedKey !== dismissedKey ||
+    (dismissedKey && hiddenKey === dismissedKey)
+  ) {
     return null;
   }
 
@@ -105,7 +112,7 @@ export function AnnouncementBanner() {
       >
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-20deg] bg-white/35 blur-md motion-safe:animate-[announcement-shine_4s_ease-in-out_infinite] dark:bg-white/8"
+          className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-20deg] bg-white/35 blur-md motion-safe:animate-[announcement-shine_4s_ease-in-out_2] dark:bg-white/8"
         />
         <div className={cn("absolute inset-y-0 left-0 w-1", style.accent)} />
         <div className="relative flex items-start gap-3 px-4 py-3.5 sm:items-center sm:px-5">
@@ -113,7 +120,7 @@ export function AnnouncementBanner() {
             <span
               aria-hidden="true"
               className={cn(
-                "absolute inset-0 rounded-xl opacity-40 blur-sm motion-safe:animate-ping",
+                "absolute inset-0 rounded-xl opacity-40 blur-sm motion-safe:animate-[ping_1.2s_ease-out_3]",
                 style.accent,
               )}
             />
@@ -123,7 +130,7 @@ export function AnnouncementBanner() {
                 style.icon,
               )}
             >
-              <MegaphoneIcon className="size-5 motion-safe:animate-[wiggle_2.4s_ease-in-out_infinite]" />
+              <MegaphoneIcon className="size-5 motion-safe:animate-[wiggle_2.4s_ease-in-out_3]" />
             </span>
           </div>
 

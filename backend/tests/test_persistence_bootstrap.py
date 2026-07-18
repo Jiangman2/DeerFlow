@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0006_enterprise_platform"
+HEAD = "0008_drop_site_navigation"
 BASELINE = "0001_baseline"
 
 

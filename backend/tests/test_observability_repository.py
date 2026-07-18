@@ -64,11 +64,11 @@ async def test_audit_operation_type_filter_keeps_management_logs_after_limit() -
                 "user_id": "admin",
                 "user_email": "admin@example.com",
                 "user_role": "admin",
-                "action": "site_navigation.create",
-                "resource_type": "site_navigation",
-                "resource_id": "site-1",
+                "action": "announcement.create",
+                "resource_type": "announcement",
+                "resource_id": "announcement-1",
                 "method": "POST",
-                "path": "/api/admin/site-navigation",
+                "path": "/api/admin/announcements",
                 "status_code": 200,
                 "result": "success",
                 "duration_ms": 10,
@@ -103,7 +103,7 @@ async def test_audit_operation_type_filter_keeps_management_logs_after_limit() -
         rows = await repo.list_audit_logs(limit=1, operation_type="management")
 
         assert len(rows) == 1
-        assert rows[0]["action"] == "site_navigation.create"
+        assert rows[0]["action"] == "announcement.create"
         assert rows[0]["operation_type"] == "management"
     finally:
         await engine.dispose()
