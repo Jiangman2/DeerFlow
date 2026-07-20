@@ -36,6 +36,17 @@ _ALLOWED_SSO_ORIGINS = {
 }
 
 
+def _float_env(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if not value:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        logger.warning("Ignoring invalid float value for %s", name)
+        return default
+
+
 class WeKnoraKnowledgeBaseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     description: str = ""
@@ -253,7 +264,16 @@ async def list_knowledge_bases(user: Any = Depends(get_current_user_from_request
             items_by_id[kb_id] = kb
 
     items = list(items_by_id.values())
-    await _enrich_knowledge_base_counts(items, session.token)
+    try:
+        count_timeout = _float_env("WEKNORA_KB_COUNT_TIMEOUT_SECONDS", 5.0)
+        if count_timeout > 0:
+            await asyncio.wait_for(_enrich_knowledge_base_counts(items, session.token), timeout=count_timeout)
+        else:
+            await _enrich_knowledge_base_counts(items, session.token)
+    except TimeoutError:
+        logger.warning("Skipping WeKnora knowledge-base count enrichment after %.1fs.", count_timeout)
+    except Exception:
+        logger.warning("Skipping WeKnora knowledge-base count enrichment due to an unexpected error.", exc_info=True)
     return {
         **own_response,
         "items": items,

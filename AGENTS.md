@@ -36,6 +36,10 @@ to the Gateway's LangGraph runtime, rewriting it to Gateway's native `/api/*` ro
 other `/api/*` go straight to the Gateway REST routers. See
 [backend/AGENTS.md](backend/AGENTS.md) for the runtime and router detail.
 
+In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
+`/platform/knowledge-bases`. Keep that proxy on the `weknora-frontend` Kubernetes
+service DNS name; never pin a ClusterIP, because recreating the cluster changes it.
+
 ## Repository Map
 
 ```

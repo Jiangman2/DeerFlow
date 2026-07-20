@@ -343,7 +343,7 @@ spec:
             - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
               value: http://gateway:8001
             - name: WEKNORA_FRONTEND_URL
-              value: http://127.0.0.1:2026/platform/knowledge-bases
+              value: http://127.0.0.1:32090/platform/knowledge-bases
           readinessProbe:
             httpGet:
               path: /

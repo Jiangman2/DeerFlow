@@ -96,6 +96,13 @@ Local test endpoints:
 - WeKnora API: `http://localhost:32080`
 - WeKnora UI: `http://localhost:32090`
 
+The `k8s/local-pvc` DeerFlow frontend opens the native UI at
+`http://127.0.0.1:32090/platform/knowledge-bases`. It also keeps the same-origin
+`http://127.0.0.1:2026/platform/knowledge-bases` proxy as a compatibility
+fallback. That proxy uses the stable `weknora-frontend` Kubernetes service DNS
+name; do not replace it with a ClusterIP, because ClusterIPs change when the
+local Kubernetes cluster is recreated.
+
 If the local Kubernetes environment does not expose NodePorts on the host,
 use port-forwarding for the native UI instead:
 

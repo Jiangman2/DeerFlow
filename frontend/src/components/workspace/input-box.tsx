@@ -4,6 +4,7 @@ import type { Message } from "@langchain/langgraph-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChatStatus } from "ai";
 import {
+  BookOpenIcon,
   CheckIcon,
   GraduationCapIcon,
   LightbulbIcon,
@@ -101,6 +102,7 @@ import {
   type BrowserSpeechRecognition,
   type SpeechRecognitionErrorKind,
 } from "@/core/voice-input/speech-recognition";
+import { useWeKnoraKnowledgeBases } from "@/core/weknora";
 import { isIMEComposing } from "@/lib/ime";
 import { cn } from "@/lib/utils";
 
@@ -116,6 +118,7 @@ import {
 import { Suggestion, Suggestions } from "../ai-elements/suggestion";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -145,6 +148,13 @@ import { SlashSkillChip } from "./slash-skill-chip";
 import { Tooltip } from "./tooltip";
 
 type InputMode = "flash" | "thinking" | "pro" | "ultra";
+type InputBoxContext = Omit<
+  AgentThreadContext,
+  "thread_id" | "is_plan_mode" | "thinking_enabled" | "subagent_enabled"
+> & {
+  mode: "flash" | "thinking" | "pro" | "ultra" | undefined;
+  reasoning_effort?: "minimal" | "low" | "medium" | "high";
+};
 
 function focusContentEditableEnd(element: HTMLElement | null) {
   if (!element) {
@@ -197,6 +207,94 @@ function getResolvedMode(
     return mode;
   }
   return supportsThinking ? "pro" : "flash";
+}
+
+function KnowledgeScopeSelector({
+  context,
+  disabled,
+  onContextChange,
+}: {
+  context: InputBoxContext;
+  disabled?: boolean;
+  onContextChange?: (context: InputBoxContext) => void;
+}) {
+  const { data, isError, isLoading } = useWeKnoraKnowledgeBases();
+  const knowledgeBases = useMemo(() => data?.items ?? [], [data?.items]);
+  const selectedIds = Array.isArray(context.weknora_knowledge_base_ids)
+    ? context.weknora_knowledge_base_ids
+    : [];
+  const selectedCount = selectedIds.length;
+
+  const applySelection = useCallback(
+    (nextIds: string[]) => {
+      const selectedBases = knowledgeBases
+        .filter((kb) => nextIds.includes(kb.id))
+        .map((kb) => ({ id: kb.id, name: kb.name }));
+      onContextChange?.({
+        ...context,
+        weknora_knowledge_base_ids: nextIds,
+        weknora_knowledge_bases: selectedBases,
+      });
+    },
+    [context, knowledgeBases, onContextChange],
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <PromptInputButton
+          className={cn(
+            "max-w-32 min-w-0 gap-1 px-2!",
+            selectedCount > 0 && "border-[#6d5dfc]/40 bg-[#f4f2ff]",
+          )}
+          disabled={disabled}
+        >
+          <BookOpenIcon className="size-3" />
+          <span className="truncate text-xs font-normal">
+            {selectedCount > 0 ? `知识库 ${selectedCount}` : "知识库"}
+          </span>
+        </PromptInputButton>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-72">
+        <DropdownMenuLabel className="text-muted-foreground text-xs">
+          本次任务知识范围
+        </DropdownMenuLabel>
+        {isLoading && (
+          <DropdownMenuItem disabled>正在加载知识库</DropdownMenuItem>
+        )}
+        {isError && (
+          <DropdownMenuItem disabled>知识库服务不可用</DropdownMenuItem>
+        )}
+        {!isLoading && !isError && knowledgeBases.length === 0 && (
+          <DropdownMenuItem disabled>暂无 WeKnora 知识库</DropdownMenuItem>
+        )}
+        {knowledgeBases.map((kb) => (
+          <DropdownMenuCheckboxItem
+            key={kb.id}
+            checked={selectedIds.includes(kb.id)}
+            onCheckedChange={(checked) => {
+              const nextIds = checked
+                ? [...selectedIds, kb.id]
+                : selectedIds.filter((id) => id !== kb.id);
+              applySelection(nextIds);
+            }}
+          >
+            <div className="min-w-0">
+              <div className="truncate text-sm">{kb.name}</div>
+              <div className="text-muted-foreground truncate text-xs">
+                {(kb.knowledge_count ?? 0).toString()} 文档
+                {kb.processing_count ? ` · ${kb.processing_count} 处理中` : ""}
+              </div>
+            </div>
+          </DropdownMenuCheckboxItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => applySelection([])}>
+          不使用知识库
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function escapeXmlAttribute(value: string) {
@@ -285,13 +383,7 @@ export function InputBox({
   assistantId?: string | null;
   status?: ChatStatus;
   disabled?: boolean;
-  context: Omit<
-    AgentThreadContext,
-    "thread_id" | "is_plan_mode" | "thinking_enabled" | "subagent_enabled"
-  > & {
-    mode: "flash" | "thinking" | "pro" | "ultra" | undefined;
-    reasoning_effort?: "minimal" | "low" | "medium" | "high";
-  };
+  context: InputBoxContext;
   extraHeader?: React.ReactNode;
   /**
    * Whether to render the input in welcome layout (vertically centered,
@@ -301,15 +393,7 @@ export function InputBox({
   isWelcomeMode?: boolean;
   threadId: string;
   initialValue?: string;
-  onContextChange?: (
-    context: Omit<
-      AgentThreadContext,
-      "thread_id" | "is_plan_mode" | "thinking_enabled" | "subagent_enabled"
-    > & {
-      mode: "flash" | "thinking" | "pro" | "ultra" | undefined;
-      reasoning_effort?: "minimal" | "low" | "medium" | "high";
-    },
-  ) => void;
+  onContextChange?: (context: InputBoxContext) => void;
   onFollowupsVisibilityChange?: (visible: boolean) => void;
   onGoalChange?: (goal: GoalState | null) => void;
   onSubmit?: (
@@ -2008,6 +2092,11 @@ export function InputBox({
               uploadLimits={uploadLimits}
             />
             <ShopCartAttachmentButton disabled={composerLocked} />
+            <KnowledgeScopeSelector
+              context={context}
+              disabled={composerLocked}
+              onContextChange={onContextChange}
+            />
             <VoiceInputButton
               disabled={composerLocked}
               listening={voiceListening}

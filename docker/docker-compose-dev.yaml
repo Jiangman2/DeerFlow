@@ -62,8 +62,9 @@ services:
       - KUBECONFIG_PATH=/root/.kube/config
       - NODE_HOST=host.docker.internal
       # Override K8S API server URL since kubeconfig uses 127.0.0.1
-      # which is unreachable from inside the container
-      - K8S_API_SERVER=https://host.docker.internal:26443
+      # which is unreachable from inside the container. Keep this configurable
+      # because Docker Desktop may assign a different localhost API port.
+      - K8S_API_SERVER=${K8S_API_SERVER:-https://host.docker.internal:54232}
       # Optional: set PROVISIONER_API_KEY in .env to enable provisioner auth.
       # The same value must be set on the gateway side via config.yaml sandbox.provisioner_api_key.
       - PROVISIONER_API_KEY=${PROVISIONER_API_KEY:-}
@@ -105,30 +106,26 @@ services:
       - deer-flow-dev
     restart: unless-stopped
 
-  # Frontend - Next.js Development Server
+  # Frontend - Next.js Production Server
   frontend:
     build:
       context: ../
       dockerfile: frontend/Dockerfile
-      target: dev
+      target: prod
       args:
         PNPM_STORE_PATH: ${PNPM_STORE_PATH:-/root/.local/share/pnpm/store}
         NPM_REGISTRY: ${NPM_REGISTRY:-}
     container_name: deer-flow-frontend
-    command: sh -c "cd frontend && pnpm run dev > /app/logs/frontend.log 2>&1"
+    command: sh -c "cd frontend && pnpm start > /app/logs/frontend.log 2>&1"
     volumes:
-      - ../frontend/src:/app/frontend/src
-      - ../frontend/public:/app/frontend/public
-      - ../frontend/next.config.js:/app/frontend/next.config.js:ro
       - ../logs:/app/logs
-      # Mount pnpm store for caching
       - ${PNPM_STORE_PATH:-~/.local/share/pnpm/store}:/root/.local/share/pnpm/store
     working_dir: /app
     environment:
-      - NODE_ENV=development
-      - WATCHPACK_POLLING=true
+      - NODE_ENV=production
       - CI=true
       - DEER_FLOW_INTERNAL_GATEWAY_BASE_URL=http://gateway:8001
+      - WEKNORA_FRONTEND_URL=${WEKNORA_FRONTEND_URL:-http://127.0.0.1:32090}
     env_file:
       - ../frontend/.env
     networks:

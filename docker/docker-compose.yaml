@@ -161,7 +161,9 @@ services:
       - DEER_FLOW_HOST_BASE_DIR=${DEER_FLOW_HOME}
       - KUBECONFIG_PATH=/root/.kube/config
       - NODE_HOST=host.docker.internal
-      - K8S_API_SERVER=https://host.docker.internal:26443
+      # Docker Desktop may assign a different localhost API port; keep this
+      # configurable and let .env/kubeconfig-derived setup provide the value.
+      - K8S_API_SERVER=${K8S_API_SERVER:-https://host.docker.internal:54232}
     env_file:
       - ../.env
     extra_hosts:

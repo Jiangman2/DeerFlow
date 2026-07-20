@@ -1,5 +1,8 @@
 """Tests for DeerFlow's WeKnora proxy response enrichment."""
 
+import asyncio
+from types import SimpleNamespace
+
 import pytest
 from fastapi import HTTPException
 
@@ -79,3 +82,35 @@ async def test_enrich_knowledge_base_counts_trusts_complete_upstream_counts(monk
 
     assert items[0]["knowledge_count"] == 12
     assert items[0]["chunk_count"] == 34
+
+
+@pytest.mark.asyncio
+async def test_list_knowledge_bases_returns_when_count_enrichment_times_out(monkeypatch):
+    async def fake_session(user):
+        return SimpleNamespace(token="token", tenant={"id": "tenant-1"})
+
+    async def fake_request(method, path, access_token, **kwargs):
+        if path == "/knowledge-bases":
+            return {"success": True, "total": 1, "data": [{"id": "kb-1", "name": "Team KB"}]}
+        if path == "/shared-knowledge-bases":
+            return {"success": True, "total": 0, "data": []}
+        raise AssertionError(path)
+
+    async def slow_enrichment(items, access_token):
+        await asyncio.sleep(1)
+
+    monkeypatch.setattr(weknora, "ensure_weknora_session_for_deerflow_user", fake_session)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+    monkeypatch.setattr(weknora, "_enrich_knowledge_base_counts", slow_enrichment)
+    monkeypatch.setenv("WEKNORA_KB_COUNT_TIMEOUT_SECONDS", "0.01")
+
+    response = await weknora.list_knowledge_bases(user=SimpleNamespace())
+
+    assert response["total"] == 1
+    assert response["items"][0]["id"] == "kb-1"
+
+
+def test_float_env_uses_default_for_invalid_values(monkeypatch):
+    monkeypatch.setenv("WEKNORA_KB_COUNT_TIMEOUT_SECONDS", "not-a-number")
+
+    assert weknora._float_env("WEKNORA_KB_COUNT_TIMEOUT_SECONDS", 5.0) == 5.0

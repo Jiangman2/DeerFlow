@@ -829,6 +829,9 @@ The workspace knowledge-base integration uses the current DeerFlow identity to
 create or reuse a matching WeKnora account, then forwards knowledge-base and
 document operations with that user's bearer token. DeerFlow administrator roles
 are synchronized to the linked knowledge platform during SSO.
+For the local Kubernetes stack, the native knowledge UI opens on port `32090`;
+the optional same-origin `/platform/knowledge-bases` fallback is routed through
+the stable `weknora-frontend` service name rather than an ephemeral ClusterIP.
 
 ## Recommended Models
 
