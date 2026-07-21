@@ -128,6 +128,43 @@ async def test_run_agent_threads_explicit_app_config_into_config_only_factory():
 
 
 @pytest.mark.anyio
+async def test_run_agent_binds_and_resets_weknora_access_token():
+    from deerflow.runtime.weknora_context import get_current_weknora_access_token
+
+    run_manager = RunManager()
+    record = await run_manager.create("thread-1")
+    bridge = SimpleNamespace(
+        publish=AsyncMock(),
+        publish_end=AsyncMock(),
+        cleanup=AsyncMock(),
+    )
+    captured: dict[str, str | None] = {}
+
+    class DummyAgent:
+        async def astream(self, graph_input, config=None, stream_mode=None, subgraphs=False):
+            captured["astream"] = get_current_weknora_access_token()
+            yield {"messages": []}
+
+    def factory(*, config):
+        captured["factory"] = get_current_weknora_access_token()
+        return DummyAgent()
+
+    assert get_current_weknora_access_token() is None
+    await run_agent(
+        bridge,
+        run_manager,
+        record,
+        ctx=RunContext(checkpointer=None),
+        agent_factory=factory,
+        graph_input={},
+        config={"context": {"weknora_access_token": " user-token "}},
+    )
+
+    assert captured == {"factory": "user-token", "astream": "user-token"}
+    assert get_current_weknora_access_token() is None
+
+
+@pytest.mark.anyio
 async def test_run_agent_threads_pre_existing_message_ids_into_runtime_context():
     run_manager = RunManager()
     record = await run_manager.create("thread-1")

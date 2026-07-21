@@ -12,6 +12,7 @@ import logging
 import os
 from collections.abc import Iterable
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from langchain.tools import tool
@@ -162,7 +163,36 @@ def _build_scope(
     return payload
 
 
-def _format_search_results(query: str, data: dict[str, Any], max_results: int) -> str:
+def _scope_knowledge_base_ids(scope: dict[str, Any]) -> list[str]:
+    ids = _split_csv(scope.get("knowledge_base_ids"))
+    single = scope.get("knowledge_base_id")
+    if not ids and isinstance(single, str) and single.strip():
+        ids = [single.strip()]
+    return ids
+
+
+def _citation_fields(item: dict[str, Any], scope: dict[str, Any]) -> dict[str, str]:
+    knowledge_id = item.get("knowledge_id")
+    if not isinstance(knowledge_id, str) or not knowledge_id.strip():
+        return {"citation_url": "", "citation_markdown": ""}
+
+    knowledge_base_id = item.get("knowledge_base_id")
+    if not isinstance(knowledge_base_id, str) or not knowledge_base_id.strip():
+        scoped_ids = _scope_knowledge_base_ids(scope)
+        knowledge_base_id = scoped_ids[0] if len(scoped_ids) == 1 else ""
+    if not knowledge_base_id:
+        return {"citation_url": "", "citation_markdown": ""}
+
+    citation_url = f"/platform/knowledge-bases/{quote(knowledge_base_id.strip(), safe='')}?knowledge_id={quote(knowledge_id.strip(), safe='')}"
+    title = item.get("knowledge_title") or item.get("knowledge_filename") or "WeKnora knowledge"
+    safe_title = str(title).replace("]", "）").strip() or "WeKnora knowledge"
+    return {
+        "citation_url": citation_url,
+        "citation_markdown": f"[citation:{safe_title}]({citation_url})",
+    }
+
+
+def _format_search_results(query: str, data: dict[str, Any], max_results: int, scope: dict[str, Any]) -> str:
     results = data.get("data") or []
     if not isinstance(results, list):
         return json.dumps({"query": query, "error": "Unexpected WeKnora response shape", "raw": data}, ensure_ascii=False)
@@ -171,6 +201,7 @@ def _format_search_results(query: str, data: dict[str, Any], max_results: int) -
     for item in results[:max_results]:
         if not isinstance(item, dict):
             continue
+        citations = _citation_fields(item, scope)
         normalized.append(
             {
                 "content": item.get("content", ""),
@@ -181,7 +212,9 @@ def _format_search_results(query: str, data: dict[str, Any], max_results: int) -
                 "chunk_id": item.get("id", ""),
                 "chunk_index": item.get("chunk_index"),
                 "chunk_type": item.get("chunk_type", ""),
-                "source": item.get("knowledge_source", ""),
+                "source": citations["citation_url"],
+                "source_type": item.get("knowledge_source", ""),
+                **citations,
             }
         )
 
@@ -272,7 +305,7 @@ def weknora_search_tool(
         logger.error("WeKnora search failed: %s: %s", type(e).__name__, e)
         return json.dumps({"error": str(e), "query": query}, ensure_ascii=False)
 
-    return _format_search_results(query, data, result_limit)
+    return _format_search_results(query, data, result_limit, payload)
 
 
 def _iter_sse_events(response: httpx.Response) -> Iterable[dict[str, Any]]:
@@ -314,6 +347,7 @@ def _stream_knowledge_chat(tool_name: str, payload: dict[str, Any], session_id: 
                 if response_type == "references":
                     for ref in event.get("knowledge_references") or []:
                         if isinstance(ref, dict):
+                            citations = _citation_fields(ref, payload)
                             references.append(
                                 {
                                     "content": ref.get("content", ""),
@@ -324,6 +358,7 @@ def _stream_knowledge_chat(tool_name: str, payload: dict[str, Any], session_id: 
                                     "chunk_id": ref.get("id", ""),
                                     "chunk_index": ref.get("chunk_index"),
                                     "chunk_type": ref.get("chunk_type", ""),
+                                    **citations,
                                 }
                             )
                 elif response_type == "answer":

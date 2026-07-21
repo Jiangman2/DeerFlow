@@ -11,6 +11,7 @@ from langgraph.runtime import Runtime
 from deerflow.agents.memory import get_memory_manager
 from deerflow.config.memory_config import get_memory_config
 from deerflow.runtime.user_context import get_effective_user_id
+from deerflow.runtime.weknora_context import normalize_weknora_scope_ids
 from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
 
 if TYPE_CHECKING:
@@ -64,6 +65,19 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         if not config.enabled:
             return None
 
+        runtime_context = runtime.context if isinstance(runtime.context, dict) else {}
+        selected_weknora_ids = normalize_weknora_scope_ids(runtime_context.get("weknora_knowledge_base_ids"))
+        if selected_weknora_ids:
+            # Retrieved enterprise-document facts belong to the selected run scope,
+            # not to the user's durable identity or preferences.  Skipping the
+            # whole conversation is deterministic and also prevents delayed queue
+            # writes from resurrecting task-local facts after a memory clear.
+            logger.info(
+                "Skipping durable memory update for explicit WeKnora scope on thread %s",
+                runtime_context.get("thread_id") or "<unknown>",
+            )
+            return None
+
         # Get thread ID from runtime context first, then fall back to LangGraph's configurable metadata
         thread_id = runtime.context.get("thread_id") if runtime.context else None
         if thread_id is None:
@@ -83,7 +97,6 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         # threading.Timer fires on a different thread where ContextVar values are not
         # propagated, so we must store user_id explicitly in ConversationContext.
         user_id = get_effective_user_id()
-        runtime_context = runtime.context if isinstance(runtime.context, dict) else {}
         trace_id = normalize_trace_id(runtime_context.get(DEERFLOW_TRACE_METADATA_KEY))
         if trace_id is None:
             try:

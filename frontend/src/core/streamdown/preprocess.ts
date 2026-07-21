@@ -318,9 +318,21 @@ export function normalizeStreamdownMathMarkdown(markdown: string): string {
 }
 
 export function preprocessStreamdownMarkdown(markdown: string): string {
-  if (!MERMAID_BLOCK_HINT_RE.test(markdown) || !markdown.includes("-.->")) {
-    return markdown;
+  const normalizedMarkdown = normalizeLegacyWeKnoraLinks(markdown);
+  if (
+    !MERMAID_BLOCK_HINT_RE.test(normalizedMarkdown) ||
+    !normalizedMarkdown.includes("-.->")
+  ) {
+    return normalizedMarkdown;
   }
 
-  return normalizeMermaidMarkdown(markdown);
+  return normalizeMermaidMarkdown(normalizedMarkdown);
+}
+
+export function normalizeLegacyWeKnoraLinks(markdown: string): string {
+  return markdown.replace(
+    /(\[[^\]\n]+\])\(\/mnt\/user-data\/knowledge_bases\/([^/\s)]+)\/[^)\n]*\)/g,
+    (_match, label: string, knowledgeBaseId: string) =>
+      `${label}(/platform/knowledge-bases/${encodeURIComponent(knowledgeBaseId)})`,
+  );
 }

@@ -763,6 +763,13 @@ Use `/compact` in the Web UI composer to summarize older context for the current
 
 ### Sub-Agents
 
+The Web UI's custom-agent builder follows the selected interface language when
+it saves `SOUL.md` and the one-line card description. Simplified Chinese is the
+platform default; a user can still explicitly request another language. Lead
+and delegated agents apply the same default to user-visible answers, titles,
+descriptions, summaries, and reports while preserving code, API fields, paths,
+standards, and proper nouns where their original spelling matters.
+
 Ultra/parallel runs keep every subtask in the current user turn marked as
 running until that subtask returns a terminal result. If the parent run stops
 first, the UI reports the subtask as incomplete rather than failed; long task
@@ -822,6 +829,11 @@ Most agents forget everything the moment a conversation ends. DeerFlow remembers
 Across sessions, DeerFlow builds a persistent memory of your profile, preferences, and accumulated knowledge. The more you use it, the better it knows you — your writing style, your technical stack, your recurring workflows. Memory is stored locally and stays under your control.
 
 Memory updates now skip duplicate fact entries at apply time, so repeated preferences and context do not accumulate endlessly across sessions.
+Operational task state remains thread-local: durable memory rejects knowledge-base IDs,
+container/file paths, filenames, tool errors, and one-off artifact progress so an old
+task cannot silently steer an unrelated future conversation.
+Runs that explicitly select a WeKnora knowledge base do not enter the durable-memory
+queue at all; their retrieved document facts remain scoped to that task's history.
 
 ### Knowledge Base SSO
 
@@ -829,6 +841,11 @@ The workspace knowledge-base integration uses the current DeerFlow identity to
 create or reuse a matching WeKnora account, then forwards knowledge-base and
 document operations with that user's bearer token. DeerFlow administrator roles
 are synchronized to the linked knowledge platform during SSO.
+Knowledge bases selected in the chat composer are forwarded as the exact scope
+for `weknora_search` and `weknora_ask`, using a server-derived per-user token.
+When no knowledge base is selected, both tools are removed from lead and subagent
+toolsets, and historical knowledge-base references in memory are explicitly treated
+as non-operative context.
 For the local Kubernetes stack, the native knowledge UI opens on port `32090`;
 the optional same-origin `/platform/knowledge-bases` fallback is routed through
 the stable `weknora-frontend` service name rather than an ephemeral ClusterIP.

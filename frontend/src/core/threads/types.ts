@@ -46,6 +46,8 @@ export interface AgentThreadContext extends Record<string, unknown> {
   subagent_enabled: boolean;
   reasoning_effort?: "minimal" | "low" | "medium" | "high";
   agent_name?: string;
+  weknora_knowledge_base_ids?: string[];
+  weknora_knowledge_bases?: { id: string; name: string }[];
 }
 
 export interface AgentThread extends Thread<AgentThreadState> {

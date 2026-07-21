@@ -41,6 +41,25 @@ test("extractHumanInputRequest reads a valid tool artifact payload", () => {
   expect(extractHumanInputRequest(message)).toEqual(requestPayload);
 });
 
+test("extractHumanInputRequest canonicalizes an AI clarification tool-call id", () => {
+  const message = {
+    id: "ai-clarification",
+    type: "ai",
+    content: "",
+    tool_calls: [
+      {
+        id: "call-abc",
+        name: "ask_clarification",
+        args: { question: "Which years?" },
+      },
+    ],
+  } as unknown as Message;
+
+  expect(extractHumanInputRequest(message)?.request_id).toBe(
+    "clarification:call-abc",
+  );
+});
+
 test("extractHumanInputRequest rejects malformed artifacts", () => {
   const message = {
     type: "tool",

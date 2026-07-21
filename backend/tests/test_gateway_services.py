@@ -735,6 +735,29 @@ def test_merge_run_context_overrides_forwards_subagent_total_limit():
     assert config["context"]["max_total_subagents"] == 8
 
 
+def test_merge_run_context_overrides_forwards_weknora_scope():
+    """The UI-selected WeKnora scope must survive the Gateway run boundary."""
+    from app.gateway.services import build_run_config, merge_run_context_overrides
+
+    selected_bases = [
+        {"id": "kb-1", "name": "Team Playbook"},
+        {"id": "kb-2", "name": "Ops Manual"},
+    ]
+    config = build_run_config("thread-1", None, None)
+    merge_run_context_overrides(
+        config,
+        {
+            "weknora_knowledge_base_ids": ["kb-1", "kb-2"],
+            "weknora_knowledge_bases": selected_bases,
+        },
+    )
+
+    assert config["context"]["weknora_knowledge_base_ids"] == ["kb-1", "kb-2"]
+    assert config["context"]["weknora_knowledge_bases"] == selected_bases
+    assert config["configurable"]["weknora_knowledge_base_ids"] == ["kb-1", "kb-2"]
+    assert config["configurable"]["weknora_knowledge_bases"] == selected_bases
+
+
 def test_merge_run_context_overrides_noop_for_empty_context():
     from app.gateway.services import build_run_config, merge_run_context_overrides
 
@@ -842,6 +865,36 @@ def test_inject_authenticated_user_context_overrides_client_user_id():
     inject_authenticated_user_context(config, request)
 
     assert config["context"]["user_id"] == "auth-user-42"
+
+
+@pytest.mark.asyncio
+async def test_inject_weknora_user_context_derives_runtime_token_for_selected_scope(monkeypatch):
+    """A selected KB scope gets a server-side token without exposing it to configurable."""
+    from types import SimpleNamespace
+
+    from app.gateway.services import build_run_config, inject_weknora_user_context, merge_run_context_overrides
+
+    authenticated_user = SimpleNamespace(id="auth-user-42", system_role="member")
+    request = SimpleNamespace(state=SimpleNamespace(user=authenticated_user))
+    config = build_run_config("thread-1", None, None)
+    merge_run_context_overrides(config, {"weknora_knowledge_base_ids": ["kb-1"]})
+
+    async def fake_ensure_session(user):
+        assert user is authenticated_user
+        return SimpleNamespace(
+            token="run-scoped-token",
+            user={"id": "weknora-user-7"},
+            tenant={"id": "tenant-3"},
+        )
+
+    monkeypatch.setattr("app.gateway.services.ensure_weknora_session_for_deerflow_user", fake_ensure_session)
+
+    await inject_weknora_user_context(config, request)
+
+    assert config["context"]["weknora_access_token"] == "run-scoped-token"
+    assert config["context"]["weknora_user_id"] == "weknora-user-7"
+    assert config["context"]["weknora_tenant_id"] == "tenant-3"
+    assert "weknora_access_token" not in config["configurable"]
 
 
 def test_merge_run_context_overrides_propagates_user_id():

@@ -11,6 +11,7 @@ from deerflow.agents.lead_agent import agent as lead_agent_module
 from deerflow.agents.middlewares import summarization_middleware as summarization_middleware_module
 from deerflow.agents.middlewares.loop_detection_middleware import LoopDetectionMiddleware
 from deerflow.agents.middlewares.subagent_limit_middleware import SubagentLimitMiddleware
+from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware
 from deerflow.config.app_config import AppConfig
 from deerflow.config.loop_detection_config import LoopDetectionConfig
 from deerflow.config.memory_config import MemoryConfig
@@ -307,6 +308,7 @@ def test_make_lead_agent_filters_clarification_tool_for_non_interactive_runs(mon
         "get_available_tools",
         lambda **kwargs: [_named_tool("ask_clarification"), _named_tool("bash")],
     )
+    monkeypatch.setattr(lead_agent_module, "_load_enabled_skills_for_tool_policy", lambda *args, **kwargs: [])
     monkeypatch.setattr(lead_agent_module, "build_middlewares", lambda config, model_name, agent_name=None, **kwargs: [])
     monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: object())
     monkeypatch.setattr(lead_agent_module, "create_agent", lambda **kwargs: kwargs)
@@ -435,6 +437,7 @@ def test_build_middlewares_passes_explicit_app_config_to_shared_factory(monkeypa
         "memory_config": app_config.memory,
     }
     assert middlewares[0] == "base-middleware"
+    assert any(isinstance(middleware, WeKnoraScopeMiddleware) for middleware in middlewares)
 
 
 def test_build_middlewares_places_mcp_routing_before_deferred_filter(monkeypatch):

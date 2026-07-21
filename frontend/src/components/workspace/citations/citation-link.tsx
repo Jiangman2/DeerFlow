@@ -14,7 +14,8 @@ export function CitationLink({
   children,
   ...props
 }: ComponentProps<"a">) {
-  const domain = extractDomain(href ?? "");
+  const resolvedHref = resolveCitationHref(href);
+  const domain = extractDomain(resolvedHref ?? "");
 
   // Priority: children > domain
   const childrenText =
@@ -28,7 +29,7 @@ export function CitationLink({
     <HoverCard closeDelay={0} openDelay={0}>
       <HoverCardTrigger asChild>
         <a
-          href={href}
+          href={resolvedHref}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center"
@@ -52,14 +53,14 @@ export function CitationLink({
                 {displayText}
               </h4>
             )}
-            {href && (
+            {resolvedHref && (
               <p className="text-muted-foreground truncate text-xs break-all">
-                {href}
+                {resolvedHref}
               </p>
             )}
           </div>
           <a
-            href={href}
+            href={resolvedHref}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary mt-2 inline-flex items-center gap-1 text-xs hover:underline"
@@ -71,6 +72,19 @@ export function CitationLink({
       </HoverCardContent>
     </HoverCard>
   );
+}
+
+export function resolveCitationHref(href: string | undefined) {
+  if (!href) {
+    return href;
+  }
+  const match = /^\/mnt\/user-data\/knowledge_bases\/([^/]+)(?:\/|$)/.exec(
+    href,
+  );
+  if (!match?.[1]) {
+    return href;
+  }
+  return `/platform/knowledge-bases/${encodeURIComponent(match[1])}`;
 }
 
 function extractDomain(url: string): string {

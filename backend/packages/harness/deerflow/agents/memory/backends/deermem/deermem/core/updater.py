@@ -125,6 +125,23 @@ def _extract_text(content: Any) -> str:
 
 _REQUIRED_MEMORY_UPDATE_TOP_LEVEL_KEYS = frozenset({"user", "history", "newFacts"})
 
+_TRANSIENT_TASK_RESOURCE_PATTERNS = (
+    re.compile(r"/(?:mnt|tmp|var/tmp|workspace)(?:/|\b)", re.IGNORECASE),
+    re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b", re.IGNORECASE),
+    re.compile(r"\b(?:knowledge[ _-]?base|thread|run)[ _-]?id\b", re.IGNORECASE),
+    re.compile(r"\b(?:FileNotFoundError|PermissionError|TimeoutError)\b"),
+    re.compile(r"\.(?:xlsx?|docx?|pptx?|pdf|csv)(?:\b|$)", re.IGNORECASE),
+    re.compile(r"(?:本次|当前|正在).{0,32}(?:任务|知识库|文件|PPT|报告)", re.IGNORECASE),
+    re.compile(r"\b(?:current|this) (?:task|run|thread)\b", re.IGNORECASE),
+)
+
+
+def _contains_transient_task_resource(value: Any) -> bool:
+    """Reject operational task state that must remain in thread-local history."""
+    if not isinstance(value, str):
+        return False
+    return any(pattern.search(value) for pattern in _TRANSIENT_TASK_RESOURCE_PATTERNS)
+
 
 def _normalize_memory_update_fact(fact: Any) -> dict[str, Any] | None:
     """Normalize a single fact entry from a model-produced memory update."""
@@ -136,6 +153,9 @@ def _normalize_memory_update_fact(fact: Any) -> dict[str, Any] | None:
         return None
     content = raw_content.strip()
     if not content:
+        return None
+    if _contains_transient_task_resource(content):
+        logger.info("Dropped transient task-resource fact from durable memory")
         return None
 
     raw_category = fact.get("category")
@@ -997,7 +1017,7 @@ class MemoryUpdater:
         user_updates = update_data.get("user", {})
         for section in ["workContext", "personalContext", "topOfMind"]:
             section_data = user_updates.get(section, {})
-            if section_data.get("shouldUpdate") and section_data.get("summary"):
+            if section_data.get("shouldUpdate") and section_data.get("summary") and not _contains_transient_task_resource(section_data["summary"]):
                 current_memory["user"][section] = {
                     "summary": section_data["summary"],
                     "updatedAt": now,
@@ -1007,7 +1027,7 @@ class MemoryUpdater:
         history_updates = update_data.get("history", {})
         for section in ["recentMonths", "earlierContext", "longTermBackground"]:
             section_data = history_updates.get(section, {})
-            if section_data.get("shouldUpdate") and section_data.get("summary"):
+            if section_data.get("shouldUpdate") and section_data.get("summary") and not _contains_transient_task_resource(section_data["summary"]):
                 current_memory["history"][section] = {
                     "summary": section_data["summary"],
                     "updatedAt": now,

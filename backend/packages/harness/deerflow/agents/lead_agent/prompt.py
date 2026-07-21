@@ -8,6 +8,7 @@ from collections import OrderedDict
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
+from deerflow.agents.language_policy import DEFAULT_CHINESE_LANGUAGE_GUIDANCE
 from deerflow.config.agents_config import load_agent_soul
 from deerflow.config.subagents_config import (
     DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN,
@@ -478,7 +479,8 @@ task(description="Oracle Cloud analysis", prompt="...", subagent_type="general-p
 </subagent_system>"""
 
 
-SYSTEM_PROMPT_TEMPLATE = """
+SYSTEM_PROMPT_TEMPLATE = (
+    """
 <role>
 You are {agent_name}, the enterprise AI assistant for {enterprise_product_name},
 an {enterprise_product_description}.
@@ -696,6 +698,13 @@ technical documentation. Distinguish retrieved evidence from analysis or inferen
 - Always Respond: Your thinking is internal. You MUST always provide a visible response to the user after thinking.
 </critical_reminders>
 """
+    + f"""
+
+<language_policy>
+{DEFAULT_CHINESE_LANGUAGE_GUIDANCE}
+</language_policy>
+"""
+)
 
 
 def _get_memory_context(agent_name: str | None = None, *, app_config: AppConfig | None = None) -> str:

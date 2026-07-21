@@ -29,6 +29,7 @@ from app.gateway.internal_auth import (
     get_trusted_internal_owner_user_id,
 )
 from app.gateway.utils import sanitize_log_param
+from app.gateway.weknora_identity import ensure_weknora_session_for_deerflow_user
 from deerflow.agents.middlewares.dynamic_context_middleware import _DYNAMIC_CONTEXT_REMINDER_KEY, _REMINDER_DATE_KEY
 from deerflow.config.app_config import get_app_config
 from deerflow.runtime import (
@@ -202,6 +203,8 @@ _CONTEXT_CONFIGURABLE_KEYS: frozenset[str] = frozenset(
         "max_total_subagents",
         "agent_name",
         "is_bootstrap",
+        "weknora_knowledge_base_ids",
+        "weknora_knowledge_bases",
     }
 )
 
@@ -345,6 +348,46 @@ def inject_authenticated_user_context(
         runtime_context["user_role"] = getattr(user, "system_role", None)
         runtime_context["oauth_provider"] = getattr(user, "oauth_provider", None)
         runtime_context["oauth_id"] = getattr(user, "oauth_id", None)
+
+
+async def inject_weknora_user_context(
+    config: dict[str, Any],
+    request: Request,
+    *,
+    internal_owner_user: Any | None = None,
+) -> None:
+    """Attach a server-derived WeKnora credential to a scoped agent run.
+
+    The browser submits only the selected knowledge-base IDs. The credential is
+    resolved from the authenticated DeerFlow user (or a trusted internal run's
+    attributed owner), so clients cannot supply or spoof WeKnora tool tokens.
+    """
+
+    request_user = getattr(request.state, "user", None)
+    user = internal_owner_user or request_user
+    user_id = getattr(user, "id", None)
+    if user_id is None or getattr(user, "system_role", None) == INTERNAL_SYSTEM_ROLE:
+        return
+
+    runtime_context = config.setdefault("context", {})
+    selected_ids = runtime_context.get("weknora_knowledge_base_ids") if isinstance(runtime_context, dict) else None
+    if not selected_ids:
+        return
+
+    try:
+        session = await ensure_weknora_session_for_deerflow_user(user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Failed to prepare WeKnora user session for run", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"WeKnora SSO is unavailable: {exc}") from exc
+
+    if isinstance(runtime_context, dict):
+        runtime_context["weknora_access_token"] = session.token
+        runtime_context["weknora_user_id"] = str(session.user.get("id") or "")
+        tenant_id = session.tenant.get("id")
+        if tenant_id is not None:
+            runtime_context["weknora_tenant_id"] = str(tenant_id)
 
 
 def resolve_agent_factory(assistant_id: str | None):
@@ -705,6 +748,7 @@ async def start_run(
             strip_internal_context_keys(config)
         internal_owner_user = await resolve_trusted_internal_owner_for_attribution(request, owner_user_id)
         inject_authenticated_user_context(config, request, internal_owner_user=internal_owner_user)
+        await inject_weknora_user_context(config, request, internal_owner_user=internal_owner_user)
 
         stream_modes = normalize_stream_modes(body.stream_mode)
 

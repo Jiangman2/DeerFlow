@@ -216,6 +216,15 @@ test("preprocessStreamdownMarkdown applies only Mermaid fixes (not math)", () =>
   expect(preprocessStreamdownMarkdown(input)).toBe(expected);
 });
 
+test("preprocessStreamdownMarkdown repairs legacy WeKnora sandbox links", () => {
+  const input =
+    '要求 [citation:2026年立项规范](/mnt/user-data/knowledge_bases/kb-1/研究总院2026年"书记项目" 0403.xlsx)';
+
+  expect(preprocessStreamdownMarkdown(input)).toBe(
+    "要求 [citation:2026年立项规范](/platform/knowledge-bases/kb-1)",
+  );
+});
+
 test("normalizeStreamdownMathMarkdown preserves escaped backslash before parens", () => {
   // When the backslash itself is escaped (\\), the following ( is not a math open
   const input = "Use \\\\( to start inline math.";

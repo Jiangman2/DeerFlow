@@ -15,6 +15,7 @@ from pathlib import Path
 
 from deerflow.config.runtime_paths import resolve_path
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
+from deerflow.skills.package_paths import is_eval_fixture_skill_md
 from deerflow.skills.permissions import make_skill_written_path_sandbox_readable
 from deerflow.skills.storage.skill_storage import SKILL_MD_FILE, SkillStorage
 from deerflow.skills.types import SkillCategory
@@ -83,7 +84,10 @@ class LocalSkillStorage(SkillStorage):
                 dir_names[:] = sorted(name for name in dir_names if not name.startswith("."))
                 if SKILL_MD_FILE not in file_names:
                     continue
-                yield category, category_path, Path(current_root) / SKILL_MD_FILE
+                skill_file = Path(current_root) / SKILL_MD_FILE
+                if is_eval_fixture_skill_md(skill_file.relative_to(category_path)):
+                    continue
+                yield category, category_path, skill_file
 
     def read_custom_skill(self, name: str) -> str:
         if not self.custom_skill_exists(name):

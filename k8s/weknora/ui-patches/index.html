@@ -4,34 +4,6 @@
     <meta charset="utf-8">
     <title>知识库</title>
     <script>try{localStorage.removeItem('weknora_auto_setup_failed')}catch(e){}</script>
-    <script>
-    (function(){
-      try {
-        var nativeFetch = window.fetch.bind(window);
-        window.fetch = function(input, init) {
-          return nativeFetch(input, init).then(function(response) {
-            try {
-              var url = typeof input === 'string' ? input : (input && input.url) || '';
-              if (response.ok && url.indexOf('/api/weknora/sso-session') >= 0) {
-                response.clone().json().then(function(data) {
-                  var tenant = data && (data.active_tenant || data.tenant);
-                  if (!data || !data.success || !data.token || !tenant) return;
-                  localStorage.removeItem('weknora_auto_setup_failed');
-                  localStorage.setItem('weknora_token', data.token);
-                  if (data.refresh_token) localStorage.setItem('weknora_refresh_token', data.refresh_token);
-                  if (data.user) localStorage.setItem('weknora_user', JSON.stringify(data.user));
-                  localStorage.setItem('weknora_tenant', JSON.stringify(tenant));
-                  localStorage.setItem('weknora_memberships', JSON.stringify(data.memberships || []));
-                  if (tenant.id != null) localStorage.setItem('weknora_selected_tenant_id', String(tenant.id));
-                }).catch(function(){});
-              }
-            } catch (e) {}
-            return response;
-          });
-        };
-      } catch (e) {}
-    })();
-    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="renderer" content="webkit">
@@ -71,13 +43,28 @@ try {
     const data = await response.json();
     const tenant = data && (data.active_tenant || data.tenant);
     if (data?.success && data.token && data.user && tenant) {
+      let previousUser = null;
+      try { previousUser = JSON.parse(localStorage.getItem('weknora_user') || 'null'); } catch (_) {}
+      const userChanged = previousUser?.id && String(previousUser.id) !== String(data.user.id);
+      if (userChanged) {
+        for (const key of [
+          'weknora_selected_tenant_id',
+          'weknora_selected_tenant_name',
+          'weknora_knowledge_bases',
+          'weknora_current_kb',
+          'weknora_last_chat_model_id'
+        ]) localStorage.removeItem(key);
+      }
       localStorage.removeItem('weknora_auto_setup_failed');
       localStorage.setItem('weknora_token', data.token);
-      if (data.refresh_token) localStorage.setItem('weknora_refresh_token', data.refresh_token);
+      if (data.refresh_token) {
+        localStorage.setItem('weknora_refresh_token', data.refresh_token);
+      } else {
+        localStorage.removeItem('weknora_refresh_token');
+      }
       localStorage.setItem('weknora_user', JSON.stringify(data.user));
       localStorage.setItem('weknora_tenant', JSON.stringify(tenant));
       localStorage.setItem('weknora_memberships', JSON.stringify(data.memberships || []));
-      if (tenant.id != null) localStorage.setItem('weknora_selected_tenant_id', String(tenant.id));
     }
   }
 } catch (error) {

@@ -11,6 +11,32 @@ class NamedTool:
         self.name = name
 
 
+def test_selected_weknora_scope_restores_tools_removed_by_skill_policy():
+    from deerflow.agents.lead_agent.agent import _restore_weknora_tools_for_selected_scope
+
+    raw_tools = [NamedTool("bash"), NamedTool("weknora_search"), NamedTool("weknora_ask")]
+    filtered_tools = [NamedTool("read_file")]
+
+    restored = _restore_weknora_tools_for_selected_scope(
+        raw_tools,
+        filtered_tools,
+        selected_ids=["kb-1"],
+    )
+
+    assert [tool.name for tool in restored] == ["read_file", "weknora_search", "weknora_ask"]
+
+
+def test_weknora_tools_remain_filtered_without_selected_scope():
+    from deerflow.agents.lead_agent.agent import _restore_weknora_tools_for_selected_scope
+
+    raw_tools = [NamedTool("weknora_search"), NamedTool("weknora_ask")]
+    filtered_tools = [NamedTool("read_file"), NamedTool("weknora_search"), NamedTool("weknora_ask")]
+
+    restored = _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, selected_ids=[])
+
+    assert [tool.name for tool in restored] == ["read_file"]
+
+
 def _make_skill(name: str, allowed_tools: list[str] | None = None, *, enabled: bool = True) -> Skill:
     return Skill(
         name=name,

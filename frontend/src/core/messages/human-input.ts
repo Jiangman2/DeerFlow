@@ -268,10 +268,10 @@ export function extractHumanInputRequest(
   const optionValues = Array.isArray(rawOptions)
     ? rawOptions.filter(isNonEmptyString)
     : [];
-  const requestId =
-    (isNonEmptyString(clarificationCall.id) && clarificationCall.id) ||
-    (isNonEmptyString(message.id) && message.id) ||
-    `clarification-${question.slice(0, 32)}`;
+  const requestId = isNonEmptyString(clarificationCall.id)
+    ? `clarification:${clarificationCall.id}`
+    : (isNonEmptyString(message.id) && message.id) ||
+      `clarification-${question.slice(0, 32)}`;
   const inputMode: HumanInputMode = optionValues.length
     ? "choice_with_other"
     : "free_text";

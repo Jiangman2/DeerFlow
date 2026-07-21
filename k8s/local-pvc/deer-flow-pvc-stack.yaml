@@ -166,7 +166,7 @@ spec:
               readOnly: true
       containers:
         - name: gateway
-          image: deer-flow-gateway
+          image: deer-flow-gateway:dev-20260721-kb-scope-memory-3
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
@@ -332,7 +332,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: deer-flow-frontend
+          image: deer-flow-frontend:dev-20260721-citation-links
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
@@ -343,7 +343,7 @@ spec:
             - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
               value: http://gateway:8001
             - name: WEKNORA_FRONTEND_URL
-              value: http://127.0.0.1:32090/platform/knowledge-bases
+              value: http://127.0.0.1:2026/platform/knowledge-bases
           readinessProbe:
             httpGet:
               path: /

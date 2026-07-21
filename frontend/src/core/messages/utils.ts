@@ -67,6 +67,44 @@ export function getMessageGroups(messages: Message[]): MessageGroup[] {
 
     if (message.type === "tool") {
       if (isClarificationToolMessage(message)) {
+        const toolCallId = Reflect.get(message, "tool_call_id");
+        let streamedGroupIndex = -1;
+        if (typeof toolCallId === "string") {
+          for (let index = groups.length - 1; index >= 0; index--) {
+            const group = groups[index];
+            if (
+              group?.type === "assistant:clarification" &&
+              group.messages.some(
+                (candidate) =>
+                  candidate.type === "ai" &&
+                  candidate.tool_calls?.some(
+                    (toolCall) =>
+                      toolCall.name === "ask_clarification" &&
+                      toolCall.id === toolCallId,
+                  ),
+              )
+            ) {
+              streamedGroupIndex = index;
+              break;
+            }
+          }
+        }
+
+        if (streamedGroupIndex >= 0) {
+          const streamedGroup = groups[streamedGroupIndex];
+          if (streamedGroup) {
+            groups[streamedGroupIndex] = {
+              id: message.id,
+              type: "assistant:clarification",
+              // Put the authoritative ToolMessage first so card extraction
+              // uses its structured artifact, while retaining the AI call for
+              // token accounting and diagnostics.
+              messages: [message, ...streamedGroup.messages],
+            };
+          }
+          continue;
+        }
+
         // Add to the preceding processing group to preserve tool-call association,
         // then also open a standalone clarification group for prominent display.
         lastOpenGroup()?.messages.push(message);

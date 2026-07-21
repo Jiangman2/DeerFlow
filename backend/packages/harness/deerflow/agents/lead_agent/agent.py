@@ -39,6 +39,7 @@ from deerflow.agents.middlewares.todo_middleware import TodoMiddleware
 from deerflow.agents.middlewares.token_usage_middleware import TokenUsageMiddleware
 from deerflow.agents.middlewares.tool_error_handling_middleware import build_lead_runtime_middlewares
 from deerflow.agents.middlewares.view_image_middleware import ViewImageMiddleware
+from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.agents_config import load_agent_config, validate_agent_name
 from deerflow.config.app_config import AppConfig, get_app_config
@@ -295,6 +296,10 @@ def build_middlewares(
 
     middlewares.append(DynamicContextMiddleware(agent_name=agent_name, app_config=resolved_app_config))
 
+    # Carry the UI-selected WeKnora knowledge-base scope into the model context
+    # and tell the agent which knowledge tool to call for enterprise knowledge.
+    middlewares.append(WeKnoraScopeMiddleware())
+
     # Deterministically load a full SKILL.md when the user starts the turn with
     # /skill-name. This keeps the base system prompt metadata-only while giving
     # explicit user activation priority over model-side relevance guessing.
@@ -441,6 +446,24 @@ def _restore_task_tool_for_subagent_mode(raw_tools, filtered_tools, *, subagent_
     return [*filtered_tools, task_tool] if task_tool is not None else filtered_tools
 
 
+def _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, *, selected_ids: object):
+    """Gate WeKnora on an explicit KB scope, restoring configured tools when selected.
+
+    Skill ``allowed-tools`` policy may remove domain tools globally even though
+    the composer selection and :class:`WeKnoraScopeMiddleware` advertise a
+    scoped WeKnora call. Restore only the configured WeKnora tools already in
+    ``raw_tools``; custom-agent tool-group restrictions still take precedence.
+    """
+
+    from deerflow.runtime.weknora_context import gate_weknora_tools_for_scope
+
+    gated = gate_weknora_tools_for_scope(raw_tools, filtered_tools, selected_ids=selected_ids)
+    restored_names = [tool.name for tool in gated if tool not in filtered_tools and getattr(tool, "name", None)]
+    if restored_names:
+        logger.info("Selected WeKnora scope restored executable tools: %s", restored_names)
+    return gated
+
+
 def _load_enabled_skills_for_tool_policy(available_skills: set[str] | None, *, app_config: AppConfig, user_id: str | None = None) -> list[Skill]:
     try:
         from deerflow.agents.lead_agent.prompt import get_enabled_skills_for_config
@@ -569,6 +592,11 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         )
         raw_tools = get_available_tools(model_name=model_name, subagent_enabled=subagent_enabled, app_config=resolved_app_config) + [setup_agent]
         filtered = filter_tools_by_skill_allowed_tools(raw_tools, skills_for_tool_policy, always_allowed_tool_names=ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES)
+        filtered = _restore_weknora_tools_for_selected_scope(
+            raw_tools,
+            filtered,
+            selected_ids=cfg.get("weknora_knowledge_base_ids"),
+        )
         if non_interactive:
             filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
         final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)
@@ -638,6 +666,11 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     raw_tools = get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled, app_config=resolved_app_config)
     filtered = filter_tools_by_skill_allowed_tools(raw_tools + extra_tools, skills_for_tool_policy, always_allowed_tool_names=ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES)
     filtered = _restore_task_tool_for_subagent_mode(raw_tools, filtered, subagent_enabled=subagent_enabled)
+    filtered = _restore_weknora_tools_for_selected_scope(
+        raw_tools,
+        filtered,
+        selected_ids=cfg.get("weknora_knowledge_base_ids"),
+    )
     if non_interactive:
         filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
     final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)

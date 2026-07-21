@@ -121,6 +121,22 @@ DeerFlow SSO request is unavailable. Keep the host name aligned between
 DeerFlow and WeKnora, for example `127.0.0.1:2026` and `127.0.0.1:8090`, so
 the DeerFlow cookie is sent.
 
+The SSO bootstrap only persists the WeKnora token, user, tenant, and membership
+metadata returned by DeerFlow. It does not intercept browser storage, override
+tenant switching, or change WeKnora routes. On the unified port `2026`,
+`/api/v1/auth/me` remains DeerFlow's endpoint, so the patched WeKnora auth chunk
+uses `/api/weknora-native/auth/me`. Nginx proxies that exact path to WeKnora's
+native `/api/v1/auth/me`, preserving the response shape needed by the user menu,
+member management, and API settings. A DeerFlow `system_role` of `admin` maps
+to WeKnora `is_system_admin` and `can_access_all_tenants`; normal and
+OAuth-provisioned DeerFlow users remain regular WeKnora users.
+
+WeKnora tenant workspaces and organizations are separate concepts. Registration
+creates a default tenant workspace and owner membership. A system administrator
+can create and switch tenant workspaces. Organizations are shared collaboration
+spaces with their own admin/editor/viewer membership and knowledge-base sharing
+rules.
+
 The same UI patch embeds a branding layer in the mounted `index.html`. It
 changes user-visible `WeKnora` product labels to `知识库` at runtime (including
 content rendered after navigation) and aligns the native UI's primary blue,

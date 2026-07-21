@@ -372,6 +372,49 @@ test("hides internal todo reminder messages from message groups", () => {
   ).toEqual(["human-1", "ai-1"]);
 });
 
+test("replaces a streamed clarification call with its persisted tool result", () => {
+  const messages = [
+    {
+      id: "ai-clarification",
+      type: "ai",
+      content: "",
+      tool_calls: [
+        {
+          id: "call-abc",
+          name: "ask_clarification",
+          args: { question: "Which years?" },
+        },
+      ],
+    },
+    {
+      id: "clarification:call-abc",
+      type: "tool",
+      name: "ask_clarification",
+      tool_call_id: "call-abc",
+      content: "Which years?",
+      artifact: {
+        human_input: {
+          version: 1,
+          kind: "human_input_request",
+          source: "ask_clarification",
+          request_id: "clarification:call-abc",
+          question: "Which years?",
+          input_mode: "free_text",
+        },
+      },
+    },
+  ] as unknown as Message[];
+
+  const clarificationGroups = getMessageGroups(messages).filter(
+    (group) => group.type === "assistant:clarification",
+  );
+
+  expect(clarificationGroups).toHaveLength(1);
+  expect(clarificationGroups[0]?.messages.map((message) => message.id)).toEqual(
+    ["clarification:call-abc", "ai-clarification"],
+  );
+});
+
 test("hides assistant copy data while that turn is streaming", () => {
   const messages = [
     {

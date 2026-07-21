@@ -382,6 +382,48 @@ def test_task_tool_threads_runtime_app_config_to_subagent_dependencies(monkeypat
     assert captured["executor_kwargs"]["tools"] == ["tool-a"]
 
 
+def test_task_tool_gates_weknora_tools_using_parent_run_scope(monkeypatch):
+    runtime = _make_runtime()
+    captured = {}
+
+    class DummyExecutor:
+        def __init__(self, **kwargs):
+            captured["tools"] = kwargs["tools"]
+
+        def execute_async(self, prompt, task_id=None):
+            return task_id or "generated-task-id"
+
+    monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
+    monkeypatch.setattr(task_tool_module, "SubagentExecutor", DummyExecutor)
+    monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: _make_subagent_config())
+    monkeypatch.setattr(
+        task_tool_module,
+        "get_background_task_result",
+        lambda _: _make_result(FakeSubagentStatus.COMPLETED, result="done"),
+    )
+    monkeypatch.setattr(task_tool_module, "get_stream_writer", lambda: lambda _event: None)
+    monkeypatch.setattr(task_tool_module.asyncio, "sleep", _no_sleep)
+    monkeypatch.setattr(
+        "deerflow.tools.get_available_tools",
+        lambda **kwargs: [
+            SimpleNamespace(name="web_search"),
+            SimpleNamespace(name="weknora_search"),
+            SimpleNamespace(name="weknora_ask"),
+        ],
+    )
+
+    output = _run_task_tool(
+        runtime=runtime,
+        description="research",
+        prompt="collect diagnostics",
+        subagent_type="general-purpose",
+        tool_call_id="tc-no-weknora-scope",
+    )
+
+    assert _task_tool_message(output).content == "Task Succeeded. Result: done"
+    assert [tool.name for tool in captured["tools"]] == ["web_search"]
+
+
 def test_task_tool_emits_running_and_completed_events(monkeypatch):
     config = _make_subagent_config()
     runtime = _make_runtime()

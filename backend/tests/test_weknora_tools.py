@@ -84,6 +84,7 @@ def test_weknora_search_uses_config_scope_and_formats_results():
                     "content": "命中片段 1",
                     "score": 0.98,
                     "knowledge_id": "doc-1",
+                    "knowledge_base_id": "kb-1",
                     "knowledge_title": "制度文档",
                     "knowledge_filename": "policy.pdf",
                     "chunk_index": 0,
@@ -116,6 +117,9 @@ def test_weknora_search_uses_config_scope_and_formats_results():
     assert parsed["total_results"] == 1
     assert parsed["results"][0]["content"] == "命中片段 1"
     assert parsed["results"][0]["knowledge_filename"] == "policy.pdf"
+    assert parsed["results"][0]["citation_url"] == "/platform/knowledge-bases/kb-1?knowledge_id=doc-1"
+    assert parsed["results"][0]["citation_markdown"].endswith("](/platform/knowledge-bases/kb-1?knowledge_id=doc-1)")
+    assert "/mnt/" not in parsed["results"][0]["citation_markdown"]
 
 
 def test_weknora_search_accepts_explicit_file_scope_over_config():
@@ -225,6 +229,7 @@ def test_weknora_ask_parses_sse_answer_and_references():
     assert parsed["answer"] == "答案第一段，答案第二段"
     assert parsed["references"][0]["content"] == "依据片段"
     assert parsed["references"][0]["knowledge_filename"] == "policy.pdf"
+    assert parsed["references"][0]["citation_url"] == "/platform/knowledge-bases/kb-1?knowledge_id=doc-1"
 
 
 def test_weknora_ask_creates_session_when_omitted():

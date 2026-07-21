@@ -410,6 +410,6 @@ After generation:
 - Always analyze the actual code before writing documentation — never guess at API signatures or behavior
 - When existing documentation exists, preserve its structure unless the user explicitly asks for a rewrite
 - For large codebases, prioritize documenting the public API surface and key abstractions first
-- Documentation should be written in the same language as the project's existing docs; default to English if none exist
+- Documentation should be written in the same language as the project's existing docs; default to Simplified Chinese if none exist
 - When generating changelogs, use the [Keep a Changelog](https://keepachangelog.com/) format
 - This skill works well in combination with the `deep-research` skill for documenting third-party integrations or dependencies

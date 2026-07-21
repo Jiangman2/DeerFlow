@@ -43,7 +43,11 @@ async function getOIDCConfig() {
   try {
     return await get("/api/v1/auth/oidc/config");
   } catch (error) {
-    return { success: false, enabled: false, message: error.message || translate("error.auth.loginFailed") };
+    return {
+      success: false,
+      enabled: false,
+      message: error.message || translate("error.auth.loginFailed"),
+    };
   }
 }
 
@@ -63,35 +67,6 @@ async function register(payload) {
   }
 }
 
-let currentSsoSession;
-let ssoBootstrapPromise;
-
-function persistSsoSession(data) {
-  const tenant = data?.tenant || data?.active_tenant;
-  if (!data?.token || !data?.user || !tenant) return;
-  currentSsoSession = { ...data, tenant, active_tenant: tenant };
-  localStorage.setItem("weknora_token", data.token);
-  if (data.refresh_token) localStorage.setItem("weknora_refresh_token", data.refresh_token);
-  localStorage.setItem("weknora_user", JSON.stringify(data.user));
-  localStorage.setItem("weknora_tenant", JSON.stringify(tenant));
-  localStorage.setItem("weknora_memberships", JSON.stringify(data.memberships || []));
-  if (tenant.id != null) localStorage.setItem("weknora_selected_tenant_id", String(tenant.id));
-}
-
-function currentUserResponse(data) {
-  const tenant = data.tenant || data.active_tenant;
-  return {
-    success: true,
-    data: { user: data.user, tenant, memberships: data.memberships || [] },
-    user: data.user,
-    tenant,
-    active_tenant: tenant,
-    memberships: data.memberships || [],
-    token: data.token,
-    refresh_token: data.refresh_token,
-  };
-}
-
 async function autoSetup() {
   try {
     const url =
@@ -100,38 +75,21 @@ async function autoSetup() {
     const response = await fetch(url, { credentials: "include", cache: "no-store" });
     if (response.ok) {
       const data = await response.json();
-      if (data?.success && data.token && data.user && (data.tenant || data.active_tenant)) {
-        persistSsoSession(data);
-        return currentSsoSession;
-      }
+      if (data?.success) return data;
     }
   } catch {
-    // The caller handles an unavailable DeerFlow session by showing login.
+    // Fall through to WeKnora's native auto-setup behavior.
   }
-  return { success: false, message: "DeerFlow SSO unavailable" };
+  try {
+    return await post("/api/v1/auth/auto-setup", {});
+  } catch (error) {
+    return { success: false, message: error.message || "Auto-setup unavailable" };
+  }
 }
 
 async function getCurrentUser() {
-  if (globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL) {
-    // Always exchange the current DeerFlow cookie for a fresh WeKnora session
-    // when this document boots. A token left in localStorage can become invalid
-    // after WeKnora restarts; trusting it lets the application fire its model
-    // and knowledge-base requests with a stale bearer token before SSO runs.
-    // Share one exchange across concurrent auth guards in the same document.
-    if (!ssoBootstrapPromise) {
-      ssoBootstrapPromise = autoSetup().finally(() => {
-        if (!currentSsoSession) ssoBootstrapPromise = undefined;
-      });
-    }
-    const session = currentSsoSession || (await ssoBootstrapPromise);
-    if (session?.success && session.user && (session.tenant || session.active_tenant)) {
-      persistSsoSession(session);
-      return currentUserResponse(currentSsoSession);
-    }
-    return { success: false, message: session?.message || "DeerFlow SSO unavailable" };
-  }
   try {
-    return await get("/api/v1/auth/me");
+    return await get("/api/weknora-native/auth/me");
   } catch (error) {
     return { success: false, message: error.message || translate("error.auth.getUserFailed") };
   }
@@ -141,7 +99,10 @@ async function updateMyPreferences(payload) {
   try {
     return await put("/api/v1/auth/me/preferences", payload);
   } catch (error) {
-    return { success: false, message: error.message || translate("error.auth.updatePreferencesFailed") };
+    return {
+      success: false,
+      message: error.message || translate("error.auth.updatePreferencesFailed"),
+    };
   }
 }
 
@@ -157,10 +118,19 @@ async function refreshToken(refreshTokenValue) {
   try {
     const response = await post("/api/v1/auth/refresh", { refreshToken: refreshTokenValue });
     return response?.success && (response.access_token || response.refresh_token)
-      ? { success: true, data: { token: response.access_token, refreshToken: response.refresh_token } }
-      : { success: false, message: response?.message || translate("error.auth.refreshTokenFailed") };
+      ? {
+          success: true,
+          data: { token: response.access_token, refreshToken: response.refresh_token },
+        }
+      : {
+          success: false,
+          message: response?.message || translate("error.auth.refreshTokenFailed"),
+        };
   } catch (error) {
-    return { success: false, message: error.message || translate("error.auth.refreshTokenFailed") };
+    return {
+      success: false,
+      message: error.message || translate("error.auth.refreshTokenFailed"),
+    };
   }
 }
 
@@ -177,7 +147,11 @@ async function validateToken() {
   try {
     return await get("/api/v1/auth/validate");
   } catch (error) {
-    return { success: false, valid: false, message: error.message || translate("error.auth.validateTokenFailed") };
+    return {
+      success: false,
+      valid: false,
+      message: error.message || translate("error.auth.validateTokenFailed"),
+    };
   }
 }
 

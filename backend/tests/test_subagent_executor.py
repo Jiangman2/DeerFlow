@@ -450,6 +450,7 @@ class TestAgentConstruction:
         # SystemMessage should contain both the system_prompt and skill content
         assert base_config.system_prompt in messages[0].content
         assert "Skill instructions here" in messages[0].content
+        assert "默认使用简体中文" in messages[0].content
         # HumanMessage should be the task
         assert messages[1].content == "Do the task"
 

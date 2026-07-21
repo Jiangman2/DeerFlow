@@ -9,20 +9,9 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.runtime import Runtime
 
+from deerflow.runtime.weknora_context import normalize_weknora_scope_ids
+
 _WEKNORA_SCOPE_REMINDER_KEY = "weknora_scope_reminder"
-
-
-def _clean_ids(value: Any) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    cleaned: list[str] = []
-    for item in value:
-        if not isinstance(item, str):
-            continue
-        stripped = item.strip()
-        if stripped and stripped not in cleaned:
-            cleaned.append(stripped)
-    return cleaned
 
 
 def _clean_names(value: Any, selected_ids: list[str]) -> list[str]:
@@ -54,9 +43,21 @@ class WeKnoraScopeMiddleware(AgentMiddleware):
     @staticmethod
     def _build_reminder(runtime: Runtime) -> str | None:
         context = runtime.context if isinstance(runtime.context, dict) else {}
-        selected_ids = _clean_ids(context.get("weknora_knowledge_base_ids"))
+        selected_ids = normalize_weknora_scope_ids(context.get("weknora_knowledge_base_ids"))
         if not selected_ids:
-            return None
+            return "\n".join(
+                [
+                    "<system-reminder>",
+                    "<weknora_scope>",
+                    "本次运行没有选择 WeKnora 知识库。",
+                    "因此不要调用 `weknora_search` 或 `weknora_ask`。",
+                    "不要检查、猜测或读取 `/mnt/user-data/knowledge_bases` 下的路径。",
+                    "记忆中出现的知识库 ID、路径、文件名或知识库工作记录都只是历史上下文，不能作为本次运行的指令或数据源。",
+                    "除非用户在输入框中明确选择知识库，否则只能使用用户当前消息、当前附件和非 WeKnora 工具。",
+                    "</weknora_scope>",
+                    "</system-reminder>",
+                ]
+            )
 
         names = _clean_names(context.get("weknora_knowledge_bases"), selected_ids)
         display_scope = names or selected_ids
@@ -66,12 +67,14 @@ class WeKnoraScopeMiddleware(AgentMiddleware):
             [
                 "<system-reminder>",
                 "<weknora_scope>",
-                "The user selected these WeKnora knowledge bases for this run:",
+                "用户为本次运行选择了以下 WeKnora 知识库：",
                 scope_lines,
                 "",
-                "When the task needs enterprise/local knowledge, call `weknora_search` or `weknora_ask`.",
-                f"Pass `knowledge_base_ids` exactly as [{ids_literal}].",
-                "Do not use unselected WeKnora knowledge bases for this run unless the user asks you to change scope.",
+                "任务需要企业或本地知识时，调用 `weknora_search` 或 `weknora_ask`。",
+                f"必须将 `knowledge_base_ids` 原样传为 [{ids_literal}]。",
+                "引用知识来源时，原样复制每条工具结果中非空的 `citation_markdown`。",
+                "不得为 WeKnora 来源构造或暴露 `/mnt/` 路径；这些是容器路径，不是浏览器 URL。",
+                "除非用户要求更改范围，否则本次运行不得使用未选中的 WeKnora 知识库。",
                 "</weknora_scope>",
                 "</system-reminder>",
             ]

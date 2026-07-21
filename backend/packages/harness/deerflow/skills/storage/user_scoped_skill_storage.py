@@ -38,6 +38,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
+from deerflow.skills.package_paths import is_eval_fixture_skill_md
 from deerflow.skills.permissions import make_skill_written_path_sandbox_readable
 from deerflow.skills.storage.local_skill_storage import LocalSkillStorage
 from deerflow.skills.storage.skill_storage import SKILL_MD_FILE
@@ -268,7 +269,10 @@ class UserScopedSkillStorage(LocalSkillStorage):
                 dir_names[:] = sorted(name for name in dir_names if not name.startswith("."))
                 if SKILL_MD_FILE not in file_names:
                     continue
-                yield SkillCategory.PUBLIC, public_path, Path(current_root) / SKILL_MD_FILE
+                skill_file = Path(current_root) / SKILL_MD_FILE
+                if is_eval_fixture_skill_md(skill_file.relative_to(public_path)):
+                    continue
+                yield SkillCategory.PUBLIC, public_path, skill_file
 
         # 2. Custom skills: prefer user-level directory
         user_custom_exists = False
@@ -278,8 +282,11 @@ class UserScopedSkillStorage(LocalSkillStorage):
                 dir_names[:] = sorted(name for name in dir_names if not name.startswith(".") and name != ".history")
                 if SKILL_MD_FILE not in file_names:
                     continue
+                skill_file = Path(current_root) / SKILL_MD_FILE
+                if is_eval_fixture_skill_md(skill_file.relative_to(user_custom_path)):
+                    continue
                 user_custom_exists = True
-                yield SkillCategory.CUSTOM, user_custom_path, Path(current_root) / SKILL_MD_FILE
+                yield SkillCategory.CUSTOM, user_custom_path, skill_file
 
         # 3. Fallback: if user has no custom skills, load from global custom
         #    as LEGACY (read-only) so legacy skills are visible but not
@@ -293,7 +300,10 @@ class UserScopedSkillStorage(LocalSkillStorage):
                     dir_names[:] = sorted(name for name in dir_names if not name.startswith(".") and name != ".history")
                     if SKILL_MD_FILE not in file_names:
                         continue
-                    yield SkillCategory.LEGACY, global_custom_path, Path(current_root) / SKILL_MD_FILE
+                    skill_file = Path(current_root) / SKILL_MD_FILE
+                    if is_eval_fixture_skill_md(skill_file.relative_to(global_custom_path)):
+                        continue
+                    yield SkillCategory.LEGACY, global_custom_path, skill_file
 
     # ------------------------------------------------------------------
     # Install — redirect custom_dir to user directory

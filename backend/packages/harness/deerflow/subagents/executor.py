@@ -22,6 +22,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.errors import GraphRecursionError
 
+from deerflow.agents.language_policy import ensure_default_chinese_language
 from deerflow.agents.thread_state import SandboxState, ThreadDataState, ThreadState
 from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
@@ -666,7 +667,7 @@ class SubagentExecutor:
 
         messages: list[Any] = []
         if system_parts:
-            messages.append(SystemMessage(content="\n\n".join(system_parts)))
+            messages.append(SystemMessage(content=ensure_default_chinese_language("\n\n".join(system_parts))))
 
         # Then the actual task
         messages.append(HumanMessage(content=task))

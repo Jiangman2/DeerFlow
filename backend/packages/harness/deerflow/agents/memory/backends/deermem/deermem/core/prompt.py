@@ -37,6 +37,13 @@ Instructions:
 2. Extract relevant facts, preferences, and context with specific details (numbers, names, technologies)
 3. Update the memory sections as needed following the detailed length guidelines below
 
+Durability boundary:
+- Durable memory is for information that remains useful across unrelated future threads.
+- Keep single-task progress, current tool state, and temporary resources in the conversation/thread state only.
+- NEVER persist knowledge-base IDs, run/thread/session IDs, container or filesystem paths, filenames, uploaded-document names, tool-call results, transient infrastructure errors, or generated-artifact progress.
+- Do not turn assistant guesses, fabricated paths, or a one-off failed tool call into user facts.
+- A reusable correction may be stored only when it expresses a durable user preference or general rule; do not store task-specific path/tool failures as corrections.
+
 Before extracting facts, perform a structured reflection on the conversation:
 1. Error/Retry Detection: Did the agent encounter errors, require retries, or produce incorrect results?
    If yes, record the root cause and correct approach as a high-confidence fact with category "correction".
@@ -150,6 +157,7 @@ Important Rules:
 - For history sections, integrate new information chronologically into appropriate time period
 - Preserve technical accuracy - keep exact names of technologies, companies, projects
 - Focus on information useful for future interactions and personalization
+- Do not infer an ongoing focus area from one task. Update topOfMind only when the user explicitly describes a priority that spans multiple tasks or the same theme is reinforced across conversations.
 - IMPORTANT: Do NOT record file upload events in memory. Uploaded files are
   session-specific and ephemeral — they will not be accessible in future sessions.
   Recording upload events causes confusion in subsequent conversations.
@@ -252,6 +260,7 @@ Rules:
 - Only extract clear, specific facts
 - Confidence should reflect certainty (explicit statement = 0.9+, implied = 0.6-0.8)
 - Skip vague or temporary information
+- Never extract task progress, resource IDs, file/container paths, filenames, tool errors, or assistant-generated operational details
 
 Return ONLY valid JSON."""
 

@@ -13,6 +13,7 @@ injected onto the updater so no network is needed.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -52,6 +53,63 @@ def _deermem_with_fake_llm(backend_config=None, payload=None) -> DeerMem:
     dm._llm = fake
     dm._updater._llm = fake
     return dm
+
+
+def test_memory_update_rejects_transient_task_resources(deermem_data_dir):
+    payload = json.dumps(
+        {
+            "user": {
+                "workContext": {
+                    "summary": "Currently reading /mnt/user-data/knowledge_bases/9b4d6d0a-5649-482c-96d1-9aea10a8052b/report.xlsx",
+                    "shouldUpdate": True,
+                },
+                "personalContext": {
+                    "summary": "The user prefers concise Chinese answers.",
+                    "shouldUpdate": True,
+                },
+                "topOfMind": {
+                    "summary": "正在基于当前知识库文件制作一次性 PPT。",
+                    "shouldUpdate": True,
+                },
+            },
+            "history": {
+                "recentMonths": {
+                    "summary": "A FileNotFoundError occurred for /mnt/user-data/knowledge_bases/report.xlsx.",
+                    "shouldUpdate": True,
+                }
+            },
+            "newFacts": [
+                {
+                    "content": "Use knowledge base ID 9b4d6d0a-5649-482c-96d1-9aea10a8052b for the current task.",
+                    "category": "context",
+                    "confidence": 0.99,
+                },
+                {
+                    "content": "The user prefers concise Chinese answers.",
+                    "category": "preference",
+                    "confidence": 0.99,
+                },
+            ],
+            "factsToRemove": [],
+        },
+        ensure_ascii=False,
+    )
+    dm = _deermem_with_fake_llm(payload=payload)
+
+    dm.add(
+        thread_id="task-resource-thread",
+        messages=[HumanMessage(content="Make this PPT"), AIMessage(content="Working on it")],
+        agent_name=None,
+        user_id="task-resource-user",
+    )
+    dm._queue.flush()
+
+    memory = dm.get_memory(user_id="task-resource-user")
+    assert memory["user"]["workContext"]["summary"] == ""
+    assert memory["user"]["topOfMind"]["summary"] == ""
+    assert memory["history"]["recentMonths"]["summary"] == ""
+    assert memory["user"]["personalContext"]["summary"] == "The user prefers concise Chinese answers."
+    assert [fact["content"] for fact in memory["facts"]] == ["The user prefers concise Chinese answers."]
 
 
 def test_di_construction_owns_dependencies():

@@ -370,6 +370,13 @@ async def task_tool(
     if resolved_app_config is not None:
         available_tools_kwargs["app_config"] = resolved_app_config
     tools = get_available_tools(**available_tools_kwargs)
+    from deerflow.runtime.weknora_context import gate_weknora_tools_for_scope
+
+    tools = gate_weknora_tools_for_scope(
+        tools,
+        tools,
+        selected_ids=parent_context.get("weknora_knowledge_base_ids"),
+    )
 
     # Create executor
     executor_kwargs = {

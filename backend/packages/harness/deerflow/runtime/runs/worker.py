@@ -58,6 +58,7 @@ from deerflow.runtime.goal import (
 from deerflow.runtime.serialization import serialize
 from deerflow.runtime.stream_bridge import StreamBridge
 from deerflow.runtime.user_context import get_effective_user_id, resolve_runtime_user_id
+from deerflow.runtime.weknora_context import reset_current_weknora_access_token, set_current_weknora_access_token
 from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
 from deerflow.tracing import inject_langfuse_metadata
 from deerflow.utils.messages import message_to_text
@@ -116,9 +117,7 @@ def _has_open_clarification(messages: list[Any]) -> bool:
         if isinstance(message, HumanMessage):
             response = read_human_input_response(message.additional_kwargs)
             if response is not None and response["request_id"] in open_request_ids:
-                open_request_ids = [
-                    request_id for request_id in open_request_ids if request_id != response["request_id"]
-                ]
+                open_request_ids = [request_id for request_id in open_request_ids if request_id != response["request_id"]]
 
     return bool(open_request_ids)
 
@@ -142,9 +141,7 @@ async def _checkpoint_has_open_clarification(checkpointer: Any, thread_id: str) 
     if checkpointer is None:
         return False
     try:
-        ckpt_tuple = await checkpointer.aget_tuple(
-            {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-        )
+        ckpt_tuple = await checkpointer.aget_tuple({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
         if ckpt_tuple is None:
             return False
         checkpoint = getattr(ckpt_tuple, "checkpoint", {}) or {}
@@ -344,6 +341,7 @@ async def run_agent(
             return
         await bridge.publish_end(run_id)
         stream_end_published = True
+
     # Message ids checkpointed *before* this run started. The stream loop uses
     # this set to mask out ``deerflow_error_fallback`` markers that belong to
     # earlier runs on the same thread — without it, one stale fallback in
@@ -351,6 +349,7 @@ async def run_agent(
     pre_existing_message_ids: set[str] = set()
 
     journal = None
+    weknora_token_context = None
     # Buffers subagent step events for batched persistence (#3779); assigned once
     # streaming starts and flushed in the finally block. Pre-bound to None so the
     # finally is safe even if an exception fires before streaming begins.
@@ -434,6 +433,9 @@ async def run_agent(
         # manually here because we drive the graph through ``agent.astream(config=...)``
         # without passing the official ``context=`` parameter.
         runtime_ctx = _build_runtime_context(thread_id, run_id, config.get("context"), ctx.app_config)
+        weknora_access_token = runtime_ctx.get("weknora_access_token")
+        if isinstance(weknora_access_token, str) and weknora_access_token.strip():
+            weknora_token_context = set_current_weknora_access_token(weknora_access_token.strip())
         clarification_event = asyncio.Event()
         runtime_ctx["__clarification_event"] = clarification_event
         runtime_ctx[CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY] = frozenset(pre_existing_message_ids)
@@ -743,6 +745,9 @@ async def run_agent(
         )
 
     finally:
+        if weknora_token_context is not None:
+            reset_current_weknora_access_token(weknora_token_context)
+
         # Persist any subagent step events still buffered (#3779) — including on
         # abort/exception paths, where the stream loop broke before its own flush.
         if subagent_events is not None:
