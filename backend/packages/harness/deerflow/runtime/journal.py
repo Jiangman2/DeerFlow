@@ -106,6 +106,7 @@ class RunJournal(BaseCallbackHandler):
 
         # Convenience fields
         self._last_ai_msg: str | None = None
+        self._last_lead_ai_message: AIMessage | None = None
         self._first_human_msg: str | None = None
         self._msg_count = 0
         self._had_llm_error_fallback = False
@@ -117,6 +118,11 @@ class RunJournal(BaseCallbackHandler):
         # LLM request/response tracking
         self._llm_call_index = 0
         self._seen_llm_starts: set[str] = set()  # langchain run_ids that fired on_chat_model_start
+        # Some OpenAI-compatible providers drop Runnable tags between
+        # ``on_chat_model_start`` and ``on_llm_end``.  Preserve the caller
+        # resolved at start time so internal summarization/title completions
+        # cannot be journaled as user-visible lead-agent messages.
+        self._llm_callers_by_run_id: dict[str, str] = {}
         self._current_run_tool_call_names: dict[str, str] = {}
         self._persisted_tool_message_identities: set[str] = set()
 
@@ -174,6 +180,7 @@ class RunJournal(BaseCallbackHandler):
         # represents the user-visible run lifecycle.
         if parent_run_id is not None:
             return
+        self._reconcile_final_error_fallback(outputs)
         self._reconcile_final_tool_messages(outputs)
         self._put(event_type="run.end", category="outputs", content=outputs, metadata={"status": "success"})
         self._flush_sync()
@@ -196,6 +203,7 @@ class RunJournal(BaseCallbackHandler):
         *,
         run_id: UUID,
         tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Capture structured prompt messages for llm_request event.
@@ -218,7 +226,8 @@ class RunJournal(BaseCallbackHandler):
         )
 
         # Capture the first user message sent to the lead agent in this run.
-        caller = self._identify_caller(tags)
+        caller = self._identify_caller(tags, metadata)
+        self._llm_callers_by_run_id[rid] = caller
         if caller == "lead_agent" and not self._first_human_msg and messages:
             for batch in reversed(messages):
                 for m in reversed(batch):
@@ -238,7 +247,9 @@ class RunJournal(BaseCallbackHandler):
 
     def on_llm_start(self, serialized: dict, prompts: list[str], *, run_id: UUID, parent_run_id: UUID | None = None, tags: list[str] | None = None, metadata: dict[str, Any] | None = None, **kwargs: Any) -> None:
         # Fallback: on_chat_model_start is preferred. This just tracks latency.
-        self._llm_start_times[str(run_id)] = time.monotonic()
+        rid = str(run_id)
+        self._llm_start_times[rid] = time.monotonic()
+        self._llm_callers_by_run_id.setdefault(rid, self._identify_caller(tags, metadata))
 
     def on_llm_end(
         self,
@@ -251,6 +262,8 @@ class RunJournal(BaseCallbackHandler):
     ) -> None:
         messages: list[AnyMessage] = []
         logger.debug("on_llm_end %s: tags=%s", run_id, tags)
+        rid = str(run_id)
+        caller = self._llm_callers_by_run_id.pop(rid, None) or self._identify_caller(tags, kwargs.get("metadata"))
         for generation in response.generations:
             for gen in generation:
                 if hasattr(gen, "message"):
@@ -259,11 +272,11 @@ class RunJournal(BaseCallbackHandler):
                     logger.warning(f"on_llm_end {run_id}: generation has no message attribute: {gen}")
 
         for message in messages:
-            caller = self._identify_caller(tags)
             self._remember_current_run_tool_calls(message, caller=caller)
+            if caller == "lead_agent" and isinstance(message, AIMessage):
+                self._last_lead_ai_message = message
 
             # Latency
-            rid = str(run_id)
             start = self._llm_start_times.pop(rid, None)
             latency_ms = int((time.monotonic() - start) * 1000) if start else None
 
@@ -437,6 +450,45 @@ class RunJournal(BaseCallbackHandler):
             if self._should_reconcile_tool_message(message):
                 self._persist_tool_result_message(message)
 
+    def _reconcile_final_error_fallback(self, outputs: Any) -> None:
+        """Persist an after-model replacement that callbacks could not observe.
+
+        ``on_llm_end`` sees the provider's original AI message before agent
+        middleware runs. ArtifactDeliveryMiddleware may replace that message in
+        graph state with a visible failure carrying the same id. Recording the
+        final version lets message pagination apply normal last-write-wins
+        semantics instead of resurrecting the fabricated download link.
+        """
+        for message in reversed(self._final_output_messages(outputs)):
+            if not isinstance(message, AIMessage):
+                continue
+            if (message.additional_kwargs or {}).get("deerflow_error_fallback") is not True:
+                continue
+            self._put(
+                event_type="llm.ai.response",
+                category="message",
+                content=message.model_dump(),
+                metadata={"caller": "lead_agent", "reconciled": True},
+            )
+            return
+
+    def get_last_lead_ai_message(self) -> AIMessage | None:
+        """Return the latest provider-complete lead response seen this run."""
+        return self._last_lead_ai_message
+
+    def reconcile_ai_message(self, message: AIMessage, *, reason: str) -> None:
+        """Persist a post-callback replacement with last-write-wins identity."""
+        self._put(
+            event_type="llm.ai.response",
+            category="message",
+            content=message.model_dump(),
+            metadata={"caller": "lead_agent", "reconciled": True, "reason": reason},
+        )
+        self._last_lead_ai_message = message
+        text = self._message_text(message).strip()
+        if text:
+            self._last_ai_msg = text[:2000]
+
     def _put(self, *, event_type: str, category: str, content: str | dict = "", metadata: dict | None = None) -> None:
         self._buffer.append(
             {
@@ -498,11 +550,17 @@ class RunJournal(BaseCallbackHandler):
         if exc:
             logger.warning("Journal flush task failed: %s", exc)
 
-    def _identify_caller(self, tags: list[str] | None) -> str:
+    def _identify_caller(self, tags: list[str] | None, metadata: dict[str, Any] | None = None) -> str:
         _tags = tags or []
         for tag in _tags:
             if isinstance(tag, str) and (tag.startswith("subagent:") or tag.startswith("middleware:") or tag == "lead_agent"):
                 return tag
+        # ``lc_source`` is bound directly on internal model invocations and is
+        # more reliable than Runnable tags for several OpenAI-compatible
+        # providers.  Use it only for known internal sources.
+        source = (metadata or {}).get("lc_source")
+        if source in {"summarization", "title"}:
+            return f"middleware:{source}"
         # Default to lead_agent: the main agent graph does not inject
         # callback tags, while subagents and middleware explicitly tag
         # themselves.

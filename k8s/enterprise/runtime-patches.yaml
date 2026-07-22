@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-app-nodeport
+  namespace: deer-flow
+$patch: delete
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-frontend-nodeport
+  namespace: deer-flow
+$patch: delete
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: skills-sync
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: sync
+          imagePullPolicy: Never
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provisioner
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: provisioner
+          imagePullPolicy: Never
+          env:
+            - name: SANDBOX_IMAGE
+              value: deerflow.local/deer-flow-aio-sandbox:20260721-enterprise-arm64-1
+            - name: SANDBOX_SERVICE_TYPE
+              value: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: gateway
+          imagePullPolicy: Never
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          imagePullPolicy: Never
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-redis
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: redis
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: weknora-redis-data

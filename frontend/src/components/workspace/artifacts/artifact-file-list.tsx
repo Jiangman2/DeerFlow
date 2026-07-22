@@ -83,6 +83,7 @@ export function ArtifactFileList({
       {files.map((file) => (
         <Card
           key={file}
+          data-artifact-filepath={file}
           className="relative cursor-pointer p-3"
           onClick={() => handleClick(file)}
         >

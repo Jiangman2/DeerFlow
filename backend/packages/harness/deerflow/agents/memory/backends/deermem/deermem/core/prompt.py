@@ -41,17 +41,23 @@ Durability boundary:
 - Durable memory is for information that remains useful across unrelated future threads.
 - Keep single-task progress, current tool state, and temporary resources in the conversation/thread state only.
 - NEVER persist knowledge-base IDs, run/thread/session IDs, container or filesystem paths, filenames, uploaded-document names, tool-call results, transient infrastructure errors, or generated-artifact progress.
+- A deliverable's page count, outline, template, brand/VI, colors, logo, watermark,
+  fonts, layout, chart/matrix requirements, and export settings are task-local unless
+  the user explicitly says they apply in the future, by default, always, or across tasks.
 - Do not turn assistant guesses, fabricated paths, or a one-off failed tool call into user facts.
 - A reusable correction may be stored only when it expresses a durable user preference or general rule; do not store task-specific path/tool failures as corrections.
+- Facts about the user must be grounded in user-authored messages. Assistant statements may explain context or an error, but MUST NOT independently create a user fact unless the user explicitly confirms them.
 
 Before extracting facts, perform a structured reflection on the conversation:
 1. Error/Retry Detection: Did the agent encounter errors, require retries, or produce incorrect results?
-   If yes, record the root cause and correct approach as a high-confidence fact with category "correction".
+   Record a correction only when the user states a reusable cross-thread rule. Keep one-task commands, paths, output settings, and recovery steps in thread history.
 2. User Correction Detection: Did the user correct the agent's direction, understanding, or output?
-   If yes, record the correct interpretation or approach as a high-confidence fact with category "correction".
+   Record it only if the correction remains useful for unrelated future tasks; a correction to the current deliverable remains task-local.
    Include what went wrong in "sourceError" only when category is "correction" and the mistake is explicit in the conversation.
-3. Project Constraint Discovery: Were any project-specific constraints discovered during the conversation?
-   If yes, record them as facts with the most appropriate category and confidence.
+3. Durable Project Context Discovery: Record stable role, organization, domain,
+   technology-stack, or long-lived project context. Do NOT record one deliverable's
+   template, branding, page structure, visual style, or acceptance criteria unless the
+   user explicitly declares a future/default/cross-task rule.
 
 {correction_hint}
 
@@ -157,6 +163,7 @@ Important Rules:
 - For history sections, integrate new information chronologically into appropriate time period
 - Preserve technical accuracy - keep exact names of technologies, companies, projects
 - Focus on information useful for future interactions and personalization
+- Treat a single task request as task-local even when it contains precise numbers or the user confirms an option. Precision and confirmation do not imply long-term preference.
 - Do not infer an ongoing focus area from one task. Update topOfMind only when the user explicitly describes a priority that spans multiple tasks or the same theme is reinforced across conversations.
 - IMPORTANT: Do NOT record file upload events in memory. Uploaded files are
   session-specific and ephemeral — they will not be accessible in future sessions.
@@ -261,6 +268,8 @@ Rules:
 - Confidence should reflect certainty (explicit statement = 0.9+, implied = 0.6-0.8)
 - Skip vague or temporary information
 - Never extract task progress, resource IDs, file/container paths, filenames, tool errors, or assistant-generated operational details
+- Never convert one deliverable's page count, outline, template, branding, visual style, or acceptance criteria into a durable preference unless the user explicitly says it applies in the future, by default, always, or across tasks
+- Facts must be grounded in the user's own words; assistant statements alone are not user facts
 
 Return ONLY valid JSON."""
 

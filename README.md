@@ -253,6 +253,15 @@ are forwarded to sandbox commands through the sandbox API. This is the supported
 way to make configured media-provider variables available to PPT/image-generation
 scripts; use an all-in-one-sandbox image with `/v1/bash/exec` support (1.9.3+).
 
+If a model emits malformed JSON for a tool call, DeerFlow returns the parser
+error to the model and retries that call once. A second malformed response is
+shown as a visible error instead of silently ending the task or waiting for
+unrelated user input.
+Remote/AIO sandbox shell commands also preserve their real process exit code.
+A non-zero exit is returned to the model as an explicit error with guidance to
+inspect the active skill/reference or the command's `--help`, preventing failed
+CLI calls from being mistaken for successful progress.
+
 The administrator business dashboard is the consolidated operations view. It
 shows database-backed user rankings, model/agent activity, external-agent launch
 clicks, tokens, failures, slow or high-token runs, and feedback. Slow and
@@ -661,6 +670,12 @@ Use it as-is. Or tear it apart and make it yours.
 
 ### Skills & Tools
 
+Long skill entry files and their supporting resources use separate
+`sandbox.skill_file_output_max_chars` and
+`sandbox.skill_reference_output_max_chars` budgets (150,000 characters by
+default). This keeps mandatory later workflow phases, schemas, and examples
+visible without globally enlarging ordinary file reads.
+
 Skills are what make DeerFlow do _almost anything_.
 
 A standard Agent Skill is a structured capability module — a Markdown file that defines a workflow, best practices, and references to supporting resources. DeerFlow ships with built-in skills for research, report generation, slide creation, web pages, image and video generation, and more. But the real power is extensibility: add your own skills, replace the built-in ones, or combine them into compound workflows.
@@ -671,7 +686,36 @@ The bundled academic research package is exposed through one public skill,
 `/academic-research`. Its vendored component skills are runtime implementation
 details under `skills/third_party/` and do not appear as separate platform skills.
 
-Users can explicitly activate an enabled skill for a single turn by starting the request with `/skill-name`, for example `/data-analysis analyze uploads/foo.csv`. DeerFlow loads that skill's `SKILL.md` as hidden current-turn context while leaving the base prompt limited to skill metadata. Slash activation respects disabled skills, custom-agent skill whitelists, and existing channel commands such as `/new` and `/help`.
+Users can explicitly activate an enabled skill for a single turn by starting the request with `/skill-name`, for example `/data-analysis analyze uploads/foo.csv`. DeerFlow loads that skill's complete `SKILL.md` as hidden context on the first model call, then restores a compact validated continuation contract after each tool call. This retains exact reference paths and mandatory phase gates without multiplying a large skill body by every tool iteration. The skill is read from disk and audited once; the per-run contract is never written to chat history or persisted run configuration. Slash activation respects disabled skills, custom-agent skill whitelists, and existing channel commands such as `/new` and `/help`.
+
+When an activated skill declares a mandatory `read_file` reference or names a
+schema skeleton for a generated control file, DeerFlow blocks `write_file` and
+`str_replace` until that exact supporting resource has been read successfully.
+The same content-driven gate protects SVG authoring and speaker-note files when
+the skill declares an `executor-base.md` contract, preventing models from
+inventing deep workflow formats or skipping later instructions.
+Content-declared full-section contracts are validated before generated Markdown
+is written. Skills that declare first-page and final quality stages also receive
+runtime ordering gates: page two cannot be authored before the first-page check
+succeeds, and SVG export/finalization cannot run after an edit until the final
+check succeeds.
+Skills that declare a blocking explicit-user confirmation cannot write their
+design contract until either the confirmation UI completes or a structured
+response arrives for a matching `suggestion`/`risk_confirmation` request. An
+earlier missing-information answer and assistant-authored confirmation text are
+not accepted as user consent. On DeerFlow's chat fallback, the agent uses the
+structured confirmation card rather than plain text or generated quick replies,
+so the confirmed response resumes the same activated workflow. The card carries
+the complete generated design proposal as its context, allowing the user to
+review the values at the point of confirmation.
+
+Long, tool-heavy skills should use a model whose context window can hold the
+entry file, required references, generated artifacts, and tool history together.
+A 1M-context model avoids premature summarization of large slide or document
+workflows. Ordinary slash skills use compact continuation reminders to control
+repeated input cost; strict serial workflows with hard-stop confirmation gates
+retain their complete instructions across the tool loop so later phases do not
+lose their contracts.
 
 When you install `.skill` archives through the Gateway, DeerFlow accepts standard optional frontmatter metadata such as `version`, `author`, and `compatibility` instead of rejecting otherwise valid external skills.
 
@@ -802,6 +846,14 @@ warm Sandbox capacity per Gateway process. After a Gateway restart, inherited
 Sandbox Pods are reconciled immediately and excess warm Pods are removed oldest
 first. `sandbox.idle_timeout` controls reclamation of inactive entries.
 
+The Provisioner accepts `SANDBOX_*_PROBE_*` environment variables for
+startup/readiness/liveness timing and `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}`
+for generated Sandbox Pod resources. Heavy all-in-one images should keep a
+startup window of at least five minutes and a liveness failure window of about
+one minute so browser/PPT workloads are not restarted during a transient CPU
+stall. Readiness failures only remove the Pod from service; liveness failures
+restart it, so avoid an aggressively short liveness window for long tasks.
+
 This is the difference between a chatbot with tool access and an agent with an actual execution environment.
 
 ```
@@ -832,6 +884,10 @@ Memory updates now skip duplicate fact entries at apply time, so repeated prefer
 Operational task state remains thread-local: durable memory rejects knowledge-base IDs,
 container/file paths, filenames, tool errors, and one-off artifact progress so an old
 task cannot silently steer an unrelated future conversation.
+One-off deliverable constraints such as page count, outline, template, brand/VI,
+colors, logo, watermark, layout, and chart/matrix requirements are also kept
+thread-local. They become durable preferences only when the user explicitly says
+they apply in the future, by default, always, or across tasks.
 Runs that explicitly select a WeKnora knowledge base do not enter the durable-memory
 queue at all; their retrieved document facts remain scoped to that task's history.
 
@@ -969,7 +1025,10 @@ blocking IO that may run on the backend event loop, prints a concise summary,
 and writes complete JSON findings to `.deer-flow/blocking-io-findings.json`.
 The JSON includes compact review records with `priority`, `location`,
 `blocking_call`, `event_loop_exposure`, `reason`, and `code`.
-Gateway artifact serving now forces active web content types (`text/html`, `application/xhtml+xml`, `image/svg+xml`) to download as attachments instead of inline rendering, reducing XSS risk for generated artifacts.
+Gateway artifact serving now forces active web content types (`text/html`, `application/xhtml+xml`, `image/svg+xml`) to download as attachments instead of inline rendering, reducing XSS risk for generated artifacts. Known binary MIME types such as PDF are served as binary inline responses rather than being misclassified by text-content heuristics, and the same endpoint accepts `HEAD` for lightweight preview discovery.
+Final files published with `present_files` are persisted in the thread-scoped outputs directory before they appear in chat. A final file supplied from the current thread workspace is copied into outputs automatically, including when it must first be downloaded from a remote sandbox; arbitrary paths outside the current thread are still rejected.
+PPT Master publishes completed PowerPoint files into the thread-scoped outputs directory together with a same-stem `.preview.pdf`. The chat keeps the PPTX as the downloadable deliverable while the artifact panel renders the paired PDF in the right-side preview. A same-stem `.pdf` remains a compatibility preview fallback, and ordinary artifact links in assistant messages open the right-side preview while explicit download links still download the file.
+Final assistant responses cannot claim a `/mnt/user-data/outputs/...` deliverable unless that file both exists in the current thread outputs directory and was successfully published with `present_files`. DeerFlow retries one invalid delivery claim with hidden execution guidance, then returns a visible delivery error instead of persisting a fabricated download link.
 
 ## License
 

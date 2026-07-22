@@ -69,9 +69,29 @@ spec:
             - name: KUBECONFIG_WAIT_SECONDS
               value: "0"
             - name: SANDBOX_READINESS_INITIAL_DELAY_SECONDS
-              value: "45"
+              value: "5"
+            - name: SANDBOX_READINESS_PERIOD_SECONDS
+              value: "5"
+            - name: SANDBOX_READINESS_TIMEOUT_SECONDS
+              value: "5"
+            - name: SANDBOX_READINESS_FAILURE_THRESHOLD
+              value: "3"
             - name: SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS
-              value: "180"
+              value: "10"
+            - name: SANDBOX_LIVENESS_PERIOD_SECONDS
+              value: "10"
+            - name: SANDBOX_LIVENESS_TIMEOUT_SECONDS
+              value: "5"
+            - name: SANDBOX_LIVENESS_FAILURE_THRESHOLD
+              value: "6"
+            - name: SANDBOX_CPU_REQUEST
+              value: 500m
+            - name: SANDBOX_MEMORY_REQUEST
+              value: 512Mi
+            - name: SANDBOX_CPU_LIMIT
+              value: "2"
+            - name: SANDBOX_MEMORY_LIMIT
+              value: 2Gi
             - name: SANDBOX_ENV_SECRET_NAME
               value: deer-flow-env
             - name: SANDBOX_SECRET_ENV_KEYS

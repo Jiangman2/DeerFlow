@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deer-flow-userdata-pvc
+  namespace: deer-flow
+spec:
+  storageClassName: deerflow-home-local
+  volumeName: deerflow-home-pv-datax-01
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deer-flow-skills-pvc
+  namespace: deer-flow
+spec:
+  storageClassName: deerflow-home-local
+  volumeName: deerflow-skills-pv-datax-01
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: deer-flow
+spec:
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: deerflow-postgresql-local
+        volumeName: deerflow-postgresql-pv-datax-02
+        resources:
+          requests:
+            storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: deer-flow-postgres-backups-pvc
+  namespace: deer-flow
+spec:
+  storageClassName: deerflow-postgresql-local
+  volumeName: deerflow-postgresql-backups-pv-datax-02
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-postgres-data
+  namespace: deer-flow
+spec:
+  storageClassName: deerflow-postgresql-local
+  volumeName: deerflow-weknora-postgresql-pv-datax-02
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-data-files
+  namespace: deer-flow
+spec:
+  storageClassName: deerflow-weknora-local
+  volumeName: deerflow-weknora-files-pv-datax-03
+  resources:
+    requests:
+      storage: 200Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-docreader-tmp
+  namespace: deer-flow
+spec:
+  storageClassName: deerflow-weknora-local
+  volumeName: deerflow-weknora-docreader-pv-datax-03
+  resources:
+    requests:
+      storage: 20Gi

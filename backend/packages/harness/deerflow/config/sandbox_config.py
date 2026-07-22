@@ -103,6 +103,24 @@ class SandboxConfig(BaseModel):
         ge=0,
         description="Maximum characters to keep from read_file tool output. Output exceeding this limit is head-truncated. Set to 0 to disable truncation.",
     )
+    skill_file_output_max_chars: int = Field(
+        default=150000,
+        ge=0,
+        description=(
+            "Maximum characters to keep when read_file loads a SKILL.md under the configured skills container path. "
+            "This separate, larger budget prevents long progressive skill workflows from losing mandatory later phases. "
+            "Set to 0 to disable truncation for SKILL.md files."
+        ),
+    )
+    skill_reference_output_max_chars: int = Field(
+        default=150000,
+        ge=0,
+        description=(
+            "Maximum characters to keep when read_file loads supporting files under the configured skills container path. "
+            "This prevents long mandatory references from being cut before later workflow contracts and examples. "
+            "Set to 0 to disable truncation for skill supporting files."
+        ),
+    )
     ls_output_max_chars: int = Field(
         default=20000,
         ge=0,

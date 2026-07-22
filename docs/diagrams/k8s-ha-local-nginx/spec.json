@@ -1,0 +1,70 @@
+{
+  "canvas": {
+    "width": 1210,
+    "height": 1138,
+    "fps": 20,
+    "frames": 41
+  },
+  "signature": "@DeerFlow",
+  "title": {
+    "prefix": "Kubernetes 3 Control Nodes",
+    "highlight": "Local Nginx HA",
+    "subtitle": "Official stacked etcd topology + node-local API Server forwarding"
+  },
+  "input_title": "Access Entry",
+  "inputs": [
+    { "label": "Client", "icon": "folder", "color": "#7ee3d6" },
+    { "label": "API DNS", "icon": "hash", "color": "#ff7ab6" },
+    { "label": "Node-1", "icon": "package", "color": "#f4b64e" },
+    { "label": "Node-2/3", "icon": "package", "color": "#7ee3d6" }
+  ],
+  "core": {
+    "title": "API Server Access Path",
+    "subtitle": "The front door must survive one node loss",
+    "cards": [
+      { "title": "Enter Node", "body": "Resolve to one of three node IPs", "icon": "folder" },
+      { "title": "Local Nginx", "body": "Same upstream set on every node", "icon": "shield" },
+      { "title": "kube-apiserver", "body": "One API server per control-plane node", "icon": "package" }
+    ]
+  },
+  "decision": {
+    "title": "Alive?",
+    "body": "Skip failed backend"
+  },
+  "output": {
+    "label": "Stable API",
+    "icon": "file"
+  },
+  "loop_label": "Each node-local Nginx keeps the same API Server upstream set and forwards around failed nodes",
+  "retry_label": "Node or local API failure: use another node address; Nginx skips the unhealthy backend",
+  "left_panel": {
+    "title": "Control Plane",
+    "badge": "3 control-plane nodes",
+    "cards": [
+      { "title": "Node-1", "body": "Nginx + API + scheduler + controller", "icon": "package" },
+      { "title": "Node-2", "body": "Nginx + API + scheduler + controller", "icon": "package" },
+      { "title": "Node-3", "body": "Nginx + API + scheduler + controller", "icon": "package" }
+    ]
+  },
+  "center_panel": {
+    "title": "Stacked etcd",
+    "subtitle": "One local etcd member per control-plane node",
+    "footer": "etcd-1 <-> etcd-2 <-> etcd-3: quorum",
+    "cards": [
+      { "title": "etcd-1", "body": "Local data member on Node-1", "icon": "db" },
+      { "title": "etcd-2", "body": "Local data member on Node-2", "icon": "db" },
+      { "title": "etcd-3", "body": "Local data member on Node-3", "icon": "db" },
+      { "title": "Quorum", "body": "2 of 3 keeps consistency", "icon": "shield" }
+    ]
+  },
+  "right_panel": {
+    "title": "Engineering Boundary",
+    "incoming_label": "Entry",
+    "return_label": "Failover",
+    "cards": [
+      { "title": "No Global VIP", "body": "Not the official preferred topology", "icon": "shield" },
+      { "title": "Node-local Nginx", "body": "Forwards to all three API Servers", "icon": "package" },
+      { "title": "Access Policy", "body": "DNS RR or endpoint list is required", "icon": "hash" }
+    ]
+  }
+}

@@ -1125,6 +1125,10 @@ sandbox:
   # Set to 0 to disable truncation.
   bash_output_max_chars: 20000
   read_file_output_max_chars: 50000
+  # Skill files and supporting references can contain long multi-phase
+  # workflows whose later gates must remain visible after progressive loading.
+  skill_file_output_max_chars: 150000
+  skill_reference_output_max_chars: 150000
   ls_output_max_chars: 20000
 
   # Maximum wall-clock seconds a single host bash command may run before it is

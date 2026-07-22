@@ -29,7 +29,7 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Any, Literal, cast
 
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.base import empty_checkpoint
 
 from deerflow.agents.goal_state import GoalEvaluation, GoalState
@@ -150,6 +150,46 @@ async def _checkpoint_has_open_clarification(checkpointer: Any, thread_id: str) 
         return isinstance(messages, list) and _has_open_clarification(messages)
     except Exception:
         logger.debug("Could not inspect checkpoint for pending clarification", exc_info=True)
+        return False
+
+
+async def _resolve_pending_clarification(*, checkpointer: Any, thread_id: str, stream_clarification_seen: bool) -> bool:
+    """Use durable state when available; stream chunks can replay answered requests."""
+    if checkpointer is None:
+        return stream_clarification_seen
+    return await _checkpoint_has_open_clarification(checkpointer, thread_id)
+
+
+async def _reconcile_interrupted_artifact_claim(*, journal: Any, checkpointer: Any, thread_id: str) -> bool:
+    """Replace an interrupted, uncommitted fabricated file link in the journal."""
+    if journal is None or checkpointer is None:
+        return False
+    message = journal.get_last_lead_ai_message()
+    if not isinstance(message, AIMessage):
+        return False
+    try:
+        checkpoint_tuple = await checkpointer.aget_tuple(
+            {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}},
+        )
+        checkpoint = getattr(checkpoint_tuple, "checkpoint", {}) if checkpoint_tuple is not None else {}
+        channel_values = checkpoint.get("channel_values", {}) if isinstance(checkpoint, dict) else {}
+        state = channel_values if isinstance(channel_values, dict) else {}
+
+        from deerflow.agents.middlewares.artifact_delivery_middleware import (
+            build_artifact_delivery_fallback,
+            has_invalid_artifact_claim,
+        )
+
+        if not has_invalid_artifact_claim(message, state):
+            return False
+        fallback = build_artifact_delivery_fallback(
+            message,
+            reason="Interrupted before artifact delivery validation completed",
+        )
+        journal.reconcile_ai_message(fallback, reason="interrupted_artifact_delivery")
+        return True
+    except Exception:
+        logger.warning("Failed to reconcile interrupted artifact claim for run journal", exc_info=True)
         return False
 
 
@@ -635,7 +675,11 @@ async def run_agent(
         if isinstance(runtime.context, dict):
             runtime.context.pop("stop_reason", None)
         await _stream_once(graph_input, initial_runnable_config)
-        pending_clarification = stream_clarification_seen or await _checkpoint_has_open_clarification(checkpointer, thread_id)
+        pending_clarification = await _resolve_pending_clarification(
+            checkpointer=checkpointer,
+            thread_id=thread_id,
+            stream_clarification_seen=stream_clarification_seen,
+        )
         if pending_clarification:
             logger.info("Run %s paused goal continuation for pending clarification", run_id)
             await run_manager.set_status(run_id, RunStatus.success, stop_reason="awaiting_human_input")
@@ -657,7 +701,11 @@ async def run_agent(
             if continuation_input is None or record.abort_event.is_set():
                 break
             await _stream_once(continuation_input, _continuation_runnable_config())
-            pending_clarification = stream_clarification_seen or await _checkpoint_has_open_clarification(checkpointer, thread_id)
+            pending_clarification = await _resolve_pending_clarification(
+                checkpointer=checkpointer,
+                thread_id=thread_id,
+                stream_clarification_seen=stream_clarification_seen,
+            )
             if pending_clarification:
                 logger.info("Run %s paused goal continuation for pending clarification", run_id)
                 await run_manager.set_status(run_id, RunStatus.success, stop_reason="awaiting_human_input")
@@ -764,6 +812,16 @@ async def run_agent(
                 )
             except Exception:
                 logger.warning("Failed to record workspace changes for run %s", run_id, exc_info=True)
+
+        # Provider callbacks can outpace checkpoint/middleware finalization. On
+        # interruption, reconcile any uncommitted artifact claim before flushing
+        # journal rows so history cannot preserve a fabricated download link.
+        if journal is not None and record.status == RunStatus.interrupted:
+            await _reconcile_interrupted_artifact_claim(
+                journal=journal,
+                checkpointer=checkpointer,
+                thread_id=thread_id,
+            )
 
         # Flush any buffered journal events and persist completion data
         if journal is not None:

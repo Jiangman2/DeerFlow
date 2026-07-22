@@ -3,8 +3,9 @@ import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
-from langchain.agents.middleware.types import ModelRequest
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain.agents.middleware.types import ModelRequest, ModelResponse
+from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, ToolMessage
+from langgraph.prebuilt.tool_node import ToolCallRequest
 
 from app.channels.commands import KNOWN_CHANNEL_COMMANDS
 from deerflow.agents.middlewares import skill_activation_middleware as middleware_module
@@ -221,14 +222,10 @@ def test_skill_activation_middleware_dedupes_immediately_previous_activation_wit
     assert sum(is_slash_skill_activation_reminder(message) for message in captured["messages"]) == 1
 
 
-def test_skill_activation_middleware_activates_once_across_tool_loop(monkeypatch, tmp_path):
-    # Regression for the re-activation bug: within a single run the model node is
-    # invoked once per tool-loop step, each time rebuilding request.messages fresh
-    # from persisted graph state. The activation reminder is added via
-    # request.override(messages=...) for one model call only and is NEVER written
-    # back to state, so the 2nd model call's state is [user, ai(tool_call), tool]
-    # with no reminder to scan. Dedup must therefore key off the run context, which
-    # LangGraph threads through every model-node call of the run.
+def test_skill_activation_middleware_keeps_compact_contract_across_tool_loop(monkeypatch, tmp_path):
+    # The full skill body is supplied once. Later model calls retain a compact
+    # activation contract so exact paths and phase gates stay visible without
+    # multiplying a large SKILL.md by every tool iteration.
     skill = _make_skill(tmp_path, "data-analysis", content="# Data Analysis\nUse pandas.")
     disk_reads = {"n": 0}
     real_read = SkillActivationMiddleware._read_skill_content
@@ -247,7 +244,7 @@ def test_skill_activation_middleware_activates_once_across_tool_loop(monkeypatch
     middleware = SkillActivationMiddleware()
     user = HumanMessage(content="/data-analysis analyze uploads/foo.csv", id="msg-1")
 
-    # --- model call 1: the single activation call ---
+    # --- model call 1: load and cache the activation ---
     first_capture = {}
 
     def first_handler(model_request: ModelRequest):
@@ -259,8 +256,8 @@ def test_skill_activation_middleware_activates_once_across_tool_loop(monkeypatch
     assert sum(is_slash_skill_activation_reminder(message) for message in first_capture["messages"]) == 1
 
     # --- model call 2: same turn, real state after the tool result comes back.
-    # The reminder from call 1 is gone (never persisted), exactly as create_agent
-    # rebuilds it. It must NOT be re-injected. ---
+    # The per-call request is rebuilt from graph state, so middleware must restore
+    # the cached activation before invoking the model again. ---
     ai_tool_call = first_result
     tool_result = ToolMessage(content="echoed", tool_call_id="call-1", id="tool-1")
     second_capture = {}
@@ -271,13 +268,622 @@ def test_skill_activation_middleware_activates_once_across_tool_loop(monkeypatch
 
     second_result = middleware.wrap_model_call(_make_model_request([user, ai_tool_call, tool_result], runtime=runtime), second_handler)
     assert isinstance(second_result, AIMessage)
-    assert second_capture["messages"] == [user, ai_tool_call, tool_result]
-    assert sum(is_slash_skill_activation_reminder(message) for message in second_capture["messages"]) == 0
+    reminders = [message for message in second_capture["messages"] if is_slash_skill_activation_reminder(message)]
+    assert len(reminders) == 1
+    assert "<slash_skill_continuation" in reminders[0].content
+    assert "Use pandas." not in reminders[0].content
+    assert "/mnt/skills/custom/data-analysis/SKILL.md" in reminders[0].content
+    assert second_capture["messages"][1:] == [user, ai_tool_call, tool_result]
 
     # Skill read from disk once and the activation audit event recorded once for the
     # whole multi-call turn.
     assert disk_reads["n"] == 1
     assert sum(1 for kwargs in recorded if kwargs.get("action") == "activate") == 1
+
+
+def test_strict_serial_skill_keeps_full_body_across_tool_loop(monkeypatch, tmp_path):
+    content = """# Strict Workflow
+This workflow is a strict serial pipeline.
+BLOCKING = HARD STOP.
+Wait for explicit user confirmation before writing the design contract.
+Later-phase instruction that must remain visible.
+"""
+    skill = _make_skill(tmp_path, "strict-workflow", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    user = HumanMessage(content="/strict-workflow build it", id="msg-1")
+    first_result = middleware.wrap_model_call(
+        _make_model_request([user], runtime=runtime),
+        lambda request: AIMessage(content="", tool_calls=[{"name": "echo", "args": {}, "id": "call-1"}], id="ai-1"),
+    )
+    captured = {}
+
+    def second_handler(request: ModelRequest):
+        captured["messages"] = request.messages
+        return AIMessage(content="done")
+
+    middleware.wrap_model_call(
+        _make_model_request([user, first_result, ToolMessage(content="ok", tool_call_id="call-1")], runtime=runtime),
+        second_handler,
+    )
+
+    reminders = [message for message in captured["messages"] if is_slash_skill_activation_reminder(message)]
+    assert len(reminders) == 1
+    assert "<slash_skill_activation>" in reminders[0].content
+    assert "Later-phase instruction that must remain visible." in reminders[0].content
+    assert "<slash_skill_continuation" not in reminders[0].content
+    assert 'ask_clarification` tool with `clarification_type="suggestion"' in reminders[0].content
+    assert "quick-reply suggestions" in reminders[0].content
+
+
+def test_plain_design_proposal_is_converted_to_structured_confirmation(monkeypatch, tmp_path):
+    content = """# Strict Workflow
+This workflow is a strict serial pipeline.
+BLOCKING = HARD STOP.
+Wait for explicit user confirmation before writing the design contract.
+"""
+    skill = _make_skill(tmp_path, "strict-workflow", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+    middleware = SkillActivationMiddleware()
+    runtime = SimpleNamespace(context={})
+    slash = HumanMessage(content="/strict-workflow build it", id="msg-1")
+    proposal = """## Strategist 方案
+画布：16:9
+视觉风格：极简
+配色方案：科技蓝
+字体方案：微软雅黑
+图片使用：不使用
+请确认以上设计方案。
+"""
+
+    response = middleware.wrap_model_call(
+        _make_model_request([slash], runtime=runtime),
+        lambda request: ModelResponse(result=[AIMessage(content=proposal, id="ai-1")]),
+    )
+
+    assert isinstance(response, ModelResponse)
+    message = response.result[-1]
+    assert isinstance(message, AIMessage)
+    assert message.content == proposal
+    assert len(message.tool_calls) == 1
+    assert message.tool_calls[0]["name"] == "ask_clarification"
+    assert message.tool_calls[0]["args"]["clarification_type"] == "suggestion"
+    assert message.tool_calls[0]["args"]["context"] == proposal.strip()
+
+
+def test_missing_source_question_is_not_converted_to_design_confirmation(monkeypatch, tmp_path):
+    content = """# Strict Workflow
+This workflow is a strict serial pipeline.
+BLOCKING = HARD STOP.
+Wait for explicit user confirmation before writing the design contract.
+"""
+    skill = _make_skill(tmp_path, "strict-workflow", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+    middleware = SkillActivationMiddleware()
+    runtime = SimpleNamespace(context={})
+    slash = HumanMessage(content="/strict-workflow build it", id="msg-1")
+    question = "请确认是否直接使用您提供的文字作为源材料，还是先进行调研？"
+
+    response = middleware.wrap_model_call(
+        _make_model_request([slash], runtime=runtime),
+        lambda request: ModelResponse(result=[AIMessage(content=question, id="ai-1")]),
+    )
+
+    assert isinstance(response, ModelResponse)
+    message = response.result[-1]
+    assert isinstance(message, AIMessage)
+    assert message.tool_calls == []
+
+
+def test_skill_activation_cache_does_not_leak_to_a_new_non_slash_message(monkeypatch, tmp_path):
+    skill = _make_skill(tmp_path, "data-analysis", content="# Data Analysis\nUse pandas.")
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/data-analysis analyze uploads/foo.csv", id="msg-1")
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), lambda request: AIMessage(content="done", id="ai-1"))
+
+    follow_up = HumanMessage(content="write a poem", id="msg-2")
+    captured = {}
+
+    def handler(request: ModelRequest):
+        captured["messages"] = request.messages
+        return AIMessage(content="ok")
+
+    middleware.wrap_model_call(
+        _make_model_request([slash, AIMessage(content="done", id="ai-1"), follow_up], runtime=runtime),
+        handler,
+    )
+
+    assert not any(is_slash_skill_activation_reminder(message) for message in captured["messages"])
+
+
+def test_skill_activation_blocks_contract_write_until_declared_reference_is_read(monkeypatch, tmp_path):
+    content = """# Contract Skill
+Before writing `design_spec.md`, Strategist MUST `read_file templates/design_spec_reference.md` and follow it.
+`<project_path>/spec_lock.md` is the execution contract (skeleton: `templates/spec_lock_reference.md`).
+Read references/executor-base.md before writing svg_output pages and notes.
+"""
+    skill = _make_skill(tmp_path, "contract-skill", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/contract-skill build it", id="msg-1")
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), lambda request: AIMessage(content="ok"))
+
+    def request(name: str, path: str) -> ToolCallRequest:
+        return ToolCallRequest(
+            tool_call={"name": name, "args": {"path": path}, "id": f"{name}-1"},
+            tool=None,
+            state={"messages": []},
+            runtime=runtime,
+        )
+
+    writes = {"count": 0}
+
+    def write_handler(tool_request: ToolCallRequest):
+        writes["count"] += 1
+        return ToolMessage(content="written", tool_call_id=str(tool_request.tool_call["id"]), name=str(tool_request.tool_call["name"]))
+
+    target = "/mnt/user-data/workspace/project/design_spec.md"
+    blocked = middleware.wrap_tool_call(request("write_file", target), write_handler)
+    assert isinstance(blocked, ToolMessage)
+    assert blocked.status == "error"
+    assert "/mnt/skills/custom/contract-skill/templates/design_spec_reference.md" in str(blocked.content)
+    assert writes["count"] == 0
+
+    reference = "/mnt/skills/custom/contract-skill/templates/design_spec_reference.md"
+    middleware.wrap_tool_call(
+        request("read_file", reference),
+        lambda tool_request: ToolMessage(content="# schema", tool_call_id=str(tool_request.tool_call["id"]), name="read_file"),
+    )
+    allowed = middleware.wrap_tool_call(request("write_file", target), write_handler)
+    assert isinstance(allowed, ToolMessage)
+    assert allowed.status != "error"
+    assert writes["count"] == 1
+
+
+def test_skill_activation_requires_executor_reference_for_svg_and_notes(monkeypatch, tmp_path):
+    skill = _make_skill(tmp_path, "deck-skill", content="# Deck\nRead references/executor-base.md before svg_output and notes/total.md.")
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/deck-skill build it", id="msg-1")
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), lambda request: AIMessage(content="ok"))
+
+    for path in [
+        "/mnt/user-data/workspace/project/svg_output/page_1.svg",
+        "project/svg_output/page_2.svg",
+        "/mnt/user-data/workspace/project/notes/total.md",
+        "project/notes/total.md",
+    ]:
+        tool_request = ToolCallRequest(
+            tool_call={"name": "write_file", "args": {"path": path}, "id": "write-1"},
+            tool=None,
+            state={"messages": []},
+            runtime=runtime,
+        )
+        result = middleware.wrap_tool_call(tool_request, lambda _: ToolMessage(content="written", tool_call_id="write-1", name="write_file"))
+        assert isinstance(result, ToolMessage)
+        assert result.status == "error"
+        assert "references/executor-base.md" in str(result.content)
+
+
+def test_skill_activation_blocks_incomplete_declared_markdown_structure(monkeypatch, tmp_path):
+    content = """# Contract Skill
+Before writing `design_spec.md`, Strategist MUST `read_file templates/design_spec_reference.md` and follow its full I–X section structure.
+"""
+    skill = _make_skill(tmp_path, "contract-skill", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    middleware.wrap_model_call(
+        _make_model_request([HumanMessage(content="/contract-skill build it", id="msg-1")], runtime=runtime),
+        lambda request: AIMessage(content="ok"),
+    )
+
+    def tool_request(name: str, args: dict) -> ToolCallRequest:
+        return ToolCallRequest(
+            tool_call={"name": name, "args": args, "id": f"{name}-1"},
+            tool=None,
+            state={"messages": []},
+            runtime=runtime,
+        )
+
+    reference = "/mnt/skills/custom/contract-skill/templates/design_spec_reference.md"
+    middleware.wrap_tool_call(
+        tool_request("read_file", {"path": reference}),
+        lambda request: ToolMessage(content="# schema", tool_call_id=str(request.tool_call["id"]), name="read_file"),
+    )
+    target = "/mnt/user-data/workspace/project/design_spec.md"
+    incomplete = "## I. Project\n\n## IX. Outline\n"
+    blocked = middleware.wrap_tool_call(
+        tool_request("write_file", {"path": target, "content": incomplete}),
+        lambda request: ToolMessage(content="written", tool_call_id=str(request.tool_call["id"]), name="write_file"),
+    )
+    assert isinstance(blocked, ToolMessage)
+    assert blocked.status == "error"
+    assert "missing Markdown H2 sections" in str(blocked.content)
+    assert "VII" in str(blocked.content)
+    assert "X" in str(blocked.content)
+
+    complete = "\n".join(f"## {section}. Section" for section in ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"])
+    allowed = middleware.wrap_tool_call(
+        tool_request("write_file", {"path": target, "content": complete}),
+        lambda request: ToolMessage(content="written", tool_call_id=str(request.tool_call["id"]), name="write_file"),
+    )
+    assert isinstance(allowed, ToolMessage)
+    assert allowed.status != "error"
+
+
+def test_skill_activation_requires_nonempty_pptx_structure_mode(monkeypatch, tmp_path):
+    skill = _make_skill(
+        tmp_path,
+        "deck-skill",
+        content="# Deck Skill\nThe pptx_structure is mandatory and `pptx_structure.mode` must be flat or structured.",
+    )
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    middleware.wrap_model_call(
+        _make_model_request([HumanMessage(content="/deck-skill build it", id="msg-1")], runtime=runtime),
+        lambda request: AIMessage(content="ok"),
+    )
+
+    def write(content: str, call_id: str) -> ToolMessage:
+        request = ToolCallRequest(
+            tool_call={
+                "name": "write_file",
+                "args": {"path": "project/spec_lock.md", "content": content},
+                "id": call_id,
+            },
+            tool=None,
+            state={"messages": []},
+            runtime=runtime,
+        )
+        return middleware.wrap_tool_call(
+            request,
+            lambda tool_request: ToolMessage(content="written", tool_call_id=str(tool_request.tool_call["id"]), name="write_file"),
+        )
+
+    blocked = write("# Lock\n\n## pptx_structure\n- mode:\n", "write-1")
+    assert blocked.status == "error"
+    assert "mode: flat" in str(blocked.content)
+
+    allowed = write("# Lock\n\n## pptx_structure\n- mode: flat\n", "write-2")
+    assert allowed.status != "error"
+
+
+def test_skill_activation_enforces_first_page_and_final_export_gates(monkeypatch, tmp_path):
+    content = """# Deck Skill
+Run `svg_quality_checker.py <project> --stage first-page` before page two.
+Run `svg_quality_checker.py <project> --stage final` before `finalize_svg.py` and `svg_to_pptx.py`.
+"""
+    skill = _make_skill(tmp_path, "deck-skill", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    middleware.wrap_model_call(
+        _make_model_request([HumanMessage(content="/deck-skill build it", id="msg-1")], runtime=runtime),
+        lambda request: AIMessage(content="ok"),
+    )
+
+    def tool_request(name: str, args: dict, call_id: str) -> ToolCallRequest:
+        return ToolCallRequest(tool_call={"name": name, "args": args, "id": call_id}, tool=None, state={"messages": []}, runtime=runtime)
+
+    def success(request: ToolCallRequest) -> ToolMessage:
+        return ToolMessage(content="ok", tool_call_id=str(request.tool_call["id"]), name=str(request.tool_call["name"]))
+
+    first = "/mnt/user-data/workspace/project/svg_output/01.svg"
+    second = "/mnt/user-data/workspace/project/svg_output/02.svg"
+    assert middleware.wrap_tool_call(tool_request("write_file", {"path": first, "content": "<svg/>"}, "write-1"), success).status != "error"
+    blocked_second = middleware.wrap_tool_call(tool_request("write_file", {"path": second, "content": "<svg/>"}, "write-2"), success)
+    assert isinstance(blocked_second, ToolMessage)
+    assert blocked_second.status == "error"
+    assert "first-page" in str(blocked_second.content)
+
+    middleware.wrap_tool_call(
+        tool_request("bash", {"command": "python svg_quality_checker.py project --stage first-page"}, "bash-1"),
+        success,
+    )
+    assert middleware.wrap_tool_call(tool_request("write_file", {"path": second, "content": "<svg/>"}, "write-3"), success).status != "error"
+
+    blocked_export = middleware.wrap_tool_call(
+        tool_request("bash", {"command": "python finalize_svg.py project"}, "bash-2"),
+        success,
+    )
+    assert isinstance(blocked_export, ToolMessage)
+    assert blocked_export.status == "error"
+    assert "--stage final" in str(blocked_export.content)
+
+    middleware.wrap_tool_call(
+        tool_request("bash", {"command": "python svg_quality_checker.py project --stage final"}, "bash-3"),
+        success,
+    )
+    relative_second = "svg_output/02.svg"
+    assert (
+        middleware.wrap_tool_call(
+            tool_request("str_replace", {"path": relative_second, "old": "a", "new": "b"}, "replace-1"),
+            success,
+        ).status
+        != "error"
+    )
+    blocked_after_relative_edit = middleware.wrap_tool_call(
+        tool_request("bash", {"command": "python finalize_svg.py project"}, "bash-4"),
+        success,
+    )
+    assert isinstance(blocked_after_relative_edit, ToolMessage)
+    assert blocked_after_relative_edit.status == "error"
+
+    middleware.wrap_tool_call(
+        tool_request("bash", {"command": "python svg_quality_checker.py project --stage final"}, "bash-5"),
+        success,
+    )
+    allowed_export = middleware.wrap_tool_call(
+        tool_request("bash", {"command": "python finalize_svg.py project"}, "bash-6"),
+        success,
+    )
+    assert isinstance(allowed_export, ToolMessage)
+    assert allowed_export.status != "error"
+
+
+def test_skill_activation_enforces_presentation_gates_for_bash_svg_writes(monkeypatch, tmp_path):
+    content = """# Deck Skill
+Run `svg_quality_checker.py <project> --stage first-page` before page two.
+Run `svg_quality_checker.py <project> --stage final` before `finalize_svg.py` and `svg_to_pptx.py`.
+Publish the resulting files with `present_files`.
+"""
+    skill = _make_skill(tmp_path, "deck-skill", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    middleware.wrap_model_call(
+        _make_model_request([HumanMessage(content="/deck-skill build it", id="msg-1")], runtime=runtime),
+        lambda request: AIMessage(content="ok"),
+    )
+
+    def request(name: str, args: dict, call_id: str) -> ToolCallRequest:
+        return ToolCallRequest(tool_call={"name": name, "args": args, "id": call_id}, tool=None, state={"messages": []}, runtime=runtime)
+
+    def success(tool_request: ToolCallRequest) -> ToolMessage:
+        return ToolMessage(content="ok", tool_call_id=str(tool_request.tool_call["id"]), name=str(tool_request.tool_call["name"]))
+
+    first = "cd /mnt/user-data/workspace/project/svg_output && echo '<svg/>' > 01_cover.svg"
+    second = "cd /mnt/user-data/workspace/project/svg_output && echo '<svg/>' > 02_risks.svg"
+    assert middleware.wrap_tool_call(request("bash", {"command": first}, "bash-write-1"), success).status != "error"
+
+    blocked_second = middleware.wrap_tool_call(request("bash", {"command": second}, "bash-write-2"), success)
+    assert isinstance(blocked_second, ToolMessage)
+    assert blocked_second.status == "error"
+    assert "first-page" in str(blocked_second.content)
+
+    middleware.wrap_tool_call(
+        request("bash", {"command": "python svg_quality_checker.py project --stage first-page"}, "bash-check-first"),
+        success,
+    )
+    assert middleware.wrap_tool_call(request("bash", {"command": second}, "bash-write-3"), success).status != "error"
+
+    middleware.wrap_tool_call(
+        request("bash", {"command": "python svg_quality_checker.py project --stage final"}, "bash-check-final"),
+        success,
+    )
+    python_edit = "python -c \"open('/mnt/user-data/workspace/project/svg_output/02_risks.svg', 'w').write('<svg/>')\""
+    assert middleware.wrap_tool_call(request("bash", {"command": python_edit}, "bash-edit-2"), success).status != "error"
+    blocked_export = middleware.wrap_tool_call(
+        request("bash", {"command": "python svg_to_pptx.py project"}, "bash-export"),
+        success,
+    )
+    assert isinstance(blocked_export, ToolMessage)
+    assert blocked_export.status == "error"
+    assert "--stage final" in str(blocked_export.content)
+
+
+def test_skill_activation_retries_incomplete_presentation_then_marks_failure(monkeypatch, tmp_path):
+    content = """# Deck Skill
+Run `svg_quality_checker.py <project> --stage first-page` before page two.
+Run `svg_quality_checker.py <project> --stage final` before `svg_to_pptx.py`.
+Publish the resulting files with `present_files`.
+"""
+    skill = _make_skill(tmp_path, "deck-skill", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={"thread_id": "thread-1", "run_id": "run-1"})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/deck-skill build it", id="msg-1")
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), lambda request: AIMessage(content="ok"))
+
+    write = ToolCallRequest(
+        tool_call={
+            "name": "bash",
+            "args": {"command": "cd /mnt/user-data/workspace/project/svg_output && echo '<svg/>' > 01_cover.svg"},
+            "id": "bash-write-1",
+        },
+        tool=None,
+        state={"messages": []},
+        runtime=runtime,
+    )
+    middleware.wrap_tool_call(
+        write,
+        lambda request: ToolMessage(content="ok", tool_call_id=str(request.tool_call["id"]), name="bash"),
+    )
+
+    truncated = AIMessage(content="完美！现在运行首", id="ai-truncated")
+    retry = middleware.after_model({"messages": [slash, truncated]}, runtime)
+    assert retry == {"messages": [RemoveMessage(id="ai-truncated")], "jump_to": "model"}
+
+    captured = {}
+
+    def capture(request):
+        captured["messages"] = request.messages
+        return AIMessage(content="continue")
+
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), capture)
+    reminders = [message for message in captured["messages"] if isinstance(message, HumanMessage) and message.name == "presentation_completion_recovery"]
+    assert len(reminders) == 1
+    assert "最终质检" in str(reminders[0].content)
+    assert "present_files" in str(reminders[0].content)
+
+    stopped_again = AIMessage(content="仍未完成", id="ai-stopped-again")
+    failed = middleware.after_model({"messages": [slash, stopped_again]}, runtime)
+    assert failed is not None
+    replacement = failed["messages"][0]
+    assert isinstance(replacement, AIMessage)
+    assert replacement.additional_kwargs["deerflow_error_fallback"] is True
+    assert "PPT" in str(replacement.content)
+
+
+def test_skill_activation_requires_real_user_confirmation_before_design_contract(monkeypatch, tmp_path):
+    skill = _make_skill(
+        tmp_path,
+        "deck-skill",
+        content="# Deck Skill\nBLOCKING = HARD STOP. Wait for explicit user confirmation before writing the design contract.",
+    )
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/deck-skill build it", id="msg-1")
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), lambda request: AIMessage(content="ok"))
+
+    def write_request(messages: list) -> ToolCallRequest:
+        return ToolCallRequest(
+            tool_call={
+                "name": "write_file",
+                "args": {"path": "/mnt/user-data/workspace/project/design_spec.md", "content": "## I. Project"},
+                "id": "write-1",
+            },
+            tool=None,
+            state={"messages": messages},
+            runtime=runtime,
+        )
+
+    def handler(request: ToolCallRequest) -> ToolMessage:
+        return ToolMessage(content="written", tool_call_id=str(request.tool_call["id"]), name="write_file")
+
+    blocked = middleware.wrap_tool_call(write_request([slash]), handler)
+    assert isinstance(blocked, ToolMessage)
+    assert blocked.status == "error"
+    assert "explicit user response" in str(blocked.content)
+    assert "may not confirm recommendations on the user's behalf" in str(blocked.content)
+
+    missing_info_request = ToolMessage(
+        content="Please provide content",
+        id="clarify-content",
+        tool_call_id="tool-content",
+        name="ask_clarification",
+        artifact={
+            "human_input": {
+                "source": "ask_clarification",
+                "request_id": "clarify-content",
+                "clarification_type": "missing_info",
+            }
+        },
+    )
+    missing_info_answer = HumanMessage(
+        content="Here is the source content",
+        id="answer-content",
+        additional_kwargs={
+            "hide_from_ui": True,
+            "human_input_response": {
+                "version": 1,
+                "kind": "human_input_response",
+                "source": "ask_clarification",
+                "request_id": "clarify-content",
+                "response_kind": "text",
+                "value": "Here is the source content",
+            },
+        },
+    )
+    still_blocked = middleware.wrap_tool_call(write_request([slash, missing_info_request, missing_info_answer]), handler)
+    assert isinstance(still_blocked, ToolMessage)
+    assert still_blocked.status == "error"
+    assert "missing-information answer is not design approval" in str(still_blocked.content)
+
+    confirmation_request = ToolMessage(
+        content="Confirm the recommended design?",
+        id="clarify-confirm",
+        tool_call_id="tool-confirm",
+        name="ask_clarification",
+        artifact={
+            "human_input": {
+                "source": "ask_clarification",
+                "request_id": "clarify-confirm",
+                "clarification_type": "suggestion",
+            }
+        },
+    )
+    answer = HumanMessage(
+        content="确认默认参数",
+        id="answer-1",
+        additional_kwargs={
+            "hide_from_ui": True,
+            "human_input_response": {
+                "version": 1,
+                "kind": "human_input_response",
+                "source": "ask_clarification",
+                "request_id": "clarify-confirm",
+                "response_kind": "option",
+                "option_id": "confirm",
+                "value": "确认默认参数",
+            },
+        },
+    )
+    allowed = middleware.wrap_tool_call(write_request([slash, missing_info_request, missing_info_answer, confirmation_request, answer]), handler)
+    assert isinstance(allowed, ToolMessage)
+    assert allowed.status != "error"
+
+
+def test_skill_activation_accepts_successful_final_confirm_ui_wait(monkeypatch, tmp_path):
+    skill = _make_skill(
+        tmp_path,
+        "deck-skill",
+        content="# Deck Skill\nWait for explicit user confirmation before writing the design contract.",
+    )
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/deck-skill build it", id="msg-1")
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), lambda request: AIMessage(content="ok"))
+
+    wait_request = ToolCallRequest(
+        tool_call={
+            "name": "bash",
+            "args": {"command": "python3 ${SKILL_DIR}/scripts/confirm_ui/server.py /project --wait-only"},
+            "id": "bash-1",
+        },
+        tool=None,
+        state={"messages": [slash]},
+        runtime=runtime,
+    )
+    middleware.wrap_tool_call(
+        wait_request,
+        lambda request: ToolMessage(content="confirmed", tool_call_id=str(request.tool_call["id"]), name="bash"),
+    )
+    write_request = ToolCallRequest(
+        tool_call={
+            "name": "write_file",
+            "args": {"path": "/mnt/user-data/workspace/project/design_spec.md", "content": "## I. Project"},
+            "id": "write-1",
+        },
+        tool=None,
+        state={"messages": [slash]},
+        runtime=runtime,
+    )
+    allowed = middleware.wrap_tool_call(
+        write_request,
+        lambda request: ToolMessage(content="written", tool_call_id=str(request.tool_call["id"]), name="write_file"),
+    )
+    assert isinstance(allowed, ToolMessage)
+    assert allowed.status != "error"
 
 
 def test_skill_activation_middleware_reactivates_on_new_user_slash_command(monkeypatch, tmp_path):
@@ -684,6 +1290,7 @@ def test_build_activation_reminder_declares_runtime_skill_dir():
 
     assert "export SKILL_DIR='/mnt/skills/public/ppt-master'" in reminder
     assert "each new sandbox shell command" in reminder
+    assert "do not call read_file on that same SKILL.md again" in reminder
 
 
 def test_skill_activation_middleware_rejects_skill_file_outside_skills_root(monkeypatch, tmp_path):

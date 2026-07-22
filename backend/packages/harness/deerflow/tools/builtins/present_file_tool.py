@@ -1,3 +1,6 @@
+import logging
+import shutil
+import zipfile
 from pathlib import Path
 from typing import Annotated
 
@@ -8,9 +11,11 @@ from langgraph.types import Command
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
 from deerflow.runtime.user_context import get_effective_user_id
+from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 from deerflow.tools.types import Runtime
 
 OUTPUTS_VIRTUAL_PREFIX = f"{VIRTUAL_PATH_PREFIX}/outputs"
+logger = logging.getLogger(__name__)
 
 
 def _get_thread_id(runtime: Runtime) -> str | None:
@@ -30,9 +35,91 @@ def _get_thread_id(runtime: Runtime) -> str | None:
         return None
 
 
+def _get_active_sandbox(runtime: Runtime):
+    state = getattr(runtime, "state", None)
+    if not isinstance(state, dict):
+        return None
+
+    sandbox_state = state.get("sandbox")
+    if not isinstance(sandbox_state, dict):
+        return None
+
+    sandbox_id = sandbox_state.get("sandbox_id")
+    if not sandbox_id:
+        return None
+
+    try:
+        return get_sandbox_provider().get(sandbox_id)
+    except Exception:
+        logger.exception("Failed to resolve sandbox %s while presenting file", sandbox_id)
+        return None
+
+
+def _download_virtual_file_to_host(
+    runtime: Runtime,
+    virtual_path: str,
+    actual_path: Path,
+    *,
+    log_errors: bool = True,
+) -> bool:
+    stripped = virtual_path.lstrip("/")
+    virtual_prefix = VIRTUAL_PATH_PREFIX.lstrip("/")
+    if not (stripped == virtual_prefix or stripped.startswith(virtual_prefix + "/")):
+        return False
+
+    sandbox = _get_active_sandbox(runtime)
+    if sandbox is None:
+        return False
+
+    try:
+        data = sandbox.download_file(virtual_path)
+        actual_path.parent.mkdir(parents=True, exist_ok=True)
+        actual_path.write_bytes(data)
+        return True
+    except Exception:
+        if log_errors:
+            logger.exception("Failed to download presented file from sandbox: %s", virtual_path)
+        else:
+            logger.debug(
+                "Optional presented file is not available in sandbox: %s",
+                virtual_path,
+                exc_info=True,
+            )
+        return False
+
+
+def _preview_pdf_path_for(filepath: str) -> str | None:
+    lower = filepath.lower()
+    if lower.endswith(".pptx"):
+        return filepath[:-5] + ".preview.pdf"
+    if lower.endswith(".ppt"):
+        return filepath[:-4] + ".preview.pdf"
+    return None
+
+
+def _validate_pptx_file(path: Path) -> None:
+    """Reject files that only use a .pptx suffix but are not PowerPoint packages."""
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            names = set(archive.namelist())
+    except zipfile.BadZipFile:
+        raise ValueError(f"Invalid PPTX file: {path.name} is not a ZIP-based PowerPoint file") from None
+
+    required = {"[Content_Types].xml", "ppt/presentation.xml"}
+    if not required.issubset(names):
+        raise ValueError(f"Invalid PPTX file: {path.name} is missing required PowerPoint package entries")
+
+
+def _validate_presented_file(actual_path: Path) -> None:
+    if actual_path.suffix.lower() == ".pptx":
+        _validate_pptx_file(actual_path)
+
+
 def _normalize_presented_filepath(
     runtime: Runtime,
     filepath: str,
+    *,
+    log_missing_virtual_download: bool = True,
 ) -> str:
     """Normalize a presented file path to the `/mnt/user-data/outputs/*` contract.
 
@@ -63,8 +150,9 @@ def _normalize_presented_filepath(
     outputs_dir = Path(outputs_path).resolve()
     stripped = filepath.lstrip("/")
     virtual_prefix = VIRTUAL_PATH_PREFIX.lstrip("/")
+    is_virtual_path = stripped == virtual_prefix or stripped.startswith(virtual_prefix + "/")
 
-    if stripped == virtual_prefix or stripped.startswith(virtual_prefix + "/"):
+    if is_virtual_path:
         try:
             actual_path = get_paths().resolve_virtual_path(thread_id, filepath, user_id=get_effective_user_id())
         except TypeError:
@@ -74,10 +162,81 @@ def _normalize_presented_filepath(
 
     try:
         relative_path = actual_path.relative_to(outputs_dir)
-    except ValueError as exc:
-        raise ValueError(f"Only files in {OUTPUTS_VIRTUAL_PREFIX} can be presented: {filepath}") from exc
+    except ValueError:
+        workspace_path = thread_data.get("workspace_path")
+        if not workspace_path:
+            raise ValueError(f"Only files in {OUTPUTS_VIRTUAL_PREFIX} can be presented: {filepath}") from None
+
+        workspace_dir = Path(workspace_path).resolve()
+        try:
+            actual_path.relative_to(workspace_dir)
+        except ValueError:
+            raise ValueError(f"Only files in {OUTPUTS_VIRTUAL_PREFIX} or the current workspace can be presented: {filepath}") from None
+
+        if not actual_path.is_file() and is_virtual_path:
+            _download_virtual_file_to_host(
+                runtime,
+                filepath,
+                actual_path,
+                log_errors=log_missing_virtual_download,
+            )
+
+        if not actual_path.is_file():
+            raise ValueError(f"Only files can be presented: {filepath}")
+
+        target_path = outputs_dir / actual_path.name
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        if actual_path.resolve() != target_path.resolve():
+            shutil.copy2(actual_path, target_path)
+        actual_path = target_path
+        relative_path = actual_path.relative_to(outputs_dir)
+
+    if not actual_path.is_file() and is_virtual_path:
+        _download_virtual_file_to_host(
+            runtime,
+            filepath,
+            actual_path,
+            log_errors=log_missing_virtual_download,
+        )
+
+    if not actual_path.is_file():
+        raise ValueError(f"Only files can be presented: {filepath}")
+
+    _validate_presented_file(actual_path)
 
     return f"{OUTPUTS_VIRTUAL_PREFIX}/{relative_path.as_posix()}"
+
+
+def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) -> list[str]:
+    normalized_path = _normalize_presented_filepath(runtime, filepath)
+    normalized_paths = [normalized_path]
+
+    preview_candidates = [
+        candidate
+        for candidate in (
+            _preview_pdf_path_for(filepath),
+            _preview_pdf_path_for(normalized_path),
+        )
+        if candidate
+    ]
+    seen_candidates: set[str] = set()
+    for preview_path in preview_candidates:
+        if preview_path in seen_candidates:
+            continue
+        seen_candidates.add(preview_path)
+        try:
+            preview_normalized_path = _normalize_presented_filepath(
+                runtime,
+                preview_path,
+                log_missing_virtual_download=False,
+            )
+            if preview_normalized_path not in normalized_paths:
+                normalized_paths.append(preview_normalized_path)
+        except ValueError:
+            # Preview PDFs are optional. The PPTX itself remains downloadable.
+            pass
+
+    return normalized_paths
 
 
 @tool("present_files", parse_docstring=True)
@@ -99,23 +258,45 @@ def present_file_tool(
     - For temporary or intermediate files not meant for user viewing
 
     Notes:
-    - You should call this tool after creating files and moving them to the `/mnt/user-data/outputs` directory.
+    - You should call this tool after creating files. Files in `/mnt/user-data/outputs` are presented directly; final files in the current `/mnt/user-data/workspace` are copied into the persistent outputs directory first.
     - This tool can be safely called in parallel with other tools. State updates are handled by a reducer to prevent conflicts.
 
     Args:
-        filepaths: List of absolute file paths to present to the user. **Only** files in `/mnt/user-data/outputs` can be presented.
+        filepaths: List of absolute file paths to present to the user. Files must be in `/mnt/user-data/outputs` or the current `/mnt/user-data/workspace`.
     """
     try:
-        normalized_paths = [_normalize_presented_filepath(runtime, filepath) for filepath in filepaths]
+        normalized_paths: list[str] = []
+        seen_paths: set[str] = set()
+        for filepath in filepaths:
+            for normalized_path in _normalize_presented_filepath_with_preview(runtime, filepath):
+                if normalized_path in seen_paths:
+                    continue
+                normalized_paths.append(normalized_path)
+                seen_paths.add(normalized_path)
     except ValueError as exc:
         return Command(
-            update={"messages": [ToolMessage(f"Error: {exc}", tool_call_id=tool_call_id)]},
+            update={
+                "messages": [
+                    ToolMessage(
+                        f"Error: {exc}",
+                        tool_call_id=tool_call_id,
+                        name="present_files",
+                        status="error",
+                    )
+                ]
+            },
         )
 
     # The merge_artifacts reducer will handle merging and deduplication
     return Command(
         update={
             "artifacts": normalized_paths,
-            "messages": [ToolMessage("Successfully presented files", tool_call_id=tool_call_id)],
+            "messages": [
+                ToolMessage(
+                    "Successfully presented files",
+                    tool_call_id=tool_call_id,
+                    name="present_files",
+                )
+            ],
         },
     )

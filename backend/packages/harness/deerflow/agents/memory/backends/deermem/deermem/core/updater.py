@@ -135,12 +135,50 @@ _TRANSIENT_TASK_RESOURCE_PATTERNS = (
     re.compile(r"\b(?:current|this) (?:task|run|thread)\b", re.IGNORECASE),
 )
 
+_DURABLE_INTENT_PATTERNS = (
+    re.compile(r"(?:以后|今后|长期|始终|一贯|每次|所有|全部|默认|通用|跨任务|后续).{0,32}(?:要求|偏好|使用|采用|保持|禁止|不要|必须|应当|需要)", re.IGNORECASE),
+    re.compile(r"(?:要求|偏好|使用|采用|保持|禁止|不要|必须|应当|需要).{0,32}(?:以后|今后|长期|始终|一贯|每次|所有|全部|默认|通用|跨任务|后续)", re.IGNORECASE),
+    re.compile(r"\b(?:always|by default|all future|for all|every|going forward|from now on|long[- ]term|across (?:all|future))\b", re.IGNORECASE),
+)
+
+_DELIVERY_ARTIFACT_PATTERN = re.compile(
+    r"(?:PPTX?|演示文稿|幻灯片|报告|文档|模板|品牌\s*VI|品牌规范|LOGO|水印|风险矩阵|甘特图|版式|配色|字体|页数|封面|路线图|"
+    r"\b(?:presentation|slides?|deck|report|document|template|branding|brand guidelines?|logo|watermark|risk matrix|gantt(?: chart)?|layout|palette|font|page count|cover|roadmap)\b)",
+    re.IGNORECASE,
+)
+
+_DELIVERY_CONSTRAINT_PATTERN = re.compile(
+    r"(?:要求|必须|需要|应当|应该|采用|使用|包含|保留|禁止|不要|不得|偏好|严格|固定|限定|强制|有.{0,8}要求|"
+    r"\b(?:must|required?|requires?|should|needs?|use|include|retain|avoid|prefer|strict|fixed|mandatory)\b)",
+    re.IGNORECASE,
+)
+
+
+def _contains_explicit_durable_intent(value: str) -> bool:
+    """Return whether the user explicitly made a rule cross-task/default."""
+    return any(pattern.search(value) for pattern in _DURABLE_INTENT_PATTERNS)
+
+
+def _contains_one_off_delivery_constraint(value: str) -> bool:
+    """Reject deliverable-specific constraints unless durability is explicit.
+
+    Memory extraction models often rewrite a one-turn request such as "make
+    this deck blue" into a confident-looking user preference.  Requiring both
+    a deliverable/design subject and constraint language keeps professional
+    identity facts (for example, "the user works in brand governance") while
+    excluding page counts, templates, branding, and layout rules that belong
+    to one thread.  Explicit "以后/默认/always" wording remains durable.
+    """
+    if _contains_explicit_durable_intent(value):
+        return False
+    return bool(_DELIVERY_ARTIFACT_PATTERN.search(value) and _DELIVERY_CONSTRAINT_PATTERN.search(value))
+
 
 def _contains_transient_task_resource(value: Any) -> bool:
     """Reject operational task state that must remain in thread-local history."""
     if not isinstance(value, str):
         return False
-    return any(pattern.search(value) for pattern in _TRANSIENT_TASK_RESOURCE_PATTERNS)
+    return any(pattern.search(value) for pattern in _TRANSIENT_TASK_RESOURCE_PATTERNS) or _contains_one_off_delivery_constraint(value)
 
 
 def _normalize_memory_update_fact(fact: Any) -> dict[str, Any] | None:

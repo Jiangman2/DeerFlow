@@ -48,6 +48,37 @@ def test_open_clarification_detects_nested_stream_chunk() -> None:
 
 
 @pytest.mark.asyncio
+async def test_durable_answer_overrides_replayed_stream_clarification() -> None:
+    class ClosedClarificationCheckpointer:
+        async def aget_tuple(self, *_args, **_kwargs):
+            return SimpleNamespace(
+                checkpoint={
+                    "channel_values": {
+                        "messages": [
+                            _clarification_tool_message("req-1"),
+                            _human_input_response("req-1"),
+                        ]
+                    }
+                }
+            )
+
+    assert not await worker._resolve_pending_clarification(
+        checkpointer=ClosedClarificationCheckpointer(),
+        thread_id="thread-1",
+        stream_clarification_seen=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_stream_clarification_is_used_without_checkpointer() -> None:
+    assert await worker._resolve_pending_clarification(
+        checkpointer=None,
+        thread_id="thread-1",
+        stream_clarification_seen=True,
+    )
+
+
+@pytest.mark.asyncio
 async def test_run_agent_does_not_start_goal_continuation_for_clarification(monkeypatch) -> None:
     class FakeAgent:
         metadata = {}

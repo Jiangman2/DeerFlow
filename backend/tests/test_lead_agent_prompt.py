@@ -122,6 +122,8 @@ def test_apply_prompt_template_uses_enterprise_identity(monkeypatch):
     assert "面向油气勘探开发业务的企业级多智能体工作平台" in prompt
     assert "DeerFlow" not in prompt
     assert "github.com/bytedance" not in prompt
+    assert "The product identity above describes who you are, not the content or visual" in prompt
+    assert "Do not add the product name, organization name" in prompt
 
 
 def test_apply_prompt_template_includes_memory_tool_guidance_only_in_tool_mode(monkeypatch):

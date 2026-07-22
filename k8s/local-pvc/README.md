@@ -46,13 +46,27 @@ $tag = "dev-YYYYMMDD-N"
 docker build -f backend/Dockerfile --build-arg UV_EXTRAS=postgres -t "deer-flow-gateway:$tag" .
 docker build -f frontend/Dockerfile --target prod -t "deer-flow-frontend:$tag" .
 docker build -f docker/provisioner/Dockerfile -t "deer-flow-provisioner:$tag" docker/provisioner
-docker build -f docker/k8s-skills/Dockerfile -t "deer-flow-skills:$tag" skills
+docker build -f docker/k8s-skills/Dockerfile -t "deer-flow-skills:$tag" .
 docker build --build-context ppt-master-skill=skills/public/ppt-master -f docker/sandbox-ppt-master/Dockerfile -t "deer-flow-aio-sandbox:ppt-master-$tag" .
 
 kubectl kustomize k8s/local-pvc
 kubectl apply -k k8s/local-pvc
 kubectl -n deer-flow wait --for=condition=complete job/skills-sync --timeout=300s
 ```
+
+Build the skills image from the repository root exactly as shown. The
+Dockerfile copies `skills/` explicitly and the sync Job validates both the
+source and mounted target layout before reporting success. A nested layout such
+as `/mnt/skills/skills/public` therefore fails deployment instead of surfacing
+later as a missing skill during an agent run.
+
+On a multi-node cluster, the absolute container paths stay the same on every
+node. What must be shared is the underlying storage: use RWX storage (for
+example NFS or CephFS) for both skills and user data when Gateway and sandbox
+Pods can run on different nodes. A node-local RWO skills PVC constrains every
+Pod that mounts it to that PV's node and is not a multi-node scaling design.
+For zero-gap skills updates, seed a new versioned PVC and roll workloads to that
+claim instead of rewriting a mounted PVC in place.
 
 The current local `kustomization.yaml` pins the business images separately from
 the base YAML. When building a new local image, update all matching
@@ -114,6 +128,13 @@ continue using an older local digest after a rebuild.
 Also avoid piping generated ConfigMap YAML through Windows PowerShell when the
 source files contain non-ASCII text; it can turn Chinese display names into
 `????`.
+
+The Provisioner deployment explicitly configures generated Sandbox Pods with
+500m/512Mi requests, 2 CPU/2Gi limits, and a liveness window of about one
+minute. For heavier multi-node workloads, tune the
+`SANDBOX_*_PROBE_*` and `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}` environment
+variables on the Provisioner Deployment; these settings apply to newly created
+Sandbox Pods, while existing Pods retain their original specification.
 
 ## Secrets
 

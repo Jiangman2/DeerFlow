@@ -1,0 +1,62 @@
+flowchart TB
+    W["Worker nodes / kubectl"] --> E["DNS round-robin or client endpoint list"]
+
+    subgraph N1["Control plane node 1"]
+        NG1["Nginx :6443"]
+        A1["kube-apiserver"]
+        C1["controller-manager"]
+        S1["scheduler"]
+        ET1[("etcd-1")]
+        A1 --> ET1
+        C1 --> A1
+        S1 --> A1
+    end
+
+    subgraph N2["Control plane node 2"]
+        NG2["Nginx :6443"]
+        A2["kube-apiserver"]
+        C2["controller-manager"]
+        S2["scheduler"]
+        ET2[("etcd-2")]
+        A2 --> ET2
+        C2 --> A2
+        S2 --> A2
+    end
+
+    subgraph N3["Control plane node 3"]
+        NG3["Nginx :6443"]
+        A3["kube-apiserver"]
+        C3["controller-manager"]
+        S3["scheduler"]
+        ET3[("etcd-3")]
+        A3 --> ET3
+        C3 --> A3
+        S3 --> A3
+    end
+
+    E --> NG1
+    E --> NG2
+    E --> NG3
+
+    NG1 -. "health-check / upstream" .-> A1
+    NG1 -.-> A2
+    NG1 -.-> A3
+    NG2 -. "health-check / upstream" .-> A1
+    NG2 -.-> A2
+    NG2 -.-> A3
+    NG3 -. "health-check / upstream" .-> A1
+    NG3 -.-> A2
+    NG3 -.-> A3
+
+    ET1 <--> ET2
+    ET2 <--> ET3
+    ET3 <--> ET1
+
+    classDef nginx fill:#f6d78b,stroke:#9d6b00,color:#111;
+    classDef api fill:#9bbcf2,stroke:#466aab,color:#111;
+    classDef control fill:#d6e4f2,stroke:#6d8297,color:#111;
+    classDef etcd fill:#b7d7a8,stroke:#5a8a4a,color:#111;
+    class NG1,NG2,NG3 nginx;
+    class A1,A2,A3 api;
+    class C1,C2,C3,S1,S2,S3 control;
+    class ET1,ET2,ET3 etcd;

@@ -46,6 +46,22 @@ def test_get_artifact_reads_utf8_text_file_on_windows_locale(tmp_path, monkeypat
     assert response.media_type == "text/plain"
 
 
+def test_get_artifact_serves_pdf_as_binary_even_when_sample_has_no_null_bytes(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "preview.pdf"
+    payload = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
+    assert b"\x00" not in payload
+    artifact_path.write_bytes(payload)
+
+    monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path, user_id=None: artifact_path)
+
+    response = asyncio.run(call_unwrapped(artifacts_router.get_artifact, "thread-1", "mnt/user-data/outputs/preview.pdf", _make_request()))
+
+    assert response.status_code == 200
+    assert response.media_type == "application/pdf"
+    assert bytes(response.body) == payload
+    assert response.headers.get("content-disposition", "").startswith("inline;")
+
+
 @pytest.mark.parametrize(("filename", "content"), ACTIVE_ARTIFACT_CASES)
 def test_get_artifact_forces_download_for_active_content(tmp_path, monkeypatch, filename: str, content: str) -> None:
     artifact_path = tmp_path / filename
@@ -88,6 +104,23 @@ def test_get_artifact_download_false_does_not_force_attachment(tmp_path, monkeyp
     assert response.status_code == 200
     assert response.text == "hello"
     assert "content-disposition" not in response.headers
+
+
+def test_get_artifact_supports_head_for_preview_discovery(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "deck.preview.pdf"
+    artifact_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+    monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path, user_id=None: artifact_path)
+
+    app = make_authed_test_app()
+    app.include_router(artifacts_router.router)
+
+    with TestClient(app) as client:
+        response = client.head("/api/threads/thread-1/artifacts/mnt/user-data/outputs/deck.preview.pdf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/pdf")
+    assert response.content == b""
 
 
 def test_get_artifact_download_true_forces_attachment_for_skill_archive(tmp_path, monkeypatch) -> None:

@@ -1,4 +1,5 @@
-FROM enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:1.11.0
+ARG SANDBOX_BASE_IMAGE=enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:1.11.0
+FROM ${SANDBOX_BASE_IMAGE}
 
 USER root
 
@@ -8,12 +9,23 @@ ARG APT_MIRROR=
 COPY --from=ppt-master-skill requirements.txt /tmp/ppt-master-requirements.txt
 
 # CairoSVG needs native Cairo libraries at runtime.
-RUN if [ -n "${APT_MIRROR}" ]; then \
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    --mount=type=secret,id=enterprise_ca,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    apt_ca_opt=""; \
+    if [ -s /run/secrets/enterprise_ca ]; then \
+        apt_ca_opt="-o Acquire::https::CaInfo=/run/secrets/enterprise_ca"; \
+        export SSL_CERT_FILE=/run/secrets/enterprise_ca; \
+        export CURL_CA_BUNDLE=/run/secrets/enterprise_ca; \
+    fi; \
+    if [ -n "${APT_MIRROR}" ]; then \
         sed -i "s|http://archive.ubuntu.com/ubuntu|http://${APT_MIRROR}/ubuntu|g" /etc/apt/sources.list; \
         sed -i "s|http://security.ubuntu.com/ubuntu|http://${APT_MIRROR}/ubuntu|g" /etc/apt/sources.list; \
     fi \
-    && apt-get update -o Acquire::Retries=5 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
+    && apt-get ${apt_ca_opt} update -o Acquire::Retries=5 \
+    && apt-get ${apt_ca_opt} install -y --no-install-recommends -o Acquire::Retries=5 \
         libcairo2 \
         libgdk-pixbuf-2.0-0 \
         libpango-1.0-0 \
@@ -29,6 +41,11 @@ RUN if [ -n "${APT_MIRROR}" ]; then \
         libreoffice-calc \
         libreoffice-impress \
         shared-mime-info \
+    && if [ -s /run/secrets/enterprise_ca ]; then \
+         cp /run/secrets/enterprise_ca /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
+       else \
+         cp /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
+       fi \
     && printf '%s\n' \
         '<?xml version="1.0"?>' \
         '<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">' \
@@ -48,11 +65,20 @@ RUN if [ -n "${APT_MIRROR}" ]; then \
     && fc-cache -fv \
     && rm -rf /var/lib/apt/lists/*
 
+ENV SSL_CERT_FILE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV CURL_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+
 # Install the complete upstream dependency list instead of relying on packages
 # that happen to be present in the base image. Playwright is an upstream
 # runtime requirement of visual_review.py and extract_svg_pictures.py, but is
 # not yet declared in the upstream requirements.txt.
-RUN python3 -m pip install --no-cache-dir \
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    python3 -m pip install --no-cache-dir \
     --timeout 60 --retries 3 --prefer-binary --ignore-installed \
     -r /tmp/ppt-master-requirements.txt \
     "playwright>=1.50.0" "pydantic>=2.12.5,<3.0.0" \
@@ -63,7 +89,11 @@ RUN python3 -m pip install --no-cache-dir \
 # The base image contains Pydantic 2.12.4. Reinstall after the upstream batch
 # because pip's --ignore-installed mode can leave that older distribution
 # visible even when a newer wheel was selected by the resolver.
-RUN python3 -m pip install --no-cache-dir \
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    python3 -m pip install --no-cache-dir \
     --upgrade --force-reinstall "pydantic>=2.12.5,<3.0.0" \
     && python3 -c "import pydantic; from packaging.version import Version; assert Version(pydantic.__version__) >= Version('2.12.5'), pydantic.__version__"
 

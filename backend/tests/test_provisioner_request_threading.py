@@ -207,14 +207,26 @@ def test_create_sandbox_route_builds_expected_skills_mount_layout(
     assert mount_names == expected_mount_names
 
 
-def test_sandbox_pod_uses_startup_probe_to_protect_slow_cold_starts(provisioner_module) -> None:
+def test_sandbox_pod_uses_tunable_probes_and_resources_for_heavy_aio_workloads(monkeypatch, provisioner_module) -> None:
+    monkeypatch.setattr(provisioner_module, "SANDBOX_LIVENESS_TIMEOUT_SECONDS", 7, raising=False)
+    monkeypatch.setattr(provisioner_module, "SANDBOX_LIVENESS_FAILURE_THRESHOLD", 8, raising=False)
+    monkeypatch.setattr(provisioner_module, "SANDBOX_CPU_REQUEST", "750m", raising=False)
+    monkeypatch.setattr(provisioner_module, "SANDBOX_MEMORY_REQUEST", "768Mi", raising=False)
+    monkeypatch.setattr(provisioner_module, "SANDBOX_CPU_LIMIT", "3", raising=False)
+    monkeypatch.setattr(provisioner_module, "SANDBOX_MEMORY_LIMIT", "3Gi", raising=False)
+
     pod = provisioner_module._build_pod("slow-start", "thread-1")
     container = pod.spec.containers[0]
 
     assert container.startup_probe.http_get.path == "/v1/sandbox"
     assert container.startup_probe.http_get.port == provisioner_module.SANDBOX_CONTAINER_PORT
     assert container.startup_probe.period_seconds * container.startup_probe.failure_threshold >= 300
-    assert container.liveness_probe is not None
+    assert container.liveness_probe.timeout_seconds == 7
+    assert container.liveness_probe.failure_threshold == 8
+    assert container.resources.requests["cpu"] == "750m"
+    assert container.resources.requests["memory"] == "768Mi"
+    assert container.resources.limits["cpu"] == "3"
+    assert container.resources.limits["memory"] == "3Gi"
     assert container.readiness_probe is not None
 
 

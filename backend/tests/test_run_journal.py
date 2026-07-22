@@ -4,11 +4,12 @@ Uses MemoryRunEventStore as the backend for direct event inspection.
 """
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from deerflow.runtime.events.store.memory import MemoryRunEventStore
 from deerflow.runtime.journal import RunJournal
@@ -134,6 +135,30 @@ class TestLlmCallbacks:
         messages = await store.list_messages("t1")
         # subagent responses still emit llm.ai.response with category="message"
         assert len(messages) == 1
+
+    @pytest.mark.anyio
+    async def test_internal_caller_survives_provider_dropping_end_tags(self, journal_setup):
+        j, store = journal_setup
+        run_id = uuid4()
+        j.on_chat_model_start(
+            {},
+            [[HumanMessage(content="Internal summary prompt")]],
+            run_id=run_id,
+            tags=[],
+            metadata={"lc_source": "summarization"},
+        )
+        j.on_llm_end(
+            _make_llm_response("<analysis>internal</analysis><summary>compact</summary>"),
+            run_id=run_id,
+            parent_run_id=None,
+            tags=[],
+        )
+        await j.flush()
+
+        events = await store.list_events("t1", "r1")
+        ai_event = next(event for event in events if event["event_type"] == "llm.ai.response")
+        assert ai_event["metadata"]["caller"] == "middleware:summarization"
+        assert j._first_human_msg is None
 
     @pytest.mark.anyio
     async def test_token_accumulation(self, journal_setup):
@@ -324,6 +349,35 @@ class TestFinalToolMessageReconciliation:
 
         messages = await store.list_messages("t1")
         assert not any(m["event_type"] == "llm.tool.result" for m in messages)
+
+
+class TestFinalAiMessageReconciliation:
+    @pytest.mark.anyio
+    async def test_root_chain_end_persists_artifact_error_replacement(self, journal_setup):
+        from langchain_core.messages import AIMessage
+
+        j, store = journal_setup
+        fake = AIMessage(
+            id="delivery-answer",
+            content="[下载](/mnt/user-data/outputs/missing.pptx)",
+        )
+        response = SimpleNamespace(generations=[[SimpleNamespace(message=fake)]])
+        j.on_llm_end(response, run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
+        fallback = fake.model_copy(
+            update={
+                "content": "文件交付失败",
+                "additional_kwargs": {"deerflow_error_fallback": True},
+            }
+        )
+
+        j.on_chain_end({"messages": [fallback]}, run_id=uuid4())
+        await j.flush()
+
+        messages = await store.list_messages("t1")
+        versions = [m for m in messages if m["content"].get("id") == "delivery-answer"]
+        assert len(versions) == 2
+        assert versions[-1]["content"]["content"] == "文件交付失败"
+        assert versions[-1]["metadata"]["reconciled"] is True
 
     @pytest.mark.anyio
     async def test_root_chain_end_ignores_non_allowlisted_tool_message(self, journal_setup):
@@ -568,6 +622,36 @@ class TestConvenienceFields:
 
         assert data["message_count"] == 2
         assert data["last_ai_message"] == "Lead answer"
+
+    @pytest.mark.anyio
+    async def test_reconcile_ai_message_reuses_identity_and_updates_completion(self, journal_setup):
+        j, store = journal_setup
+        original = AIMessage(
+            id="answer-1",
+            content="[report](/api/threads/t1/artifacts/mnt/user-data/outputs/report.pptx)",
+        )
+        j.on_llm_end(
+            SimpleNamespace(generations=[[SimpleNamespace(message=original)]]),
+            run_id=uuid4(),
+            parent_run_id=None,
+            tags=["lead_agent"],
+        )
+        fallback = original.model_copy(
+            update={
+                "content": "Artifact delivery failed",
+                "additional_kwargs": {"deerflow_error_fallback": True},
+            }
+        )
+
+        j.reconcile_ai_message(fallback, reason="interrupted_artifact_delivery")
+        await j.flush()
+
+        events = await store.list_events("t1", "r1")
+        responses = [event for event in events if event["event_type"] == "llm.ai.response"]
+        assert responses[-1]["content"]["id"] == "answer-1"
+        assert responses[-1]["content"]["content"] == "Artifact delivery failed"
+        assert responses[-1]["metadata"]["reconciled"] is True
+        assert j.get_completion_data()["last_ai_message"] == "Artifact delivery failed"
 
     @pytest.mark.anyio
     async def test_get_completion_data(self, journal_setup):

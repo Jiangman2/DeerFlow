@@ -6,12 +6,16 @@ const ARTIFACT_PATH = "/artifact-fixtures/report.html";
 const MARKDOWN_ARTIFACT_PATH = "/artifact-fixtures/report.md";
 const JSON_ARTIFACT_PATH = "/artifact-fixtures/report.json";
 const PRESENTED_ARTIFACT_PATH = "/mnt/user-data/outputs/presented-report.md";
+const PRESENTED_PPTX_PATH = "/mnt/user-data/outputs/research-report.pptx";
+const PRESENTED_PPTX_PREVIEW_PATH =
+  "/mnt/user-data/outputs/research-report.preview.pdf";
 const IN_PROGRESS_THREAD_ID = "00000000-0000-0000-0000-000000003119";
 const COMPLETE_THREAD_ID = "00000000-0000-0000-0000-000000003120";
 const MARKDOWN_THREAD_ID = "00000000-0000-0000-0000-000000003121";
 const MARKDOWN_ANCHOR_THREAD_ID = "00000000-0000-0000-0000-000000003123";
 const JSON_THREAD_ID = "00000000-0000-0000-0000-000000003122";
 const PRESENTED_THREAD_ID = "00000000-0000-0000-0000-000000003123";
+const PRESENTED_PPTX_THREAD_ID = "00000000-0000-0000-0000-000000003124";
 
 function writeFileMessages({
   path = ARTIFACT_PATH,
@@ -319,5 +323,61 @@ test.describe("Artifact preview stability", () => {
     await expect(presentedOption).toBeVisible();
     await presentedOption.click();
     await expect(artifactsPanel.getByText("Presented Report")).toBeVisible();
+  });
+
+  test("opens a message PPTX link through its paired PDF preview", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: PRESENTED_PPTX_THREAD_ID,
+          title: "PowerPoint artifact preview",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-present-pptx",
+              content: [{ type: "text", text: "Create a PowerPoint" }],
+            },
+            {
+              type: "ai",
+              id: "msg-ai-present-pptx",
+              content: `[research-report.pptx](/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts${PRESENTED_PPTX_PATH})`,
+              tool_calls: [
+                {
+                  id: "present-pptx-artifact",
+                  name: "present_files",
+                  args: { filepaths: [PRESENTED_PPTX_PATH] },
+                },
+              ],
+            },
+          ],
+          artifacts: [PRESENTED_PPTX_PATH, PRESENTED_PPTX_PREVIEW_PATH],
+        },
+      ],
+    });
+    await page.route(
+      `**/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts/mnt/user-data/outputs/research-report.preview.pdf`,
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/pdf",
+          body: "%PDF-1.4\n%%EOF",
+        }),
+    );
+
+    await page.goto(`/workspace/chats/${PRESENTED_PPTX_THREAD_ID}`);
+    const pptxLink = page.getByRole("link", { name: "research-report.pptx" });
+    await expect(pptxLink).toBeVisible({ timeout: 15_000 });
+    await pptxLink.click();
+
+    const previewFrame = page
+      .locator("#artifacts")
+      .locator('iframe[title="Artifact preview"]');
+    await expect(previewFrame).toBeVisible();
+    await expect(previewFrame).toHaveAttribute(
+      "src",
+      /research-report\.preview\.pdf$/,
+    );
   });
 });

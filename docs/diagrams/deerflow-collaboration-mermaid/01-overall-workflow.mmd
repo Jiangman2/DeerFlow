@@ -1,0 +1,65 @@
+flowchart LR
+    subgraph U["A. DeerFlow 官方 GitHub"]
+        U1["bytedance/deer-flow<br/>upstream/main<br/>官方原始代码"]
+    end
+
+    subgraph G["B. 团队 GitHub 仓库"]
+        G1["vendor/upstream-main<br/>官方代码镜像 / 同步指针<br/>只用于同步官方更新"]
+        G2["enterprise/integration<br/>官方基线 + 企业功能<br/>团队保护分支"]
+        G3["feature/xxx<br/>开发人员的单功能分支"]
+        G4["sync/upstream-日期<br/>同步官方更新的临时分支"]
+        G5["prod-YYYYMMDD-编号<br/>生产发布 tag"]
+        G6["archive/*<br/>历史备份分支<br/>不再作为新开发基线"]
+        G7["旧 main<br/>历史企业产品分支<br/>保留作迁移参考"]
+    end
+
+    subgraph L["C. 开发人员自己的电脑"]
+        L1["本地 enterprise/integration<br/>从团队集成分支拉取"]
+        L2["本地 feature/xxx<br/>从集成分支创建"]
+        L3["本地开发与测试<br/>git add / git commit"]
+    end
+
+    subgraph R["D. Review / 集成维护"]
+        R1["Pull Request<br/>feature/xxx → enterprise/integration"]
+        R2["代码 Review + CI<br/>通过后 Squash Merge"]
+    end
+
+    subgraph S["E. 测试与生产环境"]
+        S1["测试服务器<br/>部署 enterprise/integration 最新提交"]
+        S2["生产服务器<br/>部署 prod-* tag"]
+    end
+
+    U1 -->|"官方发布更新 / fetch"| G1
+    G1 -->|"创建 sync/upstream 分支"| G4
+    G4 -->|"解决冲突并验证企业功能"| R1
+    R1 -->|"PR 合并"| G2
+
+    G2 -->|"git clone / git pull"| L1
+    L1 -->|"git switch -c feature/xxx"| L2
+    L2 -->|"开发代码并测试"| L3
+    L3 -->|"git push origin feature/xxx"| G3
+    G3 -->|"创建 PR"| R1
+    R1 -->|"Review 通过"| R2
+    R2 -->|"合并回集成分支"| G2
+
+    G2 -->|"部署测试"| S1
+    S1 -->|"测试通过后打 tag"| G5
+    G5 -->|"部署生产"| S2
+
+    G6 -. "必要时查历史" .- G2
+    G7 -. "不作为新 Feature 基线" .- G6
+
+    classDef official fill:#e2f0d9,stroke:#70ad47,color:#1f2937;
+    classDef mirror fill:#fff2cc,stroke:#d6b656,color:#1f2937;
+    classDef integration fill:#fce4d6,stroke:#ed7d31,color:#1f2937;
+    classDef feature fill:#eaf2f8,stroke:#5b9bd5,color:#1f2937;
+    classDef review fill:#eef8f0,stroke:#70ad47,color:#1f2937;
+    classDef release fill:#f8f5ff,stroke:#8064a2,color:#1f2937;
+    classDef legacy fill:#fce4d6,stroke:#c0504d,color:#7f1d1d;
+    class U1 official;
+    class G1,G4 mirror;
+    class G2 integration;
+    class G3 feature;
+    class R1,R2 review;
+    class G5,S1,S2 release;
+    class G6,G7 legacy;

@@ -112,6 +112,60 @@ def test_memory_update_rejects_transient_task_resources(deermem_data_dir):
     assert [fact["content"] for fact in memory["facts"]] == ["The user prefers concise Chinese answers."]
 
 
+def test_memory_update_rejects_one_off_delivery_constraints_without_durable_intent(deermem_data_dir):
+    payload = json.dumps(
+        {
+            "user": {
+                "workContext": {
+                    "summary": "用户对中海油品牌VI有严格要求：#003366、LOGO水印和3×3风险矩阵。",
+                    "shouldUpdate": True,
+                }
+            },
+            "history": {},
+            "newFacts": [
+                {
+                    "content": "用户要求中海油验证报告使用#003366、LOGO水印和3×3风险矩阵。",
+                    "category": "preference",
+                    "confidence": 0.99,
+                },
+                {
+                    "content": "User requires a 3-page PPT with a cover, challenge page, and roadmap.",
+                    "category": "preference",
+                    "confidence": 0.99,
+                },
+                {
+                    "content": "用户明确要求以后所有PPT默认使用中文。",
+                    "category": "preference",
+                    "confidence": 0.99,
+                },
+                {
+                    "content": "用户负责中海油品牌治理与VI规范制定。",
+                    "category": "context",
+                    "confidence": 0.95,
+                },
+            ],
+            "factsToRemove": [],
+        },
+        ensure_ascii=False,
+    )
+    dm = _deermem_with_fake_llm(payload=payload)
+
+    dm.add(
+        thread_id="one-off-delivery-thread",
+        messages=[HumanMessage(content="制作这一次的PPT"), AIMessage(content="开始制作")],
+        agent_name=None,
+        user_id="one-off-delivery-user",
+    )
+    dm._queue.flush()
+
+    memory = dm.get_memory(user_id="one-off-delivery-user")
+    assert memory["user"]["workContext"]["summary"] == ""
+    assert [fact["content"] for fact in memory["facts"]] == [
+        "用户明确要求以后所有PPT默认使用中文。",
+        "用户负责中海油品牌治理与VI规范制定。",
+    ]
+
+
 def test_di_construction_owns_dependencies():
     dm = DeerMem(backend_config={"max_facts": 50, "storage_path": "/tmp/x"})
     assert dm._config.max_facts == 50

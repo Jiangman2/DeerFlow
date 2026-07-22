@@ -87,6 +87,61 @@ describe("artifact URL helpers", () => {
     );
   });
 
+  test("pairs PowerPoint artifacts with their browser preview PDF", async () => {
+    const {
+      findPreviewPdfPath,
+      guessPreviewPdfPath,
+      guessPreviewPdfPaths,
+    } =
+      await loadFreshArtifactUtils();
+
+    expect(guessPreviewPdfPath("/mnt/user-data/outputs/deck.pptx")).toBe(
+      "/mnt/user-data/outputs/deck.preview.pdf",
+    );
+    expect(
+      findPreviewPdfPath("/mnt/user-data/outputs/deck.pptx", [
+        "/mnt/user-data/outputs/deck.pptx",
+        "/mnt/user-data/outputs/deck.preview.pdf",
+      ]),
+    ).toBe("/mnt/user-data/outputs/deck.preview.pdf");
+    expect(
+      findPreviewPdfPath("/mnt/user-data/outputs/deck.pptx", [
+        "/mnt/user-data/outputs/deck.pptx",
+        "/mnt/user-data/outputs/deck.pdf",
+      ]),
+    ).toBe("/mnt/user-data/outputs/deck.pdf");
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/deck.pptx")).toEqual([
+      "/mnt/user-data/outputs/deck.preview.pdf",
+      "/mnt/user-data/outputs/deck.pdf",
+    ]);
+  });
+
+  test("extracts previewable artifact paths from message links", async () => {
+    const { artifactPathFromHref } = await loadFreshArtifactUtils();
+
+    expect(
+      artifactPathFromHref(
+        "/api/threads/thread-1/artifacts/mnt/user-data/outputs/%E6%96%B9%E6%A1%88.pdf",
+        "thread-1",
+      ),
+    ).toBe("/mnt/user-data/outputs/方案.pdf");
+    expect(
+      artifactPathFromHref("/mnt/user-data/outputs/report.pptx", "thread-1"),
+    ).toBe("/mnt/user-data/outputs/report.pptx");
+    expect(
+      artifactPathFromHref(
+        "/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx?download=true",
+        "thread-1",
+      ),
+    ).toBeNull();
+    expect(
+      artifactPathFromHref(
+        "/api/threads/other/artifacts/mnt/user-data/outputs/report.pdf",
+        "thread-1",
+      ),
+    ).toBeNull();
+  });
+
   test("resolves absolute and relative message image paths", async () => {
     const { resolveMessageImageURL } = await loadFreshArtifactUtils();
     const artifacts = [

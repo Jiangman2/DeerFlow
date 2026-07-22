@@ -278,7 +278,22 @@ def _message_additional_kwargs(message: Any) -> dict[str, Any]:
 def _is_hidden_or_control_message(message: Any) -> bool:
     message_type = _message_type(message)
     additional_kwargs = _message_additional_kwargs(message)
-    return message_type == "remove" or _message_name(message) == "summary" or additional_kwargs.get("hide_from_ui") is True
+    return message_type == "remove" or _message_name(message) == "summary" or additional_kwargs.get("hide_from_ui") is True or _is_internal_compaction_transcript(message)
+
+
+def _is_internal_compaction_transcript(message: Any) -> bool:
+    """Recognize a leaked provider-facing context-compaction completion.
+
+    Internal summarizer calls are normally tagged ``middleware:summarization``.
+    A few OpenAI-compatible providers have dropped those callback tags and an
+    old journal row may therefore look like a lead-agent answer.  The exact
+    paired envelope is not a valid user-facing response and is safe to hide as
+    defense in depth.
+    """
+    if _message_type(message) != "ai":
+        return False
+    text = _message_text(message).strip()
+    return text.startswith("<analysis>") and "</analysis>" in text and "<summary>" in text and text.endswith("</summary>")
 
 
 def _is_visible_human_message(message: Any) -> bool:
@@ -291,6 +306,10 @@ def _is_visible_ai_message(message: Any) -> bool:
 
 def _is_middleware_message_row(row: dict[str, Any]) -> bool:
     return str((row.get("metadata") or {}).get("caller", "")).startswith("middleware:")
+
+
+def _is_hidden_message_row(row: dict[str, Any]) -> bool:
+    return _is_middleware_message_row(row) or _is_internal_compaction_transcript(row.get("content"))
 
 
 def _checkpoint_messages(checkpoint_tuple: Any) -> list[Any]:
@@ -783,6 +802,7 @@ async def _scan_thread_message_page(
     run_mgr = get_run_manager(request)
     superseded_run_ids = await run_mgr.list_successful_regenerate_sources(thread_id, user_id=user_id)
     visible_desc: list[dict[str, Any]] = []
+    seen_message_ids: set[tuple[str, str]] = set()
     scan_before = before_seq
 
     while len(visible_desc) < limit + 1:
@@ -807,8 +827,16 @@ async def _scan_thread_message_page(
             raise RuntimeError("Run event message rows are missing sequence values")
 
         for row in reversed(raw):
-            if _is_middleware_message_row(row) or row.get("run_id") in superseded_run_ids:
+            if _is_hidden_message_row(row) or row.get("run_id") in superseded_run_ids:
                 continue
+            content = row.get("content")
+            message_id = content.get("id") if isinstance(content, dict) else None
+            run_id = row.get("run_id")
+            if isinstance(run_id, str) and isinstance(message_id, str) and message_id:
+                identity = (run_id, message_id)
+                if identity in seen_message_ids:
+                    continue
+                seen_message_ids.add(identity)
             visible_desc.append(row)
             if len(visible_desc) == limit + 1:
                 break

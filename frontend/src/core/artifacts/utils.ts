@@ -24,6 +24,59 @@ export function urlOfArtifact({
   return `${getBackendBaseURL()}/api/threads/${threadId}/artifacts${filepath}${download ? "?download=true" : ""}`;
 }
 
+export function findPreviewPdfPath(
+  filepath: string,
+  files: string[],
+): string | null {
+  return guessPreviewPdfPaths(filepath).find((path) => files.includes(path)) ?? null;
+}
+
+export function guessPreviewPdfPath(filepath: string): string | null {
+  return guessPreviewPdfPaths(filepath)[0] ?? null;
+}
+
+export function guessPreviewPdfPaths(filepath: string): string[] {
+  if (filepath.toLowerCase().endsWith(".pptx")) {
+    return [
+      filepath.replace(/\.pptx$/i, ".preview.pdf"),
+      filepath.replace(/\.pptx$/i, ".pdf"),
+    ];
+  }
+  if (filepath.toLowerCase().endsWith(".ppt")) {
+    return [
+      filepath.replace(/\.ppt$/i, ".preview.pdf"),
+      filepath.replace(/\.ppt$/i, ".pdf"),
+    ];
+  }
+  return [];
+}
+
+export function artifactPathFromHref(
+  href: string | undefined,
+  threadId: string,
+): string | null {
+  if (!href) {
+    return null;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(href, "http://deerflow.local");
+  } catch {
+    return null;
+  }
+  if (parsed.searchParams.get("download") === "true") {
+    return null;
+  }
+  if (parsed.pathname.startsWith("/mnt/")) {
+    return decodeURIComponent(parsed.pathname);
+  }
+  const prefix = `/api/threads/${encodeURIComponent(threadId)}/artifacts`;
+  if (!parsed.pathname.startsWith(`${prefix}/mnt/`)) {
+    return null;
+  }
+  return decodeURIComponent(parsed.pathname.slice(prefix.length));
+}
+
 export function extractArtifactsFromThread(thread: {
   values: Pick<AgentThreadState, "artifacts">;
 }) {

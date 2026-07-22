@@ -1,0 +1,220 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: deerflow-home-local
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: deerflow-postgresql-local
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: deerflow-redis-local
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: deerflow-weknora-local
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-home-pv-datax-01
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-home-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/home
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-01]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-skills-pv-datax-01
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-home-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/skills
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-01]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-postgresql-pv-datax-02
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-postgresql-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/postgresql
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-02]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-postgresql-backups-pv-datax-02
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-postgresql-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/postgresql-backups
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-02]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-weknora-postgresql-pv-datax-02
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-postgresql-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/weknora-postgresql
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-02]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-redis-pv-datax-03
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-redis-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/redis
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-03]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-weknora-files-pv-datax-03
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-weknora-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/weknora-files
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-03]
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-weknora-docreader-pv-datax-03
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-weknora-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/weknora-docreader
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-03]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-redis-data
+  namespace: deer-flow
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: deerflow-redis-local
+  volumeName: deerflow-redis-pv-datax-03
+  resources:
+    requests:
+      storage: 20Gi

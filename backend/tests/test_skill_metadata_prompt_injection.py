@@ -94,6 +94,17 @@ def test_skill_index_escapes_untrusted_name():
     assert _ESCAPED in rendered
 
 
+def test_skill_prompt_requires_mandatory_references_before_phase_entry():
+    prompt_module._get_cached_skills_prompt_section.cache_clear()
+    sig = ("ppt-master", "Create slides", SkillCategory.PUBLIC, "/mnt/skills/public/ppt-master/SKILL.md")
+
+    rendered = prompt_module._get_cached_skills_prompt_section((sig,), (), None, "/mnt/skills", "")
+
+    assert "MUST be read first" in rendered
+    assert "stop guessing" in rendered
+    assert "command's `--help`" in rendered
+
+
 # The sixth render site — the subagent ``<skill name=...>`` injection in
 # ``SubagentExecutor._load_skill_messages`` (which also injects the raw SKILL.md
 # body) — is guarded by ``test_subagent_skill_injection_escapes_name_and_content``

@@ -1050,7 +1050,12 @@ class TestLeakSurfaces:
     def test_redact_helper_strips_secret_keys(self):
         from deerflow.runtime.secret_context import redact_secret_context_keys
 
-        ctx = {"thread_id": "t", "secrets": {"ERP_TOKEN": _SECRET}, "__active_skill_secrets": {"ERP_TOKEN": _SECRET}}
+        ctx = {
+            "thread_id": "t",
+            "secrets": {"ERP_TOKEN": _SECRET},
+            "__active_skill_secrets": {"ERP_TOKEN": _SECRET},
+            "__slash_skill_activation_cache": {"run_key": "m1", "activation_content": "full private skill body"},
+        }
         redacted = redact_secret_context_keys(ctx)
         assert redacted == {"thread_id": "t"}
         assert _SECRET not in str(redacted)

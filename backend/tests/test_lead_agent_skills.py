@@ -355,6 +355,25 @@ def test_make_lead_agent_filters_tools_from_available_skills(monkeypatch):
     assert "describe_skill" in tool_names
 
 
+def test_default_agent_does_not_apply_unactivated_skill_tool_allowlists(monkeypatch):
+    """Discoverable skills must not globally remove the default agent's tools."""
+    from types import SimpleNamespace
+
+    from deerflow.agents.lead_agent import agent as lead_agent_module
+    from deerflow.agents.lead_agent import prompt as prompt_module
+
+    reviewer = _make_skill("skill-reviewer", ["review_skill_package"])
+    monkeypatch.setattr(prompt_module, "get_enabled_skills_for_config", lambda app_config, user_id=None: [reviewer])
+
+    loaded = lead_agent_module._load_enabled_skills_for_tool_policy(
+        None,
+        app_config=SimpleNamespace(),
+        user_id="user-1",
+    )
+
+    assert loaded == []
+
+
 def test_skill_allowed_tools_default_does_not_preserve_read_file_for_subagents():
     from deerflow.skills.tool_policy import filter_tools_by_skill_allowed_tools
 

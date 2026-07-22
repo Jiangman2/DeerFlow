@@ -20,14 +20,18 @@ to the end of the message list as before_model + add_messages reducer would do.
 
 import json
 import logging
+import threading
 from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable
-from typing import override
+from typing import Any, override
 
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware
-from langchain.agents.middleware.types import ModelCallResult, ModelRequest, ModelResponse
-from langchain_core.messages import ToolMessage
+from langchain.agents.middleware.types import ModelCallResult, ModelRequest, ModelResponse, hook_config
+from langchain_core.messages import AIMessage, ToolMessage
+from langgraph.runtime import Runtime
+
+from deerflow.agents.middlewares._bounded_dict import BoundedDict
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +41,7 @@ logger = logging.getLogger(__name__)
 _MAX_RECOVERY_ERROR_DETAIL_LEN = 500
 _UNKNOWN_TOOL_NAME = "unknown_tool"
 _EMPTY_TOOL_NAME_ERROR = "Tool call could not be executed because its name was missing or empty."
+_INVALID_TOOL_CALL_FALLBACK = "模型连续两次生成了无法解析的工具参数，因此本次操作没有执行。请重试该步骤或切换模型。"
 
 
 def _valid_tool_name(name: object) -> bool:
@@ -82,6 +87,71 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
     - ToolMessages with no matching AIMessage tool_call (orphans), and drops
       them so strict OpenAI-compatible backends do not reject the request
     """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._lock = threading.Lock()
+        self._invalid_retry_counts: BoundedDict[tuple[str, str], int] = BoundedDict(1000)
+
+    @staticmethod
+    def _runtime_key(runtime: Runtime) -> tuple[str, str]:
+        context = getattr(runtime, "context", None)
+        if isinstance(context, dict):
+            thread_id = str(context.get("thread_id") or "unknown-thread")
+            run_id = str(context.get("run_id") or context.get("run_attempt_id") or id(runtime))
+            return thread_id, run_id
+        return "unknown-thread", str(id(runtime))
+
+    def _clear_runtime(self, runtime: Runtime) -> None:
+        with self._lock:
+            self._invalid_retry_counts.pop(self._runtime_key(runtime), None)
+
+    def _recover_invalid_tool_call(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
+        messages = list(state.get("messages") or [])
+        if not messages or not isinstance(messages[-1], AIMessage):
+            return None
+        last = messages[-1]
+        invalid_tool_calls = list(getattr(last, "invalid_tool_calls", None) or [])
+        key = self._runtime_key(runtime)
+        if not invalid_tool_calls:
+            with self._lock:
+                self._invalid_retry_counts.pop(key, None)
+            return None
+
+        with self._lock:
+            retry_count = self._invalid_retry_counts.get(key, 0)
+            if retry_count == 0:
+                self._invalid_retry_counts[key] = 1
+
+        if retry_count == 0:
+            logger.warning(
+                "DanglingToolCallMiddleware: retrying model after %d invalid tool call(s)",
+                len(invalid_tool_calls),
+            )
+            return {"jump_to": "model"}
+
+        additional_kwargs = dict(last.additional_kwargs or {})
+        additional_kwargs.pop("tool_calls", None)
+        additional_kwargs.pop("function_call", None)
+        additional_kwargs.update(
+            {
+                "deerflow_error_fallback": True,
+                "error_reason": "Model returned invalid tool-call arguments twice",
+            }
+        )
+        response_metadata = dict(last.response_metadata or {})
+        response_metadata["finish_reason"] = "stop"
+        fallback = last.model_copy(
+            update={
+                "content": _INVALID_TOOL_CALL_FALLBACK,
+                "tool_calls": [],
+                "invalid_tool_calls": [],
+                "additional_kwargs": additional_kwargs,
+                "response_metadata": response_metadata,
+            }
+        )
+        self._clear_runtime(runtime)
+        return {"messages": [fallback]}
 
     @staticmethod
     def _message_tool_calls(msg) -> list[dict]:
@@ -362,3 +432,33 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
         if patched is not None:
             request = request.override(messages=patched)
         return await handler(request)
+
+    @override
+    def before_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
+        self._clear_runtime(runtime)
+        return None
+
+    @override
+    async def abefore_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
+        self._clear_runtime(runtime)
+        return None
+
+    @hook_config(can_jump_to=["model"])
+    @override
+    def after_model(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
+        return self._recover_invalid_tool_call(state, runtime)
+
+    @hook_config(can_jump_to=["model"])
+    @override
+    async def aafter_model(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
+        return self._recover_invalid_tool_call(state, runtime)
+
+    @override
+    def after_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
+        self._clear_runtime(runtime)
+        return None
+
+    @override
+    async def aafter_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
+        self._clear_runtime(runtime)
+        return None

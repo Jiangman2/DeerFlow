@@ -1,0 +1,55 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: deer-flow
+
+resources:
+  - ../local-pvc
+  - ../weknora
+  - nginx-nodeport.yaml
+  - storage-static.yaml
+
+patches:
+  - path: storage-patches.yaml
+  - path: runtime-patches.yaml
+
+# Third-party images are the ARM64 manifests verified on datax-01 on
+# 2026-07-21. Custom images use immutable deployment tags and are imported
+# into the k8s.io containerd namespace on every node before apply.
+images:
+  - name: busybox
+    newName: m.daocloud.io/docker.io/library/busybox
+    digest: sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+  - name: nginx
+    newName: m.daocloud.io/docker.io/library/nginx
+    digest: sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752
+  - name: postgres
+    newName: m.daocloud.io/docker.io/library/postgres
+    digest: sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+  - name: redis
+    newName: m.daocloud.io/docker.io/library/redis
+    digest: sha256:c9d92d840fd011c908f040592857c724ae6d877f2aba5c40ad963276507386b2
+  - name: paradedb/paradedb
+    newName: m.daocloud.io/docker.io/paradedb/paradedb
+    digest: sha256:af585013f97f622715de01e48d00558f7edf17055d7b40deafc9f98ca8d99a56
+  - name: wechatopenai/weknora-app
+    newName: m.daocloud.io/docker.io/wechatopenai/weknora-app
+    digest: sha256:500262dfee6e10e759cde8726d75e159e9c78bd3e79bcea49e12271fc73f1ef3
+  - name: wechatopenai/weknora-docreader
+    newName: m.daocloud.io/docker.io/wechatopenai/weknora-docreader
+    digest: sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b
+  - name: wechatopenai/weknora-ui
+    newName: m.daocloud.io/docker.io/wechatopenai/weknora-ui
+    digest: sha256:da9a3a0a939ddd1ed6f4b510b74a0562a21b898439f907cd6ee529a3680283d8
+  - name: deer-flow-gateway
+    newName: deerflow.local/deer-flow-gateway
+    newTag: 20260721-enterprise-arm64-1
+  - name: deer-flow-frontend
+    newName: deerflow.local/deer-flow-frontend
+    newTag: 20260721-enterprise-arm64-1
+  - name: deer-flow-provisioner
+    newName: deerflow.local/deer-flow-provisioner
+    newTag: 20260721-enterprise-arm64-1
+  - name: deer-flow-skills
+    newName: deerflow.local/deer-flow-skills
+    newTag: 20260721-enterprise-arm64-1

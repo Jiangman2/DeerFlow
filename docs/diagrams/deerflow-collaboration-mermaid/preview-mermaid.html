@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>DeerFlow Mermaid Preview</title>
+  <style>
+    html, body { margin: 0; background: #ffffff; }
+    body { padding: 28px; font-family: "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+    #diagram { display: flex; justify-content: center; align-items: flex-start; }
+    #diagram svg { max-width: none; height: auto; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <div id="diagram" class="mermaid"></div>
+  <script>
+    mermaid.initialize({ startOnLoad: false, theme: "base", securityLevel: "loose", flowchart: { htmlLabels: true, curve: "basis" }, sequence: { useMaxWidth: false } });
+    const file = new URLSearchParams(location.search).get("file") || "01-overall-workflow.mmd";
+    fetch(file)
+      .then(r => r.text())
+      .then(source => {
+        document.getElementById("diagram").textContent = source;
+        return mermaid.run({ querySelector: "#diagram" });
+      })
+      .catch(err => { document.body.innerText = "渲染失败：" + err; });
+  </script>
+</body>
+</html>

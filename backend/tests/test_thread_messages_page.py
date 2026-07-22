@@ -62,6 +62,43 @@ def test_thread_page_orders_across_runs_and_paginates_without_gaps():
     assert older.json()["next_before_seq"] is None
 
 
+def test_thread_page_keeps_only_latest_version_of_same_message_id():
+    store = MemoryRunEventStore()
+
+    async def seed():
+        await store.put(
+            thread_id="thread-1",
+            run_id="run-1",
+            event_type="llm.ai.response",
+            category="message",
+            content={"type": "ai", "id": "same-id", "content": "虚假的文件链接", "additional_kwargs": {}},
+            metadata={"caller": "lead_agent"},
+        )
+        await store.put(
+            thread_id="thread-1",
+            run_id="run-1",
+            event_type="llm.ai.response",
+            category="message",
+            content={
+                "type": "ai",
+                "id": "same-id",
+                "content": "文件交付失败",
+                "additional_kwargs": {"deerflow_error_fallback": True},
+            },
+            metadata={"caller": "lead_agent", "reconciled": True},
+        )
+
+    asyncio.run(seed())
+    app = _make_app(store)
+    with TestClient(app) as client:
+        response = client.get("/api/threads/thread-1/messages/page?limit=10")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert len(data) == 1
+    assert data[0]["content"]["content"] == "文件交付失败"
+
+
 def test_thread_page_scans_past_middleware_chunks_to_fill_visible_page(monkeypatch):
     monkeypatch.setattr(thread_runs, "THREAD_MESSAGE_PAGE_SCAN_BATCH", 3)
     store = MemoryRunEventStore()
@@ -82,6 +119,35 @@ def test_thread_page_scans_past_middleware_chunks_to_fill_visible_page(monkeypat
     assert [row["seq"] for row in body["data"]] == [5, 6]
     assert body["has_more"] is True
     assert body["next_before_seq"] == 5
+
+
+def test_thread_page_hides_leaked_internal_compaction_transcript():
+    store = MemoryRunEventStore()
+
+    async def seed():
+        await _put_message(store, "run-1", "human", "visible-human")
+        await store.put(
+            thread_id="thread-1",
+            run_id="run-1",
+            event_type="llm.ai.response",
+            category="message",
+            content={
+                "type": "ai",
+                "id": "leaked-summary",
+                "content": "<analysis>internal</analysis><summary>compact</summary>",
+                "additional_kwargs": {},
+            },
+            metadata={"caller": "lead_agent"},
+        )
+        await _put_message(store, "run-1", "ai", "visible-answer")
+
+    asyncio.run(seed())
+    app = _make_app(store)
+    with TestClient(app) as client:
+        response = client.get("/api/threads/thread-1/messages/page?limit=10")
+
+    assert response.status_code == 200
+    assert [row["content"]["id"] for row in response.json()["data"]] == ["visible-human", "visible-answer"]
 
 
 def test_thread_page_scans_large_middleware_only_region_with_production_batch_size():

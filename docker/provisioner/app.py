@@ -87,11 +87,17 @@ SANDBOX_SERVICE_TYPE = os.environ.get("SANDBOX_SERVICE_TYPE", "NodePort")
 try:
     SANDBOX_CONTAINER_PORT = int(SANDBOX_CONTAINER_PORT_RAW)
 except ValueError as exc:
-    raise RuntimeError(f"Invalid SANDBOX_CONTAINER_PORT={SANDBOX_CONTAINER_PORT_RAW!r}; expected an integer TCP port") from exc
+    raise RuntimeError(
+        f"Invalid SANDBOX_CONTAINER_PORT={SANDBOX_CONTAINER_PORT_RAW!r}; expected an integer TCP port"
+    ) from exc
 if not (1 <= SANDBOX_CONTAINER_PORT <= 65535):
-    raise RuntimeError(f"Invalid SANDBOX_CONTAINER_PORT={SANDBOX_CONTAINER_PORT}; expected a value in [1, 65535]")
+    raise RuntimeError(
+        f"Invalid SANDBOX_CONTAINER_PORT={SANDBOX_CONTAINER_PORT}; expected a value in [1, 65535]"
+    )
 if SANDBOX_SERVICE_TYPE not in {"NodePort", "ClusterIP"}:
-    raise RuntimeError(f"Invalid SANDBOX_SERVICE_TYPE={SANDBOX_SERVICE_TYPE!r}; expected 'NodePort' or 'ClusterIP'")
+    raise RuntimeError(
+        f"Invalid SANDBOX_SERVICE_TYPE={SANDBOX_SERVICE_TYPE!r}; expected 'NodePort' or 'ClusterIP'"
+    )
 SAFE_THREAD_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
 SAFE_USER_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
 DEFAULT_USER_ID = "default"
@@ -101,7 +107,12 @@ DEFAULT_USER_ID = "default"
 KUBECONFIG_PATH = os.environ.get("KUBECONFIG_PATH", "/root/.kube/config")
 PROVISIONER_API_KEY = os.environ.get("PROVISIONER_API_KEY", "")
 KUBECONFIG_WAIT_SECONDS_RAW = os.environ.get("KUBECONFIG_WAIT_SECONDS", "30")
-K8S_CREATE_NAMESPACE = os.environ.get("K8S_CREATE_NAMESPACE", "true").lower() in {"1", "true", "yes", "on"}
+K8S_CREATE_NAMESPACE = os.environ.get("K8S_CREATE_NAMESPACE", "true").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 try:
     KUBECONFIG_WAIT_SECONDS = int(KUBECONFIG_WAIT_SECONDS_RAW)
 except ValueError as exc:
@@ -113,6 +124,58 @@ except ValueError as exc:
 # Desktop for macOS this is ``host.docker.internal``; on Linux it may be the
 # host's LAN IP. Ignored when SANDBOX_SERVICE_TYPE=ClusterIP.
 NODE_HOST = os.environ.get("NODE_HOST", "host.docker.internal")
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    raw_value = os.environ.get(name, str(default))
+    try:
+        value = int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"Invalid {name}={raw_value!r}; expected a positive integer"
+        ) from exc
+    if value <= 0:
+        raise RuntimeError(f"Invalid {name}={raw_value!r}; expected a positive integer")
+    return value
+
+
+SANDBOX_STARTUP_PROBE_PERIOD_SECONDS = _positive_int_env(
+    "SANDBOX_STARTUP_PROBE_PERIOD_SECONDS", 5
+)
+SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS = _positive_int_env(
+    "SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS", 3
+)
+SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD = _positive_int_env(
+    "SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD", 60
+)
+SANDBOX_READINESS_INITIAL_DELAY_SECONDS = _positive_int_env(
+    "SANDBOX_READINESS_INITIAL_DELAY_SECONDS", 5
+)
+SANDBOX_READINESS_PERIOD_SECONDS = _positive_int_env(
+    "SANDBOX_READINESS_PERIOD_SECONDS", 5
+)
+SANDBOX_READINESS_TIMEOUT_SECONDS = _positive_int_env(
+    "SANDBOX_READINESS_TIMEOUT_SECONDS", 5
+)
+SANDBOX_READINESS_FAILURE_THRESHOLD = _positive_int_env(
+    "SANDBOX_READINESS_FAILURE_THRESHOLD", 3
+)
+SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS = _positive_int_env(
+    "SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS", 10
+)
+SANDBOX_LIVENESS_PERIOD_SECONDS = _positive_int_env(
+    "SANDBOX_LIVENESS_PERIOD_SECONDS", 10
+)
+SANDBOX_LIVENESS_TIMEOUT_SECONDS = _positive_int_env(
+    "SANDBOX_LIVENESS_TIMEOUT_SECONDS", 5
+)
+SANDBOX_LIVENESS_FAILURE_THRESHOLD = _positive_int_env(
+    "SANDBOX_LIVENESS_FAILURE_THRESHOLD", 6
+)
+SANDBOX_CPU_REQUEST = os.environ.get("SANDBOX_CPU_REQUEST", "500m")
+SANDBOX_MEMORY_REQUEST = os.environ.get("SANDBOX_MEMORY_REQUEST", "512Mi")
+SANDBOX_CPU_LIMIT = os.environ.get("SANDBOX_CPU_LIMIT", "2")
+SANDBOX_MEMORY_LIMIT = os.environ.get("SANDBOX_MEMORY_LIMIT", "2Gi")
 
 
 def join_host_path(base: str, *parts: str) -> str:
@@ -149,18 +212,26 @@ def _init_k8s_client() -> k8s_client.CoreV1Api:
     """
     if os.path.exists(KUBECONFIG_PATH):
         if os.path.isdir(KUBECONFIG_PATH):
-            raise RuntimeError(f"KUBECONFIG_PATH points to a directory, expected a file: {KUBECONFIG_PATH}")
+            raise RuntimeError(
+                f"KUBECONFIG_PATH points to a directory, expected a file: {KUBECONFIG_PATH}"
+            )
         try:
             k8s_config.load_kube_config(config_file=KUBECONFIG_PATH)
             logger.info(f"Loaded kubeconfig from {KUBECONFIG_PATH}")
         except Exception as exc:
-            raise RuntimeError(f"Failed to load kubeconfig from {KUBECONFIG_PATH}: {exc}") from exc
+            raise RuntimeError(
+                f"Failed to load kubeconfig from {KUBECONFIG_PATH}: {exc}"
+            ) from exc
     else:
-        logger.warning(f"Kubeconfig not found at {KUBECONFIG_PATH}; trying in-cluster config")
+        logger.warning(
+            f"Kubeconfig not found at {KUBECONFIG_PATH}; trying in-cluster config"
+        )
         try:
             k8s_config.load_incluster_config()
         except Exception as exc:
-            raise RuntimeError(f"Failed to initialize Kubernetes client. No kubeconfig at {KUBECONFIG_PATH}, and in-cluster config is unavailable: {exc}") from exc
+            raise RuntimeError(
+                f"Failed to initialize Kubernetes client. No kubeconfig at {KUBECONFIG_PATH}, and in-cluster config is unavailable: {exc}"
+            ) from exc
 
     # When connecting from inside Docker to the host's K8s API, the
     # kubeconfig may reference ``localhost`` or ``127.0.0.1``.  We
@@ -186,17 +257,25 @@ def _wait_for_kubeconfig(timeout: int = 30) -> None:
                 logger.info(f"Found kubeconfig file at {KUBECONFIG_PATH}")
                 return
             if os.path.isdir(KUBECONFIG_PATH):
-                raise RuntimeError(f"Kubeconfig path is a directory. Please mount a kubeconfig file at {KUBECONFIG_PATH}.")
-            raise RuntimeError(f"Kubeconfig path exists but is not a regular file: {KUBECONFIG_PATH}")
+                raise RuntimeError(
+                    f"Kubeconfig path is a directory. Please mount a kubeconfig file at {KUBECONFIG_PATH}."
+                )
+            raise RuntimeError(
+                f"Kubeconfig path exists but is not a regular file: {KUBECONFIG_PATH}"
+            )
         logger.info(f"Waiting for kubeconfig at {KUBECONFIG_PATH} …")
         time.sleep(2)
-    logger.warning(f"Kubeconfig not found at {KUBECONFIG_PATH} after {timeout}s; will attempt in-cluster Kubernetes config")
+    logger.warning(
+        f"Kubeconfig not found at {KUBECONFIG_PATH} after {timeout}s; will attempt in-cluster Kubernetes config"
+    )
 
 
 def _ensure_namespace() -> None:
     """Create the K8s namespace if it does not yet exist."""
     if not K8S_CREATE_NAMESPACE:
-        logger.info(f"Skipping namespace check/create for '{K8S_NAMESPACE}' because K8S_CREATE_NAMESPACE=false")
+        logger.info(
+            f"Skipping namespace check/create for '{K8S_NAMESPACE}' because K8S_CREATE_NAMESPACE=false"
+        )
         return
     try:
         core_v1.read_namespace(K8S_NAMESPACE)
@@ -238,8 +317,12 @@ app = FastAPI(title="DeerFlow Sandbox Provisioner", lifespan=lifespan)
 async def verify_api_key(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         key = request.headers.get("X-API-Key", "")
-        if not PROVISIONER_API_KEY or not secrets.compare_digest(key, PROVISIONER_API_KEY):
-            logger.warning("provisioner auth rejected: %s %s", request.method, request.url.path)
+        if not PROVISIONER_API_KEY or not secrets.compare_digest(
+            key, PROVISIONER_API_KEY
+        ):
+            logger.warning(
+                "provisioner auth rejected: %s %s", request.method, request.url.path
+            )
             return Response(status_code=401, content="Unauthorized")
     return await call_next(request)
 
@@ -300,7 +383,9 @@ def _build_volumes(
     if SKILLS_PVC_NAME:
         # PVC mode: three-way subPath not yet supported; fall back to
         # single-volume mount for backward compatibility.
-        logger.warning("SKILLS_PVC_NAME is set — three-way skills layout is not supported in PVC mode yet; falling back to single /mnt/skills mount")
+        logger.warning(
+            "SKILLS_PVC_NAME is set — three-way skills layout is not supported in PVC mode yet; falling back to single /mnt/skills mount"
+        )
         volumes.append(
             k8s_client.V1Volume(
                 name="skills",
@@ -431,7 +516,9 @@ def _build_volume_mounts(
         read_only=False,
     )
     if USERDATA_PVC_NAME:
-        userdata_mount.sub_path = f"deer-flow/users/{user_id}/threads/{thread_id}/user-data"
+        userdata_mount.sub_path = (
+            f"deer-flow/users/{user_id}/threads/{thread_id}/user-data"
+        )
     mounts.append(userdata_mount)
 
     return mounts
@@ -478,42 +565,42 @@ def _build_pod(
                             path="/v1/sandbox",
                             port=SANDBOX_CONTAINER_PORT,
                         ),
-                        period_seconds=5,
-                        timeout_seconds=3,
+                        period_seconds=SANDBOX_STARTUP_PROBE_PERIOD_SECONDS,
+                        timeout_seconds=SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS,
                         # Five minutes prevents kubelet from restarting a
                         # healthy AIO process during temporary node contention.
                         # Gateway startup_timeout remains the user-facing bound.
-                        failure_threshold=60,
+                        failure_threshold=SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD,
                     ),
                     readiness_probe=k8s_client.V1Probe(
                         http_get=k8s_client.V1HTTPGetAction(
                             path="/v1/sandbox",
                             port=SANDBOX_CONTAINER_PORT,
                         ),
-                        initial_delay_seconds=5,
-                        period_seconds=5,
-                        timeout_seconds=3,
-                        failure_threshold=3,
+                        initial_delay_seconds=SANDBOX_READINESS_INITIAL_DELAY_SECONDS,
+                        period_seconds=SANDBOX_READINESS_PERIOD_SECONDS,
+                        timeout_seconds=SANDBOX_READINESS_TIMEOUT_SECONDS,
+                        failure_threshold=SANDBOX_READINESS_FAILURE_THRESHOLD,
                     ),
                     liveness_probe=k8s_client.V1Probe(
                         http_get=k8s_client.V1HTTPGetAction(
                             path="/v1/sandbox",
                             port=SANDBOX_CONTAINER_PORT,
                         ),
-                        initial_delay_seconds=10,
-                        period_seconds=10,
-                        timeout_seconds=3,
-                        failure_threshold=3,
+                        initial_delay_seconds=SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS,
+                        period_seconds=SANDBOX_LIVENESS_PERIOD_SECONDS,
+                        timeout_seconds=SANDBOX_LIVENESS_TIMEOUT_SECONDS,
+                        failure_threshold=SANDBOX_LIVENESS_FAILURE_THRESHOLD,
                     ),
                     resources=k8s_client.V1ResourceRequirements(
                         requests={
-                            "cpu": "100m",
-                            "memory": "256Mi",
+                            "cpu": SANDBOX_CPU_REQUEST,
+                            "memory": SANDBOX_MEMORY_REQUEST,
                             "ephemeral-storage": "500Mi",
                         },
                         limits={
-                            "cpu": "1000m",
-                            "memory": "1Gi",
+                            "cpu": SANDBOX_CPU_LIMIT,
+                            "memory": SANDBOX_MEMORY_LIMIT,
                             "ephemeral-storage": "500Mi",
                         },
                     ),
@@ -609,7 +696,9 @@ def _url_from_service(svc, sandbox_id: str) -> str | None:
     return None
 
 
-def _sandbox_access_url(sandbox_id: str, *, tolerate_read_errors: bool = False) -> str | None:
+def _sandbox_access_url(
+    sandbox_id: str, *, tolerate_read_errors: bool = False
+) -> str | None:
     """Read the sandbox Service and return its backend-facing URL when ready."""
     try:
         svc = core_v1.read_namespaced_service(_svc_name(sandbox_id), K8S_NAMESPACE)
@@ -690,7 +779,9 @@ def create_sandbox(req: CreateSandboxRequest):
         logger.info(f"Created Pod {_pod_name(sandbox_id)}")
     except ApiException as exc:
         if exc.status != 409:  # 409 = AlreadyExists
-            raise HTTPException(status_code=500, detail=f"Pod creation failed: {exc.reason}")
+            raise HTTPException(
+                status_code=500, detail=f"Pod creation failed: {exc.reason}"
+            )
 
     # ── Create Service ───────────────────────────────────────────────
     try:
@@ -703,7 +794,9 @@ def create_sandbox(req: CreateSandboxRequest):
                 core_v1.delete_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
             except ApiException:
                 pass
-            raise HTTPException(status_code=500, detail=f"Service creation failed: {exc.reason}")
+            raise HTTPException(
+                status_code=500, detail=f"Service creation failed: {exc.reason}"
+            )
 
     # ── Wait until the Service has a usable access URL ───────────────
     sandbox_url: str | None = None
@@ -714,7 +807,9 @@ def create_sandbox(req: CreateSandboxRequest):
         time.sleep(0.5)
 
     if not sandbox_url:
-        raise HTTPException(status_code=500, detail="Service access URL was not available in time")
+        raise HTTPException(
+            status_code=500, detail="Service access URL was not available in time"
+        )
 
     return SandboxResponse(
         sandbox_id=sandbox_id,
@@ -745,7 +840,9 @@ def destroy_sandbox(sandbox_id: str):
             errors.append(f"pod: {exc.reason}")
 
     if errors:
-        raise HTTPException(status_code=500, detail=f"Partial cleanup: {', '.join(errors)}")
+        raise HTTPException(
+            status_code=500, detail=f"Partial cleanup: {', '.join(errors)}"
+        )
 
     return {"ok": True, "sandbox_id": sandbox_id}
 
@@ -773,7 +870,9 @@ def list_sandboxes():
             label_selector="app=deer-flow-sandbox",
         )
     except ApiException as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to list services: {exc.reason}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to list services: {exc.reason}"
+        )
 
     sandboxes: list[SandboxResponse] = []
     for svc in services.items:

@@ -1,6 +1,8 @@
 import base64
 import errno
 import logging
+import posixpath
+import re
 import shlex
 import threading
 import uuid
@@ -17,6 +19,34 @@ logger = logging.getLogger(__name__)
 _MAX_DOWNLOAD_SIZE = 100 * 1024 * 1024  # 100 MB
 
 _ERROR_OBSERVATION_SIGNATURE = "'ErrorObservation' object has no attribute 'exit_code'"
+_BASH_EXIT_SENTINEL = "__DEERFLOW_BASH_EXIT_CODE__="
+_BASH_EXIT_PATTERN = re.compile(r"(?:^|\n)__DEERFLOW_BASH_EXIT_CODE__=(\d+)[ \t]*(?=\n|$)")
+
+
+def _capture_bash_exit_code(command: str) -> str:
+    """Append an in-band exit-code marker for sandbox APIs that discard it."""
+    return f'{command}\n__deerflow_bash_exit_code=$?\nprintf "\\n{_BASH_EXIT_SENTINEL}%s\\n" "$__deerflow_bash_exit_code"'
+
+
+def _normalize_bash_exit_output(output: str) -> str:
+    """Turn a captured non-zero shell status into an explicit tool error.
+
+    The AIO shell APIs return only text and otherwise make a failed CLI call
+    indistinguishable from a successful one to downstream middleware.  Keep
+    the original stdout/stderr, strip the private marker, and add an actionable
+    error prefix so the model changes strategy instead of guessing variants.
+    """
+    matches = list(_BASH_EXIT_PATTERN.finditer(output))
+    if not matches:
+        return output if output else "(no output)"
+    match = matches[-1]
+    exit_code = int(match.group(1))
+    cleaned = (output[: match.start()] + output[match.end() :]).strip()
+    if exit_code == 0:
+        return cleaned or "(no output)"
+    guidance = f"Error: Bash command exited with code {exit_code}. Inspect the command output and the active skill/reference or run the command's --help before retrying; do not guess command variants."
+    return f"{guidance}\n{cleaned}" if cleaned else guidance
+
 
 # Env-bearing commands require the bash.exec API (POST /v1/bash/exec), which the
 # all-in-one-sandbox image only ships since 1.9.x. Older images (including any
@@ -188,9 +218,10 @@ class AioSandbox(Sandbox):
         _validate_extra_env(command_env)
         if command_env:
             return self._execute_with_env(command, command_env)
+        captured_command = _capture_bash_exit_code(command)
         with self._lock:
             try:
-                result = self._client.shell.exec_command(command=command, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                result = self._client.shell.exec_command(command=captured_command, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
                 output = result.data.output if result.data else ""
 
                 if output and _ERROR_OBSERVATION_SIGNATURE in output:
@@ -201,7 +232,7 @@ class AioSandbox(Sandbox):
                     fresh_id = str(uuid.uuid4())
                     self._client.shell.create_session(id=fresh_id)
                     try:
-                        result = self._client.shell.exec_command(command=command, id=fresh_id, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                        result = self._client.shell.exec_command(command=captured_command, id=fresh_id, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
                         output = result.data.output if result.data else ""
                     finally:
                         # Release the one-shot recovery session, best-effort, so
@@ -211,7 +242,7 @@ class AioSandbox(Sandbox):
                         except Exception as cleanup_error:
                             logger.warning(f"Failed to release recovery session {fresh_id}: {cleanup_error}")
 
-                return output if output else "(no output)"
+                return _normalize_bash_exit_output(output)
             except Exception as e:
                 logger.error(f"Failed to execute command in sandbox: {e}")
                 return f"Error: {e}"
@@ -259,7 +290,7 @@ class AioSandbox(Sandbox):
         with self._lock:
             try:
                 result = self._client.bash.exec(
-                    command=command,
+                    command=_capture_bash_exit_code(command),
                     env=env,
                     hard_timeout=self._DEFAULT_HARD_TIMEOUT,
                 )
@@ -269,7 +300,7 @@ class AioSandbox(Sandbox):
                 output = stdout
                 if stderr:
                     output += f"\nStd Error:\n{stderr}" if output else stderr
-                return output if output else "(no output)"
+                return _normalize_bash_exit_output(output)
             except ApiError as e:
                 if e.status_code == 404:
                     self._bash_exec_unsupported = True
@@ -371,6 +402,14 @@ class AioSandbox(Sandbox):
         """
         with self._lock:
             try:
+                parent = posixpath.dirname(path)
+                if parent:
+                    # Match LocalSandbox.write_file: callers may write a new
+                    # nested path without issuing a separate mkdir command.
+                    self._client.shell.exec_command(
+                        command=f"mkdir -p {shlex.quote(parent)}",
+                        no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
+                    )
                 if append:
                     existing = self.read_file(path)
                     if not existing.startswith("Error:"):

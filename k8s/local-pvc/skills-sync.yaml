@@ -17,8 +17,11 @@ spec:
             - -c
             - |
               set -eu
+              test -f /seed/skills/public/ppt-master/SKILL.md
+              test ! -d /seed/skills/skills
               find /mnt/skills -mindepth 1 -maxdepth 1 -exec rm -rf {} +
               cp -a /seed/skills/. /mnt/skills/
+              test -f /mnt/skills/public/ppt-master/SKILL.md
               touch /mnt/skills/.deerflow-skills-ready
           volumeMounts:
             - name: skills

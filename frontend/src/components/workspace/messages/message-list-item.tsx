@@ -55,6 +55,7 @@ import { useSkills } from "@/core/skills/hooks";
 import { SafeReasoningContent } from "@/core/streamdown/components";
 import { cn } from "@/lib/utils";
 
+import { useArtifacts } from "../artifacts/context";
 import { WorkspaceChangeBadge } from "../changes";
 import { CitationSourcesPanel } from "../citations/citation-sources-panel";
 import { CopyButton } from "../copy-button";
@@ -288,6 +289,7 @@ function MessageContent_({
   runId?: string;
   turnStartTime?: number | null;
 }) {
+  const { select: selectArtifact, setOpen: setArtifactsOpen } = useArtifacts();
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const isHuman = message.type === "human";
   const rawTurnDuration = message.additional_kwargs?.turn_duration as
@@ -333,6 +335,13 @@ function MessageContent_({
   useEffect(() => {
     if (isLoading) setWasLoading(true);
   }, [isLoading]);
+  const handleArtifactClick = useCallback(
+    (filepath: string) => {
+      selectArtifact(filepath);
+      setArtifactsOpen(true);
+    },
+    [selectArtifact, setArtifactsOpen],
+  );
   const components = useMemo(
     () => ({
       img: (props: ImgHTMLAttributes<HTMLImageElement>) => (
@@ -343,9 +352,9 @@ function MessageContent_({
           maxWidth="90%"
         />
       ),
-      a: createMarkdownLinkComponent(threadId),
+      a: createMarkdownLinkComponent(threadId, handleArtifactClick),
     }),
-    [artifactPaths, threadId],
+    [artifactPaths, handleArtifactClick, threadId],
   );
 
   const rawContent = extractContentFromMessage(message);

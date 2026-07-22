@@ -14,6 +14,7 @@ import {
   hasContent,
   hasReasoning,
   isAssistantMessageGroupStreaming,
+  isHiddenFromUIMessage,
   stripUploadedFilesTag,
 } from "@/core/messages/utils";
 
@@ -156,6 +157,16 @@ test("reasoning + content (no tool calls) yields a single assistant bubble, not 
   // aggregation never double-counts it (see #2770).
   const turnUsage = getAssistantTurnUsageMessages(groups);
   expect(turnUsage.at(-1)?.map((message) => message.id)).toEqual(["ai-1"]);
+});
+
+test("hides leaked internal context-compaction transcripts", () => {
+  const leaked = aiMessage(
+    "<analysis>internal chronology</analysis><summary>compact state</summary>",
+  );
+  const ordinary = aiMessage("A normal answer mentioning <summary> as code.");
+
+  expect(isHiddenFromUIMessage(leaked)).toBe(true);
+  expect(isHiddenFromUIMessage(ordinary)).toBe(false);
 });
 
 test("keeps tool-call reasoning in the processing group while the final answer's reasoning rides its own bubble", () => {

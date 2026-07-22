@@ -37,7 +37,11 @@ import {
   getArtifactViewState,
   HTML_PREVIEW_SCROLL_MESSAGE_SOURCE,
 } from "@/core/artifacts/preview";
-import { urlOfArtifact } from "@/core/artifacts/utils";
+import {
+  findPreviewPdfPath,
+  guessPreviewPdfPaths,
+  urlOfArtifact,
+} from "@/core/artifacts/utils";
 import { useAuth } from "@/core/auth/AuthProvider";
 import { extractCitationSources } from "@/core/citations/sources";
 import { writeTextToClipboard } from "@/core/clipboard";
@@ -139,9 +143,6 @@ export function ArtifactFileDetail({
     }
     return checkCodeFile(filepath);
   }, [filepath, isWriteFile, isSkillFile]);
-  const canPreviewInBrowser = useMemo(() => {
-    return canBrowserPreviewFile(filepath);
-  }, [filepath]);
   const isSupportPreview = useMemo(() => {
     return language === "html" || language === "markdown";
   }, [language]);
@@ -166,6 +167,71 @@ export function ArtifactFileDetail({
     filepath: filepathFromProps,
     enabled: isCodeFile && !isWriteFile,
   });
+  const previewPathFromList = useMemo(() => {
+    return findPreviewPdfPath(filepath, artifactOptions);
+  }, [artifactOptions, filepath]);
+  const guessedPreviewPaths = useMemo(() => {
+    return guessPreviewPdfPaths(filepath);
+  }, [filepath]);
+  const [resolvedPreviewPath, setResolvedPreviewPath] = useState<string | null>(
+    previewPathFromList,
+  );
+
+  useEffect(() => {
+    setResolvedPreviewPath(previewPathFromList);
+  }, [filepath, previewPathFromList]);
+  useEffect(() => {
+    if (
+      previewPathFromList ||
+      guessedPreviewPaths.length === 0 ||
+      isCodeFile ||
+      isWriteFile
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    void (async () => {
+      for (const candidate of guessedPreviewPaths) {
+        try {
+          const response = await fetch(
+            urlOfArtifact({
+              filepath: candidate,
+              threadId,
+              isMock,
+            }),
+            {
+              method: "HEAD",
+              signal: controller.signal,
+            },
+          );
+          if (response.ok) {
+            setResolvedPreviewPath(candidate);
+            return;
+          }
+        } catch {
+          if (controller.signal.aborted) {
+            return;
+          }
+        }
+      }
+      // Keep the PPTX download fallback when no sibling preview exists.
+    })();
+
+    return () => controller.abort();
+  }, [
+    guessedPreviewPaths,
+    isCodeFile,
+    isMock,
+    isWriteFile,
+    previewPathFromList,
+    threadId,
+  ]);
+
+  const browserPreviewPath = resolvedPreviewPath ?? filepath;
+  const canPreviewInBrowser = useMemo(() => {
+    return canBrowserPreviewFile(browserPreviewPath);
+  }, [browserPreviewPath]);
 
   const displayContent = content ?? "";
   const isWritingFile = isWriteFile && toolResult === undefined;
@@ -279,7 +345,11 @@ export function ArtifactFileDetail({
                 tooltip={t.common.openInNewWindow}
                 onClick={() => {
                   const w = window.open(
-                    urlOfArtifact({ filepath, threadId, isMock }),
+                    urlOfArtifact({
+                      filepath: browserPreviewPath,
+                      threadId,
+                      isMock,
+                    }),
                     "_blank",
                     "noopener,noreferrer",
                   );
@@ -360,7 +430,12 @@ export function ArtifactFileDetail({
         {!isCodeFile && canPreviewInBrowser && (
           <iframe
             className="size-full"
-            src={urlOfArtifact({ filepath, threadId, isMock })}
+            src={urlOfArtifact({
+              filepath: browserPreviewPath,
+              threadId,
+              isMock,
+            })}
+            title="Artifact preview"
           />
         )}
         {!isCodeFile && !canPreviewInBrowser && (

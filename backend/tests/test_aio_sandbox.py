@@ -6,6 +6,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from deerflow.community.aio_sandbox.aio_sandbox import (
+    _BASH_EXIT_SENTINEL,
+    _capture_bash_exit_code,
+    _normalize_bash_exit_output,
+)
+
 
 @pytest.fixture()
 def sandbox():
@@ -57,6 +63,41 @@ class TestExecuteCommandSerialization:
         assert len(exits) == 3
         for e_idx, x_idx in zip(enters, exits):
             assert x_idx == e_idx + 1, f"Interleaved execution detected: {call_log}"
+
+
+class TestBashExitCodeCapture:
+    def test_command_appends_private_exit_marker(self):
+        captured = _capture_bash_exit_code("python tool.py bad-subcommand")
+
+        assert captured.startswith("python tool.py bad-subcommand\n")
+        assert _BASH_EXIT_SENTINEL in captured
+        assert '"$__deerflow_bash_exit_code"' in captured
+
+    def test_zero_exit_strips_marker_and_preserves_output(self):
+        assert _normalize_bash_exit_output(f"created file\n{_BASH_EXIT_SENTINEL}0\n") == "created file"
+
+    def test_nonzero_exit_is_explicit_actionable_error(self):
+        result = _normalize_bash_exit_output(f"usage: update_spec.py project key=value\n{_BASH_EXIT_SENTINEL}2\n")
+
+        assert result.startswith("Error: Bash command exited with code 2.")
+        assert "usage: update_spec.py" in result
+        assert "--help" in result
+        assert "do not guess command variants" in result
+        assert _BASH_EXIT_SENTINEL not in result
+
+    def test_execute_command_wraps_shell_api_and_classifies_failure(self, sandbox):
+        captured: dict[str, str] = {}
+
+        def mock_exec(command, **kwargs):
+            captured["command"] = command
+            return SimpleNamespace(data=SimpleNamespace(output=f"bad option\n{_BASH_EXIT_SENTINEL}2\n"))
+
+        sandbox._client.shell.exec_command = mock_exec
+
+        result = sandbox.execute_command("python tool.py invented")
+
+        assert _BASH_EXIT_SENTINEL in captured["command"]
+        assert result.startswith("Error: Bash command exited with code 2.")
 
 
 class TestErrorObservationRetry:
@@ -394,6 +435,19 @@ class TestConcurrentFileWrites:
             thread.join()
 
         assert storage["content"] in {"seed\nA\nB\n", "seed\nB\nA\n"}
+
+
+class TestWriteFileParents:
+    def test_write_file_creates_parent_directory(self, sandbox):
+        shell_calls = []
+        writes = []
+        sandbox._client.shell.exec_command = lambda **kwargs: shell_calls.append(kwargs) or SimpleNamespace(data=SimpleNamespace(output=""))
+        sandbox._client.file.write_file = lambda **kwargs: writes.append(kwargs)
+
+        sandbox.write_file("/mnt/user-data/workspace/project/svg_output/01.svg", "<svg/>")
+
+        assert shell_calls[0]["command"] == "mkdir -p /mnt/user-data/workspace/project/svg_output"
+        assert writes == [{"file": "/mnt/user-data/workspace/project/svg_output/01.svg", "content": "<svg/>"}]
 
 
 class TestDownloadFile:

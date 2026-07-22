@@ -69,6 +69,16 @@ _SECRETS_BINDING_AUDIT_KEY = "__skill_secrets_binding_audit"
 # digest, never a secret value; listed below to keep the redaction guard complete.
 _SLASH_SKILL_ACTIVATION_RUN_KEY = "__slash_skill_activation_run"
 
+# Per-run copy of the hidden slash activation reminder. Model calls are
+# stateless and LangGraph rebuilds request.messages from graph state after each
+# tool result, while the activation reminder itself is intentionally not
+# persisted to thread history. Keeping the already-validated reminder here lets
+# SkillActivationMiddleware restore the same SKILL.md body on every model call
+# without rereading disk or recording duplicate activation events. The value may
+# contain the full skill text and user request, so it must never be persisted or
+# traced even though it is not a secret credential.
+_SLASH_SKILL_ACTIVATION_CACHE_KEY = "__slash_skill_activation_cache"
+
 # Run-context keys whose values are request-scoped secrets and must be stripped
 # before a context mapping is serialized anywhere observable (traces, logs).
 REDACTED_CONTEXT_KEYS = frozenset(
@@ -78,6 +88,7 @@ REDACTED_CONTEXT_KEYS = frozenset(
         _SLASH_SECRET_SOURCE_KEY,
         _SECRETS_BINDING_AUDIT_KEY,
         _SLASH_SKILL_ACTIVATION_RUN_KEY,
+        _SLASH_SKILL_ACTIVATION_CACHE_KEY,
     }
 )
 

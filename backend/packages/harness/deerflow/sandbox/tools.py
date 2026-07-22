@@ -8,6 +8,7 @@ import shlex
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from langchain.tools import tool
 
@@ -1580,6 +1581,24 @@ def _truncate_read_file_output(output: str, max_chars: int) -> str:
     return f"{output[:kept]}{marker}"
 
 
+def _read_file_output_max_chars(path: str, sandbox_config: Any | None) -> int:
+    """Resolve the read budget, giving installed skill files full workflow room.
+
+    Canonical ``SKILL.md`` entry points and their supporting resources use
+    separate larger budgets only under the configured virtual skills root, so
+    uploaded files cannot claim extra context by copying those basenames.
+    """
+    if sandbox_config is None:
+        return 50000
+    normal_limit = int(getattr(sandbox_config, "read_file_output_max_chars", 50000))
+    normalized_path = path.replace("\\", "/")
+    if _is_skills_path(normalized_path):
+        if posixpath.basename(normalized_path) == "SKILL.md":
+            return int(getattr(sandbox_config, "skill_file_output_max_chars", normal_limit))
+        return int(getattr(sandbox_config, "skill_reference_output_max_chars", normal_limit))
+    return normal_limit
+
+
 def _truncate_ls_output(output: str, max_chars: int) -> str:
     """Head-truncate ls output, preserving the beginning of the listing.
 
@@ -2093,7 +2112,7 @@ def read_file_tool(
             from deerflow.config.app_config import get_app_config
 
             sandbox_cfg = get_app_config().sandbox
-            max_chars = sandbox_cfg.read_file_output_max_chars if sandbox_cfg else 50000
+            max_chars = _read_file_output_max_chars(requested_path, sandbox_cfg)
         except Exception:
             max_chars = 50000
         return _truncate_read_file_output(content, max_chars)

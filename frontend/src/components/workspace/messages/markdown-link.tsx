@@ -1,6 +1,9 @@
 import type { AnchorHTMLAttributes } from "react";
 
-import { resolveArtifactURL } from "@/core/artifacts/utils";
+import {
+  artifactPathFromHref,
+  resolveArtifactURL,
+} from "@/core/artifacts/utils";
 import { cn } from "@/lib/utils";
 
 import { CitationLink } from "../citations/citation-link";
@@ -14,7 +17,10 @@ function isExternalUrl(href: string | undefined): boolean {
  * Passing a `threadId` also resolves `/mnt/` artifact links; without it those
  * links fall through to the default external-link handling.
  */
-export function createMarkdownLinkComponent(threadId?: string) {
+export function createMarkdownLinkComponent(
+  threadId?: string,
+  onArtifactClick?: (filepath: string) => void,
+) {
   return function MarkdownLink({
     href,
     ...props
@@ -30,13 +36,21 @@ export function createMarkdownLinkComponent(threadId?: string) {
         );
       }
     }
-    if (threadId && href?.startsWith("/mnt/")) {
+    const artifactPath = threadId
+      ? artifactPathFromHref(href, threadId)
+      : null;
+    if (threadId && artifactPath) {
       return (
         <a
           {...props}
-          href={resolveArtifactURL(href, threadId)}
-          target="_blank"
-          rel="noopener noreferrer"
+          href={resolveArtifactURL(artifactPath, threadId)}
+          onClick={(event) => {
+            if (!onArtifactClick) {
+              return;
+            }
+            event.preventDefault();
+            onArtifactClick(artifactPath);
+          }}
         />
       );
     }

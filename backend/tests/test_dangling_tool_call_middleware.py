@@ -9,10 +9,51 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 # Intentional private import: these tests lock the OpenAI serialization boundary
 # that strict providers reject when assistant tool-call names or arguments are malformed.
 from langchain_openai.chat_models.base import _convert_message_to_dict
+from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares.dangling_tool_call_middleware import (
     DanglingToolCallMiddleware,
 )
+
+
+class TestInvalidToolCallRecovery:
+    @staticmethod
+    def _runtime() -> Runtime:
+        return Runtime(context={"thread_id": "thread-1", "run_id": "run-1"})
+
+    def test_first_invalid_tool_call_jumps_back_to_model(self):
+        middleware = DanglingToolCallMiddleware()
+        invalid = _ai_with_invalid_tool_calls([_invalid_tc(name="bash", tc_id="bash:1")])
+
+        result = middleware.after_model({"messages": [invalid]}, self._runtime())
+
+        assert result == {"jump_to": "model"}
+
+    def test_second_consecutive_invalid_tool_call_becomes_visible_fallback(self):
+        middleware = DanglingToolCallMiddleware()
+        runtime = self._runtime()
+        invalid = _ai_with_invalid_tool_calls([_invalid_tc(name="bash", tc_id="bash:1")])
+        assert middleware.after_model({"messages": [invalid]}, runtime) == {"jump_to": "model"}
+
+        second = _ai_with_invalid_tool_calls([_invalid_tc(name="bash", tc_id="bash:2")])
+        result = middleware.after_model({"messages": [second]}, runtime)
+
+        assert result is not None
+        fallback = result["messages"][0]
+        assert fallback.content
+        assert fallback.invalid_tool_calls == []
+        assert fallback.tool_calls == []
+        assert fallback.additional_kwargs["deerflow_error_fallback"] is True
+        assert fallback.response_metadata["finish_reason"] == "stop"
+
+    def test_valid_model_response_resets_invalid_retry_budget(self):
+        middleware = DanglingToolCallMiddleware()
+        runtime = self._runtime()
+        invalid = _ai_with_invalid_tool_calls([_invalid_tc(name="bash", tc_id="bash:1")])
+        assert middleware.after_model({"messages": [invalid]}, runtime) == {"jump_to": "model"}
+
+        assert middleware.after_model({"messages": [AIMessage(content="继续执行")]}, runtime) is None
+        assert middleware.after_model({"messages": [invalid]}, runtime) == {"jump_to": "model"}
 
 
 def _ai_with_tool_calls(tool_calls):

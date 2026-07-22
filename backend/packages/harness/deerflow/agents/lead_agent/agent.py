@@ -27,6 +27,7 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.runnables import RunnableConfig
 
 from deerflow.agents.lead_agent.prompt import apply_prompt_template
+from deerflow.agents.middlewares.artifact_delivery_middleware import ArtifactDeliveryMiddleware
 from deerflow.agents.middlewares.clarification_middleware import ClarificationMiddleware
 from deerflow.agents.middlewares.loop_detection_middleware import LoopDetectionMiddleware
 from deerflow.agents.middlewares.memory_middleware import MemoryMiddleware
@@ -405,6 +406,11 @@ def build_middlewares(
     if custom_middlewares:
         middlewares.extend(custom_middlewares)
 
+    # A final answer may only link output files that both exist in this
+    # thread's persistent outputs directory and were published by
+    # present_files. Recover once instead of accepting a fabricated link.
+    middlewares.append(ArtifactDeliveryMiddleware())
+
     # A provider may return an empty AIMessage after tool execution. Retry the
     # final response once, then persist a visible error fallback rather than
     # allowing LangChain's no-tool-call router to end a silent successful run.
@@ -465,6 +471,15 @@ def _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, *, sele
 
 
 def _load_enabled_skills_for_tool_policy(available_skills: set[str] | None, *, app_config: AppConfig, user_id: str | None = None) -> list[Skill]:
+    # ``None`` means the default agent may discover every enabled skill; it does
+    # not mean every skill is active for this run. Applying one discoverable
+    # skill's ``allowed-tools`` declaration globally would let a narrow helper
+    # (for example skill-reviewer) remove bash/write_file/present_files from all
+    # ordinary tasks. Static tool restrictions are therefore only assembled for
+    # agents that explicitly declare a finite skill allowlist. Explicit slash
+    # activation remains governed by SkillActivationMiddleware.
+    if available_skills is None:
+        return []
     try:
         from deerflow.agents.lead_agent.prompt import get_enabled_skills_for_config
 
@@ -473,8 +488,6 @@ def _load_enabled_skills_for_tool_policy(available_skills: set[str] | None, *, a
         logger.exception("Failed to load skills for allowed-tools policy")
         raise
 
-    if available_skills is None:
-        return skills
     return [skill for skill in skills if skill.name in available_skills]
 
 

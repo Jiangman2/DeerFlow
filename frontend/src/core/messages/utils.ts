@@ -606,6 +606,11 @@ export function isHiddenFromUIMessage(message: Message) {
     message.additional_kwargs?.hide_from_ui === true ||
     (typeof message.name === "string" &&
       HIDDEN_CONTROL_MESSAGE_NAMES.has(message.name)) ||
+    (message.type === "ai" &&
+      content.trimStart().startsWith("<analysis>") &&
+      content.includes("</analysis>") &&
+      content.includes("<summary>") &&
+      content.trimEnd().endsWith("</summary>")) ||
     (message.type === "human" &&
       content.includes("<slash_skill_activation>") &&
       stripUploadedFilesTag(content).length === 0)
