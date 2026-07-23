@@ -27,6 +27,7 @@ async def test_upload_pptx_selects_configured_mineru_parser(monkeypatch):
     monkeypatch.setattr(weknora, "_request", fake_request)
     monkeypatch.setenv("WEKNORA_PRESENTATION_PARSER_ENGINE", "mineru")
     monkeypatch.setenv("WEKNORA_MINERU_ENDPOINT", "http://deer-flow-mineru-adapter:50052")
+    monkeypatch.setenv("WEKNORA_MINERU_SCANNED_PDF_FALLBACK", "true")
 
     response = await weknora.upload_knowledge_file(
         "kb-1",
@@ -38,7 +39,36 @@ async def test_upload_pptx_selects_configured_mineru_parser(monkeypatch):
     assert response == {"success": True}
     assert captured["tenant_id"] == "tenant-1"
     assert json.loads(captured["data"]["process_config"]) == {
-        "parser_engine_rules": [{"file_types": ["ppt", "pptx"], "engine": "mineru"}],
+        "parser_engine_rules": [{"file_types": ["pdf", "ppt", "pptx"], "engine": "mineru"}],
+        "parser_engine_overrides": {"mineru_endpoint": "http://deer-flow-mineru-adapter:50052"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_upload_pdf_uses_hybrid_mineru_adapter_when_fallback_enabled(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_token(user):
+        return "token"
+
+    async def fake_request(method, path, access_token, **kwargs):
+        captured.update(kwargs)
+        return {"success": True}
+
+    monkeypatch.setattr(weknora, "_current_weknora_token", fake_token)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+    monkeypatch.setenv("WEKNORA_PRESENTATION_PARSER_ENGINE", "mineru")
+    monkeypatch.setenv("WEKNORA_MINERU_ENDPOINT", "http://deer-flow-mineru-adapter:50052")
+    monkeypatch.setenv("WEKNORA_MINERU_SCANNED_PDF_FALLBACK", "true")
+
+    await weknora.upload_knowledge_file(
+        "kb-1",
+        UploadFile(filename="report.pdf", file=io.BytesIO(b"%PDF-test")),
+        user=SimpleNamespace(),
+    )
+
+    assert json.loads(captured["data"]["process_config"]) == {
+        "parser_engine_rules": [{"file_types": ["pdf", "ppt", "pptx"], "engine": "mineru"}],
         "parser_engine_overrides": {"mineru_endpoint": "http://deer-flow-mineru-adapter:50052"},
     }
 
@@ -79,13 +109,14 @@ async def test_created_kb_persists_presentation_parser_rule(monkeypatch):
     monkeypatch.setattr(weknora, "_current_weknora_token", fake_token)
     monkeypatch.setattr(weknora, "_request", fake_request)
     monkeypatch.setenv("WEKNORA_PRESENTATION_PARSER_ENGINE", "mineru")
+    monkeypatch.setenv("WEKNORA_MINERU_SCANNED_PDF_FALLBACK", "true")
 
     await weknora.create_knowledge_base(
         weknora.WeKnoraKnowledgeBaseCreate(name="KB", description="test"),
         user=SimpleNamespace(),
     )
 
-    assert captured["json"]["chunking_config"]["parser_engine_rules"] == [{"file_types": ["ppt", "pptx"], "engine": "mineru"}]
+    assert captured["json"]["chunking_config"]["parser_engine_rules"] == [{"file_types": ["pdf", "ppt", "pptx"], "engine": "mineru"}]
 
 
 def test_presentation_parser_falls_back_to_markitdown_for_local_development(monkeypatch):

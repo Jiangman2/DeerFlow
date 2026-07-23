@@ -1,7 +1,6 @@
 import { brand } from "@/brand";
-import { APP_VERSION } from "@/version";
 
-export const aboutMarkdown = `# 关于${brand.productName} ${APP_VERSION}
+export const aboutMarkdown = `# 关于${brand.productName}
 
 > **${brand.productName}**
 

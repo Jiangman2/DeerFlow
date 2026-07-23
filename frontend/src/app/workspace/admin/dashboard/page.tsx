@@ -19,15 +19,16 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useDashboardSummary } from "@/core/dashboard";
-import type {
-  DashboardFilters,
-  ExternalAgentClickItem,
-  FeedbackSummary,
-  RecentFailureItem,
-  UserActivityPoint,
-  UserUsageItem,
+import {
+  useDashboardSummary,
+  type DashboardFilters,
+  type ExternalAgentClickItem,
+  type FeedbackSummary,
+  type RecentFailureItem,
+  type UserActivityPoint,
+  type UserUsageItem,
 } from "@/core/dashboard";
+import { getDashboardPage } from "@/core/dashboard/pagination";
 import { useObservabilityAnalytics } from "@/core/observability";
 import type { TraceSummary } from "@/core/observability";
 import { cn } from "@/lib/utils";
@@ -364,6 +365,12 @@ function RunRanking({ title, rows }: { title: string; rows: TraceSummary[] }) {
 }
 
 function RecentFailures({ rows }: { rows: RecentFailureItem[] }) {
+  const [page, setPage] = useState(0);
+  const {
+    currentPage,
+    totalPages,
+    rows: pageRows,
+  } = getDashboardPage(rows, page);
   return (
     <Card className="min-w-0 rounded-lg shadow-none">
       <CardHeader>
@@ -376,31 +383,38 @@ function RecentFailures({ rows }: { rows: RecentFailureItem[] }) {
         {rows.length === 0 ? (
           <EmptyState label="当前时间范围内没有失败运行" />
         ) : (
-          <div className="space-y-2">
-            {rows.slice(0, 10).map((row) => (
-              <div
-                key={row.run_id}
-                className="rounded-lg border border-red-100 bg-red-50/30 p-3 text-sm"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="truncate font-medium text-slate-800">
-                    {row.run_id}
-                  </span>
-                  <Link
-                    className="shrink-0 text-xs text-red-700 hover:text-red-900"
-                    href={row.chat_url}
-                  >
-                    查看原对话 <ExternalLinkIcon className="inline size-3" />
-                  </Link>
+          <div className="space-y-3">
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              {pageRows.map((row) => (
+                <div
+                  key={row.run_id}
+                  className="rounded-lg border border-red-100 bg-red-50/30 p-3 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate font-medium text-slate-800">
+                      {row.run_id}
+                    </span>
+                    <Link
+                      className="shrink-0 text-xs text-red-700 hover:text-red-900"
+                      href={row.chat_url}
+                    >
+                      查看原对话 <ExternalLinkIcon className="inline size-3" />
+                    </Link>
+                  </div>
+                  <div className="mt-2 line-clamp-2 text-xs text-red-700">
+                    {row.error ?? row.status}
+                  </div>
+                  <div className="mt-2 text-xs text-slate-500">
+                    {shortTime(row.updated_at)}
+                  </div>
                 </div>
-                <div className="mt-2 line-clamp-2 text-xs text-red-700">
-                  {row.error ?? row.status}
-                </div>
-                <div className="mt-2 text-xs text-slate-500">
-                  {shortTime(row.updated_at)}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+            <RankingPagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </CardContent>
@@ -582,7 +596,7 @@ export default function DashboardPage() {
           <MetricCard
             label="任务运行"
             value={compactNumber(summary?.overview.runs ?? 0)}
-            detail={`会话 ${compactNumber(summary?.overview.threads ?? 0)}，运行中 ${compactNumber(summary?.overview.running_runs ?? 0)}`}
+            detail={`累计创建会话 ${compactNumber(summary?.overview.threads ?? 0)}，运行中 ${compactNumber(summary?.overview.running_runs ?? 0)}`}
             icon={ActivityIcon}
           />
           <MetricCard

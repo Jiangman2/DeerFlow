@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0008_drop_site_navigation"
+HEAD = "0009_thread_creation_ledger"
 BASELINE = "0001_baseline"
 
 
@@ -847,7 +847,7 @@ class TestDecideState:
 # ---------------------------------------------------------------------------
 
 
-def test_head_revision_is_token_usage_revision() -> None:
+def test_head_revision_is_thread_creation_ledger_revision() -> None:
     assert _get_head_revision() == HEAD
 
 

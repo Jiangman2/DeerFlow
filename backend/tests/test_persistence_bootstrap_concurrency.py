@@ -28,7 +28,7 @@ from deerflow.persistence.bootstrap import bootstrap_schema
 pytestmark = pytest.mark.asyncio
 
 
-HEAD = "0008_drop_site_navigation"
+HEAD = "0009_thread_creation_ledger"
 
 
 def _url(tmp_path: Path) -> str:

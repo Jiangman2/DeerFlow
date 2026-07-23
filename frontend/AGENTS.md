@@ -139,6 +139,17 @@ surfaces database-backed usage, run, failure, token, feedback, and management
 audit data. Incomplete component-health heuristics are intentionally hidden.
 The dashboard ranks users by run volume, reports launch clicks for the five
 built-in external agents, and links slow/high-token runs back to their chats.
+Slow-run, high-token, and recent-failure cards share five-row pagination plus a
+bounded vertical scroll area.
+Headline summaries poll every 15 seconds while heavier observability rankings
+poll every 60 seconds. External-agent click telemetry must use the shared
+authenticated fetch wrapper so the CSRF token is sent; telemetry failure must
+not block navigation.
+
+Settings appearance previews must remain shrinkable inside the dialog grid:
+avoid fixed-width inner preview columns and retain `min-w-0` on nested grid
+items. The About markdown heading contains the product name only; build version
+metadata must not be appended to that heading.
 
 ### Workspace announcements
 

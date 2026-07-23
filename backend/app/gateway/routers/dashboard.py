@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import PurePosixPath
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -19,17 +21,31 @@ from deerflow.persistence.feedback.model import FeedbackRow
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
 from deerflow.persistence.run.model import RunRow
-from deerflow.persistence.thread_meta.model import ThreadMetaRow
+from deerflow.persistence.thread_meta.model import ThreadCreationRow, ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
 
 router = APIRouter(prefix="/api/admin/dashboard", tags=["dashboard"])
 
 _ADMIN_REQUIRED = "Admin privileges are required to view the dashboard"
 _FAILED_STATUSES = {"error", "timeout", "interrupted"}
-_RUN_FETCH_LIMIT = 5000
-_EVENT_FETCH_LIMIT = 8000
+_TERMINAL_STATUSES = {"success", *_FAILED_STATUSES}
+_DASHBOARD_EVENT_TYPES = {
+    "llm.ai.response",
+    "llm.tool.result",
+    "tool",
+    "tool.start",
+    "tool.end",
+    "tool_start",
+    "tool_end",
+}
+_BUSINESS_TIMEZONE = ZoneInfo("Asia/Shanghai")
 _RAG_PATTERN = re.compile(r"(^|[^a-z0-9])rag([^a-z0-9]|$)")
-_ARTIFACT_PATH_PATTERN = re.compile(r"(?:/mnt/user-data/outputs|outputs)/[^\s\"'<>),;]+")
+_ARTIFACT_PATH_PATTERN = re.compile(
+    r"(?:/mnt/user-data/outputs|outputs)/[^\r\n\\\"'`<>]+?"
+    r"\.(?:pptx?|pdf|docx?|xlsx?|csv|md|txt|html?|png|jpe?g|webp|gif|svg|zip|skill|mp3|wav|mp4|log)"
+    r"(?=$|[\s\"'`<>),;，。；])",
+    re.IGNORECASE,
+)
 _VALUE_PROFILES: dict[str, dict[str, int]] = {
     "conservative": {
         "知识库检索": 5,
@@ -229,6 +245,7 @@ class DashboardSummary(BaseModel):
 class _AgentBucket:
     name: str
     runs: int = 0
+    terminal_runs: int = 0
     successes: int = 0
     users: set[str] = field(default_factory=set)
     durations: list[int] = field(default_factory=list)
@@ -237,11 +254,22 @@ class _AgentBucket:
 @dataclass
 class _ModelBucket:
     runs: int = 0
+    terminal_runs: int = 0
     successes: int = 0
     users: set[str] = field(default_factory=set)
     durations: list[int] = field(default_factory=list)
     total_tokens: int = 0
     llm_calls: int = 0
+
+
+@dataclass(frozen=True)
+class _RunStatusSummary:
+    successful: int
+    failed: int
+    running: int
+    terminal: int
+    success_rate: float
+    duration_values: list[int]
 
 
 def _session_factory():
@@ -277,14 +305,14 @@ def _duration_ms(created_at: datetime | None, updated_at: datetime | None) -> in
 
 
 def _day_key(value: datetime | None) -> str:
-    aware = _coerce_aware(value) or datetime.now(UTC)
+    aware = (_coerce_aware(value) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE)
     return aware.date().isoformat()
 
 
 def _iter_day_keys(start: datetime, end: datetime) -> list[str]:
     keys: list[str] = []
-    current: date = start.date()
-    final: date = end.date()
+    current: date = (_coerce_aware(start) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
+    final: date = (_coerce_aware(end) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
     while current <= final:
         keys.append(current.isoformat())
         current += timedelta(days=1)
@@ -360,18 +388,23 @@ def _metadata_values(metadata: dict[str, Any] | None, *keys: str) -> list[Any]:
 def _coerce_artifact_path(value: Any) -> str | None:
     if not isinstance(value, str):
         return None
-    stripped = value.strip().strip("\"'`.,;")
+    stripped = value.strip().strip("\"'`.,;，。；：！？")
     if not stripped:
         return None
+    stripped = stripped.split("\\n", 1)[0].split("\\r", 1)[0]
     if "/mnt/user-data/outputs/" in stripped:
-        return stripped[stripped.index("/mnt/user-data/outputs/") :]
-    if stripped.startswith("outputs/"):
-        return f"/mnt/user-data/{stripped}"
-    if stripped.startswith("/outputs/"):
-        return f"/mnt/user-data{stripped}"
-    if stripped.startswith("/mnt/") and "/outputs/" in stripped:
-        return stripped
-    return None
+        stripped = stripped[stripped.index("/mnt/user-data/outputs/") :]
+    elif stripped.startswith("outputs/"):
+        stripped = f"/mnt/user-data/{stripped}"
+    elif stripped.startswith("/outputs/"):
+        stripped = f"/mnt/user-data{stripped}"
+    elif not (stripped.startswith("/mnt/") and "/outputs/" in stripped):
+        return None
+    normalized = stripped.rstrip("\"'`.,;，。；：！？")
+    path = PurePosixPath(normalized)
+    if path.name in {"", ".", ".."}:
+        return None
+    return str(path)
 
 
 def _artifact_type(path: str) -> str:
@@ -394,39 +427,124 @@ def _is_previewable_artifact(path: str) -> bool:
     return suffix in {".ppt", ".pptx", ".pdf", ".html", ".htm", ".png", ".jpg", ".jpeg", ".webp", ".svg", ".txt", ".md"}
 
 
+_ARTIFACT_METADATA_KEYS = {
+    "artifact",
+    "artifacts",
+    "artifact_path",
+    "artifact_paths",
+    "path",
+    "paths",
+    "filepath",
+    "filepaths",
+    "files",
+    "outputs",
+}
+
+
+def _json_mapping(content: str) -> dict[str, Any]:
+    try:
+        value = json.loads(content)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _artifact_values(value: Any) -> list[Any]:
+    if isinstance(value, dict):
+        collected: list[Any] = []
+        for key, item in value.items():
+            if key in _ARTIFACT_METADATA_KEYS:
+                collected.extend(_artifact_values(item))
+        return collected
+    if isinstance(value, list | tuple | set):
+        collected = []
+        for item in value:
+            collected.extend(_artifact_values(item))
+        return collected
+    return [value]
+
+
+def _tool_calls(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_calls = payload.get("tool_calls")
+    if not isinstance(raw_calls, list):
+        return []
+    return [call for call in raw_calls if isinstance(call, dict)]
+
+
 def _extract_artifact_paths(event: RunEventRow) -> list[str]:
-    raw_values = _metadata_values(
-        event.event_metadata,
-        "artifact",
-        "artifacts",
-        "artifact_path",
-        "artifact_paths",
-        "path",
-        "paths",
-        "filepath",
-        "filepaths",
-        "files",
-        "outputs",
-    )
+    raw_values = _artifact_values(event.event_metadata or {})
+    payload = _json_mapping(event.content or "")
+    if event.event_type == "llm.ai.response":
+        for call in _tool_calls(payload):
+            if str(call.get("name") or "").strip().lower() == "present_files":
+                raw_values.extend(_artifact_values(call.get("args") or {}))
+    elif event.event_type == "llm.tool.result":
+        if str(payload.get("name") or "").strip().lower() == "present_files":
+            raw_values.extend(_artifact_values(payload.get("artifact")))
+
     paths: list[str] = []
     for value in raw_values:
-        if isinstance(value, dict):
-            raw_values.extend(value.values())
-            continue
         path = _coerce_artifact_path(value)
         if path:
             paths.append(path)
-    for match in _ARTIFACT_PATH_PATTERN.findall(event.content or ""):
-        path = _coerce_artifact_path(match)
-        if path:
-            paths.append(path)
+    if event.event_type in {"tool", "tool.start", "tool.end", "tool_start", "tool_end"}:
+        for match in _ARTIFACT_PATH_PATTERN.findall(event.content or ""):
+            path = _coerce_artifact_path(match)
+            if path:
+                paths.append(path)
     return list(dict.fromkeys(paths))
 
 
-def classify_dashboard_features(content: str, metadata: dict[str, Any] | None = None) -> set[str]:
+def _tool_features(name: str, args: Any) -> set[str]:
+    normalized_name = name.strip().lower().replace("-", "_")
+    args_text = json.dumps(args, ensure_ascii=False, default=str).lower()
+    features: set[str] = set()
+    if normalized_name.startswith("weknora_") or normalized_name in {"knowledge_search", "knowledge_retrieval", "rag_search"}:
+        features.add("知识库检索")
+        return features
+    if normalized_name == "present_files":
+        features.add("产物生成")
+        return features
+    if normalized_name in {"read_file", "write_file", "str_replace", "upload", "extract_text"}:
+        features.add("文件处理")
+    is_execution_tool = normalized_name in {"bash", "ls", "execute_shell", "python"}
+    if is_execution_tool:
+        features.add("沙箱执行")
+    if "ppt" in normalized_name or (is_execution_tool and any(token in args_text for token in ("ppt-master", "svg_to_pptx", ".pptx", "presentation"))):
+        features.add("PPT生成")
+    if normalized_name in {"image_generation", "generate_image", "imagegen", "image_gen", "image_gen__imagegen"} or (is_execution_tool and any(token in args_text for token in ("image_gen.py", "image_backend", "qwen-image", "生成图片"))):
+        features.add("图片生成")
+    if any(token in args_text for token in ("/uploads/", ".pdf", ".docx", ".xlsx", ".xls", ".csv")):
+        features.add("文件处理")
+    return features
+
+
+def classify_dashboard_features(
+    content: str,
+    metadata: dict[str, Any] | None = None,
+    *,
+    event_type: str | None = None,
+) -> set[str]:
     """Classify a run event into high-level business usage buckets."""
 
     features = _metadata_feature_labels(metadata)
+    if event_type in {"run.start", "run.end", "llm.human.input"}:
+        return features
+
+    if event_type in {"llm.ai.response", "llm.tool.result"}:
+        payload = _json_mapping(content)
+        if event_type == "llm.ai.response":
+            for call in _tool_calls(payload):
+                features.update(_tool_features(str(call.get("name") or ""), call.get("args")))
+        else:
+            features.update(_tool_features(str(payload.get("name") or ""), {}))
+        return features
+
+    if event_type is not None and event_type not in {"tool", "tool.start", "tool.end", "tool_start", "tool_end"}:
+        return features
+
+    # Legacy tool events predate the structured journal payload. Their content
+    # is still safe to classify because the row represents an actual tool call.
     haystack = f"{content}\n{metadata or {}}".lower()
     if any(token in haystack for token in ("ppt-master", "svg_to_pptx", ".pptx", "presentation")):
         features.add("PPT生成")
@@ -441,6 +559,15 @@ def classify_dashboard_features(content: str, metadata: dict[str, Any] | None = 
     if any(token in haystack for token in ("sandbox", "bash", "python", "execute_shell", "exec")):
         features.add("沙箱执行")
     return features
+
+
+def _knowledge_tool_calls(event: RunEventRow) -> list[str]:
+    if event.event_type == "llm.ai.response":
+        payload = _json_mapping(event.content or "")
+        return [str(call.get("name") or "") for call in _tool_calls(payload) if "知识库检索" in _tool_features(str(call.get("name") or ""), call.get("args"))]
+    if event.event_type in {"tool", "tool.start", "tool.end", "tool_start", "tool_end"}:
+        return ["legacy"] if "知识库检索" in classify_dashboard_features(event.content, event.event_metadata, event_type=event.event_type) else []
+    return []
 
 
 def _metadata_name(row: ThreadMetaRow | None) -> str | None:
@@ -458,6 +585,23 @@ def _success_rate(successes: int, total: int) -> float:
     if total <= 0:
         return 0.0
     return round(successes / total, 4)
+
+
+def _run_status_summary(runs: list[RunRow]) -> _RunStatusSummary:
+    status_counts = Counter(row.status for row in runs)
+    successful = status_counts.get("success", 0)
+    failed = sum(status_counts.get(status, 0) for status in _FAILED_STATUSES)
+    running = status_counts.get("running", 0) + status_counts.get("pending", 0)
+    terminal = successful + failed
+    duration_values = [_duration_ms(row.created_at, row.updated_at) for row in runs if row.status in _TERMINAL_STATUSES and row.updated_at]
+    return _RunStatusSummary(
+        successful=successful,
+        failed=failed,
+        running=running,
+        terminal=terminal,
+        success_rate=_success_rate(successful, terminal),
+        duration_values=duration_values,
+    )
 
 
 def _avg(values: list[int]) -> int:
@@ -494,6 +638,39 @@ def _assistant_key(run: RunRow, thread_meta: dict[str, ThreadMetaRow]) -> str:
     return run.assistant_id or (meta.assistant_id if meta else None) or "default"
 
 
+def _summarize_artifact_events(
+    artifact_events: list[tuple[RunEventRow, str]],
+    *,
+    limit: int,
+) -> ArtifactSummary:
+    unique_instances: dict[tuple[str, str], RunEventRow] = {}
+    ordered_events = sorted(
+        artifact_events,
+        key=lambda item: _coerce_aware(item[0].created_at) or datetime.min.replace(tzinfo=UTC),
+        reverse=True,
+    )
+    for event, path in ordered_events:
+        unique_instances.setdefault((event.thread_id, path), event)
+
+    artifact_counts = Counter(_artifact_type(path) for _, path in unique_instances)
+    recent_artifacts = [
+        RecentArtifactItem(
+            run_id=event.run_id,
+            thread_id=thread_id,
+            path=path,
+            type=_artifact_type(path),
+            created_at=event.created_at,
+        )
+        for (thread_id, path), event in unique_instances.items()
+    ]
+    return ArtifactSummary(
+        total=len(unique_instances),
+        by_type=[ArtifactTypeItem(type=name, count=count) for name, count in artifact_counts.most_common(limit)],
+        previewable=sum(1 for _, path in unique_instances if _is_previewable_artifact(path)),
+        recent=recent_artifacts[: min(limit, 8)],
+    )
+
+
 @router.get("/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(
     request: Request,
@@ -512,19 +689,23 @@ async def get_dashboard_summary(
 
     sf = _session_factory()
     async with sf() as session:
-        run_stmt = select(RunRow).where(RunRow.created_at >= start, RunRow.created_at <= end).order_by(desc(RunRow.created_at)).limit(_RUN_FETCH_LIMIT)
+        run_stmt = select(RunRow).where(RunRow.created_at >= start, RunRow.created_at <= end).order_by(desc(RunRow.created_at))
         runs = list((await session.execute(run_stmt)).scalars().all())
 
-        thread_stmt = select(ThreadMetaRow).where(ThreadMetaRow.created_at >= start, ThreadMetaRow.created_at <= end)
-        threads = list((await session.execute(thread_stmt)).scalars().all())
+        thread_creation_stmt = select(ThreadCreationRow).where(
+            ThreadCreationRow.created_at >= start,
+            ThreadCreationRow.created_at <= end,
+        )
+        thread_creations = list((await session.execute(thread_creation_stmt)).scalars().all())
+        total_thread_creations = await session.scalar(select(func.count()).select_from(ThreadCreationRow)) or 0
 
-        thread_ids = {row.thread_id for row in runs} | {row.thread_id for row in threads}
+        thread_ids = {row.thread_id for row in runs} | {row.thread_id for row in thread_creations}
         thread_meta: dict[str, ThreadMetaRow] = {}
         if thread_ids:
             meta_rows = (await session.execute(select(ThreadMetaRow).where(ThreadMetaRow.thread_id.in_(thread_ids)))).scalars()
             thread_meta = {row.thread_id: row for row in meta_rows}
 
-        user_ids = {row.user_id for row in runs if row.user_id} | {row.user_id for row in threads if row.user_id}
+        user_ids = {row.user_id for row in runs if row.user_id} | {row.user_id for row in thread_creations if row.user_id}
         users_by_id: dict[str, UserRow] = {}
         if user_ids:
             user_rows = (await session.execute(select(UserRow).where(UserRow.id.in_(user_ids)))).scalars()
@@ -533,13 +714,21 @@ async def get_dashboard_summary(
         total_users = await session.scalar(select(func.count()).select_from(UserRow)) or 0
         new_users = await session.scalar(select(func.count()).select_from(UserRow).where(UserRow.created_at >= start, UserRow.created_at <= end)) or 0
 
-        event_stmt = select(RunEventRow).where(RunEventRow.created_at >= start, RunEventRow.created_at <= end).order_by(desc(RunEventRow.created_at)).limit(_EVENT_FETCH_LIMIT)
+        event_stmt = (
+            select(RunEventRow)
+            .where(
+                RunEventRow.created_at >= start,
+                RunEventRow.created_at <= end,
+                RunEventRow.event_type.in_(_DASHBOARD_EVENT_TYPES),
+            )
+            .order_by(desc(RunEventRow.created_at))
+        )
         events = list((await session.execute(event_stmt)).scalars().all())
 
-        feedback_stmt = select(FeedbackRow).where(FeedbackRow.created_at >= start, FeedbackRow.created_at <= end).order_by(desc(FeedbackRow.created_at)).limit(_EVENT_FETCH_LIMIT)
+        feedback_stmt = select(FeedbackRow).where(FeedbackRow.created_at >= start, FeedbackRow.created_at <= end).order_by(desc(FeedbackRow.created_at))
         feedback_rows = list((await session.execute(feedback_stmt)).scalars().all())
 
-        disposition_stmt = select(OperationDispositionRow).where(OperationDispositionRow.created_at >= start, OperationDispositionRow.created_at <= end).order_by(desc(OperationDispositionRow.created_at)).limit(_EVENT_FETCH_LIMIT)
+        disposition_stmt = select(OperationDispositionRow).where(OperationDispositionRow.created_at >= start, OperationDispositionRow.created_at <= end).order_by(desc(OperationDispositionRow.created_at))
         disposition_rows = list((await session.execute(disposition_stmt)).scalars().all())
 
         click_stmt = select(AuditLogRow).where(
@@ -554,14 +743,14 @@ async def get_dashboard_summary(
     run_features: dict[str, set[str]] = defaultdict(set)
     business_events: list[tuple[RunEventRow, set[str]]] = []
     artifact_events: list[tuple[RunEventRow, str]] = []
-    knowledge_events: list[RunEventRow] = []
+    knowledge_events: list[tuple[RunEventRow, str]] = []
     for event in all_events:
-        features = classify_dashboard_features(event.content, event.event_metadata)
+        features = classify_dashboard_features(event.content, event.event_metadata, event_type=event.event_type)
         if features:
             run_features[event.run_id].update(features)
-            business_events.append((event, features))
-        if "知识库检索" in features:
-            knowledge_events.append(event)
+            if event.event_type != "llm.tool.result":
+                business_events.append((event, features))
+        knowledge_events.extend((event, tool_name) for tool_name in _knowledge_tool_calls(event))
         for artifact_path in _extract_artifact_paths(event):
             artifact_events.append((event, artifact_path))
 
@@ -586,24 +775,24 @@ async def get_dashboard_summary(
     thread_ids_for_runs = {run.thread_id for run in runs}
     filters_active = any((normalized_status, normalized_model, normalized_agent, normalized_feature))
     if filters_active:
-        threads = [row for thread_id, row in thread_meta.items() if thread_id in thread_ids_for_runs]
+        thread_creations = [row for row in thread_creations if row.thread_id in thread_ids_for_runs]
     events = [event for event in all_events if event.run_id in run_ids]
     feedback_rows = [row for row in all_feedback_rows if row.run_id in run_ids]
     run_features = defaultdict(set, {run_id: features for run_id, features in run_features.items() if run_id in run_ids})
     business_events = [(event, features) for event, features in business_events if event.run_id in run_ids]
     artifact_events = [(event, path) for event, path in artifact_events if event.run_id in run_ids]
-    knowledge_events = [event for event in knowledge_events if event.run_id in run_ids]
+    knowledge_events = [item for item in knowledge_events if item[0].run_id in run_ids]
 
     latest_disposition_by_run: dict[str, OperationDispositionRow] = {}
     for row in disposition_rows:
         if row.run_id in run_ids and row.run_id not in latest_disposition_by_run:
             latest_disposition_by_run[row.run_id] = row
 
-    status_counts = Counter(row.status for row in runs)
-    successful_runs = status_counts.get("success", 0)
-    failed_runs = sum(status_counts.get(status, 0) for status in _FAILED_STATUSES)
-    running_runs = status_counts.get("running", 0) + status_counts.get("pending", 0)
-    durations = [_duration_ms(row.created_at, row.updated_at) for row in runs if row.updated_at]
+    status_summary = _run_status_summary(runs)
+    successful_runs = status_summary.successful
+    failed_runs = status_summary.failed
+    running_runs = status_summary.running
+    durations = status_summary.duration_values
 
     feature_counts = Counter()
     for features in run_features.values():
@@ -628,7 +817,7 @@ async def get_dashboard_summary(
     ]
 
     buckets = {key: {"users": set(), "threads": 0, "runs": 0} for key in _iter_day_keys(start, end)}
-    for thread in threads:
+    for thread in thread_creations:
         key = _day_key(thread.created_at)
         buckets.setdefault(key, {"users": set(), "threads": 0, "runs": 0})
         buckets[key]["threads"] += 1
@@ -657,9 +846,10 @@ async def get_dashboard_summary(
             continue
         bucket = user_buckets.setdefault(
             run.user_id,
-            {"runs": 0, "successes": 0, "threads": set(), "tokens": 0},
+            {"runs": 0, "terminal_runs": 0, "successes": 0, "threads": set(), "tokens": 0},
         )
         bucket["runs"] += 1
+        bucket["terminal_runs"] += int(run.status in _TERMINAL_STATUSES)
         bucket["successes"] += int(run.status == "success")
         bucket["threads"].add(run.thread_id)
         bucket["tokens"] += run.total_tokens or 0
@@ -670,7 +860,7 @@ async def get_dashboard_summary(
             runs=bucket["runs"],
             threads=len(bucket["threads"]),
             total_tokens=bucket["tokens"],
-            success_rate=_success_rate(bucket["successes"], bucket["runs"]),
+            success_rate=_success_rate(bucket["successes"], bucket["terminal_runs"]),
         )
         for user_id, bucket in sorted(user_buckets.items(), key=lambda item: (item[1]["runs"], item[1]["tokens"]), reverse=True)[:limit]
     ]
@@ -695,9 +885,11 @@ async def get_dashboard_summary(
         bucket.runs += 1
         if run.status == "success":
             bucket.successes += 1
+        if run.status in _TERMINAL_STATUSES:
+            bucket.terminal_runs += 1
+            bucket.durations.append(_duration_ms(run.created_at, run.updated_at))
         if run.user_id:
             bucket.users.add(run.user_id)
-        bucket.durations.append(_duration_ms(run.created_at, run.updated_at))
 
     agent_usage = [
         AgentUsageItem(
@@ -705,7 +897,7 @@ async def get_dashboard_summary(
             name=bucket.name,
             runs=bucket.runs,
             users=len(bucket.users),
-            success_rate=_success_rate(bucket.successes, bucket.runs),
+            success_rate=_success_rate(bucket.successes, bucket.terminal_runs),
             avg_duration_ms=_avg(bucket.durations),
         )
         for key, bucket in sorted(agent_buckets.items(), key=lambda item: item[1].runs, reverse=True)[:limit]
@@ -718,9 +910,11 @@ async def get_dashboard_summary(
         bucket.runs += 1
         if run.status == "success":
             bucket.successes += 1
+        if run.status in _TERMINAL_STATUSES:
+            bucket.terminal_runs += 1
+            bucket.durations.append(_duration_ms(run.created_at, run.updated_at))
         if run.user_id:
             bucket.users.add(run.user_id)
-        bucket.durations.append(_duration_ms(run.created_at, run.updated_at))
         bucket.total_tokens += run.total_tokens or 0
         bucket.llm_calls += run.llm_call_count or 0
 
@@ -729,7 +923,7 @@ async def get_dashboard_summary(
             model_name=model_name,
             runs=bucket.runs,
             users=len(bucket.users),
-            success_rate=_success_rate(bucket.successes, bucket.runs),
+            success_rate=_success_rate(bucket.successes, bucket.terminal_runs),
             avg_duration_ms=_avg(bucket.durations),
             total_tokens=bucket.total_tokens,
             llm_calls=bucket.llm_calls,
@@ -768,12 +962,13 @@ async def get_dashboard_summary(
             "thread_id": event.thread_id,
             "created_at": event.created_at.isoformat(),
             "event_type": event.event_type,
-            "snippet": (event.content or "")[:180],
+            "tool_name": tool_name,
+            "snippet": tool_name,
         }
-        for event in knowledge_events[: min(limit, 8)]
+        for event, tool_name in knowledge_events[: min(limit, 8)]
     ]
 
-    active_users = {row.user_id for row in runs if row.user_id} | {row.user_id for row in threads if row.user_id}
+    active_users = {row.user_id for row in runs if row.user_id} | {row.user_id for row in thread_creations if row.user_id}
     artifact_runs = feature_counts.get("产物生成", 0)
     knowledge_runs = feature_counts.get("知识库检索", 0)
     file_processing_runs = feature_counts.get("文件处理", 0)
@@ -784,27 +979,7 @@ async def get_dashboard_summary(
         profile=value_profile,
     )
 
-    artifact_counts = Counter(_artifact_type(path) for _, path in artifact_events)
-    unique_artifact_paths: set[str] = set()
-    recent_artifacts: list[RecentArtifactItem] = []
-    for event, path in artifact_events:
-        if path not in unique_artifact_paths:
-            unique_artifact_paths.add(path)
-            recent_artifacts.append(
-                RecentArtifactItem(
-                    run_id=event.run_id,
-                    thread_id=event.thread_id,
-                    path=path,
-                    type=_artifact_type(path),
-                    created_at=event.created_at,
-                )
-            )
-    artifact_summary = ArtifactSummary(
-        total=len(unique_artifact_paths),
-        by_type=[ArtifactTypeItem(type=name, count=count) for name, count in artifact_counts.most_common(limit)],
-        previewable=sum(1 for path in unique_artifact_paths if _is_previewable_artifact(path)),
-        recent=recent_artifacts[: min(limit, 8)],
-    )
+    artifact_summary = _summarize_artifact_events(artifact_events, limit=limit)
 
     positive_feedback = sum(1 for row in feedback_rows if row.rating > 0)
     negative_feedback = sum(1 for row in feedback_rows if row.rating < 0)
@@ -864,12 +1039,12 @@ async def get_dashboard_summary(
             total_users=int(total_users),
             new_users=int(new_users),
             active_users=len(active_users),
-            threads=len(threads),
+            threads=int(total_thread_creations),
             runs=len(runs),
             successful_runs=successful_runs,
             failed_runs=failed_runs,
             running_runs=running_runs,
-            success_rate=_success_rate(successful_runs, len(runs)),
+            success_rate=status_summary.success_rate,
             avg_run_duration_ms=_avg(durations),
             total_tokens=sum(row.total_tokens or 0 for row in runs),
             llm_calls=sum(row.llm_call_count or 0 for row in runs),

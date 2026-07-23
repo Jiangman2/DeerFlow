@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from deerflow.persistence.base import Base
 from deerflow.persistence.models.run_event import RunEventRow
-from deerflow.persistence.observability.sql import ObservabilityRepository
+from deerflow.persistence.observability.sql import ObservabilityRepository, _bucket_key
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.thread_meta.model import ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
@@ -200,6 +200,53 @@ async def test_snapshot_aggregates_metrics_errors_and_traces() -> None:
         assert ranged["metrics"]["runs_window"] == 1
     finally:
         await engine.dispose()
+
+
+async def test_analytics_excludes_active_runs_from_rates_durations_and_rankings() -> None:
+    repo, sf, engine = await _repo()
+    now = datetime.now(UTC)
+    try:
+        async with sf() as session:
+            session.add_all(
+                [
+                    RunRow(
+                        run_id="completed",
+                        thread_id="thread-completed",
+                        user_id="u1",
+                        status="success",
+                        total_tokens=10,
+                        created_at=now - timedelta(minutes=5),
+                        updated_at=now - timedelta(minutes=4),
+                    ),
+                    RunRow(
+                        run_id="active",
+                        thread_id="thread-active",
+                        user_id="u1",
+                        status="running",
+                        total_tokens=999,
+                        created_at=now - timedelta(minutes=3),
+                        updated_at=now,
+                    ),
+                ]
+            )
+            await session.commit()
+
+        analytics = await repo.analytics(hours=24)
+
+        assert analytics["current"]["runs"] == 2
+        assert analytics["current"]["error_rate"] == 0
+        assert analytics["current"]["avg_duration_ms"] == 60_000
+        assert [item["run_id"] for item in analytics["slow_runs"]] == ["completed"]
+        assert [item["run_id"] for item in analytics["high_token_runs"]] == ["completed"]
+        assert analytics["by_user"][0]["runs"] == 2
+        assert analytics["by_user"][0]["avg_duration_ms"] == 60_000
+        assert analytics["trend"][0]["avg_duration_ms"] == 60_000
+    finally:
+        await engine.dispose()
+
+
+async def test_daily_observability_bucket_uses_beijing_calendar_day() -> None:
+    assert _bucket_key(datetime(2026, 7, 22, 16, 30, tzinfo=UTC), "day").startswith("2026-07-23")
 
 
 async def test_user_activity_summarizes_runs_and_artifacts() -> None:

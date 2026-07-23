@@ -37,7 +37,7 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SANDBOX_IMAGE
-              value: deerflow.local/deer-flow-aio-sandbox:20260722-enterprise-arm64-rc2
+              value: deerflow.local/deer-flow-aio-sandbox:20260723-enterprise-arm64-rc3
             - name: SANDBOX_SERVICE_TYPE
               value: ClusterIP
             - name: SANDBOX_SECRET_ENV_KEYS
@@ -88,14 +88,16 @@ spec:
           imagePullPolicy: Never
           env:
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: WEKNORA_PRESENTATION_PARSER_ENGINE
               value: mineru
             - name: WEKNORA_MINERU_ENDPOINT
               value: http://deer-flow-mineru-adapter:50052
             - name: WEKNORA_MINERU_AUTO_CONFIGURE
+              value: "true"
+            - name: WEKNORA_MINERU_SCANNED_PDF_FALLBACK
               value: "true"
 ---
 apiVersion: apps/v1
@@ -128,16 +130,24 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SSL_CERT_FILE
-              value: /etc/deerflow-ca/ca-bundle.crt
+              value: /etc/ssl/certs/ca-certificates.crt
             - name: REQUESTS_CA_BUNDLE
-              value: /etc/deerflow-ca/ca-bundle.crt
+              value: /etc/ssl/certs/ca-certificates.crt
             - name: CURL_CA_BUNDLE
-              value: /etc/deerflow-ca/ca-bundle.crt
+              value: /etc/ssl/certs/ca-certificates.crt
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: SSRF_WHITELIST_EXTRA
               value: deer-flow-mineru-adapter
           volumeMounts:
             - name: enterprise-ca
               mountPath: /etc/deerflow-ca
+              readOnly: true
+            - name: enterprise-ca
+              mountPath: /etc/ssl/certs/ca-certificates.crt
+              subPath: ca-bundle.crt
               readOnly: true
       volumes:
         - name: enterprise-ca

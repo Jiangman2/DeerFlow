@@ -147,6 +147,21 @@ export async function fetchAgentsApiEnabled(): Promise<boolean> {
   return data.agents_api.enabled;
 }
 
+export async function recordExternalAgentClick(agentName: string): Promise<void> {
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agent-analytics/external-click`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agent_name: agentName }),
+      keepalive: true,
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to record external agent click: ${res.status}`);
+  }
+}
+
 export async function checkAgentName(
   name: string,
 ): Promise<{ available: boolean; name: string }> {

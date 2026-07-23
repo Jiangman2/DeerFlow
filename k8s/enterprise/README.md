@@ -29,9 +29,10 @@ changing them; updating the ConfigMap alone does not refresh the mounted files.
 ## Images
 
 Third-party images are pinned to the ARM64 manifest digests verified on
-`datax-01` on 2026-07-21. Gateway, Provisioner, and Sandbox use the hardened
-`20260722-enterprise-arm64-rc2` tag. The unchanged Frontend and Skills images
-remain on `20260722-enterprise-arm64-rc1`:
+`datax-01` on 2026-07-21. Provisioner, Skills, and Sandbox remain on the
+immutable `20260723-enterprise-arm64-rc3` release tag. Gateway, Frontend, and
+the MinerU adapter use `20260723-enterprise-arm64-rc4` for the coherent
+post-RC3 application update:
 
 - `deer-flow-gateway`
 - `deer-flow-frontend`
@@ -60,7 +61,7 @@ with this exact command so the image contains
 
 ```bash
 docker build -f docker/k8s-skills/Dockerfile \
-  -t deerflow.local/deer-flow-skills:20260722-enterprise-arm64-rc1 .
+  -t deerflow.local/deer-flow-skills:20260723-enterprise-arm64-rc3 .
 ```
 
 The skills-sync Job validates that layout before replacing the PVC contents.
@@ -69,19 +70,25 @@ appropriate tag or digest and make it pullable from every node instead of
 relying on per-node manual imports.
 
 The MinerU adapter reuses the WeKnora docreader base image because it already
-contains LibreOffice. Build it on an ARM64 server from the repository root:
+contains LibreOffice. Build it on an ARM64 server with
+`docker/mineru_adapter` as the build context:
 
 ```bash
 docker build -f docker/mineru_adapter/Dockerfile \
   --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b \
-  -t deerflow.local/deer-flow-mineru-adapter:20260723-enterprise-arm64-rc1 .
+  -t deerflow.local/deer-flow-mineru-adapter:20260723-enterprise-arm64-rc4 \
+  docker/mineru_adapter
 ```
 
 Import the resulting image into the `k8s.io` containerd namespace on every
 node where the adapter may run. The adapter is stateless, receives only an
-internal ClusterIP Service, and translates WeKnora's `/file_parse` contract to
-the enterprise PDF API. PPT/PPTX input is converted to PDF with LibreOffice
-before it leaves the Pod.
+internal ClusterIP Service, and translates WeKnora's `/file_parse` contract.
+PPT/PPTX input is converted to PDF with LibreOffice. PDF input is inspected
+locally before parsing: documents whose pages all contain usable text stay on
+the WeKnora builtin parser bundled in the image; a scanned/image-dominated page
+routes the whole PDF to the enterprise MinerU API. Inline Base64 images in
+MinerU markdown are replaced with a compact marker before WeKnora chunks and
+embeds the result.
 
 ## Storage
 
@@ -154,11 +161,18 @@ kubectl -n deer-flow create secret generic deer-flow-mineru \
 unset MINERU_API_URL MINERU_API_TOKEN
 ```
 
-The enterprise Gateway forces only `.ppt` and `.pptx` uploads to the `mineru`
-engine and passes the in-cluster adapter endpoint as a per-upload override.
-Other document types keep their native WeKnora parser selection. The local
-overlay continues to use `markitdown`, so an internal MinerU outage cannot
-break local development.
+The enterprise Gateway routes `.pdf`, `.ppt`, and `.pptx` uploads to the
+in-cluster adapter and passes its endpoint as a per-upload override. Only
+scanned/mixed PDFs and presentations call the enterprise MinerU API; searchable
+PDFs are parsed locally by WeKnora. Other document types keep their native
+WeKnora parser selection. The local overlay continues to use `markitdown`, so
+an internal MinerU outage cannot break local development.
+
+The PDF detector defaults match WeKnora's existing scanned-page heuristics:
+`PDF_SCAN_IMAGE_RATIO=0.5`, `PDF_SCAN_MIN_CHARS_PER_PAGE=10`, and
+`PDF_SCAN_LOW_TEXT_IMAGE_RATIO=0.1`. A full-page image remains a scanned page
+even when the PDF also carries a hidden OCR text layer. Tune these values only
+after testing representative enterprise PDFs.
 
 On SSO, the Gateway also saves the adapter Service URL as the WeKnora MinerU
 default for every space the current user owns or administers. It reads and
@@ -167,14 +181,30 @@ preserved. The enterprise API URL and Key are never copied into WeKnora. A
 viewer cannot rewrite another owner's space configuration, and an already
 matching endpoint is not written again.
 
+After the WeKnora database schema exists, apply
+`k8s/enterprise/weknora-mineru-defaults.sql` once with `psql`. It installs an
+idempotent database trigger that adds any missing PDF/PPT/PPTX types to an
+adapter rule when a native WeKnora UI flow creates or updates a knowledge base.
+An explicitly configured parser for any of those file types is preserved. The
+trigger is stored in the persistent WeKnora database, so application restarts
+and rolling releases do not remove it; reapply the SQL after provisioning a new
+database or after upgrading an older trigger.
+
 The enterprise overlay mounts `deer-flow-enterprise-ca` into `weknora-app` and
 sets `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, and `CURL_CA_BUNDLE`. This is
 required when the configured DashScope embedding or chat endpoint is inspected
 by the enterprise TLS proxy. Create or update the Secret before applying the
-overlay; otherwise the WeKnora App Pod cannot start. The Secret is mounted as a
-projected directory rather than with `subPath`, so later CA rotations propagate
-to the Pod filesystem automatically; restart the App to force long-lived HTTP
-clients to rebuild their trust state immediately.
+overlay; otherwise the WeKnora App Pod cannot start. The bundle remains
+available under `/etc/deerflow-ca` and is also mounted over the conventional
+`/etc/ssl/certs/ca-certificates.crt` path used by Go's system trust lookup.
+Restart the App after CA rotation so the `subPath` mount and long-lived HTTP
+clients both reload the new bundle.
+
+The WeKnora App's uppercase and lowercase proxy bypass lists must include
+`deer-flow-mineru-adapter`, the other WeKnora Service names, `.svc`, and
+`.cluster.local`. Otherwise its proxy-aware HTTP transport can send the
+in-cluster `/file_parse` request to the enterprise proxy, which may redirect it
+to a DNS-failure IP that WeKnora correctly rejects through SSRF validation.
 
 Generate distinct `PROVISIONER_API_KEY` and `SANDBOX_API_KEY` values. Configure
 `sandbox.provisioner_api_key: $PROVISIONER_API_KEY` and
@@ -207,7 +237,15 @@ kubectl -n deer-flow run mineru-smoke --rm -i --restart=Never \
   -- wget -qO- http://deer-flow-mineru-adapter:50052/health
 ```
 
-Then upload a real PPTX from the DeerFlow knowledge page and wait for its parse
-status to become `completed`. A `200` health response proves only the adapter
-is running; the real upload is required to verify server-network reachability,
-the enterprise Key, LibreOffice conversion, and MinerU output together.
+Then upload three real files from the DeerFlow knowledge page: one searchable
+PDF, one scanned PDF, and one PPTX. Wait for each parse status to become
+`completed`, and inspect adapter logs for `route=builtin` on the searchable PDF
+and `route=mineru` on the scanned PDF. A `200` health response proves only the
+adapter is running; the real uploads are required to verify local routing,
+server-network reachability, the enterprise Key, LibreOffice conversion, and
+MinerU OCR together.
+
+The Gateway proxy bypass list includes `model.ai.cnooc` in both `NO_PROXY` and
+`no_proxy`. Internal model endpoints on that host must be reached directly;
+routing them through the enterprise outbound proxy can leave streamed chat
+requests waiting until the proxy resets the connection.

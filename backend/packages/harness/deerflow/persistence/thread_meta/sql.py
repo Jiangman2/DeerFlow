@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.json_compat import json_match
 from deerflow.persistence.thread_meta.base import InvalidMetadataFilterError, ThreadMetaStore
-from deerflow.persistence.thread_meta.model import ThreadMetaRow
+from deerflow.persistence.thread_meta.model import ThreadCreationRow, ThreadMetaRow
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, resolve_user_id
 from deerflow.utils.time import coerce_iso
 
@@ -57,6 +57,21 @@ class ThreadMetaRepository(ThreadMetaStore):
             updated_at=now,
         )
         async with self._sf() as session:
+            creation = await session.get(ThreadCreationRow, thread_id)
+            if creation is None:
+                session.add(
+                    ThreadCreationRow(
+                        thread_id=thread_id,
+                        assistant_id=assistant_id,
+                        user_id=resolved_user_id,
+                        created_at=now,
+                    )
+                )
+            else:
+                if creation.user_id is None and resolved_user_id is not None:
+                    creation.user_id = resolved_user_id
+                if creation.assistant_id is None and assistant_id is not None:
+                    creation.assistant_id = assistant_id
             session.add(row)
             await session.commit()
             await session.refresh(row)
@@ -224,6 +239,7 @@ class ThreadMetaRepository(ThreadMetaStore):
             if not await self._check_ownership(session, thread_id, resolved_user_id):
                 return
             await session.execute(update(ThreadMetaRow).where(ThreadMetaRow.thread_id == thread_id).values(user_id=owner_user_id, updated_at=datetime.now(UTC)))
+            await session.execute(update(ThreadCreationRow).where(ThreadCreationRow.thread_id == thread_id).values(user_id=owner_user_id))
             await session.commit()
 
     async def delete(

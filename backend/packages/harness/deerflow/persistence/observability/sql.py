@@ -12,6 +12,7 @@ from collections import Counter, deque
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import desc, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -25,7 +26,9 @@ from deerflow.utils.time import coerce_iso
 
 _MEMORY_AUDIT_LOGS: deque[dict[str, Any]] = deque(maxlen=1000)
 _TERMINAL_ERROR_STATUSES = {"error", "timeout", "interrupted"}
+_TERMINAL_STATUSES = {"success", *_TERMINAL_ERROR_STATUSES}
 _ACTIVE_STATUSES = {"pending", "running"}
+_BUSINESS_TIMEZONE = ZoneInfo("Asia/Shanghai")
 _MANAGEMENT_ACTIONS = {
     "announcement.create",
     "announcement.update",
@@ -305,6 +308,7 @@ def _tool_duration_ms(events: list[RunEventRow]) -> int:
 def _bucket_key(value: datetime | None, bucket: str) -> str:
     if value is None:
         return "unknown"
+    value = (_coerce_aware(value) or value).astimezone(_BUSINESS_TIMEZONE)
     if bucket == "day":
         return value.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
     return value.replace(minute=0, second=0, microsecond=0).isoformat()
@@ -314,6 +318,7 @@ def _empty_metric_bucket(period_start: str) -> dict[str, Any]:
     return {
         "period_start": period_start,
         "runs": 0,
+        "terminal_runs": 0,
         "error_runs": 0,
         "error_rate": 0,
         "tokens": 0,
@@ -329,13 +334,14 @@ def _empty_metric_bucket(period_start: str) -> dict[str, Any]:
 
 def _summarize_runs(rows: list[RunRow]) -> dict[str, Any]:
     runs = len(rows)
+    terminal_rows = [row for row in rows if row.status in _TERMINAL_STATUSES]
     error_runs = sum(1 for row in rows if row.status in _TERMINAL_ERROR_STATUSES)
-    durations = [_duration_ms(row.created_at, row.updated_at) for row in rows]
+    durations = [_duration_ms(row.created_at, row.updated_at) for row in terminal_rows]
     durations = [value for value in durations if value]
     return {
         "runs": runs,
         "error_runs": error_runs,
-        "error_rate": round(error_runs / runs, 4) if runs else 0,
+        "error_rate": round(error_runs / len(terminal_rows), 4) if terminal_rows else 0,
         "tokens": sum(row.total_tokens or 0 for row in rows),
         "input_tokens": sum(row.total_input_tokens or 0 for row in rows),
         "output_tokens": sum(row.total_output_tokens or 0 for row in rows),
@@ -641,7 +647,7 @@ class ObservabilityRepository:
         bounded_limit = min(max(limit, 1), 100)
         now = datetime.now(UTC)
         async with self._sf() as session:
-            rows = (await session.execute(select(RunRow).where(RunRow.created_at >= previous_since, RunRow.created_at <= current_until).order_by(desc(RunRow.created_at)).limit(5000))).scalars().all()
+            rows = (await session.execute(select(RunRow).where(RunRow.created_at >= previous_since, RunRow.created_at <= current_until).order_by(desc(RunRow.created_at)))).scalars().all()
             user_rows = await session.execute(select(UserRow.id, UserRow.email))
             user_email = {uid: email for uid, email in user_rows.all()}
             current_run_ids = [row.run_id for row in rows if _aware(row.created_at) and current_since <= _aware(row.created_at) <= current_until]
@@ -661,6 +667,7 @@ class ObservabilityRepository:
             key = _bucket_key(row.created_at, bucket)
             item = trend_map.setdefault(key, _empty_metric_bucket(key))
             item["runs"] += 1
+            item["terminal_runs"] += 1 if row.status in _TERMINAL_STATUSES else 0
             item["error_runs"] += 1 if row.status in _TERMINAL_ERROR_STATUSES else 0
             item["tokens"] += row.total_tokens or 0
             item["input_tokens"] += row.total_input_tokens or 0
@@ -669,13 +676,13 @@ class ObservabilityRepository:
             item["subagent_tokens"] += row.subagent_tokens or 0
             item["middleware_tokens"] += row.middleware_tokens or 0
             item["tool_duration_ms"] += tool_duration_by_run.get(row.run_id, 0)
-            duration = _duration_ms(row.created_at, row.updated_at)
+            duration = _duration_ms(row.created_at, row.updated_at) if row.status in _TERMINAL_STATUSES else 0
             if duration:
                 trend_durations.setdefault(key, []).append(duration)
         for key, item in trend_map.items():
             durations = trend_durations.get(key, [])
             item["avg_duration_ms"] = int(sum(durations) / len(durations)) if durations else 0
-            item["error_rate"] = round(item["error_runs"] / item["runs"], 4) if item["runs"] else 0
+            item["error_rate"] = round(item["error_runs"] / item["terminal_runs"], 4) if item["terminal_runs"] else 0
 
         def breakdown(key_fn) -> list[dict[str, Any]]:  # type: ignore[no-untyped-def]
             groups: dict[str, dict[str, Any]] = {}
@@ -688,6 +695,7 @@ class ObservabilityRepository:
                         "key": key,
                         "email": user_email.get(key) if key == row.user_id else None,
                         "runs": 0,
+                        "terminal_runs": 0,
                         "error_runs": 0,
                         "tokens": 0,
                         "input_tokens": 0,
@@ -700,6 +708,7 @@ class ObservabilityRepository:
                     },
                 )
                 item["runs"] += 1
+                item["terminal_runs"] += 1 if row.status in _TERMINAL_STATUSES else 0
                 item["error_runs"] += 1 if row.status in _TERMINAL_ERROR_STATUSES else 0
                 item["tokens"] += row.total_tokens or 0
                 item["input_tokens"] += row.total_input_tokens or 0
@@ -708,16 +717,16 @@ class ObservabilityRepository:
                 item["subagent_tokens"] += row.subagent_tokens or 0
                 item["middleware_tokens"] += row.middleware_tokens or 0
                 item["tool_duration_ms"] += tool_duration_by_run.get(row.run_id, 0)
-                duration = _duration_ms(row.created_at, row.updated_at)
+                duration = _duration_ms(row.created_at, row.updated_at) if row.status in _TERMINAL_STATUSES else 0
                 if duration:
                     durations.setdefault(key, []).append(duration)
             for key, item in groups.items():
                 values = durations.get(key, [])
                 item["avg_duration_ms"] = int(sum(values) / len(values)) if values else 0
-                item["error_rate"] = round(item["error_runs"] / item["runs"], 4) if item["runs"] else 0
+                item["error_rate"] = round(item["error_runs"] / item["terminal_runs"], 4) if item["terminal_runs"] else 0
             return sorted(groups.values(), key=lambda item: (item["tokens"], item["runs"]), reverse=True)[:bounded_limit]
 
-        summaries = [_run_summary(row, user_email, event_counts) for row in current_rows]
+        summaries = [_run_summary(row, user_email, event_counts) for row in current_rows if row.status in _TERMINAL_STATUSES]
         for item in summaries:
             item["tool_duration_ms"] = tool_duration_by_run.get(item["run_id"], 0)
         return {
@@ -850,7 +859,7 @@ class ObservabilityRepository:
             item["llm_calls"] += row.llm_call_count or 0
             if row.thread_id:
                 thread_ids.setdefault(user_id, set()).add(row.thread_id)
-            duration = _duration_ms(row.created_at, row.updated_at)
+            duration = _duration_ms(row.created_at, row.updated_at) if row.status in _TERMINAL_STATUSES else 0
             if duration:
                 durations.setdefault(user_id, []).append(duration)
             if row.assistant_id:
@@ -986,10 +995,10 @@ class ObservabilityRepository:
             threads_total = await session.scalar(select(func.count()).select_from(ThreadMetaRow)) or 0
             runs_total = await session.scalar(select(func.count()).select_from(RunRow)) or 0
 
-            window_rows = (await session.execute(select(RunRow).where(RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)).limit(1000))).scalars().all()
+            window_rows = (await session.execute(select(RunRow).where(RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)))).scalars().all()
             active_runs = sum(1 for row in window_rows if row.status in _ACTIVE_STATUSES)
             error_runs = [row for row in window_rows if row.status in _TERMINAL_ERROR_STATUSES]
-            terminal_runs = [row for row in window_rows if row.status not in _ACTIVE_STATUSES]
+            terminal_runs = [row for row in window_rows if row.status in _TERMINAL_STATUSES]
             error_rate = round(len(error_runs) / len(terminal_runs), 4) if terminal_runs else 0
 
             status_rows = await session.execute(select(RunRow.status, func.count()).group_by(RunRow.status))
@@ -1011,7 +1020,7 @@ class ObservabilityRepository:
         user_usage: dict[str, dict[str, Any]] = {}
         durations: list[int] = []
         for row in window_rows:
-            hour_key = row.created_at.replace(minute=0, second=0, microsecond=0).isoformat() if row.created_at else "unknown"
+            hour_key = _bucket_key(row.created_at, "hour")
             buckets[hour_key] = buckets.get(hour_key, 0) + 1
             if row.user_id:
                 entry = user_usage.setdefault(
@@ -1020,7 +1029,7 @@ class ObservabilityRepository:
                 )
                 entry["runs"] += 1
                 entry["tokens"] += row.total_tokens or 0
-            duration = _duration_ms(row.created_at, row.updated_at)
+            duration = _duration_ms(row.created_at, row.updated_at) if row.status in _TERMINAL_STATUSES else 0
             if duration:
                 durations.append(duration)
 

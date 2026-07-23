@@ -129,13 +129,17 @@ Regression tests related to Docker/provisioner behavior:
 - `tests/test_provisioner_request_threading.py` (keeps provisioner sandbox CRUD
   endpoints as sync FastAPI handlers so synchronous K8s client calls run in the
   Starlette worker pool instead of on the ASGI event loop)
-- `tests/test_mineru_adapter.py` (locks the enterprise PDF API protocol and the
-  WeKnora-compatible response envelope used by the PPT/PPTX adapter)
+- `tests/test_mineru_adapter.py` (locks the enterprise PDF API protocol, the
+  searchable/scanned PDF routing decision, and the WeKnora-compatible response
+  envelope used by the PDF/PPT/PPTX adapter)
 
 The WeKnora Gateway upload proxy reads `WEKNORA_PRESENTATION_PARSER_ENGINE`
 (`markitdown` by default) and `WEKNORA_MINERU_ENDPOINT`. The enterprise overlay
-sets them to `mineru` and the in-cluster adapter Service, while non-presentation
-uploads omit parser overrides and preserve the knowledge base defaults.
+sets them to `mineru` and the in-cluster adapter Service. With
+`WEKNORA_MINERU_SCANNED_PDF_FALLBACK=true`, PDF/PPT/PPTX uploads use that
+adapter: searchable PDFs stay on WeKnora's builtin parser, while scanned/mixed
+PDFs and presentations use MinerU. Other uploads omit parser overrides and
+preserve the knowledge base defaults.
 When `WEKNORA_MINERU_AUTO_CONFIGURE` is enabled, the SSO bridge also merges that
 adapter endpoint into the parser settings of spaces the current user owns or
 administers; it never stores the upstream enterprise API URL or Key in WeKnora.
@@ -353,6 +357,7 @@ CORS is same-origin by default when requests enter through nginx on port 2026. S
 | **Models** (`/api/models`) | `GET /` - list models; `GET /{name}` - model details |
 | **Features** (`/api/features`) | `GET /` - report config-gated feature availability (currently `agents_api.enabled`) for frontend UI gating |
 | **Console** (`/api/console`) | Read-only cross-thread observability for the current user (the data layer for an operations dashboard or external monitoring): `GET /stats` - headline counters (runs/threads/agents/tokens/cost); `GET /runs` - paginated run history joined with thread titles (per-run cost); `GET /usage` - zero-filled daily token series + per-model breakdown with spend. Queries `runs`/`threads_meta` directly as a reporting layer (no new `RunStore` methods); requires a SQL database backend — returns 503 on `database.backend: memory`. Real-cost estimation reads optional `models[*].pricing` (`currency`, `input_per_million`, `output_per_million`, `input_cache_hit_per_million`; `ModelConfig` is `extra="allow"`, so no schema change) and prices each run from its `token_usage_by_model` input/output split. Pricing is **cache-aware**: `RunJournal` accumulates prompt-cache hits from `usage_metadata.input_token_details.cache_read` into a sparse `cache_read_tokens` bucket key (also threaded through `SubagentTokenCollector` → `record_external_llm_usage_records`), and cache-hit input tokens are billed at `input_cache_hit_per_million` (omitted → billed at the miss price, a conservative upper bound). Legacy rows fall back to run-level totals at `model_name`; unpriced models yield `cost: null` and cost fields are null when no pricing is configured |
+| **Admin Dashboard** (`/api/admin/dashboard`) | Admin-only business reporting from SQL-backed users, threads, runs, feedback, audit clicks, and structured run events. Success/error rates and duration metrics use terminal runs only; active runs remain visible in run totals. Daily buckets use `Asia/Shanghai`. The headline conversation total is an all-time count from the append-only `thread_creations` ledger and is independent of the selected reporting window; daily conversation activity remains windowed, and deleting `threads_meta` cannot rewrite either historical creation record. Knowledge, file, sandbox, PPT, image, and artifact usage is classified from actual structured tool calls (legacy tool rows remain supported), never from `run.end` prompt/history payloads or assistant prose. Artifact instances deduplicate by `(thread_id, path)`, and aggregate queries must not use silent row limits. |
 | **MCP** (`/api/mcp`) | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json) |
 | **Skills** (`/api/skills`) | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`) |
 | **Memory** (`/api/memory`) | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |

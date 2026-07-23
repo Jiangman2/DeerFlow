@@ -16,7 +16,7 @@ def test_upgrade_removes_site_navigation_left_by_0006(tmp_path) -> None:
     engine = create_engine(f"sqlite:///{database_path}")
     assert "site_navigation" in inspect(engine).get_table_names()
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0008_drop_site_navigation")
 
     assert "site_navigation" not in inspect(engine).get_table_names()
     with engine.connect() as connection:
@@ -30,7 +30,7 @@ def test_upgrade_is_safe_when_retired_table_was_already_removed(tmp_path) -> Non
     config = _get_alembic_config(async_engine)
     command.stamp(config, "0007_restore_announcements")
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0008_drop_site_navigation")
 
     engine = create_engine(f"sqlite:///{database_path}")
     assert "site_navigation" not in inspect(engine).get_table_names()

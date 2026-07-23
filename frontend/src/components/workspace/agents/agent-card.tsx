@@ -43,12 +43,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  recordExternalAgentClick,
   useDeleteAgent,
   usePublishAgent,
   useUnpublishTeamAgent,
 } from "@/core/agents";
 import type { Agent } from "@/core/agents";
-import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
@@ -221,12 +221,7 @@ export function AgentCard({
 
   function recordExternalClick() {
     if (!externalUrl) return;
-    void fetch(`${getBackendBaseURL()}/api/agent-analytics/external-click`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agent_name: agent.name }),
-      keepalive: true,
-    }).catch(() => undefined);
+    void recordExternalAgentClick(agent.name).catch(() => undefined);
   }
 
   function handleChat() {

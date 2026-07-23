@@ -38,8 +38,15 @@ _ALLOWED_SSO_ORIGINS = {
 }
 
 
+def _truthy_env(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _presentation_parser_rules() -> list[dict[str, Any]]:
-    """Return a fresh parser rule list for editable presentation files."""
+    """Return parser rules for presentations and optional scanned-PDF routing."""
     engine = os.getenv("WEKNORA_PRESENTATION_PARSER_ENGINE", "markitdown").strip().lower()
     if engine not in _SUPPORTED_PRESENTATION_PARSERS:
         logger.warning(
@@ -47,13 +54,16 @@ def _presentation_parser_rules() -> list[dict[str, Any]]:
             engine,
         )
         engine = "markitdown"
-    return [{"file_types": list(_PRESENTATION_FILE_TYPES), "engine": engine}]
+    file_types = list(_PRESENTATION_FILE_TYPES)
+    if engine == "mineru" and _truthy_env("WEKNORA_MINERU_SCANNED_PDF_FALLBACK"):
+        file_types.insert(0, "pdf")
+    return [{"file_types": file_types, "engine": engine}]
 
 
 def _upload_process_config(filename: str | None) -> dict[str, Any] | None:
     extension = os.path.splitext(filename or "")[1].lower().lstrip(".")
-    if extension in _PRESENTATION_FILE_TYPES:
-        rules = _presentation_parser_rules()
+    rules = _presentation_parser_rules()
+    if extension in rules[0]["file_types"]:
         config: dict[str, Any] = {"parser_engine_rules": rules}
         mineru_endpoint = os.getenv("WEKNORA_MINERU_ENDPOINT", "").strip()
         if rules[0]["engine"] == "mineru" and mineru_endpoint:

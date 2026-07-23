@@ -27,7 +27,7 @@ from deerflow.persistence.observability.model import AuditLogRow, OperationDispo
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
 from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
-from deerflow.persistence.thread_meta.model import ThreadMetaRow
+from deerflow.persistence.thread_meta.model import ThreadCreationRow, ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
 
 __all__ = [
@@ -43,6 +43,7 @@ __all__ = [
     "RunRow",
     "ScheduledTaskRow",
     "ScheduledTaskRunRow",
+    "ThreadCreationRow",
     "ThreadMetaRow",
     "UserRow",
 ]

@@ -26,7 +26,11 @@ rs.mock("@/core/config", () => ({
   getBackendBaseURL: () => "",
 }));
 
-import { AgentsApiDisabledError, checkAgentName } from "@/core/agents/api";
+import {
+  AgentsApiDisabledError,
+  checkAgentName,
+  recordExternalAgentClick,
+} from "@/core/agents/api";
 import { fetch as fetcher } from "@/core/api/fetcher";
 
 const mockedFetch = rs.mocked(fetcher);
@@ -145,5 +149,35 @@ describe("checkAgentName", () => {
     await expect(checkAgentName("deal.agent")).rejects.not.toBeInstanceOf(
       AgentsApiDisabledError,
     );
+  });
+});
+
+describe("recordExternalAgentClick", () => {
+  test("uses the authenticated fetch wrapper for CSRF-protected click reporting", async () => {
+    mockedFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await expect(
+      recordExternalAgentClick("专业文档解析专家"),
+    ).resolves.toBeUndefined();
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/agent-analytics/external-click",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent_name: "专业文档解析专家" }),
+        keepalive: true,
+      },
+    );
+  });
+
+  test("surfaces a failed click report so the card can swallow only telemetry errors", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      jsonResponse(403, { detail: "CSRF validation failed" }),
+    );
+
+    await expect(
+      recordExternalAgentClick("专业文档解析专家"),
+    ).rejects.toThrow("Failed to record external agent click: 403");
   });
 });

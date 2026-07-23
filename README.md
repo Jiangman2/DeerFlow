@@ -275,9 +275,17 @@ CLI calls from being mistaken for successful progress.
 The administrator business dashboard is the consolidated operations view. It
 shows database-backed user rankings, model/agent activity, external-agent launch
 clicks, tokens, failures, slow or high-token runs, and feedback. Slow and
-high-token entries link back to their original chats. The former standalone
+high-token entries link back to their original chats. Slow runs, high-token
+runs, and recent failures use five-row paginated, scrollable lists. The former standalone
 observability page redirects to the dashboard; incomplete health heuristics are
-not presented as live monitoring.
+not presented as live monitoring. Headline data refreshes every 15 seconds.
+Success rates and durations use completed runs only, daily buckets use
+Asia/Shanghai calendar dates, and feature/artifact counters are derived from
+structured tool events rather than assistant prose or serialized prompts.
+The headline conversation total is the all-time count from an append-only
+creation ledger, so deleting a conversation or changing the dashboard time
+window does not reduce it. Daily conversation activity still follows the
+selected time range.
 
 Docker builds use the upstream `uv` registry by default. If you need faster mirrors in restricted networks, export `UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple` and `NPM_REGISTRY=https://registry.npmmirror.com` before running `make docker-init` or `make docker-start`.
 
@@ -939,15 +947,21 @@ port.
 The enterprise WeKnora App mounts the deployment-specific combined CA bundle
 from the `deer-flow-enterprise-ca` Secret so HTTPS embedding and chat requests
 continue to verify correctly behind an enterprise TLS proxy.
-Enterprise PPT/PPTX uploads use a private compatibility adapter that converts
-presentations to PDF and invokes the approved internal MinerU API. Its endpoint
-and Bearer key are supplied only through the runtime `deer-flow-mineru` Secret;
-they are never stored in source or images. Other document formats continue to
-use WeKnora's native parser selection. See `k8s/enterprise/README.md` for the
-image build, Secret creation, and real-server validation procedure.
+Enterprise PDF/PPT/PPTX uploads pass through a private compatibility adapter.
+PPT/PPTX files are converted to PDF and sent to the approved internal MinerU
+API. PDF pages are first inspected locally: fully searchable PDFs stay on
+WeKnora's builtin parser, while scanned or mixed PDFs are sent to MinerU for
+OCR. The MinerU endpoint and Bearer key are supplied only through the runtime
+`deer-flow-mineru` Secret; they are never stored in source or images. Other
+document formats continue to use WeKnora's native parser selection. See
+`k8s/enterprise/README.md` for the image build, Secret creation, thresholds,
+and real-server validation procedure.
 The SSO bridge automatically registers the adapter as the WeKnora MinerU
 default in spaces owned or administered by the signed-in user, while preserving
 their other parser settings.
+The enterprise Gateway bypasses the outbound proxy for the internal
+`model.ai.cnooc` model endpoint while continuing to use the proxy for external
+providers.
 
 The five fixed enterprise agent-square links stay on the DeerFlow origin under
 `/agent-tools/*`. For users who entered through CNOOC data-lake SSO, Nginx reads

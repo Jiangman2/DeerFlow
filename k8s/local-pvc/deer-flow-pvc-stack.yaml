@@ -205,7 +205,7 @@ spec:
               readOnly: true
       containers:
         - name: gateway
-          image: deer-flow-gateway:dev-20260723-upload-shared-v2
+          image: deer-flow-gateway:dev-20260723-dashboard-fixes-v3
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
@@ -371,7 +371,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: deer-flow-frontend:dev-20260723-enterprise-icon-users-v2
+          image: deer-flow-frontend:dev-20260723-dashboard-fixes-v2
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

@@ -94,12 +94,13 @@ def test_enterprise_runtime_images_are_immutable():
     assert custom
     assert all(image.get("digest", "").startswith("sha256:") for image in third_party)
     expected_tags = {
-        "deer-flow-gateway": "20260722-enterprise-arm64-rc2",
-        "deer-flow-frontend": "20260722-enterprise-arm64-rc1",
-        "deer-flow-provisioner": "20260722-enterprise-arm64-rc2",
-        "deer-flow-skills": "20260722-enterprise-arm64-rc1",
-        "deer-flow-mineru-adapter": "20260723-enterprise-arm64-rc1",
+        "deer-flow-gateway": "20260723-enterprise-arm64-rc4",
+        "deer-flow-frontend": "20260723-enterprise-arm64-rc4",
+        "deer-flow-provisioner": "20260723-enterprise-arm64-rc3",
+        "deer-flow-skills": "20260723-enterprise-arm64-rc3",
+        "deer-flow-mineru-adapter": "20260723-enterprise-arm64-rc4",
         "paradedb/paradedb": "pg16-search-arm64-20260722-1",
+        "wechatopenai/weknora-app": "0.7.0-enterprise-proxy1-arm64-20260723",
     }
     assert {image["name"]: image.get("newTag") for image in custom} == expected_tags
     assert "latest" not in _read("k8s/enterprise/kustomization.yaml")
@@ -141,18 +142,24 @@ def test_enterprise_weknora_app_trusts_enterprise_ca_bundle():
     pod_spec = app_patch["spec"]["template"]["spec"]
     container = next(container for container in pod_spec["containers"] if container["name"] == "app")
     env = {entry["name"]: entry["value"] for entry in container["env"]}
-    mounts = {mount["name"]: mount for mount in container["volumeMounts"]}
+    mounts = container["volumeMounts"]
     volumes = {volume["name"]: volume for volume in pod_spec["volumes"]}
 
-    ca_path = "/etc/deerflow-ca/ca-bundle.crt"
+    ca_path = "/etc/ssl/certs/ca-certificates.crt"
     assert env["SSL_CERT_FILE"] == ca_path
     assert env["REQUESTS_CA_BUNDLE"] == ca_path
     assert env["CURL_CA_BUNDLE"] == ca_path
-    assert mounts["enterprise-ca"] == {
+    assert {
         "name": "enterprise-ca",
         "mountPath": "/etc/deerflow-ca",
         "readOnly": True,
-    }
+    } in mounts
+    assert {
+        "name": "enterprise-ca",
+        "mountPath": ca_path,
+        "subPath": "ca-bundle.crt",
+        "readOnly": True,
+    } in mounts
     assert volumes["enterprise-ca"] == {
         "name": "enterprise-ca",
         "secret": {
@@ -179,17 +186,49 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
     assert container["volumeMounts"] == [{"name": "enterprise-ca", "mountPath": "/etc/deerflow-ca", "readOnly": True}]
 
 
-def test_enterprise_routes_presentation_parsing_through_mineru_adapter():
+def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru_adapter():
     patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
     gateway = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
     gateway_env = {item["name"]: item["value"] for item in gateway["spec"]["template"]["spec"]["containers"][0]["env"]}
     assert gateway_env["WEKNORA_PRESENTATION_PARSER_ENGINE"] == "mineru"
     assert gateway_env["WEKNORA_MINERU_ENDPOINT"] == "http://deer-flow-mineru-adapter:50052"
     assert gateway_env["WEKNORA_MINERU_AUTO_CONFIGURE"] == "true"
+    assert gateway_env["WEKNORA_MINERU_SCANNED_PDF_FALLBACK"] == "true"
+    assert "model.ai.cnooc" in gateway_env["NO_PROXY"].split(",")
+    assert "model.ai.cnooc" in gateway_env["no_proxy"].split(",")
 
     weknora = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "weknora-app")
-    weknora_env = {item["name"]: item["value"] for item in weknora["spec"]["template"]["spec"]["containers"][0]["env"]}
+    weknora_container = weknora["spec"]["template"]["spec"]["containers"][0]
+    weknora_env = {item["name"]: item["value"] for item in weknora_container["env"]}
     assert weknora_env["SSRF_WHITELIST_EXTRA"] == "deer-flow-mineru-adapter"
+    assert "deer-flow-mineru-adapter" in weknora_env["NO_PROXY"].split(",")
+    assert "deer-flow-mineru-adapter" in weknora_env["no_proxy"].split(",")
+    assert weknora_env["SSL_CERT_FILE"] == "/etc/ssl/certs/ca-certificates.crt"
+    assert {
+        "name": "enterprise-ca",
+        "mountPath": "/etc/ssl/certs/ca-certificates.crt",
+        "subPath": "ca-bundle.crt",
+        "readOnly": True,
+    } in weknora_container["volumeMounts"]
+
+    adapter_documents = _yaml_documents("k8s/enterprise/mineru-adapter.yaml")
+    adapter = next(document for document in adapter_documents if document.get("kind") == "Deployment")
+    adapter_env = {item["name"]: item["value"] for item in adapter["spec"]["template"]["spec"]["containers"][0]["env"]}
+    assert adapter_env["PDF_SCAN_IMAGE_RATIO"] == "0.5"
+    assert adapter_env["PDF_SCAN_MIN_CHARS_PER_PAGE"] == "10"
+    assert adapter_env["PDF_SCAN_LOW_TEXT_IMAGE_RATIO"] == "0.1"
+
+
+def test_enterprise_weknora_native_kb_defaults_to_mineru_without_overriding_explicit_rules():
+    sql = _read("k8s/enterprise/weknora-mineru-defaults.sql")
+
+    assert "CREATE OR REPLACE FUNCTION public.deerflow_ensure_mineru_parser_rule()" in sql
+    assert "CREATE TRIGGER deerflow_mineru_parser_defaults" in sql
+    assert "BEFORE INSERT OR UPDATE OF chunking_config" in sql
+    assert "jsonb_build_array('pdf', 'ppt', 'pptx')" in sql
+    assert "'engine', 'mineru'" in sql
+    assert "missing_file_types" in sql
+    assert "UPDATE public.knowledge_bases" in sql
 
 
 def test_weknora_sso_bootstrap_uses_same_origin_session_endpoint():

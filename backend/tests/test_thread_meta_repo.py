@@ -3,8 +3,10 @@
 import logging
 
 import pytest
+from sqlalchemy import select
 
 from deerflow.persistence.thread_meta import InvalidMetadataFilterError, ThreadMetaRepository
+from deerflow.persistence.thread_meta.model import ThreadCreationRow
 
 
 @pytest.fixture
@@ -115,6 +117,20 @@ class TestThreadMetaRepository:
         assert await repo.get("t1") is None
 
     @pytest.mark.anyio
+    async def test_creation_ledger_survives_thread_deletion(self, repo):
+        await repo.create("t1", user_id="user1", assistant_id="agent1")
+        await repo.delete("t1", user_id="user1")
+
+        async with repo._sf() as session:
+            creation = await session.scalar(
+                select(ThreadCreationRow).where(ThreadCreationRow.thread_id == "t1"),
+            )
+
+        assert creation is not None
+        assert creation.user_id == "user1"
+        assert creation.assistant_id == "agent1"
+
+    @pytest.mark.anyio
     async def test_delete_nonexistent_is_noop(self, repo):
         await repo.delete("nonexistent")  # should not raise
 
@@ -149,6 +165,10 @@ class TestThreadMetaRepository:
         assert owner_row["user_id"] == "owner-1"
         assert owner_row["metadata"] == {"source": "channel"}
         assert default_row is None
+        async with repo._sf() as session:
+            creation = await session.get(ThreadCreationRow, "t1")
+        assert creation is not None
+        assert creation.user_id == "owner-1"
 
     # --- search with metadata filter (SQL push-down) ---
 
