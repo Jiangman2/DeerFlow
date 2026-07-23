@@ -173,10 +173,13 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         """Whether thread workspace/uploads/outputs are visible via mounts.
 
         Local container backends bind-mount the thread data directories, so files
-        written by the gateway are already visible when the sandbox starts.
-        Remote backends may require explicit file sync.
+        written by the gateway are already visible when the sandbox starts. A
+        provisioner backend can declare the same contract when Gateway and sandbox
+        Pods mount one shared PVC; otherwise remote backends require explicit sync.
         """
-        return isinstance(self._backend, LocalContainerBackend)
+        return isinstance(self._backend, LocalContainerBackend) or bool(
+            self._config.get("shared_thread_data_mounts", False)
+        )
 
     # ── Factory methods ──────────────────────────────────────────────────
 
@@ -202,6 +205,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             container_prefix=self._config["container_prefix"],
             config_mounts=self._config["mounts"],
             environment=self._config["environment"],
+            api_key=self._config["sandbox_api_key"],
         )
 
     def _new_sandbox(self, sandbox_id: str, sandbox_url: str) -> AioSandbox:
@@ -216,6 +220,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             id=sandbox_id,
             base_url=sandbox_url,
             default_env=default_env,
+            api_key=self._config.get("sandbox_api_key") or None,
         )
 
     # ── Configuration ────────────────────────────────────────────────────
@@ -236,11 +241,15 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             "idle_timeout": idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
             "replicas": replicas if replicas is not None else DEFAULT_REPLICAS,
             "startup_timeout": startup_timeout if startup_timeout is not None else DEFAULT_STARTUP_TIMEOUT,
+            "shared_thread_data_mounts": bool(
+                getattr(sandbox_config, "shared_thread_data_mounts", False)
+            ),
             "mounts": sandbox_config.mounts or [],
             "environment": self._resolve_env_vars(sandbox_config.environment or {}),
             # provisioner URL for dynamic pod management (e.g. http://provisioner:8002)
             "provisioner_url": getattr(sandbox_config, "provisioner_url", None) or "",
             "provisioner_api_key": getattr(sandbox_config, "provisioner_api_key", None) or "",
+            "sandbox_api_key": getattr(sandbox_config, "sandbox_api_key", None) or "",
         }
 
     @staticmethod
@@ -916,7 +925,10 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
 
         # Wait for sandbox to be ready
         startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
-        if not wait_for_sandbox_ready(info.sandbox_url, timeout=startup_timeout):
+        readiness_kwargs = {"timeout": startup_timeout}
+        if self._config.get("sandbox_api_key"):
+            readiness_kwargs["api_key"] = self._config["sandbox_api_key"]
+        if not wait_for_sandbox_ready(info.sandbox_url, **readiness_kwargs):
             self._backend.destroy(info)
             raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
 
@@ -938,7 +950,10 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
 
         # Wait for sandbox to be ready without blocking the event loop.
         startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
-        if not await wait_for_sandbox_ready_async(info.sandbox_url, timeout=startup_timeout):
+        readiness_kwargs = {"timeout": startup_timeout}
+        if self._config.get("sandbox_api_key"):
+            readiness_kwargs["api_key"] = self._config["sandbox_api_key"]
+        if not await wait_for_sandbox_ready_async(info.sandbox_url, **readiness_kwargs):
             await asyncio.to_thread(self._backend.destroy, info)
             raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
 

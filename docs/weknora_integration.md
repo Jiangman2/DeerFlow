@@ -104,6 +104,16 @@ register/login round trip for every list or upload request. Knowledge-base list
 rows also keep WeKnora's aggregate document/chunk/processing counts when those
 fields are already present instead of issuing per-document count requests.
 
+The knowledge-base list refreshes the native `/auth/me` membership payload before
+enumerating resources, then queries every tenant with `X-Tenant-ID`. This keeps
+newly created and newly joined spaces visible even while the login token itself is
+cached. `creator_id` determines whether a row is owned; non-owned accessible rows
+are joined resources; organization shares and resources with active shares are
+also included in the team/public dimension. Those dimensions may overlap (for
+example, a user-owned knowledge base shared to a team). Document list, upload, and
+manual-document requests forward the access tenant separately from the resource's
+owner tenant so read-only and cross-space permissions remain native to WeKnora.
+
 The chat composer includes a "knowledge base" scope selector. Selected knowledge
 base IDs are sent with the LangGraph run context as
 `weknora_knowledge_base_ids`, plus display names as `weknora_knowledge_bases`.

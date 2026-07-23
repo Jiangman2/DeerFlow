@@ -67,6 +67,16 @@ class SandboxConfig(BaseModel):
         gt=0,
         description="Cold-start readiness timeout in seconds for AIO sandbox containers and Pods (default: 180).",
     )
+    shared_thread_data_mounts: bool = Field(
+        default=False,
+        description=(
+            "Declare that the Gateway and provisioner-created sandboxes mount the "
+            "same persistent thread-data storage. This lets uploads become visible "
+            "without cold-starting a sandbox and copying the file through its API. "
+            "Enable only when workspace/uploads/outputs share the same PVC or "
+            "filesystem; multi-node Kubernetes requires an RWX-capable volume."
+        ),
+    )
     replicas: int | None = Field(
         default=None,
         description="Maximum active + warm sandboxes/VMs per gateway process (default: 3). Warm/least-recently-used entries are evicted to make room; active sandboxes are not forcibly stopped.",
@@ -142,6 +152,14 @@ class SandboxConfig(BaseModel):
             "Must match PROVISIONER_API_KEY on the provisioner container. "
             "Both sides must be set to the same value; "
             "the provisioner rejects all /api/* requests when the key is unset or mismatched."
+        ),
+    )
+    sandbox_api_key: str | None = Field(
+        default=None,
+        description=(
+            "API key used to authenticate requests to the AIO sandbox API. "
+            "The AIO runtime must receive the same value as SANDBOX_API_KEY; "
+            "DeerFlow sends it as an Authorization: Bearer header."
         ),
     )
 

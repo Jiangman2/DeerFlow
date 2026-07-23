@@ -15,7 +15,7 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 26
+config_version: 27
 
 # ============================================================================
 # Logging
@@ -1185,10 +1185,20 @@ sandbox:
 #   # Optional: Environment variables to inject into the sandbox container
 #   # Values starting with $ will be resolved from host environment variables
 #   # environment:
-#   #   NODE_ENV: production
-#   #   DEBUG: "false"
-#   #   API_KEY: $MY_API_KEY        # Reads from host's MY_API_KEY env var
-#   #   DATABASE_URL: $DATABASE_URL  # Reads from host's DATABASE_URL env var
+#   #   DASHSCOPE_API_KEY: $DASHSCOPE_API_KEY
+#   #   DASHSCOPE_BASE_URL: https://dashscope.aliyuncs.com/api/v1
+#   #   IMAGE_GENERATION_PROVIDER: dashscope
+#   #   DASHSCOPE_IMAGE_MODEL: qwen-image-2.0-pro
+#   #   VIDEO_GENERATION_PROVIDER: dashscope
+#   #   DASHSCOPE_VIDEO_MODEL: wan2.7-t2v
+#   #   DASHSCOPE_VIDEO_DURATION: "5"
+#   #   DASHSCOPE_VIDEO_RESOLUTION: 720P
+#   #   PODCAST_GENERATION_PROVIDER: dashscope
+#   #   DASHSCOPE_TTS_MODEL: qwen3-tts-flash
+#   #   DASHSCOPE_TTS_VOICE_MALE: Ethan
+#   #   DASHSCOPE_TTS_VOICE_FEMALE: Cherry
+#   #   MUSIC_GENERATION_PROVIDER: dashscope
+#   #   DASHSCOPE_MUSIC_MODEL: fun-music-v1
 
 # Option 3: BoxLite micro-VM Sandbox
 # Runs each sandbox as a BoxLite micro-VM. Released boxes stay in an in-process
@@ -1230,8 +1240,16 @@ sandbox:
 #   # the provisioner rejects all /api/* requests when PROVISIONER_API_KEY is unset.
 #   # Generate a strong key: openssl rand -hex 32
 #   # provisioner_api_key: $PROVISIONER_API_KEY
+#   # API key for the AIO Sandbox itself. The same SANDBOX_API_KEY must be
+#   # injected into every Sandbox Pod. DeerFlow sends it as a Bearer token.
+#   # Generate a separate strong key: openssl rand -hex 32
+#   # sandbox_api_key: $SANDBOX_API_KEY
 #   # Allow enough time for AIO Pods to initialize under node contention.
 #   # startup_timeout: 180
+#   # Set true only when Gateway and provisioner-created Pods mount the same
+#   # thread-data PVC/filesystem. Uploads then avoid sandbox cold-start + API copy.
+#   # Multi-node Kubernetes requires RWX-capable shared storage.
+#   # shared_thread_data_mounts: true
 #   # Note: provisioner-created Pods use the provisioner's SANDBOX_IMAGE
 #   # environment variable, not sandbox.image from this config file.
 

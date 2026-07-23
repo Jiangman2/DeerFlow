@@ -118,12 +118,7 @@ def weknora_endpoint(path: str) -> str:
 
 
 def _sso_secret() -> str:
-    value = (
-        os.getenv("WEKNORA_SSO_SECRET")
-        or os.getenv("AUTH_JWT_SECRET")
-        or os.getenv("WEKNORA_API_KEY")
-        or os.getenv("INTERNAL_API_TOKEN")
-    )
+    value = os.getenv("WEKNORA_SSO_SECRET") or os.getenv("AUTH_JWT_SECRET") or os.getenv("WEKNORA_API_KEY") or os.getenv("INTERNAL_API_TOKEN")
     if value and value.strip():
         return value.strip()
     raise HTTPException(status_code=503, detail="WeKnora SSO secret is not configured.")
@@ -388,6 +383,65 @@ async def ensure_weknora_default_models() -> None:
             await connection.close()
 
 
+async def ensure_weknora_default_mineru(session: WeKnoraSession) -> None:
+    """Persist the deployment-managed MinerU adapter endpoint for owned spaces.
+
+    The endpoint stored in WeKnora is the in-cluster compatibility adapter, not
+    the enterprise API or its Bearer token. Existing parser settings are read
+    first and preserved when the endpoint is added or refreshed.
+    """
+
+    endpoint = os.getenv("WEKNORA_MINERU_ENDPOINT", "").strip().rstrip("/")
+    if not endpoint or not _truthy_env("WEKNORA_MINERU_AUTO_CONFIGURE", True):
+        return
+
+    managed_roles = {"owner", "admin"}
+    tenant_ids = {str(item.get("tenant_id")) for item in session.memberships if isinstance(item, dict) and item.get("tenant_id") is not None and str(item.get("role") or "").strip().lower() in managed_roles}
+    active_tenant_id = session.tenant.get("id") if isinstance(session.tenant, dict) else None
+    if active_tenant_id is not None and not session.memberships:
+        tenant_ids.add(str(active_tenant_id))
+    if not tenant_ids:
+        return
+
+    url = weknora_endpoint("/tenants/kv/parser-engine-config")
+    async with httpx.AsyncClient(timeout=weknora_timeout()) as client:
+        for tenant_id in sorted(tenant_ids):
+            headers = {
+                "Authorization": f"Bearer {session.token}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "X-Tenant-ID": tenant_id,
+            }
+            try:
+                response = await client.get(url, headers=headers)
+                if response.status_code >= 400:
+                    logger.warning(
+                        "Unable to read WeKnora parser defaults for tenant %s: HTTP %s",
+                        tenant_id,
+                        response.status_code,
+                    )
+                    continue
+                payload = response.json()
+                current = payload.get("data") if isinstance(payload, dict) else None
+                config = dict(current) if isinstance(current, dict) else {}
+                if str(config.get("mineru_endpoint") or "").rstrip("/") == endpoint:
+                    continue
+                config["mineru_endpoint"] = endpoint
+                update = await client.put(url, headers=headers, json=config)
+                if update.status_code >= 400:
+                    logger.warning(
+                        "Unable to set WeKnora MinerU default for tenant %s: HTTP %s",
+                        tenant_id,
+                        update.status_code,
+                    )
+            except (httpx.HTTPError, ValueError):
+                logger.warning(
+                    "Failed to configure the WeKnora MinerU default for tenant %s.",
+                    tenant_id,
+                    exc_info=True,
+                )
+
+
 async def _create_weknora_session(user: Any) -> WeKnoraSession:
     """Create/reuse the matching WeKnora account and return a user JWT."""
 
@@ -427,10 +481,7 @@ async def _create_weknora_session(user: Any) -> WeKnoraSession:
     if response.status_code == 401:
         raise HTTPException(
             status_code=409,
-            detail=(
-                "A WeKnora account with this DeerFlow email already exists but was not provisioned by DeerFlow. "
-                "Use a different DeerFlow email or reset/link the WeKnora account."
-            ),
+            detail=("A WeKnora account with this DeerFlow email already exists but was not provisioned by DeerFlow. Use a different DeerFlow email or reset/link the WeKnora account."),
         )
     if response.status_code >= 400:
         detail = data.get("message") if isinstance(data, dict) else None
@@ -440,6 +491,7 @@ async def _create_weknora_session(user: Any) -> WeKnoraSession:
     session = _normalise_login_response(data)
     session = await sync_weknora_role(user, session)
     await ensure_weknora_default_models()
+    await ensure_weknora_default_mineru(session)
     return session
 
 

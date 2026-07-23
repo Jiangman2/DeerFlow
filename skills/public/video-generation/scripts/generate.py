@@ -1,10 +1,12 @@
 import base64
 import os
+import sys
 import time
 
 import requests
 
 MINIMAX_DEFAULT_HOST = "https://api.minimaxi.com"
+DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
 
 
 def _resolve_provider(override_env: str, existing_provider: str, has_existing_creds: bool) -> str:
@@ -24,6 +26,10 @@ def _resolve_provider(override_env: str, existing_provider: str, has_existing_cr
 
 def _minimax_host() -> str:
     return os.getenv("MINIMAX_API_HOST", MINIMAX_DEFAULT_HOST).rstrip("/")
+
+
+def _dashscope_base_url() -> str:
+    return os.getenv("DASHSCOPE_BASE_URL", DASHSCOPE_DEFAULT_BASE_URL).rstrip("/")
 
 
 def _ensure_output_dir(output_file: str) -> None:
@@ -102,6 +108,91 @@ def _download(url: str, output_file: str) -> None:
     _ensure_output_dir(output_file)
     with open(output_file, "wb") as f:
         f.write(response.content)
+
+
+def _poll_dashscope_video_task(
+    task_id: str, *, max_attempts: int = 180, interval: int = 5
+) -> str:
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    for _ in range(max_attempts):
+        response = requests.get(
+            f"{_dashscope_base_url()}/tasks/{task_id}",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        output = payload.get("output") or {}
+        status = output.get("task_status")
+        if status == "SUCCEEDED":
+            video_url = output.get("video_url")
+            if not video_url:
+                raise Exception(
+                    f"DashScope video task {task_id} succeeded without a video URL"
+                )
+            return video_url
+        if status in {"FAILED", "CANCELED", "UNKNOWN"}:
+            raise Exception(
+                f"DashScope video task {task_id} failed: "
+                f"{output.get('code') or payload.get('code')} "
+                f"{output.get('message') or payload.get('message')}"
+            )
+        time.sleep(interval)
+    raise Exception(
+        f"DashScope video task {task_id} timed out after {max_attempts} polls"
+    )
+
+
+def _generate_video_dashscope(
+    prompt: str,
+    reference_images: list[str],
+    output_file: str,
+    aspect_ratio: str,
+) -> str:
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        return "DASHSCOPE_API_KEY is not set"
+    if reference_images:
+        raise ValueError(
+            "DashScope wan2.7-t2v is text-to-video and does not accept reference "
+            "images; omit --reference-images or configure an image-to-video model."
+        )
+    try:
+        duration = int(os.getenv("DASHSCOPE_VIDEO_DURATION", "5"))
+    except ValueError:
+        duration = 5
+    duration = max(2, min(15, duration))
+    ratio = aspect_ratio if aspect_ratio in {"16:9", "9:16", "1:1", "4:3", "3:4"} else "16:9"
+    response = requests.post(
+        f"{_dashscope_base_url()}/services/aigc/video-generation/video-synthesis",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "X-DashScope-Async": "enable",
+        },
+        json={
+            "model": os.getenv("DASHSCOPE_VIDEO_MODEL", "wan2.7-t2v"),
+            "input": {"prompt": prompt},
+            "parameters": {
+                "resolution": os.getenv("DASHSCOPE_VIDEO_RESOLUTION", "720P"),
+                "ratio": ratio,
+                "duration": duration,
+                "prompt_extend": True,
+                "watermark": False,
+            },
+        },
+        timeout=60,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    task_id = (payload.get("output") or {}).get("task_id")
+    if not task_id:
+        raise Exception(
+            f"DashScope returned no task ID (request_id={payload.get('request_id')})"
+        )
+    video_url = _poll_dashscope_video_task(task_id)
+    _download(video_url, output_file)
+    return f"The video has been generated successfully to {output_file}"
 
 
 def _generate_video_minimax(
@@ -192,21 +283,37 @@ def generate_video(
 ) -> str:
     with open(prompt_file, "r", encoding="utf-8") as f:
         prompt = f.read()
-    provider = _resolve_provider(
-        "VIDEO_GENERATION_PROVIDER", "gemini", bool(os.getenv("GEMINI_API_KEY"))
-    )
+    provider = os.getenv("VIDEO_GENERATION_PROVIDER", "").strip().lower()
+    if not provider:
+        if os.getenv("DASHSCOPE_API_KEY"):
+            provider = "dashscope"
+        else:
+            provider = _resolve_provider(
+                "VIDEO_GENERATION_PROVIDER",
+                "gemini",
+                bool(os.getenv("GEMINI_API_KEY")),
+            )
+    if provider in ("dashscope", "bailian"):
+        return _generate_video_dashscope(
+            prompt, reference_images, output_file, aspect_ratio
+        )
     if provider == "minimax":
         # MiniMax video uses resolution/duration, not aspect_ratio; aspect_ratio ignored.
         return _generate_video_minimax(prompt, reference_images, output_file)
     if provider in ("gemini", "google"):
         return _generate_video_gemini(prompt, reference_images, output_file)
-    raise ValueError(f"Unknown video provider: {provider!r} (use 'gemini' or 'minimax')")
+    raise ValueError(
+        f"Unknown video provider: {provider!r} "
+        "(use 'dashscope', 'gemini', or 'minimax')"
+    )
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Generate videos using Gemini or MiniMax API")
+    parser = argparse.ArgumentParser(
+        description="Generate videos using DashScope, Gemini, or MiniMax API"
+    )
     parser.add_argument("--prompt-file", required=True, help="Absolute path to JSON prompt file")
     parser.add_argument("--reference-images", nargs="*", default=[],
                         help="Absolute paths to reference images (space-separated)")
@@ -219,4 +326,5 @@ if __name__ == "__main__":
         print(generate_video(args.prompt_file, args.reference_images,
                              args.output_file, args.aspect_ratio))
     except Exception as e:
-        print(f"Error while generating video: {e}")
+        print(f"Error while generating video: {e}", file=sys.stderr)
+        raise SystemExit(1) from e

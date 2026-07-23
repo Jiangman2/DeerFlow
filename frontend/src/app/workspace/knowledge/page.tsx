@@ -24,7 +24,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/core/auth/AuthProvider";
 import {
+  isJoinedKnowledgeBase,
+  isOwnedKnowledgeBase,
+  isTeamOrPublicKnowledgeBase,
   useCreateWeKnoraKnowledgeBase,
   useCreateWeKnoraManualKnowledge,
   useUploadWeKnoraKnowledgeFile,
@@ -51,43 +55,20 @@ function formatCount(value: number | undefined): string {
   return typeof value === "number" ? String(value) : "0";
 }
 
-function isOwnedKb(kb: WeKnoraKnowledgeBase): boolean {
-  return kb.access_scope === "owned" || Boolean(kb.is_owner);
-}
-
-function isJoinedKb(kb: WeKnoraKnowledgeBase): boolean {
-  return (
-    kb.access_scope === "joined" ||
-    Boolean(kb.share_id?.trim()) ||
-    Boolean(kb.organization_id?.trim())
-  );
-}
-
-function isTeamOrPublicKb(kb: WeKnoraKnowledgeBase): boolean {
-  return Boolean(
-    kb.access_scope === "team" ||
-    kb.access_scope === "public" ||
-    kb.type === "team" ||
-    kb.type === "public",
-  );
-}
-
 function matchesKnowledgeBaseFilter(
   kb: WeKnoraKnowledgeBase,
   filter: KnowledgeBaseFilter,
 ): boolean {
   if (filter === "all") return true;
-  if (filter === "owned") return isOwnedKb(kb);
-  if (filter === "joined") return isJoinedKb(kb);
-  return isTeamOrPublicKb(kb);
+  if (filter === "owned") return isOwnedKnowledgeBase(kb);
+  if (filter === "joined") return isJoinedKnowledgeBase(kb);
+  return isTeamOrPublicKnowledgeBase(kb);
 }
 
 function kbAccessScope(kb: WeKnoraKnowledgeBase): KnowledgeBaseFilter {
-  if (isTeamOrPublicKb(kb)) return "team";
-  if (isOwnedKb(kb)) return "owned";
-  if (kb.access_scope === "joined" || kb.share_id || kb.organization_id) {
-    return "joined";
-  }
+  if (isOwnedKnowledgeBase(kb)) return "owned";
+  if (isJoinedKnowledgeBase(kb)) return "joined";
+  if (isTeamOrPublicKnowledgeBase(kb)) return "team";
   return "team";
 }
 
@@ -116,6 +97,7 @@ function statusLabel(item: WeKnoraKnowledge): {
 }
 
 export default function KnowledgePage() {
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedKbId, setSelectedKbId] = useState<string | undefined>();
   const [kbFilter, setKbFilter] = useState<KnowledgeBaseFilter>("all");
@@ -126,7 +108,7 @@ export default function KnowledgePage() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualContent, setManualContent] = useState("");
 
-  const knowledgeBasesQuery = useWeKnoraKnowledgeBases();
+  const knowledgeBasesQuery = useWeKnoraKnowledgeBases(user?.id);
   const knowledgeBases = useMemo(
     () => knowledgeBasesQuery.data?.items ?? [],
     [knowledgeBasesQuery.data?.items],
@@ -139,14 +121,19 @@ export default function KnowledgePage() {
   const filterCounts = useMemo(
     () => ({
       all: knowledgeBases.length,
-      owned: knowledgeBases.filter(isOwnedKb).length,
-      joined: knowledgeBases.filter(isJoinedKb).length,
-      team: knowledgeBases.filter(isTeamOrPublicKb).length,
+      owned: knowledgeBases.filter(isOwnedKnowledgeBase).length,
+      joined: knowledgeBases.filter(isJoinedKnowledgeBase).length,
+      team: knowledgeBases.filter(isTeamOrPublicKnowledgeBase).length,
     }),
     [knowledgeBases],
   );
   const selectedKb = knowledgeBases.find((kb) => kb.id === selectedKbId);
-  const knowledgeQuery = useWeKnoraKnowledge(selectedKb?.id);
+  const selectedTenantId =
+    selectedKb?.access_tenant_id ??
+    selectedKb?.owner_tenant_id ??
+    selectedKb?.source_tenant_id ??
+    selectedKb?.tenant_id;
+  const knowledgeQuery = useWeKnoraKnowledge(selectedKb?.id, selectedTenantId);
 
   const createKb = useCreateWeKnoraKnowledgeBase();
   const uploadFile = useUploadWeKnoraKnowledgeFile();
@@ -202,6 +189,7 @@ export default function KnowledgePage() {
     try {
       await createManual.mutateAsync({
         knowledgeBaseId: selectedKb.id,
+        tenantId: selectedTenantId,
         title: manualTitle.trim(),
         content: manualContent,
       });
@@ -221,7 +209,11 @@ export default function KnowledgePage() {
     event.target.value = "";
     if (!file || !selectedKb?.id) return;
     try {
-      await uploadFile.mutateAsync({ knowledgeBaseId: selectedKb.id, file });
+      await uploadFile.mutateAsync({
+        knowledgeBaseId: selectedKb.id,
+        tenantId: selectedTenantId,
+        file,
+      });
       toast.success("文件已上传，正在处理");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "上传失败");
@@ -288,7 +280,7 @@ export default function KnowledgePage() {
             {knowledgeBasesQuery.isError && (
               <div className="space-y-2 px-2 py-8 text-sm text-[#b42318]">
                 <div>知识库加载失败，请稍后重试。</div>
-                <div className="break-words text-xs text-[#687386]">
+                <div className="text-xs break-words text-[#687386]">
                   {knowledgeBasesQuery.error instanceof Error
                     ? knowledgeBasesQuery.error.message
                     : "服务暂时不可用"}

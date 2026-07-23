@@ -5,14 +5,21 @@ export interface WeKnoraKnowledgeBase {
   type?: string;
   access_scope?: "owned" | "joined" | "team" | "public" | string;
   is_owner?: boolean;
+  is_joined?: boolean;
+  is_team_or_public?: boolean;
   tenant_id?: string | number;
   owner_tenant_id?: string;
+  access_tenant_id?: string;
+  tenant_name?: string;
+  membership_role?: string;
+  creator_id?: string;
   share_id?: string;
   organization_id?: string;
   org_name?: string;
   permission?: string;
   source_tenant_id?: string;
   shared_at?: string;
+  share_count?: number;
   knowledge_count?: number;
   chunk_count?: number;
   processing_count?: number;
@@ -55,11 +62,13 @@ export interface CreateWeKnoraKnowledgeBaseInput {
 
 export interface CreateWeKnoraManualKnowledgeInput {
   knowledgeBaseId: string;
+  tenantId?: string | number;
   title: string;
   content: string;
 }
 
 export interface UploadWeKnoraKnowledgeFileInput {
   knowledgeBaseId: string;
+  tenantId?: string | number;
   file: File;
 }

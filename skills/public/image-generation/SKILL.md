@@ -178,13 +178,22 @@ For scenarios where visual accuracy is critical, **use the `image_search` tool f
 
 This approach significantly improves generation quality by providing the model with concrete visual guidance rather than relying solely on text descriptions.
 
-## Providers (Gemini / MiniMax)
+## Providers (DashScope / Gemini / MiniMax)
 
-This skill auto-selects the provider by environment variables (no CLI change):
+DashScope is the preferred provider when `DASHSCOPE_API_KEY` is present. It
+uses `qwen-image-2.0-pro` by default through
+`DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/api/v1`. Override the model
+with `DASHSCOPE_IMAGE_MODEL` or force the provider with
+`IMAGE_GENERATION_PROVIDER=dashscope`. The aliases `qwen` and `bailian` map to
+the same DashScope implementation. Gemini and MiniMax remain compatibility
+fallbacks when DashScope is not configured.
+
+If DashScope is unavailable, the skill auto-selects a legacy provider by
+environment variables (no CLI change):
 
 - `GEMINI_API_KEY` set → use Gemini (default, unchanged).
 - Only `MINIMAX_API_KEY` set → use MiniMax (`/v1/image_generation`, model `image-01`).
-- Force one explicitly with `IMAGE_GENERATION_PROVIDER=gemini|minimax`.
+- Force one explicitly with `IMAGE_GENERATION_PROVIDER=dashscope|gemini|minimax`.
 
 MiniMax optional overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.com`),
 `MINIMAX_IMAGE_MODEL` (default `image-01`). Reference images are sent as the MiniMax

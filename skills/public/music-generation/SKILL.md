@@ -59,7 +59,12 @@ Do NOT read the python file, just call it with the parameters.
 
 ## Environment
 
-- `MINIMAX_API_KEY` (required): your MiniMax interface key.
+- `DASHSCOPE_API_KEY` (preferred): Alibaba Cloud Model Studio API key.
+- `DASHSCOPE_BASE_URL` (optional): defaults to `https://dashscope.aliyuncs.com/api/v1`.
+- `DASHSCOPE_MUSIC_MODEL` (optional): defaults to `fun-music-v1`.
+- `MUSIC_GENERATION_PROVIDER` (optional): `dashscope` or `minimax`.
+
+- `MINIMAX_API_KEY` (fallback): your MiniMax interface key.
 - `MINIMAX_API_HOST` (optional): default `https://api.minimaxi.com`.
 - `MINIMAX_MUSIC_MODEL` (optional): default `music-2.6-free` (works for all API-key users);
   paid/Token-Plan users can set `music-2.6` for higher limits.

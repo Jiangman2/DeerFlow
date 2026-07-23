@@ -33,11 +33,11 @@
     <link rel="stylesheet" crossorigin href="/assets/main-CG2i0oYS.css">
 </head>
 <body>
-<script src="/config.js?v=deerflow-sso-127"></script>
+<script src="/config.js?v=deerflow-sso-same-origin-1"></script>
 <script type="module">
 try {
   const ssoUrl = globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL ||
-    `${location.protocol}//${location.hostname}:2026/api/weknora/sso-session`;
+    '/api/weknora/sso-session';
   const response = await fetch(ssoUrl, { credentials: 'include', cache: 'no-store' });
   if (response.ok) {
     const data = await response.json();

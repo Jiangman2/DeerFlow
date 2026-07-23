@@ -49,9 +49,17 @@ export async function createWeKnoraKnowledgeBase(
 
 export async function listWeKnoraKnowledge(
   knowledgeBaseId: string,
+  tenantId?: string | number,
 ): Promise<WeKnoraListResponse<WeKnoraKnowledge>> {
+  const params = new URLSearchParams();
+  if (tenantId !== undefined && String(tenantId).trim()) {
+    params.set("tenant_id", String(tenantId));
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   const response = await fetch(
-    apiPath(`/api/weknora/knowledge-bases/${knowledgeBaseId}/knowledge`),
+    apiPath(
+      `/api/weknora/knowledge-bases/${knowledgeBaseId}/knowledge${query}`,
+    ),
   );
   return readJson<WeKnoraListResponse<WeKnoraKnowledge>>(response);
 }
@@ -61,9 +69,14 @@ export async function uploadWeKnoraKnowledgeFile(
 ): Promise<{ data?: WeKnoraKnowledge }> {
   const formData = new FormData();
   formData.append("file", input.file);
+  const params = new URLSearchParams();
+  if (input.tenantId !== undefined && String(input.tenantId).trim()) {
+    params.set("tenant_id", String(input.tenantId));
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   const response = await fetch(
     apiPath(
-      `/api/weknora/knowledge-bases/${input.knowledgeBaseId}/knowledge/file`,
+      `/api/weknora/knowledge-bases/${input.knowledgeBaseId}/knowledge/file${query}`,
     ),
     {
       method: "POST",
@@ -76,9 +89,14 @@ export async function uploadWeKnoraKnowledgeFile(
 export async function createWeKnoraManualKnowledge(
   input: CreateWeKnoraManualKnowledgeInput,
 ): Promise<{ data?: WeKnoraKnowledge }> {
+  const params = new URLSearchParams();
+  if (input.tenantId !== undefined && String(input.tenantId).trim()) {
+    params.set("tenant_id", String(input.tenantId));
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : "";
   const response = await fetch(
     apiPath(
-      `/api/weknora/knowledge-bases/${input.knowledgeBaseId}/knowledge/manual`,
+      `/api/weknora/knowledge-bases/${input.knowledgeBaseId}/knowledge/manual${query}`,
     ),
     {
       method: "POST",

@@ -218,8 +218,10 @@ def test_sandbox_pod_uses_tunable_probes_and_resources_for_heavy_aio_workloads(m
     pod = provisioner_module._build_pod("slow-start", "thread-1")
     container = pod.spec.containers[0]
 
-    assert container.startup_probe.http_get.path == "/v1/sandbox"
-    assert container.startup_probe.http_get.port == provisioner_module.SANDBOX_CONTAINER_PORT
+    assert container.startup_probe.http_get is None
+    assert container.startup_probe._exec.command[0:2] == ["python3", "-c"]
+    assert "Authorization" in container.startup_probe._exec.command[2]
+    assert "SANDBOX_API_KEY" in container.startup_probe._exec.command[2]
     assert container.startup_probe.period_seconds * container.startup_probe.failure_threshold >= 300
     assert container.liveness_probe.timeout_seconds == 7
     assert container.liveness_probe.failure_threshold == 8
@@ -245,6 +247,18 @@ def test_sandbox_pod_references_provider_secrets_without_copying_values(monkeypa
     assert secret_entry.value_from.secret_key_ref.key == "DASHSCOPE_API_KEY"
     assert secret_entry.value_from.secret_key_ref.optional is True
     assert entries["IMAGE_BACKEND"].value == "qwen"
+
+
+def test_sandbox_api_key_secret_is_required_when_configured(monkeypatch, provisioner_module) -> None:
+    monkeypatch.setattr(provisioner_module, "SANDBOX_ENV_SECRET_NAME", "deer-flow-env")
+    monkeypatch.setattr(provisioner_module, "SANDBOX_SECRET_ENV_KEYS", ("SANDBOX_API_KEY",))
+
+    container = provisioner_module._build_pod("secured-sandbox", "thread-1").spec.containers[0]
+    entry = next(item for item in container.env if item.name == "SANDBOX_API_KEY")
+
+    assert entry.value_from.secret_key_ref.name == "deer-flow-env"
+    assert entry.value_from.secret_key_ref.key == "SANDBOX_API_KEY"
+    assert entry.value_from.secret_key_ref.optional is False
 
 
 def test_create_sandbox_retries_transient_service_read_errors(monkeypatch: pytest.MonkeyPatch, provisioner_module) -> None:

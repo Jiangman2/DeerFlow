@@ -29,6 +29,14 @@ def _write_minimal_pptx(path) -> None:
         archive.writestr("ppt/presentation.xml", "<p:presentation/>")
 
 
+def _write_minimal_skill(path) -> None:
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            "example-skill/SKILL.md",
+            "---\nname: example-skill\ndescription: Example\n---\n",
+        )
+
+
 def test_present_files_normalizes_host_outputs_path(tmp_path):
     outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
     outputs_dir.mkdir(parents=True)
@@ -202,3 +210,35 @@ def test_present_files_auto_includes_pptx_preview_pdf(tmp_path):
         "/mnt/user-data/outputs/deck.pptx",
         "/mnt/user-data/outputs/deck.preview.pdf",
     ]
+
+
+def test_present_files_accepts_valid_skill_package(tmp_path):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    skill_path = outputs_dir / "example.skill"
+    _write_minimal_skill(skill_path)
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime(str(outputs_dir)),
+        filepaths=[str(skill_path)],
+        tool_call_id="tc-skill",
+    )
+
+    assert result.update["artifacts"] == ["/mnt/user-data/outputs/example.skill"]
+
+
+def test_present_files_rejects_invalid_skill_package(tmp_path):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    skill_path = outputs_dir / "broken.skill"
+    with zipfile.ZipFile(skill_path, "w") as archive:
+        archive.writestr("README.md", "not a skill")
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime(str(outputs_dir)),
+        filepaths=[str(skill_path)],
+        tool_call_id="tc-invalid-skill",
+    )
+
+    assert "artifacts" not in result.update
+    assert "missing SKILL.md" in result.update["messages"][0].content

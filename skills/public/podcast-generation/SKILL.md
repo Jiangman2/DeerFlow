@@ -173,6 +173,7 @@ After generation:
 ## Requirements
 
 The following environment variables must be set:
+- For DashScope (preferred): `DASHSCOPE_API_KEY`
 - For Volcengine: `VOLCENGINE_TTS_APPID` and `VOLCENGINE_TTS_ACCESS_TOKEN`
 - For MiniMax: `MINIMAX_API_KEY`
 - `VOLCENGINE_TTS_CLUSTER`: Volcengine TTS cluster (optional, defaults to "volcano_tts")
@@ -185,13 +186,19 @@ The following environment variables must be set:
 - Complex notations (formulas, code) should be translated to plain language in the script
 - Long content may result in longer podcasts
 
-## Providers (Volcengine / MiniMax)
+## Providers (DashScope / Volcengine / MiniMax)
 
-Auto-selected by environment variables:
+DashScope is preferred when `DASHSCOPE_API_KEY` is present. It uses
+`DASHSCOPE_TTS_MODEL=qwen3-tts-flash`, with `Ethan` for the male voice and
+`Cherry` for the female voice by default. Override those with
+`DASHSCOPE_TTS_VOICE_MALE` and `DASHSCOPE_TTS_VOICE_FEMALE`, or force a
+provider with `PODCAST_GENERATION_PROVIDER=dashscope|volcengine|minimax`.
+
+When DashScope is unavailable, the legacy provider is auto-selected by environment variables:
 
 - `VOLCENGINE_TTS_APPID` + `VOLCENGINE_TTS_ACCESS_TOKEN` set → Volcengine TTS (default).
 - Only `MINIMAX_API_KEY` set → MiniMax TTS (`/v1/t2a_v2`).
-- Force with `PODCAST_GENERATION_PROVIDER=volcengine|minimax`.
+- Force with `PODCAST_GENERATION_PROVIDER=dashscope|volcengine|minimax`.
 
 MiniMax overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.com`),
 `MINIMAX_TTS_MODEL` (default `speech-2.6-hd`), `MINIMAX_TTS_VOICE_MALE`

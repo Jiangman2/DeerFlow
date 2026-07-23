@@ -39,6 +39,11 @@ other `/api/*` go straight to the Gateway REST routers. See
 In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 `/platform/knowledge-bases`. Keep that proxy on the `weknora-frontend` Kubernetes
 service DNS name; never pin a ClusterIP, because recreating the cluster changes it.
+The five fixed `/agent-tools/*` proxies extract the validated CNOOC platform
+Token from the HttpOnly `cnooc.platform_token` cookie and send it upstream only
+as a Bearer authorization header. Never append this Token to card URLs or expose
+it to frontend JavaScript; keep Docker, local-development, and Kubernetes Nginx
+configs synchronized.
 
 ## Repository Map
 
@@ -73,6 +78,14 @@ Skill quality review note:
   tag-neutralized; full raw payloads stay in tool artifacts. See
   [backend/AGENTS.md](backend/AGENTS.md) for the non-activation, SkillScan, and
   `skill-creator` ownership boundaries.
+- Downloadable `.skill` deliverables must be ZIP packages containing `SKILL.md`;
+  `present_files` validates the archive before publishing it.
+
+Durable-memory boundary note:
+- Long-term memory is descriptive background, not task authority. One-turn
+  operational directives about network access, tools, clarification, templates,
+  or output formats remain thread-local unless the user explicitly marks them
+  as future/default/always/cross-task preferences.
 
 Academic research skill note:
 - `skills/public/academic-research/` is the single platform-visible compatibility
@@ -86,6 +99,15 @@ Academic research skill note:
 Scheduled-task note:
 - The scheduled-task MVP adds a workspace page at `/workspace/scheduled-tasks` plus a background scheduler service gated by `config.yaml -> scheduler.enabled`.
 - Scheduled background runs are intentionally non-interactive: they execute through the normal run lifecycle, but the lead-agent toolset excludes `ask_clarification` when `context.non_interactive=true`. The key is honored only for internally-authenticated callers (the scheduler launch path); client-supplied `context.non_interactive` is dropped.
+
+Enterprise Kubernetes storage note:
+- Keep `accessModes: [ReadWriteOnce]` in the PostgreSQL StatefulSet claim-template patch under `k8s/enterprise/storage-patches.yaml`. The patch replaces the matched claim-template item's `spec`; omitting `accessModes` renders an invalid StatefulSet.
+- The enterprise WeKnora database intentionally uses the locally imported ARM64 PG16/pg_search image declared in `k8s/enterprise/kustomization.yaml`. Keep its `imagePullPolicy: Never`, `shared_preload_libraries=pg_search`, and nested `PGDATA`; the upstream ParadeDB PG17 image triggers `SIGILL` on the audited datax CPUs.
+- Keep the enterprise Frontend's `WEKNORA_FRONTEND_URL` set to the same-origin path `/platform/knowledge-bases`; a loopback or node-pinned browser URL breaks SSO or becomes invalid when the public endpoint changes.
+- The patched WeKnora UI must fetch `/api/weknora/sso-session` through a same-origin relative URL in both `config.js` and the `index.html` fallback. These ConfigMap files are mounted with `subPath`, so restart `weknora-frontend` after changing them.
+- The enterprise WeKnora App trusts outbound HTTPS through the runtime-created `deer-flow-enterprise-ca` Secret. Keep the projected `/etc/deerflow-ca/ca-bundle.crt` mount and CA environment variables in `k8s/enterprise/runtime-patches.yaml`; create the Secret before apply and restart the Deployment after CA rotation so long-lived HTTP clients reload trust state.
+- The enterprise Gateway uses the runtime proxy for external model providers, but its `NO_PROXY` and `no_proxy` values must retain the bare Kubernetes Service names (especially `weknora-app`) as well as `.svc` and `.cluster.local`. Otherwise Gateway-to-WeKnora calls are sent through the enterprise proxy and surface as HTTP 302/502 failures. Keep proxy URLs and credentials in the runtime-created `deer-flow-env` Secret; do not commit them.
+- Enterprise PPT/PPTX parsing runs through `docker/mineru_adapter/`, which converts presentations to PDF and translates WeKnora's self-hosted MinerU contract to the internal enterprise API. Keep its URL and Bearer token only in the runtime `deer-flow-mineru` Secret. The enterprise Gateway selects it only for PPT/PPTX; other file types retain WeKnora's native parser rules.
 
 ## Commands: Root vs. Module
 

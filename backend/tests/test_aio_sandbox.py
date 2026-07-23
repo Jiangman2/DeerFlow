@@ -23,6 +23,24 @@ def sandbox():
         return sb
 
 
+def test_api_key_is_sent_as_bearer_authorization_header():
+    """AIO 1.11.0 accepts SANDBOX_API_KEY via Authorization: Bearer."""
+    with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient") as client_cls:
+        from deerflow.community.aio_sandbox.aio_sandbox import AioSandbox
+
+        AioSandbox(
+            id="secured-sandbox",
+            base_url="http://localhost:8080",
+            api_key="sandbox-secret",
+        )
+
+    client_cls.assert_called_once_with(
+        base_url="http://localhost:8080",
+        headers={"Authorization": "Bearer sandbox-secret"},
+        timeout=600,
+    )
+
+
 class TestExecuteCommandSerialization:
     """Verify that concurrent exec_command calls are serialized."""
 

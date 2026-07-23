@@ -37,9 +37,43 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SANDBOX_IMAGE
-              value: deerflow.local/deer-flow-aio-sandbox:20260721-enterprise-arm64-1
+              value: deerflow.local/deer-flow-aio-sandbox:20260722-enterprise-arm64-rc2
             - name: SANDBOX_SERVICE_TYPE
               value: ClusterIP
+            - name: SANDBOX_SECRET_ENV_KEYS
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,GEMINI_API_KEY,SANDBOX_API_KEY
+            - name: IMAGE_BACKEND
+              value: dashscope
+            - name: IMAGE_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_BASE_URL
+              value: https://dashscope.aliyuncs.com/api/v1
+            - name: DASHSCOPE_IMAGE_MODEL
+              value: qwen-image-2.0-pro
+            - name: VIDEO_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_VIDEO_MODEL
+              value: wan2.7-t2v
+            - name: DASHSCOPE_VIDEO_DURATION
+              value: "5"
+            - name: DASHSCOPE_VIDEO_RESOLUTION
+              value: 720P
+            - name: PODCAST_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_TTS_MODEL
+              value: qwen3-tts-flash
+            - name: DASHSCOPE_TTS_VOICE_MALE
+              value: Ethan
+            - name: DASHSCOPE_TTS_VOICE_FEMALE
+              value: Cherry
+            - name: MUSIC_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_MUSIC_MODEL
+              value: fun-music-v1
+            - name: DASHSCOPE_MUSIC_GENDER
+              value: female
+            - name: DASHSCOPE_MUSIC_FORMAT
+              value: mp3
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -52,6 +86,17 @@ spec:
       containers:
         - name: gateway
           imagePullPolicy: Never
+          env:
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+            - name: WEKNORA_PRESENTATION_PARSER_ENGINE
+              value: mineru
+            - name: WEKNORA_MINERU_ENDPOINT
+              value: http://deer-flow-mineru-adapter:50052
+            - name: WEKNORA_MINERU_AUTO_CONFIGURE
+              value: "true"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -64,6 +109,43 @@ spec:
       containers:
         - name: frontend
           imagePullPolicy: Never
+          env:
+            - name: WEKNORA_FRONTEND_URL
+              value: /platform/knowledge-bases
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-app
+  namespace: deer-flow
+spec:
+  strategy:
+    type: Recreate
+  template:
+    spec:
+      containers:
+        - name: app
+          imagePullPolicy: Never
+          env:
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: SSRF_WHITELIST_EXTRA
+              value: deer-flow-mineru-adapter
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -82,3 +164,21 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: weknora-redis-data
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: weknora-postgres
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgres
+          imagePullPolicy: Never
+          args:
+            - -c
+            - shared_preload_libraries=pg_search
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata

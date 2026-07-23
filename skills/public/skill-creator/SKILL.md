@@ -56,7 +56,7 @@ In DeerFlow, the sandbox filesystem is isolated. Files written with `write_file`
 
 2. **Skip the `package_skill.py` step**. In DeerFlow, `skill_manage` already persists the skill to the correct per-user directory. No `.skill` packaging or manual install is needed. The skill is immediately available in all new chats.
 
-3. **Skip the `present_files` step for skills**. Skills are NOT deliverables — they are persisted via `skill_manage` and auto-loaded by the skill system. Only use `present_files` for non-skill outputs (eval reports, benchmarks, etc.).
+3. **Separate installation from delivery**. Do not install or activate a skill unless the user explicitly asks. When the user requests a reusable package or downloadable artifact, package it as `.skill` under `/mnt/user-data/outputs/` and call `present_files`. Non-skill outputs such as eval reports and benchmarks also use `present_files`.
 
 4. **Eval workspace files are OK in sandbox**. Test prompts, benchmark data, eval viewer HTML, grading results, etc. are NOT skill files — you can write these to `/mnt/user-data/outputs/` or `/mnt/user-data/workspace/` using sandbox `write_file` as usual.
 
@@ -454,9 +454,9 @@ Take `best_description` from the JSON output and update the skill's SKILL.md fro
 
 ---
 
-### Package and Present (only if `present_files` tool is available)
+### Package and Present (when the user requests a downloadable package)
 
-Check whether you have access to the `present_files` tool. If you don't, skip this step. If you do, package the skill and present the .skill file to the user:
+If the user requests a reusable/downloadable package, package the skill and present the `.skill` file. When `present_files` is available, calling it is mandatory for delivery:
 
 ```bash
 python -m scripts.package_skill <path/to/skill-folder>

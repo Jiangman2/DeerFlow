@@ -76,6 +76,7 @@ class AioSandbox(Sandbox):
         base_url: str,
         home_dir: str | None = None,
         default_env: dict[str, str] | None = None,
+        api_key: str | None = None,
     ):
         """Initialize the AIO sandbox.
 
@@ -86,10 +87,18 @@ class AioSandbox(Sandbox):
             default_env: Environment variables injected into every command. Remote
                 provisioner sandboxes use this to receive ``sandbox.environment``
                 without persisting credentials in the Pod specification.
+            api_key: Optional AIO API key sent as an Authorization Bearer token.
         """
         super().__init__(id)
         self._base_url = base_url
-        self._client = AioSandboxClient(base_url=base_url, timeout=600)
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else None
+        client_kwargs = {
+            "base_url": base_url,
+            "timeout": 600,
+        }
+        if headers is not None:
+            client_kwargs["headers"] = headers
+        self._client = AioSandboxClient(**client_kwargs)
         self._home_dir = home_dir
         self._default_env = dict(default_env or {})
         self._lock = threading.Lock()

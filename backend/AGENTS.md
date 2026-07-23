@@ -129,12 +129,32 @@ Regression tests related to Docker/provisioner behavior:
 - `tests/test_provisioner_request_threading.py` (keeps provisioner sandbox CRUD
   endpoints as sync FastAPI handlers so synchronous K8s client calls run in the
   Starlette worker pool instead of on the ASGI event loop)
+- `tests/test_mineru_adapter.py` (locks the enterprise PDF API protocol and the
+  WeKnora-compatible response envelope used by the PPT/PPTX adapter)
+
+The WeKnora Gateway upload proxy reads `WEKNORA_PRESENTATION_PARSER_ENGINE`
+(`markitdown` by default) and `WEKNORA_MINERU_ENDPOINT`. The enterprise overlay
+sets them to `mineru` and the in-cluster adapter Service, while non-presentation
+uploads omit parser overrides and preserve the knowledge base defaults.
+When `WEKNORA_MINERU_AUTO_CONFIGURE` is enabled, the SSO bridge also merges that
+adapter endpoint into the parser settings of spaces the current user owns or
+administers; it never stores the upstream enterprise API URL or Key in WeKnora.
+
+CNOOC SSO stores the validated upstream platform Token in the HttpOnly
+`cnooc.platform_token` cookie so the fixed Nginx `/agent-tools/*` proxies can
+inject it as a Bearer header. Logout must clear this cookie together with the
+DeerFlow `access_token`; do not expose the platform Token through response
+bodies, query strings, or browser-readable storage.
 
 In provisioner/Kubernetes mode, `sandbox.environment` is injected through the
 AIO sandbox's structured per-command `bash.exec` environment. The remote backend
 must not silently discard these values or persist credentials in Pod manifests;
 request-scoped secrets override configured values for the command that uses them.
 The sandbox image must support `/v1/bash/exec` (all-in-one-sandbox 1.9.3+).
+Set `sandbox.sandbox_api_key` for shared AIO deployments. The Gateway SDK and
+readiness polling send it as `Authorization: Bearer`; Provisioner-created Pods
+receive the matching `SANDBOX_API_KEY` through a Secret, and their exec probes
+read that environment value without embedding it in the Pod specification.
 
 Sandbox capacity is reconciled when the Gateway starts: provisioner-managed
 Pods left by a previous Gateway process are adopted as warm entries and the
@@ -375,7 +395,7 @@ Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runti
 **Environment policy** (`sandbox/env_policy.py`): `execute_command` no longer inherits the full `os.environ`. `build_sandbox_env()` scrubs secret-looking names (`*KEY*`/`*SECRET*`/`*TOKEN*`/`*PASS*`/`*CREDENTIAL*`) from the inherited environment before layering injected request secrets on top, so platform credentials (e.g. `OPENAI_API_KEY`) never leak into skill subprocesses. Benign vars (`PATH`, `HOME`, `LANG`, `VIRTUAL_ENV`, ...) are preserved.
 **Implementations**:
 - `LocalSandboxProvider` - Local filesystem execution. `acquire(thread_id)` returns a per-thread `LocalSandbox` (id `local:{thread_id}`) whose `path_mappings` resolve `/mnt/user-data/{workspace,uploads,outputs}` and `/mnt/acp-workspace` to that thread's host directories, so the public `Sandbox` API honours the `/mnt/user-data` contract uniformly with AIO. `acquire()` / `acquire(None)` keeps the legacy generic singleton (id `local`) for callers without a thread context. Per-thread sandboxes are held in an LRU cache (default 256 entries) guarded by a `threading.Lock`. Legacy global-custom mounts are gated by the same user-scoped skill discovery rule used for prompt/list visibility; providers must not infer visibility from raw directory presence alone.
-- `AioSandboxProvider` (`packages/harness/deerflow/community/`) - Docker-based isolation. Active-cache and warm-pool entries are checked with the backend during acquire/reuse; definitively dead containers are dropped from all in-process maps so the thread can discover or create a fresh sandbox instead of reusing a stale client. Backend health-check failures are treated as unknown, not dead; local discovery likewise treats an unverifiable container as not adoptable and falls through to create rather than failing acquire. `get()` remains an in-memory lookup for event-loop-safe tool paths. Legacy global-custom mounts follow the same shared visibility helper as local and remote providers. Because the AIO shell APIs expose text but not a reliable structured process status, `AioSandbox.execute_command()` appends and strips a private exit-code marker; non-zero commands return an explicit `Error:` plus active-skill/`--help` recovery guidance so tool progress cannot count a failed CLI call as success.
+- `AioSandboxProvider` (`packages/harness/deerflow/community/`) - Docker-based isolation. Active-cache and warm-pool entries are checked with the backend during acquire/reuse; definitively dead containers are dropped from all in-process maps so the thread can discover or create a fresh sandbox instead of reusing a stale client. Backend health-check failures are treated as unknown, not dead; local discovery likewise treats an unverifiable container as not adoptable and falls through to create rather than failing acquire. `get()` remains an in-memory lookup for event-loop-safe tool paths. Legacy global-custom mounts follow the same shared visibility helper as local and remote providers. Because the AIO shell APIs expose text but not a reliable structured process status, `AioSandbox.execute_command()` appends and strips a private exit-code marker; non-zero commands return an explicit `Error:` plus active-skill/`--help` recovery guidance so tool progress cannot count a failed CLI call as success. Provisioner/Kubernetes deployments may set `sandbox.shared_thread_data_mounts: true` only when Gateway and every sandbox mount the same thread-data volume at `/mnt/user-data`; uploads are then written once through the Gateway instead of cold-starting a sandbox and copying the bytes over its API. The local single-node PVC stack satisfies this with `ReadWriteOnce`; multi-node deployments require storage that provides `ReadWriteMany` (or an equivalent shared filesystem) before enabling the flag.
 - **Provisioner-generated Pod health/resources**: `docker/provisioner/app.py` reads startup/readiness/liveness timing from `SANDBOX_*_PROBE_*` environment variables and CPU/memory requests/limits from `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}`. Keep the startup window at least five minutes for cold AIO images. Liveness must tolerate roughly one minute of transient unresponsiveness for browser/PPT workloads; readiness may remain faster because it does not restart the container. Defaults are 500m/512Mi requests and 2 CPU/2Gi limits.
 - `BoxliteProvider` (`packages/harness/deerflow/community/boxlite/`) - BoxLite micro-VM isolation. The `boxlite` runtime is optional (`deerflow-harness[boxlite]`) and lazy-imported only when this provider is selected. The provider owns one private asyncio event loop on a daemon thread because BoxLite handles are loop-affine; sync `Sandbox` calls marshal onto that loop with `run_coroutine_threadsafe`.
   Boxes are named deterministically from `user_id:thread_id`, released into an in-process warm pool after each agent turn, and reclaimed only by the same user/thread. Warm-pool health checks use a short explicit timeout and forward that timeout through both BoxLite `exec(timeout=...)` and the private-loop `.result(timeout)` bridge so a hung VM cannot pin the per-thread acquire lock indefinitely.
@@ -939,6 +959,12 @@ so list and upload endpoints do not repeat registration/login on every call. For
 scoped chat runs, Gateway forwards the selected knowledge-base IDs, derives a
 per-user token server-side, and the run worker binds that token only for the
 duration of `weknora_search` / `weknora_ask` execution.
+The workspace knowledge-base adapter refreshes `/auth/me` memberships before
+listing, queries each membership with `X-Tenant-ID`, classifies ownership using
+WeKnora's `creator_id`, and keeps an `access_tenant_id` distinct from the
+resource's owner/source tenant. Preserve that distinction on document list and
+mutation routes; organization-shared resources often require the consumer tenant
+for authorization even though embeddings belong to the source tenant.
 Lead and delegated agents expose those tools only when the current run contains
 non-empty `weknora_knowledge_base_ids`. Without an explicit selection,
 `WeKnoraScopeMiddleware` also prevents stale durable-memory references from being

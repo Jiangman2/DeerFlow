@@ -56,6 +56,12 @@ python /mnt/skills/public/systematic-literature-review/scripts/arxiv_search.py \
   [--end-date YYYY-MM-DD]
 ```
 
+The client applies bounded retries to transient timeouts, HTTP 429, and HTTP
+5xx responses: at most 3 attempts by default, a 20-second timeout per attempt,
+and an 8-second maximum backoff. It exits non-zero after the final failure
+instead of retrying indefinitely. Use `--max-attempts 1-5` and
+`--timeout-seconds N` only when a task needs a different bounded budget.
+
 **IMPORTANT — extract 2-3 core keywords before searching.** Do not pass the user's full topic description as the query. Before calling the script, mentally reduce the topic to its 2-3 most essential terms. Drop qualifiers like "in computer vision", "for NLP", "variants", "recent" — those belong in `--category` or `--start-date`, not in the query string.
 
 **Query phrasing — keep it short.** The script wraps multi-word queries in double quotes for phrase matching on arXiv. This means:

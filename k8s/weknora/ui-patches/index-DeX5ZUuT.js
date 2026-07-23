@@ -69,9 +69,7 @@ async function register(payload) {
 
 async function autoSetup() {
   try {
-    const url =
-      globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL ||
-      `${location.protocol}//${location.hostname}:2026/api/weknora/sso-session`;
+    const url = "/api/weknora/sso-session";
     const response = await fetch(url, { credentials: "include", cache: "no-store" });
     if (response.ok) {
       const data = await response.json();

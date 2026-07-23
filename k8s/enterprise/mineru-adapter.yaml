@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deer-flow-mineru-adapter
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deer-flow-mineru-adapter
+  template:
+    metadata:
+      labels:
+        app: deer-flow-mineru-adapter
+    spec:
+      containers:
+        - name: adapter
+          image: deer-flow-mineru-adapter:enterprise
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: deer-flow-mineru
+          env:
+            - name: MINERU_LISTEN_PORT
+              value: "50052"
+            - name: MINERU_TIMEOUT_SECONDS
+              value: "300"
+            - name: LIBREOFFICE_TIMEOUT_SECONDS
+              value: "180"
+            - name: MINERU_MAX_UPLOAD_BYTES
+              value: "52428800"
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+          ports:
+            - name: http
+              containerPort: 50052
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deer-flow-mineru-adapter
+  namespace: deer-flow
+spec:
+  selector:
+    app: deer-flow-mineru-adapter
+  ports:
+    - name: http
+      port: 50052
+      targetPort: http

@@ -87,6 +87,122 @@ async def test_ensure_weknora_default_models_skips_without_database(monkeypatch)
 
 
 @pytest.mark.asyncio
+async def test_ensure_weknora_default_mineru_preserves_existing_settings(monkeypatch):
+    calls = []
+
+    class _Response:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, **kwargs):
+            calls.append(("GET", url, kwargs))
+            return _Response(
+                200,
+                {
+                    "success": True,
+                    "data": {
+                        "mineru_model": "pipeline",
+                        "mineru_enable_table": True,
+                    },
+                },
+            )
+
+        async def put(self, url, **kwargs):
+            calls.append(("PUT", url, kwargs))
+            return _Response(200, {"success": True})
+
+    monkeypatch.setenv("WEKNORA_MINERU_ENDPOINT", "http://deer-flow-mineru-adapter:50052/")
+    monkeypatch.setattr(
+        weknora_identity,
+        "weknora_endpoint",
+        lambda path: f"http://weknora.test/api/v1{path}",
+    )
+    monkeypatch.setattr(weknora_identity, "weknora_timeout", lambda: 10.0)
+    monkeypatch.setattr(weknora_identity.httpx, "AsyncClient", lambda **kwargs: _Client())
+    session = weknora_identity.WeKnoraSession(
+        token="token",
+        refresh_token="refresh",
+        user={"id": "user"},
+        tenant={"id": 100},
+        memberships=[
+            {"tenant_id": 100, "role": "owner"},
+            {"tenant_id": 200, "role": "viewer"},
+        ],
+    )
+
+    await weknora_identity.ensure_weknora_default_mineru(session)
+
+    assert [call[0] for call in calls] == ["GET", "PUT"]
+    headers = calls[0][2]["headers"]
+    assert headers["X-Tenant-ID"] == "100"
+    assert calls[1][2]["json"] == {
+        "mineru_model": "pipeline",
+        "mineru_enable_table": True,
+        "mineru_endpoint": "http://deer-flow-mineru-adapter:50052",
+    }
+
+
+@pytest.mark.asyncio
+async def test_ensure_weknora_default_mineru_skips_unchanged_endpoint(monkeypatch):
+    put_called = False
+
+    class _Response:
+        status_code = 200
+
+        def json(self):
+            return {
+                "success": True,
+                "data": {"mineru_endpoint": "http://deer-flow-mineru-adapter:50052/"},
+            }
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, **kwargs):
+            return _Response()
+
+        async def put(self, url, **kwargs):
+            nonlocal put_called
+            put_called = True
+            return _Response()
+
+    monkeypatch.setenv("WEKNORA_MINERU_ENDPOINT", "http://deer-flow-mineru-adapter:50052")
+    monkeypatch.setattr(
+        weknora_identity,
+        "weknora_endpoint",
+        lambda path: f"http://weknora.test/api/v1{path}",
+    )
+    monkeypatch.setattr(weknora_identity, "weknora_timeout", lambda: 10.0)
+    monkeypatch.setattr(weknora_identity.httpx, "AsyncClient", lambda **kwargs: _Client())
+    session = weknora_identity.WeKnoraSession(
+        token="token",
+        refresh_token="refresh",
+        user={"id": "user"},
+        tenant={"id": 100},
+        memberships=[{"tenant_id": 100, "role": "owner"}],
+    )
+
+    await weknora_identity.ensure_weknora_default_mineru(session)
+
+    assert put_called is False
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(("deerflow_role", "expected_admin"), [("admin", True), ("user", False)])
 async def test_sync_weknora_role_mirrors_deerflow_system_role(monkeypatch, deerflow_role, expected_admin):
     fake_connection = _FakeConnection()

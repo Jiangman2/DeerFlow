@@ -507,7 +507,13 @@ Use the custom image in local Docker or Apple Container mode with `sandbox.image
 sandbox:
   use: deerflow.community.aio_sandbox:AioSandboxProvider
   image: your-registry/your-aio-sandbox:tag
+  sandbox_api_key: $SANDBOX_API_KEY
 ```
+
+When `sandbox_api_key` is set, DeerFlow sends
+`Authorization: Bearer <SANDBOX_API_KEY>` to the AIO API. The runtime container
+must receive the same value as `SANDBOX_API_KEY`. Provisioner deployments should
+inject it from a Kubernetes Secret rather than writing it into a manifest.
 
 In provisioner mode, sandbox Pods are created by the provisioner service, so configure the provisioner `SANDBOX_IMAGE` environment variable instead of `sandbox.image`. See the [Provisioner Setup Guide](../../docker/provisioner/README.md#custom-sandbox-image).
 

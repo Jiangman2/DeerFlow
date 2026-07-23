@@ -3,8 +3,8 @@ import { Toaster } from "sonner";
 
 import { QueryClientProvider } from "@/components/query-client-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { CommandPalette } from "@/components/workspace/command-palette";
 import { AnnouncementBanner } from "@/components/workspace/announcement-banner";
+import { CommandPalette } from "@/components/workspace/command-palette";
 import { GatewayOfflineBanner } from "@/components/workspace/gateway-offline-banner";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
 

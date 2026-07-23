@@ -24,6 +24,56 @@ def test_format_memory_includes_facts_section() -> None:
     assert "User prefers SQLAlchemy" in result
 
 
+def test_format_memory_hides_old_non_durable_operational_directives() -> None:
+    memory_data = {
+        "user": {
+            "topOfMind": {
+                "summary": (
+                    "User requires the agent to avoid network access while making PPT files."
+                )
+            }
+        },
+        "facts": [
+            {
+                "content": (
+                    "User explicitly instructs the agent to avoid network access "
+                    "during task execution."
+                ),
+                "category": "preference",
+                "confidence": 0.99,
+            },
+            {
+                "content": "User prefers concise Chinese answers.",
+                "category": "preference",
+                "confidence": 0.9,
+            },
+        ],
+    }
+
+    result = format_memory_for_injection(memory_data, max_tokens=2000)
+
+    assert "avoid network access" not in result
+    assert "User prefers concise Chinese answers." in result
+
+
+def test_format_memory_keeps_explicitly_durable_operational_preference() -> None:
+    memory_data = {
+        "facts": [
+            {
+                "content": (
+                    "User always prefers offline-first tools across all future tasks."
+                ),
+                "category": "preference",
+                "confidence": 0.99,
+            }
+        ]
+    }
+
+    result = format_memory_for_injection(memory_data, max_tokens=2000)
+
+    assert "offline-first tools" in result
+
+
 def test_format_memory_sorts_facts_by_confidence_desc() -> None:
     memory_data = {
         "user": {},

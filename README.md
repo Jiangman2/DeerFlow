@@ -252,6 +252,16 @@ In provisioner mode, values declared under `config.yaml -> sandbox.environment`
 are forwarded to sandbox commands through the sandbox API. This is the supported
 way to make configured media-provider variables available to PPT/image-generation
 scripts; use an all-in-one-sandbox image with `/v1/bash/exec` support (1.9.3+).
+The bundled media skills use one `DASHSCOPE_API_KEY` by default: Qwen Image
+(`qwen-image-2.0-pro`), Wan video (`wan2.7-t2v`), Qwen-TTS
+(`qwen3-tts-flash`), and Fun-Music (`fun-music-v1`). Gemini, MiniMax, and
+Volcengine integrations remain optional compatibility fallbacks. The Fun-Music
+model requires separate Model Gallery access in China (Beijing).
+
+Shared or production AIO deployments should also set
+`sandbox.sandbox_api_key: $SANDBOX_API_KEY` and inject the same secret into each
+Sandbox runtime. DeerFlow authenticates AIO requests and readiness checks with
+an `Authorization: Bearer` header.
 
 If a model emits malformed JSON for a tool call, DeerFlow returns the parser
 error to the model and retries that call once. A second malformed response is
@@ -888,6 +898,11 @@ One-off deliverable constraints such as page count, outline, template, brand/VI,
 colors, logo, watermark, layout, and chart/matrix requirements are also kept
 thread-local. They become durable preferences only when the user explicitly says
 they apply in the future, by default, always, or across tasks.
+Single-turn operational commands are treated the same way: an extractor rewrite
+such as "User requires no network access" is rejected unless the conversation
+contains explicit durable scope. Injection also hides legacy operational facts
+and summaries, and the lead agent treats memory as descriptive background rather
+than authority for network, tool, clarification, template, or output decisions.
 Runs that explicitly select a WeKnora knowledge base do not enter the durable-memory
 queue at all; their retrieved document facts remain scoped to that task's history.
 
@@ -897,6 +912,12 @@ The workspace knowledge-base integration uses the current DeerFlow identity to
 create or reuse a matching WeKnora account, then forwards knowledge-base and
 document operations with that user's bearer token. DeerFlow administrator roles
 are synchronized to the linked knowledge platform during SSO.
+The workspace knowledge page aggregates knowledge bases from every current
+WeKnora tenant membership. Ownership is derived from the native creator ID,
+joined knowledge bases remain distinct from resources created by the user, and
+organization shares are also shown under the team/public filter. Resource reads
+and writes carry the tenant identity that granted access, so cross-space lists do
+not lose permissions or leak another tenant's data.
 Knowledge bases selected in the chat composer are forwarded as the exact scope
 for `weknora_search` and `weknora_ask`, using a server-derived per-user token.
 When no knowledge base is selected, both tools are removed from lead and subagent
@@ -905,6 +926,35 @@ as non-operative context.
 For the local Kubernetes stack, the native knowledge UI opens on port `32090`;
 the optional same-origin `/platform/knowledge-bases` fallback is routed through
 the stable `weknora-frontend` service name rather than an ephemeral ClusterIP.
+The audited ARM64 enterprise overlay uses a locally imported PostgreSQL 16 image
+with pg_search because the upstream ParadeDB PostgreSQL 17 image is not CPU-
+compatible with the current datax nodes; see `k8s/enterprise/README.md` before
+applying that overlay.
+Its knowledge-base link is intentionally configured as the same-origin path
+`/platform/knowledge-bases`, so deployments must not replace it with a browser-
+local loopback address.
+The embedded WeKnora UI also performs its session exchange through the
+same-origin `/api/weknora/sso-session` endpoint rather than a fixed host or
+port.
+The enterprise WeKnora App mounts the deployment-specific combined CA bundle
+from the `deer-flow-enterprise-ca` Secret so HTTPS embedding and chat requests
+continue to verify correctly behind an enterprise TLS proxy.
+Enterprise PPT/PPTX uploads use a private compatibility adapter that converts
+presentations to PDF and invokes the approved internal MinerU API. Its endpoint
+and Bearer key are supplied only through the runtime `deer-flow-mineru` Secret;
+they are never stored in source or images. Other document formats continue to
+use WeKnora's native parser selection. See `k8s/enterprise/README.md` for the
+image build, Secret creation, and real-server validation procedure.
+The SSO bridge automatically registers the adapter as the WeKnora MinerU
+default in spaces owned or administered by the signed-in user, while preserving
+their other parser settings.
+
+The five fixed enterprise agent-square links stay on the DeerFlow origin under
+`/agent-tools/*`. For users who entered through CNOOC data-lake SSO, Nginx reads
+the validated platform Token from its HttpOnly cookie and forwards it to those
+fixed upstreams as `Authorization: Bearer ...` on every request. The Token is
+never placed in the card URL, browser history, referrer, or frontend JavaScript,
+and logout clears both the DeerFlow session and platform-Token cookies.
 
 ## Recommended Models
 
@@ -1027,6 +1077,9 @@ The JSON includes compact review records with `priority`, `location`,
 `blocking_call`, `event_loop_exposure`, `reason`, and `code`.
 Gateway artifact serving now forces active web content types (`text/html`, `application/xhtml+xml`, `image/svg+xml`) to download as attachments instead of inline rendering, reducing XSS risk for generated artifacts. Known binary MIME types such as PDF are served as binary inline responses rather than being misclassified by text-content heuristics, and the same endpoint accepts `HEAD` for lightweight preview discovery.
 Final files published with `present_files` are persisted in the thread-scoped outputs directory before they appear in chat. A final file supplied from the current thread workspace is copied into outputs automatically, including when it must first be downloaded from a remote sandbox; arbitrary paths outside the current thread are still rejected.
+Packaged `.skill` files are first-class downloadable artifacts: `present_files`
+accepts valid ZIP-based packages containing `SKILL.md` and rejects malformed or
+path-traversing archives before publication.
 PPT Master publishes completed PowerPoint files into the thread-scoped outputs directory together with a same-stem `.preview.pdf`. The chat keeps the PPTX as the downloadable deliverable while the artifact panel renders the paired PDF in the right-side preview. A same-stem `.pdf` remains a compatibility preview fallback, and ordinary artifact links in assistant messages open the right-side preview while explicit download links still download the file.
 Final assistant responses cannot claim a `/mnt/user-data/outputs/...` deliverable unless that file both exists in the current thread outputs directory and was successfully published with `present_files`. DeerFlow retries one invalid delivery claim with hidden execution guidance, then returns a visible delivery error instead of persisting a fabricated download link.
 

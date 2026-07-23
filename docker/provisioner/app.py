@@ -78,7 +78,14 @@ SANDBOX_PASSTHROUGH_ENV_KEYS = tuple(
     key.strip()
     for key in os.environ.get(
         "SANDBOX_PASSTHROUGH_ENV_KEYS",
-        "IMAGE_BACKEND,QWEN_MODEL,QWEN_BASE_URL,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY",
+        "IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,DASHSCOPE_BASE_URL,"
+        "DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,"
+        "DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,"
+        "PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,"
+        "DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,"
+        "MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,"
+        "DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,"
+        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY",
     ).split(",")
     if key.strip()
 )
@@ -124,6 +131,22 @@ except ValueError as exc:
 # Desktop for macOS this is ``host.docker.internal``; on Linux it may be the
 # host's LAN IP. Ignored when SANDBOX_SERVICE_TYPE=ClusterIP.
 NODE_HOST = os.environ.get("NODE_HOST", "host.docker.internal")
+
+_SANDBOX_HEALTHCHECK_CODE = (
+    "import os,urllib.request;"
+    "key=os.environ.get('SANDBOX_API_KEY','');"
+    "headers={'Authorization':'Bearer '+key} if key else {};"
+    "request=urllib.request.Request('http://127.0.0.1:"
+    + str(SANDBOX_CONTAINER_PORT)
+    + "/v1/sandbox',headers=headers);"
+    "response=urllib.request.urlopen(request,timeout=2);"
+    "raise SystemExit(0 if response.status==200 else 1)"
+)
+
+
+def _sandbox_healthcheck_exec() -> k8s_client.V1ExecAction:
+    """Probe AIO without placing its Secret value in the Pod specification."""
+    return k8s_client.V1ExecAction(command=["python3", "-c", _SANDBOX_HEALTHCHECK_CODE])
 
 
 def _positive_int_env(name: str, default: int) -> int:
@@ -561,10 +584,7 @@ def _build_pod(
                     # HTTP API is actually available so kubelet does not kill
                     # a healthy-but-still-starting container at that boundary.
                     startup_probe=k8s_client.V1Probe(
-                        http_get=k8s_client.V1HTTPGetAction(
-                            path="/v1/sandbox",
-                            port=SANDBOX_CONTAINER_PORT,
-                        ),
+                        _exec=_sandbox_healthcheck_exec(),
                         period_seconds=SANDBOX_STARTUP_PROBE_PERIOD_SECONDS,
                         timeout_seconds=SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS,
                         # Five minutes prevents kubelet from restarting a
@@ -573,20 +593,14 @@ def _build_pod(
                         failure_threshold=SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD,
                     ),
                     readiness_probe=k8s_client.V1Probe(
-                        http_get=k8s_client.V1HTTPGetAction(
-                            path="/v1/sandbox",
-                            port=SANDBOX_CONTAINER_PORT,
-                        ),
+                        _exec=_sandbox_healthcheck_exec(),
                         initial_delay_seconds=SANDBOX_READINESS_INITIAL_DELAY_SECONDS,
                         period_seconds=SANDBOX_READINESS_PERIOD_SECONDS,
                         timeout_seconds=SANDBOX_READINESS_TIMEOUT_SECONDS,
                         failure_threshold=SANDBOX_READINESS_FAILURE_THRESHOLD,
                     ),
                     liveness_probe=k8s_client.V1Probe(
-                        http_get=k8s_client.V1HTTPGetAction(
-                            path="/v1/sandbox",
-                            port=SANDBOX_CONTAINER_PORT,
-                        ),
+                        _exec=_sandbox_healthcheck_exec(),
                         initial_delay_seconds=SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS,
                         period_seconds=SANDBOX_LIVENESS_PERIOD_SECONDS,
                         timeout_seconds=SANDBOX_LIVENESS_TIMEOUT_SECONDS,
@@ -643,7 +657,7 @@ def _build_sandbox_env() -> list[k8s_client.V1EnvVar]:
                         secret_key_ref=k8s_client.V1SecretKeySelector(
                             name=SANDBOX_ENV_SECRET_NAME,
                             key=key,
-                            optional=True,
+                            optional=key != "SANDBOX_API_KEY",
                         )
                     ),
                 )

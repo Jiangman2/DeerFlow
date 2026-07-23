@@ -12,6 +12,38 @@ from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
+_NON_DURABLE_OPERATIONAL_MEMORY_PATTERN = re.compile(
+    r"(?:"
+    r"(?:\bUser\b|用户|使用者).{0,100}"
+    r"(?:requires?|expects?|instructs?|prohibits?|forbids?|must|should|"
+    r"要求|指示|禁止|不要|必须|应当|需要).{0,100}"
+    r"(?:network|internet|online|offline|tool|clarif|output|format|"
+    r"联网|网络|工具|澄清|输出|格式|模板|PPT)"
+    r"|"
+    r"(?:network|internet|online|offline|tool|clarif|output|format|"
+    r"联网|网络|工具|澄清|输出|格式|模板|PPT).{0,100}"
+    r"(?:requires?|expects?|instructs?|prohibits?|forbids?|must|should|"
+    r"要求|指示|禁止|不要|必须|应当|需要)"
+    r")",
+    re.IGNORECASE,
+)
+
+_DURABLE_MEMORY_SCOPE_PATTERN = re.compile(
+    r"(?:\b(?:always|by default|all future|every task|going forward|from now on|"
+    r"long[- ]term|across (?:all|future))\b|(?:以后|今后|长期|始终|一贯|每次|默认|跨任务))",
+    re.IGNORECASE,
+)
+
+
+def _is_non_durable_operational_memory(value: Any) -> bool:
+    """Identify task directives that must not be reactivated from old memory."""
+    if not isinstance(value, str):
+        return False
+    return bool(
+        _NON_DURABLE_OPERATIONAL_MEMORY_PATTERN.search(value)
+        and not _DURABLE_MEMORY_SCOPE_PATTERN.search(value)
+    )
+
 try:
     import tiktoken
 
@@ -47,6 +79,11 @@ Durability boundary:
 - Do not turn assistant guesses, fabricated paths, or a one-off failed tool call into user facts.
 - A reusable correction may be stored only when it expresses a durable user preference or general rule; do not store task-specific path/tool failures as corrections.
 - Facts about the user must be grounded in user-authored messages. Assistant statements may explain context or an error, but MUST NOT independently create a user fact unless the user explicitly confirms them.
+- An imperative in one turn ("do not use the network", "use this tool", "do not
+  ask me", "return PPTX") is task-local. NEVER rewrite it as "User prefers" or
+  "User requires" durable memory. It is durable only when the user directly
+  states a preference or explicitly says it applies by default, in future,
+  always, or across tasks.
 
 Before extracting facts, perform a structured reflection on the conversation:
 1. Error/Retry Detection: Did the agent encounter errors, require retries, or produce incorrect results?
@@ -602,15 +639,21 @@ def format_memory_for_injection(
         user_sections = []
 
         work_ctx = user_data.get("workContext", {})
-        if work_ctx.get("summary"):
+        if work_ctx.get("summary") and not _is_non_durable_operational_memory(
+            work_ctx["summary"]
+        ):
             user_sections.append(f"Work: {_escape_summary(work_ctx['summary'])}")
 
         personal_ctx = user_data.get("personalContext", {})
-        if personal_ctx.get("summary"):
+        if personal_ctx.get("summary") and not _is_non_durable_operational_memory(
+            personal_ctx["summary"]
+        ):
             user_sections.append(f"Personal: {_escape_summary(personal_ctx['summary'])}")
 
         top_of_mind = user_data.get("topOfMind", {})
-        if top_of_mind.get("summary"):
+        if top_of_mind.get("summary") and not _is_non_durable_operational_memory(
+            top_of_mind["summary"]
+        ):
             user_sections.append(f"Current Focus: {_escape_summary(top_of_mind['summary'])}")
 
         if user_sections:
@@ -622,15 +665,21 @@ def format_memory_for_injection(
         history_sections = []
 
         recent = history_data.get("recentMonths", {})
-        if recent.get("summary"):
+        if recent.get("summary") and not _is_non_durable_operational_memory(
+            recent["summary"]
+        ):
             history_sections.append(f"Recent: {_escape_summary(recent['summary'])}")
 
         earlier = history_data.get("earlierContext", {})
-        if earlier.get("summary"):
+        if earlier.get("summary") and not _is_non_durable_operational_memory(
+            earlier["summary"]
+        ):
             history_sections.append(f"Earlier: {_escape_summary(earlier['summary'])}")
 
         background = history_data.get("longTermBackground", {})
-        if background.get("summary"):
+        if background.get("summary") and not _is_non_durable_operational_memory(
+            background["summary"]
+        ):
             history_sections.append(f"Background: {_escape_summary(background['summary'])}")
 
         if history_sections:
@@ -670,7 +719,14 @@ def format_memory_for_injection(
         # Pre-filter valid facts *before* entering the try so the except
         # path can pass the same list straight into the fallback without
         # redoing validation work on the hot prompt-injection path.
-        valid_facts = [f for f in facts_data if isinstance(f, dict) and isinstance(f.get("content"), str) and f.get("content", "").strip()]
+        valid_facts = [
+            f
+            for f in facts_data
+            if isinstance(f, dict)
+            and isinstance(f.get("content"), str)
+            and f.get("content", "").strip()
+            and not _is_non_durable_operational_memory(f.get("content"))
+        ]
 
         try:
             # Partition valid facts into guaranteed vs regular groups.

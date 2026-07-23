@@ -2,7 +2,6 @@
 
 import {
   ArrowLeftIcon,
-  BotIcon,
   CheckIcon,
   CheckCircleIcon,
   ChevronsUpDownIcon,
@@ -38,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { AgentNameIcon } from "@/components/workspace/agents/agent-name-icon";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { MessageList } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
@@ -415,9 +415,7 @@ export default function NewAgentPage() {
         <main className="flex flex-1 flex-col items-center justify-center px-4">
           <div className="w-full max-w-sm space-y-8">
             <div className="space-y-3 text-center">
-              <div className="bg-primary/10 mx-auto flex h-14 w-14 items-center justify-center rounded-full">
-                <BotIcon className="text-primary h-7 w-7" />
-              </div>
+              <AgentNameIcon />
               <div className="space-y-1">
                 <h2 className="text-xl font-semibold">
                   {t.agents.nameStepTitle}

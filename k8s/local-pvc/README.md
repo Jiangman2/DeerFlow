@@ -121,7 +121,13 @@ sandbox:
   use: deerflow.community.aio_sandbox:AioSandboxProvider
   provisioner_url: http://provisioner:8002
   provisioner_api_key: $PROVISIONER_API_KEY
+  sandbox_api_key: $SANDBOX_API_KEY
 ```
+
+`PROVISIONER_API_KEY` protects the Provisioner control API, while the separate
+`SANDBOX_API_KEY` protects code-execution APIs on every generated Sandbox Pod.
+Store both values in `deer-flow-env`. Sandbox health probes read the key inside
+the container and never place its value in the Pod specification.
 
 Avoid relying on `latest` in this mode because the Kubernetes image cache can
 continue using an older local digest after a rebuild.

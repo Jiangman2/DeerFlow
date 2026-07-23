@@ -68,6 +68,17 @@ language policy provides the same default for lead and delegated model output.
 Do not reintroduce an unconditional English requirement into the bootstrap
 copy.
 
+The new-agent name-step badge must remain compatible with enterprise browsers
+that lack CSS `color-mix()`. Keep its pale primary background as a separate
+`bg-primary opacity-10` layer behind the inline icon; Tailwind opacity-color
+utilities such as `bg-primary/10` fall back to an opaque primary color in those
+browsers and hide the same-color icon.
+
+The Kubernetes WeKnora UI bootstrap is served through the shared DeerFlow
+origin. Keep its session exchange URL relative as
+`/api/weknora/sso-session`; loopback, fixed-port, or node-pinned URLs bypass the
+user's actual browser origin and break SSO in enterprise deployments.
+
 ### Data Flow
 
 1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission, and `core/voice-input` can transcribe browser microphone input into that same local draft; confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming

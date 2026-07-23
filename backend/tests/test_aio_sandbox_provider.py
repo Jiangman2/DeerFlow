@@ -56,9 +56,30 @@ def _make_provider(tmp_path):
     return provider
 
 
+def test_remote_provider_can_declare_shared_thread_data_mounts():
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    remote_mod = importlib.import_module("deerflow.community.aio_sandbox.remote_backend")
+    provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
+    provider._backend = remote_mod.RemoteSandboxBackend("http://provisioner:8002")
+    provider._config = {"shared_thread_data_mounts": True}
+
+    assert provider.uses_thread_data_mounts is True
+
+
+def test_remote_provider_requires_explicit_shared_mount_declaration():
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    remote_mod = importlib.import_module("deerflow.community.aio_sandbox.remote_backend")
+    provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
+    provider._backend = remote_mod.RemoteSandboxBackend("http://provisioner:8002")
+    provider._config = {}
+
+    assert provider.uses_thread_data_mounts is False
+
+
 def test_get_thread_mounts_includes_acp_workspace(tmp_path, monkeypatch):
     """_get_thread_mounts must include /mnt/acp-workspace (read-only) for docker sandbox."""
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.delenv("DEER_FLOW_HOST_BASE_DIR", raising=False)
     monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
     monkeypatch.setattr(aio_mod, "get_effective_user_id", lambda: None)
 
@@ -89,6 +110,7 @@ def test_get_thread_mounts_includes_user_data_dirs(tmp_path, monkeypatch):
 def test_get_thread_mounts_uses_explicit_user_id(tmp_path, monkeypatch):
     """Channel runs must mount the same user bucket used for artifact delivery."""
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.delenv("DEER_FLOW_HOST_BASE_DIR", raising=False)
     monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
     monkeypatch.setattr(aio_mod, "get_effective_user_id", lambda: "default")
 

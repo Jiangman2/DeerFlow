@@ -59,7 +59,7 @@ spec:
             - name: K8S_CREATE_NAMESPACE
               value: "false"
             - name: SANDBOX_IMAGE
-              value: deer-flow-aio-sandbox:ppt-master-dev-20260718-18
+              value: deer-flow-aio-sandbox:ppt-master-dev-20260723-dashscope-media-v1
             - name: SKILLS_PVC_NAME
               value: deer-flow-skills-pvc
             - name: USERDATA_PVC_NAME
@@ -95,20 +95,39 @@ spec:
             - name: SANDBOX_ENV_SECRET_NAME
               value: deer-flow-env
             - name: SANDBOX_SECRET_ENV_KEYS
-              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,GEMINI_API_KEY
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,GEMINI_API_KEY,SANDBOX_API_KEY
             - name: IMAGE_BACKEND
-              value: qwen
+              value: dashscope
             - name: IMAGE_GENERATION_PROVIDER
-              value: qwen
-            - name: QWEN_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: deer-flow-env
-                  key: DASHSCOPE_API_KEY
-            - name: QWEN_MODEL
+              value: dashscope
+            - name: DASHSCOPE_BASE_URL
+              value: https://dashscope.aliyuncs.com/api/v1
+            - name: DASHSCOPE_IMAGE_MODEL
               value: qwen-image-2.0-pro
-            - name: QWEN_BASE_URL
-              value: https://dashscope.aliyuncs.com
+            - name: VIDEO_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_VIDEO_MODEL
+              value: wan2.7-t2v
+            - name: DASHSCOPE_VIDEO_DURATION
+              value: "5"
+            - name: DASHSCOPE_VIDEO_RESOLUTION
+              value: 720P
+            - name: PODCAST_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_TTS_MODEL
+              value: qwen3-tts-flash
+            - name: DASHSCOPE_TTS_VOICE_MALE
+              value: Ethan
+            - name: DASHSCOPE_TTS_VOICE_FEMALE
+              value: Cherry
+            - name: MUSIC_GENERATION_PROVIDER
+              value: dashscope
+            - name: DASHSCOPE_MUSIC_MODEL
+              value: fun-music-v1
+            - name: DASHSCOPE_MUSIC_GENDER
+              value: female
+            - name: DASHSCOPE_MUSIC_FORMAT
+              value: mp3
           readinessProbe:
             httpGet:
               path: /health
@@ -186,7 +205,7 @@ spec:
               readOnly: true
       containers:
         - name: gateway
-          image: deer-flow-gateway:dev-20260721-kb-scope-memory-3
+          image: deer-flow-gateway:dev-20260723-upload-shared-v2
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
@@ -352,7 +371,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: deer-flow-frontend:dev-20260721-citation-links
+          image: deer-flow-frontend:dev-20260723-enterprise-icon-users-v2
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

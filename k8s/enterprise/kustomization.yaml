@@ -8,6 +8,7 @@ resources:
   - ../weknora
   - nginx-nodeport.yaml
   - storage-static.yaml
+  - mineru-adapter.yaml
 
 patches:
   - path: storage-patches.yaml
@@ -15,7 +16,10 @@ patches:
 
 # Third-party images are the ARM64 manifests verified on datax-01 on
 # 2026-07-21. Custom images use immutable deployment tags and are imported
-# into the k8s.io containerd namespace on every node before apply.
+# into the k8s.io containerd namespace on every node before apply. The custom
+# WeKnora PostgreSQL image was rebuilt and smoke-tested on datax-01/datax-02
+# because the upstream ParadeDB PG17 image uses instructions unavailable on
+# these nodes.
 images:
   - name: busybox
     newName: m.daocloud.io/docker.io/library/busybox
@@ -30,11 +34,11 @@ images:
     newName: m.daocloud.io/docker.io/library/redis
     digest: sha256:c9d92d840fd011c908f040592857c724ae6d877f2aba5c40ad963276507386b2
   - name: paradedb/paradedb
-    newName: m.daocloud.io/docker.io/paradedb/paradedb
-    digest: sha256:af585013f97f622715de01e48d00558f7edf17055d7b40deafc9f98ca8d99a56
+    newName: deerflow.local/weknora-postgres
+    newTag: pg16-search-arm64-20260722-1
   - name: wechatopenai/weknora-app
-    newName: m.daocloud.io/docker.io/wechatopenai/weknora-app
-    digest: sha256:500262dfee6e10e759cde8726d75e159e9c78bd3e79bcea49e12271fc73f1ef3
+    newName: deerflow.local/weknora-app
+    newTag: 0.7.0-enterprise-proxy1-arm64-20260723
   - name: wechatopenai/weknora-docreader
     newName: m.daocloud.io/docker.io/wechatopenai/weknora-docreader
     digest: sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b
@@ -43,13 +47,16 @@ images:
     digest: sha256:da9a3a0a939ddd1ed6f4b510b74a0562a21b898439f907cd6ee529a3680283d8
   - name: deer-flow-gateway
     newName: deerflow.local/deer-flow-gateway
-    newTag: 20260721-enterprise-arm64-1
+    newTag: 20260722-enterprise-arm64-rc2
   - name: deer-flow-frontend
     newName: deerflow.local/deer-flow-frontend
-    newTag: 20260721-enterprise-arm64-1
+    newTag: 20260722-enterprise-arm64-rc1
   - name: deer-flow-provisioner
     newName: deerflow.local/deer-flow-provisioner
-    newTag: 20260721-enterprise-arm64-1
+    newTag: 20260722-enterprise-arm64-rc2
   - name: deer-flow-skills
     newName: deerflow.local/deer-flow-skills
-    newTag: 20260721-enterprise-arm64-1
+    newTag: 20260722-enterprise-arm64-rc1
+  - name: deer-flow-mineru-adapter
+    newName: deerflow.local/deer-flow-mineru-adapter
+    newTag: 20260723-enterprise-arm64-rc1

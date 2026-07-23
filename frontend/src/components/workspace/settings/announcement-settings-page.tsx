@@ -162,7 +162,6 @@ export function AnnouncementSettingsPage() {
     const startsAt = input.starts_at
       ? new Date(input.starts_at).getTime()
       : null;
-    const endsAt = input.ends_at ? new Date(input.ends_at).getTime() : null;
     const windowError = validateAnnouncementWindow(
       input.starts_at,
       input.ends_at,

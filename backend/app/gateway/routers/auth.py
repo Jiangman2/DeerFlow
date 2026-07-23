@@ -357,8 +357,10 @@ async def register(request: Request, response: Response, body: RegisterRequest):
 
 @router.post("/logout", response_model=MessageResponse)
 async def logout(request: Request, response: Response):
-    """Logout current user by clearing the cookie."""
-    response.delete_cookie(key="access_token", secure=is_secure_request(request), samesite="lax")
+    """Logout current user and clear both DeerFlow and upstream SSO cookies."""
+    secure = is_secure_request(request)
+    response.delete_cookie(key="access_token", secure=secure, samesite="lax")
+    response.delete_cookie(key=CNOOC_PLATFORM_TOKEN_COOKIE_NAME, secure=secure, samesite="lax")
     return MessageResponse(message="Successfully logged out")
 
 
@@ -547,6 +549,7 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
 
 
 # ── OIDC / SSO Endpoints ────────────────────────────────────────────────
+
 
 @router.get("/cnooc/login")
 async def cnooc_token_login(

@@ -1,7 +1,7 @@
 import logging
 import shutil
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated
 
 from langchain.tools import InjectedToolCallId, tool
@@ -110,9 +110,33 @@ def _validate_pptx_file(path: Path) -> None:
         raise ValueError(f"Invalid PPTX file: {path.name} is missing required PowerPoint package entries")
 
 
+def _validate_skill_file(path: Path) -> None:
+    """Validate a packaged skill before exposing it as a downloadable artifact."""
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            names = [name.replace("\\", "/") for name in archive.namelist()]
+    except zipfile.BadZipFile:
+        raise ValueError(
+            f"Invalid skill package: {path.name} is not a ZIP archive"
+        ) from None
+
+    for name in names:
+        member = PurePosixPath(name)
+        if member.is_absolute() or ".." in member.parts:
+            raise ValueError(
+                f"Invalid skill package: {path.name} contains an unsafe path"
+            )
+    if not any(PurePosixPath(name).name == "SKILL.md" for name in names):
+        raise ValueError(
+            f"Invalid skill package: {path.name} is missing SKILL.md"
+        )
+
+
 def _validate_presented_file(actual_path: Path) -> None:
     if actual_path.suffix.lower() == ".pptx":
         _validate_pptx_file(actual_path)
+    elif actual_path.suffix.lower() == ".skill":
+        _validate_skill_file(actual_path)
 
 
 def _normalize_presented_filepath(

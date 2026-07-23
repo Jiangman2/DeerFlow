@@ -138,13 +138,21 @@ After generation:
 - Reference image enhance generation quality significantly
 - Iterative refinement is normal for optimal results
 
-## Providers (Gemini / MiniMax)
+## Providers (DashScope / Gemini / MiniMax)
 
-Auto-selected by environment variables (CLI unchanged):
+DashScope is preferred when `DASHSCOPE_API_KEY` is present. It uses
+`DASHSCOPE_VIDEO_MODEL=wan2.7-t2v`, a 5-second duration and 720P output by
+default; override these with `DASHSCOPE_VIDEO_DURATION` and
+`DASHSCOPE_VIDEO_RESOLUTION`. Force it with
+`VIDEO_GENERATION_PROVIDER=dashscope`. This text-to-video model does not accept
+reference images; Gemini and MiniMax remain compatibility providers when a
+reference-image workflow is required.
+
+When DashScope is unavailable, a legacy provider is auto-selected by environment variables (CLI unchanged):
 
 - `GEMINI_API_KEY` set → Gemini Veo (default, unchanged).
 - Only `MINIMAX_API_KEY` set → MiniMax video (`/v1/video_generation`, async 3-step poll/download).
-- Force with `VIDEO_GENERATION_PROVIDER=gemini|minimax`.
+- Force with `VIDEO_GENERATION_PROVIDER=dashscope|gemini|minimax`.
 
 MiniMax overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.com`),
 `MINIMAX_VIDEO_MODEL` (default `MiniMax-Hailuo-2.3`). The first reference image is used

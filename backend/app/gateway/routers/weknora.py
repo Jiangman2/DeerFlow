@@ -28,12 +28,38 @@ _DEFAULT_EMBEDDING_MODEL_ID = "deerflow-dashscope-embedding"
 _DEFAULT_SUMMARY_MODEL_ID = "deerflow-qwen-plus"
 _COUNT_ENRICH_CONCURRENCY = 8
 _COUNT_PAGE_SIZE = 100
+_PRESENTATION_FILE_TYPES = ("ppt", "pptx")
+_SUPPORTED_PRESENTATION_PARSERS = {"markitdown", "mineru"}
 _ALLOWED_SSO_ORIGINS = {
     "http://127.0.0.1:32090",
     "http://localhost:32090",
     "http://127.0.0.1:8090",
     "http://localhost:8090",
 }
+
+
+def _presentation_parser_rules() -> list[dict[str, Any]]:
+    """Return a fresh parser rule list for editable presentation files."""
+    engine = os.getenv("WEKNORA_PRESENTATION_PARSER_ENGINE", "markitdown").strip().lower()
+    if engine not in _SUPPORTED_PRESENTATION_PARSERS:
+        logger.warning(
+            "Unsupported WEKNORA_PRESENTATION_PARSER_ENGINE=%r; falling back to markitdown",
+            engine,
+        )
+        engine = "markitdown"
+    return [{"file_types": list(_PRESENTATION_FILE_TYPES), "engine": engine}]
+
+
+def _upload_process_config(filename: str | None) -> dict[str, Any] | None:
+    extension = os.path.splitext(filename or "")[1].lower().lstrip(".")
+    if extension in _PRESENTATION_FILE_TYPES:
+        rules = _presentation_parser_rules()
+        config: dict[str, Any] = {"parser_engine_rules": rules}
+        mineru_endpoint = os.getenv("WEKNORA_MINERU_ENDPOINT", "").strip()
+        if rules[0]["engine"] == "mineru" and mineru_endpoint:
+            config["parser_engine_overrides"] = {"mineru_endpoint": mineru_endpoint}
+        return config
+    return None
 
 
 def _float_env(name: str, default: float) -> float:
@@ -50,7 +76,7 @@ def _float_env(name: str, default: float) -> float:
 class WeKnoraKnowledgeBaseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     description: str = ""
-    type: str = "public"
+    type: str = "document"
 
 
 class WeKnoraManualKnowledgeCreate(BaseModel):
@@ -60,17 +86,40 @@ class WeKnoraManualKnowledgeCreate(BaseModel):
     channel: str = "deerflow"
 
 
-def _headers(access_token: str, *, json_content: bool = True) -> dict[str, str]:
+def _headers(
+    access_token: str,
+    *,
+    json_content: bool = True,
+    tenant_id: str | int | None = None,
+) -> dict[str, str]:
     headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
     if json_content:
         headers["Content-Type"] = "application/json"
+    if tenant_id is not None and str(tenant_id).strip():
+        headers["X-Tenant-ID"] = str(tenant_id)
     return headers
 
 
-async def _request(method: str, path: str, access_token: str, **kwargs: Any) -> dict[str, Any]:
+async def _request(
+    method: str,
+    path: str,
+    access_token: str,
+    *,
+    tenant_id: str | int | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=weknora_timeout()) as client:
-            response = await client.request(method, weknora_endpoint(path), headers=_headers(access_token, json_content="files" not in kwargs), **kwargs)
+            response = await client.request(
+                method,
+                weknora_endpoint(path),
+                headers=_headers(
+                    access_token,
+                    json_content="files" not in kwargs,
+                    tenant_id=tenant_id,
+                ),
+                **kwargs,
+            )
     except HTTPException:
         raise
     except httpx.RequestError as exc:
@@ -133,15 +182,29 @@ def _is_processing_knowledge(item: dict[str, Any]) -> bool:
     return status in {"pending", "processing", "parsing", "unprocessed"}
 
 
-async def _knowledge_base_counts(kb_id: str, access_token: str) -> dict[str, Any]:
-    response = await _knowledge_base_knowledge_page(kb_id, access_token, page=1)
+async def _knowledge_base_counts(
+    kb_id: str,
+    access_token: str,
+    tenant_id: str | int | None = None,
+) -> dict[str, Any]:
+    response = await _knowledge_base_knowledge_page(
+        kb_id,
+        access_token,
+        page=1,
+        tenant_id=tenant_id,
+    )
     items = [item for item in response["items"] if isinstance(item, dict)]
     knowledge_count = _int_value(response.get("total"), len(items))
     if knowledge_count > len(items):
         remaining_pages = range(2, (knowledge_count + _COUNT_PAGE_SIZE - 1) // _COUNT_PAGE_SIZE + 1)
         extra_pages = await asyncio.gather(
             *[
-                _knowledge_base_knowledge_page(kb_id, access_token, page=page)
+                _knowledge_base_knowledge_page(
+                    kb_id,
+                    access_token,
+                    page=page,
+                    tenant_id=tenant_id,
+                )
                 for page in remaining_pages
             ],
             return_exceptions=True,
@@ -158,16 +221,13 @@ async def _knowledge_base_counts(kb_id: str, access_token: str) -> dict[str, Any
             "GET",
             f"/chunks/{knowledge_id}",
             access_token,
+            tenant_id=tenant_id,
             params={"page": 1, "page_size": 1},
         )
         return _int_value(chunk_data.get("total"), 0)
 
     chunk_counts = await asyncio.gather(
-        *[
-            _chunk_count_for_knowledge(str(item.get("id")))
-            for item in items
-            if item.get("id")
-        ],
+        *[_chunk_count_for_knowledge(str(item.get("id"))) for item in items if item.get("id")],
         return_exceptions=True,
     )
     chunk_count = 0
@@ -185,11 +245,18 @@ async def _knowledge_base_counts(kb_id: str, access_token: str) -> dict[str, Any
     }
 
 
-async def _knowledge_base_knowledge_page(kb_id: str, access_token: str, *, page: int) -> dict[str, Any]:
+async def _knowledge_base_knowledge_page(
+    kb_id: str,
+    access_token: str,
+    *,
+    page: int,
+    tenant_id: str | int | None = None,
+) -> dict[str, Any]:
     data = await _request(
         "GET",
         f"/knowledge-bases/{kb_id}/knowledge",
         access_token,
+        tenant_id=tenant_id,
         params={"page": page, "page_size": _COUNT_PAGE_SIZE},
     )
     return _unwrap_list_response(data)
@@ -206,53 +273,149 @@ async def _enrich_knowledge_base_counts(items: list[dict[str, Any]], access_toke
             return
         try:
             async with semaphore:
-                item.update(await _knowledge_base_counts(kb_id, access_token))
+                tenant_id = item.get("access_tenant_id") or item.get("owner_tenant_id") or item.get("source_tenant_id") or item.get("tenant_id")
+                item.update(await _knowledge_base_counts(kb_id, access_token, tenant_id=tenant_id))
         except HTTPException:
             logger.debug("Failed to enrich WeKnora knowledge-base counts for %s", kb_id, exc_info=True)
 
     await asyncio.gather(*[_enrich(item) for item in items])
 
 
+def _session_identity_fallback(session: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    session_user = session.user if isinstance(getattr(session, "user", None), dict) else {}
+    memberships = [item for item in (getattr(session, "memberships", None) or []) if isinstance(item, dict)]
+    if not memberships and isinstance(getattr(session, "tenant", None), dict):
+        memberships = [
+            {
+                "tenant_id": session.tenant.get("id"),
+                "tenant_name": session.tenant.get("name"),
+                "role": "owner",
+            }
+        ]
+    return session_user, memberships
+
+
+async def _live_weknora_identity(session: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    fallback = _session_identity_fallback(session)
+    try:
+        response = await _request("GET", "/auth/me", session.token)
+    except HTTPException:
+        logger.warning("Failed to refresh WeKnora memberships; using the cached login session.", exc_info=True)
+        return fallback
+
+    data = response.get("data")
+    if not isinstance(data, dict):
+        return fallback
+    live_user = data.get("user")
+    live_memberships = data.get("memberships")
+    if not isinstance(live_user, dict):
+        live_user = fallback[0]
+    if not isinstance(live_memberships, list):
+        live_memberships = fallback[1]
+    memberships = [item for item in live_memberships if isinstance(item, dict) and item.get("tenant_id") is not None]
+    return live_user, memberships or fallback[1]
+
+
+def _classify_tenant_knowledge_base(
+    item: dict[str, Any],
+    *,
+    current_user_id: str,
+    membership: dict[str, Any],
+) -> dict[str, Any]:
+    kb = dict(item)
+    tenant_id = _normalise_tenant_id(kb.get("tenant_id") or membership.get("tenant_id"))
+    creator_id = str(kb.get("creator_id") or "")
+    is_owner = bool(current_user_id and creator_id and creator_id == current_user_id)
+    is_joined = not is_owner
+    is_team_or_public = bool(_int_value(kb.get("share_count"), 0) > 0 or kb.get("access_scope") in {"team", "public"})
+    kb.update(
+        {
+            "access_scope": "owned" if is_owner else "joined",
+            "is_owner": is_owner,
+            "is_joined": is_joined,
+            "is_team_or_public": is_team_or_public,
+            "owner_tenant_id": tenant_id,
+            "access_tenant_id": _normalise_tenant_id(membership.get("tenant_id") or tenant_id),
+            "tenant_name": membership.get("tenant_name") or "",
+            "membership_role": membership.get("role") or "",
+        }
+    )
+    return kb
+
+
 @router.get("/knowledge-bases")
 async def list_knowledge_bases(user: Any = Depends(get_current_user_from_request)) -> dict[str, Any]:
     session = await ensure_weknora_session_for_deerflow_user(user)
-    own_data = await _request("GET", "/knowledge-bases", session.token)
-    own_response = _unwrap_list_response(own_data)
-    active_tenant_id = _normalise_tenant_id(session.tenant.get("id"))
+    live_user, memberships = await _live_weknora_identity(session)
+    session_user = getattr(session, "user", None)
+    if not isinstance(session_user, dict):
+        session_user = {}
+    current_user_id = str(live_user.get("id") or session_user.get("id") or "")
 
+    async def _list_tenant_resources(membership: dict[str, Any]) -> tuple[dict[str, Any], Any, Any]:
+        tenant_id = membership.get("tenant_id")
+        knowledge_bases, shared = await asyncio.gather(
+            _request("GET", "/knowledge-bases", session.token, tenant_id=tenant_id),
+            _request("GET", "/shared-knowledge-bases", session.token, tenant_id=tenant_id),
+            return_exceptions=True,
+        )
+        return membership, knowledge_bases, shared
+
+    tenant_results = await asyncio.gather(*[_list_tenant_resources(item) for item in memberships])
     items_by_id: dict[str, dict[str, Any]] = {}
-    for item in own_response["items"]:
-        if not isinstance(item, dict):
-            continue
-        kb = dict(item)
-        kb_id = str(kb.get("id") or "")
-        if not kb_id:
-            continue
-        kb["access_scope"] = "owned"
-        kb["is_owner"] = True
-        kb["owner_tenant_id"] = _normalise_tenant_id(kb.get("tenant_id") or active_tenant_id)
-        items_by_id[kb_id] = kb
 
-    try:
-        shared_data = await _request("GET", "/shared-knowledge-bases", session.token)
-    except HTTPException as exc:
-        logger.warning("Failed to list shared WeKnora knowledge bases: %s", exc.detail)
-    else:
-        shared_items = _unwrap_list_response(shared_data)["items"]
-        for row in shared_items:
+    for membership, knowledge_data, shared_data in tenant_results:
+        if isinstance(knowledge_data, Exception):
+            logger.warning(
+                "Failed to list WeKnora knowledge bases for tenant %s: %s",
+                membership.get("tenant_id"),
+                knowledge_data,
+            )
+        else:
+            for item in _unwrap_list_response(knowledge_data)["items"]:
+                if not isinstance(item, dict):
+                    continue
+                kb = _classify_tenant_knowledge_base(
+                    item,
+                    current_user_id=current_user_id,
+                    membership=membership,
+                )
+                kb_id = str(kb.get("id") or "")
+                if kb_id:
+                    items_by_id[kb_id] = kb
+
+        if isinstance(shared_data, Exception):
+            logger.warning(
+                "Failed to list shared WeKnora knowledge bases for tenant %s: %s",
+                membership.get("tenant_id"),
+                shared_data,
+            )
+            continue
+        for row in _unwrap_list_response(shared_data)["items"]:
             if not isinstance(row, dict):
                 continue
             kb_raw = row.get("knowledge_base")
             if not isinstance(kb_raw, dict):
                 continue
-            kb = dict(kb_raw)
-            kb_id = str(kb.get("id") or "")
-            if not kb_id or kb_id in items_by_id:
+            kb_id = str(kb_raw.get("id") or "")
+            if not kb_id:
                 continue
-            kb.update(
+            existing = items_by_id.get(kb_id)
+            if existing is None:
+                source_membership = {
+                    **membership,
+                    "tenant_id": row.get("source_tenant_id") or kb_raw.get("tenant_id"),
+                }
+                existing = _classify_tenant_knowledge_base(
+                    kb_raw,
+                    current_user_id=current_user_id,
+                    membership=source_membership,
+                )
+                existing["access_tenant_id"] = _normalise_tenant_id(membership.get("tenant_id"))
+                items_by_id[kb_id] = existing
+            existing.update(
                 {
-                    "access_scope": "joined",
-                    "is_owner": False,
+                    "is_team_or_public": True,
                     "share_id": row.get("share_id"),
                     "organization_id": row.get("organization_id"),
                     "org_name": row.get("org_name"),
@@ -261,7 +424,6 @@ async def list_knowledge_bases(user: Any = Depends(get_current_user_from_request
                     "shared_at": row.get("shared_at"),
                 }
             )
-            items_by_id[kb_id] = kb
 
     items = list(items_by_id.values())
     try:
@@ -275,11 +437,12 @@ async def list_knowledge_bases(user: Any = Depends(get_current_user_from_request
     except Exception:
         logger.warning("Skipping WeKnora knowledge-base count enrichment due to an unexpected error.", exc_info=True)
     return {
-        **own_response,
         "items": items,
         "total": len(items),
-        "owned_total": sum(1 for item in items if item.get("access_scope") == "owned"),
-        "joined_total": sum(1 for item in items if item.get("access_scope") == "joined"),
+        "owned_total": sum(1 for item in items if item.get("is_owner") is True),
+        "joined_total": sum(1 for item in items if item.get("is_joined") is True),
+        "team_total": sum(1 for item in items if item.get("is_team_or_public") is True),
+        "success": True,
     }
 
 
@@ -295,6 +458,7 @@ async def create_knowledge_base(request: WeKnoraKnowledgeBaseCreate, user: Any =
             "chunk_size": 512,
             "chunk_overlap": 50,
             "separators": ["\n\n", "\n", ". "],
+            "parser_engine_rules": _presentation_parser_rules(),
         },
         "image_processing_config": {},
         "storage_provider_config": {"provider": "local"},
@@ -311,6 +475,7 @@ async def list_knowledge(
     page_size: int = Query(default=20, ge=1, le=100),
     keyword: str | None = None,
     parse_status: str | None = None,
+    tenant_id: str | None = None,
     user: Any = Depends(get_current_user_from_request),
 ) -> dict[str, Any]:
     params: dict[str, Any] = {"page": page, "page_size": page_size}
@@ -318,19 +483,35 @@ async def list_knowledge(
         params["keyword"] = keyword
     if parse_status:
         params["parse_status"] = parse_status
-    data = await _request("GET", f"/knowledge-bases/{knowledge_base_id}/knowledge", await _current_weknora_token(user), params=params)
+    data = await _request(
+        "GET",
+        f"/knowledge-bases/{knowledge_base_id}/knowledge",
+        await _current_weknora_token(user),
+        tenant_id=tenant_id,
+        params=params,
+    )
     return _unwrap_list_response(data)
 
 
 @router.get("/knowledge/{knowledge_id}")
-async def get_knowledge(knowledge_id: str, user: Any = Depends(get_current_user_from_request)) -> dict[str, Any]:
-    return await _request("GET", f"/knowledge/{knowledge_id}", await _current_weknora_token(user))
+async def get_knowledge(
+    knowledge_id: str,
+    tenant_id: str | None = None,
+    user: Any = Depends(get_current_user_from_request),
+) -> dict[str, Any]:
+    return await _request(
+        "GET",
+        f"/knowledge/{knowledge_id}",
+        await _current_weknora_token(user),
+        tenant_id=tenant_id,
+    )
 
 
 @router.post("/knowledge-bases/{knowledge_base_id}/knowledge/manual")
 async def create_manual_knowledge(
     knowledge_base_id: str,
     request: WeKnoraManualKnowledgeCreate,
+    tenant_id: str | None = None,
     user: Any = Depends(get_current_user_from_request),
 ) -> dict[str, Any]:
     payload = {
@@ -339,7 +520,13 @@ async def create_manual_knowledge(
         "status": request.status,
         "channel": request.channel,
     }
-    return await _request("POST", f"/knowledge-bases/{knowledge_base_id}/knowledge/manual", await _current_weknora_token(user), json=payload)
+    return await _request(
+        "POST",
+        f"/knowledge-bases/{knowledge_base_id}/knowledge/manual",
+        await _current_weknora_token(user),
+        tenant_id=tenant_id,
+        json=payload,
+    )
 
 
 @router.post("/knowledge-bases/{knowledge_base_id}/knowledge/file")
@@ -347,6 +534,7 @@ async def upload_knowledge_file(
     knowledge_base_id: str,
     file: UploadFile = File(...),
     enable_multimodel: bool = False,
+    tenant_id: str | None = None,
     user: Any = Depends(get_current_user_from_request),
 ) -> dict[str, Any]:
     content = await file.read()
@@ -358,6 +546,9 @@ async def upload_knowledge_file(
         "enable_multimodel": "true" if enable_multimodel else "false",
         "metadata": json.dumps({"source": "deerflow"}, ensure_ascii=False),
     }
+    process_config = _upload_process_config(file.filename)
+    if process_config is not None:
+        form_data["process_config"] = json.dumps(process_config, ensure_ascii=False)
     files = {
         "file": (
             file.filename or "upload",
@@ -365,7 +556,14 @@ async def upload_knowledge_file(
             file.content_type or "application/octet-stream",
         )
     }
-    return await _request("POST", f"/knowledge-bases/{knowledge_base_id}/knowledge/file", await _current_weknora_token(user), data=form_data, files=files)
+    return await _request(
+        "POST",
+        f"/knowledge-bases/{knowledge_base_id}/knowledge/file",
+        await _current_weknora_token(user),
+        tenant_id=tenant_id,
+        data=form_data,
+        files=files,
+    )
 
 
 def _sso_cors_headers(request: Request) -> dict[str, str]:

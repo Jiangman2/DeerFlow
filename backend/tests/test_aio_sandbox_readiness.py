@@ -8,7 +8,7 @@ from deerflow.community.aio_sandbox import backend as readiness
 
 
 class _FakeAsyncClient:
-    def __init__(self, *, responses: list[object], calls: list[str], timeout: float, request_timeouts: list[float] | None = None) -> None:
+    def __init__(self, *, responses: list[object], calls: list[tuple[str, dict[str, str] | None]], timeout: float, request_timeouts: list[float] | None = None) -> None:
         self._responses = responses
         self._calls = calls
         self._timeout = timeout
@@ -20,8 +20,8 @@ class _FakeAsyncClient:
     async def __aexit__(self, exc_type, exc, tb) -> None:
         return None
 
-    async def get(self, url: str, *, timeout: float):
-        self._calls.append(url)
+    async def get(self, url: str, *, timeout: float, headers: dict[str, str] | None = None):
+        self._calls.append((url, headers))
         if self._request_timeouts is not None:
             self._request_timeouts.append(timeout)
         response = self._responses.pop(0)
@@ -43,7 +43,7 @@ class _FakeLoop:
 
 @pytest.mark.anyio
 async def test_wait_for_sandbox_ready_async_uses_nonblocking_polling(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str] = []
+    calls: list[tuple[str, dict[str, str] | None]] = []
     sleeps: list[float] = []
 
     def fake_client(*, timeout: float):
@@ -63,13 +63,16 @@ async def test_wait_for_sandbox_ready_async_uses_nonblocking_polling(monkeypatch
 
     assert await readiness.wait_for_sandbox_ready_async("http://sandbox", timeout=5, poll_interval=0.05) is True
 
-    assert calls == ["http://sandbox/v1/sandbox", "http://sandbox/v1/sandbox"]
+    assert calls == [
+        ("http://sandbox/v1/sandbox", None),
+        ("http://sandbox/v1/sandbox", None),
+    ]
     assert sleeps == [0.05]
 
 
 @pytest.mark.anyio
 async def test_wait_for_sandbox_ready_async_retries_request_errors(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str] = []
+    calls: list[tuple[str, dict[str, str] | None]] = []
     sleeps: list[float] = []
 
     def fake_client(*, timeout: float):
@@ -93,7 +96,7 @@ async def test_wait_for_sandbox_ready_async_retries_request_errors(monkeypatch: 
 
 @pytest.mark.anyio
 async def test_wait_for_sandbox_ready_async_clamps_request_and_sleep_to_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
-    calls: list[str] = []
+    calls: list[tuple[str, dict[str, str] | None]] = []
     request_timeouts: list[float] = []
     sleeps: list[float] = []
 
@@ -114,6 +117,32 @@ async def test_wait_for_sandbox_ready_async_clamps_request_and_sleep_to_deadline
 
     assert await readiness.wait_for_sandbox_ready_async("http://sandbox", timeout=2, poll_interval=1.0) is False
 
-    assert calls == ["http://sandbox/v1/sandbox"]
+    assert calls == [("http://sandbox/v1/sandbox", None)]
     assert request_timeouts == [1.5]
     assert sleeps == [0.25]
+
+
+@pytest.mark.anyio
+async def test_wait_for_sandbox_ready_async_sends_bearer_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, dict[str, str] | None]] = []
+
+    def fake_client(*, timeout: float):
+        return _FakeAsyncClient(
+            responses=[SimpleNamespace(status_code=200)],
+            calls=calls,
+            timeout=timeout,
+        )
+
+    monkeypatch.setattr(readiness.httpx, "AsyncClient", fake_client)
+
+    assert await readiness.wait_for_sandbox_ready_async(
+        "http://sandbox",
+        timeout=5,
+        api_key="sandbox-secret",
+    ) is True
+    assert calls == [
+        (
+            "http://sandbox/v1/sandbox",
+            {"Authorization": "Bearer sandbox-secret"},
+        )
+    ]

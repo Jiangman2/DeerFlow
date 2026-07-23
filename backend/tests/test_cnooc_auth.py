@@ -166,6 +166,19 @@ def test_cnooc_login_creates_oauth_user_and_sets_session_cookies(monkeypatch):
     assert any(header.startswith("cnooc.platform_token=platform-token") and "httponly" in header.lower() for header in cookie_headers)
 
 
+def test_logout_clears_cnooc_platform_token_cookie(monkeypatch):
+    client = _make_cnooc_login_client(monkeypatch, _FakeProvider())
+    client.cookies.set("access_token", "deerflow-session")
+    client.cookies.set("cnooc.platform_token", "platform-token")
+
+    response = client.post("/api/v1/auth/logout")
+
+    assert response.status_code == 200
+    cookie_headers = _set_cookie_headers(response)
+    assert any(header.startswith("access_token=") and "max-age=0" in header.lower() for header in cookie_headers)
+    assert any(header.startswith("cnooc.platform_token=") and "max-age=0" in header.lower() for header in cookie_headers)
+
+
 def test_cnooc_login_rejects_open_redirect_next_param(monkeypatch):
     async def fake_check_cnooc_token(_token: str):
         return _checked_identity()

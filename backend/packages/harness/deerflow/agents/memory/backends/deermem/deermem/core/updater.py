@@ -153,10 +153,46 @@ _DELIVERY_CONSTRAINT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_ONE_OFF_OPERATIONAL_DIRECTIVE_PATTERN = re.compile(
+    r"(?:"
+    r"\bUser\s+(?:explicitly\s+)?(?:requires?|expects?|mandates?|instructs?|"
+    r"prohibits?|forbids?|demands?)\b"
+    r"|(?:用户|使用者).{0,16}(?:要求|指示|规定|禁止|不要|必须|应当|需要)"
+    r")",
+    re.IGNORECASE,
+)
+
+_DIRECT_PREFERENCE_PATTERN = re.compile(
+    r"(?:"
+    r"\bUser\s+(?:explicitly\s+)?(?:prefers?|likes?|dislikes?)\b"
+    r"|(?:用户|使用者).{0,12}(?:偏好|喜欢|不喜欢|倾向于)"
+    r")",
+    re.IGNORECASE,
+)
+
+_REPEATED_BEHAVIOR_PATTERN = re.compile(
+    r"(?:\b(?:usually|typically|regularly|often|consistently)\b|(?:通常|经常|一贯|长期以来))",
+    re.IGNORECASE,
+)
+
 
 def _contains_explicit_durable_intent(value: str) -> bool:
     """Return whether the user explicitly made a rule cross-task/default."""
     return any(pattern.search(value) for pattern in _DURABLE_INTENT_PATTERNS)
+
+
+def _contains_one_off_operational_directive(value: str, category: str) -> bool:
+    """Keep single-turn imperatives out of durable preference/behavior memory."""
+    if _contains_explicit_durable_intent(value):
+        return False
+    normalized_category = category.strip().lower()
+    if normalized_category == "behavior":
+        return not bool(_REPEATED_BEHAVIOR_PATTERN.search(value))
+    if normalized_category not in {"preference", "correction"}:
+        return False
+    if _DIRECT_PREFERENCE_PATTERN.search(value):
+        return False
+    return bool(_ONE_OFF_OPERATIONAL_DIRECTIVE_PATTERN.search(value))
 
 
 def _contains_one_off_delivery_constraint(value: str) -> bool:
@@ -192,12 +228,13 @@ def _normalize_memory_update_fact(fact: Any) -> dict[str, Any] | None:
     content = raw_content.strip()
     if not content:
         return None
-    if _contains_transient_task_resource(content):
-        logger.info("Dropped transient task-resource fact from durable memory")
-        return None
-
     raw_category = fact.get("category")
     category = raw_category.strip() if isinstance(raw_category, str) and raw_category.strip() else "context"
+    if _contains_transient_task_resource(content) or _contains_one_off_operational_directive(
+        content, category
+    ):
+        logger.info("Dropped transient task-resource fact from durable memory")
+        return None
 
     raw_confidence = fact.get("confidence", 0.5)
     if isinstance(raw_confidence, bool):

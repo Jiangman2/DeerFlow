@@ -10,22 +10,28 @@ import {
 
 export const weknoraKnowledgeBasesQueryKey = ["weknora", "knowledge-bases"];
 
-export function weknoraKnowledgeQueryKey(knowledgeBaseId: string | undefined) {
-  return ["weknora", "knowledge", knowledgeBaseId];
+export function weknoraKnowledgeQueryKey(
+  knowledgeBaseId: string | undefined,
+  tenantId?: string | number,
+) {
+  return ["weknora", "knowledge", knowledgeBaseId, tenantId];
 }
 
-export function useWeKnoraKnowledgeBases() {
+export function useWeKnoraKnowledgeBases(userId?: string) {
   return useQuery({
-    queryKey: weknoraKnowledgeBasesQueryKey,
+    queryKey: [...weknoraKnowledgeBasesQueryKey, userId ?? "anonymous"],
     queryFn: listWeKnoraKnowledgeBases,
     staleTime: 15_000,
   });
 }
 
-export function useWeKnoraKnowledge(knowledgeBaseId: string | undefined) {
+export function useWeKnoraKnowledge(
+  knowledgeBaseId: string | undefined,
+  tenantId?: string | number,
+) {
   return useQuery({
-    queryKey: weknoraKnowledgeQueryKey(knowledgeBaseId),
-    queryFn: () => listWeKnoraKnowledge(knowledgeBaseId!),
+    queryKey: weknoraKnowledgeQueryKey(knowledgeBaseId, tenantId),
+    queryFn: () => listWeKnoraKnowledge(knowledgeBaseId!, tenantId),
     enabled: Boolean(knowledgeBaseId),
     refetchInterval: (query) => {
       const items = query.state.data?.items ?? [];
@@ -57,7 +63,10 @@ export function useUploadWeKnoraKnowledgeFile() {
         queryKey: weknoraKnowledgeBasesQueryKey,
       });
       void queryClient.invalidateQueries({
-        queryKey: weknoraKnowledgeQueryKey(variables.knowledgeBaseId),
+        queryKey: weknoraKnowledgeQueryKey(
+          variables.knowledgeBaseId,
+          variables.tenantId,
+        ),
       });
     },
   });
@@ -72,7 +81,10 @@ export function useCreateWeKnoraManualKnowledge() {
         queryKey: weknoraKnowledgeBasesQueryKey,
       });
       void queryClient.invalidateQueries({
-        queryKey: weknoraKnowledgeQueryKey(variables.knowledgeBaseId),
+        queryKey: weknoraKnowledgeQueryKey(
+          variables.knowledgeBaseId,
+          variables.tenantId,
+        ),
       });
     },
   });

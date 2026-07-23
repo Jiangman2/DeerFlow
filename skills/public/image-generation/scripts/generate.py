@@ -1,10 +1,12 @@
 import base64
 import json
 import os
+import sys
 
 import requests
 
 MINIMAX_DEFAULT_HOST = "https://api.minimaxi.com"
+DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
 # MiniMax image-01 caps the prompt at 1500 characters and rejects longer requests
 # with a generic "invalid params" error, so validate before calling the API.
 MINIMAX_PROMPT_MAX_CHARS = 1500
@@ -49,6 +51,10 @@ def _minimax_host() -> str:
     return os.getenv("MINIMAX_API_HOST", MINIMAX_DEFAULT_HOST).rstrip("/")
 
 
+def _dashscope_base_url() -> str:
+    return os.getenv("DASHSCOPE_BASE_URL", DASHSCOPE_DEFAULT_BASE_URL).rstrip("/")
+
+
 def _check_base_resp(payload: dict) -> None:
     base = payload.get("base_resp") or {}
     if base.get("status_code", 0) != 0:
@@ -79,6 +85,97 @@ def _ensure_output_dir(output_file: str) -> None:
     output_dir = os.path.dirname(output_file)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
+
+
+def _parse_prompt_spec(raw: str) -> tuple[str, str | None]:
+    """Return the text and optional negative prompt from a shared prompt file."""
+    text = raw.strip()
+    try:
+        data = json.loads(text)
+    except (ValueError, json.JSONDecodeError):
+        return text, None
+    if not isinstance(data, dict):
+        return text, None
+    prompt = data.get("prompt")
+    negative_prompt = data.get("negative_prompt")
+    return (
+        prompt.strip() if isinstance(prompt, str) and prompt.strip() else text,
+        negative_prompt.strip()
+        if isinstance(negative_prompt, str) and negative_prompt.strip()
+        else None,
+    )
+
+
+def _dashscope_image_size(aspect_ratio: str) -> str:
+    return {
+        "16:9": "2688*1536",
+        "9:16": "1536*2688",
+        "1:1": "2048*2048",
+        "4:3": "2368*1728",
+        "3:4": "1728*2368",
+    }.get(aspect_ratio, "2048*2048")
+
+
+def _download_result(url: str, output_file: str) -> None:
+    response = requests.get(url, timeout=300)
+    response.raise_for_status()
+    _ensure_output_dir(output_file)
+    with open(output_file, "wb") as f:
+        f.write(response.content)
+
+
+def _generate_image_dashscope(
+    prompt: str, reference_images: list[str], output_file: str, aspect_ratio: str
+) -> str:
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        return "DASHSCOPE_API_KEY is not set"
+
+    text, negative_prompt = _parse_prompt_spec(prompt)
+    content = [{"image": _to_data_url(path)} for path in reference_images]
+    content.append({"text": text})
+    parameters = {
+        "size": _dashscope_image_size(aspect_ratio),
+        "n": 1,
+        "prompt_extend": True,
+        "watermark": False,
+    }
+    if negative_prompt:
+        parameters["negative_prompt"] = negative_prompt
+
+    response = requests.post(
+        f"{_dashscope_base_url()}/services/aigc/multimodal-generation/generation",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": os.getenv("DASHSCOPE_IMAGE_MODEL", "qwen-image-2.0-pro"),
+            "input": {"messages": [{"role": "user", "content": content}]},
+            "parameters": parameters,
+        },
+        timeout=300,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    choices = (payload.get("output") or {}).get("choices") or []
+    message_content = (
+        ((choices[0].get("message") or {}).get("content") or []) if choices else []
+    )
+    image_url = next(
+        (
+            item.get("image")
+            for item in message_content
+            if isinstance(item, dict) and item.get("image")
+        ),
+        None,
+    )
+    if not image_url:
+        raise Exception(
+            f"DashScope returned no image URL (request_id={payload.get('request_id')})"
+        )
+    _download_result(image_url, output_file)
+    return f"Successfully generated image to {output_file}"
 
 
 def _minimax_prompt(raw: str) -> str:
@@ -199,20 +296,34 @@ def generate_image(
 ) -> str:
     with open(prompt_file, "r", encoding="utf-8") as f:
         prompt = f.read()
-    provider = _resolve_provider(
-        "IMAGE_GENERATION_PROVIDER", "gemini", bool(os.getenv("GEMINI_API_KEY"))
-    )
+    provider = os.getenv("IMAGE_GENERATION_PROVIDER", "").strip().lower()
+    if not provider:
+        if os.getenv("DASHSCOPE_API_KEY"):
+            provider = "dashscope"
+        else:
+            provider = _resolve_provider(
+                "IMAGE_GENERATION_PROVIDER", "gemini", bool(os.getenv("GEMINI_API_KEY"))
+            )
+    if provider in ("dashscope", "qwen", "bailian"):
+        return _generate_image_dashscope(
+            prompt, reference_images, output_file, aspect_ratio
+        )
     if provider == "minimax":
         return _generate_image_minimax(prompt, reference_images, output_file, aspect_ratio)
     if provider in ("gemini", "google"):
         return _generate_image_gemini(prompt, reference_images, output_file, aspect_ratio)
-    raise ValueError(f"Unknown image provider: {provider!r} (use 'gemini' or 'minimax')")
+    raise ValueError(
+        f"Unknown image provider: {provider!r} "
+        "(use 'dashscope', 'gemini', or 'minimax')"
+    )
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Generate images using Gemini or MiniMax API")
+    parser = argparse.ArgumentParser(
+        description="Generate images using DashScope, Gemini, or MiniMax API"
+    )
     parser.add_argument("--prompt-file", required=True, help="Absolute path to JSON prompt file")
     parser.add_argument("--reference-images", nargs="*", default=[],
                         help="Absolute paths to reference images (space-separated)")
@@ -225,4 +336,5 @@ if __name__ == "__main__":
         print(generate_image(args.prompt_file, args.reference_images,
                              args.output_file, args.aspect_ratio))
     except Exception as e:
-        print(f"Error while generating image: {e}")
+        print(f"Error while generating image: {e}", file=sys.stderr)
+        raise SystemExit(1) from e
