@@ -263,7 +263,7 @@ function RankingPagination({
 function ExternalAgentClicks({ items }: { items: ExternalAgentClickItem[] }) {
   const names = [
     "专业文档解析专家",
-    "地震数据分辨率提升工具",
+    "地震数据提频专家",
     "专业报告校审专家",
     "自动数采专家",
     "前期研究报告编写专家",

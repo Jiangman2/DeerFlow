@@ -144,6 +144,24 @@ When `WEKNORA_MINERU_AUTO_CONFIGURE` is enabled, the SSO bridge also merges that
 adapter endpoint into the parser settings of spaces the current user owns or
 administers; it never stores the upstream enterprise API URL or Key in WeKnora.
 
+The same SSO bridge maintains seven platform built-in WeKnora models: three
+chat models (`qwen-plus`, Bailian `deepseek-v4-pro`, and CNOOC Haineng
+`DeepSeek-V4-Flash`), plus embedding, rerank, vision, and speech recognition.
+Qwen remains the default; both DeepSeek entries are selectable non-defaults.
+The Bailian models reuse `LLM_API_KEY` unless a type-specific key overrides it.
+The internal DeepSeek entry uses `DeepSeek_V4_API_KEY`, is omitted when that key
+is absent, and requires `model.ai.cnooc` in proxy-bypass variables. WeKnora
+0.7.0's ASR client posts OpenAI multipart audio, so the speech model uses the
+internal `http://gateway:8001/api/weknora/bailian/v1` base URL. Gateway validates
+the shared key, translates the request to Bailian `qwen3-asr-flash`
+input-audio chat format, and does not persist audio bytes.
+
+Direct production builds of `backend/Dockerfile` default `UV_EXTRAS` to
+`postgres` because the Kubernetes Gateway manifests use PostgreSQL for the
+database, checkpointer, and store. Callers can still replace or extend that
+comma-separated build argument; Docker Compose continues to pass its explicit
+environment-derived value.
+
 CNOOC SSO stores the validated upstream platform Token in the HttpOnly
 `cnooc.platform_token` cookie so the fixed Nginx `/agent-tools/*` proxies can
 inject it as a Bearer header. Logout must clear this cookie together with the

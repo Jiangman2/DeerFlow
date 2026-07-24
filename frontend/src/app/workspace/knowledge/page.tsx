@@ -6,6 +6,8 @@ import {
   CircleAlertIcon,
   FileTextIcon,
   Loader2Icon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   PlusIcon,
   RefreshCwIcon,
   UploadIcon,
@@ -37,6 +39,10 @@ import {
   type WeKnoraKnowledge,
   type WeKnoraKnowledgeBase,
 } from "@/core/weknora";
+import {
+  readKnowledgeSidebarCollapsed,
+  writeKnowledgeSidebarCollapsed,
+} from "@/core/weknora/sidebar-preference";
 import { cn } from "@/lib/utils";
 
 type KnowledgeBaseFilter = "all" | "owned" | "joined" | "team";
@@ -107,6 +113,8 @@ export default function KnowledgePage() {
   const [kbDescription, setKbDescription] = useState("");
   const [manualTitle, setManualTitle] = useState("");
   const [manualContent, setManualContent] = useState("");
+  const [kbListCollapsed, setKbListCollapsed] = useState(false);
+  const [sidebarPreferenceReady, setSidebarPreferenceReady] = useState(false);
 
   const knowledgeBasesQuery = useWeKnoraKnowledgeBases(user?.id);
   const knowledgeBases = useMemo(
@@ -138,6 +146,23 @@ export default function KnowledgePage() {
   const createKb = useCreateWeKnoraKnowledgeBase();
   const uploadFile = useUploadWeKnoraKnowledgeFile();
   const createManual = useCreateWeKnoraManualKnowledge();
+
+  useEffect(() => {
+    setKbListCollapsed(
+      readKnowledgeSidebarCollapsed(
+        typeof window === "undefined" ? undefined : window.localStorage,
+      ),
+    );
+    setSidebarPreferenceReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarPreferenceReady) return;
+    writeKnowledgeSidebarCollapsed(
+      typeof window === "undefined" ? undefined : window.localStorage,
+      kbListCollapsed,
+    );
+  }, [kbListCollapsed, sidebarPreferenceReady]);
 
   useEffect(() => {
     const selectableKnowledgeBases = filteredKnowledgeBases;
@@ -247,107 +272,144 @@ export default function KnowledgePage() {
         </div>
       </header>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(280px,360px)_1fr] gap-4 p-4">
-        <aside className="min-h-0 overflow-y-auto rounded-lg border border-[#dbe3ef] bg-white">
-          <div className="border-b border-[#edf1f7] px-4 py-3 text-sm font-medium text-[#4f5967]">
-            知识库列表
-          </div>
-          <div className="grid grid-cols-2 gap-2 border-b border-[#edf1f7] p-3">
-            {knowledgeBaseFilters.map((filter) => (
-              <button
-                key={filter.key}
-                type="button"
-                className={cn(
-                  "flex min-h-9 items-center justify-between rounded-md border px-3 text-xs font-medium transition",
-                  kbFilter === filter.key
-                    ? "border-[#6d5dfc] bg-[#f4f2ff] text-[#5b4ef7]"
-                    : "border-[#edf1f7] bg-white text-[#687386] hover:border-[#cbd6e7] hover:bg-[#f8fafc]",
-                )}
-                onClick={() => setKbFilter(filter.key)}
-              >
-                <span>{filter.label}</span>
-                <span>{filterCounts[filter.key]}</span>
-              </button>
-            ))}
-          </div>
-          <div className="space-y-2 p-3">
-            {knowledgeBasesQuery.isLoading && (
-              <div className="flex items-center gap-2 px-2 py-8 text-sm text-[#687386]">
-                <Loader2Icon className="size-4 animate-spin" />
-                加载中
-              </div>
-            )}
-            {knowledgeBasesQuery.isError && (
-              <div className="space-y-2 px-2 py-8 text-sm text-[#b42318]">
-                <div>知识库加载失败，请稍后重试。</div>
-                <div className="text-xs break-words text-[#687386]">
-                  {knowledgeBasesQuery.error instanceof Error
-                    ? knowledgeBasesQuery.error.message
-                    : "服务暂时不可用"}
-                </div>
-              </div>
-            )}
-            {!knowledgeBasesQuery.isLoading &&
-              filteredKnowledgeBases.length === 0 && (
-                <div className="px-2 py-8 text-sm text-[#687386]">
-                  {knowledgeBases.length === 0
-                    ? "还没有知识库"
-                    : "当前范围没有知识库"}
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col p-4 transition-[gap] duration-200 ease-out lg:flex-row",
+          kbListCollapsed ? "gap-0" : "gap-4",
+        )}
+      >
+        <aside
+          data-testid="knowledge-base-sidebar"
+          aria-hidden={kbListCollapsed}
+          className={cn(
+            "min-h-0 shrink-0 overflow-hidden transition-[width,height,opacity] duration-200 ease-out",
+            kbListCollapsed
+              ? "pointer-events-none h-0 w-0 opacity-0"
+              : "h-64 w-full opacity-100 lg:h-auto lg:w-[clamp(280px,30vw,360px)]",
+          )}
+        >
+          <div className="h-full w-full overflow-y-auto rounded-lg border border-[#dbe3ef] bg-white lg:w-[clamp(280px,30vw,360px)]">
+            <div className="border-b border-[#edf1f7] px-4 py-3 text-sm font-medium text-[#4f5967]">
+              知识库列表
+            </div>
+            <div className="grid grid-cols-2 gap-2 border-b border-[#edf1f7] p-3">
+              {knowledgeBaseFilters.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  className={cn(
+                    "flex min-h-9 items-center justify-between rounded-md border px-3 text-xs font-medium transition",
+                    kbFilter === filter.key
+                      ? "border-[#6d5dfc] bg-[#f4f2ff] text-[#5b4ef7]"
+                      : "border-[#edf1f7] bg-white text-[#687386] hover:border-[#cbd6e7] hover:bg-[#f8fafc]",
+                  )}
+                  onClick={() => setKbFilter(filter.key)}
+                >
+                  <span>{filter.label}</span>
+                  <span>{filterCounts[filter.key]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="space-y-2 p-3">
+              {knowledgeBasesQuery.isLoading && (
+                <div className="flex items-center gap-2 px-2 py-8 text-sm text-[#687386]">
+                  <Loader2Icon className="size-4 animate-spin" />
+                  加载中
                 </div>
               )}
-            {filteredKnowledgeBases.map((kb) => (
-              <button
-                key={kb.id}
-                type="button"
-                className={cn(
-                  "w-full rounded-md border p-3 text-left transition",
-                  selectedKb?.id === kb.id
-                    ? "border-[#6d5dfc] bg-[#f4f2ff]"
-                    : "border-[#edf1f7] bg-white hover:border-[#cbd6e7] hover:bg-[#f8fafc]",
-                )}
-                onClick={() => setSelectedKbId(kb.id)}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#eef2ff] text-[#6d5dfc]">
-                    <BookOpenIcon className="size-4" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-[#202938]">
-                      {kb.name}
-                    </div>
-                    <div className="mt-1">
-                      <Badge
-                        variant="outline"
-                        className="rounded-md border-[#dbe3ef] bg-[#f8fafc] px-1.5 py-0 text-[11px] font-normal text-[#687386]"
-                      >
-                        {kbScopeLabel(kb)}
-                      </Badge>
-                    </div>
-                    <div className="mt-1 line-clamp-2 text-xs text-[#687386]">
-                      {kb.description ?? "暂无简介"}
-                    </div>
-                    <div className="mt-2 flex items-center gap-3 text-xs text-[#8791a1]">
-                      <span>{formatCount(kb.knowledge_count)} 文档</span>
-                      <span>{formatCount(kb.chunk_count)} 分块</span>
-                      {kb.is_processing && <span>处理中</span>}
-                    </div>
+              {knowledgeBasesQuery.isError && (
+                <div className="space-y-2 px-2 py-8 text-sm text-[#b42318]">
+                  <div>知识库加载失败，请稍后重试。</div>
+                  <div className="text-xs break-words text-[#687386]">
+                    {knowledgeBasesQuery.error instanceof Error
+                      ? knowledgeBasesQuery.error.message
+                      : "服务暂时不可用"}
                   </div>
                 </div>
-              </button>
-            ))}
+              )}
+              {!knowledgeBasesQuery.isLoading &&
+                filteredKnowledgeBases.length === 0 && (
+                  <div className="px-2 py-8 text-sm text-[#687386]">
+                    {knowledgeBases.length === 0
+                      ? "还没有知识库"
+                      : "当前范围没有知识库"}
+                  </div>
+                )}
+              {filteredKnowledgeBases.map((kb) => (
+                <button
+                  key={kb.id}
+                  type="button"
+                  className={cn(
+                    "w-full rounded-md border p-3 text-left transition",
+                    selectedKb?.id === kb.id
+                      ? "border-[#6d5dfc] bg-[#f4f2ff]"
+                      : "border-[#edf1f7] bg-white hover:border-[#cbd6e7] hover:bg-[#f8fafc]",
+                  )}
+                  onClick={() => setSelectedKbId(kb.id)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-[#eef2ff] text-[#6d5dfc]">
+                      <BookOpenIcon className="size-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-[#202938]">
+                        {kb.name}
+                      </div>
+                      <div className="mt-1">
+                        <Badge
+                          variant="outline"
+                          className="rounded-md border-[#dbe3ef] bg-[#f8fafc] px-1.5 py-0 text-[11px] font-normal text-[#687386]"
+                        >
+                          {kbScopeLabel(kb)}
+                        </Badge>
+                      </div>
+                      <div className="mt-1 line-clamp-2 text-xs text-[#687386]">
+                        {kb.description ?? "暂无简介"}
+                      </div>
+                      <div className="mt-2 flex items-center gap-3 text-xs text-[#8791a1]">
+                        <span>{formatCount(kb.knowledge_count)} 文档</span>
+                        <span>{formatCount(kb.chunk_count)} 分块</span>
+                        {kb.is_processing && <span>处理中</span>}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </aside>
 
-        <section className="flex min-h-0 flex-col rounded-lg border border-[#dbe3ef] bg-white">
+        <section
+          data-testid="knowledge-document-panel"
+          className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-[#dbe3ef] bg-white"
+        >
           <div className="flex shrink-0 items-center justify-between border-b border-[#edf1f7] px-5 py-4">
-            <div className="min-w-0">
-              <h2 className="truncate text-lg font-semibold text-[#202938]">
-                {selectedKb?.name ?? "请选择知识库"}
-              </h2>
-              <p className="mt-1 truncate text-sm text-[#687386]">
-                {selectedKb?.description ??
-                  "上传文件或新建手工文档后，系统会自动解析并建立索引"}
-              </p>
+            <div className="flex min-w-0 items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={
+                  kbListCollapsed ? "展开知识库列表" : "收起知识库列表"
+                }
+                aria-expanded={!kbListCollapsed}
+                title={kbListCollapsed ? "展开知识库列表" : "收起知识库列表"}
+                onClick={() => setKbListCollapsed((collapsed) => !collapsed)}
+              >
+                {kbListCollapsed ? (
+                  <PanelLeftOpenIcon className="size-4" />
+                ) : (
+                  <PanelLeftCloseIcon className="size-4" />
+                )}
+              </Button>
+              <div className="min-w-0">
+                <h2 className="truncate text-lg font-semibold text-[#202938]">
+                  {selectedKb?.name ?? "请选择知识库"}
+                </h2>
+                <p className="mt-1 truncate text-sm text-[#687386]">
+                  {selectedKb?.description ??
+                    "上传文件或新建手工文档后，系统会自动解析并建立索引"}
+                </p>
+              </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <input
@@ -400,64 +462,72 @@ export default function KnowledgePage() {
                 </div>
               )}
             {knowledgeItems.length > 0 && (
-              <div className="overflow-hidden rounded-lg border border-[#edf1f7]">
-                <div className="grid grid-cols-[1fr_120px_120px_180px] bg-[#f8fafc] px-4 py-2 text-xs font-medium text-[#687386]">
-                  <span>文档</span>
-                  <span>类型</span>
-                  <span>状态</span>
-                  <span>更新时间</span>
-                </div>
-                {knowledgeItems.map((item) => {
-                  const status = statusLabel(item);
-                  return (
-                    <div
-                      key={item.id}
-                      className="grid grid-cols-[1fr_120px_120px_180px] items-center border-t border-[#edf1f7] px-4 py-3 text-sm"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate font-medium text-[#202938]">
-                          {item.title ?? item.file_name ?? item.id}
-                        </div>
-                        {item.error_message && (
-                          <div className="mt-1 truncate text-xs text-[#c2410c]">
-                            {item.error_message}
-                          </div>
-                        )}
-                      </div>
-                      <span className="truncate text-[#687386]">
-                        {item.file_type ?? item.source ?? "manual"}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "w-fit gap-1 rounded-md",
-                          status.tone === "success" &&
-                            "border-[#bbf7d0] bg-[#f0fdf4] text-[#15803d]",
-                          status.tone === "warning" &&
-                            "border-[#fde68a] bg-[#fffbeb] text-[#a16207]",
-                          status.tone === "danger" &&
-                            "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]",
-                        )}
+              <div className="overflow-x-auto rounded-lg border border-[#edf1f7]">
+                <div className="min-w-[760px]">
+                  <div className="grid grid-cols-[minmax(240px,1fr)_100px_110px_minmax(160px,200px)] bg-[#f8fafc] px-4 py-2 text-xs font-medium text-[#687386]">
+                    <span>文档</span>
+                    <span>类型</span>
+                    <span>状态</span>
+                    <span>更新时间</span>
+                  </div>
+                  {knowledgeItems.map((item) => {
+                    const status = statusLabel(item);
+                    return (
+                      <div
+                        key={item.id}
+                        className="grid grid-cols-[minmax(240px,1fr)_100px_110px_minmax(160px,200px)] items-center border-t border-[#edf1f7] px-4 py-3 text-sm"
                       >
-                        {status.tone === "success" && (
-                          <CheckCircle2Icon className="size-3" />
-                        )}
-                        {status.tone === "warning" && (
-                          <Loader2Icon className="size-3 animate-spin" />
-                        )}
-                        {status.tone === "danger" && (
-                          <CircleAlertIcon className="size-3" />
-                        )}
-                        {status.label}
-                      </Badge>
-                      <span className="truncate text-[#687386]">
-                        {item.updated_at
-                          ? new Date(item.updated_at).toLocaleString()
-                          : "-"}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <div className="min-w-0 pr-4">
+                          <div
+                            className="truncate font-medium text-[#202938]"
+                            title={item.title ?? item.file_name ?? item.id}
+                          >
+                            {item.title ?? item.file_name ?? item.id}
+                          </div>
+                          {item.error_message && (
+                            <div
+                              className="mt-1 truncate text-xs text-[#c2410c]"
+                              title={item.error_message}
+                            >
+                              {item.error_message}
+                            </div>
+                          )}
+                        </div>
+                        <span className="truncate pr-3 text-[#687386]">
+                          {item.file_type ?? item.source ?? "manual"}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "w-fit gap-1 rounded-md",
+                            status.tone === "success" &&
+                              "border-[#bbf7d0] bg-[#f0fdf4] text-[#15803d]",
+                            status.tone === "warning" &&
+                              "border-[#fde68a] bg-[#fffbeb] text-[#a16207]",
+                            status.tone === "danger" &&
+                              "border-[#fecaca] bg-[#fef2f2] text-[#b91c1c]",
+                          )}
+                        >
+                          {status.tone === "success" && (
+                            <CheckCircle2Icon className="size-3" />
+                          )}
+                          {status.tone === "warning" && (
+                            <Loader2Icon className="size-3 animate-spin" />
+                          )}
+                          {status.tone === "danger" && (
+                            <CircleAlertIcon className="size-3" />
+                          )}
+                          {status.label}
+                        </Badge>
+                        <span className="truncate text-[#687386]">
+                          {item.updated_at
+                            ? new Date(item.updated_at).toLocaleString()
+                            : "-"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

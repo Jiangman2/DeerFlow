@@ -30,9 +30,11 @@ changing them; updating the ConfigMap alone does not refresh the mounted files.
 
 Third-party images are pinned to the ARM64 manifest digests verified on
 `datax-01` on 2026-07-21. Provisioner, Skills, and Sandbox remain on the
-immutable `20260723-enterprise-arm64-rc3` release tag. Gateway, Frontend, and
-the MinerU adapter use `20260723-enterprise-arm64-rc4` for the coherent
-post-RC3 application update:
+immutable `20260723-enterprise-arm64-rc3` release tag. The MinerU adapter
+remains on the validated `20260723-enterprise-arm64-rc4` tag. Gateway and
+Frontend use `20260724-enterprise-arm64-rc5` for the application update that
+includes the current CNOOC SSO, WeKnora integration, and direct agent-card
+routes:
 
 - `deer-flow-gateway`
 - `deer-flow-frontend`

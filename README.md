@@ -962,6 +962,11 @@ their other parser settings.
 The enterprise Gateway bypasses the outbound proxy for the internal
 `model.ai.cnooc` model endpoint while continuing to use the proxy for external
 providers.
+WeKnora exposes `qwen-plus` as its default built-in chat model and also provides
+selectable `deepseek-v4-pro` (Bailian) and `DeepSeek-V4-Flash` (CNOOC Haineng)
+chat models. The Bailian model reuses the deployment's unified model key; the
+Haineng model reads `DeepSeek_V4_API_KEY` from the runtime Secret and is not
+seeded when that credential is absent.
 
 The five fixed enterprise agent-square links stay on the DeerFlow origin under
 `/agent-tools/*`. For users who entered through CNOOC data-lake SSO, Nginx reads

@@ -68,7 +68,7 @@ type AgentVisualConfig = {
 };
 
 const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
-  "http://10.57.128.79:6000/": {
+  "https://datalake.cnooc/dzsjtpzj": {
     cardClassName:
       "border-cyan-200/70 from-cyan-50/80 via-background to-blue-50/55 hover:border-cyan-400/60 hover:shadow-cyan-500/10",
     accentBarClassName: "from-cyan-400/45 via-cyan-300/10 to-blue-400/35",
@@ -77,7 +77,7 @@ const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
     avatarUrl: "/images/experts/expert-analysis.svg",
     domainIcon: ActivityIcon,
   },
-  "http://10.57.128.79:7860/": {
+  "https://datalake.cnooc/qqyjbgbxzj": {
     cardClassName:
       "border-amber-200/70 from-amber-50/75 via-background to-orange-50/50 hover:border-amber-400/60 hover:shadow-amber-500/10",
     accentBarClassName: "from-amber-400/45 via-amber-300/10 to-orange-400/35",
@@ -86,7 +86,7 @@ const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
     avatarUrl: "/images/experts/expert-report.svg",
     domainIcon: FileTextIcon,
   },
-  "http://10.57.128.79:8100/": {
+  "https://datalake.cnooc/zywdjxzj": {
     cardClassName:
       "border-blue-200/70 from-blue-50/80 via-background to-sky-50/55 hover:border-blue-400/60 hover:shadow-blue-500/10",
     accentBarClassName: "from-blue-400/45 via-blue-300/10 to-sky-400/35",
@@ -95,7 +95,7 @@ const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
     avatarUrl: "/images/experts/expert-analysis.svg",
     domainIcon: ScanTextIcon,
   },
-  "http://10.57.128.79:5000/": {
+  "https://datalake.cnooc/zdsczj": {
     cardClassName:
       "border-violet-200/70 from-violet-50/75 via-background to-fuchsia-50/45 hover:border-violet-400/60 hover:shadow-violet-500/10",
     accentBarClassName:
@@ -105,7 +105,7 @@ const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
     avatarUrl: "/images/experts/expert-data.svg",
     domainIcon: DatabaseIcon,
   },
-  "http://10.57.128.79:5001/": {
+  "https://datalake.cnooc/zjbgjszj/": {
     cardClassName:
       "border-emerald-200/70 from-emerald-50/75 via-background to-green-50/50 hover:border-emerald-400/60 hover:shadow-emerald-500/10",
     accentBarClassName:
@@ -116,33 +116,6 @@ const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
     domainIcon: ShieldIcon,
   },
 };
-
-const EXTERNAL_AGENT_PROXY_PATHS: Record<string, string> = {
-  "http://10.57.128.79:8100": "/agent-tools/doc-parse/",
-  "http://10.57.128.79:6000": "/agent-tools/seismic-resolution/",
-  "http://10.57.128.79:5001": "/agent-tools/report-review/",
-  "http://10.57.128.79:5000": "/agent-tools/auto-data-collection/",
-  "http://10.57.128.79:7860": "/agent-tools/report-writing/",
-};
-
-function buildExternalAgentHref(rawUrl: string) {
-  try {
-    const url = new URL(rawUrl);
-    const proxyBasePath = EXTERNAL_AGENT_PROXY_PATHS[url.origin];
-
-    if (!proxyBasePath) {
-      return rawUrl;
-    }
-
-    const normalizedBasePath = proxyBasePath.replace(/\/?$/, "/");
-    const pathSuffix =
-      url.pathname === "/" ? "" : url.pathname.replace(/^\/+/, "");
-
-    return `${normalizedBasePath}${pathSuffix}${url.search}${url.hash}`;
-  } catch {
-    return rawUrl;
-  }
-}
 
 function TruncatedTooltip({
   text,
@@ -211,9 +184,7 @@ export function AgentCard({
   const [unpublishOpen, setUnpublishOpen] = useState(false);
   const externalUrl = agent.external_url?.trim();
   const isExternalAgent = Boolean(externalUrl);
-  const externalHref = externalUrl
-    ? buildExternalAgentHref(externalUrl)
-    : undefined;
+  const externalHref = externalUrl;
   const displayConfig = externalUrl
     ? EXTERNAL_AGENT_VISUAL_CONFIG[externalUrl]
     : undefined;

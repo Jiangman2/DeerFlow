@@ -12,21 +12,22 @@ export const SHARED_EXTERNAL_AGENT_NAME_ALIASES = [
 export const SHARED_EXTERNAL_AGENTS: Agent[] = [
   {
     name: "专业文档解析专家",
-    description: "图文智能检索专家，面向勘探开发场景提供知识检索与图件检索能力。",
+    description:
+      "图文智能检索专家，面向勘探开发场景提供知识检索与图件检索能力。",
     model: null,
     tool_groups: ["图文检索", "以图查图"],
     skills: null,
     source: "team",
-    external_url: "http://10.57.128.79:8100/",
+    external_url: "https://datalake.cnooc/zywdjxzj",
   },
   {
-    name: "地震数据分辨率提升工具",
+    name: "地震数据提频专家",
     description: "地震数据提频专家，利用 U-net 网络模型给 SEGY 数据提频。",
     model: null,
     tool_groups: ["地震资料", "SEGY"],
     skills: null,
     source: "team",
-    external_url: "http://10.57.128.79:6000/",
+    external_url: "https://datalake.cnooc/dzsjtpzj",
   },
   {
     name: "专业报告校审专家",
@@ -35,7 +36,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tool_groups: ["文档审查", "油气专业"],
     skills: null,
     source: "team",
-    external_url: "http://10.57.128.79:5001/",
+    external_url: "https://datalake.cnooc/zjbgjszj/",
   },
   {
     name: "自动数采专家",
@@ -44,7 +45,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tool_groups: ["表格抽取", "数据采集"],
     skills: null,
     source: "team",
-    external_url: "http://10.57.128.79:5000/",
+    external_url: "https://datalake.cnooc/zdsczj",
   },
   {
     name: "前期研究报告编写专家",
@@ -53,6 +54,6 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tool_groups: ["报告生成", "PPT to Word"],
     skills: null,
     source: "team",
-    external_url: "http://10.57.128.79:7860/",
+    external_url: "https://datalake.cnooc/qqyjbgbxzj",
   },
 ];

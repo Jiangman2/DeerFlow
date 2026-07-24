@@ -205,7 +205,7 @@ spec:
               readOnly: true
       containers:
         - name: gateway
-          image: deer-flow-gateway:dev-20260723-dashboard-fixes-v3
+          image: deer-flow-gateway:dev-20260724-weknora-deepseek-v2
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
@@ -277,10 +277,16 @@ spec:
                   name: weknora-secret
                   key: EMBEDDING_API_KEY
                   optional: true
+            - name: DeepSeek_V4_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: DeepSeek_V4_API_KEY
+                  optional: true
             - name: NO_PROXY
-              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,.svc,.cluster.local
+              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
             - name: no_proxy
-              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,.svc,.cluster.local
+              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
           volumeMounts:
             - name: config
               mountPath: /app/backend/config.yaml
@@ -371,7 +377,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: deer-flow-frontend:dev-20260723-dashboard-fixes-v2
+          image: deer-flow-frontend:dev-20260724-agent-links-v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

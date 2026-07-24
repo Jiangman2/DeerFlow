@@ -206,7 +206,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: wechatopenai/weknora-app:latest
+          image: wechatopenai/weknora-app@sha256:500262dfee6e10e759cde8726d75e159e9c78bd3e79bcea49e12271fc73f1ef3
           imagePullPolicy: IfNotPresent
           env:
             - name: GIN_MODE
@@ -282,6 +282,12 @@ spec:
                 secretKeyRef:
                   name: weknora-secret
                   key: LLM_API_KEY
+            - name: DeepSeek_V4_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: DeepSeek_V4_API_KEY
+                  optional: true
             - name: EMBEDDING_MODEL_NAME
               value: text-embedding-v4
             - name: EMBEDDING_BASE_URL

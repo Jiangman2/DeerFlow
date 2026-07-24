@@ -17,9 +17,10 @@ FROM ${PYTHON_IMAGE} AS builder
 ARG NODE_MAJOR=22
 ARG APT_MIRROR
 ARG UV_INDEX_URL
-# Optional extras to install (e.g. "postgres" for PostgreSQL support)
-# Usage: docker build --build-arg UV_EXTRAS=postgres,discord ...
-ARG UV_EXTRAS
+# Production/Kubernetes Gateway deployments use PostgreSQL. Keep it as the safe
+# direct-build default while still allowing callers to replace or extend the
+# comma-separated list (for example UV_EXTRAS=postgres,discord).
+ARG UV_EXTRAS=postgres
 
 # Optionally override apt mirror for restricted networks (e.g. APT_MIRROR=mirrors.aliyun.com)
 RUN if [ -n "${APT_MIRROR}" ]; then \
@@ -82,6 +83,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     export SSL_CERT_FILE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
     export CURL_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
     export REQUESTS_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
+    export UV_NATIVE_TLS=true; \
     set -f; \
     extras_flags=""; \
     for extra in $(printf "%s" "$UV_EXTRAS" | tr "," " "); do \

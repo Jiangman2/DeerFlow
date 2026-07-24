@@ -30,7 +30,7 @@ router = APIRouter(prefix="/api", tags=["agents"])
 AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
 EXTERNAL_AGENT_NAMES = {
     "专业文档解析专家",
-    "地震数据分辨率提升工具",
+    "地震数据提频专家",
     "专业报告校审专家",
     "自动数采专家",
     "前期研究报告编写专家",
@@ -131,16 +131,11 @@ def _validate_agent_name(name: str) -> None:
     Raises:
         HTTPException: 422 if the name is invalid.
     """
-    is_safe = bool(name) and AGENT_NAME_PATTERN.fullmatch(name) and all(
-        char == "-" or unicodedata.category(char)[0] in {"L", "N"} for char in name
-    )
+    is_safe = bool(name) and AGENT_NAME_PATTERN.fullmatch(name) and all(char == "-" or unicodedata.category(char)[0] in {"L", "N"} for char in name)
     if not is_safe:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"Invalid agent name '{name}'. Use Chinese characters, letters, "
-                "digits, and hyphens only."
-            ),
+            detail=(f"Invalid agent name '{name}'. Use Chinese characters, letters, digits, and hyphens only."),
         )
 
 
@@ -202,9 +197,7 @@ def _shared_agent_response(
         raw_config = yaml.safe_load(file) or {}
     raw_config.setdefault("name", name)
     known_fields = set(AgentConfig.model_fields.keys())
-    agent_cfg = AgentConfig(
-        **{key: value for key, value in raw_config.items() if key in known_fields}
-    )
+    agent_cfg = AgentConfig(**{key: value for key, value in raw_config.items() if key in known_fields})
     soul_path = agent_dir / "SOUL.md"
     published_by = raw_config.get("published_by_user_id")
     published_by_user_id = str(published_by) if published_by is not None else None
@@ -217,9 +210,7 @@ def _shared_agent_response(
         soul=soul_path.read_text(encoding="utf-8").strip() if soul_path.exists() else "",
         source=source,
         published_by_user_id=published_by_user_id,
-        published_by_current_user=bool(
-            current_user_id and published_by_user_id == current_user_id
-        ),
+        published_by_current_user=bool(current_user_id and published_by_user_id == current_user_id),
     )
 
 
@@ -258,10 +249,7 @@ async def list_team_agents_endpoint() -> AgentsListResponse:
     current_user_id = get_effective_user_id()
 
     def _list() -> list[AgentResponse]:
-        return [
-            _shared_agent_response(agent.name, current_user_id=current_user_id)
-            for agent in list_team_agents()
-        ]
+        return [_shared_agent_response(agent.name, current_user_id=current_user_id) for agent in list_team_agents()]
 
     try:
         return AgentsListResponse(agents=await asyncio.to_thread(_list))
@@ -594,10 +582,7 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
         if (paths.team_agent_dir(name) / "config.yaml").exists():
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    f"Agent '{name}' exists in the team square but is not scoped "
-                    "to the current user. Create a personal copy before updating it."
-                ),
+                detail=(f"Agent '{name}' exists in the team square but is not scoped to the current user. Create a personal copy before updating it."),
             )
         if (legacy_dir / "config.yaml").exists():
             raise HTTPException(

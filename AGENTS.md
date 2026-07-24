@@ -39,11 +39,11 @@ other `/api/*` go straight to the Gateway REST routers. See
 In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 `/platform/knowledge-bases`. Keep that proxy on the `weknora-frontend` Kubernetes
 service DNS name; never pin a ClusterIP, because recreating the cluster changes it.
-The five fixed `/agent-tools/*` proxies extract the validated CNOOC platform
-Token from the HttpOnly `cnooc.platform_token` cookie and send it upstream only
-as a Bearer authorization header. Never append this Token to card URLs or expose
-it to frontend JavaScript; keep Docker, local-development, and Kubernetes Nginx
-configs synchronized.
+The five built-in external-agent cards open their canonical HTTPS paths on
+`datalake.cnooc` directly. Keep the card URLs on that shared data-lake origin so
+the browser reuses its existing same-origin SSO session. Do not restore the
+legacy `/agent-tools/*` reverse proxies, append a platform Token to these URLs,
+or expose the HttpOnly `cnooc.platform_token` cookie to frontend JavaScript.
 
 ## Repository Map
 
@@ -109,6 +109,8 @@ Enterprise Kubernetes storage note:
 - Apply `k8s/enterprise/weknora-mineru-defaults.sql` after creating a new WeKnora database. Its trigger routes missing PDF/PPT/PPTX rules to the in-cluster adapter for knowledge bases created through the native WeKnora UI while preserving every explicit file-type parser choice.
 - The enterprise Gateway uses the runtime proxy for external model providers, but its `NO_PROXY` and `no_proxy` values must retain the bare Kubernetes Service names (especially `weknora-app`) as well as `.svc` and `.cluster.local`. Otherwise Gateway-to-WeKnora calls are sent through the enterprise proxy and surface as HTTP 302/502 failures. Keep proxy URLs and credentials in the runtime-created `deer-flow-env` Secret; do not commit them.
 - Keep the internal model host `model.ai.cnooc` in both Gateway proxy-bypass variables. Its streamed chat endpoints are direct-only in the audited enterprise network; sending them through the outbound proxy causes connection resets.
+- Keep the CNOOC data-lake OAuth endpoint in both Gateway proxy-bypass variables by hostname and audited service IP (`datalake.cnooc` and `10.77.78.223`). The SSO validation endpoint is direct-only in the enterprise network; sending it through the outbound proxy times out before the platform Token can be validated.
+- The WeKnora built-in Bailian ASR model points to the internal Gateway adapter because WeKnora 0.7.0 and `qwen3-asr-flash` use different request shapes. Keep the bare `gateway` Service name in the WeKnora App proxy-bypass variables; the adapter reuses the Bailian LLM key and never persists uploaded audio.
 - Enterprise PDF/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It converts presentations to PDF, keeps fully searchable PDFs on the bundled WeKnora builtin parser, and sends scanned or mixed PDFs to the internal MinerU API. The PDF detector uses text length plus image-area coverage and replaces inline Base64 images in MinerU markdown before embedding. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; other file types retain WeKnora's native parser rules.
 
 ## Commands: Root vs. Module

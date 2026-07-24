@@ -39,6 +39,7 @@ async def test_ensure_weknora_default_models_seeds_platform_builtins(monkeypatch
     monkeypatch.setenv("WEKNORA_DB_PASSWORD", "secret")
     monkeypatch.setenv("LLM_API_KEY", "llm-secret")
     monkeypatch.setenv("EMBEDDING_API_KEY", "embedding-secret")
+    monkeypatch.setenv("DeepSeek_V4_API_KEY", "internal-deepseek-secret")
 
     async def connect():
         return fake_connection
@@ -48,9 +49,14 @@ async def test_ensure_weknora_default_models_seeds_platform_builtins(monkeypatch
     await weknora_identity.ensure_weknora_default_models()
 
     assert fake_connection.closed is True
-    assert len(fake_connection.calls) == 2
+    assert len(fake_connection.calls) == 7
     chat_args = fake_connection.calls[0][1]
-    embedding_args = fake_connection.calls[1][1]
+    deepseek_args = fake_connection.calls[1][1]
+    internal_deepseek_args = fake_connection.calls[2][1]
+    embedding_args = fake_connection.calls[3][1]
+    rerank_args = fake_connection.calls[4][1]
+    vision_args = fake_connection.calls[5][1]
+    asr_args = fake_connection.calls[6][1]
     assert chat_args[:6] == (
         "deerflow-qwen-plus",
         10000,
@@ -64,12 +70,98 @@ async def test_ensure_weknora_default_models_seeds_platform_builtins(monkeypatch
         "api_key": "llm-secret",
         "provider": "aliyun",
     }
+    assert chat_args[7] is True
+    assert deepseek_args[:6] == (
+        "deerflow-deepseek-v4-pro",
+        10000,
+        "deepseek-v4-pro",
+        "KnowledgeQA",
+        "remote",
+        "DeerFlow WeKnora DeepSeek chat model",
+    )
+    assert json.loads(deepseek_args[6]) == {
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "api_key": "llm-secret",
+        "provider": "aliyun",
+    }
+    assert deepseek_args[7] is False
+    assert internal_deepseek_args[:6] == (
+        "deerflow-cnooc-deepseek-v4-flash",
+        10000,
+        "DeepSeek-V4-Flash",
+        "KnowledgeQA",
+        "remote",
+        "DeerFlow WeKnora CNOOC DeepSeek chat model",
+    )
+    assert json.loads(internal_deepseek_args[6]) == {
+        "base_url": "http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1",
+        "api_key": "internal-deepseek-secret",
+        "provider": "generic",
+    }
+    assert internal_deepseek_args[7] is False
     assert embedding_args[0] == "deerflow-dashscope-embedding"
     assert embedding_args[3] == "Embedding"
     assert json.loads(embedding_args[6])["embedding_parameters"] == {
         "dimension": 1024,
         "truncate_prompt_tokens": 0,
     }
+    assert rerank_args[:6] == (
+        "deerflow-dashscope-rerank",
+        10000,
+        "qwen3-rerank",
+        "Rerank",
+        "remote",
+        "DeerFlow WeKnora rerank model",
+    )
+    assert json.loads(rerank_args[6]) == {
+        "base_url": "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank",
+        "api_key": "llm-secret",
+        "provider": "aliyun",
+    }
+    assert vision_args[:6] == (
+        "deerflow-dashscope-vlm",
+        10000,
+        "qwen3-vl-plus",
+        "VLLM",
+        "remote",
+        "DeerFlow WeKnora vision model",
+    )
+    assert json.loads(vision_args[6]) == {
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "api_key": "llm-secret",
+        "provider": "aliyun",
+    }
+    assert asr_args[:6] == (
+        "deerflow-dashscope-asr",
+        10000,
+        "qwen3-asr-flash",
+        "ASR",
+        "remote",
+        "DeerFlow WeKnora speech recognition model",
+    )
+    assert json.loads(asr_args[6]) == {
+        "base_url": "http://gateway:8001/api/weknora/bailian/v1",
+        "api_key": "llm-secret",
+        "provider": "generic",
+    }
+
+
+def test_weknora_default_models_omit_internal_deepseek_without_key(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "llm-secret")
+    monkeypatch.setenv("EMBEDDING_API_KEY", "embedding-secret")
+    monkeypatch.delenv("CNOOC_DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.delenv("DeepSeek_V4_API_KEY", raising=False)
+
+    models = weknora_identity._weknora_default_models()
+
+    assert [model.id for model in models] == [
+        "deerflow-qwen-plus",
+        "deerflow-deepseek-v4-pro",
+        "deerflow-dashscope-embedding",
+        "deerflow-dashscope-rerank",
+        "deerflow-dashscope-vlm",
+        "deerflow-dashscope-asr",
+    ]
 
 
 @pytest.mark.asyncio

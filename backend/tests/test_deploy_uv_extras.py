@@ -10,6 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+
+def test_backend_dockerfile_defaults_direct_builds_to_postgres():
+    dockerfile = (Path(__file__).resolve().parents[2] / "backend" / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "ARG UV_EXTRAS=postgres" in dockerfile
+
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 

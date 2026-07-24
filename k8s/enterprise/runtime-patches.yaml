@@ -88,9 +88,9 @@ spec:
           imagePullPolicy: Never
           env:
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: WEKNORA_PRESENTATION_PARSER_ENGINE
               value: mineru
             - name: WEKNORA_MINERU_ENDPOINT
@@ -136,9 +136,9 @@ spec:
             - name: CURL_CA_BUNDLE
               value: /etc/ssl/certs/ca-certificates.crt
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+              value: "localhost,127.0.0.1,::1,gateway,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+              value: "localhost,127.0.0.1,::1,gateway,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: SSRF_WHITELIST_EXTRA
               value: deer-flow-mineru-adapter
           volumeMounts:

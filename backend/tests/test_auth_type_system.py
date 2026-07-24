@@ -123,6 +123,11 @@ def test_csrf_checks_post_to_protected():
     assert should_check_csrf(req) is True
 
 
+def test_csrf_exempts_bearer_authenticated_weknora_asr_adapter():
+    req = _FakeRequest("/api/weknora/bailian/v1/audio/transcriptions")
+    assert should_check_csrf(req) is False
+
+
 # ── Structured Error Response Format ────────────────────────────────
 
 

@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hmac
 import json
 import logging
+import mimetypes
 import os
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -30,6 +33,9 @@ _COUNT_ENRICH_CONCURRENCY = 8
 _COUNT_PAGE_SIZE = 100
 _PRESENTATION_FILE_TYPES = ("ppt", "pptx")
 _SUPPORTED_PRESENTATION_PARSERS = {"markitdown", "mineru"}
+_DEFAULT_BAILIAN_ASR_MODEL = "qwen3-asr-flash"
+_DEFAULT_BAILIAN_ASR_UPSTREAM_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+_DEFAULT_BAILIAN_ASR_MAX_BYTES = 10 * 1024 * 1024
 _ALLOWED_SSO_ORIGINS = {
     "http://127.0.0.1:32090",
     "http://localhost:32090",
@@ -81,6 +87,50 @@ def _float_env(name: str, default: float) -> float:
     except ValueError:
         logger.warning("Ignoring invalid float value for %s", name)
         return default
+
+
+def _int_env(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if not value:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("Ignoring invalid integer value for %s", name)
+        return default
+
+
+def _bailian_adapter_api_key() -> str:
+    for env_name in ("ASR_API_KEY", "LLM_API_KEY", "DASHSCOPE_API_KEY"):
+        value = os.getenv(env_name)
+        if value and value.strip():
+            return value.strip()
+    raise HTTPException(status_code=503, detail="Bailian ASR API key is not configured.")
+
+
+def _require_bailian_adapter_key(request: Request) -> str:
+    expected = _bailian_adapter_api_key()
+    authorization = request.headers.get("authorization", "")
+    scheme, _, provided = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not provided or not hmac.compare_digest(provided.strip(), expected):
+        raise HTTPException(status_code=401, detail="Invalid Bailian ASR adapter credentials.")
+    return expected
+
+
+def _audio_media_type(file: UploadFile) -> str:
+    content_type = (file.content_type or "").strip().lower()
+    if content_type and content_type != "application/octet-stream":
+        return content_type
+    guessed, _ = mimetypes.guess_type(file.filename or "")
+    return guessed or "application/octet-stream"
+
+
+def _transcript_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        return "".join(str(item.get("text") or "") for item in content if isinstance(item, dict)).strip()
+    return ""
 
 
 class WeKnoraKnowledgeBaseCreate(BaseModel):
@@ -574,6 +624,109 @@ async def upload_knowledge_file(
         data=form_data,
         files=files,
     )
+
+
+@router.post("/bailian/v1/audio/transcriptions")
+async def bailian_audio_transcription(
+    request: Request,
+    file: UploadFile = File(...),
+    model: str = Form(default=_DEFAULT_BAILIAN_ASR_MODEL),
+    language: str | None = Form(default=None),
+    response_format: str | None = Form(default=None),
+) -> dict[str, Any]:
+    """Translate WeKnora's OpenAI transcription request to Bailian Qwen-ASR.
+
+    WeKnora 0.7.0 sends multipart ``/audio/transcriptions`` requests, while
+    Bailian's Qwen3-ASR-Flash uses an OpenAI-compatible chat-completions body
+    with an ``input_audio`` part. Keeping this adapter in Gateway preserves
+    WeKnora's upstream model implementation and its normal model-selection UI.
+    """
+
+    del response_format  # We always return the verbose-compatible envelope.
+    api_key = _require_bailian_adapter_key(request)
+    max_bytes = max(1, _int_env("WEKNORA_BAILIAN_ASR_MAX_BYTES", _DEFAULT_BAILIAN_ASR_MAX_BYTES))
+    content = await file.read(max_bytes + 1)
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded audio file is empty.")
+    if len(content) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"Audio file exceeds the {max_bytes}-byte limit.")
+
+    configured_model = os.getenv("ASR_MODEL_NAME", _DEFAULT_BAILIAN_ASR_MODEL).strip()
+    requested_model = model.strip() or configured_model
+    if requested_model != configured_model:
+        raise HTTPException(status_code=400, detail="Unsupported Bailian ASR model.")
+
+    media_type = _audio_media_type(file)
+    data_uri = f"data:{media_type};base64,{base64.b64encode(content).decode('ascii')}"
+    asr_options: dict[str, Any] = {"enable_itn": True}
+    language_value = language.strip() if isinstance(language, str) else ""
+    if language_value:
+        asr_options["language"] = language_value
+    payload = {
+        "model": requested_model,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_audio",
+                        "input_audio": {"data": data_uri},
+                    }
+                ],
+            }
+        ],
+        "stream": False,
+        "asr_options": asr_options,
+    }
+    upstream_url = os.getenv(
+        "WEKNORA_BAILIAN_ASR_UPSTREAM_URL",
+        _DEFAULT_BAILIAN_ASR_UPSTREAM_URL,
+    ).strip()
+    timeout = max(1.0, _float_env("WEKNORA_BAILIAN_ASR_TIMEOUT_SECONDS", 300.0))
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                upstream_url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                json=payload,
+            )
+    except httpx.RequestError as exc:
+        logger.warning("Bailian ASR request failed.", exc_info=True)
+        raise HTTPException(status_code=502, detail="Bailian speech recognition is unavailable.") from exc
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Bailian ASR returned a non-JSON response.") from exc
+    if response.status_code >= 400:
+        logger.warning("Bailian ASR returned HTTP %s.", response.status_code)
+        raise HTTPException(status_code=502, detail=f"Bailian ASR returned HTTP {response.status_code}.")
+
+    choices = data.get("choices") if isinstance(data, dict) else None
+    message = choices[0].get("message") if isinstance(choices, list) and choices and isinstance(choices[0], dict) else None
+    transcript = _transcript_text(message.get("content") if isinstance(message, dict) else None)
+    if not transcript:
+        raise HTTPException(status_code=502, detail="Bailian ASR returned an empty transcript.")
+
+    detected_language = language_value
+    annotations = message.get("annotations") if isinstance(message, dict) else None
+    if not detected_language and isinstance(annotations, list):
+        for annotation in annotations:
+            if isinstance(annotation, dict) and annotation.get("language"):
+                detected_language = str(annotation["language"])
+                break
+    usage = data.get("usage") if isinstance(data, dict) else None
+    duration = usage.get("seconds", 0) if isinstance(usage, dict) else 0
+    return {
+        "text": transcript,
+        "language": detected_language,
+        "duration": duration,
+        "segments": [],
+    }
 
 
 def _sso_cors_headers(request: Request) -> dict[str, str]:

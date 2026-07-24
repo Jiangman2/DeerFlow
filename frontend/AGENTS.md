@@ -139,6 +139,10 @@ surfaces database-backed usage, run, failure, token, feedback, and management
 audit data. Incomplete component-health heuristics are intentionally hidden.
 The dashboard ranks users by run volume, reports launch clicks for the five
 built-in external agents, and links slow/high-token runs back to their chats.
+The five built-in external-agent cards navigate directly to their canonical
+HTTPS paths on `datalake.cnooc`, which reuses the browser's existing data-lake
+SSO session. Do not rewrite these links through `/agent-tools/*` or append the
+platform Token to a browser-visible URL.
 Slow-run, high-token, and recent-failure cards share five-row pagination plus a
 bounded vertical scroll area.
 Headline summaries poll every 15 seconds while heavier observability rankings
