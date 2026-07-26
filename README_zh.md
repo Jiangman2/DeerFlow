@@ -699,6 +699,7 @@ DeerFlow 现在在 workspace 里内置了一个一等的定时任务（scheduled
 - 在 `/workspace/scheduled-tasks` 管理任务
 - 每个定时任务可以选择复用同一个 thread，也可以选择每次运行新建一个 thread
 - 支持 `once` 和 `cron` 两种调度方式
+- 每个任务可独立选择或修改执行模型，并保存模型、模式、推理、子智能体和知识库范围；企业环境存在 `deepseek-v4-flash` 时，新任务默认选择该模型
 - 后台定时执行以非交互式 DeerFlow run 运行（那里不会暴露 `ask_clarification`）
 - 当到期的 cron 执行与同一复用 thread 上的活跃 run 冲突时，采用 `skip` 的重叠处理策略
 - 支持暂停、恢复、手动触发、查看历史和删除任务

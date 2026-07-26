@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0009_thread_creation_ledger"
+HEAD = "0010_scheduled_task_run_context"
 BASELINE = "0001_baseline"
 
 

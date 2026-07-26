@@ -39,6 +39,8 @@ async def test_ensure_weknora_default_models_seeds_platform_builtins(monkeypatch
     monkeypatch.setenv("WEKNORA_DB_PASSWORD", "secret")
     monkeypatch.setenv("LLM_API_KEY", "llm-secret")
     monkeypatch.setenv("EMBEDDING_API_KEY", "embedding-secret")
+    monkeypatch.setenv("EMBEDDING_BASE_URL", "http://gateway:8001/api/weknora/bailian/v1")
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "generic")
     monkeypatch.setenv("DeepSeek_V4_API_KEY", "internal-deepseek-secret")
 
     async def connect():
@@ -70,7 +72,7 @@ async def test_ensure_weknora_default_models_seeds_platform_builtins(monkeypatch
         "api_key": "llm-secret",
         "provider": "aliyun",
     }
-    assert chat_args[7] is True
+    assert chat_args[7] is False
     assert deepseek_args[:6] == (
         "deerflow-deepseek-v4-pro",
         10000,
@@ -98,10 +100,13 @@ async def test_ensure_weknora_default_models_seeds_platform_builtins(monkeypatch
         "api_key": "internal-deepseek-secret",
         "provider": "generic",
     }
-    assert internal_deepseek_args[7] is False
+    assert internal_deepseek_args[7] is True
     assert embedding_args[0] == "deerflow-dashscope-embedding"
     assert embedding_args[3] == "Embedding"
-    assert json.loads(embedding_args[6])["embedding_parameters"] == {
+    embedding_parameters = json.loads(embedding_args[6])
+    assert embedding_parameters["base_url"] == "http://gateway:8001/api/weknora/bailian/v1"
+    assert embedding_parameters["provider"] == "generic"
+    assert embedding_parameters["embedding_parameters"] == {
         "dimension": 1024,
         "truncate_prompt_tokens": 0,
     }
@@ -162,6 +167,23 @@ def test_weknora_default_models_omit_internal_deepseek_without_key(monkeypatch):
         "deerflow-dashscope-vlm",
         "deerflow-dashscope-asr",
     ]
+    assert next(model for model in models if model.id == "deerflow-qwen-plus").is_default is True
+
+
+def test_weknora_default_models_can_opt_out_of_internal_deepseek_preference(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "llm-secret")
+    monkeypatch.setenv("EMBEDDING_API_KEY", "embedding-secret")
+    monkeypatch.setenv("DeepSeek_V4_API_KEY", "internal-deepseek-secret")
+    monkeypatch.setenv("WEKNORA_PREFER_CNOOC_DEEPSEEK", "false")
+
+    models = weknora_identity._weknora_default_models()
+    defaults = {model.id: model.is_default for model in models if model.type == "KnowledgeQA"}
+
+    assert defaults == {
+        "deerflow-qwen-plus": True,
+        "deerflow-deepseek-v4-pro": False,
+        "deerflow-cnooc-deepseek-v4-flash": False,
+    }
 
 
 @pytest.mark.asyncio

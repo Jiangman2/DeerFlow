@@ -51,6 +51,17 @@ def test_enterprise_build_base_images_are_overridable():
             assert token in dockerfile, f"{path} is missing {token}"
 
 
+def test_environment_template_documents_both_kubernetes_sandbox_auth_keys():
+    env_example = _read(".env.example")
+    secrets_readme = _read("k8s/local-pvc/secrets/README.md")
+
+    for key in ("PROVISIONER_API_KEY", "SANDBOX_API_KEY"):
+        assert f"# {key}=your-" in env_example
+        assert key in secrets_readme
+
+    assert "Do not reuse one value for both boundaries." in secrets_readme
+
+
 def test_enterprise_sandbox_image_pins_arm64_websocat_and_cairosvg():
     dockerfile = _read("docker/sandbox-ppt-master/Dockerfile")
 
@@ -94,8 +105,8 @@ def test_enterprise_runtime_images_are_immutable():
     assert custom
     assert all(image.get("digest", "").startswith("sha256:") for image in third_party)
     expected_tags = {
-        "deer-flow-gateway": "20260723-enterprise-arm64-rc4",
-        "deer-flow-frontend": "20260723-enterprise-arm64-rc4",
+        "deer-flow-gateway": "20260726-enterprise-arm64-rc6-embeddingrelay2",
+        "deer-flow-frontend": "20260725-enterprise-arm64-rc6-schedulermodel1",
         "deer-flow-provisioner": "20260723-enterprise-arm64-rc3",
         "deer-flow-skills": "20260723-enterprise-arm64-rc3",
         "deer-flow-mineru-adapter": "20260723-enterprise-arm64-rc4",
@@ -145,7 +156,7 @@ def test_enterprise_weknora_app_trusts_enterprise_ca_bundle():
     mounts = container["volumeMounts"]
     volumes = {volume["name"]: volume for volume in pod_spec["volumes"]}
 
-    ca_path = "/etc/ssl/certs/ca-certificates.crt"
+    ca_path = "/etc/deerflow-ca/ca-bundle.crt"
     assert env["SSL_CERT_FILE"] == ca_path
     assert env["REQUESTS_CA_BUNDLE"] == ca_path
     assert env["CURL_CA_BUNDLE"] == ca_path
@@ -154,12 +165,7 @@ def test_enterprise_weknora_app_trusts_enterprise_ca_bundle():
         "mountPath": "/etc/deerflow-ca",
         "readOnly": True,
     } in mounts
-    assert {
-        "name": "enterprise-ca",
-        "mountPath": ca_path,
-        "subPath": "ca-bundle.crt",
-        "readOnly": True,
-    } in mounts
+    assert not any(mount.get("mountPath") == "/etc/ssl/certs/ca-certificates.crt" for mount in mounts)
     assert volumes["enterprise-ca"] == {
         "name": "enterprise-ca",
         "secret": {
@@ -167,6 +173,41 @@ def test_enterprise_weknora_app_trusts_enterprise_ca_bundle():
             "items": [{"key": "ca-bundle.crt", "path": "ca-bundle.crt"}],
         },
     }
+
+
+def test_enterprise_gateway_scopes_legacy_proxy_tls_compatibility_to_its_pod():
+    kustomization = yaml.safe_load(_read("k8s/enterprise/kustomization.yaml"))
+    assert "gateway-openssl-compat.yaml" in kustomization["resources"]
+
+    config_documents = _yaml_documents("k8s/enterprise/gateway-openssl-compat.yaml")
+    assert len(config_documents) == 1
+    config_map = config_documents[0]
+    assert config_map["kind"] == "ConfigMap"
+    assert config_map["metadata"]["name"] == "deer-flow-gateway-openssl-compat"
+    openssl_config = config_map["data"]["openssl.cnf"]
+    assert "CipherString = DEFAULT:@SECLEVEL=1" in openssl_config
+    assert "verify = false" not in openssl_config.lower()
+    assert "insecure" not in openssl_config.lower()
+
+    patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
+    gateway = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
+    pod_spec = gateway["spec"]["template"]["spec"]
+    container = next(container for container in pod_spec["containers"] if container["name"] == "gateway")
+    env = {entry["name"]: entry["value"] for entry in container["env"]}
+    assert env["OPENSSL_CONF"] == "/etc/deerflow-openssl/openssl.cnf"
+    assert env["WEKNORA_BAILIAN_TLS_COMPAT"] == "true"
+    assert {
+        "name": "openssl-compat",
+        "mountPath": "/etc/deerflow-openssl",
+        "readOnly": True,
+    } in container["volumeMounts"]
+    assert {
+        "name": "openssl-compat",
+        "configMap": {
+            "name": "deer-flow-gateway-openssl-compat",
+            "items": [{"key": "openssl.cnf", "path": "openssl.cnf"}],
+        },
+    } in pod_spec["volumes"]
 
 
 def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
@@ -200,14 +241,19 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     weknora = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "weknora-app")
     weknora_container = weknora["spec"]["template"]["spec"]["containers"][0]
     weknora_env = {item["name"]: item["value"] for item in weknora_container["env"]}
-    assert weknora_env["SSRF_WHITELIST_EXTRA"] == "deer-flow-mineru-adapter"
+    assert weknora_env["SSRF_WHITELIST_EXTRA"].split(",") == [
+        "deer-flow-mineru-adapter",
+        "model.ai.cnooc",
+        "gateway",
+    ]
     assert "deer-flow-mineru-adapter" in weknora_env["NO_PROXY"].split(",")
     assert "deer-flow-mineru-adapter" in weknora_env["no_proxy"].split(",")
-    assert weknora_env["SSL_CERT_FILE"] == "/etc/ssl/certs/ca-certificates.crt"
+    assert "model.ai.cnooc" in weknora_env["NO_PROXY"].split(",")
+    assert "model.ai.cnooc" in weknora_env["no_proxy"].split(",")
+    assert weknora_env["SSL_CERT_FILE"] == "/etc/deerflow-ca/ca-bundle.crt"
     assert {
         "name": "enterprise-ca",
-        "mountPath": "/etc/ssl/certs/ca-certificates.crt",
-        "subPath": "ca-bundle.crt",
+        "mountPath": "/etc/deerflow-ca",
         "readOnly": True,
     } in weknora_container["volumeMounts"]
 
@@ -217,6 +263,22 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert adapter_env["PDF_SCAN_IMAGE_RATIO"] == "0.5"
     assert adapter_env["PDF_SCAN_MIN_CHARS_PER_PAGE"] == "10"
     assert adapter_env["PDF_SCAN_LOW_TEXT_IMAGE_RATIO"] == "0.1"
+
+
+def test_enterprise_routes_weknora_embedding_through_gateway():
+    patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
+    gateway = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
+    weknora = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "weknora-app")
+    gateway_env = {entry["name"]: entry["value"] for entry in gateway["spec"]["template"]["spec"]["containers"][0]["env"] if "value" in entry}
+    weknora_env = {entry["name"]: entry["value"] for entry in weknora["spec"]["template"]["spec"]["containers"][0]["env"] if "value" in entry}
+    internal_base_url = "http://gateway:8001/api/weknora/bailian/v1"
+    assert gateway_env["EMBEDDING_BASE_URL"] == internal_base_url
+    assert gateway_env["EMBEDDING_PROVIDER"] == "generic"
+    assert weknora_env["EMBEDDING_BASE_URL"] == internal_base_url
+    assert weknora_env["EMBEDDING_PROVIDER"] == "generic"
+    sql = _read("k8s/weknora/enterprise-model-feature-defaults.sql")
+    assert "to_jsonb('http://gateway:8001/api/weknora/bailian/v1'::text)" in sql
+    assert "to_jsonb('generic'::text)" in sql
 
 
 def test_enterprise_weknora_native_kb_defaults_to_mineru_without_overriding_explicit_rules():

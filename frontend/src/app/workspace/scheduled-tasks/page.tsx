@@ -26,6 +26,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ScheduledTaskScheduleInput,
@@ -48,6 +55,10 @@ import {
   useTriggerScheduledTask,
   useThreadScheduledTasks,
 } from "@/core/scheduled-tasks/hooks";
+import {
+  DEFAULT_SCHEDULED_MODEL_NAME,
+  resolveScheduledModelName,
+} from "@/core/scheduled-tasks/model-selection";
 import { RECIPES, type Recipe } from "@/core/scheduled-tasks/recipes";
 import type {
   ScheduledTask,
@@ -96,6 +107,9 @@ export default function ScheduledTasksPage() {
   const [targetThreadId, setTargetThreadId] = useState(threadId ?? "");
   const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [createModelName, setCreateModelName] = useState(
+    DEFAULT_SCHEDULED_MODEL_NAME,
+  );
   const [createSchedule, setCreateSchedule] = useState<ScheduleValue>({
     schedule_type: "cron",
     schedule_spec: { cron: "0 9 * * *" },
@@ -112,6 +126,9 @@ export default function ScheduledTasksPage() {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
+  const [editModelName, setEditModelName] = useState(
+    DEFAULT_SCHEDULED_MODEL_NAME,
+  );
   const [editSchedule, setEditSchedule] = useState<ScheduleValue>({
     schedule_type: "cron",
     schedule_spec: { cron: "0 9 * * *" },
@@ -125,6 +142,10 @@ export default function ScheduledTasksPage() {
   });
   const selectedTask =
     filteredData.find((task) => task.id === selectedTaskId) ?? filteredData[0];
+  const selectedTaskModelName =
+    typeof selectedTask?.run_context?.model_name === "string"
+      ? selectedTask.run_context.model_name
+      : undefined;
   const taskRunsQuery = useScheduledTaskRuns(selectedTask?.id);
   const createTask = useCreateScheduledTask();
   const updateTask = useUpdateScheduledTask(selectedTask?.id ?? "");
@@ -133,22 +154,32 @@ export default function ScheduledTasksPage() {
   const triggerTask = useTriggerScheduledTask();
   const deleteTask = useDeleteScheduledTask();
 
-  const buildRunContext = () => {
+  const buildRunContext = (
+    modelName: string,
+    existingContext?: Record<string, unknown>,
+  ) => {
     const localContext = getLocalSettings().context;
-    const modelName =
-      localContext.model_name && models.some((model) => model.name === localContext.model_name)
-        ? localContext.model_name
-        : (models.find((model) => model.name === "qwen-bailian") ?? models[0])?.name;
-    const mode = localContext.mode ?? "ultra";
-    return {
+    const effectiveContext = {
       ...localContext,
-      model_name: modelName,
+      ...existingContext,
+    };
+    const resolvedModelName = resolveScheduledModelName(models, modelName);
+    const mode =
+      effectiveContext.mode === "flash" ||
+      effectiveContext.mode === "thinking" ||
+      effectiveContext.mode === "pro" ||
+      effectiveContext.mode === "ultra"
+        ? effectiveContext.mode
+        : "ultra";
+    return {
+      ...effectiveContext,
+      model_name: resolvedModelName,
       mode,
       thinking_enabled: mode !== "flash",
       is_plan_mode: mode === "pro" || mode === "ultra",
       subagent_enabled: mode === "ultra",
       reasoning_effort:
-        localContext.reasoning_effort ??
+        effectiveContext.reasoning_effort ??
         (mode === "ultra"
           ? "high"
           : mode === "pro"
@@ -222,6 +253,15 @@ export default function ScheduledTasksPage() {
   }, [t.pages.appName, t.sidebar.scheduledTasks]);
 
   useEffect(() => {
+    if (models.length === 0) {
+      return;
+    }
+    setCreateModelName((current) =>
+      resolveScheduledModelName(models, current),
+    );
+  }, [models]);
+
+  useEffect(() => {
     if (!selectedTaskId) {
       return;
     }
@@ -257,6 +297,15 @@ export default function ScheduledTasksPage() {
     // does not wipe edits in progress.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTask?.id]);
+
+  useEffect(() => {
+    if (!selectedTask?.id || models.length === 0) {
+      return;
+    }
+    setEditModelName(
+      resolveScheduledModelName(models, selectedTaskModelName),
+    );
+  }, [models, selectedTask?.id, selectedTaskModelName]);
 
   const isChineseLocale = locale.startsWith("zh");
   const adviceLabels = {
@@ -294,7 +343,12 @@ export default function ScheduledTasksPage() {
   return (
     <WorkspaceContainer>
       <WorkspaceBody className="min-w-0 overflow-x-hidden overflow-y-auto">
-        <div className="mx-auto flex min-h-full min-w-0 w-full max-w-7xl flex-col gap-5 p-4 sm:p-6">
+        <div
+          className={cn(
+            "mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-5 p-4 sm:p-6",
+            createOpen ? "h-full" : "min-h-full",
+          )}
+        >
           <header className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold">
@@ -321,390 +375,438 @@ export default function ScheduledTasksPage() {
           </header>
           {createOpen && (
             <div
-              className="flex min-h-0 min-w-0 max-w-full flex-col gap-3 overflow-x-hidden rounded-md border bg-white/95 p-3 shadow-sm sm:p-4"
+              className="flex min-h-0 max-w-full min-w-0 flex-1 flex-col overflow-hidden rounded-md border bg-white/95 shadow-sm"
               data-testid="scheduled-task-create-form"
             >
               <div
-                className="min-w-0 shrink-0 rounded-md border bg-slate-50/80 p-3"
-                data-testid="schedule-recipes"
+                className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4"
+                data-testid="scheduled-task-create-scroll"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-medium">{st.recipes.label}</div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAdviceOpen(true)}
-                  >
-                    <HelpCircleIcon className="size-4" />
-                    {st.create.adviceTitle}
-                  </Button>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {RECIPES.map((recipe) => (
+                <div
+                  className="min-w-0 shrink-0 rounded-md border bg-slate-50/80 p-3"
+                  data-testid="schedule-recipes"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-medium">
+                      {st.recipes.label}
+                    </div>
                     <Button
-                      key={recipe.id}
+                      type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => applyRecipe(recipe)}
+                      onClick={() => setAdviceOpen(true)}
                     >
-                      <span aria-hidden>{recipe.icon}</span>
-                      {st.recipes[recipe.titleKey].title}
+                      <HelpCircleIcon className="size-4" />
+                      {st.create.adviceTitle}
                     </Button>
-                  ))}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {RECIPES.map((recipe) => (
+                      <Button
+                        key={recipe.id}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => applyRecipe(recipe)}
+                      >
+                        <span aria-hidden>{recipe.icon}</span>
+                        {st.recipes[recipe.titleKey].title}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-3 grid min-h-0 min-w-0 items-start">
+                  <div className="flex min-h-0 min-w-0 flex-col gap-2.5">
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <Button
+                        variant={
+                          contextMode === "fresh_thread_per_run"
+                            ? "default"
+                            : "outline"
+                        }
+                        size="sm"
+                        onClick={() => setContextMode("fresh_thread_per_run")}
+                      >
+                        {st.context.fresh}
+                      </Button>
+                      <Button
+                        variant={
+                          contextMode === "reuse_thread" ? "default" : "outline"
+                        }
+                        size="sm"
+                        onClick={() => setContextMode("reuse_thread")}
+                      >
+                        {st.context.reuse}
+                      </Button>
+                    </div>
+                    {contextMode === "reuse_thread" && (
+                      <Input
+                        value={targetThreadId}
+                        onChange={(event) =>
+                          setTargetThreadId(event.target.value)
+                        }
+                        placeholder={st.context.threadIdPlaceholder}
+                      />
+                    )}
+                    <Input
+                      className="h-10"
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      placeholder={st.create.taskTitle}
+                    />
+                    <Textarea
+                      className="min-h-24 resize-none"
+                      rows={4}
+                      value={prompt}
+                      onChange={(event) => setPrompt(event.target.value)}
+                      placeholder={st.create.prompt}
+                    />
+                    <div className="grid gap-1.5">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="scheduled-task-model"
+                      >
+                        {st.model.label}
+                      </label>
+                      <Select
+                        value={createModelName}
+                        onValueChange={setCreateModelName}
+                        disabled={models.length === 0}
+                      >
+                        <SelectTrigger
+                          id="scheduled-task-model"
+                          className="w-full"
+                          data-testid="scheduled-task-model"
+                        >
+                          <SelectValue placeholder={st.model.placeholder} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {models.map((model) => (
+                            <SelectItem key={model.name} value={model.name}>
+                              {model.display_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-muted-foreground text-xs">
+                        {st.model.hint}
+                      </p>
+                    </div>
+                    <ScheduledTaskScheduleInput
+                      key={createNonce}
+                      initial={createSchedule}
+                      onChange={setCreateSchedule}
+                    />
+                    {formError && (
+                      <div className="text-destructive text-sm">
+                        {formError}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="grid min-h-0 min-w-0 items-start">
-                <div className="flex min-h-0 min-w-0 flex-col gap-2.5">
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <Button
-                      variant={
-                        contextMode === "fresh_thread_per_run"
-                          ? "default"
-                          : "outline"
-                      }
-                      size="sm"
-                      onClick={() => setContextMode("fresh_thread_per_run")}
-                    >
-                      {st.context.fresh}
-                    </Button>
-                    <Button
-                      variant={
-                        contextMode === "reuse_thread" ? "default" : "outline"
-                      }
-                      size="sm"
-                      onClick={() => setContextMode("reuse_thread")}
-                    >
-                      {st.context.reuse}
-                    </Button>
-                  </div>
-                  {contextMode === "reuse_thread" && (
-                    <Input
-                      value={targetThreadId}
-                      onChange={(event) =>
-                        setTargetThreadId(event.target.value)
-                      }
-                      placeholder={st.context.threadIdPlaceholder}
-                    />
-                  )}
-                  <Input
-                    className="h-10"
-                    value={title}
-                    onChange={(event) => setTitle(event.target.value)}
-                    placeholder={st.create.taskTitle}
-                  />
-                  <Textarea
-                    className="min-h-24 resize-none"
-                    rows={4}
-                    value={prompt}
-                    onChange={(event) => setPrompt(event.target.value)}
-                    placeholder={st.create.prompt}
-                  />
-                  <ScheduledTaskScheduleInput
-                    key={createNonce}
-                    initial={createSchedule}
-                    onChange={setCreateSchedule}
-                  />
-                  {formError && (
-                    <div className="text-destructive text-sm">{formError}</div>
-                  )}
-                  <div className="sticky bottom-0 z-10 -mx-3 flex flex-wrap justify-end gap-2 border-t bg-white/95 px-3 pt-3 pb-1 backdrop-blur-sm sm:-mx-4 sm:px-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setCreateOpen(false)}
-                    >
-                      {t.common.cancel}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        const hasSchedule =
-                          Boolean(createSchedule.schedule_spec.cron) ||
-                          Boolean(createSchedule.schedule_spec.run_at);
-                        if (
-                          !title ||
-                          !prompt ||
-                          !hasSchedule ||
-                          (contextMode === "reuse_thread" && !targetThreadId)
-                        ) {
-                          setFormError(st.create.fillRequired);
-                          return;
-                        }
-                        setFormError(null);
-                        createTask.mutate(
-                          {
-                            context_mode: contextMode,
-                            thread_id:
-                              contextMode === "reuse_thread"
-                                ? targetThreadId
-                                : null,
-                            title,
-                            prompt,
-                            run_context: buildRunContext(),
-                            schedule_type: createSchedule.schedule_type,
-                            schedule_spec: createSchedule.schedule_spec,
-                            timezone: createSchedule.timezone || "UTC",
-                          },
-                          {
-                            onSuccess: () => {
-                              // Clear the form so a follow-up task starts fresh.
-                              setTitle("");
-                              setPrompt("");
-                              setTargetThreadId("");
-                              setContextMode("fresh_thread_per_run");
-                              setCreateSchedule({
-                                schedule_type: "cron",
-                                schedule_spec: { cron: "0 9 * * *" },
-                                timezone: "",
-                              });
-                              setCreateNonce((n) => n + 1);
-                              setCreateOpen(false);
-                            },
-                          },
-                        );
-                      }}
-                      disabled={
-                        !title ||
-                        !prompt ||
-                        (!createSchedule.schedule_spec.cron &&
-                          !createSchedule.schedule_spec.run_at) ||
-                        (contextMode === "reuse_thread" && !targetThreadId) ||
-                        createTask.isPending
-                      }
-                    >
-                      {st.create.submit}
-                    </Button>
-                  </div>
-                </div>
+              <div
+                className="flex shrink-0 flex-wrap justify-end gap-2 border-t bg-white/95 p-3 backdrop-blur-sm sm:px-4"
+                data-testid="scheduled-task-create-actions"
+              >
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>
+                  {t.common.cancel}
+                </Button>
+                <Button
+                  onClick={() => {
+                    const hasSchedule =
+                      Boolean(createSchedule.schedule_spec.cron) ||
+                      Boolean(createSchedule.schedule_spec.run_at);
+                    if (
+                      !title ||
+                      !prompt ||
+                      !createModelName ||
+                      !hasSchedule ||
+                      (contextMode === "reuse_thread" && !targetThreadId)
+                    ) {
+                      setFormError(st.create.fillRequired);
+                      return;
+                    }
+                    setFormError(null);
+                    createTask.mutate(
+                      {
+                        context_mode: contextMode,
+                        thread_id:
+                          contextMode === "reuse_thread"
+                            ? targetThreadId
+                            : null,
+                        title,
+                        prompt,
+                        run_context: buildRunContext(createModelName),
+                        schedule_type: createSchedule.schedule_type,
+                        schedule_spec: createSchedule.schedule_spec,
+                        timezone: createSchedule.timezone || "UTC",
+                      },
+                      {
+                        onSuccess: () => {
+                          // Clear the form so a follow-up task starts fresh.
+                          setTitle("");
+                          setPrompt("");
+                          setCreateModelName(
+                            resolveScheduledModelName(models),
+                          );
+                          setTargetThreadId("");
+                          setContextMode("fresh_thread_per_run");
+                          setCreateSchedule({
+                            schedule_type: "cron",
+                            schedule_spec: { cron: "0 9 * * *" },
+                            timezone: "",
+                          });
+                          setCreateNonce((n) => n + 1);
+                          setCreateOpen(false);
+                        },
+                      },
+                    );
+                  }}
+                  disabled={
+                    !title ||
+                    !prompt ||
+                    !createModelName ||
+                    (!createSchedule.schedule_spec.cron &&
+                      !createSchedule.schedule_spec.run_at) ||
+                    (contextMode === "reuse_thread" && !targetThreadId) ||
+                    createTask.isPending
+                  }
+                >
+                  {st.create.submit}
+                </Button>
               </div>
             </div>
           )}
           {!createOpen && (
             <>
-          {threadId && (
-            <div className="text-muted-foreground text-sm">
-              {st.detail.filteredByThread.replace("{id}", threadId)}
-            </div>
-          )}
-          {queryError ? (
-            <div
-              className="text-destructive text-sm"
-              data-testid="scheduled-task-load-error"
-            >
-              {st.detail.loadFailed}: {queryError.message}
-            </div>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2 rounded-md border bg-white p-3 shadow-sm">
-            <div className="mr-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <ListFilterIcon className="size-4" />
-              {st.filters.label}
-            </div>
-            <Button
-              variant={statusFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-            >
-              {st.filters.allStatuses}
-            </Button>
-            <Button
-              variant={statusFilter === "enabled" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("enabled")}
-            >
-              {st.filters.enabled}
-            </Button>
-            <Button
-              variant={statusFilter === "paused" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("paused")}
-            >
-              {st.filters.paused}
-            </Button>
-            <Button
-              variant={statusFilter === "completed" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("completed")}
-            >
-              {st.filters.completed}
-            </Button>
-            <Button
-              variant={statusFilter === "failed" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("failed")}
-            >
-              {st.filters.failed}
-            </Button>
-            <Button
-              variant={typeFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTypeFilter("all")}
-            >
-              {st.filters.allTypes}
-            </Button>
-            <Button
-              variant={typeFilter === "cron" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTypeFilter("cron")}
-            >
-              {st.filters.cron}
-            </Button>
-            <Button
-              variant={typeFilter === "once" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTypeFilter("once")}
-            >
-              {st.filters.once}
-            </Button>
-          </div>
-          {filteredData.length === 0 ? (
-            <div
-              data-testid="scheduled-task-list"
-              className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-dashed bg-white/75 p-10 text-center shadow-sm"
-            >
-              <div className="max-w-md">
-                <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-blue-50 text-blue-700">
-                  <CalendarClockIcon className="size-6" />
+              {threadId && (
+                <div className="text-muted-foreground text-sm">
+                  {st.detail.filteredByThread.replace("{id}", threadId)}
                 </div>
-                <div className="mt-4 text-lg font-semibold">
-                  {st.detail.emptyTitle}
+              )}
+              {queryError ? (
+                <div
+                  className="text-destructive text-sm"
+                  data-testid="scheduled-task-load-error"
+                >
+                  {st.detail.loadFailed}: {queryError.message}
                 </div>
-                <div className="text-muted-foreground mt-2 text-sm leading-6">
-                  {st.detail.emptyDescription}
+              ) : null}
+              <div className="flex flex-wrap items-center gap-2 rounded-md border bg-white p-3 shadow-sm">
+                <div className="text-muted-foreground mr-2 flex items-center gap-2 text-sm font-medium">
+                  <ListFilterIcon className="size-4" />
+                  {st.filters.label}
                 </div>
-                <Button className="mt-5" onClick={() => setCreateOpen(true)}>
-                  <PlusIcon className="size-4" />
-                  {st.create.title}
+                <Button
+                  variant={statusFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("all")}
+                >
+                  {st.filters.allStatuses}
+                </Button>
+                <Button
+                  variant={statusFilter === "enabled" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("enabled")}
+                >
+                  {st.filters.enabled}
+                </Button>
+                <Button
+                  variant={statusFilter === "paused" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("paused")}
+                >
+                  {st.filters.paused}
+                </Button>
+                <Button
+                  variant={statusFilter === "completed" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("completed")}
+                >
+                  {st.filters.completed}
+                </Button>
+                <Button
+                  variant={statusFilter === "failed" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("failed")}
+                >
+                  {st.filters.failed}
+                </Button>
+                <Button
+                  variant={typeFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTypeFilter("all")}
+                >
+                  {st.filters.allTypes}
+                </Button>
+                <Button
+                  variant={typeFilter === "cron" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTypeFilter("cron")}
+                >
+                  {st.filters.cron}
+                </Button>
+                <Button
+                  variant={typeFilter === "once" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTypeFilter("once")}
+                >
+                  {st.filters.once}
                 </Button>
               </div>
-            </div>
-          ) : (
-            <div
-              data-testid="scheduled-task-list"
-              className="grid min-h-0 flex-1 auto-rows-max gap-4 overflow-y-auto pb-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-            >
-              {filteredData.map((task) => {
-                return (
-                  <div
-                    key={task.id}
-                    data-testid={`scheduled-task-item-${task.id}`}
-                    className="group relative flex min-h-56 flex-col overflow-hidden rounded-md border bg-gradient-to-br from-white to-slate-50/70 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-lg hover:shadow-blue-900/5"
-                  >
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500/45 via-transparent to-cyan-400/30" />
-                    <button
-                      type="button"
-                      onClick={() => openTaskDetail(task)}
-                      className="flex flex-1 flex-col p-3.5 text-left"
-                    >
-                      <div className="flex min-w-0 items-start gap-3">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700 ring-1 ring-blue-200/70 transition-transform duration-300 group-hover:scale-105">
-                          <CalendarClockIcon className="size-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="line-clamp-1 text-base font-semibold leading-6">
-                            {task.title}
-                          </div>
-                          <div className="text-muted-foreground mt-1 text-sm">
-                            {taskSummary(task)}
-                          </div>
-                        </div>
-                        <span
-                          className={cn(
-                            "shrink-0 rounded-full border px-2 py-0.5 text-xs",
-                            statusTone(task.status),
-                          )}
-                        >
-                          {statusLabel(task.status)}
-                        </span>
-                      </div>
-
-                      <div className="text-muted-foreground mt-3 line-clamp-2 text-sm leading-6">
-                        {task.prompt}
-                      </div>
-
-                      <div className="mt-auto grid gap-1.5 pt-3 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <ClockIcon className="size-3.5" />
-                          <span className="truncate">
-                            {st.detail.nextRun}:{" "}
-                            {formatTimestamp(task.next_run_at, locale)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <HistoryIcon className="size-3.5" />
-                          <span>
-                            {task.run_count === 1
-                              ? st.detail.runsCountOne.replace(
-                                  "{count}",
-                                  String(task.run_count),
-                                )
-                              : st.detail.runsCount.replace(
-                                  "{count}",
-                                  String(task.run_count),
-                                )}
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-
-                    <div className="mt-auto flex items-center justify-between gap-2 border-t bg-white/80 px-3 py-2.5">
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        variant="outline"
-                        onClick={() => triggerTask.mutate(task.id)}
-                      >
-                        <PlayIcon className="size-3.5" />
-                        {st.actions.trigger}
-                      </Button>
-                      <div className="flex gap-1">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          title={
-                            task.status === "paused"
-                              ? st.actions.resume
-                              : st.actions.pause
-                          }
-                          onClick={() =>
-                            task.status === "paused"
-                              ? resumeTask.mutate(task.id)
-                              : pauseTask.mutate(task.id)
-                          }
-                        >
-                          {task.status === "paused" ? (
-                            <PlayIcon className="size-3.5" />
-                          ) : (
-                            <PauseIcon className="size-3.5" />
-                          )}
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          title={st.actions.edit}
-                          onClick={() => openTaskDetail(task, true)}
-                        >
-                          <PencilIcon className="size-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-destructive hover:text-destructive h-8 w-8 hover:bg-red-500/10"
-                          title={st.actions.delete}
-                          onClick={() => {
-                            setSelectedTaskId(task.id);
-                            setDeleteOpen(true);
-                          }}
-                        >
-                          <Trash2Icon className="size-3.5" />
-                        </Button>
-                      </div>
+              {filteredData.length === 0 ? (
+                <div
+                  data-testid="scheduled-task-list"
+                  className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-dashed bg-white/75 p-10 text-center shadow-sm"
+                >
+                  <div className="max-w-md">
+                    <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+                      <CalendarClockIcon className="size-6" />
                     </div>
+                    <div className="mt-4 text-lg font-semibold">
+                      {st.detail.emptyTitle}
+                    </div>
+                    <div className="text-muted-foreground mt-2 text-sm leading-6">
+                      {st.detail.emptyDescription}
+                    </div>
+                    <Button
+                      className="mt-5"
+                      onClick={() => setCreateOpen(true)}
+                    >
+                      <PlusIcon className="size-4" />
+                      {st.create.title}
+                    </Button>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+              ) : (
+                <div
+                  data-testid="scheduled-task-list"
+                  className="grid min-h-0 flex-1 auto-rows-max gap-4 overflow-y-auto pb-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                >
+                  {filteredData.map((task) => {
+                    return (
+                      <div
+                        key={task.id}
+                        data-testid={`scheduled-task-item-${task.id}`}
+                        className="group hover:border-primary/35 relative flex min-h-56 flex-col overflow-hidden rounded-md border bg-gradient-to-br from-white to-slate-50/70 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-900/5"
+                      >
+                        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-500/45 via-transparent to-cyan-400/30" />
+                        <button
+                          type="button"
+                          onClick={() => openTaskDetail(task)}
+                          className="flex flex-1 flex-col p-3.5 text-left"
+                        >
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700 ring-1 ring-blue-200/70 transition-transform duration-300 group-hover:scale-105">
+                              <CalendarClockIcon className="size-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="line-clamp-1 text-base leading-6 font-semibold">
+                                {task.title}
+                              </div>
+                              <div className="text-muted-foreground mt-1 text-sm">
+                                {taskSummary(task)}
+                              </div>
+                            </div>
+                            <span
+                              className={cn(
+                                "shrink-0 rounded-full border px-2 py-0.5 text-xs",
+                                statusTone(task.status),
+                              )}
+                            >
+                              {statusLabel(task.status)}
+                            </span>
+                          </div>
+
+                          <div className="text-muted-foreground mt-3 line-clamp-2 text-sm leading-6">
+                            {task.prompt}
+                          </div>
+
+                          <div className="text-muted-foreground mt-auto grid gap-1.5 pt-3 text-xs">
+                            <div className="flex items-center gap-2">
+                              <ClockIcon className="size-3.5" />
+                              <span className="truncate">
+                                {st.detail.nextRun}:{" "}
+                                {formatTimestamp(task.next_run_at, locale)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <HistoryIcon className="size-3.5" />
+                              <span>
+                                {task.run_count === 1
+                                  ? st.detail.runsCountOne.replace(
+                                      "{count}",
+                                      String(task.run_count),
+                                    )
+                                  : st.detail.runsCount.replace(
+                                      "{count}",
+                                      String(task.run_count),
+                                    )}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+
+                        <div className="mt-auto flex items-center justify-between gap-2 border-t bg-white/80 px-3 py-2.5">
+                          <Button
+                            size="sm"
+                            className="flex-1"
+                            variant="outline"
+                            onClick={() => triggerTask.mutate(task.id)}
+                          >
+                            <PlayIcon className="size-3.5" />
+                            {st.actions.trigger}
+                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              title={
+                                task.status === "paused"
+                                  ? st.actions.resume
+                                  : st.actions.pause
+                              }
+                              onClick={() =>
+                                task.status === "paused"
+                                  ? resumeTask.mutate(task.id)
+                                  : pauseTask.mutate(task.id)
+                              }
+                            >
+                              {task.status === "paused" ? (
+                                <PlayIcon className="size-3.5" />
+                              ) : (
+                                <PauseIcon className="size-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              title={st.actions.edit}
+                              onClick={() => openTaskDetail(task, true)}
+                            >
+                              <PencilIcon className="size-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive h-8 w-8 hover:bg-red-500/10"
+                              title={st.actions.delete}
+                              onClick={() => {
+                                setSelectedTaskId(task.id);
+                                setDeleteOpen(true);
+                              }}
+                            >
+                              <Trash2Icon className="size-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -726,7 +828,7 @@ export default function ScheduledTasksPage() {
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-md bg-white p-3 ring-1 ring-blue-100">
-                  <div className="font-medium text-foreground">
+                  <div className="text-foreground font-medium">
                     {st.context.fresh}
                   </div>
                   <p className="text-muted-foreground mt-1 text-sm leading-6">
@@ -734,7 +836,7 @@ export default function ScheduledTasksPage() {
                   </p>
                 </div>
                 <div className="rounded-md bg-white p-3 ring-1 ring-blue-100">
-                  <div className="font-medium text-foreground">
+                  <div className="text-foreground font-medium">
                     {st.context.reuse}
                   </div>
                   <p className="text-muted-foreground mt-1 text-sm leading-6">
@@ -748,7 +850,7 @@ export default function ScheduledTasksPage() {
                 {adviceLabels.examplesTitle}
               </div>
               <div className="mt-3 rounded-md bg-slate-50 p-3">
-                <p className="font-medium text-foreground">
+                <p className="text-foreground font-medium">
                   {st.create.adviceCron}
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr]">
@@ -790,8 +892,7 @@ export default function ScheduledTasksPage() {
               </div>
               <ul className="mt-3 grid gap-2">
                 {st.create.adviceCronExamples.map((example) => {
-                  const { expression, description } =
-                    splitCronExample(example);
+                  const { expression, description } = splitCronExample(example);
                   return (
                     <li
                       key={example}
@@ -807,7 +908,7 @@ export default function ScheduledTasksPage() {
                   );
                 })}
               </ul>
-              <div className="mt-3 rounded-md border border-dashed border-blue-200 bg-blue-50/70 px-3 py-2 text-sm leading-6 text-muted-foreground">
+              <div className="text-muted-foreground mt-3 rounded-md border border-dashed border-blue-200 bg-blue-50/70 px-3 py-2 text-sm leading-6">
                 <a
                   href="https://crontab.guru/"
                   target="_blank"
@@ -829,7 +930,9 @@ export default function ScheduledTasksPage() {
           data-testid="scheduled-task-detail"
         >
           <DialogHeader>
-            <DialogTitle>{selectedTask?.title ?? st.detail.noSelection}</DialogTitle>
+            <DialogTitle>
+              {selectedTask?.title ?? st.detail.noSelection}
+            </DialogTitle>
             <DialogDescription>
               {selectedTask
                 ? `${taskSummary(selectedTask)} · ${st.detail.nextRun}: ${formatTimestamp(selectedTask.next_run_at, locale)}`
@@ -861,6 +964,20 @@ export default function ScheduledTasksPage() {
                     {st.detail.expression}:{" "}
                     <span className="text-foreground">
                       {scheduleExpression(selectedTask)}
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground">
+                    {st.model.label}:{" "}
+                    <span className="text-foreground">
+                      {models.find(
+                        (model) =>
+                          model.name ===
+                          selectedTask.run_context?.model_name,
+                      )?.display_name ??
+                        (typeof selectedTask.run_context?.model_name ===
+                        "string"
+                          ? selectedTask.run_context.model_name
+                          : st.model.unset)}
                     </span>
                   </div>
                   <div className="text-muted-foreground">
@@ -903,6 +1020,34 @@ export default function ScheduledTasksPage() {
                     onChange={(event) => setEditPrompt(event.target.value)}
                     placeholder={st.edit.promptPlaceholder}
                   />
+                  <div className="grid gap-1.5">
+                    <label
+                      className="text-sm font-medium"
+                      htmlFor="scheduled-task-edit-model"
+                    >
+                      {st.model.label}
+                    </label>
+                    <Select
+                      value={editModelName}
+                      onValueChange={setEditModelName}
+                      disabled={models.length === 0}
+                    >
+                      <SelectTrigger
+                        id="scheduled-task-edit-model"
+                        className="w-full"
+                        data-testid="scheduled-task-edit-model"
+                      >
+                        <SelectValue placeholder={st.model.placeholder} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {models.map((model) => (
+                          <SelectItem key={model.name} value={model.name}>
+                            {model.display_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <ScheduledTaskScheduleInput
                     key={selectedTask.id}
                     initial={editSchedule}
@@ -910,10 +1055,7 @@ export default function ScheduledTasksPage() {
                     scheduleTypeLocked
                   />
                   <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setEditing(false)}
-                    >
+                    <Button variant="outline" onClick={() => setEditing(false)}>
                       {st.actions.cancelEdit}
                     </Button>
                     <Button
@@ -922,6 +1064,10 @@ export default function ScheduledTasksPage() {
                           {
                             title: editTitle,
                             prompt: editPrompt,
+                            run_context: buildRunContext(
+                              editModelName,
+                              selectedTask.run_context,
+                            ),
                             schedule_spec: editSchedule.schedule_spec,
                             timezone: editSchedule.timezone || "UTC",
                           },
@@ -978,7 +1124,10 @@ export default function ScheduledTasksPage() {
               </div>
 
               <div className="grid gap-2">
-                <div className="text-sm font-medium" data-testid="scheduled-task-runs">
+                <div
+                  className="text-sm font-medium"
+                  data-testid="scheduled-task-runs"
+                >
                   {(taskRunsQuery.data ?? []).length === 1
                     ? st.detail.runsCountOne.replace(
                         "{count}",

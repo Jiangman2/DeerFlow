@@ -128,6 +128,11 @@ def test_csrf_exempts_bearer_authenticated_weknora_asr_adapter():
     assert should_check_csrf(req) is False
 
 
+def test_csrf_exempts_bearer_authenticated_weknora_embedding_adapter():
+    req = _FakeRequest("/api/weknora/bailian/v1/embeddings")
+    assert should_check_csrf(req) is False
+
+
 # ── Structured Error Response Format ────────────────────────────────
 
 

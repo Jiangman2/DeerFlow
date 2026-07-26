@@ -147,7 +147,10 @@ administers; it never stores the upstream enterprise API URL or Key in WeKnora.
 The same SSO bridge maintains seven platform built-in WeKnora models: three
 chat models (`qwen-plus`, Bailian `deepseek-v4-pro`, and CNOOC Haineng
 `DeepSeek-V4-Flash`), plus embedding, rerank, vision, and speech recognition.
-Qwen remains the default; both DeepSeek entries are selectable non-defaults.
+When the CNOOC Haineng credential is present, internal
+`DeepSeek-V4-Flash` is the default KnowledgeQA model; Qwen and Bailian
+DeepSeek remain selectable alternatives. Without that credential, Qwen remains
+the safe default. `WEKNORA_PREFER_CNOOC_DEEPSEEK=false` explicitly opts out.
 The Bailian models reuse `LLM_API_KEY` unless a type-specific key overrides it.
 The internal DeepSeek entry uses `DeepSeek_V4_API_KEY`, is omitted when that key
 is absent, and requires `model.ai.cnooc` in proxy-bypass variables. WeKnora
@@ -155,6 +158,15 @@ is absent, and requires `model.ai.cnooc` in proxy-bypass variables. WeKnora
 internal `http://gateway:8001/api/weknora/bailian/v1` base URL. Gateway validates
 the shared key, translates the request to Bailian `qwen3-asr-flash`
 input-audio chat format, and does not persist audio bytes.
+The built-in `text-embedding-v4` model uses the same internal base URL.
+Gateway validates `EMBEDDING_API_KEY` and relays the OpenAI-compatible
+`/embeddings` JSON body through its enterprise proxy/CA/OpenSSL compatibility
+path without persisting document text. This keeps WeKnora away from the
+interception proxy's alternating certificate profiles.
+When `WEKNORA_BAILIAN_TLS_COMPAT=true`, only the authenticated Bailian
+embedding and ASR adapter clients build an explicit
+`DEFAULT:@SECLEVEL=1` SSL context for the audited enterprise proxy's legacy RSA
+certificate. CA-chain and hostname verification remain enabled.
 
 Direct production builds of `backend/Dockerfile` default `UV_EXTRAS` to
 `postgres` because the Kubernetes Gateway manifests use PostgreSQL for the
@@ -163,10 +175,12 @@ comma-separated build argument; Docker Compose continues to pass its explicit
 environment-derived value.
 
 CNOOC SSO stores the validated upstream platform Token in the HttpOnly
-`cnooc.platform_token` cookie so the fixed Nginx `/agent-tools/*` proxies can
-inject it as a Bearer header. Logout must clear this cookie together with the
-DeerFlow `access_token`; do not expose the platform Token through response
-bodies, query strings, or browser-readable storage.
+`cnooc.platform_token` cookie. The frontend's same-origin server launch routes
+read that cookie only for the five allowlisted data-lake external agents and
+add the current Token to the final redirect URL. Those responses must remain
+`no-store` and `no-referrer`; the Token must never be hardcoded, returned in a
+response body, read by frontend JavaScript, or placed in browser-readable
+storage. Logout clears this cookie together with the DeerFlow `access_token`.
 
 In provisioner/Kubernetes mode, `sandbox.environment` is injected through the
 AIO sandbox's structured per-command `bash.exec` environment. The remote backend
@@ -477,6 +491,7 @@ Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runti
 
 Scheduled-task runtime note:
 - Scheduled background runs set `context.non_interactive=true` and therefore exclude `ask_clarification` from the lead-agent tool list. The lead-agent system prompt also tells unattended runs to stop safely when required inputs/approvals are missing and to avoid unapproved destructive side effects. This keeps scheduler-triggered runs from stalling or guessing through a human confirmation mid-execution. `non_interactive` is an internal-only context key: it is merged from `body.context` only when the request authenticated as the process-internal user (the scheduler path), never from arbitrary HTTP/IM clients. `GET /api/scheduled-tasks/capabilities` reports the current process poller's actual `scheduler_enabled` state plus these non-interactive semantics so the frontend does not imply that saved tasks will auto-run while the poller is stopped.
+- The scheduled-task row stores only the allowlisted user-configurable run context needed to reproduce the chosen model, mode, reasoning, subagent, and WeKnora scope. The scheduler passes that context into `launch_scheduled_thread_run`, which filters it again before forcing the internal `non_interactive` and authenticated owner fields. Do not persist or forward runtime-only secrets, client-supplied identity, or internal flags.
 
 **Community tools** (`packages/harness/deerflow/community/`): optional integrations, each in its own subpackage and wired through `config.yaml`. Documented examples:
 - `tavily/` - Web search (5 results default) and web fetch (4KB limit)
@@ -988,6 +1003,11 @@ WeKnora's `creator_id`, and keeps an `access_tenant_id` distinct from the
 resource's owner/source tenant. Preserve that distinction on document list and
 mutation routes; organization-shared resources often require the consumer tenant
 for authorization even though embeddings belong to the source tenant.
+Document-list requests normally receive that consumer tenant from the frontend.
+When it is missing, the Gateway fallback must resolve the knowledge-base ID only
+across the current user's live memberships (including shared-resource listings)
+and send the matching consumer tenant as `X-Tenant-ID`; never trust the WeKnora
+JWT's current tenant as proof that it owns the selected knowledge base.
 Lead and delegated agents expose those tools only when the current run contains
 non-empty `weknora_knowledge_base_ids`. Without an explicit selection,
 `WeKnoraScopeMiddleware` also prevents stale durable-memory references from being

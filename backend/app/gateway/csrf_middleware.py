@@ -48,9 +48,12 @@ def should_check_csrf(request: Request) -> bool:
     # Exempt /api/v1/auth/me endpoint
     if path == "/api/v1/auth/me":
         return False
-    # Internal WeKnora ASR calls authenticate with a model API Bearer key,
+    # Internal WeKnora model calls authenticate with a model API Bearer key,
     # not a browser cookie, so the double-submit cookie cannot apply.
-    if path == "/api/weknora/bailian/v1/audio/transcriptions":
+    if path in {
+        "/api/weknora/bailian/v1/audio/transcriptions",
+        "/api/weknora/bailian/v1/embeddings",
+    }:
         return False
     # Inbound webhooks authenticate themselves via provider-specific signatures
     # (e.g. GitHub's X-Hub-Signature-256), not the CSRF double-submit cookie.

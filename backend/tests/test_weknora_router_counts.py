@@ -345,3 +345,132 @@ async def test_list_knowledge_bases_aggregates_live_memberships_and_classifies_a
     assert response["team_total"] == 2
     assert ("GET", "/knowledge-bases", "100") in calls
     assert ("GET", "/knowledge-bases", "200") in calls
+
+
+@pytest.mark.asyncio
+async def test_resolve_knowledge_base_access_context_keeps_explicit_tenant(monkeypatch):
+    async def fake_session(user):
+        return SimpleNamespace(token="token", tenant={"id": 10000})
+
+    async def fail_live_identity(session):
+        raise AssertionError("explicit tenant must not trigger membership discovery")
+
+    monkeypatch.setattr(weknora, "ensure_weknora_session_for_deerflow_user", fake_session)
+    monkeypatch.setattr(weknora, "_live_weknora_identity", fail_live_identity)
+
+    token, tenant_id = await weknora._resolve_knowledge_base_access_context(
+        SimpleNamespace(),
+        "kb-1",
+        requested_tenant_id="20000",
+    )
+
+    assert token == "token"
+    assert tenant_id == "20000"
+
+
+@pytest.mark.asyncio
+async def test_resolve_knowledge_base_access_context_finds_owned_tenant(monkeypatch):
+    calls: list[tuple[str, str, str | None]] = []
+
+    async def fake_session(user):
+        return SimpleNamespace(token="token", tenant={"id": 10001})
+
+    async def fake_live_identity(session):
+        return (
+            {"id": "user-1"},
+            [
+                {"tenant_id": 10001, "role": "owner"},
+                {"tenant_id": 10000, "role": "owner"},
+            ],
+        )
+
+    async def fake_request(method, path, access_token, *, tenant_id=None, **kwargs):
+        calls.append((method, path, str(tenant_id) if tenant_id is not None else None))
+        if path == "/knowledge-bases" and str(tenant_id) == "10000":
+            return {"success": True, "data": [{"id": "kb-1"}]}
+        return {"success": True, "data": [], "total": 0}
+
+    monkeypatch.setattr(weknora, "ensure_weknora_session_for_deerflow_user", fake_session)
+    monkeypatch.setattr(weknora, "_live_weknora_identity", fake_live_identity)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+
+    token, tenant_id = await weknora._resolve_knowledge_base_access_context(
+        SimpleNamespace(),
+        "kb-1",
+        requested_tenant_id=None,
+    )
+
+    assert token == "token"
+    assert tenant_id == "10000"
+    assert ("GET", "/knowledge-bases", "10000") in calls
+    assert ("GET", "/shared-knowledge-bases", "10000") in calls
+
+
+@pytest.mark.asyncio
+async def test_resolve_knowledge_base_access_context_uses_consumer_tenant_for_shared_kb(monkeypatch):
+    async def fake_session(user):
+        return SimpleNamespace(token="token", tenant={"id": 10000})
+
+    async def fake_live_identity(session):
+        return (
+            {"id": "user-1"},
+            [
+                {"tenant_id": 10000, "role": "owner"},
+                {"tenant_id": 20000, "role": "viewer"},
+            ],
+        )
+
+    async def fake_request(method, path, access_token, *, tenant_id=None, **kwargs):
+        if path == "/shared-knowledge-bases" and str(tenant_id) == "20000":
+            return {
+                "success": True,
+                "data": [
+                    {
+                        "knowledge_base": {"id": "kb-shared", "tenant_id": 30000},
+                        "source_tenant_id": 30000,
+                    }
+                ],
+            }
+        return {"success": True, "data": [], "total": 0}
+
+    monkeypatch.setattr(weknora, "ensure_weknora_session_for_deerflow_user", fake_session)
+    monkeypatch.setattr(weknora, "_live_weknora_identity", fake_live_identity)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+
+    token, tenant_id = await weknora._resolve_knowledge_base_access_context(
+        SimpleNamespace(),
+        "kb-shared",
+        requested_tenant_id=None,
+    )
+
+    assert token == "token"
+    assert tenant_id == "20000"
+
+
+@pytest.mark.asyncio
+async def test_list_knowledge_resolves_missing_tenant_before_upstream_request(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_context(user, knowledge_base_id, requested_tenant_id):
+        assert knowledge_base_id == "kb-1"
+        assert requested_tenant_id is None
+        return "token", "tenant-1"
+
+    async def fake_request(method, path, access_token, **kwargs):
+        captured.update(
+            {
+                "method": method,
+                "path": path,
+                "access_token": access_token,
+                **kwargs,
+            }
+        )
+        return {"success": True, "data": [{"id": "doc-1"}], "total": 1}
+
+    monkeypatch.setattr(weknora, "_resolve_knowledge_base_access_context", fake_context)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+
+    response = await weknora.list_knowledge("kb-1", tenant_id=None, user=SimpleNamespace())
+
+    assert response["items"] == [{"id": "doc-1"}]
+    assert captured["tenant_id"] == "tenant-1"

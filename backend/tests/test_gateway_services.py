@@ -1291,6 +1291,14 @@ def test_launch_scheduled_thread_run_marks_context_non_interactive(_stub_app_con
                 prompt="Run in background",
                 app=SimpleNamespace(state=SimpleNamespace()),
                 owner_user_id="user-1",
+                run_context={
+                    "model_name": "deepseek-v4-flash",
+                    "mode": "pro",
+                    "user_id": "spoofed-user",
+                    "non_interactive": False,
+                    "github_token": "must-not-be-forwarded",
+                    "unknown": "ignored",
+                },
                 metadata={"scheduled_task_id": "task-1"},
             )
         return captured, result
@@ -1298,7 +1306,12 @@ def test_launch_scheduled_thread_run_marks_context_non_interactive(_stub_app_con
     captured, result = asyncio.run(_scenario())
 
     assert captured["thread_id"] == "thread-scheduled"
-    assert captured["context"] == {"non_interactive": True, "user_id": "user-1"}
+    assert captured["context"] == {
+        "model_name": "deepseek-v4-flash",
+        "mode": "pro",
+        "non_interactive": True,
+        "user_id": "user-1",
+    }
     assert captured["metadata"] == {"scheduled_task_id": "task-1"}
     assert result == {"run_id": "run-1", "thread_id": "thread-scheduled"}
 

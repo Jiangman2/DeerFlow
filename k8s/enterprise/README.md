@@ -31,10 +31,12 @@ changing them; updating the ConfigMap alone does not refresh the mounted files.
 Third-party images are pinned to the ARM64 manifest digests verified on
 `datax-01` on 2026-07-21. Provisioner, Skills, and Sandbox remain on the
 immutable `20260723-enterprise-arm64-rc3` release tag. The MinerU adapter
-remains on the validated `20260723-enterprise-arm64-rc4` tag. Gateway and
-Frontend use `20260724-enterprise-arm64-rc5` for the application update that
-includes the current CNOOC SSO, WeKnora integration, and direct agent-card
-routes:
+remains on the validated `20260723-enterprise-arm64-rc4` tag. Gateway uses
+`20260726-enterprise-arm64-rc6-embeddingrelay2`, while Frontend uses
+`20260725-enterprise-arm64-rc6-schedulermodel1`. These immutable application
+tags include the current CNOOC SSO, WeKnora integration, direct agent-card
+routes, scheduled-task model selection, and the authenticated embedding relay
+required by the enterprise deployment:
 
 - `deer-flow-gateway`
 - `deer-flow-frontend`
@@ -193,20 +195,43 @@ and rolling releases do not remove it; reapply the SQL after provisioning a new
 database or after upgrading an older trigger.
 
 The enterprise overlay mounts `deer-flow-enterprise-ca` into `weknora-app` and
-sets `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, and `CURL_CA_BUNDLE`. This is
-required when the configured DashScope embedding or chat endpoint is inspected
-by the enterprise TLS proxy. Create or update the Secret before applying the
-overlay; otherwise the WeKnora App Pod cannot start. The bundle remains
-available under `/etc/deerflow-ca` and is also mounted over the conventional
-`/etc/ssl/certs/ca-certificates.crt` path used by Go's system trust lookup.
-Restart the App after CA rotation so the `subPath` mount and long-lived HTTP
-clients both reload the new bundle.
+sets `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, and `CURL_CA_BUNDLE` directly to
+`/etc/deerflow-ca/ca-bundle.crt`. This is required when the configured
+external model or parser endpoint is inspected by the enterprise TLS proxy.
+Create or update the Secret before applying the overlay; otherwise the WeKnora
+App Pod cannot start. Do not mount the Secret over the image's conventional
+`/etc/ssl/certs/ca-certificates.crt` path: that path can be a distribution-owned
+symlink and is fragile across image upgrades and Kubernetes `subPath` mounts.
+Restart the App after CA rotation so long-lived HTTP clients reload the
+projected bundle.
+
+The enterprise `text-embedding-v4` built-in must use
+`http://gateway:8001/api/weknora/bailian/v1` with provider `generic`.
+WeKnora sends `/embeddings` to that in-cluster endpoint; Gateway authenticates
+the shared embedding key and relays the request through its scoped enterprise
+proxy/CA/OpenSSL compatibility path. This avoids the interception proxy's
+alternating certificate profiles without disabling TLS verification. Reapply
+`k8s/weknora/enterprise-model-feature-defaults.sql` to migrate an existing
+model row.
 
 The WeKnora App's uppercase and lowercase proxy bypass lists must include
 `deer-flow-mineru-adapter`, the other WeKnora Service names, `.svc`, and
 `.cluster.local`. Otherwise its proxy-aware HTTP transport can send the
 in-cluster `/file_parse` request to the enterprise proxy, which may redirect it
 to a DNS-failure IP that WeKnora correctly rejects through SSRF validation.
+Its comma-separated `SSRF_WHITELIST_EXTRA` must retain
+`deer-flow-mineru-adapter`, the exact internal model hostname
+`model.ai.cnooc`, and the authenticated in-cluster `gateway` relay Service.
+These names resolve to approved private service addresses,
+which WeKnora intentionally rejects unless explicitly allowlisted. Do not
+replace the exact hostname with a broad private CIDR or disable SSRF checks.
+Additional internal embedding and rerank providers should normally be exposed
+through authenticated Gateway adapters. That keeps provider credentials,
+enterprise CA/proxy behavior, timeouts, and upstream-specific request mapping
+in one server-side boundary, while WeKnora only calls the stable `gateway`
+Service. When a provider cannot use that adapter boundary and WeKnora must call
+it directly, add its reviewed exact hostname to `SSRF_WHITELIST_EXTRA`,
+`NO_PROXY`, and `no_proxy` together.
 
 Generate distinct `PROVISIONER_API_KEY` and `SANDBOX_API_KEY` values. Configure
 `sandbox.provisioner_api_key: $PROVISIONER_API_KEY` and
@@ -251,3 +276,14 @@ The Gateway proxy bypass list includes `model.ai.cnooc` in both `NO_PROXY` and
 `no_proxy`. Internal model endpoints on that host must be reached directly;
 routing them through the enterprise outbound proxy can leave streamed chat
 requests waiting until the proxy resets the connection.
+
+The audited outbound TLS proxy can present a CA-validated certificate whose
+legacy RSA key is rejected by OpenSSL 3 at the default security level. The
+enterprise overlay mounts `gateway-openssl-compat.yaml` only into the Gateway
+Pod and sets `OPENSSL_CONF` there with `DEFAULT:@SECLEVEL=1`. It also enables
+`WEKNORA_BAILIAN_TLS_COMPAT`, which gives only the authenticated Bailian
+embedding/ASR adapter clients an explicit SECLEVEL=1 SSL context. Certificate
+chain and hostname verification remain enabled; do not replace this with
+`verify=false`, `--insecure`, or a cluster-wide OpenSSL downgrade. Remove this
+compatibility ConfigMap after the enterprise proxy certificate is upgraded to
+a key accepted by OpenSSL's default policy.

@@ -268,9 +268,9 @@ spec:
             - name: EMBEDDING_MODEL_NAME
               value: text-embedding-v4
             - name: EMBEDDING_BASE_URL
-              value: https://dashscope.aliyuncs.com/compatible-mode/v1
+              value: http://gateway:8001/api/weknora/bailian/v1
             - name: EMBEDDING_PROVIDER
-              value: aliyun
+              value: generic
             - name: EMBEDDING_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -324,7 +324,7 @@ spec:
               port: 8001
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 60
+            failureThreshold: 180
           resources:
             requests:
               cpu: 500m

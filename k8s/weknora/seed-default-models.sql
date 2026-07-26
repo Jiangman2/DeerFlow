@@ -32,7 +32,7 @@ VALUES
         'api_key', :'llm_api_key',
         'provider', :'llm_provider'
     ),
-    true,
+    false,
     'active',
     true,
     'deerflow-sso',
@@ -72,7 +72,7 @@ VALUES
         'api_key', :'cnooc_deepseek_api_key',
         'provider', 'generic'
     ),
-    false,
+    true,
     'active',
     true,
     'deerflow-sso',

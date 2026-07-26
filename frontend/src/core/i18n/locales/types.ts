@@ -249,6 +249,12 @@ export interface Translations {
     };
     preview: string;
     cronHelp: string;
+    model: {
+      label: string;
+      placeholder: string;
+      hint: string;
+      unset: string;
+    };
     create: {
       title: string;
       description: string;

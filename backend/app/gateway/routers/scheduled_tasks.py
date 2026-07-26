@@ -26,6 +26,33 @@ from deerflow.scheduler.schedules import (
 
 router = APIRouter(prefix="/api", tags=["scheduled-tasks"])
 
+_SCHEDULED_RUN_CONTEXT_KEYS = frozenset(
+    {
+        "model_name",
+        "mode",
+        "thinking_enabled",
+        "reasoning_effort",
+        "is_plan_mode",
+        "subagent_enabled",
+        "max_concurrent_subagents",
+        "max_total_subagents",
+        "weknora_knowledge_base_ids",
+        "weknora_knowledge_bases",
+    }
+)
+
+
+def _sanitize_run_context(value: dict[str, Any] | None) -> dict[str, Any]:
+    """Keep only durable, user-configurable run settings.
+
+    Authentication identity, internal execution flags, runtime-only secrets,
+    and arbitrary client keys must never be stored on a scheduled task.
+    """
+
+    if not value:
+        return {}
+    return {key: item for key, item in value.items() if key in _SCHEDULED_RUN_CONTEXT_KEYS}
+
 
 def _ensure_task_mutable(task: dict[str, Any]) -> None:
     if task.get("status") == "running":
@@ -43,6 +70,7 @@ class ScheduledTaskCreateRequest(BaseModel):
     schedule_type: str
     schedule_spec: dict[str, Any]
     timezone: str = Field(max_length=64)
+    run_context: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("title", "prompt")
     @classmethod
@@ -52,6 +80,11 @@ class ScheduledTaskCreateRequest(BaseModel):
             raise ValueError("must not be blank")
         return value
 
+    @field_validator("run_context")
+    @classmethod
+    def sanitize_run_context(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _sanitize_run_context(value)
+
 
 class ScheduledTaskUpdateRequest(BaseModel):
     context_mode: str | None = None
@@ -60,6 +93,7 @@ class ScheduledTaskUpdateRequest(BaseModel):
     prompt: str | None = Field(default=None, min_length=1)
     schedule_spec: dict[str, Any] | None = None
     timezone: str | None = Field(default=None, max_length=64)
+    run_context: dict[str, Any] | None = None
 
     @field_validator("title", "prompt")
     @classmethod
@@ -70,6 +104,13 @@ class ScheduledTaskUpdateRequest(BaseModel):
         if not value:
             raise ValueError("must not be blank")
         return value
+
+    @field_validator("run_context")
+    @classmethod
+    def sanitize_optional_run_context(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        return _sanitize_run_context(value)
 
 
 @router.get("/scheduled-tasks")
@@ -151,6 +192,7 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
         schedule_type=body.schedule_type,
         schedule_spec=schedule_spec,
         timezone=body.timezone,
+        run_context=body.run_context,
         next_run_at=next_run_at,
     )
 

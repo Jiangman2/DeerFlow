@@ -9,6 +9,7 @@ import json
 import logging
 import mimetypes
 import os
+import ssl
 from typing import Any
 
 import httpx
@@ -36,6 +37,9 @@ _SUPPORTED_PRESENTATION_PARSERS = {"markitdown", "mineru"}
 _DEFAULT_BAILIAN_ASR_MODEL = "qwen3-asr-flash"
 _DEFAULT_BAILIAN_ASR_UPSTREAM_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
 _DEFAULT_BAILIAN_ASR_MAX_BYTES = 10 * 1024 * 1024
+_DEFAULT_BAILIAN_EMBEDDING_MODEL = "text-embedding-v4"
+_DEFAULT_BAILIAN_EMBEDDING_UPSTREAM_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings"
+_DEFAULT_BAILIAN_EMBEDDING_MAX_BYTES = 8 * 1024 * 1024
 _ALLOWED_SSO_ORIGINS = {
     "http://127.0.0.1:32090",
     "http://localhost:32090",
@@ -100,6 +104,22 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def _bailian_tls_verify() -> bool | ssl.SSLContext:
+    """Return scoped TLS verification for the authenticated Bailian adapters.
+
+    Some audited enterprise interception certificates use an RSA key that
+    OpenSSL 3 rejects at its default security level. Compatibility mode lowers
+    only the cipher security level for these two Gateway-owned upstream calls;
+    the normal CA chain and hostname checks remain enabled.
+    """
+
+    if not _truthy_env("WEKNORA_BAILIAN_TLS_COMPAT"):
+        return True
+    context = ssl.create_default_context()
+    context.set_ciphers("DEFAULT:@SECLEVEL=1")
+    return context
+
+
 def _bailian_adapter_api_key() -> str:
     for env_name in ("ASR_API_KEY", "LLM_API_KEY", "DASHSCOPE_API_KEY"):
         value = os.getenv(env_name)
@@ -114,6 +134,23 @@ def _require_bailian_adapter_key(request: Request) -> str:
     scheme, _, provided = authorization.partition(" ")
     if scheme.lower() != "bearer" or not provided or not hmac.compare_digest(provided.strip(), expected):
         raise HTTPException(status_code=401, detail="Invalid Bailian ASR adapter credentials.")
+    return expected
+
+
+def _embedding_adapter_api_key() -> str:
+    for env_name in ("EMBEDDING_API_KEY", "DASHSCOPE_API_KEY", "LLM_API_KEY"):
+        value = os.getenv(env_name)
+        if value and value.strip():
+            return value.strip()
+    raise HTTPException(status_code=503, detail="Bailian embedding API key is not configured.")
+
+
+def _require_embedding_adapter_key(request: Request) -> str:
+    expected = _embedding_adapter_api_key()
+    authorization = request.headers.get("authorization", "")
+    scheme, _, provided = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not provided or not hmac.compare_digest(provided.strip(), expected):
+        raise HTTPException(status_code=401, detail="Invalid Bailian embedding adapter credentials.")
     return expected
 
 
@@ -376,6 +413,74 @@ async def _live_weknora_identity(session: Any) -> tuple[dict[str, Any], list[dic
     return live_user, memberships or fallback[1]
 
 
+async def _resolve_knowledge_base_access_context(
+    user: Any,
+    knowledge_base_id: str,
+    *,
+    requested_tenant_id: str | int | None,
+) -> tuple[str, str]:
+    """Resolve the consumer tenant for a knowledge-base-scoped request.
+
+    New frontends send ``tenant_id`` explicitly. This fallback protects stale
+    browser bundles and direct API clients from accidentally using the tenant
+    embedded in the current WeKnora JWT, which may differ from the tenant that
+    owns or consumes the selected knowledge base.
+    """
+
+    explicit_tenant_id = _normalise_tenant_id(requested_tenant_id).strip()
+    if explicit_tenant_id:
+        return await _current_weknora_token(user), explicit_tenant_id
+
+    session = await ensure_weknora_session_for_deerflow_user(user)
+    _, memberships = await _live_weknora_identity(session)
+    target_id = str(knowledge_base_id)
+
+    async def _membership_access_tenant(membership: dict[str, Any]) -> tuple[str | None, bool]:
+        access_tenant_id = _normalise_tenant_id(membership.get("tenant_id")).strip()
+        if not access_tenant_id:
+            return None, False
+
+        knowledge_data, shared_data = await asyncio.gather(
+            _request("GET", "/knowledge-bases", session.token, tenant_id=access_tenant_id),
+            _request("GET", "/shared-knowledge-bases", session.token, tenant_id=access_tenant_id),
+            return_exceptions=True,
+        )
+        lookup_succeeded = not isinstance(knowledge_data, Exception) or not isinstance(shared_data, Exception)
+
+        if not isinstance(knowledge_data, Exception):
+            for item in _unwrap_list_response(knowledge_data)["items"]:
+                if isinstance(item, dict) and str(item.get("id") or "") == target_id:
+                    return access_tenant_id, True
+
+        if not isinstance(shared_data, Exception):
+            for row in _unwrap_list_response(shared_data)["items"]:
+                if not isinstance(row, dict):
+                    continue
+                knowledge_base = row.get("knowledge_base")
+                if isinstance(knowledge_base, dict) and str(knowledge_base.get("id") or "") == target_id:
+                    return access_tenant_id, True
+
+        return None, lookup_succeeded
+
+    results = await asyncio.gather(*[_membership_access_tenant(membership) for membership in memberships])
+    matching_tenant_ids = [tenant_id for tenant_id, _ in results if tenant_id]
+    if matching_tenant_ids:
+        active_tenant_id = ""
+        if isinstance(getattr(session, "tenant", None), dict):
+            active_tenant_id = _normalise_tenant_id(session.tenant.get("id")).strip()
+        resolved_tenant_id = active_tenant_id if active_tenant_id in matching_tenant_ids else matching_tenant_ids[0]
+        logger.info(
+            "Resolved missing WeKnora tenant context for knowledge base %s to tenant %s.",
+            knowledge_base_id,
+            resolved_tenant_id,
+        )
+        return session.token, resolved_tenant_id
+
+    if not any(lookup_succeeded for _, lookup_succeeded in results):
+        raise HTTPException(status_code=502, detail="Unable to resolve the WeKnora tenant for this knowledge base.")
+    raise HTTPException(status_code=403, detail="This knowledge base is not accessible in the current user's tenants.")
+
+
 def _classify_tenant_knowledge_base(
     item: dict[str, Any],
     *,
@@ -543,11 +648,16 @@ async def list_knowledge(
         params["keyword"] = keyword
     if parse_status:
         params["parse_status"] = parse_status
+    access_token, access_tenant_id = await _resolve_knowledge_base_access_context(
+        user,
+        knowledge_base_id,
+        requested_tenant_id=tenant_id,
+    )
     data = await _request(
         "GET",
         f"/knowledge-bases/{knowledge_base_id}/knowledge",
-        await _current_weknora_token(user),
-        tenant_id=tenant_id,
+        access_token,
+        tenant_id=access_tenant_id,
         params=params,
     )
     return _unwrap_list_response(data)
@@ -626,6 +736,101 @@ async def upload_knowledge_file(
     )
 
 
+@router.post("/bailian/v1/embeddings")
+async def bailian_embeddings(request: Request) -> JSONResponse:
+    """Relay WeKnora embedding requests through Gateway's managed TLS path.
+
+    The enterprise WeKnora Pod must not connect to DashScope directly because
+    its outbound proxy can alternate certificate profiles. Gateway already
+    owns the scoped proxy/CA/OpenSSL compatibility configuration, so this
+    endpoint authenticates the in-cluster request and forwards the unchanged
+    OpenAI-compatible JSON body without persisting document text.
+    """
+
+    api_key = _require_embedding_adapter_key(request)
+    max_bytes = max(
+        1,
+        _int_env(
+            "WEKNORA_BAILIAN_EMBEDDING_MAX_BYTES",
+            _DEFAULT_BAILIAN_EMBEDDING_MAX_BYTES,
+        ),
+    )
+    content_length = request.headers.get("content-length", "").strip()
+    if content_length:
+        try:
+            if int(content_length) > max_bytes:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Embedding request exceeds the {max_bytes}-byte limit.",
+                )
+        except ValueError:
+            pass
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=400, detail="Embedding request body is empty.")
+    if len(body) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Embedding request exceeds the {max_bytes}-byte limit.",
+        )
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="Embedding request body must be valid JSON.") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Embedding request body must be a JSON object.")
+
+    configured_model = os.getenv(
+        "EMBEDDING_MODEL_NAME",
+        _DEFAULT_BAILIAN_EMBEDDING_MODEL,
+    ).strip()
+    requested_model = str(payload.get("model") or "").strip()
+    if requested_model != configured_model:
+        raise HTTPException(status_code=400, detail="Unsupported Bailian embedding model.")
+    if "input" not in payload:
+        raise HTTPException(status_code=400, detail="Embedding request input is required.")
+
+    upstream_url = os.getenv(
+        "WEKNORA_BAILIAN_EMBEDDING_UPSTREAM_URL",
+        _DEFAULT_BAILIAN_EMBEDDING_UPSTREAM_URL,
+    ).strip()
+    timeout = max(
+        1.0,
+        _float_env("WEKNORA_BAILIAN_EMBEDDING_TIMEOUT_SECONDS", 120.0),
+    )
+    try:
+        async with httpx.AsyncClient(
+            timeout=timeout,
+            verify=_bailian_tls_verify(),
+        ) as client:
+            response = await client.post(
+                upstream_url,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                json=payload,
+            )
+    except httpx.RequestError as exc:
+        logger.warning("Bailian embedding request failed.", exc_info=True)
+        raise HTTPException(status_code=502, detail="Bailian embedding is unavailable.") from exc
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="Bailian embedding returned a non-JSON response.") from exc
+    if response.status_code >= 400:
+        logger.warning("Bailian embedding returned HTTP %s.", response.status_code)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Bailian embedding returned HTTP {response.status_code}.",
+        )
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail="Bailian embedding returned an invalid response.")
+    return JSONResponse(content=data)
+
+
 @router.post("/bailian/v1/audio/transcriptions")
 async def bailian_audio_transcription(
     request: Request,
@@ -684,7 +889,10 @@ async def bailian_audio_transcription(
     ).strip()
     timeout = max(1.0, _float_env("WEKNORA_BAILIAN_ASR_TIMEOUT_SECONDS", 300.0))
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(
+            timeout=timeout,
+            verify=_bailian_tls_verify(),
+        ) as client:
             response = await client.post(
                 upstream_url,
                 headers={

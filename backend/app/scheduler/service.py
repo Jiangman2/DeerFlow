@@ -137,6 +137,7 @@ class ScheduledTaskService:
                 assistant_id=task.get("assistant_id"),
                 prompt=task["prompt"],
                 owner_user_id=task.get("user_id"),
+                run_context=task.get("run_context") or {},
                 metadata={
                     "scheduled_task_id": task["id"],
                     "scheduled_task_run_id": task_run_id,

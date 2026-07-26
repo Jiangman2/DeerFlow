@@ -44,6 +44,7 @@ class ScheduledTaskRepository:
         schedule_spec: dict[str, Any],
         timezone: str,
         next_run_at: datetime | None,
+        run_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         now = datetime.now(UTC)
         row = ScheduledTaskRow(
@@ -57,6 +58,7 @@ class ScheduledTaskRepository:
             schedule_type=schedule_type,
             schedule_spec=schedule_spec,
             timezone=timezone,
+            run_context=dict(run_context or {}),
             next_run_at=next_run_at,
             created_at=now,
             updated_at=now,

@@ -35,15 +35,22 @@ Nginx is the single public entry: it serves the frontend and proxies `/api/langg
 to the Gateway's LangGraph runtime, rewriting it to Gateway's native `/api/*` routes; all
 other `/api/*` go straight to the Gateway REST routers. See
 [backend/AGENTS.md](backend/AGENTS.md) for the runtime and router detail.
+The Next.js-owned `/api/runtime-config`, `/api/cnooc/external-agents/*`, and
+`/api/shop-cart/*` routes are exceptions and must be proxied to Frontend before the
+Gateway `/api/*` catch-all.
 
 In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 `/platform/knowledge-bases`. Keep that proxy on the `weknora-frontend` Kubernetes
 service DNS name; never pin a ClusterIP, because recreating the cluster changes it.
-The five built-in external-agent cards open their canonical HTTPS paths on
-`datalake.cnooc` directly. Keep the card URLs on that shared data-lake origin so
-the browser reuses its existing same-origin SSO session. Do not restore the
-legacy `/agent-tools/*` reverse proxies, append a platform Token to these URLs,
-or expose the HttpOnly `cnooc.platform_token` cookie to frontend JavaScript.
+The five built-in external-agent cards use same-origin server launch routes
+under `/api/cnooc/external-agents/<agent>/launch`. The route reads the validated
+HttpOnly `cnooc.platform_token` cookie and redirects only to the five canonical
+HTTPS paths on `datalake.cnooc`, adding the current Token at redirect time.
+Keep the strict allowlist, `no-store`/`no-referrer` response headers, and
+server-only cookie access. The shared Nginx entry must route this exact API
+prefix to the Frontend before its general `/api/` Gateway catch-all. Never
+hardcode a Token, expose it to frontend
+JavaScript, or restore the legacy `/agent-tools/*` reverse proxies.
 
 ## Repository Map
 
@@ -99,6 +106,7 @@ Academic research skill note:
 Scheduled-task note:
 - The scheduled-task MVP adds a workspace page at `/workspace/scheduled-tasks` plus a background scheduler service gated by `config.yaml -> scheduler.enabled`.
 - Scheduled background runs are intentionally non-interactive: they execute through the normal run lifecycle, but the lead-agent toolset excludes `ask_clarification` when `context.non_interactive=true`. The key is honored only for internally-authenticated callers (the scheduler launch path); client-supplied `context.non_interactive` is dropped.
+- Scheduled tasks persist an allowlisted run context (model, mode, reasoning, subagent, and WeKnora scope) and pass it through the normal Gateway run path. The creation UI prefers the enterprise `deepseek-v4-flash` model when available, lets users choose another configured model, and does not inherit later chat-page model changes. Never persist caller identity, internal execution flags, runtime-only credentials, or arbitrary client context on the task row.
 
 Enterprise Kubernetes storage note:
 - Keep `accessModes: [ReadWriteOnce]` in the PostgreSQL StatefulSet claim-template patch under `k8s/enterprise/storage-patches.yaml`. The patch replaces the matched claim-template item's `spec`; omitting `accessModes` renders an invalid StatefulSet.
@@ -107,10 +115,15 @@ Enterprise Kubernetes storage note:
 - The patched WeKnora UI must fetch `/api/weknora/sso-session` through a same-origin relative URL in both `config.js` and the `index.html` fallback. These ConfigMap files are mounted with `subPath`, so restart `weknora-frontend` after changing them.
 - The enterprise WeKnora App trusts outbound HTTPS through the runtime-created `deer-flow-enterprise-ca` Secret. Keep the projected `/etc/deerflow-ca/ca-bundle.crt` mount and CA environment variables in `k8s/enterprise/runtime-patches.yaml`; create the Secret before apply and restart the Deployment after CA rotation so long-lived HTTP clients reload trust state.
 - Apply `k8s/enterprise/weknora-mineru-defaults.sql` after creating a new WeKnora database. Its trigger routes missing PDF/PPT/PPTX rules to the in-cluster adapter for knowledge bases created through the native WeKnora UI while preserving every explicit file-type parser choice.
+- Apply `k8s/weknora/enterprise-model-feature-defaults.sql` after the built-in model rows exist. It makes internal `DeepSeek-V4-Flash` the enterprise KnowledgeQA default, normalizes existing knowledge bases and agents to the dedicated embedding/rerank/VLM/ASR built-ins, and installs insert/model-write guards so later objects start ready without per-user setup. Users can still change object-level settings after creation.
 - The enterprise Gateway uses the runtime proxy for external model providers, but its `NO_PROXY` and `no_proxy` values must retain the bare Kubernetes Service names (especially `weknora-app`) as well as `.svc` and `.cluster.local`. Otherwise Gateway-to-WeKnora calls are sent through the enterprise proxy and surface as HTTP 302/502 failures. Keep proxy URLs and credentials in the runtime-created `deer-flow-env` Secret; do not commit them.
+- The audited enterprise TLS proxy presents a CA-validated legacy RSA certificate that OpenSSL 3 rejects at its default security level. Keep `gateway-openssl-compat.yaml` scoped to the Gateway Pod through `OPENSSL_CONF`, and retain `WEKNORA_BAILIAN_TLS_COMPAT=true` so only the authenticated Bailian embedding/ASR adapter clients construct an explicit `DEFAULT:@SECLEVEL=1` SSL context. Chain and hostname verification remain enabled. Never replace this with `verify=false`/`--insecure` or a host/cluster-wide downgrade, and remove it after the proxy certificate is modernized.
 - Keep the internal model host `model.ai.cnooc` in both Gateway proxy-bypass variables. Its streamed chat endpoints are direct-only in the audited enterprise network; sending them through the outbound proxy causes connection resets.
+- Keep the exact internal model hostname `model.ai.cnooc` and the authenticated in-cluster `gateway` relay Service in the WeKnora App's comma-separated `SSRF_WHITELIST_EXTRA` as well as both proxy-bypass variables. WeKnora correctly blocks private addresses by default; this narrow deployment allowlist permits only the approved internal endpoints without opening the surrounding private network or disabling SSRF validation.
+- Route additional enterprise embedding/rerank providers through authenticated Gateway adapters when practical, so WeKnora continues to call the stable `gateway` Service while Gateway owns upstream credentials, CA trust, proxy routing, timeouts, and audit-safe error mapping. If a provider must be called directly from WeKnora, add only its reviewed exact hostname to `SSRF_WHITELIST_EXTRA`, `NO_PROXY`, and `no_proxy`; never pre-authorize a broad RFC1918 CIDR for anticipated providers.
 - Keep the CNOOC data-lake OAuth endpoint in both Gateway proxy-bypass variables by hostname and audited service IP (`datalake.cnooc` and `10.77.78.223`). The SSO validation endpoint is direct-only in the enterprise network; sending it through the outbound proxy times out before the platform Token can be validated.
 - The WeKnora built-in Bailian ASR model points to the internal Gateway adapter because WeKnora 0.7.0 and `qwen3-asr-flash` use different request shapes. Keep the bare `gateway` Service name in the WeKnora App proxy-bypass variables; the adapter reuses the Bailian LLM key and never persists uploaded audio.
+- The WeKnora built-in `text-embedding-v4` model also points to `http://gateway:8001/api/weknora/bailian/v1`. Gateway validates `EMBEDDING_API_KEY` and relays `/embeddings` through its scoped enterprise proxy/CA/OpenSSL compatibility path without persisting document text; do not restore a direct DashScope URL in the WeKnora database.
 - Enterprise PDF/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It converts presentations to PDF, keeps fully searchable PDFs on the bundled WeKnora builtin parser, and sends scanned or mixed PDFs to the internal MinerU API. The PDF detector uses text length plus image-area coverage and replaces inline Base64 images in MinerU markdown before embedding. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; other file types retain WeKnora's native parser rules.
 
 ## Commands: Root vs. Module

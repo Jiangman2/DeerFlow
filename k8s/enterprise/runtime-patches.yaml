@@ -91,6 +91,14 @@ spec:
               value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: no_proxy
               value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+            - name: OPENSSL_CONF
+              value: /etc/deerflow-openssl/openssl.cnf
+            - name: WEKNORA_BAILIAN_TLS_COMPAT
+              value: "true"
+            - name: EMBEDDING_BASE_URL
+              value: http://gateway:8001/api/weknora/bailian/v1
+            - name: EMBEDDING_PROVIDER
+              value: generic
             - name: WEKNORA_PRESENTATION_PARSER_ENGINE
               value: mineru
             - name: WEKNORA_MINERU_ENDPOINT
@@ -99,6 +107,17 @@ spec:
               value: "true"
             - name: WEKNORA_MINERU_SCANNED_PDF_FALLBACK
               value: "true"
+          volumeMounts:
+            - name: openssl-compat
+              mountPath: /etc/deerflow-openssl
+              readOnly: true
+      volumes:
+        - name: openssl-compat
+          configMap:
+            name: deer-flow-gateway-openssl-compat
+            items:
+              - key: openssl.cnf
+                path: openssl.cnf
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -130,24 +149,24 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SSL_CERT_FILE
-              value: /etc/ssl/certs/ca-certificates.crt
+              value: /etc/deerflow-ca/ca-bundle.crt
             - name: REQUESTS_CA_BUNDLE
-              value: /etc/ssl/certs/ca-certificates.crt
+              value: /etc/deerflow-ca/ca-bundle.crt
             - name: CURL_CA_BUNDLE
-              value: /etc/ssl/certs/ca-certificates.crt
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: EMBEDDING_BASE_URL
+              value: http://gateway:8001/api/weknora/bailian/v1
+            - name: EMBEDDING_PROVIDER
+              value: generic
             - name: NO_PROXY
               value: "localhost,127.0.0.1,::1,gateway,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: no_proxy
               value: "localhost,127.0.0.1,::1,gateway,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: SSRF_WHITELIST_EXTRA
-              value: deer-flow-mineru-adapter
+              value: deer-flow-mineru-adapter,model.ai.cnooc,gateway
           volumeMounts:
             - name: enterprise-ca
               mountPath: /etc/deerflow-ca
-              readOnly: true
-            - name: enterprise-ca
-              mountPath: /etc/ssl/certs/ca-certificates.crt
-              subPath: ca-bundle.crt
               readOnly: true
       volumes:
         - name: enterprise-ca

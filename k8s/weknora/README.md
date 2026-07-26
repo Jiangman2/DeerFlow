@@ -41,9 +41,9 @@ also keeps the DeerFlow default WeKnora models present as platform built-ins
 tenants created after the deployment. The local PVC stack wires these values
 from `weknora-secret`. The built-in set contains:
 
-- chat (default): `qwen-plus`
+- chat: `qwen-plus`
 - chat (Bailian): `deepseek-v4-pro`
-- chat (CNOOC Haineng): `DeepSeek-V4-Flash`
+- chat (enterprise default, CNOOC Haineng): `DeepSeek-V4-Flash`
 - embedding: `text-embedding-v4`
 - rerank: `qwen3-rerank`
 - vision: `qwen3-vl-plus`
@@ -56,6 +56,16 @@ different embedding credential. The Haineng entry reads
 omitted by Gateway's automatic seed path when that key is absent. Keep
 `model.ai.cnooc` in `NO_PROXY`/`no_proxy` so the internal endpoint is never sent
 through an outbound Internet proxy.
+
+For the enterprise baseline, apply
+`enterprise-model-feature-defaults.sql` after the built-in models exist. It
+performs a transactional, credential-gated normalization of existing
+knowledge bases and custom agents, then installs database guards for future
+objects. New knowledge bases start with internal `DeepSeek-V4-Flash`,
+`text-embedding-v4`, `qwen3-vl-plus`, and `qwen3-asr-flash`; new agents start
+with internal DeepSeek, `qwen3-rerank`, image upload, attachment image
+understanding, and audio upload enabled. The insert guards establish initial
+values only; users may still edit or disable object-level settings afterward.
 
 The WeKnora application also uses the existing stable `SYSTEM_AES_KEY` as its
 `JWT_SECRET`. This keeps SSO access and refresh tokens valid across application
@@ -74,10 +84,15 @@ LLM_PROVIDER=aliyun
 LLM_API_KEY=<weknora-secret.LLM_API_KEY>
 DeepSeek_V4_API_KEY=<deer-flow-env.DeepSeek_V4_API_KEY>
 EMBEDDING_MODEL_NAME=text-embedding-v4
-EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-EMBEDDING_PROVIDER=aliyun
+EMBEDDING_BASE_URL=http://gateway:8001/api/weknora/bailian/v1
+EMBEDDING_PROVIDER=generic
 EMBEDDING_API_KEY=<weknora-secret.EMBEDDING_API_KEY>
 ```
+
+The built-in embedding model calls the internal Gateway adapter at
+`http://gateway:8001/api/weknora/bailian/v1/embeddings`. Gateway validates the
+same embedding key and forwards the unchanged OpenAI-compatible JSON request
+through its managed outbound TLS path. It does not persist document text.
 
 WeKnora 0.7.0 sends speech recognition requests as OpenAI multipart
 `/audio/transcriptions`, while Bailian `qwen3-asr-flash` accepts an
@@ -111,8 +126,8 @@ kubectl -n deer-flow exec -i weknora-postgres-0 -- env \
     -v llm_api_key="$LLM_API_KEY" \
     -v cnooc_deepseek_api_key="$CNOOC_DEEPSEEK_API_KEY" \
     -v embedding_model_name="text-embedding-v4" \
-    -v embedding_base_url="https://dashscope.aliyuncs.com/compatible-mode/v1" \
-    -v embedding_provider="aliyun" \
+    -v embedding_base_url="http://gateway:8001/api/weknora/bailian/v1" \
+    -v embedding_provider="generic" \
     -v embedding_api_key="$EMBEDDING_API_KEY" \
     -v embedding_dimension="1024" \
     -v embedding_truncate_prompt_tokens="0"' < k8s/weknora/seed-default-models.sql

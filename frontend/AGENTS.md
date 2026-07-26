@@ -139,10 +139,15 @@ surfaces database-backed usage, run, failure, token, feedback, and management
 audit data. Incomplete component-health heuristics are intentionally hidden.
 The dashboard ranks users by run volume, reports launch clicks for the five
 built-in external agents, and links slow/high-token runs back to their chats.
-The five built-in external-agent cards navigate directly to their canonical
-HTTPS paths on `datalake.cnooc`, which reuses the browser's existing data-lake
-SSO session. Do not rewrite these links through `/agent-tools/*` or append the
-platform Token to a browser-visible URL.
+The five built-in external-agent cards navigate through same-origin server
+launch routes under `/api/cnooc/external-agents/<agent>/launch`. Those routes
+read the HttpOnly `cnooc.platform_token` cookie and redirect only to the fixed
+canonical HTTPS paths on `datalake.cnooc`, adding the current Token at redirect
+time. Keep the strict target allowlist plus `no-store` and `no-referrer`
+headers, and keep the shared Nginx entry's exact launch-prefix location ahead
+of its general `/api/` Gateway catch-all. The Token must never be hardcoded,
+returned to client JavaScript, or
+stored in card data; do not restore the legacy `/agent-tools/*` proxies.
 Slow-run, high-token, and recent-failure cards share five-row pagination plus a
 bounded vertical scroll area.
 Headline summaries poll every 15 seconds while heavier observability rankings
@@ -154,6 +159,12 @@ Settings appearance previews must remain shrinkable inside the dialog grid:
 avoid fixed-width inner preview columns and retain `min-w-0` on nested grid
 items. The About markdown heading contains the product name only; build version
 metadata must not be appended to that heading.
+
+Scheduled tasks own their execution-model choice independently of chat settings.
+The create form prefers `deepseek-v4-flash` when that configured enterprise model
+is available, falls back to the first available model elsewhere, and persists the
+selection in `run_context`. Editing a task may change that saved model; switching
+models in a chat must not mutate scheduled tasks.
 
 ### Workspace announcements
 

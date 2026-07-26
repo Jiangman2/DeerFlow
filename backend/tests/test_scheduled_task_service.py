@@ -70,6 +70,10 @@ class DummyRunRepo:
 async def test_service_claims_and_dispatches_due_task():
     async def fake_launch(**kwargs):
         assert kwargs["owner_user_id"] == "user-1"
+        assert kwargs["run_context"] == {
+            "model_name": "deepseek-v4-flash",
+            "mode": "pro",
+        }
         assert kwargs["metadata"]["scheduled_task_id"] == "task-1"
         assert kwargs["metadata"]["scheduled_trigger"] == "scheduled"
         return {"run_id": "run-1", "thread_id": kwargs["thread_id"]}
@@ -81,6 +85,10 @@ async def test_service_claims_and_dispatches_due_task():
                 "user_id": "user-1",
                 "thread_id": "thread-1",
                 "context_mode": "reuse_thread",
+                "run_context": {
+                    "model_name": "deepseek-v4-flash",
+                    "mode": "pro",
+                },
                 "assistant_id": "lead_agent",
                 "prompt": "Summarize thread",
                 "schedule_type": "once",

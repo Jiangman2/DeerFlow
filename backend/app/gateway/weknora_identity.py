@@ -38,6 +38,7 @@ _DEFAULT_CNOOC_DEEPSEEK_MODEL_NAME = "DeepSeek-V4-Flash"
 _DEFAULT_CNOOC_DEEPSEEK_BASE_URL = "http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1"
 _DEFAULT_EMBEDDING_MODEL_ID = "deerflow-dashscope-embedding"
 _DEFAULT_DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+_DEFAULT_EMBEDDING_BASE_URL = "http://gateway:8001/api/weknora/bailian/v1"
 _DEFAULT_RERANK_MODEL_ID = "deerflow-dashscope-rerank"
 _DEFAULT_RERANK_BASE_URL = "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
 _DEFAULT_VISION_MODEL_ID = "deerflow-dashscope-vlm"
@@ -209,6 +210,7 @@ def _weknora_default_models() -> list[_BuiltinModel]:
     llm_api_key = _model_env("LLM_API_KEY", "", "DASHSCOPE_API_KEY")
     deepseek_api_key = _model_env("WEKNORA_DEEPSEEK_API_KEY", "", "LLM_API_KEY", "DASHSCOPE_API_KEY")
     cnooc_deepseek_api_key = _model_env("CNOOC_DEEPSEEK_API_KEY", "", "DeepSeek_V4_API_KEY")
+    prefer_cnooc_deepseek = bool(cnooc_deepseek_api_key) and _truthy_env("WEKNORA_PREFER_CNOOC_DEEPSEEK", True)
     embedding_api_key = _model_env("EMBEDDING_API_KEY", "", "DASHSCOPE_API_KEY", "LLM_API_KEY")
     rerank_api_key = _model_env("RERANK_API_KEY", "", "LLM_API_KEY", "DASHSCOPE_API_KEY")
     vision_api_key = _model_env("VLM_API_KEY", "", "LLM_API_KEY", "DASHSCOPE_API_KEY")
@@ -230,6 +232,7 @@ def _weknora_default_models() -> list[_BuiltinModel]:
                 "api_key": llm_api_key,
                 "provider": _model_env("LLM_PROVIDER", "aliyun"),
             },
+            is_default=not prefer_cnooc_deepseek,
         ),
         _BuiltinModel(
             id=os.getenv("WEKNORA_DEEPSEEK_MODEL_ID", _DEFAULT_DEEPSEEK_MODEL_ID),
@@ -260,7 +263,7 @@ def _weknora_default_models() -> list[_BuiltinModel]:
                     "api_key": cnooc_deepseek_api_key,
                     "provider": _model_env("CNOOC_DEEPSEEK_PROVIDER", "generic"),
                 },
-                is_default=False,
+                is_default=prefer_cnooc_deepseek,
             )
         )
     models.extend(
@@ -273,9 +276,9 @@ def _weknora_default_models() -> list[_BuiltinModel]:
                 source="remote",
                 description="DeerFlow WeKnora embedding model",
                 parameters={
-                    "base_url": _model_env("EMBEDDING_BASE_URL", _DEFAULT_DASHSCOPE_BASE_URL),
+                    "base_url": _model_env("EMBEDDING_BASE_URL", _DEFAULT_EMBEDDING_BASE_URL),
                     "api_key": embedding_api_key,
-                    "provider": _model_env("EMBEDDING_PROVIDER", "aliyun"),
+                    "provider": _model_env("EMBEDDING_PROVIDER", "generic"),
                     "embedding_parameters": {
                         "dimension": _int_env("EMBEDDING_DIMENSION", 1024),
                         "truncate_prompt_tokens": _int_env("EMBEDDING_TRUNCATE_PROMPT_TOKENS", 0),

@@ -25,6 +25,7 @@ class _Repo:
             "user_id": kwargs["user_id"],
             "thread_id": kwargs["thread_id"],
             "context_mode": kwargs["context_mode"],
+            "run_context": kwargs.get("run_context", {}),
             "title": kwargs["title"],
             "prompt": kwargs["prompt"],
             "schedule_type": kwargs["schedule_type"],
@@ -127,6 +128,61 @@ async def test_create_scheduled_task_uses_repo():
     assert created["title"] == "Daily summary"
     assert created["user_id"] == "user-1"
     assert created["next_run_at"] == datetime(2027, 1, 1, 1, 0, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_create_scheduled_task_persists_only_safe_run_context():
+    repo = _Repo()
+    request = SimpleNamespace()
+    body = scheduled_tasks.ScheduledTaskCreateRequest(
+        title="DeepSeek scheduled run",
+        prompt="Summarize the latest data",
+        schedule_type="cron",
+        schedule_spec={"cron": "0 9 * * *"},
+        timezone="UTC",
+        run_context={
+            "model_name": "deepseek-v4-flash",
+            "mode": "pro",
+            "thinking_enabled": True,
+            "reasoning_effort": "medium",
+            "is_plan_mode": True,
+            "subagent_enabled": False,
+            "user_id": "spoofed-user",
+            "non_interactive": False,
+            "github_token": "must-not-be-stored",
+            "unknown": "ignored",
+        },
+    )
+
+    user = SimpleNamespace(id="user-1")
+    old_repo = scheduled_tasks.get_scheduled_task_repo
+    old_thread_store = scheduled_tasks.get_thread_store
+    old_config = scheduled_tasks.get_config
+    old_user = scheduled_tasks.get_optional_user_from_request
+    try:
+        scheduled_tasks.get_scheduled_task_repo = lambda _request: repo
+        scheduled_tasks.get_thread_store = lambda _request: SimpleNamespace()
+        scheduled_tasks.get_config = lambda: _Config()
+        scheduled_tasks.get_optional_user_from_request = AsyncMock(return_value=user)
+
+        created = await scheduled_tasks.create_scheduled_task.__wrapped__(
+            request=request,
+            body=body,
+        )
+    finally:
+        scheduled_tasks.get_scheduled_task_repo = old_repo
+        scheduled_tasks.get_thread_store = old_thread_store
+        scheduled_tasks.get_config = old_config
+        scheduled_tasks.get_optional_user_from_request = old_user
+
+    assert created["run_context"] == {
+        "model_name": "deepseek-v4-flash",
+        "mode": "pro",
+        "thinking_enabled": True,
+        "reasoning_effort": "medium",
+        "is_plan_mode": True,
+        "subagent_enabled": False,
+    }
 
 
 @pytest.mark.asyncio

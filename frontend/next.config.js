@@ -27,37 +27,37 @@ const config = {
   },
   devIndicators: false,
   async rewrites() {
-    const rewrites = [];
+    const gatewayFallbackRewrites = [];
     const gatewayURL = getInternalServiceURL(
       "DEER_FLOW_INTERNAL_GATEWAY_BASE_URL",
       "http://127.0.0.1:8001",
     );
 
     if (!process.env.NEXT_PUBLIC_LANGGRAPH_BASE_URL) {
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/langgraph",
         destination: `${gatewayURL}/api`,
       });
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/langgraph/:path*",
         destination: `${gatewayURL}/api/:path*`,
       });
     }
 
     if (!process.env.NEXT_PUBLIC_BACKEND_BASE_URL) {
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/agents",
         destination: `${gatewayURL}/api/agents`,
       });
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/agents/:path*",
         destination: `${gatewayURL}/api/agents/:path*`,
       });
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/skills",
         destination: `${gatewayURL}/api/skills`,
       });
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/skills/:path*",
         destination: `${gatewayURL}/api/skills/:path*`,
       });
@@ -69,13 +69,22 @@ const config = {
       // NOTE: this must come AFTER the /api/langgraph rewrite above so that
       // LangGraph-compatible routes keep their public prefix while Gateway
       // receives its native /api/* paths.
-      rewrites.push({
+      gatewayFallbackRewrites.push({
         source: "/api/:path*",
         destination: `${gatewayURL}/api/:path*`,
       });
     }
 
-    return rewrites;
+    // Gateway proxying is deliberately a fallback. Next.js must resolve
+    // repository-owned App Router handlers first, including the CNOOC
+    // external-agent launch route that reads the HttpOnly platform-token
+    // cookie. An array return is treated as an earlier rewrite phase in the
+    // production server and can make the catch-all shadow those handlers.
+    return {
+      beforeFiles: [],
+      afterFiles: [],
+      fallback: gatewayFallbackRewrites,
+    };
   },
 };
 

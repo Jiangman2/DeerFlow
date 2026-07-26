@@ -325,6 +325,13 @@ export const enUS: Translations = {
     },
     preview: "Preview",
     cronHelp: "Optional: validate with crontab.guru",
+    model: {
+      label: "Execution model",
+      placeholder: "Select a model",
+      hint:
+        "The model is saved with this task and will not change when you switch models in chat. New enterprise tasks default to DeepSeek V4 Flash.",
+      unset: "Not set",
+    },
     create: {
       title: "Create scheduled task",
       description:

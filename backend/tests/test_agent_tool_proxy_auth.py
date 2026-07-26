@@ -50,6 +50,21 @@ def test_agent_cards_open_external_urls_without_proxy_rewriting():
     assert "?token=" not in card_source
 
 
+def test_external_agent_launch_route_reads_http_only_cookie_server_side():
+    route_source = _read("frontend/src/app/api/cnooc/external-agents/[agent]/launch/route.ts")
+    target_source = _read("frontend/src/server/cnooc-auth/external-agent-launch.ts")
+
+    assert "CNOOC_PLATFORM_TOKEN_COOKIE_NAME" in route_source
+    assert "request.cookies.get" in route_source
+    assert "Cache-Control" in route_source
+    assert "no-store" in route_source
+    assert "Referrer-Policy" in route_source
+    assert "no-referrer" in route_source
+    assert 'searchParams.set("token"' in target_source
+    assert "DPORTAL" not in route_source
+    assert "DPORTAL" not in target_source
+
+
 def test_nginx_no_longer_exposes_legacy_agent_tool_proxies():
     for path in NGINX_CONFIGS:
         config = _read(path)

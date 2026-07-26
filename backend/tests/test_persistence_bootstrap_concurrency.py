@@ -28,7 +28,7 @@ from deerflow.persistence.bootstrap import bootstrap_schema
 pytestmark = pytest.mark.asyncio
 
 
-HEAD = "0009_thread_creation_ledger"
+HEAD = "0010_scheduled_task_run_context"
 
 
 def _url(tmp_path: Path) -> str:

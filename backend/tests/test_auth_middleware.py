@@ -23,6 +23,7 @@ from app.gateway.csrf_middleware import CSRFMiddleware
         "/api/v1/auth/logout",
         "/api/v1/auth/setup-status",
         "/api/weknora/bailian/v1/audio/transcriptions",
+        "/api/weknora/bailian/v1/embeddings",
     ],
 )
 def test_public_paths(path: str):

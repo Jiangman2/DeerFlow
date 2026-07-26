@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from deerflow.persistence.base import Base
@@ -21,6 +21,7 @@ class ScheduledTaskRow(Base):
     schedule_type: Mapped[str] = mapped_column(String(16))
     schedule_spec: Mapped[dict] = mapped_column(JSON, default=dict)
     timezone: Mapped[str] = mapped_column(String(64))
+    run_context: Mapped[dict] = mapped_column(JSON, default=dict, server_default=text("'{}'"))
     status: Mapped[str] = mapped_column(String(16), default="enabled", index=True)
     overlap_policy: Mapped[str] = mapped_column(String(16), default="skip")
     next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True, nullable=True)

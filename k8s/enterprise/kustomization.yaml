@@ -9,6 +9,7 @@ resources:
   - nginx-nodeport.yaml
   - storage-static.yaml
   - mineru-adapter.yaml
+  - gateway-openssl-compat.yaml
 
 patches:
   - path: storage-patches.yaml
@@ -47,10 +48,10 @@ images:
     digest: sha256:da9a3a0a939ddd1ed6f4b510b74a0562a21b898439f907cd6ee529a3680283d8
   - name: deer-flow-gateway
     newName: deerflow.local/deer-flow-gateway
-    newTag: 20260724-enterprise-arm64-rc5
+    newTag: 20260726-enterprise-arm64-rc6-embeddingrelay2
   - name: deer-flow-frontend
     newName: deerflow.local/deer-flow-frontend
-    newTag: 20260724-enterprise-arm64-rc5
+    newTag: 20260725-enterprise-arm64-rc6-schedulermodel1
   - name: deer-flow-provisioner
     newName: deerflow.local/deer-flow-provisioner
     newTag: 20260723-enterprise-arm64-rc3

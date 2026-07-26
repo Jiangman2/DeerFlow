@@ -79,10 +79,39 @@ test("thread page links to filtered scheduled tasks", async ({ page }) => {
 
 test("user can create a scheduled task from the page", async ({ page }) => {
   mockLangGraphAPI(page, { threads: [], scheduledTasks: [] });
+  await page.route("**/api/models", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        models: [
+          {
+            id: "qwen",
+            name: "qwen-bailian",
+            model: "qwen3.7-plus",
+            display_name: "Qwen 3.7 Plus",
+          },
+          {
+            id: "deepseek",
+            name: "deepseek-v4-flash",
+            model: "DeepSeek-V4-Flash",
+            display_name: "DeepSeek V4 Flash",
+          },
+        ],
+        token_usage: { enabled: false },
+      }),
+    }),
+  );
 
   await page.goto("/workspace/scheduled-tasks");
-  await page.getByRole("button", { name: "Create scheduled task" }).click();
+  await page
+    .locator("header")
+    .getByRole("button", { name: "Create scheduled task" })
+    .click();
   const createForm = page.getByTestId("scheduled-task-create-form");
+  await expect(createForm.getByTestId("scheduled-task-model")).toContainText(
+    "DeepSeek V4 Flash",
+  );
   await createForm.getByRole("button", { name: "One-time" }).click();
   await createForm.getByLabel("Run at").fill("2026-07-02T09:00");
   await createForm.getByPlaceholder("Task title").fill("Created from UI");
@@ -95,6 +124,41 @@ test("user can create a scheduled task from the page", async ({ page }) => {
   await expect(
     page.getByTestId("scheduled-task-detail").getByText("Summarize thread"),
   ).toBeVisible();
+  await expect(
+    page.getByTestId("scheduled-task-detail").getByText("DeepSeek V4 Flash"),
+  ).toBeVisible();
+});
+
+test("create form keeps the schedule preview above its action bar", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1510, height: 829 });
+  mockLangGraphAPI(page, { threads: [], scheduledTasks: [] });
+
+  await page.goto("/workspace/scheduled-tasks");
+  await page
+    .locator("header")
+    .getByRole("button", { name: "Create scheduled task" })
+    .click();
+
+  const scrollArea = page.getByTestId("scheduled-task-create-scroll");
+  const preview = page.getByTestId("schedule-preview");
+  const actions = page.getByTestId("scheduled-task-create-actions");
+
+  await scrollArea.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+
+  await expect(preview).toBeVisible();
+  await expect(actions).toBeVisible();
+
+  const previewBox = await preview.boundingBox();
+  const actionsBox = await actions.boundingBox();
+  expect(previewBox).not.toBeNull();
+  expect(actionsBox).not.toBeNull();
+  expect((previewBox?.y ?? 0) + (previewBox?.height ?? 0)).toBeLessThanOrEqual(
+    actionsBox?.y ?? 0,
+  );
 });
 
 test("user can pause a scheduled task from the detail pane", async ({
@@ -129,7 +193,9 @@ test("user can pause a scheduled task from the detail pane", async ({
   await detail.getByRole("button", { name: "Pause" }).click();
   await expect(page.getByTestId("scheduled-task-item-task-1")).toBeVisible();
   await expect(
-    page.getByTestId("scheduled-task-item-task-1").getByText(/paused/i),
+    page
+      .getByTestId("scheduled-task-item-task-1")
+      .getByText("Paused", { exact: true }),
   ).toBeVisible();
 });
 

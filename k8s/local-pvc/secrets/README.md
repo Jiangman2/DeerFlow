@@ -21,11 +21,24 @@ kubectl create secret generic deer-flow-env `
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-Kubernetes sandbox execution also requires a non-empty `PROVISIONER_API_KEY`.
-Set one value in `.env`, create `deer-flow-env` from that file, and configure
-the same variable in `config.yaml` as `sandbox.provisioner_api_key`. Gateway
-uses it as the `X-API-Key` value when creating sandbox Pods through the
-Provisioner.
+Kubernetes sandbox execution requires two distinct, non-empty keys:
+`PROVISIONER_API_KEY` protects the Provisioner control API and
+`SANDBOX_API_KEY` protects code execution inside every generated Sandbox Pod.
+Generate both values in `.env`, create `deer-flow-env` from that file, and
+reference them from `config.yaml` as `sandbox.provisioner_api_key` and
+`sandbox.sandbox_api_key`. Do not reuse one value for both boundaries.
+
+Before restarting workloads, verify the Secret contains both keys without
+printing their values:
+
+```powershell
+$secret = kubectl get secret deer-flow-env -n deer-flow -o json | ConvertFrom-Json
+@("PROVISIONER_API_KEY", "SANDBOX_API_KEY") | ForEach-Object {
+  if (-not $secret.data.PSObject.Properties.Name.Contains($_)) {
+    throw "deer-flow-env is missing required key: $_"
+  }
+}
+```
 
 For the `local-pvc` stack, `DATABASE_URL` is owned by the
 `deer-flow-postgres` Secret. Remove `DATABASE_URL` from `deer-flow-env` so the

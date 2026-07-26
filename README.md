@@ -926,6 +926,11 @@ joined knowledge bases remain distinct from resources created by the user, and
 organization shares are also shown under the team/public filter. Resource reads
 and writes carry the tenant identity that granted access, so cross-space lists do
 not lose permissions or leak another tenant's data.
+If a stale browser bundle or direct API client omits the tenant on a document-list
+request, Gateway resolves the knowledge base only across the signed-in user's live
+tenant memberships and forwards the matching consumer tenant as `X-Tenant-ID`.
+It returns an authorization error instead of falling back to an unrelated active
+tenant when the knowledge base is not present in those memberships.
 Knowledge bases selected in the chat composer are forwarded as the exact scope
 for `weknora_search` and `weknora_ask`, using a server-derived per-user token.
 When no knowledge base is selected, both tools are removed from lead and subagent
@@ -945,8 +950,14 @@ The embedded WeKnora UI also performs its session exchange through the
 same-origin `/api/weknora/sso-session` endpoint rather than a fixed host or
 port.
 The enterprise WeKnora App mounts the deployment-specific combined CA bundle
-from the `deer-flow-enterprise-ca` Secret so HTTPS embedding and chat requests
-continue to verify correctly behind an enterprise TLS proxy.
+from the `deer-flow-enterprise-ca` Secret so outbound HTTPS requests continue
+to verify correctly behind an enterprise TLS proxy. Its `text-embedding-v4`
+model uses an authenticated in-cluster Gateway relay; Gateway forwards the
+unchanged OpenAI-compatible embedding request through its scoped enterprise
+TLS compatibility path without persisting document text. In the enterprise
+overlay, `WEKNORA_BAILIAN_TLS_COMPAT=true` applies the legacy-key compatibility
+context only to the authenticated Bailian embedding and ASR clients while
+retaining CA-chain and hostname verification.
 Enterprise PDF/PPT/PPTX uploads pass through a private compatibility adapter.
 PPT/PPTX files are converted to PDF and sent to the approved internal MinerU
 API. PDF pages are first inspected locally: fully searchable PDFs stay on
@@ -961,19 +972,28 @@ default in spaces owned or administered by the signed-in user, while preserving
 their other parser settings.
 The enterprise Gateway bypasses the outbound proxy for the internal
 `model.ai.cnooc` model endpoint while continuing to use the proxy for external
-providers.
-WeKnora exposes `qwen-plus` as its default built-in chat model and also provides
-selectable `deepseek-v4-pro` (Bailian) and `DeepSeek-V4-Flash` (CNOOC Haineng)
-chat models. The Bailian model reuses the deployment's unified model key; the
-Haineng model reads `DeepSeek_V4_API_KEY` from the runtime Secret and is not
-seeded when that credential is absent.
+providers. The WeKnora App includes that exact hostname and the authenticated
+in-cluster `gateway` model relay in its deployment-managed SSRF allowlist; this
+permits the approved internal endpoints while retaining private-network blocking
+for every other unapproved destination.
+In the enterprise deployment, WeKnora uses the internal
+`DeepSeek-V4-Flash` (CNOOC Haineng) model as its default KnowledgeQA model;
+`qwen-plus` and Bailian `deepseek-v4-pro` remain selectable alternatives.
+Embedding, rerank, vision, and speech keep their dedicated built-ins. The
+enterprise default initializer also enables VLM/ASR-backed image, scanned
+attachment, and audio handling for existing objects and newly inserted
+knowledge bases/agents. The Haineng model reads `DeepSeek_V4_API_KEY` from the
+runtime Secret and is omitted by Gateway's seed path when that credential is
+absent.
 
-The five fixed enterprise agent-square links stay on the DeerFlow origin under
-`/agent-tools/*`. For users who entered through CNOOC data-lake SSO, Nginx reads
-the validated platform Token from its HttpOnly cookie and forwards it to those
-fixed upstreams as `Authorization: Bearer ...` on every request. The Token is
-never placed in the card URL, browser history, referrer, or frontend JavaScript,
-and logout clears both the DeerFlow session and platform-Token cookies.
+The five fixed enterprise agent cards open through same-origin server launch
+routes. For users who entered through CNOOC data-lake SSO, the launch route
+reads the validated platform Token from its HttpOnly cookie and redirects only
+to the corresponding allowlisted HTTPS path on `datalake.cnooc`, adding the
+current Token at redirect time. Launch responses disable caching and referrer
+forwarding. The Token is never hardcoded in source, returned to frontend
+JavaScript, or stored in browser-readable storage, and logout clears both the
+DeerFlow session and platform-Token cookies.
 
 ## Recommended Models
 
@@ -1022,6 +1042,8 @@ Current MVP capabilities:
 - Manage tasks at `/workspace/scheduled-tasks`
 - Choose whether each scheduled task reuses a thread or creates a fresh thread per run
 - Support `once` and `cron` schedules
+- Preserve the selected model, mode, reasoning, subagent, and knowledge-base scope for every scheduled execution
+- Select or edit the execution model per task; when configured, enterprise task creation defaults to `deepseek-v4-flash`
 - Run background scheduled executions as non-interactive DeerFlow runs (`ask_clarification` is not exposed there)
 - Use `skip` overlap behavior for due cron executions that collide with an active run on the same reused thread
 - Pause, resume, trigger, inspect history, and delete tasks
@@ -1037,6 +1059,8 @@ Current MVP limits:
 - No `interval` schedule type in this first cut
 
 Enable background polling with `config.yaml -> scheduler.enabled` and restart the Gateway. The page reports the automatic poller's actual state in the current process; when it is stopped, tasks can still be saved and triggered manually, but they will not run automatically at their scheduled time. Manual trigger uses the same non-interactive scheduled-task execution path.
+
+The Gateway stores only an allowlisted subset of the task's run context. Authentication identity, internal execution flags, runtime-only credentials, and unknown client fields are discarded. Tasks created before run-context persistence was added retain an empty context and therefore use the configured default model until they are edited or recreated.
 
 ## Terminal Workbench (TUI)
 

@@ -307,6 +307,13 @@ export const zhCN: Translations = {
     },
     preview: "预览",
     cronHelp: "可选：用 crontab.guru 校验表达式",
+    model: {
+      label: "执行模型",
+      placeholder: "请选择模型",
+      hint:
+        "模型会随任务保存，不受聊天页切换模型影响；企业环境新任务默认使用 DeepSeek V4 Flash。",
+      unset: "未设置",
+    },
     create: {
       title: "创建定时任务",
       description: "设定提示词和运行时间后，系统会在后台自动发起非交互式任务。",

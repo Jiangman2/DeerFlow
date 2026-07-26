@@ -117,6 +117,19 @@ const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
   },
 };
 
+const EXTERNAL_AGENT_LAUNCH_PATHS: Record<string, string> = {
+  "https://datalake.cnooc/zywdjxzj":
+    "/api/cnooc/external-agents/zywdjxzj/launch",
+  "https://datalake.cnooc/qqyjbgbxzj":
+    "/api/cnooc/external-agents/qqyjbgbxzj/launch",
+  "https://datalake.cnooc/zjbgjszj/":
+    "/api/cnooc/external-agents/zjbgjszj/launch",
+  "https://datalake.cnooc/zdsczj":
+    "/api/cnooc/external-agents/zdsczj/launch",
+  "https://datalake.cnooc/dzsjtpzj":
+    "/api/cnooc/external-agents/dzsjtpzj/launch",
+};
+
 function TruncatedTooltip({
   text,
   children,
@@ -184,7 +197,9 @@ export function AgentCard({
   const [unpublishOpen, setUnpublishOpen] = useState(false);
   const externalUrl = agent.external_url?.trim();
   const isExternalAgent = Boolean(externalUrl);
-  const externalHref = externalUrl;
+  const externalHref = externalUrl
+    ? (EXTERNAL_AGENT_LAUNCH_PATHS[externalUrl] ?? externalUrl)
+    : undefined;
   const displayConfig = externalUrl
     ? EXTERNAL_AGENT_VISUAL_CONFIG[externalUrl]
     : undefined;
