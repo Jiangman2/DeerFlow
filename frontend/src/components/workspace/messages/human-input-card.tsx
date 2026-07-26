@@ -116,7 +116,10 @@ export function HumanInputCard({
       data-testid="human-input-card"
     >
       <div className="flex items-start gap-3">
-        <div className="bg-primary/10 text-primary mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md">
+        <div
+          className="border-border bg-secondary text-secondary-foreground mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border"
+          data-testid="human-input-icon"
+        >
           <MessageCircleQuestionMarkIcon className="size-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-3">
@@ -140,8 +143,9 @@ export function HumanInputCard({
                   "h-6 rounded-md px-2",
                   pending && "gap-1.5",
                   answeredResponse &&
-                    "border-primary/20 bg-primary/10 text-primary",
+                    "border-border bg-secondary text-secondary-foreground",
                 )}
+                data-testid="human-input-status"
                 variant={answeredResponse ? "outline" : "secondary"}
               >
                 {pending ? (

@@ -58,6 +58,33 @@ describe("HumanInputCard", () => {
     expect(html).toContain("disabled");
   });
 
+  it("uses opaque theme colors for old enterprise browsers", () => {
+    const response: HumanInputResponse = {
+      version: 1,
+      kind: "human_input_response",
+      source: "ask_clarification",
+      request_id: "clarification:call-abc",
+      response_kind: "option",
+      option_id: "option-2",
+      value: "staging",
+    };
+    const html = renderCard({ answeredResponse: response });
+    const icon =
+      /<div class="([^"]+)" data-testid="human-input-icon">/.exec(html)?.[1];
+    const status =
+      /<span[^>]*class="([^"]+)"[^>]*data-testid="human-input-status">/.exec(
+        html,
+      )?.[1];
+
+    expect(icon).toContain("bg-secondary");
+    expect(icon).toContain("text-secondary-foreground");
+    expect(status).toContain("bg-secondary");
+    expect(status).toContain("text-secondary-foreground");
+    expect(icon).not.toContain("bg-primary/");
+    expect(status).not.toContain("bg-primary/");
+    expect(status).not.toContain("border-primary/");
+  });
+
   it("renders read-only state when no submit handler is available", () => {
     const html = renderCard({ onSubmit: undefined });
 
