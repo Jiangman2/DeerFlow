@@ -239,6 +239,8 @@ lookup, primary-list filtering, and parent-thread cascade deletion must also rec
 the legacy `metadata.deerflow_sidecar` marker so enterprise-branded deployments retain
 access to sidecars created before the metadata rename.
 
+`MessageGroup` builds its tool-result lookup once per processing group before converting messages to steps. The lookup preserves the first non-empty result for each tool-call ID, matching the streamed-message display semantics without repeatedly scanning the full group for every tool call. The browser-preview half of the upstream lookup remains out of scope until the enterprise branch carries that upstream browser surface.
+
 ### Key Patterns
 
 - **Server Components by default**, `"use client"` only for interactive components
