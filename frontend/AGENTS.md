@@ -171,7 +171,7 @@ administrators retain the complete native editor.
    an item fills its `/ppt-master` example without submitting it. Keep these
    labels and prompts locale-owned, and do not replace them with implicit
    non-Skill prose.
-2. Stream events update thread state (messages, artifacts, todos, goal)
+2. Stream events update thread state (messages, artifacts, todos, goal). The main thread stream uses the LangGraph SDK's `throttle: true` mode so updates received in the same macrotask coalesce before React is notified; do not replace it with a numeric delay without validating the SDK's trailing-debounce behavior on a continuous stream. File-tool artifact auto-open work must run in an effect with timer cleanup; never schedule timers while rendering streamed `write_file` or `str_replace` updates.
    When an existing chat page mounts without the SDK's tab-local reconnect key,
    `core/threads/hooks.ts` must query the Gateway run store for the newest
    `pending`/`running` run and join that run's stream. Keep the composer busy
