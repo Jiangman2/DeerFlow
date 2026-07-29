@@ -39,10 +39,8 @@ def _is_non_durable_operational_memory(value: Any) -> bool:
     """Identify task directives that must not be reactivated from old memory."""
     if not isinstance(value, str):
         return False
-    return bool(
-        _NON_DURABLE_OPERATIONAL_MEMORY_PATTERN.search(value)
-        and not _DURABLE_MEMORY_SCOPE_PATTERN.search(value)
-    )
+    return bool(_NON_DURABLE_OPERATIONAL_MEMORY_PATTERN.search(value) and not _DURABLE_MEMORY_SCOPE_PATTERN.search(value))
+
 
 try:
     import tiktoken
@@ -157,6 +155,10 @@ Memory Section Guidelines:
 - longTermBackground: Unchanging foundational facts about the user
 
 **Multilingual Content**:
+- 默认使用简体中文保存记忆；除非用户在最新的用户消息中明确要求使用其他语言，
+  否则所有 summary、fact content 和 reason 都必须使用简体中文
+- 如果已有记忆使用其他语言，在不改变事实含义的前提下将所有 summary 改写为目标语言，
+  并设置 shouldUpdate=true；已有 fact 通过 factsToRewrite 原位改写
 - Preserve original language for proper nouns and company names
 - Keep technical terms in their original form (DeepSeek, LangGraph, etc.)
 - Note language capabilities in personalContext
@@ -176,6 +178,9 @@ Output Format (JSON):
   "newFacts": [
     {{ "content": "...", "category": "preference|knowledge|context|behavior|goal|correction", "confidence": 0.0-1.0, "expected_valid_days": 90 }}
   ],
+  "factsToRewrite": [
+    {{ "id": "existing_fact_id", "content": "same fact translated into the target language" }}
+  ],
   "factsToRemove": ["fact_id_1", "fact_id_2"],
   "staleFactsToRemove": [{{ "id": "fact_id", "reason": "brief explanation" }}],
   "staleFactsToExtend": [{{ "id": "fact_id", "extend_by_days": 365, "reason": "brief explanation" }}],
@@ -194,6 +199,9 @@ Important Rules:
 - Only add facts that are clearly stated (0.9+) or strongly implied (0.7+)
 - Use category "correction" for explicit agent mistakes or user corrections; assign confidence >= 0.95 when the correction is explicit
 - Include "sourceError" only for explicit correction facts when the prior mistake or wrong approach is clearly stated; omit it otherwise
+- factsToRewrite is only for language normalization of an existing fact. Keep the
+  meaning identical and preserve names, numbers, URLs, versions, and technical
+  terms. Never use it to create, remove, merge, or semantically revise a fact.
 - Remove facts that are contradicted by new information
 - When updating topOfMind, integrate new focus areas while removing completed/abandoned ones
   Keep 3-5 concurrent focus themes that are still active and relevant
@@ -639,21 +647,15 @@ def format_memory_for_injection(
         user_sections = []
 
         work_ctx = user_data.get("workContext", {})
-        if work_ctx.get("summary") and not _is_non_durable_operational_memory(
-            work_ctx["summary"]
-        ):
+        if work_ctx.get("summary") and not _is_non_durable_operational_memory(work_ctx["summary"]):
             user_sections.append(f"Work: {_escape_summary(work_ctx['summary'])}")
 
         personal_ctx = user_data.get("personalContext", {})
-        if personal_ctx.get("summary") and not _is_non_durable_operational_memory(
-            personal_ctx["summary"]
-        ):
+        if personal_ctx.get("summary") and not _is_non_durable_operational_memory(personal_ctx["summary"]):
             user_sections.append(f"Personal: {_escape_summary(personal_ctx['summary'])}")
 
         top_of_mind = user_data.get("topOfMind", {})
-        if top_of_mind.get("summary") and not _is_non_durable_operational_memory(
-            top_of_mind["summary"]
-        ):
+        if top_of_mind.get("summary") and not _is_non_durable_operational_memory(top_of_mind["summary"]):
             user_sections.append(f"Current Focus: {_escape_summary(top_of_mind['summary'])}")
 
         if user_sections:
@@ -665,21 +667,15 @@ def format_memory_for_injection(
         history_sections = []
 
         recent = history_data.get("recentMonths", {})
-        if recent.get("summary") and not _is_non_durable_operational_memory(
-            recent["summary"]
-        ):
+        if recent.get("summary") and not _is_non_durable_operational_memory(recent["summary"]):
             history_sections.append(f"Recent: {_escape_summary(recent['summary'])}")
 
         earlier = history_data.get("earlierContext", {})
-        if earlier.get("summary") and not _is_non_durable_operational_memory(
-            earlier["summary"]
-        ):
+        if earlier.get("summary") and not _is_non_durable_operational_memory(earlier["summary"]):
             history_sections.append(f"Earlier: {_escape_summary(earlier['summary'])}")
 
         background = history_data.get("longTermBackground", {})
-        if background.get("summary") and not _is_non_durable_operational_memory(
-            background["summary"]
-        ):
+        if background.get("summary") and not _is_non_durable_operational_memory(background["summary"]):
             history_sections.append(f"Background: {_escape_summary(background['summary'])}")
 
         if history_sections:
@@ -719,14 +715,7 @@ def format_memory_for_injection(
         # Pre-filter valid facts *before* entering the try so the except
         # path can pass the same list straight into the fallback without
         # redoing validation work on the hot prompt-injection path.
-        valid_facts = [
-            f
-            for f in facts_data
-            if isinstance(f, dict)
-            and isinstance(f.get("content"), str)
-            and f.get("content", "").strip()
-            and not _is_non_durable_operational_memory(f.get("content"))
-        ]
+        valid_facts = [f for f in facts_data if isinstance(f, dict) and isinstance(f.get("content"), str) and f.get("content", "").strip() and not _is_non_durable_operational_memory(f.get("content"))]
 
         try:
             # Partition valid facts into guaranteed vs regular groups.

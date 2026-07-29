@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback, useRef } from "react";
 
+import { useI18n } from "@/core/i18n/hooks";
+
 /**
  * Validates the next parameter — only allows relative paths starting with /.
  */
@@ -18,6 +20,7 @@ function validateNextParam(next: string | null): string {
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading",
   );
@@ -56,15 +59,15 @@ export default function AuthCallbackPage() {
         {status === "loading" && (
           <>
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            <p className="text-muted-foreground">Signing you in...</p>
+            <p className="text-muted-foreground">{t.login.signingIn}</p>
           </>
         )}
         {status === "success" && (
-          <p className="text-muted-foreground">Redirecting...</p>
+          <p className="text-muted-foreground">{t.login.redirecting}</p>
         )}
         {status === "error" && (
           <p className="text-muted-foreground">
-            Authentication failed. Redirecting to login...
+            {t.login.authFailedRedirecting}
           </p>
         )}
       </div>

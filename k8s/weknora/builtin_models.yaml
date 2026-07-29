@@ -5,7 +5,9 @@ builtin_models:
     type: KnowledgeQA
     source: remote
     description: DeerFlow WeKnora chat model
-    is_default: false
+    # The reusable/local stack defaults to the externally reachable model.
+    # The enterprise defaults Job promotes internal DeepSeek after deployment.
+    is_default: true
     parameters:
       base_url: ${LLM_BASE_URL}
       api_key: ${LLM_API_KEY}
@@ -29,7 +31,7 @@ builtin_models:
     type: KnowledgeQA
     source: remote
     description: DeerFlow WeKnora CNOOC DeepSeek chat model
-    is_default: true
+    is_default: false
     parameters:
       base_url: http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1
       api_key: ${DeepSeek_V4_API_KEY}

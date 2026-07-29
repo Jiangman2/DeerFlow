@@ -77,7 +77,37 @@ browsers and hide the same-color icon.
 The Kubernetes WeKnora UI bootstrap is served through the shared DeerFlow
 origin. Keep its session exchange URL relative as
 `/api/weknora/sso-session`; loopback, fixed-port, or node-pinned URLs bypass the
-user's actual browser origin and break SSO in enterprise deployments.
+user's actual browser origin and break SSO in enterprise deployments. After a
+successful DeerFlow exchange, the bootstrap must clear the standalone
+`weknora_lite_mode` fallback and its session-only last path; a prior native-auth
+failure can persist Lite mode, which hides WeKnora organizations/shared spaces
+even after SSO recovers.
+DeerFlow chat Markdown may receive stable WeKnora `resource://` image handles
+from older persisted messages. `resolveMessageImageURL()` must convert only the
+strict stable-handle shape to the authenticated same-origin
+`/api/weknora/files` fallback. Current tool output already carries the safer
+knowledge-base-scoped Gateway image URL.
+
+`/workspace/knowledge` embeds the same-origin native WeKnora workspace rather
+than reimplementing its knowledge-management UI. Keep the iframe entry at
+`/platform/knowledge-bases` and let the iframe fill the whole page without a
+second DeerFlow title/action bar. The mounted WeKnora bootstrap persists the
+Gateway-provided `ui_policy`: system administrators retain the complete native
+navigation, while ordinary personal-workspace Owners can use New Chat,
+Knowledge Bases, Shared Spaces, and Agents, and do not see Publish
+Integrations, system settings, or tenant-creation controls. Entering the
+embedded workspace collapses DeerFlow's sidebar and expands WeKnora's sidebar
+once for both ordinary users and administrators; the native WeKnora toggle
+remains usable afterwards so chat history stays reachable. Agent creation,
+editing, model/tool configuration, and chat usage must remain reachable for
+ordinary users. The native
+WeKnora deployment and RBAC remain
+responsible for authorization; DOM filtering is only the simplified enterprise
+presentation. The ordinary-user New Knowledge Base dialog and existing
+knowledge-base Settings dialog expose only Basic Information while preserving
+all native type and indexing choices on that page. Deployment defaults supply
+the hidden model, parser, chunking, VLM, ASR, and storage values. System
+administrators retain the complete native editor.
 
 ### Data Flow
 
@@ -139,6 +169,24 @@ surfaces database-backed usage, run, failure, token, feedback, and management
 audit data. Incomplete component-health heuristics are intentionally hidden.
 The dashboard ranks users by run volume, reports launch clicks for the five
 built-in external agents, and links slow/high-token runs back to their chats.
+Its headline conversation value is the selected window's append-only creation
+count; the same card labels current and all-time totals separately. The
+activity chart shows conversation creations plus active users, adaptively
+switches from daily to seven-day, 30-day, and 365-day buckets for arbitrary
+custom ranges, and remains horizontally readable instead of compressing every
+date label. Both bar series share one numeric scale. Active users are distinct
+inside each activity bucket, while the headline active-user count is distinct
+across the full selected range. Success/failure counts reconcile to completed
+runs, while pending/running runs are reported separately. The registered-user
+panel uses server pagination for every account and every currently existing
+conversation, with per-session run counts and chat links. Administrators have
+cross-user read-only access to thread content, runs, uploads, and artifacts;
+that exception must never extend to create, continue, cancel, mutate, or delete
+actions on another user's thread. Dashboard chat links carry
+`admin_review=1`; the chat page disables its composer, regeneration, branching,
+human-input replies, and scheduled-task shortcut in this review presentation.
+The backend remains the authoritative enforcement boundary. The panel must not mix runs from deleted
+conversations into that current-session view.
 The five built-in external-agent cards navigate through same-origin server
 launch routes under `/api/cnooc/external-agents/<agent>/launch`. Those routes
 read the HttpOnly `cnooc.platform_token` cookie and redirect only to the fixed
@@ -157,8 +205,15 @@ not block navigation.
 
 Settings appearance previews must remain shrinkable inside the dialog grid:
 avoid fixed-width inner preview columns and retain `min-w-0` on nested grid
-items. The About markdown heading contains the product name only; build version
-metadata must not be appended to that heading.
+items. Preview colors must use explicit light/dark palette classes rather than
+Tailwind slash-alpha utilities such as `bg-current/15` or
+`border-current/10`; audited enterprise browsers can drop the alpha modifier
+and render those shapes as opaque blocks. User-visible workspace and auth
+status text must come from `core/i18n`, with Simplified Chinese entries kept in
+sync with English. This enterprise branch defaults the first render and
+missing/unknown locale state to `zh-CN`; users may still explicitly select
+English. The About markdown heading contains the product name only;
+build version metadata must not be appended to that heading.
 
 Scheduled tasks own their execution-model choice independently of chat settings.
 The create form prefers `deepseek-v4-flash` when that configured enterprise model

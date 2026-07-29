@@ -79,7 +79,7 @@ async def _record_action_audit(
 @router.get("/snapshot")
 async def get_observability_snapshot(
     request: Request,
-    hours: int = Query(default=24, ge=1, le=24 * 30),
+    hours: int = Query(default=24, ge=1, le=24 * 90),
     limit: int = Query(default=50, ge=1, le=500),
     start_at: datetime | None = Query(default=None),
     end_at: datetime | None = Query(default=None),
@@ -91,7 +91,7 @@ async def get_observability_snapshot(
 @router.get("/analytics")
 async def get_observability_analytics(
     request: Request,
-    hours: int = Query(default=24, ge=1, le=24 * 30),
+    hours: int = Query(default=24, ge=1),
     bucket: Literal["hour", "day"] = Query(default="hour"),
     limit: int = Query(default=10, ge=1, le=100),
     start_at: datetime | None = Query(default=None),
@@ -104,7 +104,7 @@ async def get_observability_analytics(
 @router.get("/user-activity")
 async def get_user_activity(
     request: Request,
-    hours: int = Query(default=24, ge=1, le=24 * 30),
+    hours: int = Query(default=24, ge=1, le=24 * 90),
     limit: int = Query(default=100, ge=1, le=500),
     start_at: datetime | None = Query(default=None),
     end_at: datetime | None = Query(default=None),

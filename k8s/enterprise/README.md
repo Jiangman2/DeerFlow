@@ -3,11 +3,11 @@
 This overlay is the deployment source for the current three-node Kylin ARM64
 cluster:
 
-| Node | Kubernetes name | Local storage |
-| --- | --- | --- |
-| `192.168.111.2` | `datax-01` | DeerFlow home and skills |
-| `192.168.111.37` | `datax-02` | DeerFlow PostgreSQL, backups, and WeKnora PostgreSQL |
-| `192.168.111.18` | `datax-03` | WeKnora Redis, files, and docreader workspace |
+| Node             | Kubernetes name | Local storage                                        |
+| ---------------- | --------------- | ---------------------------------------------------- |
+| `192.168.111.2`  | `datax-01`      | DeerFlow home and skills                             |
+| `192.168.111.37` | `datax-02`      | DeerFlow PostgreSQL, backups, and WeKnora PostgreSQL |
+| `192.168.111.18` | `datax-03`      | WeKnora Redis, files, and docreader workspace        |
 
 The overlay intentionally exposes only the shared DeerFlow Nginx service at
 NodePort `32026`. WeKnora remains behind the same-origin
@@ -25,6 +25,14 @@ same-origin `/api/weknora/sso-session` endpoint. Both `config.js` and the
 `index.html` fallback use that relative URL. Because those files are mounted
 from a ConfigMap with `subPath`, restart the `weknora-frontend` Deployment after
 changing them; updating the ConfigMap alone does not refresh the mounted files.
+
+The base WeKnora deployment creates one personal workspace for each newly
+provisioned DeerFlow user and disables ordinary self-service creation of
+additional tenant workspaces. DeerFlow administrators remain cross-tenant
+WeKnora system administrators. The embedded UI presents normal users with New
+Chat, Knowledge Bases, Shared Spaces, and Agents while keeping Publish
+Integrations, system settings, and tenant-management controls hidden; native
+WeKnora RBAC and the server-side tenant-creation setting remain authoritative.
 
 ## Images
 
@@ -80,7 +88,7 @@ contains LibreOffice. Build it on an ARM64 server with
 ```bash
 docker build -f docker/mineru_adapter/Dockerfile \
   --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b \
-  -t deerflow.local/deer-flow-mineru-adapter:20260723-enterprise-arm64-rc4 \
+  -t deerflow.local/deer-flow-mineru-adapter:20260727-enterprise-arm64-rc7-image1 \
   docker/mineru_adapter
 ```
 
@@ -90,16 +98,25 @@ internal ClusterIP Service, and translates WeKnora's `/file_parse` contract.
 PPT/PPTX input is converted to PDF with LibreOffice. PDF input is inspected
 locally before parsing: documents whose pages all contain usable text stay on
 the WeKnora builtin parser bundled in the image; a scanned/image-dominated page
-routes the whole PDF to the enterprise MinerU API. Inline Base64 images in
-MinerU markdown are replaced with a compact marker before WeKnora chunks and
-embeds the result.
+routes the whole PDF to the enterprise MinerU API. Inline images returned by
+MinerU are decoded into WeKnora's persistent `images` map and rewritten to
+stable Markdown/HTML references. The adapter also renders scanned PDF pages and
+converted presentation slides into referenced source-page JPEGs. This preserves
+visual evidence even when the upstream MinerU response contains OCR text but no
+image bytes; WeKnora can then run its configured VLM over those assets.
 
 ## Storage
 
-`storage-static.yaml` declares eight Retain local PVs. Three match the PVs
+`storage-static.yaml` declares nine Retain local PVs. Three match the PVs
 already present in the rebuilt cluster; create the other directories on their
 assigned nodes before applying the bundle. PVCs set `volumeName` explicitly so
 that similarly sized local volumes cannot bind to the wrong workload.
+
+Create `/opt/deerflow-storage/weknora-neo4j` on `datax-03` with the same
+container-write ownership used for the other WeKnora data directories before
+applying the bundle. The single Neo4j Community StatefulSet is node-pinned by
+its local PV; a multi-node HA deployment requires a managed graph database or
+licensed Neo4j cluster rather than additional replicas sharing this RWO path.
 
 The PostgreSQL StatefulSet storage patch must retain
 `accessModes: [ReadWriteOnce]` in its `volumeClaimTemplates` entry. Kustomize
@@ -108,6 +125,16 @@ omitting the access mode produces an invalid StatefulSet at API validation.
 
 Local PV capacity is scheduling metadata, not a filesystem quota. Monitor the
 shared `/opt` filesystem independently.
+
+WeKnora's `STORAGE_TYPE=local` stores original uploads and parser-produced image
+assets under `/data/files`, backed by the `weknora-data-files` PVC (the
+enterprise static PV is `/opt/deerflow-storage/weknora-files`). This backend is
+fully capable of retaining Word/PDF/PPT images and their document references;
+an object-storage engine is not required for that feature. Move this PVC to an
+HA object store or RWX filesystem only when durability, independent backups,
+multi-node rescheduling, or horizontal `weknora-app` replicas require it. The
+temporary `weknora-docreader-tmp` PVC is parser scratch space and is not the
+authoritative image store.
 
 The checked-in static local PV topology intentionally pins the skills and user
 data volumes to specific nodes. It is suitable for the audited three-node
@@ -143,12 +170,23 @@ deployment:
 - `deer-flow-env` Secret
 - `deer-flow-postgres` Secret
 - `weknora-secret` Secret
+- `weknora-neo4j-secret` Secret, containing only `NEO4J_PASSWORD`
 - `deer-flow-enterprise-ca` Secret, with the host's combined system and
   enterprise trust bundle stored under the `ca-bundle.crt` key
 - `deer-flow-mineru` Secret, containing `MINERU_API_URL` and
   `MINERU_API_TOKEN`
 
 Never print Secret YAML or decoded Secret values into an audit log.
+
+Create the graph database credential interactively on the server:
+
+```bash
+read -r -s -p 'Neo4j password: ' NEO4J_PASSWORD; echo
+kubectl -n deer-flow create secret generic weknora-neo4j-secret \
+  --from-literal=NEO4J_PASSWORD="$NEO4J_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+unset NEO4J_PASSWORD
+```
 
 Use the URL and hardcoded Bearer key from the approved enterprise
 `simple_mineru_parser.py` example. Do not copy either value into this
@@ -194,25 +232,30 @@ trigger is stored in the persistent WeKnora database, so application restarts
 and rolling releases do not remove it; reapply the SQL after provisioning a new
 database or after upgrading an older trigger.
 
-The enterprise overlay mounts `deer-flow-enterprise-ca` into `weknora-app` and
-sets `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, and `CURL_CA_BUNDLE` directly to
-`/etc/deerflow-ca/ca-bundle.crt`. This is required when the configured
-external model or parser endpoint is inspected by the enterprise TLS proxy.
-Create or update the Secret before applying the overlay; otherwise the WeKnora
-App Pod cannot start. Do not mount the Secret over the image's conventional
+The enterprise overlay mounts `deer-flow-enterprise-ca` into the Gateway,
+`weknora-app`, and MinerU Adapter and sets `SSL_CERT_FILE`,
+`REQUESTS_CA_BUNDLE`, and `CURL_CA_BUNDLE` directly to
+`/etc/deerflow-ca/ca-bundle.crt`. This is required when an external model or
+parser endpoint is inspected by the enterprise TLS proxy. Create or update the
+Secret before applying the overlay; otherwise the affected Pods cannot start.
+Do not mount the Secret over the image's conventional
 `/etc/ssl/certs/ca-certificates.crt` path: that path can be a distribution-owned
 symlink and is fragile across image upgrades and Kubernetes `subPath` mounts.
-Restart the App after CA rotation so long-lived HTTP clients reload the
-projected bundle.
+Restart the affected Deployments after CA rotation so long-lived HTTP clients
+reload the projected bundle.
 
-The enterprise `text-embedding-v4` built-in must use
-`http://gateway:8001/api/weknora/bailian/v1` with provider `generic`.
-WeKnora sends `/embeddings` to that in-cluster endpoint; Gateway authenticates
-the shared embedding key and relays the request through its scoped enterprise
-proxy/CA/OpenSSL compatibility path. This avoids the interception proxy's
-alternating certificate profiles without disabling TLS verification. Reapply
-`k8s/weknora/enterprise-model-feature-defaults.sql` to migrate an existing
-model row.
+The enterprise `Qwen3-Embedding-8B` and `Qwen3-Reranker-8B` built-ins call
+authenticated in-cluster Gateway relays. Keep `CNOOC_RETRIEVAL_API_KEY` as the
+upstream credential and generate a different
+`WEKNORA_INTERNAL_MODEL_RELAY_KEY` for WeKnora-to-Gateway authentication.
+Gateway reaches `model.ai.cnooc` directly with `trust_env=false`, fixes
+embeddings at 1024 Matryoshka dimensions, and L2-normalizes any
+4096-dimensional native response after prefix truncation. The versioned
+WeKnora defaults Job applies
+`k8s/weknora/enterprise-model-feature-defaults.sql` after the built-in model
+rows are ready. It switches only empty/future knowledge bases automatically.
+Populated knowledge bases require a controlled re-parse and success gate before
+the old external embedding/chat/rerank rows are hidden.
 
 The WeKnora App's uppercase and lowercase proxy bypass lists must include
 `deer-flow-mineru-adapter`, the other WeKnora Service names, `.svc`, and
@@ -282,8 +325,9 @@ legacy RSA key is rejected by OpenSSL 3 at the default security level. The
 enterprise overlay mounts `gateway-openssl-compat.yaml` only into the Gateway
 Pod and sets `OPENSSL_CONF` there with `DEFAULT:@SECLEVEL=1`. It also enables
 `WEKNORA_BAILIAN_TLS_COMPAT`, which gives only the authenticated Bailian
-embedding/ASR adapter clients an explicit SECLEVEL=1 SSL context. Certificate
-chain and hostname verification remain enabled; do not replace this with
-`verify=false`, `--insecure`, or a cluster-wide OpenSSL downgrade. Remove this
-compatibility ConfigMap after the enterprise proxy certificate is upgraded to
-a key accepted by OpenSSL's default policy.
+embedding/ASR adapter clients an explicit SECLEVEL=1 SSL context, and enables
+`TAVILY_TLS_COMPAT` for DeerFlow's Tavily-only verified HTTPS session.
+Certificate chain and hostname verification remain enabled; do not replace
+this with `verify=false`, `--insecure`, or a cluster-wide OpenSSL downgrade.
+Remove these compatibility settings after the enterprise proxy certificate is
+upgraded to a key accepted by OpenSSL's default policy.

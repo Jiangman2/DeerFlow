@@ -87,3 +87,15 @@ spec:
   resources:
     requests:
       storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-neo4j-data
+  namespace: deer-flow
+spec:
+  storageClassName: deerflow-weknora-local
+  volumeName: deerflow-weknora-neo4j-pv-datax-03
+  resources:
+    requests:
+      storage: 50Gi

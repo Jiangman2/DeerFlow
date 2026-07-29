@@ -369,6 +369,13 @@ def build_subagent_runtime_middlewares(
 
         middlewares.append(TokenBudgetMiddleware.from_config(token_budget_config))
 
+    # Delegated knowledge tasks use the same WeKnora tool protocol as the lead
+    # agent. Normalize their terminal citations before the task result is
+    # returned, otherwise the lead no longer has the subagent's raw references.
+    from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
+
+    middlewares.append(WeKnoraCitationMiddleware())
+
     # Same provider safety-termination guard the lead agent uses — subagents
     # are equally exposed to truncated tool_calls returned with
     # finish_reason=content_filter (and friends), and the bad call would then

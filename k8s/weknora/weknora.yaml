@@ -189,6 +189,104 @@ spec:
       port: 50051
       targetPort: 50051
 ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weknora-neo4j-data
+  namespace: deer-flow
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: weknora-neo4j
+  namespace: deer-flow
+spec:
+  serviceName: weknora-neo4j
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weknora-neo4j
+  template:
+    metadata:
+      labels:
+        app: weknora-neo4j
+    spec:
+      containers:
+        - name: neo4j
+          image: neo4j:2025.10.1
+          imagePullPolicy: IfNotPresent
+          env:
+            # Do not name this helper NEO4J_PASSWORD. The Neo4j entrypoint
+            # interprets every NEO4J_* variable as a server setting.
+            - name: DEERFLOW_NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-neo4j-secret
+                  key: NEO4J_PASSWORD
+            - name: NEO4J_AUTH
+              value: neo4j/$(DEERFLOW_NEO4J_PASSWORD)
+            - name: NEO4J_PLUGINS
+              value: '["apoc"]'
+            - name: NEO4J_apoc_export_file_enabled
+              value: "true"
+            - name: NEO4J_apoc_import_file_enabled
+              value: "true"
+            - name: NEO4J_apoc_import_file_use__neo4j__config
+              value: "true"
+            - name: NEO4J_server_memory_heap_initial__size
+              value: 256m
+            - name: NEO4J_server_memory_heap_max__size
+              value: 512m
+            - name: NEO4J_server_memory_pagecache_size
+              value: 256m
+          ports:
+            - containerPort: 7474
+              name: http
+            - containerPort: 7687
+              name: bolt
+          readinessProbe:
+            tcpSocket:
+              port: bolt
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 18
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: weknora-neo4j-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weknora-neo4j
+  namespace: deer-flow
+spec:
+  selector:
+    app: weknora-neo4j
+  ports:
+    - name: http
+      port: 7474
+      targetPort: 7474
+    - name: bolt
+      port: 7687
+      targetPort: 7687
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -219,6 +317,18 @@ spec:
               value: zh-CN
             - name: DISABLE_REGISTRATION
               value: "false"
+            # DeerFlow SSO creates one personal workspace on first login.
+            # Ordinary users may join shared spaces, but cannot self-create
+            # additional tenant workspaces. Cross-tenant system admins are
+            # exempt in WeKnora 0.7.0 and retain full workspace management.
+            - name: WEKNORA_AUTH_DEFAULT_TENANT_MODE
+              value: create_personal
+            - name: WEKNORA_TENANT_ENABLE_RBAC
+              value: "true"
+            - name: WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED
+              value: "false"
+            - name: WEKNORA_TENANT_MAX_OWNED_PER_USER
+              value: "1"
             - name: DB_DRIVER
               value: postgres
             - name: DB_HOST
@@ -253,6 +363,19 @@ spec:
               value: weknora-docreader:50051
             - name: DOCREADER_TRANSPORT
               value: grpc
+            - name: ENABLE_GRAPH_RAG
+              value: "true"
+            - name: NEO4J_ENABLE
+              value: "true"
+            - name: NEO4J_URI
+              value: bolt://weknora-neo4j:7687
+            - name: NEO4J_USERNAME
+              value: neo4j
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: weknora-neo4j-secret
+                  key: NEO4J_PASSWORD
             - name: TENANT_AES_KEY
               valueFrom:
                 secretKeyRef:
@@ -294,11 +417,26 @@ spec:
               value: http://gateway:8001/api/weknora/bailian/v1
             - name: EMBEDDING_PROVIDER
               value: generic
+            # A developer workstation may resolve the enterprise model host
+            # without having a healthy route to its upstream inference service.
+            # The enterprise overlay explicitly restores this preference.
+            - name: WEKNORA_PREFER_CNOOC_DEEPSEEK
+              value: "false"
             - name: EMBEDDING_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: weknora-secret
                   key: EMBEDDING_API_KEY
+            # The embedding/ASR built-ins call the authenticated Gateway
+            # relay by its Kubernetes Service name. KnowledgeQA may call the
+            # reviewed internal model endpoint directly. Permit only these
+            # exact private hostnames through WeKnora's SSRF guard.
+            - name: SSRF_WHITELIST_EXTRA
+              value: model.ai.cnooc,gateway
+            - name: NO_PROXY
+              value: localhost,127.0.0.1,gateway,weknora-postgres,weknora-redis,weknora-docreader,weknora-neo4j,model.ai.cnooc,.svc,.cluster.local
+            - name: no_proxy
+              value: localhost,127.0.0.1,gateway,weknora-postgres,weknora-redis,weknora-docreader,weknora-neo4j,model.ai.cnooc,.svc,.cluster.local
           ports:
             - containerPort: 8080
               name: http
@@ -310,6 +448,10 @@ spec:
             - name: config
               mountPath: /app/config/builtin_models.yaml
               subPath: builtin_models.yaml
+              readOnly: true
+            - name: config
+              mountPath: /app/config/builtin_agents.yaml
+              subPath: builtin_agents.yaml
               readOnly: true
             - name: data-files
               mountPath: /data/files
@@ -380,7 +522,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: wechatopenai/weknora-ui@sha256:da9a3a0a939ddd1ed6f4b510b74a0562a21b898439f907cd6ee529a3680283d8
+          image: wechatopenai/weknora-ui@sha256:401604e79a5717dd966a13383d775f15d3125481d3e080eba329e4a0fbcf9523
           imagePullPolicy: IfNotPresent
           env:
             - name: MAX_FILE_SIZE_MB
@@ -396,12 +538,8 @@ spec:
               name: http
           volumeMounts:
             - name: ui-patch
-              mountPath: /usr/share/nginx/html/assets/index-DeX5ZUuT.js
-              subPath: index-DeX5ZUuT.js
-              readOnly: true
-            - name: ui-patch
-              mountPath: /usr/share/nginx/html/assets/Login-JaWLYwhw.js
-              subPath: Login-JaWLYwhw.js
+              mountPath: /usr/share/nginx/html/assets/index-itUW58et.js
+              subPath: index-itUW58et.js
               readOnly: true
             - name: ui-patch
               mountPath: /usr/share/nginx/html/assets/weknora-BoLwP3xK.png

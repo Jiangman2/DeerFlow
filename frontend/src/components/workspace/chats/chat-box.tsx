@@ -11,6 +11,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useI18n } from "@/core/i18n/hooks";
 import { env } from "@/env";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
   const { thread } = useThread();
   const isMobile = useIsMobile();
   const pathname = usePathname();
+  const { t } = useI18n();
   const threadIdRef = useRef(threadId);
 
   const {
@@ -166,13 +168,13 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
           {artifacts.length === 0 ? (
             <ConversationEmptyState
               icon={<FilesIcon />}
-              title="No artifact selected"
-              description="Select an artifact to view its details"
+              title={t.common.noArtifactSelected}
+              description={t.common.selectArtifactToView}
             />
           ) : (
             <div className="flex size-full max-w-(--container-width-sm) flex-col justify-center p-4 pt-8">
               <header className="shrink-0">
-                <h2 className="text-lg font-medium">Artifacts</h2>
+                <h2 className="text-lg font-medium">{t.common.artifacts}</h2>
               </header>
               <main className="min-h-0 grow">
                 <ArtifactFileList
@@ -193,6 +195,9 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
     threadId,
     artifacts,
     setArtifactsOpen,
+    t.common.artifacts,
+    t.common.noArtifactSelected,
+    t.common.selectArtifactToView,
   ]);
 
   if (isMobile) {

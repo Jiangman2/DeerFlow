@@ -40,6 +40,7 @@ from deerflow.agents.middlewares.todo_middleware import TodoMiddleware
 from deerflow.agents.middlewares.token_usage_middleware import TokenUsageMiddleware
 from deerflow.agents.middlewares.tool_error_handling_middleware import build_lead_runtime_middlewares
 from deerflow.agents.middlewares.view_image_middleware import ViewImageMiddleware
+from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
 from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.agents_config import load_agent_config, validate_agent_name
@@ -415,6 +416,10 @@ def build_middlewares(
     # final response once, then persist a visible error fallback rather than
     # allowing LangChain's no-tool-call router to end a silent successful run.
     middlewares.append(TerminalResponseMiddleware())
+
+    # Repair native or model-truncated WeKnora citations from current-turn
+    # structured reference metadata before the final response is persisted.
+    middlewares.append(WeKnoraCitationMiddleware())
 
     # SafetyFinishReasonMiddleware — suppress tool execution when the provider
     # safety-terminated the response. Registered after the terminal-response

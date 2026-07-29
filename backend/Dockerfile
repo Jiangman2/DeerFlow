@@ -130,8 +130,17 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
 ENV CURL_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
 ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV TIKTOKEN_CACHE_DIR=/opt/deerflow/tiktoken-cache
 
 COPY --from=builder /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+
+# Keep cl100k_base token counting deterministic in restricted enterprise
+# networks. tiktoken addresses this file by the SHA-1 of its canonical URL;
+# the content hash below is the upstream hash pinned by tiktoken 0.12.0.
+COPY backend/assets/tiktoken-cache/9b5ad71b2ce5302211f9c61530b329a4922fc6a4 /opt/deerflow/tiktoken-cache/9b5ad71b2ce5302211f9c61530b329a4922fc6a4
+RUN test "$(sha256sum /opt/deerflow/tiktoken-cache/9b5ad71b2ce5302211f9c61530b329a4922fc6a4 | awk '{print $1}')" = "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7" \
+    && chmod 0555 /opt/deerflow/tiktoken-cache \
+    && chmod 0444 /opt/deerflow/tiktoken-cache/9b5ad71b2ce5302211f9c61530b329a4922fc6a4
 
 # Copy Node.js runtime from builder (provides npx for MCP servers)
 COPY --from=builder /usr/bin/node /usr/bin/node

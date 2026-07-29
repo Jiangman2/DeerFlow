@@ -282,10 +282,22 @@ not presented as live monitoring. Headline data refreshes every 15 seconds.
 Success rates and durations use completed runs only, daily buckets use
 Asia/Shanghai calendar dates, and feature/artifact counters are derived from
 structured tool events rather than assistant prose or serialized prompts.
-The headline conversation total is the all-time count from an append-only
-creation ledger, so deleting a conversation or changing the dashboard time
-window does not reduce it. Daily conversation activity still follows the
-selected time range.
+The headline conversation count and the activity bars both use creation-ledger
+records inside the selected time range, so their totals reconcile even if users
+later delete conversations. The headline detail keeps the operational values
+concise: completed runs, running runs, and conversations that still exist.
+Longer ranges automatically use weekly, roughly monthly, or roughly yearly
+activity buckets, while summary and run rankings accept the same arbitrary
+custom date range. Conversation and active-user bars share one numeric scale;
+active users are de-duplicated inside each displayed time bucket, while the
+headline active-user value is de-duplicated across the complete selected
+range. A paginated registered-user section lists every account and
+expands into all currently existing
+conversations with their success, failure, active-run, and total-run counts;
+runs from deleted conversations are intentionally excluded from that current
+session view. Administrators can open these conversations in read-only mode for
+operational review, but cannot continue, cancel, modify, or delete another
+user's conversation.
 
 Docker builds use the upstream `uv` registry by default. If you need faster mirrors in restricted networks, export `UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple` and `NPM_REGISTRY=https://registry.npmmirror.com` before running `make docker-init` or `make docker-start`.
 
@@ -913,6 +925,11 @@ and summaries, and the lead agent treats memory as descriptive background rather
 than authority for network, tool, clarification, template, or output decisions.
 Runs that explicitly select a WeKnora knowledge base do not enter the durable-memory
 queue at all; their retrieved document facts remain scoped to that task's history.
+Persisted memory defaults to Simplified Chinese unless the user explicitly
+chooses another language. Existing summaries and facts written in another
+language are normalized on the next eligible background memory update without
+changing their identity or provenance. Memory updates are debounced, so the
+Settings page may update shortly after a conversation rather than immediately.
 
 ### Knowledge Base SSO
 
@@ -920,12 +937,23 @@ The workspace knowledge-base integration uses the current DeerFlow identity to
 create or reuse a matching WeKnora account, then forwards knowledge-base and
 document operations with that user's bearer token. DeerFlow administrator roles
 are synchronized to the linked knowledge platform during SSO.
-The workspace knowledge page aggregates knowledge bases from every current
-WeKnora tenant membership. Ownership is derived from the native creator ID,
-joined knowledge bases remain distinct from resources created by the user, and
-organization shares are also shown under the team/public filter. Resource reads
-and writes carry the tenant identity that granted access, so cross-space lists do
-not lose permissions or leak another tenant's data.
+The DeerFlow knowledge page embeds the complete native WeKnora workspace on the
+same origin and gives the iframe the full knowledge-page area without an extra
+DeerFlow title/action bar. New Chat, Knowledge Bases, Shared Spaces, and Agents
+therefore use the same native behavior and session as direct WeKnora access
+instead of maintaining a second, reduced knowledge-management UI. Gateway's
+knowledge-base APIs remain the integration boundary for the DeerFlow chat
+composer and agent tools.
+Knowledge answers preserve WeKnora 0.7's structured reference metadata while
+normalizing native `<kb>` tags into same-origin citation links before the answer
+is shown in DeerFlow. Lead and delegated agents may repair a model-truncated
+`[citation:文件名]` only from a unique reference in the current turn; duplicate
+file names across knowledge bases remain unresolved rather than being guessed.
+Ownership is derived from the native creator ID, joined knowledge bases remain
+distinct from resources created by the user, and organization shares remain
+available through Shared Spaces. Resource reads and writes carry the tenant
+identity that granted access, so cross-space lists do not lose permissions or
+leak another tenant's data.
 If a stale browser bundle or direct API client omits the tenant on a document-list
 request, Gateway resolves the knowledge base only across the signed-in user's live
 tenant memberships and forwards the matching consumer tenant as `X-Tenant-ID`.
@@ -948,7 +976,24 @@ Its knowledge-base link is intentionally configured as the same-origin path
 local loopback address.
 The embedded WeKnora UI also performs its session exchange through the
 same-origin `/api/weknora/sso-session` endpoint rather than a fixed host or
-port.
+port. A successful DeerFlow SSO exchange clears any stale standalone WeKnora
+Lite-mode fallback, ensuring the full workspace navigation (including shared
+spaces for authorized tenant roles) remains available after earlier auth
+failures.
+That exchange also carries a DeerFlow-owned UI policy. DeerFlow system
+administrators retain the complete native WeKnora interface. Ordinary users are
+presented as personal-workspace Owners and can use New Chat, Knowledge Bases,
+Shared Spaces, and Agents. Publish Integrations, system-level settings,
+tenant-management controls, and logout remain hidden in the embedded
+presentation. Entering Knowledge automatically collapses DeerFlow's sidebar and
+expands the embedded WeKnora sidebar for both ordinary users and administrators;
+users can then use WeKnora's native toggle normally. The product mark is rendered
+as the text `知识库` instead of an image logo. The WeKnora deployment keeps
+`create_personal` registration while disabling ordinary self-service tenant
+creation, so first login creates one personal workspace but users cannot create
+additional workspace/tenant boundaries. Shared Spaces remain the collaboration
+and selective-sharing mechanism. This presentation policy does not replace
+WeKnora RBAC; native authorization remains authoritative.
 The enterprise WeKnora App mounts the deployment-specific combined CA bundle
 from the `deer-flow-enterprise-ca` Secret so outbound HTTPS requests continue
 to verify correctly behind an enterprise TLS proxy. Its `text-embedding-v4`
@@ -958,24 +1003,48 @@ TLS compatibility path without persisting document text. In the enterprise
 overlay, `WEKNORA_BAILIAN_TLS_COMPAT=true` applies the legacy-key compatibility
 context only to the authenticated Bailian embedding and ASR clients while
 retaining CA-chain and hostname verification.
+The enterprise retrieval catalog uses the approved internal
+`Qwen3-Embedding-8B` and `Qwen3-Reranker-8B` services through authenticated
+Gateway relays. Gateway owns upstream credentials and direct-network routing;
+WeKnora receives only a distinct relay credential. Embeddings are fixed at 1024
+Matryoshka dimensions and L2-normalized so the PostgreSQL vector schema remains
+stable. Existing populated knowledge bases remain on their prior embedding
+model until a controlled re-parse succeeds; only then may the old external
+embedding/rerank/chat entries be hidden.
 Enterprise PDF/PPT/PPTX uploads pass through a private compatibility adapter.
 PPT/PPTX files are converted to PDF and sent to the approved internal MinerU
 API. PDF pages are first inspected locally: fully searchable PDFs stay on
 WeKnora's builtin parser, while scanned or mixed PDFs are sent to MinerU for
-OCR. The MinerU endpoint and Bearer key are supplied only through the runtime
-`deer-flow-mineru` Secret; they are never stored in source or images. Other
-document formats continue to use WeKnora's native parser selection. See
+OCR. MinerU inline images and scanned-page/presentation visuals are returned
+through WeKnora's persistent image contract with document references instead
+of being discarded during embedding. The MinerU endpoint and Bearer key are
+supplied only through the runtime `deer-flow-mineru` Secret; they are never
+stored in source or images. Other document formats continue to use WeKnora's
+native parser selection. PDF files that open normally in browsers but are
+rejected by PDFium during route inspection first try the independent builtin
+parser before falling back to MinerU. A later source-page rendering error keeps
+successfully parsed text instead of failing the entire upload. See
 `k8s/enterprise/README.md` for the image build, Secret creation, thresholds,
 and real-server validation procedure.
+Knowledge images retrieved by WeKnora are displayed in both the native
+knowledge workspace and DeerFlow chat. DeerFlow converts stable
+`resource://` handles into authenticated, same-origin, knowledge-base-scoped
+image URLs and restores an image selected by the current retrieval result even
+when the final language-model rewrite drops its Markdown. Historical raw
+resource handles use a tenant-authenticated compatibility endpoint; neither
+path exposes WeKnora credentials or storage locations to the browser.
 The SSO bridge automatically registers the adapter as the WeKnora MinerU
 default in spaces owned or administered by the signed-in user, while preserving
 their other parser settings.
 The enterprise Gateway bypasses the outbound proxy for the internal
 `model.ai.cnooc` model endpoint while continuing to use the proxy for external
 providers. The WeKnora App includes that exact hostname and the authenticated
-in-cluster `gateway` model relay in its deployment-managed SSRF allowlist; this
+in-cluster `gateway` model relay in its deployment-managed SSRF allowlist. This
 permits the approved internal endpoints while retaining private-network blocking
 for every other unapproved destination.
+The Gateway image also carries a hash-verified `cl100k_base` tiktoken cache, so
+memory token budgeting does not require a runtime download from public blob
+storage.
 In the enterprise deployment, WeKnora uses the internal
 `DeepSeek-V4-Flash` (CNOOC Haineng) model as its default KnowledgeQA model;
 `qwen-plus` and Bailian `deepseek-v4-pro` remain selectable alternatives.
@@ -985,6 +1054,26 @@ attachment, and audio handling for existing objects and newly inserted
 knowledge bases/agents. The Haineng model reads `DeepSeek_V4_API_KEY` from the
 runtime Secret and is omitted by Gateway's seed path when that credential is
 absent.
+
+For ordinary users, the native New Chat page starts with
+`DeepSeek-V4-Flash`. The four built-in agents are normalized to that chat model,
+the enterprise reranker, VLM, and ASR models, with image and audio upload
+enabled. New Knowledge Base and existing knowledge-base Settings dialogs keep
+only Basic Information in their left navigation for ordinary users; creation
+retains all native type and indexing choices in that page. Hidden model,
+embedding, parser, chunking, image, audio, sharing, and storage settings still
+use deployment-managed defaults. System administrators retain the complete
+native configuration interface.
+
+When `TAVILY_API_KEY` is configured for DeerFlow, SSO also creates or reuses a
+native `DeerFlow Tavily` provider in each workspace the user owns or
+administers, makes it the default search provider, and leaves the encrypted
+credential under WeKnora's provider storage. This lets the built-in agents use
+the same search service as DeerFlow without asking every user to enter a key.
+In audited enterprise networks where a TLS interception proxy presents a
+CA-validated legacy RSA certificate, set `TAVILY_TLS_COMPAT=true` only on the
+Gateway. DeerFlow then uses a Tavily-scoped `DEFAULT:@SECLEVEL=1` HTTPS session
+while preserving CA-chain and hostname verification.
 
 The five fixed enterprise agent cards open through same-origin server launch
 routes. For users who entered through CNOOC data-lake SSO, the launch route

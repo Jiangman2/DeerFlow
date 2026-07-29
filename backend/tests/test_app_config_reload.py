@@ -206,6 +206,33 @@ def test_app_config_coerces_commented_out_object_sections(tmp_path, monkeypatch)
     assert type(config.run_events).__name__ == "RunEventsConfig"
 
 
+def test_app_config_migrates_legacy_memory_model_before_pydantic_drops_it(
+    tmp_path,
+    monkeypatch,
+):
+    config_path = tmp_path / "config.yaml"
+    extensions_path = tmp_path / "extensions_config.json"
+    _write_extensions_config(extensions_path)
+    _write_config_with_sections(
+        config_path,
+        {
+            "memory": {
+                "enabled": True,
+                "model_name": "deepseek-v4-flash",
+                "debounce_seconds": 12,
+            }
+        },
+    )
+    monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
+
+    config = AppConfig.from_file(str(config_path))
+
+    assert config.memory.backend_config["model"]["model"] == "deepseek-v4-flash"
+    assert config.memory.backend_config["debounce_seconds"] == 12
+    assert get_memory_config().backend_config["model"]["model"] == "deepseek-v4-flash"
+    assert get_memory_config().backend_config["debounce_seconds"] == 12
+
+
 def test_app_config_null_required_section_still_errors(tmp_path, monkeypatch):
     """A present-but-null *required* section still errors.
 

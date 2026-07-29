@@ -2,10 +2,9 @@ import { expect, test } from "@playwright/test";
 
 import { mockLangGraphAPI } from "./utils/mock-api";
 
-test("knowledge-base list collapses and gives the document table more width", async ({
+test("knowledge page embeds the complete same-origin WeKnora workspace", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
   mockLangGraphAPI(page);
   await page.route("**/api/v1/auth/me", (route) =>
     route.fulfill({
@@ -27,69 +26,25 @@ test("knowledge-base list collapses and gives the document table more width", as
       body: JSON.stringify({ needs_setup: false }),
     }),
   );
-
-  await page.route("**/api/weknora/knowledge-bases", (route) =>
+  await page.route("**/platform/knowledge-bases", (route) =>
     route.fulfill({
       status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        items: [
-          {
-            id: "kb-1",
-            name: "勘探开发项目资料库",
-            description: "用于验证知识库侧栏折叠",
-            access_scope: "owned",
-            is_owner: true,
-            knowledge_count: 1,
-            chunk_count: 12,
-          },
-        ],
-        total: 1,
-      }),
-    }),
-  );
-  await page.route("**/api/weknora/knowledge-bases/kb-1/knowledge**", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        items: [
-          {
-            id: "doc-1",
-            title: "这是一个用于验证展开后可显示更完整名称的勘探开发长文档标题",
-            file_type: "pdf",
-            parse_status: "done",
-            updated_at: "2026-07-24T01:00:00Z",
-          },
-        ],
-        total: 1,
-      }),
+      contentType: "text/html",
+      body: "<!doctype html><title>知识库</title><h1>WeKnora</h1>",
     }),
   );
 
   await page.goto("/workspace/knowledge");
 
-  const sidebar = page.getByTestId("knowledge-base-sidebar");
-  const documentPanel = page.getByTestId("knowledge-document-panel");
-  await expect(sidebar).toBeVisible({ timeout: 15_000 });
-  await expect(documentPanel).toBeVisible();
-
-  const expandedPanelWidth = (await documentPanel.boundingBox())?.width ?? 0;
-  await page.getByRole("button", { name: "收起知识库列表" }).click();
-
-  await expect
-    .poll(async () => (await sidebar.boundingBox())?.width ?? 0)
-    .toBeLessThanOrEqual(1);
-  const collapsedPanelWidth = (await documentPanel.boundingBox())?.width ?? 0;
-  expect(collapsedPanelWidth).toBeGreaterThan(expandedPanelWidth + 250);
-
-  await page.reload();
   await expect(
-    page.getByRole("button", { name: "展开知识库列表" }),
-  ).toBeVisible();
-
-  await page.getByRole("button", { name: "展开知识库列表" }).click();
-  await expect
-    .poll(async () => (await sidebar.boundingBox())?.width ?? 0)
-    .toBeGreaterThanOrEqual(280);
+    page.locator('[data-slot="sidebar"][data-state="collapsed"]'),
+  ).toBeVisible({ timeout: 15_000 });
+  const frame = page.getByTestId("weknora-workspace-frame");
+  await expect(frame).toBeVisible({ timeout: 15_000 });
+  await expect(frame).toHaveAttribute("src", "/platform/knowledge-bases");
+  await expect(
+    page.getByRole("heading", { name: "企业知识工作台" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "刷新" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "独立窗口" })).toHaveCount(0);
 });

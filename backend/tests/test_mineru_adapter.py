@@ -155,6 +155,76 @@ def test_text_pdf_uses_weknora_builtin_without_calling_mineru(monkeypatch):
     }
 
 
+def test_pdfium_inspection_failure_uses_builtin_parser(monkeypatch):
+    def failed_inspection(content):
+        raise RuntimeError("PDFium: Data format error")
+
+    monkeypatch.setattr(app, "inspect_pdf_routing", failed_inspection)
+    monkeypatch.setattr(
+        app,
+        "parse_pdf_with_builtin",
+        lambda content, filename: (
+            "# Recovered PDF\n\nsearchable text",
+            {"images/chart.png": "abc"},
+        ),
+    )
+
+    class _UnexpectedMinerU:
+        def __init__(self, **kwargs):
+            raise AssertionError("a PDF recovered by the builtin parser must not call MinerU")
+
+    monkeypatch.setattr(app, "EnterpriseMinerUClient", _UnexpectedMinerU)
+
+    response = app.parse_upload(b"%PDF-pdfium-incompatible", "recovered.pdf")
+
+    assert response["results"]["document"] == {
+        "md_content": "# Recovered PDF\n\nsearchable text",
+        "images": {"images/chart.png": "abc"},
+    }
+
+
+def test_builtin_pdf_failure_falls_back_to_mineru(monkeypatch):
+    monkeypatch.setattr(
+        app,
+        "inspect_pdf_routing",
+        lambda content: app.PDFRoutingDecision(page_count=2, scanned_pages=()),
+    )
+
+    def failed_builtin(content, filename):
+        raise RuntimeError("builtin parser rejected the PDF")
+
+    monkeypatch.setattr(app, "parse_pdf_with_builtin", failed_builtin)
+    monkeypatch.setattr(
+        app,
+        "render_pdf_page_images",
+        lambda content, page_numbers: ("", {}),
+    )
+    monkeypatch.setenv("MINERU_API_URL", "http://mineru.internal/parse/v1")
+    monkeypatch.setenv("MINERU_API_TOKEN", "secret")
+
+    class _MinerU:
+        def __init__(self, **kwargs):
+            pass
+
+        def parse_pdf(self, pdf, filename):
+            assert pdf == b"%PDF-builtin-incompatible"
+            assert filename == "fallback.pdf"
+            return {
+                "pages": [
+                    {
+                        "page": 1,
+                        "blocks": [{"type": "text", "content": "MinerU fallback result"}],
+                    }
+                ]
+            }
+
+    monkeypatch.setattr(app, "EnterpriseMinerUClient", _MinerU)
+
+    response = app.parse_upload(b"%PDF-builtin-incompatible", "fallback.pdf")
+
+    assert "MinerU fallback result" in response["results"]["document"]["md_content"]
+
+
 def test_scanned_pdf_uses_mineru_instead_of_builtin(monkeypatch):
     monkeypatch.setattr(
         app,
@@ -166,6 +236,11 @@ def test_scanned_pdf_uses_mineru_instead_of_builtin(monkeypatch):
         raise AssertionError("scanned PDFs must not use the text-layer parser")
 
     monkeypatch.setattr(app, "parse_pdf_with_builtin", unexpected_builtin)
+    monkeypatch.setattr(
+        app,
+        "render_pdf_page_images",
+        lambda content, page_numbers: ("", {}),
+    )
     monkeypatch.setenv("MINERU_API_URL", "http://mineru.internal/parse/v1")
     monkeypatch.setenv("MINERU_API_TOKEN", "secret")
 
@@ -185,6 +260,47 @@ def test_scanned_pdf_uses_mineru_instead_of_builtin(monkeypatch):
     assert response["results"]["document"]["md_content"] == "## 第 1 页\n\nOCR result"
 
 
+def test_source_page_render_failure_does_not_discard_mineru_result(monkeypatch):
+    monkeypatch.setattr(
+        app,
+        "inspect_pdf_routing",
+        lambda content: app.PDFRoutingDecision(page_count=1, scanned_pages=(1,)),
+    )
+    monkeypatch.setenv("MINERU_API_URL", "http://mineru.internal/parse/v1")
+    monkeypatch.setenv("MINERU_API_TOKEN", "secret")
+
+    class _MinerU:
+        def __init__(self, **kwargs):
+            pass
+
+        def parse_pdf(self, pdf, filename):
+            return {
+                "pages": [
+                    {
+                        "page": 1,
+                        "blocks": [
+                            {
+                                "type": "text",
+                                "content": "OCR survived rendering failure",
+                            }
+                        ],
+                    }
+                ]
+            }
+
+    def failed_render(pdf, page_numbers):
+        raise RuntimeError("PDFium: Data format error")
+
+    monkeypatch.setattr(app, "EnterpriseMinerUClient", _MinerU)
+    monkeypatch.setattr(app, "render_pdf_page_images", failed_render)
+
+    response = app.parse_upload(b"%PDF-render-incompatible", "scan.pdf")
+    document = response["results"]["document"]
+
+    assert "OCR survived rendering failure" in document["md_content"]
+    assert document["images"] == {}
+
+
 def test_mineru_pages_to_markdown_preserves_page_and_block_content():
     result = {
         "pages": [
@@ -199,16 +315,19 @@ def test_mineru_pages_to_markdown_preserves_page_and_block_content():
         ]
     }
 
-    markdown = app.mineru_pages_to_markdown(result)
+    markdown, images = app.mineru_pages_to_markdown(result)
 
     assert "## 第 1 页" in markdown
     assert "项目结论" in markdown
     assert "|产量|42|" in markdown
     assert "## 第 2 页" in markdown
     assert "风险提示" in markdown
+    assert images == {}
 
 
-def test_mineru_markdown_strips_inline_base64_images_before_embedding():
+def test_mineru_markdown_extracts_inline_images_into_weknora_assets():
+    jpeg = b"\xff\xd8\xff\xe0deerflow-jpeg"
+    png = b"\x89PNG\r\n\x1a\ndeerflow-png"
     result = {
         "pages": [
             {
@@ -216,23 +335,149 @@ def test_mineru_markdown_strips_inline_base64_images_before_embedding():
                 "blocks": [
                     {
                         "type": "table",
-                        "content": '<table><tr><td>签字<img src="data:image/jpeg;base64,/9j/AAAA"/></td></tr></table>',
+                        "content": (f'<table><tr><td>签字<img alt="签字" src="data:image/jpeg;base64,{base64.b64encode(jpeg).decode()}"/></td></tr></table>'),
                     },
                     {
                         "type": "text",
-                        "content": "![stamp](data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==)",
+                        "content": (f"![stamp](data:image/png;base64,{base64.b64encode(png).decode()})"),
                     },
                 ],
             }
         ]
     }
 
-    markdown = app.mineru_pages_to_markdown(result)
+    markdown, images = app.mineru_pages_to_markdown(result)
 
     assert "data:image" not in markdown
     assert "base64," not in markdown
-    assert markdown.count("[图片]") == 2
     assert "签字" in markdown
+    assert len(images) == 2
+    assert all(path.startswith("images/mineru-") for path in images)
+    assert {base64.b64decode(value) for value in images.values()} == {jpeg, png}
+    assert all(path in markdown for path in images)
+
+
+def test_mineru_markdown_replaces_invalid_inline_images_with_safe_marker():
+    result = {
+        "pages": [
+            {
+                "page": 1,
+                "blocks": [
+                    {
+                        "type": "text",
+                        "content": "![broken](data:image/png;base64,not-valid-base64!)",
+                    }
+                ],
+            }
+        ]
+    }
+
+    markdown, images = app.mineru_pages_to_markdown(result)
+
+    assert "data:image" not in markdown
+    assert images == {}
+    assert "[图片]" in markdown
+
+
+def test_scanned_pdf_preserves_source_page_images_when_mineru_has_no_images(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        app,
+        "inspect_pdf_routing",
+        lambda content: app.PDFRoutingDecision(page_count=2, scanned_pages=(1, 2)),
+    )
+    monkeypatch.setattr(
+        app,
+        "render_pdf_page_images",
+        lambda content, page_numbers: (
+            "![原始第 1 页](images/source-page-0001.jpg)",
+            {"images/source-page-0001.jpg": "page-image"},
+        ),
+    )
+    monkeypatch.setenv("MINERU_API_URL", "http://mineru.internal/parse/v1")
+    monkeypatch.setenv("MINERU_API_TOKEN", "secret")
+
+    class _MinerU:
+        def __init__(self, **kwargs):
+            pass
+
+        def parse_pdf(self, pdf, filename):
+            return {
+                "pages": [
+                    {
+                        "page": 1,
+                        "blocks": [{"type": "text", "content": "OCR result"}],
+                    }
+                ]
+            }
+
+    monkeypatch.setattr(app, "EnterpriseMinerUClient", _MinerU)
+
+    response = app.parse_upload(b"%PDF-scan", "scan.pdf")
+    document = response["results"]["document"]
+
+    assert "OCR result" in document["md_content"]
+    assert "## 原始页面图像" in document["md_content"]
+    assert "images/source-page-0001.jpg" in document["md_content"]
+    assert document["images"] == {"images/source-page-0001.jpg": "page-image"}
+
+
+def test_render_pdf_page_images_returns_persistent_references():
+    class _Image:
+        def convert(self, mode):
+            assert mode == "RGB"
+            return self
+
+        def save(self, output, **kwargs):
+            assert kwargs["format"] == "JPEG"
+            output.write(b"\xff\xd8rendered-page")
+
+        def close(self):
+            return None
+
+    class _Bitmap:
+        def to_pil(self):
+            return _Image()
+
+        def close(self):
+            return None
+
+    class _Page:
+        def render(self, scale):
+            assert scale >= 1
+            return _Bitmap()
+
+        def close(self):
+            return None
+
+    class _PDF:
+        def __init__(self, content):
+            assert content == b"%PDF-render"
+
+        def __len__(self):
+            return 3
+
+        def __getitem__(self, index):
+            assert index in {0, 2}
+            return _Page()
+
+        def close(self):
+            return None
+
+    markdown, images = app.render_pdf_page_images(
+        b"%PDF-render",
+        (1, 3),
+        pdfium_module=SimpleNamespace(PdfDocument=_PDF),
+    )
+
+    assert "![原始第 1 页](images/source-page-0001.jpg)" in markdown
+    assert "![原始第 3 页](images/source-page-0003.jpg)" in markdown
+    assert set(images) == {
+        "images/source-page-0001.jpg",
+        "images/source-page-0003.jpg",
+    }
+    assert all(base64.b64decode(encoded) == b"\xff\xd8rendered-page" for encoded in images.values())
 
 
 def test_enterprise_client_uses_bearer_token_and_pdf_base64():

@@ -174,6 +174,15 @@ describe("artifact URL helpers", () => {
     expect(
       resolveMessageImageURL("outputs/chart.png", "thread-1", artifacts),
     ).toBe("/api/threads/thread-1/artifacts/mnt/user-data/outputs/chart.png");
+    expect(
+      resolveMessageImageURL(
+        "resource://image_handle-1",
+        "thread-1",
+        artifacts,
+      ),
+    ).toBe(
+      "/api/weknora/files?file_path=resource%3A%2F%2Fimage_handle-1",
+    );
   });
 
   test("does not rewrite unregistered, ambiguous, or external message images", async () => {

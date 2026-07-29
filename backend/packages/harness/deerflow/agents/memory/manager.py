@@ -388,6 +388,22 @@ def _host_default_llm() -> Any:
 
 
 # ── Singleton factory ─────────────────────────────────────────────────────
+def _host_named_llm(model_name: str) -> Any:
+    """Resolve a configured DeerFlow model alias without duplicating secrets."""
+
+    try:
+        from deerflow.models import create_chat_model
+
+        return create_chat_model(name=model_name)
+    except Exception:  # noqa: BLE001 - memory extraction degrades non-fatally
+        logger.warning(
+            "Could not build configured host model %r for DeerMem memory extraction; falling back to DeerMem's standalone model resolver",
+            model_name,
+            exc_info=True,
+        )
+        return None
+
+
 def get_memory_manager() -> MemoryManager:
     """Return the singleton :class:`MemoryManager` for the active config.
 
@@ -453,11 +469,25 @@ def get_memory_manager() -> MemoryManager:
             backend_config["tracing_callback"] = _host_default_tracing_callback
         if "should_keep_hidden_message" not in backend_config:
             backend_config["should_keep_hidden_message"] = _host_default_should_keep_hidden_message
+        model_cfg = backend_config.get("model")
+        # Migrated ``memory.model_name`` values are DeerFlow aliases, not
+        # necessarily upstream provider model IDs. Resolve a matching alias
+        # through the host factory so provider credentials, routing, TLS, and
+        # tracing remain owned by the main model configuration.
+        if isinstance(model_cfg, dict) and isinstance(model_cfg.get("model"), str) and model_cfg["model"].strip() and not any(model_cfg.get(key) for key in ("provider", "api_key", "base_url")) and "host_llm" not in backend_config:
+            from deerflow.config import get_app_config
+
+            model_name = model_cfg["model"].strip()
+            configured_names = {model.name for model in get_app_config().models}
+            if model_name in configured_names:
+                host_llm = _host_named_llm(model_name)
+                if host_llm is not None:
+                    backend_config["host_llm"] = host_llm
+
         # Zero-config LLM: when no memory model is configured, inject the host's
         # default chat model so memory extraction works out of the box (mirrors
         # pre-abstraction `model_name: null` -> app default). DeerMem prefers
         # host_llm over build_llm(model); other backends ignore the slot.
-        model_cfg = backend_config.get("model")
         if not (isinstance(model_cfg, dict) and model_cfg.get("model")) and "host_llm" not in backend_config:
             backend_config["host_llm"] = _host_default_llm()
         # Restore structured-log trace correlation on the memory-update worker

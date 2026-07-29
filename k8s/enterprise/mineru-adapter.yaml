@@ -29,6 +29,14 @@ spec:
               value: "180"
             - name: MINERU_MAX_UPLOAD_BYTES
               value: "52428800"
+            - name: MINERU_MAX_INLINE_IMAGE_BYTES
+              value: "20971520"
+            - name: MINERU_SOURCE_PAGE_DPI
+              value: "110"
+            - name: MINERU_SOURCE_PAGE_JPEG_QUALITY
+              value: "82"
+            - name: MINERU_MAX_SOURCE_PAGE_IMAGES
+              value: "200"
             - name: PDF_SCAN_IMAGE_RATIO
               value: "0.5"
             - name: PDF_SCAN_MIN_CHARS_PER_PAGE

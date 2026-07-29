@@ -537,6 +537,9 @@ export function MemorySettingsPage() {
         title={t.settings.memory.title}
         description={t.settings.memory.description}
       >
+        <div className="text-muted-foreground mb-4 rounded-lg border border-dashed px-4 py-3 text-sm leading-6">
+          {t.settings.memory.updateBehaviorHint}
+        </div>
         {isLoading ? (
           <div className="text-muted-foreground text-sm">
             {t.common.loading}

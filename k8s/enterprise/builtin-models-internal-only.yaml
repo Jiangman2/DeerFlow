@@ -1,0 +1,69 @@
+# Enterprise WeKnora model catalog.
+#
+# Chat, embedding, and rerank stay on reviewed CNOOC internal endpoints.
+# VLM and ASR remain on Bailian until equivalent internal services are
+# available. The internal retrieval credential stored in WeKnora is only the
+# scoped Gateway relay key; the upstream model credential remains in Gateway.
+builtin_models:
+  - id: deerflow-cnooc-deepseek-v4-flash
+    tenant_id: 10000
+    name: DeepSeek-V4-Flash
+    type: KnowledgeQA
+    source: remote
+    description: CNOOC internal DeepSeek chat model
+    is_default: true
+    parameters:
+      base_url: http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1
+      api_key: ${DeepSeek_V4_API_KEY}
+      provider: generic
+
+  - id: deerflow-cnooc-qwen3-embedding-8b
+    tenant_id: 10000
+    name: Qwen3-Embedding-8B
+    type: Embedding
+    source: remote
+    description: CNOOC internal embedding model via DeerFlow Gateway
+    is_default: true
+    parameters:
+      base_url: http://gateway:8001/api/weknora/internal-models/v1
+      api_key: ${WEKNORA_INTERNAL_MODEL_RELAY_KEY}
+      provider: generic
+      embedding_parameters:
+        dimension: 1024
+        truncate_prompt_tokens: 0
+
+  - id: deerflow-cnooc-qwen3-reranker-8b
+    tenant_id: 10000
+    name: Qwen3-Reranker-8B
+    type: Rerank
+    source: remote
+    description: CNOOC internal rerank model via DeerFlow Gateway
+    is_default: true
+    parameters:
+      base_url: http://gateway:8001/api/weknora/internal-models/v1
+      api_key: ${WEKNORA_INTERNAL_MODEL_RELAY_KEY}
+      provider: generic
+
+  - id: deerflow-dashscope-vlm
+    tenant_id: 10000
+    name: qwen3-vl-plus
+    type: VLLM
+    source: remote
+    description: DeerFlow WeKnora vision model
+    is_default: true
+    parameters:
+      base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: ${LLM_API_KEY}
+      provider: aliyun
+
+  - id: deerflow-dashscope-asr
+    tenant_id: 10000
+    name: qwen3-asr-flash
+    type: ASR
+    source: remote
+    description: DeerFlow WeKnora speech recognition model
+    is_default: true
+    parameters:
+      base_url: http://gateway:8001/api/weknora/bailian/v1
+      api_key: ${LLM_API_KEY}
+      provider: generic

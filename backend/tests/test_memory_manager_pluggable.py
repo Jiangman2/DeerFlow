@@ -15,6 +15,7 @@ are independent of order.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -56,6 +57,31 @@ def test_resolves_configured_backend(manager_class: str, expected: type[MemoryMa
     assert isinstance(manager, expected)
     # singleton: a second call returns the same instance
     assert get_memory_manager() is manager
+
+
+def test_deermem_resolves_configured_host_model_alias() -> None:
+    fake_llm = MagicMock(name="deepseek-memory-llm")
+    set_memory_config(
+        MemoryConfig(
+            manager_class="deermem",
+            backend_config={"model": {"model": "deepseek-v4-flash"}},
+        )
+    )
+
+    with (
+        patch(
+            "deerflow.config.get_app_config",
+            return_value=SimpleNamespace(models=[SimpleNamespace(name="deepseek-v4-flash")]),
+        ),
+        patch(
+            "deerflow.agents.memory.manager._host_named_llm",
+            return_value=fake_llm,
+        ) as build_host_model,
+    ):
+        manager = get_memory_manager()
+
+    build_host_model.assert_called_once_with("deepseek-v4-flash")
+    assert manager._llm is fake_llm
 
 
 def test_unknown_backend_raises_instead_of_falling_back() -> None:

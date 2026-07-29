@@ -140,6 +140,10 @@ sets them to `mineru` and the in-cluster adapter Service. With
 adapter: searchable PDFs stay on WeKnora's builtin parser, while scanned/mixed
 PDFs and presentations use MinerU. Other uploads omit parser overrides and
 preserve the knowledge base defaults.
+PDF routing and source-page retention are deliberately fault-isolated:
+PDFium inspection failure first tries the independent builtin parser and then
+MinerU, while source-page rendering failure preserves successful OCR/text
+instead of failing the whole document.
 When `WEKNORA_MINERU_AUTO_CONFIGURE` is enabled, the SSO bridge also merges that
 adapter endpoint into the parser settings of spaces the current user owns or
 administers; it never stores the upstream enterprise API URL or Key in WeKnora.
@@ -167,6 +171,10 @@ When `WEKNORA_BAILIAN_TLS_COMPAT=true`, only the authenticated Bailian
 embedding and ASR adapter clients build an explicit
 `DEFAULT:@SECLEVEL=1` SSL context for the audited enterprise proxy's legacy RSA
 certificate. CA-chain and hostname verification remain enabled.
+When `TAVILY_TLS_COMPAT=true`, the DeerFlow Tavily integration similarly mounts
+a verified `DEFAULT:@SECLEVEL=1` SSL context only on its own HTTPS session. It
+loads the configured enterprise CA bundle and must not be replaced with
+`verify=false`, `--insecure`, or a process-wide verification bypass.
 
 Direct production builds of `backend/Dockerfile` default `UV_EXTRAS` to
 `postgres` because the Kubernetes Gateway manifests use PostgreSQL for the
@@ -327,8 +335,9 @@ Lead-agent middlewares are assembled in strict order across three functions: the
 30. **Custom middlewares** - *(optional)* Any `custom_middlewares` passed to `build_middlewares` are injected here, before the artifact-delivery/terminal-response/safety/clarification tail
 31. **ArtifactDeliveryMiddleware** - Rejects final responses that reference `/mnt/user-data/outputs/...` or the corresponding `/api/threads/.../artifacts/mnt/user-data/outputs/...` URL unless every referenced file exists in the current thread outputs directory and is present in `ThreadState.artifacts` after a successful `present_files` call. It removes the invalid answer and retries once with hidden instructions requiring real shell execution, file validation, and publication; a repeated invalid claim becomes a visible error fallback with no fabricated link. The run worker applies the same validator when an in-flight provider response is interrupted before normal middleware/checkpoint finalization, then journals a same-ID fallback so paginated history cannot resurrect the uncommitted link.
 32. **TerminalResponseMiddleware** - When a provider returns an empty terminal `AIMessage` after tool execution, injects a hidden recovery prompt and retries the model once; a second empty response is replaced in checkpoint state by a visible error fallback marked for the run worker, so the run finishes as an error instead of a silent success
-33. **SafetyFinishReasonMiddleware** - *(optional, if `safety_finish_reason.enabled`)* Suppresses tool execution when the provider safety-terminated the response (e.g. `finish_reason=content_filter`); registered after terminal-response/custom middlewares so LangChain's reverse-order `after_model` dispatch runs it first
-34. **ClarificationMiddleware** - Intercepts `ask_clarification` tool calls, writes a readable `ToolMessage.content` fallback plus structured `ToolMessage.artifact.human_input` request payload, and interrupts via `Command(goto=END)` (must be last). Because this middleware can short-circuit tool execution before LangChain emits `on_tool_end`, `RunJournal` performs a root-run final reconciliation for allowlisted clarification `ToolMessage`s whose `tool_call_id` was produced by the current run, so human-input request cards remain recoverable from `run_events` after checkpoint compaction. Human Input Card replies are submitted as `hide_from_ui` `HumanMessage`s with `additional_kwargs.human_input_response`; `RunJournal` persists only allowlisted hidden response sources (currently `ask_clarification`) as `llm.human.input`, which preserves answered-card state after compaction without exposing generic internal hidden context.
+33. **WeKnoraCitationMiddleware** - Canonicalizes WeKnora 0.7 native `<kb>` tags and repairs model-truncated bare citation labels only from unique, same-origin references in the current user turn. The subagent runtime installs the same middleware before returning delegated knowledge results; the lead may recover only already-canonical `/platform/knowledge-bases/...` links from the current `task` result. Ambiguous same-named documents, historical references, arbitrary links, and code examples are never rewritten.
+34. **SafetyFinishReasonMiddleware** - *(optional, if `safety_finish_reason.enabled`)* Suppresses tool execution when the provider safety-terminated the response (e.g. `finish_reason=content_filter`); registered after terminal-response/custom middlewares so LangChain's reverse-order `after_model` dispatch runs it first
+35. **ClarificationMiddleware** - Intercepts `ask_clarification` tool calls, writes a readable `ToolMessage.content` fallback plus structured `ToolMessage.artifact.human_input` request payload, and interrupts via `Command(goto=END)` (must be last). Because this middleware can short-circuit tool execution before LangChain emits `on_tool_end`, `RunJournal` performs a root-run final reconciliation for allowlisted clarification `ToolMessage`s whose `tool_call_id` was produced by the current run, so human-input request cards remain recoverable from `run_events` after checkpoint compaction. Human Input Card replies are submitted as `hide_from_ui` `HumanMessage`s with `additional_kwargs.human_input_response`; `RunJournal` persists only allowlisted hidden response sources (currently `ask_clarification`) as `llm.human.input`, which preserves answered-card state after compaction without exposing generic internal hidden context.
 
 ### Configuration System
 
@@ -389,7 +398,7 @@ CORS is same-origin by default when requests enter through nginx on port 2026. S
 | **Models** (`/api/models`) | `GET /` - list models; `GET /{name}` - model details |
 | **Features** (`/api/features`) | `GET /` - report config-gated feature availability (currently `agents_api.enabled`) for frontend UI gating |
 | **Console** (`/api/console`) | Read-only cross-thread observability for the current user (the data layer for an operations dashboard or external monitoring): `GET /stats` - headline counters (runs/threads/agents/tokens/cost); `GET /runs` - paginated run history joined with thread titles (per-run cost); `GET /usage` - zero-filled daily token series + per-model breakdown with spend. Queries `runs`/`threads_meta` directly as a reporting layer (no new `RunStore` methods); requires a SQL database backend — returns 503 on `database.backend: memory`. Real-cost estimation reads optional `models[*].pricing` (`currency`, `input_per_million`, `output_per_million`, `input_cache_hit_per_million`; `ModelConfig` is `extra="allow"`, so no schema change) and prices each run from its `token_usage_by_model` input/output split. Pricing is **cache-aware**: `RunJournal` accumulates prompt-cache hits from `usage_metadata.input_token_details.cache_read` into a sparse `cache_read_tokens` bucket key (also threaded through `SubagentTokenCollector` → `record_external_llm_usage_records`), and cache-hit input tokens are billed at `input_cache_hit_per_million` (omitted → billed at the miss price, a conservative upper bound). Legacy rows fall back to run-level totals at `model_name`; unpriced models yield `cost: null` and cost fields are null when no pricing is configured |
-| **Admin Dashboard** (`/api/admin/dashboard`) | Admin-only business reporting from SQL-backed users, threads, runs, feedback, audit clicks, and structured run events. Success/error rates and duration metrics use terminal runs only; active runs remain visible in run totals. Daily buckets use `Asia/Shanghai`. The headline conversation total is an all-time count from the append-only `thread_creations` ledger and is independent of the selected reporting window; daily conversation activity remains windowed, and deleting `threads_meta` cannot rewrite either historical creation record. Knowledge, file, sandbox, PPT, image, and artifact usage is classified from actual structured tool calls (legacy tool rows remain supported), never from `run.end` prompt/history payloads or assistant prose. Artifact instances deduplicate by `(thread_id, path)`, and aggregate queries must not use silent row limits. |
+| **Admin Dashboard** (`/api/admin/dashboard`) | Admin-only business reporting from SQL-backed users, threads, runs, feedback, audit clicks, and structured run events. Success/error rates and duration metrics use terminal runs only; active runs remain visible in run totals. Activity uses `Asia/Shanghai` and adaptively groups arbitrary selected ranges into start-anchored daily, seven-day, 30-day, or 365-day buckets. The headline conversation count and activity bars both use append-only `thread_creations` records inside the selected window; separate fields expose the all-time creation ledger and current `threads_meta` count. Deleting a thread therefore changes only the current count, never historical creation totals. `GET /users` pages every registered account and aggregates only runs joined to its current `threads_meta`; `GET /users/{user_id}/sessions` pages every current thread with run status counts and chat links, excluding runs whose thread was deleted. The authorization decorator permits administrators to pass cross-user ownership checks for read actions only; create, write, cancel, and delete remain owner-scoped. Dashboard summary and observability rankings accept the same arbitrary custom date range. Knowledge, file, sandbox, PPT, image, and artifact usage is classified from actual structured tool calls (legacy tool rows remain supported), never from `run.end` prompt/history payloads or assistant prose. Artifact instances deduplicate by `(thread_id, path)`, and aggregate queries must not use silent row limits. |
 | **MCP** (`/api/mcp`) | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json) |
 | **Skills** (`/api/skills`) | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`) |
 | **Memory** (`/api/memory`) | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |
@@ -665,6 +674,12 @@ The cached value is reused for both the blocking (`runs.wait`) and streaming (`_
 - `memory.mode: tool` skips `MemoryMiddleware` and registers `memory_search`, `memory_add`, `memory_update`, and `memory_delete` on the agent. The model decides when to search, add, update, or delete facts; this is opt-in/experimental and should not be described as better than middleware mode without eval evidence.
 - Both modes share `FileMemoryStorage`, per-user/per-agent isolation, prompt injection, manual CRUD primitives, and the updater backend.
 - Middleware mode queue debounces (30s default), batches updates, deduplicates per-thread, applies updates atomically (temp file + rename) with cache invalidation, and skips duplicate fact content before append.
+- Persisted memory follows the conversation language policy and defaults to
+  Simplified Chinese. The updater may use `factsToRewrite` only to normalize an
+  existing fact's language in place; it must preserve the fact ID, confidence,
+  provenance, timestamps, names, numbers, URLs, versions, technical terms, and
+  semantic meaning. Existing summaries in another language are rewritten on
+  the next eligible memory update.
 - Durable-memory writes enforce a task boundary independently of the extraction model: resource identifiers, paths, filenames, tool failures, and one-off deliverable constraints (page count, outline, template, brand/VI, colors, logo, watermark, layout, chart/matrix, export settings) are rejected at apply time. A deliverable rule is durable only when its text explicitly declares future/default/always/cross-task intent. Stable role, organization, domain, and technology context remain eligible; assistant-authored claims alone must not create user facts.
 - Staleness pass (same LLM invocation as the regular updater, no extra API call): when `staleness_review_enabled` is `true` and at least `staleness_min_candidates` aged facts exist, `_select_stale_candidates` selects facts older than their individual review window (`expected_valid_days`, or the global `staleness_age_days` fallback) that are not in `staleness_protected_categories` (default: `correction`), surfaces them in the prompt with a `valid:Nd` annotation, and the LLM judges each as KEEP, REMOVE, or EXTEND. REMOVE entries go in `staleFactsToRemove`; EXTEND entries go in `staleFactsToExtend` with an `extend_by_days` value, which sets the fact's `expected_valid_days` to `min(days_since_created + extend_by_days, staleness_max_extension_days)`. The LLM assigns `expected_valid_days` when creating a fact; it is clamped at write time to `staleness_age_days × staleness_max_lifetime_multiplier` (creation cap). `_apply_updates` enforces the guardrail unconditionally at apply time: it intersects both the removal and extension sets with `_select_stale_candidates` output before applying the per-cycle cap (`staleness_max_removals_per_cycle`), so protected and non-aged facts can never be targeted regardless of model behavior or the feature flag setting. Facts the LLM proposed for removal are excluded from extension even if the per-cycle cap prevented their actual deletion that cycle. Extensions use an absolute ceiling (`staleness_max_extension_days`) rather than the creation multiplier so a deliberate review decision can advance the window beyond the initial cap while preventing `timedelta` overflow from a malformed `extend_by_days`.
 - Consolidation pass (same LLM invocation as the regular updater, no extra API call): when `consolidation_enabled` is `true` and at least one category holds `consolidation_min_facts` or more facts, `_select_consolidation_candidates` identifies fragmented categories and surfaces at most `consolidation_max_groups_per_cycle` of them (largest first) in the prompt. The LLM decides which groups to merge and proposes a synthesised fact per group. `_apply_updates` enforces guardrails: source IDs must exist and must not overlap across groups, group size is capped at `consolidation_max_sources`, the merged fact's confidence cannot exceed the source maximum, and facts below `fact_confidence_threshold` are not written.
@@ -680,8 +695,22 @@ The cached value is reused for both the blocking (`runs.wait`) and streaming (`_
 - Failed tiktoken loads are cached with a timestamp. During the fixed cooldown (`_TIKTOKEN_RETRY_COOLDOWN_S`, 600s), callers fall back to char estimation immediately instead of re-triggering the blocking BPE download; after the cooldown, transient outages can self-heal without a restart.
 - In-flight loads are cached as a LOADING sentinel so concurrent callers fall back instead of spawning more blocking threads.
 - Set `memory.token_counting: char` to skip tiktoken entirely and use the network-free CJK-aware char estimate.
+- The production Gateway image sets `TIKTOKEN_CACHE_DIR` and bundles the
+  hash-verified `cl100k_base` cache object under
+  `backend/assets/tiktoken-cache/`. Keep its URL-derived cache filename and
+  SHA-256 aligned with the tiktoken version pinned by `backend/uv.lock`; this
+  prevents runtime BPE downloads through restricted enterprise proxies.
 
 Focused regression coverage for the updater lives in `backend/tests/test_memory_updater.py`.
+
+DeerMem-private configuration belongs under `memory.backend_config`. In
+particular, use `backend_config.model.model` for the memory-update model,
+`backend_config.debounce_seconds` for queue delay, and keep storage/fact/token
+settings in that same nested object. A model-only value matching a configured
+DeerFlow model name is resolved as a host model alias so its credentials, base
+URL, TLS, proxy, and tracing settings remain authoritative. Legacy top-level
+DeerMem keys are normalized before Pydantic validation for compatibility, but
+new deployment manifests and ConfigMaps must use the nested form.
 
 **Configuration** (`config.yaml` → `memory`):
 - `enabled` / `injection_enabled` - Master switches
@@ -997,6 +1026,37 @@ so list and upload endpoints do not repeat registration/login on every call. For
 scoped chat runs, Gateway forwards the selected knowledge-base IDs, derives a
 per-user token server-side, and the run worker binds that token only for the
 duration of `weknora_search` / `weknora_ask` execution.
+WeKnora image handles are never exposed to a current DeerFlow chat as raw
+`resource://` URLs. The tools rewrite them to the knowledge-base-scoped
+`/api/weknora/knowledge-bases/{id}/files` route; Gateway resolves the caller's
+consumer tenant, fetches the image with the caller's linked WeKnora session,
+and returns only `image/*` content. The unscoped `/api/weknora/files` route is
+limited to rendering older messages that still contain raw stable handles.
+`WeKnoraCitationMiddleware` also restores images selected by the current
+WeKnora answer if a final model rewrite drops them.
+When `TAVILY_API_KEY` is present, the same bridge creates an idempotent native
+WeKnora Tavily provider named `DeerFlow Tavily` in every workspace the user owns
+or administers and makes it the default search provider. Set
+`WEKNORA_TAVILY_AUTO_CONFIGURE=false` to opt out. Never return the key to the
+browser or persist it in manifests; WeKnora's provider API owns encrypted
+credential storage.
+The SSO response also carries `ui_policy`, derived only from the authenticated
+DeerFlow `system_role`. Administrators receive `system_admin` with the full
+native UI; regular users receive `personal_workspace_owner` with New Chat,
+Knowledge Bases, Shared Spaces, and Agents navigation. This is a presentation contract,
+not an authorization substitute. The deployment-level WeKnora
+`WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED=false` setting is what prevents
+ordinary users from creating additional tenant workspaces, while native
+WeKnora RBAC protects tenant and shared-space data.
+In the enterprise overlay, WeKnora's Qwen3 Embedding and Reranker definitions
+target authenticated Gateway relay routes rather than the private upstream
+services directly. Keep `CNOOC_RETRIEVAL_API_KEY` server-side in Gateway and
+use an independently generated `WEKNORA_INTERNAL_MODEL_RELAY_KEY` for the
+in-cluster hop. The relay bypasses environment proxies with `trust_env=false`.
+Qwen3 embeddings are fixed to 1024 Matryoshka dimensions; when the approved
+endpoint returns 4096 values, the relay takes the 1024-value prefix and
+L2-normalizes it. Do not change that dimension without rebuilding every
+affected knowledge-base index.
 The workspace knowledge-base adapter refreshes `/auth/me` memberships before
 listing, queries each membership with `X-Tenant-ID`, classifies ownership using
 WeKnora's `creator_id`, and keeps an `access_tenant_id` distinct from the

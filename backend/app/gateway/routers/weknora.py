@@ -7,8 +7,10 @@ import base64
 import hmac
 import json
 import logging
+import math
 import mimetypes
 import os
+import re
 import ssl
 from typing import Any
 
@@ -19,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from app.gateway.deps import get_current_user_from_request
 from app.gateway.weknora_identity import (
+    build_weknora_ui_policy,
     ensure_weknora_session_for_deerflow_user,
     weknora_endpoint,
     weknora_timeout,
@@ -40,12 +43,18 @@ _DEFAULT_BAILIAN_ASR_MAX_BYTES = 10 * 1024 * 1024
 _DEFAULT_BAILIAN_EMBEDDING_MODEL = "text-embedding-v4"
 _DEFAULT_BAILIAN_EMBEDDING_UPSTREAM_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings"
 _DEFAULT_BAILIAN_EMBEDDING_MAX_BYTES = 8 * 1024 * 1024
+_DEFAULT_CNOOC_EMBEDDING_MODEL = "Qwen3-Embedding-8B"
+_DEFAULT_CNOOC_EMBEDDING_UPSTREAM_URL = "http://model.ai.cnooc/member1/qwen3-embedding-8b/v1/embeddings"
+_DEFAULT_CNOOC_RERANK_MODEL = "Qwen3-Reranker-8B"
+_DEFAULT_CNOOC_RERANK_UPSTREAM_URL = "http://model.ai.cnooc/member1/qwen3-reranker-8b/v1/rerank"
+_DEFAULT_CNOOC_RETRIEVAL_MAX_BYTES = 8 * 1024 * 1024
 _ALLOWED_SSO_ORIGINS = {
     "http://127.0.0.1:32090",
     "http://localhost:32090",
     "http://127.0.0.1:8090",
     "http://localhost:8090",
 }
+_WEKNORA_RESOURCE_URI_RE = re.compile(r"^resource://[A-Za-z0-9_-]{1,256}$")
 
 
 def _truthy_env(name: str, default: bool = False) -> bool:
@@ -154,6 +163,91 @@ def _require_embedding_adapter_key(request: Request) -> str:
     return expected
 
 
+def _internal_model_relay_key() -> str:
+    value = os.getenv("WEKNORA_INTERNAL_MODEL_RELAY_KEY", "").strip()
+    if value:
+        return value
+    raise HTTPException(status_code=503, detail="Internal model relay credentials are not configured.")
+
+
+def _require_internal_model_relay_key(request: Request) -> None:
+    expected = _internal_model_relay_key()
+    authorization = request.headers.get("authorization", "")
+    scheme, _, provided = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not provided or not hmac.compare_digest(provided.strip(), expected):
+        raise HTTPException(status_code=401, detail="Invalid internal model relay credentials.")
+
+
+def _internal_retrieval_upstream_key() -> str:
+    value = os.getenv("CNOOC_RETRIEVAL_API_KEY", "").strip()
+    if value:
+        return value
+    raise HTTPException(status_code=503, detail="Internal retrieval model credentials are not configured.")
+
+
+async def _read_json_request(request: Request, *, label: str, max_bytes: int) -> dict[str, Any]:
+    content_length = request.headers.get("content-length", "").strip()
+    if content_length:
+        try:
+            if int(content_length) > max_bytes:
+                raise HTTPException(status_code=413, detail=f"{label} request exceeds the {max_bytes}-byte limit.")
+        except ValueError:
+            pass
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=400, detail=f"{label} request body is empty.")
+    if len(body) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"{label} request exceeds the {max_bytes}-byte limit.")
+    try:
+        payload = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail=f"{label} request body must be valid JSON.") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail=f"{label} request body must be a JSON object.")
+    return payload
+
+
+async def _post_internal_retrieval_model(
+    *,
+    upstream_url: str,
+    upstream_key: str,
+    payload: dict[str, Any],
+    label: str,
+) -> dict[str, Any]:
+    timeout = max(1.0, _float_env("WEKNORA_INTERNAL_MODEL_TIMEOUT_SECONDS", 180.0))
+    try:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            response = await client.post(
+                upstream_url,
+                headers={
+                    "Authorization": f"Bearer {upstream_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Accept-Encoding": "identity",
+                    "Connection": "close",
+                },
+                json=payload,
+            )
+    except httpx.RequestError as exc:
+        logger.warning("%s upstream request failed.", label, exc_info=True)
+        raise HTTPException(status_code=502, detail=f"{label} is unavailable.") from exc
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail=f"{label} returned a non-JSON response.") from exc
+    if response.status_code >= 400:
+        logger.warning("%s returned HTTP %s.", label, response.status_code)
+        raise HTTPException(status_code=502, detail=f"{label} returned HTTP {response.status_code}.")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail=f"{label} returned an invalid response.")
+    if data.get("success") is False:
+        code = str(data.get("code") or "unknown")
+        logger.warning("%s returned business failure code=%s.", label, code)
+        raise HTTPException(status_code=502, detail=f"{label} rejected the request (code {code}).")
+    return data
+
+
 def _audio_media_type(file: UploadFile) -> str:
     content_type = (file.content_type or "").strip().lower()
     if content_type and content_type != "application/octet-stream":
@@ -236,6 +330,56 @@ async def _request(
     return data
 
 
+async def _request_knowledge_image(
+    knowledge_base_id: str,
+    file_path: str,
+    access_token: str,
+    *,
+    tenant_id: str | int | None,
+) -> Response:
+    try:
+        async with httpx.AsyncClient(timeout=weknora_timeout()) as client:
+            response = await client.get(
+                weknora_endpoint(f"/knowledge-bases/{knowledge_base_id}/files"),
+                headers=_headers(
+                    access_token,
+                    json_content=False,
+                    tenant_id=tenant_id,
+                ),
+                params={"file_path": file_path},
+            )
+    except httpx.RequestError as exc:
+        logger.warning(
+            "WeKnora image request failed for knowledge base %s",
+            knowledge_base_id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail="WeKnora image is unavailable.",
+        ) from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail="WeKnora image request failed.",
+        )
+    content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=415,
+            detail="The requested WeKnora resource is not an image.",
+        )
+    return Response(
+        content=response.content,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 async def _current_weknora_token(user: Any) -> str:
     session = await ensure_weknora_session_for_deerflow_user(user)
     return session.token
@@ -243,6 +387,17 @@ async def _current_weknora_token(user: Any) -> str:
 
 def _normalise_tenant_id(value: Any) -> str:
     return str(value) if value is not None else ""
+
+
+def _weknora_root_endpoint(path: str) -> str:
+    api_v1_root = weknora_endpoint("").rstrip("/")
+    suffix = "/api/v1"
+    if not api_v1_root.endswith(suffix):
+        raise HTTPException(
+            status_code=500,
+            detail="Unexpected WeKnora API endpoint configuration.",
+        )
+    return f"{api_v1_root[: -len(suffix)]}/{path.lstrip('/')}"
 
 
 def _unwrap_list_response(data: dict[str, Any]) -> dict[str, Any]:
@@ -677,6 +832,89 @@ async def get_knowledge(
     )
 
 
+@router.get("/knowledge-bases/{knowledge_base_id}/files")
+async def get_knowledge_file(
+    knowledge_base_id: str,
+    file_path: str,
+    tenant_id: str | None = None,
+    user: Any = Depends(get_current_user_from_request),
+) -> Response:
+    """Serve a WeKnora image through the authenticated DeerFlow origin."""
+
+    if not _WEKNORA_RESOURCE_URI_RE.fullmatch(file_path):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid WeKnora resource path.",
+        )
+    access_token, access_tenant_id = await _resolve_knowledge_base_access_context(
+        user,
+        knowledge_base_id,
+        requested_tenant_id=tenant_id,
+    )
+    return await _request_knowledge_image(
+        knowledge_base_id,
+        file_path,
+        access_token,
+        tenant_id=access_tenant_id,
+    )
+
+
+@router.get("/files")
+async def get_active_tenant_file(
+    file_path: str,
+    user: Any = Depends(get_current_user_from_request),
+) -> Response:
+    """Fallback for a raw resource handle that reaches DeerFlow Markdown.
+
+    Normal WeKnora tool output uses the knowledge-base-scoped endpoint above.
+    This route exists only for defensive rendering of unnormalized historical
+    messages and still uses the authenticated user's active WeKnora workspace.
+    """
+
+    if not _WEKNORA_RESOURCE_URI_RE.fullmatch(file_path):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid WeKnora resource path.",
+        )
+    session = await ensure_weknora_session_for_deerflow_user(user)
+    tenant_id = session.tenant.get("id") if isinstance(session.tenant, dict) else None
+    try:
+        async with httpx.AsyncClient(timeout=weknora_timeout()) as client:
+            response = await client.get(
+                _weknora_root_endpoint("/files"),
+                headers=_headers(
+                    session.token,
+                    json_content=False,
+                    tenant_id=tenant_id,
+                ),
+                params={"file_path": file_path},
+            )
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="WeKnora image is unavailable.",
+        ) from exc
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=response.status_code,
+            detail="WeKnora image request failed.",
+        )
+    content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=415,
+            detail="The requested WeKnora resource is not an image.",
+        )
+    return Response(
+        content=response.content,
+        media_type=content_type,
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 @router.post("/knowledge-bases/{knowledge_base_id}/knowledge/manual")
 async def create_manual_knowledge(
     knowledge_base_id: str,
@@ -831,6 +1069,121 @@ async def bailian_embeddings(request: Request) -> JSONResponse:
     return JSONResponse(content=data)
 
 
+@router.post("/internal-models/v1/embeddings")
+async def cnooc_embeddings(request: Request) -> JSONResponse:
+    """Relay WeKnora embedding batches to the approved internal model service."""
+
+    _require_internal_model_relay_key(request)
+    upstream_key = _internal_retrieval_upstream_key()
+    max_bytes = max(
+        1,
+        _int_env("WEKNORA_INTERNAL_MODEL_MAX_BYTES", _DEFAULT_CNOOC_RETRIEVAL_MAX_BYTES),
+    )
+    payload = await _read_json_request(request, label="Internal embedding", max_bytes=max_bytes)
+    configured_model = os.getenv(
+        "CNOOC_EMBEDDING_MODEL_NAME",
+        _DEFAULT_CNOOC_EMBEDDING_MODEL,
+    ).strip()
+    if str(payload.get("model") or "").strip() != configured_model:
+        raise HTTPException(status_code=400, detail="Unsupported internal embedding model.")
+    inputs = payload.get("input")
+    if isinstance(inputs, str):
+        if not inputs.strip():
+            raise HTTPException(status_code=400, detail="Internal embedding input must not be empty.")
+        expected_rows = 1
+    elif isinstance(inputs, list):
+        if not inputs or not all(isinstance(item, str) and item.strip() for item in inputs):
+            raise HTTPException(status_code=400, detail="Internal embedding input must contain non-empty strings.")
+        expected_rows = len(inputs)
+    else:
+        raise HTTPException(status_code=400, detail="Internal embedding input must be a string or string array.")
+
+    expected_dimension = max(1, _int_env("CNOOC_EMBEDDING_DIMENSION", 1024))
+    requested_dimension = payload.get("dimensions")
+    if requested_dimension is not None and (not isinstance(requested_dimension, int) or requested_dimension != expected_dimension):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Internal embedding dimensions must be {expected_dimension}.",
+        )
+
+    upstream_payload = {
+        "input": inputs,
+        "encoding_format": str(payload.get("encoding_format") or "float"),
+        "dimensions": expected_dimension,
+    }
+    data = await _post_internal_retrieval_model(
+        upstream_url=os.getenv(
+            "CNOOC_EMBEDDING_UPSTREAM_URL",
+            _DEFAULT_CNOOC_EMBEDDING_UPSTREAM_URL,
+        ).strip(),
+        upstream_key=upstream_key,
+        payload=upstream_payload,
+        label="Internal embedding",
+    )
+    rows = data.get("data")
+    if not isinstance(rows, list) or len(rows) != expected_rows:
+        raise HTTPException(status_code=502, detail="Internal embedding returned an unexpected row count.")
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("embedding"), list):
+            raise HTTPException(status_code=502, detail="Internal embedding returned an invalid vector.")
+        vector = row["embedding"]
+        if not all(isinstance(value, (int, float)) and math.isfinite(value) for value in vector):
+            raise HTTPException(status_code=502, detail="Internal embedding returned a non-numeric vector.")
+        if len(vector) < expected_dimension:
+            raise HTTPException(status_code=502, detail="Internal embedding returned an unexpected vector dimension.")
+        if len(vector) > expected_dimension:
+            if not _truthy_env("CNOOC_EMBEDDING_MRL_TRUNCATION_ENABLED", True):
+                raise HTTPException(status_code=502, detail="Internal embedding returned an unexpected vector dimension.")
+            truncated = vector[:expected_dimension]
+            norm = math.sqrt(sum(float(value) * float(value) for value in truncated))
+            if not math.isfinite(norm) or norm <= 0:
+                raise HTTPException(status_code=502, detail="Internal embedding returned a zero or invalid vector.")
+            row["embedding"] = [float(value) / norm for value in truncated]
+    return JSONResponse(content=data)
+
+
+@router.post("/internal-models/v1/rerank")
+async def cnooc_rerank(request: Request) -> JSONResponse:
+    """Relay WeKnora rerank requests to the approved internal model service."""
+
+    _require_internal_model_relay_key(request)
+    upstream_key = _internal_retrieval_upstream_key()
+    max_bytes = max(
+        1,
+        _int_env("WEKNORA_INTERNAL_MODEL_MAX_BYTES", _DEFAULT_CNOOC_RETRIEVAL_MAX_BYTES),
+    )
+    payload = await _read_json_request(request, label="Internal rerank", max_bytes=max_bytes)
+    configured_model = os.getenv(
+        "CNOOC_RERANK_MODEL_NAME",
+        _DEFAULT_CNOOC_RERANK_MODEL,
+    ).strip()
+    if str(payload.get("model") or "").strip() != configured_model:
+        raise HTTPException(status_code=400, detail="Unsupported internal rerank model.")
+    query = payload.get("query")
+    documents = payload.get("documents")
+    if not isinstance(query, str) or not query.strip():
+        raise HTTPException(status_code=400, detail="Internal rerank query must not be empty.")
+    if not isinstance(documents, list) or not documents or not all(isinstance(item, str) and item.strip() for item in documents):
+        raise HTTPException(status_code=400, detail="Internal rerank documents must contain non-empty strings.")
+
+    data = await _post_internal_retrieval_model(
+        upstream_url=os.getenv(
+            "CNOOC_RERANK_UPSTREAM_URL",
+            _DEFAULT_CNOOC_RERANK_UPSTREAM_URL,
+        ).strip(),
+        upstream_key=upstream_key,
+        payload={"query": query, "documents": documents},
+        label="Internal rerank",
+    )
+    results = data.get("results")
+    if not isinstance(results, list):
+        raise HTTPException(status_code=502, detail="Internal rerank returned an invalid result list.")
+    for result in results:
+        if not isinstance(result, dict) or not isinstance(result.get("index"), int) or not isinstance(result.get("relevance_score"), (int, float)):
+            raise HTTPException(status_code=502, detail="Internal rerank returned an invalid result.")
+    return JSONResponse(content=data)
+
+
 @router.post("/bailian/v1/audio/transcriptions")
 async def bailian_audio_transcription(
     request: Request,
@@ -963,4 +1316,7 @@ async def sso_session_options(request: Request) -> Response:
 @router.get("/sso-session")
 async def sso_session(request: Request, user: Any = Depends(get_current_user_from_request)) -> JSONResponse:
     session = await ensure_weknora_session_for_deerflow_user(user)
-    return JSONResponse(session.as_login_response(), headers=_sso_cors_headers(request))
+    return JSONResponse(
+        session.as_login_response(ui_policy=build_weknora_ui_policy(user)),
+        headers=_sso_cors_headers(request),
+    )

@@ -116,10 +116,55 @@ def test_weknora_search_uses_config_scope_and_formats_results():
     assert parsed["query"] == "报销标准"
     assert parsed["total_results"] == 1
     assert parsed["results"][0]["content"] == "命中片段 1"
+    assert parsed["results"][0]["knowledge_base_id"] == "kb-1"
     assert parsed["results"][0]["knowledge_filename"] == "policy.pdf"
     assert parsed["results"][0]["citation_url"] == "/platform/knowledge-bases/kb-1?knowledge_id=doc-1"
     assert parsed["results"][0]["citation_markdown"].endswith("](/platform/knowledge-bases/kb-1?knowledge_id=doc-1)")
     assert "/mnt/" not in parsed["results"][0]["citation_markdown"]
+
+
+def test_weknora_search_rewrites_resource_images_to_authenticated_gateway_proxy():
+    app_config = _config_for(
+        {
+            "weknora_search": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+                "knowledge_base_id": "kb-1",
+            }
+        }
+    )
+    api_response = _response(
+        {
+            "success": True,
+            "data": [
+                {
+                    "id": "chunk-image",
+                    "content": "原图：![井位图](resource://image_handle-1)",
+                    "knowledge_id": "doc-image",
+                    "knowledge_base_id": "kb-1",
+                    "knowledge_title": "井位部署图.pdf",
+                    "image_info": {
+                        "url": "resource://image_handle-1",
+                        "caption": "井位图",
+                    },
+                }
+            ],
+        }
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client_cls.return_value.__enter__.return_value.post.return_value = api_response
+
+            from deerflow.community.weknora.tools import weknora_search_tool
+
+            parsed = json.loads(weknora_search_tool.invoke({"query": "显示井位图"}))
+
+    image = parsed["results"][0]["resource_images"][0]
+    assert image["resource_uri"] == "resource://image_handle-1"
+    assert image["url"] == ("/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Fimage_handle-1")
+    assert image["url"] in parsed["results"][0]["content"]
+    assert "resource://" not in parsed["results"][0]["content"]
 
 
 def test_weknora_search_accepts_explicit_file_scope_over_config():
@@ -199,8 +244,8 @@ def test_weknora_ask_parses_sse_answer_and_references():
     stream_response = _StreamResponse(
         [
             "event: message",
-            'data: {"response_type":"references","knowledge_references":[{"id":"chunk-1","content":"依据片段","knowledge_id":"doc-1","knowledge_title":"制度","knowledge_filename":"policy.pdf","score":0.91}]}',
-            'data: {"response_type":"answer","content":"答案第一段","done":false}',
+            'data: {"response_type":"references","knowledge_references":[{"id":"chunk-1","content":"依据片段","knowledge_id":"doc-1","knowledge_base_id":"kb-1","knowledge_title":"制度","knowledge_filename":"policy.pdf","score":0.91}]}',
+            'data: {"response_type":"answer","content":"答案第一段<kb doc=\\"制度.pdf\\" chunk_id=\\"chunk-1\\" kb_id=\\"kb-1\\" />","done":false}',
             'data: {"response_type":"answer","content":"，答案第二段","done":false}',
             'data: {"response_type":"answer","content":"","done":true}',
         ]
@@ -226,10 +271,61 @@ def test_weknora_ask_parses_sse_answer_and_references():
     }
 
     parsed = json.loads(raw)
-    assert parsed["answer"] == "答案第一段，答案第二段"
+    assert parsed["answer"] == "答案第一段[citation:制度](/platform/knowledge-bases/kb-1?knowledge_id=doc-1)，答案第二段"
     assert parsed["references"][0]["content"] == "依据片段"
+    assert parsed["references"][0]["knowledge_base_id"] == "kb-1"
     assert parsed["references"][0]["knowledge_filename"] == "policy.pdf"
     assert parsed["references"][0]["citation_url"] == "/platform/knowledge-bases/kb-1?knowledge_id=doc-1"
+
+
+def test_weknora_ask_preserves_answer_images_as_same_origin_resources():
+    app_config = _config_for(
+        {
+            "weknora_ask": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+                "knowledge_base_id": "kb-1",
+            }
+        }
+    )
+    stream_response = _StreamResponse(
+        [
+            (
+                'data: {"response_type":"references","knowledge_references":'
+                '[{"id":"chunk-image","content":"![井位图](resource://image_handle-1)",'
+                '"knowledge_id":"doc-image","knowledge_base_id":"kb-1",'
+                '"knowledge_title":"井位部署图.pdf",'
+                '"image_info":{"url":"resource://image_handle-1"}}]}'
+            ),
+            ('data: {"response_type":"answer","content":"检索到的原图如下：\\n\\n![井位图](resource://image_handle-1)","done":true}'),
+        ]
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client_cls.return_value.__enter__.return_value.stream.return_value = stream_response
+
+            from deerflow.community.weknora.tools import weknora_ask_tool
+
+            parsed = json.loads(
+                weknora_ask_tool.invoke(
+                    {
+                        "query": "显示原图",
+                        "session_id": "session-image",
+                    }
+                )
+            )
+
+    expected_url = "/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Fimage_handle-1"
+    assert parsed["answer"] == f"检索到的原图如下：\n\n![井位图]({expected_url})"
+    assert parsed["answer_images"] == [
+        {
+            "resource_uri": "resource://image_handle-1",
+            "url": expected_url,
+            "markdown": f"![井位图]({expected_url})",
+        }
+    ]
+    assert parsed["references"][0]["resource_images"][0]["url"] == expected_url
 
 
 def test_weknora_ask_creates_session_when_omitted():

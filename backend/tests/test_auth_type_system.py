@@ -133,6 +133,16 @@ def test_csrf_exempts_bearer_authenticated_weknora_embedding_adapter():
     assert should_check_csrf(req) is False
 
 
+def test_csrf_exempts_authenticated_internal_embedding_adapter():
+    req = _FakeRequest("/api/weknora/internal-models/v1/embeddings")
+    assert should_check_csrf(req) is False
+
+
+def test_csrf_exempts_authenticated_internal_rerank_adapter():
+    req = _FakeRequest("/api/weknora/internal-models/v1/rerank")
+    assert should_check_csrf(req) is False
+
+
 # ── Structured Error Response Format ────────────────────────────────
 
 
@@ -395,8 +405,10 @@ def test_get_auth_config_missing_env_var_generates_ephemeral(caplog):
     old = cfg._auth_config
     cfg._auth_config = None
     try:
-        with patch.dict(os.environ, {}, clear=True):
-            os.environ.pop("AUTH_JWT_SECRET", None)
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("dotenv.load_dotenv", return_value=False),
+        ):
             with caplog.at_level(logging.WARNING):
                 config = cfg.get_auth_config()
             assert config.jwt_secret

@@ -24,6 +24,9 @@ from deerflow.agents.memory.backends.deermem.deer_mem import DeerMem
 from deerflow.agents.memory.backends.deermem.deermem.core.message_processing import (
     filter_messages_for_memory,
 )
+from deerflow.agents.memory.backends.deermem.deermem.core.prompt import (
+    MEMORY_UPDATE_PROMPT,
+)
 from deerflow.agents.memory.backends.deermem.deermem.core.storage import FileMemoryStorage
 from deerflow.agents.memory.backends.deermem.deermem.core.updater import _trim_facts_to_max
 
@@ -164,6 +167,134 @@ def test_memory_update_rejects_one_off_delivery_constraints_without_durable_inte
         "用户明确要求以后所有PPT默认使用中文。",
         "用户负责中海油品牌治理与VI规范制定。",
     ]
+
+
+def test_memory_prompt_defaults_persisted_content_to_simplified_chinese():
+    assert "默认使用简体中文保存记忆" in MEMORY_UPDATE_PROMPT
+    assert "factsToRewrite" in MEMORY_UPDATE_PROMPT
+    assert "已有记忆使用其他语言" in MEMORY_UPDATE_PROMPT
+
+
+def test_memory_update_rewrites_legacy_fact_language_without_changing_metadata(
+    deermem_data_dir,
+):
+    dm = _deermem_with_fake_llm(
+        payload=json.dumps(
+            {
+                "user": {
+                    "personalContext": {
+                        "summary": "用户习惯使用中文交流，并关注开源技术趋势。",
+                        "shouldUpdate": True,
+                    }
+                },
+                "history": {},
+                "newFacts": [],
+                "factsToRemove": [],
+                "factsToRewrite": [
+                    {
+                        "id": "fact_legacy",
+                        "content": "用户偏好结构化的中文摘要。",
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        )
+    )
+    dm.import_memory(
+        {
+            "version": "1.0",
+            "lastUpdated": "2026-07-27T00:00:00Z",
+            "user": {
+                "workContext": {"summary": "", "updatedAt": None},
+                "personalContext": {
+                    "summary": "User communicates in Chinese and follows open-source trends.",
+                    "updatedAt": "2026-07-27T00:00:00Z",
+                },
+                "topOfMind": {"summary": "", "updatedAt": None},
+            },
+            "history": {},
+            "facts": [
+                {
+                    "id": "fact_legacy",
+                    "content": "User prefers structured Chinese summaries.",
+                    "category": "preference",
+                    "confidence": 0.95,
+                    "createdAt": "2026-07-20T00:00:00Z",
+                    "source": "thread-old",
+                }
+            ],
+        },
+        user_id="language-migration-user",
+    )
+
+    dm.add(
+        thread_id="language-migration-thread",
+        messages=[
+            HumanMessage(content="以后继续用中文交流。"),
+            AIMessage(content="好的，我会继续使用中文。"),
+        ],
+        user_id="language-migration-user",
+    )
+    dm._queue.flush()
+
+    memory = dm.get_memory(user_id="language-migration-user")
+    assert memory["user"]["personalContext"]["summary"] == "用户习惯使用中文交流，并关注开源技术趋势。"
+    assert memory["facts"] == [
+        {
+            "id": "fact_legacy",
+            "content": "用户偏好结构化的中文摘要。",
+            "category": "preference",
+            "confidence": 0.95,
+            "createdAt": "2026-07-20T00:00:00Z",
+            "source": "thread-old",
+        }
+    ]
+
+
+def test_memory_update_ignores_unknown_and_empty_fact_rewrites(deermem_data_dir):
+    dm = _deermem_with_fake_llm(
+        payload=json.dumps(
+            {
+                "user": {},
+                "history": {},
+                "newFacts": [],
+                "factsToRemove": [],
+                "factsToRewrite": [
+                    {"id": "fact_missing", "content": "不能凭空创建。"},
+                    {"id": "fact_keep", "content": "   "},
+                ],
+            },
+            ensure_ascii=False,
+        )
+    )
+    original = {
+        "id": "fact_keep",
+        "content": "Keep this fact unchanged.",
+        "category": "context",
+        "confidence": 0.9,
+        "createdAt": "2026-07-20T00:00:00Z",
+        "source": "thread-old",
+    }
+    dm.import_memory(
+        {
+            "version": "1.0",
+            "lastUpdated": "2026-07-27T00:00:00Z",
+            "user": {},
+            "history": {},
+            "facts": [original],
+        },
+        user_id="invalid-rewrite-user",
+    )
+
+    dm.add(
+        thread_id="invalid-rewrite-thread",
+        messages=[HumanMessage(content="你好"), AIMessage(content="你好")],
+        user_id="invalid-rewrite-user",
+    )
+    dm._queue.flush()
+
+    memory = dm.get_memory(user_id="invalid-rewrite-user")
+    assert memory["facts"] == [original]
 
 
 def test_di_construction_owns_dependencies():

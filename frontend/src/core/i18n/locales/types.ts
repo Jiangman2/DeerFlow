@@ -22,6 +22,9 @@ export interface Translations {
     download: string;
     thinking: string;
     artifacts: string;
+    noArtifactSelected: string;
+    selectArtifactToView: string;
+    todos: string;
     public: string;
     custom: string;
     notAvailableInDemoMode: string;
@@ -616,6 +619,7 @@ export interface Translations {
     memory: {
       title: string;
       description: string;
+      updateBehaviorHint: string;
       empty: string;
       rawJson: string;
       exportButton: string;
@@ -778,6 +782,9 @@ export interface Translations {
     backToHome: string;
     networkError: string;
     authFailed: string;
+    signingIn: string;
+    redirecting: string;
+    authFailedRedirecting: string;
     errors: {
       sso_failed: string;
       sso_cancelled: string;

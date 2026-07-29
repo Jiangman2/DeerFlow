@@ -230,9 +230,7 @@ def _normalize_memory_update_fact(fact: Any) -> dict[str, Any] | None:
         return None
     raw_category = fact.get("category")
     category = raw_category.strip() if isinstance(raw_category, str) and raw_category.strip() else "context"
-    if _contains_transient_task_resource(content) or _contains_one_off_operational_directive(
-        content, category
-    ):
+    if _contains_transient_task_resource(content) or _contains_one_off_operational_directive(content, category):
         logger.info("Dropped transient task-resource fact from durable memory")
         return None
 
@@ -294,6 +292,24 @@ def _normalize_memory_update_data(update_data: dict[str, Any]) -> dict[str, Any]
                 normalized_new_facts.append(normalized_fact)
             else:
                 dropped_new_fact = True
+
+    fact_rewrites_raw = update_data.get("factsToRewrite")
+    normalized_fact_rewrites: list[dict[str, str]] = []
+    if isinstance(fact_rewrites_raw, list):
+        for entry in fact_rewrites_raw:
+            if not isinstance(entry, dict):
+                continue
+            fact_id = entry.get("id")
+            content = entry.get("content")
+            if not isinstance(fact_id, str) or not fact_id.strip():
+                continue
+            if not isinstance(content, str) or not content.strip():
+                continue
+            normalized_content = content.strip()
+            if _contains_transient_task_resource(normalized_content):
+                logger.info("Dropped transient task-resource content from fact language rewrite")
+                continue
+            normalized_fact_rewrites.append({"id": fact_id.strip(), "content": normalized_content})
 
     if normalized_facts_to_remove and dropped_new_fact:
         raise json.JSONDecodeError(
@@ -393,6 +409,7 @@ def _normalize_memory_update_data(update_data: dict[str, Any]) -> dict[str, Any]
         "user": user if isinstance(user, dict) else {},
         "history": history if isinstance(history, dict) else {},
         "newFacts": normalized_new_facts,
+        "factsToRewrite": normalized_fact_rewrites,
         "factsToRemove": normalized_facts_to_remove,
         "staleFactsToRemove": normalized_stale_removals,
         "staleFactsToExtend": normalized_stale_extensions,
@@ -1112,6 +1129,22 @@ class MemoryUpdater:
         facts_to_remove = set(update_data.get("factsToRemove", []))
         if facts_to_remove:
             current_memory["facts"] = [f for f in current_memory.get("facts", []) if f.get("id") not in facts_to_remove]
+
+        # Rewrite existing fact text in place for language normalization.
+        # Metadata is intentionally immutable here: this operation is not a
+        # semantic update and must not reset confidence, provenance, or age.
+        fact_rewrites = {
+            entry["id"]: entry["content"] for entry in update_data.get("factsToRewrite", []) if isinstance(entry, dict) and isinstance(entry.get("id"), str) and isinstance(entry.get("content"), str) and entry["content"].strip()
+        }
+        if fact_rewrites:
+            rewritten_facts: list[dict[str, Any]] = []
+            for fact in current_memory.get("facts", []):
+                fact_id = fact.get("id")
+                rewritten_content = fact_rewrites.get(fact_id)
+                if rewritten_content is not None:
+                    fact = {**fact, "content": rewritten_content.strip()}
+                rewritten_facts.append(fact)
+            current_memory["facts"] = rewritten_facts
 
         # ── Staleness review: removals + lifetime extensions ──
         # Both operations share one staleness-candidate guardrail pass and one

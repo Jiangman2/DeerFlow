@@ -1,7 +1,12 @@
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
-import type { DashboardFilters, DashboardSummary } from "./types";
+import type {
+  DashboardFilters,
+  DashboardSummary,
+  ExistingSessionList,
+  RegisteredUserSessionList,
+} from "./types";
 
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -36,4 +41,35 @@ export async function getDashboardSummary(
     `${getBackendBaseURL()}/api/admin/dashboard/summary?${params}`,
   );
   return readJson<DashboardSummary>(response);
+}
+
+export async function getDashboardUsers(
+  limit = 5,
+  offset = 0,
+): Promise<RegisteredUserSessionList> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/admin/dashboard/users?${params}`,
+  );
+  return readJson<RegisteredUserSessionList>(response);
+}
+
+export async function getDashboardUserSessions(
+  userId: string,
+  limit = 5,
+  offset = 0,
+): Promise<ExistingSessionList> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/admin/dashboard/users/${encodeURIComponent(
+      userId,
+    )}/sessions?${params}`,
+  );
+  return readJson<ExistingSessionList>(response);
 }

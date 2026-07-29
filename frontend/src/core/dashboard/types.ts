@@ -9,7 +9,10 @@ export interface DashboardOverview {
   new_users: number;
   active_users: number;
   threads: number;
+  all_time_threads: number;
+  existing_threads: number;
   runs: number;
+  terminal_runs: number;
   successful_runs: number;
   failed_runs: number;
   running_runs: number;
@@ -26,6 +29,7 @@ export interface DashboardOverview {
 
 export interface UserActivityPoint {
   date: string;
+  end_date: string;
   active_users: number;
   threads: number;
   runs: number;
@@ -191,6 +195,7 @@ export interface RecentBusinessEventItem {
 export interface DashboardSummary {
   window: DashboardWindow;
   overview: DashboardOverview;
+  activity_bucket: "day" | "week" | string;
   user_activity: UserActivityPoint[];
   user_usage: UserUsageItem[];
   external_agent_clicks: ExternalAgentClickItem[];
@@ -203,4 +208,48 @@ export interface DashboardSummary {
   feedback: FeedbackSummary;
   knowledge_usage: KnowledgeUsageSummary;
   recent_failures: RecentFailureItem[];
+}
+
+export interface RegisteredUserSessionSummary {
+  user_id: string;
+  email: string;
+  system_role: string;
+  is_disabled: boolean;
+  registered_at: string;
+  existing_threads: number;
+  runs: number;
+  terminal_runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  running_runs: number;
+  last_active_at: string | null;
+}
+
+export interface RegisteredUserSessionList {
+  items: RegisteredUserSessionSummary[];
+  total: number;
+}
+
+export interface ExistingSessionItem {
+  thread_id: string;
+  title: string | null;
+  assistant_id: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  runs: number;
+  terminal_runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  running_runs: number;
+  last_run_at: string | null;
+  last_run_status: string | null;
+  can_open: boolean;
+  chat_url: string | null;
+}
+
+export interface ExistingSessionList {
+  user_id: string;
+  items: ExistingSessionItem[];
+  total: number;
 }

@@ -32,6 +32,9 @@ export const enUS: Translations = {
     download: "Download",
     thinking: "Thinking",
     artifacts: "Artifacts",
+    noArtifactSelected: "No artifact selected",
+    selectArtifactToView: "Select an artifact to view its details",
+    todos: "To-dos",
     public: "Public",
     custom: "Custom",
     notAvailableInDemoMode: "Not available in demo mode",
@@ -328,8 +331,7 @@ export const enUS: Translations = {
     model: {
       label: "Execution model",
       placeholder: "Select a model",
-      hint:
-        "The model is saved with this task and will not change when you switch models in chat. New enterprise tasks default to DeepSeek V4 Flash.",
+      hint: "The model is saved with this task and will not change when you switch models in chat. New enterprise tasks default to DeepSeek V4 Flash.",
       unset: "Not set",
     },
     create: {
@@ -748,7 +750,9 @@ export const enUS: Translations = {
     memory: {
       title: "Memory",
       description:
-        "本平台 automatically learns from your conversations in the background. These memories help 本平台 understand you better and deliver a more personalized experience.",
+        "DeerFlow automatically learns from your conversations in the background. These memories help DeerFlow understand you better and deliver a more personalized experience.",
+      updateBehaviorHint:
+        "Memory updates in the background after ordinary conversations and changes only when reusable information is found. Conversations with an explicit knowledge-base scope do not write to personal memory.",
       empty: "No memory data to display.",
       rawJson: "Raw JSON",
       exportButton: "Export memory",
@@ -925,6 +929,9 @@ export const enUS: Translations = {
     backToHome: "← Back to home",
     networkError: "Network error. Please try again.",
     authFailed: "Authentication failed.",
+    signingIn: "Signing you in...",
+    redirecting: "Redirecting...",
+    authFailedRedirecting: "Authentication failed. Redirecting to login...",
     errors: {
       sso_failed: "SSO login failed. Please try again or use email login.",
       sso_cancelled: "SSO login was cancelled.",

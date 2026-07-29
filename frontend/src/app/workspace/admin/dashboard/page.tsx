@@ -21,6 +21,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   useDashboardSummary,
+  useDashboardUsers,
+  useDashboardUserSessions,
+  activityBarPercent,
+  activityChartMinWidth,
+  activityPeriodLabel,
+  activitySharedMax,
   type DashboardFilters,
   type ExternalAgentClickItem,
   type FeedbackSummary,
@@ -56,15 +62,6 @@ function shortTime(value: string): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-  });
-}
-
-function shortDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return value;
-  return date.toLocaleDateString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
   });
 }
 
@@ -136,41 +133,250 @@ function EmptyState({ label }: { label: string }) {
   );
 }
 
-function ActivityTrend({ items }: { items: UserActivityPoint[] }) {
-  const max = Math.max(1, ...items.map((item) => item.runs));
+function ActivityTrend({
+  items,
+  bucket,
+}: {
+  items: UserActivityPoint[];
+  bucket: string;
+}) {
+  const sharedMax = activitySharedMax(items);
   if (items.length === 0) return <EmptyState label="暂无活跃数据" />;
 
   return (
-    <div className="flex h-56 min-w-0 items-end gap-1 overflow-hidden border-b border-l border-slate-200 px-2 pt-4 sm:gap-2">
-      {items.map((item) => {
-        const height = Math.max(6, Math.round((item.runs / max) * 100));
-        return (
+    <div className="min-w-0 overflow-x-auto pb-2">
+      <div
+        className="grid h-56 border-b border-l border-slate-200 px-3 pt-3"
+        style={{
+          minWidth: activityChartMinWidth(items.length),
+          gridTemplateColumns: `repeat(${items.length}, minmax(36px, 1fr))`,
+        }}
+      >
+        {items.map((item) => (
           <div
             key={item.date}
-            className="flex min-w-0 flex-1 flex-col items-center gap-2"
+            className="flex h-full min-w-0 flex-col items-center justify-end gap-2"
           >
-            <div className="flex w-full min-w-0 items-end justify-center gap-1">
+            <div className="flex h-44 w-full items-end justify-center gap-1">
               <div
-                className="w-full max-w-3 min-w-[2px] rounded-t bg-slate-800"
-                style={{ height: `${height}%`, minHeight: item.runs ? 8 : 2 }}
-                title={`${item.runs} 次运行`}
+                className="w-2.5 rounded-t bg-slate-800"
+                style={{
+                  height: item.threads
+                    ? `${activityBarPercent(item.threads, sharedMax)}%`
+                    : 2,
+                }}
+                title={`${item.threads} 个创建会话`}
               />
               <div
-                className="w-full max-w-3 min-w-[2px] rounded-t bg-emerald-500"
+                className="w-2.5 rounded-t bg-emerald-500"
                 style={{
-                  height: `${Math.max(4, Math.round((item.active_users / Math.max(1, max)) * 100))}%`,
-                  minHeight: item.active_users ? 8 : 2,
+                  height: item.active_users
+                    ? `${activityBarPercent(item.active_users, sharedMax)}%`
+                    : 2,
                 }}
                 title={`${item.active_users} 个活跃用户`}
               />
             </div>
-            <div className="w-full truncate text-center text-xs text-slate-500">
-              {shortDate(item.date)}
+            <div
+              className="w-full truncate text-center text-[11px] text-slate-500"
+              title={activityPeriodLabel(item, bucket)}
+            >
+              {activityPeriodLabel(item, bucket)}
             </div>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
+  );
+}
+
+function RegisteredUserSessions() {
+  const pageSize = 5;
+  const [page, setPage] = useState(0);
+  const usersQuery = useDashboardUsers(pageSize, page * pageSize);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [sessionPage, setSessionPage] = useState(0);
+  const sessionsQuery = useDashboardUserSessions(
+    expandedUserId,
+    pageSize,
+    sessionPage * pageSize,
+  );
+  const pageUsers = usersQuery.data?.items ?? [];
+  const totalPages = Math.max(
+    1,
+    Math.ceil((usersQuery.data?.total ?? 0) / pageSize),
+  );
+  const currentPage = Math.min(page, totalPages - 1);
+  const sessionTotalPages = Math.max(
+    1,
+    Math.ceil((sessionsQuery.data?.total ?? 0) / pageSize),
+  );
+
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <UsersIcon className="size-4" />
+            注册用户现存会话
+          </span>
+          <span className="text-xs font-normal text-slate-500">
+            当前全量 · 共 {usersQuery.data?.total ?? 0} 个注册用户
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {usersQuery.isError ? (
+          <EmptyState label={`用户会话加载失败：${usersQuery.error.message}`} />
+        ) : pageUsers.length === 0 ? (
+          <EmptyState
+            label={usersQuery.isLoading ? "正在加载…" : "暂无注册用户"}
+          />
+        ) : (
+          <div className="space-y-3">
+            <div className="max-h-[34rem] space-y-2 overflow-y-auto pr-1">
+              {pageUsers.map((user) => {
+                const expanded = expandedUserId === user.user_id;
+                return (
+                  <div
+                    key={user.user_id}
+                    className="rounded-lg border bg-white"
+                  >
+                    <button
+                      type="button"
+                      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-4 p-3 text-left"
+                      onClick={() => {
+                        setSessionPage(0);
+                        setExpandedUserId(expanded ? null : user.user_id);
+                      }}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-slate-800">
+                          {user.email}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-500">
+                          {user.system_role === "admin" ? "管理员" : "普通用户"}
+                          {user.is_disabled ? " · 已停用" : ""}
+                          {" · "}
+                          现存会话 {user.existing_threads} · 最后活动{" "}
+                          {user.last_active_at
+                            ? shortTime(user.last_active_at)
+                            : "暂无"}
+                        </span>
+                      </span>
+                      <span className="text-right text-xs text-slate-500">
+                        <span className="block font-medium text-slate-700">
+                          {user.runs} 次运行
+                        </span>
+                        <span className="mt-1 block">
+                          成功 {user.successful_runs} · 失败 {user.failed_runs}{" "}
+                          · 运行中 {user.running_runs}
+                        </span>
+                      </span>
+                    </button>
+                    {expanded ? (
+                      <div className="border-t bg-slate-50/60 p-3">
+                        {sessionsQuery.isLoading ? (
+                          <div className="py-3 text-center text-xs text-slate-500">
+                            正在加载现存会话…
+                          </div>
+                        ) : sessionsQuery.isError ? (
+                          <div className="py-3 text-center text-xs text-red-600">
+                            会话加载失败：{sessionsQuery.error.message}
+                          </div>
+                        ) : (sessionsQuery.data?.items.length ?? 0) === 0 ? (
+                          <div className="py-3 text-center text-xs text-slate-500">
+                            该用户当前没有未删除会话
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {sessionsQuery.data?.items.map((session) => (
+                              <div
+                                key={session.thread_id}
+                                className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-md border bg-white px-3 py-2"
+                              >
+                                <span className="min-w-0">
+                                  {session.can_open && session.chat_url ? (
+                                    <Link
+                                      className="block truncate text-sm font-medium text-cyan-700 hover:text-cyan-900"
+                                      href={session.chat_url}
+                                    >
+                                      {session.title ?? "未命名会话"}
+                                    </Link>
+                                  ) : (
+                                    <span
+                                      className="block truncate text-sm font-medium text-slate-700"
+                                      title="出于会话隐私与权限隔离，仅会话所有者可以打开内容"
+                                    >
+                                      {session.title ?? "未命名会话"}
+                                    </span>
+                                  )}
+                                  <span
+                                    className="mt-1 block truncate text-xs text-slate-400"
+                                    title={session.thread_id}
+                                  >
+                                    {session.thread_id}
+                                  </span>
+                                  {!session.can_open ? (
+                                    <span className="mt-1 block text-xs text-slate-400">
+                                      他人会话仅展示运行统计
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span className="text-right text-xs text-slate-500">
+                                  <span className="block">
+                                    {session.runs} 次运行
+                                  </span>
+                                  <span className="mt-1 block">
+                                    成功 {session.successful_runs} · 失败{" "}
+                                    {session.failed_runs} · 运行中{" "}
+                                    {session.running_runs}
+                                  </span>
+                                  <span className="mt-1 block text-slate-400">
+                                    状态 {session.status} · 创建{" "}
+                                    {shortTime(session.created_at)}
+                                  </span>
+                                  <span className="mt-1 block text-slate-400">
+                                    最近运行{" "}
+                                    {session.last_run_at
+                                      ? shortTime(session.last_run_at)
+                                      : "暂无"}
+                                  </span>
+                                </span>
+                              </div>
+                            ))}
+                            <RankingPagination
+                              page={Math.min(
+                                sessionPage,
+                                sessionTotalPages - 1,
+                              )}
+                              totalPages={sessionTotalPages}
+                              onPageChange={setSessionPage}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+            <RankingPagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={(nextPage) => {
+                setPage(nextPage);
+                setExpandedUserId(null);
+                setSessionPage(0);
+              }}
+            />
+            <p className="text-xs text-slate-500">
+              这里只统计仍存在的会话及其中的运行；用户已删除的会话不会混入当前会话明细。
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -429,7 +635,7 @@ function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <ThumbsUpIcon className="size-4" />
-          用户反馈
+          用户反馈（所选区间）
         </CardTitle>
       </CardHeader>
       <CardContent className="min-w-0 space-y-4">
@@ -468,7 +674,7 @@ export default function DashboardPage() {
   const draftStart = isoFromDateTimeLocal(customStart);
   const draftEnd = isoFromDateTimeLocal(customEnd);
   const draftHours = hoursBetween(draftStart, draftEnd);
-  const canApplyCustomRange = draftHours !== null && draftHours <= 24 * 90;
+  const canApplyCustomRange = draftHours !== null;
   const rangeStart = rangeMode === "custom" ? draftStart : undefined;
   const rangeEnd = rangeMode === "custom" ? draftEnd : undefined;
   const activeHours = rangeMode === "custom" ? (draftHours ?? hours) : hours;
@@ -584,6 +790,13 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         ) : null}
+        {analyticsQuery.isError ? (
+          <Card className="rounded-lg border-amber-200 bg-amber-50 py-5 text-amber-800 shadow-none">
+            <CardContent>
+              运行排行加载失败：{analyticsQuery.error.message}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
@@ -594,15 +807,15 @@ export default function DashboardPage() {
             tone="green"
           />
           <MetricCard
-            label="任务运行"
-            value={compactNumber(summary?.overview.runs ?? 0)}
-            detail={`累计创建会话 ${compactNumber(summary?.overview.threads ?? 0)}，运行中 ${compactNumber(summary?.overview.running_runs ?? 0)}`}
+            label="创建会话"
+            value={compactNumber(summary?.overview.threads ?? 0)}
+            detail={`已完成 ${compactNumber(summary?.overview.terminal_runs ?? 0)} · 运行中 ${compactNumber(summary?.overview.running_runs ?? 0)} · 现存会话 ${compactNumber(summary?.overview.existing_threads ?? 0)}`}
             icon={ActivityIcon}
           />
           <MetricCard
             label="成功率"
             value={percent(summary?.overview.success_rate ?? 0)}
-            detail={`成功 ${compactNumber(summary?.overview.successful_runs ?? 0)}，失败 ${compactNumber(summary?.overview.failed_runs ?? 0)}`}
+            detail={`成功 ${compactNumber(summary?.overview.successful_runs ?? 0)} + 失败 ${compactNumber(summary?.overview.failed_runs ?? 0)} = 已完成 ${compactNumber(summary?.overview.terminal_runs ?? 0)}`}
             icon={ZapIcon}
             tone={(summary?.overview.failed_runs ?? 0) > 0 ? "amber" : "green"}
           />
@@ -617,23 +830,48 @@ export default function DashboardPage() {
         <div className="min-w-0">
           <Card className="min-w-0 rounded-lg shadow-none">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BarChart3Icon className="size-4" />
-                用户活跃趋势
+              <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+                <span className="flex items-center gap-2">
+                  <BarChart3Icon className="size-4" />
+                  用户活跃趋势
+                </span>
+                <span className="text-xs font-normal text-slate-500">
+                  区间创建{" "}
+                  {compactNumber(
+                    summary?.user_activity.reduce(
+                      (total, item) => total + item.threads,
+                      0,
+                    ) ?? 0,
+                  )}{" "}
+                  个会话 ·
+                  {summary?.activity_bucket === "week"
+                    ? " 按周聚合"
+                    : summary?.activity_bucket === "month"
+                      ? " 按约30天聚合"
+                      : summary?.activity_bucket === "year"
+                        ? " 按约1年聚合"
+                        : " 按日统计"}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ActivityTrend items={summary?.user_activity ?? []} />
+              <ActivityTrend
+                items={summary?.user_activity ?? []}
+                bucket={summary?.activity_bucket ?? "day"}
+              />
               <div className="mt-3 flex gap-4 text-xs text-slate-500">
                 <span className="inline-flex items-center gap-1">
                   <span className="size-2 rounded-full bg-slate-800" />
-                  运行次数
+                  创建会话数
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className="size-2 rounded-full bg-emerald-500" />
                   活跃用户
                 </span>
               </div>
+              <p className="mt-2 text-xs text-slate-400">
+                按所选时间范围展示会话创建与活跃用户趋势，两组柱使用同一刻度。
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -643,9 +881,14 @@ export default function DashboardPage() {
         <div className="grid min-w-0 gap-4 xl:grid-cols-2">
           <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <UsersIcon className="size-4 text-cyan-700" />
-                用户使用排行
+              <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+                <span className="flex items-center gap-2">
+                  <UsersIcon className="size-4 text-cyan-700" />
+                  用户运行排行
+                </span>
+                <span className="text-xs font-normal text-slate-500">
+                  所选区间历史运行
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -654,9 +897,14 @@ export default function DashboardPage() {
           </Card>
           <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ExternalLinkIcon className="size-4 text-cyan-700" />
-                外部智能体点击
+              <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+                <span className="flex items-center gap-2">
+                  <ExternalLinkIcon className="size-4 text-cyan-700" />
+                  外部智能体点击
+                </span>
+                <span className="text-xs font-normal text-slate-500">
+                  所选区间
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -667,13 +915,15 @@ export default function DashboardPage() {
           </Card>
         </div>
 
+        <RegisteredUserSessions />
+
         <div className="grid min-w-0 gap-4 xl:grid-cols-2">
           <RunRanking
-            title="慢运行排行"
+            title="慢运行排行（已完成）"
             rows={analyticsQuery.data?.slow_runs ?? []}
           />
           <RunRanking
-            title="高 Token 运行排行"
+            title="高 Token 运行排行（已完成）"
             rows={analyticsQuery.data?.high_token_runs ?? []}
           />
           <RecentFailures rows={summary?.recent_failures ?? []} />

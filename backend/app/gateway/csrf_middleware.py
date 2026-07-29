@@ -53,6 +53,8 @@ def should_check_csrf(request: Request) -> bool:
     if path in {
         "/api/weknora/bailian/v1/audio/transcriptions",
         "/api/weknora/bailian/v1/embeddings",
+        "/api/weknora/internal-models/v1/embeddings",
+        "/api/weknora/internal-models/v1/rerank",
     }:
         return False
     # Inbound webhooks authenticate themselves via provider-specific signatures

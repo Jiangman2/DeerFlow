@@ -1282,6 +1282,7 @@ def test_launch_scheduled_thread_run_marks_context_non_interactive(_stub_app_con
             captured["thread_id"] = thread_id
             captured["context"] = body.context
             captured["metadata"] = body.metadata
+            captured["config"] = body.config
             return SimpleNamespace(run_id="run-1", thread_id=thread_id)
 
         with patch("app.gateway.services.start_run", side_effect=fake_start_run):
@@ -1313,7 +1314,49 @@ def test_launch_scheduled_thread_run_marks_context_non_interactive(_stub_app_con
         "user_id": "user-1",
     }
     assert captured["metadata"] == {"scheduled_task_id": "task-1"}
+    assert captured["config"] == {"recursion_limit": 300}
     assert result == {"run_id": "run-1", "thread_id": "thread-scheduled"}
+
+
+def test_launch_scheduled_thread_run_clamps_scheduler_recursion_limit():
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from app.gateway.services import launch_scheduled_thread_run
+
+    set_app_config(
+        AppConfig.model_validate(
+            {
+                "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"},
+                "max_recursion_limit": 200,
+                "scheduler": {"recursion_limit": 500},
+            }
+        )
+    )
+
+    async def _scenario():
+        captured: dict[str, object] = {}
+
+        async def fake_start_run(body, thread_id, request):
+            captured["config"] = body.config
+            return SimpleNamespace(run_id="run-1", thread_id=thread_id)
+
+        with patch("app.gateway.services.start_run", side_effect=fake_start_run):
+            await launch_scheduled_thread_run(
+                thread_id="thread-scheduled",
+                assistant_id="lead_agent",
+                prompt="Run in background",
+                app=SimpleNamespace(state=SimpleNamespace()),
+            )
+        return captured
+
+    try:
+        captured = asyncio.run(_scenario())
+    finally:
+        reset_app_config()
+
+    assert captured["config"] == {"recursion_limit": 200}
 
 
 # ---------------------------------------------------------------------------

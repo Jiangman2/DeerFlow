@@ -11,6 +11,12 @@ resources:
   - mineru-adapter.yaml
   - gateway-openssl-compat.yaml
 
+configMapGenerator:
+  - name: weknora-config
+    behavior: merge
+    files:
+      - builtin_models.yaml=builtin-models-internal-only.yaml
+
 patches:
   - path: storage-patches.yaml
   - path: runtime-patches.yaml
@@ -34,6 +40,9 @@ images:
   - name: redis
     newName: m.daocloud.io/docker.io/library/redis
     digest: sha256:c9d92d840fd011c908f040592857c724ae6d877f2aba5c40ad963276507386b2
+  - name: neo4j
+    newName: m.daocloud.io/docker.io/library/neo4j
+    digest: sha256:155c8aad10d5c838bc3bbc476c0418779086547822acb214ec5e3d49ba336907
   - name: paradedb/paradedb
     newName: deerflow.local/weknora-postgres
     newTag: pg16-search-arm64-20260722-1
@@ -45,13 +54,13 @@ images:
     digest: sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b
   - name: wechatopenai/weknora-ui
     newName: m.daocloud.io/docker.io/wechatopenai/weknora-ui
-    digest: sha256:da9a3a0a939ddd1ed6f4b510b74a0562a21b898439f907cd6ee529a3680283d8
+    digest: sha256:401604e79a5717dd966a13383d775f15d3125481d3e080eba329e4a0fbcf9523
   - name: deer-flow-gateway
     newName: deerflow.local/deer-flow-gateway
-    newTag: 20260726-enterprise-arm64-rc6-embeddingrelay2
+    newTag: 20260728-enterprise-arm64-rc11
   - name: deer-flow-frontend
     newName: deerflow.local/deer-flow-frontend
-    newTag: 20260725-enterprise-arm64-rc6-schedulermodel1
+    newTag: 20260728-enterprise-arm64-rc11
   - name: deer-flow-provisioner
     newName: deerflow.local/deer-flow-provisioner
     newTag: 20260723-enterprise-arm64-rc3
@@ -60,4 +69,4 @@ images:
     newTag: 20260723-enterprise-arm64-rc3
   - name: deer-flow-mineru-adapter
     newName: deerflow.local/deer-flow-mineru-adapter
-    newTag: 20260723-enterprise-arm64-rc4
+    newTag: 20260728-enterprise-arm64-rc10-pdffix1

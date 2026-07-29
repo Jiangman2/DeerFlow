@@ -149,20 +149,23 @@ def test_build_subagent_runtime_middlewares_threads_app_config_to_llm_middleware
     # ToolErrorHandling)
     # + 1 ReadBeforeWriteMiddleware + 1 LoopDetectionMiddleware
     # + 1 TokenBudgetMiddleware (subagents.token_budget enabled by default, #3875 Phase 2)
-    # + 1 SafetyFinishReasonMiddleware + 1 DurableContextMiddleware
+    # + 1 WeKnoraCitationMiddleware + 1 SafetyFinishReasonMiddleware
+    # + 1 DurableContextMiddleware
     # + 1 SystemMessageCoalescingMiddleware (all enabled by default).
     from deerflow.agents.middlewares.durable_context_middleware import DurableContextMiddleware
     from deerflow.agents.middlewares.safety_finish_reason_middleware import SafetyFinishReasonMiddleware
     from deerflow.agents.middlewares.system_message_coalescing_middleware import SystemMessageCoalescingMiddleware
     from deerflow.agents.middlewares.token_budget_middleware import TokenBudgetMiddleware
     from deerflow.agents.middlewares.tool_output_budget_middleware import ToolOutputBudgetMiddleware
+    from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
 
-    assert len(middlewares) == 15
+    assert len(middlewares) == 16
     assert isinstance(middlewares[0], FakeMiddleware)  # InputSanitizationMiddleware stub
     assert isinstance(middlewares[1], ToolOutputBudgetMiddleware)
     assert any(isinstance(m, ToolErrorHandlingMiddleware) for m in middlewares)
     # The token-budget backstop is attached by default so the cap engages (#3875).
     assert any(isinstance(m, TokenBudgetMiddleware) for m in middlewares)
+    assert any(isinstance(m, WeKnoraCitationMiddleware) for m in middlewares)
     assert any(isinstance(m, SafetyFinishReasonMiddleware) for m in middlewares)
     # DurableContextMiddleware is present but not last: the coalescer (#4040) is
     # appended innermost so it can merge the SystemMessage DurableContext injects.

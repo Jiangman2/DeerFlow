@@ -4,21 +4,25 @@ namespace: deer-flow
 
 resources:
   - weknora.yaml
+  - enterprise-model-feature-defaults-job.yaml
 
 configMapGenerator:
   - name: weknora-config
     files:
       - config.yaml
+      - builtin_agents.yaml
       - builtin_models.yaml
   - name: weknora-ui-patch
     files:
-      - index-DeX5ZUuT.js=ui-patches/index-DeX5ZUuT.js
-      - Login-JaWLYwhw.js=ui-patches/Login-JaWLYwhw.js
+      - index-itUW58et.js=ui-patches/index-itUW58et.js
       - weknora-BoLwP3xK.png=ui-patches/weknora-BoLwP3xK.png
       - favicon-bEsoBimf.ico=ui-patches/favicon-bEsoBimf.ico
       - index.html=ui-patches/index.html
       - config.js=ui-patches/config.js
       - default.conf=ui-patches/default.conf
+  - name: weknora-enterprise-model-defaults
+    files:
+      - defaults.sql=enterprise-model-feature-defaults.sql
 
 generatorOptions:
   disableNameSuffixHash: true

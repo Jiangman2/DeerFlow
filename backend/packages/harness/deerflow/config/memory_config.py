@@ -13,7 +13,7 @@ shared contract).
 import logging
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,71 @@ _LEGACY_DEERMEM_FIELDS = frozenset(
 )
 
 
+def _normalize_memory_config_dict(config_dict: dict[str, Any] | None) -> dict[str, Any]:
+    """Move legacy DeerMem keys into ``backend_config`` before validation.
+
+    ``AppConfig.model_validate`` constructs ``MemoryConfig`` before the
+    singleton loader runs. Normalizing here prevents Pydantic from dropping
+    legacy keys such as ``memory.model_name`` before they can be migrated.
+    """
+
+    normalized = dict(config_dict or {})
+    backend_config = dict(normalized.get("backend_config") or {})
+    migrated: list[str] = []
+
+    for key in list(normalized.keys()):
+        if key in _SHARED_FIELDS:
+            continue
+        if key not in _LEGACY_DEERMEM_FIELDS:
+            logger.warning(
+                "Unknown memory config key %r at top level (not a shared field %s nor a known legacy DeerMem field); ignored.",
+                key,
+                sorted(_SHARED_FIELDS),
+            )
+            normalized.pop(key)
+            continue
+
+        value = normalized.pop(key)
+        if value is None or value == "":
+            continue
+        if key == "model_name":
+            model_cfg = dict(backend_config.get("model") or {})
+            if "model" not in model_cfg:
+                model_cfg["model"] = value
+                backend_config["model"] = model_cfg
+                migrated.append(f"{key} -> backend_config.model.model")
+        elif key == "storage_path" and str(value).endswith(".json"):
+            logger.warning(
+                "Legacy memory.storage_path=%r looks like a file path; DeerMem now "
+                "treats storage_path as a root DIRECTORY (per-user memory under "
+                "{storage_path}/users/{uid}/memory.json). Dropped -- memory now "
+                "lands under the default root (runtime_home). Set "
+                "memory.backend_config.storage_path to a directory if you want a "
+                "custom location.",
+                value,
+            )
+        elif key not in backend_config:
+            backend_config[key] = value
+            migrated.append(f"{key} -> backend_config.{key}")
+
+    if migrated:
+        logger.warning(
+            "Migrated legacy top-level memory fields into backend_config; move them under memory.backend_config in config.yaml to silence this: %s",
+            ", ".join(migrated),
+        )
+    normalized["backend_config"] = backend_config
+    return normalized
+
+
 class MemoryConfig(BaseModel):
     """Host-shared memory configuration (backend-agnostic)."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_deermem_fields(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return _normalize_memory_config_dict(value)
+        return value
 
     enabled: bool = Field(
         default=True,
@@ -145,55 +208,4 @@ def load_memory_config_from_dict(config_dict: dict) -> None:
     ignored.
     """
     global _memory_config
-    config_dict = dict(config_dict or {})
-    backend_config = dict(config_dict.get("backend_config") or {})
-    migrated: list[str] = []
-    for key in list(config_dict.keys()):
-        if key in _SHARED_FIELDS:
-            continue
-        if key in _LEGACY_DEERMEM_FIELDS:
-            value = config_dict.pop(key)
-            if value is None or value == "":
-                continue  # default / empty value, no migration needed
-            if key == "model_name":
-                # old top-level model_name -> backend_config.model.model
-                model_cfg = dict(backend_config.get("model") or {})
-                if "model" not in model_cfg:
-                    model_cfg["model"] = value
-                    backend_config["model"] = model_cfg
-                    migrated.append(f"{key} -> backend_config.model.model")
-            elif key == "storage_path" and str(value).endswith(".json"):
-                # Pre-abstraction storage_path was a FILE path (absolute = shared
-                # file opting out of per-user; a relative value like the old default
-                # "memory.json" was ignored for per-user). DeerMem now treats it as a
-                # root DIRECTORY. Carrying a file-style value verbatim would be
-                # resolved as a dir and either orphan per-user memory or hit
-                # NotADirectoryError on save. Drop it so the factory's zero-config
-                # runtime_home kicks in (per-user location unchanged:
-                # {base_dir}/users/{uid}/memory.json) and warn the operator.
-                logger.warning(
-                    "Legacy memory.storage_path=%r looks like a file path; DeerMem now "
-                    "treats storage_path as a root DIRECTORY (per-user memory under "
-                    "{storage_path}/users/{uid}/memory.json). Dropped -- memory now "
-                    "lands under the default root (runtime_home). Set "
-                    "memory.backend_config.storage_path to a directory if you want a "
-                    "custom location.",
-                    value,
-                )
-            elif key not in backend_config:
-                # don't override an explicit backend_config value
-                backend_config[key] = value
-                migrated.append(f"{key} -> backend_config.{key}")
-        else:
-            logger.warning(
-                "Unknown memory config key %r at top level (not a shared field %s nor a known legacy DeerMem field); ignored.",
-                key,
-                sorted(_SHARED_FIELDS),
-            )
-    if migrated:
-        logger.warning(
-            "Migrated legacy top-level memory fields into backend_config; move them under memory.backend_config in config.yaml to silence this: %s",
-            ", ".join(migrated),
-        )
-    config_dict["backend_config"] = backend_config
-    _memory_config = MemoryConfig(**config_dict)
+    _memory_config = MemoryConfig(**_normalize_memory_config_dict(config_dict))

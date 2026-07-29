@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import base64
+import binascii
+import hashlib
 import io
 import json
 import logging
@@ -11,26 +13,36 @@ import re
 import subprocess
 import tempfile
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from email.parser import BytesParser
 from email.policy import default as email_policy
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import requests
 
 logger = logging.getLogger("deerflow.mineru_adapter")
 
 _HTML_DATA_IMAGE_RE = re.compile(
-    r"""<img\b[^>]*\bsrc\s*=\s*["']data:image/[^;"']+;base64,[^"']*["'][^>]*>""",
+    r"""<img\b(?P<before>[^>]*?)\bsrc\s*=\s*(?P<quote>["'])data:(?P<mime>image/[a-z0-9.+-]+);base64,(?P<data>[^"']*)(?P=quote)(?P<after>[^>]*)>""",
     re.IGNORECASE,
 )
 _MARKDOWN_DATA_IMAGE_RE = re.compile(
-    r"""!\[[^\]]*]\(\s*data:image/[^;)]+;base64,[^)]*\)""",
+    r"""!\[(?P<alt>[^\]]*)]\(\s*data:(?P<mime>image/[a-z0-9.+-]+);base64,(?P<data>[^)]*)\)""",
     re.IGNORECASE,
 )
+_IMAGE_EXTENSIONS = {
+    "image/bmp": "bmp",
+    "image/gif": "gif",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/tiff": "tiff",
+    "image/webp": "webp",
+}
 
 
 @dataclass(frozen=True)
@@ -108,10 +120,7 @@ def inspect_pdf_routing(
 
                 image_area = 0.0
                 for page_object in page.get_objects():
-                    if (
-                        getattr(page_object, "type", None)
-                        != raw_module.FPDF_PAGEOBJ_IMAGE
-                    ):
+                    if getattr(page_object, "type", None) != raw_module.FPDF_PAGEOBJ_IMAGE:
                         continue
                     left, bottom, right, top = page_object.get_bounds()
                     image_area += max(float(right) - float(left), 0.0) * max(
@@ -121,10 +130,7 @@ def inspect_pdf_routing(
 
                 image_ratio = min(image_area / page_area, 1.0)
                 text_chars = len(text.strip())
-                is_scanned = image_ratio >= full_page_image_ratio or (
-                    text_chars < minimum_text_chars
-                    and image_ratio >= low_text_image_ratio
-                )
+                is_scanned = image_ratio >= full_page_image_ratio or (text_chars < minimum_text_chars and image_ratio >= low_text_image_ratio)
                 if is_scanned:
                     scanned_pages.append(page_index + 1)
             finally:
@@ -210,12 +216,8 @@ def convert_to_pdf(content: bytes, filename: str) -> bytes:
         )
         output = source.with_suffix(".pdf")
         if completed.returncode != 0 or not output.is_file():
-            detail = (
-                completed.stderr or completed.stdout or "conversion failed"
-            ).strip()
-            raise RuntimeError(
-                f"LibreOffice could not convert {filename}: {detail[:500]}"
-            )
+            detail = (completed.stderr or completed.stdout or "conversion failed").strip()
+            raise RuntimeError(f"LibreOffice could not convert {filename}: {detail[:500]}")
         pdf = output.read_bytes()
         if not pdf.startswith(b"%PDF-"):
             raise RuntimeError(f"LibreOffice produced an invalid PDF for {filename}")
@@ -267,31 +269,131 @@ def _block_content(block: dict[str, Any]) -> str:
     return json.dumps(content, ensure_ascii=False, indent=2)
 
 
-def mineru_pages_to_markdown(payload: dict[str, Any]) -> str:
-    """Convert the enterprise page/block response into WeKnora markdown."""
+def _decode_inline_image(mime: str, encoded: str) -> tuple[str, str] | None:
+    normalized_mime = mime.lower()
+    extension = _IMAGE_EXTENSIONS.get(normalized_mime)
+    if extension is None:
+        return None
+
+    compact = re.sub(r"\s+", "", encoded)
+    maximum_bytes = _int_env("MINERU_MAX_INLINE_IMAGE_BYTES", 20 * 1024 * 1024)
+    if len(compact) > ((maximum_bytes + 2) // 3) * 4:
+        logger.warning("Skipping oversized MinerU inline image")
+        return None
+
+    try:
+        content = base64.b64decode(compact, validate=True)
+    except (binascii.Error, ValueError):
+        logger.warning("Skipping malformed MinerU inline image")
+        return None
+    if not content or len(content) > maximum_bytes:
+        return None
+
+    digest = hashlib.sha256(content).hexdigest()
+    path = f"images/mineru-{digest[:24]}.{extension}"
+    return path, base64.b64encode(content).decode("ascii")
+
+
+def extract_inline_images(markdown: str) -> tuple[str, dict[str, str]]:
+    """Move inline MinerU images into WeKnora's persistent image contract."""
+    images: dict[str, str] = {}
+
+    def replace_html(match: re.Match[str]) -> str:
+        extracted = _decode_inline_image(match.group("mime"), match.group("data"))
+        if extracted is None:
+            return "[图片]"
+        path, encoded = extracted
+        images[path] = encoded
+        return f'<img{match.group("before")}src="{path}"{match.group("after")}>'
+
+    def replace_markdown(match: re.Match[str]) -> str:
+        extracted = _decode_inline_image(match.group("mime"), match.group("data"))
+        if extracted is None:
+            return "[图片]"
+        path, encoded = extracted
+        images[path] = encoded
+        return f"![{match.group('alt')}]({path})"
+
+    markdown = _HTML_DATA_IMAGE_RE.sub(replace_html, markdown)
+    markdown = _MARKDOWN_DATA_IMAGE_RE.sub(replace_markdown, markdown)
+    return markdown, images
+
+
+def render_pdf_page_images(
+    pdf: bytes,
+    page_numbers: tuple[int, ...] | None,
+    *,
+    pdfium_module: Any | None = None,
+) -> tuple[str, dict[str, str]]:
+    """Render source pages so scanned pages and slides retain visual evidence."""
+    if pdfium_module is None:
+        import pypdfium2 as pdfium_module
+
+    dpi = _int_env("MINERU_SOURCE_PAGE_DPI", 110)
+    jpeg_quality = _int_env("MINERU_SOURCE_PAGE_JPEG_QUALITY", 82)
+    maximum_pages = _int_env("MINERU_MAX_SOURCE_PAGE_IMAGES", 200)
+    document = pdfium_module.PdfDocument(pdf)
+    images: dict[str, str] = {}
+    references: list[str] = []
+    try:
+        selected_pages = tuple(range(1, len(document) + 1)) if page_numbers is None else page_numbers
+        if len(selected_pages) > maximum_pages:
+            logger.warning(
+                "Only the first %d source page images will be retained",
+                maximum_pages,
+            )
+            selected_pages = selected_pages[:maximum_pages]
+
+        for page_number in selected_pages:
+            if page_number < 1 or page_number > len(document):
+                continue
+            page = document[page_number - 1]
+            bitmap = None
+            image = None
+            try:
+                bitmap = page.render(scale=max(dpi, 72) / 72)
+                image = bitmap.to_pil().convert("RGB")
+                output = io.BytesIO()
+                image.save(
+                    output,
+                    format="JPEG",
+                    quality=min(max(jpeg_quality, 40), 95),
+                    optimize=True,
+                )
+                encoded = base64.b64encode(output.getvalue()).decode("ascii")
+                path = f"images/source-page-{page_number:04d}.jpg"
+                images[path] = encoded
+                references.append(f"![原始第 {page_number} 页]({path})")
+            finally:
+                _close_resource(image)
+                _close_resource(bitmap)
+                _close_resource(page)
+    finally:
+        _close_resource(document)
+
+    return "\n\n".join(references), images
+
+
+def mineru_pages_to_markdown(
+    payload: dict[str, Any],
+) -> tuple[str, dict[str, str]]:
+    """Convert the enterprise page/block response into WeKnora markdown/assets."""
     sections: list[str] = []
     for index, page in enumerate(payload.get("pages", []), start=1):
         if not isinstance(page, dict):
             continue
         page_number = page.get("page", index)
         blocks = page.get("blocks", [])
-        contents = [
-            content
-            for block in blocks
-            if isinstance(block, dict) and (content := _block_content(block))
-        ]
+        contents = [content for block in blocks if isinstance(block, dict) and (content := _block_content(block))]
         sections.append(f"## 第 {page_number} 页\n\n" + "\n\n".join(contents))
     markdown = "\n\n".join(sections).strip()
-    markdown = _HTML_DATA_IMAGE_RE.sub("[图片]", markdown)
-    markdown = _MARKDOWN_DATA_IMAGE_RE.sub("[图片]", markdown)
+    markdown, images = extract_inline_images(markdown)
     if not markdown:
         raise RuntimeError("Enterprise MinerU returned no parseable content")
-    return markdown
+    return markdown, images
 
 
-def weknora_response(
-    markdown: str, images: dict[str, str] | None = None
-) -> dict[str, Any]:
+def weknora_response(markdown: str, images: dict[str, str] | None = None) -> dict[str, Any]:
     """Wrap markdown in WeKnora's self-hosted MinerU response schema."""
     return {"results": {"document": {"md_content": markdown, "images": images or {}}}}
 
@@ -299,18 +401,43 @@ def weknora_response(
 def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
     """Route searchable PDFs locally and OCR presentations/scanned PDFs."""
     suffix = detect_input_suffix(content)
+    decision: PDFRoutingDecision | None = None
     if suffix == ".pdf":
-        decision = inspect_pdf_routing(content)
-        logger.info(
-            "PDF routing filename=%s pages=%d scanned_pages=%s route=%s",
-            filename,
-            decision.page_count,
-            ",".join(map(str, decision.scanned_pages)) or "none",
-            "mineru" if decision.use_mineru else "builtin",
-        )
-        if not decision.use_mineru:
-            markdown, images = parse_pdf_with_builtin(content, filename)
-            return weknora_response(markdown, images)
+        try:
+            decision = inspect_pdf_routing(content)
+        except Exception as exc:
+            logger.warning(
+                "PDF routing inspection failed for %s; trying the builtin parser before MinerU: %s",
+                filename,
+                exc,
+            )
+            try:
+                markdown, images = parse_pdf_with_builtin(content, filename)
+                return weknora_response(markdown, images)
+            except Exception as builtin_exc:
+                logger.warning(
+                    "WeKnora builtin PDF recovery failed for %s; falling back to MinerU: %s",
+                    filename,
+                    builtin_exc,
+                )
+        else:
+            logger.info(
+                "PDF routing filename=%s pages=%d scanned_pages=%s route=%s",
+                filename,
+                decision.page_count,
+                ",".join(map(str, decision.scanned_pages)) or "none",
+                "mineru" if decision.use_mineru else "builtin",
+            )
+            if not decision.use_mineru:
+                try:
+                    markdown, images = parse_pdf_with_builtin(content, filename)
+                    return weknora_response(markdown, images)
+                except Exception as exc:
+                    logger.warning(
+                        "WeKnora builtin PDF parsing failed for %s; falling back to MinerU: %s",
+                        filename,
+                        exc,
+                    )
         pdf = content
         pdf_filename = filename
     else:
@@ -322,16 +449,32 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
         api_token=os.environ["MINERU_API_TOKEN"],
         timeout_seconds=int(os.getenv("MINERU_TIMEOUT_SECONDS", "300")),
     ).parse_pdf(pdf, pdf_filename)
-    return weknora_response(mineru_pages_to_markdown(parsed))
+    markdown, images = mineru_pages_to_markdown(parsed)
+
+    page_numbers = decision.scanned_pages if suffix == ".pdf" and decision is not None and decision.use_mineru else None
+    try:
+        source_page_markdown, source_page_images = render_pdf_page_images(
+            pdf,
+            page_numbers,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Source-page rendering failed for %s; preserving parsed text without page images: %s",
+            filename,
+            exc,
+        )
+        source_page_markdown, source_page_images = "", {}
+    if source_page_markdown:
+        markdown = f"{markdown}\n\n## 原始页面图像\n\n{source_page_markdown}"
+    images.update(source_page_images)
+    return weknora_response(markdown, images)
 
 
 def parse_multipart_upload(content_type: str, body: bytes) -> tuple[str, bytes]:
     """Extract WeKnora's file part without relying on the deprecated cgi module."""
     if "multipart/form-data" not in content_type.lower():
         raise ValueError("Content-Type must be multipart/form-data")
-    envelope = (
-        f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode() + body
-    )
+    envelope = f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode() + body
     message = BytesParser(policy=email_policy).parsebytes(envelope)
     if not message.is_multipart():
         raise ValueError("Invalid multipart upload")

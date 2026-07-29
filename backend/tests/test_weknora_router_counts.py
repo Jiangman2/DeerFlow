@@ -12,6 +12,166 @@ from starlette.datastructures import UploadFile
 from app.gateway.routers import weknora
 
 
+class _BinaryResponse:
+    def __init__(
+        self,
+        *,
+        status_code: int = 200,
+        content: bytes = b"image-bytes",
+        content_type: str = "image/png",
+    ):
+        self.status_code = status_code
+        self.content = content
+        self.headers = {"content-type": content_type}
+
+
+class _BinaryClient:
+    def __init__(self, response: _BinaryResponse, captured: dict[str, object], **kwargs):
+        self.response = response
+        self.captured = captured
+        self.captured["client_kwargs"] = kwargs
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+    async def get(self, url, **kwargs):
+        self.captured.update({"url": url, **kwargs})
+        return self.response
+
+
+@pytest.mark.asyncio
+async def test_proxy_knowledge_image_uses_user_session_and_resolved_tenant(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_context(user, knowledge_base_id, requested_tenant_id):
+        assert knowledge_base_id == "kb-1"
+        assert requested_tenant_id is None
+        return "user-token", "tenant-1"
+
+    monkeypatch.setattr(weknora, "_resolve_knowledge_base_access_context", fake_context)
+    monkeypatch.setattr(
+        weknora,
+        "weknora_endpoint",
+        lambda path: f"http://weknora.test/api/v1{path}",
+    )
+    monkeypatch.setattr(weknora, "weknora_timeout", lambda: 10.0)
+    monkeypatch.setattr(
+        weknora.httpx,
+        "AsyncClient",
+        lambda **kwargs: _BinaryClient(_BinaryResponse(), captured, **kwargs),
+    )
+
+    response = await weknora.get_knowledge_file(
+        "kb-1",
+        file_path="resource://image_handle-1",
+        tenant_id=None,
+        user=SimpleNamespace(),
+    )
+
+    assert response.status_code == 200
+    assert response.body == b"image-bytes"
+    assert response.media_type == "image/png"
+    assert response.headers["cache-control"] == "private, max-age=3600"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert captured["url"] == "http://weknora.test/api/v1/knowledge-bases/kb-1/files"
+    assert captured["params"] == {"file_path": "resource://image_handle-1"}
+    assert captured["headers"]["Authorization"] == "Bearer user-token"
+    assert captured["headers"]["X-Tenant-ID"] == "tenant-1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "file_path",
+    [
+        "https://example.com/image.png",
+        "resource://",
+        "resource://../../secret",
+        "resource://image/child",
+    ],
+)
+async def test_proxy_knowledge_image_rejects_untrusted_resource_paths(file_path):
+    with pytest.raises(HTTPException) as exc_info:
+        await weknora.get_knowledge_file(
+            "kb-1",
+            file_path=file_path,
+            tenant_id=None,
+            user=SimpleNamespace(),
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_proxy_knowledge_image_rejects_non_image_response(monkeypatch):
+    async def fake_context(user, knowledge_base_id, requested_tenant_id):
+        return "user-token", "tenant-1"
+
+    monkeypatch.setattr(weknora, "_resolve_knowledge_base_access_context", fake_context)
+    monkeypatch.setattr(weknora, "weknora_timeout", lambda: 10.0)
+    monkeypatch.setattr(
+        weknora,
+        "weknora_endpoint",
+        lambda path: f"http://weknora.test/api/v1{path}",
+    )
+    monkeypatch.setattr(
+        weknora.httpx,
+        "AsyncClient",
+        lambda **kwargs: _BinaryClient(
+            _BinaryResponse(content=b"document", content_type="application/pdf"),
+            {},
+            **kwargs,
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await weknora.get_knowledge_file(
+            "kb-1",
+            file_path="resource://image_handle-1",
+            tenant_id=None,
+            user=SimpleNamespace(),
+        )
+
+    assert exc_info.value.status_code == 415
+
+
+@pytest.mark.asyncio
+async def test_proxy_raw_resource_uses_weknora_root_files_endpoint(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_session(user):
+        return SimpleNamespace(token="user-token", tenant={"id": "tenant-1"})
+
+    monkeypatch.setattr(
+        weknora,
+        "ensure_weknora_session_for_deerflow_user",
+        fake_session,
+    )
+    monkeypatch.setattr(
+        weknora,
+        "weknora_endpoint",
+        lambda path: f"http://weknora.test/api/v1{path}",
+    )
+    monkeypatch.setattr(weknora, "weknora_timeout", lambda: 10.0)
+    monkeypatch.setattr(
+        weknora.httpx,
+        "AsyncClient",
+        lambda **kwargs: _BinaryClient(_BinaryResponse(), captured, **kwargs),
+    )
+
+    response = await weknora.get_active_tenant_file(
+        file_path="resource://image_handle-1",
+        user=SimpleNamespace(),
+    )
+
+    assert response.status_code == 200
+    assert captured["url"] == "http://weknora.test/files"
+    assert captured["headers"]["Authorization"] == "Bearer user-token"
+    assert captured["headers"]["X-Tenant-ID"] == "tenant-1"
+
+
 @pytest.mark.asyncio
 async def test_upload_pptx_selects_configured_mineru_parser(monkeypatch):
     captured: dict[str, object] = {}

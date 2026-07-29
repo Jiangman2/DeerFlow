@@ -95,6 +95,10 @@ export function resolveMessageImageURL(
   threadId: string,
   artifactPaths: readonly string[],
 ) {
+  if (/^resource:\/\/[A-Za-z0-9_-]{1,256}$/.test(src)) {
+    return `${getBackendBaseURL()}/api/weknora/files?file_path=${encodeURIComponent(src)}`;
+  }
+
   if (src.startsWith("/mnt/")) {
     return resolveArtifactURL(src, threadId);
   }

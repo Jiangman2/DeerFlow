@@ -205,7 +205,7 @@ spec:
               readOnly: true
       containers:
         - name: gateway
-          image: deer-flow-gateway:dev-20260724-weknora-deepseek-v2
+          image: deer-flow-gateway:dev-20260726-consolidation-v1
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
@@ -377,7 +377,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: deer-flow-frontend:dev-20260724-agent-links-v1
+          image: deer-flow-frontend:dev-20260726-consolidation-v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000

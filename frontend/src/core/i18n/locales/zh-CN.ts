@@ -32,6 +32,9 @@ export const zhCN: Translations = {
     download: "下载",
     thinking: "思考",
     artifacts: "文件",
+    noArtifactSelected: "尚未选择文件",
+    selectArtifactToView: "请选择一个文件以查看详细信息",
+    todos: "待办事项",
     public: "公共",
     custom: "自定义",
     notAvailableInDemoMode: "在演示模式下不可用",
@@ -310,8 +313,7 @@ export const zhCN: Translations = {
     model: {
       label: "执行模型",
       placeholder: "请选择模型",
-      hint:
-        "模型会随任务保存，不受聊天页切换模型影响；企业环境新任务默认使用 DeepSeek V4 Flash。",
+      hint: "模型会随任务保存，不受聊天页切换模型影响；企业环境新任务默认使用 DeepSeek V4 Flash。",
       unset: "未设置",
     },
     create: {
@@ -714,6 +716,8 @@ export const zhCN: Translations = {
       title: "记忆",
       description:
         "本平台会在后台不断从你的对话中自动学习。这些记忆能帮助本平台更好地理解你，并提供更个性化的体验。",
+      updateBehaviorHint:
+        "记忆会在普通对话结束后延迟一小段时间于后台更新，只有可跨会话复用的信息才会发生变化。显式选择知识库范围的对话不会写入个人长期记忆。",
       empty: "暂无可展示的记忆数据。",
       rawJson: "原始 JSON",
       exportButton: "导出记忆",
@@ -883,6 +887,9 @@ export const zhCN: Translations = {
     backToHome: "← 返回首页",
     networkError: "网络错误，请重试。",
     authFailed: "身份验证失败。",
+    signingIn: "正在登录...",
+    redirecting: "正在跳转...",
+    authFailedRedirecting: "身份验证失败，正在返回登录页...",
     errors: {
       sso_failed: "SSO 登录失败，请重试或使用邮箱登录。",
       sso_cancelled: "SSO 登录已取消。",

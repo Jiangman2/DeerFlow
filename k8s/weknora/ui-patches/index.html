@@ -1,107 +1,626 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
-<head>
-    <meta charset="utf-8">
+  <head>
+    <meta charset="utf-8" />
     <title>知识库</title>
-    <script>try{localStorage.removeItem('weknora_auto_setup_failed')}catch(e){}</script>
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-    <meta name="renderer" content="webkit">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="shortcut icon" type="image/x-icon" href="/assets/favicon-bEsoBimf.ico">
-    <link rel="icon" type="image/x-icon" href="/assets/favicon-bEsoBimf.ico">
-    <link rel="apple-touch-icon" href="/assets/favicon-bEsoBimf.ico">
-    <link rel="modulepreload" crossorigin href="/assets/tdesign-icon-offline-DpBpi-YD.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-highlight-2iXUmHrb.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-mermaid-WsNc9-GI.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-markdown-CR0bZxsY.js">
-    <link rel="modulepreload" crossorigin href="/assets/settings-CwixRhv-.js">
-    <link rel="modulepreload" crossorigin href="/assets/security-DMhmaURM.js">
-    <link rel="modulepreload" crossorigin href="/assets/index-DeX5ZUuT.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-highlight-2iXUmHrb.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-mermaid-WsNc9-GI.js">
-    <link rel="modulepreload" crossorigin href="/assets/tdesign-icon-offline-DpBpi-YD.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-markdown-CR0bZxsY.js">
-    <link rel="modulepreload" crossorigin href="/assets/index-DeX5ZUuT.js">
-    <link rel="modulepreload" crossorigin href="/assets/settings-CwixRhv-.js">
-    <link rel="modulepreload" crossorigin href="/assets/security-DMhmaURM.js">
-    <link rel="stylesheet" crossorigin href="/assets/vendor-highlight-BiJVEjr2.css">
-    <link rel="stylesheet" crossorigin href="/assets/tdesign-icon-offline-DgdVyyX-.css">
-    <link rel="stylesheet" crossorigin href="/assets/vendor-markdown-CfVKi3_s.css">
-    <link rel="stylesheet" crossorigin href="/assets/main-CG2i0oYS.css">
-</head>
-<body>
-<script src="/config.js?v=deerflow-sso-same-origin-1"></script>
-<script type="module">
-try {
-  const ssoUrl = globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL ||
-    '/api/weknora/sso-session';
-  const response = await fetch(ssoUrl, { credentials: 'include', cache: 'no-store' });
-  if (response.ok) {
-    const data = await response.json();
-    const tenant = data && (data.active_tenant || data.tenant);
-    if (data?.success && data.token && data.user && tenant) {
-      let previousUser = null;
-      try { previousUser = JSON.parse(localStorage.getItem('weknora_user') || 'null'); } catch (_) {}
-      const userChanged = previousUser?.id && String(previousUser.id) !== String(data.user.id);
-      if (userChanged) {
-        for (const key of [
-          'weknora_selected_tenant_id',
-          'weknora_selected_tenant_name',
-          'weknora_knowledge_bases',
-          'weknora_current_kb',
-          'weknora_last_chat_model_id'
-        ]) localStorage.removeItem(key);
+    <script>
+      try {
+        localStorage.removeItem("weknora_auto_setup_failed");
+      } catch (e) {}
+    </script>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimal-ui"
+    />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="renderer" content="webkit" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link
+      rel="shortcut icon"
+      type="image/x-icon"
+      href="/assets/favicon-bEsoBimf.ico"
+    />
+    <link rel="icon" type="image/x-icon" href="/assets/favicon-bEsoBimf.ico" />
+    <link rel="apple-touch-icon" href="/assets/favicon-bEsoBimf.ico" />
+    <link
+      rel="modulepreload"
+      crossorigin
+      href="/assets/tdesign-icon-offline-D7rAiOht.js"
+    />
+    <link
+      rel="modulepreload"
+      crossorigin
+      href="/assets/vendor-highlight-Cz3B6uZb.js"
+    />
+    <link
+      rel="modulepreload"
+      crossorigin
+      href="/assets/vendor-mermaid-Bkyya5d_.js"
+    />
+    <link
+      rel="modulepreload"
+      crossorigin
+      href="/assets/vendor-markdown-CxA3LRJ6.js"
+    />
+    <link rel="modulepreload" crossorigin href="/assets/settings-Ck3CxLjU.js" />
+    <link rel="modulepreload" crossorigin href="/assets/security-DPPZJOiS.js" />
+    <link rel="modulepreload" crossorigin href="/assets/index-itUW58et.js" />
+    <link
+      rel="modulepreload"
+      crossorigin
+      href="/assets/vendor-highlight-Cz3B6uZb.js"
+    />
+    <link
+      rel="modulepreload"
+      crossorigin
+      href="/assets/vendor-mermaid-Bkyya5d_.js"
+    />
+    <link
+      rel="modulepreload"
+      crossorigin
+      href="/assets/tdesign-icon-offline-D7rAiOht.js"
+    />
+    <link
+      rel="modulepreload"
+      crossorigin
+      href="/assets/vendor-markdown-CxA3LRJ6.js"
+    />
+    <link rel="modulepreload" crossorigin href="/assets/index-itUW58et.js" />
+    <link rel="modulepreload" crossorigin href="/assets/settings-Ck3CxLjU.js" />
+    <link rel="modulepreload" crossorigin href="/assets/security-DPPZJOiS.js" />
+    <link
+      rel="stylesheet"
+      crossorigin
+      href="/assets/vendor-highlight-BiJVEjr2.css"
+    />
+    <link
+      rel="stylesheet"
+      crossorigin
+      href="/assets/tdesign-icon-offline-DgdVyyX-.css"
+    />
+    <link
+      rel="stylesheet"
+      crossorigin
+      href="/assets/vendor-markdown-CfVKi3_s.css"
+    />
+    <link rel="stylesheet" crossorigin href="/assets/main-DM_WFx4W.css" />
+  </head>
+  <body>
+    <script src="/config.js?v=deerflow-sso-same-origin-1"></script>
+    <script type="module">
+      const deerflowPolicyKey = "deerflow_weknora_ui_policy";
+      const defaultChatModelId = "deerflow-cnooc-deepseek-v4-flash";
+      const standardPathPrefixes = [
+        "/platform/creatChat",
+        "/platform/chat/",
+        "/platform/knowledge-bases",
+        "/platform/organizations",
+        "/platform/agents",
+      ];
+      const isStandardPath = (pathname) =>
+        standardPathPrefixes.some(
+          (prefix) =>
+            pathname === prefix ||
+            pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`),
+        );
+      const readDeerFlowPolicy = () => {
+        try {
+          return JSON.parse(localStorage.getItem(deerflowPolicyKey) || "null");
+        } catch (_) {
+          return null;
+        }
+      };
+      const enforceDeerFlowPolicyPath = () => {
+        const policy = readDeerFlowPolicy();
+        if (
+          !policy ||
+          policy.full_ui !== false ||
+          isStandardPath(location.pathname)
+        ) {
+          return;
+        }
+        const target = policy.default_path || "/platform/knowledge-bases";
+        history.replaceState(history.state, "", target);
+        window.dispatchEvent(
+          new PopStateEvent("popstate", { state: history.state }),
+        );
+      };
+      const installDeerFlowPolicyNavigationGuard = () => {
+        const policy = readDeerFlowPolicy();
+        if (!policy || policy.full_ui !== false) return;
+        if (!isStandardPath(location.pathname)) {
+          history.replaceState(
+            history.state,
+            "",
+            policy.default_path || "/platform/knowledge-bases",
+          );
+        }
+        for (const method of ["pushState", "replaceState"]) {
+          const original = history[method].bind(history);
+          history[method] = (...args) => {
+            original(...args);
+            queueMicrotask(enforceDeerFlowPolicyPath);
+          };
+        }
+        window.addEventListener("popstate", () =>
+          queueMicrotask(enforceDeerFlowPolicyPath),
+        );
+        document.addEventListener(
+          "click",
+          (event) => {
+            const anchor =
+              event.target instanceof Element
+                ? event.target.closest("a[href]")
+                : null;
+            if (!anchor) return;
+            const url = new URL(anchor.href, location.href);
+            if (
+              url.origin === location.origin &&
+              url.pathname.startsWith("/platform/") &&
+              !isStandardPath(url.pathname)
+            ) {
+              event.preventDefault();
+              history.pushState(
+                {},
+                "",
+                policy.default_path || "/platform/knowledge-bases",
+              );
+            }
+          },
+          true,
+        );
+      };
+      try {
+        const ssoUrl =
+          globalThis.__RUNTIME_CONFIG__?.DEERFLOW_SSO_URL ||
+          "/api/weknora/sso-session";
+        const response = await fetch(ssoUrl, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const tenant = data && (data.active_tenant || data.tenant);
+          if (data?.success && data.token && data.user && tenant) {
+            const tenantScopedKeys = [
+              "weknora_selected_tenant_id",
+              "weknora_selected_tenant_name",
+              "weknora_knowledge_bases",
+              "weknora_current_kb",
+              "weknora_last_chat_model_id",
+            ];
+            const clearTenantScopedState = () => {
+              for (const key of tenantScopedKeys) localStorage.removeItem(key);
+            };
+            let previousUser = null;
+            try {
+              previousUser = JSON.parse(
+                localStorage.getItem("weknora_user") || "null",
+              );
+            } catch (_) {}
+            const userChanged =
+              previousUser?.id &&
+              String(previousUser.id) !== String(data.user.id);
+            if (userChanged) clearTenantScopedState();
+            // A failed native-auth bootstrap can make WeKnora persist its standalone
+            // Lite fallback. DeerFlow SSO always targets the full workspace UI, where
+            // Lite mode would incorrectly hide organizations/shared spaces.
+            localStorage.removeItem("weknora_lite_mode");
+            sessionStorage.removeItem("weknora_lite_last_path");
+            localStorage.removeItem("weknora_auto_setup_failed");
+            localStorage.setItem("weknora_token", data.token);
+            if (data.refresh_token) {
+              localStorage.setItem("weknora_refresh_token", data.refresh_token);
+            } else {
+              localStorage.removeItem("weknora_refresh_token");
+            }
+            localStorage.setItem("weknora_user", JSON.stringify(data.user));
+            localStorage.setItem("weknora_tenant", JSON.stringify(tenant));
+            localStorage.setItem(
+              "weknora_memberships",
+              JSON.stringify(data.memberships || []),
+            );
+            const uiPolicy = data.ui_policy || {
+              mode: data.user?.is_system_admin
+                ? "system_admin"
+                : "personal_workspace_owner",
+              full_ui: Boolean(data.user?.is_system_admin),
+              default_path: "/platform/knowledge-bases",
+            };
+            localStorage.setItem(deerflowPolicyKey, JSON.stringify(uiPolicy));
+            document.documentElement.setAttribute(
+              "data-deerflow-weknora-ui",
+              uiPolicy.mode || "personal_workspace_owner",
+            );
+            if (
+              uiPolicy.full_ui === false &&
+              !localStorage.getItem("weknora_last_chat_model_id")
+            ) {
+              localStorage.setItem(
+                "weknora_last_chat_model_id",
+                defaultChatModelId,
+              );
+            }
+
+            const selectedTenantId = String(
+              localStorage.getItem("weknora_selected_tenant_id") || "",
+            ).trim();
+            if (selectedTenantId && selectedTenantId !== String(tenant.id)) {
+              try {
+                const selectedTenantResponse = await fetch(
+                  "/api/weknora-native/validate-tenant",
+                  {
+                    credentials: "include",
+                    cache: "no-store",
+                    headers: {
+                      Authorization: `Bearer ${data.token}`,
+                      "X-Tenant-ID": selectedTenantId,
+                    },
+                  },
+                );
+                const validationPayload = await selectedTenantResponse
+                  .json()
+                  .catch(() => null);
+                if (
+                  selectedTenantResponse.ok &&
+                  validationPayload?.valid === false
+                ) {
+                  clearTenantScopedState();
+                }
+              } catch (_) {
+                // Keep the native selection on transient network errors.
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn("[deerflow-sso-bootstrap] session exchange failed", error);
       }
-      localStorage.removeItem('weknora_auto_setup_failed');
-      localStorage.setItem('weknora_token', data.token);
-      if (data.refresh_token) {
-        localStorage.setItem('weknora_refresh_token', data.refresh_token);
-      } else {
-        localStorage.removeItem('weknora_refresh_token');
+      installDeerFlowPolicyNavigationGuard();
+      await import("/assets/main-BUSZvhEQ.js");
+    </script>
+    <script defer src="/tdesign-icons/0.4.1/fonts/index.js"></script>
+    <div id="app"></div>
+    <style id="deerflow-brand-theme">
+      :root,
+      [theme-mode="light"],
+      [theme-mode="dark"] {
+        --brand-main: #0868bd !important;
+        --td-brand-color-1: #eef7ff !important;
+        --td-brand-color-2: #dceeff !important;
+        --td-brand-color-3: #b8dcf8 !important;
+        --td-brand-color-4: #82bfe9 !important;
+        --td-brand-color-5: #4b9ed7 !important;
+        --td-brand-color-6: #1687c9 !important;
+        --td-brand-color-7: #0868bd !important;
+        --td-brand-color-8: #07569f !important;
+        --td-brand-color-9: #06477f !important;
+        --td-brand-color-10: #053963 !important;
+        --td-brand-color: #0868bd !important;
+        --td-brand-color-light: #eef7ff !important;
+        --td-brand-color-hover: #075aa5 !important;
+        --td-brand-color-active: #064c8c !important;
+        --td-brand-color-focus: #dceeff !important;
+        --td-brand-color-disabled: #82bfe9 !important;
+        --td-text-color-brand: #0868bd !important;
+        --td-text-color-link: #0868bd !important;
       }
-      localStorage.setItem('weknora_user', JSON.stringify(data.user));
-      localStorage.setItem('weknora_tenant', JSON.stringify(tenant));
-      localStorage.setItem('weknora_memberships', JSON.stringify(data.memberships || []));
-    }
-  }
-} catch (error) {
-  console.warn('[deerflow-sso-bootstrap] session exchange failed', error);
-}
-await import('/assets/main-pzt9Cxn1.js');
-</script>
-<script defer src="/tdesign-icons/0.4.1/fonts/index.js"></script>
-<div id="app"></div>
-<style id="deerflow-brand-theme">
-:root,[theme-mode="light"]{--td-brand-color-1:#eef7ff;--td-brand-color-2:#dceeff;--td-brand-color-3:#b8dcf8;--td-brand-color-4:#82bfe9;--td-brand-color-5:#4b9ed7;--td-brand-color-6:#1687c9;--td-brand-color-7:#0868bd;--td-brand-color-8:#07569f;--td-brand-color-9:#06477f;--td-brand-color-10:#053963;--td-brand-color:#0868bd;--td-brand-color-hover:#075aa5;--td-brand-color-active:#064c8c;--td-brand-color-focus:#0868bd;--td-bg-color-page:#f8fafc;--td-bg-color-container:#fff}
-html,body,#app{background-color:#f8fafc!important}
-.t-button--theme-primary,.t-button.t-is-active{border-color:#07569f!important;background-color:#0868bd!important;box-shadow:0 5px 14px rgb(8 104 189 / 22%)}
-.t-button--theme-primary:hover{background-color:#075aa5!important;box-shadow:0 7px 18px rgb(8 104 189 / 28%)}
-.t-menu__item.t-is-active,.t-tabs__nav-item.t-is-active{color:#0868bd!important}.t-menu__item.t-is-active{background-color:#eef7ff!important}
-.t-input:focus,.t-input--focused,.t-textarea:focus,.t-select-input--focused{border-color:#1687c9!important;box-shadow:0 0 0 2px rgb(8 104 189 / 14%)!important}
-</style>
-<script id="deerflow-brand-text">
-(function(){
-  var pattern=/WeKnora/gi;
-  var name='\u77e5\u8bc6\u5e93';
-  var hiddenUserLinks=['Claw Skill','Chrome \u63d2\u4ef6','GitHub'];
-  function replace(value){return typeof value==='string'?value.replace(pattern,name):value}
-  function brandTitle(){var current=document.title;var next=replace(current)||name;if(next!==current)document.title=next}
-  function brand(node){
-    if(node.nodeType===Node.TEXT_NODE){var parent=node.parentElement;if(parent&&!parent.closest('script,style,code,pre')){var current=node.nodeValue;var next=replace(current);if(next!==current)node.nodeValue=next;var item=parent.closest('.user-dropdown .menu-item');if(item&&hiddenUserLinks.some(function(label){return (item.textContent||'').indexOf(label)>=0}))item.remove()}return}
-    if(!(node instanceof Element))return;
-    var item=node.closest('.user-dropdown .menu-item');if(item&&hiddenUserLinks.some(function(label){return (item.textContent||'').indexOf(label)>=0})){item.remove();return}
-    ['aria-label','alt','placeholder','title'].forEach(function(attr){if(node.hasAttribute(attr)){var current=node.getAttribute(attr);var next=replace(current);if(next!==current)node.setAttribute(attr,next)}});
-    Array.from(node.childNodes).forEach(brand);
-  }
-  function start(){
-    brandTitle();if(document.body)brand(document.body);
-    new MutationObserver(function(records){records.forEach(function(record){record.addedNodes.forEach(brand);if(record.type==='characterData')brand(record.target)});brandTitle()}).observe(document.documentElement,{childList:true,subtree:true,characterData:true});
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
-})();
-</script>
-</body>
+      :root,
+      [theme-mode="light"] {
+        --td-bg-color-page: #f8fafc;
+        --td-bg-color-container: #fff;
+      }
+      html,
+      body,
+      #app {
+        background-color: #f8fafc !important;
+      }
+      .t-button--theme-primary.t-button--variant-base,
+      .t-button.t-is-active {
+        border-color: #07569f !important;
+        background-color: #0868bd !important;
+        box-shadow: 0 5px 14px rgb(8 104 189 / 22%);
+      }
+      .t-button--theme-primary.t-button--variant-base:hover {
+        background-color: #075aa5 !important;
+        box-shadow: 0 7px 18px rgb(8 104 189 / 28%);
+      }
+      .t-menu__item.t-is-active,
+      .t-tabs__nav-item.t-is-active {
+        color: #0868bd !important;
+      }
+      .t-menu__item.t-is-active {
+        background-color: #eef7ff !important;
+      }
+      .t-radio-button.t-is-checked {
+        border-color: #0868bd !important;
+        background-color: #0868bd !important;
+        color: #fff !important;
+      }
+      .t-radio-button.t-is-checked::before,
+      .t-radio-button.t-is-checked + .t-radio-button::before {
+        background-color: #0868bd !important;
+      }
+      .t-checkbox.t-is-checked .t-checkbox__input {
+        border-color: #0868bd !important;
+        background-color: #0868bd !important;
+      }
+      .t-checkbox.t-is-checked .t-checkbox__label,
+      .t-link--theme-primary {
+        color: #0868bd;
+      }
+      .t-switch.t-is-checked {
+        border-color: #0868bd !important;
+        background-color: #0868bd !important;
+      }
+      .indexing-check-item.is-checked {
+        border-color: #0868bd !important;
+        background-color: #eef7ff !important;
+      }
+      .settings-nav .nav-item.active {
+        background-color: #eef7ff !important;
+        color: #0868bd !important;
+      }
+      .t-input:focus,
+      .t-input--focused,
+      .t-textarea:focus,
+      .t-select-input--focused {
+        border-color: #1687c9 !important;
+        box-shadow: 0 0 0 2px rgb(8 104 189 / 14%) !important;
+      }
+      .logo_box .logo,
+      .logo_box .lite-badge {
+        display: none !important;
+      }
+      .logo_box::before {
+        color: #172033;
+        content: "\77e5\8bc6\5e93";
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        line-height: 1;
+        white-space: nowrap;
+      }
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        [data-deerflow-standard-sidebar-hidden="true"] {
+        display: none !important;
+      }
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        [data-guide="nav-integrations"] {
+        display: none !important;
+      }
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        .user-dropdown
+        .menu-item,
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        .user-dropdown
+        .menu-divider,
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        .tenant-submenu-floating,
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        .tenant-submenu-create,
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        .dropdown-tenant-panel-trail {
+        display: none !important;
+      }
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        .dropdown-tenant-panel {
+        pointer-events: none !important;
+      }
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        .settings-modal[data-deerflow-kb-editor="simple"]
+        [data-guide="kb-editor-sidebar"]
+        .nav-group-title,
+      html[data-deerflow-weknora-ui="personal_workspace_owner"]
+        .settings-modal[data-deerflow-kb-editor="simple"]
+        [data-guide="kb-editor-sidebar"]
+        .nav-item:not([data-guide="kb-editor-nav-basic"]) {
+        display: none !important;
+      }
+    </style>
+    <script id="deerflow-brand-text">
+      (function () {
+        var pattern = /WeKnora/gi;
+        var name = "\u77e5\u8bc6\u5e93";
+        var hiddenUserLinks = ["Claw Skill", "Chrome \u63d2\u4ef6", "GitHub"];
+        var hiddenStandardLabels = [
+          "\u53d1\u5e03\u96c6\u6210",
+          "Publish Integrations",
+          "Integrations",
+        ];
+        var allowedStandardSidebarGuides = [
+          "nav-creatChat",
+          "nav-knowledge-bases",
+          "nav-organizations",
+          "nav-agents",
+        ];
+        function isStandardUser() {
+          return (
+            document.documentElement.getAttribute(
+              "data-deerflow-weknora-ui",
+            ) === "personal_workspace_owner"
+          );
+        }
+        function hideStandardEntry(item) {
+          if (!item) return;
+          var text = (item.textContent || "").replace(/\s+/g, " ").trim();
+          if (
+            hiddenStandardLabels.some(function (label) {
+              return text === label || text.indexOf(label) >= 0;
+            })
+          )
+            item.hidden = true;
+        }
+        var sidebarExpansionApplied = false;
+        function expandSidebarOnEntry() {
+          if (sidebarExpansionApplied) return;
+          localStorage.setItem("sidebar_collapsed", "false");
+          var sidebar = document.querySelector(".aside_box");
+          if (!sidebar) return;
+          if (sidebar.classList.contains("aside_box--collapsed")) {
+            var expandButton = sidebar.querySelector(".sidebar-toggle");
+            if (!(expandButton instanceof HTMLElement)) return;
+            expandButton.click();
+          }
+          sidebarExpansionApplied = true;
+        }
+        function hideDisallowedStandardSidebarEntries() {
+          if (!isStandardUser()) return;
+          document
+            .querySelectorAll('.aside_box [data-guide^="nav-"]')
+            .forEach(function (item) {
+              var guide = item.getAttribute("data-guide") || "";
+              if (allowedStandardSidebarGuides.indexOf(guide) >= 0) return;
+              var box = item.closest(".menu_box") || item;
+              item.setAttribute(
+                "data-deerflow-standard-sidebar-hidden",
+                "true",
+              );
+              item.hidden = true;
+              box.setAttribute("data-deerflow-standard-sidebar-hidden", "true");
+              box.hidden = true;
+            });
+        }
+        function hideStandardSettingsGroup() {
+          if (!isStandardUser()) return;
+          var hideUntilNextGroup = false;
+          document
+            .querySelectorAll(
+              ".settings-nav .nav-group-title, .settings-nav .nav-item",
+            )
+            .forEach(function (item) {
+              if (item.classList.contains("nav-group-title")) {
+                var text = (item.textContent || "").replace(/\s+/g, " ").trim();
+                hideUntilNextGroup = hiddenStandardLabels.some(
+                  function (label) {
+                    return text === label || text.indexOf(label) >= 0;
+                  },
+                );
+              }
+              if (hideUntilNextGroup) item.hidden = true;
+            });
+        }
+        function simplifyKnowledgeBaseEditor() {
+          if (!isStandardUser()) return;
+          document
+            .querySelectorAll(".settings-modal")
+            .forEach(function (modal) {
+              var sidebar = modal.querySelector(
+                '[data-guide="kb-editor-sidebar"]',
+              );
+              if (!sidebar) return;
+              var firstPass =
+                modal.getAttribute("data-deerflow-kb-editor") !== "simple";
+              modal.setAttribute("data-deerflow-kb-editor", "simple");
+              var basicItem = sidebar.querySelector(
+                '[data-guide="kb-editor-nav-basic"]',
+              );
+              if (
+                firstPass &&
+                basicItem instanceof HTMLElement &&
+                !basicItem.classList.contains("active")
+              ) {
+                basicItem.click();
+              }
+              modal
+                .querySelectorAll(
+                  '[data-guide="kb-editor-sidebar"] .nav-item:not([data-guide="kb-editor-nav-basic"])',
+                )
+                .forEach(function (item) {
+                  item.hidden = true;
+                });
+              modal
+                .querySelectorAll(
+                  '[data-guide="kb-editor-sidebar"] .nav-group-title',
+                )
+                .forEach(function (item) {
+                  item.hidden = true;
+                });
+            });
+        }
+        function simplify() {
+          expandSidebarOnEntry();
+          if (!isStandardUser()) return;
+          hideDisallowedStandardSidebarEntries();
+          document
+            .querySelectorAll(".aside_box .menu_box, .user-dropdown .menu-item")
+            .forEach(hideStandardEntry);
+          hideStandardSettingsGroup();
+          simplifyKnowledgeBaseEditor();
+        }
+        function replace(value) {
+          return typeof value === "string"
+            ? value.replace(pattern, name)
+            : value;
+        }
+        function brandTitle() {
+          var current = document.title;
+          var next = replace(current) || name;
+          if (next !== current) document.title = next;
+        }
+        function brand(node) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            var parent = node.parentElement;
+            if (parent && !parent.closest("script,style,code,pre")) {
+              var current = node.nodeValue;
+              var next = replace(current);
+              if (next !== current) node.nodeValue = next;
+              var item = parent.closest(".user-dropdown .menu-item");
+              if (
+                item &&
+                hiddenUserLinks.some(function (label) {
+                  return (item.textContent || "").indexOf(label) >= 0;
+                })
+              )
+                item.remove();
+            }
+            return;
+          }
+          if (!(node instanceof Element)) return;
+          var item = node.closest(".user-dropdown .menu-item");
+          if (
+            item &&
+            hiddenUserLinks.some(function (label) {
+              return (item.textContent || "").indexOf(label) >= 0;
+            })
+          ) {
+            item.remove();
+            return;
+          }
+          ["aria-label", "alt", "placeholder", "title"].forEach(
+            function (attr) {
+              if (node.hasAttribute(attr)) {
+                var current = node.getAttribute(attr);
+                var next = replace(current);
+                if (next !== current) node.setAttribute(attr, next);
+              }
+            },
+          );
+          Array.from(node.childNodes).forEach(brand);
+        }
+        function start() {
+          brandTitle();
+          if (document.body) brand(document.body);
+          simplify();
+          new MutationObserver(function (records) {
+            records.forEach(function (record) {
+              record.addedNodes.forEach(brand);
+              if (record.type === "characterData") brand(record.target);
+            });
+            brandTitle();
+            simplify();
+          }).observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+          });
+        }
+        if (document.readyState === "loading")
+          document.addEventListener("DOMContentLoaded", start, { once: true });
+        else start();
+      })();
+    </script>
+  </body>
 </html>

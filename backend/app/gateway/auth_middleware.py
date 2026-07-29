@@ -56,6 +56,8 @@ _PUBLIC_EXACT_PATHS: frozenset[str] = frozenset(
         # Bailian model key before accepting multipart audio.
         "/api/weknora/bailian/v1/audio/transcriptions",
         "/api/weknora/bailian/v1/embeddings",
+        "/api/weknora/internal-models/v1/embeddings",
+        "/api/weknora/internal-models/v1/rerank",
     }
 )
 

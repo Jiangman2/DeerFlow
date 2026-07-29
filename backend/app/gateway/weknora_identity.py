@@ -41,6 +41,11 @@ _DEFAULT_DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1
 _DEFAULT_EMBEDDING_BASE_URL = "http://gateway:8001/api/weknora/bailian/v1"
 _DEFAULT_RERANK_MODEL_ID = "deerflow-dashscope-rerank"
 _DEFAULT_RERANK_BASE_URL = "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
+_DEFAULT_CNOOC_EMBEDDING_MODEL_ID = "deerflow-cnooc-qwen3-embedding-8b"
+_DEFAULT_CNOOC_EMBEDDING_MODEL_NAME = "Qwen3-Embedding-8B"
+_DEFAULT_CNOOC_RERANK_MODEL_ID = "deerflow-cnooc-qwen3-reranker-8b"
+_DEFAULT_CNOOC_RERANK_MODEL_NAME = "Qwen3-Reranker-8B"
+_DEFAULT_CNOOC_RETRIEVAL_BASE_URL = "http://gateway:8001/api/weknora/internal-models/v1"
 _DEFAULT_VISION_MODEL_ID = "deerflow-dashscope-vlm"
 _DEFAULT_ASR_MODEL_ID = "deerflow-dashscope-asr"
 _DEFAULT_ASR_BASE_URL = "http://gateway:8001/api/weknora/bailian/v1"
@@ -51,6 +56,13 @@ _default_models_seeded = False
 _session_cache_lock = asyncio.Lock()
 _session_cache: dict[str, tuple[float, Any]] = {}
 
+_WEKNORA_STANDARD_NAVIGATION = [
+    "/platform/creatChat",
+    "/platform/knowledge-bases",
+    "/platform/organizations",
+    "/platform/agents",
+]
+
 
 @dataclass(frozen=True)
 class WeKnoraSession:
@@ -60,8 +72,8 @@ class WeKnoraSession:
     tenant: dict[str, Any]
     memberships: list[dict[str, Any]]
 
-    def as_login_response(self) -> dict[str, Any]:
-        return {
+    def as_login_response(self, *, ui_policy: dict[str, Any] | None = None) -> dict[str, Any]:
+        response = {
             "success": True,
             "user": self.user,
             "tenant": self.tenant,
@@ -70,6 +82,9 @@ class WeKnoraSession:
             "token": self.token,
             "refresh_token": self.refresh_token,
         }
+        if ui_policy is not None:
+            response["ui_policy"] = ui_policy
+        return response
 
 
 @dataclass(frozen=True)
@@ -82,6 +97,35 @@ class _BuiltinModel:
     description: str
     parameters: dict[str, Any]
     is_default: bool = True
+
+
+def build_weknora_ui_policy(user: Any) -> dict[str, Any]:
+    """Return the DeerFlow-owned presentation policy for native WeKnora.
+
+    WeKnora remains the authorization source of truth. This policy only
+    controls which native navigation and settings surfaces are presented in
+    the DeerFlow embedding. The deployment separately disables ordinary
+    self-service tenant creation in WeKnora itself.
+    """
+
+    is_admin = str(getattr(user, "system_role", "user") or "user").lower() == "admin"
+    if is_admin:
+        return {
+            "mode": "system_admin",
+            "role_label": "系统管理员",
+            "full_ui": True,
+            "can_create_workspace": True,
+            "default_path": "/platform/knowledge-bases",
+            "allowed_navigation": ["*"],
+        }
+    return {
+        "mode": "personal_workspace_owner",
+        "role_label": "个人工作空间所有者",
+        "full_ui": False,
+        "can_create_workspace": False,
+        "default_path": "/platform/knowledge-bases",
+        "allowed_navigation": list(_WEKNORA_STANDARD_NAVIGATION),
+    }
 
 
 def _tool_extra(tool_name: str = "weknora_search") -> dict[str, Any]:
@@ -207,6 +251,7 @@ def _model_env(name: str, default: str | None = None, *fallback_names: str) -> s
 
 def _weknora_default_models() -> list[_BuiltinModel]:
     tenant_id = _int_env("WEKNORA_BUILTIN_MODELS_TENANT_ID", _DEFAULT_BUILTIN_TENANT_ID)
+    internal_only = _truthy_env("WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY", False)
     llm_api_key = _model_env("LLM_API_KEY", "", "DASHSCOPE_API_KEY")
     deepseek_api_key = _model_env("WEKNORA_DEEPSEEK_API_KEY", "", "LLM_API_KEY", "DASHSCOPE_API_KEY")
     cnooc_deepseek_api_key = _model_env("CNOOC_DEEPSEEK_API_KEY", "", "DeepSeek_V4_API_KEY")
@@ -215,40 +260,51 @@ def _weknora_default_models() -> list[_BuiltinModel]:
     rerank_api_key = _model_env("RERANK_API_KEY", "", "LLM_API_KEY", "DASHSCOPE_API_KEY")
     vision_api_key = _model_env("VLM_API_KEY", "", "LLM_API_KEY", "DASHSCOPE_API_KEY")
     asr_api_key = _model_env("ASR_API_KEY", "", "LLM_API_KEY", "DASHSCOPE_API_KEY")
-    if not llm_api_key or not embedding_api_key:
+    internal_relay_key = _model_env("WEKNORA_INTERNAL_MODEL_RELAY_KEY")
+    if internal_only and (not cnooc_deepseek_api_key or not internal_relay_key or not vision_api_key or not asr_api_key):
+        logger.warning(
+            "Skipping WeKnora enterprise model seed because an internal DeepSeek, "
+            "internal relay, VLM, or ASR credential is missing."
+        )
+        return []
+    if not internal_only and (not llm_api_key or not embedding_api_key):
         logger.warning("Skipping WeKnora default model seed because LLM_API_KEY or EMBEDDING_API_KEY is missing.")
         return []
 
-    models = [
-        _BuiltinModel(
-            id=os.getenv("WEKNORA_DEFAULT_SUMMARY_MODEL_ID", _DEFAULT_CHAT_MODEL_ID),
-            tenant_id=tenant_id,
-            name=_model_env("LLM_MODEL_NAME", "qwen-plus"),
-            type="KnowledgeQA",
-            source="remote",
-            description="DeerFlow WeKnora chat model",
-            parameters={
-                "base_url": _model_env("LLM_BASE_URL", _DEFAULT_DASHSCOPE_BASE_URL),
-                "api_key": llm_api_key,
-                "provider": _model_env("LLM_PROVIDER", "aliyun"),
-            },
-            is_default=not prefer_cnooc_deepseek,
-        ),
-        _BuiltinModel(
-            id=os.getenv("WEKNORA_DEEPSEEK_MODEL_ID", _DEFAULT_DEEPSEEK_MODEL_ID),
-            tenant_id=tenant_id,
-            name=_model_env("DEEPSEEK_MODEL_NAME", "deepseek-v4-pro"),
-            type="KnowledgeQA",
-            source="remote",
-            description="DeerFlow WeKnora DeepSeek chat model",
-            parameters={
-                "base_url": _model_env("DEEPSEEK_BASE_URL", _DEFAULT_DASHSCOPE_BASE_URL),
-                "api_key": deepseek_api_key,
-                "provider": _model_env("DEEPSEEK_PROVIDER", "aliyun"),
-            },
-            is_default=False,
-        ),
-    ]
+    models: list[_BuiltinModel] = []
+    if not internal_only:
+        models.extend(
+            [
+                _BuiltinModel(
+                    id=os.getenv("WEKNORA_DEFAULT_SUMMARY_MODEL_ID", _DEFAULT_CHAT_MODEL_ID),
+                    tenant_id=tenant_id,
+                    name=_model_env("LLM_MODEL_NAME", "qwen-plus"),
+                    type="KnowledgeQA",
+                    source="remote",
+                    description="DeerFlow WeKnora chat model",
+                    parameters={
+                        "base_url": _model_env("LLM_BASE_URL", _DEFAULT_DASHSCOPE_BASE_URL),
+                        "api_key": llm_api_key,
+                        "provider": _model_env("LLM_PROVIDER", "aliyun"),
+                    },
+                    is_default=not prefer_cnooc_deepseek,
+                ),
+                _BuiltinModel(
+                    id=os.getenv("WEKNORA_DEEPSEEK_MODEL_ID", _DEFAULT_DEEPSEEK_MODEL_ID),
+                    tenant_id=tenant_id,
+                    name=_model_env("DEEPSEEK_MODEL_NAME", "deepseek-v4-pro"),
+                    type="KnowledgeQA",
+                    source="remote",
+                    description="DeerFlow WeKnora DeepSeek chat model",
+                    parameters={
+                        "base_url": _model_env("DEEPSEEK_BASE_URL", _DEFAULT_DASHSCOPE_BASE_URL),
+                        "api_key": deepseek_api_key,
+                        "provider": _model_env("DEEPSEEK_PROVIDER", "aliyun"),
+                    },
+                    is_default=False,
+                ),
+            ]
+        )
     if cnooc_deepseek_api_key:
         models.append(
             _BuiltinModel(
@@ -263,41 +319,81 @@ def _weknora_default_models() -> list[_BuiltinModel]:
                     "api_key": cnooc_deepseek_api_key,
                     "provider": _model_env("CNOOC_DEEPSEEK_PROVIDER", "generic"),
                 },
-                is_default=prefer_cnooc_deepseek,
+                is_default=internal_only or prefer_cnooc_deepseek,
             )
+        )
+    if internal_only:
+        embedding_model = _BuiltinModel(
+            id=os.getenv("WEKNORA_DEFAULT_EMBEDDING_MODEL_ID", _DEFAULT_CNOOC_EMBEDDING_MODEL_ID),
+            tenant_id=tenant_id,
+            name=_model_env("CNOOC_EMBEDDING_MODEL_NAME", _DEFAULT_CNOOC_EMBEDDING_MODEL_NAME),
+            type="Embedding",
+            source="remote",
+            description="CNOOC internal Qwen3 embedding model via DeerFlow Gateway",
+            parameters={
+                "base_url": _model_env(
+                    "CNOOC_RETRIEVAL_RELAY_BASE_URL",
+                    _DEFAULT_CNOOC_RETRIEVAL_BASE_URL,
+                ),
+                "api_key": internal_relay_key,
+                "provider": "generic",
+                "embedding_parameters": {
+                    "dimension": _int_env("CNOOC_EMBEDDING_DIMENSION", 1024),
+                    "truncate_prompt_tokens": _int_env("CNOOC_EMBEDDING_TRUNCATE_PROMPT_TOKENS", 0),
+                },
+            },
+        )
+        rerank_model = _BuiltinModel(
+            id=os.getenv("WEKNORA_DEFAULT_RERANK_MODEL_ID", _DEFAULT_CNOOC_RERANK_MODEL_ID),
+            tenant_id=tenant_id,
+            name=_model_env("CNOOC_RERANK_MODEL_NAME", _DEFAULT_CNOOC_RERANK_MODEL_NAME),
+            type="Rerank",
+            source="remote",
+            description="CNOOC internal Qwen3 rerank model via DeerFlow Gateway",
+            parameters={
+                "base_url": _model_env(
+                    "CNOOC_RETRIEVAL_RELAY_BASE_URL",
+                    _DEFAULT_CNOOC_RETRIEVAL_BASE_URL,
+                ),
+                "api_key": internal_relay_key,
+                "provider": "generic",
+            },
+        )
+    else:
+        embedding_model = _BuiltinModel(
+            id=os.getenv("WEKNORA_DEFAULT_EMBEDDING_MODEL_ID", _DEFAULT_EMBEDDING_MODEL_ID),
+            tenant_id=tenant_id,
+            name=_model_env("EMBEDDING_MODEL_NAME", "text-embedding-v4"),
+            type="Embedding",
+            source="remote",
+            description="DeerFlow WeKnora embedding model",
+            parameters={
+                "base_url": _model_env("EMBEDDING_BASE_URL", _DEFAULT_EMBEDDING_BASE_URL),
+                "api_key": embedding_api_key,
+                "provider": _model_env("EMBEDDING_PROVIDER", "generic"),
+                "embedding_parameters": {
+                    "dimension": _int_env("EMBEDDING_DIMENSION", 1024),
+                    "truncate_prompt_tokens": _int_env("EMBEDDING_TRUNCATE_PROMPT_TOKENS", 0),
+                },
+            },
+        )
+        rerank_model = _BuiltinModel(
+            id=os.getenv("WEKNORA_DEFAULT_RERANK_MODEL_ID", _DEFAULT_RERANK_MODEL_ID),
+            tenant_id=tenant_id,
+            name=_model_env("RERANK_MODEL_NAME", "qwen3-rerank"),
+            type="Rerank",
+            source="remote",
+            description="DeerFlow WeKnora rerank model",
+            parameters={
+                "base_url": _model_env("RERANK_BASE_URL", _DEFAULT_RERANK_BASE_URL),
+                "api_key": rerank_api_key,
+                "provider": _model_env("RERANK_PROVIDER", "aliyun"),
+            },
         )
     models.extend(
         [
-            _BuiltinModel(
-                id=os.getenv("WEKNORA_DEFAULT_EMBEDDING_MODEL_ID", _DEFAULT_EMBEDDING_MODEL_ID),
-                tenant_id=tenant_id,
-                name=_model_env("EMBEDDING_MODEL_NAME", "text-embedding-v4"),
-                type="Embedding",
-                source="remote",
-                description="DeerFlow WeKnora embedding model",
-                parameters={
-                    "base_url": _model_env("EMBEDDING_BASE_URL", _DEFAULT_EMBEDDING_BASE_URL),
-                    "api_key": embedding_api_key,
-                    "provider": _model_env("EMBEDDING_PROVIDER", "generic"),
-                    "embedding_parameters": {
-                        "dimension": _int_env("EMBEDDING_DIMENSION", 1024),
-                        "truncate_prompt_tokens": _int_env("EMBEDDING_TRUNCATE_PROMPT_TOKENS", 0),
-                    },
-                },
-            ),
-            _BuiltinModel(
-                id=os.getenv("WEKNORA_DEFAULT_RERANK_MODEL_ID", _DEFAULT_RERANK_MODEL_ID),
-                tenant_id=tenant_id,
-                name=_model_env("RERANK_MODEL_NAME", "qwen3-rerank"),
-                type="Rerank",
-                source="remote",
-                description="DeerFlow WeKnora rerank model",
-                parameters={
-                    "base_url": _model_env("RERANK_BASE_URL", _DEFAULT_RERANK_BASE_URL),
-                    "api_key": rerank_api_key,
-                    "provider": _model_env("RERANK_PROVIDER", "aliyun"),
-                },
-            ),
+            embedding_model,
+            rerank_model,
             _BuiltinModel(
                 id=os.getenv("WEKNORA_DEFAULT_VISION_MODEL_ID", _DEFAULT_VISION_MODEL_ID),
                 tenant_id=tenant_id,
@@ -536,6 +632,97 @@ async def ensure_weknora_default_mineru(session: WeKnoraSession) -> None:
                 )
 
 
+async def ensure_weknora_default_web_search(session: WeKnoraSession) -> None:
+    """Ensure owned WeKnora workspaces use DeerFlow's Tavily search provider.
+
+    The API key remains a runtime secret. It is sent only to WeKnora's native
+    provider API, which owns credential storage, and is never returned to the
+    browser or committed in deployment manifests.
+    """
+
+    api_key = os.getenv("TAVILY_API_KEY", "").strip()
+    if not api_key or not _truthy_env("WEKNORA_TAVILY_AUTO_CONFIGURE", True):
+        return
+
+    managed_roles = {"owner", "admin"}
+    tenant_ids = {str(item.get("tenant_id")) for item in session.memberships if isinstance(item, dict) and item.get("tenant_id") is not None and str(item.get("role") or "").strip().lower() in managed_roles}
+    active_tenant_id = session.tenant.get("id") if isinstance(session.tenant, dict) else None
+    if active_tenant_id is not None and not session.memberships:
+        tenant_ids.add(str(active_tenant_id))
+    if not tenant_ids:
+        return
+
+    url = weknora_endpoint("/web-search-providers")
+    async with httpx.AsyncClient(timeout=weknora_timeout()) as client:
+        for tenant_id in sorted(tenant_ids):
+            headers = {
+                "Authorization": f"Bearer {session.token}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "X-Tenant-ID": tenant_id,
+            }
+            try:
+                response = await client.get(url, headers=headers)
+                if response.status_code >= 400:
+                    logger.warning(
+                        "Unable to read WeKnora web-search providers for tenant %s: HTTP %s",
+                        tenant_id,
+                        response.status_code,
+                    )
+                    continue
+                response_payload = response.json()
+                providers = response_payload.get("data") if isinstance(response_payload, dict) else None
+                existing = next(
+                    (provider for provider in providers or [] if isinstance(provider, dict) and str(provider.get("provider") or "").strip().lower() == "tavily"),
+                    None,
+                )
+                if existing is not None:
+                    provider_id = str(existing.get("id") or "").strip()
+                    if not provider_id:
+                        continue
+                    parameters = existing.get("parameters")
+                    parameters = parameters if isinstance(parameters, dict) else {}
+                    update_payload = {
+                        "name": str(existing.get("name") or "DeerFlow Tavily"),
+                        "provider": "tavily",
+                        "description": str(existing.get("description") or "DeerFlow enterprise default web search"),
+                        "parameters": {
+                            **{key: parameters[key] for key in ("engine_id", "base_url", "proxy_url") if parameters.get(key)},
+                            "api_key": api_key,
+                        },
+                        "is_default": True,
+                    }
+                    update = await client.put(f"{url}/{provider_id}", headers=headers, json=update_payload)
+                    if update.status_code >= 400:
+                        logger.warning(
+                            "Unable to synchronize the Tavily web-search provider for tenant %s: HTTP %s",
+                            tenant_id,
+                            update.status_code,
+                        )
+                    continue
+
+                create_payload = {
+                    "name": "DeerFlow Tavily",
+                    "provider": "tavily",
+                    "description": "DeerFlow enterprise default web search",
+                    "parameters": {"api_key": api_key},
+                    "is_default": True,
+                }
+                create = await client.post(url, headers=headers, json=create_payload)
+                if create.status_code >= 400:
+                    logger.warning(
+                        "Unable to create the default WeKnora Tavily provider for tenant %s: HTTP %s",
+                        tenant_id,
+                        create.status_code,
+                    )
+            except (httpx.HTTPError, ValueError):
+                logger.warning(
+                    "Failed to configure the default WeKnora Tavily provider for tenant %s.",
+                    tenant_id,
+                    exc_info=True,
+                )
+
+
 async def _create_weknora_session(user: Any) -> WeKnoraSession:
     """Create/reuse the matching WeKnora account and return a user JWT."""
 
@@ -586,6 +773,7 @@ async def _create_weknora_session(user: Any) -> WeKnoraSession:
     session = await sync_weknora_role(user, session)
     await ensure_weknora_default_models()
     await ensure_weknora_default_mineru(session)
+    await ensure_weknora_default_web_search(session)
     return session
 
 

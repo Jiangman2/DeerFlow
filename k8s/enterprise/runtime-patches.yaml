@@ -87,6 +87,12 @@ spec:
         - name: gateway
           imagePullPolicy: Never
           env:
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
             - name: NO_PROXY
               value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: no_proxy
@@ -95,6 +101,28 @@ spec:
               value: /etc/deerflow-openssl/openssl.cnf
             - name: WEKNORA_BAILIAN_TLS_COMPAT
               value: "true"
+            - name: TAVILY_TLS_COMPAT
+              value: "true"
+            - name: WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY
+              value: "true"
+            - name: WEKNORA_DEFAULT_EMBEDDING_MODEL_ID
+              value: deerflow-cnooc-qwen3-embedding-8b
+            - name: WEKNORA_DEFAULT_RERANK_MODEL_ID
+              value: deerflow-cnooc-qwen3-reranker-8b
+            - name: CNOOC_EMBEDDING_DIMENSION
+              value: "1024"
+            - name: CNOOC_EMBEDDING_MRL_TRUNCATION_ENABLED
+              value: "true"
+            - name: CNOOC_RETRIEVAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: CNOOC_RETRIEVAL_API_KEY
+            - name: WEKNORA_INTERNAL_MODEL_RELAY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: WEKNORA_INTERNAL_MODEL_RELAY_KEY
             - name: EMBEDDING_BASE_URL
               value: http://gateway:8001/api/weknora/bailian/v1
             - name: EMBEDDING_PROVIDER
@@ -108,10 +136,19 @@ spec:
             - name: WEKNORA_MINERU_SCANNED_PDF_FALLBACK
               value: "true"
           volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
             - name: openssl-compat
               mountPath: /etc/deerflow-openssl
               readOnly: true
       volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
         - name: openssl-compat
           configMap:
             name: deer-flow-gateway-openssl-compat
@@ -158,6 +195,13 @@ spec:
               value: http://gateway:8001/api/weknora/bailian/v1
             - name: EMBEDDING_PROVIDER
               value: generic
+            - name: WEKNORA_PREFER_CNOOC_DEEPSEEK
+              value: "true"
+            - name: WEKNORA_INTERNAL_MODEL_RELAY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: WEKNORA_INTERNAL_MODEL_RELAY_KEY
             - name: NO_PROXY
               value: "localhost,127.0.0.1,::1,gateway,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
             - name: no_proxy
@@ -175,6 +219,24 @@ spec:
             items:
               - key: ca-bundle.crt
                 path: ca-bundle.crt
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: weknora-enterprise-model-defaults-v5
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: apply-defaults
+          env:
+            - name: DEFAULT_CHAT_MODEL_ID
+              value: deerflow-cnooc-deepseek-v4-flash
+            - name: DEFAULT_EMBEDDING_MODEL_ID
+              value: deerflow-cnooc-qwen3-embedding-8b
+            - name: DEFAULT_RERANK_MODEL_ID
+              value: deerflow-cnooc-qwen3-reranker-8b
 ---
 apiVersion: apps/v1
 kind: Deployment

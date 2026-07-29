@@ -31,6 +31,7 @@ class _FakeConnection:
 @pytest.fixture(autouse=True)
 def reset_default_model_seed(monkeypatch):
     monkeypatch.setattr(weknora_identity, "_default_models_seeded", False)
+    monkeypatch.delenv("WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY", raising=False)
 
 
 @pytest.mark.asyncio
@@ -186,6 +187,38 @@ def test_weknora_default_models_can_opt_out_of_internal_deepseek_preference(monk
     }
 
 
+def test_weknora_enterprise_internal_only_models_keep_bailian_vlm_and_asr(monkeypatch):
+    monkeypatch.setenv("WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY", "true")
+    monkeypatch.setenv("LLM_API_KEY", "bailian-media-secret")
+    monkeypatch.setenv("DeepSeek_V4_API_KEY", "internal-deepseek-secret")
+    monkeypatch.setenv("WEKNORA_INTERNAL_MODEL_RELAY_KEY", "relay-secret")
+
+    models = weknora_identity._weknora_default_models()
+
+    assert [model.id for model in models] == [
+        "deerflow-cnooc-deepseek-v4-flash",
+        "deerflow-cnooc-qwen3-embedding-8b",
+        "deerflow-cnooc-qwen3-reranker-8b",
+        "deerflow-dashscope-vlm",
+        "deerflow-dashscope-asr",
+    ]
+    assert models[1].parameters == {
+        "base_url": "http://gateway:8001/api/weknora/internal-models/v1",
+        "api_key": "relay-secret",
+        "provider": "generic",
+        "embedding_parameters": {
+            "dimension": 1024,
+            "truncate_prompt_tokens": 0,
+        },
+    }
+    assert models[2].parameters == {
+        "base_url": "http://gateway:8001/api/weknora/internal-models/v1",
+        "api_key": "relay-secret",
+        "provider": "generic",
+    }
+    assert all(model.is_default for model in models)
+
+
 @pytest.mark.asyncio
 async def test_ensure_weknora_default_models_skips_without_database(monkeypatch):
     async def fail_connect():
@@ -317,6 +350,169 @@ async def test_ensure_weknora_default_mineru_skips_unchanged_endpoint(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_ensure_weknora_default_web_search_creates_tavily_for_owned_workspace(monkeypatch):
+    calls = []
+
+    class _Response:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, **kwargs):
+            calls.append(("GET", url, kwargs))
+            return _Response(200, {"success": True, "data": []})
+
+        async def post(self, url, **kwargs):
+            calls.append(("POST", url, kwargs))
+            return _Response(200, {"success": True, "data": {"id": "provider-id"}})
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tavily-secret")
+    monkeypatch.setattr(
+        weknora_identity,
+        "weknora_endpoint",
+        lambda path: f"http://weknora.test/api/v1{path}",
+    )
+    monkeypatch.setattr(weknora_identity, "weknora_timeout", lambda: 10.0)
+    monkeypatch.setattr(weknora_identity.httpx, "AsyncClient", lambda **kwargs: _Client())
+    session = weknora_identity.WeKnoraSession(
+        token="token",
+        refresh_token="refresh",
+        user={"id": "user"},
+        tenant={"id": 100},
+        memberships=[
+            {"tenant_id": 100, "role": "owner"},
+            {"tenant_id": 200, "role": "viewer"},
+        ],
+    )
+
+    await weknora_identity.ensure_weknora_default_web_search(session)
+
+    assert [call[0] for call in calls] == ["GET", "POST"]
+    assert calls[0][2]["headers"]["X-Tenant-ID"] == "100"
+    assert calls[1][2]["json"] == {
+        "name": "DeerFlow Tavily",
+        "provider": "tavily",
+        "description": "DeerFlow enterprise default web search",
+        "parameters": {"api_key": "tavily-secret"},
+        "is_default": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_ensure_weknora_default_web_search_rotates_existing_key(monkeypatch):
+    post_called = False
+    put_calls = []
+
+    class _Response:
+        status_code = 200
+
+        def json(self):
+            return {
+                "success": True,
+                "data": [
+                    {
+                        "id": "existing-tavily",
+                        "provider": "tavily",
+                        "is_default": True,
+                    }
+                ],
+            }
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def get(self, url, **kwargs):
+            return _Response()
+
+        async def post(self, url, **kwargs):
+            nonlocal post_called
+            post_called = True
+            return _Response()
+
+        async def put(self, url, **kwargs):
+            put_calls.append((url, kwargs))
+            return _Response()
+
+    monkeypatch.setenv("TAVILY_API_KEY", "tavily-secret")
+    monkeypatch.setattr(
+        weknora_identity,
+        "weknora_endpoint",
+        lambda path: f"http://weknora.test/api/v1{path}",
+    )
+    monkeypatch.setattr(weknora_identity, "weknora_timeout", lambda: 10.0)
+    monkeypatch.setattr(weknora_identity.httpx, "AsyncClient", lambda **kwargs: _Client())
+    session = weknora_identity.WeKnoraSession(
+        token="token",
+        refresh_token="refresh",
+        user={"id": "user"},
+        tenant={"id": 100},
+        memberships=[{"tenant_id": 100, "role": "owner"}],
+    )
+
+    await weknora_identity.ensure_weknora_default_web_search(session)
+
+    assert post_called is False
+    assert put_calls == [
+        (
+            "http://weknora.test/api/v1/web-search-providers/existing-tavily",
+            {
+                "headers": {
+                    "Authorization": "Bearer token",
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "X-Tenant-ID": "100",
+                },
+                "json": {
+                    "name": "DeerFlow Tavily",
+                    "provider": "tavily",
+                    "description": "DeerFlow enterprise default web search",
+                    "parameters": {"api_key": "tavily-secret"},
+                    "is_default": True,
+                },
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_ensure_weknora_default_web_search_skips_without_tavily_key(monkeypatch):
+    client_created = False
+
+    class _Client:
+        def __init__(self):
+            nonlocal client_created
+            client_created = True
+
+    monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+    monkeypatch.setattr(weknora_identity.httpx, "AsyncClient", lambda **kwargs: _Client())
+    session = weknora_identity.WeKnoraSession(
+        token="token",
+        refresh_token="refresh",
+        user={"id": "user"},
+        tenant={"id": 100},
+        memberships=[{"tenant_id": 100, "role": "owner"}],
+    )
+
+    await weknora_identity.ensure_weknora_default_web_search(session)
+
+    assert client_created is False
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(("deerflow_role", "expected_admin"), [("admin", True), ("user", False)])
 async def test_sync_weknora_role_mirrors_deerflow_system_role(monkeypatch, deerflow_role, expected_admin):
     fake_connection = _FakeConnection()
@@ -346,6 +542,52 @@ async def test_sync_weknora_role_mirrors_deerflow_system_role(monkeypatch, deerf
     assert args == (expected_admin, "wk-user", "user@example.com")
     assert synced.user["is_system_admin"] is expected_admin
     assert synced.user["can_access_all_tenants"] is expected_admin
+
+
+@pytest.mark.parametrize(
+    ("deerflow_role", "expected_mode", "full_ui", "can_create_workspace"),
+    [
+        ("admin", "system_admin", True, True),
+        ("user", "personal_workspace_owner", False, False),
+    ],
+)
+def test_weknora_ui_policy_follows_deerflow_system_role(
+    deerflow_role,
+    expected_mode,
+    full_ui,
+    can_create_workspace,
+):
+    policy = weknora_identity.build_weknora_ui_policy(type("DeerFlowUser", (), {"system_role": deerflow_role})())
+
+    assert policy["mode"] == expected_mode
+    assert policy["full_ui"] is full_ui
+    assert policy["can_create_workspace"] is can_create_workspace
+    assert policy["default_path"] == "/platform/knowledge-bases"
+    if full_ui:
+        assert policy["allowed_navigation"] == ["*"]
+    else:
+        assert policy["allowed_navigation"] == [
+            "/platform/creatChat",
+            "/platform/knowledge-bases",
+            "/platform/organizations",
+            "/platform/agents",
+        ]
+
+
+def test_weknora_login_response_can_carry_ui_policy():
+    session = weknora_identity.WeKnoraSession(
+        token="token",
+        refresh_token="refresh",
+        user={"id": "wk-user"},
+        tenant={"id": 1},
+        memberships=[{"tenant_id": 1, "role": "owner"}],
+    )
+    policy = weknora_identity.build_weknora_ui_policy(type("DeerFlowUser", (), {"system_role": "user"})())
+
+    response = session.as_login_response(ui_policy=policy)
+
+    assert response["ui_policy"] == policy
+    assert response["token"] == "token"
 
 
 @pytest.mark.asyncio

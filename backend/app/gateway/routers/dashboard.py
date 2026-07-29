@@ -6,14 +6,14 @@ import json
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import PurePosixPath
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import desc, func, select
+from sqlalchemy import case, desc, func, select
 
 from app.gateway.deps import require_admin_user
 from deerflow.persistence.engine import get_session_factory
@@ -75,7 +75,10 @@ class DashboardOverview(BaseModel):
     new_users: int
     active_users: int
     threads: int
+    all_time_threads: int
+    existing_threads: int
     runs: int
+    terminal_runs: int
     successful_runs: int
     failed_runs: int
     running_runs: int
@@ -92,6 +95,7 @@ class DashboardOverview(BaseModel):
 
 class UserActivityPoint(BaseModel):
     date: str
+    end_date: str
     active_users: int
     threads: int
     runs: int
@@ -227,6 +231,7 @@ class RecentBusinessEventItem(BaseModel):
 class DashboardSummary(BaseModel):
     window: DashboardWindow
     overview: DashboardOverview
+    activity_bucket: str
     user_activity: list[UserActivityPoint]
     user_usage: list[UserUsageItem]
     external_agent_clicks: list[ExternalAgentClickItem]
@@ -239,6 +244,50 @@ class DashboardSummary(BaseModel):
     feedback: FeedbackSummary
     knowledge_usage: KnowledgeUsageSummary
     recent_failures: list[RecentFailureItem]
+
+
+class RegisteredUserSessionSummary(BaseModel):
+    user_id: str
+    email: str
+    system_role: str
+    is_disabled: bool
+    registered_at: datetime
+    existing_threads: int
+    runs: int
+    terminal_runs: int
+    successful_runs: int
+    failed_runs: int
+    running_runs: int
+    last_active_at: datetime | None
+
+
+class RegisteredUserSessionList(BaseModel):
+    items: list[RegisteredUserSessionSummary]
+    total: int
+
+
+class ExistingSessionItem(BaseModel):
+    thread_id: str
+    title: str | None
+    assistant_id: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    runs: int
+    terminal_runs: int
+    successful_runs: int
+    failed_runs: int
+    running_runs: int
+    last_run_at: datetime | None
+    last_run_status: str | None
+    can_open: bool
+    chat_url: str | None
+
+
+class ExistingSessionList(BaseModel):
+    user_id: str
+    items: list[ExistingSessionItem]
+    total: int
 
 
 @dataclass
@@ -309,14 +358,39 @@ def _day_key(value: datetime | None) -> str:
     return aware.date().isoformat()
 
 
-def _iter_day_keys(start: datetime, end: datetime) -> list[str]:
-    keys: list[str] = []
-    current: date = (_coerce_aware(start) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
-    final: date = (_coerce_aware(end) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
+def _activity_bucket_days(start: datetime, end: datetime) -> int:
+    start_day = (_coerce_aware(start) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
+    end_day = (_coerce_aware(end) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
+    span_days = (end_day - start_day).days + 1
+    if span_days <= 31:
+        return 1
+    if span_days <= 366:
+        return 7
+    if span_days <= 365 * 5:
+        return 30
+    return 365
+
+
+def _activity_bucket_name(bucket_days: int) -> str:
+    return {1: "day", 7: "week", 30: "month", 365: "year"}[bucket_days]
+
+
+def _iter_activity_periods(start: datetime, end: datetime, bucket_days: int) -> list[tuple[str, str]]:
+    current = (_coerce_aware(start) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
+    final = (_coerce_aware(end) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
+    periods: list[tuple[str, str]] = []
     while current <= final:
-        keys.append(current.isoformat())
-        current += timedelta(days=1)
-    return keys
+        period_end = min(final, current + timedelta(days=bucket_days - 1))
+        periods.append((current.isoformat(), period_end.isoformat()))
+        current = period_end + timedelta(days=1)
+    return periods
+
+
+def _activity_bucket_key(value: datetime | None, start: datetime, bucket_days: int) -> str:
+    start_day = (_coerce_aware(start) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
+    value_day = (_coerce_aware(value) or datetime.now(UTC)).astimezone(_BUSINESS_TIMEZONE).date()
+    offset = max(0, (value_day - start_day).days)
+    return (start_day + timedelta(days=(offset // bucket_days) * bucket_days)).isoformat()
 
 
 def _metadata_feature_labels(metadata: dict[str, Any] | None) -> set[str]:
@@ -671,10 +745,127 @@ def _summarize_artifact_events(
     )
 
 
+@router.get("/users", response_model=RegisteredUserSessionList)
+async def get_registered_user_sessions(
+    request: Request,
+    q: str | None = Query(default=None, max_length=320),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> RegisteredUserSessionList:
+    """List every registered user with runs belonging to non-deleted threads."""
+
+    await require_admin_user(request, detail=_ADMIN_REQUIRED)
+    sf = _session_factory()
+    async with sf() as session:
+        user_stmt = select(UserRow)
+        count_stmt = select(func.count()).select_from(UserRow)
+        if q and q.strip():
+            pattern = f"%{q.strip()}%"
+            user_stmt = user_stmt.where(UserRow.email.ilike(pattern))
+            count_stmt = count_stmt.where(UserRow.email.ilike(pattern))
+        users = list((await session.execute(user_stmt.order_by(UserRow.created_at.desc(), UserRow.email.asc()).limit(limit).offset(offset))).scalars().all())
+        total = int(await session.scalar(count_stmt) or 0)
+        user_ids = [row.id for row in users]
+        stats: dict[str, Any] = {}
+        if user_ids:
+            stats_stmt = (
+                select(
+                    ThreadMetaRow.user_id,
+                    func.count(func.distinct(ThreadMetaRow.thread_id)),
+                    func.count(RunRow.run_id),
+                    func.sum(case((RunRow.status == "success", 1), else_=0)),
+                    func.sum(case((RunRow.status.in_(_FAILED_STATUSES), 1), else_=0)),
+                    func.sum(case((RunRow.status.in_({"pending", "running"}), 1), else_=0)),
+                    func.max(RunRow.updated_at),
+                    func.max(ThreadMetaRow.updated_at),
+                )
+                .outerjoin(RunRow, RunRow.thread_id == ThreadMetaRow.thread_id)
+                .where(ThreadMetaRow.user_id.in_(user_ids))
+                .group_by(ThreadMetaRow.user_id)
+            )
+            stats = {str(row[0]): row for row in (await session.execute(stats_stmt)).all() if row[0]}
+
+    items: list[RegisteredUserSessionSummary] = []
+    for user in users:
+        row = stats.get(user.id)
+        successful = int(row[3] or 0) if row else 0
+        failed = int(row[4] or 0) if row else 0
+        running = int(row[5] or 0) if row else 0
+        last_run_at = _coerce_aware(row[6]) if row else None
+        last_thread_at = _coerce_aware(row[7]) if row else None
+        last_active_at = max((value for value in (last_run_at, last_thread_at) if value is not None), default=None)
+        items.append(
+            RegisteredUserSessionSummary(
+                user_id=user.id,
+                email=user.email,
+                system_role=user.system_role,
+                is_disabled=user.is_disabled,
+                registered_at=user.created_at,
+                existing_threads=int(row[1] or 0) if row else 0,
+                runs=int(row[2] or 0) if row else 0,
+                terminal_runs=successful + failed,
+                successful_runs=successful,
+                failed_runs=failed,
+                running_runs=running,
+                last_active_at=last_active_at,
+            )
+        )
+    return RegisteredUserSessionList(items=items, total=total)
+
+
+@router.get("/users/{user_id}/sessions", response_model=ExistingSessionList)
+async def get_user_existing_sessions(
+    user_id: str,
+    request: Request,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+) -> ExistingSessionList:
+    """Return the user's currently existing threads and all runs in them."""
+
+    await require_admin_user(request, detail=_ADMIN_REQUIRED)
+    sf = _session_factory()
+    async with sf() as session:
+        if await session.get(UserRow, user_id) is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        total = int(await session.scalar(select(func.count()).select_from(ThreadMetaRow).where(ThreadMetaRow.user_id == user_id)) or 0)
+        threads = list((await session.execute(select(ThreadMetaRow).where(ThreadMetaRow.user_id == user_id).order_by(desc(ThreadMetaRow.updated_at), desc(ThreadMetaRow.created_at)).limit(limit).offset(offset))).scalars().all())
+        thread_ids = [row.thread_id for row in threads]
+        runs = list((await session.execute(select(RunRow).where(RunRow.thread_id.in_(thread_ids)).order_by(desc(RunRow.created_at)))).scalars().all()) if thread_ids else []
+
+    runs_by_thread: dict[str, list[RunRow]] = defaultdict(list)
+    for run in runs:
+        runs_by_thread[run.thread_id].append(run)
+    items: list[ExistingSessionItem] = []
+    for thread in threads:
+        thread_runs = runs_by_thread.get(thread.thread_id, [])
+        status_summary = _run_status_summary(thread_runs)
+        last_run = thread_runs[0] if thread_runs else None
+        items.append(
+            ExistingSessionItem(
+                thread_id=thread.thread_id,
+                title=thread.display_name,
+                assistant_id=thread.assistant_id,
+                status=thread.status,
+                created_at=thread.created_at,
+                updated_at=thread.updated_at,
+                runs=len(thread_runs),
+                terminal_runs=status_summary.terminal,
+                successful_runs=status_summary.successful,
+                failed_runs=status_summary.failed,
+                running_runs=status_summary.running,
+                last_run_at=last_run.created_at if last_run else None,
+                last_run_status=last_run.status if last_run else None,
+                can_open=True,
+                chat_url=f"/workspace/chats/{thread.thread_id}?admin_review=1",
+            )
+        )
+    return ExistingSessionList(user_id=user_id, items=items, total=total)
+
+
 @router.get("/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(
     request: Request,
-    hours: int = Query(default=168, ge=1, le=24 * 90),
+    hours: int = Query(default=168, ge=1),
     start_at: datetime | None = None,
     end_at: datetime | None = None,
     limit: int = Query(default=10, ge=1, le=50),
@@ -698,6 +889,7 @@ async def get_dashboard_summary(
         )
         thread_creations = list((await session.execute(thread_creation_stmt)).scalars().all())
         total_thread_creations = await session.scalar(select(func.count()).select_from(ThreadCreationRow)) or 0
+        existing_threads = await session.scalar(select(func.count()).select_from(ThreadMetaRow)) or 0
 
         thread_ids = {row.thread_id for row in runs} | {row.thread_id for row in thread_creations}
         thread_meta: dict[str, ThreadMetaRow] = {}
@@ -816,16 +1008,26 @@ async def get_dashboard_summary(
         for event, features in business_events[: min(limit, 12)]
     ]
 
-    buckets = {key: {"users": set(), "threads": 0, "runs": 0} for key in _iter_day_keys(start, end)}
+    activity_bucket_days = _activity_bucket_days(start, end)
+    activity_bucket = _activity_bucket_name(activity_bucket_days)
+    buckets = {
+        period_start: {
+            "end_date": period_end,
+            "users": set(),
+            "threads": 0,
+            "runs": 0,
+        }
+        for period_start, period_end in _iter_activity_periods(start, end, activity_bucket_days)
+    }
     for thread in thread_creations:
-        key = _day_key(thread.created_at)
-        buckets.setdefault(key, {"users": set(), "threads": 0, "runs": 0})
+        key = _activity_bucket_key(thread.created_at, start, activity_bucket_days)
+        buckets.setdefault(key, {"end_date": key, "users": set(), "threads": 0, "runs": 0})
         buckets[key]["threads"] += 1
         if thread.user_id:
             buckets[key]["users"].add(thread.user_id)
     for run in runs:
-        key = _day_key(run.created_at)
-        buckets.setdefault(key, {"users": set(), "threads": 0, "runs": 0})
+        key = _activity_bucket_key(run.created_at, start, activity_bucket_days)
+        buckets.setdefault(key, {"end_date": key, "users": set(), "threads": 0, "runs": 0})
         buckets[key]["runs"] += 1
         if run.user_id:
             buckets[key]["users"].add(run.user_id)
@@ -833,6 +1035,7 @@ async def get_dashboard_summary(
     user_activity = [
         UserActivityPoint(
             date=key,
+            end_date=str(value["end_date"]),
             active_users=len(value["users"]),
             threads=int(value["threads"]),
             runs=int(value["runs"]),
@@ -1039,8 +1242,11 @@ async def get_dashboard_summary(
             total_users=int(total_users),
             new_users=int(new_users),
             active_users=len(active_users),
-            threads=int(total_thread_creations),
+            threads=len(thread_creations),
+            all_time_threads=int(total_thread_creations),
+            existing_threads=int(existing_threads),
             runs=len(runs),
+            terminal_runs=status_summary.terminal,
             successful_runs=successful_runs,
             failed_runs=failed_runs,
             running_runs=running_runs,
@@ -1054,6 +1260,7 @@ async def get_dashboard_summary(
             satisfaction_rate=feedback_summary.satisfaction_rate,
             estimated_minutes_saved=estimated_minutes_saved,
         ),
+        activity_bucket=activity_bucket,
         user_activity=user_activity,
         user_usage=user_usage,
         external_agent_clicks=external_agent_clicks,

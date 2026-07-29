@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -58,6 +58,8 @@ import { cn } from "@/lib/utils";
 export default function ChatPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isAdminReview = searchParams.get("admin_review") === "1";
   const { threadId, setThreadId, isNewThread, setIsNewThread, isMock } =
     useThreadChat();
   // `isNewThread` tracks whether the backend has the thread yet — gates the
@@ -275,7 +277,7 @@ export default function ChatPage() {
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {!isNewThread && (
+                {!isNewThread && !isAdminReview && (
                   <ThreadScheduledTasksLink threadId={threadId} />
                 )}
                 <TokenUsageIndicator
@@ -289,7 +291,7 @@ export default function ChatPage() {
                     setLocalSettings("tokenUsage", preferences)
                   }
                 />
-                <SidecarTrigger />
+                {!isAdminReview && <SidecarTrigger />}
                 <ExportTrigger threadId={threadId} />
                 <ArtifactTrigger />
               </div>
@@ -307,6 +309,7 @@ export default function ChatPage() {
                   isHistoryLoading={isHistoryLoading}
                   tokenUsageInlineMode={tokenUsageInlineMode}
                   canRegenerate={
+                    !isAdminReview &&
                     !isNewThread &&
                     !isMock &&
                     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" &&
@@ -315,11 +318,14 @@ export default function ChatPage() {
                   }
                   onRegenerateMessage={handleRegenerate}
                   onSubmitHumanInput={
-                    isMock || env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true"
+                    isAdminReview ||
+                    isMock ||
+                    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true"
                       ? undefined
                       : handleSubmitHumanInput
                   }
                   canBranch={
+                    !isAdminReview &&
                     !isNewThread &&
                     !isMock &&
                     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" &&
@@ -393,6 +399,7 @@ export default function ChatPage() {
                         !hasTodos && <Welcome mode={settings.context.mode} />
                       }
                       disabled={
+                        isAdminReview ||
                         isMock ||
                         env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
                         isUploading ||
@@ -418,6 +425,11 @@ export default function ChatPage() {
                   {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" && (
                     <div className="text-muted-foreground/67 w-full translate-y-12 text-center text-xs">
                       {t.common.notAvailableInDemoMode}
+                    </div>
+                  )}
+                  {isAdminReview && (
+                    <div className="text-muted-foreground w-full translate-y-3 text-center text-xs">
+                      管理员只读查看：不能继续、修改或删除该用户的会话
                     </div>
                   )}
                 </div>
