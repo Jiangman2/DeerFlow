@@ -64,6 +64,8 @@ config.yaml.bak
 .playwright-mcp
 /frontend/test-results/
 /frontend/playwright-report/
+.codex-ppt-build/
+outputs/
 .gstack/
 .worktrees
 

@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: gateway
+          env:
+            - name: WEKNORA_PRESENTATION_PARSER_ENGINE
+              value: mineru
+            - name: WEKNORA_MINERU_ENDPOINT
+              value: http://deer-flow-mineru-adapter:50052
+            - name: WEKNORA_MINERU_SCANNED_PDF_FALLBACK
+              value: "true"
+            - name: WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK
+              value: "true"

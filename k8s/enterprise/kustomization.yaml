@@ -9,6 +9,7 @@ resources:
   - nginx-nodeport.yaml
   - storage-static.yaml
   - mineru-adapter.yaml
+  - weknora-mineru-defaults-job.yaml
   - gateway-openssl-compat.yaml
 
 configMapGenerator:
@@ -16,6 +17,9 @@ configMapGenerator:
     behavior: merge
     files:
       - builtin_models.yaml=builtin-models-internal-only.yaml
+  - name: weknora-mineru-defaults
+    files:
+      - defaults.sql=weknora-mineru-defaults.sql
 
 patches:
   - path: storage-patches.yaml
@@ -57,7 +61,7 @@ images:
     digest: sha256:401604e79a5717dd966a13383d775f15d3125481d3e080eba329e4a0fbcf9523
   - name: deer-flow-gateway
     newName: deerflow.local/deer-flow-gateway
-    newTag: 20260728-enterprise-arm64-rc11
+    newTag: 20260729-enterprise-arm64-rc12-imagequery1
   - name: deer-flow-frontend
     newName: deerflow.local/deer-flow-frontend
     newTag: 20260728-enterprise-arm64-rc11
@@ -69,4 +73,4 @@ images:
     newTag: 20260723-enterprise-arm64-rc3
   - name: deer-flow-mineru-adapter
     newName: deerflow.local/deer-flow-mineru-adapter
-    newTag: 20260728-enterprise-arm64-rc10-pdffix1
+    newTag: 20260729-enterprise-arm64-rc12-minerustability1

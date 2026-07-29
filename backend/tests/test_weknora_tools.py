@@ -163,8 +163,70 @@ def test_weknora_search_rewrites_resource_images_to_authenticated_gateway_proxy(
     image = parsed["results"][0]["resource_images"][0]
     assert image["resource_uri"] == "resource://image_handle-1"
     assert image["url"] == ("/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Fimage_handle-1")
+    assert image["alt"] == "井位图"
+    assert image["markdown"] == (
+        "![井位图](/api/weknora/knowledge-bases/kb-1/files?"
+        "file_path=resource%3A%2F%2Fimage_handle-1)"
+    )
     assert image["url"] in parsed["results"][0]["content"]
     assert "resource://" not in parsed["results"][0]["content"]
+
+
+def test_weknora_search_rewrites_standalone_image_file_metadata():
+    app_config = _config_for(
+        {
+            "weknora_search": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+                "knowledge_base_id": "kb-images",
+            }
+        }
+    )
+    image_info = json.dumps(
+        [
+            {
+                "url": "resource://standalone_image_handle-1",
+                "original_url": "resource://standalone_image_handle-1",
+                "caption": "海上平台四维元数据体系图",
+                "ocr_text": "数据资源 数据服务 数据应用 数据治理",
+            }
+        ],
+        ensure_ascii=False,
+    )
+    api_response = _response(
+        {
+            "success": True,
+            "data": [
+                {
+                    "id": "chunk-standalone-image",
+                    "content": "海上平台四维元数据体系图，包含数据资源、数据服务、数据应用和数据治理。",
+                    "knowledge_id": "doc-standalone-image",
+                    "knowledge_base_id": "kb-images",
+                    "knowledge_title": "四维元数据体系.png",
+                    "image_info": image_info,
+                }
+            ],
+        }
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client_cls.return_value.__enter__.return_value.post.return_value = api_response
+
+            from deerflow.community.weknora.tools import weknora_search_tool
+
+            parsed = json.loads(
+                weknora_search_tool.invoke({"query": "显示知识库中的四维元数据体系图片"})
+            )
+
+    image = parsed["results"][0]["resource_images"][0]
+    assert image["resource_uri"] == "resource://standalone_image_handle-1"
+    assert image["url"] == (
+        "/api/weknora/knowledge-bases/kb-images/files?"
+        "file_path=resource%3A%2F%2Fstandalone_image_handle-1"
+    )
+    assert image["alt"] == "海上平台四维元数据体系图"
+    assert image["markdown"] == f"![海上平台四维元数据体系图]({image['url']})"
 
 
 def test_weknora_search_accepts_explicit_file_scope_over_config():

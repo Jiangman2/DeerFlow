@@ -88,22 +88,56 @@ contains LibreOffice. Build it on an ARM64 server with
 ```bash
 docker build -f docker/mineru_adapter/Dockerfile \
   --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b \
-  -t deerflow.local/deer-flow-mineru-adapter:20260727-enterprise-arm64-rc7-image1 \
+  -t deerflow.local/deer-flow-mineru-adapter:20260729-enterprise-arm64-rc12-minerustability1 \
   docker/mineru_adapter
 ```
 
 Import the resulting image into the `k8s.io` containerd namespace on every
 node where the adapter may run. The adapter is stateless, receives only an
 internal ClusterIP Service, and translates WeKnora's `/file_parse` contract.
-PPT/PPTX input is converted to PDF with LibreOffice. PDF input is inspected
-locally before parsing: documents whose pages all contain usable text stay on
-the WeKnora builtin parser bundled in the image; a scanned/image-dominated page
-routes the whole PDF to the enterprise MinerU API. Inline images returned by
-MinerU are decoded into WeKnora's persistent `images` map and rewritten to
-stable Markdown/HTML references. The adapter also renders scanned PDF pages and
-converted presentation slides into referenced source-page JPEGs. This preserves
-visual evidence even when the upstream MinerU response contains OCR text but no
-image bytes; WeKnora can then run its configured VLM over those assets.
+DOC/DOCX/PPT/PPTX input is converted to PDF with LibreOffice for its visual
+supplement. Word keeps the native parser's text, tables, and ordinary inline
+images; the PDF copy recovers charts, SmartArt, grouped shapes, and other
+render-only evidence. PDF input is inspected locally before parsing: documents
+whose pages all contain usable text stay on the WeKnora builtin text parser,
+while a scanned/image-dominated page routes the whole PDF to the enterprise
+MinerU API. For searchable PDF/Word pages, multilingual `Figure N`/`图 N`
+detection plus image/vector geometry identifies pages that need a retrievable
+full-page visual-evidence image. Each image stays beside its page number and
+caption/context so chunking does not detach the resource from its retrieval
+semantics. Inline images returned by MinerU are decoded into WeKnora's
+persistent `images` map and rewritten to stable Markdown/HTML references.
+Scanned pages and converted presentation slides remain referenced source-page
+JPEGs. Both branches therefore return the same Markdown plus `images` contract
+for VLM processing and question answering.
+
+The adapter's HTTP server remains threaded for probes and request intake, but
+`ParseCoordinator` serializes the complete PDFium/DocReader parsing pipeline.
+This prevents allocator corruption in the native parser libraries when
+multiple documents arrive together. `/health` stays responsive during a long
+parse and reports `parser.active` and `parser.waiting`; queued uploads are
+expected and must not be interpreted as a hung Pod. Do not bypass the
+coordinator or enable concurrent parsing inside one adapter process.
+
+The audited three-node cluster runs exactly three adapter replicas with required
+hostname anti-affinity, so each node contributes one independent native parser
+process while every process remains serial. The WeKnora App is intentionally a
+single replica with `WEKNORA_ASYNQ_CORE_CONCURRENCY=2` and
+`WEKNORA_ASYNQ_SHARED_CONCURRENCY=1`: at most three document parse calls can
+enter the adapter Service, and additional uploads remain durable in the
+Redis/Asynq `default` queue. Do not independently scale `weknora-app` or raise
+either concurrency value; both changes multiply active parser calls and defeat
+this memory-safety boundary. The adapter uses `maxSurge: 0` because required
+anti-affinity cannot place a fourth Pod on three nodes, and its disruption
+budget keeps two replicas available during voluntary maintenance.
+
+The `weknora-enterprise-mineru-defaults-v2` Job applies
+`weknora-mineru-defaults.sql` once. It routes platform defaults for
+PDF/DOC/DOCX/PPT/PPTX through the adapter for existing and future knowledge
+bases, while leaving explicit non-default parser engines and later user edits
+authoritative. Documents indexed before this Job or adapter release must be
+re-parsed; missing image bytes cannot be reconstructed during question
+answering.
 
 ## Storage
 
@@ -302,9 +336,21 @@ After rollout, validate the adapter before uploading a presentation:
 
 ```bash
 kubectl -n deer-flow rollout status deployment/deer-flow-mineru-adapter --timeout=180s
+kubectl -n deer-flow get pods -l app=deer-flow-mineru-adapter \
+  -o custom-columns='POD:.metadata.name,NODE:.spec.nodeName,READY:.status.containerStatuses[0].ready,RESTARTS:.status.containerStatuses[0].restartCount'
 kubectl -n deer-flow run mineru-smoke --rm -i --restart=Never \
   --image=m.daocloud.io/docker.io/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028 \
   -- wget -qO- http://deer-flow-mineru-adapter:50052/health
+```
+
+The Pod listing must show one Ready adapter on each of `datax-01`, `datax-02`,
+and `datax-03`, with zero restarts. Verify the WeKnora capacity gate without
+printing any Secret values:
+
+```bash
+kubectl -n deer-flow get deployment weknora-app \
+  -o jsonpath='{range .spec.template.spec.containers[?(@.name=="app")].env[*]}{.name}={.value}{"\n"}{end}' \
+  | grep -E '^WEKNORA_(ASYNQ_CORE_CONCURRENCY|ASYNQ_SHARED_CONCURRENCY|DOCREADER_CALL_TIMEOUT|DOCUMENT_PROCESS_TIMEOUT)='
 ```
 
 Then upload three real files from the DeerFlow knowledge page: one searchable
@@ -314,6 +360,24 @@ and `route=mineru` on the scanned PDF. A `200` health response proves only the
 adapter is running; the real uploads are required to verify local routing,
 server-network reachability, the enterprise Key, LibreOffice conversion, and
 MinerU OCR together.
+
+Capacity acceptance is staged rather than performed as an uncontrolled
+production flood:
+
+1. Upload three representative files together. Confirm three Pods can each
+   report `parser.active=1`, every document completes, and restarts remain zero.
+2. Upload ten mixed files together. Confirm no allocator signature appears,
+   completed count reaches ten, and pending depth eventually returns to zero.
+3. Upload thirty representative files together. Three may parse concurrently;
+   the remaining tasks must wait in Redis/Asynq and drain without manual
+   resubmission. Measure total drain time and verify no document exceeds the
+   30-minute DocReader call or 2-hour document-task ceiling.
+
+During the test, inspect the WeKnora System Admin runtime queue dashboard (or
+its read-only runtime queue API) together with each adapter Pod's `/health`.
+Abort the test if any Pod restarts, becomes OOMKilled, logs native allocator
+errors, or if `parser.waiting` grows persistently: that indicates the upstream
+three-call gate is no longer aligned with adapter capacity.
 
 The Gateway proxy bypass list includes `model.ai.cnooc` in both `NO_PROXY` and
 `no_proxy`. Internal model endpoints on that host must be reached directly;

@@ -298,6 +298,21 @@ runs from deleted conversations are intentionally excluded from that current
 session view. Administrators can open these conversations in read-only mode for
 operational review, but cannot continue, cancel, modify, or delete another
 user's conversation.
+The dashboard also reads WeKnora's own database in read-only mode to report
+current users, knowledge bases, documents, file formats, knowledge-scoped
+conversations, and question turns alongside creation/upload/conversation
+history for the selected range. Soft-deleted WeKnora rows remain part of
+historical counts rather than being inferred from `weknora_search` or
+`weknora_ask` tool calls. Per-user and per-knowledge-base tables expose the same
+inventory/history split. The untruncated per-user ranking is paginated in the
+browser and omits accounts with no knowledge inventory or activity. Shared-space
+reporting reads native organizations, member workspaces, knowledge-base shares,
+shared documents, role composition, and join requests; knowledge-base details
+remain a separate full-width table.
+Scheduled-task reporting combines current task inventory with execution rows
+and an append-only creation audit, so tasks deleted after this audit is
+deployed remain in historical creation totals. External-agent usage bars use
+an explicit solid color for compatibility with older enterprise browsers.
 
 Docker builds use the upstream `uv` registry by default. If you need faster mirrors in restricted networks, export `UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple` and `NPM_REGISTRY=https://registry.npmmirror.com` before running `make docker-init` or `make docker-start`.
 
@@ -1026,13 +1041,18 @@ parser before falling back to MinerU. A later source-page rendering error keeps
 successfully parsed text instead of failing the entire upload. See
 `k8s/enterprise/README.md` for the image build, Secret creation, thresholds,
 and real-server validation procedure.
-Knowledge images retrieved by WeKnora are displayed in both the native
-knowledge workspace and DeerFlow chat. DeerFlow converts stable
+Knowledge images retrieved by WeKnora, including standalone image uploads and
+images embedded in PDF/Word/PowerPoint documents, are displayed in both the
+native knowledge workspace and DeerFlow chat. DeerFlow converts stable
 `resource://` handles into authenticated, same-origin, knowledge-base-scoped
 image URLs and restores an image selected by the current retrieval result even
 when the final language-model rewrite drops its Markdown. Historical raw
 resource handles use a tenant-authenticated compatibility endpoint; neither
 path exposes WeKnora credentials or storage locations to the browser.
+Large WeKnora search and answer responses keep their full result as a thread
+output artifact while passing a compact, valid result envelope to the agent.
+This preserves ranked excerpts, citations, selected answer images, and image
+Markdown without consuming the model context with every full chunk.
 The SSO bridge automatically registers the adapter as the WeKnora MinerU
 default in spaces owned or administered by the signed-in user, while preserving
 their other parser settings.

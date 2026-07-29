@@ -185,6 +185,19 @@ that exception must never extend to create, continue, cancel, mutate, or delete
 actions on another user's thread. Dashboard chat links carry
 `admin_review=1`; the chat page disables its composer, regeneration, branching,
 human-input replies, and scheduled-task shortcut in this review presentation.
+The same page displays direct WeKnora inventory/history metrics for users,
+knowledge bases, documents, file formats, knowledge-scoped native conversation
+sessions, and question turns, with per-user and per-knowledge-base detail.
+Knowledge-base detail occupies a full-width row. The knowledge usage ranking
+contains every user with inventory or activity and uses five-row client
+pagination instead of truncating the backend query. Shared-space cards and
+detail cover organizations, member workspaces, role composition, shared
+knowledge bases/documents, and join requests. It also reports
+current and historically-created scheduled tasks plus run outcomes. Do not
+substitute DeerFlow `weknora_search`/`weknora_ask` tool-call counts for native
+WeKnora usage. Dashboard progress bars, including the five external-agent
+launch bars, use explicit solid `backgroundColor` values instead of gradients
+or alpha-color syntax so the audited enterprise browser renders them reliably.
 The backend remains the authoritative enforcement boundary. The panel must not mix runs from deleted
 conversations into that current-session view.
 The five built-in external-agent cards navigate through same-origin server

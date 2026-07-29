@@ -4,7 +4,14 @@ metadata:
   name: deer-flow-mineru-adapter
   namespace: deer-flow
 spec:
-  replicas: 1
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Required hostname anti-affinity leaves no room for a fourth surge Pod
+      # on the audited three-node cluster. Replace one replica at a time.
+      maxUnavailable: 1
+      maxSurge: 0
   selector:
     matchLabels:
       app: deer-flow-mineru-adapter
@@ -13,6 +20,16 @@ spec:
       labels:
         app: deer-flow-mineru-adapter
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - deer-flow-mineru-adapter
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: adapter
           image: deer-flow-mineru-adapter:enterprise
@@ -25,6 +42,9 @@ spec:
               value: "50052"
             - name: MINERU_TIMEOUT_SECONDS
               value: "300"
+            # PDFium/DocReader use native libraries that are unsafe under
+            # concurrent in-process parsing. The adapter serializes parse jobs
+            # while its threaded HTTP server keeps health probes responsive.
             - name: LIBREOFFICE_TIMEOUT_SECONDS
               value: "180"
             - name: MINERU_MAX_UPLOAD_BYTES
@@ -37,6 +57,16 @@ spec:
               value: "82"
             - name: MINERU_MAX_SOURCE_PAGE_IMAGES
               value: "200"
+            - name: MINERU_MULTILINGUAL_FIGURE_CAPTURE
+              value: "true"
+            - name: MINERU_VISUAL_PAGE_MIN_IMAGE_RATIO
+              value: "0.01"
+            - name: MINERU_VISUAL_PAGE_MIN_VECTOR_OBJECTS
+              value: "12"
+            - name: MINERU_VISUAL_PAGE_MIN_VECTOR_AREA_RATIO
+              value: "0.05"
+            - name: MINERU_MAX_SEARCHABLE_VISUAL_PAGES
+              value: "80"
             - name: PDF_SCAN_IMAGE_RATIO
               value: "0.5"
             - name: PDF_SCAN_MIN_CHARS_PER_PAGE
@@ -70,8 +100,8 @@ spec:
             failureThreshold: 4
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 500m
+              memory: 1Gi
             limits:
               cpu: "2"
               memory: 2Gi
@@ -99,3 +129,14 @@ spec:
     - name: http
       port: 50052
       targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: deer-flow-mineru-adapter
+  namespace: deer-flow
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: deer-flow-mineru-adapter

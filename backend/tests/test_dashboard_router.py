@@ -1,15 +1,68 @@
 import json
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 from app.gateway.routers.dashboard import (
     _day_key,
     _extract_artifact_paths,
     _run_status_summary,
     _summarize_artifact_events,
+    _summarize_scheduled_task_usage,
     classify_dashboard_features,
 )
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.run.model import RunRow
+
+
+def test_scheduled_task_summary_preserves_deleted_task_creation_and_runs():
+    start = datetime(2026, 7, 1, tzinfo=UTC)
+    end = datetime(2026, 7, 31, tzinfo=UTC)
+    tasks = [
+        SimpleNamespace(
+            id="task-current",
+            user_id="user-1",
+            status="enabled",
+            created_at=datetime(2026, 7, 2, tzinfo=UTC),
+        )
+    ]
+    creation_audits = [
+        SimpleNamespace(
+            resource_id="task-current",
+            user_id="user-1",
+            user_email="user@example.com",
+            created_at=datetime(2026, 7, 2, tzinfo=UTC),
+        ),
+        SimpleNamespace(
+            resource_id="task-deleted",
+            user_id="user-1",
+            user_email="user@example.com",
+            created_at=datetime(2026, 7, 3, tzinfo=UTC),
+        ),
+    ]
+    runs = [
+        SimpleNamespace(task_id="task-current", status="success"),
+        SimpleNamespace(task_id="task-deleted", status="failed"),
+        SimpleNamespace(task_id="task-deleted", status="skipped"),
+    ]
+
+    summary = _summarize_scheduled_task_usage(
+        tasks,
+        runs,
+        creation_audits,
+        {},
+        start=start,
+        end=end,
+        limit=10,
+    )
+
+    assert summary.current_tasks == 1
+    assert summary.created_tasks == 2
+    assert summary.runs == 3
+    assert summary.successful_runs == 1
+    assert summary.failed_runs == 1
+    assert summary.skipped_runs == 1
+    assert summary.users[0].email == "user@example.com"
+    assert summary.users[0].created_tasks == 2
 
 
 def test_classify_dashboard_features_detects_business_buckets():

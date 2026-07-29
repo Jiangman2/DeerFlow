@@ -8,6 +8,7 @@ sync/async code paths.
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from types import SimpleNamespace
@@ -157,18 +158,14 @@ class TestExternalize:
             with open(os.path.join(storage_dir, files[0]), encoding="utf-8") as f:
                 assert f.read() == "full content here"
 
-    def test_returns_none_on_invalid_path(self):
-        # ``/dev/null`` is a character device on both Linux and macOS, so
-        # ``os.makedirs`` cannot create any subdirectory under it for any
-        # user (including root). The previously-used ``/nonexistent/...``
-        # path was silently created by ``mkdir -p`` when the test process
-        # ran as root inside the CI container, which made this test fail
-        # in CI independently of the externalization logic under test.
+    def test_returns_none_on_invalid_path(self, tmp_path):
+        blocking_parent = tmp_path / "not-a-directory"
+        blocking_parent.write_text("file", encoding="utf-8")
         path = _externalize(
             "data",
             tool_name="test",
             tool_call_id="tc-1",
-            outputs_path="/dev/null/cannot-mkdir-here",
+            outputs_path=str(blocking_parent / "cannot-mkdir-here"),
             storage_subdir=".tool-results",
         )
         assert path is None
@@ -407,6 +404,130 @@ class TestWrapToolCallExternalize:
             assert result.content.startswith("HEADPART_")
             assert "_TAILPART" in result.content
 
+    def test_weknora_search_keeps_ranked_images_and_citations_inline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = ToolOutputConfig(
+                externalize_min_chars=1_000,
+                preview_head_chars=100,
+                preview_tail_chars=100,
+            )
+            mw = ToolOutputBudgetMiddleware(config=config)
+            image_url = "/api/weknora/knowledge-bases/kb-images/files?file_path=resource%3A%2F%2Fstandalone-image"
+            payload = {
+                "query": "显示抗日战争纪念馆图片",
+                "total_results": 2,
+                "results": [
+                    {
+                        "content": "纪念馆图片说明 " + "长文本" * 6_000,
+                        "score": 0.91,
+                        "knowledge_id": "image-doc",
+                        "knowledge_base_id": "kb-images",
+                        "knowledge_title": "纪念馆.jpg",
+                        "chunk_id": "image-chunk",
+                        "chunk_type": "text",
+                        "resource_images": [
+                            {
+                                "resource_uri": "resource://standalone-image",
+                                "url": image_url,
+                                "alt": "纪念馆",
+                                "markdown": f"![纪念馆]({image_url})",
+                            }
+                        ],
+                        "citation_markdown": ("[citation:纪念馆.jpg](/platform/knowledge-bases/kb-images?knowledge_id=image-doc)"),
+                    },
+                    {
+                        "content": "第二条普通文档命中 " + "正文" * 2_000,
+                        "score": 0.72,
+                        "knowledge_id": "text-doc",
+                        "knowledge_base_id": "kb-images",
+                        "knowledge_title": "说明.docx",
+                        "chunk_id": "text-chunk",
+                        "chunk_type": "text",
+                        "resource_images": [],
+                        "citation_markdown": ("[citation:说明.docx](/platform/knowledge-bases/kb-images?knowledge_id=text-doc)"),
+                    },
+                ],
+            }
+            content = json.dumps(payload, ensure_ascii=False)
+            msg = _tm(content, name="weknora_search")
+            req = _make_request(
+                tool_name="weknora_search",
+                outputs_path=tmpdir,
+            )
+
+            result = mw.wrap_tool_call(req, lambda _: msg)
+
+            assert isinstance(result, ToolMessage)
+            compact = json.loads(result.content)
+            assert compact["query"] == payload["query"]
+            assert compact["total_results"] == 2
+            assert len(compact["results"]) == 2
+            assert compact["results"][0]["resource_images"][0]["markdown"] == (f"![纪念馆]({image_url})")
+            assert compact["results"][0]["citation_markdown"] == (payload["results"][0]["citation_markdown"])
+            assert compact["results"][0]["content_truncated"] is True
+            assert compact["results"][1]["knowledge_title"] == "说明.docx"
+            assert compact["full_output"]["path"].startswith("/mnt/user-data/outputs/.tool-results/weknora_search-")
+            assert len(result.content) < len(content)
+
+            storage_dir = os.path.join(tmpdir, ".tool-results")
+            files = os.listdir(storage_dir)
+            assert len(files) == 1
+            with open(os.path.join(storage_dir, files[0]), encoding="utf-8") as f:
+                assert f.read() == content
+
+    def test_weknora_ask_keeps_answer_images_and_references_inline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = ToolOutputConfig(externalize_min_chars=1_000)
+            mw = ToolOutputBudgetMiddleware(config=config)
+            image_url = "/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Ffigure-6"
+            payload = {
+                "answer": "图 6 展示了四维元数据体系。" + "回答" * 5_000,
+                "references": [
+                    {
+                        "content": "图 6 的详细说明。" + "引用" * 4_000,
+                        "score": 0.93,
+                        "knowledge_id": "doc-1",
+                        "knowledge_base_id": "kb-1",
+                        "knowledge_title": "报告.docx",
+                        "chunk_id": "chunk-1",
+                        "resource_images": [
+                            {
+                                "resource_uri": "resource://figure-6",
+                                "url": image_url,
+                                "alt": "图 6",
+                                "markdown": f"![图 6]({image_url})",
+                            }
+                        ],
+                        "citation_markdown": ("[citation:报告.docx](/platform/knowledge-bases/kb-1?knowledge_id=doc-1)"),
+                    }
+                ],
+                "answer_images": [
+                    {
+                        "resource_uri": "resource://figure-6",
+                        "url": image_url,
+                        "markdown": f"![图 6]({image_url})",
+                    }
+                ],
+            }
+            content = json.dumps(payload, ensure_ascii=False)
+            msg = _tm(content, name="weknora_ask")
+            req = _make_request(
+                tool_name="weknora_ask",
+                outputs_path=tmpdir,
+            )
+
+            result = mw.wrap_tool_call(req, lambda _: msg)
+
+            assert isinstance(result, ToolMessage)
+            compact = json.loads(result.content)
+            assert compact["answer"].startswith("图 6 展示了四维元数据体系")
+            assert compact["answer_truncated"] is True
+            assert compact["references"][0]["knowledge_title"] == "报告.docx"
+            assert compact["references"][0]["resource_images"][0]["url"] == image_url
+            assert compact["answer_images"][0]["markdown"] == f"![图 6]({image_url})"
+            assert compact["full_output"]["path"].startswith("/mnt/user-data/outputs/.tool-results/weknora_ask-")
+            assert len(result.content) < len(content)
+
 
 class TestWrapToolCallFallback:
     def test_fallback_when_no_outputs_path(self):
@@ -429,7 +550,7 @@ class TestWrapToolCallFallback:
         assert "Persistent storage unavailable" in result.content
         assert len(result.content) < len(content)
 
-    def test_fallback_when_disk_write_fails(self):
+    def test_fallback_when_disk_write_fails(self, tmp_path):
         config = ToolOutputConfig(
             externalize_min_chars=50,
             fallback_max_chars=200,
@@ -439,7 +560,9 @@ class TestWrapToolCallFallback:
         mw = ToolOutputBudgetMiddleware(config=config)
         content = "x" * 500
         msg = _tm(content, name="tool")
-        req = _make_request(outputs_path="/dev/null/cannot-mkdir-here")
+        blocking_parent = tmp_path / "not-a-directory"
+        blocking_parent.write_text("file", encoding="utf-8")
+        req = _make_request(outputs_path=str(blocking_parent / "cannot-mkdir-here"))
 
         result = mw.wrap_tool_call(req, lambda _: msg)
 

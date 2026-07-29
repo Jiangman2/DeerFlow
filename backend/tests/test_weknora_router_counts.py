@@ -199,7 +199,12 @@ async def test_upload_pptx_selects_configured_mineru_parser(monkeypatch):
     assert response == {"success": True}
     assert captured["tenant_id"] == "tenant-1"
     assert json.loads(captured["data"]["process_config"]) == {
-        "parser_engine_rules": [{"file_types": ["pdf", "ppt", "pptx"], "engine": "mineru"}],
+        "parser_engine_rules": [
+            {
+                "file_types": ["pdf", "doc", "docx", "ppt", "pptx"],
+                "engine": "mineru",
+            }
+        ],
         "parser_engine_overrides": {"mineru_endpoint": "http://deer-flow-mineru-adapter:50052"},
     }
 
@@ -228,13 +233,51 @@ async def test_upload_pdf_uses_hybrid_mineru_adapter_when_fallback_enabled(monke
     )
 
     assert json.loads(captured["data"]["process_config"]) == {
-        "parser_engine_rules": [{"file_types": ["pdf", "ppt", "pptx"], "engine": "mineru"}],
+        "parser_engine_rules": [
+            {
+                "file_types": ["pdf", "doc", "docx", "ppt", "pptx"],
+                "engine": "mineru",
+            }
+        ],
         "parser_engine_overrides": {"mineru_endpoint": "http://deer-flow-mineru-adapter:50052"},
     }
 
 
 @pytest.mark.asyncio
-async def test_upload_non_presentation_preserves_kb_parser_defaults(monkeypatch):
+async def test_upload_word_uses_visual_document_adapter(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_token(user):
+        return "token"
+
+    async def fake_request(method, path, access_token, **kwargs):
+        captured.update(kwargs)
+        return {"success": True}
+
+    monkeypatch.setattr(weknora, "_current_weknora_token", fake_token)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+    monkeypatch.setenv("WEKNORA_PRESENTATION_PARSER_ENGINE", "mineru")
+    monkeypatch.setenv("WEKNORA_MINERU_ENDPOINT", "http://deer-flow-mineru-adapter:50052")
+    monkeypatch.setenv("WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK", "true")
+    await weknora.upload_knowledge_file(
+        "kb-1",
+        UploadFile(filename="notes.docx", file=io.BytesIO(b"docx")),
+        user=SimpleNamespace(),
+    )
+
+    assert json.loads(captured["data"]["process_config"]) == {
+        "parser_engine_rules": [
+            {
+                "file_types": ["pdf", "doc", "docx", "ppt", "pptx"],
+                "engine": "mineru",
+            }
+        ],
+        "parser_engine_overrides": {"mineru_endpoint": "http://deer-flow-mineru-adapter:50052"},
+    }
+
+
+@pytest.mark.asyncio
+async def test_upload_non_visual_document_preserves_kb_parser_defaults(monkeypatch):
     captured: dict[str, object] = {}
 
     async def fake_token(user):
@@ -248,7 +291,7 @@ async def test_upload_non_presentation_preserves_kb_parser_defaults(monkeypatch)
     monkeypatch.setattr(weknora, "_request", fake_request)
     await weknora.upload_knowledge_file(
         "kb-1",
-        UploadFile(filename="notes.docx", file=io.BytesIO(b"docx")),
+        UploadFile(filename="notes.txt", file=io.BytesIO(b"text")),
         user=SimpleNamespace(),
     )
 
@@ -276,7 +319,12 @@ async def test_created_kb_persists_presentation_parser_rule(monkeypatch):
         user=SimpleNamespace(),
     )
 
-    assert captured["json"]["chunking_config"]["parser_engine_rules"] == [{"file_types": ["pdf", "ppt", "pptx"], "engine": "mineru"}]
+    assert captured["json"]["chunking_config"]["parser_engine_rules"] == [
+        {
+            "file_types": ["pdf", "doc", "docx", "ppt", "pptx"],
+            "engine": "mineru",
+        }
+    ]
 
 
 def test_presentation_parser_falls_back_to_markitdown_for_local_development(monkeypatch):

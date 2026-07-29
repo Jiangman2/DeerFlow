@@ -60,6 +60,8 @@ scripts/
 logs/
 docker/
 skills/
+outputs/
+.codex-ppt-build/
 frontend/.next
 frontend/node_modules
 backend/.venv

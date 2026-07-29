@@ -2,8 +2,10 @@
 
 import base64
 import io
+import json
 import sys
 import threading
+import time
 import urllib.request
 import zipfile
 from http.server import ThreadingHTTPServer
@@ -22,9 +24,58 @@ def _fake_pptx() -> bytes:
     return data.getvalue()
 
 
-def test_detect_input_suffix_recognises_pdf_and_pptx():
+def _fake_docx() -> bytes:
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        archive.writestr("word/document.xml", "<w:document />")
+    return data.getvalue()
+
+
+def test_detect_input_suffix_recognises_pdf_pptx_and_docx():
     assert app.detect_input_suffix(b"%PDF-1.7\n") == ".pdf"
     assert app.detect_input_suffix(_fake_pptx()) == ".pptx"
+    assert app.detect_input_suffix(_fake_docx()) == ".docx"
+
+
+def test_builtin_pdf_adapter_extends_vector_figure_detection_to_chinese_captions():
+    calls: list[str] = []
+
+    def english_only_extractor(
+        page,
+        page_index,
+        plain_text,
+        raw,
+        base_name,
+        scale,
+        quality,
+        max_edge,
+    ):
+        calls.append(plain_text)
+        return ["captured"] if "Figure 0" in plain_text else []
+
+    module = SimpleNamespace(
+        _FIGURE_CAPTION_RE=None,
+        _FIGURE_CAPTION_SEARCH_RE=None,
+        _extract_vector_figure_clips=english_only_extractor,
+    )
+
+    app.configure_builtin_pdf_visual_capture(module)
+
+    assert module._FIGURE_CAPTION_SEARCH_RE.search("图 2 大数据背景下的数据资产管理特点特征")
+    assert module._FIGURE_CAPTION_SEARCH_RE.search("图表3-1 处理架构")
+    assert module._FIGURE_CAPTION_SEARCH_RE.search("Figure 4. Architecture")
+    assert module._extract_vector_figure_clips(
+        None,
+        0,
+        "图 2 大数据背景下的数据资产管理特点特征",
+        None,
+        "report",
+        1.0,
+        82,
+        1920,
+    ) == ["captured"]
+    assert calls == ["Figure 0\n图 2 大数据背景下的数据资产管理特点特征"]
 
 
 def test_pdf_inspection_routes_text_pages_to_builtin():
@@ -125,6 +176,109 @@ def test_pdf_inspection_routes_full_page_image_to_mineru():
     assert decision.use_mineru is True
 
 
+def test_visual_page_inspection_detects_chinese_figure_and_embedded_image():
+    class _TextPage:
+        def __init__(self, text):
+            self.text = text
+
+        def get_text_range(self):
+            return self.text
+
+        def close(self):
+            return None
+
+    class _Image:
+        type = 3
+
+        def get_bounds(self):
+            return (80, 100, 530, 500)
+
+    class _Page:
+        def __init__(self, text, objects):
+            self.text = text
+            self.objects = objects
+
+        def get_size(self):
+            return (612, 792)
+
+        def get_textpage(self):
+            return _TextPage(self.text)
+
+        def get_objects(self):
+            return self.objects
+
+        def close(self):
+            return None
+
+    class _PDF:
+        def __init__(self, content):
+            assert content == b"%PDF-visual"
+            self.pages = [
+                _Page("图 2 大数据背景下的数据资产管理特征", []),
+                _Page("图片没有图题但属于正文证据", [_Image()]),
+                _Page("纯文字说明，不需要生成视觉页证据", []),
+            ]
+
+        def __len__(self):
+            return len(self.pages)
+
+        def __getitem__(self, index):
+            return self.pages[index]
+
+        def close(self):
+            return None
+
+    evidence = app.inspect_pdf_visual_pages(
+        b"%PDF-visual",
+        pdfium_module=SimpleNamespace(PdfDocument=_PDF),
+        raw_module=SimpleNamespace(FPDF_PAGEOBJ_IMAGE=3, FPDF_PAGEOBJ_PATH=2),
+    )
+
+    assert evidence == (
+        app.VisualPageEvidence(
+            page_number=1,
+            context="图 2 大数据背景下的数据资产管理特征",
+        ),
+        app.VisualPageEvidence(
+            page_number=2,
+            context="图片没有图题但属于正文证据",
+        ),
+    )
+
+
+def test_searchable_pdf_visual_evidence_keeps_caption_and_page_image(monkeypatch):
+    monkeypatch.setattr(
+        app,
+        "inspect_pdf_visual_pages",
+        lambda content: (
+            app.VisualPageEvidence(
+                page_number=10,
+                context="图 2 大数据背景下的数据资产管理特征",
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        app,
+        "render_pdf_page_images",
+        lambda content, page_numbers: (
+            "![原始第 10 页](images/source-page-0010.jpg)",
+            {"images/source-page-0010.jpg": "page-ten"},
+        ),
+    )
+
+    markdown, images = app.preserve_searchable_pdf_visuals(
+        b"%PDF-text",
+        "# 白皮书\n\n第十页正文",
+        {},
+    )
+
+    assert images == {"images/source-page-0010.jpg": "page-ten"}
+    assert "第 10 页视觉证据" in markdown
+    assert "图 2 大数据背景下的数据资产管理特征" in markdown
+    assert "![图 2 大数据背景下的数据资产管理特点特征]" not in markdown
+    assert "images/source-page-0010.jpg" in markdown
+
+
 def test_text_pdf_uses_weknora_builtin_without_calling_mineru(monkeypatch):
     monkeypatch.setattr(
         app,
@@ -153,6 +307,54 @@ def test_text_pdf_uses_weknora_builtin_without_calling_mineru(monkeypatch):
             }
         }
     }
+
+
+def test_searchable_word_uses_converted_pdf_visual_parser_without_calling_mineru(
+    monkeypatch,
+):
+    source = _fake_docx()
+    converted_pdf = b"%PDF-converted-word"
+    monkeypatch.setattr(app, "convert_to_pdf", lambda content, filename: converted_pdf)
+    monkeypatch.setattr(
+        app,
+        "inspect_pdf_routing",
+        lambda content: app.PDFRoutingDecision(page_count=2, scanned_pages=()),
+    )
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_builtin",
+        lambda content, filename, suffix: (
+            "# Word 原生解析\n\n正文\n\n![原始位图](images/word-native.png)",
+            {"images/word-native.png": "word-native-image"},
+        ),
+    )
+
+    def parse_builtin(content, filename):
+        captured.update({"content": content, "filename": filename})
+        return (
+            "# Word 报告\n\n![图 2](images/report_p1_fig1.jpg)\n\n图 2 数据资产管理特征",
+            {"images/report_p1_fig1.jpg": "word-page-image"},
+        )
+
+    monkeypatch.setattr(app, "parse_pdf_with_builtin", parse_builtin)
+
+    class _UnexpectedMinerU:
+        def __init__(self, **kwargs):
+            raise AssertionError("searchable Word documents must not call MinerU")
+
+    monkeypatch.setattr(app, "EnterpriseMinerUClient", _UnexpectedMinerU)
+
+    response = app.parse_upload(source, "数据资产管理实践白皮书.docx")
+
+    assert captured == {
+        "content": converted_pdf,
+        "filename": "数据资产管理实践白皮书.pdf",
+    }
+    assert response["results"]["document"]["images"] == {"images/word-native.png": "word-native-image", "images/report_p1_fig1.jpg": "word-page-image"}
+    assert "Word 原生解析" in response["results"]["document"]["md_content"]
+    assert "文档视觉内容" in response["results"]["document"]["md_content"]
+    assert "图 2 数据资产管理特征" in response["results"]["document"]["md_content"]
 
 
 def test_pdfium_inspection_failure_uses_builtin_parser(monkeypatch):
@@ -533,6 +735,121 @@ def test_parse_multipart_upload_accepts_weknora_files_field():
 
     assert filename == "deck.pdf"
     assert content == b"%PDF-test"
+
+
+def test_parse_coordinator_serializes_native_parser_calls():
+    coordinator = app.ParseCoordinator()
+    first_entered = threading.Event()
+    release_first = threading.Event()
+    second_entered = threading.Event()
+    results: list[dict[str, str]] = []
+
+    def first_operation():
+        first_entered.set()
+        assert release_first.wait(timeout=2)
+        return {"request": "first"}
+
+    def second_operation():
+        second_entered.set()
+        return {"request": "second"}
+
+    first = threading.Thread(
+        target=lambda: results.append(
+            coordinator.run(
+                first_operation,
+                filename="first.pdf",
+                content_bytes=100,
+            )
+        )
+    )
+    second = threading.Thread(
+        target=lambda: results.append(
+            coordinator.run(
+                second_operation,
+                filename="second.pdf",
+                content_bytes=200,
+            )
+        )
+    )
+
+    first.start()
+    assert first_entered.wait(timeout=2)
+    second.start()
+
+    deadline = time.monotonic() + 2
+    while coordinator.snapshot()["waiting"] != 1 and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    assert coordinator.snapshot() == {"active": 1, "waiting": 1}
+    assert not second_entered.is_set()
+
+    release_first.set()
+    first.join(timeout=2)
+    second.join(timeout=2)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+    assert second_entered.is_set()
+    assert results == [{"request": "first"}, {"request": "second"}]
+    assert coordinator.snapshot() == {"active": 0, "waiting": 0}
+
+
+def test_health_probe_remains_responsive_while_parse_is_running(monkeypatch):
+    coordinator = app.ParseCoordinator()
+    parse_entered = threading.Event()
+    release_parse = threading.Event()
+    monkeypatch.setattr(app, "_PARSE_COORDINATOR", coordinator)
+
+    def blocking_parse(content, filename):
+        assert content == b"%PDF-test"
+        assert filename == "queued.pdf"
+        parse_entered.set()
+        assert release_parse.wait(timeout=2)
+        return app.weknora_response("# Parsed")
+
+    monkeypatch.setattr(app, "parse_upload", blocking_parse)
+    server = ThreadingHTTPServer(("127.0.0.1", 0), app.MinerUAdapterHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    boundary = "deerflow-serialized-parse"
+    body = (f'--{boundary}\r\nContent-Disposition: form-data; name="files"; filename="queued.pdf"\r\nContent-Type: application/pdf\r\n\r\n').encode() + b"%PDF-test" + f"\r\n--{boundary}--\r\n".encode()
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{server.server_port}/file_parse",
+        data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        method="POST",
+    )
+    post_result: list[int] = []
+
+    def post_document():
+        with urllib.request.urlopen(request, timeout=3) as response:
+            post_result.append(response.status)
+            response.read()
+
+    post_thread = threading.Thread(target=post_document)
+    post_thread.start()
+    try:
+        assert parse_entered.wait(timeout=2)
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{server.server_port}/health",
+            timeout=1,
+        ) as response:
+            health = json.loads(response.read())
+
+        assert response.status == 200
+        assert health == {
+            "status": "ok",
+            "parser": {"active": 1, "waiting": 0},
+        }
+    finally:
+        release_parse.set()
+        post_thread.join(timeout=3)
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=2)
+
+    assert post_result == [200]
 
 
 def test_weknora_docs_probe_is_supported():

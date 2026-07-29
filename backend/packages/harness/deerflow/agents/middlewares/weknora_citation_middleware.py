@@ -60,7 +60,31 @@ def _answer_images_from_tool_message(message: ToolMessage) -> list[dict[str, str
 
     raw_images = payload.get("answer_images")
     if not isinstance(raw_images, list):
-        return []
+        raw_images = []
+
+    # A direct WeKnora answer explicitly selects its answer_images. Search
+    # results do not have that top-level field, so restore an image only when
+    # the current search result contains one unique authenticated resource.
+    # Multiple candidates remain model-visible but are never guessed here.
+    if message.name == "weknora_search" and not raw_images:
+        candidates: dict[str, dict[str, Any]] = {}
+        results = payload.get("results")
+        if isinstance(results, list):
+            for result in results:
+                if not isinstance(result, dict):
+                    continue
+                resource_images = result.get("resource_images")
+                if not isinstance(resource_images, list):
+                    continue
+                for image in resource_images:
+                    if not isinstance(image, dict):
+                        continue
+                    url = image.get("url")
+                    if isinstance(url, str):
+                        candidates.setdefault(url, image)
+        if len(candidates) == 1:
+            raw_images = list(candidates.values())
+
     images: list[dict[str, str]] = []
     for item in raw_images:
         if not isinstance(item, dict):

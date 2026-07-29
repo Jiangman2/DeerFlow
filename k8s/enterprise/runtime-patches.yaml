@@ -135,6 +135,8 @@ spec:
               value: "true"
             - name: WEKNORA_MINERU_SCANNED_PDF_FALLBACK
               value: "true"
+            - name: WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK
+              value: "true"
           volumeMounts:
             - name: enterprise-ca
               mountPath: /etc/deerflow-ca
@@ -197,6 +199,18 @@ spec:
               value: generic
             - name: WEKNORA_PREFER_CNOOC_DEEPSEEK
               value: "true"
+            # The three adapter Pods each serialize native parsing in-process.
+            # Two dedicated core workers plus one elastic shared worker cap
+            # active parser calls at three; later uploads stay durable in
+            # WeKnora's Redis/Asynq queue instead of filling adapter memory.
+            - name: WEKNORA_ASYNQ_CORE_CONCURRENCY
+              value: "2"
+            - name: WEKNORA_ASYNQ_SHARED_CONCURRENCY
+              value: "1"
+            - name: WEKNORA_DOCREADER_CALL_TIMEOUT
+              value: 30m
+            - name: WEKNORA_DOCUMENT_PROCESS_TIMEOUT
+              value: 2h
             - name: WEKNORA_INTERNAL_MODEL_RELAY_KEY
               valueFrom:
                 secretKeyRef:

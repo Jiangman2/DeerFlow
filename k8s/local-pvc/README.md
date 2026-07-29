@@ -85,6 +85,15 @@ kubectl -n deer-flow wait --for=condition=complete job/skills-sync --timeout=300
 kubectl -n deer-flow rollout restart deployment/gateway
 ```
 
+The local overlay also declares a one-replica MinerU Adapter and routes
+PDF/DOC/DOCX/PPT/PPTX uploads through it so searchable-document visual evidence
+can be tested against the same contract as enterprise. Its upstream MinerU URL
+is deliberately an unreachable loopback placeholder because the enterprise
+service is not reachable from Docker Desktop: searchable PDF/Word parsing is
+available locally, while scanned-document OCR must be accepted on the
+enterprise cluster. Keep both the Gateway and adapter image tags immutable and
+update them together when their document-image contract changes.
+
 For a real environment, push images to a registry and replace `newName`/`newTag`
 with immutable registry references, for example:
 

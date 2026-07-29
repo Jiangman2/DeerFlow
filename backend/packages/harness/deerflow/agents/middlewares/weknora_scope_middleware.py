@@ -73,6 +73,7 @@ class WeKnoraScopeMiddleware(AgentMiddleware):
                 "任务需要企业或本地知识时，调用 `weknora_search` 或 `weknora_ask`。",
                 f"必须将 `knowledge_base_ids` 原样传为 [{ids_literal}]。",
                 "引用知识来源时，原样复制每条工具结果中非空的 `citation_markdown`。",
+                "用户询问文档中的图片时，直接复制命中结果 `resource_images[].markdown`；该地址是已鉴权的 DeerFlow 同域图片，不要自行下载，也不要声称需要额外 API 认证。",
                 "不得为 WeKnora 来源构造或暴露 `/mnt/` 路径；这些是容器路径，不是浏览器 URL。",
                 "除非用户要求更改范围，否则本次运行不得使用未选中的 WeKnora 知识库。",
                 "</weknora_scope>",

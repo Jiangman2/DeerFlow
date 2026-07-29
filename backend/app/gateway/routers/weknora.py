@@ -36,6 +36,7 @@ _DEFAULT_SUMMARY_MODEL_ID = "deerflow-qwen-plus"
 _COUNT_ENRICH_CONCURRENCY = 8
 _COUNT_PAGE_SIZE = 100
 _PRESENTATION_FILE_TYPES = ("ppt", "pptx")
+_VISUAL_DOCUMENT_FILE_TYPES = ("pdf", "doc", "docx", "ppt", "pptx")
 _SUPPORTED_PRESENTATION_PARSERS = {"markitdown", "mineru"}
 _DEFAULT_BAILIAN_ASR_MODEL = "qwen3-asr-flash"
 _DEFAULT_BAILIAN_ASR_UPSTREAM_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
@@ -65,7 +66,7 @@ def _truthy_env(name: str, default: bool = False) -> bool:
 
 
 def _presentation_parser_rules() -> list[dict[str, Any]]:
-    """Return parser rules for presentations and optional scanned-PDF routing."""
+    """Return parser rules for presentations and visual document preservation."""
     engine = os.getenv("WEKNORA_PRESENTATION_PARSER_ENGINE", "markitdown").strip().lower()
     if engine not in _SUPPORTED_PRESENTATION_PARSERS:
         logger.warning(
@@ -73,9 +74,11 @@ def _presentation_parser_rules() -> list[dict[str, Any]]:
             engine,
         )
         engine = "markitdown"
-    file_types = list(_PRESENTATION_FILE_TYPES)
-    if engine == "mineru" and _truthy_env("WEKNORA_MINERU_SCANNED_PDF_FALLBACK"):
-        file_types.insert(0, "pdf")
+    document_visual_fallback = _truthy_env(
+        "WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK",
+        _truthy_env("WEKNORA_MINERU_SCANNED_PDF_FALLBACK"),
+    )
+    file_types = list(_VISUAL_DOCUMENT_FILE_TYPES) if engine == "mineru" and document_visual_fallback else list(_PRESENTATION_FILE_TYPES)
     return [{"file_types": file_types, "engine": engine}]
 
 

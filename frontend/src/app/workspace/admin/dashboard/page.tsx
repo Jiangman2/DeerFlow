@@ -4,10 +4,13 @@ import {
   ActivityIcon,
   AlertTriangleIcon,
   BarChart3Icon,
+  BookOpenIcon,
+  CalendarClockIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
   ExternalLinkIcon,
+  FileTextIcon,
   RefreshCwIcon,
   ThumbsUpIcon,
   UsersIcon,
@@ -27,10 +30,13 @@ import {
   activityChartMinWidth,
   activityPeriodLabel,
   activitySharedMax,
+  dashboardBarStyle,
   type DashboardFilters,
   type ExternalAgentClickItem,
   type FeedbackSummary,
+  type KnowledgeUsageSummary,
   type RecentFailureItem,
+  type ScheduledTaskUsageSummary,
   type UserActivityPoint,
   type UserUsageItem,
 } from "@/core/dashboard";
@@ -491,16 +497,535 @@ function ExternalAgentClicks({ items }: { items: ExternalAgentClickItem[] }) {
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-slate-100">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600"
-                style={{
-                  width: `${Math.max(clicks ? 8 : 0, (clicks / max) * 100)}%`,
-                }}
+                className="h-full rounded-full"
+                style={dashboardBarStyle(clicks, max)}
               />
             </div>
           </div>
         );
       })}
     </div>
+  );
+}
+
+function UsagePair({
+  label,
+  current,
+  historical,
+  currentLabel = "当前",
+  historicalLabel = "所选区间",
+}: {
+  label: string;
+  current: number;
+  historical: number;
+  currentLabel?: string;
+  historicalLabel?: string;
+}) {
+  return (
+    <div className="rounded-lg border bg-white p-4">
+      <div className="text-sm text-slate-500">{label}</div>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <div>
+          <div className="text-2xl font-semibold text-slate-900">
+            {compactNumber(current)}
+          </div>
+          <div className="text-xs text-slate-400">{currentLabel}</div>
+        </div>
+        <div className="text-right">
+          <div className="text-lg font-semibold text-cyan-700">
+            {compactNumber(historical)}
+          </div>
+          <div className="text-xs text-slate-400">{historicalLabel}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
+  const pageSize = 5;
+  const [userPage, setUserPage] = useState(0);
+  const [sharedSpacePage, setSharedSpacePage] = useState(0);
+  if (!summary) {
+    return (
+      <Card className="min-w-0 rounded-lg shadow-none">
+        <CardContent className="pt-6">
+          <EmptyState label="正在加载 WeKnora 使用统计" />
+        </CardContent>
+      </Card>
+    );
+  }
+  if (!summary.available) {
+    return (
+      <Card className="min-w-0 rounded-lg shadow-none">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BookOpenIcon className="size-4" />
+            知识库使用情况
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            暂时无法读取 WeKnora 统计。DeerFlow 看板本身仍可正常使用， 请检查
+            WeKnora 数据库连接。
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const maxFormat = Math.max(
+    1,
+    ...summary.file_formats.flatMap((item) => [
+      item.current_count,
+      item.uploaded_count,
+    ]),
+  );
+  const userTotalPages = Math.max(
+    1,
+    Math.ceil(summary.users.length / pageSize),
+  );
+  const currentUserPage = Math.min(userPage, userTotalPages - 1);
+  const visibleUsers = summary.users.slice(
+    currentUserPage * pageSize,
+    (currentUserPage + 1) * pageSize,
+  );
+  const sharedSpaceTotalPages = Math.max(
+    1,
+    Math.ceil(summary.shared_spaces.length / pageSize),
+  );
+  const currentSharedSpacePage = Math.min(
+    sharedSpacePage,
+    sharedSpaceTotalPages - 1,
+  );
+  const visibleSharedSpaces = summary.shared_spaces.slice(
+    currentSharedSpacePage * pageSize,
+    (currentSharedSpacePage + 1) * pageSize,
+  );
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <BookOpenIcon className="size-4 text-cyan-700" />
+          知识库使用情况
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="min-w-0 space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <UsagePair
+            label="用户"
+            current={summary.current_users}
+            historical={summary.registered_users}
+            currentLabel="现存"
+            historicalLabel="累计新注册"
+          />
+          <UsagePair
+            label="知识库"
+            current={summary.current_knowledge_bases}
+            historical={summary.created_knowledge_bases}
+            currentLabel="现存"
+            historicalLabel="累计创建"
+          />
+          <UsagePair
+            label="文档"
+            current={summary.current_documents}
+            historical={summary.uploaded_documents}
+            currentLabel="现存"
+            historicalLabel="累计上传"
+          />
+          <UsagePair
+            label="知识库会话"
+            current={summary.current_conversation_sessions}
+            historical={summary.conversation_sessions}
+            currentLabel="现存"
+            historicalLabel="累计创建"
+          />
+          <UsagePair
+            label="用户提问"
+            current={summary.current_question_turns}
+            historical={summary.question_turns}
+            currentLabel="现存"
+            historicalLabel="累计提问"
+          />
+        </div>
+
+        <div className="rounded-lg border border-cyan-100 bg-cyan-50/50 px-4 py-3 text-xs leading-5 text-slate-600">
+          “知识库会话”是用户新建的一次知识库对话；“用户提问”是这些对话中发送的问题总轮次。
+          一次会话可以连续提出多个问题，因此用户提问数通常大于知识库会话数。
+          本区域的“累计”均表示所选时间范围内累计发生的数量。
+        </div>
+
+        <div className="min-w-0 rounded-lg border p-4">
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-800">
+            <FileTextIcon className="size-4 text-cyan-700" />
+            文档格式分布
+          </div>
+          {summary.file_formats.length === 0 ? (
+            <EmptyState label="所选时间范围暂无文档" />
+          ) : (
+            <div className="grid gap-x-6 gap-y-4 md:grid-cols-2 xl:grid-cols-3">
+              {summary.file_formats.map((item) => (
+                <div key={item.format} className="space-y-1.5">
+                  <div className="flex justify-between gap-3 text-xs">
+                    <span className="font-medium text-slate-700 uppercase">
+                      {item.format || "OTHER"}
+                    </span>
+                    <span className="text-slate-500">
+                      现存 {item.current_count} · 累计上传 {item.uploaded_count}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={dashboardBarStyle(item.current_count, maxFormat)}
+                      />
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          ...dashboardBarStyle(item.uploaded_count, maxFormat),
+                          backgroundColor: "#2563eb",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="flex items-center gap-4 text-xs text-slate-400">
+                <span>青色：现存</span>
+                <span>蓝色：累计上传</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0 overflow-hidden rounded-lg border">
+          <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
+            知识库明细
+          </div>
+          <div className="max-h-96 overflow-auto">
+            <table className="w-full min-w-[900px] text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">知识库 / 创建人</th>
+                  <th className="px-3 py-3 font-medium">文档</th>
+                  <th className="px-3 py-3 font-medium">会话</th>
+                  <th className="px-3 py-3 font-medium">提问</th>
+                  <th className="px-3 py-3 font-medium">格式</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {summary.knowledge_bases.map((item) => (
+                  <tr key={item.knowledge_base_id}>
+                    <td className="max-w-64 px-4 py-3">
+                      <div className="truncate font-medium text-slate-800">
+                        {item.name}
+                      </div>
+                      <div className="truncate text-slate-400">
+                        {item.creator_email ?? item.creator_name ?? "-"}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      现存 {item.current_documents}
+                      <br />
+                      累计上传 {item.uploaded_documents}
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      现存 {item.current_conversation_sessions}
+                      <br />
+                      累计创建 {item.conversation_sessions}
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      现存 {item.current_question_turns}
+                      <br />
+                      累计提问 {item.question_turns}
+                    </td>
+                    <td className="max-w-72 px-3 py-3 text-slate-500">
+                      {item.file_formats.length
+                        ? item.file_formats
+                            .map(
+                              (format) =>
+                                `${format.format.toUpperCase()} ${format.current_count}/${format.uploaded_count}`,
+                            )
+                            .join(" · ")
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {summary.knowledge_bases.length === 0 ? (
+              <div className="p-4">
+                <EmptyState label="暂无知识库" />
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-lg border p-4">
+          <div>
+            <div className="text-sm font-semibold text-slate-800">
+              共享空间使用情况
+            </div>
+            <div className="mt-1 text-xs text-slate-500">
+              成员按加入共享空间的工作空间统计；知识库和文档按共享记录去重。
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <UsagePair
+              label="共享空间"
+              current={summary.current_shared_spaces}
+              historical={summary.created_shared_spaces}
+              currentLabel="现存"
+              historicalLabel="累计创建"
+            />
+            <UsagePair
+              label="成员工作空间"
+              current={summary.current_shared_space_members}
+              historical={summary.joined_shared_space_members}
+              currentLabel="当前加入"
+              historicalLabel="累计加入"
+            />
+            <UsagePair
+              label="共享知识库"
+              current={summary.current_shared_knowledge_bases}
+              historical={summary.shared_knowledge_bases}
+              currentLabel="当前共享"
+              historicalLabel="累计共享"
+            />
+            <UsagePair
+              label="共享文档"
+              current={summary.current_shared_documents}
+              historical={summary.uploaded_shared_documents}
+              currentLabel="当前可用"
+              historicalLabel="累计上传"
+            />
+            <UsagePair
+              label="加入申请"
+              current={summary.pending_shared_space_requests}
+              historical={summary.shared_space_join_requests}
+              currentLabel="当前待处理"
+              historicalLabel="累计提交"
+            />
+          </div>
+          <div className="min-w-0 overflow-hidden rounded-lg border">
+            <div className="max-h-96 overflow-auto">
+              <table className="w-full min-w-[1100px] text-left text-xs">
+                <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">共享空间 / 所有者</th>
+                    <th className="px-3 py-3 font-medium">创建时间</th>
+                    <th className="px-3 py-3 font-medium">成员角色</th>
+                    <th className="px-3 py-3 font-medium">共享知识库</th>
+                    <th className="px-3 py-3 font-medium">共享文档</th>
+                    <th className="px-3 py-3 font-medium">加入申请</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {visibleSharedSpaces.map((item) => (
+                    <tr key={item.shared_space_id}>
+                      <td className="max-w-72 px-4 py-3">
+                        <div className="truncate font-medium text-slate-800">
+                          {item.name}
+                        </div>
+                        <div className="truncate text-slate-400">
+                          {item.owner_email ?? item.owner_name ?? "-"}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        {shortTime(item.created_at)}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        当前 {item.current_members} · 累计加入{" "}
+                        {item.joined_members}
+                        <br />
+                        管理 {item.admins} / 编辑 {item.editors} / 查看{" "}
+                        {item.viewers}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        当前 {item.current_knowledge_bases}
+                        <br />
+                        累计共享 {item.shared_knowledge_bases}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        当前 {item.current_documents}
+                        <br />
+                        累计上传 {item.uploaded_documents}
+                      </td>
+                      <td className="px-3 py-3 text-slate-600">
+                        待处理 {item.pending_requests}
+                        <br />
+                        累计提交 {item.join_requests}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {summary.shared_spaces.length === 0 ? (
+                <div className="p-4">
+                  <EmptyState label="暂无共享空间" />
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <RankingPagination
+            page={currentSharedSpacePage}
+            totalPages={sharedSpaceTotalPages}
+            onPageChange={setSharedSpacePage}
+          />
+        </div>
+
+        <div className="min-w-0 overflow-hidden rounded-lg border">
+          <div className="border-b px-4 py-3 text-sm font-semibold text-slate-800">
+            知识库使用排行
+          </div>
+          <div className="max-h-80 overflow-auto">
+            <table className="w-full min-w-[820px] text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">用户</th>
+                  <th className="px-3 py-3 font-medium">
+                    知识库 现存/累计创建
+                  </th>
+                  <th className="px-3 py-3 font-medium">文档 现存/累计上传</th>
+                  <th className="px-3 py-3 font-medium">累计会话</th>
+                  <th className="px-3 py-3 font-medium">累计提问</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {visibleUsers.map((item) => (
+                  <tr key={item.weknora_user_id}>
+                    <td className="max-w-72 px-4 py-3">
+                      <div className="truncate font-medium text-slate-800">
+                        {item.email ?? item.name ?? item.weknora_user_id}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      {item.current_knowledge_bases} /{" "}
+                      {item.created_knowledge_bases}
+                    </td>
+                    <td className="px-3 py-3">
+                      {item.current_documents} / {item.uploaded_documents}
+                    </td>
+                    <td className="px-3 py-3">{item.conversation_sessions}</td>
+                    <td className="px-3 py-3">{item.question_turns}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {summary.users.length === 0 ? (
+              <div className="p-4">
+                <EmptyState label="暂无知识库用户" />
+              </div>
+            ) : null}
+          </div>
+          <div className="px-4 pb-3">
+            <RankingPagination
+              page={currentUserPage}
+              totalPages={userTotalPages}
+              onPageChange={setUserPage}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScheduledTaskUsagePanel({
+  summary,
+}: {
+  summary?: ScheduledTaskUsageSummary;
+}) {
+  return (
+    <Card className="min-w-0 rounded-lg shadow-none">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <CalendarClockIcon className="size-4 text-cyan-700" />
+            定时任务使用情况
+          </span>
+          <span className="text-xs font-normal text-slate-500">
+            历史创建审计可在任务删除后继续保留
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <UsagePair
+            label="定时任务"
+            current={summary?.current_tasks ?? 0}
+            historical={summary?.created_tasks ?? 0}
+            historicalLabel="区间创建"
+          />
+          <UsagePair
+            label="任务状态"
+            current={summary?.enabled_tasks ?? 0}
+            historical={summary?.paused_tasks ?? 0}
+            currentLabel="当前启用"
+            historicalLabel="当前暂停"
+          />
+          <UsagePair
+            label="任务执行"
+            current={summary?.successful_runs ?? 0}
+            historical={summary?.runs ?? 0}
+            currentLabel="区间成功"
+            historicalLabel="区间总执行"
+          />
+          <UsagePair
+            label="异常与跳过"
+            current={summary?.failed_runs ?? 0}
+            historical={summary?.skipped_runs ?? 0}
+            currentLabel="失败/中断"
+            historicalLabel="跳过"
+          />
+        </div>
+        <div className="min-w-0 overflow-hidden rounded-lg border">
+          <div className="max-h-80 overflow-auto">
+            <table className="w-full min-w-[780px] text-left text-xs">
+              <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-medium">用户</th>
+                  <th className="px-3 py-3 font-medium">任务 当前/区间创建</th>
+                  <th className="px-3 py-3 font-medium">启用/暂停</th>
+                  <th className="px-3 py-3 font-medium">执行</th>
+                  <th className="px-3 py-3 font-medium">成功/失败/跳过</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(summary?.users ?? []).map((item) => (
+                  <tr key={item.user_id}>
+                    <td className="max-w-72 px-4 py-3">
+                      <div className="truncate font-medium text-slate-800">
+                        {item.email ?? item.user_id}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      {item.current_tasks} / {item.created_tasks}
+                    </td>
+                    <td className="px-3 py-3">
+                      {item.enabled_tasks} / {item.paused_tasks}
+                    </td>
+                    <td className="px-3 py-3">{item.runs}</td>
+                    <td className="px-3 py-3">
+                      {item.successful_runs} / {item.failed_runs} /{" "}
+                      {item.skipped_runs}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(summary?.users.length ?? 0) === 0 ? (
+              <div className="p-4">
+                <EmptyState label="所选区间暂无定时任务活动" />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -877,6 +1402,10 @@ export default function DashboardPage() {
         </div>
 
         <FeedbackPanel summary={summary?.feedback} />
+
+        <KnowledgeUsagePanel summary={summary?.knowledge_usage} />
+
+        <ScheduledTaskUsagePanel summary={summary?.scheduled_task_usage} />
 
         <div className="grid min-w-0 gap-4 xl:grid-cols-2">
           <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">

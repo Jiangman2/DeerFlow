@@ -191,6 +191,100 @@ def test_citation_middleware_does_not_duplicate_existing_weknora_answer_image():
     assert result is None
 
 
+def test_citation_middleware_restores_unique_weknora_search_image_dropped_by_model():
+    image_url = "/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Fimage_handle-1"
+    markdown = f"![四维元数据体系（图6）]({image_url})"
+    reference = {
+        **_reference(),
+        "resource_images": [
+            {
+                "resource_uri": "resource://image_handle-1",
+                "url": image_url,
+                "alt": "四维元数据体系（图6）",
+                "markdown": markdown,
+            }
+        ],
+    }
+    tool_result = json.dumps(
+        {
+            "query": "请显示四维元数据体系图6",
+            "results": [reference],
+        },
+        ensure_ascii=False,
+    )
+    final = AIMessage(
+        content="我已经找到四维元数据体系（图6），如下所示：",
+        id="assistant-search-image",
+    )
+    state = {
+        "messages": [
+            HumanMessage(content="请给出PDF中的四维元数据体系图6", id="human-search-image"),
+            ToolMessage(
+                content=tool_result,
+                name="weknora_search",
+                tool_call_id="call-search-image",
+                id="tool-search-image",
+            ),
+            final,
+        ]
+    }
+
+    result = WeKnoraCitationMiddleware().after_model(
+        state,
+        SimpleNamespace(context={"thread_id": "thread-image", "run_id": "run-image"}),
+    )
+
+    assert result is not None
+    assert result["messages"][0].content == (
+        f"我已经找到四维元数据体系（图6），如下所示：\n\n{markdown}"
+    )
+
+
+def test_citation_middleware_does_not_guess_between_multiple_search_images():
+    first_url = "/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Fimage_handle-1"
+    second_url = "/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Fimage_handle-2"
+    tool_result = json.dumps(
+        {
+            "results": [
+                {
+                    **_reference(),
+                    "resource_images": [
+                        {
+                            "url": first_url,
+                            "markdown": f"![图1]({first_url})",
+                        },
+                        {
+                            "url": second_url,
+                            "markdown": f"![图2]({second_url})",
+                        },
+                    ],
+                }
+            ]
+        },
+        ensure_ascii=False,
+    )
+    final = AIMessage(content="检索到了多张候选图片。", id="assistant-search-images")
+    state = {
+        "messages": [
+            HumanMessage(content="显示相关图片", id="human-search-images"),
+            ToolMessage(
+                content=tool_result,
+                name="weknora_search",
+                tool_call_id="call-search-images",
+                id="tool-search-images",
+            ),
+            final,
+        ]
+    }
+
+    result = WeKnoraCitationMiddleware().after_model(
+        state,
+        SimpleNamespace(context={"thread_id": "thread-image", "run_id": "run-image"}),
+    )
+
+    assert result is None
+
+
 def test_citation_middleware_repairs_lead_answer_from_current_task_result():
     reference = _reference()
     final = AIMessage(content="汇总答案。[citation:制度.pdf]", id="assistant-task")

@@ -155,15 +155,109 @@ export interface FeedbackSummary {
 }
 
 export interface KnowledgeUsageSummary {
+  available: boolean;
+  error: string | null;
+  current_users: number;
+  registered_users: number;
+  current_knowledge_bases: number;
+  created_knowledge_bases: number;
+  current_documents: number;
+  uploaded_documents: number;
+  current_conversation_sessions: number;
+  conversation_sessions: number;
+  current_question_turns: number;
+  question_turns: number;
+  current_shared_spaces: number;
+  created_shared_spaces: number;
+  current_shared_space_members: number;
+  joined_shared_space_members: number;
+  current_shared_knowledge_bases: number;
+  shared_knowledge_bases: number;
+  current_shared_documents: number;
+  uploaded_shared_documents: number;
+  pending_shared_space_requests: number;
+  shared_space_join_requests: number;
+  file_formats: KnowledgeFileFormatUsageItem[];
+  knowledge_bases: KnowledgeBaseUsageItem[];
+  users: KnowledgeUserUsageItem[];
+  shared_spaces: SharedSpaceUsageItem[];
+}
+
+export interface KnowledgeFileFormatUsageItem {
+  format: string;
+  current_count: number;
+  uploaded_count: number;
+}
+
+export interface KnowledgeBaseUsageItem {
+  knowledge_base_id: string;
+  name: string;
+  creator_email: string | null;
+  creator_name: string | null;
+  current_documents: number;
+  uploaded_documents: number;
+  current_conversation_sessions: number;
+  conversation_sessions: number;
+  current_question_turns: number;
+  question_turns: number;
+  file_formats: KnowledgeFileFormatUsageItem[];
+}
+
+export interface KnowledgeUserUsageItem {
+  weknora_user_id: string;
+  email: string | null;
+  name: string | null;
+  current_knowledge_bases: number;
+  created_knowledge_bases: number;
+  current_documents: number;
+  uploaded_documents: number;
+  conversation_sessions: number;
+  question_turns: number;
+}
+
+export interface SharedSpaceUsageItem {
+  shared_space_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  owner_email: string | null;
+  owner_name: string | null;
+  current_members: number;
+  joined_members: number;
+  admins: number;
+  editors: number;
+  viewers: number;
+  current_knowledge_bases: number;
+  shared_knowledge_bases: number;
+  current_documents: number;
+  uploaded_documents: number;
+  pending_requests: number;
+  join_requests: number;
+}
+
+export interface ScheduledTaskUserUsageItem {
+  user_id: string;
+  email: string | null;
+  current_tasks: number;
+  created_tasks: number;
+  enabled_tasks: number;
+  paused_tasks: number;
   runs: number;
-  tool_calls: number;
-  recent_tool_calls: Array<{
-    run_id: string;
-    thread_id: string;
-    created_at: string;
-    event_type: string;
-    snippet: string;
-  }>;
+  successful_runs: number;
+  failed_runs: number;
+  skipped_runs: number;
+}
+
+export interface ScheduledTaskUsageSummary {
+  current_tasks: number;
+  created_tasks: number;
+  enabled_tasks: number;
+  paused_tasks: number;
+  runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  skipped_runs: number;
+  users: ScheduledTaskUserUsageItem[];
 }
 
 export interface RecentFailureItem {
@@ -207,6 +301,7 @@ export interface DashboardSummary {
   artifact_summary: ArtifactSummary;
   feedback: FeedbackSummary;
   knowledge_usage: KnowledgeUsageSummary;
+  scheduled_task_usage: ScheduledTaskUsageSummary;
   recent_failures: RecentFailureItem[];
 }
 

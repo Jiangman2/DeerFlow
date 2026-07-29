@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deer-flow-mineru-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deer-flow-mineru-adapter
+  template:
+    metadata:
+      labels:
+        app: deer-flow-mineru-adapter
+    spec:
+      containers:
+        - name: adapter
+          image: deer-flow-mineru-adapter:local
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MINERU_LISTEN_PORT
+              value: "50052"
+            - name: MINERU_TIMEOUT_SECONDS
+              value: "300"
+            - name: LIBREOFFICE_TIMEOUT_SECONDS
+              value: "180"
+            - name: MINERU_MAX_UPLOAD_BYTES
+              value: "52428800"
+            - name: MINERU_MAX_INLINE_IMAGE_BYTES
+              value: "20971520"
+            - name: MINERU_SOURCE_PAGE_DPI
+              value: "110"
+            - name: MINERU_SOURCE_PAGE_JPEG_QUALITY
+              value: "82"
+            - name: MINERU_MAX_SOURCE_PAGE_IMAGES
+              value: "200"
+            - name: MINERU_MULTILINGUAL_FIGURE_CAPTURE
+              value: "true"
+            - name: MINERU_VISUAL_PAGE_MIN_IMAGE_RATIO
+              value: "0.01"
+            - name: MINERU_VISUAL_PAGE_MIN_VECTOR_OBJECTS
+              value: "12"
+            - name: MINERU_VISUAL_PAGE_MIN_VECTOR_AREA_RATIO
+              value: "0.05"
+            - name: MINERU_MAX_SEARCHABLE_VISUAL_PAGES
+              value: "80"
+            - name: PDF_SCAN_IMAGE_RATIO
+              value: "0.5"
+            - name: PDF_SCAN_MIN_CHARS_PER_PAGE
+              value: "10"
+            - name: PDF_SCAN_LOW_TEXT_IMAGE_RATIO
+              value: "0.1"
+            # The enterprise MinerU endpoint is intentionally unavailable on
+            # local Docker Desktop. Searchable PDF/Word visual paths remain
+            # testable; scanned documents require the enterprise environment.
+            - name: MINERU_API_URL
+              value: http://127.0.0.1:9/parse/v1
+            - name: MINERU_API_TOKEN
+              value: local-e2e-not-used
+          ports:
+            - name: http
+              containerPort: 50052
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deer-flow-mineru-adapter
+spec:
+  selector:
+    app: deer-flow-mineru-adapter
+  ports:
+    - name: http
+      port: 50052
+      targetPort: http

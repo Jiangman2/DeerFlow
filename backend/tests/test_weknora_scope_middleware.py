@@ -57,6 +57,7 @@ def test_weknora_scope_middleware_injects_selected_knowledge_base_ids():
     assert "weknora_ask" in reminder.content
     assert 'knowledge_base_ids` 原样传为 ["kb-1", "kb-2"]' in reminder.content
     assert "citation_markdown" in reminder.content
+    assert "resource_images[].markdown" in reminder.content
     assert "不得为 WeKnora 来源构造或暴露 `/mnt/`" in reminder.content
 
     user_message = messages[1]

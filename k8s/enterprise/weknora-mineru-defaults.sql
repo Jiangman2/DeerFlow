@@ -1,7 +1,8 @@
--- Enterprise policy: route PDF/PPT/PPTX through the in-cluster adapter.
--- The adapter keeps searchable PDFs on WeKnora's builtin parser and sends only
--- scanned/hybrid PDFs plus presentations to MinerU. Preserve every explicitly
--- configured file-type rule instead of replacing the user's parser choice.
+-- Enterprise policy: route visual office documents through the in-cluster
+-- adapter. The adapter still uses WeKnora's builtin parser for searchable
+-- PDF/Word content, but adds multilingual vector-figure capture before it
+-- returns the shared Markdown + images contract. Scanned/image-dominated input
+-- continues to MinerU. Non-default parser choices remain untouched.
 
 CREATE OR REPLACE FUNCTION public.deerflow_ensure_mineru_parser_rule()
 RETURNS trigger
@@ -23,7 +24,51 @@ BEGIN
         rules := '[]'::jsonb;
     END IF;
 
-    required_file_types := jsonb_build_array('pdf', 'ppt', 'pptx');
+    required_file_types := jsonb_build_array('pdf', 'doc', 'docx', 'ppt', 'pptx');
+
+    -- Native WeKnora supplies builtin/markitdown defaults for these file types,
+    -- which would bypass the visual-preservation adapter. Remove only those
+    -- deployment defaults while retaining unrelated types on the same rule and
+    -- preserving explicit third-party/custom engines.
+    SELECT COALESCE(
+        jsonb_agg(normalized.rule ORDER BY normalized.ordinality),
+        '[]'::jsonb
+    )
+    INTO rules
+    FROM (
+        SELECT
+            item.ordinality,
+            lower(COALESCE(item.rule->>'engine', '')) AS engine,
+            CASE
+                WHEN lower(COALESCE(item.rule->>'engine', '')) IN ('builtin', 'markitdown')
+                THEN jsonb_set(
+                    item.rule,
+                    '{file_types}',
+                    filtered.file_types,
+                    true
+                )
+                ELSE item.rule
+            END AS rule
+        FROM jsonb_array_elements(rules)
+             WITH ORDINALITY AS item(rule, ordinality)
+        CROSS JOIN LATERAL (
+            SELECT COALESCE(
+                jsonb_agg(file_type.value ORDER BY file_type.ordinality),
+                '[]'::jsonb
+            ) AS file_types
+            FROM jsonb_array_elements_text(
+                CASE
+                    WHEN jsonb_typeof(item.rule->'file_types') = 'array'
+                    THEN item.rule->'file_types'
+                    ELSE '[]'::jsonb
+                END
+            ) WITH ORDINALITY AS file_type(value, ordinality)
+            WHERE lower(COALESCE(item.rule->>'engine', '')) NOT IN ('builtin', 'markitdown')
+               OR lower(file_type.value) NOT IN ('pdf', 'doc', 'docx', 'ppt', 'pptx')
+        ) AS filtered
+    ) AS normalized
+    WHERE normalized.engine NOT IN ('builtin', 'markitdown')
+       OR jsonb_array_length(normalized.rule->'file_types') > 0;
 
     SELECT COALESCE(
         jsonb_agg(required_type.value ORDER BY required_type.ordinality),
@@ -73,6 +118,17 @@ ON public.knowledge_bases
 FOR EACH ROW
 EXECUTE FUNCTION public.deerflow_ensure_mineru_parser_rule();
 
--- Normalize existing rows idempotently through the same trigger.
+-- Normalize existing rows once through the temporary UPDATE trigger.
 UPDATE public.knowledge_bases
 SET chunking_config = COALESCE(chunking_config, '{}'::jsonb);
+
+-- Future user edits remain authoritative. Only newly created knowledge bases
+-- receive the deployment default automatically.
+DROP TRIGGER deerflow_mineru_parser_defaults
+ON public.knowledge_bases;
+
+CREATE TRIGGER deerflow_mineru_parser_defaults
+BEFORE INSERT
+ON public.knowledge_bases
+FOR EACH ROW
+EXECUTE FUNCTION public.deerflow_ensure_mineru_parser_rule();

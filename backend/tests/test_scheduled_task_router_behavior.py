@@ -89,6 +89,54 @@ class _Config:
 
 
 @pytest.mark.asyncio
+async def test_scheduled_task_creation_records_append_only_dashboard_audit(monkeypatch):
+    recorded = []
+
+    class _AuditRepo:
+        def __init__(self, _session_factory) -> None:
+            pass
+
+        async def record_audit(self, event):
+            recorded.append(event)
+
+    monkeypatch.setattr(scheduled_tasks, "ObservabilityRepository", _AuditRepo)
+    monkeypatch.setattr(scheduled_tasks, "get_session_factory", lambda: object())
+
+    await scheduled_tasks._record_scheduled_task_creation(
+        SimpleNamespace(
+            id="user-1",
+            email="user@example.com",
+            system_role="user",
+        ),
+        {
+            "id": "task-1",
+            "schedule_type": "cron",
+        },
+    )
+
+    assert recorded == [
+        {
+            "created_at": recorded[0]["created_at"],
+            "user_id": "user-1",
+            "user_email": "user@example.com",
+            "user_role": "user",
+            "action": "scheduled_task.create",
+            "resource_type": "scheduled_task",
+            "resource_id": "task-1",
+            "method": "POST",
+            "path": "/api/scheduled-tasks",
+            "status_code": 200,
+            "result": "success",
+            "duration_ms": 0,
+            "client_ip": None,
+            "user_agent": None,
+            "error": None,
+            "details_json": {"schedule_type": "cron"},
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_create_scheduled_task_uses_repo():
     repo = _Repo()
     request = SimpleNamespace()

@@ -209,6 +209,53 @@ def _resource_proxy_url(resource_uri: str, knowledge_base_id: str) -> str:
     return f"/api/weknora/knowledge-bases/{quote(knowledge_base_id, safe='')}/files?file_path={quote(resource_uri, safe='')}"
 
 
+def _resource_image_alts(value: Any) -> dict[str, str]:
+    """Collect the best available label for each stable image handle."""
+
+    labels: dict[str, str] = {}
+
+    def visit(item: Any) -> None:
+        if isinstance(item, str):
+            for match in _MARKDOWN_RESOURCE_IMAGE_RE.finditer(item):
+                alt = match.group("alt").strip()
+                if alt:
+                    labels.setdefault(match.group("uri"), alt)
+            stripped = item.strip()
+            if stripped.startswith(("[", "{")):
+                try:
+                    structured = json.loads(stripped)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    structured = None
+                if isinstance(structured, (dict, list)):
+                    visit(structured)
+            return
+        if isinstance(item, dict):
+            uri = next(
+                (
+                    candidate
+                    for key in ("url", "uri", "resource_uri", "file_path")
+                    if isinstance((candidate := item.get(key)), str)
+                    and _RESOURCE_URI_RE.fullmatch(candidate)
+                ),
+                None,
+            )
+            if uri:
+                for key in ("caption", "alt", "title", "name"):
+                    label = item.get(key)
+                    if isinstance(label, str) and label.strip():
+                        labels.setdefault(uri, label.strip())
+                        break
+            for nested in item.values():
+                visit(nested)
+            return
+        if isinstance(item, list):
+            for nested in item:
+                visit(nested)
+
+    visit(value)
+    return labels
+
+
 def _resource_images(
     item: dict[str, Any],
     scope: dict[str, Any],
@@ -221,13 +268,20 @@ def _resource_images(
     if not knowledge_base_id:
         return []
 
-    return [
-        {
-            "resource_uri": resource_uri,
-            "url": _resource_proxy_url(resource_uri, knowledge_base_id),
-        }
-        for resource_uri in _resource_uris(item)
-    ]
+    labels = _resource_image_alts(item)
+    images: list[dict[str, str]] = []
+    for resource_uri in _resource_uris(item):
+        url = _resource_proxy_url(resource_uri, knowledge_base_id)
+        alt = labels.get(resource_uri) or "知识库图片"
+        images.append(
+            {
+                "resource_uri": resource_uri,
+                "url": url,
+                "alt": alt,
+                "markdown": f"![{alt}]({url})",
+            }
+        )
+    return images
 
 
 def _replace_resource_uris(

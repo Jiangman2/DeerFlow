@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -16,6 +17,8 @@ from app.gateway.deps import (
     get_scheduled_task_service,
     get_thread_store,
 )
+from deerflow.persistence.engine import get_session_factory
+from deerflow.persistence.observability import ObservabilityRepository
 from deerflow.scheduler.schedules import (
     next_run_at as compute_next_run_at,
 )
@@ -25,6 +28,7 @@ from deerflow.scheduler.schedules import (
 )
 
 router = APIRouter(prefix="/api", tags=["scheduled-tasks"])
+logger = logging.getLogger(__name__)
 
 _SCHEDULED_RUN_CONTEXT_KEYS = frozenset(
     {
@@ -52,6 +56,41 @@ def _sanitize_run_context(value: dict[str, Any] | None) -> dict[str, Any]:
     if not value:
         return {}
     return {key: item for key, item in value.items() if key in _SCHEDULED_RUN_CONTEXT_KEYS}
+
+
+async def _record_scheduled_task_creation(user: Any, task: dict[str, Any]) -> None:
+    """Persist an append-only creation fact so deletion does not erase usage."""
+
+    try:
+        await ObservabilityRepository(get_session_factory()).record_audit(
+            {
+                "created_at": datetime.now(UTC),
+                "user_id": str(user.id),
+                "user_email": getattr(user, "email", None),
+                "user_role": getattr(user, "system_role", None),
+                "action": "scheduled_task.create",
+                "resource_type": "scheduled_task",
+                "resource_id": str(task["id"]),
+                "method": "POST",
+                "path": "/api/scheduled-tasks",
+                "status_code": 200,
+                "result": "success",
+                "duration_ms": 0,
+                "client_ip": None,
+                "user_agent": None,
+                "error": None,
+                "details_json": {
+                    "schedule_type": task.get("schedule_type"),
+                },
+            }
+        )
+    except Exception:
+        # Analytics must never turn a successfully-created schedule into a
+        # client-visible failure.
+        logger.warning(
+            "Failed to record scheduled-task creation analytics.",
+            exc_info=True,
+        )
 
 
 def _ensure_task_mutable(task: dict[str, Any]) -> None:
@@ -181,7 +220,7 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
             detail=(f"once schedule must be at least {config.scheduler.min_once_delay_seconds} seconds in the future"),
         )
 
-    return await repo.create(
+    created = await repo.create(
         task_id=f"task-{uuid.uuid4().hex}",
         user_id=str(user.id),
         thread_id=body.thread_id,
@@ -195,6 +234,8 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
         run_context=body.run_context,
         next_run_at=next_run_at,
     )
+    await _record_scheduled_task_creation(user, created)
+    return created
 
 
 @router.get("/scheduled-tasks/{task_id}")

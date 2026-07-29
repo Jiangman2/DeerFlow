@@ -130,20 +130,37 @@ Regression tests related to Docker/provisioner behavior:
   endpoints as sync FastAPI handlers so synchronous K8s client calls run in the
   Starlette worker pool instead of on the ASGI event loop)
 - `tests/test_mineru_adapter.py` (locks the enterprise PDF API protocol, the
-  searchable/scanned PDF routing decision, and the WeKnora-compatible response
-  envelope used by the PDF/PPT/PPTX adapter)
+  searchable/scanned routing decision, multilingual figure capture, searchable
+  visual-page evidence, native Word plus rendered-visual merging, and the
+  WeKnora-compatible response envelope used by the PDF/DOC/DOCX/PPT/PPTX
+  adapter)
 
 The WeKnora Gateway upload proxy reads `WEKNORA_PRESENTATION_PARSER_ENGINE`
 (`markitdown` by default) and `WEKNORA_MINERU_ENDPOINT`. The enterprise overlay
 sets them to `mineru` and the in-cluster adapter Service. With
-`WEKNORA_MINERU_SCANNED_PDF_FALLBACK=true`, PDF/PPT/PPTX uploads use that
-adapter: searchable PDFs stay on WeKnora's builtin parser, while scanned/mixed
-PDFs and presentations use MinerU. Other uploads omit parser overrides and
-preserve the knowledge base defaults.
+`WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK=true`, PDF/DOC/DOCX/PPT/PPTX uploads
+use that adapter. Searchable PDF/Word text stays on the bundled native parsers;
+Word's native text/images are merged with a temporary PDF visual pass, and
+searchable pages containing images, vector graphics, or multilingual figure
+captions receive captioned full-page visual evidence. Scanned/mixed documents
+and presentations use MinerU. Other uploads omit parser overrides and preserve
+the knowledge base defaults.
 PDF routing and source-page retention are deliberately fault-isolated:
 PDFium inspection failure first tries the independent builtin parser and then
 MinerU, while source-page rendering failure preserves successful OCR/text
 instead of failing the whole document.
+The adapter uses a threaded HTTP server but serializes the complete
+PDFium/DocReader parse pipeline through `ParseCoordinator`. This is required
+because the native parser stack can corrupt its allocator state when two
+documents enter it concurrently. `/health` remains responsive during a long
+parse and reports `parser.active` plus `parser.waiting`; do not bypass the
+coordinator or increase in-process parser concurrency.
+The enterprise three-node overlay obtains safe parallelism from three
+anti-affined adapter Pods rather than from threads inside one process. Keep the
+single WeKnora App replica at two core Asynq workers plus one shared worker, so
+no more than three document requests leave its durable Redis queue at once.
+Any WeKnora replica or worker-pool increase must be paired with a reviewed
+adapter-capacity change and a 3/10/30-document acceptance test.
 When `WEKNORA_MINERU_AUTO_CONFIGURE` is enabled, the SSO bridge also merges that
 adapter endpoint into the parser settings of spaces the current user owns or
 administers; it never stores the upstream enterprise API URL or Key in WeKnora.
@@ -398,7 +415,7 @@ CORS is same-origin by default when requests enter through nginx on port 2026. S
 | **Models** (`/api/models`) | `GET /` - list models; `GET /{name}` - model details |
 | **Features** (`/api/features`) | `GET /` - report config-gated feature availability (currently `agents_api.enabled`) for frontend UI gating |
 | **Console** (`/api/console`) | Read-only cross-thread observability for the current user (the data layer for an operations dashboard or external monitoring): `GET /stats` - headline counters (runs/threads/agents/tokens/cost); `GET /runs` - paginated run history joined with thread titles (per-run cost); `GET /usage` - zero-filled daily token series + per-model breakdown with spend. Queries `runs`/`threads_meta` directly as a reporting layer (no new `RunStore` methods); requires a SQL database backend — returns 503 on `database.backend: memory`. Real-cost estimation reads optional `models[*].pricing` (`currency`, `input_per_million`, `output_per_million`, `input_cache_hit_per_million`; `ModelConfig` is `extra="allow"`, so no schema change) and prices each run from its `token_usage_by_model` input/output split. Pricing is **cache-aware**: `RunJournal` accumulates prompt-cache hits from `usage_metadata.input_token_details.cache_read` into a sparse `cache_read_tokens` bucket key (also threaded through `SubagentTokenCollector` → `record_external_llm_usage_records`), and cache-hit input tokens are billed at `input_cache_hit_per_million` (omitted → billed at the miss price, a conservative upper bound). Legacy rows fall back to run-level totals at `model_name`; unpriced models yield `cost: null` and cost fields are null when no pricing is configured |
-| **Admin Dashboard** (`/api/admin/dashboard`) | Admin-only business reporting from SQL-backed users, threads, runs, feedback, audit clicks, and structured run events. Success/error rates and duration metrics use terminal runs only; active runs remain visible in run totals. Activity uses `Asia/Shanghai` and adaptively groups arbitrary selected ranges into start-anchored daily, seven-day, 30-day, or 365-day buckets. The headline conversation count and activity bars both use append-only `thread_creations` records inside the selected window; separate fields expose the all-time creation ledger and current `threads_meta` count. Deleting a thread therefore changes only the current count, never historical creation totals. `GET /users` pages every registered account and aggregates only runs joined to its current `threads_meta`; `GET /users/{user_id}/sessions` pages every current thread with run status counts and chat links, excluding runs whose thread was deleted. The authorization decorator permits administrators to pass cross-user ownership checks for read actions only; create, write, cancel, and delete remain owner-scoped. Dashboard summary and observability rankings accept the same arbitrary custom date range. Knowledge, file, sandbox, PPT, image, and artifact usage is classified from actual structured tool calls (legacy tool rows remain supported), never from `run.end` prompt/history payloads or assistant prose. Artifact instances deduplicate by `(thread_id, path)`, and aggregate queries must not use silent row limits. |
+| **Admin Dashboard** (`/api/admin/dashboard`) | Admin-only business reporting from SQL-backed users, threads, runs, feedback, audit clicks, scheduled tasks, and structured run events. Success/error rates and duration metrics use terminal runs only; active runs remain visible in run totals. Activity uses `Asia/Shanghai` and adaptively groups arbitrary selected ranges into start-anchored daily, seven-day, 30-day, or 365-day buckets. The headline conversation count and activity bars both use append-only `thread_creations` records inside the selected window; separate fields expose the all-time creation ledger and current `threads_meta` count. Deleting a thread therefore changes only the current count, never historical creation totals. `GET /users` pages every registered account and aggregates only runs joined to its current `threads_meta`; `GET /users/{user_id}/sessions` pages every current thread with run status counts and chat links, excluding runs whose thread was deleted. The authorization decorator permits administrators to pass cross-user ownership checks for read actions only; create, write, cancel, and delete remain owner-scoped. Dashboard summary and observability rankings accept the same arbitrary custom date range. Knowledge-base usage is read directly and read-only from WeKnora users, knowledge bases, documents, sessions, messages, organizations, organization tenant members, knowledge-base shares, and join requests; soft-deleted rows remain in selected-range history and `weknora_search`/`weknora_ask` counts are not used as a proxy. Per-message knowledge scope is preferred for per-KB conversation attribution and aggregate conversation/question totals; when WeKnora 0.7.0 leaves those message fields empty, only those unscoped messages fall back to the session's current knowledge-base scope. The per-user knowledge ranking has no SQL row limit, excludes accounts with no inventory/activity, and is paginated by the frontend. Scheduled-task creation writes a best-effort append-only `scheduled_task.create` audit so later task deletion does not erase history; the dashboard combines it with current task inventory and run rows. File, sandbox, PPT, image, and artifact usage continues to be classified from actual structured tool calls (legacy tool rows remain supported), never from `run.end` prompt/history payloads or assistant prose. Artifact instances deduplicate by `(thread_id, path)`, and aggregate queries must not use silent row limits. |
 | **MCP** (`/api/mcp`) | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json) |
 | **Skills** (`/api/skills`) | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`) |
 | **Memory** (`/api/memory`) | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |
@@ -1033,7 +1050,18 @@ consumer tenant, fetches the image with the caller's linked WeKnora session,
 and returns only `image/*` content. The unscoped `/api/weknora/files` route is
 limited to rendering older messages that still contain raw stable handles.
 `WeKnoraCitationMiddleware` also restores images selected by the current
-WeKnora answer if a final model rewrite drops them.
+WeKnora answer if a final model rewrite drops them. Search results expose a
+ready-to-copy `resource_images[].markdown` for both document-embedded images
+and standalone image-file `image_info` metadata; when the current search turn
+contains exactly one unique authenticated image, the middleware restores that
+image as well. It never guesses between multiple candidate images.
+When a `weknora_search` or `weknora_ask` result exceeds the tool-output budget,
+the complete JSON is still written to the thread's `.tool-results` artifact, but
+`ToolOutputBudgetMiddleware` must keep a valid compact JSON envelope inline
+with every ranked hit's source metadata, bounded text excerpt, citations, and
+`resource_images` (plus `answer_images` for ask). Do not replace it with the generic head/tail preview:
+invalid or image-free previews make the lead agent misreport a populated
+knowledge base as empty.
 When `TAVILY_API_KEY` is present, the same bridge creates an idempotent native
 WeKnora Tavily provider named `DeerFlow Tavily` in every workspace the user owns
 or administers and makes it the default search provider. Set

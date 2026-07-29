@@ -126,11 +126,11 @@ def test_enterprise_runtime_images_are_immutable():
     assert custom
     assert all(image.get("digest", "").startswith("sha256:") for image in third_party)
     expected_tags = {
-        "deer-flow-gateway": "20260728-enterprise-arm64-rc11",
+        "deer-flow-gateway": "20260729-enterprise-arm64-rc12-imagequery1",
         "deer-flow-frontend": "20260728-enterprise-arm64-rc11",
         "deer-flow-provisioner": "20260723-enterprise-arm64-rc3",
         "deer-flow-skills": "20260723-enterprise-arm64-rc3",
-        "deer-flow-mineru-adapter": "20260728-enterprise-arm64-rc10-pdffix1",
+        "deer-flow-mineru-adapter": "20260729-enterprise-arm64-rc12-minerustability1",
         "paradedb/paradedb": "pg16-search-arm64-20260722-1",
         "wechatopenai/weknora-app": "0.7.0-enterprise-proxy1-arm64-20260723",
     }
@@ -141,21 +141,12 @@ def test_enterprise_runtime_images_are_immutable():
 def test_weknora_ui_uses_official_v070_resource_aware_manifest():
     expected_digest = "sha256:401604e79a5717dd966a13383d775f15d3125481d3e080eba329e4a0fbcf9523"
     base_documents = _yaml_documents("k8s/weknora/weknora.yaml")
-    frontend = next(
-        document
-        for document in base_documents
-        if document.get("kind") == "Deployment"
-        and document.get("metadata", {}).get("name") == "weknora-frontend"
-    )
+    frontend = next(document for document in base_documents if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "weknora-frontend")
     base_image = frontend["spec"]["template"]["spec"]["containers"][0]["image"]
     assert base_image == f"wechatopenai/weknora-ui@{expected_digest}"
 
     enterprise = yaml.safe_load(_read("k8s/enterprise/kustomization.yaml"))
-    override = next(
-        image
-        for image in enterprise["images"]
-        if image["name"] == "wechatopenai/weknora-ui"
-    )
+    override = next(image for image in enterprise["images"] if image["name"] == "wechatopenai/weknora-ui")
     assert override == {
         "name": "wechatopenai/weknora-ui",
         "newName": "m.daocloud.io/docker.io/wechatopenai/weknora-ui",
@@ -185,11 +176,7 @@ def test_weknora_ui_uses_official_v070_resource_aware_manifest():
         assert stale_asset not in patched_index
 
     patch_kustomization = yaml.safe_load(_read("k8s/weknora/kustomization.yaml"))
-    ui_patch = next(
-        generator
-        for generator in patch_kustomization["configMapGenerator"]
-        if generator["name"] == "weknora-ui-patch"
-    )
+    ui_patch = next(generator for generator in patch_kustomization["configMapGenerator"] if generator["name"] == "weknora-ui-patch")
     assert "index-itUW58et.js=ui-patches/index-itUW58et.js" in ui_patch["files"]
     assert not any("Login-JaWLYwhw.js" in item for item in ui_patch["files"])
 
@@ -316,17 +303,46 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
     documents = _yaml_documents("k8s/enterprise/mineru-adapter.yaml")
     deployment = next(document for document in documents if document["kind"] == "Deployment")
     service = next(document for document in documents if document["kind"] == "Service")
+    disruption_budget = next(document for document in documents if document["kind"] == "PodDisruptionBudget")
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     env = {item["name"]: item["value"] for item in container["env"]}
+    pod_spec = deployment["spec"]["template"]["spec"]
 
     assert deployment["metadata"]["name"] == "deer-flow-mineru-adapter"
+    assert deployment["spec"]["replicas"] == 3
+    assert deployment["spec"]["strategy"] == {
+        "type": "RollingUpdate",
+        "rollingUpdate": {"maxUnavailable": 1, "maxSurge": 0},
+    }
+    required_anti_affinity = pod_spec["affinity"]["podAntiAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"]
+    assert required_anti_affinity == [
+        {
+            "labelSelector": {
+                "matchExpressions": [
+                    {
+                        "key": "app",
+                        "operator": "In",
+                        "values": ["deer-flow-mineru-adapter"],
+                    }
+                ]
+            },
+            "topologyKey": "kubernetes.io/hostname",
+        }
+    ]
     assert container["envFrom"] == [{"secretRef": {"name": "deer-flow-mineru"}}]
     assert container["imagePullPolicy"] == "Never"
+    assert container["resources"]["requests"] == {"cpu": "500m", "memory": "1Gi"}
+    assert container["resources"]["limits"] == {"cpu": "2", "memory": "2Gi"}
     assert service["metadata"]["name"] == "deer-flow-mineru-adapter"
     assert service["spec"]["ports"][0]["port"] == 50052
     assert all(document["kind"] != "Secret" for document in documents)
     assert env["REQUESTS_CA_BUNDLE"] == "/etc/deerflow-ca/ca-bundle.crt"
     assert container["volumeMounts"] == [{"name": "enterprise-ca", "mountPath": "/etc/deerflow-ca", "readOnly": True}]
+    assert disruption_budget["metadata"]["name"] == "deer-flow-mineru-adapter"
+    assert disruption_budget["spec"] == {
+        "minAvailable": 2,
+        "selector": {"matchLabels": {"app": "deer-flow-mineru-adapter"}},
+    }
 
 
 def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru_adapter():
@@ -337,6 +353,7 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert gateway_env["WEKNORA_MINERU_ENDPOINT"] == "http://deer-flow-mineru-adapter:50052"
     assert gateway_env["WEKNORA_MINERU_AUTO_CONFIGURE"] == "true"
     assert gateway_env["WEKNORA_MINERU_SCANNED_PDF_FALLBACK"] == "true"
+    assert gateway_env["WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK"] == "true"
     assert "model.ai.cnooc" in gateway_env["NO_PROXY"].split(",")
     assert "model.ai.cnooc" in gateway_env["no_proxy"].split(",")
 
@@ -353,6 +370,10 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert "model.ai.cnooc" in weknora_env["NO_PROXY"].split(",")
     assert "model.ai.cnooc" in weknora_env["no_proxy"].split(",")
     assert weknora_env["WEKNORA_PREFER_CNOOC_DEEPSEEK"] == "true"
+    assert weknora_env["WEKNORA_ASYNQ_CORE_CONCURRENCY"] == "2"
+    assert weknora_env["WEKNORA_ASYNQ_SHARED_CONCURRENCY"] == "1"
+    assert weknora_env["WEKNORA_DOCREADER_CALL_TIMEOUT"] == "30m"
+    assert weknora_env["WEKNORA_DOCUMENT_PROCESS_TIMEOUT"] == "2h"
     assert weknora_env["SSL_CERT_FILE"] == "/etc/deerflow-ca/ca-bundle.crt"
     assert {
         "name": "enterprise-ca",
@@ -370,6 +391,11 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert adapter_env["MINERU_SOURCE_PAGE_DPI"] == "110"
     assert adapter_env["MINERU_SOURCE_PAGE_JPEG_QUALITY"] == "82"
     assert adapter_env["MINERU_MAX_SOURCE_PAGE_IMAGES"] == "200"
+    assert adapter_env["MINERU_MULTILINGUAL_FIGURE_CAPTURE"] == "true"
+    assert adapter_env["MINERU_VISUAL_PAGE_MIN_IMAGE_RATIO"] == "0.01"
+    assert adapter_env["MINERU_VISUAL_PAGE_MIN_VECTOR_OBJECTS"] == "12"
+    assert adapter_env["MINERU_VISUAL_PAGE_MIN_VECTOR_AREA_RATIO"] == "0.05"
+    assert adapter_env["MINERU_MAX_SEARCHABLE_VISUAL_PAGES"] == "80"
 
 
 def test_enterprise_routes_internal_retrieval_models_through_gateway():
@@ -507,14 +533,41 @@ def test_weknora_builtin_agents_are_ready_for_every_personal_workspace():
 
 def test_enterprise_weknora_native_kb_defaults_to_mineru_without_overriding_explicit_rules():
     sql = _read("k8s/enterprise/weknora-mineru-defaults.sql")
+    kustomization = yaml.safe_load(_read("k8s/enterprise/kustomization.yaml"))
+    job_documents = _yaml_documents("k8s/enterprise/weknora-mineru-defaults-job.yaml")
+    job = next(document for document in job_documents if document["kind"] == "Job")
+    container = job["spec"]["template"]["spec"]["containers"][0]
 
     assert "CREATE OR REPLACE FUNCTION public.deerflow_ensure_mineru_parser_rule()" in sql
     assert "CREATE TRIGGER deerflow_mineru_parser_defaults" in sql
     assert "BEFORE INSERT OR UPDATE OF chunking_config" in sql
-    assert "jsonb_build_array('pdf', 'ppt', 'pptx')" in sql
+    assert "BEFORE INSERT" in sql
+    assert "jsonb_build_array('pdf', 'doc', 'docx', 'ppt', 'pptx')" in sql
     assert "'engine', 'mineru'" in sql
     assert "missing_file_types" in sql
+    assert "'builtin', 'markitdown'" in sql
     assert "UPDATE public.knowledge_bases" in sql
+    assert "weknora-mineru-defaults-job.yaml" in kustomization["resources"]
+    assert any(generator["name"] == "weknora-mineru-defaults" and "defaults.sql=weknora-mineru-defaults.sql" in generator["files"] for generator in kustomization["configMapGenerator"])
+    assert job["metadata"]["name"] == "weknora-enterprise-mineru-defaults-v2"
+    assert container["env"] == [
+        {
+            "name": "PGPASSWORD",
+            "valueFrom": {
+                "secretKeyRef": {
+                    "name": "weknora-secret",
+                    "key": "DB_PASSWORD",
+                }
+            },
+        }
+    ]
+    assert container["volumeMounts"] == [
+        {
+            "name": "defaults-sql",
+            "mountPath": "/sql",
+            "readOnly": True,
+        }
+    ]
 
 
 def test_weknora_sso_bootstrap_uses_same_origin_session_endpoint():

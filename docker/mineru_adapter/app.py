@@ -12,6 +12,9 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
+import time
+import uuid
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -34,6 +37,10 @@ _MARKDOWN_DATA_IMAGE_RE = re.compile(
     r"""!\[(?P<alt>[^\]]*)]\(\s*data:(?P<mime>image/[a-z0-9.+-]+);base64,(?P<data>[^)]*)\)""",
     re.IGNORECASE,
 )
+_MARKDOWN_IMAGE_REF_RE = re.compile(
+    r"""!\[(?P<alt>[^\]]*)]\(\s*(?P<path>images/[^)\s]+)\s*\)""",
+    re.IGNORECASE,
+)
 _IMAGE_EXTENSIONS = {
     "image/bmp": "bmp",
     "image/gif": "gif",
@@ -43,6 +50,15 @@ _IMAGE_EXTENSIONS = {
     "image/tiff": "tiff",
     "image/webp": "webp",
 }
+_MULTILINGUAL_FIGURE_CAPTION_RE = re.compile(
+    r"^(?:(?:Figure|Fig\.?)\s+\d+(?:[.\-]\d+)*|(?:图表|图)\s*[A-Za-z]?\s*\d+(?:[.\-—]\d+)*)\b",
+    re.IGNORECASE,
+)
+_MULTILINGUAL_FIGURE_CAPTION_SEARCH_RE = re.compile(
+    r"(?:\b(?:Figure|Fig\.?)\s+\d+(?:[.\-]\d+)*\b|(?:^|[\s：:（(])(?:图表|图)\s*[A-Za-z]?\s*\d+(?:[.\-—]\d+)*)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_ENGLISH_FIGURE_GUARD_RE = re.compile(r"\bFigure\s+\d+", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -55,6 +71,96 @@ class PDFRoutingDecision:
     @property
     def use_mineru(self) -> bool:
         return bool(self.scanned_pages)
+
+
+@dataclass(frozen=True)
+class VisualPageEvidence:
+    """A searchable page that should retain a rendered visual counterpart."""
+
+    page_number: int
+    context: str
+
+
+class ParseCoordinator:
+    """Serialize native document parsing while leaving HTTP probes responsive.
+
+    PDFium and the bundled DocReader stack load native libraries that are not
+    safe to enter concurrently in one process. The HTTP server remains threaded
+    so health probes and upload-body reads do not block, but every call into the
+    parsing pipeline passes through this single coordinator.
+    """
+
+    def __init__(self) -> None:
+        self._parse_lock = threading.Lock()
+        self._state_lock = threading.Lock()
+        self._active = 0
+        self._waiting = 0
+
+    def snapshot(self) -> dict[str, int]:
+        with self._state_lock:
+            return {
+                "active": self._active,
+                "waiting": self._waiting,
+            }
+
+    def run(
+        self,
+        operation: Callable[[], dict[str, Any]],
+        *,
+        filename: str,
+        content_bytes: int,
+    ) -> dict[str, Any]:
+        request_id = uuid.uuid4().hex[:12]
+        queued_at = time.monotonic()
+        with self._state_lock:
+            self._waiting += 1
+            queue_depth = self._active + self._waiting
+
+        logger.info(
+            "Parse queued request_id=%s filename=%r bytes=%d queue_depth=%d",
+            request_id,
+            filename,
+            content_bytes,
+            queue_depth,
+        )
+
+        self._parse_lock.acquire()
+        with self._state_lock:
+            self._waiting -= 1
+            self._active = 1
+            waiting = self._waiting
+
+        started_at = time.monotonic()
+        logger.info(
+            "Parse started request_id=%s filename=%r wait_seconds=%.3f waiting=%d",
+            request_id,
+            filename,
+            started_at - queued_at,
+            waiting,
+        )
+
+        status = "failed"
+        try:
+            result = operation()
+            status = "completed"
+            return result
+        finally:
+            elapsed = time.monotonic() - started_at
+            with self._state_lock:
+                self._active = 0
+                waiting = self._waiting
+            self._parse_lock.release()
+            logger.info(
+                "Parse finished request_id=%s filename=%r status=%s elapsed_seconds=%.3f waiting=%d",
+                request_id,
+                filename,
+                status,
+                elapsed,
+                waiting,
+            )
+
+
+_PARSE_COORDINATOR = ParseCoordinator()
 
 
 def _float_env(name: str, default: float) -> float:
@@ -79,10 +185,68 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def _bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _close_resource(resource: Any) -> None:
     close = getattr(resource, "close", None)
     if callable(close):
         close()
+
+
+def configure_builtin_pdf_visual_capture(pdf_parser_module: Any | None = None) -> None:
+    """Extend the bundled PDF parser's vector-figure trigger to Chinese captions.
+
+    WeKnora v0.7.0 already knows how to crop and persist vector figures, but its
+    fast-path guard only recognises ``Figure N``. The adapter owns this runtime
+    compatibility shim so the upstream package remains untouched.
+    """
+    if not _bool_env("MINERU_MULTILINGUAL_FIGURE_CAPTURE", True):
+        return
+    if pdf_parser_module is None:
+        from docreader.parser import pdf_parser as pdf_parser_module
+
+    pdf_parser_module._FIGURE_CAPTION_RE = _MULTILINGUAL_FIGURE_CAPTION_RE
+    pdf_parser_module._FIGURE_CAPTION_SEARCH_RE = _MULTILINGUAL_FIGURE_CAPTION_SEARCH_RE
+
+    extractor = pdf_parser_module._extract_vector_figure_clips
+    if getattr(extractor, "_deerflow_multilingual_caption_guard", False):
+        return
+
+    def multilingual_extractor(
+        page: Any,
+        page_index: int,
+        plain_text: str,
+        raw: Any,
+        base_name: str,
+        scale: float,
+        quality: int,
+        max_edge: int,
+    ) -> list[Any]:
+        guarded_text = plain_text
+        if _MULTILINGUAL_FIGURE_CAPTION_SEARCH_RE.search(plain_text or "") and not _ENGLISH_FIGURE_GUARD_RE.search(plain_text or ""):
+            # The bundled function has one preliminary hard-coded English
+            # guard. Its actual caption/geometry work uses the module regexes
+            # replaced above, so a synthetic guard line is sufficient and is
+            # never included in the returned document text.
+            guarded_text = f"Figure 0\n{plain_text}"
+        return extractor(
+            page,
+            page_index,
+            guarded_text,
+            raw,
+            base_name,
+            scale,
+            quality,
+            max_edge,
+        )
+
+    multilingual_extractor._deerflow_multilingual_caption_guard = True
+    pdf_parser_module._extract_vector_figure_clips = multilingual_extractor
 
 
 def inspect_pdf_routing(
@@ -145,6 +309,111 @@ def inspect_pdf_routing(
     )
 
 
+def _visual_page_context(text: str, maximum_chars: int = 180) -> str:
+    lines = [re.sub(r"\s+", " ", line).strip() for line in (text or "").replace("\r\n", "\n").replace("\r", "\n").split("\n") if line.strip()]
+    caption = next(
+        (line for line in lines if _MULTILINGUAL_FIGURE_CAPTION_SEARCH_RE.search(line)),
+        "",
+    )
+    context = caption or " ".join(lines[:3]) or "文档视觉内容"
+    return context[:maximum_chars].rstrip()
+
+
+def inspect_pdf_visual_pages(
+    content: bytes,
+    *,
+    pdfium_module: Any | None = None,
+    raw_module: Any | None = None,
+) -> tuple[VisualPageEvidence, ...]:
+    """Find searchable pages whose pictures or vector diagrams need page evidence."""
+    if pdfium_module is None:
+        import pypdfium2 as pdfium_module
+    if raw_module is None:
+        import pypdfium2.raw as raw_module
+
+    minimum_image_ratio = _float_env("MINERU_VISUAL_PAGE_MIN_IMAGE_RATIO", 0.01)
+    minimum_vector_objects = _int_env("MINERU_VISUAL_PAGE_MIN_VECTOR_OBJECTS", 12)
+    minimum_vector_ratio = _float_env("MINERU_VISUAL_PAGE_MIN_VECTOR_AREA_RATIO", 0.05)
+    maximum_pages = _int_env("MINERU_MAX_SEARCHABLE_VISUAL_PAGES", 80)
+
+    document = pdfium_module.PdfDocument(content)
+    evidence: list[VisualPageEvidence] = []
+    try:
+        for page_index in range(len(document)):
+            if len(evidence) >= maximum_pages:
+                logger.warning(
+                    "Only the first %d searchable visual pages will be retained",
+                    maximum_pages,
+                )
+                break
+            page = document[page_index]
+            text_page = None
+            try:
+                width, height = page.get_size()
+                page_area = max(float(width) * float(height), 1.0)
+                text_page = page.get_textpage()
+                text = text_page.get_text_range() or ""
+                has_caption = bool(_MULTILINGUAL_FIGURE_CAPTION_SEARCH_RE.search(text))
+
+                image_area = 0.0
+                vector_bounds: list[tuple[float, float, float, float]] = []
+                for page_object in page.get_objects():
+                    object_type = getattr(page_object, "type", None)
+                    if object_type not in {
+                        raw_module.FPDF_PAGEOBJ_IMAGE,
+                        raw_module.FPDF_PAGEOBJ_PATH,
+                    }:
+                        continue
+                    try:
+                        left, bottom, right, top = page_object.get_bounds()
+                    except Exception:
+                        continue
+                    bounds = (
+                        min(float(left), float(right)),
+                        min(float(bottom), float(top)),
+                        max(float(left), float(right)),
+                        max(float(bottom), float(top)),
+                    )
+                    area = max(bounds[2] - bounds[0], 0.0) * max(
+                        bounds[3] - bounds[1],
+                        0.0,
+                    )
+                    if object_type == raw_module.FPDF_PAGEOBJ_IMAGE:
+                        image_area += area
+                    elif area / page_area >= 0.0002:
+                        vector_bounds.append(bounds)
+
+                image_ratio = min(image_area / page_area, 1.0)
+                vector_ratio = 0.0
+                if vector_bounds:
+                    vector_bbox = (
+                        min(item[0] for item in vector_bounds),
+                        min(item[1] for item in vector_bounds),
+                        max(item[2] for item in vector_bounds),
+                        max(item[3] for item in vector_bounds),
+                    )
+                    vector_ratio = min(
+                        (max(vector_bbox[2] - vector_bbox[0], 0.0) * max(vector_bbox[3] - vector_bbox[1], 0.0)) / page_area,
+                        1.0,
+                    )
+
+                has_visual = has_caption or image_ratio >= minimum_image_ratio or (len(vector_bounds) >= minimum_vector_objects and vector_ratio >= minimum_vector_ratio)
+                if has_visual:
+                    evidence.append(
+                        VisualPageEvidence(
+                            page_number=page_index + 1,
+                            context=_visual_page_context(text),
+                        )
+                    )
+            finally:
+                _close_resource(text_page)
+                _close_resource(page)
+    finally:
+        _close_resource(document)
+
+    return tuple(evidence)
+
+
 def parse_pdf_with_builtin(
     content: bytes,
     filename: str,
@@ -155,6 +424,7 @@ def parse_pdf_with_builtin(
     if parser_factory is None:
         from docreader.parser import Parser
 
+        configure_builtin_pdf_visual_capture()
         parser_factory = Parser
 
     document = parser_factory().parse_file(
@@ -170,25 +440,159 @@ def parse_pdf_with_builtin(
     return markdown, dict(images) if isinstance(images, dict) else {}
 
 
-def detect_input_suffix(content: bytes) -> str:
+def _document_from_parser(
+    *,
+    content: bytes,
+    filename: str,
+    file_type: str,
+    parser_factory: Callable[[], Any],
+) -> tuple[str, dict[str, str]]:
+    document = parser_factory().parse_file(
+        file_name=filename,
+        file_type=file_type,
+        content=content,
+        parser_engine="builtin",
+    )
+    markdown = str(getattr(document, "content", "") or "").strip()
+    images = getattr(document, "images", None)
+    return markdown, dict(images) if isinstance(images, dict) else {}
+
+
+def merge_document_visuals(
+    markdown: str,
+    images: dict[str, str],
+    visual_markdown: str,
+    visual_images: dict[str, str],
+) -> tuple[str, dict[str, str]]:
+    """Merge parser-produced visual evidence without duplicating image payloads."""
+    merged_images = dict(images)
+    known_payloads = set(merged_images.values())
+    added_paths: list[str] = []
+    for path, encoded in visual_images.items():
+        if path in merged_images or encoded in known_payloads:
+            continue
+        merged_images[path] = encoded
+        known_payloads.add(encoded)
+        added_paths.append(path)
+
+    if not added_paths:
+        return markdown, merged_images
+
+    lines = visual_markdown.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    references: list[str] = []
+    for path in added_paths:
+        reference_index = next(
+            (index for index, line in enumerate(lines) if path in line and ("![" in line or "<img" in line.lower())),
+            None,
+        )
+        if reference_index is None:
+            references.append(f"![文档视觉内容]({path})")
+            continue
+
+        reference = lines[reference_index].strip()
+        heading = ""
+        for offset in (-1, -2):
+            candidate_index = reference_index + offset
+            if candidate_index < 0:
+                continue
+            candidate = lines[candidate_index].strip()
+            if candidate.startswith("#"):
+                heading = candidate
+                break
+        caption = ""
+        for offset in (1, 2, -1, -2):
+            candidate_index = reference_index + offset
+            if candidate_index < 0 or candidate_index >= len(lines):
+                continue
+            candidate = lines[candidate_index].strip()
+            if candidate and _MULTILINGUAL_FIGURE_CAPTION_SEARCH_RE.search(candidate):
+                caption = candidate
+                break
+        block = "\n\n".join(part for part in (heading, reference, caption) if part)
+        references.append(block)
+
+    supplement = "\n\n".join(references)
+    merged_markdown = f"{markdown}\n\n## 文档视觉内容\n\n{supplement}" if markdown else f"## 文档视觉内容\n\n{supplement}"
+    return merged_markdown, merged_images
+
+
+def parse_word_with_builtin(
+    content: bytes,
+    filename: str,
+    suffix: str,
+    *,
+    parser_factory: Callable[[], Any] | None = None,
+    docx_parser_factory: Callable[..., Any] | None = None,
+) -> tuple[str, dict[str, str]]:
+    """Keep native Word structure and explicitly recover DOCX inline images."""
+    if parser_factory is None:
+        from docreader.parser import Parser
+
+        parser_factory = Parser
+
+    markdown, images = _document_from_parser(
+        content=content,
+        filename=filename,
+        file_type=suffix.lstrip("."),
+        parser_factory=parser_factory,
+    )
+    if suffix != ".docx":
+        return markdown, images
+
+    # The bundled DOCX chain tries MarkItDown first. It is excellent for text
+    # but may finish before the image-aware parser runs, so execute that parser
+    # once as a visual supplement while retaining the primary text.
+    if docx_parser_factory is None:
+        from docreader.parser.docx_parser import DocxParser
+
+        docx_parser_factory = DocxParser
+    try:
+        visual_document = docx_parser_factory(
+            file_name=filename,
+            file_type="docx",
+        ).parse(content)
+        visual_markdown = str(getattr(visual_document, "content", "") or "").strip()
+        visual_images = getattr(visual_document, "images", None)
+        return merge_document_visuals(
+            markdown,
+            images,
+            visual_markdown,
+            dict(visual_images) if isinstance(visual_images, dict) else {},
+        )
+    except Exception:
+        logger.warning(
+            "Image-aware DOCX parsing failed for %s; continuing with primary Word text.",
+            filename,
+            exc_info=True,
+        )
+        return markdown, images
+
+
+def detect_input_suffix(content: bytes, filename: str | None = None) -> str:
     """Identify the supported document type without trusting the filename."""
     if content.startswith(b"%PDF-"):
         return ".pdf"
     if content.startswith(bytes.fromhex("D0CF11E0A1B11AE1")):
-        return ".ppt"
+        hinted_suffix = Path(filename or "").suffix.lower()
+        if hinted_suffix in {".doc", ".ppt"}:
+            return hinted_suffix
+        raise ValueError("Legacy Office input must use a .doc or .ppt filename")
     if content.startswith(b"PK"):
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as archive:
-                if "ppt/presentation.xml" in archive.namelist():
+                names = set(archive.namelist())
+                if "ppt/presentation.xml" in names:
                     return ".pptx"
+                if "word/document.xml" in names:
+                    return ".docx"
         except zipfile.BadZipFile:
             pass
-    raise ValueError("Only PDF, PPT, and PPTX files are supported")
+    raise ValueError("Only PDF, DOC, DOCX, PPT, and PPTX files are supported")
 
 
 def convert_to_pdf(content: bytes, filename: str) -> bytes:
-    """Convert a presentation to PDF; pass validated PDF input through."""
-    suffix = detect_input_suffix(content)
+    """Convert an Office document to PDF; pass validated PDF input through."""
+    suffix = detect_input_suffix(content, filename)
     if suffix == ".pdf":
         return content
 
@@ -374,6 +778,52 @@ def render_pdf_page_images(
     return "\n\n".join(references), images
 
 
+def preserve_searchable_pdf_visuals(
+    pdf: bytes,
+    markdown: str,
+    images: dict[str, str],
+) -> tuple[str, dict[str, str]]:
+    """Attach retrievable page evidence for figures on searchable PDF pages."""
+    try:
+        evidence = inspect_pdf_visual_pages(pdf)
+        if not evidence:
+            return markdown, images
+        _generic_markdown, page_images = render_pdf_page_images(
+            pdf,
+            tuple(item.page_number for item in evidence),
+        )
+    except Exception:
+        logger.warning(
+            "Searchable visual-page preservation failed; keeping parsed text and images.",
+            exc_info=True,
+        )
+        return markdown, images
+
+    blocks: list[str] = []
+    for item in evidence:
+        path = f"images/source-page-{item.page_number:04d}.jpg"
+        if path not in page_images:
+            continue
+        safe_context = item.context.replace("[", " ").replace("]", " ").strip()
+        blocks.append(
+            "\n\n".join(
+                (
+                    f"### 第 {item.page_number} 页视觉证据",
+                    f"![{safe_context}]({path})",
+                    item.context,
+                )
+            )
+        )
+    if not blocks:
+        return markdown, images
+    return merge_document_visuals(
+        markdown,
+        images,
+        "\n\n".join(blocks),
+        page_images,
+    )
+
+
 def mineru_pages_to_markdown(
     payload: dict[str, Any],
 ) -> tuple[str, dict[str, str]]:
@@ -399,12 +849,49 @@ def weknora_response(markdown: str, images: dict[str, str] | None = None) -> dic
 
 
 def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
-    """Route searchable PDFs locally and OCR presentations/scanned PDFs."""
-    suffix = detect_input_suffix(content)
+    """Preserve searchable documents locally and OCR image-dominated input."""
+    suffix = detect_input_suffix(content, filename)
     decision: PDFRoutingDecision | None = None
-    if suffix == ".pdf":
+    searchable_document = suffix in {".pdf", ".doc", ".docx"}
+    native_word: tuple[str, dict[str, str]] | None = None
+    if suffix in {".doc", ".docx"}:
         try:
-            decision = inspect_pdf_routing(content)
+            native_word = parse_word_with_builtin(content, filename, suffix)
+        except Exception:
+            logger.warning(
+                "Native Word parsing failed for %s; continuing through PDF visual fallback.",
+                filename,
+                exc_info=True,
+            )
+    if suffix == ".pdf":
+        pdf = content
+        pdf_filename = filename
+    else:
+        pdf = convert_to_pdf(content, filename)
+        pdf_filename = f"{Path(filename).stem}.pdf"
+
+    def finalize_searchable(
+        parsed_markdown: str,
+        parsed_images: dict[str, str],
+    ) -> dict[str, Any]:
+        visual_markdown, visual_images = preserve_searchable_pdf_visuals(
+            pdf,
+            parsed_markdown,
+            parsed_images,
+        )
+        if native_word is None:
+            return weknora_response(visual_markdown, visual_images)
+        merged_markdown, merged_images = merge_document_visuals(
+            native_word[0],
+            native_word[1],
+            visual_markdown,
+            visual_images,
+        )
+        return weknora_response(merged_markdown, merged_images)
+
+    if searchable_document:
+        try:
+            decision = inspect_pdf_routing(pdf)
         except Exception as exc:
             logger.warning(
                 "PDF routing inspection failed for %s; trying the builtin parser before MinerU: %s",
@@ -412,8 +899,8 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
                 exc,
             )
             try:
-                markdown, images = parse_pdf_with_builtin(content, filename)
-                return weknora_response(markdown, images)
+                markdown, images = parse_pdf_with_builtin(pdf, pdf_filename)
+                return finalize_searchable(markdown, images)
             except Exception as builtin_exc:
                 logger.warning(
                     "WeKnora builtin PDF recovery failed for %s; falling back to MinerU: %s",
@@ -430,19 +917,14 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
             )
             if not decision.use_mineru:
                 try:
-                    markdown, images = parse_pdf_with_builtin(content, filename)
-                    return weknora_response(markdown, images)
+                    markdown, images = parse_pdf_with_builtin(pdf, pdf_filename)
+                    return finalize_searchable(markdown, images)
                 except Exception as exc:
                     logger.warning(
                         "WeKnora builtin PDF parsing failed for %s; falling back to MinerU: %s",
                         filename,
                         exc,
                     )
-        pdf = content
-        pdf_filename = filename
-    else:
-        pdf = convert_to_pdf(content, filename)
-        pdf_filename = f"{Path(filename).stem}.pdf"
 
     parsed = EnterpriseMinerUClient(
         api_url=os.environ["MINERU_API_URL"],
@@ -451,7 +933,7 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
     ).parse_pdf(pdf, pdf_filename)
     markdown, images = mineru_pages_to_markdown(parsed)
 
-    page_numbers = decision.scanned_pages if suffix == ".pdf" and decision is not None and decision.use_mineru else None
+    page_numbers = decision.scanned_pages if searchable_document and decision is not None and decision.use_mineru else None
     try:
         source_page_markdown, source_page_images = render_pdf_page_images(
             pdf,
@@ -467,6 +949,13 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
     if source_page_markdown:
         markdown = f"{markdown}\n\n## 原始页面图像\n\n{source_page_markdown}"
     images.update(source_page_images)
+    if native_word is not None:
+        markdown, images = merge_document_visuals(
+            native_word[0],
+            native_word[1],
+            markdown,
+            images,
+        )
     return weknora_response(markdown, images)
 
 
@@ -507,7 +996,17 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         # WeKnora's built-in MinerU availability check calls /docs, while the
         # Kubernetes probes use /health. Both are intentionally side-effect free.
-        if self.path.rstrip("/") in {"", "/health", "/docs"}:
+        normalized_path = self.path.rstrip("/")
+        if normalized_path == "/health":
+            self._json(
+                HTTPStatus.OK,
+                {
+                    "status": "ok",
+                    "parser": _PARSE_COORDINATOR.snapshot(),
+                },
+            )
+            return
+        if normalized_path in {"", "/docs"}:
             self._json(HTTPStatus.OK, {"status": "ok"})
             return
         self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
@@ -525,7 +1024,12 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
                 self.headers.get("Content-Type", ""),
                 self.rfile.read(content_length),
             )
-            self._json(HTTPStatus.OK, parse_upload(content, filename))
+            parsed = _PARSE_COORDINATOR.run(
+                lambda: parse_upload(content, filename),
+                filename=filename,
+                content_bytes=len(content),
+            )
+            self._json(HTTPStatus.OK, parsed)
         except (KeyError, ValueError) as exc:
             logger.warning("Rejected MinerU adapter request: %s", exc)
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})

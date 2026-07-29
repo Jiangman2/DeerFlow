@@ -12,15 +12,18 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import case, desc, func, select
 
 from app.gateway.deps import require_admin_user
+from app.gateway.weknora_analytics import get_weknora_dashboard_analytics
 from deerflow.persistence.engine import get_session_factory
 from deerflow.persistence.feedback.model import FeedbackRow
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
 from deerflow.persistence.run.model import RunRow
+from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
+from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
 from deerflow.persistence.thread_meta.model import ThreadCreationRow, ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
 
@@ -196,10 +199,110 @@ class FeedbackSummary(BaseModel):
     by_feature: list[FeedbackFeatureItem]
 
 
+class KnowledgeFileFormatUsageItem(BaseModel):
+    format: str
+    current_count: int
+    uploaded_count: int
+
+
+class KnowledgeBaseUsageItem(BaseModel):
+    knowledge_base_id: str
+    name: str
+    creator_email: str | None
+    creator_name: str | None
+    current_documents: int
+    uploaded_documents: int
+    current_conversation_sessions: int
+    conversation_sessions: int
+    current_question_turns: int
+    question_turns: int
+    file_formats: list[KnowledgeFileFormatUsageItem] = Field(default_factory=list)
+
+
+class KnowledgeUserUsageItem(BaseModel):
+    weknora_user_id: str
+    email: str | None
+    name: str | None
+    current_knowledge_bases: int
+    created_knowledge_bases: int
+    current_documents: int
+    uploaded_documents: int
+    conversation_sessions: int
+    question_turns: int
+
+
+class SharedSpaceUsageItem(BaseModel):
+    shared_space_id: str
+    name: str
+    description: str | None
+    created_at: datetime
+    owner_email: str | None
+    owner_name: str | None
+    current_members: int
+    joined_members: int
+    admins: int
+    editors: int
+    viewers: int
+    current_knowledge_bases: int
+    shared_knowledge_bases: int
+    current_documents: int
+    uploaded_documents: int
+    pending_requests: int
+    join_requests: int
+
+
 class KnowledgeUsageSummary(BaseModel):
+    available: bool = False
+    error: str | None = None
+    current_users: int = 0
+    registered_users: int = 0
+    current_knowledge_bases: int = 0
+    created_knowledge_bases: int = 0
+    current_documents: int = 0
+    uploaded_documents: int = 0
+    current_conversation_sessions: int = 0
+    conversation_sessions: int = 0
+    current_question_turns: int = 0
+    question_turns: int = 0
+    current_shared_spaces: int = 0
+    created_shared_spaces: int = 0
+    current_shared_space_members: int = 0
+    joined_shared_space_members: int = 0
+    current_shared_knowledge_bases: int = 0
+    shared_knowledge_bases: int = 0
+    current_shared_documents: int = 0
+    uploaded_shared_documents: int = 0
+    pending_shared_space_requests: int = 0
+    shared_space_join_requests: int = 0
+    file_formats: list[KnowledgeFileFormatUsageItem] = Field(default_factory=list)
+    knowledge_bases: list[KnowledgeBaseUsageItem] = Field(default_factory=list)
+    users: list[KnowledgeUserUsageItem] = Field(default_factory=list)
+    shared_spaces: list[SharedSpaceUsageItem] = Field(default_factory=list)
+
+
+class ScheduledTaskUserUsageItem(BaseModel):
+    user_id: str
+    email: str | None
+    current_tasks: int
+    created_tasks: int
+    enabled_tasks: int
+    paused_tasks: int
     runs: int
-    tool_calls: int
-    recent_tool_calls: list[dict[str, Any]]
+    successful_runs: int
+    failed_runs: int
+    skipped_runs: int
+
+
+class ScheduledTaskUsageSummary(BaseModel):
+    current_tasks: int
+    created_tasks: int
+    enabled_tasks: int
+    paused_tasks: int
+    runs: int
+    successful_runs: int
+    failed_runs: int
+    skipped_runs: int
+    users: list[ScheduledTaskUserUsageItem] = Field(default_factory=list)
 
 
 class RecentFailureItem(BaseModel):
@@ -243,6 +346,7 @@ class DashboardSummary(BaseModel):
     artifact_summary: ArtifactSummary
     feedback: FeedbackSummary
     knowledge_usage: KnowledgeUsageSummary
+    scheduled_task_usage: ScheduledTaskUsageSummary
     recent_failures: list[RecentFailureItem]
 
 
@@ -343,6 +447,93 @@ def _window_bounds(hours: int, start_at: datetime | None, end_at: datetime | Non
         start = end - timedelta(hours=1)
     window_hours = max(1, int((end - start).total_seconds() // 3600) or 1)
     return start, end, window_hours
+
+
+def _summarize_scheduled_task_usage(
+    tasks: list[ScheduledTaskRow],
+    runs: list[ScheduledTaskRunRow],
+    creation_audits: list[AuditLogRow],
+    users_by_id: dict[str, UserRow],
+    *,
+    start: datetime,
+    end: datetime,
+    limit: int,
+) -> ScheduledTaskUsageSummary:
+    """Combine current task inventory with append-only creation and run history."""
+
+    task_owner: dict[str, str] = {str(task.id): str(task.user_id) for task in tasks if task.id and task.user_id}
+    audit_email_by_user: dict[str, str] = {}
+    for audit in creation_audits:
+        if audit.resource_id and audit.user_id:
+            task_owner.setdefault(str(audit.resource_id), str(audit.user_id))
+        if audit.user_id and audit.user_email:
+            audit_email_by_user.setdefault(str(audit.user_id), audit.user_email)
+
+    created_task_ids: set[str] = {str(task.id) for task in tasks if start <= (_coerce_aware(task.created_at) or start) <= end}
+    created_task_ids.update(str(audit.resource_id) for audit in creation_audits if audit.resource_id and start <= (_coerce_aware(audit.created_at) or start) <= end)
+
+    user_buckets: dict[str, dict[str, int]] = defaultdict(
+        lambda: {
+            "current_tasks": 0,
+            "created_tasks": 0,
+            "enabled_tasks": 0,
+            "paused_tasks": 0,
+            "runs": 0,
+            "successful_runs": 0,
+            "failed_runs": 0,
+            "skipped_runs": 0,
+        }
+    )
+    for task in tasks:
+        user_id = str(task.user_id)
+        bucket = user_buckets[user_id]
+        bucket["current_tasks"] += 1
+        bucket["enabled_tasks"] += int(task.status == "enabled")
+        bucket["paused_tasks"] += int(task.status == "paused")
+
+    for task_id in created_task_ids:
+        user_id = task_owner.get(task_id)
+        if user_id:
+            user_buckets[user_id]["created_tasks"] += 1
+
+    for run in runs:
+        user_id = task_owner.get(str(run.task_id))
+        if not user_id:
+            continue
+        bucket = user_buckets[user_id]
+        bucket["runs"] += 1
+        bucket["successful_runs"] += int(run.status == "success")
+        bucket["failed_runs"] += int(run.status in {"failed", "interrupted"})
+        bucket["skipped_runs"] += int(run.status == "skipped")
+
+    users = [
+        ScheduledTaskUserUsageItem(
+            user_id=user_id,
+            email=(users_by_id[user_id].email if user_id in users_by_id else audit_email_by_user.get(user_id)),
+            **bucket,
+        )
+        for user_id, bucket in sorted(
+            user_buckets.items(),
+            key=lambda item: (
+                item[1]["runs"],
+                item[1]["created_tasks"],
+                item[1]["current_tasks"],
+            ),
+            reverse=True,
+        )[:limit]
+    ]
+
+    return ScheduledTaskUsageSummary(
+        current_tasks=len(tasks),
+        created_tasks=len(created_task_ids),
+        enabled_tasks=sum(task.status == "enabled" for task in tasks),
+        paused_tasks=sum(task.status == "paused" for task in tasks),
+        runs=len(runs),
+        successful_runs=sum(run.status == "success" for run in runs),
+        failed_runs=sum(run.status in {"failed", "interrupted"} for run in runs),
+        skipped_runs=sum(run.status == "skipped" for run in runs),
+        users=users,
+    )
 
 
 def _duration_ms(created_at: datetime | None, updated_at: datetime | None) -> int:
@@ -635,15 +826,6 @@ def classify_dashboard_features(
     return features
 
 
-def _knowledge_tool_calls(event: RunEventRow) -> list[str]:
-    if event.event_type == "llm.ai.response":
-        payload = _json_mapping(event.content or "")
-        return [str(call.get("name") or "") for call in _tool_calls(payload) if "知识库检索" in _tool_features(str(call.get("name") or ""), call.get("args"))]
-    if event.event_type in {"tool", "tool.start", "tool.end", "tool_start", "tool_end"}:
-        return ["legacy"] if "知识库检索" in classify_dashboard_features(event.content, event.event_metadata, event_type=event.event_type) else []
-    return []
-
-
 def _metadata_name(row: ThreadMetaRow | None) -> str | None:
     if row is None:
         return None
@@ -897,7 +1079,29 @@ async def get_dashboard_summary(
             meta_rows = (await session.execute(select(ThreadMetaRow).where(ThreadMetaRow.thread_id.in_(thread_ids)))).scalars()
             thread_meta = {row.thread_id: row for row in meta_rows}
 
-        user_ids = {row.user_id for row in runs if row.user_id} | {row.user_id for row in thread_creations if row.user_id}
+        scheduled_task_rows = list((await session.execute(select(ScheduledTaskRow).order_by(desc(ScheduledTaskRow.created_at)))).scalars().all())
+        scheduled_task_run_rows = list(
+            (
+                await session.execute(
+                    select(ScheduledTaskRunRow)
+                    .where(
+                        ScheduledTaskRunRow.created_at >= start,
+                        ScheduledTaskRunRow.created_at <= end,
+                    )
+                    .order_by(desc(ScheduledTaskRunRow.created_at))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        scheduled_creation_audits = list((await session.execute(select(AuditLogRow).where(AuditLogRow.action == "scheduled_task.create"))).scalars().all())
+
+        user_ids = (
+            {row.user_id for row in runs if row.user_id}
+            | {row.user_id for row in thread_creations if row.user_id}
+            | {row.user_id for row in scheduled_task_rows if row.user_id}
+            | {row.user_id for row in scheduled_creation_audits if row.user_id}
+        )
         users_by_id: dict[str, UserRow] = {}
         if user_ids:
             user_rows = (await session.execute(select(UserRow).where(UserRow.id.in_(user_ids)))).scalars()
@@ -930,19 +1134,32 @@ async def get_dashboard_summary(
         )
         external_click_rows = list((await session.execute(click_stmt)).scalars().all())
 
+    weknora_usage = await get_weknora_dashboard_analytics(
+        start=start,
+        end=end,
+        limit=limit,
+    )
+    scheduled_task_usage = _summarize_scheduled_task_usage(
+        scheduled_task_rows,
+        scheduled_task_run_rows,
+        scheduled_creation_audits,
+        users_by_id,
+        start=start,
+        end=end,
+        limit=limit,
+    )
+
     all_events = events
     all_feedback_rows = feedback_rows
     run_features: dict[str, set[str]] = defaultdict(set)
     business_events: list[tuple[RunEventRow, set[str]]] = []
     artifact_events: list[tuple[RunEventRow, str]] = []
-    knowledge_events: list[tuple[RunEventRow, str]] = []
     for event in all_events:
         features = classify_dashboard_features(event.content, event.event_metadata, event_type=event.event_type)
         if features:
             run_features[event.run_id].update(features)
             if event.event_type != "llm.tool.result":
                 business_events.append((event, features))
-        knowledge_events.extend((event, tool_name) for tool_name in _knowledge_tool_calls(event))
         for artifact_path in _extract_artifact_paths(event):
             artifact_events.append((event, artifact_path))
 
@@ -973,7 +1190,6 @@ async def get_dashboard_summary(
     run_features = defaultdict(set, {run_id: features for run_id, features in run_features.items() if run_id in run_ids})
     business_events = [(event, features) for event, features in business_events if event.run_id in run_ids]
     artifact_events = [(event, path) for event, path in artifact_events if event.run_id in run_ids]
-    knowledge_events = [item for item in knowledge_events if item[0].run_id in run_ids]
 
     latest_disposition_by_run: dict[str, OperationDispositionRow] = {}
     for row in disposition_rows:
@@ -1159,18 +1375,6 @@ async def get_dashboard_summary(
         if run.status in _FAILED_STATUSES or run.error
     ][:limit]
 
-    recent_knowledge_calls = [
-        {
-            "run_id": event.run_id,
-            "thread_id": event.thread_id,
-            "created_at": event.created_at.isoformat(),
-            "event_type": event.event_type,
-            "tool_name": tool_name,
-            "snippet": tool_name,
-        }
-        for event, tool_name in knowledge_events[: min(limit, 8)]
-    ]
-
     active_users = {row.user_id for row in runs if row.user_id} | {row.user_id for row in thread_creations if row.user_id}
     artifact_runs = feature_counts.get("产物生成", 0)
     knowledge_runs = feature_counts.get("知识库检索", 0)
@@ -1280,10 +1484,7 @@ async def get_dashboard_summary(
         ),
         artifact_summary=artifact_summary,
         feedback=feedback_summary,
-        knowledge_usage=KnowledgeUsageSummary(
-            runs=knowledge_runs,
-            tool_calls=len(knowledge_events),
-            recent_tool_calls=recent_knowledge_calls,
-        ),
+        knowledge_usage=KnowledgeUsageSummary(**weknora_usage),
+        scheduled_task_usage=scheduled_task_usage,
         recent_failures=recent_failures,
     )

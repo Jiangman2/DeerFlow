@@ -9,6 +9,7 @@ model context is never blown by a single large tool return.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import shlex
@@ -37,6 +38,11 @@ logger = logging.getLogger(__name__)
 # same path is written directly into the sandbox filesystem so the model's
 # ``read_file`` tool can read it back (issue #3416).
 _VIRTUAL_OUTPUTS_BASE = "/mnt/user-data/outputs"
+
+_WEKNORA_SEARCH_CONTENT_CHARS = 1_200
+_WEKNORA_ASK_ANSWER_CHARS = 6_000
+_WEKNORA_ASK_REFERENCE_CHARS = 600
+_WEKNORA_SEARCH_COMPACT_MAX_CHARS = 10_000
 
 
 def _default_config() -> ToolOutputConfig:
@@ -251,6 +257,178 @@ def _build_preview(
     return "".join(parts)
 
 
+def _truncate_weknora_content(content: Any, max_chars: int) -> tuple[str, bool]:
+    """Return a bounded search-result excerpt without breaking its JSON envelope."""
+    text = str(content or "")
+    if len(text) <= max_chars:
+        return text, False
+    marker = "\n\n[命中内容已截断；完整工具结果见 full_output.path]"
+    keep = max(0, max_chars - len(marker))
+    return text[:keep].rstrip() + marker, True
+
+
+def _build_weknora_search_preview(
+    content: str,
+    *,
+    virtual_path: str,
+) -> str | None:
+    """Keep actionable WeKnora hits inline while the complete response stays on disk.
+
+    A generic head/tail preview can turn a large JSON tool result into invalid
+    JSON and can omit the exact hit that carries ``resource_images``.  Preserve
+    the ranked result envelope, citations, and authenticated image Markdown,
+    while bounding only the verbose chunk text.
+    """
+    try:
+        payload = json.loads(content)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    raw_results = payload.get("results")
+    if not isinstance(raw_results, list):
+        return None
+
+    compact_results: list[dict[str, Any]] = []
+    for raw_result in raw_results:
+        if not isinstance(raw_result, dict):
+            continue
+        excerpt, truncated = _truncate_weknora_content(
+            raw_result.get("content"),
+            _WEKNORA_SEARCH_CONTENT_CHARS,
+        )
+        compact_result = {
+            key: raw_result.get(key)
+            for key in (
+                "score",
+                "knowledge_id",
+                "knowledge_base_id",
+                "knowledge_title",
+                "knowledge_filename",
+                "chunk_id",
+                "chunk_index",
+                "chunk_type",
+                "source",
+                "source_type",
+                "resource_images",
+                "citation_url",
+                "citation_markdown",
+            )
+            if key in raw_result
+        }
+        compact_result["content"] = excerpt
+        if truncated:
+            compact_result["content_truncated"] = True
+            compact_result["content_chars"] = len(str(raw_result.get("content") or ""))
+        compact_results.append(compact_result)
+
+    compact = {
+        "query": payload.get("query", ""),
+        "total_results": payload.get("total_results", len(compact_results)),
+        "results": compact_results,
+        "full_output": {
+            "path": virtual_path,
+            "chars": len(content),
+            "instruction": "仅在紧凑命中不足以回答时，使用 read_file 分段读取完整结果。",
+        },
+    }
+    serialized = json.dumps(compact, indent=2, ensure_ascii=False)
+    if len(serialized) <= _WEKNORA_SEARCH_COMPACT_MAX_CHARS:
+        return serialized
+
+    # Metadata and image handles are more important than long prose when the
+    # compact result itself approaches the context budget.
+    for result in compact_results:
+        excerpt, truncated = _truncate_weknora_content(
+            result.get("content"),
+            400,
+        )
+        result["content"] = excerpt
+        if truncated:
+            result["content_truncated"] = True
+    return json.dumps(compact, indent=2, ensure_ascii=False)
+
+
+def _build_weknora_ask_preview(
+    content: str,
+    *,
+    virtual_path: str,
+) -> str | None:
+    """Keep a bounded WeKnora answer, citations, and selected images inline."""
+    try:
+        payload = json.loads(content)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    raw_references = payload.get("references")
+    if not isinstance(raw_references, list):
+        return None
+
+    answer, answer_truncated = _truncate_weknora_content(
+        payload.get("answer"),
+        _WEKNORA_ASK_ANSWER_CHARS,
+    )
+    references: list[dict[str, Any]] = []
+    for raw_reference in raw_references:
+        if not isinstance(raw_reference, dict):
+            continue
+        excerpt, truncated = _truncate_weknora_content(
+            raw_reference.get("content"),
+            _WEKNORA_ASK_REFERENCE_CHARS,
+        )
+        reference = {
+            key: raw_reference.get(key)
+            for key in (
+                "score",
+                "knowledge_id",
+                "knowledge_base_id",
+                "knowledge_title",
+                "knowledge_filename",
+                "chunk_id",
+                "chunk_index",
+                "chunk_type",
+                "resource_images",
+                "citation_url",
+                "citation_markdown",
+            )
+            if key in raw_reference
+        }
+        reference["content"] = excerpt
+        if truncated:
+            reference["content_truncated"] = True
+            reference["content_chars"] = len(str(raw_reference.get("content") or ""))
+        references.append(reference)
+
+    compact: dict[str, Any] = {
+        "answer": answer,
+        "references": references,
+        "answer_images": payload.get("answer_images") if isinstance(payload.get("answer_images"), list) else [],
+        "full_output": {
+            "path": virtual_path,
+            "chars": len(content),
+            "instruction": "仅在紧凑回答不足以回答用户时，使用 read_file 分段读取完整结果。",
+        },
+    }
+    if answer_truncated:
+        compact["answer_truncated"] = True
+        compact["answer_chars"] = len(str(payload.get("answer") or ""))
+
+    serialized = json.dumps(compact, indent=2, ensure_ascii=False)
+    if len(serialized) <= _WEKNORA_SEARCH_COMPACT_MAX_CHARS:
+        return serialized
+
+    compact["answer"], compact["answer_truncated"] = _truncate_weknora_content(
+        compact["answer"],
+        4_000,
+    )
+    for reference in references:
+        reference["content"], reference["content_truncated"] = _truncate_weknora_content(reference.get("content"), 300)
+    return json.dumps(compact, indent=2, ensure_ascii=False)
+
+
 def _build_fallback(
     content: str,
     *,
@@ -406,6 +584,20 @@ def _budget_content(
                 len(content),
                 virtual_path,
             )
+            if tool_name == "weknora_search":
+                compact_preview = _build_weknora_search_preview(
+                    content,
+                    virtual_path=virtual_path,
+                )
+                if compact_preview is not None:
+                    return compact_preview
+            if tool_name == "weknora_ask":
+                compact_preview = _build_weknora_ask_preview(
+                    content,
+                    virtual_path=virtual_path,
+                )
+                if compact_preview is not None:
+                    return compact_preview
             return _build_preview(
                 content,
                 tool_name=tool_name,
