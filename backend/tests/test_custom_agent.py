@@ -617,6 +617,75 @@ class TestAgentsAPI:
         )
         assert response.status_code == 422
 
+    def test_external_platform_click_requires_configured_key(self, agent_client, monkeypatch):
+        monkeypatch.delenv("EXTERNAL_AGENT_CLICK_INGEST_KEY", raising=False)
+        response = agent_client.post(
+            "/api/agent_click",
+            json={
+                "user_name": "测试用户",
+                "user_email": "user@example.com",
+                "agent_name": "勘探开发图文智能检索工具",
+                "source": "海能平台",
+            },
+        )
+        assert response.status_code == 503
+
+    def test_external_platform_click_normalizes_and_persists(self, agent_client, monkeypatch):
+        import app.gateway.routers.agents as agents_router
+
+        class FakeSession:
+            def __init__(self):
+                self.row = None
+                self.committed = False
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *_args):
+                return None
+
+            def add(self, row):
+                self.row = row
+
+            async def commit(self):
+                self.committed = True
+
+        session = FakeSession()
+        monkeypatch.setenv("EXTERNAL_AGENT_CLICK_INGEST_KEY", "test-ingest-key")
+        monkeypatch.setattr(agents_router, "get_session_factory", lambda: lambda: session)
+
+        response = agent_client.post(
+            "/api/agent_click",
+            headers={"Authorization": "Bearer test-ingest-key"},
+            json={
+                "user_name": "测试用户",
+                "user_email": "USER@EXAMPLE.COM",
+                "agent_name": "勘探开发图文智能检索工具",
+                "source": "协同平台",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+        assert session.committed is True
+        assert session.row.action == "external_agent.remote_click"
+        assert session.row.resource_id == "专业文档解析专家"
+        assert session.row.user_email == "user@example.com"
+        assert session.row.details_json["source"] == "协同平台"
+
+    def test_external_platform_click_rejects_invalid_key(self, agent_client, monkeypatch):
+        monkeypatch.setenv("EXTERNAL_AGENT_CLICK_INGEST_KEY", "test-ingest-key")
+        response = agent_client.post(
+            "/api/agent_click",
+            headers={"X-External-Agent-Click-Key": "wrong"},
+            json={
+                "user_name": "测试用户",
+                "agent_name": "自动数采专家",
+                "source": "协同平台",
+            },
+        )
+        assert response.status_code == 401
+
     def test_list_agents_empty(self, agent_client):
         response = agent_client.get("/api/agents")
         assert response.status_code == 200

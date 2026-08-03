@@ -13,6 +13,12 @@ from pydantic import BaseModel, Field
 
 from app.gateway.authz import require_permission
 from app.gateway.deps import get_config
+from app.gateway.file_security import UploadSecurityError, validate_staged_upload, validate_upload_extension
+from app.gateway.upload_document_parser import (
+    UploadDocumentParseError,
+    conversation_document_parser_endpoint,
+    parse_conversation_document,
+)
 from deerflow.config.app_config import AppConfig
 from deerflow.config.paths import get_paths
 from deerflow.runtime.user_context import get_effective_user_id
@@ -44,6 +50,7 @@ UPLOAD_CHUNK_SIZE = 8192
 DEFAULT_MAX_FILES = 10
 DEFAULT_MAX_FILE_SIZE = 50 * 1024 * 1024
 DEFAULT_MAX_TOTAL_SIZE = 100 * 1024 * 1024
+ENTERPRISE_PARSER_EXTENSIONS = {".doc", ".docx", ".pdf", ".ppt", ".pptx"}
 
 
 @dataclass(slots=True)
@@ -68,6 +75,7 @@ class UploadedFileInfo(BaseModel):
     markdown_path: str | None = None
     markdown_virtual_path: str | None = None
     markdown_artifact_url: str | None = None
+    processing_warning: str | None = None
 
 
 class UploadResponse(BaseModel):
@@ -223,9 +231,37 @@ def _commit_upload_temp(upload_temp: _UploadTempFile) -> None:
         raise
 
 
+def _close_upload_temp(upload_temp: _UploadTempFile) -> None:
+    upload_temp.handle.close()
+
+
 def _make_uploaded_paths_sandbox_readable(paths: list[os.PathLike[str] | str]) -> None:
     for file_path in paths:
         _make_file_sandbox_readable(file_path)
+
+
+def _write_parsed_markdown(source_path: Path, markdown: str) -> Path:
+    """Atomically write the parser companion next to its source PDF."""
+    target_path = source_path.with_suffix(".md")
+    temp_fd, temp_path_str = tempfile.mkstemp(
+        prefix=UPLOAD_STAGING_PREFIX,
+        suffix=UPLOAD_STAGING_SUFFIX,
+        dir=target_path.parent,
+    )
+    temp_path = Path(temp_path_str)
+    try:
+        with os.fdopen(temp_fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(f"# {source_path.name} 解析结果\n\n> 本文件由企业文档解析服务生成，原始 PDF 保持不变。\n\n")
+            handle.write(markdown)
+            handle.write("\n")
+        os.replace(temp_path, target_path)
+    except Exception:
+        try:
+            os.unlink(temp_path)
+        except FileNotFoundError:
+            pass
+        raise
+    return target_path
 
 
 def _sync_upload_to_sandbox(sandbox, file_path: os.PathLike[str] | str, virtual_path: str) -> None:
@@ -271,6 +307,13 @@ async def _write_upload_file_with_limits(
                 raise HTTPException(status_code=413, detail="Total upload size too large")
             await run_file_io(_write_upload_chunk, upload_temp, chunk)
 
+        # Validate staged bytes before they can replace an existing upload.
+        # Closing first guarantees the scanner sees every buffered byte.
+        await run_file_io(_close_upload_temp, upload_temp)
+        try:
+            await run_file_io(validate_staged_upload, upload_temp.temp_path, display_filename)
+        except UploadSecurityError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
         await run_file_io(_commit_upload_temp, upload_temp)
         file_path = upload_temp.file_path
         upload_temp = None
@@ -323,6 +366,7 @@ async def upload_files(
     sandbox_sync_targets = []
     skipped_files = []
     total_size = 0
+    processing_warning_count = 0
     # Track filenames within this request so duplicate form parts do not
     # silently truncate each other. Existing uploads keep the historical
     # overwrite behavior for a single replacement upload.
@@ -337,6 +381,7 @@ async def upload_files(
         if sandbox is None:
             raise HTTPException(status_code=500, detail="Failed to acquire sandbox")
     auto_convert_documents = _auto_convert_documents_enabled(config)
+    document_parser_endpoint = conversation_document_parser_endpoint()
 
     for file in files:
         if not file.filename:
@@ -345,6 +390,10 @@ async def upload_files(
         try:
             original_filename = normalize_filename(file.filename)
             safe_filename = claim_unique_filename(original_filename, seen_filenames)
+            validate_upload_extension(safe_filename)
+        except UploadSecurityError as exc:
+            await run_file_io(_cleanup_uploaded_paths, written_paths)
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
         except ValueError:
             logger.warning(f"Skipping file with unsafe filename: {file.filename!r}")
             continue
@@ -378,7 +427,42 @@ async def upload_files(
             logger.info(f"Saved file: {safe_filename} ({file_size} bytes) to {file_info['path']}")
 
             file_ext = file_path.suffix.lower()
-            if auto_convert_documents and file_ext in CONVERTIBLE_EXTENSIONS:
+            parsed_document = False
+            if file_ext in ENTERPRISE_PARSER_EXTENSIONS and document_parser_endpoint:
+                try:
+                    document_content = await run_file_io(Path(file_path).read_bytes)
+                    parsed_markdown = await parse_conversation_document(
+                        endpoint=document_parser_endpoint,
+                        filename=safe_filename,
+                        content=document_content,
+                    )
+                    md_path = await run_file_io(
+                        _write_parsed_markdown,
+                        Path(file_path),
+                        parsed_markdown,
+                    )
+                    written_paths.append(md_path)
+                    md_virtual_path = upload_virtual_path(md_path.name)
+                    if sync_to_sandbox:
+                        sandbox_sync_targets.append((md_path, md_virtual_path))
+                    file_info["markdown_file"] = md_path.name
+                    file_info["markdown_path"] = str(sandbox_uploads / md_path.name)
+                    file_info["markdown_virtual_path"] = md_virtual_path
+                    file_info["markdown_artifact_url"] = upload_artifact_url(
+                        thread_id,
+                        md_path.name,
+                    )
+                    parsed_document = True
+                except UploadDocumentParseError as exc:
+                    processing_warning_count += 1
+                    file_info["processing_warning"] = "文档已上传，但企业文档解析服务暂时不可用；当前任务可能无法完整读取其中的文字。"
+                    logger.warning(
+                        "Conversation document parser failed for %s: %s",
+                        safe_filename,
+                        exc,
+                    )
+
+            if auto_convert_documents and not parsed_document and file_ext in CONVERTIBLE_EXTENSIONS:
                 md_path = await convert_file_to_markdown(file_path)
                 if md_path:
                     written_paths.append(md_path)
@@ -422,6 +506,8 @@ async def upload_files(
     message = f"Successfully uploaded {len(uploaded_files)} file(s)"
     if skipped_files:
         message += f"; skipped {len(skipped_files)} unsafe file(s)"
+    if processing_warning_count:
+        message += f"; {processing_warning_count} document(s) were kept without enterprise parsed text"
 
     return UploadResponse(
         success=not skipped_files,

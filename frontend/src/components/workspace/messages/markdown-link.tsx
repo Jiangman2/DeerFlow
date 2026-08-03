@@ -40,15 +40,23 @@ export function createMarkdownLinkComponent(
       ? artifactPathFromHref(href, threadId)
       : null;
     if (threadId && artifactPath) {
+      const artifactURL = resolveArtifactURL(artifactPath, threadId);
       return (
         <a
           {...props}
-          href={resolveArtifactURL(artifactPath, threadId)}
+          // Message artifact links are preview controls, not document
+          // navigations. Keeping the raw file URL in href lets a very early
+          // click (before React hydration) replace the whole chat page with a
+          // binary/download response. The real URL remains available to the
+          // artifact panel through the selected path and as inert metadata.
+          href={onArtifactClick ? "#artifacts" : artifactURL}
+          data-artifact-href={artifactURL}
           onClick={(event) => {
             if (!onArtifactClick) {
               return;
             }
             event.preventDefault();
+            event.stopPropagation();
             onArtifactClick(artifactPath);
           }}
         />

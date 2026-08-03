@@ -180,6 +180,12 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
 
    OpenRouter and similar OpenAI-compatible gateways should be configured with `langchain_openai:ChatOpenAI` plus `base_url`. If you prefer a provider-specific environment variable name, point `api_key` at that variable explicitly (for example `api_key: $OPENROUTER_API_KEY`).
 
+   Enterprise-compatible gateways that return business failures as HTTP 200
+   payloads with `choices: null`, `code`, and `msg` can instead use
+   `deerflow.models.robust_openai:RobustChatOpenAI`. DeerFlow then preserves a
+   bounded diagnostic, retries unknown transient null responses once, and
+   avoids retrying recognized authentication, quota, or context-limit errors.
+
    To route OpenAI models through `/v1/responses`, keep using `langchain_openai:ChatOpenAI` and set `use_responses_api: true` with `output_version: responses/v1`.
 
    For vLLM 0.19.0, use `deerflow.models.vllm_provider:VllmChatModel`. For Qwen-style reasoning models, DeerFlow toggles reasoning with `extra_body.chat_template_kwargs.enable_thinking` and preserves vLLM's non-standard `reasoning` field across multi-turn tool-call conversations. Legacy `thinking` configs are normalized automatically for backward compatibility. Reasoning models may also require the server to be started with `--reasoning-parser ...`. If your local vLLM deployment accepts any non-empty API key, you can still set `VLLM_API_KEY` to a placeholder value.
@@ -254,9 +260,11 @@ way to make configured media-provider variables available to PPT/image-generatio
 scripts; use an all-in-one-sandbox image with `/v1/bash/exec` support (1.9.3+).
 The bundled media skills use one `DASHSCOPE_API_KEY` by default: Qwen Image
 (`qwen-image-2.0-pro`), Wan video (`wan2.7-t2v`), Qwen-TTS
-(`qwen3-tts-flash`), and Fun-Music (`fun-music-v1`). Gemini, MiniMax, and
-Volcengine integrations remain optional compatibility fallbacks. The Fun-Music
-model requires separate Model Gallery access in China (Beijing).
+(`qwen3-tts-flash`), and Fun-Music (`fun-music-v1`). Image generation does not
+fall back to Gemini; MiniMax is available only when explicitly selected for
+compatibility. Video, podcast, and music keep their documented provider-specific
+compatibility paths. The Fun-Music model requires separate Model Gallery access
+in China (Beijing).
 
 Shared or production AIO deployments should also set
 `sandbox.sandbox_api_key: $SANDBOX_API_KEY` and inject the same secret into each
@@ -298,6 +306,15 @@ runs from deleted conversations are intentionally excluded from that current
 session view. Administrators can open these conversations in read-only mode for
 operational review, but cannot continue, cancel, modify, or delete another
 user's conversation.
+For CNOOC SSO accounts, user rankings and registered-user lists show the
+validated employee display name together with the login account and
+organization name. Legacy or local accounts without those optional profile
+fields continue to display their login account.
+Enterprise deployments may set the server-only
+`DEER_FLOW_UNAUTHENTICATED_HOME_URL` to an HTTPS data-lake portal. A direct
+unauthenticated visit to DeerFlow's exact root path then returns to that portal,
+while authenticated sessions, API routes, static assets, and workspace deep
+links continue to use DeerFlow normally.
 The dashboard also reads WeKnora's own database in read-only mode to report
 current users, knowledge bases, documents, file formats, knowledge-scoped
 conversations, and question turns alongside creation/upload/conversation
@@ -721,6 +738,12 @@ Long skill entry files and their supporting resources use separate
 default). This keeps mandatory later workflow phases, schemas, and examples
 visible without globally enlarging ordinary file reads.
 
+Enterprise video generation uses the platform-managed DashScope service through
+short asynchronous submit/status commands. Provider credentials, model
+selection, proxy routing, and CA trust are managed by the platform; the agent
+does not discover providers, inspect credentials, or issue direct provider API
+probes.
+
 Skills are what make DeerFlow do _almost anything_.
 
 A standard Agent Skill is a structured capability module — a Markdown file that defines a workflow, best practices, and references to supporting resources. DeerFlow ships with built-in skills for research, report generation, slide creation, web pages, image and video generation, and more. But the real power is extensibility: add your own skills, replace the built-in ones, or combine them into compound workflows.
@@ -774,6 +797,15 @@ uv run python -m deerflow.skills.review.cli ../skills/public/data-analysis --for
 ```
 
 Tools follow the same philosophy. DeerFlow comes with a core toolset — web search, web fetch, rendered web capture, file operations, bash execution — and supports custom tools via MCP servers and Python functions. Swap anything. Add anything.
+
+Enterprise deployments can also enable three CNOOC DataLake tools backed by
+the internal AppForge application system: `datalake_smart_qa` for narrative
+document questions, `datalake_metrics_qa` for indicators and KPIs, and
+`datalake_detail_qa` for record/table-field lookups. Add their entries from
+`config.example.yaml`, inject `APPFORGE_API_KEY` through the runtime Secret,
+set the three reviewed workflow IDs explicitly (`app-p2cpu4dn`, `app-n9ahac7g`,
+and `app-5md031ia`), and keep `trust_env: false` for the reviewed internal
+direct route. Credentials and workflow identity values are never model-visible.
 
 Gateway-generated follow-up suggestions now normalize both plain-string model output and block/list-style rich content before parsing the JSON array response, so provider-specific content wrappers do not silently drop suggestions.
 
@@ -882,9 +914,44 @@ DeerFlow doesn't just _talk_ about doing things. It has its own computer.
 
 Each task gets its own execution environment with a full filesystem view — skills, workspace, uploads, outputs. The agent reads, writes, and edits files. It can view images and, when configured safely, execute shell commands.
 
+Browser uploads are validated before they atomically replace thread files.
+Browser-active/server-executable formats such as HTML, SVG, PHP, JSP, Python,
+shell scripts, and executables are rejected; upload source code as plain text
+or inside a reviewed archive. PDF uploads must have a real PDF signature and
+must not contain JavaScript, automatic actions, embedded executable content, or
+encryption that prevents inspection. Original uploaded documents are delivered
+as downloads rather than rendered in the authenticated application origin
+(safe raster images, media, and passive text remain viewable). Inert generated
+PDF outputs retain the right-side preview with response CSP and an iframe
+sandbox; suspicious PDFs fall back to download.
+
+When `WEKNORA_MINERU_ENDPOINT` is configured, conversation PDF, DOC/DOCX, PPT,
+and PPTX uploads reuse that same enterprise parser without creating a
+knowledge-base record. The Gateway keeps the original document and writes a
+same-stem Markdown companion for the current task. Searchable PDFs and Word
+documents use the adapter's native path, scanned PDFs use enterprise OCR, and
+presentations use its presentation conversion path. Set
+`DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=false` to disable this bridge, or
+override its base URL with
+`DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`. The older
+`DEERFLOW_UPLOAD_PDF_*` names remain supported for deployment compatibility.
+Parser failure does not discard the upload and is reported explicitly.
+
+When a presented PPT/PPTX has no sibling preview, `present_files` asks the
+active sandbox's LibreOffice installation to create
+`<stem>.preview.pdf` automatically. The PPT/PPTX remains the selected download
+artifact while the generated PDF is published for the right-side preview.
+
 After each run, DeerFlow records a workspace change summary for the run-owned `workspace` and `outputs` directories. The Web UI shows a compact "files changed" badge on the assistant turn; opening it reveals created, modified, and deleted files with text diffs when safe to display. Uploads are excluded because they are user inputs, not agent-generated changes. Large, binary, or sensitive-looking files are shown as metadata only.
 
 With `AioSandboxProvider`, shell execution runs inside isolated containers. With `LocalSandboxProvider`, file tools still map to per-thread directories on the host, but host `bash` is disabled by default because it is not a secure isolation boundary. Re-enable host bash only for fully trusted local workflows. Host bash commands have a wall-clock timeout, and long-lived processes should be started in the background with output redirected to a workspace log.
+
+Enterprise provisioner deployments inject outbound proxy settings and the
+current enterprise CA bundle into each generated Sandbox Pod. This keeps
+provider-backed media skills working after proxy credential or CA rotation
+without rebuilding the large Sandbox base image; provider-specific legacy TLS
+compatibility and the generic Sandbox OpenSSL policy remain Pod-scoped, while
+CA-chain and hostname verification stay enabled.
 
 For provisioner/Kubernetes deployments, `sandbox.replicas` bounds active plus
 warm Sandbox capacity per Gateway process. After a Gateway restart, inherited

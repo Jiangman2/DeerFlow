@@ -8,6 +8,7 @@ export const env = createEnv({
    */
   server: {
     GITHUB_OAUTH_TOKEN: z.string().optional(),
+    DEER_FLOW_UNAUTHENTICATED_HOME_URL: z.string().url().optional(),
     SHOP_CART_API_BASE_URL: z.string().optional(),
     SHOP_CART_DOWNLOAD_TOKEN: z.string().optional(),
     SHOP_CART_DOWNLOAD_TLS_VERIFY: z.string().optional(),
@@ -47,6 +48,8 @@ export const env = createEnv({
     NEXT_PUBLIC_STATIC_WEBSITE_ONLY:
       process.env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY,
     GITHUB_OAUTH_TOKEN: process.env.GITHUB_OAUTH_TOKEN,
+    DEER_FLOW_UNAUTHENTICATED_HOME_URL:
+      process.env.DEER_FLOW_UNAUTHENTICATED_HOME_URL,
     SHOP_CART_API_BASE_URL: process.env.SHOP_CART_API_BASE_URL,
     SHOP_CART_DOWNLOAD_TOKEN: process.env.SHOP_CART_DOWNLOAD_TOKEN,
     SHOP_CART_DOWNLOAD_TLS_VERIFY: process.env.SHOP_CART_DOWNLOAD_TLS_VERIFY,

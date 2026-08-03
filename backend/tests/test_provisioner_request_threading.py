@@ -98,6 +98,13 @@ def _sandbox_id_from_service_name(name: str) -> str:
     return name[len("sandbox-") : -len("-svc")]
 
 
+def test_default_sandbox_secrets_use_bailian_without_gemini(
+    provisioner_module,
+) -> None:
+    assert "DASHSCOPE_API_KEY" in provisioner_module.SANDBOX_SECRET_ENV_KEYS
+    assert "GEMINI_API_KEY" not in provisioner_module.SANDBOX_SECRET_ENV_KEYS
+
+
 @contextmanager
 def _detect_provisioner_blocking_io(provisioner_module):
     detector = BlockBuster(scanned_modules=[provisioner_module.__name__])
@@ -230,6 +237,7 @@ def test_sandbox_pod_uses_tunable_probes_and_resources_for_heavy_aio_workloads(m
     assert container.resources.limits["cpu"] == "3"
     assert container.resources.limits["memory"] == "3Gi"
     assert container.readiness_probe is not None
+    assert pod.spec.automount_service_account_token is False
 
 
 def test_sandbox_pod_references_provider_secrets_without_copying_values(monkeypatch, provisioner_module) -> None:
@@ -259,6 +267,75 @@ def test_sandbox_api_key_secret_is_required_when_configured(monkeypatch, provisi
     assert entry.value_from.secret_key_ref.name == "deer-flow-env"
     assert entry.value_from.secret_key_ref.key == "SANDBOX_API_KEY"
     assert entry.value_from.secret_key_ref.optional is False
+
+
+def test_sandbox_pod_mounts_runtime_tls_material_and_exports_tls_paths(
+    monkeypatch, provisioner_module
+) -> None:
+    monkeypatch.setattr(
+        provisioner_module,
+        "SANDBOX_CA_SECRET_NAME",
+        "deer-flow-enterprise-ca",
+    )
+    monkeypatch.setattr(provisioner_module, "SANDBOX_CA_SECRET_KEY", "ca-bundle.crt")
+    monkeypatch.setattr(provisioner_module, "SANDBOX_CA_MOUNT_PATH", "/etc/deerflow-ca")
+    monkeypatch.setattr(
+        provisioner_module,
+        "SANDBOX_CA_FILE",
+        "/etc/deerflow-ca/ca-bundle.crt",
+    )
+    monkeypatch.setattr(
+        provisioner_module,
+        "SANDBOX_OPENSSL_CONFIGMAP_NAME",
+        "deer-flow-gateway-openssl-compat",
+    )
+    monkeypatch.setattr(
+        provisioner_module,
+        "SANDBOX_OPENSSL_CONFIGMAP_KEY",
+        "openssl.cnf",
+    )
+    monkeypatch.setattr(
+        provisioner_module,
+        "SANDBOX_OPENSSL_MOUNT_PATH",
+        "/etc/deerflow-openssl",
+    )
+    monkeypatch.setattr(
+        provisioner_module,
+        "SANDBOX_OPENSSL_CONFIG_FILE",
+        "/etc/deerflow-openssl/openssl.cnf",
+    )
+
+    pod = provisioner_module._build_pod("runtime-ca", "thread-1")
+    container = pod.spec.containers[0]
+    volumes = {volume.name: volume for volume in pod.spec.volumes}
+    mounts = {mount.name: mount for mount in container.volume_mounts}
+    entries = {item.name: item.value for item in container.env}
+
+    ca_volume = volumes["enterprise-ca"]
+    assert ca_volume.secret.secret_name == "deer-flow-enterprise-ca"
+    assert [(item.key, item.path) for item in ca_volume.secret.items] == [
+        ("ca-bundle.crt", "ca-bundle.crt")
+    ]
+    assert mounts["enterprise-ca"].mount_path == "/etc/deerflow-ca"
+    assert mounts["enterprise-ca"].read_only is True
+    openssl_volume = volumes["openssl-compat"]
+    assert (
+        openssl_volume.config_map.name
+        == "deer-flow-gateway-openssl-compat"
+    )
+    assert [(item.key, item.path) for item in openssl_volume.config_map.items] == [
+        ("openssl.cnf", "openssl.cnf")
+    ]
+    assert mounts["openssl-compat"].mount_path == "/etc/deerflow-openssl"
+    assert mounts["openssl-compat"].read_only is True
+    for name in (
+        "SSL_CERT_FILE",
+        "REQUESTS_CA_BUNDLE",
+        "CURL_CA_BUNDLE",
+        "NODE_EXTRA_CA_CERTS",
+    ):
+        assert entries[name] == "/etc/deerflow-ca/ca-bundle.crt"
+    assert entries["OPENSSL_CONF"] == "/etc/deerflow-openssl/openssl.cnf"
 
 
 def test_create_sandbox_retries_transient_service_read_errors(monkeypatch: pytest.MonkeyPatch, provisioner_module) -> None:

@@ -628,6 +628,7 @@ models:
 
 tool_groups:
   - name: web
+  - name: knowledge
   - name: file:read
   - name: file:write
   - name: bash
@@ -638,6 +639,30 @@ tool_groups:
 # Configure available tools for the agent to use
 
 tools:
+  # CNOOC DataLake AppForge tools (internal deployment only).
+  # Keep APPFORGE_API_KEY in the process environment or Kubernetes Secret.
+  # - name: datalake_smart_qa
+  #   group: knowledge
+  #   use: deerflow.community.appforge.tools:datalake_smart_qa_tool
+  #   api_url: $APPFORGE_API_URL
+  #   api_key: $APPFORGE_API_KEY
+  #   app_id: $APPFORGE_SMART_QA_APP_ID
+  #   trust_env: false
+  # - name: datalake_metrics_qa
+  #   group: knowledge
+  #   use: deerflow.community.appforge.tools:datalake_metrics_qa_tool
+  #   api_url: $APPFORGE_API_URL
+  #   api_key: $APPFORGE_API_KEY
+  #   app_id: $APPFORGE_METRICS_QA_APP_ID
+  #   trust_env: false
+  # - name: datalake_detail_qa
+  #   group: knowledge
+  #   use: deerflow.community.appforge.tools:datalake_detail_qa_tool
+  #   api_url: $APPFORGE_API_URL
+  #   api_key: $APPFORGE_API_KEY
+  #   app_id: $APPFORGE_DETAIL_QA_APP_ID
+  #   trust_env: false
+
   # Web search tool (uses DuckDuckGo, no API key required)
   - name: web_search
     group: web
@@ -1185,6 +1210,18 @@ sandbox:
 #   # Optional: Environment variables to inject into the sandbox container
 #   # Values starting with $ will be resolved from host environment variables
 #   # environment:
+#   #   HTTP_PROXY: $HTTP_PROXY
+#   #   HTTPS_PROXY: $HTTPS_PROXY
+#   #   NO_PROXY: $NO_PROXY
+#   #   http_proxy: $HTTP_PROXY
+#   #   https_proxy: $HTTPS_PROXY
+#   #   no_proxy: $NO_PROXY
+#   #   SSL_CERT_FILE: $SSL_CERT_FILE
+#   #   REQUESTS_CA_BUNDLE: $REQUESTS_CA_BUNDLE
+#   #   CURL_CA_BUNDLE: $CURL_CA_BUNDLE
+#   #   NODE_EXTRA_CA_CERTS: $NODE_EXTRA_CA_CERTS
+#   #   OPENSSL_CONF: $OPENSSL_CONF
+#   #   DASHSCOPE_TLS_COMPAT: $DASHSCOPE_TLS_COMPAT
 #   #   DASHSCOPE_API_KEY: $DASHSCOPE_API_KEY
 #   #   DASHSCOPE_BASE_URL: https://dashscope.aliyuncs.com/api/v1
 #   #   IMAGE_GENERATION_PROVIDER: dashscope
@@ -1407,7 +1444,14 @@ title:
   enabled: true
   max_words: 6
   max_chars: 60
-  model_name: null # null = fast local fallback; set a model name to use LLM title generation
+  model_name: null # null = use the current default model; set a model name to pin title generation
+  prompt_template: |
+    Generate a concise title (max {max_words} words) for this conversation.
+    Use Simplified Chinese by default. Follow another language only when the user's message clearly uses it.
+    User: {user_msg}
+    Assistant: {assistant_msg}
+
+    Return ONLY the title, with no quotes or explanation.
 
 # ============================================================================
 # Summarization Configuration

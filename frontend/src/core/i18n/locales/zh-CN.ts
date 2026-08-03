@@ -817,7 +817,9 @@ export const zhCN: Translations = {
     },
     skills: {
       title: "技能",
-      description: "管理 Agent Skill 配置和启用状态。",
+      description: "查看 Agent Skill 配置和启用状态。",
+      publicReadOnly:
+        "公共技能由平台管理员统一配置，普通用户仅可查看启用状态。",
       createSkill: "新建技能",
       emptyTitle: "还没有技能",
       emptyDescription:

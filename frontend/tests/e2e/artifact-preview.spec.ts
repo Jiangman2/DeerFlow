@@ -301,10 +301,11 @@ test.describe("Artifact preview stability", () => {
     await page.goto(`/workspace/chats/${PRESENTED_THREAD_ID}`);
 
     // The file card in the message list shows the basename only.
-    await expect(page.getByText("presented-report.md")).toBeVisible({
-      timeout: 15_000,
-    });
-    await page.getByText("presented-report.md").first().click();
+    const presentedFileCard = page.locator(
+      `[data-artifact-filepath="${PRESENTED_ARTIFACT_PATH}"]`,
+    );
+    await expect(presentedFileCard).toBeVisible({ timeout: 15_000 });
+    await presentedFileCard.click();
 
     const artifactsPanel = page.locator("#artifacts");
 
@@ -369,6 +370,13 @@ test.describe("Artifact preview stability", () => {
     await page.goto(`/workspace/chats/${PRESENTED_PPTX_THREAD_ID}`);
     const pptxLink = page.getByRole("link", { name: "research-report.pptx" });
     await expect(pptxLink).toBeVisible({ timeout: 15_000 });
+    await expect(pptxLink).toHaveAttribute("href", "#artifacts");
+    await expect(pptxLink).toHaveAttribute(
+      "data-artifact-href",
+      new RegExp(
+        `/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts/mnt/user-data/outputs/research-report\\.pptx$`,
+      ),
+    );
     await pptxLink.click();
 
     const previewFrame = page

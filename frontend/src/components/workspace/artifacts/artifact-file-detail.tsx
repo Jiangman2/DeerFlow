@@ -435,6 +435,12 @@ export function ArtifactFileDetail({
               threadId,
               isMock,
             })}
+            referrerPolicy="no-referrer"
+            sandbox={
+              browserPreviewPath.toLocaleLowerCase().endsWith(".pdf")
+                ? ""
+                : undefined
+            }
             title="Artifact preview"
           />
         )}

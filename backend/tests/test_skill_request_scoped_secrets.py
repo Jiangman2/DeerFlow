@@ -9,6 +9,7 @@ Covers the full feature surface:
   - Slice 5: the five leak surfaces (prompt / trace / checkpoint / audit / stdout).
 """
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -21,13 +22,22 @@ from deerflow.sandbox.local.local_sandbox import LocalSandbox
 from deerflow.skills.types import SecretRequirement, Skill, SkillCategory
 
 
+def _echo_env_command(sandbox: LocalSandbox, name: str) -> str:
+    shell = sandbox._get_shell()
+    if sandbox._is_powershell(shell):
+        return f'Write-Output "[$env:{name}]"'
+    if sandbox._is_cmd_shell(shell):
+        return f"echo [%{name}%]"
+    return f"echo [${name}]"
+
+
 class TestLocalSandboxEnvInjection:
     """LocalSandbox.execute_command(env=...) injects per-call env into the subprocess."""
 
     def test_injected_env_visible_to_command(self):
         sandbox = LocalSandbox(id="local")
         out = sandbox.execute_command(
-            "echo $DEERFLOW_TEST_SECRET",
+            _echo_env_command(sandbox, "DEERFLOW_TEST_SECRET"),
             env={"DEERFLOW_TEST_SECRET": "s3cret-value"},
         )
         assert "s3cret-value" in out
@@ -36,14 +46,17 @@ class TestLocalSandboxEnvInjection:
         """env=None preserves the legacy inherited-os.environ behaviour."""
         monkeypatch.setenv("DEERFLOW_INHERITED_VAR", "inherited-value")
         sandbox = LocalSandbox(id="local")
-        out = sandbox.execute_command("echo $DEERFLOW_INHERITED_VAR")
+        out = sandbox.execute_command(_echo_env_command(sandbox, "DEERFLOW_INHERITED_VAR"))
         assert "inherited-value" in out
 
     def test_injected_env_is_per_call_only(self):
         """Injected env must not leak into a subsequent call that does not pass it."""
         sandbox = LocalSandbox(id="local")
-        sandbox.execute_command("true", env={"DEERFLOW_EPHEMERAL": "leaky"})
-        out = sandbox.execute_command("echo [$DEERFLOW_EPHEMERAL]")
+        sandbox.execute_command(
+            _echo_env_command(sandbox, "DEERFLOW_EPHEMERAL"),
+            env={"DEERFLOW_EPHEMERAL": "leaky"},
+        )
+        out = sandbox.execute_command(_echo_env_command(sandbox, "DEERFLOW_EPHEMERAL"))
         assert "leaky" not in out
 
     def test_platform_secret_scrubbed_from_inherited_env(self, monkeypatch):
@@ -52,14 +65,14 @@ class TestLocalSandboxEnvInjection:
         is security theatre — a skill script could simply read $OPENAI_API_KEY."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-platform-should-not-leak")
         sandbox = LocalSandbox(id="local")
-        out = sandbox.execute_command("echo [$OPENAI_API_KEY]")
+        out = sandbox.execute_command(_echo_env_command(sandbox, "OPENAI_API_KEY"))
         assert "sk-platform-should-not-leak" not in out
 
     def test_benign_env_still_inherited_after_scrub(self, monkeypatch):
         """Scrubbing platform secrets must not strip harmless vars that skills rely on."""
         monkeypatch.setenv("DEERFLOW_PLAIN_VAR", "harmless-value")
         sandbox = LocalSandbox(id="local")
-        out = sandbox.execute_command("echo [$DEERFLOW_PLAIN_VAR]")
+        out = sandbox.execute_command(_echo_env_command(sandbox, "DEERFLOW_PLAIN_VAR"))
         assert "harmless-value" in out
 
     def test_injected_secret_survives_scrub(self, monkeypatch):
@@ -67,7 +80,7 @@ class TestLocalSandboxEnvInjection:
         pattern — injection happens after scrubbing the inherited environment."""
         sandbox = LocalSandbox(id="local")
         out = sandbox.execute_command(
-            "echo [$INJECTED_API_KEY]",
+            _echo_env_command(sandbox, "INJECTED_API_KEY"),
             env={"INJECTED_API_KEY": "scoped-value"},
         )
         assert "scoped-value" in out
@@ -248,7 +261,10 @@ class TestEnvPolicy:
         assert "MYSQL_URL" not in env
         assert "MYSQL_PWD" not in env
         assert "REDISCLI_AUTH" not in env
-        assert env.get("PWD")  # the working directory must survive the added entries
+        if os.name == "nt":
+            assert env.get("SYSTEMROOT")  # benign Windows system environment survives
+        else:
+            assert env.get("PWD")  # the working directory survives on POSIX
 
     def test_injection_still_wins_for_the_newly_blocked_names(self, monkeypatch):
         """``required-secrets`` stays the escape hatch for the names added here.
@@ -1106,6 +1122,17 @@ class TestLeakSurfaces:
         masked_long = mask_secret_values(f"token={long_secret}", {"ERP_TOKEN": long_secret})
         assert long_secret not in masked_long
         assert "[redacted]" in masked_long
+
+    def test_platform_runtime_secret_values_are_also_masked(self, monkeypatch):
+        from deerflow.sandbox.tools import mask_secret_values
+
+        platform_secret = "platform-runtime-secret-value"
+        monkeypatch.setenv("DASHSCOPE_API_KEY", platform_secret)
+
+        masked = mask_secret_values(f"debug={platform_secret}", None)
+
+        assert platform_secret not in masked
+        assert "[redacted]" in masked
 
 
 @pytest.mark.skipif(__import__("os").name == "nt", reason="POSIX shell semantics")

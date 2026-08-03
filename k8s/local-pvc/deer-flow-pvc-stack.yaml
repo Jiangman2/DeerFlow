@@ -95,7 +95,7 @@ spec:
             - name: SANDBOX_ENV_SECRET_NAME
               value: deer-flow-env
             - name: SANDBOX_SECRET_ENV_KEYS
-              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,GEMINI_API_KEY,SANDBOX_API_KEY
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY
             - name: IMAGE_BACKEND
               value: dashscope
             - name: IMAGE_GENERATION_PROVIDER
@@ -193,6 +193,50 @@ spec:
         app: gateway
     spec:
       initContainers:
+        - name: seed-extensions-config
+          image: deer-flow-gateway:dev-20260726-consolidation-v1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+          args:
+            - |
+              python - <<'PY'
+              import json
+              import os
+              from pathlib import Path
+
+              seed_path = Path("/seed/extensions_config.json")
+              target_path = Path("/runtime-home/runtime-config/extensions_config.json")
+              seed = json.loads(seed_path.read_text(encoding="utf-8"))
+              current = {}
+              if target_path.is_file() and target_path.stat().st_size:
+                  current = json.loads(target_path.read_text(encoding="utf-8"))
+
+              merged = dict(seed)
+              merged.update(current)
+              for key in ("mcpServers", "skills"):
+                  entries = dict(seed.get(key) or {})
+                  entries.update(current.get(key) or {})
+                  merged[key] = entries
+
+              target_path.parent.mkdir(parents=True, exist_ok=True)
+              temporary_path = target_path.with_suffix(".json.tmp")
+              temporary_path.write_text(
+                  json.dumps(merged, ensure_ascii=False, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              os.chmod(temporary_path, 0o600)
+              temporary_path.replace(target_path)
+              PY
+          volumeMounts:
+            - name: extensions-config
+              mountPath: /seed/extensions_config.json
+              subPath: extensions_config.json
+              readOnly: true
+            - name: userdata
+              mountPath: /runtime-home
+              subPath: deer-flow
         - name: wait-for-skills
           image: busybox:1.37.0
           command:
@@ -232,7 +276,7 @@ spec:
             - name: DEER_FLOW_CONFIG_PATH
               value: /app/backend/config.yaml
             - name: DEER_FLOW_EXTENSIONS_CONFIG_PATH
-              value: /app/backend/extensions_config.json
+              value: /app/backend/.deer-flow/runtime-config/extensions_config.json
             - name: DEER_FLOW_CHANNELS_LANGGRAPH_URL
               value: http://gateway:8001/api
             - name: DEER_FLOW_CHANNELS_GATEWAY_URL

@@ -51,6 +51,7 @@ def should_check_csrf(request: Request) -> bool:
     # Internal WeKnora model calls authenticate with a model API Bearer key,
     # not a browser cookie, so the double-submit cookie cannot apply.
     if path in {
+        "/api/agent_click",
         "/api/weknora/bailian/v1/audio/transcriptions",
         "/api/weknora/bailian/v1/embeddings",
         "/api/weknora/internal-models/v1/embeddings",

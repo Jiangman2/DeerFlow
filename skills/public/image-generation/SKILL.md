@@ -178,22 +178,20 @@ For scenarios where visual accuracy is critical, **use the `image_search` tool f
 
 This approach significantly improves generation quality by providing the model with concrete visual guidance rather than relying solely on text descriptions.
 
-## Providers (DashScope / Gemini / MiniMax)
+## Providers (Bailian / MiniMax compatibility)
 
-DashScope is the preferred provider when `DASHSCOPE_API_KEY` is present. It
-uses `qwen-image-2.0-pro` by default through
+Bailian/DashScope is the default image provider. It uses
+`qwen-image-2.0-pro` through
 `DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/api/v1`. Override the model
-with `DASHSCOPE_IMAGE_MODEL` or force the provider with
+with `DASHSCOPE_IMAGE_MODEL` or set
 `IMAGE_GENERATION_PROVIDER=dashscope`. The aliases `qwen` and `bailian` map to
-the same DashScope implementation. Gemini and MiniMax remain compatibility
-fallbacks when DashScope is not configured.
+the same implementation.
 
-If DashScope is unavailable, the skill auto-selects a legacy provider by
-environment variables (no CLI change):
-
-- `GEMINI_API_KEY` set → use Gemini (default, unchanged).
-- Only `MINIMAX_API_KEY` set → use MiniMax (`/v1/image_generation`, model `image-01`).
-- Force one explicitly with `IMAGE_GENERATION_PROVIDER=dashscope|gemini|minimax`.
+The skill does not use Gemini and never selects a legacy provider
+automatically. MiniMax remains available only when explicitly configured with
+`IMAGE_GENERATION_PROVIDER=minimax` and `MINIMAX_API_KEY`. This makes missing
+Bailian credentials fail visibly instead of routing image data to another
+provider.
 
 MiniMax optional overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.com`),
 `MINIMAX_IMAGE_MODEL` (default `image-01`). Reference images are sent as the MiniMax
@@ -203,10 +201,9 @@ MiniMax optional overrides: `MINIMAX_API_HOST` (default `https://api.minimaxi.co
 **MiniMax prompt handling (provider-internal).** Authoring is provider-agnostic — write
 the same structured JSON regardless of which provider is active. MiniMax `image-01`
 consumes a single text string, so the MiniMax path itself sends only the JSON `prompt`
-field (the other fields such as `style` / `composition` / `negative_prompt` apply to the
-Gemini path) and enables `prompt_optimizer` so MiniMax expands it server-side. MiniMax
+field and enables `prompt_optimizer` so MiniMax expands it server-side. MiniMax
 caps that prompt at 1500 characters; if the `prompt` field is longer, the script returns
-an error instead of calling the API. The Gemini path receives the full structured JSON.
+an error instead of calling the API.
 
 ## Notes
 

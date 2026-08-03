@@ -13,6 +13,13 @@ Sandbox Pods created by the provisioner mount the same PVCs:
 - user-data subPath `deer-flow/users/{user_id}/threads/{thread_id}/user-data`
 - skills PVC at `/mnt/skills`
 
+Gateway keeps the ConfigMap copy of `extensions_config.json` as a read-only
+release seed, but reads and writes the effective runtime copy under
+`/app/backend/.deer-flow/runtime-config/` on `deer-flow-userdata-pvc`. Its init
+container adds newly shipped MCP/Skill defaults without replacing administrator
+choices already persisted in the runtime copy. This is required for the Skills
+and MCP settings APIs to survive Pod restarts and rolling updates.
+
 Do not use the Docker Compose Gateway for this mode; a Compose Gateway writes to
 host bind mounts, not to the Kubernetes PVC.
 
@@ -58,7 +65,11 @@ Build the skills image from the repository root exactly as shown. The
 Dockerfile copies `skills/` explicitly and the sync Job validates both the
 source and mounted target layout before reporting success. A nested layout such
 as `/mnt/skills/skills/public` therefore fails deployment instead of surfacing
-later as a missing skill during an agent run.
+later as a missing skill during an agent run. The Job also normalizes read and
+directory-traversal permissions on the platform-owned `public` and
+`third_party` trees after copying. This prevents archive umasks such as
+`0640 root:root` from making a Skill visible to Gateway but unreadable through
+the non-root sandbox file API; user-owned `custom` content is not broadened.
 
 On a multi-node cluster, the absolute container paths stay the same on every
 node. What must be shared is the underlying storage: use RWX storage (for

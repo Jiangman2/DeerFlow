@@ -352,7 +352,15 @@ async def register(request: Request, response: Response, body: RegisterRequest):
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
 
-    return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role, is_disabled=user.is_disabled, oauth_provider=user.oauth_provider)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        system_role=user.system_role,
+        is_disabled=user.is_disabled,
+        oauth_provider=user.oauth_provider,
+        display_name=user.display_name,
+        organization_name=user.organization_name,
+    )
 
 
 @router.post("/logout", response_model=MessageResponse)
@@ -431,6 +439,8 @@ async def get_me(request: Request):
         needs_setup=user.needs_setup,
         is_disabled=user.is_disabled,
         oauth_provider=user.oauth_provider,
+        display_name=user.display_name,
+        organization_name=user.organization_name,
     )
 
 
@@ -545,7 +555,15 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
 
-    return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role, is_disabled=user.is_disabled, oauth_provider=user.oauth_provider)
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        system_role=user.system_role,
+        is_disabled=user.is_disabled,
+        oauth_provider=user.oauth_provider,
+        display_name=user.display_name,
+        organization_name=user.organization_name,
+    )
 
 
 # ── OIDC / SSO Endpoints ────────────────────────────────────────────────
@@ -568,6 +586,7 @@ async def cnooc_token_login(
 
     provider = get_local_provider()
     user = await provider.get_user_by_oauth("cnooc", checked.user.platform_user_id)
+    needs_update = False
     if user is None:
         existing_email_user = await provider.get_user_by_email(checked.user.email)
         if existing_email_user is not None:
@@ -576,7 +595,8 @@ async def cnooc_token_login(
             elif existing_email_user.oauth_provider in (None, "cnooc"):
                 existing_email_user.oauth_provider = "cnooc"
                 existing_email_user.oauth_id = checked.user.platform_user_id
-                user = await provider.update_user(existing_email_user)
+                user = existing_email_user
+                needs_update = True
             else:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -589,12 +609,29 @@ async def cnooc_token_login(
                     oauth_provider="cnooc",
                     oauth_id=checked.user.platform_user_id,
                     system_role="user",
+                    display_name=checked.user.name,
+                    organization_id=checked.user.organization_id,
+                    organization_code=checked.user.organization_code,
+                    organization_name=checked.user.organization_name,
                 )
             except ValueError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="An account with this email already exists. Contact your administrator to link it to your SSO account.",
                 ) from exc
+
+    profile_fields = {
+        "display_name": checked.user.name,
+        "organization_id": checked.user.organization_id,
+        "organization_code": checked.user.organization_code,
+        "organization_name": checked.user.organization_name,
+    }
+    for field, value in profile_fields.items():
+        if getattr(user, field) != value:
+            setattr(user, field, value)
+            needs_update = True
+    if needs_update:
+        user = await provider.update_user(user)
 
     if user.is_disabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")

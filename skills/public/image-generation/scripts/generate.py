@@ -1,9 +1,11 @@
 import base64
 import json
 import os
+import ssl
 import sys
 
 import requests
+from requests.adapters import HTTPAdapter
 
 MINIMAX_DEFAULT_HOST = "https://api.minimaxi.com"
 DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
@@ -12,39 +14,79 @@ DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
 MINIMAX_PROMPT_MAX_CHARS = 1500
 
 
-def validate_image(image_path: str) -> bool:
-    """Validate if an image file can be opened and is not corrupted."""
-    from PIL import Image  # lazy import: keeps module importable without Pillow
+class _DashScopeTLSAdapter(HTTPAdapter):
+    """Use one verified SSL context for direct and proxied DashScope HTTPS."""
 
-    try:
-        with Image.open(image_path) as image:
-            image.verify()
-        with Image.open(image_path) as image:
-            image.load()
-        return True
-    except Exception as exc:
-        print(f"Warning: Image '{image_path}' is invalid or corrupted: {exc}")
-        return False
+    def __init__(self, ssl_context: ssl.SSLContext, *args, **kwargs):
+        self._dashscope_ssl_context = ssl_context
+        super().__init__(*args, **kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        kwargs["ssl_context"] = self._dashscope_ssl_context
+        return super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        proxy_kwargs["ssl_context"] = self._dashscope_ssl_context
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
-def _resolve_provider(override_env: str, existing_provider: str, has_existing_creds: bool) -> str:
-    """Pick the generation provider.
+def _truthy_env(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
-    1. Explicit <SKILL>_PROVIDER override wins.
-    2. Otherwise prefer the existing provider when its credentials are present.
-    3. Otherwise fall back to MiniMax when MINIMAX_API_KEY is set.
+
+def _dashscope_http_client():
+    """Return requests or a scoped verified session for a legacy TLS proxy.
+
+    The compatibility path lowers only OpenSSL's RSA security level for
+    DashScope traffic. CA-chain and hostname verification remain enabled.
     """
-    override = os.getenv(override_env)
-    if override:
-        return override.strip().lower()
-    if has_existing_creds:
-        return existing_provider
-    if os.getenv("MINIMAX_API_KEY"):
-        return "minimax"
-    raise ValueError(
-        f"No credentials found. Set GEMINI_API_KEY for {existing_provider}, "
-        f"or MINIMAX_API_KEY for minimax (optionally force with {override_env})."
+
+    if not _truthy_env("DASHSCOPE_TLS_COMPAT"):
+        return requests
+
+    ca_file = next(
+        (
+            value
+            for name in ("REQUESTS_CA_BUNDLE", "SSL_CERT_FILE", "CURL_CA_BUNDLE")
+            if (value := os.getenv(name, "").strip()) and os.path.isfile(value)
+        ),
+        None,
     )
+    context = (
+        ssl.create_default_context(cafile=ca_file)
+        if ca_file
+        else ssl.create_default_context()
+    )
+    context.set_ciphers("DEFAULT:@SECLEVEL=1")
+
+    session = requests.Session()
+    session.mount("https://", _DashScopeTLSAdapter(context))
+    return session
+
+
+def _resolve_provider() -> str:
+    """Resolve image generation to the enterprise-supported provider.
+
+    Bailian/DashScope is the platform default. MiniMax remains available only
+    when explicitly selected for compatibility; it is never an automatic
+    fallback. Gemini aliases are rejected so a stale environment cannot route
+    image data to an unavailable provider.
+    """
+    configured = os.getenv("IMAGE_GENERATION_PROVIDER", "dashscope").strip().lower()
+    provider = {"qwen": "dashscope", "bailian": "dashscope"}.get(
+        configured, configured
+    )
+    if provider in {"gemini", "google"}:
+        raise ValueError(
+            "Gemini image generation is disabled. "
+            "Set IMAGE_GENERATION_PROVIDER=dashscope and configure DASHSCOPE_API_KEY."
+        )
+    if provider not in {"dashscope", "minimax"}:
+        raise ValueError(
+            f"Unknown image provider: {configured!r} "
+            "(use 'dashscope'/'bailian' or explicitly select 'minimax')"
+        )
+    return provider
 
 
 def _minimax_host() -> str:
@@ -116,8 +158,8 @@ def _dashscope_image_size(aspect_ratio: str) -> str:
     }.get(aspect_ratio, "2048*2048")
 
 
-def _download_result(url: str, output_file: str) -> None:
-    response = requests.get(url, timeout=300)
+def _download_result(url: str, output_file: str, *, http_client=requests) -> None:
+    response = http_client.get(url, timeout=300)
     response.raise_for_status()
     _ensure_output_dir(output_file)
     with open(output_file, "wb") as f:
@@ -143,7 +185,8 @@ def _generate_image_dashscope(
     if negative_prompt:
         parameters["negative_prompt"] = negative_prompt
 
-    response = requests.post(
+    http_client = _dashscope_http_client()
+    response = http_client.post(
         f"{_dashscope_base_url()}/services/aigc/multimodal-generation/generation",
         headers={
             "Authorization": f"Bearer {api_key}",
@@ -174,7 +217,7 @@ def _generate_image_dashscope(
         raise Exception(
             f"DashScope returned no image URL (request_id={payload.get('request_id')})"
         )
-    _download_result(image_url, output_file)
+    _download_result(image_url, output_file, http_client=http_client)
     return f"Successfully generated image to {output_file}"
 
 
@@ -182,7 +225,7 @@ def _minimax_prompt(raw: str) -> str:
     """Extract the single text prompt MiniMax image-01 expects.
 
     The shared prompt file is structured JSON (a consolidated ``prompt`` plus
-    Gemini-oriented fields like ``style`` / ``composition`` / ``negative_prompt``),
+    provider-neutral fields like ``style`` / ``composition`` / ``negative_prompt``),
     but MiniMax consumes one string and expands it via ``prompt_optimizer``. The
     provider adapts the input itself — the caller never needs to know MiniMax is
     active. Use the JSON ``prompt`` field; fall back to the raw text for plain-text
@@ -222,8 +265,8 @@ def _generate_image_minimax(
         "prompt_optimizer": True,
     }
     if reference_images:
-        # Reference images are passed as character subjects as-is; unlike the Gemini
-        # path we do not pre-validate them — invalid files surface as a MiniMax API error.
+        # Reference images are passed as character subjects as-is. Invalid files
+        # surface as a MiniMax API error.
         body["subject_reference"] = [
             {"type": "character", "image_file": _to_data_url(p)} for p in reference_images
         ]
@@ -245,84 +288,29 @@ def _generate_image_minimax(
     return f"Successfully generated image to {output_file}"
 
 
-def _generate_image_gemini(
-    prompt: str, reference_images: list[str], output_file: str, aspect_ratio: str
-) -> str:
-    parts = []
-    valid_reference_images = []
-    for ref_img in reference_images:
-        if validate_image(ref_img):
-            valid_reference_images.append(ref_img)
-        else:
-            print(f"Skipping invalid reference image: {ref_img}")
-    if len(valid_reference_images) < len(reference_images):
-        skipped = len(reference_images) - len(valid_reference_images)
-        print(f"Note: {skipped} reference image(s) were skipped due to validation failure.")
-
-    for reference_image in valid_reference_images:
-        with open(reference_image, "rb") as f:
-            image_b64 = base64.b64encode(f.read()).decode("utf-8")
-        parts.append({"inlineData": {"mimeType": "image/jpeg", "data": image_b64}})
-
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return "GEMINI_API_KEY is not set"
-    response = requests.post(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent",
-        headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-        json={
-            "generationConfig": {"imageConfig": {"aspectRatio": aspect_ratio}},
-            "contents": [{"parts": [*parts, {"text": prompt}]}],
-        },
-    )
-    response.raise_for_status()
-    data = response.json()
-    response_parts: list[dict] = data["candidates"][0]["content"]["parts"]
-    image_parts = [part for part in response_parts if part.get("inlineData", False)]
-    if len(image_parts) == 1:
-        base64_image = image_parts[0]["inlineData"]["data"]
-        _ensure_output_dir(output_file)
-        with open(output_file, "wb") as f:
-            f.write(base64.b64decode(base64_image))
-        return f"Successfully generated image to {output_file}"
-    raise Exception("Failed to generate image")
-
-
 def generate_image(
     prompt_file: str,
     reference_images: list[str],
     output_file: str,
     aspect_ratio: str = "16:9",
 ) -> str:
-    with open(prompt_file, "r", encoding="utf-8") as f:
+    with open(prompt_file, encoding="utf-8") as f:
         prompt = f.read()
-    provider = os.getenv("IMAGE_GENERATION_PROVIDER", "").strip().lower()
-    if not provider:
-        if os.getenv("DASHSCOPE_API_KEY"):
-            provider = "dashscope"
-        else:
-            provider = _resolve_provider(
-                "IMAGE_GENERATION_PROVIDER", "gemini", bool(os.getenv("GEMINI_API_KEY"))
-            )
-    if provider in ("dashscope", "qwen", "bailian"):
+    provider = _resolve_provider()
+    if provider == "dashscope":
         return _generate_image_dashscope(
             prompt, reference_images, output_file, aspect_ratio
         )
     if provider == "minimax":
         return _generate_image_minimax(prompt, reference_images, output_file, aspect_ratio)
-    if provider in ("gemini", "google"):
-        return _generate_image_gemini(prompt, reference_images, output_file, aspect_ratio)
-    raise ValueError(
-        f"Unknown image provider: {provider!r} "
-        "(use 'dashscope', 'gemini', or 'minimax')"
-    )
+    raise AssertionError(f"Unhandled image provider: {provider}")
 
 
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Generate images using DashScope, Gemini, or MiniMax API"
+        description="Generate images using Bailian/DashScope or MiniMax API"
     )
     parser.add_argument("--prompt-file", required=True, help="Absolute path to JSON prompt file")
     parser.add_argument("--reference-images", nargs="*", default=[],

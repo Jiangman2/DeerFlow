@@ -13,9 +13,13 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import case, desc, func, select
+from sqlalchemy import case, desc, func, or_, select
 
 from app.gateway.deps import require_admin_user
+from app.gateway.external_agent_analytics import (
+    EXTERNAL_PLATFORM_CLICK_ACTION,
+    summarize_external_platform_clicks,
+)
 from app.gateway.weknora_analytics import get_weknora_dashboard_analytics
 from deerflow.persistence.engine import get_session_factory
 from deerflow.persistence.feedback.model import FeedbackRow
@@ -107,6 +111,8 @@ class UserActivityPoint(BaseModel):
 class UserUsageItem(BaseModel):
     user_id: str
     email: str | None
+    display_name: str | None
+    organization_name: str | None
     runs: int
     threads: int
     total_tokens: int
@@ -117,6 +123,35 @@ class ExternalAgentClickItem(BaseModel):
     name: str
     clicks: int
     users: int
+
+
+class ExternalPlatformSourceMetric(BaseModel):
+    source: str
+    today_users: int
+    total_users: int
+    today_clicks: int
+    total_clicks: int
+
+
+class ExternalPlatformAgentMetric(BaseModel):
+    name: str
+    today_users: int
+    total_users: int
+    today_clicks: int
+    total_clicks: int
+    by_source: list[ExternalPlatformSourceMetric]
+
+
+class ExternalPlatformTrend(BaseModel):
+    dates: list[str]
+    series: dict[str, list[int]]
+
+
+class ExternalPlatformClickSummary(BaseModel):
+    today: str
+    days: int
+    agents: list[ExternalPlatformAgentMetric]
+    trend: ExternalPlatformTrend
 
 
 class FeatureUsageItem(BaseModel):
@@ -283,6 +318,8 @@ class KnowledgeUsageSummary(BaseModel):
 class ScheduledTaskUserUsageItem(BaseModel):
     user_id: str
     email: str | None
+    display_name: str | None
+    organization_name: str | None
     current_tasks: int
     created_tasks: int
     enabled_tasks: int
@@ -338,6 +375,7 @@ class DashboardSummary(BaseModel):
     user_activity: list[UserActivityPoint]
     user_usage: list[UserUsageItem]
     external_agent_clicks: list[ExternalAgentClickItem]
+    external_platform_agent_clicks: ExternalPlatformClickSummary
     feature_usage: list[FeatureUsageItem]
     recent_business_events: list[RecentBusinessEventItem]
     agent_usage: list[AgentUsageItem]
@@ -353,6 +391,8 @@ class DashboardSummary(BaseModel):
 class RegisteredUserSessionSummary(BaseModel):
     user_id: str
     email: str
+    display_name: str | None
+    organization_name: str | None
     system_role: str
     is_disabled: bool
     registered_at: datetime
@@ -510,6 +550,8 @@ def _summarize_scheduled_task_usage(
         ScheduledTaskUserUsageItem(
             user_id=user_id,
             email=(users_by_id[user_id].email if user_id in users_by_id else audit_email_by_user.get(user_id)),
+            display_name=(users_by_id[user_id].display_name if user_id in users_by_id else None),
+            organization_name=(users_by_id[user_id].organization_name if user_id in users_by_id else None),
             **bucket,
         )
         for user_id, bucket in sorted(
@@ -943,8 +985,13 @@ async def get_registered_user_sessions(
         count_stmt = select(func.count()).select_from(UserRow)
         if q and q.strip():
             pattern = f"%{q.strip()}%"
-            user_stmt = user_stmt.where(UserRow.email.ilike(pattern))
-            count_stmt = count_stmt.where(UserRow.email.ilike(pattern))
+            identity_filter = or_(
+                UserRow.email.ilike(pattern),
+                UserRow.display_name.ilike(pattern),
+                UserRow.organization_name.ilike(pattern),
+            )
+            user_stmt = user_stmt.where(identity_filter)
+            count_stmt = count_stmt.where(identity_filter)
         users = list((await session.execute(user_stmt.order_by(UserRow.created_at.desc(), UserRow.email.asc()).limit(limit).offset(offset))).scalars().all())
         total = int(await session.scalar(count_stmt) or 0)
         user_ids = [row.id for row in users]
@@ -980,6 +1027,8 @@ async def get_registered_user_sessions(
             RegisteredUserSessionSummary(
                 user_id=user.id,
                 email=user.email,
+                display_name=user.display_name,
+                organization_name=user.organization_name,
                 system_role=user.system_role,
                 is_disabled=user.is_disabled,
                 registered_at=user.created_at,
@@ -1133,6 +1182,7 @@ async def get_dashboard_summary(
             AuditLogRow.action == "external_agent.click",
         )
         external_click_rows = list((await session.execute(click_stmt)).scalars().all())
+        external_platform_click_rows = list((await session.execute(select(AuditLogRow).where(AuditLogRow.action == EXTERNAL_PLATFORM_CLICK_ACTION).order_by(AuditLogRow.created_at))).scalars().all())
 
     weknora_usage = await get_weknora_dashboard_analytics(
         start=start,
@@ -1276,6 +1326,8 @@ async def get_dashboard_summary(
         UserUsageItem(
             user_id=user_id,
             email=users_by_id.get(user_id).email if user_id in users_by_id else None,
+            display_name=users_by_id.get(user_id).display_name if user_id in users_by_id else None,
+            organization_name=users_by_id.get(user_id).organization_name if user_id in users_by_id else None,
             runs=bucket["runs"],
             threads=len(bucket["threads"]),
             total_tokens=bucket["tokens"],
@@ -1293,6 +1345,7 @@ async def get_dashboard_summary(
         if row.user_id:
             bucket["users"].add(row.user_id)
     external_agent_clicks = [ExternalAgentClickItem(name=name, clicks=bucket["clicks"], users=len(bucket["users"])) for name, bucket in sorted(click_buckets.items(), key=lambda item: item[1]["clicks"], reverse=True)]
+    external_platform_agent_clicks = ExternalPlatformClickSummary(**summarize_external_platform_clicks(external_platform_click_rows))
 
     agent_buckets: dict[str, _AgentBucket] = {}
     for run in runs:
@@ -1468,6 +1521,7 @@ async def get_dashboard_summary(
         user_activity=user_activity,
         user_usage=user_usage,
         external_agent_clicks=external_agent_clicks,
+        external_platform_agent_clicks=external_platform_agent_clicks,
         feature_usage=feature_usage,
         recent_business_events=recent_business_events,
         agent_usage=agent_usage,

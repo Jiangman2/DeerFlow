@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 import sys
 import time
@@ -37,6 +38,36 @@ def _ensure_output_dir(output_file: str) -> None:
     output_dir = os.path.dirname(output_file)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
+
+
+def _video_task_state_path(output_file: str) -> str:
+    """Return a hidden state path that will not be presented as a user artifact."""
+    output_dir = os.path.dirname(output_file) or "."
+    return os.path.join(
+        output_dir,
+        ".video-generation-jobs",
+        f"{os.path.basename(output_file)}.json",
+    )
+
+
+def _write_video_task_state(path: str, state: dict) -> None:
+    """Atomically persist non-secret asynchronous task metadata."""
+    state_dir = os.path.dirname(path)
+    if state_dir:
+        os.makedirs(state_dir, exist_ok=True)
+    temporary_path = f"{path}.tmp.{os.getpid()}"
+    with open(temporary_path, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, sort_keys=True)
+        f.write("\n")
+    os.replace(temporary_path, path)
+
+
+def _load_video_task_state(path: str) -> dict:
+    with open(path, "r", encoding="utf-8") as f:
+        state = json.load(f)
+    if not isinstance(state, dict) or state.get("version") != 1:
+        raise ValueError(f"Unsupported or invalid video task state: {path}")
+    return state
 
 
 def _check_base_resp(payload: dict) -> None:
@@ -113,16 +144,8 @@ def _download(url: str, output_file: str) -> None:
 def _poll_dashscope_video_task(
     task_id: str, *, max_attempts: int = 180, interval: int = 5
 ) -> str:
-    api_key = os.getenv("DASHSCOPE_API_KEY")
     for _ in range(max_attempts):
-        response = requests.get(
-            f"{_dashscope_base_url()}/tasks/{task_id}",
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=30,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        output = payload.get("output") or {}
+        payload, output = _query_dashscope_video_task(task_id)
         status = output.get("task_status")
         if status == "SUCCEEDED":
             video_url = output.get("video_url")
@@ -143,15 +166,28 @@ def _poll_dashscope_video_task(
     )
 
 
-def _generate_video_dashscope(
-    prompt: str,
-    reference_images: list[str],
-    output_file: str,
-    aspect_ratio: str,
-) -> str:
+def _query_dashscope_video_task(task_id: str) -> tuple[dict, dict]:
     api_key = os.getenv("DASHSCOPE_API_KEY")
     if not api_key:
-        return "DASHSCOPE_API_KEY is not set"
+        raise ValueError("DASHSCOPE_API_KEY is not set")
+    response = requests.get(
+        f"{_dashscope_base_url()}/tasks/{task_id}",
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=30,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    return payload, payload.get("output") or {}
+
+
+def _submit_dashscope_video_task(
+    prompt: str,
+    reference_images: list[str],
+    aspect_ratio: str,
+) -> tuple[str, str | None]:
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        raise ValueError("DASHSCOPE_API_KEY is not set")
     if reference_images:
         raise ValueError(
             "DashScope wan2.7-t2v is text-to-video and does not accept reference "
@@ -190,6 +226,18 @@ def _generate_video_dashscope(
         raise Exception(
             f"DashScope returned no task ID (request_id={payload.get('request_id')})"
         )
+    return task_id, payload.get("request_id")
+
+
+def _generate_video_dashscope(
+    prompt: str,
+    reference_images: list[str],
+    output_file: str,
+    aspect_ratio: str,
+) -> str:
+    task_id, _ = _submit_dashscope_video_task(
+        prompt, reference_images, aspect_ratio
+    )
     video_url = _poll_dashscope_video_task(task_id)
     _download(video_url, output_file)
     return f"The video has been generated successfully to {output_file}"
@@ -275,6 +323,19 @@ def _generate_video_gemini(
     return f"The video has been generated successfully to {output_file}"
 
 
+def _selected_video_provider() -> str:
+    provider = os.getenv("VIDEO_GENERATION_PROVIDER", "").strip().lower()
+    if provider:
+        return provider
+    if os.getenv("DASHSCOPE_API_KEY"):
+        return "dashscope"
+    return _resolve_provider(
+        "VIDEO_GENERATION_PROVIDER",
+        "gemini",
+        bool(os.getenv("GEMINI_API_KEY")),
+    )
+
+
 def generate_video(
     prompt_file: str,
     reference_images: list[str],
@@ -283,16 +344,7 @@ def generate_video(
 ) -> str:
     with open(prompt_file, "r", encoding="utf-8") as f:
         prompt = f.read()
-    provider = os.getenv("VIDEO_GENERATION_PROVIDER", "").strip().lower()
-    if not provider:
-        if os.getenv("DASHSCOPE_API_KEY"):
-            provider = "dashscope"
-        else:
-            provider = _resolve_provider(
-                "VIDEO_GENERATION_PROVIDER",
-                "gemini",
-                bool(os.getenv("GEMINI_API_KEY")),
-            )
+    provider = _selected_video_provider()
     if provider in ("dashscope", "bailian"):
         return _generate_video_dashscope(
             prompt, reference_images, output_file, aspect_ratio
@@ -308,23 +360,213 @@ def generate_video(
     )
 
 
+def submit_video_task(
+    prompt_file: str,
+    reference_images: list[str],
+    output_file: str,
+    aspect_ratio: str = "16:9",
+    task_state_file: str | None = None,
+) -> str:
+    """Submit one DashScope task and persist its ID without waiting for completion.
+
+    The state file is created before the provider call. If the command channel is
+    interrupted after DashScope accepted the request, a subsequent invocation will
+    refuse to submit another potentially billable task under the same output path.
+    """
+    state_path = task_state_file or _video_task_state_path(output_file)
+    if os.path.exists(state_path):
+        state = _load_video_task_state(state_path)
+        if state.get("output_file") != output_file:
+            raise ValueError(
+                f"Video task state belongs to a different output: {state_path}"
+            )
+        return (
+            "VIDEO_TASK_ALREADY_SUBMITTED "
+            f"status={state.get('status', 'UNKNOWN')} "
+            f"task_id={state.get('task_id', 'UNAVAILABLE')} "
+            f"state_file={state_path}"
+        )
+
+    # This async entry point is the enterprise execution contract. It remains
+    # pinned to DashScope even if a stale legacy provider variable is present.
+    if not os.getenv("DASHSCOPE_API_KEY"):
+        raise ValueError("DASHSCOPE_API_KEY is not set")
+
+    state = {
+        "version": 1,
+        "provider": "dashscope",
+        "status": "SUBMITTING",
+        "output_file": output_file,
+        "model": os.getenv("DASHSCOPE_VIDEO_MODEL", "wan2.7-t2v"),
+        "created_at": int(time.time()),
+    }
+    _write_video_task_state(state_path, state)
+
+    try:
+        with open(prompt_file, "r", encoding="utf-8") as f:
+            prompt = f.read()
+        task_id, request_id = _submit_dashscope_video_task(
+            prompt,
+            reference_images,
+            aspect_ratio,
+        )
+    except Exception as exc:
+        state.update(
+            {
+                "status": "SUBMISSION_FAILED",
+                "error_type": type(exc).__name__,
+                "updated_at": int(time.time()),
+            }
+        )
+        _write_video_task_state(state_path, state)
+        raise
+
+    state.update(
+        {
+            "status": "PENDING",
+            "task_id": task_id,
+            "request_id": request_id,
+            "updated_at": int(time.time()),
+        }
+    )
+    _write_video_task_state(state_path, state)
+    return (
+        "VIDEO_TASK_SUBMITTED "
+        f"task_id={task_id} state_file={state_path} "
+        "next_action=run_status_only"
+    )
+
+
+def check_video_task(
+    output_file: str,
+    task_state_file: str | None = None,
+) -> str:
+    """Perform exactly one remote status check and download only when ready."""
+    state_path = task_state_file or _video_task_state_path(output_file)
+    if not os.path.exists(state_path):
+        raise FileNotFoundError(
+            f"No submitted video task exists for {output_file}; "
+            "run with --submit-only exactly once first"
+        )
+    state = _load_video_task_state(state_path)
+    if state.get("output_file") != output_file:
+        raise ValueError(
+            f"Video task state belongs to a different output: {state_path}"
+        )
+    if state.get("provider") != "dashscope":
+        raise ValueError(
+            f"Unsupported asynchronous video provider: {state.get('provider')!r}"
+        )
+    if state.get("status") == "SUCCEEDED" and os.path.isfile(output_file):
+        return (
+            "VIDEO_TASK_SUCCEEDED "
+            f"task_id={state.get('task_id')} output_file={output_file}"
+        )
+
+    task_id = state.get("task_id")
+    if not task_id:
+        raise RuntimeError(
+            "The task state has no provider task ID. Submission may have been "
+            "interrupted; do not automatically resubmit because the provider may "
+            f"already have accepted a billable task. Inspect {state_path}."
+        )
+
+    payload, output = _query_dashscope_video_task(task_id)
+    status = output.get("task_status") or "UNKNOWN"
+    state.update({"status": status, "updated_at": int(time.time())})
+
+    if status == "SUCCEEDED":
+        video_url = output.get("video_url")
+        if not video_url:
+            state["status"] = "READY_WITHOUT_URL"
+            _write_video_task_state(state_path, state)
+            raise RuntimeError(
+                f"DashScope video task {task_id} succeeded without a video URL"
+            )
+        _write_video_task_state(state_path, state)
+        _download(video_url, output_file)
+        state.update({"status": "SUCCEEDED", "completed_at": int(time.time())})
+        state.pop("error_code", None)
+        state.pop("error_message", None)
+        _write_video_task_state(state_path, state)
+        return (
+            "VIDEO_TASK_SUCCEEDED "
+            f"task_id={task_id} output_file={output_file}"
+        )
+
+    if status in {"FAILED", "CANCELED", "UNKNOWN"}:
+        error_code = output.get("code") or payload.get("code")
+        error_message = output.get("message") or payload.get("message")
+        state.update(
+            {
+                "status": status,
+                "error_code": error_code,
+                "error_message": error_message,
+            }
+        )
+        _write_video_task_state(state_path, state)
+        raise RuntimeError(
+            f"DashScope video task {task_id} failed: "
+            f"{error_code} {error_message}"
+        )
+
+    _write_video_task_state(state_path, state)
+    return (
+        "VIDEO_TASK_PENDING "
+        f"task_id={task_id} status={status} state_file={state_path}"
+    )
+
+
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Generate videos using DashScope, Gemini, or MiniMax API"
+        description="Submit or check one platform-managed DashScope video task"
     )
     parser.add_argument("--prompt-file", required=True, help="Absolute path to JSON prompt file")
     parser.add_argument("--reference-images", nargs="*", default=[],
                         help="Absolute paths to reference images (space-separated)")
     parser.add_argument("--output-file", required=True, help="Output path for generated video")
     parser.add_argument("--aspect-ratio", required=False, default="16:9",
-                        help="Aspect ratio of the generated video (Gemini only)")
+                        help="Aspect ratio of the generated video")
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument(
+        "--submit-only",
+        action="store_true",
+        help="Submit one DashScope task, persist its ID, and return immediately",
+    )
+    operation.add_argument(
+        "--status-only",
+        action="store_true",
+        help="Check one persisted DashScope task once; download when complete",
+    )
+    parser.add_argument(
+        "--task-state-file",
+        required=False,
+        help="Optional task-state path (defaults to a hidden path beside the output)",
+    )
     args = parser.parse_args()
 
     try:
-        print(generate_video(args.prompt_file, args.reference_images,
-                             args.output_file, args.aspect_ratio))
+        if args.submit_only:
+            result = submit_video_task(
+                args.prompt_file,
+                args.reference_images,
+                args.output_file,
+                args.aspect_ratio,
+                args.task_state_file,
+            )
+        elif args.status_only:
+            result = check_video_task(
+                args.output_file,
+                args.task_state_file,
+            )
+        else:
+            parser.error(
+                "one of --submit-only or --status-only is required; "
+                "foreground polling is disabled"
+            )
+        print(result)
     except Exception as e:
         print(f"Error while generating video: {e}", file=sys.stderr)
         raise SystemExit(1) from e

@@ -77,7 +77,7 @@ test("WeKnora bootstrap persists SSO and applies the DeerFlow UI policy", () => 
 
 test("auth adapter delegates tenant behavior to WeKnora", () => {
   const authModule = readFileSync(
-    resolve(patchRoot, "index-DeX5ZUuT.js"),
+    resolve(patchRoot, "index-itUW58et.js"),
     "utf8",
   );
 

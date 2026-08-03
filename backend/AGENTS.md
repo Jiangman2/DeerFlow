@@ -206,6 +206,11 @@ add the current Token to the final redirect URL. Those responses must remain
 `no-store` and `no-referrer`; the Token must never be hardcoded, returned in a
 response body, read by frontend JavaScript, or placed in browser-readable
 storage. Logout clears this cookie together with the DeerFlow `access_token`.
+Every successful CNOOC SSO login also refreshes the nullable DeerFlow user
+profile fields sourced from the validated response (`ryxm`, `bmId`, `bmdm`,
+and `bmmc`). Admin dashboard responses expose only the display name and
+organization name alongside the existing login account; credentials and the
+platform Token remain excluded.
 
 In provisioner/Kubernetes mode, `sandbox.environment` is injected through the
 AIO sandbox's structured per-command `bash.exec` environment. The remote backend
@@ -318,6 +323,7 @@ Lead-agent middlewares are assembled in strict order across three functions: the
 **Shared runtime base** (`build_lead_runtime_middlewares`; subagents reuse most of this via `build_subagent_runtime_middlewares`):
 
 1. **InputSanitizationMiddleware** - First, so it is the outermost `wrap_model_call` wrapper; every inner middleware (including LLM retries) sees sanitized messages. `additional_kwargs.original_user_content` is server-owned provenance: Gateway strips caller-supplied values for non-internal run requests, trusted IM calls may carry the string they captured before adding transport/file context, and the middleware replaces any non-string value before wrapping. Uploads and sanitization retain first-writer-wins only for validated strings.
+1a. **PlatformConfidentialityMiddleware** - Runs immediately inside input sanitization. Explicit requests for platform server/environment/database/deployment/log/source information receive a deterministic refusal before the model or tools execute; normal turns receive the same policy in their system message. Public feature help, WeKnora retrieval, and analysis of user-provided files under `/mnt/user-data` remain allowed. `SandboxAuditMiddleware` independently blocks shell/file/cluster/platform-database introspection, and bash output masks both request-scoped and platform runtime secrets.
 2. **ToolOutputBudgetMiddleware** - Caps tool output size (per app config) before it re-enters the model context
 3. **ToolResultSanitizationMiddleware** - Neutralizes framework/injection tags (e.g. `<system-reminder>`) and boundary markers in *remote-content* tool results (`web_fetch`/`web_search`/`image_search`/`web_capture`) so attacker-controlled fetched pages cannot forge trusted framework context. Mirrors `InputSanitizationMiddleware`'s user-input guardrail for the other untrusted-content entry point; sits inner of `ToolOutputBudgetMiddleware` (neutralizes the raw output, then the budget truncates). Local tool output (bash/read_file) is left untouched. Scope is a name-based allowlist, so MCP remote-content tools registered under other names (e.g. `fetch_url`) are not yet covered — a metadata-tagging follow-up is tracked in the middleware source
 4. **ThreadDataMiddleware** - Creates per-thread directories under the user's isolation scope (`backend/.deer-flow/users/{user_id}/threads/{thread_id}/user-data/{workspace,uploads,outputs}`); resolves `user_id` via `get_effective_user_id()` (falls back to `"default"` in no-auth mode)
@@ -419,9 +425,9 @@ CORS is same-origin by default when requests enter through nginx on port 2026. S
 | **MCP** (`/api/mcp`) | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json) |
 | **Skills** (`/api/skills`) | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`) |
 | **Memory** (`/api/memory`) | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |
-| **Uploads** (`/api/threads/{id}/uploads`) | `POST /` - upload files (auto-converts PDF/PPT/Excel/Word); `GET /list` - list; `DELETE /{filename}` - delete |
+| **Uploads** (`/api/threads/{id}/uploads`) | `POST /` - upload files (auto-converts PDF/PPT/Excel/Word); browser-active/server-executable extensions are rejected before write, and staged PDFs require a valid signature with no active actions, embedded executable content, or uninspectable encryption; `GET /list` - list; `DELETE /{filename}` - delete |
 | **Threads** (`/api/threads/{id}`) | `DELETE /` - remove DeerFlow-managed local thread data after LangGraph thread deletion; `POST /branches` - create a new main-thread branch from a completed assistant turn checkpoint. Workspace files are not checkpointed, so the branch only best-effort copies the current workspace when branching from the **latest** turn (`workspace_clone_mode="current_thread_best_effort"`); branching from an older/historical turn skips the copy (`workspace_clone_mode="skipped_historical_turn"`) so the branch never inherits files that only exist in a later timeline; `GET /goal`, `PUT /goal`, `DELETE /goal` - read, set, and clear the active thread goal; `POST /compact` - manually summarize older active context into `summary_text` and retain the recent message window, blocked while a run is in flight; unexpected failures are logged server-side and return a generic 500 detail |
-| **Artifacts** (`/api/threads/{id}/artifacts`) | `GET/HEAD /{path}` - serve or probe artifacts; active content types (`text/html`, `application/xhtml+xml`, `image/svg+xml`) are always forced as download attachments to reduce XSS risk; `?download=true` still forces download for other file types. Known non-text MIME types such as PDF bypass text-content heuristics and are served as binary inline responses. |
+| **Artifacts** (`/api/threads/{id}/artifacts`) | `GET/HEAD /{path}` - serve or probe artifacts; active content types and passive document files from `uploads/` are forced to `application/octet-stream` attachments with `nosniff`, CSP sandbox, `no-store`, and `noopen` headers (safe raster image/media/passive-text uploads remain inline). `?download=true` still forces download. Inert generated PDFs remain inline with CSP sandbox headers; PDFs with active or uninspectable structures are forced to download. |
 | **Suggestions** (`/api/suggestions`) | `GET /config` - returns global suggestions config boolean; `POST /threads/{id}/suggestions` - generate follow-up questions; rich list/block model content is normalized and inline reasoning (`<think>...</think>`, including unclosed/truncated blocks from reasoning models like MiniMax-M3) is stripped before JSON parsing |
 | **Input Polish** (`/api/input-polish`) | `POST /` - rewrite a composer draft before it is sent. This is a short authenticated `runs:create` LLM request using `input_polish` config; it does not create a LangGraph run, persist a message, or modify thread state. Shares the non-graph one-shot LLM path (`deerflow.utils.oneshot_llm.run_oneshot_llm`) with the suggestions route so model build + Langfuse metadata + invoke stay in one place; validates the same stripped view of the draft it sends to the model, and preserves literal `<think>` substrings in the rewrite (`strip_think_blocks(truncate_unclosed=False)`) |
 | **Thread Runs** (`/api/threads/{id}/runs`) | `POST /` - create background run; `POST /stream` - create + SSE stream; `POST /wait` - create + block; `POST /regenerate/prepare` - prepare clean input + checkpoint metadata for regenerating the latest assistant answer; `GET /` - list runs; `GET /{rid}` - run details; `POST /{rid}/cancel` - cancel; `GET /{rid}/join` - join SSE; `GET /{rid}/messages` - paginated per-run messages `{data, has_more}`; `GET /{rid}/events` - full event stream; `GET /{rid}/workspace-changes` - workspace/output file change summary and optional diffs; `GET /../messages` - legacy thread message array; `GET /../messages/page` - backward thread-global `seq` history page with middleware/successful-regenerate filtering and page-run-scoped feedback enrichment; `GET /../token-usage` - aggregate tokens |
@@ -459,6 +465,19 @@ Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runti
 **Implementations**:
 - `LocalSandboxProvider` - Local filesystem execution. `acquire(thread_id)` returns a per-thread `LocalSandbox` (id `local:{thread_id}`) whose `path_mappings` resolve `/mnt/user-data/{workspace,uploads,outputs}` and `/mnt/acp-workspace` to that thread's host directories, so the public `Sandbox` API honours the `/mnt/user-data` contract uniformly with AIO. `acquire()` / `acquire(None)` keeps the legacy generic singleton (id `local`) for callers without a thread context. Per-thread sandboxes are held in an LRU cache (default 256 entries) guarded by a `threading.Lock`. Legacy global-custom mounts are gated by the same user-scoped skill discovery rule used for prompt/list visibility; providers must not infer visibility from raw directory presence alone.
 - `AioSandboxProvider` (`packages/harness/deerflow/community/`) - Docker-based isolation. Active-cache and warm-pool entries are checked with the backend during acquire/reuse; definitively dead containers are dropped from all in-process maps so the thread can discover or create a fresh sandbox instead of reusing a stale client. Backend health-check failures are treated as unknown, not dead; local discovery likewise treats an unverifiable container as not adoptable and falls through to create rather than failing acquire. `get()` remains an in-memory lookup for event-loop-safe tool paths. Legacy global-custom mounts follow the same shared visibility helper as local and remote providers. Because the AIO shell APIs expose text but not a reliable structured process status, `AioSandbox.execute_command()` appends and strips a private exit-code marker; non-zero commands return an explicit `Error:` plus active-skill/`--help` recovery guidance so tool progress cannot count a failed CLI call as success. Provisioner/Kubernetes deployments may set `sandbox.shared_thread_data_mounts: true` only when Gateway and every sandbox mount the same thread-data volume at `/mnt/user-data`; uploads are then written once through the Gateway instead of cold-starting a sandbox and copying the bytes over its API. The local single-node PVC stack satisfies this with `ReadWriteOnce`; multi-node deployments require storage that provides `ReadWriteMany` (or an equivalent shared filesystem) before enabling the flag.
+- In the enterprise K8s profile, Provisioner projects provider credentials and
+  both cases of the proxy variables from `deer-flow-env` into each generated
+  Sandbox Pod, and mounts the current `deer-flow-enterprise-ca` Secret. The
+  enterprise OpenSSL compatibility ConfigMap is mounted only into generated
+  Sandbox Pods so generic HTTPS clients inherit `DEFAULT:@SECLEVEL=1` without a
+  node-wide or cluster-wide downgrade. The image-generation skill's DashScope
+  client additionally uses
+  `DASHSCOPE_TLS_COMPAT=true` to create a provider-scoped
+  `DEFAULT:@SECLEVEL=1` SSL context; the context still validates the mounted CA
+  chain and hostname for both API calls and generated-image downloads. Keep
+  these settings runtime-injected so CA rotation and proxy credential changes
+  do not require rebuilding the large Sandbox image. Never disable CA or
+  hostname verification.
 - **Provisioner-generated Pod health/resources**: `docker/provisioner/app.py` reads startup/readiness/liveness timing from `SANDBOX_*_PROBE_*` environment variables and CPU/memory requests/limits from `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}`. Keep the startup window at least five minutes for cold AIO images. Liveness must tolerate roughly one minute of transient unresponsiveness for browser/PPT workloads; readiness may remain faster because it does not restart the container. Defaults are 500m/512Mi requests and 2 CPU/2Gi limits.
 - `BoxliteProvider` (`packages/harness/deerflow/community/boxlite/`) - BoxLite micro-VM isolation. The `boxlite` runtime is optional (`deerflow-harness[boxlite]`) and lazy-imported only when this provider is selected. The provider owns one private asyncio event loop on a daemon thread because BoxLite handles are loop-affine; sync `Sandbox` calls marshal onto that loop with `run_coroutine_threadsafe`.
   Boxes are named deterministically from `user_id:thread_id`, released into an in-process warm pool after each agent turn, and reclaimed only by the same user/thread. Warm-pool health checks use a short explicit timeout and forward that timeout through both BoxLite `exec(timeout=...)` and the private-loop `.result(timeout)` bridge so a hung VM cannot pin the per-thread acquire lock indefinitely.
@@ -501,7 +520,7 @@ Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runti
 1. **Config-defined tools** - Resolved from `config.yaml` via `resolve_variable()`
 2. **MCP tools** - From enabled MCP servers (lazy initialized, cached with resolved-path + content-signature invalidation)
 3. **Built-in tools**:
-   - `present_files` - Make final files visible to the user. Files already under `/mnt/user-data/outputs` are published directly; files under the current thread's `/mnt/user-data/workspace` are copied into the persistent outputs bucket first. Remote-sandbox files are downloaded before publication, while paths outside the current thread remain rejected. Presenting a PPT/PPTX also publishes an existing same-stem `.preview.pdf` so the frontend can preview the deck without changing the download target.
+   - `present_files` - Make final files visible to the user. Files already under `/mnt/user-data/outputs` are published directly; files under the current thread's `/mnt/user-data/workspace` are copied into the persistent outputs bucket first. Remote-sandbox files are downloaded before publication, while paths outside the current thread remain rejected. Presenting a PPT/PPTX also publishes an existing same-stem `.preview.pdf`; when it is absent and an active sandbox is available, the tool best-effort generates it with sandbox LibreOffice, then publishes it without changing the PPT/PPTX download target. Preview generation failure never suppresses the valid deck.
    - `ask_clarification` - Request clarification (intercepted by ClarificationMiddleware, which preserves text fallback and adds `artifact.human_input` for Web UI Human Input Cards)
    - `view_image` - Read image as base64 (added only if model supports vision)
    - `setup_agent` - Bootstrap-only: persist a brand-new custom agent's `SOUL.md` and `config.yaml`. Bound only when `is_bootstrap=True`.
@@ -527,6 +546,18 @@ Scheduled-task runtime note:
 - `aio_sandbox/` - Docker-based isolation (`AioSandboxProvider`)
 
 Additional providers also live here (`boxlite`, `brave`, `browserless`, `crawl4ai`, `ddg_search`, `e2b_sandbox`, `exa`, `fastcrw`, `groundroute`, `infoquest`, `searxng`, `serper`); see each subpackage for specifics.
+
+The `appforge/` package exposes three CNOOC DataLake tools: narrative smart QA,
+indicator/metrics QA, and record-level detail QA. AppForge is an approved
+internal application system, so production uses the direct internal route with
+`trust_env=false`. Only `query` is model-visible; API keys, workflow identity
+inputs, application IDs, and conversation IDs are resolved server-side. Keep
+the reviewed smart/metrics/detail IDs (`app-p2cpu4dn`, `app-n9ahac7g`, and
+`app-5md031ia`) explicit in runtime configuration so workflow republishing is
+an intentional deployment change. Keep
+the key in the runtime Secret, sanitize provider errors, and retain bounded JSON
+results so the generic tool-output budget does not replace useful structured
+answers with a file-only preview.
 
 **ACP agent tools**:
 - `invoke_acp_agent` - Invokes external ACP-compatible agents from `config.yaml`
@@ -863,6 +894,13 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
 
 **`config.yaml`** key sections:
 - `models[]` - LLM configs with `use` class path, `supports_thinking`, `supports_vision`, provider-specific fields
+- Enterprise OpenAI-compatible endpoints that encode application failures as
+  HTTP 200 responses with `choices=null` should use
+  `deerflow.models.robust_openai:RobustChatOpenAI`. It raises a typed,
+  bounded-diagnostic exception containing the provider's `code`, `msg`, and
+  `success` fields. `LLMErrorHandlingMiddleware` retries an unknown/transient
+  null-choices response once, while recognized authentication, quota, and
+  context-limit errors remain non-retriable.
 - `logging.enhance` - Optional request trace correlation (`enabled`, `format`) for Gateway `X-Trace-Id`, log `trace_id`, and Langfuse `deerflow_trace_id`
 - vLLM reasoning models should use `deerflow.models.vllm_provider:VllmChatModel`; for Qwen-style parsers prefer `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`, and DeerFlow will also normalize the older `thinking` alias
 - `tools[]` - Tool configs with `use` variable path and `group`
@@ -870,7 +908,7 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
 - `sandbox.use` - Sandbox provider class path
 - `skills.path` / `skills.container_path` - Host and container paths to skills directory
 - `skills.deferred_discovery` - When `true`, replaces the full-metadata `<available_skills>` prompt block with a compact `<skill_index>` (names only) and registers the `describe_skill` tool so the agent fetches metadata on demand. Defaults to `false` (legacy full-metadata injection)
-- `title` - Auto-title generation (enabled, max_words, max_chars, model_name; null model_name uses fast local fallback, explicit model_name uses the prompt_template LLM path)
+- `title` - Auto-title generation (enabled, max_words, max_chars, model_name; null model_name uses the current default LLM, while an explicit model name pins title generation to that model; both use `prompt_template` and fall back locally on failure)
 - `summarization` - Context summarization (enabled, trigger conditions, keep policy)
 - `subagents.enabled` - Master switch for subagent delegation
 - Built-in `general-purpose` and `bash` subagents load no Skills by default.
@@ -995,12 +1033,17 @@ When using `make dev` from root, the frontend automatically connects through ngi
 
 Multi-file upload with automatic document conversion:
 - Endpoint: `POST /api/threads/{thread_id}/uploads`
-- Supports: PDF, PPT, Excel, Word documents (converted via `markitdown`)
+- Supports: PDF, PPT, Excel, Word documents; automatic conversion uses
+  `markitdown` when enabled, while PDF/DOC/DOCX/PPT/PPTX can use the enterprise
+  parser bridge independently
 - Rejects directory inputs before copying so uploads stay all-or-nothing
 - Reuses one conversion worker per request when called from an active event loop
 - Files stored in thread-isolated directories under the resolving user's bucket (`users/{user_id}/threads/{thread_id}/user-data/uploads`). For IM channels the owner is threaded explicitly via the `user_id=` kwarg (see IM Channels → Owner-scoped file storage); HTTP/embedded callers resolve it from `get_effective_user_id()`
 - Duplicate filenames in a single upload request are auto-renamed with `_N` suffixes so later files do not truncate earlier files
 - Gateway HTTP uploads stage bytes as `.upload-*.part` files and atomically replace the destination only after size validation. These staging files are hidden from upload listings, agent upload context, and sandbox listing/search tools, and swept on Gateway startup if a hard crash leaves one behind.
+- Before the atomic replacement, the Gateway rejects browser-active/server-executable extensions and validates PDF identity plus active-content indicators. This check runs on the staged file so a rejected replacement cannot destroy an existing upload.
+- Direct artifact access never renders original uploaded PDFs or active web content in the authenticated origin. Generated inert PDFs keep inline preview with CSP; suspicious PDFs and explicit downloads use hardened attachment responses.
+- When `WEKNORA_MINERU_ENDPOINT` (or `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`) is available and `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED` is not false, PDF/DOC/DOCX/PPT/PPTX conversation uploads call the in-cluster `/file_parse` adapter and atomically write a same-stem Markdown companion. This reuses WeKnora's searchable/scanned PDF routing, Word native-plus-visual path, enterprise OCR, and presentation conversion without creating a knowledge-base record. The legacy `DEERFLOW_UPLOAD_PDF_*` variables remain accepted. Parser failure keeps the original document and returns `processing_warning`; the client and agent must not silently claim parsing succeeded.
 - Gateway HTTP upload/list/delete handlers offload filesystem work through `deerflow.utils.file_io.run_file_io`, a dedicated ContextVar-preserving file IO executor. Non-mounted sandbox uploads acquire sandboxes with `SandboxProvider.acquire_async()` and offload `read_bytes()` plus `sandbox.update_file()` together.
 - Agent receives uploaded file list via `UploadsMiddleware`
 

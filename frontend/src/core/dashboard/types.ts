@@ -38,6 +38,8 @@ export interface UserActivityPoint {
 export interface UserUsageItem {
   user_id: string;
   email: string | null;
+  display_name: string | null;
+  organization_name: string | null;
   runs: number;
   threads: number;
   total_tokens: number;
@@ -48,6 +50,33 @@ export interface ExternalAgentClickItem {
   name: string;
   clicks: number;
   users: number;
+}
+
+export interface ExternalPlatformSourceMetric {
+  source: string;
+  today_users: number;
+  total_users: number;
+  today_clicks: number;
+  total_clicks: number;
+}
+
+export interface ExternalPlatformAgentMetric {
+  name: string;
+  today_users: number;
+  total_users: number;
+  today_clicks: number;
+  total_clicks: number;
+  by_source: ExternalPlatformSourceMetric[];
+}
+
+export interface ExternalPlatformClickSummary {
+  today: string;
+  days: number;
+  agents: ExternalPlatformAgentMetric[];
+  trend: {
+    dates: string[];
+    series: Record<string, number[]>;
+  };
 }
 
 export interface FeatureUsageItem {
@@ -238,6 +267,8 @@ export interface SharedSpaceUsageItem {
 export interface ScheduledTaskUserUsageItem {
   user_id: string;
   email: string | null;
+  display_name: string | null;
+  organization_name: string | null;
   current_tasks: number;
   created_tasks: number;
   enabled_tasks: number;
@@ -293,6 +324,7 @@ export interface DashboardSummary {
   user_activity: UserActivityPoint[];
   user_usage: UserUsageItem[];
   external_agent_clicks: ExternalAgentClickItem[];
+  external_platform_agent_clicks: ExternalPlatformClickSummary;
   feature_usage: FeatureUsageItem[];
   recent_business_events: RecentBusinessEventItem[];
   agent_usage: AgentUsageItem[];
@@ -308,6 +340,8 @@ export interface DashboardSummary {
 export interface RegisteredUserSessionSummary {
   user_id: string;
   email: string;
+  display_name: string | null;
+  organization_name: string | null;
   system_role: string;
   is_disabled: boolean;
   registered_at: string;

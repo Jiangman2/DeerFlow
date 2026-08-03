@@ -64,6 +64,17 @@ export function artifactPathFromHref(
   } catch {
     return null;
   }
+  const previewHashPrefix = "#artifact-preview=";
+  if (parsed.hash.startsWith(previewHashPrefix)) {
+    try {
+      const artifactPath = decodeURIComponent(
+        parsed.hash.slice(previewHashPrefix.length),
+      );
+      return artifactPath.startsWith("/mnt/") ? artifactPath : null;
+    } catch {
+      return null;
+    }
+  }
   if (parsed.searchParams.get("download") === "true") {
     return null;
   }
@@ -75,6 +86,30 @@ export function artifactPathFromHref(
     return null;
   }
   return decodeURIComponent(parsed.pathname.slice(prefix.length));
+}
+
+export function artifactPreviewHref(filepath: string): string {
+  return `#artifact-preview=${encodeURIComponent(filepath)}`;
+}
+
+export function rewriteArtifactLinksForPreview(
+  markdown: string,
+  threadId: string,
+): string {
+  // Rewrite ordinary inline links before Streamdown sees the Markdown. Its
+  // block memoization keys on `children` and intentionally ignores renderer
+  // and plugin props, so changing only a custom anchor component or rehype
+  // plugin can leave a previously rendered raw artifact URL in the DOM.
+  return markdown.replace(
+    /(?<!!)(\[[^\]\r\n]*\]\()([^\s)]+)([^)\r\n]*\))/g,
+    (match, opening: string, href: string, closing: string) => {
+      const artifactPath = artifactPathFromHref(href, threadId);
+      if (!artifactPath) {
+        return match;
+      }
+      return `${opening}${artifactPreviewHref(artifactPath)}${closing}`;
+    },
+  );
 }
 
 export function extractArtifactsFromThread(thread: {

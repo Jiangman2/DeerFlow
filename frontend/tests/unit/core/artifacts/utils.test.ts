@@ -117,7 +117,12 @@ describe("artifact URL helpers", () => {
   });
 
   test("extracts previewable artifact paths from message links", async () => {
-    const { artifactPathFromHref } = await loadFreshArtifactUtils();
+    const {
+      artifactPathFromHref,
+      artifactPreviewHref,
+      rewriteArtifactLinksForPreview,
+    } =
+      await loadFreshArtifactUtils();
 
     expect(
       artifactPathFromHref(
@@ -140,6 +145,39 @@ describe("artifact URL helpers", () => {
         "thread-1",
       ),
     ).toBeNull();
+    const previewHref = artifactPreviewHref(
+      "/mnt/user-data/outputs/research-report.pptx",
+    );
+    expect(artifactPathFromHref(previewHref, "thread-1")).toBe(
+      "/mnt/user-data/outputs/research-report.pptx",
+    );
+    expect(
+      artifactPathFromHref("#artifact-preview=%2Fetc%2Fpasswd", "thread-1"),
+    ).toBeNull();
+    expect(
+      rewriteArtifactLinksForPreview(
+        "[报告](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx)",
+        "thread-1",
+      ),
+    ).toBe(
+      `[报告](${artifactPreviewHref("/mnt/user-data/outputs/report.pptx")})`,
+    );
+    expect(
+      rewriteArtifactLinksForPreview(
+        "![预览](/api/threads/thread-1/artifacts/mnt/user-data/outputs/preview.png)",
+        "thread-1",
+      ),
+    ).toBe(
+      "![预览](/api/threads/thread-1/artifacts/mnt/user-data/outputs/preview.png)",
+    );
+    expect(
+      rewriteArtifactLinksForPreview(
+        "[下载](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx?download=true)",
+        "thread-1",
+      ),
+    ).toBe(
+      "[下载](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx?download=true)",
+    );
   });
 
   test("resolves absolute and relative message image paths", async () => {

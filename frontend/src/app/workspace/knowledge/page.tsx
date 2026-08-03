@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { useSidebar } from "@/components/ui/sidebar";
 import { WEKNORA_EMBED_PATH } from "@/core/weknora/embed";
 
 export default function KnowledgePage() {
   const { setOpen, setOpenMobile } = useSidebar();
+  const didCollapseSidebar = useRef(false);
 
   useEffect(() => {
+    if (didCollapseSidebar.current) {
+      return;
+    }
+    didCollapseSidebar.current = true;
     setOpen(false);
     setOpenMobile(false);
   }, [setOpen, setOpenMobile]);

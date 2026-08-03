@@ -118,6 +118,48 @@ class TestClassifyCommand:
     def test_high_risk_classified_as_block(self, cmd):
         assert _classify_command(cmd) == "block", f"Expected 'block' for: {cmd!r}"
 
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "printenv",
+            "env",
+            "set",
+            "export -p",
+            "declare -x",
+            "python -c 'import os; print(os.environ)'",
+            "python -c 'import os; print(os.getenv(\"DATABASE_URL\"))'",
+            "hostname",
+            "uname -a",
+            "cat /etc/os-release",
+            "cat /proc/cpuinfo",
+            "kubectl get secrets -A",
+            "docker inspect gateway",
+            "cat /var/run/secrets/kubernetes.io/serviceaccount/token",
+            "cat /root/.kube/config",
+            "psql postgresql://deerflow:password@postgres/deerflow -c 'select * from users'",
+            "redis-cli -h redis keys '*'",
+            "python -c 'import psycopg; psycopg.connect(\"host=postgres\")'",
+            "curl http://gateway:8001/openapi.json",
+            "rg DATABASE_URL /app/config.yaml",
+        ],
+    )
+    def test_platform_introspection_is_blocked(self, cmd):
+        assert _classify_command(cmd) == "block", f"Expected platform command to be blocked: {cmd!r}"
+
+    @pytest.mark.parametrize(
+        "cmd",
+        [
+            "python /mnt/user-data/workspace/analyze.py",
+            "python -c 'import pandas as pd; print(pd.read_excel(\"/mnt/user-data/uploads/data.xlsx\").shape)'",
+            "sqlite3 /mnt/user-data/uploads/customer.sqlite 'select count(*) from orders'",
+            "duckdb /mnt/user-data/uploads/customer.duckdb -c 'select count(*) from orders'",
+            "env LANG=C python /mnt/user-data/workspace/report.py",
+            "cat /mnt/user-data/uploads/platform_architecture.txt",
+        ],
+    )
+    def test_user_owned_data_commands_remain_allowed(self, cmd):
+        assert _classify_command(cmd) != "block", f"Expected user-data command to remain available: {cmd!r}"
+
     # --- Medium-risk (should return "warn") ---
 
     @pytest.mark.parametrize(
@@ -373,6 +415,48 @@ class TestSandboxAuditMiddlewareWrapToolCall:
         with patch.object(self.mw, "_write_audit"):
             result = self.mw.wrap_tool_call(request, handler)
         return result, handler.called, handler
+
+    @pytest.mark.parametrize(
+        ("tool_name", "args"),
+        [
+            ("read_file", {"path": "/proc/self/environ"}),
+            ("ls", {"path": "/"}),
+            ("read_file", {"path": "/app/config.yaml"}),
+            ("glob", {"path": "/var/run/secrets", "pattern": "**/*"}),
+            ("postgres_query", {"query": "select * from users"}),
+        ],
+    )
+    def test_blocks_sensitive_non_bash_tools(self, tool_name, args):
+        request = _make_non_bash_request(tool_name)
+        request.tool_call["args"] = args
+        handler = _make_handler()
+
+        with patch.object(self.mw, "_write_audit"):
+            result = self.mw.wrap_tool_call(request, handler)
+
+        assert result.status == "error"
+        assert result.name == tool_name
+        assert not handler.called
+
+    @pytest.mark.parametrize(
+        ("tool_name", "args"),
+        [
+            ("read_file", {"path": "/mnt/user-data/uploads/customer.csv"}),
+            ("ls", {"path": "/mnt/user-data/workspace"}),
+            ("grep", {"path": "/mnt/user-data/uploads", "pattern": "DATABASE_URL"}),
+            ("weknora_search", {"query": "数据库治理规范"}),
+        ],
+    )
+    def test_allows_user_files_and_knowledge_tools(self, tool_name, args):
+        request = _make_non_bash_request(tool_name)
+        request.tool_call["args"] = args
+        expected = ToolMessage(content="ok", tool_call_id="call-456", name=tool_name)
+        handler = _make_handler(expected)
+
+        result = self.mw.wrap_tool_call(request, handler)
+
+        assert result is expected
+        assert handler.called
 
     # --- Non-bash tools are passed through unchanged ---
 

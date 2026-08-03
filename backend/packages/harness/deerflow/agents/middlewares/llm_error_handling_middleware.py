@@ -61,6 +61,18 @@ _AUTH_PATTERNS = (
     "无权",
     "未授权",
 )
+_CONTEXT_PATTERNS = (
+    "context length",
+    "context window",
+    "maximum context",
+    "max context",
+    "too many tokens",
+    "input token limit",
+    "prompt is too long",
+    "request too large",
+    "payload too large",
+)
+_NULL_CHOICES_PATTERN = "received response with null value for 'choices'"
 
 # Per-exception retry budget overrides.
 #
@@ -79,6 +91,7 @@ _AUTH_PATTERNS = (
 # value of 2 means "1 first attempt + 1 retry" (the CR-requested
 # "keep one retry" behavior).
 _RETRY_BUDGET_OVERRIDES: dict[str, int] = {
+    "OpenAICompatibleResponseError": 2,
     "StreamChunkTimeoutError": 2,
 }
 
@@ -125,6 +138,10 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         appears in the per-exception override table.
         """
         override = _RETRY_BUDGET_OVERRIDES.get(type(exc).__name__)
+        if override is None and isinstance(exc, TypeError):
+            detail = _extract_error_detail(exc).lower()
+            if _NULL_CHOICES_PATTERN in detail:
+                override = 2
         if override is None:
             return self.retry_max_attempts
 
@@ -203,6 +220,8 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
             return False, "quota"
         if _matches_any(lowered, _AUTH_PATTERNS):
             return False, "auth"
+        if _matches_any(lowered, _CONTEXT_PATTERNS):
+            return False, "context"
 
         exc_name = exc.__class__.__name__
         if exc_name in {
@@ -224,6 +243,12 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         # route it through the same retry/backoff path as other transient
         # provider failures rather than failing the whole run.
         if isinstance(exc, IndexError):
+            return True, "transient"
+        if exc_name == "OpenAICompatibleResponseError":
+            if _matches_any(lowered, _BUSY_PATTERNS):
+                return True, "busy"
+            return True, "transient"
+        if isinstance(exc, TypeError) and _NULL_CHOICES_PATTERN in lowered:
             return True, "transient"
         if status_code in _RETRIABLE_STATUS_CODES:
             return True, "transient"
@@ -271,6 +296,8 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
             return "The configured LLM provider rejected the request because the account is out of quota, billing is unavailable, or usage is restricted. Please fix the provider account and try again."
         if reason == "auth":
             return "The configured LLM provider rejected the request because authentication or access is invalid. Please check the provider credentials and try again."
+        if reason == "context":
+            return "The configured LLM provider rejected the request because its context or request-size limit was exceeded. Reduce the amount of source material, split the task into smaller steps, and try again."
         if reason in {"busy", "transient"}:
             # Stream-drop failures (chunk-gap timeout, peer-closed connection,
             # raw read error) almost always point at a single oversized

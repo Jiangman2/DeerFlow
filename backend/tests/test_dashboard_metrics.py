@@ -73,7 +73,13 @@ async def test_summary_uses_selected_thread_creations_and_weekly_activity_bucket
             session.add_all(
                 [
                     UserRow(id=ADMIN_ID, email="admin@example.com", system_role="admin"),
-                    UserRow(id=USER_ID, email="user@example.com", system_role="user"),
+                    UserRow(
+                        id=USER_ID,
+                        email="user@example.com",
+                        system_role="user",
+                        display_name="Zhang San",
+                        organization_name="Exploration Department",
+                    ),
                     ThreadCreationRow(
                         thread_id="old-thread",
                         user_id=USER_ID,
@@ -130,9 +136,14 @@ async def test_summary_uses_selected_thread_creations_and_weekly_activity_bucket
         assert payload["overview"]["terminal_runs"] + payload["overview"]["running_runs"] == payload["overview"]["runs"]
         assert payload["overview"]["successful_runs"] + payload["overview"]["failed_runs"] == 2
         assert payload["overview"]["success_rate"] == 0.5
+        assert payload["user_usage"][0]["display_name"] == "Zhang San"
+        assert payload["user_usage"][0]["organization_name"] == "Exploration Department"
         assert payload["activity_bucket"] == "week"
         assert len(payload["user_activity"]) <= 14
         assert sum(item["threads"] for item in payload["user_activity"]) == 2
+        assert payload["external_platform_agent_clicks"]["days"] == 30
+        assert len(payload["external_platform_agent_clicks"]["trend"]["dates"]) == 30
+        assert len(payload["external_platform_agent_clicks"]["agents"]) == 5
     finally:
         await engine.dispose()
 
@@ -155,7 +166,13 @@ async def test_registered_user_sessions_exclude_runs_from_deleted_threads(
             session.add_all(
                 [
                     UserRow(id=ADMIN_ID, email="admin@example.com", system_role="admin"),
-                    UserRow(id=USER_ID, email="user@example.com", system_role="user"),
+                    UserRow(
+                        id=USER_ID,
+                        email="user@example.com",
+                        system_role="user",
+                        display_name="Zhang San",
+                        organization_name="Exploration Department",
+                    ),
                     ThreadMetaRow(
                         thread_id="existing-thread",
                         user_id=USER_ID,
@@ -179,6 +196,8 @@ async def test_registered_user_sessions_exclude_runs_from_deleted_threads(
 
         assert users_response.status_code == 200
         user_item = next(item for item in users_response.json()["items"] if item["user_id"] == USER_ID)
+        assert user_item["display_name"] == "Zhang San"
+        assert user_item["organization_name"] == "Exploration Department"
         assert user_item["existing_threads"] == 1
         assert user_item["runs"] == 1
         assert user_item["successful_runs"] == 1

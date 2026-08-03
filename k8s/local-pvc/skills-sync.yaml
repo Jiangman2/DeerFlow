@@ -21,7 +21,18 @@ spec:
               test ! -d /seed/skills/skills
               find /mnt/skills -mindepth 1 -maxdepth 1 -exec rm -rf {} +
               cp -a /seed/skills/. /mnt/skills/
+              # Source archives can preserve restrictive umask-derived modes
+              # such as 0640 root:root.  Gateway can read those files as root,
+              # while the sandbox file API cannot.  Platform-owned skills are
+              # intentionally shared read-only, so normalize only those trees
+              # for sandbox traversal/readability and leave custom skills alone.
+              for shared_tree in public third_party; do
+                if test -d "/mnt/skills/${shared_tree}"; then
+                  chmod -R a+rX "/mnt/skills/${shared_tree}"
+                fi
+              done
               test -f /mnt/skills/public/ppt-master/SKILL.md
+              test -r /mnt/skills/public/ppt-master/SKILL.md
               touch /mnt/skills/.deerflow-skills-ready
           volumeMounts:
             - name: skills

@@ -44,6 +44,9 @@ class CnoocUser:
     deerflow_user_id: str
     name: str
     email: str
+    organization_id: str | None = None
+    organization_code: str | None = None
+    organization_name: str | None = None
 
 
 @dataclass(slots=True)
@@ -176,6 +179,14 @@ def _required_string(row: dict[str, Any], field: str) -> str:
     return value
 
 
+def _optional_string(row: dict[str, Any], field: str) -> str | None:
+    value = row.get(field)
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
 def _map_user_info(data: Any, token: str) -> CnoocTokenCheckResult:
     if not isinstance(data, dict):
         raise CnoocAuthError("CNOOC user info returned invalid data", 502)
@@ -192,6 +203,9 @@ def _map_user_info(data: Any, token: str) -> CnoocTokenCheckResult:
             deerflow_user_id=deerflow_user_id,
             name=name,
             email=f"{username.lower()}@cnooc.com.cn",
+            organization_id=_optional_string(data, "bmId"),
+            organization_code=_optional_string(data, "bmdm"),
+            organization_name=_optional_string(data, "bmmc"),
         ),
     )
 

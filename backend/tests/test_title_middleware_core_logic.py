@@ -210,11 +210,13 @@ class TestTitleMiddlewareCoreLogic:
         monkeypatch.setattr(middleware, "_agenerate_title_result", AsyncMock(return_value=None))
         assert asyncio.run(middleware.aafter_model({"messages": []}, runtime=MagicMock())) is None
 
-    def test_aafter_model_uses_local_fallback_when_no_title_model_is_configured(self, monkeypatch):
-        """Default async path must not block stream completion on a second LLM call."""
+    def test_aafter_model_uses_default_model_when_no_title_model_is_configured(self, monkeypatch):
+        """The legacy null semantics use the current default model for title generation."""
         _set_test_title_config(max_chars=20, model_name=None)
         middleware = TitleMiddleware()
-        create_chat_model = MagicMock()
+        model = MagicMock()
+        model.ainvoke = AsyncMock(return_value=AIMessage(content="测试任务"))
+        create_chat_model = MagicMock(return_value=model)
         monkeypatch.setattr(title_middleware_module, "create_chat_model", create_chat_model)
 
         state = {
@@ -225,14 +227,16 @@ class TestTitleMiddlewareCoreLogic:
         }
         result = asyncio.run(middleware.aafter_model(state, runtime=MagicMock()))
 
-        assert result == {"title": "请帮我写测试"}
-        create_chat_model.assert_not_called()
+        assert result == {"title": "测试任务"}
+        create_chat_model.assert_called_once_with(thinking_enabled=False, attach_tracing=False)
 
-    def test_async_generate_title_result_uses_local_fallback_without_model_name(self, monkeypatch):
-        """The default async helper path avoids the hidden title-model LLM call."""
+    def test_async_generate_title_result_falls_back_when_default_model_fails(self, monkeypatch):
+        """A failed default-model title call still degrades to a bounded local title."""
         _set_test_title_config(max_chars=20, model_name=None)
         middleware = TitleMiddleware()
-        create_chat_model = MagicMock()
+        model = MagicMock()
+        model.ainvoke = AsyncMock(side_effect=RuntimeError("default model unavailable"))
+        create_chat_model = MagicMock(return_value=model)
         monkeypatch.setattr(title_middleware_module, "create_chat_model", create_chat_model)
 
         state = {
@@ -244,10 +248,10 @@ class TestTitleMiddlewareCoreLogic:
         result = asyncio.run(middleware._agenerate_title_result(state))
 
         assert result == {"title": "流式回答结束后不要再等待标题模型"}
-        create_chat_model.assert_not_called()
+        create_chat_model.assert_called_once_with(thinking_enabled=False, attach_tracing=False)
 
-    def test_async_local_fallback_does_not_format_unused_prompt_template(self, monkeypatch):
-        """Local fallback should not depend on the LLM prompt template."""
+    def test_async_default_model_falls_back_when_prompt_template_is_invalid(self, monkeypatch):
+        """Invalid title prompt configuration degrades locally before model creation."""
         _set_test_title_config(max_chars=20, model_name=None, prompt_template="{missing_placeholder}")
         middleware = TitleMiddleware()
         create_chat_model = MagicMock()

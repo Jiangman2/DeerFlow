@@ -2,14 +2,23 @@
 
 import asyncio
 import logging
+import os
 import re
+import secrets
 import shutil
 import unicodedata
 
 import yaml
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app.gateway.external_agent_analytics import (
+    EXTERNAL_PLATFORM_AGENT_NAMES,
+    EXTERNAL_PLATFORM_CLICK_ACTION,
+    external_platform_user_id,
+    normalize_external_agent_name,
+    normalize_external_agent_source,
+)
 from deerflow.config.agents_api_config import get_agents_api_config
 from deerflow.config.agents_config import (
     AgentConfig,
@@ -28,13 +37,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["agents"])
 
 AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
-EXTERNAL_AGENT_NAMES = {
-    "专业文档解析专家",
-    "地震数据提频专家",
-    "专业报告校审专家",
-    "自动数采专家",
-    "前期研究报告编写专家",
-}
+EXTERNAL_AGENT_NAMES = set(EXTERNAL_PLATFORM_AGENT_NAMES)
 
 
 class AgentResponse(BaseModel):
@@ -91,6 +94,13 @@ class ExternalAgentClickRequest(BaseModel):
     agent_name: str = Field(..., max_length=128)
 
 
+class ExternalPlatformAgentClickRequest(BaseModel):
+    user_name: str = Field(default="", max_length=128)
+    user_email: str = Field(default="", max_length=320)
+    agent_name: str = Field(..., max_length=128)
+    source: str = Field(..., max_length=64)
+
+
 @router.post("/agent-analytics/external-click", status_code=204)
 async def record_external_agent_click(body: ExternalAgentClickRequest) -> None:
     """Record a launch click for one of the five built-in external agents."""
@@ -120,6 +130,72 @@ async def record_external_agent_click(body: ExternalAgentClickRequest) -> None:
             )
         )
         await session.commit()
+
+
+def _external_click_ingest_token(request: Request) -> str:
+    authorization = request.headers.get("authorization", "").strip()
+    if authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.casefold() == "bearer":
+            return token.strip()
+    return request.headers.get("x-external-agent-click-key", "").strip()
+
+
+@router.post("/agent_click")
+async def record_external_platform_agent_click(
+    body: ExternalPlatformAgentClickRequest,
+    request: Request,
+) -> dict[str, str]:
+    """Accept authenticated click events from the Haineng and collaboration apps."""
+    expected = os.getenv("EXTERNAL_AGENT_CLICK_INGEST_KEY", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="External click ingestion is not configured")
+    provided = _external_click_ingest_token(request)
+    if not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Invalid external click ingestion key")
+
+    agent_name = normalize_external_agent_name(body.agent_name)
+    if agent_name is None:
+        raise HTTPException(status_code=422, detail="Unknown external agent")
+    source = normalize_external_agent_source(body.source)
+    if source is None:
+        raise HTTPException(status_code=422, detail="Unknown external agent source")
+    if not body.user_email.strip() and not body.user_name.strip():
+        raise HTTPException(status_code=422, detail="user_email or user_name is required")
+
+    session_factory = get_session_factory()
+    if session_factory is None:
+        raise HTTPException(status_code=503, detail="Persistence is not configured")
+    async with session_factory() as session:
+        session.add(
+            AuditLogRow(
+                user_id=external_platform_user_id(
+                    source=source,
+                    user_email=body.user_email,
+                    user_name=body.user_name,
+                ),
+                user_email=body.user_email.strip().casefold() or None,
+                user_role=None,
+                action=EXTERNAL_PLATFORM_CLICK_ACTION,
+                resource_type="external_agent",
+                resource_id=agent_name,
+                method="POST",
+                path="/api/agent_click",
+                status_code=200,
+                result="success",
+                duration_ms=0,
+                client_ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+                error=None,
+                details_json={
+                    "source": source,
+                    "user_name": body.user_name.strip(),
+                    "reported_agent_name": body.agent_name.strip(),
+                },
+            )
+        )
+        await session.commit()
+    return {"status": "ok"}
 
 
 def _validate_agent_name(name: str) -> None:

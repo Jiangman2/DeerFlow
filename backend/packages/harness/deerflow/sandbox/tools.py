@@ -18,6 +18,7 @@ from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
 from deerflow.runtime.secret_context import read_active_secrets
 from deerflow.runtime.user_context import resolve_runtime_user_id
+from deerflow.sandbox.env_policy import is_blocked_env_name
 from deerflow.sandbox.exceptions import (
     SandboxError,
     SandboxNotFoundError,
@@ -1509,7 +1510,7 @@ _MIN_MASK_LENGTH = 8
 
 
 def mask_secret_values(output: str, injected_env: dict[str, str] | None) -> str:
-    """Redact injected secret values from bash output before it re-enters context.
+    """Redact request and platform secret values before bash output re-enters context.
 
     Skill scripts receive request-scoped secrets as env vars (#3861). If a script
     echoes one (debugging, ``set -x``, an error dump), the value would otherwise
@@ -1521,9 +1522,11 @@ def mask_secret_values(output: str, injected_env: dict[str, str] | None) -> str:
     3-char token is more likely to corrupt unrelated output than to protect a
     real secret.
     """
-    if not injected_env or not output:
+    if not output:
         return output
-    for value in sorted((v for v in injected_env.values() if v and len(v) >= _MIN_MASK_LENGTH), key=len, reverse=True):
+    candidates = {value for name, value in os.environ.items() if is_blocked_env_name(name) and value and len(value) >= _MIN_MASK_LENGTH}
+    candidates.update(value for value in (injected_env or {}).values() if value and len(value) >= _MIN_MASK_LENGTH)
+    for value in sorted(candidates, key=len, reverse=True):
         output = output.replace(value, _SECRET_REDACTION)
     return output
 

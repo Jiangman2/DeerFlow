@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 
 from app.gateway.authz import require_permission
+from app.gateway.file_security import pdf_file_requires_attachment, pdf_payload_has_active_content
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.path_utils import resolve_thread_virtual_path
 from deerflow.config.paths import make_safe_user_id
@@ -32,8 +33,30 @@ TEXT_CONTENT_MIME_TYPES = {
     "application/yaml",
 }
 
+SAFE_INLINE_UPLOAD_MIME_TYPES = {
+    "application/json",
+    "text/csv",
+    "text/plain",
+}
+
 MAX_SKILL_ARCHIVE_MEMBER_BYTES = 16 * 1024 * 1024
 _SKILL_ARCHIVE_READ_CHUNK_SIZE = 64 * 1024
+
+PASSIVE_FILE_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
+
+INLINE_PDF_HEADERS = {
+    **PASSIVE_FILE_HEADERS,
+    "Content-Security-Policy": "sandbox; default-src 'none'; script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
+}
+
+SECURE_ATTACHMENT_HEADERS = {
+    **INLINE_PDF_HEADERS,
+    "Cache-Control": "private, no-store",
+    "X-Download-Options": "noopen",
+}
 
 
 def _build_content_disposition(disposition_type: str, filename: str) -> str:
@@ -42,7 +65,10 @@ def _build_content_disposition(disposition_type: str, filename: str) -> str:
 
 
 def _build_attachment_headers(filename: str, extra_headers: dict[str, str] | None = None) -> dict[str, str]:
-    headers = {"Content-Disposition": _build_content_disposition("attachment", filename)}
+    headers = {
+        **SECURE_ATTACHMENT_HEADERS,
+        "Content-Disposition": _build_content_disposition("attachment", filename),
+    }
     if extra_headers:
         headers.update(extra_headers)
     return headers
@@ -57,6 +83,12 @@ def is_text_file_by_content(path: Path, sample_size: int = 8192) -> bool:
             return b"\x00" not in chunk
     except Exception:
         return False
+
+
+def _is_safe_inline_upload_mime(mime_type: str | None) -> bool:
+    if not mime_type:
+        return False
+    return mime_type in SAFE_INLINE_UPLOAD_MIME_TYPES or mime_type.startswith(("image/", "audio/", "video/"))
 
 
 def _read_skill_archive_member(zip_ref: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
@@ -134,9 +166,9 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
     Stat probes, MIME sniffing (``mimetypes`` lazily stats the system MIME
     database on first use), and full-file reads are all blocking filesystem IO.
     Returns a ``(kind, mime_type, payload)`` plan the handler turns into a
-    response on the loop: ``("file", mime, None)`` (let ``FileResponse`` stream
-    it), ``("text", mime, str)``, or ``("bytes", mime, bytes)``. Behavior/error
-    codes match the previous inline logic.
+    response on the loop: ``("attachment", mime, None)`` (let
+    ``FileResponse`` stream it), ``("text", mime, str)``, or
+    ``("bytes", mime, bytes)``.
     """
     if not actual_path.exists():
         raise HTTPException(status_code=404, detail=f"Artifact not found: {path}")
@@ -144,8 +176,12 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
         raise HTTPException(status_code=400, detail=f"Path is not a file: {path}")
     mime_type, _ = mimetypes.guess_type(actual_path)
     # Active content / explicit download is streamed by FileResponse — no read here.
-    if download or mime_type in ACTIVE_CONTENT_MIME_TYPES:
-        return ("file", mime_type, None)
+    normalized_virtual_path = "/" + path.replace("\\", "/").lstrip("/")
+    is_user_upload = normalized_virtual_path.startswith("/mnt/user-data/uploads/")
+    if download or (is_user_upload and not _is_safe_inline_upload_mime(mime_type)) or mime_type in ACTIVE_CONTENT_MIME_TYPES:
+        return ("attachment", mime_type, None)
+    if mime_type == "application/pdf" and pdf_file_requires_attachment(actual_path):
+        return ("attachment", mime_type, None)
     if mime_type and (mime_type.startswith("text/") or mime_type in TEXT_CONTENT_MIME_TYPES or mime_type.endswith("+json") or mime_type.endswith("+xml")):
         return ("text", mime_type, actual_path.read_text(encoding="utf-8"))
     # A known non-text MIME type is authoritative. Content heuristics such as
@@ -224,17 +260,51 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         # Add cache headers to avoid repeated ZIP extraction (cache for 5 minutes)
         cache_headers = {"Cache-Control": "private, max-age=300"}
         download_name = Path(internal_path).name or actual_skill_path.stem
-        if download or mime_type in ACTIVE_CONTENT_MIME_TYPES:
-            return Response(content=content, media_type=mime_type or "application/octet-stream", headers=_build_attachment_headers(download_name, cache_headers))
+        normalized_skill_path = "/" + skill_file_path.replace("\\", "/").lstrip("/")
+        if download or normalized_skill_path.startswith("/mnt/user-data/uploads/") or mime_type in ACTIVE_CONTENT_MIME_TYPES:
+            return Response(
+                content=content,
+                media_type="application/octet-stream",
+                headers=_build_attachment_headers(download_name, cache_headers),
+            )
+
+        if mime_type == "application/pdf":
+            if pdf_payload_has_active_content(content):
+                return Response(
+                    content=content,
+                    media_type="application/octet-stream",
+                    headers=_build_attachment_headers(download_name, cache_headers),
+                )
+            return Response(
+                content=content,
+                media_type=mime_type,
+                headers={
+                    **INLINE_PDF_HEADERS,
+                    **cache_headers,
+                    "Content-Disposition": _build_content_disposition("inline", download_name),
+                },
+            )
 
         if mime_type and mime_type.startswith("text/"):
-            return PlainTextResponse(content=content.decode("utf-8"), media_type=mime_type, headers=cache_headers)
+            return PlainTextResponse(
+                content=content.decode("utf-8"),
+                media_type=mime_type,
+                headers={**PASSIVE_FILE_HEADERS, **cache_headers},
+            )
 
         # Default to plain text for unknown types that look like text
         try:
-            return PlainTextResponse(content=content.decode("utf-8"), media_type="text/plain", headers=cache_headers)
+            return PlainTextResponse(
+                content=content.decode("utf-8"),
+                media_type="text/plain",
+                headers={**PASSIVE_FILE_HEADERS, **cache_headers},
+            )
         except UnicodeDecodeError:
-            return Response(content=content, media_type=mime_type or "application/octet-stream", headers=cache_headers)
+            return Response(
+                content=content,
+                media_type=mime_type or "application/octet-stream",
+                headers={**PASSIVE_FILE_HEADERS, **cache_headers},
+            )
 
     actual_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, path, user_id=owner_user_id)
 
@@ -245,12 +315,21 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
     # worker only reports the kind; inline text/binary payloads are read in-thread.
     kind, mime_type, payload = await asyncio.to_thread(_read_artifact_payload, actual_path, path, download)
 
-    if kind == "file":
+    if kind == "attachment":
         # Always force download for active content types to prevent script
         # execution in the application origin when users open generated artifacts.
-        return FileResponse(path=actual_path, filename=actual_path.name, media_type=mime_type, headers=_build_attachment_headers(actual_path.name))
+        return FileResponse(
+            path=actual_path,
+            filename=actual_path.name,
+            media_type="application/octet-stream",
+            headers=_build_attachment_headers(actual_path.name),
+        )
 
     if kind == "text":
-        return PlainTextResponse(content=payload, media_type=mime_type)
+        return PlainTextResponse(content=payload, media_type=mime_type, headers=PASSIVE_FILE_HEADERS)
 
-    return Response(content=payload, media_type=mime_type, headers={"Content-Disposition": _build_content_disposition("inline", actual_path.name)})
+    headers = {
+        **(INLINE_PDF_HEADERS if mime_type == "application/pdf" else PASSIVE_FILE_HEADERS),
+        "Content-Disposition": _build_content_disposition("inline", actual_path.name),
+    }
+    return Response(content=payload, media_type=mime_type, headers=headers)

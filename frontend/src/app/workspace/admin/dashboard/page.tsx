@@ -30,9 +30,12 @@ import {
   activityChartMinWidth,
   activityPeriodLabel,
   activitySharedMax,
+  dashboardUserPrimaryLabel,
+  dashboardUserSecondaryParts,
   dashboardBarStyle,
   type DashboardFilters,
   type ExternalAgentClickItem,
+  type ExternalPlatformClickSummary,
   type FeedbackSummary,
   type KnowledgeUsageSummary,
   type RecentFailureItem,
@@ -258,7 +261,13 @@ function RegisteredUserSessions() {
                     >
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-medium text-slate-800">
-                          {user.email}
+                          {dashboardUserPrimaryLabel(user)}
+                        </span>
+                        <span
+                          className="mt-1 block truncate text-xs text-slate-500"
+                          title={dashboardUserSecondaryParts(user).join(" · ")}
+                        >
+                          {dashboardUserSecondaryParts(user).join(" · ")}
                         </span>
                         <span className="mt-1 block text-xs text-slate-500">
                           {user.system_role === "admin" ? "管理员" : "普通用户"}
@@ -409,7 +418,13 @@ function UserRanking({ items }: { items: UserUsageItem[] }) {
             </span>
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium text-slate-800">
-                {item.email ?? item.user_id}
+                {dashboardUserPrimaryLabel(item)}
+              </div>
+              <div
+                className="mt-1 truncate text-xs text-slate-500"
+                title={dashboardUserSecondaryParts(item).join(" · ")}
+              >
+                {dashboardUserSecondaryParts(item).join(" · ")}
               </div>
               <div className="mt-1 text-xs text-slate-500">
                 {item.threads} 个会话 · {compactNumber(item.total_tokens)} Token
@@ -505,6 +520,183 @@ function ExternalAgentClicks({ items }: { items: ExternalAgentClickItem[] }) {
         );
       })}
     </div>
+  );
+}
+
+const EXTERNAL_TREND_COLORS = [
+  "#0369a1",
+  "#0891b2",
+  "#0d9488",
+  "#2563eb",
+  "#4f46e5",
+];
+
+function ExternalPlatformClicks({
+  summary,
+}: {
+  summary?: ExternalPlatformClickSummary;
+}) {
+  const [scope, setScope] = useState<"today" | "all">("today");
+  if (!summary) {
+    return (
+      <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
+        <CardContent className="pt-6">
+          <EmptyState label="正在加载外部智能体点击统计" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const isToday = scope === "today";
+  const maxTrend = Math.max(1, ...Object.values(summary.trend.series).flat());
+  const sourceDetail = (
+    item: ExternalPlatformClickSummary["agents"][number],
+    field: "today_users" | "total_users" | "today_clicks" | "total_clicks",
+  ) =>
+    item.by_source
+      .map((source) => `${source.source.replace("平台", "")} ${source[field]}`)
+      .join(" · ");
+
+  return (
+    <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
+      <CardHeader className="gap-3">
+        <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-base">
+          <span className="flex items-center gap-2">
+            <ExternalLinkIcon className="size-4 text-cyan-700" />
+            外部智能体点击（海能+协同）
+          </span>
+          <span className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <Button
+              size="sm"
+              className="h-7 px-3"
+              variant={isToday ? "default" : "ghost"}
+              onClick={() => setScope("today")}
+            >
+              今日
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 px-3"
+              variant={!isToday ? "default" : "ghost"}
+              onClick={() => setScope("all")}
+            >
+              全部
+            </Button>
+          </span>
+        </CardTitle>
+        <p className="text-xs leading-5 text-slate-500">
+          今日按北京时间统计；全部为历史累计。下方趋势固定展示最近 30
+          个自然日，不受页面顶部时间范围影响。同一来源内用户去重，不同来源分别计数。
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full min-w-[760px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th className="px-4 py-3 font-medium">智能体</th>
+                <th className="px-4 py-3 text-right font-medium">
+                  {isToday ? "今日活跃用户" : "累计用户"}
+                </th>
+                <th className="px-4 py-3 text-right font-medium">
+                  {isToday ? "今日点击" : "累计点击"}
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {summary.agents.map((item) => {
+                const userField = isToday ? "today_users" : "total_users";
+                const clickField = isToday ? "today_clicks" : "total_clicks";
+                return (
+                  <tr key={item.name} className="bg-white">
+                    <td className="px-4 py-3 font-medium text-slate-800">
+                      {item.name}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="font-semibold text-cyan-700">
+                        {item[userField]}
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-400">
+                        {sourceDetail(item, userField)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="font-semibold text-slate-800">
+                        {item[clickField]}
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-400">
+                        {sourceDetail(item, clickField)}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800">
+                近 30 天每日活跃用户
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                每行采用同一刻度，便于比较不同智能体的活跃程度。
+              </p>
+            </div>
+            <span className="text-xs text-slate-400">
+              {summary.trend.dates[0]} 至{" "}
+              {summary.trend.dates[summary.trend.dates.length - 1]}
+            </span>
+          </div>
+          <div className="space-y-4 overflow-x-auto pb-2">
+            {summary.agents.map((item, agentIndex) => {
+              const values = summary.trend.series[item.name] ?? [];
+              return (
+                <div key={item.name} className="min-w-[760px]">
+                  <div className="mb-1.5 flex items-center justify-between gap-4 text-xs">
+                    <span className="font-medium text-slate-600">
+                      {item.name}
+                    </span>
+                    <span className="text-slate-400">
+                      30 天合计 {values.reduce((sum, value) => sum + value, 0)}{" "}
+                      人次
+                    </span>
+                  </div>
+                  <div
+                    className="grid h-14 items-end gap-1 rounded-md bg-slate-50 px-2 pt-2"
+                    style={{
+                      gridTemplateColumns: `repeat(${Math.max(1, values.length)}, minmax(6px, 1fr))`,
+                    }}
+                  >
+                    {values.map((value, index) => (
+                      <div
+                        key={`${summary.trend.dates[index]}-${index}`}
+                        className="min-h-0 rounded-t-sm"
+                        title={`${summary.trend.dates[index]}：${value} 人`}
+                        style={{
+                          height:
+                            value > 0
+                              ? `${Math.max(8, (value / maxTrend) * 100)}%`
+                              : "2px",
+                          backgroundColor:
+                            value > 0
+                              ? EXTERNAL_TREND_COLORS[
+                                  agentIndex % EXTERNAL_TREND_COLORS.length
+                                ]
+                              : "#e2e8f0",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -999,7 +1191,13 @@ function ScheduledTaskUsagePanel({
                   <tr key={item.user_id}>
                     <td className="max-w-72 px-4 py-3">
                       <div className="truncate font-medium text-slate-800">
-                        {item.email ?? item.user_id}
+                        {dashboardUserPrimaryLabel(item)}
+                      </div>
+                      <div
+                        className="mt-1 truncate text-xs text-slate-500"
+                        title={dashboardUserSecondaryParts(item).join(" · ")}
+                      >
+                        {dashboardUserSecondaryParts(item).join(" · ")}
                       </div>
                     </td>
                     <td className="px-3 py-3">
@@ -1457,6 +1655,10 @@ export default function DashboardPage() {
           />
           <RecentFailures rows={summary?.recent_failures ?? []} />
         </div>
+
+        <ExternalPlatformClicks
+          summary={summary?.external_platform_agent_clicks}
+        />
       </div>
     </main>
   );

@@ -60,6 +60,73 @@ def test_get_artifact_serves_pdf_as_binary_even_when_sample_has_no_null_bytes(tm
     assert response.media_type == "application/pdf"
     assert bytes(response.body) == payload
     assert response.headers.get("content-disposition", "").startswith("inline;")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "sandbox" in response.headers["content-security-policy"]
+
+
+def test_get_artifact_forces_uploaded_pdf_to_download(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "uploaded.pdf"
+    artifact_path.write_bytes(b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n")
+
+    monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path, user_id=None: artifact_path)
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/uploads/uploaded.pdf",
+            _make_request(),
+        )
+    )
+
+    assert isinstance(response, FileResponse)
+    assert response.media_type == "application/octet-stream"
+    assert response.headers["content-disposition"].startswith("attachment;")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["cache-control"] == "private, no-store"
+
+
+def test_get_artifact_keeps_safe_uploaded_raster_image_inline(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "image.png"
+    payload = b"\x89PNG\r\n\x1a\nprobe"
+    artifact_path.write_bytes(payload)
+
+    monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path, user_id=None: artifact_path)
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/uploads/image.png",
+            _make_request(),
+        )
+    )
+
+    assert response.media_type == "image/png"
+    assert bytes(response.body) == payload
+    assert response.headers["content-disposition"].startswith("inline;")
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
+def test_get_artifact_forces_active_pdf_output_to_download(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "active.pdf"
+    artifact_path.write_bytes(b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /OpenAction 2 0 R >>\nendobj\n2 0 obj\n<< /S /JavaScript /JS (app.alert('probe')) >>\nendobj\n%%EOF\n")
+
+    monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path, user_id=None: artifact_path)
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/outputs/active.pdf",
+            _make_request(),
+        )
+    )
+
+    assert isinstance(response, FileResponse)
+    assert response.media_type == "application/octet-stream"
+    assert response.headers["content-disposition"].startswith("attachment;")
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 @pytest.mark.parametrize(("filename", "content"), ACTIVE_ARTIFACT_CASES)
@@ -72,7 +139,9 @@ def test_get_artifact_forces_download_for_active_content(tmp_path, monkeypatch, 
     response = asyncio.run(call_unwrapped(artifacts_router.get_artifact, "thread-1", f"mnt/user-data/outputs/{filename}", _make_request()))
 
     assert isinstance(response, FileResponse)
+    assert response.media_type == "application/octet-stream"
     assert response.headers.get("content-disposition", "").startswith("attachment;")
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 @pytest.mark.parametrize(("filename", "content"), ACTIVE_ARTIFACT_CASES)

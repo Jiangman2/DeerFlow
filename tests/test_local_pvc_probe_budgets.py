@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -22,6 +21,33 @@ def test_provisioner_startup_probe_allows_slow_docker_desktop_cold_start() -> No
     )
 
     assert startup_budget_seconds >= 300
+
+
+def test_local_sandbox_image_generation_uses_bailian_without_gemini() -> None:
+    manifest = ROOT / "k8s" / "local-pvc" / "deer-flow-pvc-stack.yaml"
+    documents = list(yaml.safe_load_all(manifest.read_text(encoding="utf-8")))
+    deployment = next(
+        document
+        for document in documents
+        if document
+        and document.get("kind") == "Deployment"
+        and document.get("metadata", {}).get("name") == "provisioner"
+    )
+    env = {
+        item["name"]: item.get("value")
+        for item in deployment["spec"]["template"]["spec"]["containers"][0]["env"]
+    }
+    secret_keys = set(env["SANDBOX_SECRET_ENV_KEYS"].split(","))
+
+    assert env["IMAGE_GENERATION_PROVIDER"] == "dashscope"
+    assert env["DASHSCOPE_IMAGE_MODEL"] == "qwen-image-2.0-pro"
+    assert "DASHSCOPE_API_KEY" in secret_keys
+    assert "GEMINI_API_KEY" not in secret_keys
+
+    secret_example = (
+        ROOT / "k8s" / "local-pvc" / "secrets" / "env.secret.example.yaml"
+    ).read_text(encoding="utf-8")
+    assert "GEMINI_API_KEY" not in secret_example
 
 
 def test_weknora_ui_proxy_uses_stable_kubernetes_service_dns() -> None:

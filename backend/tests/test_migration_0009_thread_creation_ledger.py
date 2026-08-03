@@ -84,7 +84,7 @@ def test_upgrade_backfills_retained_and_deleted_threads(tmp_path) -> None:
         creations = {row["thread_id"]: row for row in rows}
         version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
 
-    assert version == "0010_scheduled_task_run_context"
+    assert version == "0011_user_sso_profile"
     assert set(creations) == {"deleted-thread", "retained-thread"}
     assert creations["retained-thread"]["assistant_id"] == "retained-agent"
     assert creations["retained-thread"]["user_id"] == "retained-user"

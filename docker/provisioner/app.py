@@ -66,11 +66,29 @@ SKILLS_PVC_NAME = os.environ.get("SKILLS_PVC_NAME", "")
 USERDATA_PVC_NAME = os.environ.get("USERDATA_PVC_NAME", "")
 SKILLS_PVC_SUBPATH_TEMPLATE = os.environ.get("SKILLS_PVC_SUBPATH_TEMPLATE", "")
 SANDBOX_ENV_SECRET_NAME = os.environ.get("SANDBOX_ENV_SECRET_NAME", "")
+SANDBOX_CA_SECRET_NAME = os.environ.get("SANDBOX_CA_SECRET_NAME", "")
+SANDBOX_CA_SECRET_KEY = os.environ.get(
+    "SANDBOX_CA_SECRET_KEY", "ca-bundle.crt"
+)
+SANDBOX_CA_MOUNT_PATH = os.environ.get(
+    "SANDBOX_CA_MOUNT_PATH", "/etc/deerflow-ca"
+).rstrip("/")
+SANDBOX_CA_FILE = f"{SANDBOX_CA_MOUNT_PATH}/ca-bundle.crt"
+SANDBOX_OPENSSL_CONFIGMAP_NAME = os.environ.get(
+    "SANDBOX_OPENSSL_CONFIGMAP_NAME", ""
+)
+SANDBOX_OPENSSL_CONFIGMAP_KEY = os.environ.get(
+    "SANDBOX_OPENSSL_CONFIGMAP_KEY", "openssl.cnf"
+)
+SANDBOX_OPENSSL_MOUNT_PATH = os.environ.get(
+    "SANDBOX_OPENSSL_MOUNT_PATH", "/etc/deerflow-openssl"
+).rstrip("/")
+SANDBOX_OPENSSL_CONFIG_FILE = f"{SANDBOX_OPENSSL_MOUNT_PATH}/openssl.cnf"
 SANDBOX_SECRET_ENV_KEYS = tuple(
     key.strip()
     for key in os.environ.get(
         "SANDBOX_SECRET_ENV_KEYS",
-        "DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,GEMINI_API_KEY",
+        "DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY",
     ).split(",")
     if key.strip()
 )
@@ -85,7 +103,7 @@ SANDBOX_PASSTHROUGH_ENV_KEYS = tuple(
         "DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,"
         "MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,"
         "DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,"
-        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY",
+        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT",
     ).split(",")
     if key.strip()
 )
@@ -479,6 +497,36 @@ def _build_volumes(
         )
 
     volumes.append(userdata_vol)
+    if SANDBOX_CA_SECRET_NAME:
+        volumes.append(
+            k8s_client.V1Volume(
+                name="enterprise-ca",
+                secret=k8s_client.V1SecretVolumeSource(
+                    secret_name=SANDBOX_CA_SECRET_NAME,
+                    items=[
+                        k8s_client.V1KeyToPath(
+                            key=SANDBOX_CA_SECRET_KEY,
+                            path="ca-bundle.crt",
+                        )
+                    ],
+                ),
+            )
+        )
+    if SANDBOX_OPENSSL_CONFIGMAP_NAME:
+        volumes.append(
+            k8s_client.V1Volume(
+                name="openssl-compat",
+                config_map=k8s_client.V1ConfigMapVolumeSource(
+                    name=SANDBOX_OPENSSL_CONFIGMAP_NAME,
+                    items=[
+                        k8s_client.V1KeyToPath(
+                            key=SANDBOX_OPENSSL_CONFIGMAP_KEY,
+                            path="openssl.cnf",
+                        )
+                    ],
+                ),
+            )
+        )
     return volumes
 
 
@@ -543,6 +591,22 @@ def _build_volume_mounts(
             f"deer-flow/users/{user_id}/threads/{thread_id}/user-data"
         )
     mounts.append(userdata_mount)
+    if SANDBOX_CA_SECRET_NAME:
+        mounts.append(
+            k8s_client.V1VolumeMount(
+                name="enterprise-ca",
+                mount_path=SANDBOX_CA_MOUNT_PATH,
+                read_only=True,
+            )
+        )
+    if SANDBOX_OPENSSL_CONFIGMAP_NAME:
+        mounts.append(
+            k8s_client.V1VolumeMount(
+                name="openssl-compat",
+                mount_path=SANDBOX_OPENSSL_MOUNT_PATH,
+                read_only=True,
+            )
+        )
 
     return mounts
 
@@ -567,6 +631,11 @@ def _build_pod(
             },
         ),
         spec=k8s_client.V1PodSpec(
+            # Conversational sandboxes do not need Kubernetes API access.
+            # Omitting the default service-account token removes a credential
+            # and prevents arbitrary code from turning the sandbox into a
+            # cluster/database discovery console.
+            automount_service_account_token=False,
             containers=[
                 k8s_client.V1Container(
                     name="sandbox",
@@ -666,6 +735,21 @@ def _build_sandbox_env() -> list[k8s_client.V1EnvVar]:
         value = os.environ.get(key)
         if value is not None:
             env.append(k8s_client.V1EnvVar(name=key, value=value))
+    if SANDBOX_CA_SECRET_NAME:
+        for key in (
+            "SSL_CERT_FILE",
+            "REQUESTS_CA_BUNDLE",
+            "CURL_CA_BUNDLE",
+            "NODE_EXTRA_CA_CERTS",
+        ):
+            env.append(k8s_client.V1EnvVar(name=key, value=SANDBOX_CA_FILE))
+    if SANDBOX_OPENSSL_CONFIGMAP_NAME:
+        env.append(
+            k8s_client.V1EnvVar(
+                name="OPENSSL_CONF",
+                value=SANDBOX_OPENSSL_CONFIG_FILE,
+            )
+        )
     return env
 
 

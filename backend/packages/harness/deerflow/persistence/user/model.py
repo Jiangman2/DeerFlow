@@ -27,6 +27,10 @@ class UserRow(Base):
 
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
     password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    organization_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    organization_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    organization_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # "admin" | "user" — kept as plain string to avoid ALTER TABLE pain
     # when new roles are introduced.

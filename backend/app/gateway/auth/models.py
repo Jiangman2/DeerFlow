@@ -22,6 +22,10 @@ class User(BaseModel):
     password_hash: str | None = Field(None, description="bcrypt hash, nullable for OAuth users")
     system_role: Literal["admin", "user"] = Field(default="user")
     created_at: datetime = Field(default_factory=_utc_now)
+    display_name: str | None = Field(None, max_length=255, description="Display name synchronized from SSO")
+    organization_id: str | None = Field(None, max_length=128, description="Organization identifier synchronized from SSO")
+    organization_code: str | None = Field(None, max_length=128, description="Organization code synchronized from SSO")
+    organization_name: str | None = Field(None, max_length=255, description="Organization name synchronized from SSO")
 
     # OAuth linkage (optional)
     oauth_provider: str | None = Field(None, description="e.g. 'github', 'google'")
@@ -42,3 +46,5 @@ class UserResponse(BaseModel):
     needs_setup: bool = False
     is_disabled: bool = False
     oauth_provider: str | None = Field(None, description="OAuth/SSO provider ID if the user logged in via SSO (e.g. 'keycloak')")
+    display_name: str | None = None
+    organization_name: str | None = None

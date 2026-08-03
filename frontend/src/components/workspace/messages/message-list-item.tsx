@@ -12,6 +12,7 @@ import {
   useState,
   useEffect,
   type ImgHTMLAttributes,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 
 import { Loader } from "@/components/ai-elements/loader";
@@ -32,6 +33,8 @@ import {
   type FeedbackData,
 } from "@/core/api/feedback";
 import {
+  artifactPathFromHref,
+  rewriteArtifactLinksForPreview,
   resolveArtifactURL,
   resolveMessageImageURL,
 } from "@/core/artifacts/utils";
@@ -342,6 +345,28 @@ function MessageContent_({
     },
     [selectArtifact, setArtifactsOpen],
   );
+  const handleArtifactLinkClickCapture = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      const anchor = event.target.closest("a[href]");
+      if (!anchor) {
+        return;
+      }
+      const artifactPath = artifactPathFromHref(
+        anchor.getAttribute("href") ?? undefined,
+        threadId,
+      );
+      if (!artifactPath) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      handleArtifactClick(artifactPath);
+    },
+    [handleArtifactClick, threadId],
+  );
   const components = useMemo(
     () => ({
       img: (props: ImgHTMLAttributes<HTMLImageElement>) => (
@@ -388,6 +413,13 @@ function MessageContent_({
     }
     return rawContent ?? "";
   }, [rawContent, isHuman]);
+  const markdownContentToDisplay = useMemo(
+    () =>
+      isHuman
+        ? contentToDisplay
+        : rewriteArtifactLinksForPreview(contentToDisplay, threadId),
+    [contentToDisplay, isHuman, threadId],
+  );
   const citationSources = useMemo(
     () => (isHuman ? [] : extractCitationSources(contentToDisplay)),
     [contentToDisplay, isHuman],
@@ -461,7 +493,10 @@ function MessageContent_({
   }
 
   return (
-    <AIElementMessageContent className={className}>
+    <AIElementMessageContent
+      className={className}
+      onClickCapture={handleArtifactLinkClickCapture}
+    >
       {filesList}
       {!isHuman &&
         (!!reasoningContent || wasLoading || turnDuration !== undefined) && (
@@ -478,7 +513,7 @@ function MessageContent_({
           </Reasoning>
         )}
       <MarkdownContent
-        content={contentToDisplay}
+        content={markdownContentToDisplay}
         isLoading={isLoading}
         rehypePlugins={rehypePlugins}
         className="my-3"

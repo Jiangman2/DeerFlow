@@ -648,7 +648,87 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
 
     provisioner_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "provisioner")
     provisioner_env = provisioner_patch["spec"]["template"]["spec"]["containers"][0]["env"]
-    assert {entry["name"]: entry["value"] for entry in provisioner_env}["SANDBOX_SERVICE_TYPE"] == "ClusterIP"
+    provisioner_values = {entry["name"]: entry["value"] for entry in provisioner_env}
+    assert provisioner_values["SANDBOX_SERVICE_TYPE"] == "ClusterIP"
+    assert provisioner_values["SANDBOX_CA_SECRET_NAME"] == "deer-flow-enterprise-ca"
+    assert provisioner_values["SANDBOX_CA_SECRET_KEY"] == "ca-bundle.crt"
+    assert provisioner_values["SANDBOX_CA_MOUNT_PATH"] == "/etc/deerflow-ca"
+    assert (
+        provisioner_values["SANDBOX_OPENSSL_CONFIGMAP_NAME"]
+        == "deer-flow-gateway-openssl-compat"
+    )
+    assert provisioner_values["SANDBOX_OPENSSL_CONFIGMAP_KEY"] == "openssl.cnf"
+    assert (
+        provisioner_values["SANDBOX_OPENSSL_MOUNT_PATH"]
+        == "/etc/deerflow-openssl"
+    )
+    assert provisioner_values["DASHSCOPE_TLS_COMPAT"] == "true"
+    sandbox_secret_keys = set(
+        provisioner_values["SANDBOX_SECRET_ENV_KEYS"].split(",")
+    )
+    assert "DASHSCOPE_API_KEY" in sandbox_secret_keys
+    assert "GEMINI_API_KEY" not in sandbox_secret_keys
+    assert {
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "http_proxy",
+        "https_proxy",
+    } <= sandbox_secret_keys
+    assert {"NO_PROXY", "no_proxy"}.isdisjoint(sandbox_secret_keys)
+    sandbox_passthrough_keys = set(
+        provisioner_values["SANDBOX_PASSTHROUGH_ENV_KEYS"].split(",")
+    )
+    assert {"NO_PROXY", "no_proxy"} <= sandbox_passthrough_keys
+    assert provisioner_values["NO_PROXY"] == provisioner_values["no_proxy"]
+    sandbox_no_proxy = set(provisioner_values["NO_PROXY"].split(","))
+    assert {
+        "github.com",
+        ".github.com",
+        "githubusercontent.com",
+        ".githubusercontent.com",
+    } <= sandbox_no_proxy
+    assert {
+        "dashscope.aliyuncs.com",
+        ".aliyuncs.com",
+        "api.tavily.com",
+        ".tavily.com",
+    }.isdisjoint(sandbox_no_proxy)
+
+    gateway_patch = next(
+        patch
+        for patch in patches
+        if patch.get("kind") == "Deployment"
+        and patch.get("metadata", {}).get("name") == "gateway"
+    )
+    gateway_env = gateway_patch["spec"]["template"]["spec"]["containers"][0]["env"]
+    gateway_values = {
+        entry["name"]: entry.get("value")
+        for entry in gateway_env
+        if "value" in entry
+    }
+    assert gateway_values["DASHSCOPE_TLS_COMPAT"] == "true"
+    assert gateway_values["NO_PROXY"] == gateway_values["no_proxy"]
+    assert {
+        "github.com",
+        ".github.com",
+        "githubusercontent.com",
+        ".githubusercontent.com",
+    } <= set(gateway_values["NO_PROXY"].split(","))
+    assert {
+        "dashscope.aliyuncs.com",
+        ".aliyuncs.com",
+        "api.tavily.com",
+        ".tavily.com",
+    }.isdisjoint(set(gateway_values["NO_PROXY"].split(",")))
+
+    config = yaml.safe_load(_read("config.yaml"))
+    sandbox_environment = config["sandbox"]["environment"]
+    assert sandbox_environment["HTTP_PROXY"] == "$HTTP_PROXY"
+    assert sandbox_environment["HTTPS_PROXY"] == "$HTTPS_PROXY"
+    assert sandbox_environment["REQUESTS_CA_BUNDLE"] == "$REQUESTS_CA_BUNDLE"
+    assert sandbox_environment["NODE_EXTRA_CA_CERTS"] == "$NODE_EXTRA_CA_CERTS"
+    assert sandbox_environment["OPENSSL_CONF"] == "$OPENSSL_CONF"
+    assert sandbox_environment["DASHSCOPE_TLS_COMPAT"] == "$DASHSCOPE_TLS_COMPAT"
 
 
 def test_enterprise_local_volumes_are_pinned_to_known_nodes():

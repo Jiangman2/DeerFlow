@@ -39,6 +39,10 @@ test("knowledge page embeds the complete same-origin WeKnora workspace", async (
   await expect(
     page.locator('[data-slot="sidebar"][data-state="collapsed"]'),
   ).toBeVisible({ timeout: 15_000 });
+  await page.locator('[data-sidebar="rail"]').click();
+  await expect(
+    page.locator('[data-slot="sidebar"][data-state="expanded"]'),
+  ).toBeVisible({ timeout: 15_000 });
   const frame = page.getByTestId("weknora-workspace-frame");
   await expect(frame).toBeVisible({ timeout: 15_000 });
   await expect(frame).toHaveAttribute("src", "/platform/knowledge-bases");

@@ -39,6 +39,22 @@ The Next.js-owned `/api/runtime-config`, `/api/cnooc/external-agents/*`, and
 `/api/shop-cart/*` routes are exceptions and must be proxied to Frontend before the
 Gateway `/api/*` catch-all.
 
+Gateway file security is the enforcement boundary for browser uploads and
+artifact delivery. Reject active/server-executable upload extensions before
+write, validate staged PDFs before atomic replacement, force original uploaded
+documents and suspicious generated PDFs to hardened download responses, and
+keep inert generated PDF previews behind response CSP plus a scriptless,
+opaque-origin iframe sandbox. Do not rely on filename MIME guessing or frontend
+validation alone.
+Conversation PDF/DOC/DOCX/PPT/PPTX uploads reuse the configured WeKnora/MinerU
+adapter to write a same-stem Markdown companion without creating
+knowledge-base records. Searchable and scanned PDFs retain their
+adapter-specific routing, Word uses its native-plus-visual path, and
+presentations use its presentation conversion path. Presented PPT/PPTX outputs
+separately rely on the active sandbox's LibreOffice to generate a missing
+`.preview.pdf`; keep both integrations outside the `ppt-master` skill package
+and preserve graceful fallback when the parser or renderer is unavailable.
+
 In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 `/platform/knowledge-bases`. Keep that proxy on the `weknora-frontend` Kubernetes
 service DNS name; never pin a ClusterIP, because recreating the cluster changes it.
@@ -71,6 +87,14 @@ server-only cookie access. The shared Nginx entry must route this exact API
 prefix to the Frontend before its general `/api/` Gateway catch-all. Never
 hardcode a Token, expose it to frontend
 JavaScript, or restore the legacy `/agent-tools/*` reverse proxies.
+External click telemetry from the Haineng and collaboration platforms enters
+through `POST /api/agent_click`. Keep `EXTERNAL_AGENT_CLICK_INGEST_KEY` in the
+runtime Secret and require it as a Bearer token or
+`X-External-Agent-Click-Key`; never expose the key in browser JavaScript. The
+Gateway normalizes the legacy five agent names and stores events in PostgreSQL
+audit logs. Dashboard totals preserve Haineng and collaboration as independent
+sources, exclude `通用智能体平台`, use the Asia/Shanghai calendar day, and show a
+fixed latest-30-natural-day trend independent of the dashboard's main range.
 
 ## Repository Map
 
@@ -114,6 +138,22 @@ Durable-memory boundary note:
   or output formats remain thread-local unless the user explicitly marks them
   as future/default/always/cross-task preferences.
 
+Platform-confidentiality boundary note:
+- Conversational runs are not an operations or database console. Shared runtime
+  middleware refuses requests for server details, environment variables and
+  credentials, platform databases, cluster/deployment state, internal
+  APIs/networks, logs, system prompts, source paths, and account tables before
+  model or tool execution. Sandbox auditing independently blocks common shell,
+  filesystem, Kubernetes/container, and platform-database access paths, while
+  bash output masks request-scoped and platform runtime secrets. Dynamically
+  created Kubernetes sandbox Pods must keep
+  `automountServiceAccountToken: false`; conversational tasks never need
+  cluster API credentials.
+- This boundary must not block public product-usage help, WeKnora retrieval, or
+  analysis of user-provided files under `/mnt/user-data` (including Excel, CSV,
+  SQLite, and DuckDB). Never weaken it by adding platform database credentials
+  to a skill or by treating platform storage as user-uploaded data.
+
 Academic research skill note:
 - `skills/public/academic-research/` is the single platform-visible compatibility
   entry for the vendored academic research package.
@@ -148,12 +188,67 @@ Enterprise Kubernetes storage note:
 - Apply `k8s/enterprise/weknora-mineru-defaults.sql` after creating a new WeKnora database. Its trigger routes missing PDF/PPT/PPTX rules to the in-cluster adapter for knowledge bases created through the native WeKnora UI while preserving every explicit file-type parser choice.
 - Keep `k8s/weknora/enterprise-model-feature-defaults-job.yaml` and its versioned Job name aligned with `enterprise-model-feature-defaults.sql`. The Job waits for the built-in model rows, applies the SQL once, and remains completed so routine re-applies do not overwrite later user choices. Bump the Job name only when a revised initializer must run. It makes internal `DeepSeek-V4-Flash` the enterprise KnowledgeQA default, switches empty and future knowledge bases to the dedicated internal embedding model, normalizes database-backed agent overrides to the internal rerank plus enterprise VLM/ASR built-ins, and installs insert/model-write guards so later objects start ready without per-user setup. Populated knowledge bases must be re-parsed successfully before their embedding model is switched and old external embedding rows are hidden. Keep the mounted `k8s/weknora/builtin_agents.yaml` aligned with those defaults so runtime-generated built-in agents are also ready in every existing and future personal workspace.
 - The enterprise Gateway uses the runtime proxy for external model providers, but its `NO_PROXY` and `no_proxy` values must retain the bare Kubernetes Service names (especially `weknora-app`) as well as `.svc` and `.cluster.local`. Otherwise Gateway-to-WeKnora calls are sent through the enterprise proxy and surface as HTTP 302/502 failures. Keep proxy URLs and credentials in the runtime-created `deer-flow-env` Secret; do not commit them.
+- Provisioner-created enterprise Sandbox Pods must receive both cases of the
+  runtime proxy variables from `deer-flow-env` and mount the current
+  `deer-flow-enterprise-ca` Secret at `/etc/deerflow-ca`. Mount the enterprise
+  OpenSSL compatibility ConfigMap only inside generated Sandbox Pods so generic
+  sandbox HTTPS clients can traverse the audited legacy proxy without a
+  host/cluster-wide downgrade. Keep
+  `DASHSCOPE_TLS_COMPAT=true` scoped to the image-generation DashScope client:
+  it lowers only that client's OpenSSL RSA security level while preserving CA
+  chain and hostname verification. Image generation is Bailian/DashScope-only
+  by default and must not restore Gemini credentials or automatic Gemini
+  fallback in generated Sandbox Pods. The audited enterprise network permits
+  direct HTTPS to GitHub; keep those exact hosts/provider suffixes in both
+  Sandbox `NO_PROXY` variants. Authenticated DashScope model API and Tavily
+  search POSTs are reset on the audited direct route even when unauthenticated
+  root GETs succeed, so `dashscope.aliyuncs.com`, Aliyun result storage, and
+  `api.tavily.com` must remain on the verified enterprise proxy path. This is
+  a narrow route policy, not a blanket external-network bypass. Do not restore empty
+  proxy overrides in `config.yaml`, rely only on the Sandbox image's build-time
+  CA snapshot, or replace either path with `verify=false`.
+- The shared Skills PVC sync must normalize `a+rX` only on the platform-owned
+  `public` and `third_party` trees after archive extraction. Source archives can
+  preserve `0640 root:root`, which Gateway can read but the sandbox file API
+  cannot. Keep generated Sandbox mounts read-only and do not broaden permissions
+  on user-owned `custom` Skills.
+- Gateway's effective `extensions_config.json` must be the writable runtime copy
+  under the existing user-data PVC. Keep the ConfigMap-mounted file as a
+  read-only release seed; the init container adds missing shipped MCP/Skill
+  defaults while preserving persisted administrator choices. Point
+  `DEER_FLOW_EXTENSIONS_CONFIG_PATH` at the runtime copy so global Skill toggles
+  and MCP settings survive Gateway restarts and rolling updates.
+- DashScope video generation must use the video skill's persisted asynchronous
+  `--submit-only` / `--status-only` workflow. The provider task can take many
+  minutes, while the AIO Sandbox Nginx command channel may terminate a
+  synchronous `/v1/bash/exec` request after roughly 60 seconds. Keep every
+  status check in a separate short bash call and preserve the hidden task-state
+  file so a transport timeout cannot cause a second billable submission. Do not
+  treat a larger Nginx timeout or a foreground polling loop as the reliability
+  mechanism. The enterprise video skill is DashScope-only and provider-opaque:
+  agents must not enumerate environment variables, inspect credentials or SDKs,
+  probe provider endpoints/models, construct direct HTTP requests, download
+  substitute stock footage, or fall back to Gemini/MiniMax. Its asynchronous
+  entry point ignores stale provider-selection variables, and CLI invocation
+  without `--submit-only` or `--status-only` is rejected.
 - The audited enterprise TLS proxy presents a CA-validated legacy RSA certificate that OpenSSL 3 rejects at its default security level. Keep `gateway-openssl-compat.yaml` scoped to the Gateway Pod through `OPENSSL_CONF`, retain `WEKNORA_BAILIAN_TLS_COMPAT=true` for the authenticated Bailian embedding/ASR adapter clients, and retain `TAVILY_TLS_COMPAT=true` for DeerFlow's Tavily-only verified HTTPS session. These clients construct explicit `DEFAULT:@SECLEVEL=1` SSL contexts while CA-chain and hostname verification remain enabled. Never replace this with `verify=false`/`--insecure` or a host/cluster-wide downgrade, and remove the compatibility flags after the proxy certificate is modernized.
 - Keep the internal model host `model.ai.cnooc` in both Gateway proxy-bypass variables. Its streamed chat endpoints are direct-only in the audited enterprise network; sending them through the outbound proxy causes connection resets.
+- Configure the internal DeepSeek chat endpoint with
+  `deerflow.models.robust_openai:RobustChatOpenAI`. The enterprise gateway can
+  return application errors as HTTP 200 envelopes with `choices=null`; this
+  adapter preserves bounded `code`/`msg` diagnostics so the LLM error
+  middleware can distinguish transient failures from authentication, quota,
+  and context-limit errors. Null-choices failures receive at most one retry.
 - Enterprise Qwen3 Embedding and Reranker requests pass through authenticated Gateway relays. Keep the upstream `CNOOC_RETRIEVAL_API_KEY` separate from the independently generated `WEKNORA_INTERNAL_MODEL_RELAY_KEY`, never expose either key to browsers, and keep the upstream client direct with `trust_env=false`. The Qwen3 embedding relay requests 1024-dimensional Matryoshka output; if the approved endpoint returns its native 4096 dimensions, Gateway truncates the prefix to 1024 and L2-normalizes it before returning the OpenAI-compatible response. Changing this dimension after documents are indexed requires a complete re-parse of every affected knowledge base.
 - Keep the exact internal model hostname `model.ai.cnooc` and the authenticated in-cluster `gateway` relay Service in the WeKnora App's comma-separated `SSRF_WHITELIST_EXTRA` as well as both proxy-bypass variables. WeKnora correctly blocks private addresses by default; this narrow deployment allowlist permits only the approved internal endpoints without opening the surrounding private network or disabling SSRF validation.
 - Route additional enterprise embedding/rerank providers through authenticated Gateway adapters when practical, so WeKnora continues to call the stable `gateway` Service while Gateway owns upstream credentials, CA trust, proxy routing, timeouts, and audit-safe error mapping. If a provider must be called directly from WeKnora, add only its reviewed exact hostname to `SSRF_WHITELIST_EXTRA`, `NO_PROXY`, and `no_proxy`; never pre-authorize a broad RFC1918 CIDR for anticipated providers.
 - Keep the CNOOC data-lake OAuth endpoint in both Gateway proxy-bypass variables by hostname and audited service IP (`datalake.cnooc` and `10.77.78.223`). The SSO validation endpoint is direct-only in the enterprise network; sending it through the outbound proxy times out before the platform Token can be validated.
+- The three AppForge-backed DataLake QA tools run only in Gateway and call the
+  approved internal AppForge service directly. Keep `APPFORGE_API_KEY` and any
+  workflow identity inputs, including the three explicit App IDs, in
+  `deer-flow-env`, keep `trust_env=false`, and keep
+  the exact AppForge address in both Gateway proxy-bypass variables. Never
+  expose those values as model tool arguments or return raw upstream errors.
 - The WeKnora built-in Bailian ASR model points to the internal Gateway adapter because WeKnora 0.7.0 and `qwen3-asr-flash` use different request shapes. Keep the bare `gateway` Service name in the WeKnora App proxy-bypass variables; the adapter reuses the Bailian LLM key and never persists uploaded audio.
 - The WeKnora built-in `text-embedding-v4` model also points to `http://gateway:8001/api/weknora/bailian/v1`. Gateway validates `EMBEDDING_API_KEY` and relays `/embeddings` through its scoped enterprise proxy/CA/OpenSSL compatibility path without persisting document text; do not restore a direct DashScope URL in the WeKnora database.
 - Enterprise PDF/DOC/DOCX/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It keeps searchable PDF/Word text on the bundled WeKnora parsers, merges native Word text/images with a temporary PDF visual pass, adds captioned full-page evidence for searchable pages containing images/vector figures, converts presentations to PDF, and sends scanned or mixed documents to the internal MinerU API. The PDF detector uses text length plus image-area coverage. If PDFium rejects a browser-readable document during routing inspection, the adapter first attempts the independent builtin parser and otherwise continues to MinerU; source-page rendering failures must not discard already recovered text. MinerU inline images and all visual evidence are extracted into WeKnora's persistent `images` contract with Markdown references. The adapter intentionally serializes every PDFium/DocReader parse in one process because those native libraries are not concurrency-safe; its threaded HTTP server keeps `/health` responsive and reports active/waiting parser counts while uploads queue. Do not bypass that coordinator or add in-process parser concurrency. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; documents indexed by an older parser release must be re-parsed before their missing images can be retrieved.

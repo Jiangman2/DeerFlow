@@ -41,7 +41,27 @@ spec:
             - name: SANDBOX_SERVICE_TYPE
               value: ClusterIP
             - name: SANDBOX_SECRET_ENV_KEYS
-              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,GEMINI_API_KEY,SANDBOX_API_KEY
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,HTTP_PROXY,HTTPS_PROXY,http_proxy,https_proxy
+            - name: SANDBOX_PASSTHROUGH_ENV_KEYS
+              value: IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: SANDBOX_CA_SECRET_NAME
+              value: deer-flow-enterprise-ca
+            - name: SANDBOX_CA_SECRET_KEY
+              value: ca-bundle.crt
+            - name: SANDBOX_CA_MOUNT_PATH
+              value: /etc/deerflow-ca
+            - name: SANDBOX_OPENSSL_CONFIGMAP_NAME
+              value: deer-flow-gateway-openssl-compat
+            - name: SANDBOX_OPENSSL_CONFIGMAP_KEY
+              value: openssl.cnf
+            - name: SANDBOX_OPENSSL_MOUNT_PATH
+              value: /etc/deerflow-openssl
+            - name: DASHSCOPE_TLS_COMPAT
+              value: "true"
             - name: IMAGE_BACKEND
               value: dashscope
             - name: IMAGE_GENERATION_PROVIDER
@@ -93,15 +113,19 @@ spec:
               value: /etc/deerflow-ca/ca-bundle.crt
             - name: CURL_CA_BUNDLE
               value: /etc/deerflow-ca/ca-bundle.crt
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/deerflow-ca/ca-bundle.crt
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24"
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: OPENSSL_CONF
               value: /etc/deerflow-openssl/openssl.cnf
             - name: WEKNORA_BAILIAN_TLS_COMPAT
               value: "true"
             - name: TAVILY_TLS_COMPAT
+              value: "true"
+            - name: DASHSCOPE_TLS_COMPAT
               value: "true"
             - name: WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY
               value: "true"
@@ -172,6 +196,8 @@ spec:
           env:
             - name: WEKNORA_FRONTEND_URL
               value: /platform/knowledge-bases
+            - name: DEER_FLOW_UNAUTHENTICATED_HOME_URL
+              value: https://datalake.cnooc/#/home
 ---
 apiVersion: apps/v1
 kind: Deployment

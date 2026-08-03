@@ -1,0 +1,207 @@
+version: 1
+name: CNOOC DeerFlow enterprise release baseline
+scope:
+  architecture: arm64
+  namespace: deer-flow
+  control_plane: datax-01
+  workers:
+    - datax-02
+    - datax-03
+
+controls:
+  - id: model.deepseek-only
+    layer: runtime-config
+    source:
+      - config.yaml
+    enforcement: offline
+    acceptance: DeerFlow exposes only deepseek-v4-flash and uses it for scheduled runs, summaries, memory, and input polishing.
+
+  - id: sandbox.command-proxy
+    layer: runtime-config
+    source:
+      - config.yaml
+    enforcement: offline+live
+    acceptance: Both proxy-variable cases resolve from the Gateway runtime environment for every Sandbox command.
+
+  - id: sandbox.egress-ca
+    layer: kubernetes
+    source:
+      - k8s/enterprise/runtime-patches.yaml
+      - docker/provisioner/app.py
+    enforcement: offline+live
+    acceptance: Provisioner-created Sandbox Pods receive proxy variables, enterprise CA, scoped OpenSSL compatibility, and no service-account token.
+
+  - id: external.dashscope-image
+    layer: runtime-config
+    source:
+      - config.yaml
+      - k8s/enterprise/runtime-patches.yaml
+    enforcement: offline+live+functional
+    acceptance: image-generation uses DashScope through the verified proxy and Gemini is not injected.
+
+  - id: external.tavily
+    layer: kubernetes
+    source:
+      - k8s/enterprise/runtime-patches.yaml
+    enforcement: offline+live+functional
+    acceptance: Tavily uses scoped TLS compatibility through the enterprise proxy.
+
+  - id: images.immutable-arm64
+    layer: images
+    source:
+      - k8s/enterprise/kustomization.yaml
+    enforcement: offline
+    acceptance: Third-party images use reviewed digests and custom images use immutable deerflow.local tags with imagePullPolicy Never.
+
+  - id: database.pg-search-arm64
+    layer: kubernetes
+    source:
+      - k8s/enterprise/kustomization.yaml
+      - k8s/weknora/weknora.yaml
+    enforcement: offline+live
+    acceptance: WeKnora PostgreSQL uses the local ARM64 PG16 pg_search image rather than the incompatible upstream ParadeDB image.
+
+  - id: storage.static-local-pv
+    layer: storage
+    source:
+      - k8s/enterprise/storage-patches.yaml
+      - k8s/enterprise/storage-static.yaml
+    enforcement: offline+live
+    acceptance: PostgreSQL retains ReadWriteOnce and all stateful data remains bound to the audited node-local volumes.
+
+  - id: mineru.three-node-safe-parallelism
+    layer: kubernetes
+    source:
+      - k8s/enterprise/mineru-adapter.yaml
+      - k8s/enterprise/runtime-patches.yaml
+    enforcement: offline+live+functional
+    acceptance: Three anti-affined adapter Pods run one per node, PDB minAvailable is two, and WeKnora worker concurrency remains 2+1.
+
+  - id: mineru.visual-documents
+    layer: parser
+    source:
+      - docker/mineru_adapter/app.py
+      - k8s/enterprise/mineru-adapter.yaml
+      - k8s/enterprise/weknora-mineru-defaults.sql
+    enforcement: offline+functional
+    acceptance: Searchable and scanned PDFs, Word, and presentations retain text plus retrievable visual evidence without unsafe in-process parser concurrency.
+
+  - id: weknora.official-ui-resource-images
+    layer: images
+    source:
+      - k8s/enterprise/kustomization.yaml
+    enforcement: offline+functional
+    acceptance: WeKnora UI remains on the reviewed official digest that supports authenticated resource images.
+
+  - id: weknora.internal-model-defaults
+    layer: database-job
+    source:
+      - k8s/enterprise/builtin-models-internal-only.yaml
+      - k8s/weknora/enterprise-model-feature-defaults.sql
+      - k8s/weknora/enterprise-model-feature-defaults-job.yaml
+      - k8s/enterprise/runtime-patches.yaml
+    enforcement: offline+live+functional
+    acceptance: DeepSeek-V4-Flash, internal Qwen3 embedding/rerank, enterprise VLM, and ASR defaults are installed idempotently.
+
+  - id: weknora.internal-relay-ssrf
+    layer: kubernetes
+    source:
+      - k8s/enterprise/runtime-patches.yaml
+    enforcement: offline+live
+    acceptance: Exact internal hosts and the authenticated Gateway relay are allowed without broad private-network SSRF exemptions.
+
+  - id: weknora.neo4j
+    layer: kubernetes
+    source:
+      - k8s/weknora/weknora.yaml
+      - k8s/enterprise/storage-patches.yaml
+    enforcement: offline+live+functional
+    acceptance: Graph RAG uses the DeerFlow-owned Neo4j instance with persistent storage and Secret-backed credentials.
+
+  - id: weknora.same-origin-sso-ui
+    layer: routing
+    source:
+      - k8s/local-pvc/nginx.conf
+      - k8s/enterprise/runtime-patches.yaml
+      - k8s/weknora/kustomization.yaml
+    enforcement: offline+functional
+    acceptance: The embedded workspace, SSO session, resource files, and UI patches remain same-origin without fixed ClusterIP or loopback browser URLs.
+
+  - id: nginx.frontend-api-order
+    layer: routing
+    source:
+      - k8s/local-pvc/nginx.conf
+    enforcement: offline+functional
+    acceptance: Runtime config, external-agent launch, and shop-cart routes reach Frontend before the generic Gateway API catch-all.
+
+  - id: exposure.single-nodeport
+    layer: kubernetes
+    source:
+      - k8s/enterprise/nginx-nodeport.yaml
+    enforcement: offline+live
+    acceptance: The only public application entry is Nginx NodePort 32026.
+
+  - id: scheduler.bounded-recursion
+    layer: runtime-config
+    source:
+      - config.yaml
+    enforcement: offline+functional
+    acceptance: Scheduler is enabled with recursion_limit 300 and bounded concurrent execution.
+
+  - id: security.platform-boundary
+    layer: source
+    source:
+      - backend/packages/harness/deerflow/agents/middlewares/platform_confidentiality_middleware.py
+      - backend/packages/harness/deerflow/agents/middlewares/sandbox_audit_middleware.py
+      - docker/provisioner/app.py
+    enforcement: offline+tests
+    acceptance: Conversational workloads cannot inspect platform state, credentials, cluster APIs, or platform databases.
+
+  - id: security.file-boundary
+    layer: source
+    source:
+      - backend/app/gateway/file_security.py
+      - backend/app/gateway/routers/uploads.py
+      - backend/app/gateway/routers/artifacts.py
+    enforcement: offline+tests
+    acceptance: Active upload types are rejected and generated or uploaded documents use hardened delivery policies.
+
+  - id: dashboard.audit-history
+    layer: source+database
+    source:
+      - backend/app/gateway/routers/dashboard.py
+      - backend/app/gateway/external_agent_analytics.py
+      - frontend/src/app/workspace/admin/dashboard/page.tsx
+    enforcement: tests+functional
+    acceptance: Dashboard current-state and cumulative audit metrics remain distinct and external click ingestion stays server-authenticated.
+
+  - id: operations.backup-before-rollout
+    layer: operations
+    source:
+      - k8s/enterprise/README.md
+    enforcement: manual
+    acceptance: Kubernetes objects, both PostgreSQL databases, ConfigMaps, and non-secret Secret inventories are captured before mutation.
+
+manual_acceptance:
+  - id: local-bailian-smoke
+    action: Use a separate local-only Bailian test configuration to validate the user flows when internal DeepSeek is unreachable; do not copy Bailian models into the enterprise release config.
+  - id: sso
+    action: Validate data-lake SSO as one administrator and one ordinary user.
+  - id: chat
+    action: Run a new DeepSeek conversation and verify title, summary, memory, and scheduled execution.
+  - id: knowledge
+    action: Parse searchable PDF, scanned PDF, DOCX, PPTX, and image files; query text and images from WeKnora and DeerFlow.
+  - id: external-network
+    action: Run Tavily web search and DashScope image-generation from a new DeerFlow Sandbox.
+  - id: external-agents
+    action: Verify all five allowlisted external-agent redirects with the current HttpOnly SSO token.
+  - id: dashboard
+    action: Verify current and cumulative WeKnora, scheduled-task, conversation, file, and external-click metrics.
+  - id: browser
+    action: Verify the audited enterprise browser renders settings, human-input cards, Skill chips, schedule dialogs, and dashboard bars without opaque fallback blocks.
+  - id: security
+    action: Verify dangerous upload rejection, hardened document delivery, administrator cross-user read-only mode, and absence of credentials in browser responses and logs.
+  - id: graph
+    action: Create or reuse a graph-enabled knowledge base and verify Neo4j-backed graph retrieval without exposing graph credentials.
+  - id: parser-load
+    action: Run 3-, 10-, and 30-document upload batches and confirm three anti-affined MinerU adapters remain healthy while excess work queues in WeKnora.

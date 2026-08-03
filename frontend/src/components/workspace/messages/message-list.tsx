@@ -28,7 +28,11 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Button } from "@/components/ui/button";
-import { extractArtifactsFromThread } from "@/core/artifacts/utils";
+import {
+  artifactPathFromHref,
+  extractArtifactsFromThread,
+  rewriteArtifactLinksForPreview,
+} from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
 import { findAssistantTurnFeedbackTarget } from "@/core/messages/feedback";
 import {
@@ -72,6 +76,7 @@ import type { AgentThreadState } from "@/core/threads";
 import { cn } from "@/lib/utils";
 
 import { ArtifactFileList } from "../artifacts/artifact-file-list";
+import { useArtifacts } from "../artifacts/context";
 import { CopyButton } from "../copy-button";
 import { useMaybeSidecar } from "../sidecar/context";
 import { Tooltip } from "../tooltip";
@@ -81,6 +86,7 @@ import {
   type HumanInputSubmitResult,
 } from "./human-input-card";
 import { MarkdownContent } from "./markdown-content";
+import { createMarkdownLinkComponent } from "./markdown-link";
 import { MessageGroup } from "./message-group";
 import { FeedbackButtons, MessageListItem } from "./message-list-item";
 import {
@@ -262,6 +268,42 @@ export function MessageList({
 }) {
   const { t } = useI18n();
   const sidecar = useMaybeSidecar();
+  const { select: selectArtifact, setOpen: setArtifactsOpen } = useArtifacts();
+  const handleArtifactClick = useCallback(
+    (filepath: string) => {
+      selectArtifact(filepath);
+      setArtifactsOpen(true);
+    },
+    [selectArtifact, setArtifactsOpen],
+  );
+  const handleArtifactLinkClickCapture = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (!(event.target instanceof Element)) {
+        return;
+      }
+      const anchor = event.target.closest("a[href]");
+      if (!anchor) {
+        return;
+      }
+      const artifactPath = artifactPathFromHref(
+        anchor.getAttribute("href") ?? undefined,
+        threadId,
+      );
+      if (!artifactPath) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      handleArtifactClick(artifactPath);
+    },
+    [handleArtifactClick, threadId],
+  );
+  const artifactMarkdownComponents = useMemo(
+    () => ({
+      a: createMarkdownLinkComponent(threadId, handleArtifactClick),
+    }),
+    [handleArtifactClick, threadId],
+  );
   const [selectionToolbar, setSelectionToolbar] =
     useState<SelectionToolbarState | null>(null);
   const [turnStartTime, setTurnStartTime] = useState<number | null>(null);
@@ -913,13 +955,21 @@ export function MessageList({
                 }
               }
               return (
-                <div className="w-full" key={group.id}>
+                <div
+                  className="w-full"
+                  key={group.id}
+                  onClickCapture={handleArtifactLinkClickCapture}
+                >
                   {group.messages[0] && hasContent(group.messages[0]) && (
                     <MarkdownContent
-                      content={extractContentFromMessage(group.messages[0])}
+                      content={rewriteArtifactLinksForPreview(
+                        extractContentFromMessage(group.messages[0]),
+                        threadId,
+                      )}
                       isLoading={thread.isLoading}
                       rehypePlugins={rehypePlugins}
                       className="mb-4"
+                      components={artifactMarkdownComponents}
                     />
                   )}
                   <ArtifactFileList files={[...files]} threadId={threadId} />

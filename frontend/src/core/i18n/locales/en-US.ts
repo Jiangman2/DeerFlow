@@ -857,7 +857,9 @@ export const enUS: Translations = {
     skills: {
       title: "Agent Skills",
       description:
-        "Manage the configuration and enabled status of the agent skills.",
+        "View the configuration and enabled status of the agent skills.",
+      publicReadOnly:
+        "Public skills are managed centrally by platform administrators. Other users can only view their enabled status.",
       createSkill: "Create skill",
       emptyTitle: "No agent skill yet",
       emptyDescription:

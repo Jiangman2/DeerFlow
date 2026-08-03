@@ -82,6 +82,11 @@ successful DeerFlow exchange, the bootstrap must clear the standalone
 `weknora_lite_mode` fallback and its session-only last path; a prior native-auth
 failure can persist Lite mode, which hides WeKnora organizations/shared spaces
 even after SSO recovers.
+The enterprise root entry sets the server-only
+`DEER_FLOW_UNAUTHENTICATED_HOME_URL`. The exact `/` route validates the current
+Gateway session and redirects only an unauthenticated browser to that HTTPS
+portal. Authenticated users, setup-required states, Gateway outages, APIs,
+static assets, and workspace deep links must not be redirected.
 DeerFlow chat Markdown may receive stable WeKnora `resource://` image handles
 from older persisted messages. `resolveMessageImageURL()` must convert only the
 strict stable-handle shape to the authenticated same-origin
@@ -97,8 +102,10 @@ navigation, while ordinary personal-workspace Owners can use New Chat,
 Knowledge Bases, Shared Spaces, and Agents, and do not see Publish
 Integrations, system settings, or tenant-creation controls. Entering the
 embedded workspace collapses DeerFlow's sidebar and expands WeKnora's sidebar
-once for both ordinary users and administrators; the native WeKnora toggle
-remains usable afterwards so chat history stays reachable. Agent creation,
+once for both ordinary users and administrators. The automatic collapse must
+run only once per route mount so the user can immediately reopen DeerFlow's
+sidebar without navigating away first; the native WeKnora toggle remains
+usable afterwards so chat history stays reachable. Agent creation,
 editing, model/tool configuration, and chat usage must remain reachable for
 ordinary users. The native
 WeKnora deployment and RBAC remain
@@ -118,7 +125,8 @@ administrators retain the complete native editor.
 5. TanStack Query manages server state; localStorage stores user settings
 6. Components subscribe to thread state and render updates
 
-PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. `core/artifacts/utils.ts` owns the deterministic pairing rule, and the artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior.
+PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. `core/artifacts/utils.ts` owns the deterministic pairing rule, and the artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. PDF browser previews must keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and rely on the Gateway's CSP/active-PDF attachment fallback; do not restore an unrestricted same-origin PDF iframe.
+`MessageResponse` must use React's normal shallow-prop memoization (or compare every rendering prop), not a children-only comparator: thread-aware Markdown `components` arrive independently of unchanged text, and retaining an older link renderer turns preview links back into full-page artifact navigation. Interactive artifact links use an inert `#artifacts` href when a panel callback is available so an early pre-hydration click cannot replace the chat page with the raw file response.
 
 `/goal` and `/compact` are built-in composer commands, not skill activations. `src/components/workspace/input-box.tsx` intercepts `/goal`, `/goal clear`, and `/goal <condition>` before normal chat submission, calling Gateway `GET/PUT/DELETE /api/threads/{thread_id}/goal`. Setting `/goal <condition>` also submits the condition text as the next user task so the agent starts running immediately; status and clear do not start a run. Goal and compact requests are tied to the current `threadId` with an `AbortController`, so switching threads or unmounting the composer aborts in-flight requests and stale responses cannot update the new thread's composer state. The chat pages render `GoalStatus` above the composer from `AgentThreadState.goal`, with local optimistic state until the next stream `values` update arrives. `/compact` calls `POST /api/threads/{thread_id}/compact` to summarize older active context while leaving the full visible chat history intact; it is skipped on new/empty threads and blocked server-side while a run is in flight.
 
@@ -179,7 +187,11 @@ inside each activity bucket, while the headline active-user count is distinct
 across the full selected range. Success/failure counts reconcile to completed
 runs, while pending/running runs are reported separately. The registered-user
 panel uses server pagination for every account and every currently existing
-conversation, with per-session run counts and chat links. Administrators have
+conversation, with per-session run counts and chat links. It uses SSO display
+names as the primary user label, with the login account and
+organization name as secondary context; local and legacy users safely fall
+back to the login account when those optional profile fields are absent.
+Administrators have
 cross-user read-only access to thread content, runs, uploads, and artifacts;
 that exception must never extend to create, continue, cancel, mutate, or delete
 actions on another user's thread. Dashboard chat links carry
@@ -237,6 +249,12 @@ models in a chat must not mutate scheduled tasks.
 ### Workspace announcements
 
 Administrators manage announcements in Settings > Announcement Management. `WorkspaceContent` mounts the active announcement above workspace pages, and the presentation uses a severity-aware animated card with reduced-motion fallbacks. Dismissal is stored per announcement revision, so editing and republishing an announcement makes the updated content visible again.
+
+Public Skill enabled state is platform-wide. Settings > Skills must therefore
+present public Skill switches as read-only for ordinary users; platform
+administrators may change them, and the backend admin check remains the
+authorization boundary. Custom Skill behavior remains governed by its existing
+scoped authorization.
 
 ## Environment
 

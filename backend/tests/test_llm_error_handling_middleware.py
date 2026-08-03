@@ -763,6 +763,87 @@ def test_classify_error_index_error_is_retriable_transient() -> None:
     assert reason == "transient"
 
 
+def test_classify_error_null_choices_type_error_is_retriable_transient() -> None:
+    """A 200 response with ``choices=null`` is an upstream payload failure.
+
+    The audited internal DeepSeek endpoint occasionally returns this business
+    envelope after otherwise successful tool calls.  LangChain raises a plain
+    TypeError, so DeerFlow must recognize the exact signature instead of
+    failing a scheduled run after one attempt.
+    """
+    middleware = _build_middleware()
+    exc = TypeError("Received response with null value for 'choices'. This can happen when using OpenAI-compatible APIs.")
+
+    retriable, reason = middleware._classify_error(exc)
+
+    assert retriable is True
+    assert reason == "transient"
+    assert middleware._max_attempts_for(exc) == 2
+
+
+def test_async_null_choices_retries_once_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    middleware = _build_middleware(
+        retry_max_attempts=3,
+        retry_base_delay_ms=10,
+        retry_cap_delay_ms=10,
+    )
+    attempts = 0
+
+    async def fake_sleep(_delay: float) -> None:
+        return None
+
+    async def handler(_request) -> AIMessage:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise TypeError("Received response with null value for 'choices'.")
+        return AIMessage(content="ok")
+
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+
+    result = asyncio.run(middleware.awrap_model_call(SimpleNamespace(), handler))
+
+    assert isinstance(result, AIMessage)
+    assert result.content == "ok"
+    assert attempts == 2
+
+
+def test_classify_typed_null_choices_business_error_is_retriable() -> None:
+    from deerflow.models.robust_openai import OpenAICompatibleResponseError
+
+    middleware = _build_middleware()
+    exc = OpenAICompatibleResponseError(
+        code="MODEL_BUSY",
+        message="Inference service temporarily overloaded",
+        success=False,
+    )
+
+    retriable, reason = middleware._classify_error(exc)
+
+    assert retriable is True
+    assert reason == "busy"
+    assert middleware._max_attempts_for(exc) == 2
+
+
+def test_classify_typed_null_choices_context_error_is_not_retriable() -> None:
+    from deerflow.models.robust_openai import OpenAICompatibleResponseError
+
+    middleware = _build_middleware()
+    exc = OpenAICompatibleResponseError(
+        code="CONTEXT_LENGTH_EXCEEDED",
+        message="Maximum context length exceeded",
+        success=False,
+    )
+
+    retriable, reason = middleware._classify_error(exc)
+
+    assert retriable is False
+    assert reason == "context"
+    assert "split the task" in middleware._build_user_message(exc, reason)
+
+
 def test_async_index_error_retries_then_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

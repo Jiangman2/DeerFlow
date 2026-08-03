@@ -212,6 +212,47 @@ def test_present_files_auto_includes_pptx_preview_pdf(tmp_path):
     ]
 
 
+def test_present_files_generates_missing_pptx_preview_in_active_sandbox(
+    tmp_path,
+    monkeypatch,
+):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    deck_path = outputs_dir / "deck.pptx"
+    preview_path = outputs_dir / "deck.preview.pdf"
+    _write_minimal_pptx(deck_path)
+
+    class PreviewSandbox:
+        def execute_command(self, command, timeout=None):
+            assert "libreoffice" in command
+            assert "/mnt/user-data/outputs/deck.pptx" in command
+            assert timeout == 240
+            preview_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+            return ""
+
+        def download_file(self, path):
+            return preview_path.read_bytes()
+
+    sandbox = PreviewSandbox()
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get=lambda sandbox_id: sandbox),
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime_with_sandbox(str(outputs_dir)),
+        filepaths=[str(deck_path)],
+        tool_call_id="tc-pptx-generate-preview",
+    )
+
+    assert result.update["artifacts"] == [
+        "/mnt/user-data/outputs/deck.pptx",
+        "/mnt/user-data/outputs/deck.preview.pdf",
+    ]
+    assert preview_path.read_bytes().startswith(b"%PDF-")
+
+
 def test_present_files_accepts_valid_skill_package(tmp_path):
     outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
     outputs_dir.mkdir(parents=True)

@@ -108,6 +108,49 @@ kubectl create secret generic deer-flow-env `
 kubectl rollout restart deployment/gateway -n deer-flow
 ```
 
+## CNOOC AppForge DataLake tools
+
+The three AppForge DataLake QA tools execute in Gateway and use the approved
+internal direct route. Store the endpoint and credential in `deer-flow-env`,
+not in `config.yaml` or a ConfigMap:
+
+```dotenv
+APPFORGE_API_URL=http://10.77.124.142:9080
+APPFORGE_API_KEY=replace-me
+APPFORGE_SMART_QA_APP_ID=app-p2cpu4dn
+APPFORGE_METRICS_QA_APP_ID=app-n9ahac7g
+APPFORGE_DETAIL_QA_APP_ID=app-5md031ia
+APPFORGE_TRUST_ENV=false
+```
+
+Restart Gateway after installing or rotating the key. Keep the three explicit
+application IDs aligned with the reviewed AppForge workflows; update the
+corresponding value only when that workflow is republished under a new ID.
+
+## External agent click telemetry
+
+The Haineng and collaboration platforms can report clicks to
+`POST /api/agent_click`. Generate a dedicated random
+`EXTERNAL_AGENT_CLICK_INGEST_KEY`, store it in `deer-flow-env`, and send it only
+from the trusted server-side collector:
+
+```http
+Authorization: Bearer <EXTERNAL_AGENT_CLICK_INGEST_KEY>
+Content-Type: application/json
+
+{
+  "user_name": "user",
+  "user_email": "user@example.com",
+  "agent_name": "勘探开发图文智能检索工具",
+  "source": "海能平台"
+}
+```
+
+`X-External-Agent-Click-Key` is also accepted when a collector cannot set a
+Bearer header. Valid sources are `海能平台` and `协同平台`; the dashboard keeps
+them separate and excludes `通用智能体平台`. Do not put the ingestion key in
+frontend code or a ConfigMap.
+
 ## Production
 
 Use a real secret-management workflow instead of committed Secret YAML:

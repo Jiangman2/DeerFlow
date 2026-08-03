@@ -60,6 +60,133 @@ _MEDIUM_RISK_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\bPATH\s*="),
 ]
 
+_PLATFORM_COMMANDS = {
+    "crictl",
+    "ctr",
+    "docker",
+    "helm",
+    "hostname",
+    "ifconfig",
+    "kubectl",
+    "lscpu",
+    "lsmem",
+    "mongosh",
+    "mysql",
+    "nerdctl",
+    "netstat",
+    "psql",
+    "redis-cli",
+    "ss",
+    "systemctl",
+    "uname",
+}
+
+_SENSITIVE_PLATFORM_PATH = re.compile(
+    r"(?:^|[\s'\"=])(?:"
+    r"/proc(?:/|$)|/sys(?:/|$)|/etc/(?:environment|hostname|hosts|machine-id|os-release|kubernetes)(?:/|$)|"
+    r"/var/run/secrets(?:/|$)|/run/secrets(?:/|$)|/root/\.kube(?:/|$)|"
+    r"/app/(?:config\.ya?ml|extensions_config\.json|backend|frontend)(?:/|$)|"
+    r"(?:^|/)\.env(?:\.[A-Za-z0-9_-]+)?(?:$|[\s'\";])"
+    r")",
+    re.IGNORECASE,
+)
+
+_INTERNAL_SERVICE_TARGET = re.compile(
+    r"(?:https?://|--host(?:=|\s+)|\s-h\s+)(?:gateway|postgres|redis|weknora-app|"
+    r"weknora-postgres|kubernetes\.default(?:\.svc)?)(?=[:/\s'\"]|$)",
+    re.IGNORECASE,
+)
+
+_PYTHON_PLATFORM_INTROSPECTION = re.compile(
+    r"(?:os\.(?:environ|getenv)|subprocess\.(?:run|Popen|check_output).{0,80}(?:env|printenv|kubectl|docker)|"
+    r"(?:psycopg|psycopg2|asyncpg|sqlalchemy|redis|pymongo).{0,120}(?:connect|create_engine|Redis|MongoClient)|"
+    r"open\s*\(.{0,80}(?:/proc/|/var/run/secrets|/root/\.kube|/etc/kubernetes))",
+    re.IGNORECASE,
+)
+
+_ENV_ENUMERATION = re.compile(
+    r"^\s*(?:printenv|env|set|export\s+-p|declare\s+-x)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _command_tokens(command: str) -> list[str]:
+    try:
+        return shlex.split(command)
+    except ValueError:
+        return []
+
+
+def _effective_executable(tokens: list[str]) -> tuple[str, list[str]]:
+    """Return the executable after harmless ``env NAME=value`` prefixes."""
+    if not tokens:
+        return "", []
+    remaining = list(tokens)
+    if remaining[0].lower() == "env":
+        remaining = remaining[1:]
+        while remaining and (remaining[0].startswith("-") or ("=" in remaining[0] and not remaining[0].startswith("="))):
+            remaining = remaining[1:]
+        if not remaining:
+            return "env", []
+    while remaining and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", remaining[0], flags=re.DOTALL):
+        remaining = remaining[1:]
+    if not remaining:
+        return "", []
+    return remaining[0].rsplit("/", 1)[-1].lower(), remaining[1:]
+
+
+def _is_user_data_database_command(command: str, executable: str) -> bool:
+    if executable not in {"sqlite3", "duckdb"}:
+        return False
+    return bool(re.search(r"/mnt/user-data/(?:uploads|workspace|outputs)/", command, re.IGNORECASE))
+
+
+def _is_platform_introspection_command(command: str) -> bool:
+    """Detect commands that turn the sandbox into a platform operations shell."""
+    normalized = " ".join(command.split())
+    if _ENV_ENUMERATION.fullmatch(normalized):
+        return True
+    if _SENSITIVE_PLATFORM_PATH.search(command):
+        return True
+    if _INTERNAL_SERVICE_TARGET.search(command):
+        return True
+    if _PYTHON_PLATFORM_INTROSPECTION.search(command):
+        return True
+
+    tokens = _command_tokens(command)
+    executable, arguments = _effective_executable(tokens)
+    if executable in _PLATFORM_COMMANDS:
+        return True
+    if executable in {"sqlite3", "duckdb"}:
+        return not _is_user_data_database_command(command, executable)
+    if executable in {"bash", "sh", "zsh"} and any(_is_platform_introspection_command(argument) for argument in arguments if isinstance(argument, str)):
+        return True
+    return False
+
+
+_FILE_TOOLS = {"glob", "grep", "ls", "read_file", "str_replace", "write_file"}
+_PLATFORM_DATABASE_TOOL_NAME = re.compile(
+    r"(?:^|[_-])(?:postgres|mysql|redis|mongo|database|db_query|sql_query)(?:$|[_-])",
+    re.IGNORECASE,
+)
+
+
+def _sensitive_tool_reason(tool_name: str, args: object) -> str | None:
+    """Return a block reason for non-bash platform introspection tools."""
+    if _PLATFORM_DATABASE_TOOL_NAME.search(tool_name):
+        return "platform database tools are not available to conversational tasks"
+    if tool_name not in _FILE_TOOLS or not isinstance(args, dict):
+        return None
+    for field in ("path", "root_path", "directory", "pattern"):
+        value = args.get(field)
+        if not isinstance(value, str):
+            continue
+        if tool_name == "ls" and value.strip() in {"/", "/app", "/etc", "/root", "/var/run"}:
+            return "platform filesystem inspection is not allowed"
+        if _SENSITIVE_PLATFORM_PATH.search(f" {value}"):
+            return "platform files and runtime secrets are not accessible"
+    return None
+
 
 def _split_compound_command(command: str) -> list[str]:
     """Split a compound command into sub-commands (quote-aware).
@@ -138,6 +265,9 @@ def _classify_single_command(command: str) -> str:
     """Classify a single (non-compound) command. Return 'block', 'warn', or 'pass'."""
     normalized = " ".join(command.split())
 
+    if _is_platform_introspection_command(command):
+        return "block"
+
     for pattern in _HIGH_RISK_PATTERNS:
         if pattern.search(normalized):
             return "block"
@@ -174,6 +304,8 @@ def _classify_command(command: str) -> str:
     """
     # Pass 1: whole-command high-risk scan (catches multi-statement patterns)
     normalized = " ".join(command.split())
+    if _is_platform_introspection_command(command):
+        return "block"
     for pattern in _HIGH_RISK_PATTERNS:
         if pattern.search(normalized):
             return "block"
@@ -245,10 +377,11 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
 
     def _build_block_message(self, request: ToolCallRequest, reason: str) -> ToolMessage:
         tool_call_id = str(request.tool_call.get("id") or "missing_id")
+        tool_name = str(request.tool_call.get("name") or "tool")
         return ToolMessage(
             content=f"Command blocked: {reason}. Please use a safer alternative approach.",
             tool_call_id=tool_call_id,
-            name="bash",
+            name=tool_name,
             status="error",
         )
 
@@ -333,7 +466,12 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], ToolMessage | Command],
     ) -> ToolMessage | Command:
-        if request.tool_call.get("name") != "bash":
+        tool_name = str(request.tool_call.get("name") or "")
+        sensitive_reason = _sensitive_tool_reason(tool_name, request.tool_call.get("args", {}))
+        if sensitive_reason:
+            self._write_audit(self._get_thread_id(request), f"{tool_name} <redacted arguments>", "block")
+            return self._build_block_message(request, sensitive_reason)
+        if tool_name != "bash":
             return handler(request)
 
         command, _, verdict, reject_reason = self._pre_process(request)
@@ -351,7 +489,12 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
     ) -> ToolMessage | Command:
-        if request.tool_call.get("name") != "bash":
+        tool_name = str(request.tool_call.get("name") or "")
+        sensitive_reason = _sensitive_tool_reason(tool_name, request.tool_call.get("args", {}))
+        if sensitive_reason:
+            self._write_audit(self._get_thread_id(request), f"{tool_name} <redacted arguments>", "block")
+            return self._build_block_message(request, sensitive_reason)
+        if tool_name != "bash":
             return await handler(request)
 
         command, _, verdict, reject_reason = self._pre_process(request)

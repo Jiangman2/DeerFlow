@@ -143,6 +143,11 @@ def test_csrf_exempts_authenticated_internal_rerank_adapter():
     assert should_check_csrf(req) is False
 
 
+def test_csrf_exempts_external_agent_click_collector():
+    req = _FakeRequest("/api/agent_click")
+    assert should_check_csrf(req) is False
+
+
 # ── Structured Error Response Format ────────────────────────────────
 
 

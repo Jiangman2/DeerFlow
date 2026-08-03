@@ -716,6 +716,7 @@ export interface Translations {
     skills: {
       title: string;
       description: string;
+      publicReadOnly: string;
       createSkill: string;
       emptyTitle: string;
       emptyDescription: string;

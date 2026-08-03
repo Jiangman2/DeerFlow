@@ -112,6 +112,10 @@ class LocalAuthProvider(AuthProvider):
         oauth_provider: str,
         oauth_id: str,
         system_role: str = "user",
+        display_name: str | None = None,
+        organization_id: str | None = None,
+        organization_code: str | None = None,
+        organization_name: str | None = None,
     ) -> User:
         """Create a new user from an OAuth/OIDC login.
 
@@ -120,6 +124,10 @@ class LocalAuthProvider(AuthProvider):
             oauth_provider: Provider ID (e.g. 'keycloak', 'google')
             oauth_id: User's subject claim from the ID token
             system_role: Role to assign ("admin" or "user")
+            display_name: Optional display name synchronized from the provider
+            organization_id: Optional organization identifier
+            organization_code: Optional organization code
+            organization_name: Optional organization name
 
         Returns:
             Created User instance
@@ -131,5 +139,9 @@ class LocalAuthProvider(AuthProvider):
             needs_setup=False,
             oauth_provider=oauth_provider,
             oauth_id=oauth_id,
+            display_name=display_name,
+            organization_id=organization_id,
+            organization_code=organization_code,
+            organization_name=organization_name,
         )
         return await self._repo.create_user(user)

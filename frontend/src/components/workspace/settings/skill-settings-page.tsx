@@ -95,33 +95,55 @@ function SkillSettingsList({
           </Button>
         </div>
       </header>
+      {filter === "public" && !isAdmin && (
+        <p className="text-muted-foreground text-sm">
+          {t.settings.skills.publicReadOnly}
+        </p>
+      )}
       {filteredSkills.length === 0 && (
         <EmptySkill onCreateSkill={handleCreateSkill} />
       )}
       {filteredSkills.length > 0 &&
-        filteredSkills.map((skill) => (
-          <Item className="w-full" variant="outline" key={skill.name}>
-            <ItemContent>
-              <ItemTitle>
-                <div className="flex items-center gap-2">{skill.name}</div>
-              </ItemTitle>
-              <ItemDescription className="line-clamp-4">
-                {skill.description}
-              </ItemDescription>
-            </ItemContent>
-            <ItemActions>
-              <Switch
-                checked={skill.enabled}
-                disabled={
-                  env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" || !isAdmin
-                }
-                onCheckedChange={(checked) =>
-                  enableSkill({ skillName: skill.name, enabled: checked })
-                }
-              />
-            </ItemActions>
-          </Item>
-        ))}
+        filteredSkills.map((skill) => {
+          const isPublicReadOnly = skill.category === "public" && !isAdmin;
+          return (
+            <Item className="w-full" variant="outline" key={skill.name}>
+              <ItemContent>
+                <ItemTitle>
+                  <div className="flex items-center gap-2">{skill.name}</div>
+                </ItemTitle>
+                <ItemDescription className="line-clamp-4">
+                  {skill.description}
+                </ItemDescription>
+              </ItemContent>
+              <ItemActions>
+                <Switch
+                  checked={skill.enabled}
+                  aria-readonly={isPublicReadOnly}
+                  title={
+                    isPublicReadOnly
+                      ? t.settings.skills.publicReadOnly
+                      : undefined
+                  }
+                  disabled={
+                    isPublicReadOnly ||
+                    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
+                    !isAdmin
+                  }
+                  onCheckedChange={
+                    isPublicReadOnly
+                      ? undefined
+                      : (checked) =>
+                          enableSkill({
+                            skillName: skill.name,
+                            enabled: checked,
+                          })
+                  }
+                />
+              </ItemActions>
+            </Item>
+          );
+        })}
     </div>
   );
 }

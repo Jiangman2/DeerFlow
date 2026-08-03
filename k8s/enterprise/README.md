@@ -211,6 +211,22 @@ deployment:
   `MINERU_API_TOKEN`
 
 Never print Secret YAML or decoded Secret values into an audit log.
+When Haineng or collaboration click telemetry is enabled, add a separately
+generated `EXTERNAL_AGENT_CLICK_INGEST_KEY` to `deer-flow-env`. Trusted
+server-side collectors submit events to `POST /api/agent_click` using that key;
+never embed it in browser JavaScript or a ConfigMap. The supported source names
+are `海能平台` and `协同平台`.
+
+The enterprise overlay injects both proxy-variable cases into generated
+Sandbox Pods, but bypasses the interception proxy only for the audited direct
+HTTPS destinations used by GitHub. Keep those exact hosts/provider suffixes
+in both `NO_PROXY` and `no_proxy`. DashScope API calls, Aliyun
+generation-result downloads, and Tavily search/extract calls must continue
+through the verified enterprise proxy: direct root GETs work, but authenticated POSTs are
+reset on every audited node. All other external destinations also continue
+through the enterprise proxy. If a node-specific certificate-chain failure
+appears for an arbitrary destination, fix the proxy chain instead of adding a
+broad domain or CIDR bypass.
 
 Create the graph database credential interactively on the server:
 
@@ -316,6 +332,79 @@ Generate distinct `PROVISIONER_API_KEY` and `SANDBOX_API_KEY` values. Configure
 into Sandbox Pods through `deer-flow-env`. The RC2 Sandbox image also replaces
 the broken upstream ARM64 `websocat` with checksum-pinned 1.14.1 and installs
 CairoSVG for the PPT raster fallback.
+
+## Release baseline gates
+
+`k8s/enterprise/release-baseline.yaml` is the machine-readable inventory of
+enterprise controls and manual acceptance tests. Keep every historical fix in
+one of the owned persistence layers listed there: source, immutable image,
+Kubernetes manifest, runtime ConfigMap/Secret reference, idempotent database
+Job, storage, or operations. A script under `outputs/` and an ad-hoc live
+`kubectl patch` are recovery aids, not release sources of truth.
+
+Do not create `deer-flow-config` from an unvalidated `config.yaml`. The six
+Sandbox command proxy entries must reference the Gateway's runtime environment;
+literal empty strings override the correct proxy environment already present in
+the Sandbox Pod and force authenticated DashScope POSTs onto the blocked direct
+route:
+
+```yaml
+sandbox:
+  environment:
+    HTTP_PROXY: $HTTP_PROXY
+    HTTPS_PROXY: $HTTPS_PROXY
+    NO_PROXY: $NO_PROXY
+    http_proxy: $HTTP_PROXY
+    https_proxy: $HTTPS_PROXY
+    no_proxy: $NO_PROXY
+    SSL_CERT_FILE: $SSL_CERT_FILE
+    REQUESTS_CA_BUNDLE: $REQUESTS_CA_BUNDLE
+    CURL_CA_BUNDLE: $CURL_CA_BUNDLE
+    NODE_EXTRA_CA_CERTS: $NODE_EXTRA_CA_CERTS
+    OPENSSL_CONF: $OPENSSL_CONF
+    DASHSCOPE_TLS_COMPAT: $DASHSCOPE_TLS_COMPAT
+```
+
+Run the tracked offline release gate against the exact `config.yaml` that will
+be packaged and applied:
+
+```bash
+python scripts/validate_enterprise_release.py \
+  --config /path/to/release/config.yaml \
+  --manifest k8s/enterprise/runtime-patches.yaml
+```
+
+The command must end with `enterprise_release_baseline=PASS`. It fails closed
+for blank or stale command-level proxy overrides, missing Sandbox proxy/CA
+injection, Gemini reintroduction, external provider proxy bypasses, or missing
+Gateway TLS compatibility settings. The full gate also validates the
+DeepSeek-only runtime policy, scheduled-task limits, immutable ARM64 images,
+PG16/pg_search database pin, static storage bindings, three-node MinerU
+availability, Neo4j, internal WeKnora defaults and narrow SSRF allowlist,
+same-origin Nginx route ordering, the single public NodePort, and required
+security source boundaries. It validates references and policy only; it never
+reads Secret values.
+
+After rollout, copy the read-only runtime gate to `datax-01` and run:
+
+```bash
+sudo KUBECONFIG_FILE=/etc/kubernetes/admin.conf \
+  /bin/bash scripts/verify_enterprise_runtime.sh
+```
+
+The command must end with `enterprise_runtime_baseline=PASS`. This check uses
+the Gateway's own dependency environment to verify the mounted ConfigMap,
+resolved proxy sources, Provisioner contract, CA bundle, OpenSSL compatibility
+configuration, three ARM64 nodes, workload readiness, live image pins, bound
+PVCs, MinerU distribution/PDB, WeKnora graph/concurrency/SSRF settings, and
+NodePort without printing credentials. Complete every manual acceptance item in
+`release-baseline.yaml`, including one new-conversation `image-generation`
+request after the gate; `kubectl exec` alone does not exercise the per-command
+environment injected by DeerFlow's Sandbox API. Local functional testing may
+use a separate Bailian-only test configuration when the internal DeepSeek
+endpoint is unreachable, but that model must not be copied into the enterprise
+release config. Complete the listed browser, security, Neo4j, and 3/10/30
+document parser-load acceptance cases before production sign-off.
 
 ## Validation
 

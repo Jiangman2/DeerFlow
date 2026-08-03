@@ -197,16 +197,11 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         return {"title": self._fallback_title(user_msg)}
 
     async def _agenerate_title_result(self, state: TitleMiddlewareState) -> dict | None:
-        """Generate a configured LLM title asynchronously and fall back locally."""
+        """Generate an LLM title asynchronously and fall back locally."""
         if not self._should_generate_title(state):
             return None
 
         config = self._get_title_config()
-        if not config.model_name:
-            user_msg = self._get_title_user_message(state)
-            return {"title": self._fallback_title(user_msg)}
-
-        user_msg = self._get_title_user_message(state)
 
         try:
             prompt, user_msg = self._build_title_prompt(state)
@@ -217,13 +212,17 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
             model_kwargs = {"thinking_enabled": False, "attach_tracing": False}
             if self._app_config is not None:
                 model_kwargs["app_config"] = self._app_config
-            model = create_chat_model(name=config.model_name, **model_kwargs)
+            if config.model_name:
+                model = create_chat_model(name=config.model_name, **model_kwargs)
+            else:
+                model = create_chat_model(**model_kwargs)
             response = await model.ainvoke(prompt, config=self._get_runnable_config())
             title = self._parse_title(response.content)
             if title:
                 return {"title": title}
         except Exception:
             logger.debug("Failed to generate async title; falling back to local title", exc_info=True)
+        user_msg = self._get_title_user_message(state)
         return {"title": self._fallback_title(user_msg)}
 
     @override

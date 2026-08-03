@@ -1,5 +1,7 @@
 import logging
+import shlex
 import shutil
+import uuid
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Annotated
@@ -97,6 +99,63 @@ def _preview_pdf_path_for(filepath: str) -> str | None:
     return None
 
 
+def _generate_missing_ppt_preview(runtime: Runtime, normalized_ppt_path: str) -> None:
+    """Best-effort generation of a browser preview in the active sandbox."""
+    preview_path = _preview_pdf_path_for(normalized_ppt_path)
+    if preview_path is None:
+        return
+
+    thread_id = _get_thread_id(runtime)
+    if thread_id:
+        try:
+            try:
+                actual_preview_path = get_paths().resolve_virtual_path(
+                    thread_id,
+                    preview_path,
+                    user_id=get_effective_user_id(),
+                )
+            except TypeError:
+                actual_preview_path = get_paths().resolve_virtual_path(
+                    thread_id,
+                    preview_path,
+                )
+            if actual_preview_path.is_file():
+                return
+        except Exception:
+            logger.debug(
+                "Could not probe optional PPT preview path %s",
+                preview_path,
+                exc_info=True,
+            )
+
+    sandbox = _get_active_sandbox(runtime)
+    if sandbox is None:
+        return
+
+    temp_dir = f"/tmp/deerflow-ppt-preview-{uuid.uuid4().hex}"
+    generated_pdf = f"{temp_dir}/{PurePosixPath(normalized_ppt_path).stem}.pdf"
+    command = "\n".join(
+        [
+            "set -eu",
+            f"preview_tmp={shlex.quote(temp_dir)}",
+            'mkdir -p "$preview_tmp"',
+            "trap 'rm -rf -- \"$preview_tmp\"' EXIT",
+            'office_bin="$(command -v libreoffice || command -v soffice)"',
+            (f'"$office_bin" --headless --convert-to pdf --outdir "$preview_tmp" {shlex.quote(normalized_ppt_path)} >"$preview_tmp/convert.log" 2>&1'),
+            f"test -s {shlex.quote(generated_pdf)}",
+            f"cp -- {shlex.quote(generated_pdf)} {shlex.quote(preview_path)}",
+        ]
+    )
+    try:
+        sandbox.execute_command(command, timeout=240)
+    except Exception:
+        logger.warning(
+            "Failed to generate optional PPT preview for %s",
+            normalized_ppt_path,
+            exc_info=True,
+        )
+
+
 def _validate_pptx_file(path: Path) -> None:
     """Reject files that only use a .pptx suffix but are not PowerPoint packages."""
     try:
@@ -116,20 +175,14 @@ def _validate_skill_file(path: Path) -> None:
         with zipfile.ZipFile(path, "r") as archive:
             names = [name.replace("\\", "/") for name in archive.namelist()]
     except zipfile.BadZipFile:
-        raise ValueError(
-            f"Invalid skill package: {path.name} is not a ZIP archive"
-        ) from None
+        raise ValueError(f"Invalid skill package: {path.name} is not a ZIP archive") from None
 
     for name in names:
         member = PurePosixPath(name)
         if member.is_absolute() or ".." in member.parts:
-            raise ValueError(
-                f"Invalid skill package: {path.name} contains an unsafe path"
-            )
+            raise ValueError(f"Invalid skill package: {path.name} contains an unsafe path")
     if not any(PurePosixPath(name).name == "SKILL.md" for name in names):
-        raise ValueError(
-            f"Invalid skill package: {path.name} is missing SKILL.md"
-        )
+        raise ValueError(f"Invalid skill package: {path.name} is missing SKILL.md")
 
 
 def _validate_presented_file(actual_path: Path) -> None:
@@ -235,6 +288,7 @@ def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) 
     normalized_path = _normalize_presented_filepath(runtime, filepath)
     normalized_paths = [normalized_path]
 
+    _generate_missing_ppt_preview(runtime, normalized_path)
     preview_candidates = [
         candidate
         for candidate in (

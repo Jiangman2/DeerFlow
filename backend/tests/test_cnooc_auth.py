@@ -36,12 +36,20 @@ class _FakeProvider:
         oauth_provider: str,
         oauth_id: str,
         system_role: str = "user",
+        display_name: str | None = None,
+        organization_id: str | None = None,
+        organization_code: str | None = None,
+        organization_name: str | None = None,
     ) -> User:
         self.created_oauth_user_args = {
             "email": email,
             "oauth_provider": oauth_provider,
             "oauth_id": oauth_id,
             "system_role": system_role,
+            "display_name": display_name,
+            "organization_id": organization_id,
+            "organization_code": organization_code,
+            "organization_name": organization_name,
         }
         return User(
             email=email,
@@ -49,6 +57,10 @@ class _FakeProvider:
             system_role=system_role,
             oauth_provider=oauth_provider,
             oauth_id=oauth_id,
+            display_name=display_name,
+            organization_id=organization_id,
+            organization_code=organization_code,
+            organization_name=organization_name,
         )
 
     async def update_user(self, user: User) -> User:
@@ -65,6 +77,9 @@ def _checked_identity():
             deerflow_user_id="cnooc_CNOOC-001",
             name="CNOOC User",
             email="cnooc.user@cnooc.com.cn",
+            organization_id="ORG-001",
+            organization_code="0102030",
+            organization_name="Exploration Department",
         ),
     )
 
@@ -79,6 +94,9 @@ def test_map_user_info_builds_cnooc_identity():
             "userid": "USER-001",
             "username": "ZHANGSAN",
             "ryxm": "Zhang San",
+            "bmId": "ORG-001",
+            "bmdm": "0102030",
+            "bmmc": "Exploration Department",
         },
         "platform-token",
     )
@@ -89,6 +107,9 @@ def test_map_user_info_builds_cnooc_identity():
     assert result.user.deerflow_user_id == "cnooc_USER-001"
     assert result.user.email == "zhangsan@cnooc.com.cn"
     assert result.user.name == "Zhang San"
+    assert result.user.organization_id == "ORG-001"
+    assert result.user.organization_code == "0102030"
+    assert result.user.organization_name == "Exploration Department"
 
 
 def test_map_user_info_sanitizes_platform_user_id():
@@ -158,6 +179,10 @@ def test_cnooc_login_creates_oauth_user_and_sets_session_cookies(monkeypatch):
         "oauth_provider": "cnooc",
         "oauth_id": "CNOOC-001",
         "system_role": "user",
+        "display_name": "CNOOC User",
+        "organization_id": "ORG-001",
+        "organization_code": "0102030",
+        "organization_name": "Exploration Department",
     }
 
     cookie_headers = _set_cookie_headers(response)
@@ -235,6 +260,32 @@ def test_cnooc_login_refreshes_existing_cnooc_email_link(monkeypatch):
     assert provider.updated_user.oauth_provider == "cnooc"
     assert provider.updated_user.oauth_id == "CNOOC-001"
     assert provider.created_oauth_user_args is None
+
+
+def test_cnooc_login_refreshes_existing_user_profile(monkeypatch):
+    async def fake_check_cnooc_token(_token: str):
+        return _checked_identity()
+
+    existing = User(
+        email="cnooc.user@cnooc.com.cn",
+        password_hash=None,
+        oauth_provider="cnooc",
+        oauth_id="CNOOC-001",
+        display_name="Old Name",
+        organization_name="Old Department",
+    )
+    provider = _FakeProvider(oauth_user=existing)
+    monkeypatch.setattr("app.gateway.routers.auth.check_cnooc_token", fake_check_cnooc_token)
+    client = _make_cnooc_login_client(monkeypatch, provider)
+
+    response = client.get("/api/v1/auth/cnooc/login?token=platform-token", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert provider.updated_user is existing
+    assert existing.display_name == "CNOOC User"
+    assert existing.organization_id == "ORG-001"
+    assert existing.organization_code == "0102030"
+    assert existing.organization_name == "Exploration Department"
 
 
 def test_cnooc_login_blocks_email_collision_with_different_oauth_account(monkeypatch):

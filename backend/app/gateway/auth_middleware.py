@@ -52,6 +52,9 @@ _PUBLIC_EXACT_PATHS: frozenset[str] = frozenset(
         "/api/v1/auth/initialize",
         "/api/v1/auth/providers",
         "/api/v1/auth/cnooc/login",
+        # Machine-to-machine click collector. The route itself requires the
+        # dedicated external click Bearer key.
+        "/api/agent_click",
         # Service-to-service endpoint: the route validates the configured
         # Bailian model key before accepting multipart audio.
         "/api/weknora/bailian/v1/audio/transcriptions",
