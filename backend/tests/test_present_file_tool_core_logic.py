@@ -253,6 +253,101 @@ def test_present_files_generates_missing_pptx_preview_in_active_sandbox(
     assert preview_path.read_bytes().startswith(b"%PDF-")
 
 
+def test_present_files_generates_preview_from_original_workspace_deck(
+    tmp_path,
+    monkeypatch,
+):
+    user_data_dir = tmp_path / "threads" / "thread-1" / "user-data"
+    outputs_dir = user_data_dir / "outputs"
+    workspace_deck = user_data_dir / "workspace" / "projects" / "deck" / "exports" / "报告.pptx"
+    persisted_deck = outputs_dir / "报告.pptx"
+    preview_path = outputs_dir / "报告.preview.pdf"
+    workspace_preview_path = workspace_deck.with_suffix(".preview.pdf")
+    workspace_deck.parent.mkdir(parents=True)
+    outputs_dir.mkdir(parents=True)
+    _write_minimal_pptx(workspace_deck)
+
+    def resolve_virtual_path(thread_id, path, *, user_id=None):
+        del thread_id, user_id
+        if path == "/mnt/user-data/workspace/projects/deck/exports/报告.pptx":
+            return workspace_deck
+        if path == "/mnt/user-data/workspace/projects/deck/exports/报告.preview.pdf":
+            return workspace_preview_path
+        if path == "/mnt/user-data/outputs/报告.preview.pdf":
+            return preview_path
+        if path == "/mnt/user-data/outputs/报告.pptx":
+            return persisted_deck
+        raise AssertionError(f"Unexpected virtual path: {path}")
+
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_paths",
+        lambda: SimpleNamespace(resolve_virtual_path=resolve_virtual_path),
+    )
+
+    class PreviewSandbox:
+        def execute_command(self, command, timeout=None):
+            assert "/mnt/user-data/workspace/projects/deck/exports/报告.pptx" in command
+            assert "/mnt/user-data/outputs/报告.pptx" not in command.split("--convert-to pdf", 1)[1]
+            assert timeout == 240
+            preview_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+            return ""
+
+        def download_file(self, path):
+            return preview_path.read_bytes()
+
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get=lambda sandbox_id: PreviewSandbox()),
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime_with_sandbox(str(outputs_dir)),
+        filepaths=["/mnt/user-data/workspace/projects/deck/exports/报告.pptx"],
+        tool_call_id="tc-workspace-pptx-preview",
+    )
+
+    assert result.update["artifacts"] == [
+        "/mnt/user-data/outputs/报告.pptx",
+        "/mnt/user-data/outputs/报告.preview.pdf",
+    ]
+    assert persisted_deck.is_file()
+    assert preview_path.read_bytes().startswith(b"%PDF-")
+
+
+def test_present_files_rejects_pptx_when_preview_generation_fails(
+    tmp_path,
+    monkeypatch,
+):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    deck_path = outputs_dir / "报告_20260805_111535.pptx"
+    _write_minimal_pptx(deck_path)
+
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_paths",
+        lambda: SimpleNamespace(resolve_virtual_path=lambda thread_id, path, **kwargs: outputs_dir / path.removeprefix("/mnt/user-data/outputs/")),
+    )
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get=lambda sandbox_id: None),
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime_with_sandbox(str(outputs_dir)),
+        filepaths=["/mnt/user-data/outputs/报告_20260805_111535.pptx"],
+        tool_call_id="tc-pptx-preview-required",
+    )
+
+    assert "artifacts" not in result.update
+    message = result.update["messages"][0]
+    assert message.status == "error"
+    assert "preview generation failed" in str(message.content)
+
+
 def test_present_files_accepts_valid_skill_package(tmp_path):
     outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
     outputs_dir.mkdir(parents=True)

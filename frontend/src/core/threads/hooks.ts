@@ -28,6 +28,11 @@ import { messageToStep } from "../tasks/steps";
 import type { UploadedFileInfo } from "../uploads";
 import { promptInputFilePartToFile, uploadFiles } from "../uploads";
 
+import {
+  findLatestActiveRun,
+  readReconnectRun,
+  rememberReconnectRun,
+} from "./active-run-recovery";
 import { branchThreadFromTurn, fetchThreadTokenUsage } from "./api";
 import {
   buildThreadsSearchQueryOptions,
@@ -989,6 +994,13 @@ export function useThreadStream({
   const [pendingSupersededMessageIds, setPendingSupersededMessageIds] =
     useState<ReadonlySet<string>>(() => new Set());
   const [isUploading, setIsUploading] = useState(false);
+  // The SDK's built-in reconnect only knows about a run ID kept in this
+  // browser tab's sessionStorage. Keep an explicit busy state while checking
+  // the authoritative Gateway run store so a reload/new tab cannot submit a
+  // competing run during recovery.
+  const [isRecoveringActiveRun, setIsRecoveringActiveRun] = useState(() =>
+    Boolean(threadId && !isMock),
+  );
   // Track the thread ID that is currently streaming to handle thread changes during streaming
   const [onStreamThreadId, setOnStreamThreadId] = useState(() => threadId);
   // Ref to track current thread ID across async callbacks without causing re-renders,
@@ -1262,6 +1274,12 @@ export function useThreadStream({
       invalidateStoppedThreadCaches(queryClient, threadIdRef.current, isMock);
     },
   });
+  const threadRef = useRef(thread);
+  threadRef.current = thread;
+  const recoveringRunRef = useRef<{
+    threadId: string;
+    runId: string;
+  } | null>(null);
 
   const stopThread = useCallback(async () => {
     const stoppedThreadId =
@@ -1320,6 +1338,8 @@ export function useThreadStream({
   useEffect(() => {
     startedRef.current = false;
     sendInFlightRef.current = false;
+    recoveringRunRef.current = null;
+    setIsRecoveringActiveRun(Boolean(threadId && !isMock));
     messagesRef.current = [];
     transientHistoryBridgeRef.current = [];
     transientHistoryOrderRef.current = [];
@@ -1330,7 +1350,103 @@ export function useThreadStream({
     setPendingSupersededMessageIds(new Set());
     prevHumanMsgCountRef.current =
       latestMessageCountsRef.current.humanMessageCount;
-  }, [threadId]);
+  }, [isMock, threadId]);
+
+  const recoverActiveRun = useCallback(
+    async (targetThreadId: string): Promise<boolean> => {
+      if (isMock || !targetThreadId) return false;
+      if (threadRef.current.isLoading) return true;
+
+      try {
+        const runs = await getAPIClient().runs.list(targetThreadId);
+        if (threadIdRef.current !== targetThreadId) return false;
+
+        const activeRun = findLatestActiveRun(runs);
+        if (!activeRun) return false;
+
+        const currentRecovery = recoveringRunRef.current;
+        if (
+          currentRecovery?.threadId === targetThreadId &&
+          currentRecovery.runId === activeRun.run_id
+        ) {
+          return true;
+        }
+
+        recoveringRunRef.current = {
+          threadId: targetThreadId,
+          runId: activeRun.run_id,
+        };
+        setIsRecoveringActiveRun(true);
+        rememberReconnectRun(targetThreadId, activeRun.run_id);
+        handleStreamStart(targetThreadId, activeRun.run_id);
+
+        void threadRef.current
+          .joinStream(activeRun.run_id)
+          .catch(() => {
+            // useStream invokes its configured onError callback for stream
+            // failures. Avoid a second unhandled rejection/toast here.
+          })
+          .finally(() => {
+            const latestRecovery = recoveringRunRef.current;
+            if (
+              latestRecovery?.threadId === targetThreadId &&
+              latestRecovery.runId === activeRun.run_id
+            ) {
+              recoveringRunRef.current = null;
+              setIsRecoveringActiveRun(false);
+            }
+          });
+        return true;
+      } catch {
+        // A transient list failure must not make the chat permanently busy.
+        return false;
+      }
+    },
+    [handleStreamStart, isMock],
+  );
+
+  useEffect(() => {
+    if (!threadId || isMock) {
+      setIsRecoveringActiveRun(false);
+      return;
+    }
+
+    let disposed = false;
+    const discoverAndRecover = async () => {
+      if (disposed || threadRef.current.isLoading) {
+        if (!disposed) setIsRecoveringActiveRun(false);
+        return;
+      }
+
+      // Let useStream own its normal same-tab reconnect. This fallback is for
+      // reloads/new tabs where that browser-local key is absent even though
+      // the Gateway still has a pending/running run.
+      if (readReconnectRun(threadId)) {
+        setIsRecoveringActiveRun(false);
+        return;
+      }
+
+      const recovered = await recoverActiveRun(threadId);
+      if (!disposed && !recovered) {
+        setIsRecoveringActiveRun(false);
+      }
+    };
+
+    void discoverAndRecover();
+
+    const handlePageActive = () => {
+      if (document.visibilityState === "visible") {
+        void discoverAndRecover();
+      }
+    };
+    window.addEventListener("focus", handlePageActive);
+    document.addEventListener("visibilitychange", handlePageActive);
+    return () => {
+      disposed = true;
+      window.removeEventListener("focus", handlePageActive);
+      document.removeEventListener("visibilitychange", handlePageActive);
+    };
+  }, [isMock, recoverActiveRun, threadId]);
 
   // Release entries individually once canonical history confirms their stable
   // identities. Keep unconfirmed entries across failure/refetch within this
@@ -1397,7 +1513,11 @@ export function useThreadStream({
       extraContext?: Record<string, unknown>,
       options?: SendMessageOptions,
     ) => {
-      if (sendInFlightRef.current) {
+      if (
+        sendInFlightRef.current ||
+        thread.isLoading ||
+        isRecoveringActiveRun
+      ) {
         return;
       }
       sendInFlightRef.current = true;
@@ -1591,6 +1711,7 @@ export function useThreadStream({
       context,
       queryClient,
       humanMessageCount,
+      isRecoveringActiveRun,
       persistedMessages,
     ],
   );
@@ -1601,7 +1722,13 @@ export function useThreadStream({
       messageId: string,
       supersededMessageIds: string[] = [messageId],
     ) => {
-      if (sendInFlightRef.current || !threadId || !messageId) {
+      if (
+        sendInFlightRef.current ||
+        thread.isLoading ||
+        isRecoveringActiveRun ||
+        !threadId ||
+        !messageId
+      ) {
         return;
       }
       sendInFlightRef.current = true;
@@ -1699,7 +1826,14 @@ export function useThreadStream({
         sendInFlightRef.current = false;
       }
     },
-    [context, humanMessageCount, persistedMessages, queryClient, thread],
+    [
+      context,
+      humanMessageCount,
+      isRecoveringActiveRun,
+      persistedMessages,
+      queryClient,
+      thread,
+    ],
   );
 
   // Cache the latest thread messages in a ref to compare against incoming history messages for deduplication,
@@ -1761,6 +1895,7 @@ export function useThreadStream({
   // History messages may overlap with thread.messages; thread.messages take precedence
   const mergedThread = {
     ...thread,
+    isLoading: thread.isLoading || isRecoveringActiveRun,
     stop: stopThread,
     values: hasVisibleStreamState ? thread.values : EMPTY_THREAD_VALUES,
     messages: mergedMessages,

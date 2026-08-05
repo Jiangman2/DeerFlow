@@ -687,7 +687,7 @@ Publish the resulting files with `present_files`.
     assert "--stage final" in str(blocked_export.content)
 
 
-def test_skill_activation_retries_incomplete_presentation_then_marks_failure(monkeypatch, tmp_path):
+def test_skill_activation_hides_premature_presentation_answers_and_retries_after_progress(monkeypatch, tmp_path):
     content = """# Deck Skill
 Run `svg_quality_checker.py <project> --stage first-page` before page two.
 Run `svg_quality_checker.py <project> --stage final` before `svg_to_pptx.py`.
@@ -716,7 +716,13 @@ Publish the resulting files with `present_files`.
         lambda request: ToolMessage(content="ok", tool_call_id=str(request.tool_call["id"]), name="bash"),
     )
 
-    truncated = AIMessage(content="完美！现在运行首", id="ai-truncated")
+    truncated = middleware.wrap_model_call(
+        _make_model_request([slash], runtime=runtime),
+        lambda request: AIMessage(content="完美！现在运行首", id="ai-truncated"),
+    )
+    assert isinstance(truncated, AIMessage)
+    assert truncated.additional_kwargs["hide_from_ui"] is True
+    assert truncated.additional_kwargs["presentation_completion_recovery"] is True
     retry = middleware.after_model({"messages": [slash, truncated]}, runtime)
     assert retry == {"messages": [RemoveMessage(id="ai-truncated")], "jump_to": "model"}
 
@@ -732,13 +738,176 @@ Publish the resulting files with `present_files`.
     assert "最终质检" in str(reminders[0].content)
     assert "present_files" in str(reminders[0].content)
 
-    stopped_again = AIMessage(content="仍未完成", id="ai-stopped-again")
-    failed = middleware.after_model({"messages": [slash, stopped_again]}, runtime)
+    progress = ToolCallRequest(
+        tool_call={
+            "name": "str_replace",
+            "args": {
+                "path": "/mnt/user-data/workspace/project/svg_output/01_cover.svg",
+                "old_str": "old",
+                "new_str": "new",
+            },
+            "id": "edit-svg-2",
+        },
+        tool=None,
+        state={"messages": []},
+        runtime=runtime,
+    )
+    middleware.wrap_tool_call(
+        progress,
+        lambda request: ToolMessage(content="ok", tool_call_id=str(request.tool_call["id"]), name="str_replace"),
+    )
+
+    stopped_again = middleware.wrap_model_call(
+        _make_model_request([slash], runtime=runtime),
+        lambda request: AIMessage(content="仍未完成", id="ai-stopped-again"),
+    )
+    assert isinstance(stopped_again, AIMessage)
+    assert stopped_again.additional_kwargs["hide_from_ui"] is True
+    retry_after_progress = middleware.after_model({"messages": [slash, stopped_again]}, runtime)
+    assert retry_after_progress == {"messages": [RemoveMessage(id="ai-stopped-again")], "jump_to": "model"}
+
+    no_progress = middleware.wrap_model_call(
+        _make_model_request([slash], runtime=runtime),
+        lambda request: AIMessage(content="仍未完成", id="ai-no-progress"),
+    )
+    assert isinstance(no_progress, AIMessage)
+    assert no_progress.additional_kwargs["hide_from_ui"] is True
+    failed = middleware.after_model({"messages": [slash, no_progress]}, runtime)
     assert failed is not None
     replacement = failed["messages"][0]
     assert isinstance(replacement, AIMessage)
     assert replacement.additional_kwargs["deerflow_error_fallback"] is True
+    assert replacement.additional_kwargs.get("hide_from_ui") is not True
     assert "PPT" in str(replacement.content)
+
+
+def test_skill_activation_rejects_intermediate_presentation_delivery(monkeypatch, tmp_path):
+    content = """# Deck Skill
+Run `svg_quality_checker.py <project> --stage final` before `svg_to_pptx.py`.
+Publish the resulting files with `present_files`.
+"""
+    skill = _make_skill(tmp_path, "deck-skill", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={"thread_id": "thread-1", "run_id": "run-1"})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/deck-skill build it", id="msg-1")
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), lambda request: AIMessage(content="ok"))
+
+    def request(name: str, args: dict, call_id: str) -> ToolCallRequest:
+        return ToolCallRequest(
+            tool_call={"name": name, "args": args, "id": call_id},
+            tool=None,
+            state={"messages": []},
+            runtime=runtime,
+        )
+
+    def success(req: ToolCallRequest) -> ToolMessage:
+        return ToolMessage(content="ok", tool_call_id=str(req.tool_call["id"]), name=str(req.tool_call["name"]))
+
+    middleware.wrap_tool_call(
+        request("bash", {"command": "echo '<svg/>' > /mnt/user-data/workspace/project/svg_output/01.svg"}, "write-svg"),
+        success,
+    )
+    middleware.wrap_tool_call(
+        request("bash", {"command": "python svg_quality_checker.py project --stage final"}, "check-final"),
+        success,
+    )
+
+    before_export = middleware.wrap_tool_call(
+        request("present_files", {"filepaths": ["/mnt/user-data/workspace/project/svg_output/01.svg"]}, "publish-svg-1"),
+        success,
+    )
+    assert isinstance(before_export, ToolMessage)
+    assert before_export.status == "error"
+    assert "has not completed" in str(before_export.content)
+
+    middleware.wrap_tool_call(
+        request("bash", {"command": "python svg_to_pptx.py project"}, "export-pptx"),
+        success,
+    )
+    intermediates = middleware.wrap_tool_call(
+        request("present_files", {"filepaths": ["/mnt/user-data/workspace/project/svg_output/01.svg"]}, "publish-svg-2"),
+        success,
+    )
+    assert isinstance(intermediates, ToolMessage)
+    assert intermediates.status == "error"
+    assert "only the final .ppt/.pptx" in str(intermediates.content)
+
+    delivered_paths: list[str] = []
+
+    def capture_success(req: ToolCallRequest) -> ToolMessage:
+        delivered_paths.extend(req.tool_call["args"]["filepaths"])
+        return success(req)
+
+    mixed_delivery = middleware.wrap_tool_call(
+        request(
+            "present_files",
+            {
+                "filepaths": [
+                    "/mnt/user-data/outputs/final.pptx",
+                    "/mnt/user-data/outputs/final.report.json",
+                ]
+            },
+            "publish-mixed",
+        ),
+        capture_success,
+    )
+    assert isinstance(mixed_delivery, ToolMessage)
+    assert mixed_delivery.status != "error"
+    assert delivered_paths == ["/mnt/user-data/outputs/final.pptx"]
+
+    delivered = middleware.wrap_tool_call(
+        request("present_files", {"filepaths": ["/mnt/user-data/outputs/final.pptx"]}, "publish-pptx"),
+        success,
+    )
+    assert isinstance(delivered, ToolMessage)
+    cache = runtime.context["__slash_skill_activation_cache"]
+    assert cache["presentation_delivery_completed"] is True
+
+
+def test_ppt_master_requires_chinese_dated_delivery_name_for_chinese_task(monkeypatch, tmp_path):
+    content = """# PPT Master
+Run `svg_to_pptx.py <project>` and publish the resulting deck with `present_files`.
+"""
+    skill = _make_skill(tmp_path, "ppt-master", content=content)
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    runtime = SimpleNamespace(context={"thread_id": "thread-1", "run_id": "run-1"})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/ppt-master 制作中国海油党建教育宣讲PPT", id="msg-zh-ppt")
+    middleware.wrap_model_call(_make_model_request([slash], runtime=runtime), lambda request: AIMessage(content="ok"))
+
+    def request(name: str, args: dict, call_id: str) -> ToolCallRequest:
+        return ToolCallRequest(
+            tool_call={"name": name, "args": args, "id": call_id},
+            tool=None,
+            state={"messages": []},
+            runtime=runtime,
+        )
+
+    def success(req: ToolCallRequest) -> ToolMessage:
+        return ToolMessage(content="ok", tool_call_id=str(req.tool_call["id"]), name=str(req.tool_call["name"]))
+
+    middleware.wrap_tool_call(
+        request("bash", {"command": "python svg_to_pptx.py project"}, "export-pptx"),
+        success,
+    )
+
+    rejected = middleware.wrap_tool_call(
+        request("present_files", {"filepaths": ["/mnt/user-data/outputs/jijiaoxue-ppt_20260805_111535.pptx"]}, "publish-pinyin"),
+        success,
+    )
+    assert isinstance(rejected, ToolMessage)
+    assert rejected.status == "error"
+    assert "Chinese topic filename" in str(rejected.content)
+
+    accepted = middleware.wrap_tool_call(
+        request("present_files", {"filepaths": ["/mnt/user-data/outputs/中国海油党建教育宣讲_20260805_111535.pptx"]}, "publish-chinese"),
+        success,
+    )
+    assert isinstance(accepted, ToolMessage)
+    assert accepted.status != "error"
 
 
 def test_skill_activation_requires_real_user_confirmation_before_design_contract(monkeypatch, tmp_path):

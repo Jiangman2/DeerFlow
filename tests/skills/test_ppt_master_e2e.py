@@ -54,7 +54,9 @@ def _make_project(tmp_path: Path) -> Path:
     project = tmp_path / "deck_ppt169_20260717"
     for name in ("sources", "svg_output", "svg_final", "notes", "images", "exports"):
         (project / name).mkdir(parents=True)
-    (project / "sources" / "brief.md").write_text("# Audit\nA deterministic deck.", encoding="utf-8")
+    (project / "sources" / "brief.md").write_text(
+        "# Audit\nA deterministic deck.", encoding="utf-8"
+    )
     (project / "spec_lock.md").write_text(
         "# Spec Lock\n\n"
         "## canvas\n- viewBox: 0 0 1280 720\n- format: PPT 16:9\n\n"
@@ -80,8 +82,30 @@ def _make_project(tmp_path: Path) -> Path:
 </svg>""",
         encoding="utf-8",
     )
-    (project / "notes" / "01_cover.md").write_text("# 01_cover\nPipeline narration.", encoding="utf-8")
+    (project / "notes" / "01_cover.md").write_text(
+        "# 01_cover\nPipeline narration.", encoding="utf-8"
+    )
     return project
+
+
+def test_project_manager_rejects_deerflow_outputs_as_project_root():
+    module = _load_script("project_manager.py")
+    manager = module.ProjectManager(base_dir="/mnt/user-data/outputs")
+
+    with pytest.raises(
+        ValueError, match="cannot be created under /mnt/user-data/outputs"
+    ):
+        manager.init_project("intermediate-files-must-not-be-published")
+
+
+def test_hosted_deerflow_contract_hides_loopback_preview_and_localizes_delivery():
+    content = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
+
+    assert "Hosted DeerFlow preview boundary (mandatory)" in content
+    assert "never launch, cite" in content
+    assert "127.0.0.1" in content
+    assert "<中文主题>_YYYYMMDD_HHMMSS.pptx" in content
+    assert "Do not expose a pinyin project" in content
 
 
 def test_source_import_dispatcher_converts_text(tmp_path: Path):
@@ -89,14 +113,18 @@ def test_source_import_dispatcher_converts_text(tmp_path: Path):
     output = tmp_path / "brief.md"
     source.write_text("PPT source material", encoding="utf-8")
 
-    result = _run(str(SCRIPTS_DIR / "source_to_md.py"), str(source), "-o", str(output), "--json")
+    result = _run(
+        str(SCRIPTS_DIR / "source_to_md.py"), str(source), "-o", str(output), "--json"
+    )
 
     assert output.exists()
     assert "PPT source material" in output.read_text(encoding="utf-8")
     assert "brief.md" in result.stdout
 
 
-def test_image_generation_dispatches_to_configured_provider(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_image_generation_dispatches_to_configured_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     module = _load_script("image_gen.py")
     calls: list[dict] = []
 
@@ -106,7 +134,9 @@ def test_image_generation_dispatches_to_configured_provider(tmp_path: Path, monk
         output.write_bytes(b"\x89PNG\r\n\x1a\nprovider-double")
         return str(output)
 
-    monkeypatch.setattr(module, "_resolve_backend", lambda: (SimpleNamespace(generate=generate), "qwen"))
+    monkeypatch.setattr(
+        module, "_resolve_backend", lambda: (SimpleNamespace(generate=generate), "qwen")
+    )
     monkeypatch.setattr(module, "_load_image_env_file", lambda: None)
     monkeypatch.setattr(module, "_validate_runtime_config", lambda: None)
     monkeypatch.setattr(
@@ -139,9 +169,53 @@ def test_chart_svg_passes_quality_gate_and_exports(tmp_path: Path):
 
     _run(str(SCRIPTS_DIR / "svg_quality_checker.py"), str(project / "svg_output"))
     output = tmp_path / "chart.pptx"
-    _run(str(SCRIPTS_DIR / "svg_to_pptx.py"), str(project), "-o", str(output), "--no-notes")
+    _run(
+        str(SCRIPTS_DIR / "svg_to_pptx.py"),
+        str(project),
+        "-o",
+        str(output),
+        "--no-notes",
+    )
 
     assert output.exists() and output.stat().st_size > 10_000
+
+
+def test_quality_gate_rejects_css_line_height_before_native_export(tmp_path: Path):
+    project = _make_project(tmp_path)
+    svg_path = project / "svg_output" / "01_cover.svg"
+    svg_path.write_text(
+        svg_path.read_text(encoding="utf-8").replace(
+            'font-size="54"',
+            'font-size="54" style="line-height: 1.25"',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        _run(str(SCRIPTS_DIR / "svg_quality_checker.py"), str(project / "svg_output"))
+
+    diagnostic = f"{exc_info.value.stdout}\n{exc_info.value.stderr}"
+    assert "line-height" in diagnostic
+
+
+def test_native_export_rejects_missing_master_typography_rows(tmp_path: Path):
+    project = _make_project(tmp_path)
+    spec_lock = project / "spec_lock.md"
+    spec_lock.write_text(
+        spec_lock.read_text(encoding="utf-8").replace("- title: 42\n", ""),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        _run(
+            str(SCRIPTS_DIR / "svg_to_pptx.py"),
+            str(project),
+            "-o",
+            str(tmp_path / "invalid.pptx"),
+        )
+
+    diagnostic = f"{exc_info.value.stdout}\n{exc_info.value.stderr}"
+    assert "typography rows: title" in diagnostic
 
 
 def test_template_fill_analyze_scaffold_and_check_plan(tmp_path: Path):
@@ -155,19 +229,40 @@ def test_template_fill_analyze_scaffold_and_check_plan(tmp_path: Path):
     library = tmp_path / "template.slide_library.json"
     plan = tmp_path / "fill_plan.json"
 
-    _run(str(SCRIPTS_DIR / "template_fill_pptx.py"), "analyze", str(template), "-o", str(library))
-    _run(str(SCRIPTS_DIR / "template_fill_pptx.py"), "scaffold", str(library), "-o", str(plan))
-    _run(str(SCRIPTS_DIR / "template_fill_pptx.py"), "check-plan", str(library), str(plan))
+    _run(
+        str(SCRIPTS_DIR / "template_fill_pptx.py"),
+        "analyze",
+        str(template),
+        "-o",
+        str(library),
+    )
+    _run(
+        str(SCRIPTS_DIR / "template_fill_pptx.py"),
+        "scaffold",
+        str(library),
+        "-o",
+        str(plan),
+    )
+    _run(
+        str(SCRIPTS_DIR / "template_fill_pptx.py"),
+        "check-plan",
+        str(library),
+        str(plan),
+    )
 
     assert library.exists() and plan.exists()
 
 
-def test_audio_pipeline_uses_provider_contract(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_audio_pipeline_uses_provider_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     module = _load_script("notes_to_audio.py")
     project = _make_project(tmp_path)
 
     monkeypatch.setattr(module, "_load_tts_env_file", lambda: None)
-    monkeypatch.setattr(module.backend_qwen, "read_qwen_api_key", lambda _name: "test-key")
+    monkeypatch.setattr(
+        module.backend_qwen, "read_qwen_api_key", lambda _name: "test-key"
+    )
 
     def generate(_text, output_path, **_kwargs):
         output_path.write_bytes(b"ID3provider-double")
@@ -176,7 +271,14 @@ def test_audio_pipeline_uses_provider_contract(tmp_path: Path, monkeypatch: pyte
     monkeypatch.setattr(
         sys,
         "argv",
-        ["notes_to_audio.py", str(project), "--provider", "qwen", "--voice-id", "Cherry"],
+        [
+            "notes_to_audio.py",
+            str(project),
+            "--provider",
+            "qwen",
+            "--voice-id",
+            "Cherry",
+        ],
     )
 
     assert module.main() == 0

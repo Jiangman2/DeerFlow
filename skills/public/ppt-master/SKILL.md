@@ -221,6 +221,22 @@ inputs or directory inputs, `-o` is an output directory. Backend converter detai
 
 ### Step 2: Project Initialization
 
+> **DeerFlow workspace boundary (mandatory)**: in a DeerFlow sandbox, run the
+> complete PPT project under `/mnt/user-data/workspace` (for example,
+> `cd /mnt/user-data/workspace` before `project_manager.py init`). Never create
+> the project, `svg_output/`, `svg_final/`, `analysis/`, `notes/`, `backup/`, or
+> `exports/` tree under `/mnt/user-data/outputs`; that directory is reserved for
+> final user-visible deliverables.
+
+> **Hosted DeerFlow preview boundary (mandatory)**: any project below
+> `/mnt/user-data` is running in a remote sandbox. Its loopback services are not
+> reachable from the user's browser. In that environment, never launch, cite,
+> display, or recommend a `127.0.0.1`, `localhost`, or sandbox-local preview URL.
+> Skip the browser confirmation/live-preview servers and use the normal
+> `ask_clarification` chat confirmation plus the SVG quality/final export gates.
+> The local preview servers remain available only when this skill is run
+> directly on the same workstation as the user's browser.
+
 🚧 **GATE**: Step 1 complete; source content is ready (Markdown file, user-provided text, or requirements described in conversation are all valid).
 
 ```bash
@@ -441,7 +457,7 @@ Steps:
    ```bash
    python3 ${SKILL_DIR}/scripts/confirm_ui/server.py <project_path> --daemon --wait
    ```
-   Page opens at the launch-log URL such as `http://127.0.0.1:5050` — the **same port as the Step 6 live preview** (they never run at once: this page shuts down at the end of Step 4). If 5050 is held, the launcher **auto-advances** (5051, …) — read the actual URL from the launch log and report it. The page does **not** close after Stage 1: it shows a "deriving…" state and polls for Stage 2. **Launch or wait failure is non-fatal**: if it fails or times out (flask missing, port blocked, no GUI / remote / web host), do **NOT** troubleshoot — **on any non-zero exit, re-check `result.json` once** for a fresh `status: stage1-confirmed` before dropping to the chat fallback. **On success (exit 0 with a stage-1 result), do not pause or report — go straight to step 3 in the same turn.**
+   In a same-workstation run, the page opens at the launch-log URL such as `http://127.0.0.1:5050` — the **same port as the Step 6 live preview** (they never run at once: this page shuts down at the end of Step 4). If 5050 is held, the launcher **auto-advances** (5051, …). In hosted DeerFlow (`<project_path>` is below `/mnt/user-data`), do not start this server and do not report any loopback URL; use the chat fallback. The page does **not** close after Stage 1: it shows a "deriving…" state and polls for Stage 2. **Launch or wait failure is non-fatal**: if it fails or times out (flask missing, port blocked, no GUI / remote / web host), do **NOT** troubleshoot — **on any non-zero exit, re-check `result.json` once** for a fresh `status: stage1-confirmed` before dropping to the chat fallback. **On success (exit 0 with a stage-1 result), do not pause or report — go straight to step 3 in the same turn.**
 3. **Re-derive Stage 2 from the confirmed anchors, write it, then wait for the design-system handoff — immediately, same turn (the page is polling for it).** Read the stage-1 `result.json` (`status: stage1-confirmed`). Using the user's **actual** confirmed anchors (not your originals), author the design-system candidates and **overwrite** `recommendations.json` with `"stage": "stage2"`: page count (content volume × `delivery_purpose`); color and typography as **generative ≥3-candidate** fields (creative recommendations always offer real choice; fewer than 3 only on the honest-shortfall exception, with a stated reason; color: core `palette` with background/secondary_bg/primary/accent/secondary_accent/body_text; typography: CJK + Latin for `heading` and `body` with `css` preview stacks + `body_size` as the body baseline in **px** (every canvas) — **one fixed value per confirmed `delivery_purpose`** (`text` 20 / `balanced` 24 / `presentation` 32), not a range; each typography candidate must include topic-matched `sample_heading` / `sample_heading_latin` / `sample_body` / `sample_body_latin` preview text, never a fixed unrelated industry sample); enumerable `icons` / `formula_policy` (recommended `id`). **Stage 2 is never skipped** — an active deck/layout template (`strict` adherence included) does not exempt it: the template skin becomes the recommended color / typography candidate and real alternatives fill the remaining cards. Never jump `recommendations.json` from `stage1` to `stage3`: the server refuses to render a skipped stage (the page stays on "deriving…") and the waits exit non-zero until the stages are written in order. The still-open page polls, renders Stage 2, and preserves the user's Stage 1 picks. Then attach to the already-running page; if Windows cleaned up the server, `--wait-only` auto-recovers it on the recorded/default port so the browser reconnects:
    ```bash
    python3 ${SKILL_DIR}/scripts/confirm_ui/server.py <project_path> --wait-only --wait-stage stage2
@@ -635,11 +651,11 @@ Read references/visual-styles/<locked-style>.md   # aesthetic (spec_lock.md `vis
 
 **Design Parameter Confirmation (Mandatory)**: before the first SVG, output key design parameters from the spec (canvas dimensions, color scheme, font plan, body font size). See executor-base.md §2.
 
-**Live Preview Auto-Startup (Mandatory)**: before the first SVG, automatically start the browser editor in live mode and keep it running continuously through Executor + Step 7 export:
+**Live Preview Auto-Startup (same-workstation runs only)**: before the first SVG, automatically start the browser editor in live mode and keep it running continuously through Executor + Step 7 export. In hosted DeerFlow (`<project_path>` is below `/mnt/user-data`), skip this block completely and never mention a loopback preview URL:
 ```bash
 python3 ${SKILL_DIR}/scripts/svg_editor/server.py <project_path> --live --daemon
 ```
-- Start it immediately when Executor begins; `svg_output/` may be empty. Editor opens at the launch-log URL such as `http://127.0.0.1:5050`; if another project already holds it, the launcher **auto-advances to the next free port** — read the actual URL from the launch log and report that.
+- In a same-workstation run, start it immediately when Executor begins; `svg_output/` may be empty. Editor opens at the launch-log URL such as `http://127.0.0.1:5050`; if another project already holds it, the launcher **auto-advances to the next free port** — read the actual URL from the launch log and report that. Never report this URL from hosted DeerFlow.
 - Treat the launch URL as a checkpoint value: before writing the first SVG, either report the actual URL from the launcher or state the launch failure explicitly. Do not silently continue while claiming preview is available.
 - Run it as a long-running side process/session; do not wait for it to exit before generating SVG pages. Do not wait for user confirmation after startup.
 - **Service must keep running** until one of: (a) the user clicks **Exit preview** in the browser, or (b) the user explicitly asks in chat to stop it. Generation continues even if the user closes the editor.
@@ -730,7 +746,11 @@ This mandatory step writes self-contained visual-preview SVGs to `svg_final/`. T
 
 **Step 7.3** — Export PPTX (embeds speaker notes by default):
 ```bash
-python3 ${SKILL_DIR}/scripts/svg_to_pptx.py <project_path>
+SKILL_DIR=/mnt/skills/public/ppt-master
+PROJECT=<absolute_project_path_under_/mnt/user-data/workspace>
+python3 "${SKILL_DIR}/scripts/svg_quality_checker.py" "${PROJECT}" --stage final
+PYTHONPATH="${SKILL_DIR}/scripts${PYTHONPATH:+:${PYTHONPATH}}" \
+  python3 "${SKILL_DIR}/scripts/svg_to_pptx.py" "${PROJECT}"
 # Output (default-flow mode):
 #   exports/<project_name>_<timestamp>.pptx           ← native pptx (canonical output, reads svg_output/)
 #   exports/<project_name>_<timestamp>.report.json    ← package/resource/quality postflight audit
@@ -742,6 +762,29 @@ python3 ${SKILL_DIR}/scripts/svg_to_pptx.py <project_path>
 # Re-export with --recorded-narration audio (generate-audio stage) embeds per-slide narration:
 #   exports/<project_name>_<timestamp>_narrated.pptx  ← narrated pptx (embedded audio + auto-advance timings)
 ```
+
+This is the canonical DeerFlow export route. Do not guess alternate executor,
+package-module, `finalize_svg.py --export-pptx`, or unsupported CLI forms. Before
+the final gate, `spec_lock.md` MUST contain numeric, unitless `title` and `body`
+rows under `## typography`. Authored SVG text MUST NOT use CSS/SVG
+`line-height`; use explicit `<tspan dy="...">` line advances or the converter's
+`data-paragraph-line-height` contract. If validation or export reports an
+offending file/property, edit that source, rerun the final gate, and then rerun
+the canonical export. Never repeat an unchanged failing command and never
+substitute intermediate SVG/specification files for the missing PPTX.
+
+**DeerFlow delivery boundary (mandatory)**: after a successful export, copy
+only the final `.ppt`/`.pptx` requested by the user into
+`/mnt/user-data/outputs/`, then call `present_files` with only that final deck.
+For a Chinese request, derive a concise Chinese topic from the user's task and
+name the delivered file `<中文主题>_YYYYMMDD_HHMMSS.pptx` (for example,
+`中国海油党建教育宣讲_20260805_111535.pptx`). Do not expose a pinyin project
+slug or an English internal project name as the user-facing filename.
+The presentation tool automatically adds a same-stem `.preview.pdf` when it is
+available or can be generated. Do not publish page SVGs, `svg_output/`,
+`svg_final/`, analysis files, notes, reports, backups, or the project directory
+unless the user explicitly requests one of those files as a separate
+deliverable.
 
 > The native pptx consumes `svg_output/` directly so the converter can preserve
 > high-fidelity primitives (icon `<use>` placeholders, image `preserveAspectRatio`
@@ -953,7 +996,7 @@ animation playback in Keynote or other presentation applications.
 
 > **Direct edits in the browser**: the user may also stage text / SVG attribute edits in the preview. These land in `svg_output/` only after the user clicks **Apply changes**. If they ask to "re-export" / "重新导出" after applying such edits, just re-run Step 7.2–7.3 (finalize + export); no annotation-application step is needed unless they also saved AI-needed annotations.
 
-> **Preview not running?** Any time the user mentions "live preview", "preview", "看效果", or wants to select/click a slide element and the service is not running, run [`live-preview`](workflows/stages/live-preview.md) Step 1 to start it. If the service is already running, just point them at the URL — do not restart.
+> **Preview not running?** In a same-workstation run, when the user mentions "live preview", "preview", "看效果", or wants to select/click a slide element and the service is not running, run [`live-preview`](workflows/stages/live-preview.md) Step 1 to start it. If the service is already running, point them at the URL. In hosted DeerFlow, never start or expose that loopback service; rely on the final paired PDF artifact preview.
 
 ---
 

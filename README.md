@@ -815,6 +815,11 @@ The Web UI composer also supports browser-based voice dictation when the browser
 
 Interrupted first-turn runs still persist a fallback conversation title, so stopping a streaming response does not leave the thread as "Untitled" after refresh.
 
+Reopening a chat that still has a pending or running backend run automatically
+rejoins that run's live stream, including after the browser-local reconnect
+metadata was lost. The composer remains busy during recovery, preventing an
+accidental second submission and the resulting active-run HTTP 409 conflict.
+
 In the Web UI, completed assistant turns can be branched into a new main conversation. The new thread starts from that turn's checkpoint. Because workspace files are not checkpointed, the branch only receives a best-effort copy of the current workspace when you branch from the latest turn; branching from an older turn keeps just the restored message history so the branch never inherits files that were created in a later part of the conversation.
 
 Completed assistant turns also expose like and dislike controls in the turn toolbar. Feedback is stored against the owning run, survives history reloads, and can be switched or cleared by clicking the selected control again.
@@ -923,7 +928,9 @@ encryption that prevents inspection. Original uploaded documents are delivered
 as downloads rather than rendered in the authenticated application origin
 (safe raster images, media, and passive text remain viewable). Inert generated
 PDF outputs retain the right-side preview with response CSP and an iframe
-sandbox; suspicious PDFs fall back to download.
+sandbox. LibreOffice's strictly shaped first-page destination is treated as
+inert navigation metadata; indirect actions, scripts, attachments, encryption,
+and other suspicious PDF features still fall back to download.
 
 When `WEKNORA_MINERU_ENDPOINT` is configured, conversation PDF, DOC/DOCX, PPT,
 and PPTX uploads reuse that same enterprise parser without creating a
@@ -935,7 +942,15 @@ presentations use its presentation conversion path. Set
 override its base URL with
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`. The older
 `DEERFLOW_UPLOAD_PDF_*` names remain supported for deployment compatibility.
-Parser failure does not discard the upload and is reported explicitly.
+When `uploads.auto_convert_documents=true`, or the enterprise-only
+`DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true` override is set, an adapter
+failure falls back to DeerFlow's local `convert_file_to_markdown()` conversion.
+Legacy Word `.doc` files receive one additional text-recovery step: the task
+sandbox converts the binary document to a temporary DOCX with LibreOffice, then
+the normal local Markdown converter processes that DOCX. Temporary conversion
+files are removed after the request.
+The original upload is retained in every case; a processing warning is returned
+only when all applicable parser and recovery paths fail.
 
 When a presented PPT/PPTX has no sibling preview, `present_files` asks the
 active sandbox's LibreOffice installation to create
@@ -1299,7 +1314,8 @@ Final files published with `present_files` are persisted in the thread-scoped ou
 Packaged `.skill` files are first-class downloadable artifacts: `present_files`
 accepts valid ZIP-based packages containing `SKILL.md` and rejects malformed or
 path-traversing archives before publication.
-PPT Master publishes completed PowerPoint files into the thread-scoped outputs directory together with a same-stem `.preview.pdf`. The chat keeps the PPTX as the downloadable deliverable while the artifact panel renders the paired PDF in the right-side preview. A same-stem `.pdf` remains a compatibility preview fallback, and ordinary artifact links in assistant messages open the right-side preview while explicit download links still download the file.
+PPT Master publishes completed PowerPoint files into the thread-scoped outputs directory together with a same-stem `.preview.pdf`. The chat keeps the PPTX as the only user-facing downloadable deliverable while the artifact panel renders the paired PDF through a scriptless, server-rasterized page gallery; this remains usable in enterprise browsers whose native PDF plug-in cannot render the hardened sandboxed response. The companion PDF stays hidden from file cards and the artifact selector. A same-stem `.pdf` remains a compatibility preview fallback, ordinary artifact links in assistant messages open the right-side preview, explicit download links still download the presentation, and long filenames are truncated without displacing the panel controls. PPT completion requires a successful native export and a real `.ppt`/`.pptx` publication; SVG pages, notes, specifications, reports, and other working files cannot satisfy the delivery gate or be substituted for a failed deck. Premature “unfinished/manual continuation” model conclusions are hidden recovery events: DeerFlow continues automatically after real workflow progress and only surfaces a bounded failure after repeated no-progress termination.
+Writing or publishing a generated file no longer opens the artifact panel automatically. Deliverables remain available in the conversation and Files list; the chat column narrows only after the user explicitly opens a write step, artifact link, file card, or the Files control. Artifact reads use the authorized thread owner's storage bucket, so administrator read-only review and ordinary owner views resolve the same PPT preview companion.
 Final assistant responses cannot claim a `/mnt/user-data/outputs/...` deliverable unless that file both exists in the current thread outputs directory and was successfully published with `present_files`. DeerFlow retries one invalid delivery claim with hidden execution guidance, then returns a visible delivery error instead of persisting a fabricated download link.
 
 ## License

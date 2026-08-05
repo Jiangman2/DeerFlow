@@ -268,7 +268,7 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
       >
         <div
           className={cn(
-            "ml-auto h-full w-[40cqw] transition-opacity duration-[280ms] ease-out motion-reduce:transition-none",
+            "h-full w-full transition-opacity duration-[280ms] ease-out motion-reduce:transition-none",
             renderedRightPanel === "sidecar" ? "p-0" : "p-4",
             rightPanelOpen ? "opacity-100" : "opacity-0",
           )}

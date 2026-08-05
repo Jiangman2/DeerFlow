@@ -99,8 +99,20 @@ def _preview_pdf_path_for(filepath: str) -> str | None:
     return None
 
 
-def _generate_missing_ppt_preview(runtime: Runtime, normalized_ppt_path: str) -> None:
-    """Best-effort generation of a browser preview in the active sandbox."""
+def _generate_missing_ppt_preview(
+    runtime: Runtime,
+    source_ppt_path: str,
+    normalized_ppt_path: str,
+) -> None:
+    """Best-effort generation of a browser preview in the active sandbox.
+
+    ``normalized_ppt_path`` is the persistent Gateway artifact path.  A model
+    commonly presents a deck directly from ``workspace/projects/.../exports``;
+    in that case only Gateway has copied the file into the normalized outputs
+    bucket.  LibreOffice still runs inside the active sandbox, so it must read
+    the original sandbox-visible source path rather than the new host-side
+    destination.
+    """
     preview_path = _preview_pdf_path_for(normalized_ppt_path)
     if preview_path is None:
         return
@@ -133,7 +145,9 @@ def _generate_missing_ppt_preview(runtime: Runtime, normalized_ppt_path: str) ->
         return
 
     temp_dir = f"/tmp/deerflow-ppt-preview-{uuid.uuid4().hex}"
-    generated_pdf = f"{temp_dir}/{PurePosixPath(normalized_ppt_path).stem}.pdf"
+    virtual_prefix = VIRTUAL_PATH_PREFIX.rstrip("/") + "/"
+    sandbox_source_path = source_ppt_path if source_ppt_path.startswith(virtual_prefix) else normalized_ppt_path
+    generated_pdf = f"{temp_dir}/{PurePosixPath(sandbox_source_path).stem}.pdf"
     command = "\n".join(
         [
             "set -eu",
@@ -141,7 +155,8 @@ def _generate_missing_ppt_preview(runtime: Runtime, normalized_ppt_path: str) ->
             'mkdir -p "$preview_tmp"',
             "trap 'rm -rf -- \"$preview_tmp\"' EXIT",
             'office_bin="$(command -v libreoffice || command -v soffice)"',
-            (f'"$office_bin" --headless --convert-to pdf --outdir "$preview_tmp" {shlex.quote(normalized_ppt_path)} >"$preview_tmp/convert.log" 2>&1'),
+            f"test -s {shlex.quote(sandbox_source_path)}",
+            (f'"$office_bin" --headless --convert-to pdf --outdir "$preview_tmp" {shlex.quote(sandbox_source_path)} >"$preview_tmp/convert.log" 2>&1'),
             f"test -s {shlex.quote(generated_pdf)}",
             f"cp -- {shlex.quote(generated_pdf)} {shlex.quote(preview_path)}",
         ]
@@ -287,8 +302,9 @@ def _normalize_presented_filepath(
 def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) -> list[str]:
     normalized_path = _normalize_presented_filepath(runtime, filepath)
     normalized_paths = [normalized_path]
+    required_preview_path = _preview_pdf_path_for(normalized_path)
 
-    _generate_missing_ppt_preview(runtime, normalized_path)
+    _generate_missing_ppt_preview(runtime, filepath, normalized_path)
     preview_candidates = [
         candidate
         for candidate in (
@@ -311,8 +327,12 @@ def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) 
             if preview_normalized_path not in normalized_paths:
                 normalized_paths.append(preview_normalized_path)
         except ValueError:
-            # Preview PDFs are optional. The PPTX itself remains downloadable.
             pass
+
+    if required_preview_path and required_preview_path not in normalized_paths:
+        raise ValueError(
+            "PowerPoint preview generation failed. Keep the active sandbox available, verify LibreOffice can convert the final deck, and call present_files again; the deck is not published until its paired .preview.pdf is ready."
+        )
 
     return normalized_paths
 
@@ -374,6 +394,7 @@ def present_file_tool(
                     "Successfully presented files",
                     tool_call_id=tool_call_id,
                     name="present_files",
+                    artifact={"presented_files": normalized_paths},
                 )
             ],
         },

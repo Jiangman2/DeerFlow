@@ -356,7 +356,13 @@ class RecentFailureItem(BaseModel):
     duration_ms: int
     disposition_status: str | None
     diagnostics_url: str
-    chat_url: str
+    can_open: bool
+    chat_url: str | None
+
+
+class FailedRunList(BaseModel):
+    items: list[RecentFailureItem] = Field(default_factory=list)
+    total: int
 
 
 class RecentBusinessEventItem(BaseModel):
@@ -1093,6 +1099,74 @@ async def get_user_existing_sessions(
     return ExistingSessionList(user_id=user_id, items=items, total=total)
 
 
+@router.get("/failures", response_model=FailedRunList)
+async def get_failed_runs(
+    request: Request,
+    limit: int = Query(default=5, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> FailedRunList:
+    """Return every failed run in reverse chronological, paged order."""
+
+    await require_admin_user(request, detail=_ADMIN_REQUIRED)
+    failed_filter = or_(RunRow.status.in_(_FAILED_STATUSES), RunRow.error.is_not(None))
+    sf = _session_factory()
+    async with sf() as session:
+        total = int(await session.scalar(select(func.count()).select_from(RunRow).where(failed_filter)) or 0)
+        runs = list((await session.execute(select(RunRow).where(failed_filter).order_by(desc(RunRow.updated_at), desc(RunRow.created_at), desc(RunRow.run_id)).limit(limit).offset(offset))).scalars().all())
+        user_ids = {run.user_id for run in runs if run.user_id}
+        users_by_id = {row.id: row for row in (await session.execute(select(UserRow).where(UserRow.id.in_(user_ids)))).scalars()} if user_ids else {}
+        thread_ids = {run.thread_id for run in runs}
+        existing_thread_ids = set((await session.execute(select(ThreadMetaRow.thread_id).where(ThreadMetaRow.thread_id.in_(thread_ids)))).scalars()) if thread_ids else set()
+        message_thread_ids = (
+            set(
+                (
+                    await session.execute(
+                        select(RunEventRow.thread_id)
+                        .where(
+                            RunEventRow.thread_id.in_(thread_ids),
+                            RunEventRow.category == "message",
+                        )
+                        .distinct()
+                    )
+                ).scalars()
+            )
+            if thread_ids
+            else set()
+        )
+        disposition_rows = (
+            list((await session.execute(select(OperationDispositionRow).where(OperationDispositionRow.run_id.in_({run.run_id for run in runs})).order_by(desc(OperationDispositionRow.created_at)))).scalars().all()) if runs else []
+        )
+
+    latest_disposition_by_run: dict[str, OperationDispositionRow] = {}
+    for row in disposition_rows:
+        latest_disposition_by_run.setdefault(row.run_id, row)
+
+    items: list[RecentFailureItem] = []
+    for run in runs:
+        can_open = run.thread_id in existing_thread_ids and run.thread_id in message_thread_ids
+        disposition = latest_disposition_by_run.get(run.run_id)
+        items.append(
+            RecentFailureItem(
+                run_id=run.run_id,
+                thread_id=run.thread_id,
+                user_id=run.user_id,
+                email=users_by_id.get(run.user_id).email if run.user_id and run.user_id in users_by_id else None,
+                status=run.status,
+                error=run.error,
+                assistant_id=run.assistant_id,
+                model_name=run.model_name,
+                started_at=run.created_at,
+                updated_at=run.updated_at,
+                duration_ms=_duration_ms(run.created_at, run.updated_at),
+                disposition_status=(disposition.status or disposition.action) if disposition else None,
+                diagnostics_url=f"/workspace/admin/observability?run_id={run.run_id}",
+                can_open=can_open,
+                chat_url=f"/workspace/chats/{run.thread_id}?admin_review=1" if can_open else None,
+            )
+        )
+    return FailedRunList(items=items, total=total)
+
+
 @router.get("/summary", response_model=DashboardSummary)
 async def get_dashboard_summary(
     request: Request,
@@ -1422,7 +1496,8 @@ async def get_dashboard_summary(
             duration_ms=_duration_ms(run.created_at, run.updated_at),
             disposition_status=((latest_disposition_by_run[run.run_id].status or latest_disposition_by_run[run.run_id].action) if run.run_id in latest_disposition_by_run else None),
             diagnostics_url=f"/workspace/admin/observability?run_id={run.run_id}",
-            chat_url=f"/workspace/chats/{run.thread_id}",
+            can_open=True,
+            chat_url=f"/workspace/chats/{run.thread_id}?admin_review=1",
         )
         for run in runs
         if run.status in _FAILED_STATUSES or run.error

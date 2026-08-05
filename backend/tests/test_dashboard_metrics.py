@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.gateway.auth.models import User
 from app.gateway.routers import dashboard, observability
 from deerflow.persistence.base import Base
+from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.thread_meta.model import ThreadCreationRow, ThreadMetaRow
 from deerflow.persistence.user.model import UserRow
@@ -245,6 +246,70 @@ async def test_registered_user_session_link_is_exposed_only_to_its_owner(
         item = response.json()["items"][0]
         assert item["can_open"] is True
         assert item["chat_url"] == "/workspace/chats/admin-thread?admin_review=1"
+    finally:
+        await engine.dispose()
+
+
+async def test_failed_runs_endpoint_pages_all_history_and_only_links_openable_threads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sf, engine = await _session_factory()
+    older = datetime(2026, 1, 1, tzinfo=UTC)
+    newer = datetime(2026, 7, 31, tzinfo=UTC)
+    try:
+        async with sf() as session:
+            session.add_all(
+                [
+                    UserRow(id=ADMIN_ID, email="admin@example.com", system_role="admin"),
+                    UserRow(id=USER_ID, email="user@example.com", system_role="user"),
+                    ThreadMetaRow(
+                        thread_id="open-thread",
+                        user_id=USER_ID,
+                        display_name="可查看失败会话",
+                        status="idle",
+                        created_at=older,
+                        updated_at=newer,
+                    ),
+                    _run("old-failure", "deleted-thread", "error", older),
+                    _run("new-failure", "open-thread", "timeout", newer),
+                    RunEventRow(
+                        thread_id="open-thread",
+                        run_id="new-failure",
+                        user_id=USER_ID,
+                        event_type="llm.human.input",
+                        category="message",
+                        content='{"type":"human","content":"hello"}',
+                        event_metadata={},
+                        seq=1,
+                        created_at=newer,
+                    ),
+                ]
+            )
+            await session.commit()
+
+        with _client(sf, monkeypatch) as client:
+            first_page = client.get("/api/admin/dashboard/failures", params={"limit": 1, "offset": 0})
+            second_page = client.get("/api/admin/dashboard/failures", params={"limit": 1, "offset": 1})
+
+        assert first_page.status_code == 200
+        assert first_page.json()["total"] == 2
+        openable = first_page.json()["items"][0]
+        assert openable["run_id"] == "new-failure"
+        assert openable["thread_id"] == "open-thread"
+        assert openable["user_id"] == USER_ID
+        assert openable["email"] == "user@example.com"
+        assert openable["status"] == "timeout"
+        assert openable["duration_ms"] == 0
+        assert openable["can_open"] is True
+        assert openable["chat_url"] == "/workspace/chats/open-thread?admin_review=1"
+        assert openable["diagnostics_url"].endswith("run_id=new-failure")
+        assert second_page.status_code == 200
+        assert second_page.json()["total"] == 2
+        orphan = second_page.json()["items"][0]
+        assert orphan["run_id"] == "old-failure"
+        assert orphan["can_open"] is False
+        assert orphan["chat_url"] is None
+        assert orphan["diagnostics_url"].endswith("run_id=old-failure")
     finally:
         await engine.dispose()
 

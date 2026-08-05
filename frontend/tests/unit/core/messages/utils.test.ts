@@ -3,6 +3,7 @@ import { describe, expect, test } from "@rstest/core";
 
 import {
   extractContentFromMessage,
+  extractSuccessfullyPresentedFiles,
   extractTextFromMessage,
   extractReasoningContentFromMessage,
   getBranchableAssistantGroupIds,
@@ -17,6 +18,69 @@ import {
   isHiddenFromUIMessage,
   stripUploadedFilesTag,
 } from "@/core/messages/utils";
+
+describe("successfully presented files", () => {
+  const presentCall = {
+    id: "present-1",
+    type: "ai",
+    content: "",
+    tool_calls: [
+      {
+        id: "present-call-1",
+        name: "present_files",
+        args: {
+          filepaths: [
+            "/mnt/user-data/outputs/final.pptx",
+            "/mnt/user-data/outputs/final.report.json",
+          ],
+        },
+      },
+    ],
+  } as Message;
+
+  test("does not expose files while present_files is still pending", () => {
+    expect(extractSuccessfullyPresentedFiles([presentCall])).toEqual([]);
+  });
+
+  test("does not expose files from a failed present_files call", () => {
+    const failedResult = {
+      id: "present-result-1",
+      type: "tool",
+      name: "present_files",
+      tool_call_id: "present-call-1",
+      status: "error",
+      content: "Publishing was blocked",
+    } as Message;
+
+    expect(
+      extractSuccessfullyPresentedFiles([presentCall, failedResult]),
+    ).toEqual([]);
+  });
+
+  test("exposes files only after the matching present_files call succeeds", () => {
+    const successfulResult = {
+      id: "present-result-1",
+      type: "tool",
+      name: "present_files",
+      tool_call_id: "present-call-1",
+      status: "success",
+      content: "Published",
+      artifact: {
+        presented_files: [
+          "/mnt/user-data/outputs/final.pptx",
+          "/mnt/user-data/outputs/final.preview.pdf",
+        ],
+      },
+    } as Message;
+
+    expect(
+      extractSuccessfullyPresentedFiles([presentCall, successfulResult]),
+    ).toEqual([
+      "/mnt/user-data/outputs/final.pptx",
+      "/mnt/user-data/outputs/final.preview.pdf",
+    ]);
+  });
+});
 
 function aiMessage(content: string): Message {
   return {
@@ -728,6 +792,33 @@ describe("multi-part content with bare-string continuations", () => {
 });
 
 describe("orphan tool messages", () => {
+  test("renders a backward page that starts with orphan tool messages", () => {
+    const messages = [
+      {
+        id: "t-leading-1",
+        type: "tool",
+        name: "bash",
+        tool_call_id: "call-before-page",
+        content: "partial output",
+      },
+      {
+        id: "t-leading-2",
+        type: "tool",
+        name: "bash",
+        tool_call_id: "call-before-page",
+        content: "remaining output",
+      },
+    ] as Message[];
+
+    const groups = getMessageGroups(messages);
+
+    expect(groups.map((group) => group.type)).toEqual(["assistant:processing"]);
+    expect(groups[0]?.messages.map((message) => message.id)).toEqual([
+      "t-leading-1",
+      "t-leading-2",
+    ]);
+  });
+
   // LangGraph stream-mode "messages-tuple" can emit tool-result events out of order or
   // replayed from subagent state (e.g. bash subagent under LocalSandboxProvider with
   // allow_host_bash). When that happens, the tool message arrives after a terminal

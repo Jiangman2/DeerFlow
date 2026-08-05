@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { useSidebar } from "@/components/ui/sidebar";
+import { findPowerPointForPreviewArtifact } from "@/core/artifacts/utils";
 import { env } from "@/env";
 
 export interface ArtifactsContextType {
@@ -14,12 +15,10 @@ export interface ArtifactsContextType {
   setArtifacts: (artifacts: string[]) => void;
 
   selectedArtifact: string | null;
-  autoSelect: boolean;
-  select: (artifact: string, autoSelect?: boolean) => void;
+  select: (artifact: string) => void;
   deselect: () => void;
 
   open: boolean;
-  autoOpen: boolean;
   setOpen: (open: boolean) => void;
 }
 
@@ -34,29 +33,25 @@ interface ArtifactsProviderProps {
 export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
   const [artifacts, setArtifacts] = useState<string[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
-  const [autoSelect, setAutoSelect] = useState(true);
   const [open, setOpen] = useState(
     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
   );
-  const [autoOpen, setAutoOpen] = useState(true);
   const { setOpen: setSidebarOpen } = useSidebar();
 
   const select = useCallback(
-    (artifact: string, autoSelect = false) => {
-      setSelectedArtifact(artifact);
+    (artifact: string) => {
+      setSelectedArtifact(
+        findPowerPointForPreviewArtifact(artifact, artifacts) ?? artifact,
+      );
       if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true") {
         setSidebarOpen(false);
       }
-      if (!autoSelect) {
-        setAutoSelect(false);
-      }
     },
-    [setSidebarOpen, setSelectedArtifact, setAutoSelect],
+    [artifacts, setSidebarOpen],
   );
 
   const deselect = useCallback(() => {
     setSelectedArtifact(null);
-    setAutoSelect(true);
     setOpen(false);
   }, []);
 
@@ -65,15 +60,7 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
     setArtifacts,
 
     open,
-    autoOpen,
-    autoSelect,
-    setOpen: (isOpen: boolean) => {
-      if (!isOpen && autoOpen) {
-        setAutoOpen(false);
-        setAutoSelect(false);
-      }
-      setOpen(isOpen);
-    },
+    setOpen,
 
     selectedArtifact,
     select,

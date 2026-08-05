@@ -17,3 +17,5 @@ spec:
               value: "true"
             - name: WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK
               value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
+              value: "true"

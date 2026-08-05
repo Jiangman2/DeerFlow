@@ -362,6 +362,51 @@ def test_auth_error_immediately_blocked():
     assert state.consecutive_problems == 1
 
 
+def test_bash_subprocess_config_error_does_not_disable_bash_transport():
+    mw = _make_mw(stagnation_threshold=3)
+    rt = _make_runtime()
+    req = _make_tool_request("bash", runtime=rt)
+    config_error = _make_error_message(
+        content="Error: Master export is not configured because required typography rows are missing",
+        tool_name="bash",
+        error_type="config",
+        recoverable_by_model=False,
+        recommended_next_action="stop",
+    )
+
+    mw.wrap_tool_call(req, lambda _request: config_error)
+    assert mw._phase_states["t1"]["bash"].phase == "active"
+    assert mw._phase_states["t1"]["bash"].consecutive_problems == 1
+
+    called = False
+
+    def successful_repair(_request):
+        nonlocal called
+        called = True
+        return _make_tool_message("repair command completed", tool_name="bash")
+
+    mw.wrap_tool_call(req, successful_repair)
+    assert called is True
+    assert mw._phase_states["t1"]["bash"].phase == "active"
+    assert mw._phase_states["t1"]["bash"].consecutive_problems == 0
+
+
+def test_provider_config_error_still_blocks_provider_tool():
+    mw = _make_mw(stagnation_threshold=3)
+    rt = _make_runtime()
+    req = _make_tool_request("web_search", runtime=rt)
+    config_error = _make_error_message(
+        content="Error: web search is not configured",
+        tool_name="web_search",
+        error_type="config",
+        recoverable_by_model=False,
+        recommended_next_action="stop",
+    )
+
+    mw.wrap_tool_call(req, lambda _request: config_error)
+    assert mw._phase_states["t1"]["web_search"].phase == "blocked"
+
+
 # ---------------------------------------------------------------------------
 # Scenario 6: Valid result after problems resets to active
 

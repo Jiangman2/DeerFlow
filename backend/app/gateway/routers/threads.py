@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 
 from app.gateway.authz import require_permission
-from app.gateway.deps import get_checkpointer, get_run_manager
+from app.gateway.deps import get_authorized_read_scope_user_id, get_checkpointer, get_run_manager
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.utils import sanitize_log_param
 from deerflow.config.paths import Paths, get_paths
@@ -786,7 +786,8 @@ async def get_thread(thread_id: str, request: Request) -> ThreadResponse:
     thread_store = get_thread_store(request)
     checkpointer = get_checkpointer(request)
 
-    record: dict | None = await thread_store.get(thread_id)
+    read_scope_user_id = await get_authorized_read_scope_user_id(request)
+    record: dict | None = await thread_store.get(thread_id, user_id=read_scope_user_id)
 
     # Derive accurate status from the checkpointer
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}

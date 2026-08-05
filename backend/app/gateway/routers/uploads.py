@@ -2,8 +2,10 @@
 
 import logging
 import os
+import shlex
 import stat
 import tempfile
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
@@ -269,6 +271,112 @@ def _sync_upload_to_sandbox(sandbox, file_path: os.PathLike[str] | str, virtual_
     sandbox.update_file(virtual_path, Path(file_path).read_bytes())
 
 
+async def _convert_legacy_doc_via_sandbox(
+    *,
+    sandbox_provider: SandboxProvider,
+    sandbox,
+    thread_id: str,
+    user_id: str,
+    source_path: Path,
+) -> Path | None:
+    """Recover legacy ``.doc`` text through the task sandbox's LibreOffice.
+
+    MarkItDown handles DOCX but intentionally has no converter for the old OLE
+    binary Word format.  The AIO sandbox already carries LibreOffice for office
+    artifact rendering, so use a request-unique workspace directory to convert
+    DOC to DOCX and then feed that temporary DOCX back through DeerFlow's normal
+    ``convert_file_to_markdown()`` implementation.
+
+    This remains a last-resort path after both the enterprise Adapter and direct
+    local conversion have failed.  It does not broaden the Gateway image or
+    retain the temporary office document in the user's workspace.
+    """
+    if source_path.suffix.lower() != ".doc":
+        return None
+
+    active_sandbox = sandbox
+    workdir = f"/mnt/user-data/workspace/.deerflow-doc-fallback-{uuid.uuid4().hex}"
+    source_virtual_path = f"{workdir}/source.doc"
+    converted_virtual_path = f"{workdir}/source.docx"
+    temp_docx_path: Path | None = None
+    temp_md_path: Path | None = None
+
+    try:
+        if active_sandbox is None:
+            sandbox_id = await sandbox_provider.acquire_async(thread_id, user_id=user_id)
+            active_sandbox = sandbox_provider.get(sandbox_id)
+        if active_sandbox is None:
+            logger.warning("Legacy DOC fallback could not acquire a sandbox for %s", source_path.name)
+            return None
+
+        await run_file_io(
+            active_sandbox.execute_command,
+            f"set -eu; mkdir -p {shlex.quote(workdir)}",
+            timeout=30,
+        )
+        source_bytes = await run_file_io(source_path.read_bytes)
+        await run_file_io(active_sandbox.update_file, source_virtual_path, source_bytes)
+        command = (
+            "set -eu; "
+            "office_bin=; "
+            "for candidate in libreoffice soffice; do "
+            'if command -v "$candidate" >/dev/null 2>&1; then office_bin=$candidate; break; fi; '
+            "done; "
+            'test -n "$office_bin"; '
+            f'"$office_bin" --headless --convert-to docx --outdir {shlex.quote(workdir)} '
+            f"{shlex.quote(source_virtual_path)} >/dev/null; "
+            f"test -s {shlex.quote(converted_virtual_path)}"
+        )
+        await run_file_io(active_sandbox.execute_command, command, timeout=120)
+        docx_bytes = await run_file_io(active_sandbox.download_file, converted_virtual_path)
+        if not docx_bytes:
+            return None
+
+        temp_fd, temp_docx_name = tempfile.mkstemp(
+            prefix=UPLOAD_STAGING_PREFIX,
+            suffix=".docx",
+            dir=source_path.parent,
+        )
+        os.close(temp_fd)
+        temp_docx_path = Path(temp_docx_name)
+        await run_file_io(temp_docx_path.write_bytes, docx_bytes)
+
+        temp_md_path = await convert_file_to_markdown(temp_docx_path)
+        if temp_md_path is None or not temp_md_path.is_file():
+            return None
+
+        markdown = await run_file_io(temp_md_path.read_text, encoding="utf-8")
+        target_path = await run_file_io(_write_parsed_markdown, source_path, markdown)
+        logger.info(
+            "Converted legacy DOC %s to markdown through sandbox LibreOffice",
+            source_path.name,
+        )
+        return target_path
+    except Exception as exc:
+        logger.warning(
+            "Legacy DOC sandbox fallback failed for %s: %s",
+            source_path.name,
+            type(exc).__name__,
+        )
+        return None
+    finally:
+        for temp_path in (temp_md_path, temp_docx_path):
+            if temp_path is not None:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    logger.debug("Could not remove temporary legacy DOC file %s", temp_path)
+        if active_sandbox is not None:
+            try:
+                await run_file_io(
+                    active_sandbox.execute_command,
+                    f"rm -rf -- {shlex.quote(workdir)}",
+                    timeout=30,
+                )
+            except Exception:
+                logger.debug("Could not remove sandbox legacy DOC workspace %s", workdir)
+
+
 def _list_uploaded_files_for_thread(thread_id: str, user_id: str) -> dict:
     uploads_dir = get_uploads_dir(thread_id, user_id=user_id)
     result = list_files_in_dir(uploads_dir)
@@ -328,8 +436,13 @@ def _auto_convert_documents_enabled(app_config: AppConfig) -> bool:
     """Return whether automatic host-side document conversion is enabled.
 
     The secure default is disabled unless an operator explicitly opts in via
-    uploads.auto_convert_documents in config.yaml.
+    uploads.auto_convert_documents in config.yaml. Enterprise deployments may
+    set DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED explicitly so the release
+    manifest remains the source of truth for parser-failure fallback behavior.
     """
+    environment_override = os.getenv("DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED")
+    if environment_override is not None:
+        return environment_override.strip().lower() in {"1", "true", "yes", "on"}
     try:
         raw = _get_uploads_config_value(app_config, "auto_convert_documents", False)
         if isinstance(raw, str):
@@ -428,6 +541,7 @@ async def upload_files(
 
             file_ext = file_path.suffix.lower()
             parsed_document = False
+            parser_warning: str | None = None
             if file_ext in ENTERPRISE_PARSER_EXTENSIONS and document_parser_endpoint:
                 try:
                     document_content = await run_file_io(Path(file_path).read_bytes)
@@ -454,8 +568,7 @@ async def upload_files(
                     )
                     parsed_document = True
                 except UploadDocumentParseError as exc:
-                    processing_warning_count += 1
-                    file_info["processing_warning"] = "文档已上传，但企业文档解析服务暂时不可用；当前任务可能无法完整读取其中的文字。"
+                    parser_warning = "文档已上传，但企业文档解析服务和备用转换均未成功；当前任务可能无法完整读取其中的文字。"
                     logger.warning(
                         "Conversation document parser failed for %s: %s",
                         safe_filename,
@@ -464,6 +577,14 @@ async def upload_files(
 
             if auto_convert_documents and not parsed_document and file_ext in CONVERTIBLE_EXTENSIONS:
                 md_path = await convert_file_to_markdown(file_path)
+                if md_path is None and file_ext == ".doc":
+                    md_path = await _convert_legacy_doc_via_sandbox(
+                        sandbox_provider=sandbox_provider,
+                        sandbox=sandbox,
+                        thread_id=thread_id,
+                        user_id=effective_user_id,
+                        source_path=file_path,
+                    )
                 if md_path:
                     written_paths.append(md_path)
                     md_virtual_path = upload_virtual_path(md_path.name)
@@ -475,6 +596,11 @@ async def upload_files(
                     file_info["markdown_path"] = str(sandbox_uploads / md_path.name)
                     file_info["markdown_virtual_path"] = md_virtual_path
                     file_info["markdown_artifact_url"] = upload_artifact_url(thread_id, md_path.name)
+                    parsed_document = True
+
+            if parser_warning is not None and not parsed_document:
+                processing_warning_count += 1
+                file_info["processing_warning"] = parser_warning
 
             uploaded_files.append(file_info)
 

@@ -519,6 +519,7 @@ Failed commands and validation errors do not advance the workflow. Read the exac
                 "requires_final_gate": "--stage final" in activation.skill_content,
                 "requires_presentation_export": "svg_to_pptx.py" in activation.skill_content,
                 "requires_presentation_delivery": "present_files" in activation.skill_content,
+                "requires_localized_presentation_filename": activation.skill_name == "ppt-master" and bool(re.search(r"[\u3400-\u9fff]", activation.remaining_text)),
                 "requires_human_confirmation": "wait for explicit user confirmation" in activation.skill_content.lower(),
                 "human_confirmation_completed": False,
                 "svg_paths": [],
@@ -526,7 +527,10 @@ Failed commands and validation errors do not advance the workflow. Read the exac
                 "final_validated": False,
                 "presentation_export_completed": False,
                 "presentation_delivery_completed": False,
-                "presentation_completion_retry_count": 0,
+                "presentation_progress_revision": 0,
+                "presentation_completion_last_revision": None,
+                "presentation_completion_same_revision_retries": 0,
+                "presentation_completion_total_retries": 0,
             }
         activation_msg = self._make_activation_message(target, activation_content)
         messages = list(request.messages)
@@ -601,6 +605,42 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         if isinstance(response, ModelResponse):
             return ModelResponse(result=[*result_messages[:-1], updated_message], structured_response=response.structured_response)
         return updated_message
+
+    def _hide_incomplete_presentation_response(
+        self,
+        request: ModelRequest,
+        response: ModelResponse | AIMessage,
+    ) -> ModelResponse | AIMessage:
+        """Hide a premature presentation conclusion before it reaches run events.
+
+        ``after_model`` removes the same message and asks the model to continue,
+        but the model-end event is streamed before that state removal. Marking
+        the returned message here keeps recovery-only prose out of the browser
+        while retaining it in the audit event for diagnosis.
+        """
+        run_context = self._run_context(request)
+        cache = run_context.get(_SLASH_SKILL_ACTIVATION_CACHE_KEY) if isinstance(run_context, dict) else None
+        if not isinstance(cache, dict) or not self._presentation_incomplete_requirements(cache):
+            return response
+
+        result_messages = response.result if isinstance(response, ModelResponse) else [response]
+        if not result_messages or not isinstance(result_messages[-1], AIMessage):
+            return response
+        message = result_messages[-1]
+        if self._has_tool_call_intent(message) or (message.additional_kwargs or {}).get("deerflow_error_fallback"):
+            return response
+
+        additional_kwargs = dict(message.additional_kwargs or {})
+        additional_kwargs.update(
+            {
+                "hide_from_ui": True,
+                "presentation_completion_recovery": True,
+            }
+        )
+        hidden = message.model_copy(update={"additional_kwargs": additional_kwargs})
+        if isinstance(response, ModelResponse):
+            return ModelResponse(result=[*result_messages[:-1], hidden], structured_response=response.structured_response)
+        return hidden
 
     def _resolve_secret_bindings(self, request: ModelRequest, activation: _Activation | None, *, hook: str) -> None:
         """Recompute the per-run secret injection set (binding point A+, #3861/#3914).
@@ -1070,6 +1110,56 @@ Failed commands and validation errors do not advance the workflow. Read the exac
             return None
         name = request.tool_call.get("name")
         path = self._tool_path(request)
+        if name == "present_files" and cache.get("requires_presentation_delivery"):
+            raw_paths = self._tool_args(request).get("filepaths")
+            paths = [item for item in raw_paths if isinstance(item, str)] if isinstance(raw_paths, list) else []
+            deck_paths = [item for item in paths if posixpath.splitext(item.lower())[1] in {".ppt", ".pptx"}]
+            non_deck_paths = [item for item in paths if item not in deck_paths]
+            if not cache.get("presentation_export_completed"):
+                return ToolMessage(
+                    content=(
+                        "Error: present_files blocked. The active presentation workflow has not completed a successful "
+                        "svg_to_pptx.py export. Fix the reported project/SVG validation error, rerun the final quality gate, "
+                        "export a real PPT/PPTX, and publish only that final deck."
+                    ),
+                    tool_call_id=str(request.tool_call.get("id") or ""),
+                    name="present_files",
+                    status="error",
+                )
+            if not deck_paths:
+                return ToolMessage(
+                    content=(
+                        "Error: present_files blocked. PPT generation may publish only the final .ppt/.pptx deck in this call; "
+                        "do not publish SVG pages, notes, specifications, reports, backups, project directories, or preview "
+                        "companions. The platform creates and hides the paired preview PDF automatically."
+                    ),
+                    tool_call_id=str(request.tool_call.get("id") or ""),
+                    name="present_files",
+                    status="error",
+                )
+            if cache.get("requires_localized_presentation_filename"):
+                invalid_names = [posixpath.basename(item) for item in deck_paths if not re.search(r"[\u3400-\u9fff]", posixpath.basename(item)) or not re.search(r"(?:19|20)\d{6}", posixpath.basename(item))]
+                if invalid_names:
+                    return ToolMessage(
+                        content=(
+                            "Error: present_files blocked. A Chinese presentation task must deliver a Chinese topic filename "
+                            "with a YYYYMMDD date, for example `/mnt/user-data/outputs/中国海油党建教育宣讲_20260805_111535.pptx`. "
+                            f"Rename or copy the exported deck before publishing; invalid names: {', '.join(invalid_names)}"
+                        ),
+                        tool_call_id=str(request.tool_call.get("id") or ""),
+                        name="present_files",
+                        status="error",
+                    )
+            if non_deck_paths:
+                # Models occasionally include exporter reports or other
+                # intermediates beside the final deck despite the skill
+                # contract. Do not reject the valid deck with the invalid
+                # extras: normalize the call at the enforcement boundary so
+                # present_files can persist the PPTX and create its hidden
+                # paired preview PDF.
+                sanitized_args = dict(self._tool_args(request))
+                sanitized_args["filepaths"] = deck_paths
+                request.tool_call["args"] = sanitized_args
         if name in {"write_file", "str_replace"} and self._is_svg_output_path(path):
             existing = [item for item in cache.get("svg_paths", []) if isinstance(item, str)]
             if cache.get("requires_first_page_gate") and existing and path not in existing and not cache.get("first_page_validated"):
@@ -1130,9 +1220,14 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         path = self._tool_path(request)
         if name in {"write_file", "str_replace"} and self._is_svg_output_path(path):
             self._record_svg_paths(cache, [path])
+            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
             return
         if name == "present_files":
-            cache["presentation_delivery_completed"] = True
+            raw_paths = self._tool_args(request).get("filepaths")
+            paths = [item for item in raw_paths if isinstance(item, str)] if isinstance(raw_paths, list) else []
+            cache["presentation_delivery_completed"] = any(posixpath.splitext(item.lower())[1] in {".ppt", ".pptx"} for item in paths)
+            if cache["presentation_delivery_completed"]:
+                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
             return
         if name != "bash":
             return
@@ -1142,15 +1237,20 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         bash_svg_paths = self._bash_svg_output_paths(command)
         if bash_svg_paths:
             self._record_svg_paths(cache, bash_svg_paths)
+            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
         if "confirm_ui/server.py" in command and "--wait-only" in command and "--wait-stage" not in command:
             cache["human_confirmation_completed"] = True
+            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
         if "svg_quality_checker.py" in command:
             if "--stage first-page" in command:
                 cache["first_page_validated"] = True
+                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
             if "--stage final" in command:
                 cache["final_validated"] = True
+                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
         if "svg_to_pptx.py" in command:
             cache["presentation_export_completed"] = True
+            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
 
     @staticmethod
     def _presentation_incomplete_requirements(cache: dict) -> list[str]:
@@ -1187,14 +1287,23 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         if not requirements:
             return None
 
-        retry_count = int(cache.get("presentation_completion_retry_count") or 0)
-        if retry_count == 0:
-            cache["presentation_completion_retry_count"] = 1
+        revision = int(cache.get("presentation_progress_revision") or 0)
+        last_revision = cache.get("presentation_completion_last_revision")
+        same_revision_retries = int(cache.get("presentation_completion_same_revision_retries") or 0)
+        if last_revision != revision:
+            same_revision_retries = 0
+        total_retries = int(cache.get("presentation_completion_total_retries") or 0)
+        if same_revision_retries == 0 and total_retries < 8:
+            cache["presentation_completion_last_revision"] = revision
+            cache["presentation_completion_same_revision_retries"] = 1
+            cache["presentation_completion_total_retries"] = total_retries + 1
             cache["presentation_completion_pending"] = requirements
             updates = [RemoveMessage(id=last.id)] if last.id else []
             return {"messages": updates, "jump_to": "model"}
 
         additional_kwargs = dict(last.additional_kwargs or {})
+        additional_kwargs.pop("hide_from_ui", None)
+        additional_kwargs.pop("presentation_completion_recovery", None)
         additional_kwargs.update(
             {
                 "deerflow_error_fallback": True,
@@ -1281,7 +1390,8 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         prepared = self._handle_model_request(self._augment_presentation_completion_request(request), hook="wrap_model_call")
         if isinstance(prepared, AIMessage):
             return prepared
-        return self._ensure_structured_confirmation(prepared, handler(prepared))
+        response = self._ensure_structured_confirmation(prepared, handler(prepared))
+        return self._hide_incomplete_presentation_response(prepared, response)
 
     @override
     async def awrap_model_call(
@@ -1296,4 +1406,5 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         )
         if isinstance(prepared, AIMessage):
             return prepared
-        return self._ensure_structured_confirmation(prepared, await handler(prepared))
+        response = self._ensure_structured_confirmation(prepared, await handler(prepared))
+        return self._hide_incomplete_presentation_response(prepared, response)

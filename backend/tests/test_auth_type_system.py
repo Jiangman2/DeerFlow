@@ -570,6 +570,8 @@ def test_api_auth_me_auth_disabled_returns_synthetic_user(monkeypatch):
     body = resp.json()
     assert body["id"] == AUTH_DISABLED_USER_ID
     assert body["oauth_provider"] is None
+    assert body["display_name"] == "Local Administrator"
+    assert body["organization_name"] is None
 
 
 def test_api_auth_me_expired_token_returns_structured_401():

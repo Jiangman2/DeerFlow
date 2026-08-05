@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  getDashboardFailures,
   getDashboardSummary,
   getDashboardUsers,
   getDashboardUserSessions,
@@ -46,5 +47,14 @@ export function useDashboardUserSessions(
     enabled: Boolean(userId),
     staleTime: 20_000,
     refetchInterval: 60_000,
+  });
+}
+
+export function useDashboardFailures(limit = 5, offset = 0) {
+  return useQuery({
+    queryKey: ["dashboard", "failures", limit, offset],
+    queryFn: () => getDashboardFailures(limit, offset),
+    staleTime: 5_000,
+    refetchInterval: 15_000,
   });
 }

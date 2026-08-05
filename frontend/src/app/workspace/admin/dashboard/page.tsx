@@ -24,6 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   useDashboardSummary,
+  useDashboardFailures,
   useDashboardUsers,
   useDashboardUserSessions,
   activityBarPercent,
@@ -43,7 +44,6 @@ import {
   type UserActivityPoint,
   type UserUsageItem,
 } from "@/core/dashboard";
-import { getDashboardPage } from "@/core/dashboard/pagination";
 import { useObservabilityAnalytics } from "@/core/observability";
 import type { TraceSummary } from "@/core/observability";
 import { cn } from "@/lib/utils";
@@ -1273,7 +1273,7 @@ function RunRanking({ title, rows }: { title: string; rows: TraceSummary[] }) {
                     </div>
                     <Link
                       className="mt-2 inline-flex items-center gap-1 text-cyan-700 hover:text-cyan-900"
-                      href={`/workspace/chats/${run.thread_id}`}
+                      href={`/workspace/chats/${run.thread_id}?admin_review=1`}
                     >
                       查看原对话 <ExternalLinkIcon className="size-3" />
                     </Link>
@@ -1293,28 +1293,42 @@ function RunRanking({ title, rows }: { title: string; rows: TraceSummary[] }) {
   );
 }
 
-function RecentFailures({ rows }: { rows: RecentFailureItem[] }) {
-  const [page, setPage] = useState(0);
-  const {
-    currentPage,
-    totalPages,
-    rows: pageRows,
-  } = getDashboardPage(rows, page);
+function FailedRuns({
+  rows,
+  total,
+  page,
+  isLoading,
+  isError,
+  onPageChange,
+}: {
+  rows: RecentFailureItem[];
+  total: number;
+  page: number;
+  isLoading: boolean;
+  isError: boolean;
+  onPageChange: (page: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(total / 5));
+  const currentPage = Math.min(page, totalPages - 1);
   return (
     <Card className="min-w-0 rounded-lg shadow-none">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <AlertTriangleIcon className="size-4" />
-          近期失败运行
+          全部失败运行（{compactNumber(total)}）
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
-          <EmptyState label="当前时间范围内没有失败运行" />
+        {isLoading ? (
+          <EmptyState label="正在加载失败运行" />
+        ) : isError ? (
+          <EmptyState label="失败运行加载失败，请刷新后重试" />
+        ) : rows.length === 0 ? (
+          <EmptyState label="目前没有失败运行" />
         ) : (
           <div className="space-y-3">
             <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-              {pageRows.map((row) => (
+              {rows.map((row) => (
                 <div
                   key={row.run_id}
                   className="rounded-lg border border-red-100 bg-red-50/30 p-3 text-sm"
@@ -1323,12 +1337,22 @@ function RecentFailures({ rows }: { rows: RecentFailureItem[] }) {
                     <span className="truncate font-medium text-slate-800">
                       {row.run_id}
                     </span>
-                    <Link
-                      className="shrink-0 text-xs text-red-700 hover:text-red-900"
-                      href={row.chat_url}
-                    >
-                      查看原对话 <ExternalLinkIcon className="inline size-3" />
-                    </Link>
+                    {row.can_open && row.chat_url ? (
+                      <Link
+                        className="shrink-0 text-xs text-red-700 hover:text-red-900"
+                        href={row.chat_url}
+                      >
+                        查看原对话{" "}
+                        <ExternalLinkIcon className="inline size-3" />
+                      </Link>
+                    ) : (
+                      <Link
+                        className="shrink-0 text-xs text-amber-700 hover:text-amber-900"
+                        href={row.diagnostics_url}
+                      >
+                        查看诊断 <ExternalLinkIcon className="inline size-3" />
+                      </Link>
+                    )}
                   </div>
                   <div className="mt-2 line-clamp-2 text-xs text-red-700">
                     {row.error ?? row.status}
@@ -1342,7 +1366,7 @@ function RecentFailures({ rows }: { rows: RecentFailureItem[] }) {
             <RankingPagination
               page={currentPage}
               totalPages={totalPages}
-              onPageChange={setPage}
+              onPageChange={onPageChange}
             />
           </div>
         )}
@@ -1394,6 +1418,7 @@ export default function DashboardPage() {
     toDateTimeLocal(new Date(Date.now() - 24 * 3_600_000)),
   );
   const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
+  const [failurePage, setFailurePage] = useState(0);
   const draftStart = isoFromDateTimeLocal(customStart);
   const draftEnd = isoFromDateTimeLocal(customEnd);
   const draftHours = hoursBetween(draftStart, draftEnd);
@@ -1410,6 +1435,7 @@ export default function DashboardPage() {
     [activeHours, rangeEnd, rangeStart],
   );
   const summaryQuery = useDashboardSummary(filters);
+  const failuresQuery = useDashboardFailures(5, failurePage * 5);
   const analyticsQuery = useObservabilityAnalytics(
     activeHours,
     activeHours > 48 ? "day" : "hour",
@@ -1491,13 +1517,20 @@ export default function DashboardPage() {
               onClick={() => {
                 void summaryQuery.refetch();
                 void analyticsQuery.refetch();
+                void failuresQuery.refetch();
               }}
-              disabled={summaryQuery.isFetching || analyticsQuery.isFetching}
+              disabled={
+                summaryQuery.isFetching ||
+                analyticsQuery.isFetching ||
+                failuresQuery.isFetching
+              }
             >
               <RefreshCwIcon
                 className={cn(
                   "size-4",
-                  (summaryQuery.isFetching || analyticsQuery.isFetching) &&
+                  (summaryQuery.isFetching ||
+                    analyticsQuery.isFetching ||
+                    failuresQuery.isFetching) &&
                     "animate-spin",
                 )}
               />
@@ -1653,7 +1686,14 @@ export default function DashboardPage() {
             title="高 Token 运行排行（已完成）"
             rows={analyticsQuery.data?.high_token_runs ?? []}
           />
-          <RecentFailures rows={summary?.recent_failures ?? []} />
+          <FailedRuns
+            rows={failuresQuery.data?.items ?? []}
+            total={failuresQuery.data?.total ?? 0}
+            page={failurePage}
+            isLoading={failuresQuery.isLoading}
+            isError={failuresQuery.isError}
+            onPageChange={setFailurePage}
+          />
         </div>
 
         <ExternalPlatformClicks

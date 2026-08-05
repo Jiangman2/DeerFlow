@@ -44,8 +44,17 @@ artifact delivery. Reject active/server-executable upload extensions before
 write, validate staged PDFs before atomic replacement, force original uploaded
 documents and suspicious generated PDFs to hardened download responses, and
 keep inert generated PDF previews behind response CSP plus a scriptless,
-opaque-origin iframe sandbox. Do not rely on filename MIME guessing or frontend
-validation alone.
+opaque-origin iframe sandbox. The browser-facing PowerPoint preview route
+renders validated companion PDFs into a static HTML gallery of server-side PNG
+pages so enterprise browsers do not depend on their native PDF plug-in; keep
+PDFium work serialized and off the event loop. LibreOffice's direct first-page destination
+`OpenAction` is inert only when it matches the strict page-reference array;
+indirect or executable actions remain download-only. Do not rely on filename
+MIME guessing or frontend validation alone.
+After artifact read authorization succeeds, resolve the storage bucket from the
+trusted `threads_meta.user_id` owner record rather than the current viewer. This
+keeps owner and administrator read-only views on the same thread files while
+preventing a browser from selecting an arbitrary user bucket.
 Conversation PDF/DOC/DOCX/PPT/PPTX uploads reuse the configured WeKnora/MinerU
 adapter to write a same-stem Markdown companion without creating
 knowledge-base records. Searchable and scanned PDFs retain their
@@ -53,7 +62,20 @@ adapter-specific routing, Word uses its native-plus-visual path, and
 presentations use its presentation conversion path. Presented PPT/PPTX outputs
 separately rely on the active sandbox's LibreOffice to generate a missing
 `.preview.pdf`; keep both integrations outside the `ppt-master` skill package
-and preserve graceful fallback when the parser or renderer is unavailable.
+and read the original sandbox-visible workspace source before Gateway publishes
+the normalized outputs copy. A deck is not published until that paired preview
+has been generated and persisted, so clicking every successfully delivered
+PPT/PPTX has a real browser preview. Hosted sandbox loopback URLs must never be
+shown to browser users, and Chinese tasks publish a Chinese topic filename with
+a date/time suffix instead of exposing the internal pinyin project slug.
+PPT generation completion is hard-gated: a failed subprocess must not disable
+the general Bash transport, `present_files` may satisfy an active presentation
+workflow only with a real `.ppt`/`.pptx`, and SVG/specification intermediates
+must never be accepted as a completed deck. Premature model conclusions while
+those gates remain incomplete are recovery-only messages: hide them before run
+events reach the browser and retry again whenever a recognized presentation
+tool produced progress; only repeated no-progress conclusions may become a
+visible workflow failure.
 
 In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 `/platform/knowledge-bases`. Keep that proxy on the `weknora-frontend` Kubernetes
@@ -249,9 +271,15 @@ Enterprise Kubernetes storage note:
   `deer-flow-env`, keep `trust_env=false`, and keep
   the exact AppForge address in both Gateway proxy-bypass variables. Never
   expose those values as model tool arguments or return raw upstream errors.
+- AppForge knowledge results may contain image URLs served from the reviewed
+  internal image-preview address. Retain that exact address in Gateway and
+  Provisioner `NO_PROXY`/`no_proxy` so newly created Sandbox Pods download the
+  original image over the direct internal route. Do not replace this narrow
+  entry with a broad private-network CIDR.
 - The WeKnora built-in Bailian ASR model points to the internal Gateway adapter because WeKnora 0.7.0 and `qwen3-asr-flash` use different request shapes. Keep the bare `gateway` Service name in the WeKnora App proxy-bypass variables; the adapter reuses the Bailian LLM key and never persists uploaded audio.
 - The WeKnora built-in `text-embedding-v4` model also points to `http://gateway:8001/api/weknora/bailian/v1`. Gateway validates `EMBEDDING_API_KEY` and relays `/embeddings` through its scoped enterprise proxy/CA/OpenSSL compatibility path without persisting document text; do not restore a direct DashScope URL in the WeKnora database.
 - Enterprise PDF/DOC/DOCX/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It keeps searchable PDF/Word text on the bundled WeKnora parsers, merges native Word text/images with a temporary PDF visual pass, adds captioned full-page evidence for searchable pages containing images/vector figures, converts presentations to PDF, and sends scanned or mixed documents to the internal MinerU API. The PDF detector uses text length plus image-area coverage. If PDFium rejects a browser-readable document during routing inspection, the adapter first attempts the independent builtin parser and otherwise continues to MinerU; source-page rendering failures must not discard already recovered text. MinerU inline images and all visual evidence are extracted into WeKnora's persistent `images` contract with Markdown references. The adapter intentionally serializes every PDFium/DocReader parse in one process because those native libraries are not concurrency-safe; its threaded HTTP server keeps `/health` responsive and reports active/waiting parser counts while uploads queue. Do not bypass that coordinator or add in-process parser concurrency. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; documents indexed by an older parser release must be re-parsed before their missing images can be retrieved.
+- Enterprise conversation uploads set `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`, so an unavailable or unsuccessful Adapter call falls back once to DeerFlow's local `convert_file_to_markdown()` path. Keep the Adapter as the primary parser; the fallback runs in Gateway and provides text recovery rather than the Adapter's complete OCR and visual-evidence contract. MarkItDown does not understand legacy binary `.doc`, so that one format may use the task sandbox's LibreOffice to create a request-scoped temporary DOCX before it re-enters `convert_file_to_markdown()`; never retain the temporary office file or add LibreOffice to Gateway. A user-visible processing warning is emitted only if both paths fail.
 - The audited three-node enterprise layout runs three MinerU Adapter replicas with required hostname anti-affinity, one independent process per node. Each process remains internally serialized through `ParseCoordinator`. Keep the single WeKnora App replica at `WEKNORA_ASYNQ_CORE_CONCURRENCY=2` plus `WEKNORA_ASYNQ_SHARED_CONCURRENCY=1`, so at most three parser calls are active and later uploads stay in Redis/Asynq. Scaling WeKnora App replicas or either worker pool multiplies that limit and requires a matching parser-capacity review. Because anti-affinity leaves no fourth node, keep the adapter RollingUpdate at `maxSurge: 0`, `maxUnavailable: 1`, and retain its `minAvailable: 2` PodDisruptionBudget.
 
 ## Commands: Root vs. Module

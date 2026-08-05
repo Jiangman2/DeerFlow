@@ -439,6 +439,136 @@ def test_upload_files_keeps_pdf_when_enterprise_parser_is_unavailable(tmp_path):
     assert "kept without enterprise parsed text" in result.message
 
 
+def test_upload_files_falls_back_to_local_conversion_after_enterprise_parser_failure(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+
+    async def fake_convert(file_path: Path) -> Path:
+        md_path = file_path.with_suffix(".md")
+        md_path.write_text("# Local fallback\n\nRecovered Word text", encoding="utf-8")
+        return md_path
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 502")),
+        ),
+        patch.object(
+            uploads,
+            "convert_file_to_markdown",
+            AsyncMock(side_effect=fake_convert),
+        ) as converter,
+    ):
+        file = UploadFile(filename="report.docx", file=BytesIO(b"word-document"))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].markdown_file == "report.md"
+    assert result.files[0].processing_warning is None
+    assert "Recovered Word text" in (thread_uploads_dir / "report.md").read_text(
+        encoding="utf-8",
+    )
+    converter.assert_awaited_once_with(thread_uploads_dir / "report.docx")
+    assert "kept without enterprise parsed text" not in result.message
+
+
+def test_upload_files_recovers_legacy_doc_through_sandbox_after_local_conversion_failure(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    provider = MagicMock()
+    provider.uses_thread_data_mounts = True
+    provider.acquire_async = AsyncMock(return_value="legacy-doc-sandbox")
+    sandbox = MagicMock()
+    sandbox.download_file.return_value = b"converted-docx-bytes"
+    provider.get.return_value = sandbox
+
+    async def fake_convert(file_path: Path) -> Path | None:
+        if file_path.suffix.lower() == ".doc":
+            return None
+        assert file_path.suffix.lower() == ".docx"
+        md_path = file_path.with_suffix(".md")
+        md_path.write_text("# Legacy Word\n\nRecovered DOC text", encoding="utf-8")
+        return md_path
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=provider),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 502")),
+        ),
+        patch.object(
+            uploads,
+            "convert_file_to_markdown",
+            AsyncMock(side_effect=fake_convert),
+        ) as converter,
+    ):
+        file = UploadFile(filename="report.doc", file=BytesIO(b"legacy-word-document"))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-legacy-doc",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].markdown_file == "report.md"
+    assert result.files[0].processing_warning is None
+    assert "Recovered DOC text" in (thread_uploads_dir / "report.md").read_text(
+        encoding="utf-8",
+    )
+    provider.acquire_async.assert_awaited_once_with(
+        "thread-legacy-doc",
+        user_id="test-user-autouse",
+    )
+    assert converter.await_count == 2
+    sandbox.update_file.assert_called_once()
+    assert sandbox.download_file.call_args.args[0].endswith("/source.docx")
+    assert any("--convert-to docx" in call.args[0] for call in sandbox.execute_command.call_args_list)
+    assert "kept without enterprise parsed text" not in result.message
+
+
+def test_enterprise_environment_can_enable_document_conversion_fallback():
+    config = SimpleNamespace(uploads=SimpleNamespace(auto_convert_documents=False))
+
+    with patch.dict(
+        os.environ,
+        {"DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED": "true"},
+    ):
+        assert uploads._auto_convert_documents_enabled(config) is True
+
+
 def test_upload_files_syncs_non_local_sandbox_and_marks_markdown_file(tmp_path):
     thread_uploads_dir = tmp_path / "uploads"
     thread_uploads_dir.mkdir(parents=True)
