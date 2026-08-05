@@ -781,7 +781,7 @@ Publish the resulting files with `present_files`.
     assert "PPT" in str(replacement.content)
 
 
-def test_skill_activation_rejects_intermediate_presentation_delivery(monkeypatch, tmp_path):
+def test_skill_activation_does_not_rewrite_upstream_presentation_delivery(monkeypatch, tmp_path):
     content = """# Deck Skill
 Run `svg_quality_checker.py <project> --stage final` before `svg_to_pptx.py`.
 Publish the resulting files with `present_files`.
@@ -819,8 +819,7 @@ Publish the resulting files with `present_files`.
         success,
     )
     assert isinstance(before_export, ToolMessage)
-    assert before_export.status == "error"
-    assert "has not completed" in str(before_export.content)
+    assert before_export.status != "error"
 
     middleware.wrap_tool_call(
         request("bash", {"command": "python svg_to_pptx.py project"}, "export-pptx"),
@@ -831,8 +830,7 @@ Publish the resulting files with `present_files`.
         success,
     )
     assert isinstance(intermediates, ToolMessage)
-    assert intermediates.status == "error"
-    assert "only the final .ppt/.pptx" in str(intermediates.content)
+    assert intermediates.status != "error"
 
     delivered_paths: list[str] = []
 
@@ -855,7 +853,10 @@ Publish the resulting files with `present_files`.
     )
     assert isinstance(mixed_delivery, ToolMessage)
     assert mixed_delivery.status != "error"
-    assert delivered_paths == ["/mnt/user-data/outputs/final.pptx"]
+    assert delivered_paths == [
+        "/mnt/user-data/outputs/final.pptx",
+        "/mnt/user-data/outputs/final.report.json",
+    ]
 
     delivered = middleware.wrap_tool_call(
         request("present_files", {"filepaths": ["/mnt/user-data/outputs/final.pptx"]}, "publish-pptx"),
@@ -866,7 +867,69 @@ Publish the resulting files with `present_files`.
     assert cache["presentation_delivery_completed"] is True
 
 
-def test_ppt_master_requires_chinese_dated_delivery_name_for_chinese_task(monkeypatch, tmp_path):
+def test_ppt_master_delivery_is_not_bound_to_svg_export(monkeypatch, tmp_path):
+    content = """# PPT Master
+Native route: run `template_fill_pptx.py apply`, then `template_fill_pptx.py validate`.
+SVG route: run `svg_quality_checker.py --stage final`, then `svg_to_pptx.py`.
+Publish the resulting deck with `present_files`.
+"""
+    skill = _make_skill(tmp_path, "ppt-master", content=content)
+    monkeypatch.setattr(
+        middleware_module,
+        "get_or_new_skill_storage",
+        lambda **kwargs: _make_storage(tmp_path, [skill]),
+    )
+    runtime = SimpleNamespace(context={"thread_id": "thread-1", "run_id": "run-1"})
+    middleware = SkillActivationMiddleware()
+    slash = HumanMessage(content="/ppt-master build from template", id="msg-native")
+    middleware.wrap_model_call(
+        _make_model_request([slash], runtime=runtime),
+        lambda request: AIMessage(content="ok"),
+    )
+
+    def request(name: str, args: dict, call_id: str) -> ToolCallRequest:
+        return ToolCallRequest(
+            tool_call={"name": name, "args": args, "id": call_id},
+            tool=None,
+            state={"messages": []},
+            runtime=runtime,
+        )
+
+    def success(req: ToolCallRequest) -> ToolMessage:
+        return ToolMessage(
+            content="ok",
+            tool_call_id=str(req.tool_call["id"]),
+            name=str(req.tool_call["name"]),
+        )
+
+    middleware.wrap_tool_call(
+        request(
+            "bash",
+            {
+                "command": (
+                    "python template_fill_pptx.py apply template.pptx fill_plan.json "
+                    "-o /mnt/user-data/outputs/final.pptx"
+                )
+            },
+            "native-apply",
+        ),
+        success,
+    )
+    delivered = middleware.wrap_tool_call(
+        request(
+            "present_files",
+            {"filepaths": ["/mnt/user-data/outputs/final.pptx"]},
+            "native-publish",
+        ),
+        success,
+    )
+    assert isinstance(delivered, ToolMessage)
+    assert delivered.status != "error"
+    cache = runtime.context["__slash_skill_activation_cache"]
+    assert cache["presentation_delivery_completed"] is True
+
+
+def test_ppt_master_localized_filename_is_guidance_not_a_delivery_gate(monkeypatch, tmp_path):
     content = """# PPT Master
 Run `svg_to_pptx.py <project>` and publish the resulting deck with `present_files`.
 """
@@ -894,13 +957,12 @@ Run `svg_to_pptx.py <project>` and publish the resulting deck with `present_file
         success,
     )
 
-    rejected = middleware.wrap_tool_call(
+    accepted_pinyin = middleware.wrap_tool_call(
         request("present_files", {"filepaths": ["/mnt/user-data/outputs/jijiaoxue-ppt_20260805_111535.pptx"]}, "publish-pinyin"),
         success,
     )
-    assert isinstance(rejected, ToolMessage)
-    assert rejected.status == "error"
-    assert "Chinese topic filename" in str(rejected.content)
+    assert isinstance(accepted_pinyin, ToolMessage)
+    assert accepted_pinyin.status != "error"
 
     accepted = middleware.wrap_tool_call(
         request("present_files", {"filepaths": ["/mnt/user-data/outputs/中国海油党建教育宣讲_20260805_111535.pptx"]}, "publish-chinese"),
@@ -908,6 +970,31 @@ Run `svg_to_pptx.py <project>` and publish the resulting deck with `present_file
     )
     assert isinstance(accepted, ToolMessage)
     assert accepted.status != "error"
+
+
+def test_ppt_master_activation_injects_minimal_deerflow_hosted_adapter(monkeypatch, tmp_path):
+    skill = _make_skill(tmp_path, "ppt-master", content="# PPT Master\nFollow the selected upstream route.")
+    monkeypatch.setattr(middleware_module, "get_or_new_skill_storage", lambda **kwargs: _make_storage(tmp_path, [skill]))
+
+    captured: dict[str, list] = {}
+    runtime = SimpleNamespace(context={})
+    middleware = SkillActivationMiddleware()
+
+    def handler(request):
+        captured["messages"] = request.messages
+        return AIMessage(content="ok")
+
+    middleware.wrap_model_call(
+        _make_model_request([HumanMessage(content="/ppt-master 制作演示文稿", id="msg-hosted")], runtime=runtime),
+        handler,
+    )
+    activation = next(message for message in captured["messages"] if is_slash_skill_activation_reminder(message))
+    text = str(activation.content)
+    assert "/mnt/user-data/workspace/projects" in text
+    assert "Do not publish `127.0.0.1` or `localhost`" in text
+    assert "call `present_files`" in text
+    assert "DeerFlow creates and serves the hidden paired PDF preview" in text
+    assert "does not replace, shorten, or add gates" in text
 
 
 def test_skill_activation_requires_real_user_confirmation_before_design_contract(monkeypatch, tmp_path):

@@ -25,7 +25,7 @@ configMapGenerator:
 images:
   - name: deer-flow-gateway
     newName: deer-flow-gateway
-    newTag: dev-20260805-pptpreviewfix2
+    newTag: dev-20260805-pptmaster-upstream-v1
   - name: deer-flow-mineru-adapter
     newName: deer-flow-mineru-adapter
     newTag: dev-20260729-mineru-stability-v1
@@ -37,4 +37,4 @@ images:
     newTag: dev-20260730-bailian-image-v3
   - name: deer-flow-skills
     newName: deer-flow-skills
-    newTag: dev-20260805-pptpreviewfix1
+    newTag: dev-20260805-pptmaster-upstream-v1

@@ -229,6 +229,23 @@ Enterprise Kubernetes storage note:
   a narrow route policy, not a blanket external-network bypass. Do not restore empty
   proxy overrides in `config.yaml`, rely only on the Sandbox image's build-time
   CA snapshot, or replace either path with `verify=false`.
+- Every provisioned enterprise Sandbox uses the release-pinned PPT-capable
+  `SANDBOX_IMAGE`. Keep that image preloaded with the complete dependency set
+  declared by the vendored upstream `ppt-master`, together with its documented
+  undeclared runtime requirements (including Playwright/Chromium, LibreOffice,
+  Pandoc, Cairo, FFmpeg, and CJK fonts). A change to
+  `skills/public/ppt-master/requirements.txt` therefore requires rebuilding,
+  distributing, importing, and smoke-testing the Sandbox image on every worker;
+  updating only the Skills PVC is insufficient. Never install these dependencies
+  on demand during a conversational run. Existing Sandbox Pods retain their old
+  image and must be replaced before release acceptance tests.
+- Long presentation workflows may legitimately invoke `bash` far more often
+  than ordinary tools. Keep the enterprise runtime's per-tool loop-detection
+  override bounded (currently warn at 120 and stop at 240) while retaining the
+  global 30/50 limits for all other tools and the identical-call loop guard.
+  The enterprise 1M-token chat model compacts at 85%, retains 40% of recent
+  context, and caps summarizer input at 393216 tokens; do not disable
+  summarization or remove output headroom to accommodate a single workflow.
 - The shared Skills PVC sync must normalize `a+rX` only on the platform-owned
   `public` and `third_party` trees after archive extraction. Source archives can
   preserve `0640 root:root`, which Gateway can read but the sandbox file API

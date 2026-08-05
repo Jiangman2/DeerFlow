@@ -46,6 +46,16 @@ logger = logging.getLogger(__name__)
 _SLASH_SKILL_ACTIVATION_KEY = "slash_skill_activation"
 _SLASH_SKILL_ACTIVATION_TARGET_ID_KEY = "slash_skill_activation_target_id"
 
+_PPT_MASTER_DEERFLOW_ADAPTER = """<deerflow_hosted_adapter>
+This adapter changes only hosted paths, user interaction, and final file delivery. It does not replace, shorten, or add gates to the selected upstream PPT Master route.
+- Run project work under `/mnt/user-data/workspace` (normally `/mnt/user-data/workspace/projects`). Never create a project under the read-only Skill directory or use `/mnt/user-data/outputs` as the project workspace.
+- The sandbox loopback interface is not reachable from the user's browser. Do not publish `127.0.0.1` or `localhost` preview links.
+  When an upstream confirmation page cannot be exposed, use the route's documented chat fallback through DeerFlow `ask_clarification`.
+- Keep intermediate files inside the upstream project layout. When the selected route produces a final PPT/PPTX, copy the final deck
+  to `/mnt/user-data/outputs` with a meaningful filename in the user's language and call `present_files` with the real deck.
+- Do not manufacture or publish a preview PDF. DeerFlow creates and serves the hidden paired PDF preview after successful PPT/PPTX delivery.
+</deerflow_hosted_adapter>"""
+
 _PRESENTATION_COMPLETION_REMINDER = """<system_reminder>
 PPT 工作流尚未完成，不能把当前回复作为最终答案。请从现有项目文件继续执行，不要重新开始，也不要修改技能包：
 {requirements}
@@ -261,6 +271,7 @@ For every BLOCKING chat-fallback confirmation, call the native `ask_clarificatio
 Do not merely print the recommendations and end the turn, and do not rely on generated quick-reply suggestions: only the structured clarification response preserves the active workflow and counts as user confirmation.
 </deerflow_confirmation_adapter>
 """
+        hosted_adapter = _PPT_MASTER_DEERFLOW_ADAPTER if activation.skill_name == "ppt-master" else ""
         return f"""<slash_skill_activation>
 The user explicitly activated the `{escaped_skill_name}` skill for this turn.
 Treat the task text as:
@@ -281,6 +292,7 @@ Do not skip mandatory phase gates. A failed command or validation result does no
 {escaped_skill_content}
 </skill_content>
 </skill>
+{hosted_adapter}
 </slash_skill_activation>"""
 
     @staticmethod
@@ -309,6 +321,7 @@ Do not skip mandatory phase gates. A failed command or validation result does no
         if "wait for explicit user confirmation" in activation.skill_content.lower():
             phase_contract += "- A BLOCKING confirmation requires a real user response; never choose or confirm recommendations on the user's behalf.\n"
             phase_contract += '- In DeerFlow chat fallback, call `ask_clarification` with `clarification_type="suggestion"`; plain text plus quick replies is not the confirmation gate.\n'
+        hosted_adapter = _PPT_MASTER_DEERFLOW_ADAPTER if activation.skill_name == "ppt-master" else ""
         return f"""<slash_skill_continuation name="{escaped_skill_name}" path="{escaped_path}">
 Continue following the already activated skill. Do not substitute a general workflow or invent commands, schemas, parameters, or phase order.
 For every independent shell command that uses `${{SKILL_DIR}}`, first declare:
@@ -316,6 +329,7 @@ export SKILL_DIR='{escaped_skill_dir}'
 {reference_contract}<mandatory_phase_gates>
 {phase_contract or "- Preserve every mandatory gate declared by the activated skill.\n"}</mandatory_phase_gates>
 Failed commands and validation errors do not advance the workflow. Read the exact reference or command `--help`, fix the owning source, and retry the same gate.
+{hosted_adapter}
 </slash_skill_continuation>"""
 
     @staticmethod
@@ -1110,56 +1124,6 @@ Failed commands and validation errors do not advance the workflow. Read the exac
             return None
         name = request.tool_call.get("name")
         path = self._tool_path(request)
-        if name == "present_files" and cache.get("requires_presentation_delivery"):
-            raw_paths = self._tool_args(request).get("filepaths")
-            paths = [item for item in raw_paths if isinstance(item, str)] if isinstance(raw_paths, list) else []
-            deck_paths = [item for item in paths if posixpath.splitext(item.lower())[1] in {".ppt", ".pptx"}]
-            non_deck_paths = [item for item in paths if item not in deck_paths]
-            if not cache.get("presentation_export_completed"):
-                return ToolMessage(
-                    content=(
-                        "Error: present_files blocked. The active presentation workflow has not completed a successful "
-                        "svg_to_pptx.py export. Fix the reported project/SVG validation error, rerun the final quality gate, "
-                        "export a real PPT/PPTX, and publish only that final deck."
-                    ),
-                    tool_call_id=str(request.tool_call.get("id") or ""),
-                    name="present_files",
-                    status="error",
-                )
-            if not deck_paths:
-                return ToolMessage(
-                    content=(
-                        "Error: present_files blocked. PPT generation may publish only the final .ppt/.pptx deck in this call; "
-                        "do not publish SVG pages, notes, specifications, reports, backups, project directories, or preview "
-                        "companions. The platform creates and hides the paired preview PDF automatically."
-                    ),
-                    tool_call_id=str(request.tool_call.get("id") or ""),
-                    name="present_files",
-                    status="error",
-                )
-            if cache.get("requires_localized_presentation_filename"):
-                invalid_names = [posixpath.basename(item) for item in deck_paths if not re.search(r"[\u3400-\u9fff]", posixpath.basename(item)) or not re.search(r"(?:19|20)\d{6}", posixpath.basename(item))]
-                if invalid_names:
-                    return ToolMessage(
-                        content=(
-                            "Error: present_files blocked. A Chinese presentation task must deliver a Chinese topic filename "
-                            "with a YYYYMMDD date, for example `/mnt/user-data/outputs/中国海油党建教育宣讲_20260805_111535.pptx`. "
-                            f"Rename or copy the exported deck before publishing; invalid names: {', '.join(invalid_names)}"
-                        ),
-                        tool_call_id=str(request.tool_call.get("id") or ""),
-                        name="present_files",
-                        status="error",
-                    )
-            if non_deck_paths:
-                # Models occasionally include exporter reports or other
-                # intermediates beside the final deck despite the skill
-                # contract. Do not reject the valid deck with the invalid
-                # extras: normalize the call at the enforcement boundary so
-                # present_files can persist the PPTX and create its hidden
-                # paired preview PDF.
-                sanitized_args = dict(self._tool_args(request))
-                sanitized_args["filepaths"] = deck_paths
-                request.tool_call["args"] = sanitized_args
         if name in {"write_file", "str_replace"} and self._is_svg_output_path(path):
             existing = [item for item in cache.get("svg_paths", []) if isinstance(item, str)]
             if cache.get("requires_first_page_gate") and existing and path not in existing and not cache.get("first_page_validated"):

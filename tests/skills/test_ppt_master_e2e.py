@@ -88,24 +88,20 @@ def _make_project(tmp_path: Path) -> Path:
     return project
 
 
-def test_project_manager_rejects_deerflow_outputs_as_project_root():
-    module = _load_script("project_manager.py")
-    manager = module.ProjectManager(base_dir="/mnt/user-data/outputs")
+def test_upstream_project_manager_has_no_deerflow_specific_path_guard():
+    content = (SCRIPTS_DIR / "project_manager.py").read_text(encoding="utf-8")
 
-    with pytest.raises(
-        ValueError, match="cannot be created under /mnt/user-data/outputs"
-    ):
-        manager.init_project("intermediate-files-must-not-be-published")
+    assert "/mnt/user-data/outputs" not in content
+    assert "cannot be created under /mnt/user-data/outputs" not in content
 
 
-def test_hosted_deerflow_contract_hides_loopback_preview_and_localizes_delivery():
+def test_vendored_skill_keeps_deerflow_adapter_outside_upstream_body():
     content = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
 
-    assert "Hosted DeerFlow preview boundary (mandatory)" in content
-    assert "never launch, cite" in content
-    assert "127.0.0.1" in content
-    assert "<中文主题>_YYYYMMDD_HHMMSS.pptx" in content
-    assert "Do not expose a pinyin project" in content
+    assert 'version: "4.3.0"' in content
+    assert "official_repository: \"https://github.com/hugohe3/ppt-master\"" in content
+    assert "Hosted DeerFlow preview boundary" not in content
+    assert "/mnt/user-data/outputs" not in content
 
 
 def test_source_import_dispatcher_converts_text(tmp_path: Path):
@@ -167,7 +163,11 @@ def test_chart_svg_passes_quality_gate_and_exports(tmp_path: Path):
         pytest.skip("upstream chart fixture is unavailable")
     (project / "svg_output" / "01_cover.svg").write_bytes(chart.read_bytes())
 
-    _run(str(SCRIPTS_DIR / "svg_quality_checker.py"), str(project / "svg_output"))
+    _run(
+        str(SCRIPTS_DIR / "svg_quality_checker.py"),
+        str(project / "svg_output"),
+        "--quick-generate",
+    )
     output = tmp_path / "chart.pptx"
     _run(
         str(SCRIPTS_DIR / "svg_to_pptx.py"),

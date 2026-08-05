@@ -59,7 +59,7 @@ spec:
             - name: K8S_CREATE_NAMESPACE
               value: "false"
             - name: SANDBOX_IMAGE
-              value: deer-flow-aio-sandbox:ppt-master-dev-20260723-dashscope-media-v1
+              value: deer-flow-aio-sandbox:ppt-master-dev-20260805-upstream-v1
             - name: SKILLS_PVC_NAME
               value: deer-flow-skills-pvc
             - name: USERDATA_PVC_NAME

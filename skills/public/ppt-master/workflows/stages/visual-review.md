@@ -6,19 +6,19 @@ description: Optional quality-gate stage for per-page rubric-based visual review
 
 > Optional Generate-PPTX quality stage. Goal: reduce human iteration by letting AI subagents visually self-check each rendered slide against a fixed rubric and apply atomic position/spacing fixes.
 >
-> Reads `<project>/svg_output/<page>.svg` and a pre-rendered PNG of each slide, then either applies a fix or flags `needs_human`. **Never touches** brand decisions, layout structure, or other files.
+> Reads `<project>/svg_output/<page>.svg` and a pre-rendered PNG of each slide, then either applies a fix or flags `needs_human`. When an installed/fused Style exists, it also reads that workspace's `Review Focus` as supplemental acceptance context. **Never touches** brand decisions, layout structure, or other files.
 >
 > This stage is **context-independent** — invokable in a fresh chat session with only `<project_path>` as input. No upstream conversation context required.
 
 ## Positioning
 
-This is an **optional auxiliary loop**, opt-in only. The main pipeline (SKILL.md Step 1–7) does not invoke it; trigger only when the user explicitly asks for a visual re-pass on the generated SVGs before export.
+This is an **optional auxiliary loop**, opt-in only. The [`generate-pptx`](../generate-pptx.md) Step 1–7 pipeline does not invoke it; trigger only when the user explicitly asks for a visual re-pass on the generated SVGs before export.
 
-**Token cost**: each batch subagent re-reads the rubric + `design_spec.md` + `spec_lock.md` and processes K SVG+PNG pairs. For a 20-page deck with K=5, expect on the order of 100–150K additional input tokens on top of the main generation run.
+**Token cost**: each batch subagent re-reads the rubric + `design_spec.md` + `spec_lock.md` + the short Style Review Focus when present, and processes K SVG+PNG pairs. For a 20-page deck with K=5, expect on the order of 100–150K additional input tokens on top of the main generation run.
 
 ## When to Run
 
-- Executor (SKILL.md Step 6) has finished all pages
+- Executor ([`generate-pptx`](../generate-pptx.md) Step 6) has finished all pages
 - `svg_quality_checker.py` has passed
 - Post-processing (`finalize_svg.py`, `svg_to_pptx.py`) has **not** yet run
 - The user has explicitly requested visual review
@@ -46,7 +46,7 @@ python3 skills/ppt-master/scripts/svg_editor/server.py <project_path> --no-brows
 # (single instance per project — if it's already running, skip)
 ```
 
-The renderer (`visual_review.py`) does **not** auto-start the live-preview server. It expects the server to be reachable at `http://localhost:5050` (override with `--server-url`).
+The renderer (`visual_review.py`) does **not** auto-start the live-preview server. Without `--server-url`, it discovers the actual port from the target project's `live_preview/lock.json`; an explicit `--server-url` overrides discovery. In either case it validates `/api/health` against the resolved target project before rendering and rejects a server for another project.
 
 > **Why playwright, not cairosvg**: cairo's text API has no font-fallback chain, so CJK characters render as tofu boxes for any deck whose font-family list relies on system fallback (Microsoft YaHei / PingFang SC / etc.). Playwright drives a real chromium and produces output identical to what the live-preview browser shows — the only fidelity-preserving option for bilingual decks.
 
@@ -63,7 +63,7 @@ This writes one PNG per page to `<project_path>/.preview/<page>.png` at 1280×72
 Exit codes:
 
 - `0` — all pages rendered
-- `2` — live-preview server unreachable (start it per Prerequisites)
+- `2` — live-preview server unreachable or serving a different project (start the target project's server per Prerequisites)
 - `3` — playwright python / chromium not installed (or browser failed to launch)
 - `4` — one or more page-level render failures (see stderr; partial output is on disk)
 
@@ -73,7 +73,9 @@ If any page comes back with `"all_background": true` in the JSON summary, that p
 
 ## Step 2 — Spawn the review team
 
-Create a team and dispatch one orchestrator agent. The orchestrator partitions the N pages into batches of ≤ K pages (default **K = 5**) and spawns one subagent per batch **in parallel** (single message, `ceil(N/K)` parallel `Agent` calls). Each batch subagent reads the fixed inputs (rubric + `design_spec.md` + `spec_lock.md`) **once**, then iterates over its assigned pages sequentially.
+Create a team and dispatch one orchestrator agent. The orchestrator partitions the N pages into batches of ≤ K pages (default **K = 5**) and spawns one subagent per batch **in parallel** (single message, `ceil(N/K)` parallel `Agent` calls). Each batch subagent reads the fixed inputs (rubric + `design_spec.md` + `spec_lock.md` + conditional Style Review Focus) **once**, then iterates over its assigned pages sequentially.
+
+Before dispatch, inspect `<project>/templates/design_spec.md`. If it declares `kind: style` or its fused provenance contains an active Style segment, read only `## VII. Review Focus` once and include those checks in every batch prompt. Otherwise pass no Style supplement. This lookup never triggers visual review; it runs only after the user has already activated this stage. The supplement cannot weaken the fixed rubric or widen edit permissions.
 
 ```text
 TeamCreate(team_name="visual-review-<project>", agent_type="orchestrator")
@@ -88,12 +90,13 @@ Agent(
 The orchestrator prompt must be self-contained and is the **single** place where dispatch shape, batch size, and forbid lists are stated — the rubric (`references/visual-review.md`) defines the contract those prompts must satisfy. Required fields (all absolute paths):
 
 - `<project_path>` — project root
-- Full page list with `page_role` per page (parse `<project>/design_spec.md` §IX outline; if §IX is absent, default every page to `content` and flag this in the final report)
+- Full page list with `page_role` per page (parse `<project>/design_spec.md` §IX outline; **fixed compatibility default**: if an existing `design_spec.md` lacks §IX, use `content` for every page and flag this in the final report; if `design_spec.md` itself is missing, restore it through [`failure-recovery.md`](../governance/failure-recovery.md) §3 before dispatch)
 - Batch size `K` (default 5; raise to 10 for token-sensitive runs on large decks, lower to 3 for high-fidelity short decks — see rubric §6.1)
 - Iteration budget per page (default 1; 2 only for high-stakes / final-cut runs — see [Appendix: Iteration loop](#appendix-iteration-loop-opt-in))
 - Path to the rubric: `skills/ppt-master/references/visual-review.md`
+- Style Review Focus excerpt, only when the conditional lookup above found one; preserve its wording and source path
 - Dispatch contract reference: rubric [§6](../../references/visual-review.md#6-dispatch--messaging-contract) (batched parallel spawn, self-contained prompts, mandatory `SendMessage` on idle, anonymous-name tolerance)
-- Subagent forbid list: do not edit any other page, `design_spec.md`, `spec_lock.md`, `animations.json`, `image_prompts.json`, or `images/`
+- Subagent forbid list: do not edit any other page, `design_spec.md`, `spec_lock.md`, `templates/design_spec.md`, `animations.json`, `image_prompts.json`, or `images/`
 
 **Host compatibility**: `TeamCreate` and `SendMessage` are Claude-Code-specific multi-agent primitives. On hosts without those primitives (Cursor, VS Code + Copilot, Codebuddy, etc.) the main agent processes batches sequentially — same partitioning, same per-batch prompts, no parallel dispatch. Token savings from shared fixed inputs still apply; wall-clock time grows roughly N/K-fold.
 
@@ -131,13 +134,9 @@ For each row in the table:
 
 If `brand_review.json` is non-empty, that's a single decision applied across the deck (e.g., bump footer text color from `#6E7681` to `#8B949E` — one change, every page benefits). Do this once, then optionally re-run visual-review for the affected pages only.
 
-After the table is clean, continue to post-processing per [`SKILL.md`](../../SKILL.md) Step 7:
-
-```bash
-python3 skills/ppt-master/scripts/total_md_split.py <project_path>
-python3 skills/ppt-master/scripts/finalize_svg.py <project_path>
-python3 skills/ppt-master/scripts/svg_to_pptx.py <project_path>
-```
+After the table is clean, continue to [`generate-pptx`](../generate-pptx.md)
+Step 7. That authority owns the serial commands, gates, and success criteria for
+post-processing and export.
 
 ---
 
@@ -148,7 +147,7 @@ python3 skills/ppt-master/scripts/svg_to_pptx.py <project_path>
 - **Iteration budget**: default 1 iteration. Bumping to 2 doubles render cost and roughly triples token cost. Only worth it for high-stakes / final-cut decks.
 - **Don't-touch (rubric §3)** is hard-enforced by subagents. If you want the subagent to e.g. change a brand color, that is **out of scope** — make the change manually first, then re-render & re-review.
 - **Backups**: every modified SVG has a `.review/backup/<page>.iter<N>.svg` rollback anchor. Restore by `cp`.
-- **The rubric is not the designer**: it catches collisions, drift, and rhythm errors — it does not improve a fundamentally weak layout. If 80%+ of pages come back `needs_human`, the design spec or the executor's choice of layout patterns is the root cause, not this stage.
+- **The rubric is not the designer**: it catches collisions, drift, and rhythm errors — it does not improve a fundamentally weak layout. If 80%+ of pages come back `needs_human`, the Design Spec's pattern selection or Executor's realization geometry is the root cause, not this stage.
 - **Playwright output discipline**: when an agent uses the playwright MCP tool `browser_take_screenshot` directly (outside the `visual_review.py` script), the `filename` parameter is resolved against the CWD (typically the repo root) — passing a bare relative path will create stray directories inside the repository. Always pass an absolute path:
   - One-off probe / ad-hoc inspection → `/tmp/probe-<topic>-<n>.png`
   - Project artifact (replaces what the script would have produced) → `<project_path>/.preview/<page>.png` (absolute)
