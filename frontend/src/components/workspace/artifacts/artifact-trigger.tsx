@@ -20,7 +20,7 @@ export const ArtifactTrigger = () => {
     <Tooltip content={t.common.showArtifacts}>
       <Button
         aria-label={t.common.showArtifacts}
-        className="text-muted-foreground hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground size-8 px-0 sm:h-9 sm:w-auto sm:px-4"
         variant="ghost"
         data-testid="artifact-trigger"
         onClick={() => {

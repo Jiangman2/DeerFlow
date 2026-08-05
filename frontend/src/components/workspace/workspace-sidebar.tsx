@@ -1,5 +1,8 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
+
 import {
   Sidebar,
   SidebarHeader,
@@ -18,7 +21,22 @@ import { WorkspaceNavMenu } from "./workspace-nav-menu";
 export function WorkspaceSidebar({
   ...props
 }: React.ComponentProps<typeof Sidebar>) {
-  const { open: isSidebarOpen } = useSidebar();
+  const { open: isSidebarOpen, isMobile, setOpenMobile } = useSidebar();
+  const pathname = usePathname();
+  const previousPathnameRef = useRef(pathname);
+  const hasObservedInitialPathnameRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasObservedInitialPathnameRef.current) {
+      hasObservedInitialPathnameRef.current = true;
+      previousPathnameRef.current = pathname;
+      return;
+    }
+    if (isMobile && previousPathnameRef.current !== pathname) {
+      setOpenMobile(false);
+    }
+    previousPathnameRef.current = pathname;
+  }, [isMobile, pathname, setOpenMobile]);
   return (
     <>
       <Sidebar

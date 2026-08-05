@@ -59,7 +59,7 @@ export function ExportTrigger({ threadId }: { threadId: string }) {
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={t.common.export}
-            className="text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground size-8 px-0 sm:h-9 sm:w-auto sm:px-4"
             variant="ghost"
           >
             <Download />

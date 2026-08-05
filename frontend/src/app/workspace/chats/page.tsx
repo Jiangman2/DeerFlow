@@ -77,10 +77,10 @@ export default function ChatsPage() {
       <WorkspaceHeader></WorkspaceHeader>
       <WorkspaceBody>
         <div className="flex size-full flex-col">
-          <header className="flex shrink-0 items-center justify-center pt-8">
+          <header className="flex shrink-0 items-center justify-center px-3 pt-4 sm:px-4 sm:pt-8">
             <Input
               type="search"
-              className="h-12 w-full max-w-(--container-width-md) text-xl"
+              className="h-11 w-full max-w-(--container-width-md) text-base sm:h-12 sm:text-xl"
               placeholder={t.chats.searchChats}
               autoFocus
               value={search}
@@ -88,7 +88,7 @@ export default function ChatsPage() {
             />
           </header>
           <main className="min-h-0 flex-1">
-            <ScrollArea className="size-full py-4">
+            <ScrollArea className="app-scroll-region size-full py-2 sm:py-4">
               <div className="mx-auto flex size-full max-w-(--container-width-md) flex-col">
                 {filteredThreads.map((thread) => {
                   const channelSource = channelSourceOfThread(thread);

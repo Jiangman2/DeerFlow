@@ -47,7 +47,7 @@ export function SidecarTrigger() {
     <Tooltip content={label}>
       <Button
         aria-label={label}
-        className="text-muted-foreground hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground size-8"
         data-testid="sidecar-header-trigger"
         disabled={isReconciling}
         size="icon"

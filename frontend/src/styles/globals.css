@@ -293,11 +293,35 @@
 }
 
 @layer base {
+  html,
+  body {
+    width: 100%;
+    min-width: 0;
+    min-height: 100%;
+  }
+
+  html {
+    background: var(--background);
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    margin: 0;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    touch-action: manipulation;
   }
 
   .container-md {
@@ -416,6 +440,102 @@
   .katex-display::-webkit-scrollbar-thumb {
     background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
     border-radius: 999px;
+  }
+}
+
+@layer utilities {
+  /*
+   * Shared workspace viewport contract for embedded mobile WebViews.
+   * `dvh` follows the visible viewport while the browser chrome or software
+   * keyboard changes size. The safe-area padding remains zero on ordinary
+   * desktop browsers and Android WebViews without display cutouts.
+   */
+  .app-viewport {
+    height: 100vh;
+    min-height: 0;
+  }
+
+  @supports (height: 100dvh) {
+    .app-viewport {
+      height: 100dvh;
+    }
+  }
+
+  .app-safe-area {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+
+  .app-safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .app-safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .app-scroll-region {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (max-width: 47.999rem) {
+    [data-mobile="true"][data-sidebar="sidebar"] {
+      width: min(88vw, 20rem);
+      max-width: none;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      overscroll-behavior: contain;
+    }
+
+    [data-mobile-touch-target="true"] {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
+
+    .mobile-fullscreen-surface {
+      width: 100vw;
+      max-width: none;
+      height: 100vh;
+      max-height: 100vh;
+      border-radius: 0;
+      border-right: 0;
+      border-left: 0;
+    }
+
+    [data-slot="dropdown-menu-content"],
+    [data-slot="select-content"],
+    [data-slot="popover-content"] {
+      max-width: calc(100vw - 1rem);
+    }
+
+    [data-slot="dialog-content"] {
+      max-width: calc(100vw - 1rem);
+      max-height: calc(100vh - 1rem);
+    }
+
+    .mobile-fullscreen-surface[data-slot="dialog-content"] {
+      max-width: none;
+      max-height: 100vh;
+    }
+
+    @supports (height: 100dvh) {
+      .mobile-fullscreen-surface {
+        height: 100dvh;
+        max-height: 100dvh;
+      }
+
+      [data-slot="dialog-content"] {
+        max-height: calc(100dvh - 1rem);
+      }
+
+      .mobile-fullscreen-surface[data-slot="dialog-content"] {
+        max-height: 100dvh;
+      }
+    }
   }
 }
 

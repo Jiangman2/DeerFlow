@@ -122,18 +122,19 @@ export function SettingsDialog(props: SettingsDialogProps) {
       onOpenChange={(open) => props.onOpenChange?.(open)}
     >
       <DialogContent
-        className="flex h-[75vh] max-h-[calc(100vh-2rem)] flex-col sm:max-w-5xl md:max-w-6xl"
+        className="mobile-fullscreen-surface app-safe-area flex w-screen max-w-none min-w-0 flex-col gap-3 rounded-none border-x-0 p-4 sm:h-[75vh] sm:max-h-[calc(100vh-2rem)] sm:w-full sm:max-w-5xl sm:rounded-lg sm:border sm:p-6 md:max-w-6xl"
         aria-describedby={undefined}
+        data-testid="settings-dialog"
       >
-        <DialogHeader className="gap-1">
+        <DialogHeader className="shrink-0 gap-1 pr-8 text-left">
           <DialogTitle>{t.settings.title}</DialogTitle>
           <p className="text-muted-foreground text-sm">
             {t.settings.description}
           </p>
         </DialogHeader>
-        <div className="grid min-h-0 flex-1 gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-          <nav className="bg-sidebar min-h-0 overflow-y-auto rounded-lg border p-2">
-            <ul className="space-y-1 pr-1">
+        <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
+          <nav className="app-scroll-region bg-sidebar min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border p-2 md:min-h-0 md:overflow-x-hidden md:overflow-y-auto">
+            <ul className="flex w-max min-w-full gap-1 md:block md:w-auto md:min-w-0 md:space-y-1 md:pr-1">
               {sections.map(({ id, label, icon: Icon }) => {
                 const active = activeSection === id;
                 return (
@@ -142,7 +143,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
                       type="button"
                       onClick={() => setActiveSection(id as SettingsSection)}
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        "flex min-h-10 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors md:w-full md:gap-3",
                         active
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -156,8 +157,8 @@ export function SettingsDialog(props: SettingsDialogProps) {
               })}
             </ul>
           </nav>
-          <ScrollArea className="h-full min-h-0 rounded-lg border">
-            <div className="space-y-8 p-6">
+          <ScrollArea className="app-scroll-region h-full min-h-0 min-w-0 rounded-lg border">
+            <div className="min-w-0 space-y-8 p-4 sm:p-6">
               {activeSection === "account" && <AccountSettingsPage />}
               {activeSection === "announcements" && isAdmin && (
                 <AnnouncementSettingsPage />
