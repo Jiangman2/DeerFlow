@@ -1449,7 +1449,7 @@ export default function DashboardPage() {
     return `${shortTime(summary.window.start_at)} - ${shortTime(summary.window.end_at)}`;
   }, [summary]);
   return (
-    <main className="min-h-screen w-full max-w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,#e0f2fe_0,transparent_28%),linear-gradient(to_bottom,#f8fafc,#eef2f7)] px-4 py-6 text-slate-950 sm:px-6">
+    <main className="app-scroll-region min-h-full w-full max-w-full overflow-x-hidden overflow-y-auto bg-[radial-gradient(circle_at_top_left,#e0f2fe_0,transparent_28%),linear-gradient(to_bottom,#f8fafc,#eef2f7)] px-3 py-4 text-slate-950 sm:px-6 sm:py-6">
       <div className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -1458,7 +1458,7 @@ export default function DashboardPage() {
               {windowLabel}，展示业务价值、用户活跃和运行质量。
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto lg:shrink-0">
             {[1, 24, 168].map((value) => (
               <Button
                 key={value}
@@ -1476,18 +1476,20 @@ export default function DashboardPage() {
                 {value === 1 ? "1小时" : value === 168 ? "7天" : "24小时"}
               </Button>
             ))}
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1">
+            <div className="grid w-full min-w-0 grid-cols-1 items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] lg:w-auto lg:min-w-fit lg:py-1">
               <Input
                 aria-label="开始时间"
-                className="h-8 w-[220px] min-w-[220px] shrink-0"
+                className="h-8 w-full min-w-0 sm:w-auto lg:w-[220px] lg:min-w-[220px] lg:shrink-0"
                 type="datetime-local"
                 value={customStart}
                 onChange={(event) => setCustomStart(event.target.value)}
               />
-              <span className="text-xs text-slate-400">至</span>
+              <span className="hidden text-xs text-slate-400 sm:inline">
+                至
+              </span>
               <Input
                 aria-label="结束时间"
-                className="h-8 w-[220px] min-w-[220px] shrink-0"
+                className="h-8 w-full min-w-0 sm:w-auto lg:w-[220px] lg:min-w-[220px] lg:shrink-0"
                 type="datetime-local"
                 value={customEnd}
                 onChange={(event) => setCustomEnd(event.target.value)}

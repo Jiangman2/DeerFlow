@@ -238,7 +238,7 @@ export default function AgentChatPage() {
           <div className="relative flex size-full min-h-0 justify-between">
             <header
               className={cn(
-                "absolute top-0 right-0 left-0 z-30 flex h-12 shrink-0 items-center gap-2 px-2 sm:px-4",
+                "absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
                 isWelcomeMode
                   ? "bg-background/0 backdrop-blur-none"
                   : "bg-background/80 shadow-xs backdrop-blur",
@@ -246,7 +246,7 @@ export default function AgentChatPage() {
             >
               <SidebarTrigger className="md:hidden" />
               {/* Agent badge */}
-              <div className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-md border px-2 py-1">
+              <div className="flex min-w-0 shrink-0 items-center gap-1 rounded-md border p-1 sm:gap-1.5 sm:px-2 sm:py-1">
                 <BotIcon className="text-primary h-3.5 w-3.5" />
                 <span className="hidden max-w-24 truncate text-xs font-medium sm:inline sm:max-w-none">
                   {agent?.name ?? agent_name}
@@ -256,10 +256,10 @@ export default function AgentChatPage() {
               <div className="flex min-w-0 flex-1 items-center text-sm font-medium">
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
-              <div className="flex shrink-0 items-center sm:mr-4">
+              <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:mr-4 sm:gap-1">
                 <Tooltip content={t.agents.newChat}>
                   <Button
-                    className="px-2 sm:px-3"
+                    className="size-8 px-0 sm:h-8 sm:w-auto sm:px-3"
                     size="sm"
                     variant="secondary"
                     onClick={() => {
@@ -317,7 +317,7 @@ export default function AgentChatPage() {
 
               <div
                 className={cn(
-                  "right-0 bottom-0 left-0 z-30 flex justify-center px-3 sm:px-4",
+                  "right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
                   isWelcomeMode ? "absolute" : "relative shrink-0 pb-4",
                 )}
               >
@@ -325,7 +325,7 @@ export default function AgentChatPage() {
                   className={cn(
                     "relative w-full",
                     isWelcomeMode &&
-                      "-translate-y-[calc(50vh-48px)] sm:-translate-y-[calc(50vh-96px)]",
+                      "-translate-y-[calc(50dvh-48px)] sm:-translate-y-[calc(50dvh-96px)]",
                     isWelcomeMode
                       ? "max-w-(--container-width-sm)"
                       : "max-w-(--container-width-md)",

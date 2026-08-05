@@ -10,6 +10,9 @@ test.describe("UI polish mobile regressions", () => {
     mockLangGraphAPI(page);
 
     await page.goto("/workspace/chats/new");
+    await expect(page.getByRole("textbox").first()).toBeEditable({
+      timeout: 15_000,
+    });
 
     await page.getByRole("button", { name: /toggle sidebar/i }).click();
 
@@ -40,7 +43,11 @@ test.describe("UI polish mobile regressions", () => {
     await expect(
       page.getByRole("dialog", { name: /artifacts/i }),
     ).toBeVisible();
-    await expect(page.getByText("mobile-summary.md")).toBeVisible();
+    await expect(
+      page
+        .getByRole("dialog", { name: /artifacts/i })
+        .getByText("mobile-summary.md"),
+    ).toBeVisible();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(375);

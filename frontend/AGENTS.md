@@ -267,6 +267,18 @@ administrators may change them, and the backend admin check remains the
 authorization boundary. Custom Skill behavior remains governed by its existing
 scoped authorization.
 
+### Mobile WebView contract
+
+The mobile H5 surface is the existing workspace opened at
+`/workspace/chats/new`, not a separate frontend. Keep viewport metadata,
+safe-area padding, dynamic-height fallbacks, touch-safe navigation, full-screen
+mobile settings/artifacts, and the knowledge-page navigation escape hatch in
+the shared component tree. Do not pass SSO tokens through URLs or browser
+JavaScript. Mobile changes must retain desktop behavior and add Playwright
+coverage at 320, 375, 390, and 412 pixel widths plus a short landscape view.
+The native App integration and release checklist live in
+`docs/mobile-webview-integration.md`.
+
 ## Environment
 
 Backend API URLs are optional; an nginx proxy is used by default:

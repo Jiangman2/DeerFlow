@@ -219,7 +219,7 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
           }}
         >
           <SheetContent
-            className="w-[calc(100vw-1rem)] max-w-none gap-0 p-0 sm:max-w-md [&>button]:hidden"
+            className="mobile-fullscreen-surface app-safe-area w-screen max-w-none gap-0 p-0 sm:max-w-md [&>button]:hidden"
             side="right"
           >
             <SheetHeader className="sr-only">
@@ -230,7 +230,9 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
                 Browse the side panel for this conversation.
               </SheetDescription>
             </SheetHeader>
-            <div className="min-h-0 flex-1 p-3 pt-10">{rightPanelContent}</div>
+            <div className="app-scroll-region min-h-0 flex-1 p-2 pt-10 sm:p-3 sm:pt-10">
+              {rightPanelContent}
+            </div>
           </SheetContent>
         </Sheet>
       </>

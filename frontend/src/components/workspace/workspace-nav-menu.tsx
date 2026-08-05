@@ -55,7 +55,7 @@ export function WorkspaceNavMenu() {
     "appearance" | "memory" | "tools" | "skills" | "notification" | "about"
   >("appearance");
   const [mounted, setMounted] = useState(false);
-  const { open: isSidebarOpen } = useSidebar();
+  const { open: isSidebarOpen, isMobile, setOpenMobile } = useSidebar();
   const { user } = useAuth();
   const { t } = useI18n();
   const isAdmin = user?.system_role === "admin";
@@ -92,7 +92,12 @@ export function WorkspaceNavMenu() {
                   {isAdmin && (
                     <>
                       <DropdownMenuItem asChild>
-                        <Link href="/workspace/admin/dashboard">
+                        <Link
+                          href="/workspace/admin/dashboard"
+                          onClick={() => {
+                            if (isMobile) setOpenMobile(false);
+                          }}
+                        >
                           <LayoutDashboardIcon />
                           看板
                         </Link>
@@ -101,6 +106,7 @@ export function WorkspaceNavMenu() {
                   )}
                   <DropdownMenuItem
                     onClick={() => {
+                      if (isMobile) setOpenMobile(false);
                       setSettingsDefaultSection("appearance");
                       setSettingsOpen(true);
                     }}
@@ -112,6 +118,7 @@ export function WorkspaceNavMenu() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => {
+                    if (isMobile) setOpenMobile(false);
                     setSettingsDefaultSection("about");
                     setSettingsOpen(true);
                   }}

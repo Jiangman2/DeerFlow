@@ -369,7 +369,7 @@ export default function NewAgentPage() {
   ) : null;
 
   const header = (
-    <header className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
+    <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b px-3 py-2 sm:px-4 sm:py-3">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -412,8 +412,8 @@ export default function NewAgentPage() {
     return (
       <div className="flex size-full flex-col">
         {header}
-        <main className="flex flex-1 flex-col items-center justify-center px-4">
-          <div className="w-full max-w-sm space-y-8">
+        <main className="app-scroll-region flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-6">
+          <div className="w-full max-w-sm space-y-6 sm:space-y-8">
             <div className="space-y-3 text-center">
               <AgentNameIcon />
               <div className="space-y-1">
@@ -512,7 +512,7 @@ export default function NewAgentPage() {
               />
             </div>
 
-            <div className="bg-background flex shrink-0 justify-center border-t px-4 py-4">
+            <div className="app-safe-area-bottom bg-background flex shrink-0 justify-center border-t px-3 py-3 sm:px-4 sm:py-4">
               <div className="w-full max-w-(--container-width-md)">
                 {agent ? (
                   <div className="flex flex-col items-center gap-4 rounded-2xl border py-8 text-center">

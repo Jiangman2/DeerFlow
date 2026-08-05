@@ -109,6 +109,17 @@ server-only cookie access. The shared Nginx entry must route this exact API
 prefix to the Frontend before its general `/api/` Gateway catch-all. Never
 hardcode a Token, expose it to frontend
 JavaScript, or restore the legacy `/agent-tools/*` reverse proxies.
+
+The mobile H5 sub-application is the same workspace frontend opened by a
+trusted Android WebView or iOS WKWebView at `/workspace/chats/new`; it is not a
+second deployment or a forked business flow. Keep authentication in the
+existing same-origin HttpOnly cookie, preserve safe-area and dynamic-viewport
+handling, and retain the mobile navigation escape hatch over the embedded
+WeKnora workspace. File upload, artifact preview/download, agents, scheduled
+tasks, and settings must continue to use their normal APIs and authorization
+boundaries. See `docs/mobile-webview-integration.md` for the App contract and
+release matrix.
+
 External click telemetry from the Haineng and collaboration platforms enters
 through `POST /api/agent_click`. Keep `EXTERNAL_AGENT_CLICK_INGEST_KEY` in the
 runtime Secret and require it as a Bearer token or
