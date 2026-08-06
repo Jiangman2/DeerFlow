@@ -37,12 +37,22 @@ explicit value when the user changes the Data Lake control. Re-enabling writes
 resolve the value from that conversation's state. Every normal, custom-agent,
 regenerate, and branch run sends the resolved boolean explicitly.
 
-Gateway accepts this field only from the validated `body.context` mapping. It
-must be a JSON boolean; malformed values and conflicting low-level config
-values are rejected rather than coerced. `body.context` is authoritative over
-`body.config`, and the field is copied to `config["context"]` only. It is
-runtime-only and must never enter checkpoint-persisted `configurable` state.
-Absent values from old or non-web callers resolve to `true`.
+Gateway accepts this field only from the validated `body.context` mapping. The
+input contract is strict:
+
+- `body.context.datalake_enabled` must be a JSON boolean.
+- If the field is absent from `body.context` and absent from `body.config`, the
+  effective value is `true`.
+- If `body.config.context.datalake_enabled` or
+  `body.config.configurable.datalake_enabled` is present at all, the request is
+  rejected with a stable 4xx error, even when it matches `body.context`. These
+  low-level sections cannot configure a runtime-only security boundary.
+- `null`, strings, numbers, and other non-boolean values in `body.context` are
+  rejected with the same stable 4xx validation error; they are never coerced.
+
+The accepted value is copied to `config["context"]` only. It is runtime-only
+and must never enter checkpoint-persisted `configurable` state. Older and
+non-web callers that omit the field therefore resolve to `true`.
 
 This setting controls tool availability for a run; it is not an authorization
 mechanism and does not alter administrator tool configuration.
@@ -91,12 +101,13 @@ contracts remain unchanged.
 Backend tests cover:
 
 - Gateway allowlisting and propagation of `datalake_enabled`.
-- Strict boolean validation, `body.context` precedence over low-level config,
+- Strict boolean validation, rejection of any low-level config occurrence,
   runtime-only storage, and absent/legacy default behavior.
 - Removal of all three AppForge tools when the run disables the data lake.
 - Preservation of the tools when the field is absent or true.
 - AppForge invocation rejection before configuration or network access,
-  including runtime context, configurable-only, and `runtime=None` shapes.
+  including runtime context, configurable-only (which cannot disable a
+  runtime-only flag), and `runtime=None` shapes.
 - Propagation through `task_tool` and `SubagentExecutor`, child catalog
   filtering before deferred assembly, and stale direct tool references.
 
