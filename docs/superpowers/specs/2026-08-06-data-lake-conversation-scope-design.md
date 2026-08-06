@@ -45,10 +45,13 @@ input contract is strict:
   effective value is `true`.
 - If `body.config.context.datalake_enabled` or
   `body.config.configurable.datalake_enabled` is present at all, the request is
-  rejected with a stable 4xx error, even when it matches `body.context`. These
-  low-level sections cannot configure a runtime-only security boundary.
+  rejected with HTTP 400 and the structured detail
+  `{code: "invalid_datalake_context", message: "...", retryable: false}`,
+  even when it matches `body.context`. These low-level sections cannot
+  configure a runtime-only security boundary.
 - `null`, strings, numbers, and other non-boolean values in `body.context` are
-  rejected with the same stable 4xx validation error; they are never coerced.
+  rejected with the same HTTP 400 detail code and `retryable: false`; they are
+  never coerced. The message is bounded and must not echo the invalid value.
 
 The accepted value is copied to `config["context"]` only. It is runtime-only
 and must never enter checkpoint-persisted `configurable` state. Older and
