@@ -158,14 +158,18 @@ export function updateThreadSettings<K extends keyof LocalSettings>(
     key === "context" &&
     Object.prototype.hasOwnProperty.call(value, "datalake_enabled");
   const baseContextValue = isDataLakeUpdate
-    ? Object.fromEntries(
+    ? (Object.fromEntries(
         Object.entries(value as Partial<LocalSettings["context"]>).filter(
           ([contextKey]) => contextKey !== "datalake_enabled",
         ),
-      )
+      ) as Partial<LocalSettings["context"]>)
     : value;
   const nextBaseSettings = isDataLakeUpdate
-    ? mergeSettingsSection(baseSettings, key, baseContextValue)
+    ? mergeSettingsSection(
+        baseSettings,
+        key,
+        baseContextValue as Partial<LocalSettings[K]>,
+      )
     : mergeSettingsSection(baseSettings, key, value);
   baseSettings = nextBaseSettings;
   saveLocalSettings(baseSettings);

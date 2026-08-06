@@ -105,6 +105,9 @@ export interface Translations {
     addAttachments: string;
     addShopCartAttachments: string;
     shopCart: string;
+    dataLakeFileList: string;
+    disableDataLake: string;
+    enableDataLake: string;
     shopCartDialogTitle: string;
     shopCartDialogDescription: string;
     shopCartWindowDescription: string;

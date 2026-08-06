@@ -39,5 +39,5 @@ void test("falls back to iframe filename and then generated filename", () => {
     chooseShopCartFilename({ fileId: "abc", iframeFileName: "iframe.pdf" }),
     "iframe.pdf",
   );
-  assert.equal(chooseShopCartFilename({ fileId: "abc" }), "资料车文件-abc");
+  assert.equal(chooseShopCartFilename({ fileId: "abc" }), "数据湖文件-abc");
 });

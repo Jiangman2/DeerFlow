@@ -1870,10 +1870,7 @@ export function InputBox({
   return (
     <div
       ref={promptRootRef}
-      className={cn(
-        "relative flex min-w-0 flex-col",
-        "gap-2",
-      )}
+      className={cn("relative flex min-w-0 flex-col", "gap-2")}
     >
       {showFollowups && (
         <div className="flex items-center justify-center pb-1">
@@ -2091,7 +2088,11 @@ export function InputBox({
               disabled={composerLocked}
               uploadLimits={uploadLimits}
             />
-            <ShopCartAttachmentButton disabled={composerLocked} />
+            <ShopCartAttachmentButton
+              context={context}
+              disabled={composerLocked}
+              onContextChange={onContextChange}
+            />
             <KnowledgeScopeSelector
               context={context}
               disabled={composerLocked}
