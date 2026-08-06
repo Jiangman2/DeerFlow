@@ -1,10 +1,13 @@
 import {
   DEFAULT_LOCAL_SETTINGS,
+  THREAD_DATA_LAKE_KEY_PREFIX,
   LOCAL_SETTINGS_KEY,
   THREAD_MODEL_KEY_PREFIX,
+  getThreadDataLakeEnabled,
   getLocalSettings,
   getThreadModelName,
   saveLocalSettings,
+  saveThreadDataLakeEnabled,
   saveThreadModelName,
   type LocalSettings,
 } from "./local";
@@ -18,6 +21,7 @@ export type LocalSettingsSetter = <K extends keyof LocalSettings>(
 
 const listeners = new Set<Listener>();
 const threadModelNames = new Map<string, string | undefined>();
+const threadDataLakeEnabled = new Map<string, boolean>();
 
 let baseSettings: LocalSettings = DEFAULT_LOCAL_SETTINGS;
 let baseSettingsLoaded = false;
@@ -71,6 +75,7 @@ function handleStorage(event: StorageEvent) {
   if (event.key === null) {
     baseSettings = getLocalSettings();
     threadModelNames.clear();
+    threadDataLakeEnabled.clear();
     emitChange();
     return;
   }
@@ -82,6 +87,13 @@ function handleStorage(event: StorageEvent) {
   }
 
   if (!event.key.startsWith(THREAD_MODEL_KEY_PREFIX)) {
+    if (!event.key.startsWith(THREAD_DATA_LAKE_KEY_PREFIX)) {
+      return;
+    }
+
+    const threadId = event.key.slice(THREAD_DATA_LAKE_KEY_PREFIX.length);
+    threadDataLakeEnabled.set(threadId, getThreadDataLakeEnabled(threadId));
+    emitChange();
     return;
   }
 
@@ -115,6 +127,16 @@ export function getThreadModelSnapshot(threadId: string): string | undefined {
   return threadModelNames.get(threadId);
 }
 
+export function getThreadDataLakeSnapshot(threadId: string): boolean {
+  ensureBaseSettingsLoaded();
+
+  if (!threadDataLakeEnabled.has(threadId)) {
+    threadDataLakeEnabled.set(threadId, getThreadDataLakeEnabled(threadId));
+  }
+
+  return threadDataLakeEnabled.get(threadId) ?? true;
+}
+
 export const updateLocalSettings: LocalSettingsSetter = (key, value) => {
   ensureBaseSettingsLoaded();
   ensureStorageListenerRegistered();
@@ -132,7 +154,19 @@ export function updateThreadSettings<K extends keyof LocalSettings>(
   ensureBaseSettingsLoaded();
   ensureStorageListenerRegistered();
 
-  const nextBaseSettings = mergeSettingsSection(baseSettings, key, value);
+  const isDataLakeUpdate =
+    key === "context" &&
+    Object.prototype.hasOwnProperty.call(value, "datalake_enabled");
+  const baseContextValue = isDataLakeUpdate
+    ? Object.fromEntries(
+        Object.entries(value as Partial<LocalSettings["context"]>).filter(
+          ([contextKey]) => contextKey !== "datalake_enabled",
+        ),
+      )
+    : value;
+  const nextBaseSettings = isDataLakeUpdate
+    ? mergeSettingsSection(baseSettings, key, baseContextValue)
+    : mergeSettingsSection(baseSettings, key, value);
   baseSettings = nextBaseSettings;
   saveLocalSettings(baseSettings);
 
@@ -144,6 +178,15 @@ export function updateThreadSettings<K extends keyof LocalSettings>(
     const threadModelName = contextValue.model_name;
     threadModelNames.set(threadId, threadModelName);
     saveThreadModelName(threadId, threadModelName);
+  }
+
+  if (isDataLakeUpdate) {
+    const contextValue = value as Partial<LocalSettings["context"]>;
+    const enabled = contextValue.datalake_enabled;
+    if (typeof enabled === "boolean") {
+      threadDataLakeEnabled.set(threadId, enabled);
+      saveThreadDataLakeEnabled(threadId, enabled);
+    }
   }
 
   emitChange();

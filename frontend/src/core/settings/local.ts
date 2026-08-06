@@ -18,6 +18,7 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
 
 export const LOCAL_SETTINGS_KEY = "platform.local-settings";
 export const THREAD_MODEL_KEY_PREFIX = "platform.thread-model.";
+export const THREAD_DATA_LAKE_KEY_PREFIX = "platform.thread-data-lake.";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
@@ -68,6 +69,14 @@ function getThreadModelStorageKey(threadId: string): string {
   return `${THREAD_MODEL_KEY_PREFIX}${threadId}`;
 }
 
+export function getThreadDataLakeStorageKey(threadId: string): string {
+  return `${THREAD_DATA_LAKE_KEY_PREFIX}${threadId}`;
+}
+
+export function parseThreadDataLakeEnabled(value: string | null): boolean {
+  return value !== "false";
+}
+
 export function getThreadModelName(threadId: string): string | undefined {
   if (!isBrowser()) {
     return undefined;
@@ -88,6 +97,35 @@ export function saveThreadModelName(
     return;
   }
   localStorage.setItem(key, modelName);
+}
+
+export function getThreadDataLakeEnabled(threadId: string): boolean {
+  if (!isBrowser()) {
+    return true;
+  }
+  return parseThreadDataLakeEnabled(
+    localStorage.getItem(getThreadDataLakeStorageKey(threadId)),
+  );
+}
+
+export function saveThreadDataLakeEnabled(threadId: string, enabled: boolean) {
+  if (!isBrowser()) {
+    return;
+  }
+  localStorage.setItem(getThreadDataLakeStorageKey(threadId), String(enabled));
+}
+
+export function applyThreadDataLakeOverride(
+  settings: LocalSettings,
+  dataLakeEnabled: boolean,
+): LocalSettings {
+  return {
+    ...settings,
+    context: {
+      ...settings.context,
+      datalake_enabled: dataLakeEnabled,
+    },
+  };
 }
 
 export function applyThreadModelOverride(
