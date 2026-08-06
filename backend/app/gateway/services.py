@@ -228,7 +228,34 @@ _CONTEXT_INTERNAL_CALLER_KEYS: frozenset[str] = frozenset({"non_interactive"})
 #   ``disable_clarification`` — set for non-interactive channels (GitHub
 #                              webhooks) so ClarificationMiddleware proceeds
 #                              instead of dead-ending the run.
-_CONTEXT_RUNTIME_ONLY_KEYS: frozenset[str] = frozenset({"github_token", "disable_clarification"})
+_DATALAKE_CONTEXT_KEY = "datalake_enabled"
+_CONTEXT_RUNTIME_ONLY_KEYS: frozenset[str] = frozenset(
+    {"github_token", "disable_clarification", _DATALAKE_CONTEXT_KEY}
+)
+_INVALID_DATALAKE_CONTEXT_DETAIL = {
+    "code": "invalid_datalake_context",
+    "message": "datalake_enabled must be a boolean in body.context",
+    "retryable": False,
+}
+
+
+def _validate_datalake_context(
+    config: Mapping[str, Any], context: Mapping[str, Any] | None,
+) -> None:
+    for section_name in ("context", "configurable"):
+        section = config.get(section_name)
+        if isinstance(section, Mapping) and _DATALAKE_CONTEXT_KEY in section:
+            raise HTTPException(
+                status_code=400,
+                detail=dict(_INVALID_DATALAKE_CONTEXT_DETAIL),
+            )
+
+    if context is not None and _DATALAKE_CONTEXT_KEY in context:
+        if type(context[_DATALAKE_CONTEXT_KEY]) is not bool:
+            raise HTTPException(
+                status_code=400,
+                detail=dict(_INVALID_DATALAKE_CONTEXT_DETAIL),
+            )
 
 
 def strip_internal_context_keys(config: dict[str, Any]) -> None:
@@ -267,6 +294,7 @@ def merge_run_context_overrides(config: dict[str, Any], context: Mapping[str, An
     from ``runtime.context``; keeping them out of ``configurable`` avoids persisting a
     short-lived token in the checkpoint store.
     """
+    _validate_datalake_context(config, context)
     if not context:
         return
     configurable = config.setdefault("configurable", {})
