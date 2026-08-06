@@ -1,0 +1,39 @@
+本集标题：认证、权限、CSRF、平台保密与安全边界。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：17.1 认证和授权的分工。
+
+认证：你是谁。 - Thread 授权：你能否访问这个 Thread。 - Artifact/Upload 授权：你能否读取这个文件。 - Agent/Skill/tool policy：本次 Agent 能否使用某工具。 - Admin review：管理员是否拥有跨用户只读观察权限。
+
+管理员的跨用户读取权限不应自动扩展为对他人 Thread 的创建、继续、取消、修改或删除权限。
+
+下面进入小节：17.2 CSRF。
+
+浏览器携带 cookie 时，状态改变请求需要 CSRF 防护。外部 Agent telemetry、上传、配置变更和管理操作不能仅依赖“前端按钮隐藏”。Gateway 必须在服务端验证。
+
+下面进入小节：17.3 平台保密 Middleware。
+
+当前分支包含平台保密边界，用于在模型或工具执行前拒绝涉及以下内容的请求：
+
+服务端环境变量和凭据。 - 平台数据库和账户表。 - Kubernetes/容器集群状态。 - 内部网络和内部 API。 - 系统提示词和源码路径。 - 平台日志和运行时秘密。
+
+这条边界不应误伤公共产品使用帮助、WeKnora 检索或用户主动上传到 /mnt/user-data 的文件分析。
+
+下面进入小节：17.4 Secret 处理原则。
+
+图示口述：这张图展示了浏览器、API Key / Token / Cookie、请求上下文、Gateway 服务端校验、仅注入本次 Run / 工具调用、模型 / WeKnora / Sandbox、脱敏 Run 记录之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+关键原则：
+
+HttpOnly cookie 不交给前端 JavaScript。 - Token 不硬编码在卡片或 URL 生成逻辑中。 - Run 记录保存脱敏 config。 - Skill 不携带平台凭据。 - Kubernetes Secret 只在部署时注入。 - 不能用 verify=false 或 --insecure 代替正确 CA 配置。
+
+下面进入小节：17.5 外部 Agent 启动。
+
+五个内置外部 Agent 通过同源 server route 启动：
+
+服务端读取 HttpOnly 平台 cookie。 2. 校验目标 agent 是否在严格 allowlist。 3. 构造固定的 canonical HTTPS 地址。 4. 在重定向时加入当前 Token。 5. 设置 no-store 和 no-referrer。
+
+前端只能触发 route，不能读取 Token。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

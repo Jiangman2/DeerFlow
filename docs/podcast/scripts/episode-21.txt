@@ -1,0 +1,37 @@
+本集标题：数据库、Redis、运行记录与恢复机制。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：16.1 持久化分层。
+
+图示口述：这张图展示了Thread metadata，标题、用户、状态、Run records，状态、模型、耗时、错误、usage、LangGraph checkpoint，图状态快照、LangGraph store，跨 Thread 数据/Memory、Run event log，顺序事件、子任务步骤、uploads / outputs，文件系统或 Sandbox之间的关系。
+
+下面进入小节：16.2 SQLite 与 PostgreSQL。
+
+本地环境可以使用 SQLite；生产/Kubernetes 通常使用 PostgreSQL。切换数据库不应改变 Agent 逻辑，但会改变：
+
+并发能力。 - 连接池。 - 事务行为。 - 迁移流程。 - checkpoint/store 的后端实现。 - 多副本 Gateway 的可用性。
+
+下面进入小节：16.3 Redis 的位置。
+
+Redis 可以承载：
+
+StreamBridge 的跨进程事件。 - 运行或任务队列。 - WeKnora/调度相关的异步协作。
+
+Redis 不是 ThreadState 的唯一权威存储；长期状态仍应落在 checkpoint、数据库或 Store 中。
+
+下面进入小节：16.4 事件顺序与 seq。
+
+当前分支对 Run 事件使用顺序序号，前端历史和子任务回放可以按 after_seq 查询。序号比客户端时间戳可靠，因为：
+
+不同机器时钟可能不一致。 - 并行子任务完成顺序不是创建顺序。 - SSE 重连可能重复收到事件。
+
+下面进入小节：16.5 运行恢复。
+
+恢复时需要判断：
+
+Thread 是否存在。 - 目标 checkpoint 是否有效。 - 是否有未完成 Run。 - 是否需要 Command(resume=...)。 - 原 Sandbox 是否仍然存在。 - 上传和输出文件是否可访问。 - 旧工具目录的 catalog hash 是否还能匹配。
+
+恢复不是“重新执行最后一条消息”，而是“从可验证的状态和运行上下文继续图”。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

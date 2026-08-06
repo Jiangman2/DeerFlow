@@ -96,10 +96,16 @@ spec:
               value: deer-flow-env
             - name: SANDBOX_SECRET_ENV_KEYS
               value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY
+            - name: SANDBOX_PASSTHROUGH_ENV_KEYS
+              value: IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT
             - name: IMAGE_BACKEND
-              value: dashscope
+              value: qwen
             - name: IMAGE_GENERATION_PROVIDER
               value: dashscope
+            - name: QWEN_BASE_URL
+              value: https://dashscope.aliyuncs.com
+            - name: QWEN_MODEL
+              value: qwen-image-2.0-pro
             - name: DASHSCOPE_BASE_URL
               value: https://dashscope.aliyuncs.com/api/v1
             - name: DASHSCOPE_IMAGE_MODEL
@@ -431,6 +437,8 @@ spec:
           env:
             - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
               value: http://gateway:8001
+            - name: NEXT_PUBLIC_STATIC_WEBSITE_ONLY
+              value: "true"
             - name: WEKNORA_FRONTEND_URL
               value: http://127.0.0.1:2026/platform/knowledge-bases
           readinessProbe:

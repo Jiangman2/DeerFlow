@@ -1108,16 +1108,21 @@ Matryoshka dimensions and L2-normalized so the PostgreSQL vector schema remains
 stable. Existing populated knowledge bases remain on their prior embedding
 model until a controlled re-parse succeeds; only then may the old external
 embedding/rerank/chat entries be hidden.
-Enterprise PDF/PPT/PPTX uploads pass through a private compatibility adapter.
-PPT/PPTX files are converted to PDF and sent to the approved internal MinerU
-API. PDF pages are first inspected locally: fully searchable PDFs stay on
+Enterprise PDF/DOC/DOCX/PPT/PPTX uploads pass through a private compatibility
+adapter. Legacy OLE2 `.doc` and `.ppt` files are identified from their compound
+document root streams when WeKnora forwards the upload with a generic multipart
+filename, so parser routing never depends on the original extension surviving
+the internal handoff. Office files are converted to a temporary PDF for the
+visual pass and, when needed, the approved internal MinerU API. PDF pages are
+first inspected locally: fully searchable PDFs stay on
 WeKnora's builtin parser, while scanned or mixed PDFs are sent to MinerU for
 OCR. MinerU inline images and scanned-page/presentation visuals are returned
 through WeKnora's persistent image contract with document references instead
 of being discarded during embedding. The MinerU endpoint and Bearer key are
 supplied only through the runtime `deer-flow-mineru` Secret; they are never
 stored in source or images. Other document formats continue to use WeKnora's
-native parser selection. PDF files that open normally in browsers but are
+native parser selection. Unknown, damaged, or encrypted OLE2 containers are
+rejected rather than guessed as Word or PowerPoint. PDF files that open normally in browsers but are
 rejected by PDFium during route inspection first try the independent builtin
 parser before falling back to MinerU. A later source-page rendering error keeps
 successfully parsed text instead of failing the entire upload. See
@@ -1296,6 +1301,7 @@ DeerFlow has key high-privilege capabilities including **system command executio
 - **IP allowlist**: Use `iptables`, or deploy hardware firewalls / switches with Access Control Lists (ACL), to **configure IP allowlist rules** and deny access from all other IP addresses.
 - **Authentication gateway**: Configure a reverse proxy (e.g., nginx) and **enable strong pre-authentication**, blocking any unauthenticated access.
 - **Network isolation**: Where possible, place the agent and trusted devices in the **same dedicated VLAN**, isolated from other network devices.
+- **Use narrow, layered runtime controls**: Keep real credentials out of sandbox environments, redact secret values from tool output and persisted traces, and block exact destructive or cluster-control operations. Avoid broad keyword-based refusal of ordinary diagnostics, deployment work, user-provided logs/configuration, or document and data processing; those false positives can prevent legitimate tasks without improving the underlying secret boundary.
 - **Stay updated**: Continue to follow DeerFlow's security feature updates.
 
 ## Contributing

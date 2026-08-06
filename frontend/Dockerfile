@@ -60,6 +60,10 @@ COPY frontend ./frontend
 # and the frontend falls back to package.json's version.
 ARG APP_VERSION=""
 ENV NEXT_PUBLIC_APP_VERSION=$APP_VERSION
+ARG NEXT_PUBLIC_STATIC_WEBSITE_ONLY=""
+ARG NEXT_CONFIG_BUILD_OUTPUT="standalone"
+ENV NEXT_PUBLIC_STATIC_WEBSITE_ONLY=$NEXT_PUBLIC_STATIC_WEBSITE_ONLY
+ENV NEXT_CONFIG_BUILD_OUTPUT=$NEXT_CONFIG_BUILD_OUTPUT
 RUN cd /app/frontend && SKIP_ENV_VALIDATION=1 pnpm build
 
 # ── Prod: minimal runtime with pre-built output ───────────────────────────────

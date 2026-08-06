@@ -172,17 +172,24 @@ Durable-memory boundary note:
   as future/default/always/cross-task preferences.
 
 Platform-confidentiality boundary note:
-- Conversational runs are not an operations or database console. Shared runtime
-  middleware refuses requests for server details, environment variables and
-  credentials, platform databases, cluster/deployment state, internal
-  APIs/networks, logs, system prompts, source paths, and account tables before
-  model or tool execution. Sandbox auditing independently blocks common shell,
-  filesystem, Kubernetes/container, and platform-database access paths, while
-  bash output masks request-scoped and platform runtime secrets. Dynamically
-  created Kubernetes sandbox Pods must keep
+- Do not use broad keyword refusal for platform, diagnostic, deployment, log,
+  configuration, environment, database, Kubernetes, or Docker questions.
+  Those requests must reach the model so normal troubleshooting and engineering
+  work can proceed. The shared confidentiality middleware is advisory only and
+  narrowly prohibits disclosure of actual system prompts, credentials, API
+  keys, tokens, and passwords or assistance bypassing access controls.
+- Concrete enforcement remains layered at execution and data boundaries:
+  sandbox auditing blocks exact cluster-control commands, protected secret
+  paths, secret environment reads, internal platform service targeting, and
+  destructive operations; sandbox environment policy removes unapproved
+  platform secrets; bash output and persisted/observable run context redact
+  secret values. Harmless runtime diagnostics, bounded network probes, long
+  generated document/presentation commands, and configured business-data tools
+  must remain usable. Dynamically created Kubernetes sandbox Pods must keep
   `automountServiceAccountToken: false`; conversational tasks never need
   cluster API credentials.
-- This boundary must not block public product-usage help, WeKnora retrieval, or
+- These boundaries must not block public product-usage help, WeKnora retrieval,
+  operator guidance, analysis of user-provided logs/configuration/code, or
   analysis of user-provided files under `/mnt/user-data` (including Excel, CSV,
   SQLite, and DuckDB). Never weaken it by adding platform database credentials
   to a skill or by treating platform storage as user-uploaded data.
@@ -231,7 +238,13 @@ Enterprise Kubernetes storage note:
   it lowers only that client's OpenSSL RSA security level while preserving CA
   chain and hostname verification. Image generation is Bailian/DashScope-only
   by default and must not restore Gemini credentials or automatic Gemini
-  fallback in generated Sandbox Pods. The audited enterprise network permits
+  fallback in generated Sandbox Pods. The vendored upstream `ppt-master`
+  selects this provider with `IMAGE_BACKEND=qwen` and reads
+  `QWEN_BASE_URL`/`QWEN_MODEL`; do not assume its Qwen backend reads the
+  generic `DASHSCOPE_BASE_URL`/`DASHSCOPE_IMAGE_MODEL` variables used by other
+  image-generation code. Keep the domestic endpoint root and approved model in
+  the Provisioner passthrough contract while continuing to source
+  `DASHSCOPE_API_KEY` from the runtime Secret. The audited enterprise network permits
   direct HTTPS to GitHub; keep those exact hosts/provider suffixes in both
   Sandbox `NO_PROXY` variants. Authenticated DashScope model API and Tavily
   search POSTs are reset on the audited direct route even when unauthenticated
@@ -306,7 +319,7 @@ Enterprise Kubernetes storage note:
   entry with a broad private-network CIDR.
 - The WeKnora built-in Bailian ASR model points to the internal Gateway adapter because WeKnora 0.7.0 and `qwen3-asr-flash` use different request shapes. Keep the bare `gateway` Service name in the WeKnora App proxy-bypass variables; the adapter reuses the Bailian LLM key and never persists uploaded audio.
 - The WeKnora built-in `text-embedding-v4` model also points to `http://gateway:8001/api/weknora/bailian/v1`. Gateway validates `EMBEDDING_API_KEY` and relays `/embeddings` through its scoped enterprise proxy/CA/OpenSSL compatibility path without persisting document text; do not restore a direct DashScope URL in the WeKnora database.
-- Enterprise PDF/DOC/DOCX/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It keeps searchable PDF/Word text on the bundled WeKnora parsers, merges native Word text/images with a temporary PDF visual pass, adds captioned full-page evidence for searchable pages containing images/vector figures, converts presentations to PDF, and sends scanned or mixed documents to the internal MinerU API. The PDF detector uses text length plus image-area coverage. If PDFium rejects a browser-readable document during routing inspection, the adapter first attempts the independent builtin parser and otherwise continues to MinerU; source-page rendering failures must not discard already recovered text. MinerU inline images and all visual evidence are extracted into WeKnora's persistent `images` contract with Markdown references. The adapter intentionally serializes every PDFium/DocReader parse in one process because those native libraries are not concurrency-safe; its threaded HTTP server keeps `/health` responsive and reports active/waiting parser counts while uploads queue. Do not bypass that coordinator or add in-process parser concurrency. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; documents indexed by an older parser release must be re-parsed before their missing images can be retrieved.
+- Enterprise PDF/DOC/DOCX/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It keeps searchable PDF/Word text on the bundled WeKnora parsers, merges native Word text/images with a temporary PDF visual pass, adds captioned full-page evidence for searchable pages containing images/vector figures, converts presentations to PDF, and sends scanned or mixed documents to the internal MinerU API. WeKnora 0.7.0 can forward legacy OLE2 files with the generic multipart filename `document`; identify `.doc` and `.ppt` from their root compound-document streams and never regress to requiring the lost extension or blindly guessing an unknown/encrypted container. The PDF detector uses text length plus image-area coverage. If PDFium rejects a browser-readable document during routing inspection, the adapter first attempts the independent builtin parser and otherwise continues to MinerU; source-page rendering failures must not discard already recovered text. MinerU inline images and all visual evidence are extracted into WeKnora's persistent `images` contract with Markdown references. The adapter intentionally serializes every PDFium/DocReader parse in one process because those native libraries are not concurrency-safe; its threaded HTTP server keeps `/health` responsive and reports active/waiting parser counts while uploads queue. Do not bypass that coordinator or add in-process parser concurrency. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; documents indexed by an older parser release must be re-parsed before their missing images can be retrieved.
 - Enterprise conversation uploads set `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`, so an unavailable or unsuccessful Adapter call falls back once to DeerFlow's local `convert_file_to_markdown()` path. Keep the Adapter as the primary parser; the fallback runs in Gateway and provides text recovery rather than the Adapter's complete OCR and visual-evidence contract. MarkItDown does not understand legacy binary `.doc`, so that one format may use the task sandbox's LibreOffice to create a request-scoped temporary DOCX before it re-enters `convert_file_to_markdown()`; never retain the temporary office file or add LibreOffice to Gateway. A user-visible processing warning is emitted only if both paths fail.
 - The audited three-node enterprise layout runs three MinerU Adapter replicas with required hostname anti-affinity, one independent process per node. Each process remains internally serialized through `ParseCoordinator`. Keep the single WeKnora App replica at `WEKNORA_ASYNQ_CORE_CONCURRENCY=2` plus `WEKNORA_ASYNQ_SHARED_CONCURRENCY=1`, so at most three parser calls are active and later uploads stay in Redis/Asynq. Scaling WeKnora App replicas or either worker pool multiplies that limit and requires a matching parser-capacity review. Because anti-affinity leaves no fourth node, keep the adapter RollingUpdate at `maxSurge: 0`, `maxUnavailable: 1`, and retain its `minAvailable: 2` PodDisruptionBudget.
 

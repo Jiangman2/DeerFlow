@@ -33,7 +33,18 @@ export function urlOfPdfArtifactPreview({
   threadId: string;
   isMock?: boolean;
 }) {
-  if (isStaticWebsiteOnly() || isMock) {
+  if (isStaticWebsiteOnly()) {
+    const staticPreviewPath = filepath.replace(
+      /\.preview\.pdf$/i,
+      ".preview.html",
+    );
+    return urlOfArtifact({
+      filepath: staticPreviewPath,
+      threadId,
+      isMock,
+    });
+  }
+  if (isMock) {
     return urlOfArtifact({ filepath, threadId, isMock });
   }
   return `${getBackendBaseURL()}/api/threads/${threadId}/artifact-previews/pdf${filepath}`;

@@ -25,26 +25,22 @@ logger = logging.getLogger(__name__)
 _HIGH_RISK_PATTERNS: list[re.Pattern[str]] = [
     # --- original rules (retained) ---
     re.compile(r"rm\s+-[^\s]*r[^\s]*\s+(/\*?|~/?\*?|/home\b|/root\b)\s*$"),
-    re.compile(r"dd\s+if="),
+    # Raw-device writes are destructive; ordinary dd copies inside user-data
+    # remain available for document/media processing.
+    re.compile(r"\bdd\b[^\n]*\bof=(?:/dev/(?:sd|nvme|vd|xvd|mapper/)|/proc/|/sys/)", re.IGNORECASE),
     re.compile(r"mkfs"),
     re.compile(r"cat\s+/etc/shadow"),
     re.compile(r">+\s*/etc/"),
     # --- pipe to sh/bash (generalised, replaces old curl|sh rule) ---
     re.compile(r"\|\s*(ba)?sh\b"),
-    # --- command substitution (targeted – only dangerous executables) ---
-    re.compile(r"[`$]\(?\s*(curl|wget|bash|sh|python|ruby|perl|base64)"),
-    # --- base64 decode piped to execution ---
-    re.compile(r"base64\s+.*-d.*\|"),
     # --- overwrite system binaries ---
     re.compile(r">+\s*(/usr/bin/|/bin/|/sbin/)"),
     # --- overwrite shell startup files ---
     re.compile(r">+\s*~/?\.(bashrc|profile|zshrc|bash_profile)"),
     # --- process environment leakage ---
     re.compile(r"/proc/[^/]+/environ"),
-    # --- dynamic linker hijack (one-step escalation) ---
-    re.compile(r"\b(LD_PRELOAD|LD_LIBRARY_PATH)\s*="),
-    # --- bash built-in networking (bypasses tool allowlists) ---
-    re.compile(r"/dev/tcp/"),
+    # --- outbound shell stream (read-only /dev/tcp probes remain allowed) ---
+    re.compile(r">+&?\s*/dev/tcp/"),
     # --- fork bomb ---
     re.compile(r"\S+\(\)\s*\{[^}]*\|\s*\S+\s*&"),  # :(){ :|:& };:
     re.compile(r"while\s+true.*&\s*done"),  # while true; do bash & done
@@ -60,49 +56,53 @@ _MEDIUM_RISK_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\bPATH\s*="),
 ]
 
-_PLATFORM_COMMANDS = {
+_CLUSTER_CONTROL_COMMANDS = {
     "crictl",
     "ctr",
     "docker",
     "helm",
-    "hostname",
-    "ifconfig",
     "kubectl",
-    "lscpu",
-    "lsmem",
-    "mongosh",
-    "mysql",
     "nerdctl",
-    "netstat",
-    "psql",
-    "redis-cli",
-    "ss",
-    "systemctl",
-    "uname",
 }
 
 _SENSITIVE_PLATFORM_PATH = re.compile(
     r"(?:^|[\s'\"=])(?:"
-    r"/proc(?:/|$)|/sys(?:/|$)|/etc/(?:environment|hostname|hosts|machine-id|os-release|kubernetes)(?:/|$)|"
+    r"/proc/[^/]+/environ(?:\b|$)|/etc/(?:environment|machine-id|kubernetes)(?:/|$)|"
     r"/var/run/secrets(?:/|$)|/run/secrets(?:/|$)|/root/\.kube(?:/|$)|"
     r"/app/(?:config\.ya?ml|extensions_config\.json|backend|frontend)(?:/|$)|"
-    r"(?:^|/)\.env(?:\.[A-Za-z0-9_-]+)?(?:$|[\s'\";])"
+    r"/(?:app|root|etc)/(?:[^\s'\"]*/)?\.env(?:\.[A-Za-z0-9_-]+)?(?:$|[\s'\";])"
     r")",
     re.IGNORECASE,
 )
 
 _INTERNAL_SERVICE_TARGET = re.compile(
-    r"(?:https?://|--host(?:=|\s+)|\s-h\s+)(?:gateway|postgres|redis|weknora-app|"
+    r"(?:[a-z][a-z0-9+.-]*://(?:[^/@\s]+@)?|--host(?:=|\s+)|\s-h\s+|\bhost\s*=\s*)(?:gateway|postgres|redis|weknora-app|"
     r"weknora-postgres|kubernetes\.default(?:\.svc)?)(?=[:/\s'\"]|$)",
     re.IGNORECASE,
 )
 
 _PYTHON_PLATFORM_INTROSPECTION = re.compile(
-    r"(?:os\.(?:environ|getenv)|subprocess\.(?:run|Popen|check_output).{0,80}(?:env|printenv|kubectl|docker)|"
-    r"(?:psycopg|psycopg2|asyncpg|sqlalchemy|redis|pymongo).{0,120}(?:connect|create_engine|Redis|MongoClient)|"
+    r"(?:subprocess\.(?:run|Popen|check_output).{0,80}(?:env|printenv|kubectl|docker)|"
     r"open\s*\(.{0,80}(?:/proc/|/var/run/secrets|/root/\.kube|/etc/kubernetes))",
     re.IGNORECASE,
 )
+
+_SECRET_ENV_NAME = re.compile(
+    r"(?:KEY|SECRET|TOKEN|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|REDIS_URL|DSN|PGPASS|MYSQL_PWD|REDISCLI_AUTH)",
+    re.IGNORECASE,
+)
+
+_PYTHON_ENV_ACCESS = re.compile(
+    r"(?:os\.getenv\s*\(|os\.environ(?:\.get)?\s*[\[(])\s*['\"]([^'\"]+)['\"]",
+    re.IGNORECASE,
+)
+
+
+def _python_environment_read_is_sensitive(command: str) -> bool:
+    """Block enumeration and literal reads of secret-looking env names only."""
+    if "os.environ" in command and not _PYTHON_ENV_ACCESS.search(command):
+        return True
+    return any(_SECRET_ENV_NAME.search(match.group(1)) for match in _PYTHON_ENV_ACCESS.finditer(command))
 
 _ENV_ENUMERATION = re.compile(
     r"^\s*(?:printenv|env|set|export\s+-p|declare\s+-x)\s*$",
@@ -135,12 +135,6 @@ def _effective_executable(tokens: list[str]) -> tuple[str, list[str]]:
     return remaining[0].rsplit("/", 1)[-1].lower(), remaining[1:]
 
 
-def _is_user_data_database_command(command: str, executable: str) -> bool:
-    if executable not in {"sqlite3", "duckdb"}:
-        return False
-    return bool(re.search(r"/mnt/user-data/(?:uploads|workspace|outputs)/", command, re.IGNORECASE))
-
-
 def _is_platform_introspection_command(command: str) -> bool:
     """Detect commands that turn the sandbox into a platform operations shell."""
     normalized = " ".join(command.split())
@@ -152,29 +146,23 @@ def _is_platform_introspection_command(command: str) -> bool:
         return True
     if _PYTHON_PLATFORM_INTROSPECTION.search(command):
         return True
+    if _python_environment_read_is_sensitive(command):
+        return True
 
     tokens = _command_tokens(command)
     executable, arguments = _effective_executable(tokens)
-    if executable in _PLATFORM_COMMANDS:
+    if executable in _CLUSTER_CONTROL_COMMANDS:
         return True
-    if executable in {"sqlite3", "duckdb"}:
-        return not _is_user_data_database_command(command, executable)
     if executable in {"bash", "sh", "zsh"} and any(_is_platform_introspection_command(argument) for argument in arguments if isinstance(argument, str)):
         return True
     return False
 
 
 _FILE_TOOLS = {"glob", "grep", "ls", "read_file", "str_replace", "write_file"}
-_PLATFORM_DATABASE_TOOL_NAME = re.compile(
-    r"(?:^|[_-])(?:postgres|mysql|redis|mongo|database|db_query|sql_query)(?:$|[_-])",
-    re.IGNORECASE,
-)
 
 
 def _sensitive_tool_reason(tool_name: str, args: object) -> str | None:
     """Return a block reason for non-bash platform introspection tools."""
-    if _PLATFORM_DATABASE_TOOL_NAME.search(tool_name):
-        return "platform database tools are not available to conversational tasks"
     if tool_name not in _FILE_TOOLS or not isinstance(args, dict):
         return None
     for field in ("path", "root_path", "directory", "pattern"):
@@ -405,11 +393,9 @@ class SandboxAuditMiddleware(AgentMiddleware[ThreadState]):
     # Input sanitisation
     # ------------------------------------------------------------------
 
-    # Normal bash commands rarely exceed a few hundred characters.  10 000 is
-    # well above any legitimate use case yet a tiny fraction of Linux ARG_MAX.
-    # Anything longer is almost certainly a payload injection or base64-encoded
-    # attack string.
-    _MAX_COMMAND_LENGTH = 10_000
+    # Presentation/document workflows legitimately use large heredocs. Keep a
+    # bounded transport guard, but place it above normal generated source size.
+    _MAX_COMMAND_LENGTH = 512 * 1024
 
     def _validate_input(self, command: str) -> str | None:
         """Return ``None`` if *command* is acceptable, else a rejection reason."""

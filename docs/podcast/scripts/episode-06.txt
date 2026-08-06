@@ -1,0 +1,47 @@
+本集标题：如何阅读本书。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+DeerFlow 同时拥有产品层、应用层、Agent 框架层、运行时层、基础设施层和企业集成层。如果从文件树的第一个文件开始读，容易在实现细节中迷失。更有效的方式是同时使用三种视角。
+
+下面进入小节：1.1 用户视角。
+
+用户只看到：输入框、消息、工具进度、子任务卡片、文件、Artifact、停止按钮和历史记录。
+
+下面进入小节：1.2 运行时视角。
+
+运行时关心：一次 Run 如何启动、如何流式输出、如何取消、如何保存 checkpoint、如何恢复、如何记录 token 和错误。
+
+下面进入小节：1.3 Agent 视角。
+
+Agent 关心：当前有哪些消息、能使用哪些工具、系统提示词是什么、是否允许委派子 Agent、是否需要摘要、是否遇到循环或预算上限。
+
+三个视角对应三类代码：
+
+表格口述：视角，主要代码区域，关注点；产品/HTTP，backend/app/gateway/、frontend/src/，请求、权限、展示、API；Runtime，backend/packages/harness/deerflow/runtime/，Run、事件、流、恢复、持久化；Agent，backend/packages/harness/deerflow/agents/、tools/、sandbox/，模型、状态、工具、Middleware。
+
+下面进入小节：1.4 第一条阅读原则：先区分“持久数据”和“流式数据”。
+
+消息正在生成时，前端看到的是流式事件；运行结束后，数据库和 checkpoint 才是权威来源。流式事件是“过程”，checkpoint 和持久化记录是“结果及恢复依据”。
+
+下面进入小节：1.5 第二条阅读原则：先区分“配置”和“状态”。
+
+模型名称、是否思考、是否启用子 Agent 属于运行配置；消息、Todo、Artifact、sandbox_id 属于 ThreadState；Run 状态、耗时和错误属于运行记录。它们不能混为一谈。
+
+下面进入小节：1.6 本书贯穿案例：分析一份销售 Excel 并生成报告。
+
+为了让后面的概念前后连起来，本书反复使用一个具体任务：
+
+> 用户上传 sales.xlsx，要求 DeerFlow 计算各地区销售额、画一张图，并生成 sales-report.pptx。
+
+这句话看起来只是一个聊天问题，但系统实际要完成很多次转换：
+
+图示口述：这张图展示了用户语言，分析 sales.xlsx 并生成报告、HTTP 请求，thread_id + input + uploads + context、RunRecord，一次执行的身份、LangGraph 输入，HumanMessage + 配置、ThreadState，messages + uploaded_files、模型判断，需要读取文件、Sandbox 工具，读取/运行 Python、ThreadState 更新，工具消息 + artifacts/todos、模型判断，需要生成 PPT、脚本/演示文稿工具、Artifact，sales-report.pptx + preview.pdf、StreamEvent之间的关系。图中还有更多细节，重点是这些节点按照箭头方向逐步传递状态和结果。
+
+后文每次讲一个对象，都回答它在这个案例里做什么：
+
+Thread：保存这段销售分析对话的长期身份。 - Run：记录“这一次生成报告”的执行过程。 - ThreadState：保存当前消息、上传文件、Todo、sandbox 和 Artifact。 - Checkpoint：保存 Agent 执行到某一步时的状态快照。 - Store：保存可能跨会话使用的用户偏好，例如“报告默认使用中文”。 - StreamEvent：让用户实时看到“正在读取 Excel”“正在生成 PPT”。 - Sandbox：实际运行 Python、读取 Excel 和生成文件。 - Middleware：负责上传文件注入、错误处理、标题、预算、循环检测和结果整理。
+
+这个案例的价值在于：它同时经过消息、模型、工具、状态、文件和前端，能够把 DeerFlow 的各层串成一条因果链。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

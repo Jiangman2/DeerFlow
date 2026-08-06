@@ -1,0 +1,71 @@
+本集标题：八个核心对象：Thread、Run、State、Checkpoint、Store、Event、Sandbox、Middleware。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：3.1 Thread：对话容器。
+
+Thread 是一段持久化对话的身份。它通常拥有：
+
+thread_id - 所属用户 - 标题和展示名称 - assistant/agent 身份 - 创建时间和更新时间 - 元数据，例如 sidecar、来源渠道、外部平台标记 - 与 checkpoint、消息、Run、上传文件和 Artifact 的关联
+
+Thread 不是“一次模型调用”，而是多次 Run 的容器。
+
+图示口述：这张图展示了Thread，一个会话、Run 1，用户问题 A、Run 2，用户问题 B、Run 3，继续追问、Checkpoint 序列之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：3.2 Run：一次执行。
+
+Run 是 Thread 上的一次 Agent 执行。它通常包含：
+
+输入消息或 Command(resume=...) - 使用的 assistant/agent - 有效模型名 - 运行配置 - RunStatus，例如 pending、running、success、error、cancelled - 开始时间、结束时间、耗时 - 错误信息 - token usage - 运行策略，例如递归上限、断开连接策略、多任务策略
+
+同一个 Thread 可以连续产生多个 Run；每个 Run 可能推进同一个 ThreadState。
+
+下面进入小节：3.3 ThreadState：Agent 的工作记忆。
+
+ThreadState 是 LangGraph 图看到的状态对象。当前分支在 LangChain AgentState 的基础上增加了 DeerFlow 字段，例如：
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+State 不是普通字典的简单覆盖。LangGraph 使用 reducer 合并多个节点的更新。比如多个工具都初始化同一个 sandbox 时，可以写入相同的 sandbox_id；如果出现不同 ID，则认为是隔离生命周期错误并失败关闭。
+
+下面进入小节：3.4 Checkpoint：状态快照。
+
+Checkpoint 是 LangGraph 在执行过程中保存的状态快照。它支持：
+
+下一轮 Run 继续读取历史状态。 - LangGraph interrupt 后恢复。 - 调试某个 super-step 的状态。 - 在运行中断后恢复或审计状态。 - 对不同 checkpoint 做历史版本定位。
+
+Checkpoint 关注“图状态”；Run 记录关注“执行审计”；Thread 消息 API 关注“用户看到的历史”。三者有重叠，但不是一张表的三个名字。
+
+下面进入小节：3.5 Store：跨 Thread 的数据空间。
+
+Store 更适合放跨 Thread 的持久数据，例如：
+
+用户长期记忆。 - Agent 的长期配置。 - 跨会话索引。 - 需要按 namespace 和 key 查询的数据。
+
+可以把 checkpoint 理解为“这个 Thread 的图快照”，把 store 理解为“应用或用户范围的长期数据库”。
+
+下面进入小节：3.6 StreamEvent：运行过程中的事件。
+
+StreamEvent 是一次 Run 过程中的实时消息，例如：
+
+新的 AI 消息 token 或消息块。 - 工具开始、工具结束和工具错误。 - 子任务开始、运行和完成。 - Todo 更新。 - Artifact 更新。 - ThreadState values 更新。 - 运行完成、失败、取消。
+
+事件适合驱动 UI，但不一定适合永久作为唯一事实来源。断线重连后，前端通常需要从历史 API、Run 事件 API和当前 checkpoint 补齐状态。
+
+下面进入小节：3.7 Sandbox：Agent 的执行边界。
+
+Sandbox 为 Agent 提供文件、命令和代码执行能力。它可以是：
+
+Local Sandbox：直接使用受控本地目录。 - AIO Sandbox：通过 HTTP API 访问独立执行服务。 - Provisioner/Kubernetes Sandbox：由 Provisioner 创建和回收 Pod。
+
+Sandbox 的关键不是“能不能执行 bash”，而是：路径边界、命令边界、环境变量注入、凭据保护、生命周期、空闲回收和审计。
+
+下面进入小节：3.8 Middleware：Agent 运行时的控制层。
+
+Middleware 不是简单的 Python 装饰器。它可以在：
+
+Agent 执行前准备状态。 - 模型调用前修改消息、提示词或工具集。 - 工具调用前检查参数或权限。 - 工具调用后清洗结果、记录元数据或转成 ToolMessage。 - Agent 执行后生成标题、更新记忆或清理资源。
+
+图示口述：这张图展示了输入消息、Middleware before、模型调用、Middleware after、工具执行、工具结果 Middleware、最终输出之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。
