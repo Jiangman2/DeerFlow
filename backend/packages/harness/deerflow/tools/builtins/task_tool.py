@@ -353,6 +353,7 @@ async def task_tool(
     # Get available tools (excluding task tool to prevent nesting)
     # Lazy import to avoid circular dependency
     from deerflow.tools import get_available_tools
+    from deerflow.tools.tools import filter_tools_by_datalake_scope
 
     # Inherit parent agent's tool_groups so subagents respect the same restrictions
     parent_tool_groups = metadata.get("tool_groups")
@@ -370,6 +371,10 @@ async def task_tool(
     if resolved_app_config is not None:
         available_tools_kwargs["app_config"] = resolved_app_config
     tools = get_available_tools(**available_tools_kwargs)
+    datalake_enabled = parent_context.get("datalake_enabled", True)
+    if type(datalake_enabled) is not bool:
+        datalake_enabled = True
+    tools = filter_tools_by_datalake_scope(tools, enabled=datalake_enabled)
     from deerflow.runtime.weknora_context import gate_weknora_tools_for_scope
 
     tools = gate_weknora_tools_for_scope(
@@ -377,6 +382,7 @@ async def task_tool(
         tools,
         selected_ids=parent_context.get("weknora_knowledge_base_ids"),
     )
+    tools = filter_tools_by_datalake_scope(tools, enabled=datalake_enabled)
 
     # Create executor
     executor_kwargs = {
@@ -394,6 +400,7 @@ async def task_tool(
         "run_id": run_id,
         "channel_user_id": channel_user_id,
         "deerflow_trace_id": deerflow_trace_id,
+        "datalake_enabled": datalake_enabled,
     }
     if resolved_app_config is not None:
         executor_kwargs["app_config"] = resolved_app_config
