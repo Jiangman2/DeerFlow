@@ -33,9 +33,10 @@ interface ArtifactsProviderProps {
 export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
   const [artifacts, setArtifacts] = useState<string[]>([]);
   const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
-  const [open, setOpen] = useState(
-    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
-  );
+  // Keep the conversation as the primary surface. Static demos still select
+  // their first artifact so the file button is ready, but the artifact pane
+  // must be opened deliberately instead of hiding the execution transcript.
+  const [open, setOpen] = useState(false);
   const { setOpen: setSidebarOpen } = useSidebar();
 
   const select = useCallback(

@@ -31,7 +31,7 @@ images:
     newTag: dev-20260729-mineru-stability-v1
   - name: deer-flow-frontend
     newName: deer-flow-frontend
-    newTag: dev-20260806-ppt-static-demo-v3
+    newTag: dev-20260806-ppt-static-demo-v4
   - name: deer-flow-provisioner
     newName: deer-flow-provisioner
     newTag: dev-20260730-bailian-image-v3
