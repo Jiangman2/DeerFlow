@@ -96,6 +96,24 @@ def test_public_tool_schemas_expose_only_the_business_query():
         assert set(tool.tool_call_schema.model_json_schema()["properties"]) == {"query"}
 
 
+def test_disabled_data_lake_context_rejects_before_configuration_or_network():
+    import deerflow.community.appforge.tools as module
+
+    runtime = SimpleNamespace(
+        context={"datalake_enabled": False},
+        config={"configurable": {}},
+    )
+    with patch.object(module, "get_app_config", side_effect=AssertionError("config must not be read")):
+        with patch.object(module.httpx, "Client", side_effect=AssertionError("network must not start")):
+            result = json.loads(module._invoke_tool("datalake_smart_qa", "问题", runtime))
+
+    assert result == {
+        "error": "Data Lake use is disabled for this run",
+        "code": "datalake_disabled",
+        "retryable": False,
+    }
+
+
 def test_conversation_id_is_stable_per_user_thread_and_tool():
     import deerflow.community.appforge.tools as module
 

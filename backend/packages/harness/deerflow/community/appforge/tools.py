@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any
 
@@ -388,6 +388,15 @@ def _safe_json(value: dict[str, Any]) -> str:
 
 
 def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
+    runtime_context = getattr(runtime, "context", None)
+    if isinstance(runtime_context, Mapping) and runtime_context.get("datalake_enabled") is False:
+        return json.dumps(
+            {
+                "error": "Data Lake use is disabled for this run",
+                "code": "datalake_disabled",
+                "retryable": False,
+            }
+        )
     if not query.strip():
         return json.dumps({"error": "query is required", "code": "invalid_query"})
     if not _api_key(tool_name):
