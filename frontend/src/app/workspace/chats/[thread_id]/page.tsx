@@ -44,6 +44,7 @@ import { isHiddenFromUIMessage } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings, useThreadSettings } from "@/core/settings";
+import { saveThreadDataLakeEnabled } from "@/core/settings/local";
 import {
   useBranchThread,
   useThreadMetadata,
@@ -119,6 +120,10 @@ export default function ChatPage() {
       setIsWelcomeMode(false);
     },
     onStart: (createdThreadId) => {
+      saveThreadDataLakeEnabled(
+        createdThreadId,
+        settings.context.datalake_enabled !== false,
+      );
       // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
       history.replaceState(null, "", `/workspace/chats/${createdThreadId}`);
       setThreadId(createdThreadId);
@@ -227,6 +232,10 @@ export default function ChatPage() {
           messageId,
           messageIds,
         });
+        saveThreadDataLakeEnabled(
+          response.thread_id,
+          settings.context.datalake_enabled !== false,
+        );
         toast.success(t.conversation.branchCreated);
         router.push(`/workspace/chats/${response.thread_id}`);
       } catch (error) {
@@ -235,7 +244,15 @@ export default function ChatPage() {
         );
       }
     },
-    [branchThread, isMock, isNewThread, router, t, threadId],
+    [
+      branchThread,
+      isMock,
+      isNewThread,
+      router,
+      settings.context.datalake_enabled,
+      t,
+      threadId,
+    ],
   );
 
   const tokenUsageInlineMode = tokenUsageEnabled

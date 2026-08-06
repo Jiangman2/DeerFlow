@@ -559,6 +559,15 @@ the key in the runtime Secret, sanitize provider errors, and retain bounded JSON
 results so the generic tool-output budget does not replace useful structured
 answers with a file-only preview.
 
+The web run context may carry the strict JSON boolean `datalake_enabled` only
+under `body.context`; Gateway keeps it runtime-only and rejects low-level
+`config.context`/`config.configurable` occurrences or non-boolean values. A
+disabled run filters all three AppForge tools before deferred assembly. The
+`task` tool and `SubagentExecutor` propagate the effective flag to child runtime
+contexts and apply the same filter defensively. The AppForge boundary still
+returns a bounded `datalake_disabled` result for stale direct references before
+configuration, credentials, or network access.
+
 **ACP agent tools**:
 - `invoke_acp_agent` - Invokes external ACP-compatible agents from `config.yaml`
 - ACP launchers must be real ACP adapters. The standard `codex` CLI is not ACP-compatible by itself; configure a wrapper such as `npx -y @zed-industries/codex-acp` or an installed `codex-acp` binary

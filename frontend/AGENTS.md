@@ -125,6 +125,14 @@ administrators retain the complete native editor.
 5. TanStack Query manages server state; localStorage stores user settings
 6. Components subscribe to thread state and render updates
 
+The composer labels the legacy shop-cart attachment flow as **Data Lake** while
+keeping its internal routes and modules unchanged. The control stores
+`datalake_enabled` under a thread-specific localStorage key, defaults missing
+values to `true`, and offers **Do not use Data Lake** / re-enable actions. A
+disabled thread removes the file-list menu item, closes the dialog, invalidates
+in-flight list loads, and sends the resolved boolean on normal, custom-agent,
+regenerated, and branched runs.
+
 PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. `core/artifacts/utils.ts` owns the deterministic pairing rule, and the artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. PDF browser previews must keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and rely on the Gateway's CSP/active-PDF attachment fallback; do not restore an unrestricted same-origin PDF iframe.
 `MessageResponse` must use React's normal shallow-prop memoization (or compare every rendering prop), not a children-only comparator: thread-aware Markdown `components` arrive independently of unchanged text, and retaining an older link renderer turns preview links back into full-page artifact navigation. Interactive artifact links use an inert `#artifacts` href when a panel callback is available so an early pre-hydration click cannot replace the chat page with the raw file response.
 
