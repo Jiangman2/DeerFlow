@@ -248,6 +248,17 @@ def test_auth_disabled_stamps_default_admin_user_without_cookie(monkeypatch):
     }
 
 
+def test_auth_disabled_user_includes_optional_sso_profile_fields():
+    from app.gateway.auth_disabled import get_auth_disabled_user
+
+    user = get_auth_disabled_user()
+
+    assert user.display_name == "Local Administrator"
+    assert user.organization_id is None
+    assert user.organization_code is None
+    assert user.organization_name is None
+
+
 def test_auth_disabled_auth_me_reuses_middleware_user_without_cookie(monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DISABLED", "1")
     client = TestClient(_make_app())

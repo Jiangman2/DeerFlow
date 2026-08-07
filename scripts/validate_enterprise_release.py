@@ -210,6 +210,16 @@ def validate_config(path: Path) -> list[str]:
         raise ValidationError(
             "sandbox.environment.IMAGE_GENERATION_PROVIDER must be 'dashscope'"
         )
+    expected_ppt_image_environment = {
+        "IMAGE_BACKEND": "qwen",
+        "QWEN_BASE_URL": "https://dashscope.aliyuncs.com",
+        "QWEN_MODEL": "qwen-image-2.0-pro",
+    }
+    for key, expected in expected_ppt_image_environment.items():
+        if environment.get(key) != expected:
+            raise ValidationError(
+                f"sandbox.environment.{key} must be {expected!r}"
+            )
     if "GEMINI_API_KEY" in environment:
         raise ValidationError("GEMINI_API_KEY must not be injected into enterprise Sandbox")
 
@@ -301,7 +311,10 @@ def validate_manifest(path: Path) -> list[str]:
 
     passthrough_keys = _csv(provisioner_env.get("SANDBOX_PASSTHROUGH_ENV_KEYS", ""))
     required_passthrough_keys = {
+        "IMAGE_BACKEND",
         "IMAGE_GENERATION_PROVIDER",
+        "QWEN_BASE_URL",
+        "QWEN_MODEL",
         "DASHSCOPE_TLS_COMPAT",
         "NO_PROXY",
         "no_proxy",
@@ -314,7 +327,10 @@ def validate_manifest(path: Path) -> list[str]:
         )
 
     expected_provisioner = {
+        "IMAGE_BACKEND": "qwen",
         "IMAGE_GENERATION_PROVIDER": "dashscope",
+        "QWEN_BASE_URL": "https://dashscope.aliyuncs.com",
+        "QWEN_MODEL": "qwen-image-2.0-pro",
         "DASHSCOPE_TLS_COMPAT": "true",
         "SANDBOX_CA_SECRET_NAME": "deer-flow-enterprise-ca",
         "SANDBOX_CA_SECRET_KEY": "ca-bundle.crt",

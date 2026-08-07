@@ -20,7 +20,10 @@ def _valid_config() -> dict:
             "environment": {
                 **MODULE.SANDBOX_PROXY_REFERENCES,
                 **MODULE.SANDBOX_CA_REFERENCES,
+                "IMAGE_BACKEND": "qwen",
                 "IMAGE_GENERATION_PROVIDER": "dashscope",
+                "QWEN_BASE_URL": "https://dashscope.aliyuncs.com",
+                "QWEN_MODEL": "qwen-image-2.0-pro",
             }
         },
         "scheduler": {
@@ -113,6 +116,28 @@ def test_release_config_rejects_gemini_injection(tmp_path: Path) -> None:
     path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
     with pytest.raises(MODULE.ValidationError, match="GEMINI_API_KEY"):
+        MODULE.validate_config(path)
+
+
+@pytest.mark.parametrize(
+    ("key", "bad_value"),
+    [
+        ("IMAGE_BACKEND", "dashscope"),
+        ("QWEN_BASE_URL", "https://dashscope-intl.aliyuncs.com"),
+        ("QWEN_MODEL", ""),
+    ],
+)
+def test_release_config_rejects_ppt_qwen_contract_regressions(
+    tmp_path: Path,
+    key: str,
+    bad_value: str,
+) -> None:
+    config = _valid_config()
+    config["sandbox"]["environment"][key] = bad_value
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(MODULE.ValidationError, match=key):
         MODULE.validate_config(path)
 
 

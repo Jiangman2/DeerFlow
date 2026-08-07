@@ -87,12 +87,21 @@ describe("artifact URL helpers", () => {
     );
   });
 
+  test("routes PDF companions through the browser-compatible preview endpoint", async () => {
+    const { urlOfPdfArtifactPreview } = await loadFreshArtifactUtils();
+
+    expect(
+      urlOfPdfArtifactPreview({
+        filepath: "/mnt/user-data/outputs/中文报告.preview.pdf",
+        threadId: "thread-1",
+      }),
+    ).toBe(
+      "/api/threads/thread-1/artifact-previews/pdf/mnt/user-data/outputs/中文报告.preview.pdf",
+    );
+  });
+
   test("pairs PowerPoint artifacts with their browser preview PDF", async () => {
-    const {
-      findPreviewPdfPath,
-      guessPreviewPdfPath,
-      guessPreviewPdfPaths,
-    } =
+    const { findPreviewPdfPath, guessPreviewPdfPath, guessPreviewPdfPaths } =
       await loadFreshArtifactUtils();
 
     expect(guessPreviewPdfPath("/mnt/user-data/outputs/deck.pptx")).toBe(
@@ -116,13 +125,41 @@ describe("artifact URL helpers", () => {
     ]);
   });
 
+  test("hides PowerPoint preview companions from user-facing artifacts", async () => {
+    const { filterUserVisibleArtifacts, findPowerPointForPreviewArtifact } =
+      await loadFreshArtifactUtils();
+    const pptxPath = "/mnt/user-data/outputs/deck.pptx";
+    const previewPath = "/mnt/user-data/outputs/deck.preview.pdf";
+    const standalonePdfPath = "/mnt/user-data/outputs/standalone.pdf";
+    const files = [pptxPath, previewPath, standalonePdfPath];
+
+    expect(findPowerPointForPreviewArtifact(previewPath, files)).toBe(pptxPath);
+    expect(filterUserVisibleArtifacts(files)).toEqual([
+      pptxPath,
+      standalonePdfPath,
+    ]);
+    expect(filterUserVisibleArtifacts([previewPath], files)).toEqual([]);
+  });
+
+  test("hides the legacy same-stem PDF only when its PowerPoint exists", async () => {
+    const { filterUserVisibleArtifacts } = await loadFreshArtifactUtils();
+    const pptxPath = "/mnt/user-data/outputs/legacy-deck.pptx";
+    const fallbackPreviewPath = "/mnt/user-data/outputs/legacy-deck.pdf";
+
+    expect(filterUserVisibleArtifacts([pptxPath, fallbackPreviewPath])).toEqual(
+      [pptxPath],
+    );
+    expect(filterUserVisibleArtifacts([fallbackPreviewPath])).toEqual([
+      fallbackPreviewPath,
+    ]);
+  });
+
   test("extracts previewable artifact paths from message links", async () => {
     const {
       artifactPathFromHref,
       artifactPreviewHref,
       rewriteArtifactLinksForPreview,
-    } =
-      await loadFreshArtifactUtils();
+    } = await loadFreshArtifactUtils();
 
     expect(
       artifactPathFromHref(
@@ -218,9 +255,7 @@ describe("artifact URL helpers", () => {
         "thread-1",
         artifacts,
       ),
-    ).toBe(
-      "/api/weknora/files?file_path=resource%3A%2F%2Fimage_handle-1",
-    );
+    ).toBe("/api/weknora/files?file_path=resource%3A%2F%2Fimage_handle-1");
   });
 
   test("does not rewrite unregistered, ambiguous, or external message images", async () => {

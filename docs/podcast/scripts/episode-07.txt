@@ -1,0 +1,33 @@
+本集标题：DeerFlow 的总体架构。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：2.1 服务拓扑。
+
+典型本地开发栈包含四个服务：
+
+图示口述：这张图展示了浏览器、Nginx :2026，统一入口、Next.js Frontend :3000、Gateway FastAPI :8001、Provisioner :8002、Sandbox Pods / AIO Sandbox、SQLite 或 PostgreSQL、可选 Redis，StreamBridge / 队列、外部或内部模型服务、可选 WeKnora之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+Nginx 是浏览器的统一入口。标准流程中，前端不需要直接面对 Gateway 的内部端口；/api/langgraph/* 被转发并改写到 Gateway 的原生 API，其他 API 路由进入 Gateway。当前分支还包含 WeKnora 同源嵌入、外部 Agent 启动路由和多个安全相关的反向代理约束。
+
+下面进入小节：2.2 Harness 与 App 的边界。
+
+后端最重要的架构约束是：
+
+图示口述：这张图展示了app.*，应用层，FastAPI、Gateway、IM Channel、deerflow.*，可复用 Harness，Agent、工具、沙箱、模型、Skill、MCP、Runtime之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+packages/harness/deerflow/ 是可发布的 Agent 框架层；backend/app/ 是 DeerFlow 应用本身。应用层可以调用 Harness，Harness 不能导入应用层。这个边界让 DeerFlow 能够被嵌入其他宿主，也防止 Agent 核心代码被 Gateway 细节污染。
+
+下面进入小节：2.3 仓库结构地图。
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+下面进入小节：2.4 两种执行入口。
+
+DeerFlow 的运行入口不只有浏览器聊天：
+
+浏览器 Chat：前端调用 Gateway 的 LangGraph 兼容 API。 - IM Channel：飞书、Slack、Telegram、钉钉等渠道把消息转入同一套运行生命周期。 - Scheduled Task：调度器决定何时执行，但仍然复用正常 Gateway Run 路径。 - GitHub Webhook：外部事件经过触发策略后创建 LangGraph Run。 - 内嵌 Python Client：deerflow.client 可在 Python 进程内运行 Agent。
+
+设计重点是“多入口、同生命周期”。入口可以不同，Thread、Run、Agent、工具、状态和事件机制尽量统一。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

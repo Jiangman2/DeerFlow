@@ -32,10 +32,99 @@ def _fake_docx() -> bytes:
     return data.getvalue()
 
 
+def _compound_directory_entry(
+    name: str,
+    object_type: int,
+    *,
+    left: int = 0xFFFFFFFF,
+    right: int = 0xFFFFFFFF,
+    child: int = 0xFFFFFFFF,
+) -> bytes:
+    entry = bytearray(128)
+    encoded_name = name.encode("utf-16le") + b"\x00\x00"
+    entry[: len(encoded_name)] = encoded_name
+    entry[64:66] = len(encoded_name).to_bytes(2, "little")
+    entry[66] = object_type
+    entry[67] = 1
+    entry[68:72] = left.to_bytes(4, "little")
+    entry[72:76] = right.to_bytes(4, "little")
+    entry[76:80] = child.to_bytes(4, "little")
+    return bytes(entry)
+
+
+def _fake_legacy_office(root_stream: str, *, embedded_stream: str | None = None) -> bytes:
+    free_sector = 0xFFFFFFFF
+    end_of_chain = 0xFFFFFFFE
+    fat_sector = 0xFFFFFFFD
+    header = bytearray(512)
+    header[:8] = bytes.fromhex("D0CF11E0A1B11AE1")
+    header[24:26] = (0x003E).to_bytes(2, "little")
+    header[26:28] = (3).to_bytes(2, "little")
+    header[28:30] = (0xFFFE).to_bytes(2, "little")
+    header[30:32] = (9).to_bytes(2, "little")
+    header[32:34] = (6).to_bytes(2, "little")
+    header[44:48] = (1).to_bytes(4, "little")
+    header[48:52] = (0).to_bytes(4, "little")
+    header[56:60] = (4096).to_bytes(4, "little")
+    header[60:64] = end_of_chain.to_bytes(4, "little")
+    header[68:72] = end_of_chain.to_bytes(4, "little")
+    header[76:80] = (1).to_bytes(4, "little")
+    for offset in range(80, 512, 4):
+        header[offset : offset + 4] = free_sector.to_bytes(4, "little")
+
+    if embedded_stream is None:
+        entries = [
+            _compound_directory_entry("Root Entry", 5, child=1),
+            _compound_directory_entry(root_stream, 2),
+        ]
+    else:
+        entries = [
+            _compound_directory_entry("Root Entry", 5, child=1),
+            _compound_directory_entry(root_stream, 2, right=2),
+            _compound_directory_entry("ObjectPool", 1, child=3),
+            _compound_directory_entry(embedded_stream, 2),
+        ]
+    directory = b"".join(entries).ljust(512, b"\x00")
+    fat = bytearray(free_sector.to_bytes(4, "little") * 128)
+    fat[0:4] = end_of_chain.to_bytes(4, "little")
+    fat[4:8] = fat_sector.to_bytes(4, "little")
+    return bytes(header) + directory + bytes(fat)
+
+
 def test_detect_input_suffix_recognises_pdf_pptx_and_docx():
     assert app.detect_input_suffix(b"%PDF-1.7\n") == ".pdf"
     assert app.detect_input_suffix(_fake_pptx()) == ".pptx"
     assert app.detect_input_suffix(_fake_docx()) == ".docx"
+
+
+def test_detect_legacy_office_suffix_uses_compound_document_streams():
+    content = _fake_legacy_office(
+        "WordDocument",
+        embedded_stream="PowerPoint Document",
+    )
+
+    assert app.detect_input_suffix(content, "document") == ".doc"
+
+
+def test_detect_legacy_office_suffix_recognises_powerpoint_document():
+    content = _fake_legacy_office("PowerPoint Document")
+
+    assert app.detect_input_suffix(content, "upload") == ".ppt"
+
+
+def test_detect_legacy_office_suffix_rejects_unknown_compound_document():
+    try:
+        app.detect_input_suffix(_fake_legacy_office("Workbook"), "document")
+    except ValueError as exc:
+        assert str(exc) == "Unsupported or encrypted legacy Office compound document"
+    else:
+        raise AssertionError("unknown legacy Office files must be rejected")
+
+
+def test_detect_input_suffix_recognises_legacy_word_when_weknora_omits_extension(monkeypatch):
+    content = _fake_legacy_office("WordDocument")
+
+    assert app.detect_input_suffix(content, "document") == ".doc"
 
 
 def test_builtin_pdf_adapter_extends_vector_figure_detection_to_chinese_captions():

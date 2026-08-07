@@ -48,7 +48,7 @@ import {
 } from "@/core/messages/usage-model";
 import {
   extractContentFromMessage,
-  extractPresentFilesFromMessage,
+  extractSuccessfullyPresentedFiles,
   extractTextFromMessage,
   getAssistantTurnCopyData,
   getAssistantTurnUsageMessages,
@@ -56,7 +56,6 @@ import {
   getMessageGroups,
   getStreamingMessageLookup,
   hasContent,
-  hasPresentFiles,
   hasReasoning,
   isAssistantMessageGroupStreaming,
   isHiddenFromUIMessage,
@@ -767,13 +766,8 @@ export function MessageList({
     if (group.type !== "assistant:present-files") {
       continue;
     }
-    for (const message of group.messages) {
-      if (!hasPresentFiles(message)) {
-        continue;
-      }
-      for (const filepath of extractPresentFilesFromMessage(message)) {
-        messagePresentedArtifactPaths.add(filepath);
-      }
+    for (const filepath of extractSuccessfullyPresentedFiles(group.messages)) {
+      messagePresentedArtifactPaths.add(filepath);
     }
   }
   const unrenderedArtifactPaths = artifactPaths.filter(
@@ -945,15 +939,7 @@ export function MessageList({
               }
               return null;
             } else if (group.type === "assistant:present-files") {
-              const files = new Set<string>();
-              for (const message of group.messages) {
-                if (hasPresentFiles(message)) {
-                  const presentFiles = extractPresentFilesFromMessage(message);
-                  for (const filepath of presentFiles) {
-                    files.add(filepath);
-                  }
-                }
-              }
+              const files = extractSuccessfullyPresentedFiles(group.messages);
               return (
                 <div
                   className="w-full"
@@ -972,7 +958,9 @@ export function MessageList({
                       components={artifactMarkdownComponents}
                     />
                   )}
-                  <ArtifactFileList files={[...files]} threadId={threadId} />
+                  {files.length > 0 && (
+                    <ArtifactFileList files={files} threadId={threadId} />
+                  )}
                   {renderTokenUsage({
                     messages: group.messages,
                     turnUsageMessages,

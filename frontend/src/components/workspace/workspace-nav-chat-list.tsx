@@ -17,6 +17,7 @@ import {
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   Tooltip,
@@ -30,7 +31,11 @@ export function WorkspaceNavChatList() {
   const { t } = useI18n();
   const pathname = usePathname();
   const { enabled: agentsEnabled } = useAgentsApiEnabled();
+  const { isMobile, setOpenMobile } = useSidebar();
   const [knowledgeUrl, setKnowledgeUrl] = useState<string>();
+  const closeMobileSidebar = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   useEffect(() => {
     let active = true;
@@ -53,51 +58,51 @@ export function WorkspaceNavChatList() {
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname === "/workspace/chats"}
-            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
             asChild
           >
-            <Link href="/workspace/chats">
+            <Link href="/workspace/chats" onClick={closeMobileSidebar}>
               <MessagesSquare />
               <span>{t.sidebar.chats}</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
         <SidebarMenuItem>
-            <SidebarMenuButton
-              isActive={pathname.startsWith("/workspace/knowledge")}
-              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
+          <SidebarMenuButton
+            isActive={pathname.startsWith("/workspace/knowledge")}
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
+            asChild
+          >
+            <Link href="/workspace/knowledge" onClick={closeMobileSidebar}>
+              <BookOpenIcon />
+              <span>{t.sidebar.knowledge}</span>
+            </Link>
+          </SidebarMenuButton>
+          {knowledgeUrl && (
+            <SidebarMenuAction
               asChild
+              className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              title="打开知识库平台"
             >
-              <Link href="/workspace/knowledge">
-                <BookOpenIcon />
-                <span>{t.sidebar.knowledge}</span>
-              </Link>
-            </SidebarMenuButton>
-            {knowledgeUrl && (
-              <SidebarMenuAction
-                asChild
-                className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                title="打开知识库平台"
+              <a
+                href={knowledgeUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label="打开知识库平台"
               >
-                <a
-                  href={knowledgeUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  aria-label="打开知识库平台"
-                >
-                  <ExternalLinkIcon />
-                </a>
-              </SidebarMenuAction>
-            )}
-          </SidebarMenuItem>
+                <ExternalLinkIcon />
+              </a>
+            </SidebarMenuAction>
+          )}
+        </SidebarMenuItem>
         <SidebarMenuItem>
           {agentsEnabled ? (
             <SidebarMenuButton
               isActive={pathname.startsWith("/workspace/agents")}
-              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
+              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
               asChild
             >
-              <Link href="/workspace/agents">
+              <Link href="/workspace/agents" onClick={closeMobileSidebar}>
                 <BotIcon />
                 <span>{t.sidebar.agents}</span>
               </Link>
@@ -136,10 +141,13 @@ export function WorkspaceNavChatList() {
         <SidebarMenuItem>
           <SidebarMenuButton
             isActive={pathname.startsWith("/workspace/scheduled-tasks")}
-            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary [&>svg]:text-current data-[active=true]:shadow-sm"
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
             asChild
           >
-            <Link href="/workspace/scheduled-tasks">
+            <Link
+              href="/workspace/scheduled-tasks"
+              onClick={closeMobileSidebar}
+            >
               <CalendarClock />
               <span>{t.sidebar.scheduledTasks}</span>
             </Link>

@@ -10,7 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { urlOfArtifact } from "@/core/artifacts/utils";
+import {
+  filterUserVisibleArtifacts,
+  urlOfArtifact,
+} from "@/core/artifacts/utils";
 import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 import { installSkill, SkillRequestError } from "@/core/skills/api";
@@ -35,8 +38,12 @@ export function ArtifactFileList({
   const { t } = useI18n();
   const { user } = useAuth();
   const isAdmin = user?.system_role === "admin";
-  const { select: selectArtifact, setOpen } = useArtifacts();
+  const { artifacts, select: selectArtifact, setOpen } = useArtifacts();
   const [installingFile, setInstallingFile] = useState<string | null>(null);
+  const visibleFiles = filterUserVisibleArtifacts(
+    files,
+    artifacts.length > 0 ? artifacts : files,
+  );
 
   const handleClick = useCallback(
     (filepath: string) => {
@@ -80,7 +87,7 @@ export function ArtifactFileList({
 
   return (
     <ul className={cn("flex w-full flex-col gap-4", className)}>
-      {files.map((file) => (
+      {visibleFiles.map((file) => (
         <Card
           key={file}
           data-artifact-filepath={file}

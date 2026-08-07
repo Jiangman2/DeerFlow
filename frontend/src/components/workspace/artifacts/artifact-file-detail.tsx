@@ -38,9 +38,11 @@ import {
   HTML_PREVIEW_SCROLL_MESSAGE_SOURCE,
 } from "@/core/artifacts/preview";
 import {
+  filterUserVisibleArtifacts,
   findPreviewPdfPath,
   guessPreviewPdfPaths,
   urlOfArtifact,
+  urlOfPdfArtifactPreview,
 } from "@/core/artifacts/utils";
 import { useAuth } from "@/core/auth/AuthProvider";
 import { extractCitationSources } from "@/core/citations/sources";
@@ -114,10 +116,11 @@ export function ArtifactFileDetail({
     });
   }, [artifacts, filepath, isWriteFile]);
   const artifactOptions = useMemo(() => {
+    const visibleArtifacts = filterUserVisibleArtifacts(artifacts);
     if (isWriteFile) {
-      return artifacts;
+      return visibleArtifacts;
     }
-    const currentIsPresented = !artifacts.includes(filepath);
+    const currentIsPresented = !visibleArtifacts.includes(filepath);
     const presentedFilepaths =
       currentIsPresented && !openedPresentedFilepaths.includes(filepath)
         ? [...openedPresentedFilepaths, filepath]
@@ -125,7 +128,7 @@ export function ArtifactFileDetail({
     const presentedSet = new Set(presentedFilepaths);
     return [
       ...presentedFilepaths,
-      ...artifacts.filter((artifact) => !presentedSet.has(artifact)),
+      ...visibleArtifacts.filter((artifact) => !presentedSet.has(artifact)),
     ];
   }, [artifacts, filepath, isWriteFile, openedPresentedFilepaths]);
   const isSkillFile = useMemo(() => {
@@ -168,31 +171,35 @@ export function ArtifactFileDetail({
     enabled: isCodeFile && !isWriteFile,
   });
   const previewPathFromList = useMemo(() => {
-    return findPreviewPdfPath(filepath, artifactOptions);
-  }, [artifactOptions, filepath]);
+    return findPreviewPdfPath(filepath, artifacts);
+  }, [artifacts, filepath]);
   const guessedPreviewPaths = useMemo(() => {
     return guessPreviewPdfPaths(filepath);
   }, [filepath]);
   const [resolvedPreviewPath, setResolvedPreviewPath] = useState<string | null>(
-    previewPathFromList,
+    null,
   );
 
   useEffect(() => {
-    setResolvedPreviewPath(previewPathFromList);
-  }, [filepath, previewPathFromList]);
-  useEffect(() => {
-    if (
-      previewPathFromList ||
-      guessedPreviewPaths.length === 0 ||
-      isCodeFile ||
-      isWriteFile
-    ) {
+    setResolvedPreviewPath(null);
+    if (isCodeFile || isWriteFile) {
+      return;
+    }
+
+    const previewCandidates = Array.from(
+      new Set(
+        [previewPathFromList, ...guessedPreviewPaths].filter(
+          (candidate): candidate is string => Boolean(candidate),
+        ),
+      ),
+    );
+    if (previewCandidates.length === 0) {
       return;
     }
 
     const controller = new AbortController();
     void (async () => {
-      for (const candidate of guessedPreviewPaths) {
+      for (const candidate of previewCandidates) {
         try {
           const response = await fetch(
             urlOfArtifact({
@@ -224,11 +231,26 @@ export function ArtifactFileDetail({
     isCodeFile,
     isMock,
     isWriteFile,
+    filepath,
     previewPathFromList,
     threadId,
   ]);
 
   const browserPreviewPath = resolvedPreviewPath ?? filepath;
+  const browserPreviewUrl = useMemo(() => {
+    if (browserPreviewPath.toLowerCase().endsWith(".pdf")) {
+      return urlOfPdfArtifactPreview({
+        filepath: browserPreviewPath,
+        threadId,
+        isMock,
+      });
+    }
+    return urlOfArtifact({
+      filepath: browserPreviewPath,
+      threadId,
+      isMock,
+    });
+  }, [browserPreviewPath, isMock, threadId]);
   const canPreviewInBrowser = useMemo(() => {
     return canBrowserPreviewFile(browserPreviewPath);
   }, [browserPreviewPath]);
@@ -276,14 +298,19 @@ export function ArtifactFileDetail({
   }, [threadId, filepath, isInstalling, t]);
   return (
     <Artifact className={cn(className)}>
-      <ArtifactHeader className="px-2">
-        <div className="flex items-center gap-2">
-          <ArtifactTitle>
+      <ArtifactHeader className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] gap-2 px-2">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+          <ArtifactTitle className="min-w-0 overflow-hidden">
             {isWriteFile ? (
-              <div className="px-2">{getFileName(filepath)}</div>
+              <div className="truncate px-2" title={getFileName(filepath)}>
+                {getFileName(filepath)}
+              </div>
             ) : (
               <Select value={filepath} onValueChange={select}>
-                <SelectTrigger className="border-none bg-transparent! shadow-none select-none focus:outline-0 active:outline-0">
+                <SelectTrigger
+                  className="w-full max-w-full min-w-0 border-none bg-transparent! shadow-none select-none focus:outline-0 active:outline-0"
+                  title={getFileName(filepath)}
+                >
                   <SelectValue placeholder="Select a file" />
                 </SelectTrigger>
                 <SelectContent className="select-none">
@@ -299,7 +326,7 @@ export function ArtifactFileDetail({
             )}
           </ArtifactTitle>
         </div>
-        <div className="flex min-w-0 grow items-center justify-center">
+        <div className="flex shrink-0 items-center justify-center">
           {artifactViewState.canPreview && (
             <ToggleGroup
               className="mx-auto"
@@ -322,8 +349,8 @@ export function ArtifactFileDetail({
             </ToggleGroup>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <ArtifactActions>
+        <div className="flex shrink-0 items-center gap-2">
+          <ArtifactActions className="shrink-0">
             {!isWriteFile && filepath.endsWith(".skill") && isAdmin && (
               <Tooltip content={t.toolCalls.skillInstallTooltip}>
                 <ArtifactAction
@@ -345,11 +372,7 @@ export function ArtifactFileDetail({
                 tooltip={t.common.openInNewWindow}
                 onClick={() => {
                   const w = window.open(
-                    urlOfArtifact({
-                      filepath: browserPreviewPath,
-                      threadId,
-                      isMock,
-                    }),
+                    browserPreviewUrl,
                     "_blank",
                     "noopener,noreferrer",
                   );
@@ -430,11 +453,7 @@ export function ArtifactFileDetail({
         {!isCodeFile && canPreviewInBrowser && (
           <iframe
             className="size-full"
-            src={urlOfArtifact({
-              filepath: browserPreviewPath,
-              threadId,
-              isMock,
-            })}
+            src={browserPreviewUrl}
             referrerPolicy="no-referrer"
             sandbox={
               browserPreviewPath.toLocaleLowerCase().endsWith(".pdf")

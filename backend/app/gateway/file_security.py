@@ -77,12 +77,19 @@ _PDF_ACTIVE_NAME_RE = re.compile(
     rb"JavaScript|JS|"
     rb"Launch|"
     rb"Movie|"
-    rb"OpenAction|"
     rb"RichMedia|RichMediaExecute|"
     rb"Sound|"
     rb"SubmitForm|"
     rb"XFA"
     rb")(?![A-Za-z0-9#])",
+    re.IGNORECASE,
+)
+_PDF_OPEN_ACTION_RE = re.compile(rb"/OpenAction(?![A-Za-z0-9#])", re.IGNORECASE)
+_PDF_SAFE_PAGE_DESTINATION_OPEN_ACTION_RE = re.compile(
+    rb"/OpenAction\s*"
+    rb"\[\s*\d+\s+\d+\s+R\s+"
+    rb"/(?:XYZ|Fit|FitH|FitV|FitR|FitB|FitBH|FitBV)"
+    rb"(?:\s+(?:null|[-+]?(?:\d+(?:\.\d*)?|\.\d+))){0,4}\s*\]",
     re.IGNORECASE,
 )
 _PDF_ENCRYPT_RE = re.compile(rb"/Encrypt(?![A-Za-z0-9#])", re.IGNORECASE)
@@ -109,7 +116,16 @@ def pdf_payload_has_active_content(payload: bytes) -> bool:
     if len(payload) > MAX_PDF_SECURITY_SCAN_BYTES:
         return True
     normalized = _decode_pdf_name_escapes(payload)
-    return bool(_PDF_ACTIVE_NAME_RE.search(normalized) or _PDF_ENCRYPT_RE.search(normalized))
+    if _PDF_ACTIVE_NAME_RE.search(normalized) or _PDF_ENCRYPT_RE.search(normalized):
+        return True
+
+    # LibreOffice writes a direct page-destination OpenAction so a converted
+    # presentation opens on its first slide.  It is navigation metadata, not
+    # an executable PDF action.  Remove only that tightly shaped array before
+    # checking for any remaining OpenAction; indirect action dictionaries and
+    # malformed/unknown forms still fail closed.
+    without_safe_page_destinations = _PDF_SAFE_PAGE_DESTINATION_OPEN_ACTION_RE.sub(b"", normalized)
+    return bool(_PDF_OPEN_ACTION_RE.search(without_safe_page_destinations))
 
 
 def validate_pdf_payload(payload: bytes) -> None:

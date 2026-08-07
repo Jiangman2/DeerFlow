@@ -5,6 +5,7 @@ import type {
   DashboardFilters,
   DashboardSummary,
   ExistingSessionList,
+  FailedRunList,
   RegisteredUserSessionList,
 } from "./types";
 
@@ -72,4 +73,18 @@ export async function getDashboardUserSessions(
     )}/sessions?${params}`,
   );
   return readJson<ExistingSessionList>(response);
+}
+
+export async function getDashboardFailures(
+  limit = 5,
+  offset = 0,
+): Promise<FailedRunList> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/admin/dashboard/failures?${params}`,
+  );
+  return readJson<FailedRunList>(response);
 }

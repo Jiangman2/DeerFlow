@@ -43,11 +43,11 @@ spec:
             - name: SANDBOX_SECRET_ENV_KEYS
               value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,HTTP_PROXY,HTTPS_PROXY,http_proxy,https_proxy
             - name: SANDBOX_PASSTHROUGH_ENV_KEYS
-              value: IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy
+              value: IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: SANDBOX_CA_SECRET_NAME
               value: deer-flow-enterprise-ca
             - name: SANDBOX_CA_SECRET_KEY
@@ -63,9 +63,13 @@ spec:
             - name: DASHSCOPE_TLS_COMPAT
               value: "true"
             - name: IMAGE_BACKEND
-              value: dashscope
+              value: qwen
             - name: IMAGE_GENERATION_PROVIDER
               value: dashscope
+            - name: QWEN_BASE_URL
+              value: https://dashscope.aliyuncs.com
+            - name: QWEN_MODEL
+              value: qwen-image-2.0-pro
             - name: DASHSCOPE_BASE_URL
               value: https://dashscope.aliyuncs.com/api/v1
             - name: DASHSCOPE_IMAGE_MODEL
@@ -160,6 +164,8 @@ spec:
             - name: WEKNORA_MINERU_SCANNED_PDF_FALLBACK
               value: "true"
             - name: WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK
+              value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
               value: "true"
           volumeMounts:
             - name: enterprise-ca

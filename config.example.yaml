@@ -1026,8 +1026,8 @@ loop_detection:
   # without weakening protection on every other tool.
   # tool_freq_overrides:
   #   bash:
-  #     warn: 150
-  #     hard_limit: 300
+  #     warn: 120
+  #     hard_limit: 240
 
 # ============================================================================
 # Tool Progress State Machine Configuration (RFC #3177)
@@ -1223,6 +1223,9 @@ sandbox:
 #   #   OPENSSL_CONF: $OPENSSL_CONF
 #   #   DASHSCOPE_TLS_COMPAT: $DASHSCOPE_TLS_COMPAT
 #   #   DASHSCOPE_API_KEY: $DASHSCOPE_API_KEY
+#   #   IMAGE_BACKEND: qwen
+#   #   QWEN_BASE_URL: https://dashscope.aliyuncs.com
+#   #   QWEN_MODEL: qwen-image-2.0-pro
 #   #   DASHSCOPE_BASE_URL: https://dashscope.aliyuncs.com/api/v1
 #   #   IMAGE_GENERATION_PROVIDER: dashscope
 #   #   DASHSCOPE_IMAGE_MODEL: qwen-image-2.0-pro

@@ -110,6 +110,7 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
       ? "artifacts"
       : null;
   const rightPanelOpen = activeRightPanel !== null;
+  const artifactsOverlayOpen = activeRightPanel === "artifacts";
   const [renderedRightPanel, setRenderedRightPanel] =
     useState<RightPanelKind | null>(activeRightPanel);
 
@@ -219,7 +220,7 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
           }}
         >
           <SheetContent
-            className="w-[calc(100vw-1rem)] max-w-none gap-0 p-0 sm:max-w-md [&>button]:hidden"
+            className="mobile-fullscreen-surface app-safe-area w-screen max-w-none gap-0 p-0 sm:max-w-md [&>button]:hidden"
             side="right"
           >
             <SheetHeader className="sr-only">
@@ -230,7 +231,9 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
                 Browse the side panel for this conversation.
               </SheetDescription>
             </SheetHeader>
-            <div className="min-h-0 flex-1 p-3 pt-10">{rightPanelContent}</div>
+            <div className="app-scroll-region min-h-0 flex-1 p-2 pt-10 sm:p-3 sm:pt-10">
+              {rightPanelContent}
+            </div>
           </SheetContent>
         </Sheet>
       </>
@@ -241,41 +244,58 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
     <div
       id={`${resizableIdBase}-panels`}
       className={cn(
-        "[container-type:inline-size] grid size-full min-h-0 transition-[grid-template-columns] duration-[280ms] ease-out motion-reduce:transition-none",
-        rightPanelOpen
-          ? "grid-cols-[minmax(0,1fr)_1px_minmax(0,40%)]"
-          : "grid-cols-[minmax(0,1fr)_0px_0px]",
+        "[container-type:inline-size] size-full min-h-0",
+        artifactsOverlayOpen
+          ? "relative"
+          : "grid transition-[grid-template-columns] duration-[280ms] ease-out motion-reduce:transition-none",
+        !artifactsOverlayOpen &&
+          (rightPanelOpen
+            ? "grid-cols-[minmax(0,1fr)_1px_minmax(0,40%)]"
+            : "grid-cols-[minmax(0,1fr)_0px_0px]"),
       )}
     >
       <div className="relative min-h-0 min-w-0" id="chat">
         {children}
       </div>
-      <div
-        id={`${resizableIdBase}-separator`}
-        aria-hidden="true"
-        className={cn(
-          "bg-border opacity-33 transition-opacity duration-200 ease-out motion-reduce:transition-none",
-          !rightPanelOpen && "pointer-events-none opacity-0",
-        )}
-      />
-      <aside
-        aria-hidden={!rightPanelOpen}
-        className={cn(
-          "min-h-0 min-w-0 overflow-hidden transition-opacity duration-[280ms] ease-out motion-reduce:transition-none",
-          !rightPanelOpen && "pointer-events-none opacity-0",
-        )}
-        id="artifacts"
-      >
-        <div
-          className={cn(
-            "ml-auto h-full w-[40cqw] transition-opacity duration-[280ms] ease-out motion-reduce:transition-none",
-            renderedRightPanel === "sidecar" ? "p-0" : "p-4",
-            rightPanelOpen ? "opacity-100" : "opacity-0",
-          )}
+      {!artifactsOverlayOpen && (
+        <>
+          <div
+            id={`${resizableIdBase}-separator`}
+            aria-hidden="true"
+            className={cn(
+              "bg-border opacity-33 transition-opacity duration-200 ease-out motion-reduce:transition-none",
+              !rightPanelOpen && "pointer-events-none opacity-0",
+            )}
+          />
+          <aside
+            aria-hidden={!rightPanelOpen}
+            className={cn(
+              "min-h-0 min-w-0 overflow-hidden transition-opacity duration-[280ms] ease-out motion-reduce:transition-none",
+              !rightPanelOpen && "pointer-events-none opacity-0",
+            )}
+            id="artifacts"
+          >
+            <div
+              className={cn(
+                "h-full w-full transition-opacity duration-[280ms] ease-out motion-reduce:transition-none",
+                renderedRightPanel === "sidecar" ? "p-0" : "p-4",
+                rightPanelOpen ? "opacity-100" : "opacity-0",
+              )}
+            >
+              {rightPanelContent}
+            </div>
+          </aside>
+        </>
+      )}
+      {artifactsOverlayOpen && (
+        <aside
+          aria-label={t.common.artifacts}
+          className="absolute inset-y-0 right-0 z-50 w-[min(720px,48vw)] min-w-0 overflow-hidden border-l bg-background/95 p-4 shadow-2xl backdrop-blur transition-transform duration-[280ms] ease-out motion-reduce:transition-none max-md:w-[min(720px,calc(100%-1rem))]"
+          id="artifacts"
         >
           {rightPanelContent}
-        </div>
-      </aside>
+        </aside>
+      )}
     </div>
   );
 };

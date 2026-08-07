@@ -23,7 +23,16 @@ from langchain_core.messages import BaseMessage
 from pydantic import BaseModel, Field
 
 from app.gateway.authz import require_permission
-from app.gateway.deps import get_checkpointer, get_current_user, get_feedback_repo, get_run_event_store, get_run_manager, get_run_store, get_stream_bridge
+from app.gateway.deps import (
+    get_authorized_read_scope_user_id,
+    get_checkpointer,
+    get_current_user,
+    get_feedback_repo,
+    get_run_event_store,
+    get_run_manager,
+    get_run_store,
+    get_stream_bridge,
+)
 from app.gateway.pagination import trim_run_message_page
 from app.gateway.services import sse_consumer, start_run, wait_for_run_completion
 from deerflow.runtime import CancelOutcome, RunRecord, RunStatus, serialize_channel_values_for_api
@@ -572,7 +581,7 @@ async def wait_run(thread_id: str, body: RunCreateRequest, request: Request) -> 
 async def list_runs(thread_id: str, request: Request) -> list[RunResponse]:
     """List all runs for a thread."""
     run_mgr = get_run_manager(request)
-    user_id = await get_current_user(request)
+    user_id = await get_authorized_read_scope_user_id(request)
     records = await run_mgr.list_by_thread(thread_id, user_id=user_id)
     return [_record_to_response(r) for r in records]
 
@@ -582,7 +591,7 @@ async def list_runs(thread_id: str, request: Request) -> list[RunResponse]:
 async def get_run(thread_id: str, run_id: str, request: Request) -> RunResponse:
     """Get details of a specific run."""
     run_mgr = get_run_manager(request)
-    user_id = await get_current_user(request)
+    user_id = await get_authorized_read_scope_user_id(request)
     record = await run_mgr.get(run_id, user_id=user_id)
     if record is None or record.thread_id != thread_id:
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
@@ -733,11 +742,17 @@ async def list_thread_messages(
 ) -> list[dict]:
     """Return displayable messages for a thread (across all runs), with feedback attached."""
     event_store = get_run_event_store(request)
-    messages = await event_store.list_messages(thread_id, limit=limit, before_seq=before_seq, after_seq=after_seq)
 
-    # Resolve the caller once; it is needed both to scope the feedback query
+    # Resolve the caller once; it is needed both to scope the message/feedback
     # below and to list the thread's runs for turn-duration injection.
-    user_id = await get_current_user(request)
+    user_id = await get_authorized_read_scope_user_id(request)
+    messages = await event_store.list_messages(
+        thread_id,
+        limit=limit,
+        before_seq=before_seq,
+        after_seq=after_seq,
+        user_id=user_id,
+    )
 
     # Find the last AI message per run_id. AI messages are persisted by
     # RunJournal with event_type "llm.ai.response" (see runtime/journal.py);
@@ -915,7 +930,7 @@ async def list_thread_messages_page(
     if "after_seq" in request.query_params:
         raise HTTPException(status_code=422, detail="after_seq is not supported by this backward-only endpoint")
 
-    user_id = await get_current_user(request)
+    user_id = await get_authorized_read_scope_user_id(request)
     rows, has_more = await _scan_thread_message_page(
         thread_id,
         limit=limit,

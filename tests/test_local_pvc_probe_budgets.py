@@ -39,7 +39,10 @@ def test_local_sandbox_image_generation_uses_bailian_without_gemini() -> None:
     }
     secret_keys = set(env["SANDBOX_SECRET_ENV_KEYS"].split(","))
 
+    assert env["IMAGE_BACKEND"] == "qwen"
     assert env["IMAGE_GENERATION_PROVIDER"] == "dashscope"
+    assert env["QWEN_BASE_URL"] == "https://dashscope.aliyuncs.com"
+    assert env["QWEN_MODEL"] == "qwen-image-2.0-pro"
     assert env["DASHSCOPE_IMAGE_MODEL"] == "qwen-image-2.0-pro"
     assert "DASHSCOPE_API_KEY" in secret_keys
     assert "GEMINI_API_KEY" not in secret_keys

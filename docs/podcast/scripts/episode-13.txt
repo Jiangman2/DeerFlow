@@ -1,0 +1,43 @@
+本集标题：Middleware 链及执行顺序。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：8.1 通用链的设计顺序。
+
+factory.py 中的特性驱动装配大致遵循以下顺序：
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+Lead Agent 还会按当前企业配置加入 Artifact、终态响应、图片、WeKnora scope/citation、safety finish reason 等专用 Middleware。实际顺序要以 build_middlewares() 和当前配置为准。
+
+下面进入小节：8.2 为什么顺序重要。
+
+ThreadData 必须先于 Sandbox，Sandbox 才知道 Thread 目录。 - Uploads 必须能访问 Thread ID 和上传目录。 - 摘要应该尽早执行，避免后续 Middleware 在过长上下文上工作。 - ToolErrorHandling 要在 Clarification 前，工具异常才能变成模型可理解的 ToolMessage。 - ViewImage 要在模型调用前注入图片信息。 - Todo 要在 Clarification 前，避免计划更新被中断截断。 - Clarification 通常放在末端，负责把工具层的澄清请求转换为人机交互协议。
+
+下面进入小节：8.3 Middleware 的三种作用。
+
+下面进入小节：上下文准备。
+
+例如初始化 sandbox、扫描上传文件、加载 memory、注入 Skill 引用。
+
+下面进入小节：执行保护。
+
+例如工具错误处理、循环检测、子 Agent 数量限制、token budget、非交互模式禁用澄清。
+
+下面进入小节：结果整理。
+
+例如生成标题、记录 token、发布 Artifact、生成 WeKnora 引用、更新子任务账本。
+
+下面进入小节：8.4 一个工具错误的路径。
+
+图示口述：这里是一张用于说明模块关系或执行流程的架构图。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+这比让 Python 异常直接穿出图更可靠，因为模型需要知道“工具失败了”，而用户不应该看到未经处理的内部路径、凭据或完整堆栈。
+
+下面进入小节：8.5 自定义 Middleware。
+
+自定义 Middleware 应：
+
+明确它修改的是消息、工具、状态还是运行上下文。 - 说明它必须位于哪个 Middleware 前后。 - 不把不可序列化的大对象写入 ThreadState。 - 异步路径避免同步阻塞 IO。 - 对工具错误和取消保持幂等。 - 添加单元测试和至少一个运行时测试。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

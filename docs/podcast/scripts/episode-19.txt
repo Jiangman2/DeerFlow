@@ -1,0 +1,39 @@
+本集标题：文件上传、Artifact、图片与文档处理。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：14.1 文件安全边界。
+
+浏览器文件校验不够。Gateway 必须在服务端：
+
+拒绝可执行或服务器可执行扩展名。 - 处理文件名、路径和大小限制。 - 对 staged PDF 做验证后再原子替换。 - 对原始上传和可疑生成 PDF 使用强化下载响应。 - 对预览 PDF 使用 CSP、无脚本、opaque-origin iframe sandbox。 - 不依赖 filename MIME 猜测作为唯一安全判断。
+
+下面进入小节：14.2 上传文件到 Agent。
+
+图示口述：这张图展示了浏览器选择文件、Gateway Upload API、扩展名、大小、路径、PDF 校验、临时 staged 文件、原子替换到 Thread uploads、UploadsMiddleware 扫描、uploaded_files / thread_data、注入 Agent 上下文之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：14.3 Artifact。
+
+Artifact 是 Agent 生成并呈现给用户的文件或结果。present_file 负责将输出文件纳入 Artifact 状态；前端根据文件类型选择下载、预览或右侧详情面板。
+
+PowerPoint 使用配对预览契约：
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+下面进入小节：14.4 图片。
+
+view_image 不把大块 base64 图片直接永久塞入 checkpoint。ThreadState 只保存轻量元数据和路径，模型需要时再读取。视觉 Middleware 在模型调用前将图片信息注入上下文，并根据模型是否支持 vision 决定是否暴露工具。
+
+下面进入小节：14.5 PDF、Word 与演示文稿。
+
+当前企业分支的文档路径包含：
+
+可搜索 PDF：优先使用内置解析器。 - 扫描或混合 PDF：根据文本长度和图片覆盖率路由到 MinerU。 - PDFium 检查失败：尝试独立内置解析，再回退到 MinerU。 - Word：原生文本/图片与临时 PDF 视觉处理结果合并。 - PPT/PPTX：转换为 PDF，并保留可检索文本和视觉证据。 - 解析器不可用时优雅降级，不应破坏已经恢复的文本。
+
+底层 PDFium/DocReader 不保证线程安全，因此适配器使用 ParseCoordinator 串行化进程内解析；HTTP server 可以保持 health 响应，但不能擅自放开解析并发。
+
+下面进入小节：14.6 知识库 Markdown companion。
+
+对话上传的 PDF/DOC/DOCX/PPT/PPTX 可以通过配置的 WeKnora/MinerU adapter 生成同 stem 的 Markdown companion，但不应因为一次对话上传就自动创建知识库记录。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

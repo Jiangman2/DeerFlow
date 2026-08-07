@@ -94,6 +94,108 @@ test.describe("Thread history", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
+  test("reopens a backend-active run when browser reconnect metadata is missing", async ({
+    page,
+  }) => {
+    const activeRunId = "00000000-0000-0000-0000-0000000000ab";
+    let releaseJoin: (() => void) | undefined;
+    const joinGate = new Promise<void>((resolve) => {
+      releaseJoin = resolve;
+    });
+    let joinRequests = 0;
+    let newRunRequests = 0;
+
+    mockLangGraphAPI(page, { threads: THREADS });
+    await page.addInitScript((threadId) => {
+      window.sessionStorage.removeItem(`lg:stream:${threadId}`);
+    }, MOCK_THREAD_ID);
+
+    await page.route(
+      new RegExp(`/api/langgraph/threads/${MOCK_THREAD_ID}/runs(?:\\?.*)?$`),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([
+            {
+              run_id: activeRunId,
+              thread_id: MOCK_THREAD_ID,
+              assistant_id: "lead_agent",
+              status: "running",
+              created_at: "2026-08-03T10:00:00Z",
+              updated_at: "2026-08-03T10:01:00Z",
+            },
+          ]),
+        }),
+    );
+    await page.route(
+      `**/api/langgraph/threads/${MOCK_THREAD_ID}/runs/${activeRunId}`,
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            run_id: activeRunId,
+            thread_id: MOCK_THREAD_ID,
+            status: "running",
+          }),
+        }),
+    );
+    await page.route(
+      `**/api/langgraph/threads/${MOCK_THREAD_ID}/runs/${activeRunId}/stream**`,
+      async (route) => {
+        joinRequests += 1;
+        await joinGate;
+        const body = [
+          {
+            event: "values",
+            data: {
+              messages: [
+                {
+                  type: "human",
+                  id: "msg-human-recovered",
+                  content: [{ type: "text", text: "Original task" }],
+                },
+                {
+                  type: "ai",
+                  id: "msg-ai-recovered",
+                  content: "Recovered live output",
+                },
+              ],
+            },
+          },
+          { event: "end", data: {} },
+        ]
+          .map(
+            (event) =>
+              `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`,
+          )
+          .join("");
+        await route.fulfill({
+          status: 200,
+          contentType: "text/event-stream",
+          body,
+        });
+      },
+    );
+    await page.route("**/api/langgraph/threads/*/runs/stream", (route) => {
+      newRunRequests += 1;
+      return route.fallback();
+    });
+
+    await page.goto(`/workspace/chats/${MOCK_THREAD_ID}`);
+
+    await expect.poll(() => joinRequests).toBe(1);
+    const submit = page.getByRole("button", { name: "Submit" });
+    await expect(submit.locator("svg.lucide-square")).toBeVisible();
+    expect(newRunRequests).toBe(0);
+
+    releaseJoin?.();
+    await expect(page.getByText("Recovered live output")).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
   test("input box recalls previous prompts with arrow keys", async ({
     page,
   }) => {

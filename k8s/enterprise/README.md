@@ -348,6 +348,14 @@ literal empty strings override the correct proxy environment already present in
 the Sandbox Pod and force authenticated DashScope POSTs onto the blocked direct
 route:
 
+The enterprise Gateway manifest also sets
+`DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`. Conversation PDF, DOC/DOCX,
+and PPT/PPTX uploads therefore try the in-cluster MinerU Adapter first and use
+DeerFlow's local Markdown conversion only when that request fails. The upload is
+reported as partially unreadable only when both paths fail. Legacy binary
+`.doc` uses the current task sandbox's LibreOffice to make a temporary DOCX
+before the local Markdown step; those temporary files are deleted immediately.
+
 ```yaml
 sandbox:
   environment:

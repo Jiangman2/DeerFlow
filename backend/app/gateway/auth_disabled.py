@@ -55,4 +55,8 @@ def get_auth_disabled_user():
         is_disabled=False,
         token_version=0,
         oauth_provider=None,
+        display_name="Local Administrator",
+        organization_id=None,
+        organization_code=None,
+        organization_name=None,
     )

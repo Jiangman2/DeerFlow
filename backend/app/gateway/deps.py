@@ -548,3 +548,25 @@ async def get_current_user(request: Request) -> str | None:
     """
     user = await get_optional_user_from_request(request)
     return str(user.id) if user else None
+
+
+async def get_authorized_read_scope_user_id(request: Request) -> str | None:
+    """Return the persistence owner scope for an already-authorized read.
+
+    Admin read routes are allowed to inspect another user's thread by
+    ``require_permission(..., owner_check=True)``.  Passing the admin's own id
+    to repositories after that authorization would incorrectly hide the
+    target thread and its messages.  Explicit ``None`` is the repository
+    contract for an unscoped read; ordinary users remain scoped to themselves.
+
+    This helper must only be used by read-only routes after their normal
+    authorization decorator has succeeded.  Mutating routes must continue to
+    use the current user's id and native ownership checks.
+    """
+
+    user = getattr(getattr(request, "state", None), "user", None)
+    if user is None:
+        user = await get_current_user_from_request(request)
+    if getattr(user, "system_role", None) == "admin":
+        return None
+    return str(user.id)

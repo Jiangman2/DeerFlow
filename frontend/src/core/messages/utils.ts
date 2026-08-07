@@ -133,10 +133,11 @@ export function getMessageGroups(messages: Message[]): MessageGroup[] {
             // groups is empty (shouldn't happen — the outer for loop is guarded
             // by `messages.length === 0 -> return []`), but keep the diagnostic
             // just in case.
-            console.error(
-              "Unexpected tool message with no preceding group",
-              message,
-            );
+            groups.push({
+              id: message.id,
+              type: "assistant:processing",
+              messages: [message],
+            });
           }
         }
       }
@@ -576,6 +577,64 @@ export function extractPresentFilesFromMessage(message: Message) {
       files.push(...(toolCall.args.filepaths as string[]));
     }
   }
+  return files;
+}
+
+/**
+ * Return only files whose matching present_files tool call has completed
+ * successfully. An AI tool call is merely an intent; rendering its arguments
+ * before the ToolMessage arrives creates phantom cards for blocked or failed
+ * publications and lets users open an empty artifact panel.
+ */
+export function extractSuccessfullyPresentedFiles(messages: Message[]) {
+  const successfulToolCalls = new Map<string, string[] | null>();
+
+  for (const message of messages) {
+    if (
+      message.type === "tool" &&
+      message.name === "present_files" &&
+      typeof message.tool_call_id === "string" &&
+      Reflect.get(message, "status") !== "error"
+    ) {
+      const artifact = Reflect.get(message, "artifact") as
+        | { presented_files?: unknown }
+        | undefined;
+      const presentedFiles = Array.isArray(artifact?.presented_files)
+        ? artifact.presented_files.filter(
+            (filepath): filepath is string => typeof filepath === "string",
+          )
+        : null;
+      successfulToolCalls.set(message.tool_call_id, presentedFiles);
+    }
+  }
+
+  const files: string[] = [];
+  for (const message of messages) {
+    if (message.type !== "ai") {
+      continue;
+    }
+    for (const toolCall of message.tool_calls ?? []) {
+      if (
+        toolCall.name !== "present_files" ||
+        typeof toolCall.id !== "string"
+      ) {
+        continue;
+      }
+      const persistedFiles = successfulToolCalls.get(toolCall.id);
+      if (persistedFiles === undefined) {
+        continue;
+      }
+      const presentedFiles =
+        persistedFiles ??
+        (Array.isArray(toolCall.args.filepaths) ? toolCall.args.filepaths : []);
+      for (const filepath of presentedFiles) {
+        if (typeof filepath === "string" && !files.includes(filepath)) {
+          files.push(filepath);
+        }
+      }
+    }
+  }
+
   return files;
 }
 

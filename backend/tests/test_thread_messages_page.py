@@ -5,18 +5,27 @@ from __future__ import annotations
 import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock
+from uuid import UUID
 
 import pytest
 from _router_auth_helpers import make_authed_test_app
 from fastapi.testclient import TestClient
 
+from app.gateway.auth.models import User
 from app.gateway.routers import thread_runs
 from deerflow.runtime import RunRecord
 from deerflow.runtime.events.store.memory import MemoryRunEventStore
 
 
-def _make_app(event_store: MemoryRunEventStore, *, superseded: set[str] | None = None, records=None, feedback=None):
-    app = make_authed_test_app()
+def _make_app(
+    event_store: MemoryRunEventStore,
+    *,
+    superseded: set[str] | None = None,
+    records=None,
+    feedback=None,
+    user_factory=None,
+):
+    app = make_authed_test_app(user_factory=user_factory)
     app.include_router(thread_runs.router)
     app.state.run_event_store = event_store
     run_manager = AsyncMock()
@@ -27,6 +36,15 @@ def _make_app(event_store: MemoryRunEventStore, *, superseded: set[str] | None =
     feedback_repo.list_by_run_ids.return_value = feedback or {}
     app.state.feedback_repo = feedback_repo
     return app
+
+
+def _admin_user() -> User:
+    return User(
+        id=UUID("11111111-2222-3333-4444-555555555555"),
+        email="admin@example.com",
+        password_hash="x",
+        system_role="admin",
+    )
 
 
 async def _put_message(store, run_id, message_type, message_id, *, caller="lead_agent"):
@@ -60,6 +78,37 @@ def test_thread_page_orders_across_runs_and_paginates_without_gaps():
     assert [row["seq"] for row in older.json()["data"]] == [1, 2, 3]
     assert older.json()["has_more"] is False
     assert older.json()["next_before_seq"] is None
+
+
+def test_admin_thread_page_uses_authorized_unscoped_read_for_another_users_thread(monkeypatch):
+    store = MemoryRunEventStore()
+
+    async def seed():
+        await _put_message(store, "run-1", "human", "visible-human")
+        await _put_message(store, "run-1", "ai", "visible-answer")
+
+    asyncio.run(seed())
+    original_list_messages = store.list_messages
+    store.list_messages = AsyncMock(wraps=original_list_messages)
+    monkeypatch.setattr(
+        thread_runs,
+        "get_current_user",
+        AsyncMock(return_value="11111111-2222-3333-4444-555555555555"),
+    )
+    app = _make_app(store, user_factory=_admin_user)
+    with TestClient(app) as client:
+        response = client.get("/api/threads/thread-1/messages/page?limit=10")
+
+    assert response.status_code == 200
+    assert [row["content"]["id"] for row in response.json()["data"]] == ["visible-human", "visible-answer"]
+    assert store.list_messages.await_args_list
+    assert all(call.kwargs["user_id"] is None for call in store.list_messages.await_args_list)
+    app.state.run_manager.list_successful_regenerate_sources.assert_awaited_once_with(
+        "thread-1",
+        user_id=None,
+    )
+    app.state.run_manager.get_many_by_thread.assert_awaited_once()
+    assert app.state.run_manager.get_many_by_thread.await_args.kwargs["user_id"] is None
 
 
 def test_thread_page_keeps_only_latest_version_of_same_message_id():

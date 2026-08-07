@@ -205,10 +205,7 @@ export function MessageGroup({
     );
   };
 
-  const renderToolCall = (
-    step: CoTToolCallStep,
-    options?: { isLast?: boolean },
-  ) => {
+  const renderToolCall = (step: CoTToolCallStep) => {
     const debugStep =
       showTokenDebugSummaries && step.messageId
         ? debugStepByMessageId.get(step.messageId)
@@ -218,8 +215,6 @@ export function MessageGroup({
       <ToolCall
         key={step.id}
         {...step}
-        isLast={options?.isLast}
-        isLoading={isLoading}
         tokenDebugStep={
           debugStep && !debugStep.sharedAttribution ? debugStep : undefined
         }
@@ -323,7 +318,7 @@ export function MessageGroup({
           )}
           {lastToolCallStep && (
             <FlipDisplay uniqueKey={lastToolCallStep.id ?? ""}>
-              {renderToolCall(lastToolCallStep, { isLast: true })}
+              {renderToolCall(lastToolCallStep)}
             </FlipDisplay>
           )}
         </ChainOfThoughtContent>
@@ -451,8 +446,6 @@ function ToolCall({
   name,
   args,
   result,
-  isLast = false,
-  isLoading = false,
   tokenDebugStep,
 }: {
   id?: string;
@@ -460,13 +453,10 @@ function ToolCall({
   name: string;
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
-  isLast?: boolean;
-  isLoading?: boolean;
   tokenDebugStep?: TokenDebugStep;
 }) {
   const { t } = useI18n();
-  const { setOpen, autoOpen, autoSelect, selectedArtifact, select } =
-    useArtifacts();
+  const { setOpen, select } = useArtifacts();
   const tokenLabel = tokenDebugStep
     ? formatDebugToken(tokenDebugStep, t)
     : null;
@@ -625,19 +615,6 @@ function ToolCall({
       description = t.toolCalls.writeFile;
     }
     const path: string | undefined = (args as { path: string })?.path;
-    if (isLoading && isLast && autoOpen && autoSelect && path && !result) {
-      setTimeout(() => {
-        const url = new URL(
-          `write-file:${path}?message_id=${messageId}&tool_call_id=${id}`,
-        ).toString();
-        if (selectedArtifact === url) {
-          return;
-        }
-        select(url, true);
-        setOpen(true);
-      }, 100);
-    }
-
     return (
       <ChainOfThoughtStep
         key={id}

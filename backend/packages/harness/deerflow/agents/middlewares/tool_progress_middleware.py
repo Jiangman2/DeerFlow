@@ -315,6 +315,17 @@ class ToolProgressMiddleware(AgentMiddleware[AgentState]):
                     tool_name,
                 )
             return result
+        # Bash is a general command transport. A subprocess can report that its
+        # own input, package, model, or configuration is missing; that does not
+        # mean the Bash tool itself is unavailable. Keep infrastructure
+        # exceptions authoritative, but let the model repair normal command
+        # failures instead of permanently disabling every later Bash call.
+        if tool_name == "bash" and meta.source in {"tool_return", "content_analysis"} and not meta.recoverable_by_model and meta.recommended_next_action == "stop":
+            meta = replace(
+                meta,
+                recoverable_by_model=True,
+                recommended_next_action="try_alternative",
+            )
         content = _message_content_str(result)
         thread_id = self._thread_id(runtime)
         with self._lock:

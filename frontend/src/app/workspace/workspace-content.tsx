@@ -31,18 +31,23 @@ export async function WorkspaceContent({
   return (
     <QueryClientProvider>
       <SidebarProvider
-        className="bg-background h-screen"
+        className="app-viewport app-safe-area bg-background min-h-0 overflow-hidden"
         defaultOpen={initialSidebarOpen}
       >
         <WorkspaceSidebar />
-        <SidebarInset className="border-border bg-background min-w-0 border-l bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center dark:bg-none">
+        <SidebarInset className="border-border bg-background min-h-0 min-w-0 overflow-hidden bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center md:border-l dark:bg-none">
           <GatewayOfflineBanner gatewayUnavailable={gatewayUnavailable} />
           {!gatewayUnavailable && <AnnouncementBanner />}
           {children}
         </SidebarInset>
       </SidebarProvider>
       <CommandPalette />
-      <Toaster position="top-center" />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          className: "max-w-[calc(100vw-2rem)] [overflow-wrap:anywhere]",
+        }}
+      />
     </QueryClientProvider>
   );
 }

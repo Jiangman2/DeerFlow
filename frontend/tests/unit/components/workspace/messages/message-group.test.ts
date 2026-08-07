@@ -11,11 +11,9 @@ rs.mock("@/components/workspace/artifacts", () => ({
     artifacts: [],
     setArtifacts: () => undefined,
     selectedArtifact: null,
-    autoSelect: false,
     select: () => undefined,
     deselect: () => undefined,
     open: false,
-    autoOpen: false,
     setOpen: () => undefined,
   }),
 }));

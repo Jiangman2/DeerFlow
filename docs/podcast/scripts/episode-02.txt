@@ -1,0 +1,223 @@
+本集标题：DeerFlow 依赖的基础专业知识库：第 2 部，0.12 LLM 的基本机制：Token、Prompt 和 Context Window。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：0.12 LLM 的基本机制：Token、Prompt 和 Context Window。
+
+下面进入小节：Token。
+
+模型并不是按汉字或单词直接计费，而是按 token 处理文本。中文、代码、JSON 和英文的 token 密度不同。输入历史越长，input token 越多；模型生成越长，output token 越多。
+
+图示口述：这张图展示了用户消息 + 历史 + system prompt + 工具 schema、Tokenizer、Input tokens、LLM、Output tokens、解码、文本 / tool_calls之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：Context window。
+
+Context window 是一次模型调用能看到的最大 token 范围。它包括：
+
+system prompt。 - 历史 messages。 - 工具 schema。 - Skill 说明。 - 上传文件摘要或内容片段。 - 当前 ToolMessage。
+
+摘要 Middleware、延迟工具发现和文件引用，都是为了控制 context window。
+
+下面进入小节：Temperature 和 reasoning。
+
+Temperature 影响采样随机性；thinking/reasoning 是供应商模型提供的额外推理能力。DeerFlow 的思考开关不是“让任何模型自动会思考”，而是根据模型配置把正确的参数传给支持该能力的 provider。
+
+下面进入小节：0.13 Tool Calling：模型如何请求程序执行动作。
+
+模型本身不能直接读取服务器文件，也不能直接执行命令。工具调用是一个协议：
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+图示口述：这张图展示了模型上下文包含工具 schema、LLM、普通文本、结构化 tool_call、运行时工具路由、Python 工具函数、ToolMessage、下一次模型调用之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+这里的关键是“模型提出请求，运行时决定是否执行”。模型的 tool_call 不是服务器已经执行的事实；只有经过工具路由、权限、参数和 Sandbox 检查后，才会产生真实副作用。
+
+下面进入小节：0.14 LangGraph：把 Agent 变成有状态的图。
+
+下面进入小节：为什么普通 while 循环不够。
+
+最简单的 Agent 可以写成：
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+但真实系统还需要：
+
+保存中间状态。 - 断点恢复。 - 人工中断和恢复。 - 并行分支。 - 子图和子 Agent。 - 事件流。 - 节点级 Middleware。 - 超步数保护。
+
+LangGraph 将这些过程建模为图和状态：
+
+图示口述：这张图展示了当前 State、Model node、END、Tool node、State reducer 合并、Checkpoint之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：super-step 与 recursion limit。
+
+图每推进一轮，就可能产生新的节点执行和 State 更新。recursion_limit 用来阻止图无限推进；它不是 token 上限，也不是并发数上限。
+
+下面进入小节：0.15 AgentState、ThreadState 和 reducer。
+
+AgentState 是 Agent 框架需要的基础状态；ThreadState 是 DeerFlow 在其上扩展的业务状态。
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+Reducer 就像“这个字段的合并规则”：
+
+普通数字可以相加。 - 列表可以追加。 - 字典可以合并。 - Todo 可能需要整体替换。 - Sandbox ID 冲突必须报错。
+
+下面进入小节：0.16 数据库基础：表、主键、外键和索引。
+
+下面进入小节：通俗理解。
+
+数据库是一个能可靠保存结构化数据的系统。表像电子表格，但它能提供约束、查询、并发和事务。
+
+DeerFlow 典型数据关系可以抽象成：
+
+图示口述：这里是一张用于说明模块关系或执行流程的架构图。
+
+下面进入小节：主键和外键。
+
+主键：唯一标识一行，例如 thread_id、run_id。 - 外键：表达关联，例如 Run 属于哪个 Thread。 - 索引：让查询更快，例如按 user_id、thread_id、created_at 查找。
+
+下面进入小节：事务。
+
+事务把多次数据库操作组成一个整体：要么全部成功，要么全部回滚。Run 创建时，Thread 元数据、Run 记录和关联信息之间需要保持一致，否则会出现“有 Run 没有 Thread”或“页面看不到已创建 Run”的问题。
+
+下面进入小节：0.17 数据库基础：SQLite、PostgreSQL、迁移。
+
+表格口述：项目，SQLite，PostgreSQL；部署，单文件，简单，独立数据库服务；并发写入，较弱，更强；适合，本地开发、轻量部署，多用户、生产、多副本；扩展能力，有限，丰富；DeerFlow 用途，本地 checkpoint/store/元数据，企业生产持久化。
+
+数据库 schema 不能只靠“手动改表”。迁移工具记录从旧结构到新结构的演进，这样不同环境可以按相同顺序升级。
+
+下面进入小节：0.18 Redis：为什么它适合事件和队列。
+
+Redis 是内存优先的键值数据库，也提供 list、stream、pub/sub、sorted set 等结构。它擅长低延迟的临时状态、队列和事件分发，但不能在所有场景替代关系数据库。
+
+图示口述：这张图展示了Agent Worker、Redis Stream、Gateway SSE Consumer、Event Replay、异步任务队列、Scheduler / Worker之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+Redis Stream 的消息通常需要 ID 和消费位置；这和 DeerFlow 的 seq、事件重放和断线恢复思路相吻合。
+
+下面进入小节：0.19 事件驱动系统：生产者、消费者和最终一致性。
+
+事件驱动系统不是“某个函数直接调用另一个函数”，而是：
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+DeerFlow 的 Agent 事件消费者可能有：
+
+浏览器 SSE。 - Run event store。 - 子任务步骤聚合器。 - 使用量统计器。 - 审计和监控系统。
+
+因此事件处理要考虑重复、乱序、断线、消费失败和幂等。
+
+下面进入小节：0.20 Docker：镜像、容器、网络和卷。
+
+下面进入小节：通俗理解。
+
+镜像是应用及其依赖的打包模板；容器是镜像的运行实例；卷是容器之外的持久文件；网络让多个容器互相找到对方。
+
+图示口述：这张图展示了Docker Image、Gateway Container、Frontend Container、Nginx Container、Persistent Volume、Docker Network之间的关系。
+
+容器删除后，容器内部文件可能消失；数据库、配置和用户生成 Artifact 若需要保留，就必须使用卷或外部存储。
+
+下面进入小节：0.21 Kubernetes：Pod、Deployment、Service、Secret。
+
+图示口述：这张图展示了Deployment，期望副本数与更新策略、Pod 1、Pod 2、Service，稳定 DNS/虚拟 IP、Secret，密钥/Token/配置、ConfigMap，非敏感配置、Ingress/Nginx之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+Pod：一组共同调度的容器。 - Deployment：声明希望有多少 Pod，以及如何滚动更新。 - Service：给变化中的 Pod 提供稳定服务名。 - Secret：保存敏感配置。 - ConfigMap：保存非敏感配置。 - PVC：申请持久化存储。
+
+DeerFlow 的 Provisioner 会动态创建 Sandbox Pod，因此必须理解 Pod 生命周期、健康检查、Secret 注入、Service DNS、资源限制和回收。
+
+下面进入小节：0.22 Kubernetes 网络和服务发现。
+
+Pod IP 会变化，不能把它当永久地址。Service 提供稳定的 DNS 名称，例如某个 Gateway、WeKnora 或 adapter Service。企业部署中尤其不能把 ClusterIP 硬编码进配置，因为重建集群后 ClusterIP 可能改变。
+
+图示口述：这张图展示了Gateway Pod、Service DNS、WeKnora Pod A、WeKnora Pod B之间的关系。
+
+下面进入小节：0.23 TLS、CA、代理与证书验证。
+
+下面进入小节：TLS 解决什么问题。
+
+TLS 同时提供：
+
+加密：别人看不到传输内容。 - 身份验证：客户端确认访问的确实是目标服务。 - 完整性：内容在传输中没有被修改。
+
+证书验证依赖信任链：服务端证书由 CA 签发，客户端必须信任这个 CA。
+
+图示口述：这张图展示了Gateway/Adapter、证书链 + 主机名验证、可信 CA bundle、HTTPS 服务、拒绝连接之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+verify=false 不是正确修复，它关闭了身份验证。正确做法是把受信任 CA 以 Secret/挂载方式提供，并在必要时仅对特定客户端设置兼容 TLS 参数。
+
+代理还会改变请求路径：有些外部 HTTPS 请求必须经过代理，有些内部 Service、模型主机或 SSO 端点必须进入 NO_PROXY。错误的代理配置常表现为 302、502、超时或连接重置。
+
+下面进入小节：0.24 SSRF、路径穿越和命令注入。
+
+这是 Agent 系统必须掌握的三类风险。
+
+下面进入小节：SSRF。
+
+服务器被诱导访问攻击者指定的内部地址，例如云 metadata、数据库、Kubernetes API。解决办法是严格 allowlist 精确主机，而不是允许整个私网。
+
+下面进入小节：路径穿越。
+
+用户输入 ../../secret，试图跳出允许目录。正确流程是：
+
+图示口述：这张图展示了用户提供文件名/路径、解析为绝对路径、与允许根目录比较、允许、拒绝之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：命令注入。
+
+把用户字符串直接拼进 shell 命令可能让用户执行额外命令。应使用参数化调用、受控命令集合、Shell 审计和 Sandbox 隔离。
+
+下面进入小节：0.25 认证、授权、Cookie、CSRF。
+
+下面进入小节：认证与授权。
+
+认证回答“你是谁”；授权回答“你能做什么”。
+
+图示口述：这张图展示了请求、Authentication，验证身份、Authorization，验证资源权限、读取/创建/修改/删除之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：Cookie 与 HttpOnly。
+
+HttpOnly cookie 可以让浏览器自动携带身份，但禁止普通 JavaScript 读取。适合保存平台 Token 或登录会话；服务端 route 可以读取它并执行受控动作。
+
+下面进入小节：CSRF。
+
+如果攻击者诱导浏览器自动向你的站点发送带 cookie 的修改请求，就可能发生 CSRF。CSRF token、SameSite cookie、Origin/Referer 检查和服务端授权共同降低风险。
+
+下面进入小节：0.26 文件格式与文档解析。
+
+不同文件不是“换一个扩展名就一样”：
+
+表格口述：格式，主要结构，常见处理难点；CSV，文本表格，编码、分隔符、引号、超大文件；XLSX，ZIP + XML，公式、图表、隐藏 sheet、图片；PDF，页面、文本、对象、图片，扫描、字体、矢量图、阅读顺序；DOCX，ZIP + XML，文本、表格、图片、样式；PPTX，ZIP + XML，幻灯片、布局、图表、媒体。
+
+解析通常分为：
+
+图示口述：这张图展示了原始文件、文件类型与内容检测、原生解析器、渲染为图片/PDF、文本、表格、图片、布局合并、Markdown / 结构化内容、Agent / WeKnora之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+“能被浏览器打开”不代表“解析器可以安全完整地读取”。PDFium、Office converter、OCR 和 MinerU 可能有不同的失败模式，因此适配器需要独立回退路径和资源限制。
+
+下面进入小节：0.27 Embedding、向量检索与 RAG。
+
+下面进入小节：Embedding 是什么。
+
+Embedding 把文本转换成向量，让语义相近的文本在向量空间里更接近：
+
+代码示例口述：这里的代码用于说明数据结构或调用顺序，重点不是逐字朗读代码，而是理解它如何把输入传给下一层，并接收处理结果。
+
+下面进入小节：RAG 的基本流程。
+
+图示口述：这张图展示了文档、切块、Embedding 模型、向量索引、用户问题、问题向量、相似度检索、相关片段、拼入模型上下文、生成答案之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+下面进入小节：RAG 的难点。
+
+文档切块太大，检索不精确。 - 切块太小，语义不完整。 - 向量维度和索引模型不匹配。 - 用户没有权限的文档被检索出来。 - 只给模型片段，没有来源引用。 - 文档更新后索引没有重建。
+
+在 DeerFlow/WeKnora 中，知识库 scope 是安全条件，不只是搜索过滤条件。检索工具必须让 Gateway/WeKnora 同时验证用户权限和知识库范围。
+
+下面进入小节：0.28 MCP：外部工具的标准化连接。
+
+MCP 可以理解成“外部工具服务器的通用插座”。DeerFlow 负责：
+
+连接 MCP server。 - 获取工具定义。 - 缓存工具。 - 将工具转换成 LangChain BaseTool。 - 应用名称去重、权限和 Skill policy。 - 处理连接失败和超时。
+
+图示口述：这张图展示了MCP Server、MCP Protocol、DeerFlow MCP Client、工具缓存、Agent tool catalog之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+MCP 标准化的是连接和工具描述，不会自动解决权限、数据泄露、超时和远程服务可信度问题。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。

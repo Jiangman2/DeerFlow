@@ -46,6 +46,16 @@ logger = logging.getLogger(__name__)
 _SLASH_SKILL_ACTIVATION_KEY = "slash_skill_activation"
 _SLASH_SKILL_ACTIVATION_TARGET_ID_KEY = "slash_skill_activation_target_id"
 
+_PPT_MASTER_DEERFLOW_ADAPTER = """<deerflow_hosted_adapter>
+This adapter changes only hosted paths, user interaction, and final file delivery. It does not replace, shorten, or add gates to the selected upstream PPT Master route.
+- Run project work under `/mnt/user-data/workspace` (normally `/mnt/user-data/workspace/projects`). Never create a project under the read-only Skill directory or use `/mnt/user-data/outputs` as the project workspace.
+- The sandbox loopback interface is not reachable from the user's browser. Do not publish `127.0.0.1` or `localhost` preview links.
+  When an upstream confirmation page cannot be exposed, use the route's documented chat fallback through DeerFlow `ask_clarification`.
+- Keep intermediate files inside the upstream project layout. When the selected route produces a final PPT/PPTX, copy the final deck
+  to `/mnt/user-data/outputs` with a meaningful filename in the user's language and call `present_files` with the real deck.
+- Do not manufacture or publish a preview PDF. DeerFlow creates and serves the hidden paired PDF preview after successful PPT/PPTX delivery.
+</deerflow_hosted_adapter>"""
+
 _PRESENTATION_COMPLETION_REMINDER = """<system_reminder>
 PPT 工作流尚未完成，不能把当前回复作为最终答案。请从现有项目文件继续执行，不要重新开始，也不要修改技能包：
 {requirements}
@@ -261,6 +271,7 @@ For every BLOCKING chat-fallback confirmation, call the native `ask_clarificatio
 Do not merely print the recommendations and end the turn, and do not rely on generated quick-reply suggestions: only the structured clarification response preserves the active workflow and counts as user confirmation.
 </deerflow_confirmation_adapter>
 """
+        hosted_adapter = _PPT_MASTER_DEERFLOW_ADAPTER if activation.skill_name == "ppt-master" else ""
         return f"""<slash_skill_activation>
 The user explicitly activated the `{escaped_skill_name}` skill for this turn.
 Treat the task text as:
@@ -281,6 +292,7 @@ Do not skip mandatory phase gates. A failed command or validation result does no
 {escaped_skill_content}
 </skill_content>
 </skill>
+{hosted_adapter}
 </slash_skill_activation>"""
 
     @staticmethod
@@ -309,6 +321,7 @@ Do not skip mandatory phase gates. A failed command or validation result does no
         if "wait for explicit user confirmation" in activation.skill_content.lower():
             phase_contract += "- A BLOCKING confirmation requires a real user response; never choose or confirm recommendations on the user's behalf.\n"
             phase_contract += '- In DeerFlow chat fallback, call `ask_clarification` with `clarification_type="suggestion"`; plain text plus quick replies is not the confirmation gate.\n'
+        hosted_adapter = _PPT_MASTER_DEERFLOW_ADAPTER if activation.skill_name == "ppt-master" else ""
         return f"""<slash_skill_continuation name="{escaped_skill_name}" path="{escaped_path}">
 Continue following the already activated skill. Do not substitute a general workflow or invent commands, schemas, parameters, or phase order.
 For every independent shell command that uses `${{SKILL_DIR}}`, first declare:
@@ -316,6 +329,7 @@ export SKILL_DIR='{escaped_skill_dir}'
 {reference_contract}<mandatory_phase_gates>
 {phase_contract or "- Preserve every mandatory gate declared by the activated skill.\n"}</mandatory_phase_gates>
 Failed commands and validation errors do not advance the workflow. Read the exact reference or command `--help`, fix the owning source, and retry the same gate.
+{hosted_adapter}
 </slash_skill_continuation>"""
 
     @staticmethod
@@ -519,6 +533,7 @@ Failed commands and validation errors do not advance the workflow. Read the exac
                 "requires_final_gate": "--stage final" in activation.skill_content,
                 "requires_presentation_export": "svg_to_pptx.py" in activation.skill_content,
                 "requires_presentation_delivery": "present_files" in activation.skill_content,
+                "requires_localized_presentation_filename": activation.skill_name == "ppt-master" and bool(re.search(r"[\u3400-\u9fff]", activation.remaining_text)),
                 "requires_human_confirmation": "wait for explicit user confirmation" in activation.skill_content.lower(),
                 "human_confirmation_completed": False,
                 "svg_paths": [],
@@ -526,7 +541,10 @@ Failed commands and validation errors do not advance the workflow. Read the exac
                 "final_validated": False,
                 "presentation_export_completed": False,
                 "presentation_delivery_completed": False,
-                "presentation_completion_retry_count": 0,
+                "presentation_progress_revision": 0,
+                "presentation_completion_last_revision": None,
+                "presentation_completion_same_revision_retries": 0,
+                "presentation_completion_total_retries": 0,
             }
         activation_msg = self._make_activation_message(target, activation_content)
         messages = list(request.messages)
@@ -601,6 +619,42 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         if isinstance(response, ModelResponse):
             return ModelResponse(result=[*result_messages[:-1], updated_message], structured_response=response.structured_response)
         return updated_message
+
+    def _hide_incomplete_presentation_response(
+        self,
+        request: ModelRequest,
+        response: ModelResponse | AIMessage,
+    ) -> ModelResponse | AIMessage:
+        """Hide a premature presentation conclusion before it reaches run events.
+
+        ``after_model`` removes the same message and asks the model to continue,
+        but the model-end event is streamed before that state removal. Marking
+        the returned message here keeps recovery-only prose out of the browser
+        while retaining it in the audit event for diagnosis.
+        """
+        run_context = self._run_context(request)
+        cache = run_context.get(_SLASH_SKILL_ACTIVATION_CACHE_KEY) if isinstance(run_context, dict) else None
+        if not isinstance(cache, dict) or not self._presentation_incomplete_requirements(cache):
+            return response
+
+        result_messages = response.result if isinstance(response, ModelResponse) else [response]
+        if not result_messages or not isinstance(result_messages[-1], AIMessage):
+            return response
+        message = result_messages[-1]
+        if self._has_tool_call_intent(message) or (message.additional_kwargs or {}).get("deerflow_error_fallback"):
+            return response
+
+        additional_kwargs = dict(message.additional_kwargs or {})
+        additional_kwargs.update(
+            {
+                "hide_from_ui": True,
+                "presentation_completion_recovery": True,
+            }
+        )
+        hidden = message.model_copy(update={"additional_kwargs": additional_kwargs})
+        if isinstance(response, ModelResponse):
+            return ModelResponse(result=[*result_messages[:-1], hidden], structured_response=response.structured_response)
+        return hidden
 
     def _resolve_secret_bindings(self, request: ModelRequest, activation: _Activation | None, *, hook: str) -> None:
         """Recompute the per-run secret injection set (binding point A+, #3861/#3914).
@@ -1130,9 +1184,14 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         path = self._tool_path(request)
         if name in {"write_file", "str_replace"} and self._is_svg_output_path(path):
             self._record_svg_paths(cache, [path])
+            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
             return
         if name == "present_files":
-            cache["presentation_delivery_completed"] = True
+            raw_paths = self._tool_args(request).get("filepaths")
+            paths = [item for item in raw_paths if isinstance(item, str)] if isinstance(raw_paths, list) else []
+            cache["presentation_delivery_completed"] = any(posixpath.splitext(item.lower())[1] in {".ppt", ".pptx"} for item in paths)
+            if cache["presentation_delivery_completed"]:
+                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
             return
         if name != "bash":
             return
@@ -1142,15 +1201,20 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         bash_svg_paths = self._bash_svg_output_paths(command)
         if bash_svg_paths:
             self._record_svg_paths(cache, bash_svg_paths)
+            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
         if "confirm_ui/server.py" in command and "--wait-only" in command and "--wait-stage" not in command:
             cache["human_confirmation_completed"] = True
+            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
         if "svg_quality_checker.py" in command:
             if "--stage first-page" in command:
                 cache["first_page_validated"] = True
+                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
             if "--stage final" in command:
                 cache["final_validated"] = True
+                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
         if "svg_to_pptx.py" in command:
             cache["presentation_export_completed"] = True
+            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
 
     @staticmethod
     def _presentation_incomplete_requirements(cache: dict) -> list[str]:
@@ -1187,14 +1251,23 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         if not requirements:
             return None
 
-        retry_count = int(cache.get("presentation_completion_retry_count") or 0)
-        if retry_count == 0:
-            cache["presentation_completion_retry_count"] = 1
+        revision = int(cache.get("presentation_progress_revision") or 0)
+        last_revision = cache.get("presentation_completion_last_revision")
+        same_revision_retries = int(cache.get("presentation_completion_same_revision_retries") or 0)
+        if last_revision != revision:
+            same_revision_retries = 0
+        total_retries = int(cache.get("presentation_completion_total_retries") or 0)
+        if same_revision_retries == 0 and total_retries < 8:
+            cache["presentation_completion_last_revision"] = revision
+            cache["presentation_completion_same_revision_retries"] = 1
+            cache["presentation_completion_total_retries"] = total_retries + 1
             cache["presentation_completion_pending"] = requirements
             updates = [RemoveMessage(id=last.id)] if last.id else []
             return {"messages": updates, "jump_to": "model"}
 
         additional_kwargs = dict(last.additional_kwargs or {})
+        additional_kwargs.pop("hide_from_ui", None)
+        additional_kwargs.pop("presentation_completion_recovery", None)
         additional_kwargs.update(
             {
                 "deerflow_error_fallback": True,
@@ -1281,7 +1354,8 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         prepared = self._handle_model_request(self._augment_presentation_completion_request(request), hook="wrap_model_call")
         if isinstance(prepared, AIMessage):
             return prepared
-        return self._ensure_structured_confirmation(prepared, handler(prepared))
+        response = self._ensure_structured_confirmation(prepared, handler(prepared))
+        return self._hide_incomplete_presentation_response(prepared, response)
 
     @override
     async def awrap_model_call(
@@ -1296,4 +1370,5 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         )
         if isinstance(prepared, AIMessage):
             return prepared
-        return self._ensure_structured_confirmation(prepared, await handler(prepared))
+        response = self._ensure_structured_confirmation(prepared, await handler(prepared))
+        return self._hide_incomplete_presentation_response(prepared, response)

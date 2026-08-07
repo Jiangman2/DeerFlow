@@ -1,6 +1,11 @@
 import asyncio
+import base64
+import html
+import inspect
+import io
 import logging
 import mimetypes
+import threading
 import zipfile
 from pathlib import Path
 from urllib.parse import quote
@@ -41,6 +46,10 @@ SAFE_INLINE_UPLOAD_MIME_TYPES = {
 
 MAX_SKILL_ARCHIVE_MEMBER_BYTES = 16 * 1024 * 1024
 _SKILL_ARCHIVE_READ_CHUNK_SIZE = 64 * 1024
+MAX_PDF_PREVIEW_BYTES = 64 * 1024 * 1024
+MAX_PDF_PREVIEW_PAGES = 100
+_PDF_PREVIEW_RENDER_SCALE = 1.5
+_PDF_PREVIEW_LOCK = threading.Lock()
 
 PASSIVE_FILE_HEADERS = {
     "X-Content-Type-Options": "nosniff",
@@ -52,11 +61,46 @@ INLINE_PDF_HEADERS = {
     "Content-Security-Policy": "sandbox; default-src 'none'; script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
 }
 
+PDF_PREVIEW_HTML_HEADERS = {
+    **PASSIVE_FILE_HEADERS,
+    "Content-Security-Policy": ("sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"),
+    "Cache-Control": "private, no-store",
+}
+
 SECURE_ATTACHMENT_HEADERS = {
     **INLINE_PDF_HEADERS,
     "Cache-Control": "private, no-store",
     "X-Download-Options": "noopen",
 }
+
+
+async def _resolve_artifact_owner_user_id(request: Request | None, thread_id: str) -> str | None:
+    """Resolve artifact storage from trusted thread ownership metadata.
+
+    Authorization is enforced by ``require_permission`` before this helper is
+    called.  Once access is granted, browser requests (including administrator
+    read-only review) must read from the thread owner's storage bucket instead
+    of the current viewer's bucket.  The owner cannot be supplied by the
+    browser: it comes from ``threads_meta``.  Trusted internal callers retain
+    their owner-header fallback for legacy threads without metadata rows.
+    """
+    trusted_owner = get_trusted_internal_owner_user_id(request) if request is not None else None
+    metadata_owner: str | None = None
+
+    app = request.scope.get("app") if request is not None else None
+    thread_store = getattr(getattr(app, "state", None), "thread_store", None)
+    get_thread = getattr(thread_store, "get", None)
+    if callable(get_thread):
+        record_or_awaitable = get_thread(thread_id, user_id=None)
+        if inspect.isawaitable(record_or_awaitable):
+            record = await record_or_awaitable
+            if isinstance(record, dict):
+                raw_metadata_owner = record.get("user_id")
+                if raw_metadata_owner is not None:
+                    metadata_owner = str(raw_metadata_owner).strip() or None
+
+    raw_owner = metadata_owner or trusted_owner
+    return make_safe_user_id(raw_owner) if raw_owner else None
 
 
 def _build_content_disposition(disposition_type: str, filename: str) -> str:
@@ -194,6 +238,132 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
     return ("bytes", mime_type, actual_path.read_bytes())
 
 
+def _validate_pdf_preview_artifact(actual_path: Path, path: str) -> None:
+    normalized_virtual_path = "/" + path.replace("\\", "/").lstrip("/")
+    is_outputs_pdf = normalized_virtual_path.startswith("/mnt/user-data/outputs/") and normalized_virtual_path.lower().endswith(".pdf")
+    is_named_preview = normalized_virtual_path.lower().endswith(".preview.pdf")
+    has_legacy_deck_sibling = actual_path.with_suffix(".pptx").is_file() or actual_path.with_suffix(".ppt").is_file()
+    if not is_outputs_pdf or not (is_named_preview or has_legacy_deck_sibling):
+        raise HTTPException(status_code=400, detail="Only generated PowerPoint preview companions can use this endpoint")
+    if not actual_path.exists():
+        raise HTTPException(status_code=404, detail=f"Artifact not found: {path}")
+    if not actual_path.is_file():
+        raise HTTPException(status_code=400, detail=f"Path is not a file: {path}")
+    if actual_path.stat().st_size > MAX_PDF_PREVIEW_BYTES:
+        raise HTTPException(status_code=413, detail="PDF preview is too large")
+    if pdf_file_requires_attachment(actual_path):
+        raise HTTPException(status_code=400, detail="PDF preview contains unsupported active or encrypted content")
+
+
+def _load_pdfium():
+    try:
+        import pypdfium2 as pdfium
+    except ImportError as exc:  # pragma: no cover - release dependency guard
+        raise HTTPException(status_code=503, detail="PDF preview renderer is unavailable") from exc
+    return pdfium
+
+
+def _inspect_pdf_preview(actual_path: Path) -> int:
+    pdfium = _load_pdfium()
+    with _PDF_PREVIEW_LOCK:
+        try:
+            document = pdfium.PdfDocument(str(actual_path))
+            try:
+                page_count = len(document)
+            finally:
+                document.close()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail="PDF preview cannot be opened") from exc
+    if page_count < 1:
+        raise HTTPException(status_code=422, detail="PDF preview has no pages")
+    if page_count > MAX_PDF_PREVIEW_PAGES:
+        raise HTTPException(status_code=413, detail=f"PDF preview exceeds {MAX_PDF_PREVIEW_PAGES} pages")
+    return page_count
+
+
+def _render_pdf_preview_page(actual_path: Path, page_index: int) -> bytes:
+    pdfium = _load_pdfium()
+    with _PDF_PREVIEW_LOCK:
+        try:
+            document = pdfium.PdfDocument(str(actual_path))
+            try:
+                page_count = len(document)
+                if page_index < 0 or page_index >= page_count or page_index >= MAX_PDF_PREVIEW_PAGES:
+                    raise HTTPException(status_code=404, detail="PDF preview page not found")
+                page = document[page_index]
+                try:
+                    bitmap = page.render(scale=_PDF_PREVIEW_RENDER_SCALE)
+                    try:
+                        image = bitmap.to_pil()
+                        output = io.BytesIO()
+                        image.save(output, format="PNG", optimize=True)
+                        return output.getvalue()
+                    finally:
+                        bitmap.close()
+                finally:
+                    page.close()
+            finally:
+                document.close()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail="PDF preview page cannot be rendered") from exc
+
+
+def _render_pdf_preview_pages(actual_path: Path, page_count: int) -> list[bytes]:
+    return [_render_pdf_preview_page(actual_path, page_index) for page_index in range(page_count)]
+
+
+def _build_embedded_pdf_preview_gallery(path: str, page_payloads: list[bytes]) -> str:
+    title = html.escape(Path(path).name, quote=True)
+    pages = "".join(f'<figure><img src="data:image/png;base64,{base64.b64encode(payload).decode("ascii")}" alt="{title} 第 {page_index + 1} 页" loading="lazy"></figure>' for page_index, payload in enumerate(page_payloads))
+    return (
+        '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f"<title>{title}</title><style>"
+        "html,body{margin:0;background:#eef4fb;color:#172033}body{padding:16px}"
+        "main{display:grid;gap:16px;max-width:1200px;margin:0 auto}figure{margin:0;background:#fff;"
+        "box-shadow:0 2px 12px rgba(15,38,70,.14)}img{display:block;width:100%;height:auto}"
+        "</style></head><body><main>"
+        f"{pages}</main></body></html>"
+    )
+
+
+@router.get(
+    "/threads/{thread_id}/artifact-previews/pdf/{path:path}",
+    summary="Preview PowerPoint PDF Companion",
+    description="Render a generated PowerPoint PDF companion as a scriptless browser-compatible page gallery.",
+)
+@require_permission("threads", "read", owner_check=True)
+async def get_pdf_artifact_preview(
+    thread_id: str,
+    path: str,
+    request: Request,
+    page: int | None = None,
+) -> Response:
+    owner_user_id = await _resolve_artifact_owner_user_id(request, thread_id)
+    actual_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, path, user_id=owner_user_id)
+    await asyncio.to_thread(_validate_pdf_preview_artifact, actual_path, path)
+
+    if page is not None:
+        payload = await asyncio.to_thread(_render_pdf_preview_page, actual_path, page)
+        return Response(
+            content=payload,
+            media_type="image/png",
+            headers={**PASSIVE_FILE_HEADERS, "Cache-Control": "private, max-age=300"},
+        )
+
+    page_count = await asyncio.to_thread(_inspect_pdf_preview, actual_path)
+    page_payloads = await asyncio.to_thread(_render_pdf_preview_pages, actual_path, page_count)
+    return Response(
+        content=_build_embedded_pdf_preview_gallery(path, page_payloads),
+        media_type="text/html",
+        headers=PDF_PREVIEW_HTML_HEADERS,
+    )
+
+
 @router.api_route(
     "/threads/{thread_id}/artifacts/{path:path}",
     methods=["GET", "HEAD"],
@@ -234,15 +404,7 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         - Download file: `/api/threads/abc123/artifacts/mnt/user-data/outputs/data.csv?download=true`
         - Active web content such as `.html`, `.xhtml`, and `.svg` artifacts is always downloaded
     """
-    # Trusted internal callers may act on behalf of a thread's owner via the
-    # owner-user-id header (honored only after the internal token validates).
-    # The header carries the raw platform owner id, while runs store files
-    # under the make_safe_user_id bucket (the same normalization the channel
-    # file pipeline and the memory router apply), so resolution uses the
-    # normalized id. Browser/API callers get None here and fall back to the
-    # effective user.
-    raw_owner_user_id = get_trusted_internal_owner_user_id(request)
-    owner_user_id = make_safe_user_id(raw_owner_user_id) if raw_owner_user_id else None
+    owner_user_id = await _resolve_artifact_owner_user_id(request, thread_id)
 
     # Check if this is a request for a file inside a .skill archive (e.g., xxx.skill/SKILL.md)
     if ".skill/" in path:

@@ -2,6 +2,7 @@ import asyncio
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from _router_auth_helpers import call_unwrapped, make_authed_test_app
@@ -62,6 +63,142 @@ def test_get_artifact_serves_pdf_as_binary_even_when_sample_has_no_null_bytes(tm
     assert response.headers.get("content-disposition", "").startswith("inline;")
     assert response.headers["x-content-type-options"] == "nosniff"
     assert "sandbox" in response.headers["content-security-policy"]
+
+
+def test_get_artifact_keeps_benign_page_destination_open_action_inline(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "deck.preview.pdf"
+    artifact_path.write_bytes(b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R /OpenAction[3 0 R /XYZ null null 0] >>\nendobj\n%%EOF\n")
+
+    monkeypatch.setattr(
+        artifacts_router,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path, user_id=None: artifact_path,
+    )
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/outputs/deck.preview.pdf",
+            _make_request(),
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.media_type == "application/pdf"
+    assert response.headers["content-disposition"].startswith("inline;")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert "sandbox" in response.headers["content-security-policy"]
+
+
+def test_get_pdf_artifact_preview_returns_scriptless_page_gallery(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "deck.preview.pdf"
+    artifact_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    monkeypatch.setattr(
+        artifacts_router,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path, user_id=None: artifact_path,
+    )
+    monkeypatch.setattr(artifacts_router, "_inspect_pdf_preview", lambda _path: 2)
+    monkeypatch.setattr(
+        artifacts_router,
+        "_render_pdf_preview_pages",
+        lambda _path, page_count: [b"page-zero", b"page-one"][:page_count],
+    )
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_pdf_artifact_preview,
+            "thread-1",
+            "mnt/user-data/outputs/deck.preview.pdf",
+            _make_request(),
+            page=None,
+        )
+    )
+
+    body = bytes(response.body).decode("utf-8")
+    assert response.status_code == 200
+    assert response.media_type == "text/html"
+    assert body.count("<img") == 2
+    assert "data:image/png;base64,cGFnZS16ZXJv" in body
+    assert "data:image/png;base64,cGFnZS1vbmU=" in body
+    assert "?page=" not in body
+    assert "<script" not in body
+    assert "sandbox" in response.headers["content-security-policy"]
+    assert "img-src data:" in response.headers["content-security-policy"]
+
+
+def test_get_pdf_artifact_preview_renders_requested_page_as_png(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "deck.preview.pdf"
+    artifact_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    monkeypatch.setattr(
+        artifacts_router,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path, user_id=None: artifact_path,
+    )
+    monkeypatch.setattr(artifacts_router, "_render_pdf_preview_page", lambda _path, page: b"\x89PNG\r\npage" + bytes([page]))
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_pdf_artifact_preview,
+            "thread-1",
+            "mnt/user-data/outputs/deck.preview.pdf",
+            _make_request(),
+            page=3,
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.media_type == "image/png"
+    assert bytes(response.body).startswith(b"\x89PNG")
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
+def test_get_pdf_artifact_preview_rejects_non_companion_pdf(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "report.pdf"
+    artifact_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    monkeypatch.setattr(
+        artifacts_router,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path, user_id=None: artifact_path,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(
+            call_unwrapped(
+                artifacts_router.get_pdf_artifact_preview,
+                "thread-1",
+                "mnt/user-data/outputs/report.pdf",
+                _make_request(),
+                page=None,
+            )
+        )
+
+    assert exc_info.value.status_code == 400
+
+
+def test_get_artifact_keeps_indirect_open_action_as_attachment(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "unsafe.preview.pdf"
+    artifact_path.write_bytes(b"%PDF-1.7\n1 0 obj\n<< /Type /Catalog /OpenAction 2 0 R >>\nendobj\n2 0 obj\n<< /S /GoTo /D [3 0 R /Fit] >>\nendobj\n%%EOF\n")
+
+    monkeypatch.setattr(
+        artifacts_router,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path, user_id=None: artifact_path,
+    )
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/outputs/unsafe.preview.pdf",
+            _make_request(),
+        )
+    )
+
+    assert isinstance(response, FileResponse)
+    assert response.media_type == "application/octet-stream"
+    assert response.headers["content-disposition"].startswith("attachment;")
 
 
 def test_get_artifact_forces_uploaded_pdf_to_download(tmp_path, monkeypatch) -> None:
@@ -285,6 +422,75 @@ def test_get_artifact_ignores_owner_header_for_non_internal_caller(tmp_path, mon
     asyncio.run(call_unwrapped(artifacts_router.get_artifact, "thread-1", "mnt/user-data/outputs/index.html", request))
 
     assert seen["user_id"] is None
+
+
+def test_get_artifact_resolves_browser_request_from_thread_owner_metadata(tmp_path, monkeypatch) -> None:
+    seen = _capture_resolved_user_id(monkeypatch, tmp_path)
+    thread_store = SimpleNamespace(
+        get=AsyncMock(
+            return_value={
+                "thread_id": "thread-1",
+                "user_id": "thread.owner@example.com",
+            }
+        )
+    )
+    app = SimpleNamespace(state=SimpleNamespace(thread_store=thread_store))
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [],
+            "query_string": b"",
+            "app": app,
+        }
+    )
+    request.state.user = SimpleNamespace(id="reviewing-admin", system_role="admin")
+
+    asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/outputs/index.html",
+            request,
+        )
+    )
+
+    thread_store.get.assert_awaited_once_with("thread-1", user_id=None)
+    assert seen["user_id"] == make_safe_user_id("thread.owner@example.com")
+
+
+def test_thread_metadata_owner_takes_precedence_over_internal_header(tmp_path, monkeypatch) -> None:
+    seen = _capture_resolved_user_id(monkeypatch, tmp_path)
+    thread_store = SimpleNamespace(get=AsyncMock(return_value={"thread_id": "thread-1", "user_id": "canonical-owner"}))
+    app = SimpleNamespace(state=SimpleNamespace(thread_store=thread_store))
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "headers": [
+                (
+                    INTERNAL_OWNER_USER_ID_HEADER_NAME.lower().encode(),
+                    b"legacy-header-owner",
+                )
+            ],
+            "query_string": b"",
+            "app": app,
+        }
+    )
+    request.state.user = SimpleNamespace(id="default", system_role=INTERNAL_SYSTEM_ROLE)
+
+    asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/outputs/index.html",
+            request,
+        )
+    )
+
+    assert seen["user_id"] == "canonical-owner"
 
 
 def test_skill_archive_preview_rejects_oversized_member_before_decompression(tmp_path) -> None:

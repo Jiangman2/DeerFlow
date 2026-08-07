@@ -120,6 +120,12 @@ administrators retain the complete native editor.
 
 1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission, and `core/voice-input` can transcribe browser microphone input into that same local draft; confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming
 2. Stream events update thread state (messages, artifacts, todos, goal)
+   When an existing chat page mounts without the SDK's tab-local reconnect key,
+   `core/threads/hooks.ts` must query the Gateway run store for the newest
+   `pending`/`running` run and join that run's stream. Keep the composer busy
+   during discovery and recovery so reopening a running chat cannot submit a
+   competing run and surface HTTP 409. The same recovery check runs when the
+   page regains focus or visibility.
 3. `useThreadHistory` loads persisted conversation pages from `GET /api/threads/{id}/messages/page`, preserving the backend's thread-global event `seq`; rendering overlays checkpoint/live copies at their matching canonical identities (a summarized checkpoint may contain a protected early input plus a recent tail), suppresses checkpoint/transient prefixes whose canonical position is still behind an unloaded cursor page instead of collapsing that unknown gap before a recent anchor, then adds optimistic messages without timestamp re-sorting. History invalidation preserves already-loaded pages so their established ordering positions are not discarded.
 4. Stop actions call the LangGraph SDK stream stop path; `core/threads/hooks.ts` invalidates current-thread, thread-history, token-usage, and sidebar/search caches immediately and schedules one follow-up refetch because SDK stop may finish via abort + fire-and-forget cancel before backend title finalization commits
 5. TanStack Query manages server state; localStorage stores user settings
@@ -133,7 +139,12 @@ disabled thread removes the file-list menu item, closes the dialog, invalidates
 in-flight list loads, and sends the resolved boolean on normal, custom-agent,
 regenerated, and branched runs.
 
-PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. `core/artifacts/utils.ts` owns the deterministic pairing rule, and the artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. PDF browser previews must keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and rely on the Gateway's CSP/active-PDF attachment fallback; do not restore an unrestricted same-origin PDF iframe.
+PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning presentation. `core/artifacts/utils.ts` owns the deterministic pairing rule, and the artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated companion pages server-side. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
+Every recorded or guessed PowerPoint preview companion must pass a same-origin
+HEAD probe before the iframe is rendered. A stale/missing companion may show a
+download fallback for legacy history, but every newly successful PPT/PPTX
+publication is backend-gated on a real persisted preview PDF.
+Writing or publishing an artifact must not automatically open the right-side panel. Keep files and final deliverables visible in the conversation and top-level Files list, but require an explicit user click on a write step, artifact link, file card, or Files control before selecting an artifact and narrowing the chat column.
 `MessageResponse` must use React's normal shallow-prop memoization (or compare every rendering prop), not a children-only comparator: thread-aware Markdown `components` arrive independently of unchanged text, and retaining an older link renderer turns preview links back into full-page artifact navigation. Interactive artifact links use an inert `#artifacts` href when a panel callback is available so an early pre-hydration click cannot replace the chat page with the raw file response.
 
 `/goal` and `/compact` are built-in composer commands, not skill activations. `src/components/workspace/input-box.tsx` intercepts `/goal`, `/goal clear`, and `/goal <condition>` before normal chat submission, calling Gateway `GET/PUT/DELETE /api/threads/{thread_id}/goal`. Setting `/goal <condition>` also submits the condition text as the next user task so the agent starts running immediately; status and clear do not start a run. Goal and compact requests are tied to the current `threadId` with an `AbortController`, so switching threads or unmounting the composer aborts in-flight requests and stale responses cannot update the new thread's composer state. The chat pages render `GoalStatus` above the composer from `AgentThreadState.goal`, with local optimistic state until the next stream `values` update arrives. `/compact` calls `POST /api/threads/{thread_id}/compact` to summarize older active context while leaving the full visible chat history intact; it is skipped on new/empty threads and blocked server-side while a run is in flight.
@@ -263,6 +274,18 @@ present public Skill switches as read-only for ordinary users; platform
 administrators may change them, and the backend admin check remains the
 authorization boundary. Custom Skill behavior remains governed by its existing
 scoped authorization.
+
+### Mobile WebView contract
+
+The mobile H5 surface is the existing workspace opened at
+`/workspace/chats/new`, not a separate frontend. Keep viewport metadata,
+safe-area padding, dynamic-height fallbacks, touch-safe navigation, full-screen
+mobile settings/artifacts, and the knowledge-page navigation escape hatch in
+the shared component tree. Do not pass SSO tokens through URLs or browser
+JavaScript. Mobile changes must retain desktop behavior and add Playwright
+coverage at 320, 375, 390, and 412 pixel widths plus a short landscape view.
+The native App integration and release checklist live in
+`docs/mobile-webview-integration.md`.
 
 ## Environment
 

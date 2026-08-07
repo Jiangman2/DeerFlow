@@ -44,15 +44,15 @@ export function AgentGallery() {
   return (
     <Tabs defaultValue="mine" className="flex size-full flex-col">
       {/* Page header */}
-      <div className="flex items-center justify-between border-b px-6 py-4">
-        <div>
+      <div className="flex min-w-0 flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold">{t.agents.title}</h1>
           <p className="text-muted-foreground mt-0.5 text-sm">
             {t.agents.description}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <TabsList>
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:shrink-0 sm:justify-start sm:gap-3">
+          <TabsList className="min-w-0 flex-1 sm:flex-none">
             <TabsTrigger value="mine">
               <UserIcon className="h-4 w-4" />
               {t.agents.myAgents}
@@ -62,7 +62,11 @@ export function AgentGallery() {
               {t.agents.agentSquare}
             </TabsTrigger>
           </TabsList>
-          <Button onClick={handleNewAgent} size="sm" className="sm:h-9">
+          <Button
+            onClick={handleNewAgent}
+            size="sm"
+            className="shrink-0 sm:h-9"
+          >
             <PlusIcon className="mr-1.5 h-4 w-4" />
             {t.agents.newAgent}
           </Button>
@@ -70,7 +74,7 @@ export function AgentGallery() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="app-scroll-region min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
         <TabsContent value="mine" className="mt-0">
           {agentsApiDisabled ? (
             <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">

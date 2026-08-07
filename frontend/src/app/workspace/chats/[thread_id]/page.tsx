@@ -283,7 +283,7 @@ export default function ChatPage() {
           <div className="relative flex size-full min-h-0 justify-between">
             <header
               className={cn(
-                "absolute top-0 right-0 left-0 z-30 flex h-12 shrink-0 items-center gap-2 px-2 sm:px-4",
+                "absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
                 isWelcomeMode
                   ? "bg-background/0 backdrop-blur-none"
                   : "bg-background/80 shadow-xs backdrop-blur",
@@ -293,7 +293,7 @@ export default function ChatPage() {
               <div className="flex min-w-0 flex-1 items-center text-sm font-medium">
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-2">
                 {!isNewThread && !isAdminReview && (
                   <ThreadScheduledTasksLink threadId={threadId} />
                 )}
@@ -355,7 +355,7 @@ export default function ChatPage() {
               </div>
               <div
                 className={cn(
-                  "right-0 bottom-0 left-0 z-30 flex justify-center px-3 sm:px-4",
+                  "right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
                   isWelcomeMode ? "absolute" : "relative shrink-0 pb-4",
                 )}
               >
@@ -363,7 +363,7 @@ export default function ChatPage() {
                   className={cn(
                     "relative w-full",
                     isWelcomeMode &&
-                      "-translate-y-[calc(50vh-48px)] sm:-translate-y-[calc(50vh-96px)]",
+                      "-translate-y-[calc(50dvh-48px)] sm:-translate-y-[calc(50dvh-96px)]",
                     isWelcomeMode
                       ? "max-w-(--container-width-sm)"
                       : "max-w-(--container-width-md)",

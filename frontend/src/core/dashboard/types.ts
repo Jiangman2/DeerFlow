@@ -305,7 +305,13 @@ export interface RecentFailureItem {
   duration_ms: number;
   disposition_status: string | null;
   diagnostics_url: string;
-  chat_url: string;
+  can_open: boolean;
+  chat_url: string | null;
+}
+
+export interface FailedRunList {
+  items: RecentFailureItem[];
+  total: number;
 }
 
 export interface RecentBusinessEventItem {

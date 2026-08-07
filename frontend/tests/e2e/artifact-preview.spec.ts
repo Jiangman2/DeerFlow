@@ -6,9 +6,11 @@ const ARTIFACT_PATH = "/artifact-fixtures/report.html";
 const MARKDOWN_ARTIFACT_PATH = "/artifact-fixtures/report.md";
 const JSON_ARTIFACT_PATH = "/artifact-fixtures/report.json";
 const PRESENTED_ARTIFACT_PATH = "/mnt/user-data/outputs/presented-report.md";
-const PRESENTED_PPTX_PATH = "/mnt/user-data/outputs/research-report.pptx";
+const PRESENTED_PPTX_FILENAME =
+  "中国海油勘探开发智能体平台研究报告_20260805_111535.pptx";
+const PRESENTED_PPTX_PATH = `/mnt/user-data/outputs/${PRESENTED_PPTX_FILENAME}`;
 const PRESENTED_PPTX_PREVIEW_PATH =
-  "/mnt/user-data/outputs/research-report.preview.pdf";
+  "/mnt/user-data/outputs/中国海油勘探开发智能体平台研究报告_20260805_111535.preview.pdf";
 const IN_PROGRESS_THREAD_ID = "00000000-0000-0000-0000-000000003119";
 const COMPLETE_THREAD_ID = "00000000-0000-0000-0000-000000003120";
 const MARKDOWN_THREAD_ID = "00000000-0000-0000-0000-000000003121";
@@ -84,10 +86,32 @@ function presentFilesMessages() {
         },
       ],
     },
+    {
+      type: "tool",
+      id: "msg-tool-present-file",
+      name: "present_files",
+      tool_call_id: "present-file-artifact",
+      status: "success",
+      content: "Published",
+      artifact: { presented_files: [PRESENTED_ARTIFACT_PATH] },
+    },
   ];
 }
 
 test.describe("Artifact preview stability", () => {
+  test.beforeEach(async ({ page }) => {
+    const email = process.env.PLAYWRIGHT_AUTH_EMAIL;
+    const password = process.env.PLAYWRIGHT_AUTH_PASSWORD;
+    if (email === undefined || password === undefined) {
+      return;
+    }
+
+    const response = await page.request.post("/api/v1/auth/login/local", {
+      form: { username: email, password },
+    });
+    expect(response.ok()).toBeTruthy();
+  });
+
   test("renders preview iframe for an in-progress write artifact", async ({
     page,
   }) => {
@@ -106,9 +130,11 @@ test.describe("Artifact preview stability", () => {
     await expect(page.getByText(ARTIFACT_PATH)).toBeVisible({
       timeout: 15_000,
     });
+    const artifactsPanel = page.locator("#artifacts");
+    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "true");
     await page.getByText(ARTIFACT_PATH).click();
 
-    const artifactsPanel = page.locator("#artifacts");
+    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "false");
     await expect(artifactsPanel.getByText("report.html")).toBeVisible();
     await expect(
       artifactsPanel.locator('iframe[title="Artifact preview"]'),
@@ -300,6 +326,11 @@ test.describe("Artifact preview stability", () => {
 
     await page.goto(`/workspace/chats/${PRESENTED_THREAD_ID}`);
 
+    // Publishing files is passive: the files stay visible in the conversation,
+    // but the right-side panel opens only after an explicit user action.
+    const artifactsPanel = page.locator("#artifacts");
+    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "true");
+
     // The file card in the message list shows the basename only.
     const presentedFileCard = page.locator(
       `[data-artifact-filepath="${PRESENTED_ARTIFACT_PATH}"]`,
@@ -307,8 +338,7 @@ test.describe("Artifact preview stability", () => {
     await expect(presentedFileCard).toBeVisible({ timeout: 15_000 });
     await presentedFileCard.click();
 
-    const artifactsPanel = page.locator("#artifacts");
-
+    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "false");
     await expect(artifactsPanel.getByText("presented-report.md")).toBeVisible();
     await expect(artifactsPanel.getByText("Presented Report")).toBeVisible();
 
@@ -343,7 +373,7 @@ test.describe("Artifact preview stability", () => {
             {
               type: "ai",
               id: "msg-ai-present-pptx",
-              content: `[research-report.pptx](/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts${PRESENTED_PPTX_PATH})`,
+              content: `[${PRESENTED_PPTX_FILENAME}](/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts${PRESENTED_PPTX_PATH})`,
               tool_calls: [
                 {
                   id: "present-pptx-artifact",
@@ -352,29 +382,47 @@ test.describe("Artifact preview stability", () => {
                 },
               ],
             },
+            {
+              type: "tool",
+              id: "msg-tool-present-pptx",
+              name: "present_files",
+              tool_call_id: "present-pptx-artifact",
+              status: "success",
+              content: "Published",
+              artifact: {
+                presented_files: [
+                  PRESENTED_PPTX_PATH,
+                  PRESENTED_PPTX_PREVIEW_PATH,
+                ],
+              },
+            },
           ],
           artifacts: [PRESENTED_PPTX_PATH, PRESENTED_PPTX_PREVIEW_PATH],
         },
       ],
     });
-    await page.route(
-      `**/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts/mnt/user-data/outputs/research-report.preview.pdf`,
-      (route) =>
-        route.fulfill({
-          status: 200,
-          contentType: "application/pdf",
-          body: "%PDF-1.4\n%%EOF",
-        }),
+    await page.route(`**/*111535.preview.pdf`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/pdf",
+        headers: { "content-length": "14" },
+        body:
+          route.request().method() === "HEAD"
+            ? undefined
+            : "%PDF-1.4\n%%EOF",
+      }),
     );
 
     await page.goto(`/workspace/chats/${PRESENTED_PPTX_THREAD_ID}`);
-    const pptxLink = page.getByRole("link", { name: "research-report.pptx" });
+    const pptxLink = page.getByRole("link", {
+      name: PRESENTED_PPTX_FILENAME,
+    });
     await expect(pptxLink).toBeVisible({ timeout: 15_000 });
     await expect(pptxLink).toHaveAttribute("href", "#artifacts");
     await expect(pptxLink).toHaveAttribute(
       "data-artifact-href",
       new RegExp(
-        `/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts/mnt/user-data/outputs/research-report\\.pptx$`,
+        `/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts/mnt/user-data/outputs/${PRESENTED_PPTX_FILENAME.replace(".", "\\.")}$`,
       ),
     );
     await pptxLink.click();
@@ -385,7 +433,143 @@ test.describe("Artifact preview stability", () => {
     await expect(previewFrame).toBeVisible();
     await expect(previewFrame).toHaveAttribute(
       "src",
-      /research-report\.preview\.pdf$/,
+      /中国海油勘探开发智能体平台研究报告_20260805_111535\.preview\.pdf$/,
     );
+    await expect(
+      page.locator(`[data-artifact-filepath="${PRESENTED_PPTX_PREVIEW_PATH}"]`),
+    ).toHaveCount(0);
+
+    const artifactsPanel = page.locator("#artifacts");
+    const artifactSelect = artifactsPanel.getByRole("combobox");
+    await artifactSelect.click();
+    await expect(
+      page.getByRole("option", {
+        name: "中国海油勘探开发智能体平台研究报告_20260805_111535.preview.pdf",
+      }),
+    ).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    const closeButton = artifactsPanel.getByRole("button", { name: "Close" });
+    await expect(closeButton).toBeVisible();
+    const panelBox = await artifactsPanel.boundingBox();
+    const closeBox = await closeButton.boundingBox();
+    expect(panelBox).not.toBeNull();
+    expect(closeBox).not.toBeNull();
+    expect(closeBox!.x + closeBox!.width).toBeLessThanOrEqual(
+      panelBox!.x + panelBox!.width + 1,
+    );
+    await closeButton.click();
+    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "true");
+  });
+
+  test("does not open a blank iframe for a stale recorded PPT preview", async ({
+    page,
+  }) => {
+    const staleThreadId = "00000000-0000-0000-0000-000000003126";
+    const staleDeck = "/mnt/user-data/outputs/历史汇报_20260805_120000.pptx";
+    const stalePreview =
+      "/mnt/user-data/outputs/历史汇报_20260805_120000.preview.pdf";
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: staleThreadId,
+          title: "Stale PowerPoint preview",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-stale-pptx",
+              content: [{ type: "text", text: "Create a PowerPoint" }],
+            },
+            {
+              type: "ai",
+              id: "msg-ai-stale-pptx",
+              content: `[历史汇报_20260805_120000.pptx](/api/threads/${staleThreadId}/artifacts${staleDeck})`,
+            },
+          ],
+          artifacts: [staleDeck, stalePreview],
+        },
+      ],
+    });
+    await page.route(
+      `**/api/threads/${staleThreadId}/artifacts${stalePreview}`,
+      (route) => route.fulfill({ status: 404, body: "missing" }),
+    );
+
+    await page.goto(`/workspace/chats/${staleThreadId}`);
+    await page
+      .getByRole("link", { name: "历史汇报_20260805_120000.pptx" })
+      .click();
+
+    const artifactsPanel = page.locator("#artifacts");
+    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "false");
+    await expect(
+      artifactsPanel.locator('iframe[title="Artifact preview"]'),
+    ).toHaveCount(0);
+    await expect(
+      artifactsPanel
+        .getByText("历史汇报_20260805_120000.pptx", { exact: true })
+        .last(),
+    ).toBeVisible();
+    await expect(
+      artifactsPanel.getByRole("link", { name: "Download" }),
+    ).toBeVisible();
+  });
+
+  test("does not render or open artifacts from a failed present_files call", async ({
+    page,
+  }) => {
+    const failedThreadId = "00000000-0000-0000-0000-000000003125";
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: failedThreadId,
+          title: "Failed PowerPoint delivery",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-failed-pptx",
+              content: [{ type: "text", text: "Create a PowerPoint" }],
+            },
+            {
+              type: "ai",
+              id: "msg-ai-failed-pptx",
+              content: "Publishing the files now.",
+              tool_calls: [
+                {
+                  id: "present-failed-pptx",
+                  name: "present_files",
+                  args: {
+                    filepaths: [
+                      "/mnt/user-data/outputs/final.pptx",
+                      "/mnt/user-data/outputs/final.report.json",
+                    ],
+                  },
+                },
+              ],
+            },
+            {
+              type: "tool",
+              id: "msg-tool-failed-pptx",
+              name: "present_files",
+              tool_call_id: "present-failed-pptx",
+              status: "error",
+              content: "Publishing was blocked",
+            },
+          ],
+          artifacts: [],
+        },
+      ],
+    });
+
+    await page.goto(`/workspace/chats/${failedThreadId}`);
+
+    const artifactsPanel = page.locator("#artifacts");
+    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "true");
+    await expect(
+      page.locator('[data-artifact-filepath$="final.pptx"]'),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-artifact-filepath$="final.report.json"]'),
+    ).toHaveCount(0);
   });
 });

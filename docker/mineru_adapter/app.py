@@ -568,15 +568,177 @@ def parse_word_with_builtin(
         return markdown, images
 
 
+_CFB_FREE_SECTOR = 0xFFFFFFFF
+_CFB_END_OF_CHAIN = 0xFFFFFFFE
+_CFB_NO_STREAM = 0xFFFFFFFF
+
+
+def _compound_document_root_streams(content: bytes) -> set[str]:
+    """Read root stream names from a bounded CFB/OLE2 directory.
+
+    This deliberately implements only the structural subset needed to
+    identify legacy Word and PowerPoint files. It never opens stream payloads,
+    follows MiniFAT chains, executes macros, or trusts unbounded sector links.
+    """
+    if len(content) < 512 or content[:8] != bytes.fromhex("D0CF11E0A1B11AE1"):
+        raise ValueError("Invalid legacy Office compound document header")
+    if int.from_bytes(content[28:30], "little") != 0xFFFE:
+        raise ValueError("Unsupported compound document byte order")
+
+    sector_shift = int.from_bytes(content[30:32], "little")
+    if sector_shift not in {9, 12}:
+        raise ValueError("Unsupported compound document sector size")
+    sector_size = 1 << sector_shift
+    if len(content) < sector_size:
+        raise ValueError("Truncated compound document header")
+    sector_count = (len(content) - sector_size) // sector_size
+    if sector_count <= 0:
+        raise ValueError("Compound document has no sectors")
+
+    def read_sector(sector_id: int) -> bytes:
+        if sector_id >= sector_count:
+            raise ValueError("Compound document sector is out of range")
+        start = (sector_id + 1) * sector_size
+        end = start + sector_size
+        if end > len(content):
+            raise ValueError("Truncated compound document sector")
+        return content[start:end]
+
+    fat_sector_count = int.from_bytes(content[44:48], "little")
+    if fat_sector_count <= 0 or fat_sector_count > sector_count:
+        raise ValueError("Invalid compound document FAT size")
+
+    fat_sector_ids = [
+        int.from_bytes(content[offset : offset + 4], "little")
+        for offset in range(76, 512, 4)
+    ]
+    fat_sector_ids = [sector_id for sector_id in fat_sector_ids if sector_id != _CFB_FREE_SECTOR]
+
+    difat_sector_id = int.from_bytes(content[68:72], "little")
+    difat_sector_count = int.from_bytes(content[72:76], "little")
+    seen_difat: set[int] = set()
+    for _ in range(min(difat_sector_count, sector_count)):
+        if difat_sector_id in {_CFB_END_OF_CHAIN, _CFB_FREE_SECTOR}:
+            break
+        if difat_sector_id in seen_difat:
+            raise ValueError("Compound document DIFAT contains a cycle")
+        seen_difat.add(difat_sector_id)
+        difat_sector = read_sector(difat_sector_id)
+        fat_sector_ids.extend(
+            int.from_bytes(difat_sector[offset : offset + 4], "little")
+            for offset in range(0, sector_size - 4, 4)
+            if int.from_bytes(difat_sector[offset : offset + 4], "little") != _CFB_FREE_SECTOR
+        )
+        difat_sector_id = int.from_bytes(difat_sector[-4:], "little")
+    if difat_sector_count > len(seen_difat) and difat_sector_id not in {
+        _CFB_END_OF_CHAIN,
+        _CFB_FREE_SECTOR,
+    }:
+        raise ValueError("Compound document DIFAT exceeds file bounds")
+
+    if len(fat_sector_ids) < fat_sector_count:
+        raise ValueError("Compound document FAT is incomplete")
+    fat: list[int] = []
+    for sector_id in fat_sector_ids[:fat_sector_count]:
+        sector = read_sector(sector_id)
+        fat.extend(
+            int.from_bytes(sector[offset : offset + 4], "little")
+            for offset in range(0, sector_size, 4)
+        )
+
+    directory_sector_id = int.from_bytes(content[48:52], "little")
+    directory_data = bytearray()
+    seen_directory: set[int] = set()
+    while directory_sector_id != _CFB_END_OF_CHAIN:
+        if directory_sector_id in seen_directory:
+            raise ValueError("Compound document directory contains a cycle")
+        if directory_sector_id >= len(fat) or len(seen_directory) >= sector_count:
+            raise ValueError("Compound document directory exceeds file bounds")
+        seen_directory.add(directory_sector_id)
+        directory_data.extend(read_sector(directory_sector_id))
+        directory_sector_id = fat[directory_sector_id]
+
+    entries: list[tuple[str, int, int, int, int]] = []
+    for offset in range(0, len(directory_data), 128):
+        entry = directory_data[offset : offset + 128]
+        if len(entry) < 128:
+            break
+        name_bytes = int.from_bytes(entry[64:66], "little")
+        object_type = entry[66]
+        if name_bytes < 2 or name_bytes > 64 or name_bytes % 2:
+            name = ""
+        else:
+            try:
+                name = bytes(entry[: name_bytes - 2]).decode("utf-16le")
+            except UnicodeDecodeError as exc:
+                raise ValueError("Compound document directory name is invalid") from exc
+        entries.append(
+            (
+                name,
+                object_type,
+                int.from_bytes(entry[68:72], "little"),
+                int.from_bytes(entry[72:76], "little"),
+                int.from_bytes(entry[76:80], "little"),
+            )
+        )
+
+    root_index = next((index for index, entry in enumerate(entries) if entry[1] == 5), None)
+    if root_index is None:
+        raise ValueError("Compound document has no root storage")
+
+    root_streams: set[str] = set()
+    pending = [entries[root_index][4]]
+    visited: set[int] = set()
+    while pending:
+        entry_index = pending.pop()
+        if entry_index == _CFB_NO_STREAM:
+            continue
+        if entry_index >= len(entries) or entry_index in visited:
+            if entry_index in visited:
+                raise ValueError("Compound document directory tree contains a cycle")
+            raise ValueError("Compound document directory entry is out of range")
+        visited.add(entry_index)
+        name, object_type, left, right, _child = entries[entry_index]
+        pending.extend((left, right))
+        if object_type == 2 and name:
+            root_streams.add(name)
+    return root_streams
+
+
+def _detect_legacy_office_suffix(content: bytes) -> str:
+    """Identify a legacy Word/PowerPoint compound document by its root stream.
+
+    WeKnora 0.7.0 may forward an uploaded legacy Office document with the
+    generic multipart filename ``document``. Unlike OOXML ZIP containers, the
+    OLE2 signature alone cannot distinguish Word from PowerPoint. Their root
+    streams can: Word uses ``WordDocument`` and PowerPoint uses
+    ``PowerPoint Document``. Nested streams are intentionally ignored because
+    a Word document may embed a PowerPoint object (and vice versa).
+    """
+    root_streams = _compound_document_root_streams(content)
+
+    if "WordDocument" in root_streams:
+        return ".doc"
+    if "PowerPoint Document" in root_streams:
+        return ".ppt"
+    raise ValueError("Unsupported or encrypted legacy Office compound document")
+
+
 def detect_input_suffix(content: bytes, filename: str | None = None) -> str:
     """Identify the supported document type without trusting the filename."""
     if content.startswith(b"%PDF-"):
         return ".pdf"
     if content.startswith(bytes.fromhex("D0CF11E0A1B11AE1")):
         hinted_suffix = Path(filename or "").suffix.lower()
-        if hinted_suffix in {".doc", ".ppt"}:
-            return hinted_suffix
-        raise ValueError("Legacy Office input must use a .doc or .ppt filename")
+        try:
+            return _detect_legacy_office_suffix(content)
+        except ValueError:
+            # Preserve support for valid legacy files whose directory cannot
+            # be inspected (for example, unusual but explicitly named input).
+            # Generic WeKnora names must still be identified from content.
+            if hinted_suffix in {".doc", ".ppt"}:
+                return hinted_suffix
+            raise
     if content.startswith(b"PK"):
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as archive:

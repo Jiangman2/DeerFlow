@@ -24,11 +24,39 @@ export function urlOfArtifact({
   return `${getBackendBaseURL()}/api/threads/${threadId}/artifacts${filepath}${download ? "?download=true" : ""}`;
 }
 
+export function urlOfPdfArtifactPreview({
+  filepath,
+  threadId,
+  isMock = false,
+}: {
+  filepath: string;
+  threadId: string;
+  isMock?: boolean;
+}) {
+  if (isStaticWebsiteOnly()) {
+    const staticPreviewPath = filepath.replace(
+      /\.preview\.pdf$/i,
+      ".preview.html",
+    );
+    return urlOfArtifact({
+      filepath: staticPreviewPath,
+      threadId,
+      isMock,
+    });
+  }
+  if (isMock) {
+    return urlOfArtifact({ filepath, threadId, isMock });
+  }
+  return `${getBackendBaseURL()}/api/threads/${threadId}/artifact-previews/pdf${filepath}`;
+}
+
 export function findPreviewPdfPath(
   filepath: string,
   files: string[],
 ): string | null {
-  return guessPreviewPdfPaths(filepath).find((path) => files.includes(path)) ?? null;
+  return (
+    guessPreviewPdfPaths(filepath).find((path) => files.includes(path)) ?? null
+  );
 }
 
 export function guessPreviewPdfPath(filepath: string): string | null {
@@ -49,6 +77,35 @@ export function guessPreviewPdfPaths(filepath: string): string[] {
     ];
   }
   return [];
+}
+
+export function findPowerPointForPreviewArtifact(
+  filepath: string,
+  files: readonly string[],
+): string | null {
+  const normalizedFilepath = filepath.toLowerCase();
+  return (
+    files.find((candidate) =>
+      guessPreviewPdfPaths(candidate).some(
+        (previewPath) => previewPath.toLowerCase() === normalizedFilepath,
+      ),
+    ) ?? null
+  );
+}
+
+/**
+ * Keep generated PowerPoint preview PDFs as implementation details. They stay
+ * in the artifact collection so the viewer can load them, but users select and
+ * download the owning presentation rather than seeing duplicate deliverables.
+ */
+export function filterUserVisibleArtifacts(
+  files: readonly string[],
+  relatedFiles: readonly string[] = files,
+): string[] {
+  return files.filter(
+    (filepath) =>
+      findPowerPointForPreviewArtifact(filepath, relatedFiles) === null,
+  );
 }
 
 export function artifactPathFromHref(

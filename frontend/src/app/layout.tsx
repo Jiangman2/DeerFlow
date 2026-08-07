@@ -1,7 +1,7 @@
 import "katex/dist/katex.min.css";
 import "@/styles/globals.css";
 
-import { type Metadata } from "next";
+import { type Metadata, type Viewport } from "next";
 
 import { brand } from "@/brand";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -16,6 +16,18 @@ export const metadata: Metadata = {
     shortcut: brand.logo.markSrc,
     apple: brand.logo.markSrc,
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  colorScheme: "light dark",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f4f7fb" },
+    { media: "(prefers-color-scheme: dark)", color: "#172033" },
+  ],
 };
 
 export default async function RootLayout({

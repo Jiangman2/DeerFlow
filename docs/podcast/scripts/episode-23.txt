@@ -1,0 +1,33 @@
+本集标题：WeKnora、调度任务与外部 Agent 等企业扩展。
+
+欢迎收听 DeerFlow 源码与运行机制导读。
+
+下面进入小节：18.1 WeKnora 集成。
+
+当前企业分支将 DeerFlow 与同源 WeKnora 工作区连接起来。核心边界包括：
+
+通过 SSO session 将 DeerFlow 身份交换给 WeKnora。 - 普通用户和系统管理员使用不同的 UI policy。 - 原生 WeKnora RBAC 仍是授权边界，前端 DOM 隐藏只是展示策略。 - 知识库、文件和资源句柄通过 Gateway 代理访问。 - 浏览器不直接接触 WeKnora bearer token 或存储路径。 - WeKnora 搜索/问答工具只使用允许的知识库范围。 - WeKnora usage analytics 与 DeerFlow 工具调用统计分开。
+
+下面进入小节：18.2 内部模型 Relay。
+
+企业环境可能需要 Gateway 作为内部模型中继，统一负责：
+
+上游凭据。 - 企业代理。 - CA 和 TLS 兼容。 - 超时与重试。 - 审计安全的错误映射。
+
+embedding 维度、模型名和解析规则属于部署契约，修改后可能要求重新解析知识库。
+
+下面进入小节：18.3 Scheduled Tasks。
+
+调度任务的职责是“决定何时运行”，不是创建另一套 Agent 引擎。
+
+图示口述：这张图展示了Scheduled Task UI、Task row，cron + allowlisted run_context、Scheduler service、内部认证 Gateway launch、正常 Run lifecycle、Lead Agent之间的关系。整体方向是从输入开始，经过处理和执行，再回到状态、事件或最终输出。
+
+调度任务保存的 run context 只包含允许的字段，例如模型、模式、思考、子 Agent 和 WeKnora scope；不应保存 caller identity、runtime secret、内部执行标记或任意客户端 context。
+
+由于调度任务是非交互的，Agent toolset 会排除 ask_clarification。递归上限使用 scheduler 配置，但仍受全局 max_recursion_limit 限制。
+
+下面进入小节：18.4 外部点击统计。
+
+外部平台通过 POST /api/agent_click 上报点击事件。服务端要求 Bearer token 或 X-External-Agent-Click-Key，规范化旧名称并存入 PostgreSQL 审计日志。仪表盘按 Asia/Shanghai 自然日统计，且保持 Haineng 与 collaboration 两类来源独立。
+
+本集小结：请记住，本章的概念最终都要回到 DeerFlow 的运行链路中，观察它们如何影响状态、工具、事件和最终输出。
