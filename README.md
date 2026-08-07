@@ -807,13 +807,13 @@ set the three reviewed workflow IDs explicitly (`app-p2cpu4dn`, `app-n9ahac7g`,
 and `app-5md031ia`), and keep `trust_env: false` for the reviewed internal
 direct route. Credentials and workflow identity values are never model-visible.
 
-The chat composer exposes this integration as **Data Lake**. Each conversation
-stores its own enabled/disabled choice in browser storage; new and legacy
-threads default to enabled. Choosing **Do not use Data Lake** hides the Data
-Lake file list, closes an open list dialog, and prevents the three AppForge
-tools from being assembled or contacted for that run. Existing attachments
-remain part of the conversation, and the choice is carried into normal,
-regenerated, custom-agent, and branched runs.
+The chat composer exposes this integration as **Data Lake**. The user's
+enabled/disabled choice is stored once in browser settings and applies to every
+conversation; missing settings default to enabled. Choosing **Do not use Data
+Lake** hides the Data Lake file list, closes an open list dialog, and prevents
+the three AppForge tools from being assembled or contacted for each run.
+Existing attachments remain part of their conversations, and the choice is
+carried into normal, regenerated, custom-agent, and branched runs.
 
 Gateway-generated follow-up suggestions now normalize both plain-string model output and block/list-style rich content before parsing the JSON array response, so provider-specific content wrappers do not silently drop suggestions.
 

@@ -194,15 +194,15 @@ Platform-confidentiality boundary note:
   SQLite, and DuckDB). Never weaken it by adding platform database credentials
   to a skill or by treating platform storage as user-uploaded data.
 
-Conversation-scoped Data Lake note:
+User-scoped Data Lake note:
 The chat composer keeps the existing file-list/API implementation behind a
-Data Lake control. `datalake_enabled` is persisted per thread in frontend
-localStorage and sent explicitly in each normal, custom-agent, regenerated, and
-branched run. When it is `false`, the Gateway and lead/delegated agent assembly
-remove the three AppForge Data Lake tools, and the AppForge invocation guard
-rejects stale direct calls before reading configuration or making a network
-request. Internal `/api/shop-cart/*` routes and source module names remain
-unchanged for compatibility.
+Data Lake control. `datalake_enabled` is persisted in the user's frontend local
+settings, applies to every thread, and is sent explicitly in each normal,
+custom-agent, regenerated, and branched run. When it is `false`, the Gateway
+and lead/delegated agent assembly remove the three AppForge Data Lake tools,
+and the AppForge invocation guard rejects stale direct calls before reading
+configuration or making a network request. Internal `/api/shop-cart/*` routes
+and source module names remain unchanged for compatibility.
 
 Academic research skill note:
 - `skills/public/academic-research/` is the single platform-visible compatibility

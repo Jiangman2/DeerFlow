@@ -1,11 +1,11 @@
-# Data Lake Conversation Scope Design
+# Data Lake User Scope Design
 
 ## Goal
 
 Rename the existing chat input "shop cart" experience to "data lake" and add
-a per-conversation opt-out. When the user selects "Do not use data lake", the
-existing shop-cart file list is not offered and the AppForge-backed data-lake
-tools cannot be used for that run.
+a user-global opt-out. When the user selects "Do not use data lake", the
+existing shop-cart file list is not offered in any thread and the
+AppForge-backed data-lake tools cannot be used for subsequent runs.
 
 ## User Experience
 
@@ -30,12 +30,12 @@ explicit user input.
 ## Context Contract
 
 Add `datalake_enabled?: boolean` to the thread run context. The setting is
-conversation-scoped in the frontend: persist it under a key containing the
-current `thread_id`, default new and legacy threads to `true`, and write the
-explicit value when the user changes the Data Lake control. Re-enabling writes
-`true`; switching, reloading, regenerating, and branching a conversation must
-resolve the value from that conversation's state. Every normal, custom-agent,
-regenerate, and branch run sends the resolved boolean explicitly.
+user-scoped in the frontend: persist it in the shared local settings document,
+default a missing value to `true`, and write the explicit value when the user
+changes the Data Lake control. Re-enabling writes `true`; switching, reloading,
+regenerating, and branching conversations must resolve the same user setting.
+Every normal, custom-agent, regenerate, and branch run sends the resolved
+boolean explicitly.
 
 Gateway accepts this field only from the validated `body.context` mapping. The
 input contract is strict:
@@ -93,13 +93,13 @@ result explaining that data-lake use is disabled; it does not contact AppForge.
 
 ## Testing
 
-Frontend tests cover the per-thread context-state helper, request context on
-normal and custom-agent sends, regenerate/branch resolution, re-enable, and
-thread reload/switch behavior. Component tests verify that disabling closes an
-open dialog, removes the file-list entry, prevents new list requests, and
-ignores stale in-flight list responses. Filename and about-text expectations
-change to Data Lake terminology; internal shop-cart API parser and download
-contracts remain unchanged.
+Frontend tests cover the global context-state helper, request context on normal
+and custom-agent sends, regenerate/branch resolution, re-enable, and thread
+reload/switch behavior. Component tests verify that disabling closes an open
+dialog, removes the file-list entry, prevents new list requests, and ignores
+stale in-flight list responses. Filename and about-text expectations change to
+Data Lake terminology; internal shop-cart API parser and download contracts
+remain unchanged.
 
 Backend tests cover:
 
@@ -119,6 +119,6 @@ checks and backend formatting/lint checks for the touched modules.
 
 ## Documentation
 
-Update root and module `AGENTS.md` guidance to describe the conversation-scoped
-Data Lake control and backend enforcement. Update `README.md` because the
-visible chat input terminology and behavior change.
+Update root and module `AGENTS.md` guidance to describe the user-scoped Data
+Lake control and backend enforcement. Update `README.md` because the visible
+chat input terminology and behavior change.
