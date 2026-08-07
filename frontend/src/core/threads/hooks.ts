@@ -129,6 +129,35 @@ export function buildThreadSubmitMessages({
   ];
 }
 
+export function buildThreadRunContext(
+  context: LocalSettings["context"],
+  threadId: string,
+  extraContext?: Record<string, unknown>,
+): LocalSettings["context"] & {
+  thinking_enabled: boolean;
+  is_plan_mode: boolean;
+  subagent_enabled: boolean;
+  thread_id: string;
+} {
+  return {
+    ...extraContext,
+    ...context,
+    thinking_enabled: context.mode !== "flash",
+    is_plan_mode: context.mode === "pro" || context.mode === "ultra",
+    subagent_enabled: context.mode === "ultra",
+    reasoning_effort:
+      context.reasoning_effort ??
+      (context.mode === "ultra"
+        ? "high"
+        : context.mode === "pro"
+          ? "medium"
+          : context.mode === "thinking"
+            ? "low"
+            : undefined),
+    thread_id: threadId,
+  };
+}
+
 const EMPTY_THREAD_VALUES: AgentThreadState = {
   title: "",
   messages: [],
@@ -1672,23 +1701,7 @@ export function useThreadStream({
             config: {
               recursion_limit: 1000,
             },
-            context: {
-              ...extraContext,
-              ...context,
-              thinking_enabled: context.mode !== "flash",
-              is_plan_mode: context.mode === "pro" || context.mode === "ultra",
-              subagent_enabled: context.mode === "ultra",
-              reasoning_effort:
-                context.reasoning_effort ??
-                (context.mode === "ultra"
-                  ? "high"
-                  : context.mode === "pro"
-                    ? "medium"
-                    : context.mode === "thinking"
-                      ? "low"
-                      : undefined),
-              thread_id: threadId,
-            },
+            context: buildThreadRunContext(context, threadId, extraContext),
           },
         );
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
@@ -1785,22 +1798,7 @@ export function useThreadStream({
           config: {
             recursion_limit: 1000,
           },
-          context: {
-            ...context,
-            thinking_enabled: context.mode !== "flash",
-            is_plan_mode: context.mode === "pro" || context.mode === "ultra",
-            subagent_enabled: context.mode === "ultra",
-            reasoning_effort:
-              context.reasoning_effort ??
-              (context.mode === "ultra"
-                ? "high"
-                : context.mode === "pro"
-                  ? "medium"
-                  : context.mode === "thinking"
-                    ? "low"
-                    : undefined),
-            thread_id: threadId,
-          },
+          context: buildThreadRunContext(context, threadId),
         });
         void queryClient.invalidateQueries({ queryKey: ["thread", threadId] });
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });

@@ -42,7 +42,6 @@ import { isHiddenFromUIMessage } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import { useNotification } from "@/core/notification/hooks";
 import { useLocalSettings, useThreadSettings } from "@/core/settings";
-import { saveThreadDataLakeEnabled } from "@/core/settings/local";
 import {
   useThreadMetadata,
   useThreadStream,
@@ -106,10 +105,6 @@ export default function AgentChatPage() {
       setIsWelcomeMode(false);
     },
     onStart: (createdThreadId) => {
-      saveThreadDataLakeEnabled(
-        createdThreadId,
-        settings.context.datalake_enabled !== false,
-      );
       // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
       history.replaceState(
         null,
