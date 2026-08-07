@@ -1,7 +1,33 @@
 import type { Message } from "@langchain/langgraph-sdk";
 import { expect, test } from "@rstest/core";
 
-import { buildThreadSubmitMessages } from "@/core/threads/hooks";
+import {
+  buildThreadRunContext,
+  buildThreadSubmitMessages,
+} from "@/core/threads/hooks";
+
+test("builds the same Data Lake-aware run context for every submit path", () => {
+  const context = {
+    mode: "thinking" as const,
+    reasoning_effort: "low" as const,
+    datalake_enabled: false,
+  };
+
+  expect(
+    buildThreadRunContext(context, "thread-a", { agent_name: "research" }),
+  ).toMatchObject({
+    agent_name: "research",
+    datalake_enabled: false,
+    thinking_enabled: true,
+    is_plan_mode: false,
+    subagent_enabled: false,
+    reasoning_effort: "low",
+    thread_id: "thread-a",
+  });
+  expect(buildThreadRunContext(context, "thread-b").datalake_enabled).toBe(
+    false,
+  );
+});
 
 test("builds thread submit messages with hidden sidecar context before the visible user message", () => {
   const hiddenContext = {
