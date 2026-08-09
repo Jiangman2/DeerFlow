@@ -152,7 +152,12 @@ export function ShopCartAttachmentButton({
         <Tooltip content={t.inputBox.addShopCartAttachments}>
           <DropdownMenuTrigger asChild>
             <PromptInputButton
-              className={cn("gap-1 px-2!", className)}
+              className={cn(
+                "gap-1 px-2!",
+                dataLakeEnabled &&
+                  "border-[#6d5dfc]/40 bg-[#f4f2ff]",
+                className,
+              )}
               disabled={disabled}
             >
               <DatabaseIcon className="size-3" />

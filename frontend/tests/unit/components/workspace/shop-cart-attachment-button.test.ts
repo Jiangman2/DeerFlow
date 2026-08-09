@@ -47,6 +47,7 @@ describe("ShopCartAttachmentButton", () => {
     expect(html).toContain("Data Lake file list");
     expect(html).toContain("Do not use Data Lake");
     expect(html).toContain("<section");
+    expect(html).toContain("border-[#6d5dfc]/40 bg-[#f4f2ff]");
   });
 
   it("hides the file list and dialog when Data Lake is disabled", () => {
@@ -55,6 +56,7 @@ describe("ShopCartAttachmentButton", () => {
     expect(html).toContain("Use Data Lake");
     expect(html).not.toContain("Data Lake file list");
     expect(html).not.toContain("<section");
+    expect(html).not.toContain("border-[#6d5dfc]/40 bg-[#f4f2ff]");
   });
 });
 
