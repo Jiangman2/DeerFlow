@@ -44,6 +44,6 @@ export function chooseShopCartFilename({
   return (
     parseContentDispositionFilename(contentDisposition) ??
     iframeFileName?.trim() ??
-    `资料车文件-${fileId}`
+    `数据湖文件-${fileId}`
   );
 }

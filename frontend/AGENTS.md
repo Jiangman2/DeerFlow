@@ -131,6 +131,14 @@ administrators retain the complete native editor.
 5. TanStack Query manages server state; localStorage stores user settings
 6. Components subscribe to thread state and render updates
 
+The composer labels the legacy shop-cart attachment flow as **Data Lake** while
+keeping its internal routes and modules unchanged. The control stores
+`datalake_enabled` in the user's shared local settings, defaults missing values
+to `true`, and offers **Do not use Data Lake** / re-enable actions. Disabling it
+affects every thread, removes the file-list menu item, closes the dialog,
+invalidates in-flight list loads, and sends the resolved boolean on normal,
+custom-agent, regenerated, and branched runs.
+
 PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning presentation. `core/artifacts/utils.ts` owns the deterministic pairing rule, and the artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated companion pages server-side. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
 Every recorded or guessed PowerPoint preview companion must pass a same-origin
 HEAD probe before the iframe is rendered. A stale/missing companion may show a

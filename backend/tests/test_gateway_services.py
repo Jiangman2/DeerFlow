@@ -758,6 +758,50 @@ def test_merge_run_context_overrides_forwards_weknora_scope():
     assert config["configurable"]["weknora_knowledge_bases"] == selected_bases
 
 
+def test_merge_run_context_overrides_keeps_data_lake_flag_runtime_only():
+    from app.gateway.services import build_run_config, merge_run_context_overrides
+
+    config = build_run_config("thread-1", None, None)
+    merge_run_context_overrides(config, {"datalake_enabled": False})
+
+    assert config["context"]["datalake_enabled"] is False
+    assert "datalake_enabled" not in config["configurable"]
+
+
+def test_merge_run_context_overrides_rejects_invalid_data_lake_context():
+    from fastapi import HTTPException
+
+    from app.gateway.services import build_run_config, merge_run_context_overrides
+
+    for value in (None, "false", 0, []):
+        config = build_run_config("thread-1", None, None)
+        with pytest.raises(HTTPException) as exc_info:
+            merge_run_context_overrides(config, {"datalake_enabled": value})
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == {
+            "code": "invalid_datalake_context",
+            "message": "datalake_enabled must be a boolean in body.context",
+            "retryable": False,
+        }
+
+
+def test_merge_run_context_overrides_rejects_low_level_data_lake_context():
+    from fastapi import HTTPException
+
+    from app.gateway.services import build_run_config, merge_run_context_overrides
+
+    for section in ("context", "configurable"):
+        config = build_run_config("thread-1", None, None)
+        config.setdefault(section, {})["datalake_enabled"] = False
+        with pytest.raises(HTTPException) as exc_info:
+            merge_run_context_overrides(config, {"datalake_enabled": False})
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail["code"] == "invalid_datalake_context"
+        assert exc_info.value.detail["retryable"] is False
+
+
 def test_merge_run_context_overrides_noop_for_empty_context():
     from app.gateway.services import build_run_config, merge_run_context_overrides
 

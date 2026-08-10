@@ -13,6 +13,7 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
     model_name: undefined,
     mode: undefined,
     reasoning_effort: undefined,
+    datalake_enabled: true,
   },
 };
 
@@ -46,12 +47,18 @@ export interface LocalSettings {
   };
 }
 
-function mergeLocalSettings(settings?: Partial<LocalSettings>): LocalSettings {
+export function mergeLocalSettings(
+  settings?: Partial<LocalSettings>,
+): LocalSettings {
   return {
     ...DEFAULT_LOCAL_SETTINGS,
     context: {
       ...DEFAULT_LOCAL_SETTINGS.context,
       ...settings?.context,
+      datalake_enabled:
+        typeof settings?.context?.datalake_enabled === "boolean"
+          ? settings.context.datalake_enabled
+          : DEFAULT_LOCAL_SETTINGS.context.datalake_enabled,
     },
     tokenUsage: {
       ...DEFAULT_LOCAL_SETTINGS.tokenUsage,

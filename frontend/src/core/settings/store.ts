@@ -132,8 +132,7 @@ export function updateThreadSettings<K extends keyof LocalSettings>(
   ensureBaseSettingsLoaded();
   ensureStorageListenerRegistered();
 
-  const nextBaseSettings = mergeSettingsSection(baseSettings, key, value);
-  baseSettings = nextBaseSettings;
+  baseSettings = mergeSettingsSection(baseSettings, key, value);
   saveLocalSettings(baseSettings);
 
   if (

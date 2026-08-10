@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterable
 
 from langchain.tools import BaseTool
 
@@ -11,6 +12,22 @@ from deerflow.tools.mcp_metadata import tag_mcp_tool
 from deerflow.tools.sync import make_sync_tool_wrapper
 
 logger = logging.getLogger(__name__)
+
+DATALAKE_TOOL_NAMES = frozenset(
+    {
+        "datalake_smart_qa",
+        "datalake_metrics_qa",
+        "datalake_detail_qa",
+    }
+)
+
+
+def filter_tools_by_datalake_scope(tools: Iterable[BaseTool], *, enabled: bool | None) -> list[BaseTool]:
+    """Hide AppForge DataLake tools only for an explicitly disabled run."""
+    tool_list = list(tools)
+    if enabled is not False:
+        return tool_list
+    return [tool for tool in tool_list if tool.name not in DATALAKE_TOOL_NAMES]
 
 BUILTIN_TOOLS = [
     present_file_tool,

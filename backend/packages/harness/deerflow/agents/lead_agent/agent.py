@@ -51,6 +51,7 @@ from deerflow.models import create_chat_model
 from deerflow.skills.tool_policy import ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES, filter_tools_by_skill_allowed_tools
 from deerflow.skills.types import Skill
 from deerflow.tracing import build_tracing_callbacks
+from deerflow.tools.tools import filter_tools_by_datalake_scope
 
 logger = logging.getLogger(__name__)
 
@@ -510,6 +511,12 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     from deerflow.tools.builtins.tool_search import assemble_deferred_tools, build_mcp_routing_middleware, get_mcp_routing_hints_prompt_section
 
     cfg = _get_runtime_config(config)
+    runtime_context = config.get("context")
+    datalake_enabled = (
+        runtime_context.get("datalake_enabled", True)
+        if isinstance(runtime_context, dict)
+        else True
+    )
     resolved_app_config = app_config
 
     # Extract user_id for user-scoped skill loading.
@@ -615,6 +622,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             filtered,
             selected_ids=cfg.get("weknora_knowledge_base_ids"),
         )
+        filtered = filter_tools_by_datalake_scope(filtered, enabled=datalake_enabled)
         if non_interactive:
             filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
         final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)
@@ -689,6 +697,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         filtered,
         selected_ids=cfg.get("weknora_knowledge_base_ids"),
     )
+    filtered = filter_tools_by_datalake_scope(filtered, enabled=datalake_enabled)
     if non_interactive:
         filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
     final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)

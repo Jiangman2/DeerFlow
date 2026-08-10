@@ -41,6 +41,18 @@ def _make_model(name: str, *, supports_thinking: bool) -> ModelConfig:
     )
 
 
+def test_data_lake_tool_filter_removes_all_named_tools_only_when_disabled():
+    from deerflow.tools.tools import filter_tools_by_datalake_scope
+
+    tools = [MagicMock(name=name) for name in ("datalake_smart_qa", "datalake_metrics_qa", "datalake_detail_qa", "present_files")]
+    for tool, name in zip(tools, ("datalake_smart_qa", "datalake_metrics_qa", "datalake_detail_qa", "present_files"), strict=True):
+        tool.name = name
+
+    assert [tool.name for tool in filter_tools_by_datalake_scope(tools, enabled=False)] == ["present_files"]
+    assert filter_tools_by_datalake_scope(tools, enabled=True) == tools
+    assert filter_tools_by_datalake_scope(tools, enabled=None) == tools
+
+
 def test_make_lead_agent_signature_matches_langgraph_server_factory_abi():
     assert list(inspect.signature(lead_agent_module.make_lead_agent).parameters) == ["config"]
 

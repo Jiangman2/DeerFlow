@@ -411,6 +411,7 @@ class SubagentExecutor:
         run_id: str | None = None,
         channel_user_id: str | None = None,
         deerflow_trace_id: str | None = None,
+        datalake_enabled: bool = True,
     ):
         """Initialize the executor.
 
@@ -435,6 +436,8 @@ class SubagentExecutor:
                 the same run as the lead agent.
             deerflow_trace_id: DeerFlow request-level correlation id propagated
                 from the parent run for Langfuse metadata correlation.
+            datalake_enabled: Whether AppForge Data Lake tools are available to
+                this delegated run.
         """
         self.config = config
         self.app_config = app_config
@@ -462,11 +465,18 @@ class SubagentExecutor:
         # must export the dispatching turn's id, not none at all.
         self.channel_user_id = channel_user_id
         self.deerflow_trace_id = deerflow_trace_id
+        self.datalake_enabled = datalake_enabled is not False
 
         self._base_tools = _filter_tools(
             tools,
             config.tools,
             config.disallowed_tools,
+        )
+        from deerflow.tools.tools import filter_tools_by_datalake_scope
+
+        self._base_tools = filter_tools_by_datalake_scope(
+            self._base_tools,
+            enabled=self.datalake_enabled,
         )
         self.tools = self._base_tools
         # Guard middlewares that expose ``consume_stop_reason`` (currently
@@ -788,6 +798,7 @@ class SubagentExecutor:
                 context["channel_user_id"] = self.channel_user_id
             if self.deerflow_trace_id:
                 context[DEERFLOW_TRACE_METADATA_KEY] = self.deerflow_trace_id
+            context["datalake_enabled"] = self.datalake_enabled
             context["is_subagent"] = True
 
             logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} starting async execution with max_turns={self.config.max_turns}")
