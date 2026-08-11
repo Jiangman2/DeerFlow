@@ -121,6 +121,64 @@ const parallelCompletedSubtaskMessages = [
   },
 ];
 
+const pptMasterTimelineMessages = [
+  {
+    type: "human",
+    id: "msg-human-ppt-master-timeline",
+    content: [{ type: "text", text: "/ppt-master 创建 5 页演示文稿" }],
+  },
+  {
+    type: "ai",
+    id: "msg-ai-ppt-master-timeline",
+    content: "PPTX 已交付。",
+    additional_kwargs: {
+      ppt_master_task: {
+        task_id: "run-ppt-master-timeline",
+        status: "completed",
+        description: "ppt-master 官方工作流",
+        model_name: "ppt-master-agent-host",
+        result: "PPTX 已交付。",
+        steps: [
+          {
+            message_index: 1,
+            kind: "ai",
+            text: "",
+            tool_calls: [
+              {
+                name: "bash",
+                args: {
+                  command:
+                    "python3 scripts/project_manager.py validate /mnt/user-data/workspace/projects/demo",
+                },
+              },
+            ],
+          },
+          {
+            message_index: 2,
+            kind: "tool",
+            text: "validation passed",
+            tool_name: "bash",
+          },
+          {
+            message_index: 3,
+            kind: "ai",
+            text: "Live Preview 已启动：[http://127.0.0.1:5050](http://127.0.0.1:5050/)",
+          },
+          {
+            message_index: 4,
+            kind: "tool",
+            text: "preview server ready",
+            tool_name: "bash",
+          },
+        ],
+      },
+    },
+    response_metadata: {},
+    tool_calls: [],
+    invalid_tool_calls: [],
+  },
+];
+
 test.describe("Subtask card", () => {
   test("shows incomplete after a stopped task thread is reloaded", async ({
     page,
@@ -177,5 +235,40 @@ test.describe("Subtask card", () => {
     await expect(page.getByText("Parallel beta research")).toBeVisible();
     await expect(page.getByText("Subtask completed")).toHaveCount(2);
     await expect(page.getByText("Running subtask")).toHaveCount(0);
+  });
+
+  test("shows persisted PPT Agent commands, outputs, and proxied Live Preview links", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: MOCK_THREAD_ID,
+          title: "PPT Agent timeline",
+          updated_at: "2026-08-11T00:00:00Z",
+          messages: pptMasterTimelineMessages,
+        },
+      ],
+    });
+
+    await page.goto(`/workspace/chats/${MOCK_THREAD_ID}`);
+    await page.getByText("ppt-master 官方工作流").click();
+
+    await expect(page.getByText(/project_manager\.py validate/)).toBeVisible();
+    await page
+      .getByRole("button", {
+        name: /View details: bash · validation passed/,
+      })
+      .click();
+    await expect(page.getByText("Tool output")).toBeVisible();
+
+    const previewLink = page.getByRole("link", {
+      name: "http://127.0.0.1:5050",
+    });
+    await expect(previewLink).toBeVisible();
+    await expect(previewLink).toHaveAttribute(
+      "href",
+      `/api/threads/${MOCK_THREAD_ID}/live-preview/5050/`,
+    );
   });
 });

@@ -31,17 +31,25 @@ export default defineConfig({
   webServer: skipWebServer
     ? undefined
     : {
-        command:
-          `pnpm exec next build && pnpm exec next start --port ${webServerPort}`,
+        command: `pnpm exec next build && pnpm exec next start --port ${webServerPort}`,
         url: baseURL,
         // Reusing an arbitrary process on the same port can silently test the
         // wrong worktree or auth configuration. Make reuse an explicit opt-in.
         reuseExistingServer:
           process.env.PLAYWRIGHT_REUSE_EXISTING_SERVER === "1",
-        timeout: 120_000,
+        timeout: 300_000,
         env: {
           SKIP_ENV_VALIDATION: "1",
-          DEER_FLOW_AUTH_DISABLED: "1",
+          DEER_FLOW_AUTH_DISABLED: process.env.DEER_FLOW_AUTH_DISABLED ?? "1",
+          ...(process.env.DEER_FLOW_SSO_ONLY
+            ? { DEER_FLOW_SSO_ONLY: process.env.DEER_FLOW_SSO_ONLY }
+            : {}),
+          ...(process.env.DEER_FLOW_UNAUTHENTICATED_HOME_URL
+            ? {
+                DEER_FLOW_UNAUTHENTICATED_HOME_URL:
+                  process.env.DEER_FLOW_UNAUTHENTICATED_HOME_URL,
+              }
+            : {}),
         },
       },
 });

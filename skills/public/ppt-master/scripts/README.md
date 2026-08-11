@@ -35,6 +35,11 @@ python3 scripts/animation_config.py scaffold <project_path>  # optional object-l
 python3 scripts/svg_to_pptx.py <project_path>
 ```
 
+After `init`, project-scoped Python CLIs automatically record their command
+envelopes and bounded material outcomes in
+`<project_path>/validation/workflow.log`; invoke them directly, without a
+logging wrapper. The log does not copy the full console stream.
+
 Repository update:
 
 ```bash
@@ -46,11 +51,11 @@ python3 scripts/update_repo.py
 | Area | Primary scripts | Documentation |
 |------|-----------------|---------------|
 | Conversion | `source_to_md.py`, `source_to_md/pdf_to_md.py`, `source_to_md/doc_to_md.py`, `source_to_md/excel_to_md.py`, `source_to_md/ppt_to_md.py`, `source_to_md/web_to_md.py`, `pptx_intake.py`, `pptx_to_svg.py` | [docs/conversion.md](./docs/conversion.md) |
-| Project management | `project_manager.py`, `batch_validate.py`, `generate_examples_index.py`, `error_helper.py`, `pptx_template_import.py`, `template_fill_pptx.py`, `native_enhance_pptx.py`, `pptx_delivery_check.py` | [docs/project.md](./docs/project.md) |
+| Project management | `project_manager.py`, `workflow_log.py`, `workflow_transcript.py`, `batch_validate.py`, `generate_examples_index.py`, `error_helper.py`, `pptx_template_import.py`, `template_fill_pptx.py`, `native_enhance_pptx.py`, `pptx_delivery_check.py` | [docs/project.md](./docs/project.md) |
 | SVG pipeline | `preset_shape_svg.py`, `shape_boolean_svg.py`, `svg_authoring_view.py`, `compact_svg_coordinates.py`, `mirror_template_materialize.py`, `finalize_svg.py`, `svg_to_pptx.py`, `template_preview_pptx.py`, `total_md_split.py`, `svg_quality_checker.py`, `extract_svg_assets.py`, `extract_svg_pictures.py`, `animation_config.py`, `notes_to_audio.py`, `narration_sync.py` | [docs/svg-pipeline.md](./docs/svg-pipeline.md); [native shape authoring](../references/native-shape-authoring.md) |
 | PPTX transitions | `pptx_transitions.py` | [docs/pptx-transitions.md](./docs/pptx-transitions.md) |
 | PPTX animations | `pptx_animations.py`, `animation_config.py` | [docs/pptx-animations.md](./docs/pptx-animations.md) |
-| Spec maintenance | `update_spec.py`, `chart_recall.py` | [docs/update_spec.md](./docs/update_spec.md); [docs/chart-recall.md](./docs/chart-recall.md) |
+| Spec maintenance | `update_spec.py`, `visualization_recall.py`; legacy `chart_recall.py` | [docs/update_spec.md](./docs/update_spec.md); [docs/visualization-recall.md](./docs/visualization-recall.md) |
 | Image tools | `image_gen.py`, `latex_render.py`, `analyze_images.py`, `gemini_watermark_remover.py` | [docs/image.md](./docs/image.md) |
 | Maintenance smokes | Inline temporary-project commands | [advanced image and motion](./docs/advanced-image-motion-smoke.md); [mask and gradient](./docs/mask-gradient-smoke.md); [multilingual text](./docs/multilingual-text-smoke.md) |
 | Repo maintenance | `update_repo.py` | README install/update section |
@@ -86,17 +91,17 @@ python3 scripts/project_manager.py page-context-report <project_path>
 routing checks, or context measurement; normal generation retains the complete
 Design Spec and lock once per valid execution context. Each invocation includes
 the global lock projection as a continuity anchor set, not a color/font allowlist; large Design Specs,
-prototype, and `templates/charts/` references are emitted only as scoped
+prototype, and selected family visualization references are emitted only as scoped
 path/SHA fingerprints and are read once per execution context. `--bundle` is a
 deprecated compatibility no-op. `--record-usage` writes one derived snapshot
 under `analysis/page-context/`; exact `o200k_base` token counts are optional and
 degrade to `tokens: null` when `tiktoken` is absent. Telemetry may be partial.
 
-Chart candidate recall:
+Visualization candidate recall:
 
 ```bash
-python3 scripts/chart_recall.py recall --page P03 --tag "time series" --tag "three metrics" --tag "direction over time"
-python3 scripts/chart_recall.py validate line_chart
+python3 scripts/visualization_recall.py recall --page P03 --tag "time series" --tag "three metrics" --tag "direction over time"
+python3 scripts/visualization_recall.py validate chart/line_chart
 ```
 
 Template source import:

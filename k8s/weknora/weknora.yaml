@@ -159,6 +159,8 @@ spec:
           env:
             - name: DOCREADER_IMAGE_OUTPUT_DIR
               value: /tmp/docreader
+            - name: PYTHONPATH
+              value: /opt/deerflow-compat
             - name: DOCREADER_ODL_MAX_WORKERS
               value: "1"
             - name: DOCREADER_MARKITDOWN_MAX_WORKERS
@@ -171,10 +173,16 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp/docreader
+            - name: xlsx-compat
+              mountPath: /opt/deerflow-compat
+              readOnly: true
       volumes:
         - name: tmp
           persistentVolumeClaim:
             claimName: weknora-docreader-tmp
+        - name: xlsx-compat
+          configMap:
+            name: weknora-docreader-xlsx-compat
 ---
 apiVersion: v1
 kind: Service

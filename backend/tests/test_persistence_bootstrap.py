@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0011_user_sso_profile"
+HEAD = "0012_user_last_login"
 BASELINE = "0001_baseline"
 
 

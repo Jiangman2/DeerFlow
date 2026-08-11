@@ -1,5 +1,6 @@
 import {
   CheckCircleIcon,
+  ChevronRightIcon,
   ChevronUp,
   ClipboardListIcon,
   Loader2Icon,
@@ -7,7 +8,7 @@ import {
   WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ChainOfThought,
@@ -30,13 +31,215 @@ import {
   resolveSubtaskModelLabel,
 } from "@/core/tasks/presentation";
 import { stepsForDisplay } from "@/core/tasks/steps";
+import type { SubtaskStep } from "@/core/tasks/steps";
 import { explainLastToolCall } from "@/core/tools/utils";
 import { cn } from "@/lib/utils";
 
 import { CitationLink } from "../citations/citation-link";
 import { FlipDisplay } from "../flip-display";
 
-import { MarkdownContent } from "./markdown-content";
+import { MarkdownContent, type MarkdownContentProps } from "./markdown-content";
+import { createMarkdownLinkComponent } from "./markdown-link";
+
+const STEP_SUMMARY_MAX_CHARS = 180;
+const LIVE_PREVIEW_URL_PATTERN =
+  /https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):5050(?:\/|\b)/i;
+
+function compactStepText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function boundedStepSummary(value: string): string {
+  const compact = compactStepText(value);
+  return compact.length > STEP_SUMMARY_MAX_CHARS
+    ? `${compact.slice(0, STEP_SUMMARY_MAX_CHARS - 1).trimEnd()}…`
+    : compact;
+}
+
+function stringifyToolArgs(args: unknown): string {
+  if (typeof args === "string") {
+    return args;
+  }
+  try {
+    return JSON.stringify(args ?? {}, null, 2);
+  } catch {
+    if (args == null) {
+      return "";
+    }
+    switch (typeof args) {
+      case "number":
+      case "boolean":
+      case "bigint":
+      case "symbol":
+        return String(args);
+      default:
+        return "[Unserializable tool arguments]";
+    }
+  }
+}
+
+function toolCallHint(step: SubtaskStep): string {
+  for (const call of step.tool_calls ?? []) {
+    if (!call.args || typeof call.args !== "object") {
+      continue;
+    }
+    const args = call.args as Record<string, unknown>;
+    for (const key of ["command", "query", "path", "url", "pattern"]) {
+      const value = args[key];
+      if (typeof value === "string" && value.trim()) {
+        return boundedStepSummary(value);
+      }
+    }
+  }
+  return "";
+}
+
+function stepSummary(step: SubtaskStep): string {
+  if (step.kind === "ai" && step.tool_calls?.length) {
+    const names = step.tool_calls
+      .map((call) => call.name)
+      .filter((name): name is string => Boolean(name));
+    const toolNames = [...new Set(names)].join(" + ") || "tool";
+    const hint = toolCallHint(step);
+    return hint ? `${toolNames} · ${hint}` : toolNames;
+  }
+
+  if (step.kind === "tool") {
+    const output = boundedStepSummary(step.text);
+    return output
+      ? `${step.tool_name ?? "tool"} · ${output}`
+      : (step.tool_name ?? "tool");
+  }
+
+  return boundedStepSummary(step.text);
+}
+
+const SubtaskTimelineStep = memo(function SubtaskTimelineStep({
+  step,
+  isLastWhileRunning,
+  markdownComponents,
+  rehypePlugins,
+  viewDetailsLabel,
+  hideDetailsLabel,
+  toolInputLabel,
+  toolOutputLabel,
+}: {
+  step: SubtaskStep;
+  isLastWhileRunning: boolean;
+  markdownComponents: MarkdownContentProps["components"];
+  rehypePlugins: MarkdownContentProps["rehypePlugins"];
+  viewDetailsLabel: string;
+  hideDetailsLabel: string;
+  toolInputLabel: string;
+  toolOutputLabel: string;
+}) {
+  const containsLivePreview = LIVE_PREVIEW_URL_PATTERN.test(step.text);
+  const [expanded, setExpanded] = useState(containsLivePreview);
+  const hasToolInput = step.kind === "ai" && Boolean(step.tool_calls?.length);
+  const hasDetails = hasToolInput || Boolean(step.text.trim());
+  const summary = stepSummary(step);
+  const icon = isLastWhileRunning ? (
+    <Loader2Icon className="size-4 animate-spin" />
+  ) : step.kind === "tool" ? (
+    <WrenchIcon className="size-4" />
+  ) : (
+    <SparklesIcon className="size-4" />
+  );
+
+  useEffect(() => {
+    if (containsLivePreview) {
+      setExpanded(true);
+    }
+  }, [containsLivePreview]);
+
+  return (
+    <ChainOfThoughtStep
+      className="[contain-intrinsic-size:40px] [content-visibility:auto]"
+      icon={icon}
+      label={
+        <div className="min-w-0">
+          <button
+            type="button"
+            className={cn(
+              "hover:bg-muted/60 flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors",
+              !hasDetails && "cursor-default hover:bg-transparent",
+            )}
+            disabled={!hasDetails}
+            aria-expanded={hasDetails ? expanded : undefined}
+            aria-label={`${expanded ? hideDetailsLabel : viewDetailsLabel}: ${summary}`}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            <span className="min-w-0 flex-1 truncate" title={summary}>
+              {summary}
+            </span>
+            {hasDetails && (
+              <>
+                <span className="text-muted-foreground hidden shrink-0 text-xs sm:inline">
+                  {expanded ? hideDetailsLabel : viewDetailsLabel}
+                </span>
+                <ChevronRightIcon
+                  className={cn(
+                    "text-muted-foreground size-3.5 shrink-0 transition-transform",
+                    expanded && "rotate-90",
+                  )}
+                />
+              </>
+            )}
+          </button>
+
+          {expanded && (
+            <div className="border-border/70 bg-muted/25 mt-2 min-w-0 space-y-3 overflow-hidden rounded-md border p-3">
+              {step.kind === "ai" && step.text.trim() && (
+                <MarkdownContent
+                  content={step.text}
+                  isLoading={false}
+                  rehypePlugins={rehypePlugins}
+                  components={markdownComponents}
+                />
+              )}
+              {hasToolInput && (
+                <div className="space-y-2">
+                  <div className="text-muted-foreground text-xs font-medium">
+                    {toolInputLabel}
+                  </div>
+                  {(step.tool_calls ?? []).map((call, index) => (
+                    <div key={`${call.name ?? "tool"}-${index}`}>
+                      <div className="mb-1 text-xs font-medium">
+                        {call.name ?? "tool"}
+                      </div>
+                      <pre className="bg-background max-h-80 overflow-auto rounded-md border p-3 text-xs break-words whitespace-pre-wrap">
+                        {stringifyToolArgs(call.args)}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {step.kind === "tool" && (
+                <div className="space-y-2">
+                  <div className="text-muted-foreground text-xs font-medium">
+                    {toolOutputLabel}
+                  </div>
+                  {containsLivePreview ? (
+                    <MarkdownContent
+                      content={step.text}
+                      isLoading={false}
+                      rehypePlugins={rehypePlugins}
+                      components={markdownComponents}
+                    />
+                  ) : (
+                    <pre className="bg-background max-h-96 overflow-auto rounded-md border p-3 text-xs break-words whitespace-pre-wrap">
+                      {step.text}
+                    </pre>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      }
+    />
+  );
+});
 
 export function SubtaskCard({
   className,
@@ -75,6 +278,10 @@ export function SubtaskCard({
   // (AI text) interleaved with the tools it ran (by name). See stepsForDisplay
   // for what is kept/dropped.
   const displaySteps = stepsForDisplay(task.steps, task.status);
+  const threadMarkdownComponents = useMemo(
+    () => ({ a: createMarkdownLinkComponent(threadId) }),
+    [threadId],
+  );
 
   // Backfill step history on expand for historical runs (#3779). Live runs
   // already have steps from SSE, so the `steps.length` guard skips the fetch.
@@ -207,7 +414,7 @@ export function SubtaskCard({
             </div>
           </Button>
         </div>
-        <ChainOfThoughtContent className="px-4 pb-4">
+        <ChainOfThoughtContent className="max-h-[65vh] overflow-y-auto overscroll-contain px-4 pr-2 pb-4">
           {task.prompt && (
             <ChainOfThoughtStep
               label={
@@ -223,30 +430,17 @@ export function SubtaskCard({
           {displaySteps.map((step, i) => {
             const isLastWhileRunning =
               task.status === "in_progress" && i === displaySteps.length - 1;
-            const icon = isLastWhileRunning ? (
-              <Loader2Icon className="size-4 animate-spin" />
-            ) : step.kind === "tool" ? (
-              <WrenchIcon className="size-4" />
-            ) : (
-              <SparklesIcon className="size-4" />
-            );
             return (
-              <ChainOfThoughtStep
+              <SubtaskTimelineStep
                 key={`${step.message_index}-${i}`}
-                label={
-                  step.kind === "tool" ? (
-                    (step.tool_name ?? t.subtasks[task.status])
-                  ) : (
-                    <div className="text-muted-foreground line-clamp-3 text-sm">
-                      <MarkdownContent
-                        content={step.text}
-                        isLoading={false}
-                        rehypePlugins={rehypePlugins}
-                      />
-                    </div>
-                  )
-                }
-                icon={icon}
+                step={step}
+                isLastWhileRunning={isLastWhileRunning}
+                markdownComponents={threadMarkdownComponents}
+                rehypePlugins={rehypePlugins}
+                viewDetailsLabel={t.subtasks.viewStepDetails}
+                hideDetailsLabel={t.subtasks.hideStepDetails}
+                toolInputLabel={t.subtasks.toolInput}
+                toolOutputLabel={t.subtasks.toolOutput}
               />
             );
           })}

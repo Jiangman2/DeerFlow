@@ -41,6 +41,17 @@ class SandboxProvider(ABC):
         """
         pass
 
+    def get_for_thread(self, thread_id: str, *, user_id: str | None = None) -> Sandbox | None:
+        """Return an already-existing sandbox for a thread, if one is known.
+
+        This is intentionally a non-creating lookup.  Browser-facing helpers
+        such as the Live Preview proxy may need to reach the sandbox after a
+        run has released it, but a GET request must not silently provision a
+        new execution environment.
+        """
+        del thread_id, user_id
+        return None
+
     @abstractmethod
     def release(self, sandbox_id: str) -> None:
         """Release a sandbox environment.

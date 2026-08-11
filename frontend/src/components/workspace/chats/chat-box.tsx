@@ -11,6 +11,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { getAPIClient } from "@/core/api/api-client";
+import { extractArtifactsFromStateSnapshot } from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
 import { env } from "@/env";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -43,15 +45,14 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
     open: artifactsOpen,
     setOpen: setArtifactsOpen,
     setArtifacts,
-    select: selectArtifact,
     deselect,
     selectedArtifact,
   } = useArtifacts();
   const sidecar = useMaybeSidecar();
   const sidecarOpen = sidecar?.open ?? false;
 
-  const [autoSelectFirstArtifact, setAutoSelectFirstArtifact] = useState(true);
   useEffect(() => {
+    let disposed = false;
     const threadArtifacts = Array.isArray(thread.values.artifacts)
       ? thread.values.artifacts
       : undefined;
@@ -62,9 +63,24 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
       setArtifacts([]);
     }
 
-    // Update artifacts from the current thread
-    if (threadArtifacts) {
+    // Stream hydration can restore paged messages before it restores
+    // non-message channels after a page reload. Recover the persisted
+    // artifact channel explicitly when that first snapshot is empty.
+    if (threadArtifacts?.length) {
       setArtifacts(threadArtifacts);
+    } else if (threadId) {
+      void getAPIClient(undefined, threadId)
+        .threads.getState(threadId)
+        .then((state) => {
+          const persistedArtifacts = extractArtifactsFromStateSnapshot(state);
+          if (!disposed && persistedArtifacts.length > 0) {
+            setArtifacts(persistedArtifacts);
+          }
+        })
+        .catch(() => {
+          // The normal stream remains authoritative; a transient state read
+          // must not break the conversation surface.
+        });
     }
 
     // DO NOT automatically deselect the artifact when switching threads, because the artifacts auto discovering is not work now.
@@ -75,20 +91,12 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
     //   deselect();
     // }
 
-    if (
-      env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" &&
-      autoSelectFirstArtifact
-    ) {
-      if (threadArtifacts && threadArtifacts.length > 0) {
-        setAutoSelectFirstArtifact(false);
-        selectArtifact(threadArtifacts[0]!);
-      }
-    }
+    return () => {
+      disposed = true;
+    };
   }, [
     threadId,
-    autoSelectFirstArtifact,
     deselect,
-    selectArtifact,
     selectedArtifact,
     setArtifacts,
     thread.values.artifacts,
@@ -177,7 +185,7 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
               <header className="shrink-0">
                 <h2 className="text-lg font-medium">{t.common.artifacts}</h2>
               </header>
-              <main className="min-h-0 grow">
+              <main className="min-h-0 grow overflow-y-auto">
                 <ArtifactFileList
                   className="max-w-(--container-width-sm) p-4 pt-12"
                   files={artifacts}
@@ -290,7 +298,8 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
       {artifactsOverlayOpen && (
         <aside
           aria-label={t.common.artifacts}
-          className="absolute inset-y-0 right-0 z-50 w-[min(720px,48vw)] min-w-0 overflow-hidden border-l bg-background/95 p-4 shadow-2xl backdrop-blur transition-transform duration-[280ms] ease-out motion-reduce:transition-none max-md:w-[min(720px,calc(100%-1rem))]"
+          className="bg-background absolute top-12 right-0 bottom-0 z-50 w-[min(560px,calc(100%-1rem))] min-w-0 overflow-hidden border-l p-3 shadow-2xl transition-transform duration-[280ms] ease-out motion-reduce:transition-none"
+          data-testid="artifact-overlay-panel"
           id="artifacts"
         >
           {rightPanelContent}

@@ -343,11 +343,11 @@ def test_build_run_config_context_path_still_sets_configurable_thread_id(_stub_a
 
 
 def test_build_run_config_clamps_excessive_recursion_limit(_stub_app_config):
-    """A huge client recursion_limit is capped at the configured ceiling (default 1000)."""
+    """A huge client recursion_limit is capped at the configured ceiling (default 2000)."""
     from app.gateway.services import build_run_config
 
     config = build_run_config("thread-1", {"recursion_limit": 100_000_000}, None)
-    assert config["recursion_limit"] == 1000
+    assert config["recursion_limit"] == 2000
 
 
 def test_build_run_config_ceiling_is_configurable(_stub_app_config):
@@ -367,8 +367,8 @@ def test_build_run_config_allows_recursion_limit_at_ceiling(_stub_app_config):
     """A value at the configured ceiling is preserved unchanged."""
     from app.gateway.services import build_run_config
 
-    config = build_run_config("thread-1", {"recursion_limit": 1000}, None)
-    assert config["recursion_limit"] == 1000
+    config = build_run_config("thread-1", {"recursion_limit": 2000}, None)
+    assert config["recursion_limit"] == 2000
 
 
 def test_build_run_config_preserves_reasonable_recursion_limit(_stub_app_config):
@@ -397,7 +397,7 @@ def test_build_run_config_clamps_recursion_limit_with_context(_stub_app_config):
         {"context": {"thread_id": "thread-1"}, "recursion_limit": 999_999},
         None,
     )
-    assert config["recursion_limit"] == 1000
+    assert config["recursion_limit"] == 2000
 
 
 # ---------------------------------------------------------------------------
@@ -469,7 +469,7 @@ def test_build_run_config_context_custom_agent_injects_agent_name():
 
 
 def test_resolve_agent_factory_returns_make_lead_agent():
-    """resolve_agent_factory always returns make_lead_agent regardless of assistant_id."""
+    """Ordinary assistants continue to use the normal DeerFlow lead agent."""
     from app.gateway.services import resolve_agent_factory
     from deerflow.agents.lead_agent.agent import make_lead_agent
 
@@ -477,6 +477,24 @@ def test_resolve_agent_factory_returns_make_lead_agent():
     assert resolve_agent_factory("lead_agent") is make_lead_agent
     assert resolve_agent_factory("finalis") is make_lead_agent
     assert resolve_agent_factory("custom-agent-123") is make_lead_agent
+
+
+def test_resolve_agent_factory_uses_isolated_ppt_runner_only_in_runner_profile(monkeypatch):
+    from app.gateway.services import resolve_agent_factory
+    from deerflow.agents.ppt_master_runner.agent import make_ppt_master_runner_agent
+
+    monkeypatch.setenv("DEER_FLOW_RUNTIME_PROFILE", "ppt-master-runner")
+
+    assert resolve_agent_factory("ppt-master-runner") is make_ppt_master_runner_agent
+
+
+def test_main_gateway_refuses_to_run_isolated_ppt_runner_in_process(monkeypatch):
+    from app.gateway.services import resolve_agent_factory
+
+    monkeypatch.delenv("DEER_FLOW_RUNTIME_PROFILE", raising=False)
+
+    with pytest.raises(ValueError, match="dedicated ppt-master runner"):
+        resolve_agent_factory("ppt-master-runner")
 
 
 def test_build_run_config_configurable_custom_agent_dual_writes_agent_name():

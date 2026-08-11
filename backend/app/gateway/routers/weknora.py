@@ -12,6 +12,7 @@ import mimetypes
 import os
 import re
 import ssl
+import weakref
 from typing import Any
 
 import httpx
@@ -49,6 +50,9 @@ _DEFAULT_CNOOC_EMBEDDING_UPSTREAM_URL = "http://model.ai.cnooc/member1/qwen3-emb
 _DEFAULT_CNOOC_RERANK_MODEL = "Qwen3-Reranker-8B"
 _DEFAULT_CNOOC_RERANK_UPSTREAM_URL = "http://model.ai.cnooc/member1/qwen3-reranker-8b/v1/rerank"
 _DEFAULT_CNOOC_RETRIEVAL_MAX_BYTES = 8 * 1024 * 1024
+_DEFAULT_CNOOC_EMBEDDING_CONCURRENCY = 200
+_DEFAULT_CNOOC_EMBEDDING_BUSY_RETRIES = 3
+_DEFAULT_CNOOC_EMBEDDING_BUSY_RETRY_SECONDS = 0.75
 _ALLOWED_SSO_ORIGINS = {
     "http://127.0.0.1:32090",
     "http://localhost:32090",
@@ -56,6 +60,10 @@ _ALLOWED_SSO_ORIGINS = {
     "http://localhost:8090",
 }
 _WEKNORA_RESOURCE_URI_RE = re.compile(r"^resource://[A-Za-z0-9_-]{1,256}$")
+_INTERNAL_EMBEDDING_LIMITERS: weakref.WeakKeyDictionary[
+    asyncio.AbstractEventLoop,
+    tuple[int, asyncio.Semaphore],
+] = weakref.WeakKeyDictionary()
 
 
 def _truthy_env(name: str, default: bool = False) -> bool:
@@ -188,6 +196,27 @@ def _internal_retrieval_upstream_key() -> str:
     raise HTTPException(status_code=503, detail="Internal retrieval model credentials are not configured.")
 
 
+def _internal_embedding_limiter() -> asyncio.Semaphore:
+    """Return an event-loop-local limiter for the internal embedding service."""
+
+    concurrency = min(
+        _DEFAULT_CNOOC_EMBEDDING_CONCURRENCY,
+        max(
+            1,
+            _int_env(
+                "WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY",
+                _DEFAULT_CNOOC_EMBEDDING_CONCURRENCY,
+            ),
+        ),
+    )
+    loop = asyncio.get_running_loop()
+    configured = _INTERNAL_EMBEDDING_LIMITERS.get(loop)
+    if configured is None or configured[0] != concurrency:
+        configured = (concurrency, asyncio.Semaphore(concurrency))
+        _INTERNAL_EMBEDDING_LIMITERS[loop] = configured
+    return configured[1]
+
+
 async def _read_json_request(request: Request, *, label: str, max_bytes: int) -> dict[str, Any]:
     content_length = request.headers.get("content-length", "").strip()
     if content_length:
@@ -216,39 +245,60 @@ async def _post_internal_retrieval_model(
     upstream_key: str,
     payload: dict[str, Any],
     label: str,
+    retry_business_codes: frozenset[str] = frozenset(),
+    business_retries: int = 0,
+    business_retry_seconds: float = 0.0,
 ) -> dict[str, Any]:
     timeout = max(1.0, _float_env("WEKNORA_INTERNAL_MODEL_TIMEOUT_SECONDS", 180.0))
-    try:
-        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
-            response = await client.post(
-                upstream_url,
-                headers={
-                    "Authorization": f"Bearer {upstream_key}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "Accept-Encoding": "identity",
-                    "Connection": "close",
-                },
-                json=payload,
-            )
-    except httpx.RequestError as exc:
-        logger.warning("%s upstream request failed.", label, exc_info=True)
-        raise HTTPException(status_code=502, detail=f"{label} is unavailable.") from exc
+    attempts = max(1, business_retries + 1)
+    for attempt in range(1, attempts + 1):
+        try:
+            async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+                response = await client.post(
+                    upstream_url,
+                    headers={
+                        "Authorization": f"Bearer {upstream_key}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "Accept-Encoding": "identity",
+                        "Connection": "close",
+                    },
+                    json=payload,
+                )
+        except httpx.RequestError as exc:
+            logger.warning("%s upstream request failed.", label, exc_info=True)
+            raise HTTPException(status_code=502, detail=f"{label} is unavailable.") from exc
 
-    try:
-        data = response.json()
-    except ValueError as exc:
-        raise HTTPException(status_code=502, detail=f"{label} returned a non-JSON response.") from exc
-    if response.status_code >= 400:
-        logger.warning("%s returned HTTP %s.", label, response.status_code)
-        raise HTTPException(status_code=502, detail=f"{label} returned HTTP {response.status_code}.")
-    if not isinstance(data, dict):
-        raise HTTPException(status_code=502, detail=f"{label} returned an invalid response.")
-    if data.get("success") is False:
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail=f"{label} returned a non-JSON response.") from exc
+        if response.status_code >= 400:
+            logger.warning("%s returned HTTP %s.", label, response.status_code)
+            raise HTTPException(status_code=502, detail=f"{label} returned HTTP {response.status_code}.")
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=502, detail=f"{label} returned an invalid response.")
+        if data.get("success") is not False:
+            return data
+
         code = str(data.get("code") or "unknown")
+        if code in retry_business_codes and attempt < attempts:
+            delay = max(0.0, business_retry_seconds) * (2 ** (attempt - 1))
+            logger.warning(
+                "%s returned transient business failure code=%s; retrying attempt %s/%s after %.2fs.",
+                label,
+                code,
+                attempt + 1,
+                attempts,
+                delay,
+            )
+            if delay:
+                await asyncio.sleep(delay)
+            continue
         logger.warning("%s returned business failure code=%s.", label, code)
         raise HTTPException(status_code=502, detail=f"{label} rejected the request (code {code}).")
-    return data
+
+    raise HTTPException(status_code=502, detail=f"{label} is unavailable.")
 
 
 def _audio_media_type(file: UploadFile) -> str:
@@ -1114,15 +1164,31 @@ async def cnooc_embeddings(request: Request) -> JSONResponse:
         "encoding_format": str(payload.get("encoding_format") or "float"),
         "dimensions": expected_dimension,
     }
-    data = await _post_internal_retrieval_model(
-        upstream_url=os.getenv(
-            "CNOOC_EMBEDDING_UPSTREAM_URL",
-            _DEFAULT_CNOOC_EMBEDDING_UPSTREAM_URL,
-        ).strip(),
-        upstream_key=upstream_key,
-        payload=upstream_payload,
-        label="Internal embedding",
-    )
+    async with _internal_embedding_limiter():
+        data = await _post_internal_retrieval_model(
+            upstream_url=os.getenv(
+                "CNOOC_EMBEDDING_UPSTREAM_URL",
+                _DEFAULT_CNOOC_EMBEDDING_UPSTREAM_URL,
+            ).strip(),
+            upstream_key=upstream_key,
+            payload=upstream_payload,
+            label="Internal embedding",
+            retry_business_codes=frozenset({"10020"}),
+            business_retries=max(
+                0,
+                _int_env(
+                    "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRIES",
+                    _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRIES,
+                ),
+            ),
+            business_retry_seconds=max(
+                0.0,
+                _float_env(
+                    "WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRY_SECONDS",
+                    _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRY_SECONDS,
+                ),
+            ),
+        )
     rows = data.get("data")
     if not isinstance(rows, list) or len(rows) != expected_rows:
         raise HTTPException(status_code=502, detail="Internal embedding returned an unexpected row count.")

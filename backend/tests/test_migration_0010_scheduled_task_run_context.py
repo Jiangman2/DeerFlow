@@ -42,6 +42,6 @@ def test_upgrade_adds_empty_run_context_to_existing_scheduled_tasks(tmp_path) ->
         stored = connection.exec_driver_sql("SELECT run_context FROM scheduled_tasks WHERE id = 'task-existing'").scalar_one()
         version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
 
-    assert version == "0011_user_sso_profile"
+    assert version == "0012_user_last_login"
     assert columns["run_context"]["nullable"] is False
     assert json.loads(stored) == {}

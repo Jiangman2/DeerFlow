@@ -87,6 +87,13 @@ The enterprise root entry sets the server-only
 Gateway session and redirects only an unauthenticated browser to that HTTPS
 portal. Authenticated users, setup-required states, Gateway outages, APIs,
 static assets, and workspace deep links must not be redirected.
+The enterprise overlay also sets `DEER_FLOW_SSO_ONLY=true`. In that mode the
+entire `(auth)` route group redirects any unauthenticated state—including setup
+required or a temporarily unavailable Gateway—to the validated HTTPS portal;
+it must never render local login, registration, or setup forms. Missing or
+invalid portal configuration fails closed to `/`. Gateway independently blocks
+the corresponding APIs, so this redirect is presentation rather than the sole
+security control.
 DeerFlow chat Markdown may receive stable WeKnora `resource://` image handles
 from older persisted messages. `resolveMessageImageURL()` must convert only the
 strict stable-handle shape to the authenticated same-origin
@@ -98,27 +105,33 @@ than reimplementing its knowledge-management UI. Keep the iframe entry at
 `/platform/knowledge-bases` and let the iframe fill the whole page without a
 second DeerFlow title/action bar. The mounted WeKnora bootstrap persists the
 Gateway-provided `ui_policy`: system administrators retain the complete native
-navigation, while ordinary personal-workspace Owners can use New Chat,
-Knowledge Bases, Shared Spaces, and Agents, and do not see Publish
-Integrations, system settings, or tenant-creation controls. Entering the
+navigation, while ordinary personal-workspace Owners see only Knowledge Bases
+and Shared Spaces and do not see New Chat, Agents, Publish Integrations, system
+settings, or tenant-creation controls. Entering the
 embedded workspace collapses DeerFlow's sidebar and expands WeKnora's sidebar
 once for both ordinary users and administrators. The automatic collapse must
 run only once per route mount so the user can immediately reopen DeerFlow's
 sidebar without navigating away first; the native WeKnora toggle remains
-usable afterwards so chat history stays reachable. Agent creation,
-editing, model/tool configuration, and chat usage must remain reachable for
-ordinary users. The native
-WeKnora deployment and RBAC remain
+usable afterwards so knowledge-base and shared-space navigation stays
+reachable. The native WeKnora deployment and RBAC remain
 responsible for authorization; DOM filtering is only the simplified enterprise
-presentation. The ordinary-user New Knowledge Base dialog and existing
-knowledge-base Settings dialog expose only Basic Information while preserving
-all native type and indexing choices on that page. Deployment defaults supply
-the hidden model, parser, chunking, VLM, ASR, and storage values. System
+presentation. The ordinary-user New Knowledge Base dialog exposes only Basic
+Information while preserving all native type and indexing choices on that page.
+Existing knowledge-base Settings expose Basic Information plus Publish
+Integrations > Sharing Management; the global Publish Integrations navigation
+remains hidden. Deployment defaults supply the other hidden model, parser,
+chunking, VLM, ASR, and storage values. System
 administrators retain the complete native editor.
 
 ### Data Flow
 
-1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission, and `core/voice-input` can transcribe browser microphone input into that same local draft; confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming
+1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission, and `core/voice-input` can transcribe browser microphone input into that same local draft; confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming. When that draft explicitly starts with `/ppt-master`, `core/api/ppt-master-runtime.ts` marks the thread with `runtime_profile=ppt-master-runner` and routes stream, reconnect, and cancel through `/api/ppt-master-runtime`; ordinary thread/history/upload/artifact APIs remain on the main Gateway. If the same request includes a PPT/PPTX attachment, the pre-submit upload uses `upload_purpose=presentation_template` so Gateway preserves the original template instead of routing it through the document parser.
+   Welcome-page quick actions fill editable prompts that begin with their real
+   Slash Skill name. The PPT action is a four-item route menu for Generate
+   PPTX, Create Template, Fill Native PPTX, and Enhance Native PPTX; selecting
+   an item fills its `/ppt-master` example without submitting it. Keep these
+   labels and prompts locale-owned, and do not replace them with implicit
+   non-Skill prose.
 2. Stream events update thread state (messages, artifacts, todos, goal)
    When an existing chat page mounts without the SDK's tab-local reconnect key,
    `core/threads/hooks.ts` must query the Gateway run store for the newest
@@ -139,7 +152,8 @@ affects every thread, removes the file-list menu item, closes the dialog,
 invalidates in-flight list loads, and sends the resolved boolean on normal,
 custom-agent, regenerated, and branched runs.
 
-PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning presentation. `core/artifacts/utils.ts` owns the deterministic pairing rule, and the artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated companion pages server-side. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
+PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning presentation. `core/artifacts/utils.ts` owns the deterministic pairing rule, including extraction from a persisted thread-state snapshot. On chat reload, `ChatBox` uses the live stream artifact channel when it is populated and otherwise fetches `threads.getState(threadId)` explicitly so paged message hydration cannot make the top-level Files control disappear. That restoration must not auto-open the panel. The artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated companion pages server-side. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
+Interactive lead-agent submissions and regenerations share `core/threads/run-config.ts::LEAD_AGENT_RECURSION_LIMIT` (currently 2000). This is a bounded LangGraph super-step budget, not an LLM-call count; the Gateway still clamps it and backend loop/token guards remain independent. Keep both submission paths on the shared constant so long, progressing Skill workflows do not diverge by UI action.
 Every recorded or guessed PowerPoint preview companion must pass a same-origin
 HEAD probe before the iframe is rendered. A stale/missing companion may show a
 download fallback for legacy history, but every newly successful PPT/PPTX
@@ -165,6 +179,13 @@ access to sidecars created before the metadata rename.
 - **LangGraph client** is a singleton obtained via `getAPIClient()` in `core/api/`
 - **Environment validation** uses `@t3-oss/env-nextjs` with Zod schemas (`src/env.js`). Skip with `SKIP_ENV_VALIDATION=1`
 - **Subtask step history and runtime metadata** (`core/tasks/`) — the subtask card shows a subagent's full step timeline (#3779): its assistant reasoning turns interleaved with the tools it ran. `Subtask.steps[]` is accumulated live from `task_running` events (appended via `mergeSteps`, not overwritten) and backfilled on expand for historical runs by `fetchSubtaskSteps`, which pages the events endpoint scoped to one task (GET `/runs/{runId}/events?event_types=subagent.step&task_id=…&after_seq=…`) until a short page, so the run-wide limit can't truncate the timeline. `task_started` carries the effective `model_name`; `task_running` carries a cumulative usage snapshot after each completed LLM call. `core/tasks/lifecycle.ts` normalizes these additive events, and `computeNextSubtask` keeps the largest cumulative total so replayed or late SSE frames cannot double-count or roll the folded card backward. Terminal ToolMessage metadata (`subagent_model_name` / `subagent_token_usage`) restores the same values from normal history after reload; no per-card event fetch is needed. `core/tasks/steps.ts` is the pure step model: `messageToStep` (live), `eventsToSteps` (reload), `mergeSteps` (dedup by `message_index`), and `stepsForDisplay` (what the card renders — keeps tool steps + AI steps with text, drops the trailing final-answer AI step when completed since it's shown as `result`). `core/tasks/context.tsx`'s `useUpdateSubtask` applies updates against a `tasksRef` mirroring the latest state (not a closure snapshot), so a late-resolving `fetchSubtaskSteps` backfill merges into current state instead of clobbering SSE steps or sibling subtasks that arrived meanwhile. The owning `run_id` is carried onto history content messages in `buildVisibleHistoryMessages` so the card can resolve the events endpoint.
+- Expanded subtask cards retain tool-only assistant request steps and show a
+  bounded command/query summary for every request plus an on-demand full input
+  or output body. Long timelines use an internal scroll area, lazy detail
+  mounting, and `content-visibility`; do not eagerly render every persisted
+  command result. Assistant/tool text containing a Sandbox `:5050` URL expands
+  automatically and uses the same thread-aware Live Preview proxy link renderer
+  as normal chat messages.
 - All subtask groups after the latest human message remain live while that turn
   streams; a later processing/tool group must not make earlier parallel task
   cards look failed. If the parent run ends without a terminal task ToolMessage,
@@ -218,12 +239,17 @@ actions on another user's thread. Dashboard chat links carry
 human-input replies, and scheduled-task shortcut in this review presentation.
 The same page displays direct WeKnora inventory/history metrics for users,
 knowledge bases, documents, file formats, knowledge-scoped native conversation
-sessions, and question turns, with per-user and per-knowledge-base detail.
-Knowledge-base detail occupies a full-width row. The knowledge usage ranking
-contains every user with inventory or activity and uses five-row client
-pagination instead of truncating the backend query. Shared-space cards and
-detail cover organizations, member workspaces, role composition, shared
-knowledge bases/documents, and join requests. It also reports
+sessions, and question turns. Knowledge-base inventory detail shows the creator's
+SSO display name and login account but intentionally omits conversation/question
+columns; those remain aggregate metrics above. The knowledge usage ranking shows
+the user's SSO name and account, contains every user with inventory or activity,
+omits conversation/question columns, and uses five-row client pagination instead
+of truncating the backend query. Shared-space detail shows the owner's SSO name
+and account alongside organizations, member workspaces, role composition, shared
+knowledge bases/documents, and join requests. The all-history failed-run table
+supports server-side account/name filtering and opens a read-only diagnostic
+dialog with the error stack, failed node, tool calls, and terminal events; it must
+not add retry or mutation actions. The dashboard also reports
 current and historically-created scheduled tasks plus run outcomes. Do not
 substitute DeerFlow `weknora_search`/`weknora_ask` tool-call counts for native
 WeKnora usage. Dashboard progress bars, including the five external-agent

@@ -22,12 +22,14 @@ DingTalk) bridge into the same agent through the Gateway.
 
 ## Service Topology
 
-A single `make dev` / Docker stack runs four cooperating services:
+The deployed Kubernetes stack runs the cooperating services below (the local
+foreground/Docker development modes may omit Provisioner and PPT Runner):
 
 | Service         | Port   | Role                                                                 |
 | --------------- | ------ | ------------------------------------------------------------------- |
 | **Nginx**       | `2026` | Unified reverse-proxy entry point — open this in the browser        |
 | **Gateway API** | `8001` | FastAPI REST API + embedded LangGraph-compatible agent runtime      |
+| **PPT Bridge**  | `8003` | Streaming/checkpoint bridge for the Sandbox-side external PPT Agent         |
 | **Frontend**    | `3000` | Next.js web interface                                               |
 | **Provisioner** | `8002` | Optional — only when sandbox is configured for provisioner/K8s mode |
 
@@ -59,7 +61,11 @@ Conversation PDF/DOC/DOCX/PPT/PPTX uploads reuse the configured WeKnora/MinerU
 adapter to write a same-stem Markdown companion without creating
 knowledge-base records. Searchable and scanned PDFs retain their
 adapter-specific routing, Word uses its native-plus-visual path, and
-presentations use its presentation conversion path. Presented PPT/PPTX outputs
+presentations use its presentation conversion path. The frontend marks PPT/PPTX
+files submitted with an explicit `/ppt-master` request as
+`presentation_template`; Gateway preserves those originals for the Skill and
+skips both MinerU and local Markdown conversion. Ordinary presentation uploads
+remain on the document-parser route. Presented PPT/PPTX outputs
 separately rely on the active sandbox's LibreOffice to generate a missing
 `.preview.pdf`; keep both integrations outside the `ppt-master` skill package
 and read the original sandbox-visible workspace source before Gateway publishes
@@ -68,14 +74,252 @@ has been generated and persisted, so clicking every successfully delivered
 PPT/PPTX has a real browser preview. Hosted sandbox loopback URLs must never be
 shown to browser users, and Chinese tasks publish a Chinese topic filename with
 a date/time suffix instead of exposing the internal pinyin project slug.
-PPT generation completion is hard-gated: a failed subprocess must not disable
-the general Bash transport, `present_files` may satisfy an active presentation
-workflow only with a real `.ppt`/`.pptx`, and SVG/specification intermediates
-must never be accepted as a completed deck. Premature model conclusions while
-those gates remain incomplete are recovery-only messages: hide them before run
-events reach the browser and retry again whenever a recognized presentation
-tool produced progress; only repeated no-progress conclusions may become a
-visible workflow failure.
+New explicit `/ppt-master` tasks are routed through Nginx
+`/api/ppt-master-runtime/*` to the dedicated `ppt-master-runner` transport
+process on Gateway Pod port 8003. Its graph is one external-process relay node:
+it must never construct a LangChain model/Agent or attach DeerFlow Agent
+middleware. The real Agent CLI runs in the `ppt-master-agent-host` container of
+the thread's provisioned Sandbox Pod on authenticated ClusterIP port 8788. That
+host installs the exact vendored upstream `ppt-master` v4.5.0 package into its
+normal Agent Skill directory, refreshes a writable snapshot under
+`/mnt/user-data/workspace/.ppt-master-runtime`, persists the Agent session and
+public command/file events under `.ppt-master-agent`, and generates the paired
+PowerPoint preview during final artifact handoff. Stream those receipts through
+the existing durable `task_*` event protocol; never fabricate model/tool steps.
+Replay the original Slash request and require current upstream authority reads
+on every Agent turn. Owning upstream commands must keep their real exit status:
+do not allow terminal output-truncation pipes or shell fallbacks to mask a
+validator/export failure. Before accepting completion, run the upstream delivery
+checker and independently reconcile the new or changed PPTX package with every
+explicit user capability. Reject visual chart imitations as native charts and
+transitions as object animations, then resume the same Agent session and project
+with the concrete mismatch for at most three repair attempts. Publish only the
+accepted current-turn deck and a preview regenerated at least as recently as the
+PPTX; stale output files from earlier turns are not deliverables.
+The Agent host must fail closed without Codex auth or a Responses-compatible
+provider and must never fall back to the old lead graph. DeerFlow owns only
+authentication, streaming/checkpoint transport, cancellation, Confirm UI
+proxying, Sandbox provisioning, and artifact persistence/preview; the upstream
+package owns routes, stages, schemas, validators, and recovery. The control
+Service must remain ClusterIP-only and reuse `SANDBOX_API_KEY`; every eligible
+worker must preload the exact Sandbox image, and cross-node scheduling requires
+RWX user-data plus ROX/RWX Skills storage. See
+`docs/ppt-master-isolated-runner.md`.
+Normalize Agent Host progress to plain message dictionaries before publishing
+the shared durable `task_*` stream; live LangChain message objects must not cross
+the PPT Bridge transport boundary.
+The selected custom Agent provider's `env_key`, not merely its TOML, is the
+credential boundary. Local Kubernetes uses Model Studio `qwen3.7-max` with
+`DASHSCOPE_API_KEY` over native Responses. Enterprise Kubernetes instead gives
+only `PPT_MASTER_RESPONSES_RELAY_KEY` to the Agent host; Gateway retains
+`DeepSeek_V4_API_KEY` and exposes the exact self-authenticated
+`/api/codex/deepseek/v1/responses` translation endpoint. Keep the relay key out
+of the ordinary AIO Sandbox, force the audited enterprise upstream to stream,
+discard raw reasoning, call `model.ai.cnooc` directly with `trust_env=false`,
+and preserve CA-chain and hostname verification.
+
+Explicit Slash Skill workflows other than the isolated runner, plus legacy
+presentation threads retained during migration, persist their selected Skill/content hash,
+original request, selected authority/profile, writable project root, bounded
+tool receipts, current gate, and exact resume pointer in thread checkpoint
+state. This is a generic host adaptation layer; do not duplicate a Skill's
+workflow schemas, phase order, or validators in DeerFlow. A later `继续` or
+structured confirmation restores the same enabled Skill and original task, and
+durable context projects the workflow checkpoint after history compaction.
+At each new run, the host must require the selected top-level workflow and the
+latest stage authority documents to be re-read before any other tool executes;
+remembering only their paths is not enough. Confirmation-surface choice is
+checkpointed. When loaded Skill authority explicitly says to author, write, or
+create a named artifact from a `${SKILL_DIR}/...` reference, checkpoint that
+declared dependency and require a real current-run read receipt for the
+reference before mutating the artifact. This is a generic authority edge; do
+not infer it from filenames or duplicate the referenced schema in DeerFlow.
+Files that the loaded Skill authority explicitly assigns to its
+user/tool confirmation boundary must not be fabricated through generic file or
+shell writes; they are produced only by the owning Skill server/command.
+When that owner server starts successfully, checkpoint its loopback URL and
+require the next visible progress response to include it as Markdown so the
+frontend can rewrite it to the authenticated thread proxy. Keep the owner alive
+on its documented default wait; do not shorten the wait or mask its exit status
+through a tail/head pipeline. While that page owner remains active and its wait
+has not failed, a plain-text chat confirmation request is also a surface switch;
+discard it and continue through the Skill-defined page-owned action. Treat the
+owner's timestamped `[ERROR]` output as
+a failed receipt even when shell composition returns zero. Bundled `ppt-master`
+dependencies are release-image content and must never be installed inside a
+conversation; a real missing import is a Sandbox image release defect.
+A failed Skill script receipt remains blocking until the same owning script
+succeeds for the same project and explicit stage. Compare that semantic identity,
+not the complete shell string: retry comments, environment exports, and whitespace
+may change, but a different project or stage must never clear the gate.
+When a forbidden generic write first exposes a Skill-managed confirmation
+artifact and the official owner wait/completion command then fails on a real
+project precondition, transfer recovery ownership to that command. This keeps
+the managed artifact protected while allowing the documented project repair
+and same-owner retry instead of trapping the run on the earlier fabrication.
+For a single confirmed template workspace, check the complete portable file
+mapping before Strategist contract authoring or SVG execution, and recheck it
+after each template-copy command. Record a successful complete template copy as
+a durable project mutation. An active Confirm UI page may be shut down or
+replaced by chat only after its bounded wait truly times out or the user
+explicitly requests that surface change.
+Persist that failed gate as one owner bundle containing its receipt, tool,
+semantic action, stage, detail, and resume pointer. Rebuild the bundle from legacy
+failed evidence before processing later receipts. Auxiliary reads, project repair
+writes, user continuations, and clarification waits may add evidence or mutation
+progress but cannot replace or clear the owner; `read_file` requires only its path,
+and all Sandbox tools keep their execution arguments required while treating the
+display description as optional host metadata. Bound long failed
+receipt details with both the diagnostic head and blocker-summary tail so context
+compaction cannot discard the actionable end of an owning validator result.
+Keep the selected top-level route, a bounded recent window of up to 24 Skill
+stage-authority documents, and durable project contracts as separate retention
+classes so a complete conditional branch can survive compaction without stage
+churn evicting `design_spec.md` or `spec_lock.md`. Once a top-level route is
+selected, a competing top-level workflow document is not a supporting stage;
+reject that route switch until a new explicit Skill activation establishes a
+new workflow.
+An owning Skill-script failure invalidates the current authority-load receipt:
+persist its bounded redacted detail, re-read those checkpointed authorities in
+the same run, and only then choose a project-scoped repair. A changed compacted
+summary likewise invalidates the authority-load receipt even when the run ID is
+unchanged. The reload is a prerequisite inside the existing failed gate; it
+must not replace that gate or its owning resume pointer with a temporary reload
+gate that can later be mistaken for success.
+Scope synthetic authority-reload tool-call ids to the exact recovery boundary
+(run, compacted-context fingerprint, and failed-owner identity), not only to the
+document path. Otherwise a legitimate second read in the same run is mistaken
+for an already-collected receipt and the workflow can loop forever at the reload
+barrier.
+Permit one unchanged semantic owner retry for transient recovery. If that retry
+fails again without a successful durable mutation inside the active project,
+retain the completed authority reload and require a project repair before the
+owner can run again; never cycle through unchanged validator retries and repeated
+authority reloads.
+Treat an owning failure receipt and every report it generated as a snapshot of
+the project mutation version at which it ran. Generically, after the first
+successful durable project repair, require an immediate semantic retry of that
+same owner before any second repair, old-report read, or later-stage action. The
+new owner receipt then either clears the gate or becomes the fresh diagnostic
+snapshot. The `ppt-master` first-page/final SVG checker is a scoped exception:
+allow one consolidated batch of project SVG reads/writes after its complete
+report, while still blocking old validation-report reads and workflow advance;
+only an exact successful checker retry clears the gate. Enforce both paths as
+host transactions over receipt identity, never by duplicating the report schema.
+For an active `ppt-master` presentation-delivery workflow, bound each async
+model turn to 600 seconds of total wall-clock time. Provider keepalive, empty,
+or hidden-reasoning chunks must not renew that boundary. End only the current
+turn with the persisted stage and exact resume pointer so a later `继续` resumes
+the same project; do not apply this deadline to unrelated Skills or chats.
+For `ppt-master`, bind authority receipts to the current run rather than to the
+mutable summary fingerprint. Long Executor phases may compact on nearly every
+model/tool iteration; those same-run summary rewrites must not trigger a full
+reference reload. A new run or an owning Skill-script failure still invalidates
+the receipt and requires exact re-reads before execution resumes. Other Skills
+retain the generic summary-fingerprint invalidation behavior.
+If the saved owner is a single local, project-scoped Python validation command
+declared under the selected Skill root, the host may replace a stale-report
+diversion with that exact checkpointed validator call. Fail closed: never
+automatically replay image generation, export, publication, network submission,
+or another side-effecting owner action.
+For any selected-Skill Python owner command, remove only a terminal display-only
+`head`/`tail` pipe before execution. The Bash transport already bounds visible
+output; allowing a truncator to own the pipeline exit code can hide a failed
+validator/export or terminate an image job with SIGPIPE. Do not rewrite ordinary
+non-Skill pipelines or non-terminal processing pipelines.
+Treat an owning confirmation command's documented bounded user-wait timeout as
+an external wait boundary, not a failed build/validation Gate. Keep the owner
+server live, allow the Skill's documented page-to-chat fallback, and preserve
+any owner-authored receipt found during the required one-time recheck. Do not
+reset that receipt unless the user explicitly asks to reselect; an ordinary
+`continue` reply may still confirm the most recent visible template question
+when transparent tool progress or a host blocker appeared between them.
+If a premature install attempt reopened the managed-artifact Gate after that
+timeout, clear it through chat only when the timeout and surface-switch flags
+remain checkpointed and a later real HumanMessage explicitly confirms the
+selection; never let model prose alone satisfy that handoff. Restarting the
+same Confirm UI daemon is transport recovery, not a new confirmation boundary,
+so it must preserve those flags. For checkpoints written before that rule,
+recover the boundary from the latest durable template-wait receipt unless a
+later successful template wait or explicit template-phase reset consumed it.
+If a legacy or resumed presentation workflow has no persisted top-level route,
+preserve the Skill's declared serial bootstrap order: a successful
+`attribution_guard.py` receipt, then `routing.md`, then exactly one selected
+top-level workflow before build or delivery actions. When the model batches a
+valid current prerequisite with redundant or later reads, execute only that
+current prerequisite through the normal tool node instead of deleting the
+whole batch and asking the model to rediscover it. Accept a project root only
+from a successful owning-tool
+receipt (for example `project_manager.py init`) or a successful project-contract
+receipt; sibling research/image/export paths are not root authority. A resumed
+default Generate route reloads `design_spec.md` and `spec_lock.md` only after
+successful creation/read receipts have made them durable; a new project must
+first complete template selection and Strategist confirmation. Stage-document
+churn must not evict established contracts. Sequence-guard re-engagement is bounded to three unchanged invalid
+attempts, after which the run reports the exact gate and resume pointer instead
+of consuming the global recursion budget.
+The DeerFlow adapter for the vendored `ppt-master` closes its documented
+Executor reference set before SVG authoring. Always require the flat/shared
+core, SVG effects, native-shape, semantic-SVG, and locked mode/style authorities;
+add the documented image, chart/native-data, structured-PPTX, web-image, notes,
+animation, and audio authorities only when their persisted design/lock facts and
+attempted owner action trigger them. The adapter is scoped to `ppt-master` and
+must not change another Skill's behavior. Step 5 is not complete while an
+`ai`/`web`/`slice` resource row remains `Pending` or `Failed`; after a
+`design_spec.md` replacement, require one complete read before Executor entry so
+the resource and capability projection cannot remain stale.
+When an owning Skill command fails, project-scoped repair commands remain
+runnable without clearing that failed receipt; only a semantically identical
+owner retry may clear it. Confirm UI wait, reset, daemon, and template-phase
+completion modes are distinct owner operations even though they share one
+Python entry point. Persist successful page template confirmation as a durable
+milestone instead of inferring it from the bounded receipt tail. Read-only
+diagnostic commands may inspect either the active project or the selected
+read-only Skill root, because an owning script may direct recovery to its own
+bundled resource library. A failed gate may also run one non-mutating,
+Skill-owned Python validator against the active project or selected Skill
+workspace when an official recovery stage requires that preflight before an
+atomic project repair; reject write/fix/output modes and arbitrary Bash. Sequence-guard attempts are consecutive only within
+one durable owner/mutation boundary; a project mutation or fresh owner failure
+starts a new bounded audit instead of inheriting earlier invalid decisions.
+For `ppt-master`, `present_files` is the final acceptance boundary: before a
+deck is published it runs the vendored Skill's own delivery checker and compares
+the actual PPTX package against the persisted user/design requirements (notes,
+AI images, native charts, template masters/layouts, transitions, timed advance,
+object animations, and narration/audio timing). SVG/specification intermediates
+and a deck missing a requested capability never satisfy completion. A failed
+delivery acceptance receipt may run project-scoped repair commands and retry
+`present_files`; only a successful delivery retry clears that gate. Parse the
+Skill's normal Markdown-emphasized contract labels such as
+`**Native-ready**: yes` and `**Template Application**:` without losing those
+requirements. When the official Confirm UI selects a Deck or Layout, delivery
+must also reconcile its bound `template_selection.json` / `template_handoff.json`
+with `spec_lock.md`: Strategist must persist `template_reuse_scope`; `style`
+requires flat output, while `layout` / `mirror` require structured mode,
+`template_adherence`, complete prototype/Master/Layout/page mappings, and an
+actual package matching those declared counts. A single default Master and Blank
+Layout must never masquerade as structural template reuse. Enforce the same
+handoff before Executor SVG authoring, not only at publication: template-backed
+Design Spec/lock writes require the current Strategist template authorities,
+named prototypes cannot be downgraded to flat style, and every structured SVG
+mutation must preserve the mapped prototype's Master/Layout root identity,
+inherited layout/master atoms and referenced definitions, plus slot identity and
+bounds. For a single selected workspace, template completion and Strategist
+Stage 1 also compare every portable `templates`/`images`/`icons` file with the
+project-local install; copying only `design_spec.md` can never create a ready
+handoff. Shell-authored SVGs receive the same post-write check. A failed subprocess must not disable the general Bash transport; one unsupported explicit
+completion claim may recover, while repeated no-progress completion becomes a
+visible bounded failure. Keep tool-bearing progress text visible while its tools
+execute; completion is derived from owning receipts and `present_files`, not by
+hiding model text. A loop hard stop is terminal across middleware layers and must
+never be deleted to auto-resume the same run.
+For the `ppt-master` Confirm UI only, a successful
+`recommendations.stage1/2/3.json` write while the owner page is active establishes
+a durable user-wait boundary. If the model then emits future-plan prose without
+the documented wait command, convert that terminal response into a visible,
+resumable confirmation handoff instead of applying the generic unfinished-plan
+retry/failure. Do not extend this exception to other Skills or to non-confirmation
+tool results.
 
 In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 `/platform/knowledge-bases`. Keep that proxy on the `weknora-frontend` Kubernetes
@@ -89,12 +333,15 @@ native RBAC, not UI hiding, remains the authorization boundary. The embedded
 page has no extra DeerFlow header. Entering it collapses DeerFlow's sidebar and
 expands WeKnora's sidebar once for both ordinary users and administrators; the
 native WeKnora toggle remains available afterwards so chat history stays
-reachable. Ordinary users retain the native Agents workflow;
-Publish Integrations and system settings remain hidden and the embedded
-user menu also hides logout. Their New Knowledge Base
-and existing knowledge-base Settings dialogs expose only Basic Information,
-while preserving all native knowledge-base type and indexing choices on that
-page; deployment defaults supply the hidden configuration. System
+reachable. Ordinary users see only Knowledge Bases and Shared Spaces in the
+native sidebar; New Chat, Agents, the global Publish Integrations navigation,
+and system settings remain hidden and the embedded
+user menu also hides logout. Their New Knowledge Base dialog exposes only Basic
+Information, while preserving all native knowledge-base type and indexing choices
+on that page. Existing knowledge-base Settings expose Basic Information plus
+Publish Integrations > Sharing Management so owners can share their knowledge base
+to a shared space with native read-only or editable permissions. Deployment defaults
+supply the other hidden configuration. System
 administrators retain the expandable complete navigation and full editor.
 When `TAVILY_API_KEY` is present, Gateway SSO also idempotently provisions a
 native default `DeerFlow Tavily` provider in every workspace the user owns or
@@ -228,6 +475,11 @@ Enterprise Kubernetes storage note:
   graph enablement or UI compatibility. The enterprise local-PV layout runs one
   Neo4j Community instance; use a managed service or licensed cluster for HA.
 - Keep the enterprise Frontend's `WEKNORA_FRONTEND_URL` set to the same-origin path `/platform/knowledge-bases`; a loopback or node-pinned browser URL breaks SSO or becomes invalid when the public endpoint changes.
+- Keep the official WeKnora DocReader image unmodified. XLSX exporters that add
+  the formatting-only `defaultColWidthPt` worksheet attribute are supported by
+  the DeerFlow-owned `weknora-docreader-xlsx-compat` ConfigMap mounted through
+  `PYTHONPATH`. The shim may discard only that confirmed unsupported attribute;
+  never rewrite source workbooks or broadly swallow unknown openpyxl fields.
 - The patched WeKnora UI must fetch `/api/weknora/sso-session` through a same-origin relative URL in both `config.js` and the `index.html` fallback. These ConfigMap files are mounted with `subPath`, so restart `weknora-frontend` after changing them.
 - Keep the WeKnora UI on the official v0.7.0 multi-platform manifest digest declared in both the base and enterprise Kustomize bundles. That build understands the App's `resource://` and request-local image handles and uses authenticated, knowledge-base-scoped file retrieval; the earlier UI digest renders retrieved knowledge images as failed previews. DeerFlow chat separately rewrites those handles to its tenant-aware `/api/weknora/knowledge-bases/{id}/files` proxy; never expose WeKnora bearer tokens or direct storage paths to the browser.
 - The enterprise Gateway, WeKnora App, and MinerU Adapter trust outbound HTTPS through the runtime-created `deer-flow-enterprise-ca` Secret. Keep the projected `/etc/deerflow-ca/ca-bundle.crt` mount and CA environment variables in their enterprise manifests; create the Secret before apply and restart the affected Deployments after CA rotation so long-lived HTTP clients reload trust state.
@@ -273,10 +525,25 @@ Enterprise Kubernetes storage note:
   updating only the Skills PVC is insufficient. Never install these dependencies
   on demand during a conversational run. Existing Sandbox Pods retain their old
   image and must be replaced before release acceptance tests.
-- Long presentation workflows may legitimately invoke `bash` far more often
-  than ordinary tools. Keep the enterprise runtime's per-tool loop-detection
-  override bounded (currently warn at 120 and stop at 240) while retaining the
-  global 30/50 limits for all other tools and the identical-call loop guard.
+- Long presentation workflows may legitimately invoke `bash` and `read_file`
+  far more often than ordinary tools. Keep the enterprise runtime's per-tool
+  loop-detection overrides bounded (currently warn at 120 and stop at 240)
+  while retaining the global 30/50 limits for all other tools and the
+  identical-call loop guard. Repetition history is scoped to the current run,
+  and a successful `write_file`/`str_replace` that changes durable content
+  resets its repetition window. This keeps required read-before-write repair
+  cycles from being mistaken for a loop while unchanged writes remain bounded
+  by the 3/5 identical-call guard. A successful recovery must not be mistaken
+  for a cross-file read loop merely because the workflow has already loaded
+  many authority and project files.
+  Interactive web runs request a bounded `recursion_limit=2000`; LangGraph
+  super-steps include middleware and tool nodes, so reaching the cap does not
+  by itself prove a model loop. Diagnose durable tool progress before changing
+  either the budget or loop thresholds.
+  The PPT-capable Sandbox image must also extend both outer AIO authentication
+  Nginx proxy locations beyond the stock 60-second idle timeout. The client
+  command hard timeout remains authoritative, so a legitimate long image or
+  document command can finish without making shell execution unbounded.
   The enterprise 1M-token chat model compacts at 85%, retains 40% of recent
   context, and caps summarizer input at 393216 tokens; do not disable
   summarization or remove output headroom to accommodate a single workflow.
@@ -311,11 +578,23 @@ Enterprise Kubernetes storage note:
   return application errors as HTTP 200 envelopes with `choices=null`; this
   adapter preserves bounded `code`/`msg` diagnostics so the LLM error
   middleware can distinguish transient failures from authentication, quota,
-  and context-limit errors. Null-choices failures receive at most one retry.
-- Enterprise Qwen3 Embedding and Reranker requests pass through authenticated Gateway relays. Keep the upstream `CNOOC_RETRIEVAL_API_KEY` separate from the independently generated `WEKNORA_INTERNAL_MODEL_RELAY_KEY`, never expose either key to browsers, and keep the upstream client direct with `trust_env=false`. The Qwen3 embedding relay requests 1024-dimensional Matryoshka output; if the approved endpoint returns its native 4096 dimensions, Gateway truncates the prefix to 1024 and L2-normalizes it before returning the OpenAI-compatible response. Changing this dimension after documents are indexed requires a complete re-parse of every affected knowledge base.
+  and context-limit errors. Keep streaming enabled: the audited upstream safety
+  gateway rejects non-streaming OpenAI tool-call completions with business code
+  `20009`, while the equivalent streamed tool call succeeds. The adapter
+  normalizes JSON-encoded streamed chunks before LangChain consumes them so a
+  scalar compatibility response cannot regress to `str.model_dump()`. Never
+  recover or execute nested tool calls from an upstream error message.
+  Null-choices failures receive at most one retry.
+- Enterprise Qwen3 Embedding and Reranker requests pass through authenticated Gateway relays. Keep the upstream `CNOOC_RETRIEVAL_API_KEY` separate from the independently generated `WEKNORA_INTERNAL_MODEL_RELAY_KEY`, never expose either key to browsers, and keep the upstream client direct with `trust_env=false`. The Qwen3 embedding relay requests 1024-dimensional Matryoshka output; if the approved endpoint returns 4096 values, Gateway truncates the prefix to 1024 and L2-normalizes it before returning the OpenAI-compatible response. Changing this dimension after documents are indexed requires a complete re-parse of every affected knowledge base. The approved retrieval credential admits 200 concurrent upstream requests, so keep `WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY=200` as both the default and hard Gateway ceiling; WeKnora's 2+1 worker limits continue to control document parsing pressure. Retain bounded retries for transient business code `10020` to absorb brief shared-capacity races with rerank traffic.
 - Keep the exact internal model hostname `model.ai.cnooc` and the authenticated in-cluster `gateway` relay Service in the WeKnora App's comma-separated `SSRF_WHITELIST_EXTRA` as well as both proxy-bypass variables. WeKnora correctly blocks private addresses by default; this narrow deployment allowlist permits only the approved internal endpoints without opening the surrounding private network or disabling SSRF validation.
 - Route additional enterprise embedding/rerank providers through authenticated Gateway adapters when practical, so WeKnora continues to call the stable `gateway` Service while Gateway owns upstream credentials, CA trust, proxy routing, timeouts, and audit-safe error mapping. If a provider must be called directly from WeKnora, add only its reviewed exact hostname to `SSRF_WHITELIST_EXTRA`, `NO_PROXY`, and `no_proxy`; never pre-authorize a broad RFC1918 CIDR for anticipated providers.
 - Keep the CNOOC data-lake OAuth endpoint in both Gateway proxy-bypass variables by hostname and audited service IP (`datalake.cnooc` and `10.77.78.223`). The SSO validation endpoint is direct-only in the enterprise network; sending it through the outbound proxy times out before the platform Token can be validated.
+- Enterprise deployments set `DEER_FLOW_SSO_ONLY=true` on both Gateway and
+  Frontend. Auth pages must redirect unauthenticated browsers to the validated
+  HTTPS `DEER_FLOW_UNAUTHENTICATED_HOME_URL`, and Gateway must reject local
+  login, registration, setup initialization, password changes, and generic
+  OIDC flows even when called directly. Keep the CNOOC token SSO route enabled;
+  UI hiding alone is not an authorization boundary.
 - The three AppForge-backed DataLake QA tools run only in Gateway and call the
   approved internal AppForge service directly. Keep `APPFORGE_API_KEY` and any
   workflow identity inputs, including the three explicit App IDs, in
@@ -329,8 +608,8 @@ Enterprise Kubernetes storage note:
   entry with a broad private-network CIDR.
 - The WeKnora built-in Bailian ASR model points to the internal Gateway adapter because WeKnora 0.7.0 and `qwen3-asr-flash` use different request shapes. Keep the bare `gateway` Service name in the WeKnora App proxy-bypass variables; the adapter reuses the Bailian LLM key and never persists uploaded audio.
 - The WeKnora built-in `text-embedding-v4` model also points to `http://gateway:8001/api/weknora/bailian/v1`. Gateway validates `EMBEDDING_API_KEY` and relays `/embeddings` through its scoped enterprise proxy/CA/OpenSSL compatibility path without persisting document text; do not restore a direct DashScope URL in the WeKnora database.
-- Enterprise PDF/DOC/DOCX/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It keeps searchable PDF/Word text on the bundled WeKnora parsers, merges native Word text/images with a temporary PDF visual pass, adds captioned full-page evidence for searchable pages containing images/vector figures, converts presentations to PDF, and sends scanned or mixed documents to the internal MinerU API. WeKnora 0.7.0 can forward legacy OLE2 files with the generic multipart filename `document`; identify `.doc` and `.ppt` from their root compound-document streams and never regress to requiring the lost extension or blindly guessing an unknown/encrypted container. The PDF detector uses text length plus image-area coverage. If PDFium rejects a browser-readable document during routing inspection, the adapter first attempts the independent builtin parser and otherwise continues to MinerU; source-page rendering failures must not discard already recovered text. MinerU inline images and all visual evidence are extracted into WeKnora's persistent `images` contract with Markdown references. The adapter intentionally serializes every PDFium/DocReader parse in one process because those native libraries are not concurrency-safe; its threaded HTTP server keeps `/health` responsive and reports active/waiting parser counts while uploads queue. Do not bypass that coordinator or add in-process parser concurrency. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; documents indexed by an older parser release must be re-parsed before their missing images can be retrieved.
-- Enterprise conversation uploads set `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`, so an unavailable or unsuccessful Adapter call falls back once to DeerFlow's local `convert_file_to_markdown()` path. Keep the Adapter as the primary parser; the fallback runs in Gateway and provides text recovery rather than the Adapter's complete OCR and visual-evidence contract. MarkItDown does not understand legacy binary `.doc`, so that one format may use the task sandbox's LibreOffice to create a request-scoped temporary DOCX before it re-enters `convert_file_to_markdown()`; never retain the temporary office file or add LibreOffice to Gateway. A user-visible processing warning is emitted only if both paths fail.
+- Enterprise PDF/DOC/DOCX/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It keeps searchable PDF/Word text on the bundled WeKnora parsers, merges native Word text/images with a temporary PDF visual pass, adds captioned full-page evidence for searchable pages containing images/vector figures, converts presentations to PDF, and sends scanned or mixed documents to the internal MinerU API. The approved upstream is MinerU-2605 and uses its native asynchronous REST contract: Bearer-authenticated multipart `POST /tasks`, bounded polling of `/tasks/{id}`, and JSON retrieval from `/tasks/{id}/result` with `return_md=true` and `return_images=true`; the configured URL may be the service root or a legacy full `/file_parse` or `/tasks` endpoint. The Adapter keeps WeKnora's in-cluster request contract synchronous while the upstream work is asynchronous. Treat HTTP-200 `success=false` envelopes as failures except for the reviewed transient status/result code `20006`: retry that poll with bounded backoff against the same locally constructed task URL, never submit a duplicate task. Reject untrusted task/result URLs and keep the end-to-end wait bounded at 1800 seconds. Never fall back from a submitted asynchronous task to a second synchronous submission. Before returning Markdown to WeKnora, demote implausibly large ATX headings to ordinary text while preserving their complete content and all image references; otherwise WeKnora repeats a malformed page-sized heading in every child chunk and can exceed the embedding provider's per-input limit. Keep `MINERU_TRUST_ENV=false` on the direct internal route, but explicitly assign the mounted enterprise CA bundle to the Requests session because disabling `trust_env` also disables environment CA merging; a configured missing CA path must fail closed, and certificate/hostname verification must never be disabled. WeKnora 0.7.0 can forward legacy OLE2 files with the generic multipart filename `document`; identify `.doc` and `.ppt` from their root compound-document streams and never regress to requiring the lost extension or blindly guessing an unknown/encrypted container. The PDF detector uses text length plus image-area coverage. If PDFium rejects a browser-readable document during routing inspection, the adapter first attempts the independent builtin parser and otherwise continues to MinerU; source-page rendering failures must not discard already recovered text. The Word PDF pass is also optional after a successful native parse: if LibreOffice fails to export that supplement, return the recovered Word text, tables, and native images rather than failing the whole document. Keep presentation conversion strict. MinerU inline images and all visual evidence are extracted into WeKnora's persistent `images` contract with Markdown references. The MinerU-2605 service admits 20 concurrent requests, but the adapter intentionally serializes every PDFium/DocReader parse in one process because those native libraries are not concurrency-safe; its threaded HTTP server keeps `/health` responsive and reports active/waiting parser counts while uploads queue. Do not bypass that coordinator, raise in-process parser concurrency to 20, or multiply WeKnora workers without a separate memory/capacity review. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; documents indexed by an older parser release must be re-parsed before their missing images can be retrieved.
+- Enterprise conversation uploads set `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860`, which leaves 60 seconds beyond the Adapter's bounded 1800-second upstream wait for response transfer and atomic Markdown persistence. They also set `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`, so an unavailable or unsuccessful Adapter call falls back once to DeerFlow's local `convert_file_to_markdown()` path. Keep the Adapter as the primary parser; the fallback runs in Gateway and provides text recovery rather than the Adapter's complete OCR and visual-evidence contract. MarkItDown does not understand legacy binary `.doc`, so that one format may use the task sandbox's LibreOffice to create a request-scoped temporary DOCX before it re-enters `convert_file_to_markdown()`; never retain the temporary office file or add LibreOffice to Gateway. A user-visible processing warning is emitted only if both paths fail.
 - The audited three-node enterprise layout runs three MinerU Adapter replicas with required hostname anti-affinity, one independent process per node. Each process remains internally serialized through `ParseCoordinator`. Keep the single WeKnora App replica at `WEKNORA_ASYNQ_CORE_CONCURRENCY=2` plus `WEKNORA_ASYNQ_SHARED_CONCURRENCY=1`, so at most three parser calls are active and later uploads stay in Redis/Asynq. Scaling WeKnora App replicas or either worker pool multiplies that limit and requires a matching parser-capacity review. Because anti-affinity leaves no fourth node, keep the adapter RollingUpdate at `maxSurge: 0`, `maxUnavailable: 1`, and retain its `minAvailable: 2` PodDisruptionBudget.
 
 ## Commands: Root vs. Module

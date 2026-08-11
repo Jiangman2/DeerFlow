@@ -61,6 +61,9 @@ _PUBLIC_EXACT_PATHS: frozenset[str] = frozenset(
         "/api/weknora/bailian/v1/embeddings",
         "/api/weknora/internal-models/v1/embeddings",
         "/api/weknora/internal-models/v1/rerank",
+        # Cluster-internal Codex Agent endpoint. The route validates its own
+        # scoped relay Bearer key and never accepts a browser session cookie.
+        "/api/codex/deepseek/v1/responses",
     }
 )
 

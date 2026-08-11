@@ -77,3 +77,31 @@ backend/.ruff_cache
 !README.md
 !frontend/README.md
 !backend/README.md
+
+# Local incremental frontend image (Dockerfile.codex-frontend-live-preview)
+!frontend/.next/
+!frontend/.next/**
+frontend/.next/dev/
+frontend/.next/dev/**
+frontend/.next/cache/
+frontend/.next/cache/**
+
+# Runtime overlay/full builds need these exact service sources. Keep the rest
+# of docker/ excluded so unrelated deployment assets do not inflate contexts.
+!docker/
+docker/*
+!docker/sandbox-ppt-master/
+docker/sandbox-ppt-master/*
+!docker/sandbox-ppt-master/agent_host.py
+!docker/provisioner/
+docker/provisioner/*
+!docker/provisioner/app.py
+!docker/mineru_adapter/
+docker/mineru_adapter/*
+!docker/mineru_adapter/app.py
+
+# The documented Skills seed build copies the complete shipped Skills tree.
+# The Sandbox uses a named ppt-master build context, so this rule also keeps the
+# root build command functional without depending on ignored source files.
+!skills/
+!skills/**

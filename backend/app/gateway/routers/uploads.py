@@ -8,9 +8,9 @@ import tempfile
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO
+from typing import Annotated, BinaryIO, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from app.gateway.authz import require_permission
@@ -53,6 +53,8 @@ DEFAULT_MAX_FILES = 10
 DEFAULT_MAX_FILE_SIZE = 50 * 1024 * 1024
 DEFAULT_MAX_TOTAL_SIZE = 100 * 1024 * 1024
 ENTERPRISE_PARSER_EXTENSIONS = {".doc", ".docx", ".pdf", ".ppt", ".pptx"}
+PRESENTATION_TEMPLATE_EXTENSIONS = {".ppt", ".pptx"}
+UploadPurpose = Literal["attachment", "presentation_template"]
 
 
 @dataclass(slots=True)
@@ -458,6 +460,7 @@ async def upload_files(
     thread_id: str,
     request: Request,
     files: list[UploadFile] = File(...),
+    upload_purpose: Annotated[UploadPurpose, Form()] = "attachment",
     config: AppConfig = Depends(get_config),
 ) -> UploadResponse:
     """Upload multiple files to a thread's uploads directory."""
@@ -540,9 +543,15 @@ async def upload_files(
             logger.info(f"Saved file: {safe_filename} ({file_size} bytes) to {file_info['path']}")
 
             file_ext = file_path.suffix.lower()
+            is_presentation_template = upload_purpose == "presentation_template" and file_ext in PRESENTATION_TEMPLATE_EXTENSIONS
             parsed_document = False
             parser_warning: str | None = None
-            if file_ext in ENTERPRISE_PARSER_EXTENSIONS and document_parser_endpoint:
+            if is_presentation_template:
+                logger.info(
+                    "Keeping presentation template %s as an original upload; document parsing is intentionally skipped",
+                    safe_filename,
+                )
+            elif file_ext in ENTERPRISE_PARSER_EXTENSIONS and document_parser_endpoint:
                 try:
                     document_content = await run_file_io(Path(file_path).read_bytes)
                     parsed_markdown = await parse_conversation_document(
@@ -575,7 +584,7 @@ async def upload_files(
                         exc,
                     )
 
-            if auto_convert_documents and not parsed_document and file_ext in CONVERTIBLE_EXTENSIONS:
+            if auto_convert_documents and not parsed_document and not is_presentation_template and file_ext in CONVERTIBLE_EXTENSIONS:
                 md_path = await convert_file_to_markdown(file_path)
                 if md_path is None and file_ext == ".doc":
                     md_path = await _convert_legacy_doc_via_sandbox(

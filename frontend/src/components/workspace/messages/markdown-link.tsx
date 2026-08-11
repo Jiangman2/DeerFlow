@@ -4,12 +4,41 @@ import {
   artifactPathFromHref,
   resolveArtifactURL,
 } from "@/core/artifacts/utils";
+import { getBackendBaseURL } from "@/core/config";
 import { cn } from "@/lib/utils";
 
 import { CitationLink } from "../citations/citation-link";
 
 function isExternalUrl(href: string | undefined): boolean {
   return !!href && /^https?:\/\//.test(href);
+}
+
+/**
+ * Sandbox processes report their own loopback URL (usually 127.0.0.1:5050).
+ * That address is meaningful only inside the Sandbox Pod, so message links
+ * must use the authenticated Gateway proxy when they are rendered in a chat.
+ */
+export function resolveLivePreviewURL(
+  href: string | undefined,
+  threadId: string | undefined,
+): string | null {
+  if (!href || !threadId) {
+    return null;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(href);
+  } catch {
+    return null;
+  }
+  if (
+    parsed.port !== "5050" ||
+    !["127.0.0.1", "localhost", "::1"].includes(parsed.hostname)
+  ) {
+    return null;
+  }
+  const prefix = `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/live-preview/5050`;
+  return `${prefix}${parsed.pathname || "/"}${parsed.search}`;
 }
 
 /**
@@ -59,6 +88,22 @@ export function createMarkdownLinkComponent(
             event.stopPropagation();
             onArtifactClick(artifactPath);
           }}
+        />
+      );
+    }
+    const livePreviewURL = resolveLivePreviewURL(href, threadId);
+    if (livePreviewURL) {
+      const { className, target, rel, ...rest } = props;
+      return (
+        <a
+          {...rest}
+          href={livePreviewURL}
+          className={cn(
+            "text-primary decoration-primary/30 hover:decoration-primary/60 underline underline-offset-2 transition-colors",
+            className,
+          )}
+          target={target ?? "_blank"}
+          rel={rel ?? "noopener noreferrer"}
         />
       );
     }

@@ -296,6 +296,7 @@ export interface RecentFailureItem {
   thread_id: string;
   user_id: string | null;
   email: string | null;
+  display_name: string | null;
   status: string;
   error: string | null;
   assistant_id: string | null;
@@ -351,6 +352,7 @@ export interface RegisteredUserSessionSummary {
   system_role: string;
   is_disabled: boolean;
   registered_at: string;
+  last_login_at: string | null;
   existing_threads: number;
   runs: number;
   terminal_runs: number;

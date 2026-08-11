@@ -5,6 +5,7 @@ State-changing operations require CSRF protection.
 """
 
 import os
+import re
 import secrets
 from collections.abc import Awaitable, Callable
 from urllib.parse import urlsplit
@@ -20,6 +21,10 @@ from app.gateway.auth_disabled import is_auth_disabled
 CSRF_COOKIE_NAME = "csrf_token"
 CSRF_HEADER_NAME = "X-CSRF-Token"
 CSRF_TOKEN_LENGTH = 64  # bytes
+
+_LIVE_PREVIEW_MUTATION_PATH_RE = re.compile(
+    r"^/api/threads/[^/]+/live-preview/5050(?:/|$)"
+)
 
 
 def is_secure_request(request: Request) -> bool:
@@ -56,6 +61,7 @@ def should_check_csrf(request: Request) -> bool:
         "/api/weknora/bailian/v1/embeddings",
         "/api/weknora/internal-models/v1/embeddings",
         "/api/weknora/internal-models/v1/rerank",
+        "/api/codex/deepseek/v1/responses",
     }:
         return False
     # Inbound webhooks authenticate themselves via provider-specific signatures
@@ -191,6 +197,26 @@ def is_allowed_auth_origin(request: Request) -> bool:
     return normalized_origin in _configured_cors_origins() or (request_origin is not None and normalized_origin == request_origin)
 
 
+def is_allowed_live_preview_origin(request: Request) -> bool:
+    """Accept same-origin mutations from the proxied Sandbox preview app.
+
+    PPT Master's upstream Confirm UI is served through DeerFlow's authenticated
+    thread-scoped Live Preview route, but its standalone JavaScript does not
+    know about DeerFlow's double-submit CSRF header.  Chromium supplies both an
+    unforgeable Fetch Metadata value and the browser Origin for these fetches.
+    Requiring both keeps this narrow bridge same-origin while leaving every
+    other Gateway mutation on the normal cookie/header contract.
+    """
+    if not _LIVE_PREVIEW_MUTATION_PATH_RE.match(request.url.path):
+        return False
+    if request.headers.get("sec-fetch-site", "").strip().lower() != "same-origin":
+        return False
+
+    normalized_origin = _normalize_origin(request.headers.get("origin", ""))
+    request_origin = _request_origin(request)
+    return normalized_origin is not None and request_origin is not None and normalized_origin == request_origin
+
+
 class CSRFMiddleware(BaseHTTPMiddleware):
     """Middleware that implements CSRF protection using Double Submit Cookie pattern."""
 
@@ -206,7 +232,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Cross-site auth request denied."},
             )
 
-        if should_check_csrf(request) and not _is_auth:
+        if should_check_csrf(request) and not _is_auth and not is_allowed_live_preview_origin(request):
             cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
             header_token = request.headers.get(CSRF_HEADER_NAME)
 

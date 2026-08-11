@@ -17,5 +17,11 @@ spec:
               value: "true"
             - name: WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK
               value: "true"
+            # Docker Desktop has no enterprise MinerU upstream. Conversation
+            # uploads must return the original file immediately so ppt-master
+            # can inspect a PPT/PPTX template inside its Sandbox instead of
+            # waiting for the intentionally unreachable local adapter target.
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED
+              value: "false"
             - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
-              value: "true"
+              value: "false"

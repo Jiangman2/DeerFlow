@@ -31,6 +31,7 @@ from typing import Any, Literal, cast
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.base import empty_checkpoint
+from langgraph.errors import GraphRecursionError
 
 from deerflow.agents.goal_state import GoalEvaluation, GoalState
 from deerflow.agents.human_input import read_human_input_response
@@ -779,6 +780,29 @@ async def run_agent(
             await run_manager.set_status(run_id, RunStatus.interrupted)
             logger.info("Run %s was cancelled", run_id)
 
+    except GraphRecursionError as exc:
+        checkpoint_tuple = None
+        if checkpointer is not None:
+            try:
+                checkpoint_tuple = await checkpointer.aget_tuple(
+                    {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+                )
+            except Exception:
+                logger.warning("Could not inspect the last checkpoint after recursion cap for run %s", run_id, exc_info=True)
+        recursion_limit = config.get("recursion_limit")
+        error_msg = _recursion_limit_diagnostic(checkpoint_tuple, recursion_limit, exc)
+        logger.exception("Run %s reached the LangGraph recursion cap: %s", run_id, error_msg)
+        await run_manager.set_status(run_id, RunStatus.error, error=error_msg, stop_reason="recursion_capped")
+        await bridge.publish(
+            run_id,
+            "error",
+            {
+                "message": error_msg,
+                "name": type(exc).__name__,
+                "stop_reason": "recursion_capped",
+            },
+        )
+
     except Exception as exc:
         error_msg = f"{exc}"
         logger.exception("Run %s failed: %s", run_id, error_msg)
@@ -928,6 +952,24 @@ def _read_checkpoint_messages(checkpoint_tuple: Any) -> list[Any]:
     channel_values = checkpoint.get("channel_values", {}) if isinstance(checkpoint, dict) else {}
     messages = channel_values.get("messages", []) if isinstance(channel_values, dict) else []
     return messages if isinstance(messages, list) else []
+
+
+def _recursion_limit_diagnostic(checkpoint_tuple: Any | None, recursion_limit: object, error: Exception) -> str:
+    """Describe the last durable action when LangGraph exhausts its step budget."""
+    messages = _read_checkpoint_messages(checkpoint_tuple) if checkpoint_tuple is not None else []
+    last = messages[-1] if messages else None
+    message_type = getattr(last, "type", "unknown") if last is not None else "none"
+    tool_names = [str(call.get("name", "?")) for call in (getattr(last, "tool_calls", None) or []) if isinstance(call, dict)] if last is not None else []
+    action = ", ".join(tool_names) if tool_names else message_type
+    limit = recursion_limit if isinstance(recursion_limit, int) else "configured"
+    return (
+        f"Agent execution reached the LangGraph recursion limit ({limit}) before a stop condition. "
+        f"The last durable checkpoint contains {len(messages)} messages; last action: {action}. "
+        "This can indicate either a convergence loop or an insufficient super-step budget for a "
+        "progressing multi-stage graph; inspect the durable checkpoint and tool progress to distinguish them. "
+        "This is not a successful completion. "
+        f"Underlying error: {error}"
+    )
 
 
 def _read_checkpoint_goal(checkpoint_tuple: Any) -> GoalState | None:

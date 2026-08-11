@@ -36,6 +36,17 @@ The **Sandbox Provisioner** is a FastAPI service that dynamically manages sandbo
 
 5. **Cleanup**: When the session ends, `DELETE /api/sandboxes/{sandbox_id}` removes both the Pod and Service.
 
+### Sandbox data lifetime
+
+`/mnt/skills` is mounted read-only and contains the shared skill package. The
+thread-scoped `/mnt/user-data` mount is read-write: `workspace/`, `uploads/`, and
+`outputs/` are backed by the configured thread-data host path or PVC. In the
+Kubernetes PVC deployment, that means projects, intermediate files, and files
+published from the sandbox survive Pod and Service deletion. They are removed
+only when the owning thread/user-data directory or PVC data is explicitly
+deleted. Container-local paths such as `/tmp` remain ephemeral and must not be
+used for durable project data.
+
 The sandbox business endpoints are implemented as synchronous FastAPI handlers
 because the Kubernetes Python client used here is synchronous. Starlette runs
 sync handlers in its worker pool, keeping create/read/list/delete K8s API calls
@@ -154,6 +165,13 @@ The provisioner is configured via environment variables (set in [docker-compose-
 | `SANDBOX_SERVICE_TYPE` | `NodePort` | Service type for sandbox access. Use `ClusterIP` when backend and provisioner run inside the same Kubernetes cluster |
 | `NODE_HOST` | `host.docker.internal` | Hostname that backend containers use to reach host NodePorts; ignored when `SANDBOX_SERVICE_TYPE=ClusterIP` |
 | `K8S_API_SERVER` | (from kubeconfig) | Override K8s API server URL (e.g., `https://host.docker.internal:26443`) |
+| `SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS` | `5` | Inner HTTP timeout used by generated Pod probes |
+| `SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS` | `10` | Kubelet exec timeout for the cold-start probe |
+| `SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD` | `60` | Startup probe failures allowed; with the default 5-second period this is 5 minutes |
+| `SANDBOX_READINESS_TIMEOUT_SECONDS` | `5` | Kubelet exec timeout for readiness checks |
+| `SANDBOX_LIVENESS_TIMEOUT_SECONDS` | `5` | Kubelet exec timeout for liveness checks |
+| `SANDBOX_CPU_REQUEST` / `SANDBOX_MEMORY_REQUEST` | `500m` / `512Mi` | Per-Pod guaranteed resources |
+| `SANDBOX_CPU_LIMIT` / `SANDBOX_MEMORY_LIMIT` | `2` / `2Gi` | Per-Pod resource ceilings |
 
 ### Custom sandbox image
 

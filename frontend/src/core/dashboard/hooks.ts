@@ -20,10 +20,10 @@ export function useDashboardSummary(filters: DashboardFilters | number = 168) {
   });
 }
 
-export function useDashboardUsers(limit = 5, offset = 0) {
+export function useDashboardUsers(limit = 5, offset = 0, query = "") {
   return useQuery({
-    queryKey: ["dashboard", "registered-users", limit, offset],
-    queryFn: () => getDashboardUsers(limit, offset),
+    queryKey: ["dashboard", "registered-users", limit, offset, query],
+    queryFn: () => getDashboardUsers(limit, offset, query),
     staleTime: 20_000,
     refetchInterval: 60_000,
   });
@@ -50,10 +50,10 @@ export function useDashboardUserSessions(
   });
 }
 
-export function useDashboardFailures(limit = 5, offset = 0) {
+export function useDashboardFailures(limit = 5, offset = 0, query = "") {
   return useQuery({
-    queryKey: ["dashboard", "failures", limit, offset],
-    queryFn: () => getDashboardFailures(limit, offset),
+    queryKey: ["dashboard", "failures", limit, offset, query],
+    queryFn: () => getDashboardFailures(limit, offset, query),
     staleTime: 5_000,
     refetchInterval: 15_000,
   });

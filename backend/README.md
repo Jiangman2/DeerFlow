@@ -30,7 +30,9 @@ DeerFlow is a LangGraph-based AI super agent with sandbox execution, persistent 
 ```
 
 **Request Routing** (via Nginx):
+
 - `/api/langgraph/*` → Gateway LangGraph-compatible API - agent interactions, threads, streaming
+- `/api/ppt-master-runtime/*` → isolated PPT Master Agent sidecar (port 8003) - explicit `/ppt-master` runs, reconnect, and cancel
 - `/api/*` (other) → Gateway API - models, MCP, skills, memory, artifacts, uploads, thread-local cleanup
 - `/` (non-API) → Frontend - Next.js web interface
 
@@ -52,17 +54,17 @@ The single LangGraph agent (`lead_agent`) is the runtime entry point, created vi
 
 Middlewares execute in strict order, each handling a specific concern:
 
-| # | Middleware | Purpose |
-|---|-----------|---------|
-| 1 | **ThreadDataMiddleware** | Creates per-thread isolated directories (workspace, uploads, outputs) |
-| 2 | **UploadsMiddleware** | Injects newly uploaded files into conversation context |
-| 3 | **SandboxMiddleware** | Acquires sandbox environment for code execution |
-| 4 | **SummarizationMiddleware** | Reduces context when approaching token limits (optional) |
-| 5 | **TodoListMiddleware** | Tracks multi-step tasks in plan mode (optional) |
-| 6 | **TitleMiddleware** | Auto-generates conversation titles after first exchange |
-| 7 | **MemoryMiddleware** | Queues conversations for async memory extraction |
-| 8 | **ViewImageMiddleware** | Injects image data for vision-capable models (conditional) |
-| 9 | **ClarificationMiddleware** | Intercepts clarification requests and interrupts execution (must be last) |
+| #   | Middleware                  | Purpose                                                                   |
+| --- | --------------------------- | ------------------------------------------------------------------------- |
+| 1   | **ThreadDataMiddleware**    | Creates per-thread isolated directories (workspace, uploads, outputs)     |
+| 2   | **UploadsMiddleware**       | Injects newly uploaded files into conversation context                    |
+| 3   | **SandboxMiddleware**       | Acquires sandbox environment for code execution                           |
+| 4   | **SummarizationMiddleware** | Reduces context when approaching token limits (optional)                  |
+| 5   | **TodoListMiddleware**      | Tracks multi-step tasks in plan mode (optional)                           |
+| 6   | **TitleMiddleware**         | Auto-generates conversation titles after first exchange                   |
+| 7   | **MemoryMiddleware**        | Queues conversations for async memory extraction                          |
+| 8   | **ViewImageMiddleware**     | Injects image data for vision-capable models (conditional)                |
+| 9   | **ClarificationMiddleware** | Intercepts clarification requests and interrupts execution (must be last) |
 
 ### Sandbox System
 
@@ -75,7 +77,7 @@ Per-thread isolated execution with virtual path translation:
 - **Skills loading**: Recursively discovers nested `SKILL.md` files under `skills/{public,custom}` and preserves nested container paths
 - **SkillScan**: Native offline deterministic scanning runs before the LLM skill scanner on installs and agent-managed skill writes; `CRITICAL` findings block and warning findings become LLM context
 - **File-write safety**: `str_replace` serializes read-modify-write per `(sandbox.id, path)` so isolated sandboxes keep concurrency even when virtual paths match
-- **Tools**: `bash`, `ls`, `read_file`, `write_file`, `str_replace` (`write_file` overwrites by default and exposes `append` for end-of-file writes; `bash` is disabled by default when using `LocalSandboxProvider`; use `AioSandboxProvider` for isolated shell access)
+- **Tools**: `bash`, `ls`, `glob`, `grep`, `read_file`, `write_file`, `str_replace` (execution parameters such as `command`, `path`, patterns, and content remain required while every display-only `description` is optional; `write_file` overwrites by default and exposes `append` for end-of-file writes; `bash` is disabled by default when using `LocalSandboxProvider`; use `AioSandboxProvider` for isolated shell access)
 
 ### Subagent System
 
@@ -99,34 +101,119 @@ LLM-powered persistent context retention across conversations:
 
 ### Tool Ecosystem
 
-| Category | Tools |
-|----------|-------|
-| **Sandbox** | `bash`, `ls`, `read_file`, `write_file`, `str_replace` |
-| **Built-in** | `present_files`, `ask_clarification`, `view_image`, `task` (subagent) |
+| Category      | Tools                                                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Sandbox**   | `bash`, `ls`, `read_file`, `write_file`, `str_replace`                                                                              |
+| **Built-in**  | `present_files`, `ask_clarification`, `view_image`, `task` (subagent)                                                               |
 | **Community** | Tavily (web search), Jina AI (web fetch), Crawl4AI (web fetch), Firecrawl (scraping), fastCRW (scraping), DuckDuckGo (image search) |
-| **MCP** | Any Model Context Protocol server (stdio, SSE, HTTP transports) |
-| **Skills** | Domain-specific workflows injected via system prompt |
+| **MCP**       | Any Model Context Protocol server (stdio, SSE, HTTP transports)                                                                     |
+| **Skills**    | Domain-specific workflows injected via system prompt                                                                                |
+
+Explicit Skill workflows persist their selected authority, active project, Gate
+owner, and bounded tool receipts across runs. A failed owner receipt is bound to
+the current project mutation version: after one durable repair, the same semantic
+owner must run again before another repair or an old validation-report read. This
+keeps diagnostics fresh without reproducing a Skill's workflow or report schema
+inside DeerFlow.
+Direct artifact-from-reference dependencies declared by loaded Skill authority
+are checkpointed, and the reference must have a real current-run read receipt
+before the artifact can be written. After a repair, DeerFlow may replay only an
+exact, local, project-scoped read-only validator; side-effecting owners are never
+automatically replayed.
+A failed owner may nevertheless run a separate Skill-owned read-only Python
+preflight against the selected Skill workspace when the official recovery stage
+requires it before an atomic project repair. Mutating flags remain rejected and
+that diagnostic never clears the original owner gate.
+One selected top-level route stays locked until a new explicit Skill activation.
+The checkpoint retains up to 24 supporting stage authorities separately from
+the route and project contracts. Selected-Skill Python owner commands execute
+without a terminal display-only `head`/`tail` pipe so the owner's real exit code
+cannot be hidden by the truncator; unrelated pipelines remain unchanged.
+Legacy main-Agent `ppt-master` threads retain the adapter behavior described
+below during migration. New explicit `/ppt-master` tasks use the isolated
+runner documented in `../docs/ppt-master-isolated-runner.md`; do not extend the
+legacy adapter with new workflow rules.
+
+The isolated runner replays the original request and current upstream authority
+requirements on each resumable Agent turn. It keeps official validators and
+exporters as exact commands so display-only pipes or shell fallbacks cannot hide
+their status. A final answer is accepted only after the upstream delivery checker
+and an independent OOXML inspection match every explicitly requested capability.
+If they do not, the same Agent session repairs the same project with the concrete
+failure for at most three attempts. Only new or changed accepted PPTX files are
+published, and their paired previews are regenerated when stale.
+The transport graph also derives a bounded title from the original Slash
+request and writes it to `ThreadState.title`; it does not attach the lead
+`TitleMiddleware` or invoke a second model solely for naming the conversation.
+
+The legacy `ppt-master` adapter additionally closes its official Executor authority set
+before SVG authoring and blocks entry while any `ai`/`web`/`slice` resource is
+still `Pending` or `Failed`. A partial Design Spec edit requires one complete
+read before the refreshed capability/resource facts are trusted. This behavior
+is scoped to the bundled presentation Skill and does not alter other Skills.
+For a confirmed Deck/Layout, the same pre-Executor boundary requires the
+current template Strategist references and reconciles the handoff, Design Spec,
+and lock. Named prototypes cannot be downgraded to flat/style reuse. Structured
+SVG file mutations must preserve the selected prototype's Master/Layout root,
+inherited layout/master atoms and referenced definitions, and slot identity;
+shell-written pages are checked again after execution.
+Template completion and Strategist Stage 1 are also blocked until a single
+selected workspace's complete portable `templates`/`images`/`icons` file map is
+present and byte-identical in the project. Multi-workspace fusion remains owned
+by the Skill because it has explicit segment-conflict semantics.
+Read-only recovery diagnostics may inspect the active project or selected Skill
+root. Sequence retries are scoped to the current owner receipt and project
+mutation boundary, so real durable progress cannot inherit stale retry counts.
+The generic one-repair freshness boundary remains in force, except that the
+`ppt-master` first-page/final SVG gate permits one consolidated project-scoped
+read/write repair batch from the checker's complete issue report. It still
+rejects stale validation-report reads and stage advancement, and only the exact
+checker retry can clear the gate.
+For the bundled `ppt-master`, a successful Stage 1/2/3 recommendation write
+while its Confirm UI is active is also a terminally valid user wait. A model
+response that only announces the next confirmation step is replaced with a
+resumable page handoff, not the generic unfinished-plan error. Other Skills and
+ordinary post-tool turns keep the existing one-retry guard.
+Authority reload receipts are scoped to each run/failure/compaction recovery
+boundary, so a required second read of the same document is recorded instead of
+being dropped as a duplicate and looping at the reload barrier.
+An active `ppt-master` presentation-delivery model turn has a 600-second total
+wall-clock ceiling. Stream keepalives or hidden/empty chunks cannot make one
+turn unbounded; timeout exposes the durable stage/resume pointer and leaves
+other Skills untouched.
+`ppt-master` authority receipts are bound to the current run, so repeated
+same-run summarization cannot force the complete Executor reference closure on
+every model/tool iteration. A new run or owning Skill-script failure still
+requires exact re-reads; other Skills retain summary-fingerprint invalidation.
+Bounded confirmation-page waits are checkpointed as `waiting-for-user`, not as
+failed build steps. The host preserves any owner-written receipt across the
+documented page-to-chat fallback and blocks an unsolicited reset after timeout.
+If an attempted install reopens the managed-receipt Gate, a later explicit human
+chat confirmation clears it only while the checkpoint still records both the
+page timeout and permission to switch surfaces. Restarting the Confirm UI daemon
+preserves that boundary; older checkpoints recover it from durable owner receipts
+until a successful template wait or explicit reset consumes it.
 
 ### Gateway API
 
 FastAPI application providing REST endpoints for frontend integration:
 
-| Route | Purpose |
-|-------|---------|
-| `GET /api/models` | List available LLM models |
-| `GET/PUT /api/mcp/config` | Manage MCP server configurations |
-| `POST /api/mcp/cache/reset` | Reset cached MCP tools so they reload on next use |
-| `GET/PUT /api/skills` | List and manage skills |
-| `POST /api/skills/install` | Install skill from `.skill` archive |
-| `GET /api/memory` | Retrieve memory data |
-| `POST /api/memory/reload` | Force memory reload |
-| `GET /api/memory/config` | Memory configuration |
-| `GET /api/memory/status` | Combined config + data |
-| `GET /api/threads/{id}/runs/{run_id}/events` | Debug/audit events for one run; filter `event_types=context:memory` for effective memory identity |
-| `POST /api/threads/{id}/uploads` | Upload files (auto-converts PDF/PPT/Excel/Word to Markdown, rejects directory paths, auto-renames duplicate filenames in one request) |
-| `GET /api/threads/{id}/uploads/list` | List uploaded files |
-| `DELETE /api/threads/{id}` | Delete DeerFlow-managed local thread data after LangGraph thread deletion; unexpected failures are logged server-side and return a generic 500 detail |
-| `GET /api/threads/{id}/artifacts/{path}` | Serve generated artifacts |
+| Route                                        | Purpose                                                                                                                                               |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/models`                            | List available LLM models                                                                                                                             |
+| `GET/PUT /api/mcp/config`                    | Manage MCP server configurations                                                                                                                      |
+| `POST /api/mcp/cache/reset`                  | Reset cached MCP tools so they reload on next use                                                                                                     |
+| `GET/PUT /api/skills`                        | List and manage skills                                                                                                                                |
+| `POST /api/skills/install`                   | Install skill from `.skill` archive                                                                                                                   |
+| `GET /api/memory`                            | Retrieve memory data                                                                                                                                  |
+| `POST /api/memory/reload`                    | Force memory reload                                                                                                                                   |
+| `GET /api/memory/config`                     | Memory configuration                                                                                                                                  |
+| `GET /api/memory/status`                     | Combined config + data                                                                                                                                |
+| `GET /api/threads/{id}/runs/{run_id}/events` | Debug/audit events for one run; filter `event_types=context:memory` for effective memory identity                                                     |
+| `POST /api/threads/{id}/uploads`             | Upload files (auto-converts PDF/PPT/Excel/Word to Markdown, rejects directory paths, auto-renames duplicate filenames in one request)                 |
+| `GET /api/threads/{id}/uploads/list`         | List uploaded files                                                                                                                                   |
+| `DELETE /api/threads/{id}`                   | Delete DeerFlow-managed local thread data after LangGraph thread deletion; unexpected failures are logged server-side and return a generic 500 detail |
+| `GET /api/threads/{id}/artifacts/{path}`     | Serve generated artifacts                                                                                                                             |
 
 ### IM Channels
 
@@ -267,7 +354,7 @@ backend/
 └── Dockerfile                  # Container build
 ```
 
-`langgraph.json` is not the default service entrypoint.  The scripts and Docker
+`langgraph.json` is not the default service entrypoint. The scripts and Docker
 deployments run the Gateway embedded runtime; the file is kept for LangGraph
 tooling, Studio, or direct LangGraph Server compatibility.
 
@@ -280,6 +367,7 @@ tooling, Studio, or direct LangGraph Server compatibility.
 Place in project root. Config values starting with `$` resolve as environment variables.
 
 Key sections:
+
 - `models` - LLM configurations with class paths, API keys, thinking/vision flags
 - `tools` - Tool definitions with module paths and groups
 - `tool_groups` - Logical tool groupings
@@ -291,6 +379,7 @@ Key sections:
 - `memory` - Memory system settings (enabled, storage, debounce, facts limits)
 
 Provider note:
+
 - `models[*].use` references provider classes by module path (for example `langchain_openai:ChatOpenAI`).
 - If a provider module is missing, DeerFlow now returns an actionable error with install guidance (for example `uv add langchain-google-genai`).
 
@@ -306,7 +395,7 @@ MCP servers and skill states in a single file:
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {"GITHUB_TOKEN": "$GITHUB_TOKEN"}
+      "env": { "GITHUB_TOKEN": "$GITHUB_TOKEN" }
     },
     "secure-http": {
       "enabled": true,
@@ -324,7 +413,11 @@ MCP servers and skill states in a single file:
       "enabled": false,
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://localhost/mydb"
+      ],
       "description": "PostgreSQL database access",
       "routing": {
         "mode": "prefer",
@@ -342,7 +435,7 @@ MCP servers and skill states in a single file:
     }
   },
   "skills": {
-    "pdf-processing": {"enabled": true}
+    "pdf-processing": { "enabled": true }
   }
 }
 ```

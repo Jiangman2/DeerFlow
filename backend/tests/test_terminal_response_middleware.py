@@ -185,6 +185,138 @@ def test_empty_response_without_tool_result_is_not_retried():
     assert middleware.after_model(state, runtime) is None
 
 
+def test_unfinished_plan_after_tool_result_is_retried_once():
+    middleware = TerminalResponseMiddleware()
+    runtime = type("RuntimeStub", (), {"context": {"thread_id": "thread-plan", "run_id": "run-plan"}})()
+    state = {
+        "messages": [
+            HumanMessage(content="/demo create the requested artifact"),
+            ToolMessage(content="tool completed", tool_call_id="call-plan"),
+            AIMessage(content="Let me now create the final artifact."),
+        ]
+    }
+
+    first = middleware.after_model(state, runtime)
+    assert first is not None and first["jump_to"] == "model"
+    request = type(
+        "RequestStub",
+        (),
+        {
+            "runtime": runtime,
+            "messages": state["messages"],
+            "override": lambda self, **kwargs: kwargs,
+        },
+    )()
+    augmented = middleware._augment_request(request)
+    assert augmented["messages"][-1].name == "unfinished_plan_recovery"
+
+
+def test_repeated_unfinished_plan_becomes_visible_failure():
+    middleware = TerminalResponseMiddleware()
+    runtime = type("RuntimeStub", (), {"context": {"thread_id": "thread-plan-2", "run_id": "run-plan-2"}})()
+    state = {
+        "messages": [
+            HumanMessage(content="/demo create the requested artifact"),
+            ToolMessage(content="tool completed", tool_call_id="call-plan-2"),
+            AIMessage(content="I will now create the final artifact."),
+        ]
+    }
+
+    assert middleware.after_model(state, runtime) is not None
+    result = middleware.after_model(state, runtime)
+    assert result is not None
+    final = result["messages"][0]
+    assert final.additional_kwargs["deerflow_error_fallback"] is True
+    assert "unfinished plan" in final.content
+
+
+def test_confirmation_gate_is_not_auto_continued_as_unfinished_plan():
+    """A blocking user question must remain terminal until the user answers."""
+    middleware = TerminalResponseMiddleware()
+    runtime = type("RuntimeStub", (), {"context": {"thread_id": "thread-confirm", "run_id": "run-confirm"}})()
+    state = {
+        "messages": [
+            HumanMessage(content="Create the requested artifact"),
+            ToolMessage(content="source analysis completed", tool_call_id="call-confirm"),
+            AIMessage(content="⛔ BLOCKING：请确认是否继续使用推荐方案？"),
+        ]
+    }
+
+    assert middleware.after_model(state, runtime) is None
+    assert not middleware._pending_prompts
+
+
+def test_ppt_master_ready_confirmation_recommendation_becomes_durable_user_wait():
+    """A ready Confirm UI stage must not consume the unfinished-plan retry budget."""
+    middleware = TerminalResponseMiddleware()
+    runtime = type("RuntimeStub", (), {"context": {"thread_id": "thread-ppt", "run_id": "run-ppt"}})()
+    recommendation_path = "/mnt/user-data/workspace/projects/demo/confirm_ui/recommendations.stage2.json"
+    state = {
+        "skill_workflow": {
+            "skill_path": "/mnt/skills/public/ppt-master/SKILL.md",
+            "confirmation_ui_active": True,
+            "confirmation_url": "http://127.0.0.1:5050",
+        },
+        "messages": [
+            HumanMessage(content="Create the presentation"),
+            AIMessage(
+                content="Stage 2 recommendations are ready.",
+                tool_calls=[
+                    {
+                        "id": "call-stage2",
+                        "name": "write_file",
+                        "args": {"path": recommendation_path, "content": "{}"},
+                    }
+                ],
+            ),
+            ToolMessage(content="File written successfully", tool_call_id="call-stage2", status="success"),
+            AIMessage(content="I will now continue with the Stage 2 confirmation."),
+        ],
+    }
+
+    result = middleware.after_model(state, runtime)
+
+    assert result is not None
+    final = result["messages"][0]
+    assert final.additional_kwargs["deerflow_waiting_for_user"] is True
+    assert "确认页面" in final.content
+    assert "http://127.0.0.1:5050" in final.content
+    assert "jump_to" not in result
+    assert not middleware._pending_prompts
+
+
+def test_non_ppt_recommendation_write_still_uses_unfinished_plan_guard():
+    middleware = TerminalResponseMiddleware()
+    runtime = type("RuntimeStub", (), {"context": {"thread_id": "thread-other", "run_id": "run-other"}})()
+    state = {
+        "skill_workflow": {
+            "skill_path": "/mnt/skills/public/another-skill/SKILL.md",
+            "confirmation_ui_active": True,
+            "confirmation_url": "http://127.0.0.1:5050",
+        },
+        "messages": [
+            HumanMessage(content="Create the artifact"),
+            AIMessage(
+                content="Prepare recommendation.",
+                tool_calls=[
+                    {
+                        "id": "call-other-stage2",
+                        "name": "write_file",
+                        "args": {"path": "/mnt/user-data/workspace/confirm_ui/recommendations.stage2.json", "content": "{}"},
+                    }
+                ],
+            ),
+            ToolMessage(content="File written successfully", tool_call_id="call-other-stage2", status="success"),
+            AIMessage(content="I will now continue with confirmation."),
+        ],
+    }
+
+    result = middleware.after_model(state, runtime)
+
+    assert result is not None
+    assert result["jump_to"] == "model"
+
+
 def test_tool_call_intent_is_not_treated_as_empty_terminal_response():
     middleware = TerminalResponseMiddleware()
     message = AIMessage(

@@ -827,6 +827,24 @@ def test_classify_typed_null_choices_business_error_is_retriable() -> None:
     assert middleware._max_attempts_for(exc) == 2
 
 
+def test_classify_malformed_openai_compatible_response_is_retriable() -> None:
+    from deerflow.models.robust_openai import OpenAICompatibleResponseError
+
+    middleware = _build_middleware()
+    exc = OpenAICompatibleResponseError(
+        code="MALFORMED_RESPONSE",
+        message="Expected a JSON object but received str data.",
+        success=False,
+        reason="OpenAI-compatible provider returned a malformed response",
+    )
+
+    retriable, reason = middleware._classify_error(exc)
+
+    assert retriable is True
+    assert reason == "transient"
+    assert middleware._max_attempts_for(exc) == 2
+
+
 def test_classify_typed_null_choices_context_error_is_not_retriable() -> None:
     from deerflow.models.robust_openai import OpenAICompatibleResponseError
 

@@ -307,8 +307,12 @@ def build_middlewares(
     # /skill-name. This keeps the base system prompt metadata-only while giving
     # explicit user activation priority over model-side relevance guessing.
     from deerflow.agents.middlewares.skill_activation_middleware import SkillActivationMiddleware
+    from deerflow.agents.middlewares.skill_workflow_middleware import SkillWorkflowMiddleware
 
     middlewares.append(SkillActivationMiddleware(available_skills=available_skills, app_config=resolved_app_config, user_id=user_id))
+    # Persist the selected Skill authority, project path, tool-backed stage
+    # receipts, and resume pointer across run boundaries and compaction.
+    middlewares.append(SkillWorkflowMiddleware())
 
     # Capture completed task delegations and loaded skill files before
     # summarization can compact them, then inject durable context channels

@@ -61,6 +61,14 @@ kubectl apply -k k8s/local-pvc
 kubectl -n deer-flow wait --for=condition=complete job/skills-sync --timeout=300s
 ```
 
+The local PPT Agent host is configured for Model Studio `qwen3.7-max` over the
+native Responses API. Put the normal Model Studio account key in
+`DASHSCOPE_API_KEY`; it is the same key used for the other Qwen models and must
+not be duplicated under a model-specific variable. `CODEX_CONFIG_TOML` and the
+model catalog are non-secret deployment configuration. A valid local smoke test
+must make Codex invoke a real Sandbox tool and consume its result; checking only
+the endpoint's HTTP status does not validate a Codex tool loop.
+
 Build the skills image from the repository root exactly as shown. The
 Dockerfile copies `skills/` explicitly and the sync Job validates both the
 source and mounted target layout before reporting success. A nested layout such

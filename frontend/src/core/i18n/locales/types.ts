@@ -194,6 +194,15 @@ export interface Translations {
       suggestion: string;
       prompt: string;
       icon: LucideIcon;
+      menu?: "ppt";
+    }[];
+    pptRouteMenuTitle: string;
+    pptRouteSuggestions: {
+      id: string;
+      suggestion: string;
+      description: string;
+      prompt: string;
+      icon: LucideIcon;
     }[];
     suggestionsCreate: (
       | {
@@ -558,6 +567,10 @@ export interface Translations {
     completed: string;
     failed: string;
     incomplete: string;
+    viewStepDetails: string;
+    hideStepDetails: string;
+    toolInput: string;
+    toolOutput: string;
   };
 
   // Token Usage

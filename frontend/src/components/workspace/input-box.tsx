@@ -2591,14 +2591,55 @@ function SuggestionList({
       >
         <SparklesIcon className="size-4" /> {t.inputBox.surpriseMe}
       </ConfettiButton>
-      {t.inputBox.suggestions.map((suggestion) => (
-        <Suggestion
-          key={suggestion.suggestion}
-          icon={suggestion.icon}
-          suggestion={suggestion.suggestion}
-          onClick={() => handleSuggestionClick(suggestion.prompt)}
-        />
-      ))}
+      {t.inputBox.suggestions.map((suggestion) =>
+        suggestion.menu === "ppt" ? (
+          <DropdownMenu key={suggestion.suggestion}>
+            <DropdownMenuTrigger asChild>
+              <Suggestion
+                data-testid="ppt-generation-menu-trigger"
+                icon={suggestion.icon}
+                suggestion={suggestion.suggestion}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="center"
+              className="w-80 max-w-[calc(100vw-2rem)]"
+              sideOffset={8}
+            >
+              <DropdownMenuLabel className="text-muted-foreground text-xs">
+                {t.inputBox.pptRouteMenuTitle}
+              </DropdownMenuLabel>
+              <DropdownMenuGroup>
+                {t.inputBox.pptRouteSuggestions.map((route) => (
+                  <DropdownMenuItem
+                    key={route.id}
+                    className="items-start gap-3 py-2.5"
+                    data-testid={`ppt-route-${route.id}`}
+                    onClick={() => handleSuggestionClick(route.prompt)}
+                  >
+                    <route.icon className="mt-0.5 size-4 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">
+                        {route.suggestion}
+                      </span>
+                      <span className="text-muted-foreground mt-0.5 block text-xs leading-5 whitespace-normal">
+                        {route.description}
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Suggestion
+            key={suggestion.suggestion}
+            icon={suggestion.icon}
+            suggestion={suggestion.suggestion}
+            onClick={() => handleSuggestionClick(suggestion.prompt)}
+          />
+        ),
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Suggestion icon={PlusIcon} suggestion={t.common.create} />

@@ -6,9 +6,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { useSidebar } from "@/components/ui/sidebar";
 import { findPowerPointForPreviewArtifact } from "@/core/artifacts/utils";
-import { env } from "@/env";
 
 export interface ArtifactsContextType {
   artifacts: string[];
@@ -37,18 +35,14 @@ export function ArtifactsProvider({ children }: ArtifactsProviderProps) {
   // their first artifact so the file button is ready, but the artifact pane
   // must be opened deliberately instead of hiding the execution transcript.
   const [open, setOpen] = useState(false);
-  const { setOpen: setSidebarOpen } = useSidebar();
 
   const select = useCallback(
     (artifact: string) => {
       setSelectedArtifact(
         findPowerPointForPreviewArtifact(artifact, artifacts) ?? artifact,
       );
-      if (env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true") {
-        setSidebarOpen(false);
-      }
     },
-    [artifacts, setSidebarOpen],
+    [artifacts],
   );
 
   const deselect = useCallback(() => {

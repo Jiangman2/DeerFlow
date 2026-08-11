@@ -75,6 +75,26 @@ describe("mergeSteps", () => {
     expect(merged[0]!.text).toBe("fresh");
   });
 
+  it("preserves the existing array for an identical persisted timeline", () => {
+    const existing = [
+      {
+        message_index: 1,
+        kind: "ai" as const,
+        text: "Validate",
+        tool_calls: [{ name: "bash", args: { command: "check" } }],
+      },
+      {
+        message_index: 2,
+        kind: "tool" as const,
+        text: "passed",
+        tool_name: "bash",
+      },
+    ];
+    const replayed = existing.map((step) => structuredClone(step));
+
+    expect(mergeSteps(existing, replayed)).toBe(existing);
+  });
+
   it("keeps steps ordered by message_index", () => {
     const s1 = messageToStep({ type: "ai", content: "1" }, 1);
     const s2 = messageToStep({ type: "ai", content: "2" }, 2);
@@ -109,7 +129,7 @@ describe("stepsForDisplay", () => {
     expect(display.map((s) => s.kind)).toEqual(["ai", "tool"]);
   });
 
-  it("drops AI steps with blank text even if they have tool_calls", () => {
+  it("keeps blank AI request steps when they carry tool-call inputs", () => {
     const steps = [
       messageToStep(
         {
@@ -124,7 +144,7 @@ describe("stepsForDisplay", () => {
 
     expect(
       stepsForDisplay(steps, "in_progress").map((s) => s.message_index),
-    ).toEqual([2]);
+    ).toEqual([1, 2]);
   });
 
   it("drops the trailing final AI answer when completed (already shown as result)", () => {

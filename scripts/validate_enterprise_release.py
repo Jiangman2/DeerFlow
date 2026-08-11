@@ -39,6 +39,9 @@ FORBIDDEN_PROXY_BYPASS_HOSTS = {
     "tavily.com",
 }
 
+ENTERPRISE_DEEPSEEK_MAX_OUTPUT_TOKENS = 65_536
+ENTERPRISE_DEEPSEEK_MAX_INPUT_TOKENS = 1_048_576
+
 REQUIRED_DIRECT_HOSTS = {
     "gateway",
     "provisioner",
@@ -233,6 +236,21 @@ def validate_config(path: Path) -> list[str]:
         raise ValidationError(
             "enterprise models must contain only 'deepseek-v4-flash'; got "
             f"{model_names!r}"
+        )
+
+    deepseek_model = models[0]
+    if deepseek_model.get("max_tokens") != ENTERPRISE_DEEPSEEK_MAX_OUTPUT_TOKENS:
+        raise ValidationError(
+            "models[0].max_tokens must be "
+            f"{ENTERPRISE_DEEPSEEK_MAX_OUTPUT_TOKENS} for long presentation tool calls"
+        )
+    max_input_tokens = (deepseek_model.get("profile") or {}).get(
+        "max_input_tokens"
+    )
+    if max_input_tokens != ENTERPRISE_DEEPSEEK_MAX_INPUT_TOKENS:
+        raise ValidationError(
+            "models[0].profile.max_input_tokens must be "
+            f"{ENTERPRISE_DEEPSEEK_MAX_INPUT_TOKENS} for the audited 1M context window"
         )
 
     deepseek_consumers = {
@@ -567,8 +585,13 @@ def validate_repository(repo_root: Path) -> list[str]:
         if pvc["spec"].get("volumeName") != volume:
             raise ValidationError(f"PVC {name} must remain bound to {volume}")
 
-    mineru_documents = _load_documents(enterprise / "mineru-adapter.yaml")
-    mineru = _deployment(mineru_documents, "deer-flow-mineru-adapter")
+    # The enterprise overlay reuses the local-PVC Deployment/Service and keeps
+    # only its production overrides in a strategic-merge patch.  The separate
+    # enterprise resource file now owns only the disruption budget.
+    mineru_patch_documents = _load_documents(
+        enterprise / "mineru-adapter-patch.yaml"
+    )
+    mineru = _deployment(mineru_patch_documents, "deer-flow-mineru-adapter")
     if mineru["spec"].get("replicas") != 3:
         raise ValidationError("MinerU Adapter must retain three replicas")
     rolling = mineru["spec"].get("strategy", {}).get("rollingUpdate", {})
@@ -584,8 +607,9 @@ def validate_repository(repo_root: Path) -> list[str]:
     )
     if not required_anti_affinity:
         raise ValidationError("MinerU Adapter requires hostname anti-affinity")
+    mineru_resources = _load_documents(enterprise / "mineru-adapter.yaml")
     pdb = _resource(
-        mineru_documents,
+        mineru_resources,
         "PodDisruptionBudget",
         "deer-flow-mineru-adapter",
     )

@@ -21,6 +21,19 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def fallback_title_from_text(user_msg: str, config: "TitleConfig") -> str:
+    """Derive the bounded local title used when no title-model result exists."""
+
+    fallback_chars = min(config.max_chars, 50)
+    if len(user_msg) > fallback_chars:
+        # Reserve room for the ellipsis so this path honours ``max_chars``
+        # exactly as the model-backed title parser does.
+        ellipsis = "..."
+        body = min(fallback_chars, config.max_chars - len(ellipsis))
+        return user_msg[:body].rstrip() + ellipsis
+    return user_msg if user_msg else "New Conversation"
+
+
 class TitleMiddlewareState(AgentState):
     """Compatible with the `ThreadState` schema."""
 
@@ -159,15 +172,7 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         return title[: config.max_chars] if len(title) > config.max_chars else title
 
     def _fallback_title(self, user_msg: str) -> str:
-        config = self._get_title_config()
-        fallback_chars = min(config.max_chars, 50)
-        if len(user_msg) > fallback_chars:
-            # Reserve room for the ellipsis so this path honours ``max_chars``
-            # exactly as ``_parse_title`` does on the model path.
-            ellipsis = "..."
-            body = min(fallback_chars, config.max_chars - len(ellipsis))
-            return user_msg[:body].rstrip() + ellipsis
-        return user_msg if user_msg else "New Conversation"
+        return fallback_title_from_text(user_msg, self._get_title_config())
 
     def _get_runnable_config(self) -> dict[str, Any]:
         """Inherit the parent RunnableConfig and add middleware tag.

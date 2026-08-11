@@ -20,6 +20,7 @@ from deerflow.agents.thread_state import (
     merge_goal,
     merge_sandbox,
     merge_skill_context,
+    merge_skill_workflow,
     merge_todos,
     merge_viewed_images,
 )
@@ -296,6 +297,62 @@ class TestMergeSkillContext:
         assert len(out[0]["description"]) <= 500
 
 
+class TestMergeSkillWorkflow:
+    def test_same_activation_merges_receipts_and_capabilities(self):
+        existing = {
+            "activation_id": "a1",
+            "status": "active",
+            "required_capabilities": {"speaker_notes": True},
+            "artifact_authority_dependencies": {"design_spec.md": "/mnt/skills/example/design_spec_reference.md"},
+            "evidence": [
+                {"id": "t1", "tool": "read_file", "status": "passed", "action": "routing.md"}
+            ],
+        }
+        update = {
+            "activation_id": "a1",
+            "current_stage": "svg_quality_checker.py:final",
+            "required_capabilities": {"narration_audio": True},
+            "artifact_authority_dependencies": {"spec_lock.md": "/mnt/skills/example/spec_lock_reference.md"},
+            "evidence": [
+                {"id": "t2", "tool": "bash", "status": "passed", "action": "quality"}
+            ],
+        }
+
+        merged = merge_skill_workflow(existing, update)
+
+        assert merged is not None
+        assert merged["status"] == "active"
+        assert merged["current_stage"] == "svg_quality_checker.py:final"
+        assert merged["required_capabilities"] == {
+            "speaker_notes": True,
+            "narration_audio": True,
+        }
+        assert merged["artifact_authority_dependencies"] == {
+            "design_spec.md": "/mnt/skills/example/design_spec_reference.md",
+            "spec_lock.md": "/mnt/skills/example/spec_lock_reference.md",
+        }
+        assert [entry["id"] for entry in merged["evidence"]] == ["t1", "t2"]
+
+    def test_new_activation_replaces_old_workflow(self):
+        existing = {
+            "activation_id": "old",
+            "status": "completed",
+            "evidence": [
+                {"id": "old-tool", "tool": "bash", "status": "passed", "action": "old"}
+            ],
+        }
+        new = {"activation_id": "new", "status": "active", "evidence": []}
+
+        assert merge_skill_workflow(existing, new) == {
+            "activation_id": "new",
+            "status": "active",
+            "required_capabilities": {},
+            "artifact_authority_dependencies": {},
+            "evidence": [],
+            "delivered_artifacts": [],
+        }
+
+
 class TestThreadStateAnnotations:
     """Regression guards: ensure reducer wiring on ThreadState fields.
 
@@ -352,3 +409,7 @@ class TestThreadStateAnnotations:
     def test_skill_context_field_is_wired_to_merge_skill_context(self):
         hints = get_type_hints(ThreadState, include_extras=True)
         assert merge_skill_context in hints["skill_context"].__metadata__
+
+    def test_skill_workflow_field_is_wired_to_merge_skill_workflow(self):
+        hints = get_type_hints(ThreadState, include_extras=True)
+        assert merge_skill_workflow in hints["skill_workflow"].__metadata__

@@ -189,3 +189,61 @@ def test_lifespan_skips_memory_flush_when_disabled() -> None:
     """memory.enabled=False skips the drain entirely."""
     manager = asyncio.run(_run_lifespan_with_memory_flush(enabled=False, flush_return=True))
     manager.shutdown_flush.assert_not_called()
+
+
+def test_isolated_ppt_runner_lifespan_skips_platform_bootstrap(monkeypatch) -> None:
+    """The runner process owns only the shared LangGraph transport lifecycle."""
+
+    monkeypatch.setenv("SANDBOX_API_KEY", "test-sandbox-key")
+    monkeypatch.setenv("DEER_FLOW_RUNTIME_PROFILE", "ppt-master-runner")
+    from app.gateway.app import lifespan
+
+    app = FastAPI()
+    startup_config = SimpleNamespace(
+        log_level="INFO",
+        memory=SimpleNamespace(
+            token_counting="char",
+            enabled=True,
+            shutdown_flush_timeout_seconds=5.0,
+        ),
+    )
+    ensure_admin = AsyncMock()
+    cleanup_upload_staging_files = MagicMock()
+    memory_manager = MagicMock()
+    start_channel_service = AsyncMock()
+    stop_channel_service = AsyncMock()
+    close_oidc_service = AsyncMock()
+
+    async def run() -> None:
+        with (
+            patch("app.gateway.app.get_app_config", return_value=startup_config),
+            patch(
+                "app.gateway.app.get_gateway_config",
+                return_value=MagicMock(host="x", port=8003),
+            ),
+            patch("app.gateway.app.langgraph_runtime", _noop_langgraph_runtime),
+            patch("app.gateway.app._ensure_admin_user", ensure_admin),
+            patch(
+                "app.gateway.app.cleanup_stale_upload_staging_files",
+                cleanup_upload_staging_files,
+            ),
+            patch("app.gateway.app.auth.close_oidc_service", close_oidc_service),
+            patch("app.channels.service.start_channel_service", start_channel_service),
+            patch("app.channels.service.stop_channel_service", stop_channel_service),
+            patch(
+                "deerflow.agents.memory.get_memory_manager",
+                return_value=memory_manager,
+            ),
+        ):
+            async with lifespan(app):
+                pass
+
+    asyncio.run(run())
+
+    ensure_admin.assert_not_awaited()
+    cleanup_upload_staging_files.assert_not_called()
+    memory_manager.warm.assert_not_called()
+    memory_manager.shutdown_flush.assert_not_called()
+    start_channel_service.assert_not_awaited()
+    stop_channel_service.assert_not_awaited()
+    close_oidc_service.assert_awaited_once()

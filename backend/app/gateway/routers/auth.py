@@ -7,6 +7,7 @@ import re
 import secrets
 import time
 import urllib.parse
+from datetime import UTC, datetime
 from ipaddress import ip_address, ip_network
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -153,6 +154,25 @@ CNOOC_PLATFORM_TOKEN_COOKIE_NAME = "cnooc.platform_token"
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
+def _require_non_cnooc_auth_enabled() -> None:
+    """Fail closed when the deployment accepts only CNOOC DataLake SSO.
+
+    The browser redirect is presentation-only. This check is the authoritative
+    boundary that prevents callers from bypassing the login page and posting
+    directly to local registration, password login, setup, or generic OIDC
+    endpoints.
+    """
+    if not get_auth_config().sso_only:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=AuthErrorResponse(
+            code=AuthErrorCode.LOCAL_AUTH_DISABLED,
+            message="Local authentication is disabled. Sign in through CNOOC DataLake SSO.",
+        ).model_dump(),
+    )
+
+
 def _set_session_cookie(response: Response, token: str, request: Request) -> None:
     """Set the access_token HttpOnly cookie on the response."""
     config = get_auth_config()
@@ -165,6 +185,12 @@ def _set_session_cookie(response: Response, token: str, request: Request) -> Non
         samesite="lax",
         max_age=config.token_expiry_days * 24 * 3600 if is_https else None,
     )
+
+
+async def _record_user_login(user):
+    """Persist a successful login time before issuing the session cookie."""
+    user.last_login_at = datetime.now(UTC)
+    return await get_local_provider().update_user(user)
 
 
 def _set_cnooc_platform_token_cookie(response: Response, token: str, request: Request) -> None:
@@ -312,6 +338,7 @@ async def login_local(
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
     """Local email/password login."""
+    _require_non_cnooc_auth_enabled()
     client_ip = _get_client_ip(request)
     _check_rate_limit(client_ip)
 
@@ -325,6 +352,7 @@ async def login_local(
         )
 
     _record_login_success(client_ip)
+    user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
 
@@ -341,6 +369,7 @@ async def register(request: Request, response: Response, body: RegisterRequest):
     The first admin is created explicitly through /initialize. This endpoint creates regular users.
     Auto-login by setting the session cookie.
     """
+    _require_non_cnooc_auth_enabled()
     try:
         user = await get_local_provider().create_user(email=body.email, password=body.password, system_role="user")
     except ValueError:
@@ -349,6 +378,7 @@ async def register(request: Request, response: Response, body: RegisterRequest):
             detail=AuthErrorResponse(code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered").model_dump(),
         )
 
+    user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
 
@@ -382,6 +412,7 @@ async def change_password(request: Request, response: Response, body: ChangePass
     - Always increments token_version to invalidate old sessions
     - Re-issues session cookie with new token_version
     """
+    _require_non_cnooc_auth_enabled()
     from app.gateway.auth.password import hash_password_async, verify_password_async
     from app.gateway.auth_disabled import AUTH_SOURCE_AUTH_DISABLED
 
@@ -531,6 +562,7 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
     On success, the admin account is created with ``needs_setup=False`` and
     the session cookie is set.
     """
+    _require_non_cnooc_auth_enabled()
     admin_count = await get_local_provider().count_admin_users()
     if admin_count > 0:
         raise HTTPException(
@@ -552,6 +584,7 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
             detail=AuthErrorResponse(code=AuthErrorCode.SYSTEM_ALREADY_INITIALIZED, message="System already initialized").model_dump(),
         )
 
+    user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
 
@@ -636,6 +669,7 @@ async def cnooc_token_login(
     if user.is_disabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
 
+    user = await _record_user_login(user)
     access_token = create_access_token(str(user.id), token_version=user.token_version)
     redirect_path = validate_next_param(next) or "/workspace/chats/new"
     redirect_response = RedirectResponse(url=redirect_path, status_code=status.HTTP_302_FOUND)
@@ -705,6 +739,9 @@ async def list_auth_providers():
     Returns only safe frontend metadata — no secrets, endpoints, or
     internal configuration.
     """
+    if get_auth_config().sso_only:
+        return {"providers": [], "sso_only": True}
+
     from deerflow.config.app_config import get_app_config
 
     app_config = get_app_config()
@@ -737,6 +774,7 @@ async def oauth_login(
     and PKCE parameters. The ``next`` query parameter specifies where to
     redirect after successful login (default: /workspace).
     """
+    _require_non_cnooc_auth_enabled()
     from deerflow.config.app_config import get_app_config
 
     app_config = get_app_config()
@@ -818,6 +856,7 @@ async def oauth_callback(
     the ID token, provisions/links the DeerFlow user, and sets the
     session cookie.
     """
+    _require_non_cnooc_auth_enabled()
     from deerflow.config.app_config import get_app_config
 
     app_config = get_app_config()
@@ -901,6 +940,7 @@ async def oauth_callback(
     user = result["user"]
 
     # ── Issue DeerFlow session ───────────────────────────────────────
+    user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
 
     redirect_target = state_payload.next_path or "/workspace"

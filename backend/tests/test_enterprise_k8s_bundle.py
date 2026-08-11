@@ -18,6 +18,28 @@ def _yaml_documents(path: str) -> list[dict]:
     return [document for document in yaml.safe_load_all(_read(path)) if isinstance(document, dict)]
 
 
+def test_weknora_docreader_mounts_narrow_xlsx_compatibility_shim():
+    kustomization = yaml.safe_load(_read("k8s/weknora/kustomization.yaml"))
+    generators = {entry["name"]: entry for entry in kustomization["configMapGenerator"]}
+    assert generators["weknora-docreader-xlsx-compat"]["files"] == [
+        "sitecustomize.py=docreader-compat/sitecustomize.py",
+        "xlsx_compat.py=docreader-compat/xlsx_compat.py",
+    ]
+
+    documents = _yaml_documents("k8s/weknora/weknora.yaml")
+    deployment = next(document for document in documents if document.get("kind") == "Deployment" and document["metadata"]["name"] == "weknora-docreader")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    container = pod_spec["containers"][0]
+
+    assert {entry["name"]: entry["value"] for entry in container["env"]}["PYTHONPATH"] == "/opt/deerflow-compat"
+    assert {(mount["name"], mount["mountPath"], mount.get("readOnly")) for mount in container["volumeMounts"]} >= {("xlsx-compat", "/opt/deerflow-compat", True)}
+    assert any(volume["name"] == "xlsx-compat" and volume["configMap"]["name"] == "weknora-docreader-xlsx-compat" for volume in pod_spec["volumes"])
+
+    compat = _read("k8s/weknora/docreader-compat/xlsx_compat.py")
+    assert 'kwargs.pop("defaultColWidthPt", None)' in compat
+    assert "for key in" not in compat
+
+
 def test_enterprise_build_base_images_are_overridable():
     expected = {
         "backend/Dockerfile": (
@@ -95,6 +117,68 @@ def test_enterprise_sandbox_image_pins_arm64_websocat_and_cairosvg():
     assert "Version(pydantic.__version__) >= Version('2.12.5')" in dockerfile
 
 
+def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands():
+    dockerfile = _read("docker/sandbox-ppt-master/Dockerfile")
+
+    assert "nginx-server-with-auth.conf" in dockerfile
+    assert "grep -cF 'proxy_pass http://127.0.0.1:${AUTH_BACKEND_PORT};'" in dockerfile
+    assert "proxy_read_timeout 86400s;" in dockerfile
+    assert "proxy_send_timeout 86400s;" in dockerfile
+
+
+def test_ppt_master_runner_is_an_isolated_gateway_sidecar():
+    documents = _yaml_documents("k8s/local-pvc/deer-flow-pvc-stack.yaml")
+    deployment = next(document for document in documents if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "gateway")
+    containers = {container["name"]: container for container in deployment["spec"]["template"]["spec"]["containers"]}
+    runner = containers["ppt-master-runner"]
+    runner_env = {entry["name"]: entry.get("value") for entry in runner["env"] if "value" in entry}
+    gateway_env = {
+        entry["name"]: entry.get("value")
+        for entry in containers["gateway"]["env"]
+        if "value" in entry
+    }
+
+    assert runner["image"] == containers["gateway"]["image"]
+    assert runner["ports"] == [{"containerPort": 8003}]
+    assert runner_env["GATEWAY_PORT"] == "8003"
+    assert runner_env["DEER_FLOW_RUNTIME_PROFILE"] == "ppt-master-runner"
+    assert gateway_env["PPT_MASTER_RUNNER_INTERNAL_URL"] == "http://127.0.0.1:8003"
+    assert runner_env["HTTP_PROXY"] == ""
+    assert {mount["name"] for mount in runner["volumeMounts"]} == {
+        "config",
+        "extensions-config",
+        "userdata",
+        "skills",
+    }
+
+    service = next(document for document in documents if document.get("kind") == "Service" and document.get("metadata", {}).get("name") == "gateway")
+    assert {
+        "name": "ppt-master-runner",
+        "port": 8003,
+        "targetPort": 8003,
+    } in service["spec"]["ports"]
+
+    nginx = _read("k8s/local-pvc/nginx.conf")
+    assert "location /api/ppt-master-runtime/" in nginx
+    assert "rewrite ^/api/ppt-master-runtime/(.*) /api/$1 break;" in nginx
+    assert "proxy_pass http://$ppt_master_runner_upstream;" in nginx
+
+
+def test_enterprise_ppt_runner_retains_proxy_and_ca_boundary():
+    patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
+    gateway_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
+    runner = next(container for container in gateway_patch["spec"]["template"]["spec"]["containers"] if container["name"] == "ppt-master-runner")
+    env = {entry["name"]: entry.get("value") for entry in runner["env"] if "value" in entry}
+
+    assert env["SSL_CERT_FILE"] == "/etc/deerflow-ca/ca-bundle.crt"
+    assert env["OPENSSL_CONF"] == "/etc/deerflow-openssl/openssl.cnf"
+    assert env["TAVILY_TLS_COMPAT"] == "true"
+    assert {mount["name"] for mount in runner["volumeMounts"]} == {
+        "enterprise-ca",
+        "openssl-compat",
+    }
+
+
 def test_networked_enterprise_builds_use_optional_buildkit_secrets():
     networked_dockerfiles = (
         "backend/Dockerfile",
@@ -126,11 +210,11 @@ def test_enterprise_runtime_images_are_immutable():
     assert custom
     assert all(image.get("digest", "").startswith("sha256:") for image in third_party)
     expected_tags = {
-        "deer-flow-gateway": "20260729-enterprise-arm64-rc12-imagequery1",
-        "deer-flow-frontend": "20260728-enterprise-arm64-rc11",
-        "deer-flow-provisioner": "20260723-enterprise-arm64-rc3",
-        "deer-flow-skills": "20260723-enterprise-arm64-rc3",
-        "deer-flow-mineru-adapter": "20260729-enterprise-arm64-rc12-minerustability1",
+        "deer-flow-gateway": "20260811-enterprise-arm64-rc15-consolidated1",
+        "deer-flow-frontend": "20260811-enterprise-arm64-rc15-consolidated1",
+        "deer-flow-provisioner": "20260811-enterprise-arm64-rc15-consolidated1",
+        "deer-flow-skills": "20260811-enterprise-arm64-rc15-consolidated1",
+        "deer-flow-mineru-adapter": "20260811-enterprise-arm64-rc15-consolidated1",
         "paradedb/paradedb": "pg16-search-arm64-20260722-1",
         "wechatopenai/weknora-app": "0.7.0-enterprise-proxy1-arm64-20260723",
     }
@@ -217,6 +301,8 @@ def test_enterprise_frontend_uses_same_origin_weknora_url():
     env = {entry["name"]: entry["value"] for entry in container["env"] if "value" in entry}
 
     assert env["WEKNORA_FRONTEND_URL"] == "/platform/knowledge-bases"
+    assert env["DEER_FLOW_UNAUTHENTICATED_HOME_URL"] == "https://datalake.cnooc/#/home"
+    assert env["DEER_FLOW_SSO_ONLY"] == "true"
 
 
 def test_enterprise_weknora_app_trusts_enterprise_ca_bundle():
@@ -300,12 +386,11 @@ def test_enterprise_gateway_scopes_legacy_proxy_tls_compatibility_to_its_pod():
 
 
 def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
-    documents = _yaml_documents("k8s/enterprise/mineru-adapter.yaml")
-    deployment = next(document for document in documents if document["kind"] == "Deployment")
-    service = next(document for document in documents if document["kind"] == "Service")
-    disruption_budget = next(document for document in documents if document["kind"] == "PodDisruptionBudget")
+    deployment = _yaml_documents("k8s/enterprise/mineru-adapter-patch.yaml")[0]
+    service = next(document for document in _yaml_documents("k8s/local-pvc/mineru-adapter-local.yaml") if document["kind"] == "Service")
+    disruption_budget = _yaml_documents("k8s/enterprise/mineru-adapter.yaml")[0]
     container = deployment["spec"]["template"]["spec"]["containers"][0]
-    env = {item["name"]: item["value"] for item in container["env"]}
+    env = {item["name"]: item["value"] for item in container["env"] if "name" in item}
     pod_spec = deployment["spec"]["template"]["spec"]
 
     assert deployment["metadata"]["name"] == "deer-flow-mineru-adapter"
@@ -333,9 +418,31 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
     assert container["imagePullPolicy"] == "Never"
     assert container["resources"]["requests"] == {"cpu": "500m", "memory": "1Gi"}
     assert container["resources"]["limits"] == {"cpu": "2", "memory": "2Gi"}
+    assert container["readinessProbe"] == {
+        "httpGet": {"path": "/health", "port": "http"},
+        "initialDelaySeconds": 3,
+        "periodSeconds": 5,
+        "timeoutSeconds": 5,
+        "failureThreshold": 12,
+    }
+    assert container["livenessProbe"] == {
+        "httpGet": {"path": "/health", "port": "http"},
+        "initialDelaySeconds": 15,
+        "periodSeconds": 15,
+        "timeoutSeconds": 10,
+        "failureThreshold": 6,
+    }
     assert service["metadata"]["name"] == "deer-flow-mineru-adapter"
     assert service["spec"]["ports"][0]["port"] == 50052
-    assert all(document["kind"] != "Secret" for document in documents)
+    assert all(
+        document["kind"] != "Secret"
+        for path in (
+            "k8s/enterprise/mineru-adapter.yaml",
+            "k8s/enterprise/mineru-adapter-patch.yaml",
+            "k8s/local-pvc/mineru-adapter-local.yaml",
+        )
+        for document in _yaml_documents(path)
+    )
     assert env["REQUESTS_CA_BUNDLE"] == "/etc/deerflow-ca/ca-bundle.crt"
     assert container["volumeMounts"] == [{"name": "enterprise-ca", "mountPath": "/etc/deerflow-ca", "readOnly": True}]
     assert disruption_budget["metadata"]["name"] == "deer-flow-mineru-adapter"
@@ -349,11 +456,14 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
     gateway = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
     gateway_env = {item["name"]: item["value"] for item in gateway["spec"]["template"]["spec"]["containers"][0]["env"] if "value" in item}
+    assert gateway_env["DEER_FLOW_SSO_ONLY"] == "true"
     assert gateway_env["WEKNORA_PRESENTATION_PARSER_ENGINE"] == "mineru"
     assert gateway_env["WEKNORA_MINERU_ENDPOINT"] == "http://deer-flow-mineru-adapter:50052"
     assert gateway_env["WEKNORA_MINERU_AUTO_CONFIGURE"] == "true"
     assert gateway_env["WEKNORA_MINERU_SCANNED_PDF_FALLBACK"] == "true"
     assert gateway_env["WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK"] == "true"
+    assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS"] == "1860"
+    assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED"] == "true"
     assert "model.ai.cnooc" in gateway_env["NO_PROXY"].split(",")
     assert "model.ai.cnooc" in gateway_env["no_proxy"].split(",")
 
@@ -381,9 +491,8 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
         "readOnly": True,
     } in weknora_container["volumeMounts"]
 
-    adapter_documents = _yaml_documents("k8s/enterprise/mineru-adapter.yaml")
-    adapter = next(document for document in adapter_documents if document.get("kind") == "Deployment")
-    adapter_env = {item["name"]: item["value"] for item in adapter["spec"]["template"]["spec"]["containers"][0]["env"]}
+    adapter = _yaml_documents("k8s/enterprise/mineru-adapter-patch.yaml")[0]
+    adapter_env = {item["name"]: item["value"] for item in adapter["spec"]["template"]["spec"]["containers"][0]["env"] if "name" in item}
     assert adapter_env["PDF_SCAN_IMAGE_RATIO"] == "0.5"
     assert adapter_env["PDF_SCAN_MIN_CHARS_PER_PAGE"] == "10"
     assert adapter_env["PDF_SCAN_LOW_TEXT_IMAGE_RATIO"] == "0.1"
@@ -396,6 +505,10 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert adapter_env["MINERU_VISUAL_PAGE_MIN_VECTOR_OBJECTS"] == "12"
     assert adapter_env["MINERU_VISUAL_PAGE_MIN_VECTOR_AREA_RATIO"] == "0.05"
     assert adapter_env["MINERU_MAX_SEARCHABLE_VISUAL_PAGES"] == "80"
+    assert adapter_env["MINERU_REQUEST_MODE"] == "async"
+    assert adapter_env["MINERU_TIMEOUT_SECONDS"] == "1800"
+    assert adapter_env["MINERU_POLL_INTERVAL_SECONDS"] == "3"
+    assert adapter_env["MINERU_TRUST_ENV"] == "false"
 
 
 def test_enterprise_routes_internal_retrieval_models_through_gateway():
@@ -408,6 +521,7 @@ def test_enterprise_routes_internal_retrieval_models_through_gateway():
     assert gateway_entries["WEKNORA_DEFAULT_EMBEDDING_MODEL_ID"]["value"] == "deerflow-cnooc-qwen3-embedding-8b"
     assert gateway_entries["WEKNORA_DEFAULT_RERANK_MODEL_ID"]["value"] == "deerflow-cnooc-qwen3-reranker-8b"
     assert gateway_entries["CNOOC_EMBEDDING_DIMENSION"]["value"] == "1024"
+    assert gateway_entries["WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY"]["value"] == "200"
     assert gateway_entries["CNOOC_RETRIEVAL_API_KEY"]["valueFrom"]["secretKeyRef"] == {
         "name": "deer-flow-env",
         "key": "CNOOC_RETRIEVAL_API_KEY",
@@ -653,19 +767,11 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
     assert provisioner_values["SANDBOX_CA_SECRET_NAME"] == "deer-flow-enterprise-ca"
     assert provisioner_values["SANDBOX_CA_SECRET_KEY"] == "ca-bundle.crt"
     assert provisioner_values["SANDBOX_CA_MOUNT_PATH"] == "/etc/deerflow-ca"
-    assert (
-        provisioner_values["SANDBOX_OPENSSL_CONFIGMAP_NAME"]
-        == "deer-flow-gateway-openssl-compat"
-    )
+    assert provisioner_values["SANDBOX_OPENSSL_CONFIGMAP_NAME"] == "deer-flow-gateway-openssl-compat"
     assert provisioner_values["SANDBOX_OPENSSL_CONFIGMAP_KEY"] == "openssl.cnf"
-    assert (
-        provisioner_values["SANDBOX_OPENSSL_MOUNT_PATH"]
-        == "/etc/deerflow-openssl"
-    )
+    assert provisioner_values["SANDBOX_OPENSSL_MOUNT_PATH"] == "/etc/deerflow-openssl"
     assert provisioner_values["DASHSCOPE_TLS_COMPAT"] == "true"
-    sandbox_secret_keys = set(
-        provisioner_values["SANDBOX_SECRET_ENV_KEYS"].split(",")
-    )
+    sandbox_secret_keys = set(provisioner_values["SANDBOX_SECRET_ENV_KEYS"].split(","))
     assert "DASHSCOPE_API_KEY" in sandbox_secret_keys
     assert "GEMINI_API_KEY" not in sandbox_secret_keys
     assert {
@@ -675,9 +781,7 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
         "https_proxy",
     } <= sandbox_secret_keys
     assert {"NO_PROXY", "no_proxy"}.isdisjoint(sandbox_secret_keys)
-    sandbox_passthrough_keys = set(
-        provisioner_values["SANDBOX_PASSTHROUGH_ENV_KEYS"].split(",")
-    )
+    sandbox_passthrough_keys = set(provisioner_values["SANDBOX_PASSTHROUGH_ENV_KEYS"].split(","))
     assert {"NO_PROXY", "no_proxy"} <= sandbox_passthrough_keys
     assert provisioner_values["NO_PROXY"] == provisioner_values["no_proxy"]
     sandbox_no_proxy = set(provisioner_values["NO_PROXY"].split(","))
@@ -694,18 +798,9 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
         ".tavily.com",
     }.isdisjoint(sandbox_no_proxy)
 
-    gateway_patch = next(
-        patch
-        for patch in patches
-        if patch.get("kind") == "Deployment"
-        and patch.get("metadata", {}).get("name") == "gateway"
-    )
+    gateway_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
     gateway_env = gateway_patch["spec"]["template"]["spec"]["containers"][0]["env"]
-    gateway_values = {
-        entry["name"]: entry.get("value")
-        for entry in gateway_env
-        if "value" in entry
-    }
+    gateway_values = {entry["name"]: entry.get("value") for entry in gateway_env if "value" in entry}
     assert gateway_values["DASHSCOPE_TLS_COMPAT"] == "true"
     assert gateway_values["NO_PROXY"] == gateway_values["no_proxy"]
     assert {

@@ -3,6 +3,7 @@
 import { useParams, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { isStaticDemoThreadId } from "@/core/threads/static-demo";
 import { uuid } from "@/core/utils/uuid";
 
 export const THREAD_CHAT_RESET_EVENT = "platform:thread-chat-reset";
@@ -120,11 +121,13 @@ export function useThreadChat() {
   }, []);
 
   const isMock = searchParams.get("mock") === "true";
+  const effectiveThreadId = isNewPath || isNewThreadState ? null : threadId;
   return {
     threadId: isNewPath ? (newThreadIdRef.current ?? threadId) : threadId,
     setThreadId,
     isNewThread: isNewPath ? true : isNewThreadState,
     setIsNewThread,
     isMock,
+    isStaticDemo: isStaticDemoThreadId(effectiveThreadId),
   };
 }

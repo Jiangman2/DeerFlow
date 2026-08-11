@@ -229,6 +229,7 @@ def test_sandbox_pod_uses_tunable_probes_and_resources_for_heavy_aio_workloads(m
     assert container.startup_probe._exec.command[0:2] == ["python3", "-c"]
     assert "Authorization" in container.startup_probe._exec.command[2]
     assert "SANDBOX_API_KEY" in container.startup_probe._exec.command[2]
+    assert "timeout=5" in container.startup_probe._exec.command[2]
     assert container.startup_probe.period_seconds * container.startup_probe.failure_threshold >= 300
     assert container.liveness_probe.timeout_seconds == 7
     assert container.liveness_probe.failure_threshold == 8

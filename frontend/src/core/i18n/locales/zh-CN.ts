@@ -193,7 +193,8 @@ export const zhCN: Translations = {
     reasoningEffortHighDescription: "全维度逻辑推演 + 多路径验证 + 反推校验",
     searchModels: "搜索模型...",
     surpriseMe: "小惊喜",
-    surpriseMePrompt: "给我一个小惊喜吧",
+    surpriseMePrompt:
+      "/surprise-me 请结合当前可用技能，为我创作一个有创意、有视觉吸引力且令人惊喜的成果。",
     followupLoading: "正在生成可能的后续问题...",
     followupConfirmTitle: "发送建议问题？",
     followupConfirmDescription: "当前输入框已有内容，选择发送方式。",
@@ -218,35 +219,73 @@ export const zhCN: Translations = {
     suggestions: [
       {
         suggestion: "图片生成",
-        prompt: "生成一个关于[主题]的图片",
+        prompt:
+          "/image-generation 请生成一张以[主题]为核心的高质量图片，并根据主题选择合适的画面风格、构图、色彩和光影。",
         icon: ImageIcon,
       },
       {
         suggestion: "PPT生成",
-        prompt: "生成一个关于[主题]的PPT",
+        prompt: "/ppt-master 请创建一份5页高质量《[主题]》PPT。",
         icon: ShapesIcon,
+        menu: "ppt",
       },
       {
         suggestion: "深度研究",
-        prompt: "深入浅出的研究一下[主题]，并总结发现。",
+        prompt:
+          "/deep-research 请对[主题]进行系统、深入的多角度研究，核验关键信息，并总结主要发现、证据来源和结论。",
         icon: MicroscopeIcon,
       },
       {
         suggestion: "数据分析",
         prompt:
-          "分析上传的 Excel/CSV 文件，生成统计摘要、SQL 查询结果或结构化数据洞察。",
+          "/data-analysis 请分析我上传的Excel或CSV文件，先检查数据结构与质量，再生成统计摘要、关键指标、异常发现和可复用的数据洞察。",
         icon: PenLineIcon,
+      },
+    ],
+    pptRouteMenuTitle: "选择 PPT 工作流",
+    pptRouteSuggestions: [
+      {
+        id: "generate",
+        suggestion: "生成 PPT",
+        description: "从主题、资料或现有演示文稿创建新的 PPT",
+        prompt: "/ppt-master 请创建一份5页高质量《[主题]》PPT。",
+        icon: ShapesIcon,
+      },
+      {
+        id: "create-template",
+        suggestion: "创建模板",
+        description: "将参考材料转换成可复用的模板工作区",
+        prompt: "/ppt-master 请将我上传的PPTX转换成可复用的Deck模板工作区。",
+        icon: CompassIcon,
+      },
+      {
+        id: "fill-native",
+        suggestion: "填充原生 PPT",
+        description: "保留原生母版、版式和页面结构并填充新内容",
+        prompt:
+          "/ppt-master 请使用我上传的PPTX模板，保留其原生母版、版式和页面结构，将内容替换为[主题]。",
+        icon: PenLineIcon,
+      },
+      {
+        id: "enhance-native",
+        suggestion: "增强原生 PPT",
+        description: "保持页面视觉不变，添加备注、配音、计时和转场",
+        prompt:
+          "/ppt-master 请保持我上传的PPT页面内容和视觉效果不变，为每页增加演讲者备注、配音、自动播放时间和页面转场。",
+        icon: SparklesIcon,
       },
     ],
     suggestionsCreate: [
       {
         suggestion: "网页",
-        prompt: "生成一个关于[主题]的网页",
+        prompt:
+          "/frontend-design 请创建一个以[主题]为核心、视觉鲜明、响应式且可直接运行的高质量网页。",
         icon: CompassIcon,
       },
       {
         suggestion: "视频",
-        prompt: "生成一个关于[主题]的视频",
+        prompt:
+          "/video-generation 请生成一段以[主题]为核心的高质量视频，并根据主题设计合适的镜头、画面风格、运动和氛围。",
         icon: VideoIcon,
       },
       {
@@ -255,7 +294,7 @@ export const zhCN: Translations = {
       {
         suggestion: "技能",
         prompt:
-          "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
+          "/skill-creator 请帮助我创建一个新的技能。先询问我希望该技能解决什么问题、适用场景和预期交付物，再逐步完成设计、实现和验证。",
         icon: SparklesIcon,
       },
     ],
@@ -653,6 +692,10 @@ export const zhCN: Translations = {
     completed: "子任务已完成",
     failed: "子任务失败",
     incomplete: "子任务未完成",
+    viewStepDetails: "查看详情",
+    hideStepDetails: "收起详情",
+    toolInput: "工具输入",
+    toolOutput: "工具输出",
   },
 
   // Token Usage

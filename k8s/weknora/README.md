@@ -25,6 +25,14 @@ an operational upgrade for HA, backup, and multi-replica scheduling, not a
 prerequisite for retaining document images. `weknora-docreader-tmp` is temporary
 parser workspace and is not the durable asset store.
 
+The official DocReader image remains pinned and unmodified. The
+`weknora-docreader-xlsx-compat` ConfigMap mounts a small `sitecustomize` module
+at `/opt/deerflow-compat`; it ignores only the non-standard, formatting-only
+`defaultColWidthPt` worksheet attribute emitted by some enterprise XLSX
+exporters. It does not alter the uploaded XLSX, and all other openpyxl errors
+remain visible. Restart `deployment/weknora-docreader` after changing this
+ConfigMap because Python imports the hook only when the process starts.
+
 Create the runtime secret before applying the Kustomize bundle:
 
 ```powershell
@@ -262,15 +270,14 @@ and DeerFlow UI policy. After a successful exchange it also removes the
 standalone `weknora_lite_mode` fallback (and its session-only last path), because
 Lite mode hides organizations/shared spaces and must not survive an earlier
 failed native-auth bootstrap. System administrators keep every native route.
-Ordinary users see New Chat, Knowledge Bases, Shared Spaces, and Agents.
-Agent list/create/edit/configuration routes remain available, while Publish
-Integrations, system settings, and tenant-management routes are redirected
-back to Knowledge Bases. Entering the DeerFlow Knowledge page collapses
+Ordinary users see only Knowledge Bases and Shared Spaces in the native
+sidebar. New Chat, Agents, Publish Integrations, system settings, and
+tenant-management entries remain hidden, while native RBAC remains the
+authorization boundary. Entering the DeerFlow Knowledge page collapses
 DeerFlow's own sidebar and the patch expands WeKnora's sidebar once for both
 ordinary users and administrators. The native WeKnora sidebar toggle remains
 enabled afterwards.
-Their user menu hides all management links and logout. New Chat initializes
-with `DeepSeek-V4-Flash` when the browser has no previous explicit model choice.
+Their user menu hides all management links and logout.
 The ordinary-user New Knowledge Base dialog and existing knowledge-base
 Settings dialog expose only Basic Information. All native knowledge-base type
 and indexing choices remain available on that page, while deployment-managed

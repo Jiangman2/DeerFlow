@@ -52,7 +52,6 @@ import {
 } from "@/core/threads/hooks";
 import { threadTokenUsageToTokenUsage } from "@/core/threads/token-usage";
 import { textOfMessage } from "@/core/threads/utils";
-import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
@@ -60,8 +59,14 @@ export default function ChatPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isAdminReview = searchParams.get("admin_review") === "1";
-  const { threadId, setThreadId, isNewThread, setIsNewThread, isMock } =
-    useThreadChat();
+  const {
+    threadId,
+    setThreadId,
+    isNewThread,
+    setIsNewThread,
+    isMock,
+    isStaticDemo,
+  } = useThreadChat();
   // `isNewThread` tracks whether the backend has the thread yet — gates the
   // SDK's history fetch (see issue #2746).  `isWelcomeMode` is the visual
   // welcome layout (centered input, hero, quick actions); we flip it to false
@@ -72,12 +77,13 @@ export default function ChatPage() {
   const [localSettings, setLocalSettings] = useLocalSettings();
   const { tokenUsageEnabled } = useModels();
   const threadTokenUsage = useThreadTokenUsage(
-    isNewThread || isMock ? undefined : threadId,
-    { enabled: tokenUsageEnabled && !isMock },
+    isNewThread || isMock || isStaticDemo ? undefined : threadId,
+    { enabled: tokenUsageEnabled && !isMock && !isStaticDemo },
   );
   const threadMetadata = useThreadMetadata(threadId, {
     enabled: !isNewThread && !isMock,
     isMock,
+    isStaticDemo,
   });
   const branchThread = useBranchThread();
   const backendTokenUsage = threadTokenUsageToTokenUsage(threadTokenUsage.data);
@@ -110,8 +116,10 @@ export default function ChatPage() {
   } = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     displayThreadId: threadId,
+    isNewThread,
     context: settings.context,
     isMock,
+    isStaticDemo,
     // onSend only animates the UI; do NOT flip `isNewThread` here — the
     // LangGraph SDK eagerly fetches /history the moment it receives a
     // thread id and assumes the thread exists on the backend (issue #2746).
@@ -148,6 +156,7 @@ export default function ChatPage() {
     if (
       !isNewThread &&
       !isMock &&
+      !isStaticDemo &&
       threadMetadata.data === null &&
       !threadMetadata.isLoading &&
       !threadMetadata.isFetching &&
@@ -162,6 +171,7 @@ export default function ChatPage() {
     hasThreadMessages,
     isHistoryLoading,
     isMock,
+    isStaticDemo,
     isNewThread,
     router,
     threadMetadata.data,
@@ -216,7 +226,7 @@ export default function ChatPage() {
       if (
         isNewThread ||
         isMock ||
-        env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true"
+        isStaticDemo
       ) {
         return;
       }
@@ -235,7 +245,7 @@ export default function ChatPage() {
         );
       }
     },
-    [branchThread, isMock, isNewThread, router, t, threadId],
+    [branchThread, isMock, isNewThread, isStaticDemo, router, t, threadId],
   );
 
   const tokenUsageInlineMode = tokenUsageEnabled
@@ -312,7 +322,7 @@ export default function ChatPage() {
                     !isAdminReview &&
                     !isNewThread &&
                     !isMock &&
-                    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" &&
+                    !isStaticDemo &&
                     !isUploading &&
                     !thread.isLoading
                   }
@@ -320,7 +330,7 @@ export default function ChatPage() {
                   onSubmitHumanInput={
                     isAdminReview ||
                     isMock ||
-                    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true"
+                    isStaticDemo
                       ? undefined
                       : handleSubmitHumanInput
                   }
@@ -328,7 +338,7 @@ export default function ChatPage() {
                     !isAdminReview &&
                     !isNewThread &&
                     !isMock &&
-                    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" &&
+                    !isStaticDemo &&
                     !isUploading &&
                     !thread.isLoading &&
                     !branchThread.isPending
@@ -401,7 +411,7 @@ export default function ChatPage() {
                       disabled={
                         isAdminReview ||
                         isMock ||
-                        env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
+                        isStaticDemo ||
                         isUploading ||
                         hasOpenHumanInputCard ||
                         (!isNewThread && isHistoryLoading)
@@ -421,11 +431,6 @@ export default function ChatPage() {
                         isWelcomeMode && "-translate-y-2 sm:-translate-y-4",
                       )}
                     />
-                  )}
-                  {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" && (
-                    <div className="text-muted-foreground/67 w-full translate-y-12 text-center text-xs">
-                      {t.common.notAvailableInDemoMode}
-                    </div>
                   )}
                   {isAdminReview && (
                     <div className="text-muted-foreground w-full translate-y-3 text-center text-xs">

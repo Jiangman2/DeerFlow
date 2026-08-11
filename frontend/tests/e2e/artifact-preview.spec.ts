@@ -18,6 +18,9 @@ const MARKDOWN_ANCHOR_THREAD_ID = "00000000-0000-0000-0000-000000003123";
 const JSON_THREAD_ID = "00000000-0000-0000-0000-000000003122";
 const PRESENTED_THREAD_ID = "00000000-0000-0000-0000-000000003123";
 const PRESENTED_PPTX_THREAD_ID = "00000000-0000-0000-0000-000000003124";
+const STATIC_DEMO_THREAD_ID = "1490ac9e-1573-479d-875c-bd5680f3ba66";
+const STATIC_DEMO_PPTX_PATH =
+  "/mnt/user-data/outputs/cnooc_new_energy_20260811.pptx";
 
 function writeFileMessages({
   path = ARTIFACT_PATH,
@@ -112,6 +115,61 @@ test.describe("Artifact preview stability", () => {
     expect(response.ok()).toBeTruthy();
   });
 
+  test("shows the bundled demo PPTX from durable artifact state", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page);
+
+    await page.goto(`/workspace/chats/${STATIC_DEMO_THREAD_ID}`);
+
+    const artifactsPanel = page.locator("#artifacts");
+    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "true");
+    const chatBoxBefore = await page.locator("#chat").boundingBox();
+    expect(chatBoxBefore).not.toBeNull();
+
+    await page
+      .getByRole("button", {
+        name: "Show artifacts of this conversation",
+      })
+      .click();
+    await expect(artifactsPanel).toBeVisible();
+
+    const pptxCard = artifactsPanel.locator(
+      `[data-artifact-filepath="${STATIC_DEMO_PPTX_PATH}"]`,
+    );
+    await expect(pptxCard).toBeVisible();
+    const downloadLink = pptxCard.getByRole("link", { name: "Download" });
+    await expect(downloadLink).toBeVisible();
+    const listPanelBox = await artifactsPanel.boundingBox();
+    const pptxCardBox = await pptxCard.boundingBox();
+    const downloadLinkBox = await downloadLink.boundingBox();
+    expect(listPanelBox).not.toBeNull();
+    expect(pptxCardBox).not.toBeNull();
+    expect(downloadLinkBox).not.toBeNull();
+    expect(pptxCardBox!.x).toBeGreaterThanOrEqual(listPanelBox!.x);
+    expect(pptxCardBox!.x + pptxCardBox!.width).toBeLessThanOrEqual(
+      listPanelBox!.x + listPanelBox!.width + 1,
+    );
+    expect(downloadLinkBox!.x + downloadLinkBox!.width).toBeLessThanOrEqual(
+      listPanelBox!.x + listPanelBox!.width + 1,
+    );
+    await pptxCard.click();
+
+    const previewFrame = page.locator('iframe[title="Artifact preview"]');
+    await expect(previewFrame).toBeVisible();
+    await expect(previewFrame).toHaveAttribute("src", /\.preview\.html$/);
+
+    const panelBox = await page.locator("#artifacts").boundingBox();
+    const chatBoxAfter = await page.locator("#chat").boundingBox();
+    expect(panelBox).not.toBeNull();
+    expect(chatBoxAfter).not.toBeNull();
+    expect(panelBox!.y).toBeGreaterThanOrEqual(48);
+    expect(panelBox!.width).toBeLessThanOrEqual(570);
+    expect(Math.abs(chatBoxAfter!.width - chatBoxBefore!.width)).toBeLessThan(
+      2,
+    );
+  });
+
   test("renders preview iframe for an in-progress write artifact", async ({
     page,
   }) => {
@@ -134,7 +192,7 @@ test.describe("Artifact preview stability", () => {
     await expect(artifactsPanel).toHaveAttribute("aria-hidden", "true");
     await page.getByText(ARTIFACT_PATH).click();
 
-    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "false");
+    await expect(artifactsPanel).toBeVisible();
     await expect(artifactsPanel.getByText("report.html")).toBeVisible();
     await expect(
       artifactsPanel.locator('iframe[title="Artifact preview"]'),
@@ -407,9 +465,7 @@ test.describe("Artifact preview stability", () => {
         contentType: "application/pdf",
         headers: { "content-length": "14" },
         body:
-          route.request().method() === "HEAD"
-            ? undefined
-            : "%PDF-1.4\n%%EOF",
+          route.request().method() === "HEAD" ? undefined : "%PDF-1.4\n%%EOF",
       }),
     );
 
@@ -501,7 +557,7 @@ test.describe("Artifact preview stability", () => {
       .click();
 
     const artifactsPanel = page.locator("#artifacts");
-    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "false");
+    await expect(artifactsPanel).toBeVisible();
     await expect(
       artifactsPanel.locator('iframe[title="Artifact preview"]'),
     ).toHaveCount(0);
@@ -513,6 +569,65 @@ test.describe("Artifact preview stability", () => {
     await expect(
       artifactsPanel.getByRole("link", { name: "Download" }),
     ).toBeVisible();
+  });
+
+  test("retries a PowerPoint preview probe after a transient network failure", async ({
+    page,
+  }) => {
+    const transientThreadId = "00000000-0000-0000-0000-000000003127";
+    const transientDeck = "/mnt/user-data/outputs/transient-report.pptx";
+    const transientPreview =
+      "/mnt/user-data/outputs/transient-report.preview.pdf";
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: transientThreadId,
+          title: "Transient PowerPoint preview",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-transient-pptx",
+              content: [{ type: "text", text: "Create a PowerPoint" }],
+            },
+            {
+              type: "ai",
+              id: "msg-ai-transient-pptx",
+              content: `[transient-report.pptx](/api/threads/${transientThreadId}/artifacts${transientDeck})`,
+            },
+          ],
+          artifacts: [transientDeck, transientPreview],
+        },
+      ],
+    });
+
+    let previewProbeAttempts = 0;
+    await page.route(
+      `**/api/threads/${transientThreadId}/artifacts${transientPreview}`,
+      (route) => {
+        previewProbeAttempts += 1;
+        if (previewProbeAttempts === 1) {
+          return route.abort("connectionrefused");
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: "application/pdf",
+          body: route.request().method() === "HEAD" ? undefined : "%PDF-1.4",
+        });
+      },
+    );
+
+    await page.goto(`/workspace/chats/${transientThreadId}`);
+    await page.getByRole("link", { name: "transient-report.pptx" }).click();
+
+    const previewFrame = page
+      .locator("#artifacts")
+      .locator('iframe[title="Artifact preview"]');
+    await expect(previewFrame).toBeVisible({ timeout: 10_000 });
+    await expect(previewFrame).toHaveAttribute(
+      "src",
+      /transient-report\.preview\.pdf$/,
+    );
+    expect(previewProbeAttempts).toBeGreaterThanOrEqual(2);
   });
 
   test("does not render or open artifacts from a failed present_files call", async ({

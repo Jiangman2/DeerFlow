@@ -25,16 +25,16 @@ configMapGenerator:
 images:
   - name: deer-flow-gateway
     newName: deer-flow-gateway
-    newTag: dev-20260805-pptmaster-upstream-v1
+    newTag: dev-20260811-ppt-runner-v5
   - name: deer-flow-mineru-adapter
     newName: deer-flow-mineru-adapter
-    newTag: dev-20260729-mineru-stability-v1
+    newTag: dev-20260810-mineru-v1
   - name: deer-flow-frontend
     newName: deer-flow-frontend
-    newTag: dev-20260806-ppt-static-demo-v4
+    newTag: dev-20260811-dashboard-refresh-v1
   - name: deer-flow-provisioner
     newName: deer-flow-provisioner
-    newTag: dev-20260730-bailian-image-v3
+    newTag: dev-20260810-responses-v1
   - name: deer-flow-skills
     newName: deer-flow-skills
-    newTag: dev-20260805-pptmaster-upstream-v1
+    newTag: dev-20260810-ppt-master-v450-v1

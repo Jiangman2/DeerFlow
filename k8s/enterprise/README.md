@@ -29,22 +29,41 @@ changing them; updating the ConfigMap alone does not refresh the mounted files.
 The base WeKnora deployment creates one personal workspace for each newly
 provisioned DeerFlow user and disables ordinary self-service creation of
 additional tenant workspaces. DeerFlow administrators remain cross-tenant
-WeKnora system administrators. The embedded UI presents normal users with New
-Chat, Knowledge Bases, Shared Spaces, and Agents while keeping Publish
+WeKnora system administrators. The embedded UI presents normal users with only
+Knowledge Bases and Shared Spaces while keeping New Chat, Agents, Publish
 Integrations, system settings, and tenant-management controls hidden; native
 WeKnora RBAC and the server-side tenant-creation setting remain authoritative.
 
 ## Images
 
-Third-party images are pinned to the ARM64 manifest digests verified on
-`datax-01` on 2026-07-21. Provisioner, Skills, and Sandbox remain on the
-immutable `20260723-enterprise-arm64-rc3` release tag. The MinerU adapter
-remains on the validated `20260723-enterprise-arm64-rc4` tag. Gateway uses
-`20260726-enterprise-arm64-rc6-embeddingrelay2`, while Frontend uses
-`20260725-enterprise-arm64-rc6-schedulermodel1`. These immutable application
-tags include the current CNOOC SSO, WeKnora integration, direct agent-card
-routes, scheduled-task model selection, and the authenticated embedding relay
-required by the enterprise deployment:
+### PPT Master Agent model bridge
+
+The isolated PPT Agent cannot call the enterprise `DeepSeek-V4-Flash` Chat
+Completions endpoint as though it were a Responses provider. Gateway therefore
+owns the narrow `/api/codex/deepseek/v1/responses` conversion endpoint. Create a
+separate random `PPT_MASTER_RESPONSES_RELAY_KEY` in `deer-flow-env`; Gateway and
+the `ppt-master-agent-host` receive that relay key, while only Gateway receives
+the upstream `DeepSeek_V4_API_KEY`. The ordinary `sandbox` container is
+deliberately excluded from the relay key.
+
+The bridge follows the documented internal protocol: it forces streaming,
+maps `enable_thinking` and `reasoning_effort`, reconstructs streamed function
+calls, replays tool results with `tool_call_id`, bounds transient retries, and
+does not persist or emit raw `reasoning_content`. Calls to `model.ai.cnooc`
+bypass the external proxy with `trust_env=false` but retain normal CA and
+hostname verification. Never copy the example client's `verify=False` setting.
+
+After importing the Gateway, Provisioner, and PPT Sandbox release images on
+every eligible node, acceptance requires a real Codex Shell tool round-trip
+through this bridge. Unit tests or a simple HTTP 200 are necessary but not
+sufficient evidence for the enterprise provider path.
+
+Third-party images remain pinned to the ARM64 manifest digests verified on
+`datax-01`. The six DeerFlow-owned runtime images use the consolidated immutable
+`20260811-enterprise-arm64-rc15-consolidated1` release tag. This release folds
+the current source tree and all previously accepted production hotfix outcomes
+into one auditable baseline; rollout does not replay historical patch scripts or
+replace live Secrets, runtime ConfigMaps, databases, or PVC contents:
 
 - `deer-flow-gateway`
 - `deer-flow-frontend`
@@ -73,7 +92,7 @@ with this exact command so the image contains
 
 ```bash
 docker build -f docker/k8s-skills/Dockerfile \
-  -t deerflow.local/deer-flow-skills:20260723-enterprise-arm64-rc3 .
+  -t deerflow.local/deer-flow-skills:20260811-enterprise-arm64-rc15-consolidated1 .
 ```
 
 The skills-sync Job validates that layout before replacing the PVC contents.
@@ -88,7 +107,7 @@ contains LibreOffice. Build it on an ARM64 server with
 ```bash
 docker build -f docker/mineru_adapter/Dockerfile \
   --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b \
-  -t deerflow.local/deer-flow-mineru-adapter:20260729-enterprise-arm64-rc12-minerustability1 \
+  -t deerflow.local/deer-flow-mineru-adapter:20260811-enterprise-arm64-rc15-consolidated1 \
   docker/mineru_adapter
 ```
 
@@ -98,7 +117,11 @@ internal ClusterIP Service, and translates WeKnora's `/file_parse` contract.
 DOC/DOCX/PPT/PPTX input is converted to PDF with LibreOffice for its visual
 supplement. Word keeps the native parser's text, tables, and ordinary inline
 images; the PDF copy recovers charts, SmartArt, grouped shapes, and other
-render-only evidence. PDF input is inspected locally before parsing: documents
+render-only evidence. The PDF copy is an optional Word enhancement: if
+LibreOffice cannot export a DOC/DOCX after native Word parsing has succeeded,
+the adapter returns the recovered text, tables, and native images instead of
+failing the whole document. Presentation conversion remains strict because it
+has no equivalent native result to preserve. PDF input is inspected locally before parsing: documents
 whose pages all contain usable text stay on the WeKnora builtin text parser,
 while a scanned/image-dominated page routes the whole PDF to the enterprise
 MinerU API. For searchable PDF/Word pages, multilingual `Figure N`/`图 N`
@@ -118,6 +141,9 @@ multiple documents arrive together. `/health` stays responsive during a long
 parse and reports `parser.active` and `parser.waiting`; queued uploads are
 expected and must not be interpreted as a hung Pod. Do not bypass the
 coordinator or enable concurrent parsing inside one adapter process.
+The readiness and liveness probes intentionally tolerate several short health
+response delays during native-library cleanup while retaining a bounded failure
+window for a genuinely wedged process.
 
 The audited three-node cluster runs exactly three adapter replicas with required
 hostname anti-affinity, so each node contributes one independent native parser
@@ -198,6 +224,15 @@ The source bundle must not contain real `.env`, `config.yaml`,
 manifests. Create these runtime objects on `datax-01` immediately before the
 deployment:
 
+The enterprise runtime patch sets `DEER_FLOW_SSO_ONLY=true` on both Gateway and
+Frontend and sets the Frontend's `DEER_FLOW_UNAUTHENTICATED_HOME_URL` to the
+approved DataLake portal. This combination redirects every unauthenticated auth
+page away from DeerFlow and makes Gateway return `403 local_auth_disabled` for
+local login, registration, setup initialization, password changes, and generic
+OIDC flows. Do not remove either variable or depend on the browser redirect
+alone; `/api/v1/auth/cnooc/login` is the only interactive enterprise sign-in
+entry that remains enabled.
+
 - `deer-flow-config` ConfigMap
 - `deer-flow-extensions-config` ConfigMap
 - `weknora-config` ConfigMap (generated by the WeKnora base kustomization)
@@ -238,10 +273,12 @@ kubectl -n deer-flow create secret generic weknora-neo4j-secret \
 unset NEO4J_PASSWORD
 ```
 
-Use the URL and hardcoded Bearer key from the approved enterprise
-`simple_mineru_parser.py` example. Do not copy either value into this
-repository, a Docker build argument, or a ConfigMap. Create the runtime Secret
-interactively on the server:
+Use the approved MinerU-2605 service root URL (for example, ending in
+`/member1/mineru-2605`) and its Bearer key. The Adapter derives the native
+`/tasks`, `/tasks/{id}`, and `/tasks/{id}/result` routes from that root; legacy
+full `/file_parse` and `/tasks` URLs are also normalized back to the reviewed
+service root. Do not copy either value into this repository, a Docker build
+argument, or a ConfigMap. Create the runtime Secret interactively on the server:
 
 ```bash
 read -r -p 'MinerU API URL: ' MINERU_API_URL
@@ -253,12 +290,44 @@ kubectl -n deer-flow create secret generic deer-flow-mineru \
 unset MINERU_API_URL MINERU_API_TOKEN
 ```
 
+The enterprise Adapter uses MinerU's asynchronous multipart `POST /tasks`
+workflow with `backend=pipeline`, `parse_method=auto`, Markdown and images
+enabled. It polls the task status every three seconds and retrieves the JSON
+result after completion, with a bounded 1800-second end-to-end timeout. The
+in-cluster WeKnora-facing contract remains synchronous, so no native WeKnora
+change is required. A transient HTTP-200 business envelope with code `20006`
+during status or result polling is retried with bounded backoff against the
+same task ID; it must never cause a second task submission. Before Markdown is
+returned to WeKnora, an implausibly large ATX heading is demoted to ordinary
+text without deleting content or image references, preventing that malformed
+heading from being copied into every child embedding request. Keep
+`MINERU_TRUST_ENV=false` for the approved
+direct internal route. Because Requests does not consume
+`REQUESTS_CA_BUNDLE` through environment merging when `trust_env` is disabled,
+the Adapter explicitly binds that mounted CA bundle to its MinerU session while
+retaining certificate and hostname verification. When exposed by the provider,
+the MinerU `/health` response must report at least 20 concurrent upstream
+requests before rollout. Some reviewed gateway prefixes do not publish
+`/health`; in that case a real authenticated asynchronous PDF parse is the hard
+preflight gate. This upstream capacity does not
+authorize in-process PDFium/DocReader concurrency; retain the three serialized
+Adapter Pods and WeKnora's 2+1 worker limits unless a separate memory and native
+library safety review approves a different topology.
+
 The enterprise Gateway routes `.pdf`, `.ppt`, and `.pptx` uploads to the
 in-cluster adapter and passes its endpoint as a per-upload override. Only
 scanned/mixed PDFs and presentations call the enterprise MinerU API; searchable
 PDFs are parsed locally by WeKnora. Other document types keep their native
 WeKnora parser selection. The local overlay continues to use `markitdown`, so
 an internal MinerU outage cannot break local development.
+
+Native XLSX parsing remains in the official WeKnora DocReader Pod. The base
+bundle mounts `weknora-docreader-xlsx-compat` through `PYTHONPATH` so workbooks
+containing the formatting-only `defaultColWidthPt` worksheet extension can be
+opened by the pinned openpyxl runtime. The shim ignores no other attributes and
+does not mutate the original workbook. After applying or updating the
+ConfigMap, restart `deployment/weknora-docreader` and validate both a standard
+XLSX and a representative affected XLSX before retrying failed documents.
 
 The PDF detector defaults match WeKnora's existing scanned-page heuristics:
 `PDF_SCAN_IMAGE_RATIO=0.5`, `PDF_SCAN_MIN_CHARS_PER_PAGE=10`, and
@@ -300,7 +369,12 @@ upstream credential and generate a different
 `WEKNORA_INTERNAL_MODEL_RELAY_KEY` for WeKnora-to-Gateway authentication.
 Gateway reaches `model.ai.cnooc` directly with `trust_env=false`, fixes
 embeddings at 1024 Matryoshka dimensions, and L2-normalizes any
-4096-dimensional native response after prefix truncation. The versioned
+4096-dimensional native response after prefix truncation. The Gateway
+embedding relay is capped at 200 concurrent upstream requests to match the
+approved retrieval credential. This does not change WeKnora's 2+1 document
+worker limit or the three serialized MinerU Adapter replicas; rerank continues
+through its independent relay path and shares the same upstream application
+quota. Bounded retries for transient business code `10020` remain enabled. The versioned
 WeKnora defaults Job applies
 `k8s/weknora/enterprise-model-feature-defaults.sql` after the built-in model
 rows are ready. It switches only empty/future knowledge bases automatically.
@@ -349,8 +423,11 @@ the Sandbox Pod and force authenticated DashScope POSTs onto the blocked direct
 route:
 
 The enterprise Gateway manifest also sets
-`DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`. Conversation PDF, DOC/DOCX,
-and PPT/PPTX uploads therefore try the in-cluster MinerU Adapter first and use
+`DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860` and
+`DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`. The Gateway wait therefore
+extends 60 seconds beyond the Adapter's bounded 1800-second upstream wait so a
+completed response can still be transferred and persisted. Conversation PDF,
+DOC/DOCX, and PPT/PPTX uploads try the in-cluster MinerU Adapter first and use
 DeerFlow's local Markdown conversion only when that request fails. The upload is
 reported as partially unreadable only when both paths fail. Legacy binary
 `.doc` uses the current task sandbox's LibreOffice to make a temporary DOCX

@@ -121,4 +121,27 @@ RUN --mount=type=secret,id=enterprise_proxy,required=false \
     && rm -f /tmp/websocat \
     && websocat --version | grep -F "websocat ${WEBSOCAT_VERSION}"
 
+# The AIO image has an outer authentication Nginx in front of the Python
+# command service. Its stock 60-second proxy timeout can report a false 504
+# while a bounded long command (for example, batch image generation) is still
+# running and persisting output. Keep both authenticated and unauthenticated
+# upstream locations aligned with the command service; the DeerFlow client
+# still enforces its per-command hard timeout. Keep this in a trailing layer so
+# transport-only changes do not invalidate the large Office/browser layers.
+RUN outer_nginx=/opt/gem/nginx-server-with-auth.conf; \
+    upstream_count="$(grep -cF 'proxy_pass http://127.0.0.1:${AUTH_BACKEND_PORT};' "${outer_nginx}")"; \
+    test "${upstream_count}" -eq 2; \
+    sed -i '/proxy_pass http:\/\/127\.0\.0\.1:${AUTH_BACKEND_PORT};/a\        proxy_connect_timeout 5s;\
+        proxy_read_timeout 86400s;\
+        proxy_send_timeout 86400s;' "${outer_nginx}"; \
+    test "$(grep -cF 'proxy_read_timeout 86400s;' "${outer_nginx}")" -eq 2
+
 ENV PYTHONDONTWRITEBYTECODE=1
+
+# The same immutable image runs both containers in a provisioned Sandbox Pod:
+# the stock AIO command/browser container and this lightweight external Agent
+# host. Keeping Codex, Office/Chromium, fonts, ppt-master dependencies, CA trust,
+# and the host service in one image prevents host/runtime drift between them.
+COPY docker/sandbox-ppt-master/agent_host.py /opt/ppt-master-agent-host/agent_host.py
+RUN chmod 0755 /opt/ppt-master-agent-host/agent_host.py \
+    && python3 -m py_compile /opt/ppt-master-agent-host/agent_host.py

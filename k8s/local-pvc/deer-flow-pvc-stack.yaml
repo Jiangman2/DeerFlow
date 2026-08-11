@@ -59,20 +59,88 @@ spec:
             - name: K8S_CREATE_NAMESPACE
               value: "false"
             - name: SANDBOX_IMAGE
-              value: deer-flow-aio-sandbox:ppt-master-dev-20260805-upstream-v1
+              value: deer-flow-aio-sandbox:ppt-master-dev-20260811-responses-v4
             - name: SKILLS_PVC_NAME
               value: deer-flow-skills-pvc
             - name: USERDATA_PVC_NAME
               value: deer-flow-userdata-pvc
-            - name: SANDBOX_ACCESS_MODE
-              value: cluster
+            - name: SANDBOX_SERVICE_TYPE
+              value: ClusterIP
+            - name: PPT_MASTER_AGENT_HOST_ENABLED
+              value: "true"
+            - name: PPT_MASTER_AGENT_HOST_PORT
+              value: "8788"
+            - name: CODEX_CONFIG_TOML
+              value: |-
+                model = "qwen3.7-max"
+                model_provider = "model_studio"
+                model_context_window = 1000000
+                model_auto_compact_token_limit = 850000
+                model_reasoning_effort = "high"
+                model_catalog_json = "/mnt/user-data/workspace/.ppt-master-agent/codex-home/model-catalog.local.json"
+
+                [model_providers.model_studio]
+                name = "Alibaba Cloud Model Studio"
+                base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                env_key = "DASHSCOPE_API_KEY"
+                wire_api = "responses"
+                request_max_retries = 2
+                stream_max_retries = 2
+                stream_idle_timeout_ms = 900000
+            - name: CODEX_MODEL_CATALOG_JSON
+              value: |-
+                {
+                  "models": [
+                    {
+                      "slug": "qwen3.7-max",
+                      "display_name": "qwen3.7-max",
+                      "description": "Alibaba Cloud Model Studio qwen3.7-max",
+                      "default_reasoning_level": "high",
+                      "supported_reasoning_levels": [
+                        {"effort": "low", "description": "Faster reasoning"},
+                        {"effort": "high", "description": "Deep reasoning"},
+                        {"effort": "xhigh", "description": "Maximum reasoning"}
+                      ],
+                      "context_window": 1000000,
+                      "effective_context_window_percent": 95,
+                      "supports_parallel_tool_calls": false,
+                      "supports_image_detail_original": false,
+                      "input_modalities": ["text"],
+                      "shell_type": "default",
+                      "visibility": "list",
+                      "supported_in_api": true,
+                      "priority": 1,
+                      "base_instructions": "",
+                      "support_verbosity": false,
+                      "supports_reasoning_summaries": false,
+                      "experimental_supported_tools": [],
+                      "truncation_policy": {"mode": "bytes", "limit": 10000}
+                    }
+                  ]
+                }
+            - name: SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS
+              value: "5"
+            - name: SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD
+              value: "120"
+            - name: SANDBOX_READINESS_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_LIVENESS_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_CPU_REQUEST
+              value: "1"
+            - name: SANDBOX_MEMORY_REQUEST
+              value: 1Gi
+            - name: SANDBOX_CPU_LIMIT
+              value: "2"
+            - name: SANDBOX_MEMORY_LIMIT
+              value: 4Gi
             - name: KUBECONFIG_WAIT_SECONDS
               value: "0"
             - name: SANDBOX_READINESS_INITIAL_DELAY_SECONDS
               value: "5"
             - name: SANDBOX_READINESS_PERIOD_SECONDS
-              value: "5"
-            - name: SANDBOX_READINESS_TIMEOUT_SECONDS
               value: "5"
             - name: SANDBOX_READINESS_FAILURE_THRESHOLD
               value: "3"
@@ -80,24 +148,14 @@ spec:
               value: "10"
             - name: SANDBOX_LIVENESS_PERIOD_SECONDS
               value: "10"
-            - name: SANDBOX_LIVENESS_TIMEOUT_SECONDS
-              value: "5"
             - name: SANDBOX_LIVENESS_FAILURE_THRESHOLD
               value: "6"
-            - name: SANDBOX_CPU_REQUEST
-              value: 500m
-            - name: SANDBOX_MEMORY_REQUEST
-              value: 512Mi
-            - name: SANDBOX_CPU_LIMIT
-              value: "2"
-            - name: SANDBOX_MEMORY_LIMIT
-              value: 2Gi
             - name: SANDBOX_ENV_SECRET_NAME
               value: deer-flow-env
             - name: SANDBOX_SECRET_ENV_KEYS
-              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,CODEX_API_KEY,ARK_API_KEY,OPENAI_API_KEY,PPT_MASTER_RESPONSES_RELAY_KEY
             - name: SANDBOX_PASSTHROUGH_ENV_KEYS
-              value: IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT
+              value: CODEX_CONFIG_TOML,CODEX_MODEL_CATALOG_JSON,IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT
             - name: IMAGE_BACKEND
               value: qwen
             - name: IMAGE_GENERATION_PROVIDER
@@ -200,7 +258,7 @@ spec:
     spec:
       initContainers:
         - name: seed-extensions-config
-          image: deer-flow-gateway:dev-20260726-consolidation-v1
+          image: deer-flow-gateway:dev-20260811-ppt-task-timeline-v1
           imagePullPolicy: IfNotPresent
           command:
             - sh
@@ -255,7 +313,7 @@ spec:
               readOnly: true
       containers:
         - name: gateway
-          image: deer-flow-gateway:dev-20260726-consolidation-v1
+          image: deer-flow-gateway:dev-20260811-ppt-task-timeline-v1
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
@@ -270,6 +328,8 @@ spec:
               value: "true"
             - name: GATEWAY_PORT
               value: "8001"
+            - name: PPT_MASTER_RUNNER_INTERNAL_URL
+              value: http://127.0.0.1:8003
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -333,6 +393,28 @@ spec:
                   name: deer-flow-env
                   key: DeepSeek_V4_API_KEY
                   optional: true
+            # Local Docker Desktop runs directly and must not inherit the
+            # enterprise proxy/CA values that may also exist in deer-flow-env.
+            - name: HTTP_PROXY
+              value: ""
+            - name: HTTPS_PROXY
+              value: ""
+            - name: http_proxy
+              value: ""
+            - name: https_proxy
+              value: ""
+            - name: SSL_CERT_FILE
+              value: ""
+            - name: REQUESTS_CA_BUNDLE
+              value: ""
+            - name: CURL_CA_BUNDLE
+              value: ""
+            - name: NODE_EXTRA_CA_CERTS
+              value: ""
+            - name: OPENSSL_CONF
+              value: ""
+            - name: DASHSCOPE_TLS_COMPAT
+              value: ""
             - name: NO_PROXY
               value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
             - name: no_proxy
@@ -366,8 +448,8 @@ spec:
               port: 8001
             initialDelaySeconds: 60
             periodSeconds: 15
-            timeoutSeconds: 3
-            failureThreshold: 4
+            timeoutSeconds: 10
+            failureThreshold: 8
           startupProbe:
             httpGet:
               path: /api/v1/auth/setup-status
@@ -378,10 +460,114 @@ spec:
           resources:
             requests:
               cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 6Gi
+        - name: ppt-master-runner
+          image: deer-flow-gateway:dev-20260811-ppt-task-timeline-v1
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - cd backend && PYTHONPATH=. uv run --no-sync uvicorn app.gateway.app:app --host 0.0.0.0 --port 8003 --workers 1
+          ports:
+            - containerPort: 8003
+          envFrom:
+            - secretRef:
+                name: deer-flow-env
+          env:
+            - name: CI
+              value: "true"
+            - name: GATEWAY_PORT
+              value: "8003"
+            - name: DEER_FLOW_RUNTIME_PROFILE
+              value: ppt-master-runner
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: DATABASE_URL
+            - name: DEER_FLOW_PROJECT_ROOT
+              value: /app
+            - name: DEER_FLOW_HOME
+              value: /app/backend/.deer-flow
+            - name: DEER_FLOW_CONFIG_PATH
+              value: /app/backend/config.yaml
+            - name: DEER_FLOW_EXTENSIONS_CONFIG_PATH
+              value: /app/backend/.deer-flow/runtime-config/extensions_config.json
+            # Local Docker Desktop uses direct external access. The enterprise
+            # overlay replaces these values and mounts its audited CA bundle.
+            - name: HTTP_PROXY
+              value: ""
+            - name: HTTPS_PROXY
+              value: ""
+            - name: http_proxy
+              value: ""
+            - name: https_proxy
+              value: ""
+            - name: SSL_CERT_FILE
+              value: ""
+            - name: REQUESTS_CA_BUNDLE
+              value: ""
+            - name: CURL_CA_BUNDLE
+              value: ""
+            - name: NODE_EXTRA_CA_CERTS
+              value: ""
+            - name: OPENSSL_CONF
+              value: ""
+            - name: TAVILY_TLS_COMPAT
+              value: ""
+            - name: DASHSCOPE_TLS_COMPAT
+              value: ""
+            - name: NO_PROXY
+              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
+            - name: no_proxy
+              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
+          volumeMounts:
+            - name: config
+              mountPath: /app/backend/config.yaml
+              subPath: config.yaml
+              readOnly: true
+            - name: extensions-config
+              mountPath: /app/backend/extensions_config.json
+              subPath: extensions_config.json
+              readOnly: true
+            - name: userdata
+              mountPath: /app/backend/.deer-flow
+              subPath: deer-flow
+            - name: skills
+              mountPath: /app/skills
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 8
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 180
+          resources:
+            requests:
+              cpu: 250m
               memory: 1Gi
             limits:
               cpu: "2"
-              memory: 3Gi
+              memory: 4Gi
       volumes:
         - name: config
           configMap:
@@ -409,6 +595,9 @@ spec:
     - name: http
       port: 8001
       targetPort: 8001
+    - name: ppt-master-runner
+      port: 8003
+      targetPort: 8003
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -427,7 +616,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: deer-flow-frontend:dev-20260726-consolidation-v1
+          image: deer-flow-frontend:dev-20260811-dashboard-refresh-v1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
@@ -438,7 +627,7 @@ spec:
             - name: DEER_FLOW_INTERNAL_GATEWAY_BASE_URL
               value: http://gateway:8001
             - name: NEXT_PUBLIC_STATIC_WEBSITE_ONLY
-              value: "true"
+              value: "false"
             - name: WEKNORA_FRONTEND_URL
               value: http://127.0.0.1:2026/platform/knowledge-bases
           readinessProbe:
@@ -510,9 +699,11 @@ spec:
               cp /etc/nginx/nginx.conf.template /tmp/nginx.conf
               sed -i 's|resolver 127.0.0.11 valid=10s ipv6=off;|# Static Kubernetes Service upstreams do not need Docker DNS.|' /tmp/nginx.conf
               sed -i 's|set $gateway_upstream gateway:8001;|# gateway upstream is a Kubernetes Service.|' /tmp/nginx.conf
+              sed -i 's|set $ppt_master_runner_upstream ppt-master-runner:8003;|# ppt-master runner upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|set $frontend_upstream frontend:3000;|# frontend upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|set $provisioner_upstream provisioner:8002;|# provisioner upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$gateway_upstream;|proxy_pass http://gateway:8001;|g' /tmp/nginx.conf
+              sed -i 's|proxy_pass http://$ppt_master_runner_upstream;|proxy_pass http://gateway:8003;|g' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$frontend_upstream;|proxy_pass http://frontend:3000;|g' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$provisioner_upstream;|proxy_pass http://provisioner:8002;|g' /tmp/nginx.conf
               nginx -c /tmp/nginx.conf -g 'daemon off;'

@@ -8,6 +8,13 @@ description: Main-pipeline control stage for resuming execution in a fresh chat 
 
 This stage is **context-independent**: it owns the execution session starting from a fresh chat — no upstream conversation context required. Persisted project artifacts replace the planning session's confirmation dialogue and image-acquisition history.
 
+`validation/workflow.log` is a cold command/outcome audit log with optional
+important manual entries, not persisted planning state. Do not open or replay
+it while resuming. Use the real artifacts in Step 1 to establish current state;
+inspect the log only when the user explicitly asks to review the prior run. Run
+inherited Python commands normally; their shared CLI bootstrap records a
+bounded material outcome selection automatically, not the full console stream.
+
 ## When to Run
 
 The user opens a new chat and gives a phrase that names a project path and signals continuation. Recognize any of:
@@ -32,7 +39,25 @@ Verify the project's planning-session artifacts before doing anything else:
 | `<project_path>/design_spec.md` | Always | Complete approved design narrative and Section IX page outline; read it completely once in this fresh execution context |
 | `<project_path>/images/` plus files whose row status requires existence | `spec_lock images` references any image | `Existing` / `Generated` / `Sourced` / `Rendered` files must exist; an absent `Needs-Manual` file remains allowed until the Step 7 readiness gate |
 | `<project_path>/templates/` | `spec_lock page_layouts` references any | Layout / mirror prototypes required by execution |
-| `skills/ppt-master/templates/charts/` | `spec_lock page_charts` references any | Shared chart SVGs selected by key |
+| Resolver-returned Chart/Table SVG | `spec_lock page_visualizations` or legacy `page_charts` references a live Chart/Table key | Shared page-local SVG selected through the two live catalogs |
+
+Resolve every live Chart/Table value through the shared catalog resolver before
+Step 6. Validate canonical `family/key` from `page_visualizations` directly;
+opt into bare-key resolution only for a live Chart/Table value read from legacy
+`page_charts`:
+
+```bash
+python3 skills/ppt-master/scripts/visualization_recall.py validate \
+  <family/key> [<family/key> ...]
+python3 skills/ppt-master/scripts/visualization_recall.py validate \
+  --legacy-bare <legacy-key> [<legacy-key> ...]
+```
+
+Require every returned SVG to exist. Never construct a path from the key,
+guess a family directory, or prefer one registry. Failed, missing, or ambiguous
+live resolution is a missing planning dependency and stops this stage. A
+retired Structure bare key carries semantic intent only and requires no SVG;
+recover its relationship from §IX, or return to Step 4 when §IX is insufficient.
 
 If any required artifact is missing, report it and stop this stage. Do not enter Step 6 or invent a replacement artifact. Recover by artifact owner:
 
@@ -52,11 +77,12 @@ Then jump to `### Step 6: Executor Phase` and run the documented pipeline:
 
 - Read the complete project Design Spec, then the complete `spec_lock.md`, once to establish the fresh execution context
 - Resolve the effective Speaker Notes, Custom Animations, and Narration Audio
-  outcomes from `design_spec.md §I`. Missing legacy outcomes use
+  outcomes from `design_spec.md §I`. Missing outcomes use the workflow defaults
   `enabled` / `disabled` / `disabled`; these production decisions never come
   from `spec_lock.md`
 - If resuming mid-deck, read the latest completed SVG and current image metadata when images are used
 - Read the complete Step 6 always-on core exactly as listed in [`generate-pptx.md`](../generate-pptx.md); for custom directions, reload every optional `*_references` file from `spec_lock.md` before applying the behavior, then only the branches selected by the condition table
+- For each page, make the mandatory Structure decision from retained §IX after its content/communication move is established and before any geometry; a `yes` result loads `executor-structure.md` before realization and creates no artifact or lock row
 - Design Parameter Confirmation
 - When structured, read the template Design Spec and each selected prototype once; retain unchanged references in the fresh context. A later bounded repair follows [`executor-base.md`](../../references/executor-base.md) §2.1 only while that context remains valid and uncompacted
 - Generate pages sequentially from the retained planning artifacts. Use `page-context` only for the on-demand diagnostic/telemetry triggers in Executor §2.1, never as a routine pre-page load
@@ -71,7 +97,7 @@ Then jump to `### Step 6: Executor Phase` and run the documented pipeline:
 
 Reload the Generate authority and required execution references; do not reconstruct or replay the earlier planning conversation.
 
-If the user gives a newer explicit instruction after Stage 3, update only the
+If the user gives a newer explicit instruction after final Stage 2, update only the
 affected effective outcome and provenance in `design_spec.md §I`, then resume at
 its owning step. Do not reopen Confirm UI or add the decision to
 `spec_lock.md`. Before writing, apply Generate's single notes/audio dependency

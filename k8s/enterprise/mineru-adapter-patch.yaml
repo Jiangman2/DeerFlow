@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deer-flow-mineru-adapter
+  namespace: deer-flow
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Required hostname anti-affinity leaves no room for a fourth surge Pod
+      # on the audited three-node cluster. Replace one replica at a time.
+      maxUnavailable: 1
+      maxSurge: 0
+  template:
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - deer-flow-mineru-adapter
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: adapter
+          image: deer-flow-mineru-adapter:enterprise
+          imagePullPolicy: Never
+          envFrom:
+            - secretRef:
+                name: deer-flow-mineru
+          env:
+            # Replace local development endpoint/token placeholders entirely.
+            - $patch: replace
+            - name: MINERU_LISTEN_PORT
+              value: "50052"
+            - name: MINERU_REQUEST_MODE
+              value: async
+            - name: MINERU_TIMEOUT_SECONDS
+              value: "1800"
+            - name: MINERU_POLL_INTERVAL_SECONDS
+              value: "3"
+            # Retry transient status/result IO envelopes against the same
+            # submitted task; never create a duplicate MinerU task.
+            - name: MINERU_TRANSIENT_POLL_RETRIES
+              value: "20"
+            - name: MINERU_TRUST_ENV
+              value: "false"
+            # PDFium/DocReader use native libraries that are unsafe under
+            # concurrent in-process parsing. The adapter serializes parse jobs
+            # while its threaded HTTP server keeps health probes responsive.
+            - name: LIBREOFFICE_TIMEOUT_SECONDS
+              value: "180"
+            - name: MINERU_MAX_UPLOAD_BYTES
+              value: "52428800"
+            - name: MINERU_MAX_INLINE_IMAGE_BYTES
+              value: "20971520"
+            - name: MINERU_SOURCE_PAGE_DPI
+              value: "110"
+            - name: MINERU_SOURCE_PAGE_JPEG_QUALITY
+              value: "82"
+            - name: MINERU_MAX_SOURCE_PAGE_IMAGES
+              value: "200"
+            - name: MINERU_MULTILINGUAL_FIGURE_CAPTURE
+              value: "true"
+            - name: MINERU_VISUAL_PAGE_MIN_IMAGE_RATIO
+              value: "0.01"
+            - name: MINERU_VISUAL_PAGE_MIN_VECTOR_OBJECTS
+              value: "12"
+            - name: MINERU_VISUAL_PAGE_MIN_VECTOR_AREA_RATIO
+              value: "0.05"
+            - name: MINERU_MAX_SEARCHABLE_VISUAL_PAGES
+              value: "80"
+            - name: PDF_SCAN_IMAGE_RATIO
+              value: "0.5"
+            - name: PDF_SCAN_MIN_CHARS_PER_PAGE
+              value: "10"
+            - name: PDF_SCAN_LOW_TEXT_IMAGE_RATIO
+              value: "0.1"
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt

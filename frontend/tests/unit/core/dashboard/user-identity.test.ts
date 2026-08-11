@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 
 import {
+  dashboardAccountLabel,
   dashboardUserPrimaryLabel,
   dashboardUserSecondaryParts,
 } from "@/core/dashboard/user-identity";
@@ -33,5 +34,19 @@ describe("dashboard user identity", () => {
     expect(dashboardUserSecondaryParts(user)).toEqual([
       "登录账号：local@example.com",
     ]);
+  });
+  it("shows both a distinct display name and account for inventory rows", () => {
+    expect(dashboardAccountLabel("Zhang San", "zhangsan@example.com")).toBe(
+      "Zhang San · zhangsan@example.com",
+    );
+    expect(dashboardAccountLabel("same@example.com", "same@example.com")).toBe(
+      "same@example.com",
+    );
+  });
+
+  it("falls back when an inventory identity is missing", () => {
+    expect(dashboardAccountLabel(null, undefined, "unknown-id")).toBe(
+      "unknown-id",
+    );
   });
 });

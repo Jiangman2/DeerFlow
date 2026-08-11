@@ -974,6 +974,47 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
                 self._last_activity[sandbox_id] = time.time()
             return sandbox
 
+    def get_for_thread(self, thread_id: str, *, user_id: str | None = None) -> Sandbox | None:
+        """Return or reclaim the existing sandbox assigned to ``thread_id``.
+
+        Live Preview is a browser read path.  It may reclaim a warm sandbox or
+        adopt a still-running deterministic sandbox after a Gateway restart,
+        but it must never create a new Pod/container merely because somebody
+        clicked a preview link.
+        """
+        effective_user_id = self._effective_acquire_user_id(user_id)
+        key = self._thread_key(thread_id, effective_user_id)
+        with self._lock:
+            sandbox_id = self._thread_sandboxes.get(key)
+            active = self._sandboxes.get(sandbox_id) if sandbox_id else None
+            warm = sandbox_id in self._warm_pool if sandbox_id else False
+
+        if active is not None:
+            return self.get(active.id)
+
+        deterministic_id = self._deterministic_sandbox_id(thread_id, effective_user_id)
+        reclaimed_id = self._reclaim_warm_pool_sandbox(
+            thread_id,
+            sandbox_id or deterministic_id,
+            user_id=effective_user_id,
+            post_lock=True,
+        ) if warm or sandbox_id == deterministic_id else None
+        if reclaimed_id is not None:
+            return self.get(reclaimed_id)
+
+        # A Gateway restart can leave a Pod alive while the in-process maps are
+        # empty.  Discovery is read-only from the application perspective and
+        # reattaches only that deterministic sandbox; it does not provision.
+        try:
+            discovered = self._backend.discover(deterministic_id)
+        except Exception as exc:  # pragma: no cover - backend-specific
+            logger.debug("Live Preview sandbox discovery failed for %s: %s", thread_id, exc)
+            return None
+        if discovered is None:
+            return None
+        self._register_discovered_sandbox(thread_id, discovered, user_id=effective_user_id)
+        return self.get(discovered.sandbox_id)
+
     def release(self, sandbox_id: str) -> None:
         """Release a sandbox from active use into the warm pool.
 

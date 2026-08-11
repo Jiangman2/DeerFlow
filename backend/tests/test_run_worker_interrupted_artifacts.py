@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pytest
 from langchain_core.messages import AIMessage
 
-from deerflow.runtime.runs.worker import _reconcile_interrupted_artifact_claim
+from deerflow.runtime.runs.worker import _reconcile_interrupted_artifact_claim, _recursion_limit_diagnostic
 
 
 class _Journal:
@@ -83,3 +83,26 @@ async def test_interrupted_published_artifact_is_kept(tmp_path: Path):
 
     assert changed is False
     assert journal.reconciled is None
+
+
+def test_recursion_limit_diagnostic_identifies_last_durable_action_without_assuming_a_loop():
+    checkpoint = SimpleNamespace(
+        checkpoint={
+            "channel_values": {
+                "messages": [
+                    AIMessage(
+                        content="",
+                        tool_calls=[{"id": "call-bash", "name": "bash", "args": {}}],
+                    )
+                ]
+            }
+        }
+    )
+
+    diagnostic = _recursion_limit_diagnostic(checkpoint, 1000, RuntimeError("cap"))
+
+    assert "recursion limit (1000)" in diagnostic
+    assert "last action: bash" in diagnostic
+    assert "progressing multi-stage graph" in diagnostic
+    assert "convergence loop" in diagnostic
+    assert "not a successful completion" in diagnostic

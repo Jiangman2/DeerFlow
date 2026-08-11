@@ -16,6 +16,7 @@ import {
   mapInfiniteThreadsCache,
   STOP_THREAD_FINALIZATION_REFETCH_DELAY_MS,
   stopThreadAndInvalidateCaches,
+  syncThreadTitleInListCaches,
   upsertThreadInInfiniteCache,
 } from "@/core/threads/hooks";
 import type { AgentThread } from "@/core/threads/types";
@@ -302,6 +303,49 @@ describe("upsertThreadInInfiniteCache", () => {
     const ids = cache?.pages[0]?.map((t) => t.thread_id);
     expect(ids).toEqual(["a", "b"]);
     expect(cache?.pages[0]?.[0]?.values.title).toBe("Old title");
+  });
+});
+
+describe("syncThreadTitleInListCaches", () => {
+  test("updates legacy and paginated sidebar caches from stream values", () => {
+    const client = new QueryClient();
+    const legacyKey = ["threads", "search", { limit: 20 }] as const;
+    const infiniteKey = [
+      ...INFINITE_THREADS_QUERY_KEY_PREFIX,
+      { sortBy: "updated_at" },
+    ] as const;
+    client.setQueryData(legacyKey, [
+      makeThread("target", "Untitled"),
+      makeThread("other"),
+    ]);
+    client.setQueryData(
+      infiniteKey,
+      makeInfiniteData([
+        [makeThread("target", "Untitled")],
+        [makeThread("other")],
+      ]),
+    );
+
+    syncThreadTitleInListCaches(client, "target", "已生成标题");
+
+    const legacy = client.getQueryData<AgentThread[]>(legacyKey);
+    const infinite =
+      client.getQueryData<InfiniteData<AgentThread[]>>(infiniteKey);
+    expect(legacy?.[0]?.values?.title).toBe("已生成标题");
+    expect(legacy?.[1]?.values?.title).toBe("Title other");
+    expect(infinite?.pages[0]?.[0]?.values?.title).toBe("已生成标题");
+    expect(infinite?.pages[1]?.[0]?.values?.title).toBe("Title other");
+  });
+
+  test("ignores blank titles without changing cached thread objects", () => {
+    const client = new QueryClient();
+    const key = ["threads", "search", {}] as const;
+    const thread = makeThread("target", "Untitled");
+    client.setQueryData(key, [thread]);
+
+    syncThreadTitleInListCaches(client, "target", "   ");
+
+    expect(client.getQueryData<AgentThread[]>(key)?.[0]).toBe(thread);
   });
 });
 

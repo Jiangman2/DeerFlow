@@ -83,9 +83,9 @@ export function messageToStep(
  * subagent's assistant turns and tool steps, ordered by `message_index`:
  *
  * - tool steps are always kept (one "the subagent ran <tool>" row each);
- * - AI steps are kept only when they carry visible reasoning text — a turn that
- *   only requests tools (blank text) adds no information beyond the tool rows
- *   that follow it, so it is dropped;
+ * - AI steps are kept when they carry visible text or tool-call inputs.  The
+ *   latter are required for an auditable timeline: a following tool result has
+ *   the output and tool name, but not the command/query/path that produced it;
  * - when the task is `completed`, a trailing AI step with no tool_calls is the
  *   subagent's final answer, which the card already renders as `task.result`,
  *   so it is dropped here to avoid showing the answer twice.
@@ -95,7 +95,12 @@ export function stepsForDisplay(
   status: "in_progress" | "completed" | "failed" | "incomplete",
 ): SubtaskStep[] {
   const visible = (steps ?? [])
-    .filter((step) => step.kind === "tool" || step.text.trim() !== "")
+    .filter(
+      (step) =>
+        step.kind === "tool" ||
+        step.text.trim() !== "" ||
+        Boolean(step.tool_calls?.length),
+    )
     .sort((a, b) => a.message_index - b.message_index);
 
   if (status === "completed") {
@@ -163,7 +168,47 @@ export function mergeSteps(
   for (const step of incoming) {
     byIndex.set(step.message_index, step);
   }
-  return [...byIndex.values()].sort(
+  const merged = [...byIndex.values()].sort(
     (a, b) => a.message_index - b.message_index,
   );
+  return stepListsEqual(existing, merged) ? existing : merged;
+}
+
+function stepListsEqual(a: SubtaskStep[], b: SubtaskStep[]): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((step, index) => stepEquals(step, b[index]));
+}
+
+function stepEquals(a: SubtaskStep, b: SubtaskStep | undefined): boolean {
+  if (!b) {
+    return false;
+  }
+  if (
+    a.message_index !== b.message_index ||
+    a.kind !== b.kind ||
+    a.text !== b.text ||
+    a.truncated !== b.truncated ||
+    a.tool_name !== b.tool_name
+  ) {
+    return false;
+  }
+
+  const aCalls = a.tool_calls ?? [];
+  const bCalls = b.tool_calls ?? [];
+  if (aCalls.length !== bCalls.length) {
+    return false;
+  }
+  return aCalls.every((call, index) => {
+    const other = bCalls[index];
+    return (
+      call.name === other?.name &&
+      (call.args === other?.args ||
+        JSON.stringify(call.args) === JSON.stringify(other?.args))
+    );
+  });
 }

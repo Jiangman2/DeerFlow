@@ -41,6 +41,10 @@ _MARKDOWN_IMAGE_REF_RE = re.compile(
     r"""!\[(?P<alt>[^\]]*)]\(\s*(?P<path>images/[^)\s]+)\s*\)""",
     re.IGNORECASE,
 )
+_NATIVE_IMAGE_DATA_RE = re.compile(
+    r"^data:(?P<mime>image/[a-z0-9.+-]+);base64,(?P<data>.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
 _IMAGE_EXTENSIONS = {
     "image/bmp": "bmp",
     "image/gif": "gif",
@@ -49,6 +53,16 @@ _IMAGE_EXTENSIONS = {
     "image/png": "png",
     "image/tiff": "tiff",
     "image/webp": "webp",
+}
+_IMAGE_MIME_BY_SUFFIX = {
+    ".bmp": "image/bmp",
+    ".gif": "image/gif",
+    ".jpeg": "image/jpeg",
+    ".jpg": "image/jpeg",
+    ".png": "image/png",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".webp": "image/webp",
 }
 _MULTILINGUAL_FIGURE_CAPTION_RE = re.compile(
     r"^(?:(?:Figure|Fig\.?)\s+\d+(?:[.\-]\d+)*|(?:图表|图)\s*[A-Za-z]?\s*\d+(?:[.\-—]\d+)*)\b",
@@ -764,34 +778,67 @@ def convert_to_pdf(content: bytes, filename: str) -> bytes:
         source = workspace / f"input{suffix}"
         source.write_bytes(content)
         profile = (workspace / "libreoffice-profile").as_uri()
-        completed = subprocess.run(
-            [
-                "libreoffice",
-                "--headless",
-                f"-env:UserInstallation={profile}",
-                "--convert-to",
-                "pdf",
-                "--outdir",
-                str(workspace),
-                str(source),
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        try:
+            completed = subprocess.run(
+                [
+                    "libreoffice",
+                    "--headless",
+                    f"-env:UserInstallation={profile}",
+                    "--convert-to",
+                    "pdf",
+                    "--outdir",
+                    str(workspace),
+                    str(source),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"LibreOffice timed out after {timeout}s while converting {filename}"
+            ) from exc
         output = source.with_suffix(".pdf")
         if completed.returncode != 0 or not output.is_file():
-            detail = (completed.stderr or completed.stdout or "conversion failed").strip()
-            raise RuntimeError(f"LibreOffice could not convert {filename}: {detail[:500]}")
+            generated_files = ", ".join(
+                f"{item.name}:{item.stat().st_size}"
+                for item in sorted(workspace.iterdir(), key=lambda item: item.name)
+                if item.is_file()
+            )
+            stderr = completed.stderr.strip() or "<empty>"
+            stdout = completed.stdout.strip() or "<empty>"
+            raise RuntimeError(
+                "LibreOffice could not convert "
+                f"{filename}: returncode={completed.returncode}; "
+                f"output_exists={str(output.is_file()).lower()}; "
+                f"generated_files={generated_files[:300] or '<none>'}; "
+                f"stderr={stderr[:500]}; stdout={stdout[:500]}"
+            )
         pdf = output.read_bytes()
         if not pdf.startswith(b"%PDF-"):
             raise RuntimeError(f"LibreOffice produced an invalid PDF for {filename}")
         return pdf
 
 
+class MinerUBusinessError(RuntimeError):
+    """Structured business error returned inside an HTTP-success envelope."""
+
+    def __init__(self, *, operation: str, code: str, message: str) -> None:
+        self.operation = operation
+        self.code = code
+        self.message = message
+        super().__init__(
+            f"Enterprise MinerU business error during {operation}; "
+            f"code={code}; msg={message}"
+        )
+
+
 class EnterpriseMinerUClient:
-    """Small client matching the enterprise MinerU example script."""
+    """Client for the native enterprise MinerU RESTful API."""
+
+    _TASK_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+    _TRANSIENT_POLL_BUSINESS_CODES = frozenset({"20006"})
 
     def __init__(
         self,
@@ -799,31 +846,289 @@ class EnterpriseMinerUClient:
         api_url: str,
         api_token: str,
         timeout_seconds: int = 300,
+        request_mode: str | None = None,
+        poll_interval_seconds: float | None = None,
+        transient_poll_retries: int | None = None,
         session: Any | None = None,
     ) -> None:
-        self.api_url = api_url
+        normalized_url = api_url.rstrip("/")
+        for suffix in ("/file_parse", "/tasks"):
+            if normalized_url.endswith(suffix):
+                normalized_url = normalized_url[: -len(suffix)]
+                break
+        self.base_url = normalized_url
+        self.api_url = f"{normalized_url}/file_parse"
+        self.tasks_url = f"{normalized_url}/tasks"
         self.api_token = api_token
+        if timeout_seconds <= 0:
+            raise ValueError("MinerU timeout must be greater than zero")
         self.timeout_seconds = timeout_seconds
-        self.session = session or requests.Session()
+        self.request_mode = (
+            request_mode or os.getenv("MINERU_REQUEST_MODE", "sync")
+        ).strip().lower()
+        if self.request_mode not in {"sync", "async"}:
+            raise ValueError(
+                "MINERU_REQUEST_MODE must be either 'sync' or 'async'"
+            )
+        if poll_interval_seconds is None:
+            poll_interval_seconds = _float_env(
+                "MINERU_POLL_INTERVAL_SECONDS", 3.0
+            )
+        if poll_interval_seconds <= 0:
+            raise ValueError("MinerU poll interval must be greater than zero")
+        self.poll_interval_seconds = poll_interval_seconds
+        if transient_poll_retries is None:
+            transient_poll_retries = _int_env(
+                "MINERU_TRANSIENT_POLL_RETRIES", 20
+            )
+        if transient_poll_retries < 0:
+            raise ValueError("MinerU transient poll retries cannot be negative")
+        self.transient_poll_retries = transient_poll_retries
+        if session is None:
+            session = requests.Session()
+            trust_env = _bool_env("MINERU_TRUST_ENV", False)
+            session.trust_env = trust_env
+            if not trust_env:
+                ca_bundle = (
+                    os.getenv("MINERU_CA_BUNDLE", "").strip()
+                    or os.getenv("REQUESTS_CA_BUNDLE", "").strip()
+                    or os.getenv("SSL_CERT_FILE", "").strip()
+                )
+                if ca_bundle:
+                    if not Path(ca_bundle).is_file():
+                        raise RuntimeError(
+                            "Configured MinerU CA bundle does not exist: "
+                            f"{ca_bundle}"
+                        )
+                    # requests ignores REQUESTS_CA_BUNDLE when trust_env is
+                    # disabled. Bind the reviewed enterprise CA explicitly so
+                    # the direct internal route keeps certificate and hostname
+                    # verification without inheriting proxy settings.
+                    session.verify = ca_bundle
+        self.session = session
 
-    def parse_pdf(self, pdf: bytes, filename: str) -> dict[str, Any]:
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.api_token}",
+            "Accept": "application/json",
+        }
+
+    @staticmethod
+    def _request_data() -> dict[str, str]:
+        return {
+            "backend": "pipeline",
+            "parse_method": "auto",
+            "formula_enable": "true",
+            "table_enable": "true",
+            "return_md": "true",
+            "return_images": "true",
+            "response_format_zip": "false",
+        }
+
+    @staticmethod
+    def _decode_json_response(response: Any, operation: str) -> dict[str, Any]:
+        try:
+            payload = response.json()
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"Enterprise MinerU returned a non-JSON response during {operation}"
+            ) from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError(
+                f"Enterprise MinerU returned an invalid response during {operation}"
+            )
+        if payload.get("success") is False:
+            code = str(payload.get("code", "unknown"))[:32]
+            message = str(
+                payload.get("msg")
+                or payload.get("message")
+                or "business request failed"
+            )[:300]
+            raise MinerUBusinessError(
+                operation=operation,
+                code=code,
+                message=message,
+            )
+        return payload
+
+    def _transient_poll_delay(
+        self,
+        *,
+        task_id: str,
+        operation: str,
+        error: "MinerUBusinessError",
+        consecutive_errors: int,
+        remaining: float,
+    ) -> float:
+        if (
+            error.code not in self._TRANSIENT_POLL_BUSINESS_CODES
+            or consecutive_errors > self.transient_poll_retries
+        ):
+            raise error
+        delay = min(
+            self.poll_interval_seconds * (2 ** min(consecutive_errors - 1, 3)),
+            30.0,
+            max(0.0, remaining),
+        )
+        if delay <= 0:
+            raise TimeoutError(
+                f"Enterprise MinerU {operation} for task {task_id} exceeded "
+                f"{self.timeout_seconds} seconds"
+            ) from error
+        logger.warning(
+            "Transient MinerU poll failure task_id=%s operation=%s code=%s "
+            "attempt=%d/%d retry_in_seconds=%.3f",
+            task_id,
+            operation,
+            error.code,
+            consecutive_errors,
+            self.transient_poll_retries,
+            delay,
+        )
+        return delay
+
+    @staticmethod
+    def _task_fields(payload: dict[str, Any]) -> dict[str, Any]:
+        data = payload.get("data")
+        return data if isinstance(data, dict) else payload
+
+    @staticmethod
+    def _validate_result(payload: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(payload.get("results"), dict) and not isinstance(
+            payload.get("pages"), list
+        ):
+            raise RuntimeError("Enterprise MinerU returned an invalid parse result")
+        return payload
+
+    def _parse_pdf_sync(self, pdf: bytes, filename: str) -> dict[str, Any]:
         response = self.session.post(
             self.api_url,
-            headers={
-                "Authorization": f"Bearer {self.api_token}",
-                "Content-Type": "application/json",
+            headers=self._headers(),
+            files={
+                "files": (filename, pdf, "application/pdf"),
             },
-            json={
-                "filename": filename,
-                "pdf_base64": base64.b64encode(pdf).decode("ascii"),
-            },
+            data=self._request_data(),
             timeout=self.timeout_seconds,
         )
         response.raise_for_status()
-        payload = response.json()
-        if not isinstance(payload, dict) or not isinstance(payload.get("pages"), list):
-            raise RuntimeError("Enterprise MinerU returned an invalid response")
-        return payload
+        payload = self._task_fields(
+            self._decode_json_response(response, "synchronous parse")
+        )
+        return self._validate_result(payload)
+
+    def _parse_pdf_async(self, pdf: bytes, filename: str) -> dict[str, Any]:
+        deadline = time.monotonic() + self.timeout_seconds
+        submission = self.session.post(
+            self.tasks_url,
+            headers=self._headers(),
+            files={"files": (filename, pdf, "application/pdf")},
+            data=self._request_data(),
+            timeout=min(self.timeout_seconds, 120),
+        )
+        if submission.status_code not in {HTTPStatus.OK, HTTPStatus.ACCEPTED}:
+            submission.raise_for_status()
+        submission_payload = self._task_fields(
+            self._decode_json_response(submission, "asynchronous submission")
+        )
+        task_id = str(submission_payload.get("task_id", "")).strip()
+        if not self._TASK_ID_RE.fullmatch(task_id):
+            raise RuntimeError("Enterprise MinerU returned an invalid task identifier")
+
+        status_url = f"{self.tasks_url}/{task_id}"
+        result_url = f"{status_url}/result"
+        consecutive_status_errors = 0
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"Enterprise MinerU task {task_id} exceeded "
+                    f"{self.timeout_seconds} seconds"
+                )
+            status_response = self.session.get(
+                status_url,
+                headers=self._headers(),
+                timeout=min(60.0, max(1.0, remaining)),
+            )
+            status_response.raise_for_status()
+            try:
+                decoded_status = self._decode_json_response(
+                    status_response, "task status"
+                )
+            except MinerUBusinessError as exc:
+                consecutive_status_errors += 1
+                delay = self._transient_poll_delay(
+                    task_id=task_id,
+                    operation="task status",
+                    error=exc,
+                    consecutive_errors=consecutive_status_errors,
+                    remaining=deadline - time.monotonic(),
+                )
+                time.sleep(delay)
+                continue
+            consecutive_status_errors = 0
+            status_payload = self._task_fields(decoded_status)
+            status = str(status_payload.get("status", "")).strip().lower()
+            if status == "completed":
+                break
+            if status == "failed":
+                error = str(
+                    status_payload.get("error")
+                    or status_payload.get("message")
+                    or "unknown failure"
+                )[:300]
+                raise RuntimeError(
+                    f"Enterprise MinerU asynchronous task failed: {error}"
+                )
+            if status not in {"pending", "queued", "processing"}:
+                raise RuntimeError(
+                    f"Enterprise MinerU returned unexpected task status: "
+                    f"{status or '<empty>'}"
+                )
+            time.sleep(min(self.poll_interval_seconds, remaining))
+
+        consecutive_result_errors = 0
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"Enterprise MinerU result for task {task_id} was not ready "
+                    f"within {self.timeout_seconds} seconds"
+                )
+            result_response = self.session.get(
+                result_url,
+                headers=self._headers(),
+                timeout=min(60.0, max(1.0, remaining)),
+            )
+            if result_response.status_code in {
+                HTTPStatus.ACCEPTED,
+                HTTPStatus.CONFLICT,
+            }:
+                time.sleep(min(self.poll_interval_seconds, remaining))
+                continue
+            result_response.raise_for_status()
+            try:
+                decoded_result = self._decode_json_response(
+                    result_response, "task result"
+                )
+            except MinerUBusinessError as exc:
+                consecutive_result_errors += 1
+                delay = self._transient_poll_delay(
+                    task_id=task_id,
+                    operation="task result",
+                    error=exc,
+                    consecutive_errors=consecutive_result_errors,
+                    remaining=deadline - time.monotonic(),
+                )
+                time.sleep(delay)
+                continue
+            consecutive_result_errors = 0
+            result_payload = self._task_fields(decoded_result)
+            return self._validate_result(result_payload)
+
+    def parse_pdf(self, pdf: bytes, filename: str) -> dict[str, Any]:
+        if self.request_mode == "async":
+            return self._parse_pdf_async(pdf, filename)
+        return self._parse_pdf_sync(pdf, filename)
 
 
 def _block_content(block: dict[str, Any]) -> str:
@@ -986,10 +1291,97 @@ def preserve_searchable_pdf_visuals(
     )
 
 
+def _native_mineru_document(
+    payload: dict[str, Any],
+    filename: str | None,
+) -> dict[str, Any] | None:
+    """Select one document from the native ``results`` response envelope."""
+    results = payload.get("results")
+    if not isinstance(results, dict):
+        return None
+
+    requested_name = Path(filename).name if filename else None
+    if requested_name and isinstance(results.get(requested_name), dict):
+        return results[requested_name]
+
+    if requested_name:
+        casefolded = {
+            str(name).casefold(): document
+            for name, document in results.items()
+            if isinstance(document, dict)
+        }
+        matched = casefolded.get(requested_name.casefold())
+        if matched is not None:
+            return matched
+
+    documents = [document for document in results.values() if isinstance(document, dict)]
+    if len(documents) == 1:
+        return documents[0]
+    if requested_name:
+        raise RuntimeError("Enterprise MinerU results do not contain the requested document")
+    raise RuntimeError("Enterprise MinerU returned an ambiguous multi-document response")
+
+
+def _normalize_native_mineru_images(
+    markdown: str,
+    raw_images: Any,
+) -> tuple[str, dict[str, str]]:
+    """Convert native MinerU image values into WeKnora persistent assets."""
+    if raw_images is None:
+        raw_images = {}
+    if not isinstance(raw_images, dict):
+        raise RuntimeError("Enterprise MinerU returned an invalid images field")
+
+    images: dict[str, str] = {}
+    for raw_name, raw_value in raw_images.items():
+        if not isinstance(raw_name, str) or not isinstance(raw_value, str):
+            logger.warning("Skipping malformed native MinerU image entry")
+            continue
+        data_match = _NATIVE_IMAGE_DATA_RE.match(raw_value.strip())
+        if data_match is not None:
+            mime = data_match.group("mime")
+            encoded = data_match.group("data")
+        else:
+            mime = _IMAGE_MIME_BY_SUFFIX.get(Path(raw_name).suffix.lower(), "")
+            encoded = raw_value
+        if not mime:
+            logger.warning("Skipping native MinerU image with unsupported type: %s", raw_name)
+            continue
+        extracted = _decode_inline_image(mime, encoded)
+        if extracted is None:
+            logger.warning("Skipping malformed native MinerU image: %s", raw_name)
+            continue
+        persistent_path, persistent_value = extracted
+        images[persistent_path] = persistent_value
+        references = {raw_name}
+        if not raw_name.startswith("images/"):
+            references.add(f"images/{raw_name}")
+        for reference in sorted(references, key=len, reverse=True):
+            markdown = markdown.replace(reference, persistent_path)
+
+    markdown, inline_images = extract_inline_images(markdown)
+    images.update(inline_images)
+    return markdown, images
+
+
 def mineru_pages_to_markdown(
     payload: dict[str, Any],
+    *,
+    filename: str | None = None,
 ) -> tuple[str, dict[str, str]]:
-    """Convert the enterprise page/block response into WeKnora markdown/assets."""
+    """Convert native or legacy MinerU responses into WeKnora assets."""
+    native_document = _native_mineru_document(payload, filename)
+    if native_document is not None:
+        markdown = native_document.get("md_content")
+        if not isinstance(markdown, str) or not markdown.strip():
+            raise RuntimeError("Enterprise MinerU returned no parseable content")
+        return _normalize_native_mineru_images(
+            markdown.strip(),
+            native_document.get("images"),
+        )
+
+    # Keep compatibility with the older page/block envelope during the
+    # controlled cutover. New MinerU-2605 deployments use ``results`` above.
     sections: list[str] = []
     for index, page in enumerate(payload.get("pages", []), start=1):
         if not isinstance(page, dict):
@@ -1005,9 +1397,74 @@ def mineru_pages_to_markdown(
     return markdown, images
 
 
+_ATX_HEADING_RE = re.compile(r"^(?P<indent> {0,3})#{1,6}[\t ]+(?P<body>.*)$")
+_FENCE_RE = re.compile(r"^ {0,3}(?P<marker>`{3,}|~{3,})")
+
+
+def normalize_markdown_for_weknora(markdown: str) -> str:
+    """Prevent malformed giant headings from becoming repeated chunk context.
+
+    WeKnora prepends the active Markdown heading breadcrumb to every child
+    chunk before embedding. MinerU can occasionally label a full page of OCR
+    text as one ATX heading, multiplying that page into every child request.
+    Preserve all recovered text but demote only implausibly large headings to
+    ordinary paragraphs. Fenced code blocks are left byte-for-byte unchanged.
+    """
+
+    lines = markdown.splitlines(keepends=True)
+    normalized: list[str] = []
+    fence_marker: str | None = None
+    demoted = 0
+    largest_heading_bytes = 0
+
+    for line in lines:
+        content = line.rstrip("\r\n")
+        ending = line[len(content) :]
+        fence_match = _FENCE_RE.match(content)
+        if fence_match:
+            marker = fence_match.group("marker")
+            marker_char = marker[0]
+            if fence_marker is None:
+                fence_marker = marker
+            elif marker_char == fence_marker[0] and len(marker) >= len(fence_marker):
+                fence_marker = None
+            normalized.append(line)
+            continue
+
+        if fence_marker is None:
+            heading_match = _ATX_HEADING_RE.match(content)
+            if heading_match:
+                body = heading_match.group("body")
+                body_bytes = len(body.encode("utf-8"))
+                if len(body) > 512 or body_bytes > 2048:
+                    normalized.append(
+                        f"{heading_match.group('indent')}{body}{ending}"
+                    )
+                    demoted += 1
+                    largest_heading_bytes = max(largest_heading_bytes, body_bytes)
+                    continue
+        normalized.append(line)
+
+    if demoted:
+        logger.warning(
+            "Demoted malformed MinerU headings before WeKnora chunking "
+            "count=%d largest_heading_bytes=%d",
+            demoted,
+            largest_heading_bytes,
+        )
+    return "".join(normalized)
+
+
 def weknora_response(markdown: str, images: dict[str, str] | None = None) -> dict[str, Any]:
     """Wrap markdown in WeKnora's self-hosted MinerU response schema."""
-    return {"results": {"document": {"md_content": markdown, "images": images or {}}}}
+    return {
+        "results": {
+            "document": {
+                "md_content": normalize_markdown_for_weknora(markdown),
+                "images": images or {},
+            }
+        }
+    }
 
 
 def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
@@ -1029,7 +1486,18 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
         pdf = content
         pdf_filename = filename
     else:
-        pdf = convert_to_pdf(content, filename)
+        try:
+            pdf = convert_to_pdf(content, filename)
+        except Exception:
+            if suffix in {".doc", ".docx"} and native_word is not None:
+                logger.warning(
+                    "Word visual PDF conversion failed for %s; preserving the successful "
+                    "native Word result without optional visual evidence.",
+                    filename,
+                    exc_info=True,
+                )
+                return weknora_response(native_word[0], native_word[1])
+            raise
         pdf_filename = f"{Path(filename).stem}.pdf"
 
     def finalize_searchable(
@@ -1091,9 +1559,9 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
     parsed = EnterpriseMinerUClient(
         api_url=os.environ["MINERU_API_URL"],
         api_token=os.environ["MINERU_API_TOKEN"],
-        timeout_seconds=int(os.getenv("MINERU_TIMEOUT_SECONDS", "300")),
+        timeout_seconds=int(os.getenv("MINERU_TIMEOUT_SECONDS", "600")),
     ).parse_pdf(pdf, pdf_filename)
-    markdown, images = mineru_pages_to_markdown(parsed)
+    markdown, images = mineru_pages_to_markdown(parsed, filename=pdf_filename)
 
     page_numbers = decision.scanned_pages if searchable_document and decision is not None and decision.use_mineru else None
     try:

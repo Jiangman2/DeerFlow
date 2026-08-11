@@ -23,7 +23,7 @@ class TestBuildVolumes:
         pub = volumes[0]
         assert pub.name == "skills-public"
         assert pub.host_path is not None
-        assert pub.host_path.path.endswith("/public")
+        assert pub.host_path.path.replace("\\", "/").endswith("/public")
         assert pub.host_path.type == "Directory"
         assert pub.persistent_volume_claim is None
 
@@ -34,7 +34,7 @@ class TestBuildVolumes:
         custom = volumes[1]
         assert custom.name == "skills-custom"
         assert custom.host_path is not None
-        assert "users/user-7/skills/custom" in custom.host_path.path
+        assert "users/user-7/skills/custom" in custom.host_path.path.replace("\\", "/")
         assert custom.host_path.type == "DirectoryOrCreate"
 
     def test_hostpath_skills_legacy_volume(self, provisioner_module):
@@ -47,7 +47,7 @@ class TestBuildVolumes:
         legacy = volumes[2]
         assert legacy.name == "skills-legacy"
         assert legacy.host_path is not None
-        assert legacy.host_path.path.endswith("/custom")
+        assert legacy.host_path.path.replace("\\", "/").endswith("/custom")
         assert legacy.host_path.type == "Directory"
 
     def test_hostpath_without_legacy_has_no_legacy_volume(self, provisioner_module):
@@ -315,3 +315,40 @@ class TestBuildPodVolumes:
         pod = provisioner_module._build_pod("sandbox-1", "thread-1", user_id="user-7")
         skills_mount = pod.spec.containers[0].volume_mounts[0]
         assert skills_mount.sub_path == "deer-flow/users/user-7/threads/thread-1/skills"
+
+    def test_ppt_master_agent_host_is_a_real_second_container_when_enabled(self, provisioner_module):
+        provisioner_module.PPT_MASTER_AGENT_HOST_ENABLED = True
+        provisioner_module.SANDBOX_ENV_SECRET_NAME = "deer-flow-env"
+        provisioner_module.SANDBOX_SECRET_ENV_KEYS = (
+            "SANDBOX_API_KEY",
+            "PPT_MASTER_RESPONSES_RELAY_KEY",
+        )
+        provisioner_module.PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS = frozenset(
+            {"PPT_MASTER_RESPONSES_RELAY_KEY"}
+        )
+        pod = provisioner_module._build_pod("sandbox-1", "thread-1")
+
+        assert [container.name for container in pod.spec.containers] == [
+            "sandbox",
+            "ppt-master-agent-host",
+        ]
+        host = pod.spec.containers[1]
+        assert host.image == provisioner_module.SANDBOX_IMAGE
+        assert host.command == ["python3", "/opt/ppt-master-agent-host/agent_host.py"]
+        assert host.ports[0].container_port == provisioner_module.PPT_MASTER_AGENT_HOST_PORT
+        sandbox_env_names = {item.name for item in pod.spec.containers[0].env}
+        host_env_names = {item.name for item in host.env}
+        assert "PPT_MASTER_RESPONSES_RELAY_KEY" not in sandbox_env_names
+        assert "PPT_MASTER_RESPONSES_RELAY_KEY" in host_env_names
+        assert [(mount.name, mount.mount_path, mount.read_only) for mount in host.volume_mounts] == [
+            (mount.name, mount.mount_path, mount.read_only)
+            for mount in pod.spec.containers[0].volume_mounts
+        ]
+
+    def test_ppt_master_agent_host_service_port_is_cluster_internal(self, provisioner_module):
+        provisioner_module.PPT_MASTER_AGENT_HOST_ENABLED = True
+        service = provisioner_module._build_service("sandbox-1")
+
+        ports = {port.name: port for port in service.spec.ports}
+        assert ports["ppt-agent"].port == provisioner_module.PPT_MASTER_AGENT_HOST_PORT
+        assert ports["ppt-agent"].target_port == provisioner_module.PPT_MASTER_AGENT_HOST_PORT

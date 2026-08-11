@@ -283,8 +283,10 @@ CLI calls from being mistaken for successful progress.
 The administrator business dashboard is the consolidated operations view. It
 shows database-backed user rankings, model/agent activity, external-agent launch
 clicks, tokens, failures, slow or high-token runs, and feedback. Slow and
-high-token entries link back to their original chats. Slow runs, high-token
-runs, and recent failures use five-row paginated, scrollable lists. The former standalone
+high-token entries link back to their original chats. Slow runs and high-token
+runs use five-row paginated, scrollable lists. The all-history failed-run table
+supports account/name filtering and opens a read-only diagnostic view with the
+stored error, failed node, tool calls, and events. The former standalone
 observability page redirects to the dashboard; incomplete health heuristics are
 not presented as live monitoring. Headline data refreshes every 15 seconds.
 Success rates and durations use completed runs only, daily buckets use
@@ -315,13 +317,22 @@ Enterprise deployments may set the server-only
 unauthenticated visit to DeerFlow's exact root path then returns to that portal,
 while authenticated sessions, API routes, static assets, and workspace deep
 links continue to use DeerFlow normally.
+Set `DEER_FLOW_SSO_ONLY=true` on both Gateway and Frontend when CNOOC DataLake
+SSO is the only approved sign-in path. In this mode every unauthenticated auth
+page redirects to `DEER_FLOW_UNAUTHENTICATED_HOME_URL`, while Gateway rejects
+local login, registration, first-admin initialization, password changes, and
+generic OIDC entry points. The CNOOC token SSO route remains enabled. This is a
+server-side policy as well as a UI redirect, so direct API calls cannot restore
+local account access.
 The dashboard also reads WeKnora's own database in read-only mode to report
 current users, knowledge bases, documents, file formats, knowledge-scoped
 conversations, and question turns alongside creation/upload/conversation
 history for the selected range. Soft-deleted WeKnora rows remain part of
 historical counts rather than being inferred from `weknora_search` or
 `weknora_ask` tool calls. Per-user and per-knowledge-base tables expose the same
-inventory/history split. The untruncated per-user ranking is paginated in the
+inventory/history split. Knowledge-base creators, shared-space owners, and
+ranked users show the matching DeerFlow SSO display name and login account. The
+untruncated per-user ranking is paginated in the
 browser and omits accounts with no knowledge inventory or activity. Shared-space
 reporting reads native organizations, member workspaces, knowledge-base shares,
 shared documents, role composition, and join requests; knowledge-base details
@@ -785,6 +796,14 @@ repeated input cost; strict serial workflows with hard-stop confirmation gates
 retain their complete instructions across the tool loop so later phases do not
 lose their contracts.
 
+The web client gives interactive runs a bounded 2000 LangGraph super-step
+budget. Super-steps include middleware and tool nodes, not only LLM calls, so a
+complex but progressing Skill can legitimately exceed the old 1000-step value.
+Gateway clamping, token budgets, and loop detection remain enabled. For AIO
+Sandboxes, the PPT-capable image also aligns the outer authentication proxy's
+idle timeout with the bounded command transport; this prevents false 504s on
+long image-generation commands while retaining the client hard timeout.
+
 When you install `.skill` archives through the Gateway, DeerFlow accepts standard optional frontmatter metadata such as `version`, `author`, and `compatibility` instead of rejecting otherwise valid external skills.
 
 Skill installs and agent-managed skill edits run through **SkillScan**, a native deterministic safety scanner before the LLM-based skill scanner. Phase 1 runs offline with no Semgrep/OpenGrep dependency, blocks high-confidence `CRITICAL` findings such as private keys or shell execution, and passes warning findings to the LLM scanner for contextual review. Set `skill_scan.enabled: false` in `config.yaml` to disable only the deterministic analyzers; safe archive extraction and the LLM scanner still run.
@@ -939,17 +958,25 @@ PDF outputs retain the right-side preview with response CSP and an iframe
 sandbox. LibreOffice's strictly shaped first-page destination is treated as
 inert navigation metadata; indirect actions, scripts, attachments, encryption,
 and other suspicious PDF features still fall back to download.
+PPT/PPTX files attached to an explicit `/ppt-master` request are preserved as
+presentation templates rather than converted through the document parser.
 
 When `WEKNORA_MINERU_ENDPOINT` is configured, conversation PDF, DOC/DOCX, PPT,
 and PPTX uploads reuse that same enterprise parser without creating a
 knowledge-base record. The Gateway keeps the original document and writes a
 same-stem Markdown companion for the current task. Searchable PDFs and Word
 documents use the adapter's native path, scanned PDFs use enterprise OCR, and
-presentations use its presentation conversion path. Set
+presentations use its presentation conversion path. A successful native Word
+parse is retained when LibreOffice cannot produce the optional visual PDF
+supplement, so text, tables, and native images remain usable while that one
+document omits render-only chart/SmartArt evidence. Set
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=false` to disable this bridge, or
 override its base URL with
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`. The older
 `DEERFLOW_UPLOAD_PDF_*` names remain supported for deployment compatibility.
+The enterprise overlay sets `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860`,
+giving the Gateway 60 seconds beyond the Adapter's bounded 1800-second upstream
+wait to receive and persist the completed response.
 When `uploads.auto_convert_documents=true`, or the enterprise-only
 `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true` override is set, an adapter
 failure falls back to DeerFlow's local `convert_file_to_markdown()` conversion.
@@ -964,6 +991,131 @@ When a presented PPT/PPTX has no sibling preview, `present_files` asks the
 active sandbox's LibreOffice installation to create
 `<stem>.preview.pdf` automatically. The PPT/PPTX remains the selected download
 artifact while the generated PDF is published for the right-side preview.
+For an explicitly activated Slash Skill, DeerFlow also checkpoints the original
+task, selected Skill version, workflow/profile reads, project path, tool-backed
+stage receipts, failed-gate resume pointer, and final artifacts. A later
+confirmation or `continue` turn can therefore restore the same workflow after a
+run boundary or context compaction. This host adapter does not copy a Skill's
+workflow into application code. Project roots are accepted only from a
+successful owning-tool receipt (for example `project_manager.py init`) or a
+successful project-contract read/write; sibling research supplements and other
+files under `projects/` cannot replace the active project directory. A newly
+initialized project does not acquire `design_spec.md` or `spec_lock.md` as
+resume requirements until those contracts have actually been created. A
+resumed run must re-read the checkpointed
+top-level route and latest stage authority before any other tool executes; the
+selected confirmation surface is retained. The route is exclusive until a new
+explicit Skill activation, and the checkpoint keeps up to 24 recent stage
+authority documents separately from the route and durable project contracts so
+large conditional branches survive compaction. If that loaded authority explicitly
+declares that an artifact must be authored from a `${SKILL_DIR}/...` reference,
+DeerFlow checkpoints the dependency and requires a real current-run read of the
+reference before the artifact can be changed. User/tool-managed receipts named
+by the loaded authority cannot be fabricated with generic file or shell tools.
+A failed owning Skill script clears its gate when the same script later succeeds
+for the same project and explicit stage. Retry comments, environment exports,
+and whitespace may differ; a command for another project or stage cannot clear
+the failure. The checkpoint stores that gate owner as one bundle (receipt, tool,
+semantic action, stage, detail, and resume pointer). Auxiliary reads, project
+repairs, user continuation messages, and confirmation fallbacks remain evidence
+or waiting state only; they cannot replace or clear the owning gate. Legacy
+checkpoints rebuild this bundle from their failed receipt before processing new
+work. Long failed receipts persist a bounded head-and-tail diagnostic so the
+owner command and its final blocker summary both survive compaction without
+unbounded checkpoint growth. The model-facing `read_file` tool keeps `path`
+required while treating its
+display-only `description` as optional; the same rule applies to the Sandbox
+command, listing, search, write, and replacement tools. Host UI metadata can
+therefore never reject an otherwise valid Skill action.
+The owning failure and any generated validation report are tied to the project's
+mutation receipt at failure time. The generic rule requires the same owner to run
+again after one durable repair, before another repair or an old-report read, so
+the model cannot keep applying obsolete diagnostics to newer files. The
+`ppt-master` first-page and final SVG gates are the narrow exception: their
+official checker reports a complete issue batch, so the adapter permits one
+project-scoped consolidated read/write repair pass across the affected SVGs,
+blocks stale validation-report reads and stage advancement, and still requires
+the exact checker to succeed before the gate clears. This remains a transaction
+check over host receipts, not a copy of the Skill's validation schema.
+Active `ppt-master` presentation-delivery model turns additionally have a
+600-second total wall-clock limit. Empty, keepalive, and hidden-reasoning stream
+chunks cannot renew it; timeout preserves the project plus its current stage and
+resume pointer for a later `继续`. Other Skills and ordinary chats are unchanged.
+For `ppt-master`, DeerFlow binds loaded authority to the current run rather than
+to the summary fingerprint. Repeated same-run compaction therefore cannot turn
+the Executor phase into a full-reference reload loop. A new run or an owning
+Skill-script failure still requires exact authority re-reads; other Skills keep
+their generic summary-fingerprint invalidation behavior.
+When that owner is an exact local, project-scoped read-only Python validator,
+DeerFlow can replay the checkpointed command deterministically; image generation,
+export, publication, network submission, and other side-effecting actions remain
+model/user owned.
+While another owner failure remains active, an official recovery stage may run
+a different Skill-owned read-only Python validator against the selected Skill
+workspace before performing one atomic project repair. This diagnostic exception
+rejects mutating flags and arbitrary Bash, and it does not clear the failed gate;
+the original owner still has to succeed.
+For selected-Skill Python owner commands, DeerFlow also removes a terminal
+display-only `head`/`tail` pipe before Bash execution. This preserves the owning
+script's real exit code and prevents SIGPIPE from turning partial generation into
+a false success; unrelated pipelines are unchanged.
+For `ppt-master` specifically, the host closes the official Executor authority
+set before an SVG write: shared/SVG/native-shape/semantic references are always
+present, while image, chart/native-data, structured, web-image, notes, animation,
+audio, and locked mode/style references follow the persisted design/lock facts
+and attempted action. Executor entry is also blocked while any `ai`/`web`/`slice`
+resource remains `Pending` or `Failed`; a partial Design Spec replacement must be
+followed by a complete read before those facts are trusted again. This adapter is
+scoped to the vendored presentation workflow and does not alter other Skills.
+For a confirmed Deck/Layout, that entry gate also reconciles the official
+template handoff, Design Spec, and `spec_lock.md` before page generation. A
+Design Spec that names installed prototypes cannot be paired with flat/style
+reuse, and structured page writes must preserve the mapped prototype's real
+Master/Layout identity, inherited background/layout atoms and definitions, and
+slot bounds. This prevents a visually similar SVG from replacing genuine Deck
+reuse and catches shell-authored pages immediately after the write as well.
+For a single confirmed workspace, DeerFlow additionally compares the complete
+portable `templates`, `images`, and `icons` mapping before allowing template
+completion or Strategist Stage 1. A lone copied `design_spec.md` therefore cannot
+produce a ready handoff while its page prototypes or background media are absent.
+When the official Confirm UI is active and a valid
+`recommendations.stage1/2/3.json` write is the last durable action, DeerFlow
+treats the ready page as a real user-wait boundary. If the model ends on future
+plan prose instead of invoking the owner wait, the run returns a resumable
+confirmation handoff rather than consuming the generic unfinished-plan retry or
+failing the presentation task. Other Skills retain the normal terminal guard.
+For `ppt-master`, final publication invokes the
+Skill's own delivery checker and verifies each capability requested by the user
+or enabled in the generated design contract before the deck is accepted.
+When that workflow uses the Confirm UI, DeerFlow requires the current run to
+load the UI's Skill-owned contract before it can continue. This preserves the
+official staged JSON schema across resumptions without copying that schema into
+DeerFlow or fabricating a user confirmation file. Before a staged confirmation
+wait begins, DeerFlow also asks the running official Confirm UI service to
+validate its own recommendation. Invalid Stage 1/2/3 input is returned to the
+agent immediately for correction instead of leaving the confirmation page in a
+permanent “preparing” state; the validation rules remain owned by `ppt-master`.
+After a successful owner-server launch, the host checkpoints its loopback URL
+and reminds the model to surface it in visible Markdown; the frontend rewrites
+that address to the authenticated thread-scoped proxy. The owner process stays
+alive on its documented wait command, and a timestamped owner `[ERROR]` remains
+a failed receipt even when a shell pipeline masks the process exit code.
+Dependencies declared by the bundled `ppt-master` are release-image content:
+conversational `pip`/OS/Node package installation is rejected, and a genuine
+missing import requires rebuilding and redeploying the Sandbox image.
+Long artifact workflows also receive bounded frequency headroom for both
+`bash` and `read_file` (warning at 120 calls and stopping at 240). The stricter
+identical-call guard remains active at 3/5, so raising the cross-file read
+allowance does not permit an agent to repeat the same read indefinitely.
+Repetition history starts fresh for each run. A loop hard stop is terminal for
+every downstream middleware layer; no workflow adapter may delete it and jump
+back to the model. When a successful
+`write_file`/`str_replace` actually changes a file, the window also resets so a
+safe `read_file -> edit -> read_file -> edit` sequence can continue; writing
+unchanged content does not count as progress.
+The current separation between upstream Skill ownership and DeerFlow host
+enforcement is tracked in
+[`docs/ppt-master-host-adaptation-audit.md`](docs/ppt-master-host-adaptation-audit.md).
 
 After each run, DeerFlow records a workspace change summary for the run-owned `workspace` and `outputs` directories. The Web UI shows a compact "files changed" badge on the assistant turn; opening it reveals created, modified, and deleted files with text diffs when safe to display. Uploads are excluded because they are user inputs, not agent-generated changes. Large, binary, or sensitive-looking files are shown as metadata only.
 
@@ -1088,7 +1240,7 @@ failures.
 That exchange also carries a DeerFlow-owned UI policy. DeerFlow system
 administrators retain the complete native WeKnora interface. Ordinary users are
 presented as personal-workspace Owners and can use New Chat, Knowledge Bases,
-Shared Spaces, and Agents. Publish Integrations, system-level settings,
+Shared Spaces, and Agents. The global Publish Integrations navigation, system-level settings,
 tenant-management controls, and logout remain hidden in the embedded
 presentation. Entering Knowledge automatically collapses DeerFlow's sidebar and
 expands the embedded WeKnora sidebar for both ordinary users and administrators;
@@ -1113,7 +1265,11 @@ The enterprise retrieval catalog uses the approved internal
 Gateway relays. Gateway owns upstream credentials and direct-network routing;
 WeKnora receives only a distinct relay credential. Embeddings are fixed at 1024
 Matryoshka dimensions and L2-normalized so the PostgreSQL vector schema remains
-stable. Existing populated knowledge bases remain on their prior embedding
+stable. The approved internal retrieval credential admits up to 200 concurrent
+upstream requests. Gateway therefore keeps a bounded 200-request embedding
+ceiling with bounded busy retries; WeKnora's separate 2+1 document-worker limit
+continues to control parser pressure, while the independent rerank path shares
+the upstream application quota without exposing its credential. Existing populated knowledge bases remain on their prior embedding
 model until a controlled re-parse succeeds; only then may the old external
 embedding/rerank/chat entries be hidden.
 Enterprise PDF/DOC/DOCX/PPT/PPTX uploads pass through a private compatibility
@@ -1121,15 +1277,32 @@ adapter. Legacy OLE2 `.doc` and `.ppt` files are identified from their compound
 document root streams when WeKnora forwards the upload with a generic multipart
 filename, so parser routing never depends on the original extension surviving
 the internal handoff. Office files are converted to a temporary PDF for the
-visual pass and, when needed, the approved internal MinerU API. PDF pages are
-first inspected locally: fully searchable PDFs stay on
+visual pass and, when needed, the approved internal MinerU-2605 API. The adapter
+uses the native asynchronous Bearer-authenticated contract: multipart
+`POST /tasks`, bounded status polling, and JSON result retrieval from the
+task-scoped result endpoint. The Adapter still exposes a synchronous in-cluster
+contract to WeKnora, requests Markdown plus inline images, and treats HTTP-200
+business-error envelopes as failures. It never submits the same document again
+through the synchronous endpoint after an asynchronous task was accepted. The
+direct client disables environment proxy inheritance
+but explicitly binds the mounted enterprise CA bundle, preserving certificate
+and hostname verification even though Requests no longer merges CA environment
+variables when `trust_env` is disabled. The upstream service admits 20 concurrent requests, but
+each local Adapter process remains internally serialized because PDFium and the
+document readers are not concurrency-safe. PDF pages are first inspected
+locally: fully searchable PDFs stay on
 WeKnora's builtin parser, while scanned or mixed PDFs are sent to MinerU for
 OCR. MinerU inline images and scanned-page/presentation visuals are returned
 through WeKnora's persistent image contract with document references instead
 of being discarded during embedding. The MinerU endpoint and Bearer key are
 supplied only through the runtime `deer-flow-mineru` Secret; they are never
 stored in source or images. Other document formats continue to use WeKnora's
-native parser selection. Unknown, damaged, or encrypted OLE2 containers are
+native parser selection. The official DocReader image is augmented at Pod
+startup by a DeerFlow-owned, source-mounted openpyxl compatibility shim. It
+ignores only the formatting-only `defaultColWidthPt` worksheet extension found
+in some enterprise XLSX exports; the uploaded workbook is not rewritten, normal
+XLSX behavior is unchanged, and unrelated workbook corruption still fails
+closed. Unknown, damaged, or encrypted OLE2 containers are
 rejected rather than guessed as Word or PowerPoint. PDF files that open normally in browsers but are
 rejected by PDFium during route inspection first try the independent builtin
 parser before falling back to MinerU. A later source-page rendering error keeps
@@ -1173,11 +1346,13 @@ absent.
 For ordinary users, the native New Chat page starts with
 `DeepSeek-V4-Flash`. The four built-in agents are normalized to that chat model,
 the enterprise reranker, VLM, and ASR models, with image and audio upload
-enabled. New Knowledge Base and existing knowledge-base Settings dialogs keep
-only Basic Information in their left navigation for ordinary users; creation
-retains all native type and indexing choices in that page. Hidden model,
-embedding, parser, chunking, image, audio, sharing, and storage settings still
-use deployment-managed defaults. System administrators retain the complete
+enabled. New Knowledge Base dialogs keep only Basic Information in their left
+navigation for ordinary users; creation retains all native type and indexing
+choices in that page. Existing knowledge-base Settings additionally expose
+Publish Integrations > Sharing Management so an owner can share the knowledge
+base to a shared space with native read-only or editable permissions. Hidden
+model, embedding, parser, chunking, image, audio, and storage settings still use
+deployment-managed defaults. System administrators retain the complete
 native configuration interface.
 
 When `TAVILY_API_KEY` is configured for DeerFlow, SSO also creates or reuses a
@@ -1328,7 +1503,44 @@ Final files published with `present_files` are persisted in the thread-scoped ou
 Packaged `.skill` files are first-class downloadable artifacts: `present_files`
 accepts valid ZIP-based packages containing `SKILL.md` and rejects malformed or
 path-traversing archives before publication.
-PPT Master publishes completed PowerPoint files into the thread-scoped outputs directory together with a same-stem `.preview.pdf`. The chat keeps the PPTX as the only user-facing downloadable deliverable while the artifact panel renders the paired PDF through a scriptless, server-rasterized page gallery; this remains usable in enterprise browsers whose native PDF plug-in cannot render the hardened sandboxed response. The companion PDF stays hidden from file cards and the artifact selector. A same-stem `.pdf` remains a compatibility preview fallback, ordinary artifact links in assistant messages open the right-side preview, explicit download links still download the presentation, and long filenames are truncated without displacing the panel controls. PPT completion requires a successful native export and a real `.ppt`/`.pptx` publication; SVG pages, notes, specifications, reports, and other working files cannot satisfy the delivery gate or be substituted for a failed deck. Premature “unfinished/manual continuation” model conclusions are hidden recovery events: DeerFlow continues automatically after real workflow progress and only surfaces a bounded failure after repeated no-progress termination.
+New tasks beginning with `/ppt-master` use a thin transport runtime on port
+`8003`, while the real Agent CLI runs as a second container in that thread's
+Kubernetes Sandbox Pod. The transport graph contains no LangChain model,
+`create_agent`, or DeerFlow Agent middleware. The Sandbox-side host installs the
+vendored upstream `ppt-master` v4.5.0 package into the Agent's normal Skill
+directory, keeps an exact writable thread-persistent snapshot, persists the
+Agent session pointer and command events, and exposes only a cluster-internal
+authenticated control port. The upstream package owns route selection, stage
+order, confirmations, validation, and recovery; DeerFlow carries authentication,
+streaming, cancellation, Confirm UI proxying, Sandbox provisioning, and final
+artifact/preview persistence. The host fails closed when no real Codex auth or
+Responses-compatible provider is configured; a Chat-Completions-only endpoint
+is not silently treated as a Codex Agent host. See
+[`docs/ppt-master-isolated-runner.md`](docs/ppt-master-isolated-runner.md).
+Agent progress is normalized to the same plain message-dictionary contract used
+by durable `task_*` events before it reaches the stream and event store; live
+LangChain message objects never cross that transport boundary. The isolated
+runtime derives the conversation title from the original Slash request without
+invoking a second title model. Expanding the `ppt-master 官方工作流` card shows
+the persisted command/query summary and provides on-demand tool input/output;
+real Sandbox Live Preview URLs in that timeline are rewritten to the
+authenticated thread proxy instead of exposing an unusable loopback link.
+
+The local Kubernetes profile runs the host against Alibaba Cloud Model Studio's
+native Responses API with `qwen3.7-max` and the existing
+`DASHSCOPE_API_KEY`. The enterprise profile keeps the internal
+`DeepSeek-V4-Flash` Chat Completions credential in Gateway and gives the Agent
+host only a separate scoped relay key; Gateway translates the streamed
+enterprise protocol to Responses. Provider configuration without its selected
+`env_key` is rejected before Codex starts, and the enterprise bridge never
+disables CA or hostname verification.
+
+PPT Master publishes completed PowerPoint files into the thread-scoped outputs directory together with a same-stem `.preview.pdf`. The chat keeps the PPTX as the only user-facing downloadable deliverable while the artifact panel renders the paired PDF through a scriptless, server-rasterized page gallery; this remains usable in enterprise browsers whose native PDF plug-in cannot render the hardened sandboxed response. The companion PDF stays hidden from file cards and the artifact selector. A same-stem `.pdf` remains a compatibility preview fallback, ordinary artifact links in assistant messages open the right-side preview, explicit download links still download the presentation, and long filenames are truncated without displacing the panel controls. PPT completion requires the selected official route's successful native export and a real `.ppt`/`.pptx` publication; SVG pages, notes, specifications, reports, and other working files cannot be substituted for the final deck. Tool-bearing progress text remains visible in the conversation.
+The same authenticated thread proxy makes PPT Master's standalone template and
+design confirmation pages usable through the DeerFlow URL. Their state-changing
+requests are accepted only when browser Fetch Metadata and Origin both prove the
+request is same-origin; the rest of the Gateway remains protected by the normal
+double-submit CSRF contract.
 Writing or publishing a generated file no longer opens the artifact panel automatically. Deliverables remain available in the conversation and Files list; the chat column narrows only after the user explicitly opens a write step, artifact link, file card, or the Files control. Artifact reads use the authorized thread owner's storage bucket, so administrator read-only review and ordinary owner views resolve the same PPT preview companion.
 Final assistant responses cannot claim a `/mnt/user-data/outputs/...` deliverable unless that file both exists in the current thread outputs directory and was successfully published with `present_files`. DeerFlow retries one invalid delivery claim with hidden execution guidance, then returns a visible delivery error instead of persisting a fabricated download link.
 

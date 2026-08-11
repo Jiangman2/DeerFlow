@@ -41,6 +41,11 @@ class UserRow(Base):
         nullable=False,
         default=lambda: datetime.now(UTC),
     )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
 
     # OAuth linkage (optional). A partial unique index enforces one
     # account per (provider, oauth_id) pair, leaving NULL/NULL rows

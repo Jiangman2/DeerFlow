@@ -832,6 +832,45 @@ class TestSkillContextInjection:
 
 
 class TestDurableContextInjection:
+    def test_injects_checkpointed_skill_workflow_after_run_boundary(self):
+        model = RecordingFakeModel(responses=[AIMessage(content="继续")])
+        agent = create_agent(
+            model=model,
+            tools=[fake_task],
+            middleware=[DurableContextMiddleware()],
+            state_schema=ThreadState,
+        )
+
+        agent.invoke(
+            {
+                "messages": [HumanMessage(content="继续执行")],
+                "skill_workflow": {
+                    "activation_id": "ppt-run-1",
+                    "skill_name": "ppt-master",
+                    "task_text": "创建 5 页能力展示 PPT",
+                    "status": "running",
+                    "selected_authority": "/mnt/skills/public/ppt-master/workflows/generate-pptx.md",
+                    "project_path": "/mnt/user-data/workspace/projects/cnooc-demo",
+                    "current_stage": "validate",
+                    "gate_status": "failed",
+                    "resume_pointer": "python3 validate_svg.py --stage final",
+                    "required_capabilities": {"ai_images": True, "speaker_notes": True},
+                },
+            }
+        )
+
+        data = [
+            message
+            for message in model.received[-1]
+            if isinstance(message, HumanMessage) and message.additional_kwargs.get("durable_context_data")
+        ]
+        assert data, "checkpointed skill workflow was not injected"
+        assert "ppt-master" in data[0].content
+        assert "generate-pptx.md" in data[0].content
+        assert "/mnt/user-data/workspace/projects/cnooc-demo" in data[0].content
+        assert "validate_svg.py --stage final" in data[0].content
+        assert "required_capabilities: ai_images, speaker_notes" in data[0].content
+
     def test_injects_summary_and_ledger_together(self):
         model = RecordingFakeModel(responses=[AIMessage(content="ok")])
         agent = create_agent(

@@ -8,10 +8,17 @@ import {
   loadStaticDemoThread,
   loadStaticDemoThreads,
   staticDemoThreadState,
+  isStaticDemoThreadId,
 } from "../threads/static-demo";
 import type { AgentThreadState } from "../threads/types";
 
 import { isStateChangingMethod, readCsrfCookie } from "./fetcher";
+import {
+  getPptMasterRuntimeBaseURL,
+  PPT_MASTER_RUNTIME_ASSISTANT_ID,
+  PPT_MASTER_RUNTIME_METADATA_KEY,
+  shouldUsePptMasterRuntime,
+} from "./ppt-master-runtime";
 import { sanitizeRunStreamOptions } from "./stream-mode";
 
 /**
@@ -167,8 +174,14 @@ export function clearReconnectRun(
   }
 }
 
-function createCompatibleClient(isMock?: boolean): LangGraphClient {
-  if (isStaticWebsiteOnly() && !isMock) {
+function createCompatibleClient(
+  isMock?: boolean,
+  staticDemoThreadId?: string,
+): LangGraphClient {
+  if (
+    !isMock &&
+    (isStaticWebsiteOnly() || isStaticDemoThreadId(staticDemoThreadId))
+  ) {
     return createStaticClient();
   }
 
@@ -178,19 +191,56 @@ function createCompatibleClient(isMock?: boolean): LangGraphClient {
     apiUrl,
     onRequest: injectCsrfHeader,
   });
+  const pptMasterClient = isMock
+    ? null
+    : new LangGraphClient({
+        apiUrl: getPptMasterRuntimeBaseURL(),
+        onRequest: injectCsrfHeader,
+      });
 
   const originalRunStream = client.runs.stream.bind(client.runs);
-  client.runs.stream = ((threadId, assistantId, payload) =>
-    originalRunStream(
-      threadId,
-      assistantId,
-      sanitizeRunStreamOptions(payload),
-    )) as typeof client.runs.stream;
+  client.runs.stream = (async function* (threadId, assistantId, payload) {
+    const sanitized = sanitizeRunStreamOptions(payload);
+    const input = Reflect.get(sanitized as object, "input");
+    const usePptMaster = Boolean(
+      pptMasterClient &&
+        threadId &&
+        (await shouldUsePptMasterRuntime(client, threadId, input)),
+    );
+    if (usePptMaster && pptMasterClient) {
+      const metadata = Reflect.get(sanitized as object, "metadata");
+      const runnerPayload = {
+        ...sanitized,
+        metadata: {
+          ...(typeof metadata === "object" && metadata !== null
+            ? metadata
+            : {}),
+          [PPT_MASTER_RUNTIME_METADATA_KEY]:
+            PPT_MASTER_RUNTIME_ASSISTANT_ID,
+        },
+      };
+      yield* pptMasterClient.runs.stream(
+        threadId,
+        PPT_MASTER_RUNTIME_ASSISTANT_ID,
+        runnerPayload,
+      );
+      return;
+    }
+    yield* originalRunStream(threadId, assistantId, sanitized);
+  }) as typeof client.runs.stream;
 
   const originalCancel = client.runs.cancel.bind(client.runs);
   client.runs.cancel = (async (threadId, runId, wait, action, options) => {
+    const usePptMaster = Boolean(
+      pptMasterClient &&
+        threadId &&
+        (await shouldUsePptMasterRuntime(client, threadId)),
+    );
+    const cancel = usePptMaster
+      ? pptMasterClient!.runs.cancel.bind(pptMasterClient!.runs)
+      : originalCancel;
     try {
-      return await originalCancel(threadId, runId, wait, action, options);
+      return await cancel(threadId, runId, wait, action, options);
     } catch (error) {
       if (isRunNotCancellableError(error)) {
         // The run already reached a terminal state, so cancelling it is a
@@ -208,16 +258,25 @@ function createCompatibleClient(isMock?: boolean): LangGraphClient {
 
   const originalJoinStream = client.runs.joinStream.bind(client.runs);
   client.runs.joinStream = async function* (threadId, runId, options) {
+    const usePptMaster = Boolean(
+      pptMasterClient &&
+        threadId &&
+        (await shouldUsePptMasterRuntime(client, threadId)),
+    );
+    const streamClient = usePptMaster ? pptMasterClient! : client;
+    const joinStream = usePptMaster
+      ? pptMasterClient!.runs.joinStream.bind(pptMasterClient!.runs)
+      : originalJoinStream;
     // Short-circuit reconnects to runs that have already finished: otherwise a
     // reload after the backend's stream bridge is reaped blocks forever on a
     // drained condition variable, pinning ``isLoading`` true so the first
     // post-reload message is routed to ``stop`` instead of ``submit``.
-    if (threadId && (await shouldSkipReconnect(client, threadId, runId))) {
+    if (threadId && (await shouldSkipReconnect(streamClient, threadId, runId))) {
       clearReconnectRun(threadId, runId);
       return;
     }
     try {
-      yield* originalJoinStream(
+      yield* joinStream(
         threadId,
         runId,
         sanitizeRunStreamOptions(options),
@@ -273,12 +332,19 @@ function createStaticClient(): LangGraphClient {
 }
 
 const _clients = new Map<string, LangGraphClient>();
-export function getAPIClient(isMock?: boolean): LangGraphClient {
-  const cacheKey = isMock ? "mock" : "default";
+export function getAPIClient(
+  isMock?: boolean,
+  staticDemoThreadId?: string,
+): LangGraphClient {
+  const cacheKey = isMock
+    ? "mock"
+    : isStaticDemoThreadId(staticDemoThreadId)
+      ? `static-demo:${staticDemoThreadId}`
+      : "default";
   let client = _clients.get(cacheKey);
 
   if (!client) {
-    client = createCompatibleClient(isMock);
+    client = createCompatibleClient(isMock, staticDemoThreadId);
     _clients.set(cacheKey, client);
   }
 

@@ -9,7 +9,7 @@ rs.mock("@/core/config", () => ({
 }));
 
 import { fetch as fetcher } from "@/core/api/fetcher";
-import { getDashboardFailures } from "@/core/dashboard/api";
+import { getDashboardFailures, getDashboardUsers } from "@/core/dashboard/api";
 
 const mockedFetch = rs.mocked(fetcher);
 
@@ -48,6 +48,38 @@ describe("dashboard failures api", () => {
     });
     expect(mockedFetch).toHaveBeenCalledWith(
       "/backend/api/admin/dashboard/failures?limit=5&offset=5",
+    );
+  });
+
+  test("filters failed runs by account or display name", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ total: 1, items: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await getDashboardFailures(5, 0, "张 三");
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/backend/api/admin/dashboard/failures?limit=5&offset=0&q=%E5%BC%A0+%E4%B8%89",
+    );
+  });
+});
+
+describe("registered dashboard users api", () => {
+  test("sends the server-side identity search with pagination", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ total: 1, items: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await getDashboardUsers(5, 10, "张 三");
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/backend/api/admin/dashboard/users?limit=5&offset=10&q=%E5%BC%A0+%E4%B8%89",
     );
   });
 });

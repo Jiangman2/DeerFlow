@@ -101,6 +101,32 @@ def test_write_file_append_is_discoverable_in_tool_schema() -> None:
     assert "append" in append_field.description
 
 
+@pytest.mark.parametrize(
+    ("tool_obj", "required_args"),
+    [
+        (bash_tool, {"command": "true"}),
+        (ls_tool, {"path": "/tmp"}),
+        (glob_tool, {"pattern": "*.py", "path": "/tmp"}),
+        (grep_tool, {"pattern": "x", "path": "/tmp"}),
+        (read_file_tool, {"path": "/tmp/x"}),
+        (write_file_tool, {"path": "/tmp/x", "content": "hi"}),
+        (
+            str_replace_tool,
+            {"path": "/tmp/x", "old_str": "a", "new_str": "b"},
+        ),
+    ],
+    ids=lambda value: getattr(value, "name", None) or str(value),
+)
+def test_sandbox_tool_descriptions_are_optional_execution_metadata(tool_obj, required_args) -> None:
+    """Display metadata must not turn a valid Sandbox action into a failed receipt."""
+    fields = tool_obj.tool_call_schema.model_fields
+
+    assert fields["description"].default == ""
+    for name in required_args:
+        assert fields[name].is_required()
+    tool_obj.tool_call_schema.model_validate(required_args)
+
+
 @pytest.mark.parametrize("tool_obj", [case[0] for case in _TOOL_CASES], ids=[case[0].name for case in _TOOL_CASES])
 def test_model_facing_tool_parameters_have_descriptions(tool_obj) -> None:
     """Every model-facing tool parameter should explain when and how to use it."""

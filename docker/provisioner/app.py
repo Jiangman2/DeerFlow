@@ -92,6 +92,14 @@ SANDBOX_SECRET_ENV_KEYS = tuple(
     ).split(",")
     if key.strip()
 )
+PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS = frozenset(
+    key.strip()
+    for key in os.environ.get(
+        "PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS",
+        "PPT_MASTER_RESPONSES_RELAY_KEY",
+    ).split(",")
+    if key.strip()
+)
 SANDBOX_PASSTHROUGH_ENV_KEYS = tuple(
     key.strip()
     for key in os.environ.get(
@@ -110,6 +118,12 @@ SANDBOX_PASSTHROUGH_ENV_KEYS = tuple(
 )
 SANDBOX_CONTAINER_PORT_RAW = os.environ.get("SANDBOX_CONTAINER_PORT", "8080")
 SANDBOX_SERVICE_TYPE = os.environ.get("SANDBOX_SERVICE_TYPE", "NodePort")
+PPT_MASTER_AGENT_HOST_ENABLED = os.environ.get(
+    "PPT_MASTER_AGENT_HOST_ENABLED", "false"
+).strip().lower() in {"1", "true", "yes", "on"}
+PPT_MASTER_AGENT_HOST_PORT_RAW = os.environ.get(
+    "PPT_MASTER_AGENT_HOST_PORT", "8788"
+)
 try:
     SANDBOX_CONTAINER_PORT = int(SANDBOX_CONTAINER_PORT_RAW)
 except ValueError as exc:
@@ -120,9 +134,25 @@ if not (1 <= SANDBOX_CONTAINER_PORT <= 65535):
     raise RuntimeError(
         f"Invalid SANDBOX_CONTAINER_PORT={SANDBOX_CONTAINER_PORT}; expected a value in [1, 65535]"
     )
+try:
+    PPT_MASTER_AGENT_HOST_PORT = int(PPT_MASTER_AGENT_HOST_PORT_RAW)
+except ValueError as exc:
+    raise RuntimeError(
+        f"Invalid PPT_MASTER_AGENT_HOST_PORT={PPT_MASTER_AGENT_HOST_PORT_RAW!r}; expected an integer TCP port"
+    ) from exc
+if not (1 <= PPT_MASTER_AGENT_HOST_PORT <= 65535):
+    raise RuntimeError(
+        f"Invalid PPT_MASTER_AGENT_HOST_PORT={PPT_MASTER_AGENT_HOST_PORT}; expected a value in [1, 65535]"
+    )
+if PPT_MASTER_AGENT_HOST_PORT == SANDBOX_CONTAINER_PORT:
+    raise RuntimeError("PPT_MASTER_AGENT_HOST_PORT must differ from SANDBOX_CONTAINER_PORT")
 if SANDBOX_SERVICE_TYPE not in {"NodePort", "ClusterIP"}:
     raise RuntimeError(
         f"Invalid SANDBOX_SERVICE_TYPE={SANDBOX_SERVICE_TYPE!r}; expected 'NodePort' or 'ClusterIP'"
+    )
+if PPT_MASTER_AGENT_HOST_ENABLED and SANDBOX_SERVICE_TYPE != "ClusterIP":
+    raise RuntimeError(
+        "PPT_MASTER_AGENT_HOST_ENABLED requires SANDBOX_SERVICE_TYPE=ClusterIP so the Agent control port is never exposed through a NodePort"
     )
 SAFE_THREAD_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
 SAFE_USER_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
@@ -151,18 +181,6 @@ except ValueError as exc:
 # host's LAN IP. Ignored when SANDBOX_SERVICE_TYPE=ClusterIP.
 NODE_HOST = os.environ.get("NODE_HOST", "host.docker.internal")
 
-_SANDBOX_HEALTHCHECK_CODE = (
-    "import os,urllib.request;"
-    "key=os.environ.get('SANDBOX_API_KEY','');"
-    "headers={'Authorization':'Bearer '+key} if key else {};"
-    "request=urllib.request.Request('http://127.0.0.1:"
-    + str(SANDBOX_CONTAINER_PORT)
-    + "/v1/sandbox',headers=headers);"
-    "response=urllib.request.urlopen(request,timeout=2);"
-    "raise SystemExit(0 if response.status==200 else 1)"
-)
-
-
 def _sandbox_healthcheck_exec() -> k8s_client.V1ExecAction:
     """Probe AIO without placing its Secret value in the Pod specification."""
     return k8s_client.V1ExecAction(command=["python3", "-c", _SANDBOX_HEALTHCHECK_CODE])
@@ -181,11 +199,16 @@ def _positive_int_env(name: str, default: int) -> int:
     return value
 
 
+SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS = _positive_int_env(
+    "SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS", 5
+)
+
+
 SANDBOX_STARTUP_PROBE_PERIOD_SECONDS = _positive_int_env(
     "SANDBOX_STARTUP_PROBE_PERIOD_SECONDS", 5
 )
 SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS = _positive_int_env(
-    "SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS", 3
+    "SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS", 10
 )
 SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD = _positive_int_env(
     "SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD", 60
@@ -218,6 +241,17 @@ SANDBOX_CPU_REQUEST = os.environ.get("SANDBOX_CPU_REQUEST", "500m")
 SANDBOX_MEMORY_REQUEST = os.environ.get("SANDBOX_MEMORY_REQUEST", "512Mi")
 SANDBOX_CPU_LIMIT = os.environ.get("SANDBOX_CPU_LIMIT", "2")
 SANDBOX_MEMORY_LIMIT = os.environ.get("SANDBOX_MEMORY_LIMIT", "2Gi")
+
+_SANDBOX_HEALTHCHECK_CODE = (
+    "import os,urllib.request;"
+    "key=os.environ.get('SANDBOX_API_KEY','');"
+    "headers={'Authorization':'Bearer '+key} if key else {};"
+    "request=urllib.request.Request('http://127.0.0.1:"
+    + str(SANDBOX_CONTAINER_PORT)
+    + "/v1/sandbox',headers=headers);"
+    + f"response=urllib.request.urlopen(request,timeout={SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS});"
+    "raise SystemExit(0 if response.status==200 else 1)"
+)
 
 
 def join_host_path(base: str, *parts: str) -> str:
@@ -620,6 +654,125 @@ def _build_pod(
     include_legacy_skills: bool = False,
 ) -> k8s_client.V1Pod:
     """Construct a Pod manifest for a single sandbox."""
+    volume_mounts = _build_volume_mounts(
+        thread_id,
+        user_id=user_id,
+        include_legacy_skills=include_legacy_skills,
+    )
+    sandbox_env = _build_sandbox_env(include_agent_only_secrets=False)
+    containers = [
+        k8s_client.V1Container(
+            name="sandbox",
+            image=SANDBOX_IMAGE,
+            image_pull_policy="IfNotPresent",
+            ports=[
+                k8s_client.V1ContainerPort(
+                    name="http",
+                    container_port=SANDBOX_CONTAINER_PORT,
+                    protocol="TCP",
+                )
+            ],
+            # A cold AIO sandbox can take 30-40 seconds to start all
+            # supervised services. Gate readiness/liveness until the
+            # HTTP API is actually available so kubelet does not kill
+            # a healthy-but-still-starting container at that boundary.
+            startup_probe=k8s_client.V1Probe(
+                _exec=_sandbox_healthcheck_exec(),
+                period_seconds=SANDBOX_STARTUP_PROBE_PERIOD_SECONDS,
+                timeout_seconds=SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS,
+                # Five minutes prevents kubelet from restarting a
+                # healthy AIO process during temporary node contention.
+                # Gateway startup_timeout remains the user-facing bound.
+                failure_threshold=SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD,
+            ),
+            readiness_probe=k8s_client.V1Probe(
+                _exec=_sandbox_healthcheck_exec(),
+                initial_delay_seconds=SANDBOX_READINESS_INITIAL_DELAY_SECONDS,
+                period_seconds=SANDBOX_READINESS_PERIOD_SECONDS,
+                timeout_seconds=SANDBOX_READINESS_TIMEOUT_SECONDS,
+                failure_threshold=SANDBOX_READINESS_FAILURE_THRESHOLD,
+            ),
+            liveness_probe=k8s_client.V1Probe(
+                _exec=_sandbox_healthcheck_exec(),
+                initial_delay_seconds=SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS,
+                period_seconds=SANDBOX_LIVENESS_PERIOD_SECONDS,
+                timeout_seconds=SANDBOX_LIVENESS_TIMEOUT_SECONDS,
+                failure_threshold=SANDBOX_LIVENESS_FAILURE_THRESHOLD,
+            ),
+            resources=k8s_client.V1ResourceRequirements(
+                requests={
+                    "cpu": SANDBOX_CPU_REQUEST,
+                    "memory": SANDBOX_MEMORY_REQUEST,
+                    "ephemeral-storage": "500Mi",
+                },
+                limits={
+                    "cpu": SANDBOX_CPU_LIMIT,
+                    "memory": SANDBOX_MEMORY_LIMIT,
+                    "ephemeral-storage": "500Mi",
+                },
+            ),
+            env=sandbox_env,
+            volume_mounts=volume_mounts,
+            security_context=k8s_client.V1SecurityContext(
+                privileged=False,
+                allow_privilege_escalation=True,
+            ),
+        )
+    ]
+    if PPT_MASTER_AGENT_HOST_ENABLED:
+        containers.append(
+            k8s_client.V1Container(
+                name="ppt-master-agent-host",
+                image=SANDBOX_IMAGE,
+                image_pull_policy="IfNotPresent",
+                command=["python3", "/opt/ppt-master-agent-host/agent_host.py"],
+                ports=[
+                    k8s_client.V1ContainerPort(
+                        name="ppt-agent",
+                        container_port=PPT_MASTER_AGENT_HOST_PORT,
+                        protocol="TCP",
+                    )
+                ],
+                readiness_probe=k8s_client.V1Probe(
+                    http_get=k8s_client.V1HTTPGetAction(
+                        path="/health",
+                        port=PPT_MASTER_AGENT_HOST_PORT,
+                        scheme="HTTP",
+                    ),
+                    initial_delay_seconds=2,
+                    period_seconds=5,
+                    timeout_seconds=3,
+                    failure_threshold=12,
+                ),
+                liveness_probe=k8s_client.V1Probe(
+                    http_get=k8s_client.V1HTTPGetAction(
+                        path="/health",
+                        port=PPT_MASTER_AGENT_HOST_PORT,
+                        scheme="HTTP",
+                    ),
+                    initial_delay_seconds=10,
+                    period_seconds=15,
+                    timeout_seconds=3,
+                    failure_threshold=4,
+                ),
+                resources=k8s_client.V1ResourceRequirements(
+                    requests={"cpu": "100m", "memory": "256Mi"},
+                    limits={"cpu": "2", "memory": "4Gi"},
+                ),
+                env=[
+                    *_build_sandbox_env(include_agent_only_secrets=True),
+                    k8s_client.V1EnvVar(
+                        name="PPT_MASTER_AGENT_HOST_PORT",
+                        value=str(PPT_MASTER_AGENT_HOST_PORT),
+                    ),
+                ],
+                volume_mounts=volume_mounts,
+                security_context=k8s_client.V1SecurityContext(
+                    privileged=False,
+                    allow_privilege_escalation=False,
+                ),
+            )
+        )
     return k8s_client.V1Pod(
         metadata=k8s_client.V1ObjectMeta(
             name=_pod_name(sandbox_id),
@@ -637,69 +790,7 @@ def _build_pod(
             # and prevents arbitrary code from turning the sandbox into a
             # cluster/database discovery console.
             automount_service_account_token=False,
-            containers=[
-                k8s_client.V1Container(
-                    name="sandbox",
-                    image=SANDBOX_IMAGE,
-                    image_pull_policy="IfNotPresent",
-                    ports=[
-                        k8s_client.V1ContainerPort(
-                            name="http",
-                            container_port=SANDBOX_CONTAINER_PORT,
-                            protocol="TCP",
-                        )
-                    ],
-                    # A cold AIO sandbox can take 30-40 seconds to start all
-                    # supervised services. Gate readiness/liveness until the
-                    # HTTP API is actually available so kubelet does not kill
-                    # a healthy-but-still-starting container at that boundary.
-                    startup_probe=k8s_client.V1Probe(
-                        _exec=_sandbox_healthcheck_exec(),
-                        period_seconds=SANDBOX_STARTUP_PROBE_PERIOD_SECONDS,
-                        timeout_seconds=SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS,
-                        # Five minutes prevents kubelet from restarting a
-                        # healthy AIO process during temporary node contention.
-                        # Gateway startup_timeout remains the user-facing bound.
-                        failure_threshold=SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD,
-                    ),
-                    readiness_probe=k8s_client.V1Probe(
-                        _exec=_sandbox_healthcheck_exec(),
-                        initial_delay_seconds=SANDBOX_READINESS_INITIAL_DELAY_SECONDS,
-                        period_seconds=SANDBOX_READINESS_PERIOD_SECONDS,
-                        timeout_seconds=SANDBOX_READINESS_TIMEOUT_SECONDS,
-                        failure_threshold=SANDBOX_READINESS_FAILURE_THRESHOLD,
-                    ),
-                    liveness_probe=k8s_client.V1Probe(
-                        _exec=_sandbox_healthcheck_exec(),
-                        initial_delay_seconds=SANDBOX_LIVENESS_INITIAL_DELAY_SECONDS,
-                        period_seconds=SANDBOX_LIVENESS_PERIOD_SECONDS,
-                        timeout_seconds=SANDBOX_LIVENESS_TIMEOUT_SECONDS,
-                        failure_threshold=SANDBOX_LIVENESS_FAILURE_THRESHOLD,
-                    ),
-                    resources=k8s_client.V1ResourceRequirements(
-                        requests={
-                            "cpu": SANDBOX_CPU_REQUEST,
-                            "memory": SANDBOX_MEMORY_REQUEST,
-                            "ephemeral-storage": "500Mi",
-                        },
-                        limits={
-                            "cpu": SANDBOX_CPU_LIMIT,
-                            "memory": SANDBOX_MEMORY_LIMIT,
-                            "ephemeral-storage": "500Mi",
-                        },
-                    ),
-                    env=_build_sandbox_env(),
-                    volume_mounts=_build_volume_mounts(
-                        thread_id,
-                        user_id=user_id,
-                        include_legacy_skills=include_legacy_skills,
-                    ),
-                    security_context=k8s_client.V1SecurityContext(
-                        privileged=False,
-                        allow_privilege_escalation=True,
-                    ),
-                )
-            ],
+            containers=containers,
             volumes=_build_volumes(
                 thread_id,
                 user_id=user_id,
@@ -710,7 +801,7 @@ def _build_pod(
     )
 
 
-def _build_sandbox_env() -> list[k8s_client.V1EnvVar]:
+def _build_sandbox_env(*, include_agent_only_secrets: bool = False) -> list[k8s_client.V1EnvVar]:
     """Build explicit Sandbox env entries without embedding secret values.
 
     Secret-backed entries use ``secretKeyRef`` so credentials remain in the
@@ -720,6 +811,8 @@ def _build_sandbox_env() -> list[k8s_client.V1EnvVar]:
     env: list[k8s_client.V1EnvVar] = []
     if SANDBOX_ENV_SECRET_NAME:
         for key in SANDBOX_SECRET_ENV_KEYS:
+            if key in PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS and not include_agent_only_secrets:
+                continue
             env.append(
                 k8s_client.V1EnvVar(
                     name=key,
@@ -756,6 +849,23 @@ def _build_sandbox_env() -> list[k8s_client.V1EnvVar]:
 
 def _build_service(sandbox_id: str) -> k8s_client.V1Service:
     """Construct a Service manifest for the configured access mode."""
+    ports = [
+        k8s_client.V1ServicePort(
+            name="http",
+            port=SANDBOX_CONTAINER_PORT,
+            target_port=SANDBOX_CONTAINER_PORT,
+            protocol="TCP",
+        )
+    ]
+    if PPT_MASTER_AGENT_HOST_ENABLED:
+        ports.append(
+            k8s_client.V1ServicePort(
+                name="ppt-agent",
+                port=PPT_MASTER_AGENT_HOST_PORT,
+                target_port=PPT_MASTER_AGENT_HOST_PORT,
+                protocol="TCP",
+            )
+        )
     return k8s_client.V1Service(
         metadata=k8s_client.V1ObjectMeta(
             name=_svc_name(sandbox_id),
@@ -769,14 +879,7 @@ def _build_service(sandbox_id: str) -> k8s_client.V1Service:
         ),
         spec=k8s_client.V1ServiceSpec(
             type=SANDBOX_SERVICE_TYPE,
-            ports=[
-                k8s_client.V1ServicePort(
-                    name="http",
-                    port=SANDBOX_CONTAINER_PORT,
-                    target_port=SANDBOX_CONTAINER_PORT,
-                    protocol="TCP",
-                )
-            ],
+            ports=ports,
             selector={
                 "sandbox-id": sandbox_id,
             },

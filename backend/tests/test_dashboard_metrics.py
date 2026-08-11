@@ -214,6 +214,68 @@ async def test_registered_user_sessions_exclude_runs_from_deleted_threads(
         await engine.dispose()
 
 
+async def test_registered_users_search_name_or_email_and_sort_by_last_login(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sf, engine = await _session_factory()
+    try:
+        async with sf() as session:
+            session.add_all(
+                [
+                    UserRow(
+                        id=ADMIN_ID,
+                        email="admin@example.com",
+                        system_role="admin",
+                        display_name="管理员",
+                        last_login_at=datetime(2026, 8, 1, tzinfo=UTC),
+                    ),
+                    UserRow(
+                        id=USER_ID,
+                        email="zhangsan@example.com",
+                        system_role="user",
+                        display_name="张三",
+                        last_login_at=datetime(2026, 8, 5, tzinfo=UTC),
+                    ),
+                    UserRow(
+                        id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                        email="lisi@example.com",
+                        system_role="user",
+                        display_name="李四",
+                        last_login_at=datetime(2026, 8, 4, tzinfo=UTC),
+                    ),
+                ]
+            )
+            await session.commit()
+
+        with _client(sf, monkeypatch) as client:
+            sorted_response = client.get(
+                "/api/admin/dashboard/users",
+                params={"limit": 10},
+            )
+            name_response = client.get(
+                "/api/admin/dashboard/users",
+                params={"q": "张三", "limit": 10},
+            )
+            email_response = client.get(
+                "/api/admin/dashboard/users",
+                params={"q": "lisi@EXAMPLE", "limit": 10},
+            )
+
+        assert sorted_response.status_code == 200
+        assert [item["user_id"] for item in sorted_response.json()["items"]] == [
+            USER_ID,
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            ADMIN_ID,
+        ]
+        assert sorted_response.json()["items"][0]["last_login_at"].startswith("2026-08-05")
+        assert name_response.json()["total"] == 1
+        assert name_response.json()["items"][0]["email"] == "zhangsan@example.com"
+        assert email_response.json()["total"] == 1
+        assert email_response.json()["items"][0]["display_name"] == "李四"
+    finally:
+        await engine.dispose()
+
+
 async def test_registered_user_session_link_is_exposed_only_to_its_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -261,7 +323,12 @@ async def test_failed_runs_endpoint_pages_all_history_and_only_links_openable_th
             session.add_all(
                 [
                     UserRow(id=ADMIN_ID, email="admin@example.com", system_role="admin"),
-                    UserRow(id=USER_ID, email="user@example.com", system_role="user"),
+                    UserRow(
+                        id=USER_ID,
+                        email="user@example.com",
+                        system_role="user",
+                        display_name="张三",
+                    ),
                     ThreadMetaRow(
                         thread_id="open-thread",
                         user_id=USER_ID,
@@ -290,6 +357,9 @@ async def test_failed_runs_endpoint_pages_all_history_and_only_links_openable_th
         with _client(sf, monkeypatch) as client:
             first_page = client.get("/api/admin/dashboard/failures", params={"limit": 1, "offset": 0})
             second_page = client.get("/api/admin/dashboard/failures", params={"limit": 1, "offset": 1})
+            by_name = client.get("/api/admin/dashboard/failures", params={"q": "张三"})
+            by_email = client.get("/api/admin/dashboard/failures", params={"q": "USER@EXAMPLE"})
+            unmatched = client.get("/api/admin/dashboard/failures", params={"q": "李四"})
 
         assert first_page.status_code == 200
         assert first_page.json()["total"] == 2
@@ -298,6 +368,7 @@ async def test_failed_runs_endpoint_pages_all_history_and_only_links_openable_th
         assert openable["thread_id"] == "open-thread"
         assert openable["user_id"] == USER_ID
         assert openable["email"] == "user@example.com"
+        assert openable["display_name"] == "张三"
         assert openable["status"] == "timeout"
         assert openable["duration_ms"] == 0
         assert openable["can_open"] is True
@@ -310,8 +381,45 @@ async def test_failed_runs_endpoint_pages_all_history_and_only_links_openable_th
         assert orphan["can_open"] is False
         assert orphan["chat_url"] is None
         assert orphan["diagnostics_url"].endswith("run_id=old-failure")
+        assert by_name.status_code == 200
+        assert by_name.json()["total"] == 2
+        assert by_email.status_code == 200
+        assert by_email.json()["total"] == 2
+        assert unmatched.status_code == 200
+        assert unmatched.json() == {"items": [], "total": 0}
     finally:
         await engine.dispose()
+
+
+async def test_weknora_usage_prefers_deerflow_sso_display_names() -> None:
+    usage = {
+        "knowledge_bases": [
+            {
+                "creator_email": "USER@example.com",
+                "creator_name": "legacy-account",
+            }
+        ],
+        "users": [{"email": "user@example.com", "name": "legacy-account"}],
+        "shared_spaces": [
+            {
+                "owner_email": "user@example.com",
+                "owner_name": "legacy-account",
+            }
+        ],
+    }
+    profile = UserRow(
+        id=USER_ID,
+        email="user@example.com",
+        system_role="user",
+        display_name="张三",
+    )
+
+    assert dashboard._weknora_profile_emails(usage) == {"user@example.com"}
+    dashboard._apply_weknora_profile_names(usage, {"user@example.com": profile})
+
+    assert usage["knowledge_bases"][0]["creator_name"] == "张三"
+    assert usage["users"][0]["name"] == "张三"
+    assert usage["shared_spaces"][0]["owner_name"] == "张三"
 
 
 async def test_observability_analytics_accepts_arbitrary_dashboard_window(

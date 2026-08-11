@@ -43,17 +43,20 @@ import { FlipDisplay } from "../flip-display";
 import { Tooltip } from "../tooltip";
 
 import { MarkdownContent } from "./markdown-content";
+import { createMarkdownLinkComponent } from "./markdown-link";
 
 export function MessageGroup({
   className,
   messages,
   isLoading = false,
+  threadId,
   tokenDebugSteps = [],
   showTokenDebugSummaries = false,
 }: {
   className?: string;
   messages: Message[];
   isLoading?: boolean;
+  threadId?: string;
   tokenDebugSteps?: TokenDebugStep[];
   showTokenDebugSummaries?: boolean;
 }) {
@@ -113,6 +116,12 @@ export function MessageGroup({
     }
   }, [lastToolCallStep, steps]);
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
+  const threadMarkdownComponents = useMemo(
+    () => ({
+      a: createMarkdownLinkComponent(threadId),
+    }),
+    [threadId],
+  );
   const firstEligibleDebugSummaryStepIndexByMessageId = useMemo(() => {
     const firstIndices = new Map<string, number>();
 
@@ -231,6 +240,7 @@ export function MessageGroup({
           content={step.content}
           isLoading={isLoading}
           rehypePlugins={rehypePlugins}
+          components={threadMarkdownComponents}
         />
       }
     ></ChainOfThoughtStep>
@@ -254,6 +264,7 @@ export function MessageGroup({
               content={step.reasoning ?? ""}
               isLoading={isLoading}
               rehypePlugins={rehypePlugins}
+              components={threadMarkdownComponents}
             />
           }
         ></ChainOfThoughtStep>,
@@ -375,6 +386,7 @@ export function MessageGroup({
                     content={lastReasoningStep.reasoning ?? ""}
                     isLoading={isLoading}
                     rehypePlugins={rehypePlugins}
+                    components={threadMarkdownComponents}
                   />
                 }
               ></ChainOfThoughtStep>

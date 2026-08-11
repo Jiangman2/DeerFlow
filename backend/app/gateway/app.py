@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -8,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.gateway.auth_disabled import warn_if_auth_disabled_enabled
 from app.gateway.auth_middleware import AuthMiddleware
+from app.gateway.codex_responses_adapter import router as codex_responses_router
 from app.gateway.config import get_gateway_config
 from app.gateway.csrf_middleware import CSRFMiddleware, get_configured_cors_origins
 from app.gateway.deps import langgraph_runtime
@@ -62,6 +64,13 @@ logger = logging.getLogger(__name__)
 # Bounds worker exit time so uvicorn's reload supervisor does not keep
 # firing signals into a worker that is stuck waiting for shutdown cleanup.
 _SHUTDOWN_HOOK_TIMEOUT_SECONDS = 5.0
+_PPT_MASTER_RUNNER_PROFILE = "ppt-master-runner"
+
+
+def _is_ppt_master_runner_profile() -> bool:
+    """Return whether this process is the isolated PPT Master runtime."""
+
+    return os.environ.get("DEER_FLOW_RUNTIME_PROFILE", "").strip().lower() == _PPT_MASTER_RUNNER_PROFILE
 
 
 async def _ensure_admin_user(app: FastAPI) -> None:
@@ -195,6 +204,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         raise RuntimeError(error_msg) from e
     config = get_gateway_config()
     logger.info(f"Starting API Gateway on {config.host}:{config.port}")
+    isolated_ppt_runner = _is_ppt_master_runner_profile()
+    if isolated_ppt_runner:
+        logger.info("Starting isolated ppt-master Agent runtime; platform bootstrap services are disabled")
 
     # Agent observability (Monocle). Off by default; enabled with
     # MONOCLE_TRACING. Initialized here at startup — not at import time — so a
@@ -214,33 +226,40 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # "char" and returns early, so char-mode backends never touch tiktoken
     # (avoids even the 5s probe in
     # network-restricted deployments — see issue #3429).
-    try:
-        from deerflow.agents.memory import get_memory_manager
+    if not isolated_ppt_runner:
+        try:
+            from deerflow.agents.memory import get_memory_manager
 
-        manager = get_memory_manager()
-        warm = getattr(manager, "warm", None)
-        if not callable(warm):
-            logger.info("Memory backend %s has no warm-up hook; skipping tiktoken warm-up", type(manager).__name__)
-        else:
-            warmed = await asyncio.wait_for(
-                asyncio.to_thread(warm),
-                timeout=5,
-            )
-            if warmed:
-                logger.info("tiktoken encoding cache warmed successfully")
+            manager = get_memory_manager()
+            warm = getattr(manager, "warm", None)
+            if not callable(warm):
+                logger.info(
+                    "Memory backend %s has no warm-up hook; skipping tiktoken warm-up",
+                    type(manager).__name__,
+                )
             else:
-                logger.warning("tiktoken encoding cache warm-up failed; token counting will use character-based fallback until tiktoken loads successfully")
-    except TimeoutError:
-        logger.warning("tiktoken encoding cache warm-up timed out; token counting will use character-based fallback until tiktoken loads successfully")
-    except Exception:
-        logger.warning("tiktoken warm-up skipped", exc_info=True)
+                warmed = await asyncio.wait_for(
+                    asyncio.to_thread(warm),
+                    timeout=5,
+                )
+                if warmed:
+                    logger.info("tiktoken encoding cache warmed successfully")
+                else:
+                    logger.warning("tiktoken encoding cache warm-up failed; token counting will use character-based fallback until tiktoken loads successfully")
+        except TimeoutError:
+            logger.warning("tiktoken encoding cache warm-up timed out; token counting will use character-based fallback until tiktoken loads successfully")
+        except Exception:
+            logger.warning("tiktoken warm-up skipped", exc_info=True)
 
-    try:
-        removed_upload_staging_files = await asyncio.to_thread(cleanup_stale_upload_staging_files)
-        if removed_upload_staging_files:
-            logger.info("Removed %d stale upload staging file(s)", removed_upload_staging_files)
-    except Exception:
-        logger.warning("Upload staging file cleanup skipped", exc_info=True)
+        try:
+            removed_upload_staging_files = await asyncio.to_thread(cleanup_stale_upload_staging_files)
+            if removed_upload_staging_files:
+                logger.info(
+                    "Removed %d stale upload staging file(s)",
+                    removed_upload_staging_files,
+                )
+        except Exception:
+            logger.warning("Upload staging file cleanup skipped", exc_info=True)
 
     # Initialize LangGraph runtime components (StreamBridge, RunManager, checkpointer, store)
     async with langgraph_runtime(app, startup_config):
@@ -248,35 +267,38 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Check admin bootstrap state and migrate orphan threads after admin exists.
         # Must run AFTER langgraph_runtime so app.state.store is available for thread migration
-        await _ensure_admin_user(app)
+        if not isolated_ppt_runner:
+            await _ensure_admin_user(app)
 
         # Start IM channel service if any channels are configured
-        try:
-            from app.channels.service import start_channel_service
+        if not isolated_ppt_runner:
+            try:
+                from app.channels.service import start_channel_service
 
-            channel_service = await start_channel_service(startup_config)
-            logger.info("Channel service started: %s", channel_service.get_status())
-        except Exception:
-            logger.exception("No IM channels configured or channel service failed to start")
+                channel_service = await start_channel_service(startup_config)
+                logger.info("Channel service started: %s", channel_service.get_status())
+            except Exception:
+                logger.exception("No IM channels configured or channel service failed to start")
 
-        try:
-            from app.gateway.services import launch_scheduled_thread_run
-            from app.scheduler import ScheduledTaskService
+        if not isolated_ppt_runner:
+            try:
+                from app.gateway.services import launch_scheduled_thread_run
+                from app.scheduler import ScheduledTaskService
 
-            if getattr(app.state, "scheduled_task_repo", None) is not None and getattr(app.state, "scheduled_task_run_repo", None) is not None:
-                scheduled_task_service = ScheduledTaskService(
-                    task_repo=app.state.scheduled_task_repo,
-                    task_run_repo=app.state.scheduled_task_run_repo,
-                    launch_run=lambda **kwargs: launch_scheduled_thread_run(app=app, **kwargs),
-                    poll_interval_seconds=startup_config.scheduler.poll_interval_seconds,
-                    lease_seconds=startup_config.scheduler.lease_seconds,
-                    max_concurrent_runs=startup_config.scheduler.max_concurrent_runs,
-                )
-                app.state.scheduled_task_service = scheduled_task_service
-                if startup_config.scheduler.enabled:
-                    await scheduled_task_service.start()
-        except Exception:
-            logger.exception("Failed to initialize scheduled task service")
+                if getattr(app.state, "scheduled_task_repo", None) is not None and getattr(app.state, "scheduled_task_run_repo", None) is not None:
+                    scheduled_task_service = ScheduledTaskService(
+                        task_repo=app.state.scheduled_task_repo,
+                        task_run_repo=app.state.scheduled_task_run_repo,
+                        launch_run=lambda **kwargs: launch_scheduled_thread_run(app=app, **kwargs),
+                        poll_interval_seconds=startup_config.scheduler.poll_interval_seconds,
+                        lease_seconds=startup_config.scheduler.lease_seconds,
+                        max_concurrent_runs=startup_config.scheduler.max_concurrent_runs,
+                    )
+                    app.state.scheduled_task_service = scheduled_task_service
+                    if startup_config.scheduler.enabled:
+                        await scheduled_task_service.start()
+            except Exception:
+                logger.exception("Failed to initialize scheduled task service")
 
         yield
 
@@ -286,22 +308,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.exception("Failed to close OIDC service")
 
         # Stop channel service on shutdown (bounded to prevent worker hang)
-        try:
-            from app.channels.service import stop_channel_service
+        if not isolated_ppt_runner:
+            try:
+                from app.channels.service import stop_channel_service
 
-            await asyncio.wait_for(
-                stop_channel_service(),
-                timeout=_SHUTDOWN_HOOK_TIMEOUT_SECONDS,
-            )
-        except TimeoutError:
-            logger.warning(
-                "Channel service shutdown exceeded %.1fs; proceeding with worker exit.",
-                _SHUTDOWN_HOOK_TIMEOUT_SECONDS,
-            )
-        except Exception:
-            logger.exception("Failed to stop channel service")
+                await asyncio.wait_for(
+                    stop_channel_service(),
+                    timeout=_SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+                )
+            except TimeoutError:
+                logger.warning(
+                    "Channel service shutdown exceeded %.1fs; proceeding with worker exit.",
+                    _SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+                )
+            except Exception:
+                logger.exception("Failed to stop channel service")
 
-        if getattr(app.state, "scheduled_task_service", None) is not None:
+        if not isolated_ppt_runner and getattr(app.state, "scheduled_task_service", None) is not None:
             try:
                 await app.state.scheduled_task_service.stop()
             except Exception:
@@ -326,23 +349,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # pod's ``terminationGracePeriodSeconds`` (channel stop + this drain +
         # buffer), set on the gateway Helm deployment -- or K8s SIGKILLs the
         # drain mid-flight and the loss this is fixing is silently re-introduced.
-        try:
-            app_cfg = get_app_config()
-            if app_cfg.memory.enabled:
-                from deerflow.agents.memory import get_memory_manager
+        if not isolated_ppt_runner:
+            try:
+                app_cfg = get_app_config()
+                if app_cfg.memory.enabled:
+                    from deerflow.agents.memory import get_memory_manager
 
-                manager = get_memory_manager()
-                flush_timeout = app_cfg.memory.shutdown_flush_timeout_seconds
-                completed = await asyncio.to_thread(manager.shutdown_flush, flush_timeout)
-                if completed:
-                    logger.info("Memory queue flush completed within %.1fs", flush_timeout)
-                else:
-                    logger.warning(
-                        "Memory queue flush did not finish within %.1fs; remaining updates may be lost",
-                        flush_timeout,
-                    )
-        except Exception:
-            logger.exception("Failed to flush memory queue on shutdown")
+                    manager = get_memory_manager()
+                    flush_timeout = app_cfg.memory.shutdown_flush_timeout_seconds
+                    completed = await asyncio.to_thread(manager.shutdown_flush, flush_timeout)
+                    if completed:
+                        logger.info("Memory queue flush completed within %.1fs", flush_timeout)
+                    else:
+                        logger.warning(
+                            "Memory queue flush did not finish within %.1fs; remaining updates may be lost",
+                            flush_timeout,
+                        )
+            except Exception:
+                logger.exception("Failed to flush memory queue on shutdown")
 
     logger.info("Shutting down API Gateway")
 
@@ -542,6 +566,10 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # The router is an enterprise extension and remains isolated from the
     # official thread, memory, and run lifecycle routers above.
     app.include_router(weknora.router)
+
+    # Cluster-internal OpenAI Responses compatibility endpoint used only by
+    # the sandboxed ppt-master Codex Agent in enterprise deployments.
+    app.include_router(codex_responses_router)
 
     # GitHub webhooks API is mounted at /api/webhooks/github
     # Exempt from auth and CSRF middleware (see auth_middleware._PUBLIC_PATH_PREFIXES

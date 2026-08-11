@@ -5,6 +5,8 @@
 import { fetch } from "../api/fetcher";
 import { getBackendBaseURL } from "../config";
 
+import type { UploadPurpose } from "./upload-purpose";
+
 export interface UploadedFileInfo {
   filename: string;
   size: number;
@@ -51,8 +53,11 @@ async function readErrorDetail(
 export async function uploadFiles(
   threadId: string,
   files: File[],
+  uploadPurpose: UploadPurpose = "attachment",
 ): Promise<UploadResponse> {
   const formData = new FormData();
+
+  formData.append("upload_purpose", uploadPurpose);
 
   files.forEach((file) => {
     formData.append("files", file);

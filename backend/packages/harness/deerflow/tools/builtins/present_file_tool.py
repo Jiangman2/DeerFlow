@@ -14,6 +14,7 @@ from langgraph.types import Command
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
+from deerflow.tools.builtins.presentation_acceptance import validate_ppt_master_delivery
 from deerflow.tools.types import Runtime
 
 OUTPUTS_VIRTUAL_PREFIX = f"{VIRTUAL_PATH_PREFIX}/outputs"
@@ -304,6 +305,27 @@ def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) 
     normalized_paths = [normalized_path]
     required_preview_path = _preview_pdf_path_for(normalized_path)
 
+    workflow = runtime.state.get("skill_workflow") if isinstance(runtime.state, dict) else None
+    if isinstance(workflow, dict) and workflow.get("skill_name") == "ppt-master" and normalized_path.lower().endswith(".pptx"):
+        thread_id = _get_thread_id(runtime)
+        sandbox = _get_active_sandbox(runtime)
+        if not thread_id or sandbox is None:
+            raise ValueError("PPT 工作流验收需要当前线程和活动 Sandbox；无法在缺少运行上下文时发布")
+        try:
+            actual_pptx = get_paths().resolve_virtual_path(
+                thread_id,
+                normalized_path,
+                user_id=get_effective_user_id(),
+            )
+        except TypeError:
+            actual_pptx = get_paths().resolve_virtual_path(thread_id, normalized_path)
+        validate_ppt_master_delivery(
+            sandbox=sandbox,
+            workflow=workflow,
+            source_path=filepath,
+            actual_pptx=actual_pptx,
+        )
+
     _generate_missing_ppt_preview(runtime, filepath, normalized_path)
     preview_candidates = [
         candidate
@@ -372,30 +394,70 @@ def present_file_tool(
                 normalized_paths.append(normalized_path)
                 seen_paths.add(normalized_path)
     except ValueError as exc:
+        workflow = runtime.state.get("skill_workflow") if isinstance(runtime.state, dict) else None
+        workflow_update = None
+        if isinstance(workflow, dict) and workflow.get("activation_id") and workflow.get("completion_contract") == "presentation_delivery":
+            action = ", ".join(filepaths)
+            workflow_update = {
+                "activation_id": workflow["activation_id"],
+                "status": "blocked",
+                "current_stage": "delivery",
+                "gate_status": "failed",
+                "gate_detail": str(exc)[:1200],
+                "gate_owner_receipt_id": tool_call_id,
+                "gate_owner_tool": "present_files",
+                "gate_owner_action": action,
+                "gate_owner_stage": "delivery",
+                "guard_detail": "",
+                "resume_pointer": action,
+            }
+        update = {
+            "messages": [
+                ToolMessage(
+                    f"Error: {exc}",
+                    tool_call_id=tool_call_id,
+                    name="present_files",
+                    status="error",
+                )
+            ]
+        }
+        if workflow_update is not None:
+            update["skill_workflow"] = workflow_update
         return Command(
-            update={
-                "messages": [
-                    ToolMessage(
-                        f"Error: {exc}",
-                        tool_call_id=tool_call_id,
-                        name="present_files",
-                        status="error",
-                    )
-                ]
-            },
+            update=update,
         )
 
     # The merge_artifacts reducer will handle merging and deduplication
+    workflow = runtime.state.get("skill_workflow") if isinstance(runtime.state, dict) else None
+    workflow_update = None
+    if isinstance(workflow, dict) and workflow.get("activation_id") and workflow.get("completion_contract") == "presentation_delivery" and any(path.lower().endswith(".pptx") for path in normalized_paths):
+        workflow_update = {
+            "activation_id": workflow["activation_id"],
+            "status": "completed",
+            "current_stage": "delivery-accepted",
+            "gate_status": "passed",
+            "gate_detail": "",
+            "gate_owner_receipt_id": "",
+            "gate_owner_tool": "",
+            "gate_owner_action": "",
+            "gate_owner_stage": "",
+            "guard_detail": "",
+            "resume_pointer": "",
+            "delivered_artifacts": normalized_paths,
+        }
+    update = {
+        "artifacts": normalized_paths,
+        "messages": [
+            ToolMessage(
+                "Successfully presented files",
+                tool_call_id=tool_call_id,
+                name="present_files",
+                artifact={"presented_files": normalized_paths},
+            )
+        ],
+    }
+    if workflow_update is not None:
+        update["skill_workflow"] = workflow_update
     return Command(
-        update={
-            "artifacts": normalized_paths,
-            "messages": [
-                ToolMessage(
-                    "Successfully presented files",
-                    tool_call_id=tool_call_id,
-                    name="present_files",
-                    artifact={"presented_files": normalized_paths},
-                )
-            ],
-        },
+        update=update,
     )

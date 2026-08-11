@@ -15,7 +15,13 @@ SPEC.loader.exec_module(MODULE)
 
 def _valid_config() -> dict:
     return {
-        "models": [{"name": "deepseek-v4-flash"}],
+        "models": [
+            {
+                "name": "deepseek-v4-flash",
+                "max_tokens": 65536,
+                "profile": {"max_input_tokens": 1048576},
+            }
+        ],
         "sandbox": {
             "environment": {
                 **MODULE.SANDBOX_PROXY_REFERENCES,
@@ -148,6 +154,31 @@ def test_release_config_rejects_extra_chat_model(tmp_path: Path) -> None:
     path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
     with pytest.raises(MODULE.ValidationError, match="deepseek-v4-flash"):
+        MODULE.validate_config(path)
+
+
+@pytest.mark.parametrize(
+    ("path_parts", "bad_value", "error_field"),
+    [
+        (("max_tokens",), 32768, "max_tokens"),
+        (("profile", "max_input_tokens"), 1000000, "max_input_tokens"),
+    ],
+)
+def test_release_config_rejects_deepseek_token_limit_regressions(
+    tmp_path: Path,
+    path_parts: tuple[str, ...],
+    bad_value: int,
+    error_field: str,
+) -> None:
+    config = _valid_config()
+    target = config["models"][0]
+    for part in path_parts[:-1]:
+        target = target[part]
+    target[path_parts[-1]] = bad_value
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(MODULE.ValidationError, match=error_field):
         MODULE.validate_config(path)
 
 

@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import case, desc, func, or_, select
+from sqlalchemy import case, desc, func, nullslast, or_, select
 
 from app.gateway.deps import require_admin_user
 from app.gateway.external_agent_analytics import (
@@ -347,6 +347,7 @@ class RecentFailureItem(BaseModel):
     thread_id: str
     user_id: str | None
     email: str | None
+    display_name: str | None
     status: str
     error: str | None
     assistant_id: str | None
@@ -402,6 +403,7 @@ class RegisteredUserSessionSummary(BaseModel):
     system_role: str
     is_disabled: bool
     registered_at: datetime
+    last_login_at: datetime | None
     existing_threads: int
     runs: int
     terminal_runs: int
@@ -590,6 +592,46 @@ def _duration_ms(created_at: datetime | None, updated_at: datetime | None) -> in
     if start is None or end is None:
         return 0
     return max(0, int((end - start).total_seconds() * 1000))
+
+
+def _weknora_profile_emails(usage: dict[str, Any]) -> set[str]:
+    """Collect normalized account emails from the read-only WeKnora report."""
+
+    emails: set[str] = set()
+    for collection, email_field in (
+        ("knowledge_bases", "creator_email"),
+        ("users", "email"),
+        ("shared_spaces", "owner_email"),
+    ):
+        for item in usage.get(collection, []):
+            if not isinstance(item, dict):
+                continue
+            value = item.get(email_field)
+            if isinstance(value, str) and value.strip():
+                emails.add(value.strip().casefold())
+    return emails
+
+
+def _apply_weknora_profile_names(
+    usage: dict[str, Any],
+    profiles_by_email: dict[str, UserRow],
+) -> None:
+    """Prefer DeerFlow's SSO display name over a WeKnora username fallback."""
+
+    for collection, email_field, name_field in (
+        ("knowledge_bases", "creator_email", "creator_name"),
+        ("users", "email", "name"),
+        ("shared_spaces", "owner_email", "owner_name"),
+    ):
+        for item in usage.get(collection, []):
+            if not isinstance(item, dict):
+                continue
+            email = item.get(email_field)
+            if not isinstance(email, str):
+                continue
+            profile = profiles_by_email.get(email.strip().casefold())
+            if profile and profile.display_name and profile.display_name.strip():
+                item[name_field] = profile.display_name.strip()
 
 
 def _day_key(value: datetime | None) -> str:
@@ -998,7 +1040,21 @@ async def get_registered_user_sessions(
             )
             user_stmt = user_stmt.where(identity_filter)
             count_stmt = count_stmt.where(identity_filter)
-        users = list((await session.execute(user_stmt.order_by(UserRow.created_at.desc(), UserRow.email.asc()).limit(limit).offset(offset))).scalars().all())
+        users = list(
+            (
+                await session.execute(
+                    user_stmt.order_by(
+                        nullslast(desc(UserRow.last_login_at)),
+                        desc(UserRow.created_at),
+                        UserRow.email.asc(),
+                    )
+                    .limit(limit)
+                    .offset(offset)
+                )
+            )
+            .scalars()
+            .all()
+        )
         total = int(await session.scalar(count_stmt) or 0)
         user_ids = [row.id for row in users]
         stats: dict[str, Any] = {}
@@ -1038,6 +1094,7 @@ async def get_registered_user_sessions(
                 system_role=user.system_role,
                 is_disabled=user.is_disabled,
                 registered_at=user.created_at,
+                last_login_at=_coerce_aware(user.last_login_at),
                 existing_threads=int(row[1] or 0) if row else 0,
                 runs=int(row[2] or 0) if row else 0,
                 terminal_runs=successful + failed,
@@ -1104,17 +1161,43 @@ async def get_failed_runs(
     request: Request,
     limit: int = Query(default=5, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    q: str = Query(default="", max_length=200),
 ) -> FailedRunList:
-    """Return every failed run in reverse chronological, paged order."""
+    """Return every failed run, optionally filtered by account or name."""
 
     await require_admin_user(request, detail=_ADMIN_REQUIRED)
     failed_filter = or_(RunRow.status.in_(_FAILED_STATUSES), RunRow.error.is_not(None))
+    owner_user_id = func.coalesce(RunRow.user_id, ThreadMetaRow.user_id)
+    rows_stmt = select(RunRow, owner_user_id.label("owner_user_id"), UserRow).outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id).outerjoin(UserRow, UserRow.id == owner_user_id).where(failed_filter)
+    count_stmt = select(func.count()).select_from(RunRow).outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id).outerjoin(UserRow, UserRow.id == owner_user_id).where(failed_filter)
+    normalized_query = q.strip().casefold()
+    if normalized_query:
+        pattern = f"%{normalized_query}%"
+        identity_filter = or_(
+            func.lower(UserRow.email).like(pattern),
+            func.lower(func.coalesce(UserRow.display_name, "")).like(pattern),
+        )
+        rows_stmt = rows_stmt.where(identity_filter)
+        count_stmt = count_stmt.where(identity_filter)
+
     sf = _session_factory()
     async with sf() as session:
-        total = int(await session.scalar(select(func.count()).select_from(RunRow).where(failed_filter)) or 0)
-        runs = list((await session.execute(select(RunRow).where(failed_filter).order_by(desc(RunRow.updated_at), desc(RunRow.created_at), desc(RunRow.run_id)).limit(limit).offset(offset))).scalars().all())
-        user_ids = {run.user_id for run in runs if run.user_id}
-        users_by_id = {row.id: row for row in (await session.execute(select(UserRow).where(UserRow.id.in_(user_ids)))).scalars()} if user_ids else {}
+        total = int(await session.scalar(count_stmt) or 0)
+        result_rows = list(
+            (
+                await session.execute(
+                    rows_stmt.order_by(
+                        desc(RunRow.updated_at),
+                        desc(RunRow.created_at),
+                        desc(RunRow.run_id),
+                    )
+                    .limit(limit)
+                    .offset(offset)
+                )
+            ).all()
+        )
+        runs = [row[0] for row in result_rows]
+        owner_by_run = {row[0].run_id: (row[1], row[2]) for row in result_rows}
         thread_ids = {run.thread_id for run in runs}
         existing_thread_ids = set((await session.execute(select(ThreadMetaRow.thread_id).where(ThreadMetaRow.thread_id.in_(thread_ids)))).scalars()) if thread_ids else set()
         message_thread_ids = (
@@ -1145,12 +1228,14 @@ async def get_failed_runs(
     for run in runs:
         can_open = run.thread_id in existing_thread_ids and run.thread_id in message_thread_ids
         disposition = latest_disposition_by_run.get(run.run_id)
+        owner_id, owner = owner_by_run.get(run.run_id, (run.user_id, None))
         items.append(
             RecentFailureItem(
                 run_id=run.run_id,
                 thread_id=run.thread_id,
-                user_id=run.user_id,
-                email=users_by_id.get(run.user_id).email if run.user_id and run.user_id in users_by_id else None,
+                user_id=owner_id,
+                email=owner.email if owner else None,
+                display_name=owner.display_name if owner else None,
                 status=run.status,
                 error=run.error,
                 assistant_id=run.assistant_id,
@@ -1263,6 +1348,14 @@ async def get_dashboard_summary(
         end=end,
         limit=limit,
     )
+    profile_emails = _weknora_profile_emails(weknora_usage)
+    if profile_emails:
+        async with sf() as session:
+            profile_rows = (await session.execute(select(UserRow).where(func.lower(UserRow.email).in_(profile_emails)))).scalars()
+            _apply_weknora_profile_names(
+                weknora_usage,
+                {row.email.strip().casefold(): row for row in profile_rows},
+            )
     scheduled_task_usage = _summarize_scheduled_task_usage(
         scheduled_task_rows,
         scheduled_task_run_rows,
@@ -1487,6 +1580,7 @@ async def get_dashboard_summary(
             thread_id=run.thread_id,
             user_id=run.user_id,
             email=users_by_id.get(run.user_id).email if run.user_id and run.user_id in users_by_id else None,
+            display_name=(users_by_id.get(run.user_id).display_name if run.user_id and run.user_id in users_by_id else None),
             status=run.status,
             error=run.error,
             assistant_id=run.assistant_id,

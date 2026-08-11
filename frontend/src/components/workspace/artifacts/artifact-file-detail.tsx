@@ -70,6 +70,7 @@ import { useArtifacts } from "./context";
 import { artifactMarkdownPlugins } from "./markdown-preview-plugins";
 
 const WRITE_FILE_PREVIEW_REFRESH_INTERVAL_MS = 3000;
+const PRESENTATION_PREVIEW_PROBE_DELAYS_MS = [0, 300, 900] as const;
 
 export function ArtifactFileDetail({
   className,
@@ -83,7 +84,7 @@ export function ArtifactFileDetail({
   const { t } = useI18n();
   const { user } = useAuth();
   const isAdmin = user?.system_role === "admin";
-  const { artifacts, setOpen, select } = useArtifacts();
+  const { artifacts, open, setOpen, select } = useArtifacts();
   const { thread, isMock } = useThread();
   const isWriteFile = useMemo(() => {
     return filepathFromProps.startsWith("write-file:");
@@ -179,10 +180,16 @@ export function ArtifactFileDetail({
   const [resolvedPreviewPath, setResolvedPreviewPath] = useState<string | null>(
     null,
   );
+  const [isResolvingPreview, setIsResolvingPreview] = useState(false);
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     setResolvedPreviewPath(null);
     if (isCodeFile || isWriteFile) {
+      setIsResolvingPreview(false);
       return;
     }
 
@@ -194,35 +201,51 @@ export function ArtifactFileDetail({
       ),
     );
     if (previewCandidates.length === 0) {
+      setIsResolvingPreview(false);
       return;
     }
 
     const controller = new AbortController();
+    setIsResolvingPreview(true);
     void (async () => {
-      for (const candidate of previewCandidates) {
-        try {
-          const response = await fetch(
-            urlOfArtifact({
-              filepath: candidate,
-              threadId,
-              isMock,
-            }),
-            {
-              method: "HEAD",
-              signal: controller.signal,
-            },
-          );
-          if (response.ok) {
-            setResolvedPreviewPath(candidate);
-            return;
-          }
-        } catch {
+      for (const delayMs of PRESENTATION_PREVIEW_PROBE_DELAYS_MS) {
+        if (delayMs > 0) {
+          await new Promise((resolve) => window.setTimeout(resolve, delayMs));
           if (controller.signal.aborted) {
             return;
           }
         }
+
+        for (const candidate of previewCandidates) {
+          try {
+            const response = await fetch(
+              urlOfArtifact({
+                filepath: candidate,
+                threadId,
+                isMock,
+              }),
+              {
+                method: "HEAD",
+                cache: "no-store",
+                credentials: "same-origin",
+                signal: controller.signal,
+              },
+            );
+            if (response.ok) {
+              setResolvedPreviewPath(candidate);
+              setIsResolvingPreview(false);
+              return;
+            }
+          } catch {
+            if (controller.signal.aborted) {
+              return;
+            }
+          }
+        }
       }
+
       // Keep the PPTX download fallback when no sibling preview exists.
+      setIsResolvingPreview(false);
     })();
 
     return () => controller.abort();
@@ -231,6 +254,7 @@ export function ArtifactFileDetail({
     isCodeFile,
     isMock,
     isWriteFile,
+    open,
     filepath,
     previewPathFromList,
     threadId,
@@ -450,7 +474,16 @@ export function ArtifactFileDetail({
             readonly
           />
         )}
-        {!isCodeFile && canPreviewInBrowser && (
+        {!isCodeFile && isResolvingPreview && (
+          <div
+            className="text-muted-foreground flex size-full items-center justify-center gap-2 text-sm"
+            role="status"
+          >
+            <LoaderIcon className="size-4 animate-spin" />
+            正在准备预览…
+          </div>
+        )}
+        {!isCodeFile && !isResolvingPreview && canPreviewInBrowser && (
           <iframe
             className="size-full"
             src={browserPreviewUrl}
@@ -463,7 +496,7 @@ export function ArtifactFileDetail({
             title="Artifact preview"
           />
         )}
-        {!isCodeFile && !canPreviewInBrowser && (
+        {!isCodeFile && !isResolvingPreview && !canPreviewInBrowser && (
           <ArtifactDownloadFallback
             filepath={filepath}
             threadId={threadId}

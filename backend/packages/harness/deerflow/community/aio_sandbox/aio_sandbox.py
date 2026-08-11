@@ -334,8 +334,35 @@ class AioSandbox(Sandbox):
             result = self._client.file.read_file(file=path)
             return result.data.content if result.data else ""
         except Exception as e:
-            logger.error(f"Failed to read file in sandbox: {e}")
-            return f"Error: {e}"
+            # Some agent-sandbox SDK/runtime combinations raise while parsing
+            # the file endpoint's error response (for example a missing file is
+            # returned as a validation payload instead of a normal 404). Fall
+            # back to the already-supported shell channel so the model receives
+            # a stable file-not-found/error result and existing-file reads can
+            # still be used by read-before-write and authoring workflows.
+            try:
+                normalized = path.replace("\\", "/")
+                if any(segment == ".." for segment in normalized.split("/")):
+                    raise PermissionError("path traversal detected")
+                if not any(
+                    normalized == prefix or normalized.startswith(f"{prefix}/")
+                    for prefix in (VIRTUAL_PATH_PREFIX, "/mnt/skills", "/mnt/acp-workspace")
+                ):
+                    raise PermissionError("path is outside the sandbox virtual mounts")
+                fallback = self._client.shell.exec_command(
+                    command=_capture_bash_exit_code(f"cat -- {shlex.quote(normalized)}"),
+                    no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
+                )
+                output = fallback.data.output if fallback and fallback.data else ""
+                return _normalize_bash_exit_output(output)
+            except Exception as fallback_error:
+                logger.error(
+                    "Failed to read file in sandbox through file and shell channels "
+                    "(%s; %s)",
+                    type(e).__name__,
+                    type(fallback_error).__name__,
+                )
+                return f"Error: {e}"
 
     def download_file(self, path: str) -> bytes:
         """Download file bytes from the sandbox.

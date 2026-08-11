@@ -19,8 +19,12 @@ spec:
           env:
             - name: MINERU_LISTEN_PORT
               value: "50052"
+            - name: MINERU_REQUEST_MODE
+              value: sync
             - name: MINERU_TIMEOUT_SECONDS
-              value: "300"
+              value: "600"
+            - name: MINERU_TRUST_ENV
+              value: "false"
             - name: LIBREOFFICE_TIMEOUT_SECONDS
               value: "180"
             - name: MINERU_MAX_UPLOAD_BYTES

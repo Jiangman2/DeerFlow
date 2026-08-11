@@ -15,10 +15,10 @@ test("WeKnora bootstrap persists SSO and applies the DeerFlow UI policy", () => 
   expect(html).toContain("personal_workspace_owner");
   expect(html).toContain("installDeerFlowPolicyNavigationGuard");
   expect(html).toContain("allowedStandardSidebarGuides");
-  expect(html).toContain('"nav-creatChat"');
+  expect(html).not.toContain('"nav-creatChat"');
   expect(html).toContain('"nav-knowledge-bases"');
   expect(html).toContain('"nav-organizations"');
-  expect(html).toContain('"nav-agents"');
+  expect(html).not.toContain('"nav-agents"');
   expect(html).toContain('"/platform/agents"');
   expect(html).not.toContain('"/platform/integrations"');
   expect(html).not.toContain('          "nav-integrations",');
@@ -40,6 +40,13 @@ test("WeKnora bootstrap persists SSO and applies the DeerFlow UI policy", () => 
   expect(html).toContain("simplifyKnowledgeBaseEditor");
   expect(html).toContain("data-deerflow-kb-editor");
   expect(html).toContain('[data-guide="kb-editor-sidebar"]');
+  expect(html).toContain("knowledgeBaseSettingsLabels");
+  expect(html).toContain("sharingManagementLabels");
+  expect(html).toContain("data-deerflow-kb-sharing-group");
+  expect(html).toContain("data-deerflow-kb-sharing-item");
+  expect(html).toContain('"\\u5171\\u4eab\\u7ba1\\u7406"');
+  expect(html).toContain('"Sharing Management"');
+  expect(html).toContain("isExistingKnowledgeBaseSettings");
   expect(html).toContain("var firstPass =");
   expect(html).toContain("firstPass &&");
   expect(html).toContain("basicItem.click()");
@@ -60,8 +67,8 @@ test("WeKnora bootstrap persists SSO and applies the DeerFlow UI policy", () => 
   expect(html).toContain("expandSidebarOnEntry");
   expect(html).toContain("sidebarExpansionApplied");
   expect(html).not.toContain("enforceCollapsedSidebar");
-  expect(html).not.toContain("event.target.closest(\".sidebar-toggle-item\")");
-  expect(html).not.toContain("event.target.closest(\".sidebar-drag-handle\")");
+  expect(html).not.toContain('event.target.closest(".sidebar-toggle-item")');
+  expect(html).not.toContain('event.target.closest(".sidebar-drag-handle")');
   expect(html).toContain('content: "\\77e5\\8bc6\\5e93"');
   expect(html).toContain(".user-dropdown");
   expect(html).toContain(".menu-item,");

@@ -468,6 +468,39 @@ class TestWriteFileParents:
         assert writes == [{"file": "/mnt/user-data/workspace/project/svg_output/01.svg", "content": "<svg/>"}]
 
 
+class TestReadFileFallback:
+    def test_file_api_parse_error_falls_back_to_shell(self, sandbox):
+        """A malformed remote error response must not hide a readable file."""
+        sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
+        sandbox._client.shell.exec_command = MagicMock(
+            return_value=SimpleNamespace(
+                data=SimpleNamespace(
+                    output=f"<svg>content</svg>\n{_BASH_EXIT_SENTINEL}0\n"
+                )
+            )
+        )
+
+        result = sandbox.read_file("/mnt/user-data/workspace/svg_output/01.svg")
+
+        assert result == "<svg>content</svg>"
+        sandbox._client.shell.exec_command.assert_called_once()
+
+    def test_file_api_parse_error_returns_normalized_shell_failure(self, sandbox):
+        """A missing file should become an actionable Error string."""
+        sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
+        sandbox._client.shell.exec_command = MagicMock(
+            return_value=SimpleNamespace(
+                data=SimpleNamespace(
+                    output=f"cat: /mnt/user-data/workspace/missing.svg: No such file\n{_BASH_EXIT_SENTINEL}1\n"
+                )
+            )
+        )
+
+        result = sandbox.read_file("/mnt/user-data/workspace/missing.svg")
+
+        assert result.startswith("Error: Bash command exited with code 1.")
+
+
 class TestDownloadFile:
     """Tests for AioSandbox.download_file."""
 

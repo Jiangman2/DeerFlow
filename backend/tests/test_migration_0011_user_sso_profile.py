@@ -44,7 +44,7 @@ def test_upgrade_adds_nullable_sso_profile_columns_to_existing_users(tmp_path) -
         ).one()
         version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
 
-    assert version == "0011_user_sso_profile"
+    assert version == "0012_user_last_login"
     assert row == (None, None, None, None)
     for name in (
         "display_name",

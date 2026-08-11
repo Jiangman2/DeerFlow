@@ -26,6 +26,111 @@ def _make_request(query_string: bytes = b"") -> Request:
     return Request({"type": "http", "method": "GET", "path": "/", "headers": [], "query_string": query_string})
 
 
+class _FakeLivePreviewStream:
+    status_code = 200
+    headers = {"content-type": "text/html; charset=utf-8"}
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def aiter_bytes(self):
+        yield b'<script src="/static/app.js"></script>'
+        yield b'<script>fetch("/api/slides")</script>'
+
+
+class _FakeLivePreviewClient:
+    def __init__(self, *args, **kwargs):
+        self.request_args = None
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    def stream(self, *args, **kwargs):
+        self.request_args = (args, kwargs)
+        return _FakeLivePreviewStream()
+
+
+def test_live_preview_proxy_rewrites_sandbox_root_urls(monkeypatch) -> None:
+    fake_sandbox = SimpleNamespace(
+        id="sandbox-abc12345",
+        base_url="http://sandbox-abc12345-svc.deer-flow.svc.cluster.local:8080",
+    )
+    fake_provider = SimpleNamespace(get_for_thread=lambda _thread_id, user_id=None: fake_sandbox)
+    monkeypatch.setattr(artifacts_router, "get_sandbox_provider", lambda: fake_provider)
+    monkeypatch.setattr(artifacts_router, "_resolve_artifact_owner_user_id", AsyncMock(return_value="owner-1"))
+    monkeypatch.setattr(artifacts_router, "_resolve_thread_runtime_profile", AsyncMock(return_value=None))
+    monkeypatch.setattr(artifacts_router.httpx, "AsyncClient", _FakeLivePreviewClient)
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_live_preview,
+            "thread-1",
+            5050,
+            "",
+            _make_request(),
+        )
+    )
+
+    body = bytes(response.body).decode("utf-8")
+    assert response.status_code == 200
+    assert "/api/threads/thread-1/live-preview/5050/static/app.js" in body
+    assert "/api/threads/thread-1/live-preview/5050/api/slides" in body
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_live_preview_for_isolated_ppt_runtime_is_forwarded_to_runner(monkeypatch) -> None:
+    expected = artifacts_router.Response(content=b"runner-preview", status_code=200)
+    forward = AsyncMock(return_value=expected)
+    monkeypatch.delenv("DEER_FLOW_RUNTIME_PROFILE", raising=False)
+    monkeypatch.setattr(artifacts_router, "_resolve_artifact_owner_user_id", AsyncMock(return_value="owner-1"))
+    monkeypatch.setattr(
+        artifacts_router,
+        "_resolve_thread_runtime_profile",
+        AsyncMock(return_value=artifacts_router.PPT_MASTER_RUNTIME_PROFILE),
+    )
+    monkeypatch.setattr(artifacts_router, "_forward_live_preview_to_runner", forward)
+    monkeypatch.setattr(
+        artifacts_router,
+        "get_sandbox_provider",
+        lambda: pytest.fail("the main Gateway must not adopt the Runner Sandbox"),
+    )
+
+    request = _make_request()
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_live_preview,
+            "thread-1",
+            5050,
+            "",
+            request,
+        )
+    )
+
+    assert response is expected
+    forward.assert_awaited_once_with(request, "thread-1")
+
+
+def test_live_preview_proxy_rejects_unsupported_port(monkeypatch) -> None:
+    request = _make_request()
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(
+            call_unwrapped(
+                artifacts_router.get_live_preview,
+                "thread-1",
+                5051,
+                "",
+                request,
+            )
+        )
+    assert exc_info.value.status_code == 404
+
+
 def test_get_artifact_reads_utf8_text_file_on_windows_locale(tmp_path, monkeypatch) -> None:
     artifact_path = tmp_path / "note.txt"
     text = "Curly quotes: \u201cutf8\u201d"

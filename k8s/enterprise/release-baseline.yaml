@@ -14,7 +14,7 @@ controls:
     source:
       - config.yaml
     enforcement: offline
-    acceptance: DeerFlow exposes only deepseek-v4-flash and uses it for scheduled runs, summaries, memory, and input polishing.
+    acceptance: DeerFlow exposes only deepseek-v4-flash, keeps its audited 1M input context with a 65536-token output ceiling, and uses it for scheduled runs, summaries, memory, and input polishing.
 
   - id: sandbox.command-proxy
     layer: runtime-config
@@ -73,6 +73,7 @@ controls:
     layer: kubernetes
     source:
       - k8s/enterprise/mineru-adapter.yaml
+      - k8s/enterprise/mineru-adapter-patch.yaml
       - k8s/enterprise/runtime-patches.yaml
     enforcement: offline+live+functional
     acceptance: Three anti-affined adapter Pods run one per node, PDB minAvailable is two, and WeKnora worker concurrency remains 2+1.
@@ -82,6 +83,7 @@ controls:
     source:
       - docker/mineru_adapter/app.py
       - k8s/enterprise/mineru-adapter.yaml
+      - k8s/enterprise/mineru-adapter-patch.yaml
       - k8s/enterprise/weknora-mineru-defaults.sql
     enforcement: offline+functional
     acceptance: Searchable and scanned PDFs, Word, and presentations retain text plus retrievable visual evidence without unsafe in-process parser concurrency.

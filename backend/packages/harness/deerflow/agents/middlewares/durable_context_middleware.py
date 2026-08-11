@@ -1,10 +1,10 @@
-"""Durable-context middleware: inject summary, delegation ledger, and skills.
+"""Durable-context middleware: inject summary, delegations, skills, and workflows.
 
 Capture enumerates task delegations and loaded skill files into checkpointed
 state channels. Injection renders static authority rules as a SystemMessage and
 renders untrusted channel values (`summary_text`, `delegations`,
-`skill_context`) as one hidden <durable_context_data> HumanMessage, never
-written back to state.
+`skill_context`, `skill_workflow`) as one hidden <durable_context_data>
+HumanMessage, never written back to state.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares.delegation_ledger import extract_delegations, render_delegation_ledger
 from deerflow.agents.middlewares.skill_context import extract_skills, render_skill_context
+from deerflow.agents.middlewares.skill_workflow_middleware import _render_workflow_state
 from deerflow.agents.thread_state import _DELEGATION_LEDGER_MAX_ENTRIES, TERMINAL_STATUSES
 from deerflow.config.summarization_config import DEFAULT_SKILL_FILE_READ_TOOL_NAMES
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
@@ -66,7 +67,12 @@ def _insert_after_leading_system_messages(messages: list, injected: list) -> lis
     return [*messages[:index], *injected, *messages[index:]]
 
 
-def _render_durable_context_data(summary_text: str | None, ledger: list, skills: list) -> str:
+def _render_durable_context_data(
+    summary_text: str | None,
+    ledger: list,
+    skills: list,
+    workflow: dict | None = None,
+) -> str:
     data_parts: list[str] = []
     if summary_text:
         bounded_summary = _bound_text(str(summary_text), _SUMMARY_RENDER_CHAR_BUDGET)
@@ -79,6 +85,10 @@ def _render_durable_context_data(summary_text: str | None, ledger: list, skills:
     skill_block = render_skill_context(skills or [])
     if skill_block:
         data_parts.append(skill_block)
+
+    workflow_block = _render_workflow_state(workflow)
+    if workflow_block:
+        data_parts.append(escape(workflow_block, quote=False))
 
     if not data_parts:
         return ""
@@ -252,6 +262,7 @@ class DurableContextMiddleware(AgentMiddleware[AgentState]):
             state.get("summary_text"),
             state.get("delegations") or [],
             state.get("skill_context") or [],
+            state.get("skill_workflow"),
         )
         if not data_block:
             return request

@@ -75,7 +75,8 @@ describe("artifact URL helpers", () => {
   });
 
   test("returns stable artifact path references", async () => {
-    const { extractArtifactsFromThread } = await loadFreshArtifactUtils();
+    const { extractArtifactsFromStateSnapshot, extractArtifactsFromThread } =
+      await loadFreshArtifactUtils();
     const threadWithoutArtifacts = { values: {} };
     const artifacts = ["/mnt/user-data/outputs/chart.png"];
 
@@ -85,6 +86,15 @@ describe("artifact URL helpers", () => {
     expect(extractArtifactsFromThread({ values: { artifacts } })).toBe(
       artifacts,
     );
+    expect(
+      extractArtifactsFromStateSnapshot({ values: { artifacts } }),
+    ).toEqual(artifacts);
+    expect(
+      extractArtifactsFromStateSnapshot({
+        values: { artifacts: ["valid", 1] },
+      }),
+    ).toEqual(["valid"]);
+    expect(extractArtifactsFromStateSnapshot({ values: {} })).toEqual([]);
   });
 
   test("routes PDF companions through the browser-compatible preview endpoint", async () => {

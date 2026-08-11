@@ -1,6 +1,7 @@
 import { getBackendBaseURL } from "../config";
 import { isStaticWebsiteOnly } from "../static-mode";
 import type { AgentThreadState } from "../threads";
+import { isStaticDemoThreadId } from "../threads/static-demo";
 
 const EMPTY_ARTIFACT_PATHS: readonly string[] = [];
 
@@ -15,7 +16,7 @@ export function urlOfArtifact({
   download?: boolean;
   isMock?: boolean;
 }) {
-  if (isStaticWebsiteOnly()) {
+  if (isStaticWebsiteOnly() || isStaticDemoThreadId(threadId)) {
     return staticDemoArtifactURL({ filepath, threadId, download });
   }
   if (isMock) {
@@ -33,7 +34,7 @@ export function urlOfPdfArtifactPreview({
   threadId: string;
   isMock?: boolean;
 }) {
-  if (isStaticWebsiteOnly()) {
+  if (isStaticWebsiteOnly() || isStaticDemoThreadId(threadId)) {
     const staticPreviewPath = filepath.replace(
       /\.preview\.pdf$/i,
       ".preview.html",
@@ -175,8 +176,22 @@ export function extractArtifactsFromThread(thread: {
   return thread.values.artifacts ?? EMPTY_ARTIFACT_PATHS;
 }
 
+export function extractArtifactsFromStateSnapshot(snapshot: unknown): string[] {
+  if (typeof snapshot !== "object" || snapshot === null) {
+    return [];
+  }
+  const values = Reflect.get(snapshot, "values");
+  if (typeof values !== "object" || values === null) {
+    return [];
+  }
+  const artifacts = Reflect.get(values, "artifacts");
+  return Array.isArray(artifacts)
+    ? artifacts.filter((path): path is string => typeof path === "string")
+    : [];
+}
+
 export function resolveArtifactURL(absolutePath: string, threadId: string) {
-  if (isStaticWebsiteOnly()) {
+  if (isStaticWebsiteOnly() || isStaticDemoThreadId(threadId)) {
     return staticDemoArtifactURL({ filepath: absolutePath, threadId });
   }
   return `${getBackendBaseURL()}/api/threads/${threadId}/artifacts${absolutePath}`;

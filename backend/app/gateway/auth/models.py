@@ -22,6 +22,7 @@ class User(BaseModel):
     password_hash: str | None = Field(None, description="bcrypt hash, nullable for OAuth users")
     system_role: Literal["admin", "user"] = Field(default="user")
     created_at: datetime = Field(default_factory=_utc_now)
+    last_login_at: datetime | None = Field(None, description="Most recent successful login time")
     display_name: str | None = Field(None, max_length=255, description="Display name synchronized from SSO")
     organization_id: str | None = Field(None, max_length=128, description="Organization identifier synchronized from SSO")
     organization_code: str | None = Field(None, max_length=128, description="Organization code synchronized from SSO")

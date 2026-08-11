@@ -343,9 +343,94 @@ def test_present_files_rejects_pptx_when_preview_generation_fails(
     )
 
     assert "artifacts" not in result.update
+
+
+def test_ppt_master_acceptance_failure_keeps_workflow_blocked(tmp_path, monkeypatch):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    deck_path = outputs_dir / "demo.pptx"
+    preview_path = outputs_dir / "demo.preview.pdf"
+    _write_minimal_pptx(deck_path)
+    preview_path.write_bytes(b"%PDF-preview")
+    runtime = _make_runtime_with_sandbox(str(outputs_dir))
+    runtime.state["skill_workflow"] = {
+        "activation_id": "a1",
+        "skill_name": "ppt-master",
+        "completion_contract": "presentation_delivery",
+    }
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_paths",
+        lambda: SimpleNamespace(resolve_virtual_path=lambda thread_id, path, **kwargs: outputs_dir / path.removeprefix("/mnt/user-data/outputs/")),
+    )
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get=lambda sandbox_id: SimpleNamespace()),
+    )
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "validate_ppt_master_delivery",
+        lambda **kwargs: (_ for _ in ()).throw(ValueError("缺少对象动画")),
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=runtime,
+        filepaths=[str(deck_path)],
+        tool_call_id="tc-accept-fail",
+    )
+
+    assert "artifacts" not in result.update
+    assert "缺少对象动画" in result.update["messages"][0].content
+    assert result.update["skill_workflow"]["status"] == "blocked"
+    assert result.update["skill_workflow"]["resume_pointer"] == str(deck_path)
+    assert result.update["skill_workflow"]["gate_owner_tool"] == "present_files"
+
+
+def test_ppt_master_acceptance_success_completes_workflow(tmp_path, monkeypatch):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    deck_path = outputs_dir / "demo.pptx"
+    preview_path = outputs_dir / "demo.preview.pdf"
+    _write_minimal_pptx(deck_path)
+    preview_path.write_bytes(b"%PDF-preview")
+    runtime = _make_runtime_with_sandbox(str(outputs_dir))
+    runtime.state["skill_workflow"] = {
+        "activation_id": "a1",
+        "skill_name": "ppt-master",
+        "completion_contract": "presentation_delivery",
+    }
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_paths",
+        lambda: SimpleNamespace(resolve_virtual_path=lambda thread_id, path, **kwargs: outputs_dir / path.removeprefix("/mnt/user-data/outputs/")),
+    )
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get=lambda sandbox_id: SimpleNamespace()),
+    )
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "validate_ppt_master_delivery",
+        lambda **kwargs: {"status": "passed"},
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=runtime,
+        filepaths=[str(deck_path)],
+        tool_call_id="tc-accept-pass",
+    )
+
+    assert result.update["artifacts"] == [
+        "/mnt/user-data/outputs/demo.pptx",
+        "/mnt/user-data/outputs/demo.preview.pdf",
+    ]
+    assert result.update["skill_workflow"]["status"] == "completed"
+    assert result.update["skill_workflow"]["current_stage"] == "delivery-accepted"
     message = result.update["messages"][0]
-    assert message.status == "error"
-    assert "preview generation failed" in str(message.content)
+    assert message.status == "success"
+    assert message.artifact["presented_files"][0].endswith("demo.pptx")
 
 
 def test_present_files_accepts_valid_skill_package(tmp_path):

@@ -26,7 +26,11 @@ import { useUpdateSubtask } from "../tasks/context";
 import { taskEventToSubtaskUpdate } from "../tasks/lifecycle";
 import { messageToStep } from "../tasks/steps";
 import type { UploadedFileInfo } from "../uploads";
-import { promptInputFilePartToFile, uploadFiles } from "../uploads";
+import {
+  inferUploadPurpose,
+  promptInputFilePartToFile,
+  uploadFiles,
+} from "../uploads";
 
 import {
   findLatestActiveRun,
@@ -34,6 +38,8 @@ import {
   rememberReconnectRun,
 } from "./active-run-recovery";
 import { branchThreadFromTurn, fetchThreadTokenUsage } from "./api";
+import { LEAD_AGENT_RECURSION_LIMIT } from "./run-config";
+import { isStaticDemoThreadId, loadStaticDemoThread } from "./static-demo";
 import {
   buildThreadsSearchQueryOptions,
   DEFAULT_THREAD_SEARCH_PARAMS,
@@ -56,8 +62,15 @@ export type ToolEndEvent = {
 export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
   displayThreadId?: string | null | undefined;
+  /**
+   * The route still represents a client-generated thread before the first
+   * stream starts.  Create that exact id before uploading attachments so the
+   * upload directory and the eventual Sandbox mount cannot diverge.
+   */
+  isNewThread?: boolean;
   context: LocalSettings["context"];
   isMock?: boolean;
+  isStaticDemo?: boolean;
   onSend?: (threadId: string) => void;
   onStart?: (threadId: string, runId: string) => void;
   onFinish?: (state: AgentThreadState) => void;
@@ -874,6 +887,51 @@ export function upsertThreadInInfiniteCache(
   );
 }
 
+/**
+ * Keep every thread-list cache aligned with the authoritative title carried by
+ * the current stream state. LangGraph may deliver a title in either an
+ * `updates` frame or a full `values` frame (including reconnect/history
+ * hydration), while the sidebar reads a separate paginated search cache.
+ */
+export function syncThreadTitleInListCaches(
+  queryClient: QueryClient,
+  threadId: string,
+  title: string,
+) {
+  if (!threadId || !title.trim()) {
+    return;
+  }
+
+  const updateTitle = (thread: AgentThread): AgentThread => {
+    if (thread.thread_id !== threadId || thread.values?.title === title) {
+      return thread;
+    }
+    return {
+      ...thread,
+      values: {
+        ...thread.values,
+        title,
+      },
+    };
+  };
+
+  queryClient.setQueriesData(
+    {
+      queryKey: ["threads", "search"],
+      exact: false,
+    },
+    (oldData: Array<AgentThread> | undefined) => oldData?.map(updateTitle),
+  );
+  queryClient.setQueriesData(
+    {
+      queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+      exact: false,
+    },
+    (oldData: InfiniteData<AgentThread[]> | undefined) =>
+      mapInfiniteThreadsCache(oldData, updateTitle),
+  );
+}
+
 export function invalidateStoppedThreadCaches(
   queryClient: QueryClient,
   threadId: string | null | undefined,
@@ -998,8 +1056,10 @@ function isThreadMissingError(error: unknown): boolean {
 export function useThreadStream({
   threadId,
   displayThreadId,
+  isNewThread = false,
   context,
   isMock,
+  isStaticDemo = false,
   onSend,
   onStart,
   onFinish,
@@ -1028,7 +1088,7 @@ export function useThreadStream({
   // the authoritative Gateway run store so a reload/new tab cannot submit a
   // competing run during recovery.
   const [isRecoveringActiveRun, setIsRecoveringActiveRun] = useState(() =>
-    Boolean(threadId && !isMock),
+    Boolean(threadId && !isMock && !isStaticDemo),
   );
   // Track the thread ID that is currently streaming to handle thread changes during streaming
   const [onStreamThreadId, setOnStreamThreadId] = useState(() => threadId);
@@ -1052,6 +1112,7 @@ export function useThreadStream({
   } = useThreadHistory(onStreamThreadId ?? "", {
     enabled: !isMock,
     pendingSupersededRunIds,
+    isStaticDemo,
   });
 
   // Keep listeners ref updated with latest callbacks
@@ -1106,7 +1167,10 @@ export function useThreadStream({
   const updateSubtask = useUpdateSubtask();
 
   const thread = useStream<AgentThreadState>({
-    client: getAPIClient(isMock),
+    client: getAPIClient(
+      isMock,
+      isStaticDemo ? (onStreamThreadId ?? undefined) : undefined,
+    ),
     assistantId: "lead_agent",
     threadId: onStreamThreadId,
     reconnectOnMount: true,
@@ -1189,47 +1253,14 @@ export function useThreadStream({
       );
       for (const update of updates) {
         if (update && "title" in update && update.title) {
-          void queryClient.setQueriesData(
-            {
-              queryKey: ["threads", "search"],
-              exact: false,
-            },
-            (oldData: Array<AgentThread> | undefined) => {
-              return oldData?.map((t) => {
-                if (t.thread_id === threadIdRef.current) {
-                  return {
-                    ...t,
-                    values: {
-                      ...t.values,
-                      title: update.title,
-                    },
-                  };
-                }
-                return t;
-              });
-            },
-          );
-          const nextTitle: string = update.title;
-          void queryClient.setQueriesData(
-            {
-              queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
-              exact: false,
-            },
-            (oldData: InfiniteData<AgentThread[]> | undefined) =>
-              mapInfiniteThreadsCache(
-                oldData,
-                (t): AgentThread =>
-                  t.thread_id === threadIdRef.current
-                    ? {
-                        ...t,
-                        values: {
-                          ...t.values,
-                          title: nextTitle,
-                        },
-                      }
-                    : t,
-              ),
-          );
+          const targetThreadId = threadIdRef.current;
+          if (targetThreadId) {
+            syncThreadTitleInListCaches(
+              queryClient,
+              targetThreadId,
+              update.title,
+            );
+          }
         }
       }
     },
@@ -1244,7 +1275,10 @@ export function useThreadStream({
 
       const taskUpdate = taskEventToSubtaskUpdate(event);
       if (taskUpdate) {
-        updateSubtask(taskUpdate);
+        // Custom events are delivered outside React render. Publish terminal
+        // transitions eagerly; the default deferred path exists for terminal
+        // ToolMessages parsed synchronously by MessageList during render.
+        updateSubtask(taskUpdate, { eager: true });
       }
 
       if (eventType === "task_running") {
@@ -1284,7 +1318,7 @@ export function useThreadStream({
           .map(messageIdentity)
           .filter((id): id is string => Boolean(id)),
       );
-      if (threadIdRef.current && !isMock) {
+      if (threadIdRef.current && !isMock && !isStaticDemo) {
         void queryClient.invalidateQueries({
           queryKey: threadHistoryQueryKey(threadIdRef.current),
         });
@@ -1303,6 +1337,14 @@ export function useThreadStream({
       invalidateStoppedThreadCaches(queryClient, threadIdRef.current, isMock);
     },
   });
+
+  const streamedTitle = thread.values?.title;
+  useEffect(() => {
+    if (isMock || isStaticDemo || !onStreamThreadId || !streamedTitle) {
+      return;
+    }
+    syncThreadTitleInListCaches(queryClient, onStreamThreadId, streamedTitle);
+  }, [isMock, isStaticDemo, onStreamThreadId, queryClient, streamedTitle]);
   const threadRef = useRef(thread);
   threadRef.current = thread;
   const recoveringRunRef = useRef<{
@@ -1368,7 +1410,7 @@ export function useThreadStream({
     startedRef.current = false;
     sendInFlightRef.current = false;
     recoveringRunRef.current = null;
-    setIsRecoveringActiveRun(Boolean(threadId && !isMock));
+    setIsRecoveringActiveRun(Boolean(threadId && !isMock && !isStaticDemo));
     messagesRef.current = [];
     transientHistoryBridgeRef.current = [];
     transientHistoryOrderRef.current = [];
@@ -1379,11 +1421,11 @@ export function useThreadStream({
     setPendingSupersededMessageIds(new Set());
     prevHumanMsgCountRef.current =
       latestMessageCountsRef.current.humanMessageCount;
-  }, [isMock, threadId]);
+  }, [isMock, isStaticDemo, threadId]);
 
   const recoverActiveRun = useCallback(
     async (targetThreadId: string): Promise<boolean> => {
-      if (isMock || !targetThreadId) return false;
+      if (isMock || isStaticDemo || !targetThreadId) return false;
       if (threadRef.current.isLoading) return true;
 
       try {
@@ -1431,11 +1473,11 @@ export function useThreadStream({
         return false;
       }
     },
-    [handleStreamStart, isMock],
+    [handleStreamStart, isMock, isStaticDemo],
   );
 
   useEffect(() => {
-    if (!threadId || isMock) {
+    if (!threadId || isMock || isStaticDemo) {
       setIsRecoveringActiveRun(false);
       return;
     }
@@ -1475,7 +1517,7 @@ export function useThreadStream({
       window.removeEventListener("focus", handlePageActive);
       document.removeEventListener("visibilitychange", handlePageActive);
     };
-  }, [isMock, recoverActiveRun, threadId]);
+  }, [isMock, isStaticDemo, recoverActiveRun, threadId]);
 
   // Release entries individually once canonical history confirms their stable
   // identities. Keep unconfirmed entries across failure/refetch within this
@@ -1609,6 +1651,15 @@ export function useThreadStream({
       let uploadedFileInfo: UploadedFileInfo[] = [];
 
       try {
+        // Attachments are uploaded before LangGraph's first submit.  On a
+        // brand-new chat, useStream would otherwise create the thread only
+        // after the upload, which can leave the file in the client-generated
+        // id while the run and Sandbox use a different id.  The API is
+        // idempotent, so the SDK's create inside submit remains safe.
+        if (isNewThread && !isMock && !isStaticDemo) {
+          await getAPIClient().threads.create({ threadId });
+        }
+
         // Upload files first if any
         if (message.files && message.files.length > 0) {
           setIsUploading(true);
@@ -1634,7 +1685,11 @@ export function useThreadStream({
             }
 
             if (files.length > 0) {
-              const uploadResponse = await uploadFiles(threadId, files);
+              const uploadResponse = await uploadFiles(
+                threadId,
+                files,
+                inferUploadPurpose(text, files),
+              );
               uploadedFileInfo = uploadResponse.files;
 
               // Update optimistic human message with uploaded status + paths
@@ -1699,7 +1754,7 @@ export function useThreadStream({
             streamSubgraphs: true,
             streamResumable: true,
             config: {
-              recursion_limit: 1000,
+              recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
             },
             context: buildThreadRunContext(context, threadId, extraContext),
           },
@@ -1726,6 +1781,9 @@ export function useThreadStream({
       humanMessageCount,
       isRecoveringActiveRun,
       persistedMessages,
+      isMock,
+      isNewThread,
+      isStaticDemo,
     ],
   );
 
@@ -1796,7 +1854,7 @@ export function useThreadStream({
           streamSubgraphs: true,
           streamResumable: true,
           config: {
-            recursion_limit: 1000,
+            recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
           },
           context: buildThreadRunContext(context, threadId),
         });
@@ -1914,11 +1972,16 @@ export function useThreadStream({
 type ThreadHistoryOptions = {
   enabled?: boolean;
   pendingSupersededRunIds?: ReadonlySet<string>;
+  isStaticDemo?: boolean;
 };
 
 export function useThreadHistory(
   threadId: string,
-  { enabled = true, pendingSupersededRunIds }: ThreadHistoryOptions = {},
+  {
+    enabled = true,
+    pendingSupersededRunIds,
+    isStaticDemo = false,
+  }: ThreadHistoryOptions = {},
 ) {
   const historyQuery = useInfiniteQuery<
     ThreadMessagesPageResponse,
@@ -1931,6 +1994,19 @@ export function useThreadHistory(
     enabled: enabled && Boolean(threadId),
     initialPageParam: null,
     queryFn: async ({ pageParam, signal }) => {
+      if (isStaticDemo && isStaticDemoThreadId(threadId)) {
+        const thread = await loadStaticDemoThread(threadId);
+        return {
+          data: (thread.values.messages ?? []).map((content, index) => ({
+            content,
+            run_id: `static-demo-${threadId}-${index}`,
+            metadata: { caller: "static-demo" },
+            created_at: thread.updated_at ?? thread.created_at,
+          })),
+          has_more: false,
+          next_before_seq: null,
+        } satisfies ThreadMessagesPageResponse;
+      }
       const url = buildThreadMessagesPageUrl(
         getBackendBaseURL(),
         threadId,
@@ -2160,11 +2236,15 @@ export function useThreadMetadata(
   {
     enabled = true,
     isMock = false,
-  }: { enabled?: boolean; isMock?: boolean } = {},
+    isStaticDemo = false,
+  }: { enabled?: boolean; isMock?: boolean; isStaticDemo?: boolean } = {},
 ) {
-  const apiClient = getAPIClient(isMock);
+  const apiClient = getAPIClient(
+    isMock,
+    isStaticDemo ? (threadId ?? undefined) : undefined,
+  );
   return useQuery<AgentThread | null>({
-    queryKey: ["thread", "metadata", threadId, isMock],
+    queryKey: ["thread", "metadata", threadId, isMock, isStaticDemo],
     queryFn: async () => {
       if (!threadId) {
         return null;

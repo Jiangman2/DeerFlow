@@ -362,6 +362,47 @@ def test_upload_files_creates_markdown_companion_from_enterprise_pptx_parser(
     )
 
 
+def test_upload_files_keeps_presentation_template_out_of_document_parsers(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    pptx_bytes = b"presentation-template-bytes"
+    parser = AsyncMock(return_value="# Parsed content")
+    converter = AsyncMock()
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(uploads, "parse_conversation_document", parser),
+        patch.object(uploads, "convert_file_to_markdown", converter),
+    ):
+        file = UploadFile(filename="brand-template.pptx", file=BytesIO(pptx_bytes))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                upload_purpose="presentation_template",
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert (thread_uploads_dir / "brand-template.pptx").read_bytes() == pptx_bytes
+    assert not (thread_uploads_dir / "brand-template.md").exists()
+    assert result.files[0].markdown_file is None
+    parser.assert_not_awaited()
+    converter.assert_not_awaited()
+
+
 def test_upload_files_creates_markdown_companion_from_enterprise_docx_parser(
     tmp_path,
 ):

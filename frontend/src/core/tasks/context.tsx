@@ -68,7 +68,10 @@ export function useUpdateSubtask() {
   });
 
   const updateSubtask = useCallback(
-    (task: Partial<Subtask> & { id: string }) => {
+    (
+      task: Partial<Subtask> & { id: string },
+      options?: { eager?: boolean },
+    ) => {
       // Read the *latest* state via the ref, never a `tasks` snapshot captured in
       // this callback's closure. Without this, an in-flight
       // fetchSubtaskSteps().then(updateSubtask) resolving late would write a stale
@@ -88,7 +91,9 @@ export function useUpdateSubtask() {
       // terminal transition through the deferred (after-render) path and skips
       // no-op re-parses entirely.
       const notify = subtaskNotification(task, { becameTerminal, changed });
-      if (notify === "eager") {
+      if (options?.eager && changed) {
+        setTasks({ ...current });
+      } else if (notify === "eager") {
         setTasks({ ...current });
       } else if (notify === "deferred") {
         shouldNotifyAfterRenderRef.current = true;

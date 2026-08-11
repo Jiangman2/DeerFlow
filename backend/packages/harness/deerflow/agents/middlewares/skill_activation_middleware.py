@@ -9,21 +9,18 @@ import logging
 import posixpath
 import re
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, override
 
 from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware
-from langchain.agents.middleware.types import ModelRequest, ModelResponse, hook_config
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, ToolMessage
-from langgraph.prebuilt.tool_node import ToolCallRequest
+from langchain.agents.middleware.types import ModelRequest, ModelResponse
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.runtime import Runtime
-from langgraph.types import Command
 
-from deerflow.agents.human_input import read_human_input_response
-from deerflow.agents.middlewares.tool_result_meta import normalize_tool_result
+from deerflow.agents.thread_state import SkillWorkflowState, ThreadState
 from deerflow.runtime.secret_context import (
     _SECRETS_BINDING_AUDIT_KEY,
     _SLASH_SECRET_SOURCE_KEY,
@@ -46,23 +43,63 @@ logger = logging.getLogger(__name__)
 _SLASH_SKILL_ACTIVATION_KEY = "slash_skill_activation"
 _SLASH_SKILL_ACTIVATION_TARGET_ID_KEY = "slash_skill_activation_target_id"
 
-_PPT_MASTER_DEERFLOW_ADAPTER = """<deerflow_hosted_adapter>
-This adapter changes only hosted paths, user interaction, and final file delivery. It does not replace, shorten, or add gates to the selected upstream PPT Master route.
-- Run project work under `/mnt/user-data/workspace` (normally `/mnt/user-data/workspace/projects`). Never create a project under the read-only Skill directory or use `/mnt/user-data/outputs` as the project workspace.
-- The sandbox loopback interface is not reachable from the user's browser. Do not publish `127.0.0.1` or `localhost` preview links.
-  When an upstream confirmation page cannot be exposed, use the route's documented chat fallback through DeerFlow `ask_clarification`.
-- Keep intermediate files inside the upstream project layout. When the selected route produces a final PPT/PPTX, copy the final deck
-  to `/mnt/user-data/outputs` with a meaningful filename in the user's language and call `present_files` with the real deck.
-- Do not manufacture or publish a preview PDF. DeerFlow creates and serves the hidden paired PDF preview after successful PPT/PPTX delivery.
-</deerflow_hosted_adapter>"""
+# Keep small and medium skill contracts visible throughout a long tool loop.
+# The activation message is a per-call model override rather than a checkpointed
+# conversation message, so a compact-only continuation can silently remove the
+# skill's detailed phase rules after the first model call. Very large skills still
+# use the compact continuation and can be re-read from their declared path.
+_MAX_CONTINUATION_SKILL_CHARS = 32_000
 
-_PRESENTATION_COMPLETION_REMINDER = """<system_reminder>
-PPT 工作流尚未完成，不能把当前回复作为最终答案。请从现有项目文件继续执行，不要重新开始，也不要修改技能包：
-{requirements}
-完成后必须确认真实 PPTX/PDF 文件存在，并调用 present_files 发布，再向用户返回结果。
-</system_reminder>"""
+_WORKFLOW_CONTINUATION_RE = re.compile(
+    r"^(?:确认|继续|同意|可以|好的|好|开始|恢复|重试|再试一次|继续执行|继续任务|"
+    r"confirm|confirmed|continue|resume|retry|yes|ok|okay)\b|"
+    r"(?:继续|恢复|重试).{0,40}(?:任务|执行|流程)?$",
+    re.IGNORECASE,
+)
 
-_PRESENTATION_COMPLETION_FALLBACK = "PPT 生成流程未完成：自动续跑后仍缺少必要的质检、导出或文件发布步骤。本次运行已标记为失败，请重试；系统不会把未完成的 SVG 当作已交付的 PPT。"
+_PRESENTATION_CAPABILITY_PATTERNS: dict[str, re.Pattern[str]] = {
+    "ai_images": re.compile(r"(?:AI|ai)\s*(?:生图|图片|图像)|文生图|image\s+generation", re.IGNORECASE),
+    "speaker_notes": re.compile(r"演讲者?备注|备注|讲稿|speaker\s+notes?", re.IGNORECASE),
+    "transitions": re.compile(r"页面?转场|切换效果|transitions?", re.IGNORECASE),
+    "timed_advance": re.compile(r"自动(?:播放|翻页|切换)|auto[- ]?advance", re.IGNORECASE),
+    "object_animations": re.compile(r"对象动画|元素动画|object\s+animations?", re.IGNORECASE),
+    "narration_audio": re.compile(r"配音|旁白|音频|narration|audio", re.IGNORECASE),
+    "native_charts": re.compile(r"原生图表|native\s+charts?", re.IGNORECASE),
+    "template": re.compile(r"模板|template", re.IGNORECASE),
+}
+_TEMPLATE_WORKSPACE_REQUEST_RE = re.compile(
+    r"(?:创建|制作|构建|生成).{0,20}(?:可复用)?(?:Deck\s*)?模板(?:工作区)?|"
+    r"create\s+(?:a\s+)?(?:reusable\s+)?template",
+    re.IGNORECASE,
+)
+_PRESENTATION_OUTPUT_REQUEST_RE = re.compile(
+    r"(?:创建|制作|生成|输出).{0,30}(?:\d+\s*页.{0,20})?(?:PPTX?|演示文稿|幻灯片)|"
+    r"(?:PPTX?|演示文稿|幻灯片).{0,20}(?:创建|制作|生成|输出)|"
+    r"(?:create|generate|build).{0,30}(?:presentation|slides?|deck)",
+    re.IGNORECASE,
+)
+
+_RUNTIME_EXECUTION_CONTRACT = """
+<deerflow_execution_contract>
+The activated skill's ordered workflow is an execution contract, not background reading.
+Before entering a later phase, finish every earlier phase that the skill declares as
+required. Treat any declared item marked Pending, Failed, missing, placeholder, or
+otherwise unresolved as unfinished; a plan, design/specification, preview, or prose
+claim that something "will be" created is not the artifact itself. Do not replace a
+required acquisition/conversion/validation step with a downstream hand-authored
+surrogate merely because the downstream file can be produced directly.
+
+Use the exact command/reference and its documented success criterion for the current
+phase. After a failure, inspect the owning input/output and retry that phase; do not
+advance until the command succeeds or the skill explicitly records a terminal manual
+block. Keep generated projects, derived inputs, temporary files, and final files under
+the writable thread paths `/mnt/user-data/workspace` or `/mnt/user-data/outputs`.
+`/mnt/skills` is read-only, and uploaded source paths may be protected from in-place
+derived-file writes; use the command's documented output/base-directory option rather
+than writing beside the source or into the skill package. A shell's working directory
+does not change the persistence boundary.
+</deerflow_execution_contract>
+"""
 
 # _SECRETS_BINDING_AUDIT_KEY: last audited binding (skill and secret names only,
 # never values) so unchanged bindings are not re-recorded each call.
@@ -75,10 +112,10 @@ _PRESENTATION_COMPLETION_FALLBACK = "PPT 生成流程未完成：自动续跑后
 # _SLASH_SKILL_ACTIVATION_RUN_KEY: identity of the slash message already activated
 # in this run, so the skill disk read + "activate" audit event fire once per user
 # slash command instead of on every model call.
-# _SLASH_SKILL_ACTIVATION_CACHE_KEY: compact continuation context plus runtime
-# contract state. The full SKILL.md body is shown on the first model call only;
-# later calls receive the compact contract so long workflows retain their gates
-# without paying the full skill-body token cost on every tool iteration.
+# _SLASH_SKILL_ACTIVATION_CACHE_KEY: continuation context plus runtime contract
+# state. Small and medium SKILL.md bodies remain available on later model calls;
+# very large bodies use the compact contract so long workflows do not multiply an
+# unbounded skill document into every tool iteration.
 # These private keys live in secret_context so REDACTED_CONTEXT_KEYS covers them.
 
 
@@ -92,7 +129,6 @@ class _Activation:
     remaining_text: str
     editable: bool
     required_secrets: tuple[SecretRequirement, ...] = ()
-    reference_requirements: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,8 +146,10 @@ def _is_user_activation_target(message: object) -> bool:
     return is_real_user_message(message)
 
 
-class SkillActivationMiddleware(AgentMiddleware):
+class SkillActivationMiddleware(AgentMiddleware[ThreadState]):
     """Activate slash skills and enforce their declared execution contracts."""
+
+    state_schema = ThreadState
 
     def __init__(
         self,
@@ -153,49 +191,6 @@ class SkillActivationMiddleware(AgentMiddleware):
         if not resolved_file.is_file():
             raise FileNotFoundError(resolved_file)
         return resolved_file.read_text(encoding="utf-8")
-
-    @staticmethod
-    def _extract_reference_requirements(skill_content: str, skill_dir: str) -> tuple[tuple[str, str], ...]:
-        """Extract deterministic read-before-authoring contracts from a skill.
-
-        Skills often declare a mandatory skeleton or reference for a generated
-        control file. Preserve those declarations as a compact runtime gate so a
-        model cannot invent the schema even when the relevant line is deep in a
-        long skill. The gate is content-driven; it does not key on a skill name.
-        """
-        requirements: list[tuple[str, str]] = []
-
-        def add(match_rule: str, reference: str) -> None:
-            reference = reference.strip().removeprefix("./")
-            if not reference or "<" in reference or ">" in reference:
-                return
-            absolute_reference = posixpath.normpath(posixpath.join(skill_dir, reference))
-            candidate = (match_rule, absolute_reference)
-            if candidate not in requirements:
-                requirements.append(candidate)
-
-        mandatory_pattern = re.compile(
-            r"before\s+writing\s+`(?:<project_path>/)?(?P<target>[^`/]+)`[^\n]{0,320}?MUST\s+`read_file\s+(?P<reference>[^`]+)`",
-            re.IGNORECASE,
-        )
-        for match in mandatory_pattern.finditer(skill_content):
-            add(f"basename:{match.group('target')}", match.group("reference"))
-
-        skeleton_pattern = re.compile(
-            r"`<project_path>/(?P<target>[^`/]+)`[^\n]{0,240}?skeleton:\s*`(?P<reference>[^`]+)`",
-            re.IGNORECASE,
-        )
-        for match in skeleton_pattern.finditer(skill_content):
-            add(f"basename:{match.group('target')}", match.group("reference"))
-
-        # The executor reference owns SVG authoring, quality gates, and speaker
-        # note syntax in skills that explicitly declare it. Requiring one read
-        # before either artifact phase keeps those later contracts visible.
-        if "references/executor-base.md" in skill_content:
-            add("contains:/svg_output/", "references/executor-base.md")
-            add("suffix:/notes/total.md", "references/executor-base.md")
-
-        return tuple(requirements)
 
     def _resolve_activation(self, text: str) -> _ActivationResolution | None:
         reference = parse_slash_skill_reference(text)
@@ -240,9 +235,100 @@ class SkillActivationMiddleware(AgentMiddleware):
                 remaining_text=resolved.remaining_text,
                 editable=editable,
                 required_secrets=tuple(resolved.skill.required_secrets or ()),
-                reference_requirements=self._extract_reference_requirements(skill_content, posixpath.dirname(resolved.container_file_path)),
             )
         )
+
+    @staticmethod
+    def _requested_capabilities(activation: _Activation) -> dict[str, bool]:
+        if activation.skill_name != "ppt-master":
+            return {}
+        template_workspace = bool(_TEMPLATE_WORKSPACE_REQUEST_RE.search(activation.remaining_text))
+        presentation_output = bool(_PRESENTATION_OUTPUT_REQUEST_RE.search(activation.remaining_text))
+        capabilities = {
+            "presentation": presentation_output or not template_workspace,
+        }
+        if template_workspace:
+            capabilities["template_workspace"] = True
+        for name, pattern in _PRESENTATION_CAPABILITY_PATTERNS.items():
+            if pattern.search(activation.remaining_text):
+                capabilities[name] = True
+        return capabilities
+
+    @classmethod
+    def _workflow_state_from_activation(
+        cls,
+        activation: _Activation,
+        target: HumanMessage,
+    ) -> SkillWorkflowState:
+        activation_message_id = target.id or cls._activation_run_key(target)
+        activation_id = hashlib.sha256(f"{activation_message_id}\0{activation.content_hash}".encode()).hexdigest()
+        capabilities = cls._requested_capabilities(activation)
+        return {
+            "activation_id": activation_id,
+            "activation_message_id": activation_message_id,
+            "skill_name": activation.skill_name,
+            "skill_path": activation.container_file_path,
+            "skill_sha256": activation.content_hash,
+            "task_text": activation.remaining_text,
+            "status": "active",
+            "current_stage": "activated",
+            "gate_status": "open",
+            "resume_pointer": activation.container_file_path,
+            "completion_contract": ("presentation_delivery" if capabilities.get("presentation") else "skill_declared"),
+            "required_capabilities": capabilities,
+            "evidence": [],
+            "delivered_artifacts": [],
+        }
+
+    @staticmethod
+    def _latest_real_user_message(messages: list) -> HumanMessage | None:
+        return next(
+            (message for message in reversed(messages) if isinstance(message, HumanMessage) and _is_user_activation_target(message)),
+            None,
+        )
+
+    @staticmethod
+    def _is_workflow_continuation(target: HumanMessage) -> bool:
+        metadata = target.additional_kwargs or {}
+        human_input = metadata.get("human_input_response")
+        if isinstance(human_input, dict) and human_input.get("source") == "ask_clarification":
+            return True
+        text = get_original_user_content_text(target.content, metadata).strip()
+        return bool(text and _WORKFLOW_CONTINUATION_RE.search(text))
+
+    def _capture_workflow_activation(self, state: AgentState) -> dict | None:
+        target = self._latest_real_user_message(list(state.get("messages") or []))
+        if target is None:
+            return None
+        text = get_original_user_content_text(target.content, target.additional_kwargs)
+        resolution = self._resolve_activation(text)
+        if resolution is not None and resolution.activation is not None:
+            return {"skill_workflow": self._workflow_state_from_activation(resolution.activation, target)}
+
+        workflow = state.get("skill_workflow")
+        if isinstance(workflow, dict) and workflow.get("status") in {"active", "waiting", "blocked"} and self._is_workflow_continuation(target):
+            # A user continuation starts a new model run; it does not supersede
+            # an unresolved owning gate.  The workflow middleware will decide
+            # whether confirmation, repair, or an owner retry can advance it.
+            if workflow.get("status") == "blocked" or workflow.get("gate_status") in {
+                "failed",
+                "managed-artifact-owner-required",
+                "delivery-failed",
+                "delivery-incomplete",
+            }:
+                return {
+                    "skill_workflow": {
+                        "activation_id": workflow.get("activation_id", ""),
+                    }
+                }
+            return {
+                "skill_workflow": {
+                    "activation_id": workflow.get("activation_id", ""),
+                    "status": "active",
+                    "gate_status": "resumed",
+                }
+            }
+        return None
 
     @staticmethod
     def _build_activation_reminder(activation: _Activation) -> str:
@@ -255,14 +341,6 @@ class SkillActivationMiddleware(AgentMiddleware):
         escaped_skill_dir = html.escape(posixpath.dirname(activation.container_file_path), quote=True)
         escaped_content_hash = html.escape(activation.content_hash, quote=True)
         editable_str = "true" if activation.editable else "false"
-        if activation.reference_requirements:
-            requirement_lines = "\n".join(f'- target_match="{html.escape(match_rule, quote=True)}" read_first="{html.escape(reference, quote=True)}"' for match_rule, reference in activation.reference_requirements)
-            reference_contract = f"""\n<required_reference_reads>
-Before creating or modifying a matching target, call read_file on the exact read_first path and use that returned contract. The runtime blocks writes that skip this step.
-{requirement_lines}
-</required_reference_reads>\n"""
-        else:
-            reference_contract = ""
         confirmation_contract = ""
         if "wait for explicit user confirmation" in activation.skill_content.lower():
             confirmation_contract = """
@@ -271,7 +349,6 @@ For every BLOCKING chat-fallback confirmation, call the native `ask_clarificatio
 Do not merely print the recommendations and end the turn, and do not rely on generated quick-reply suggestions: only the structured clarification response preserves the active workflow and counts as user confirmation.
 </deerflow_confirmation_adapter>
 """
-        hosted_adapter = _PPT_MASTER_DEERFLOW_ADAPTER if activation.skill_name == "ppt-master" else ""
         return f"""<slash_skill_activation>
 The user explicitly activated the `{escaped_skill_name}` skill for this turn.
 Treat the task text as:
@@ -283,8 +360,8 @@ Follow this skill before choosing a general workflow. The complete SKILL.md body
 The runtime skill directory is discovered from the activated skill path.
 For shell commands that use `${{SKILL_DIR}}`, prepend the following declaration in each new sandbox shell command (shell exports do not persist across independent tool calls):
 export SKILL_DIR='{escaped_skill_dir}'
-{reference_contract}
 {confirmation_contract}
+{_RUNTIME_EXECUTION_CONTRACT}
 Do not skip mandatory phase gates. A failed command or validation result does not advance the workflow; read the declared reference or exact `--help`, fix the owning source, and retry the same gate.
 
 <skill name="{escaped_skill_name}" category="{escaped_category}" path="{escaped_path}" sha256="{escaped_content_hash}" editable="{editable_str}">
@@ -292,58 +369,55 @@ Do not skip mandatory phase gates. A failed command or validation result does no
 {escaped_skill_content}
 </skill_content>
 </skill>
-{hosted_adapter}
 </slash_skill_activation>"""
 
     @staticmethod
     def _build_continuation_reminder(activation: _Activation) -> str:
-        """Build the small reminder used after the first model call.
+        """Build the reminder used after the first model call.
 
-        The complete skill body was already supplied on activation. Keeping it
-        out of subsequent requests avoids multiplying a large SKILL.md by every
-        tool iteration while preserving exact paths and non-negotiable gates.
+        The activation message is injected as a model-request override and is
+        not persisted as a normal conversation message. Keep reasonably sized
+        skill bodies in the continuation so a long tool loop does not lose the
+        detailed workflow contract. Large skill bodies fall back to the compact
+        path reminder and remain available through read_file.
         """
         escaped_skill_name = html.escape(activation.skill_name, quote=True)
         escaped_path = html.escape(activation.container_file_path, quote=True)
         escaped_skill_dir = html.escape(posixpath.dirname(activation.container_file_path), quote=True)
-        if activation.reference_requirements:
-            requirement_lines = "\n".join(f'- target_match="{html.escape(match_rule, quote=True)}" read_first="{html.escape(reference, quote=True)}"' for match_rule, reference in activation.reference_requirements)
-            reference_contract = f"""\n<required_reference_reads>
-{requirement_lines}
-</required_reference_reads>\n"""
-        else:
-            reference_contract = ""
-        phase_contract = ""
-        if "--stage first-page" in activation.skill_content:
-            phase_contract += "- Complete a successful `--stage first-page` quality gate before authoring a second distinct SVG page.\n"
-        if "--stage final" in activation.skill_content:
-            phase_contract += "- Complete a successful `--stage final` quality gate after the last SVG edit and before export/finalization.\n"
+        escaped_user_request = html.escape(activation.remaining_text, quote=False)
+        confirmation_contract = ""
         if "wait for explicit user confirmation" in activation.skill_content.lower():
-            phase_contract += "- A BLOCKING confirmation requires a real user response; never choose or confirm recommendations on the user's behalf.\n"
-            phase_contract += '- In DeerFlow chat fallback, call `ask_clarification` with `clarification_type="suggestion"`; plain text plus quick replies is not the confirmation gate.\n'
-        hosted_adapter = _PPT_MASTER_DEERFLOW_ADAPTER if activation.skill_name == "ppt-master" else ""
+            confirmation_contract = """
+<deerflow_confirmation_adapter>
+For every BLOCKING chat-fallback confirmation, call the native `ask_clarification` tool with `clarification_type=\"suggestion\"`, the recommendation summary, and explicit confirmation options.
+Do not merely print the recommendations and end the turn, and do not rely on generated quick-reply suggestions: only the structured clarification response preserves the active workflow and counts as user confirmation.
+</deerflow_confirmation_adapter>
+"""
+        if len(activation.skill_content) <= _MAX_CONTINUATION_SKILL_CHARS:
+            escaped_skill_content = html.escape(activation.skill_content, quote=False)
+            skill_body = f"""
+<skill_body encoding="xml-escaped">
+{escaped_skill_content}
+</skill_body>
+"""
+        else:
+            skill_body = """
+<skill_body>
+The complete SKILL.md is larger than the safe continuation budget. Re-read the declared SKILL.md path before applying detailed instructions.
+</skill_body>
+"""
         return f"""<slash_skill_continuation name="{escaped_skill_name}" path="{escaped_path}">
 Continue following the already activated skill. Do not substitute a general workflow or invent commands, schemas, parameters, or phase order.
+<original_user_request>
+{escaped_user_request}
+</original_user_request>
 For every independent shell command that uses `${{SKILL_DIR}}`, first declare:
 export SKILL_DIR='{escaped_skill_dir}'
-{reference_contract}<mandatory_phase_gates>
-{phase_contract or "- Preserve every mandatory gate declared by the activated skill.\n"}</mandatory_phase_gates>
+{_RUNTIME_EXECUTION_CONTRACT}
 Failed commands and validation errors do not advance the workflow. Read the exact reference or command `--help`, fix the owning source, and retry the same gate.
-{hosted_adapter}
+{confirmation_contract}
+{skill_body}
 </slash_skill_continuation>"""
-
-    @staticmethod
-    def _requires_durable_full_context(skill_content: str) -> bool:
-        """Keep strict, multi-phase workflow instructions visible throughout a run.
-
-        A compact continuation is sufficient for ordinary reference skills. It is
-        not sufficient for a serial workflow whose later phases define their own
-        blocking UI, file schemas, and validation order. Those skills need the
-        same effective model context that the legacy persisted ``read_file``
-        result provided, without changing the skill package itself.
-        """
-        normalized = skill_content.casefold()
-        return "strict serial pipeline" in normalized and "blocking = hard stop" in normalized and "wait for explicit user confirmation" in normalized
 
     @staticmethod
     def _has_existing_activation_for_target(messages: list, target_index: int, target: HumanMessage) -> bool:
@@ -428,6 +502,100 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         messages.insert(target_index, self._make_activation_message(target, activation_content))
         return request.override(messages=messages)
 
+    def _activation_from_workflow(self, workflow: SkillWorkflowState) -> _Activation | None:
+        skill_path = workflow.get("skill_path")
+        skill_name = workflow.get("skill_name")
+        if not skill_path or not skill_name:
+            return None
+        try:
+            storage = self._storage()
+            skills = storage.load_skills(enabled_only=False)
+            container_root = storage.get_container_root()
+            skill = next(
+                (candidate for candidate in skills if posixpath.normpath(candidate.get_container_file_path(container_root)) == posixpath.normpath(skill_path)),
+                None,
+            )
+            if skill is None or not skill.enabled:
+                return None
+            if self._available_skills is not None and skill.name not in self._available_skills:
+                return None
+            skill_content = self._read_skill_content(
+                skill.skill_file,
+                storage.get_skills_root_path(),
+                storage=storage,
+            )
+        except (OSError, ValueError):
+            logger.exception("Failed to restore durable Skill workflow %s", skill_name)
+            return None
+
+        content_hash = hashlib.sha256(skill_content.encode("utf-8")).hexdigest()
+        previous_hash = workflow.get("skill_sha256")
+        if previous_hash and previous_hash != content_hash:
+            logger.info(
+                "Durable Skill workflow %s resumed against updated content %s -> %s",
+                skill_name,
+                previous_hash,
+                content_hash,
+            )
+        return _Activation(
+            skill_name=skill.name,
+            category=str(skill.category),
+            container_file_path=skill.get_container_file_path(container_root),
+            skill_content=skill_content,
+            content_hash=content_hash,
+            remaining_text=str(workflow.get("task_text") or ""),
+            editable=skill.category == SkillCategory.CUSTOM,
+            required_secrets=tuple(skill.required_secrets or ()),
+        )
+
+    def _prepare_persisted_activation_request(
+        self,
+        request: ModelRequest,
+        *,
+        run_context: dict | None,
+    ) -> tuple[ModelRequest | None, _Activation | None]:
+        state = request.state or {}
+        workflow = state.get("skill_workflow")
+        if not isinstance(workflow, dict) or workflow.get("status") not in {
+            "active",
+            "waiting",
+            "blocked",
+        }:
+            return None, None
+
+        messages = list(request.messages)
+        target_index = next(
+            (index for index in range(len(messages) - 1, -1, -1) if _is_user_activation_target(messages[index])),
+            None,
+        )
+        if target_index is None:
+            return None, None
+        target = messages[target_index]
+        if not isinstance(target, HumanMessage) or not self._is_workflow_continuation(target):
+            return None, None
+        target_text = get_original_user_content_text(target.content, target.additional_kwargs)
+        if parse_slash_skill_reference(target_text) is not None:
+            return None, None
+        if self._has_existing_activation_for_target(messages, target_index, target):
+            return None, None
+
+        activation = self._activation_from_workflow(workflow)
+        if activation is None:
+            return None, None
+        continuation_content = self._build_continuation_reminder(activation)
+        messages.insert(
+            target_index,
+            self._make_activation_message(target, continuation_content),
+        )
+        run_key = self._activation_run_key(target)
+        if run_context is not None:
+            run_context[_SLASH_SKILL_ACTIVATION_RUN_KEY] = run_key
+            run_context[_SLASH_SKILL_ACTIVATION_CACHE_KEY] = {
+                "run_key": run_key,
+                "continuation_content": continuation_content,
+            }
+        return request.override(messages=messages), activation
+
     def _find_activation_target(self, messages: list, *, run_context: dict | None = None) -> tuple[int, HumanMessage, _ActivationResolution, str] | None:
         if not messages:
             return None
@@ -485,7 +653,13 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         run_context = self._run_context(request)
         target_and_resolution = self._find_activation_target(list(request.messages), run_context=run_context)
         if target_and_resolution is None:
-            return self._prepare_cached_activation_request(request, run_context=run_context), None
+            cached = self._prepare_cached_activation_request(request, run_context=run_context)
+            if cached is not None:
+                return cached, None
+            return self._prepare_persisted_activation_request(
+                request,
+                run_context=run_context,
+            )
 
         target_index, target, resolution, run_key = target_and_resolution
         if resolution.failure_message:
@@ -518,33 +692,9 @@ Failed commands and validation errors do not advance the workflow. Read the exac
             run_context[_SLASH_SKILL_ACTIVATION_RUN_KEY] = run_key
         activation_content = self._build_activation_reminder(activation)
         if run_context is not None:
-            durable_full_context = self._requires_durable_full_context(activation.skill_content)
             run_context[_SLASH_SKILL_ACTIVATION_CACHE_KEY] = {
                 "run_key": run_key,
-                "continuation_content": activation_content if durable_full_context else self._build_continuation_reminder(activation),
-                "durable_full_context": durable_full_context,
-                "reference_requirements": [list(item) for item in activation.reference_requirements],
-                "read_paths": [],
-                "required_markdown_sections": {"design_spec.md": ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]}
-                if re.search(r"full\s+I\s*[\N{EN DASH}\N{EM DASH}-]\s*X\s+section\s+structure", activation.skill_content, re.IGNORECASE)
-                else {},
-                "requires_pptx_structure_mode": "pptx_structure.mode" in activation.skill_content or "pptx_structure is mandatory" in activation.skill_content.lower(),
-                "requires_first_page_gate": "--stage first-page" in activation.skill_content,
-                "requires_final_gate": "--stage final" in activation.skill_content,
-                "requires_presentation_export": "svg_to_pptx.py" in activation.skill_content,
-                "requires_presentation_delivery": "present_files" in activation.skill_content,
-                "requires_localized_presentation_filename": activation.skill_name == "ppt-master" and bool(re.search(r"[\u3400-\u9fff]", activation.remaining_text)),
-                "requires_human_confirmation": "wait for explicit user confirmation" in activation.skill_content.lower(),
-                "human_confirmation_completed": False,
-                "svg_paths": [],
-                "first_page_validated": False,
-                "final_validated": False,
-                "presentation_export_completed": False,
-                "presentation_delivery_completed": False,
-                "presentation_progress_revision": 0,
-                "presentation_completion_last_revision": None,
-                "presentation_completion_same_revision_retries": 0,
-                "presentation_completion_total_retries": 0,
+                "continuation_content": self._build_continuation_reminder(activation),
             }
         activation_msg = self._make_activation_message(target, activation_content)
         messages = list(request.messages)
@@ -558,103 +708,6 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         effective = prepared if prepared is not None else request
         self._resolve_secret_bindings(effective, activation, hook=hook)
         return effective
-
-    @staticmethod
-    def _message_text(message: AIMessage) -> str:
-        content = message.content
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            parts: list[str] = []
-            for item in content:
-                if isinstance(item, str):
-                    parts.append(item)
-                elif isinstance(item, Mapping) and isinstance(item.get("text"), str):
-                    parts.append(item["text"])
-            return "\n".join(parts)
-        return str(content)
-
-    @staticmethod
-    def _looks_like_design_confirmation(text: str) -> bool:
-        """Identify a complete design proposal, not an earlier content question."""
-        normalized = text.casefold()
-        field_groups = (
-            ("canvas", "画布"),
-            ("visual style", "视觉风格", "风格目标"),
-            ("color scheme", "配色", "颜色方案"),
-            ("typography", "字体", "字号"),
-            ("image usage", "图片使用", "图像使用"),
-        )
-        matched_fields = sum(any(term in normalized for term in group) for group in field_groups)
-        asks_for_confirmation = any(term in normalized for term in ("确认", "confirm", "approve", "approval"))
-        return matched_fields >= 4 and asks_for_confirmation
-
-    def _ensure_structured_confirmation(self, request: ModelRequest, response: ModelResponse | AIMessage) -> ModelResponse | AIMessage:
-        """Convert a plain-text blocking design proposal into a real DeerFlow wait."""
-        run_context = self._run_context(request)
-        cache = run_context.get(_SLASH_SKILL_ACTIVATION_CACHE_KEY) if isinstance(run_context, dict) else None
-        if not isinstance(cache, dict) or not cache.get("requires_human_confirmation") or cache.get("human_confirmation_completed"):
-            return response
-
-        result_messages = response.result if isinstance(response, ModelResponse) else [response]
-        if not result_messages or not isinstance(result_messages[-1], AIMessage):
-            return response
-        message = result_messages[-1]
-        proposal_text = self._message_text(message).strip()
-        if message.tool_calls or not self._looks_like_design_confirmation(proposal_text):
-            return response
-
-        confirmation_call = {
-            "name": "ask_clarification",
-            "args": {
-                "question": "请确认以上设计方案是否采用；如需调整，请在其他回答中写明修改项。",
-                "clarification_type": "suggestion",
-                "context": proposal_text,
-                "options": ["确认采用推荐方案并继续", "需要修改设计方案"],
-            },
-            "id": f"call_skill_confirmation_{uuid.uuid4().hex[:16]}",
-            "type": "tool_call",
-        }
-        updated_message = message.model_copy(update={"tool_calls": [confirmation_call]})
-        if isinstance(response, ModelResponse):
-            return ModelResponse(result=[*result_messages[:-1], updated_message], structured_response=response.structured_response)
-        return updated_message
-
-    def _hide_incomplete_presentation_response(
-        self,
-        request: ModelRequest,
-        response: ModelResponse | AIMessage,
-    ) -> ModelResponse | AIMessage:
-        """Hide a premature presentation conclusion before it reaches run events.
-
-        ``after_model`` removes the same message and asks the model to continue,
-        but the model-end event is streamed before that state removal. Marking
-        the returned message here keeps recovery-only prose out of the browser
-        while retaining it in the audit event for diagnosis.
-        """
-        run_context = self._run_context(request)
-        cache = run_context.get(_SLASH_SKILL_ACTIVATION_CACHE_KEY) if isinstance(run_context, dict) else None
-        if not isinstance(cache, dict) or not self._presentation_incomplete_requirements(cache):
-            return response
-
-        result_messages = response.result if isinstance(response, ModelResponse) else [response]
-        if not result_messages or not isinstance(result_messages[-1], AIMessage):
-            return response
-        message = result_messages[-1]
-        if self._has_tool_call_intent(message) or (message.additional_kwargs or {}).get("deerflow_error_fallback"):
-            return response
-
-        additional_kwargs = dict(message.additional_kwargs or {})
-        additional_kwargs.update(
-            {
-                "hide_from_ui": True,
-                "presentation_completion_recovery": True,
-            }
-        )
-        hidden = message.model_copy(update={"additional_kwargs": additional_kwargs})
-        if isinstance(response, ModelResponse):
-            return ModelResponse(result=[*result_messages[:-1], hidden], structured_response=response.structured_response)
-        return hidden
 
     def _resolve_secret_bindings(self, request: ModelRequest, activation: _Activation | None, *, hook: str) -> None:
         """Recompute the per-run secret injection set (binding point A+, #3861/#3914).
@@ -857,493 +910,13 @@ Failed commands and validation errors do not advance the workflow. Read the exac
             additional_kwargs=additional_kwargs,
         )
 
-    @staticmethod
-    def _tool_path(request: ToolCallRequest) -> str | None:
-        args = request.tool_call.get("args") or {}
-        if not isinstance(args, dict):
-            return None
-        path = args.get("path")
-        return posixpath.normpath(path.replace("\\", "/")) if isinstance(path, str) and path else None
-
-    @staticmethod
-    def _activation_cache_from_tool_request(request: ToolCallRequest) -> dict | None:
-        context = getattr(request.runtime, "context", None)
-        if not isinstance(context, dict):
-            return None
-        cache = context.get(_SLASH_SKILL_ACTIVATION_CACHE_KEY)
-        return cache if isinstance(cache, dict) else None
-
-    @staticmethod
-    def _matching_reference(cache: dict, target_path: str) -> str | None:
-        requirements = cache.get("reference_requirements")
-        if not isinstance(requirements, list):
-            return None
-        for item in requirements:
-            if not isinstance(item, (list, tuple)) or len(item) != 2:
-                continue
-            match_rule, reference = item
-            if not isinstance(match_rule, str) or not isinstance(reference, str):
-                continue
-            if match_rule.startswith("basename:") and posixpath.basename(target_path) == match_rule.removeprefix("basename:"):
-                return posixpath.normpath(reference)
-            if match_rule.startswith("contains:"):
-                needle = match_rule.removeprefix("contains:")
-                if needle in target_path or needle.strip("/") in target_path.split("/"):
-                    return posixpath.normpath(reference)
-            if match_rule.startswith("suffix:"):
-                suffix = match_rule.removeprefix("suffix:")
-                if target_path.endswith(suffix) or target_path.endswith(suffix.lstrip("/")):
-                    return posixpath.normpath(reference)
-        return None
-
-    @staticmethod
-    def _successful_tool_message(result: ToolMessage | Command) -> bool:
-        message: ToolMessage | None = result if isinstance(result, ToolMessage) else None
-        if message is None and isinstance(result, Command) and isinstance(result.update, dict):
-            candidates = [item for item in result.update.get("messages", []) if isinstance(item, ToolMessage)]
-            message = candidates[-1] if candidates else None
-        if message is None or message.status == "error":
-            return False
-        return not str(message.content).lstrip().startswith("Error:")
-
-    @staticmethod
-    def _record_reference_read(cache: dict, path: str) -> None:
-        current = cache.get("read_paths")
-        paths = [item for item in current if isinstance(item, str)] if isinstance(current, list) else []
-        normalized = posixpath.normpath(path)
-        if normalized not in paths:
-            paths.append(normalized)
-        cache["read_paths"] = paths[-64:]
-
-    def _check_reference_gate(self, request: ToolCallRequest) -> ToolMessage | None:
-        if request.tool_call.get("name") not in {"write_file", "str_replace"}:
-            return None
-        path = self._tool_path(request)
-        cache = self._activation_cache_from_tool_request(request)
-        if path is None or cache is None:
-            return None
-        reference = self._matching_reference(cache, path)
-        if reference is None:
-            return None
-        read_paths = cache.get("read_paths")
-        if isinstance(read_paths, list) and reference in {posixpath.normpath(item) for item in read_paths if isinstance(item, str)}:
-            return None
-        tool_name = str(request.tool_call.get("name") or "write_file")
-        return ToolMessage(
-            content=(
-                f"Error: {tool_name} blocked for {path}. The active skill declares {reference} as the required schema/workflow reference for this target. "
-                f"Call read_file with path={reference}, follow the returned contract exactly, then retry this write. Do not invent the file format from memory."
-            ),
-            tool_call_id=str(request.tool_call.get("id") or ""),
-            name=tool_name,
-            status="error",
-        )
-
-    @staticmethod
-    def _tool_args(request: ToolCallRequest) -> dict:
-        args = request.tool_call.get("args") or {}
-        return args if isinstance(args, dict) else {}
-
-    def _check_declared_content_contract(self, request: ToolCallRequest) -> ToolMessage | None:
-        if request.tool_call.get("name") != "write_file":
-            return None
-        path = self._tool_path(request)
-        cache = self._activation_cache_from_tool_request(request)
-        if path is None or cache is None:
-            return None
-        content = self._tool_args(request).get("content")
-        if not isinstance(content, str):
-            return None
-        tool_name = str(request.tool_call.get("name") or "write_file")
-        contracts = cache.get("required_markdown_sections")
-        required = contracts.get(posixpath.basename(path)) if isinstance(contracts, dict) else None
-        if isinstance(required, list) and required:
-            missing = [section for section in required if re.search(rf"(?m)^##\s+{re.escape(section)}\.\s+", content) is None]
-            if missing:
-                return ToolMessage(
-                    content=(
-                        f"Error: {tool_name} blocked for {path}. The active skill requires the full reference section structure; "
-                        f"missing Markdown H2 sections: {', '.join(missing)}. Re-read the declared reference and write every required section, "
-                        "including conditionally empty sections with an explicit 'not needed' value."
-                    ),
-                    tool_call_id=str(request.tool_call.get("id") or ""),
-                    name=tool_name,
-                    status="error",
-                )
-        if posixpath.basename(path) == "spec_lock.md" and cache.get("requires_pptx_structure_mode"):
-            structure = re.search(r"(?ms)^##\s+pptx_structure\s*$\s*(.*?)(?=^##\s+|\Z)", content)
-            mode = re.search(r"(?m)^-\s*mode:\s*(flat|structured)\s*$", structure.group(1)) if structure else None
-            if mode is None:
-                return ToolMessage(
-                    content=(
-                        f"Error: {tool_name} blocked for {path}. The active skill requires `## pptx_structure` with exactly one non-empty "
-                        "`- mode: flat` or `- mode: structured` value. Select the route declared by the confirmed design before continuing."
-                    ),
-                    tool_call_id=str(request.tool_call.get("id") or ""),
-                    name=tool_name,
-                    status="error",
-                )
-        return None
-
-    @staticmethod
-    def _is_svg_output_path(path: str | None) -> bool:
-        if not isinstance(path, str) or not path.endswith(".svg"):
-            return False
-        return "svg_output" in posixpath.normpath(path).split("/")
-
-    @classmethod
-    def _bash_svg_output_paths(cls, command: str) -> list[str]:
-        """Extract SVG write targets from common shell/Python write forms.
-
-        Bash is intentionally available to skills, so phase gates cannot rely
-        only on the structured ``write_file`` tool. This parser is deliberately
-        narrow: it recognizes redirection targets and Python ``open(..., write)``
-        calls without interpreting SVG markup embedded inside quoted strings.
-        """
-        cwd: str | None = None
-        for match in re.finditer(
-            r"(?:^|&&|;|\|\|)\s*cd\s+(?P<quote>['\"]?)(?P<path>[^\s'\";&|]+)(?P=quote)",
-            command,
-        ):
-            cwd = posixpath.normpath(match.group("path").replace("\\", "/"))
-
-        candidates = [
-            match.group("path")
-            for match in re.finditer(
-                r"(?:>>|>)\s*(?P<quote>['\"]?)(?P<path>[^\s'\";&|<>]+\.svg)(?P=quote)",
-                command,
-                re.IGNORECASE,
-            )
-        ]
-        candidates.extend(
-            match.group("path")
-            for match in re.finditer(
-                r"\bopen\(\s*['\"](?P<path>[^'\"]+\.svg)['\"]\s*,\s*['\"][wax+]",
-                command,
-                re.IGNORECASE,
-            )
-        )
-
-        paths: list[str] = []
-        for raw_path in candidates:
-            normalized = posixpath.normpath(raw_path.replace("\\", "/"))
-            if not normalized.startswith("/") and cwd:
-                normalized = posixpath.normpath(posixpath.join(cwd, normalized))
-            if cls._is_svg_output_path(normalized) and normalized not in paths:
-                paths.append(normalized)
-        return paths
-
-    @staticmethod
-    def _record_svg_paths(cache: dict, paths: list[str]) -> None:
-        existing = [item for item in cache.get("svg_paths", []) if isinstance(item, str)]
-        for path in paths:
-            if path not in existing:
-                existing.append(path)
-        cache["svg_paths"] = existing[-256:]
-        cache["final_validated"] = False
-        cache["presentation_export_completed"] = False
-        cache["presentation_delivery_completed"] = False
-        if len(existing) == 1:
-            cache["first_page_validated"] = False
-
-    @staticmethod
-    def _state_messages(request: ToolCallRequest) -> list:
-        state = request.state
-        if not isinstance(state, dict):
-            return []
-        messages = state.get("messages")
-        return list(messages) if isinstance(messages, list) else []
-
-    @staticmethod
-    def _confirmation_request_ids(messages: list) -> set[str]:
-        """Return structured clarification request IDs that asked for approval.
-
-        A skill may ask for missing source material before its later blocking
-        design confirmation. Both answers use the same hidden human-input message
-        shape, so accepting any response would let the earlier content answer
-        unlock the later design contract. Only suggestion/risk-confirmation cards
-        represent explicit approval; their request IDs bind the response to the
-        exact prompt the user saw.
-        """
-        request_ids: set[str] = set()
-        for message in messages:
-            if not isinstance(message, ToolMessage) or message.name != "ask_clarification":
-                continue
-            artifact = getattr(message, "artifact", None)
-            human_input = artifact.get("human_input") if isinstance(artifact, Mapping) else None
-            if not isinstance(human_input, Mapping):
-                continue
-            if human_input.get("source") != "ask_clarification" or human_input.get("clarification_type") not in {"suggestion", "risk_confirmation"}:
-                continue
-            request_id = human_input.get("request_id")
-            if isinstance(request_id, str) and request_id:
-                request_ids.add(request_id)
-        return request_ids
-
-    def _has_explicit_human_confirmation(self, request: ToolCallRequest, cache: dict) -> bool:
-        if cache.get("human_confirmation_completed"):
-            return True
-        messages = self._state_messages(request)
-        confirmation_request_ids = self._confirmation_request_ids(messages)
-        for message in messages:
-            if not isinstance(message, HumanMessage):
-                continue
-            response = read_human_input_response(message.additional_kwargs)
-            if response is not None and response["source"] == "ask_clarification" and response["request_id"] in confirmation_request_ids:
-                cache["human_confirmation_completed"] = True
-                return True
-        return False
-
-    def _check_human_confirmation_gate(self, request: ToolCallRequest) -> ToolMessage | None:
-        if request.tool_call.get("name") not in {"write_file", "str_replace"}:
-            return None
-        path = self._tool_path(request)
-        cache = self._activation_cache_from_tool_request(request)
-        if path is None or cache is None or not cache.get("requires_human_confirmation"):
-            return None
-        if posixpath.basename(path) not in {"design_spec.md", "spec_lock.md"}:
-            return None
-        if self._has_explicit_human_confirmation(request, cache):
-            return None
-        tool_name = str(request.tool_call.get("name") or "write_file")
-        return ToolMessage(
-            content=(
-                f"Error: {tool_name} blocked for {path}. The active skill declares this Strategist confirmation as BLOCKING and "
-                "requires an explicit user response. You may not confirm recommendations on the user's behalf. Use the skill's "
-                "confirmation UI, or call ask_clarification with clarification_type='suggestion' to present the recommended defaults "
-                "and wait. An earlier missing-information answer is not design approval. Retry only after the user responds to that confirmation request."
-            ),
-            tool_call_id=str(request.tool_call.get("id") or ""),
-            name=tool_name,
-            status="error",
-        )
-
-    def _check_phase_gate(self, request: ToolCallRequest) -> ToolMessage | None:
-        cache = self._activation_cache_from_tool_request(request)
-        if cache is None:
-            return None
-        name = request.tool_call.get("name")
-        path = self._tool_path(request)
-        if name in {"write_file", "str_replace"} and self._is_svg_output_path(path):
-            existing = [item for item in cache.get("svg_paths", []) if isinstance(item, str)]
-            if cache.get("requires_first_page_gate") and existing and path not in existing and not cache.get("first_page_validated"):
-                tool_name = str(name or "write_file")
-                return ToolMessage(
-                    content=(
-                        f"Error: {tool_name} blocked for {path}. The active skill requires the first-page quality gate to succeed "
-                        "before a second distinct SVG page is authored. Run the declared checker with `--stage first-page`, fix any "
-                        "reported errors, rerun it successfully, then retry this write."
-                    ),
-                    tool_call_id=str(request.tool_call.get("id") or ""),
-                    name=tool_name,
-                    status="error",
-                )
-        if name == "bash":
-            command = self._tool_args(request).get("command")
-            if not isinstance(command, str):
-                return None
-            bash_svg_paths = self._bash_svg_output_paths(command)
-            if bash_svg_paths and cache.get("requires_first_page_gate") and not cache.get("first_page_validated"):
-                existing = {item for item in cache.get("svg_paths", []) if isinstance(item, str)}
-                if len(existing.union(bash_svg_paths)) > 1:
-                    return ToolMessage(
-                        content=(
-                            "Error: bash blocked. The active skill requires the first-page quality gate to succeed before a second "
-                            "distinct SVG page is authored. Run the declared checker with `--stage first-page`, fix any reported "
-                            "errors, rerun it successfully, then retry this write."
-                        ),
-                        tool_call_id=str(request.tool_call.get("id") or ""),
-                        name="bash",
-                        status="error",
-                    )
-            is_final_check = "svg_quality_checker.py" in command and "--stage final" in command
-            if is_final_check and cache.get("requires_first_page_gate") and not cache.get("first_page_validated"):
-                return ToolMessage(
-                    content="Error: final quality check blocked. Complete the declared `--stage first-page` gate successfully first.",
-                    tool_call_id=str(request.tool_call.get("id") or ""),
-                    name="bash",
-                    status="error",
-                )
-            is_export = "finalize_svg.py" in command or "svg_to_pptx.py" in command
-            if is_export and cache.get("requires_final_gate") and not cache.get("final_validated"):
-                return ToolMessage(
-                    content=("Error: export/finalization blocked. The active skill requires a successful `svg_quality_checker.py --stage final` after the most recent SVG edit. Run and pass that gate, then retry this command."),
-                    tool_call_id=str(request.tool_call.get("id") or ""),
-                    name="bash",
-                    status="error",
-                )
-        return None
-
-    def _record_phase_progress(self, request: ToolCallRequest, result: ToolMessage | Command) -> None:
-        if not self._successful_tool_message(result):
-            return
-        cache = self._activation_cache_from_tool_request(request)
-        if cache is None:
-            return
-        name = request.tool_call.get("name")
-        path = self._tool_path(request)
-        if name in {"write_file", "str_replace"} and self._is_svg_output_path(path):
-            self._record_svg_paths(cache, [path])
-            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
-            return
-        if name == "present_files":
-            raw_paths = self._tool_args(request).get("filepaths")
-            paths = [item for item in raw_paths if isinstance(item, str)] if isinstance(raw_paths, list) else []
-            cache["presentation_delivery_completed"] = any(posixpath.splitext(item.lower())[1] in {".ppt", ".pptx"} for item in paths)
-            if cache["presentation_delivery_completed"]:
-                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
-            return
-        if name != "bash":
-            return
-        command = self._tool_args(request).get("command")
-        if not isinstance(command, str):
-            return
-        bash_svg_paths = self._bash_svg_output_paths(command)
-        if bash_svg_paths:
-            self._record_svg_paths(cache, bash_svg_paths)
-            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
-        if "confirm_ui/server.py" in command and "--wait-only" in command and "--wait-stage" not in command:
-            cache["human_confirmation_completed"] = True
-            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
-        if "svg_quality_checker.py" in command:
-            if "--stage first-page" in command:
-                cache["first_page_validated"] = True
-                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
-            if "--stage final" in command:
-                cache["final_validated"] = True
-                cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
-        if "svg_to_pptx.py" in command:
-            cache["presentation_export_completed"] = True
-            cache["presentation_progress_revision"] = int(cache.get("presentation_progress_revision") or 0) + 1
-
-    @staticmethod
-    def _presentation_incomplete_requirements(cache: dict) -> list[str]:
-        if not cache.get("svg_paths"):
-            return []
-        requirements: list[str] = []
-        if cache.get("requires_final_gate") and not cache.get("final_validated"):
-            requirements.append("运行并通过 `svg_quality_checker.py --stage final` 最终质检")
-        if cache.get("requires_presentation_export") and not cache.get("presentation_export_completed"):
-            requirements.append("执行 `svg_to_pptx.py`，生成真实 PPTX 与预览 PDF")
-        if cache.get("requires_presentation_delivery") and not cache.get("presentation_delivery_completed"):
-            requirements.append("调用 `present_files` 发布 PPTX 和 PDF")
-        return requirements
-
-    @staticmethod
-    def _has_tool_call_intent(message: AIMessage) -> bool:
-        if message.tool_calls or getattr(message, "invalid_tool_calls", None):
-            return True
-        additional_kwargs = message.additional_kwargs or {}
-        return bool(additional_kwargs.get("tool_calls") or additional_kwargs.get("function_call"))
-
-    def _apply_presentation_completion_guard(self, state: AgentState, runtime: Runtime) -> dict | None:
-        context = getattr(runtime, "context", None)
-        cache = context.get(_SLASH_SKILL_ACTIVATION_CACHE_KEY) if isinstance(context, dict) else None
-        if not isinstance(cache, dict):
-            return None
-        messages = list(state.get("messages") or [])
-        if not messages or not isinstance(messages[-1], AIMessage):
-            return None
-        last = messages[-1]
-        if self._has_tool_call_intent(last) or (last.additional_kwargs or {}).get("deerflow_error_fallback"):
-            return None
-        requirements = self._presentation_incomplete_requirements(cache)
-        if not requirements:
-            return None
-
-        revision = int(cache.get("presentation_progress_revision") or 0)
-        last_revision = cache.get("presentation_completion_last_revision")
-        same_revision_retries = int(cache.get("presentation_completion_same_revision_retries") or 0)
-        if last_revision != revision:
-            same_revision_retries = 0
-        total_retries = int(cache.get("presentation_completion_total_retries") or 0)
-        if same_revision_retries == 0 and total_retries < 8:
-            cache["presentation_completion_last_revision"] = revision
-            cache["presentation_completion_same_revision_retries"] = 1
-            cache["presentation_completion_total_retries"] = total_retries + 1
-            cache["presentation_completion_pending"] = requirements
-            updates = [RemoveMessage(id=last.id)] if last.id else []
-            return {"messages": updates, "jump_to": "model"}
-
-        additional_kwargs = dict(last.additional_kwargs or {})
-        additional_kwargs.pop("hide_from_ui", None)
-        additional_kwargs.pop("presentation_completion_recovery", None)
-        additional_kwargs.update(
-            {
-                "deerflow_error_fallback": True,
-                "error_reason": "PPT workflow ended before required quality, export, or delivery gates completed",
-            }
-        )
-        fallback = last.model_copy(
-            update={
-                "content": _PRESENTATION_COMPLETION_FALLBACK,
-                "additional_kwargs": additional_kwargs,
-                "tool_calls": [],
-                "invalid_tool_calls": [],
-            }
-        )
-        return {"messages": [fallback]}
-
-    def _augment_presentation_completion_request(self, request: ModelRequest) -> ModelRequest:
-        context = getattr(request.runtime, "context", None)
-        cache = context.get(_SLASH_SKILL_ACTIVATION_CACHE_KEY) if isinstance(context, dict) else None
-        if not isinstance(cache, dict):
-            return request
-        requirements = cache.pop("presentation_completion_pending", None)
-        if not isinstance(requirements, list) or not requirements:
-            return request
-        reminder = HumanMessage(
-            content=_PRESENTATION_COMPLETION_REMINDER.format(requirements="\n".join(f"- {item}" for item in requirements)),
-            name="presentation_completion_recovery",
-            additional_kwargs={"hide_from_ui": True},
-        )
-        return request.override(messages=[*request.messages, reminder])
-
-    @hook_config(can_jump_to=["model"])
     @override
-    def after_model(self, state: AgentState, runtime: Runtime) -> dict | None:
-        return self._apply_presentation_completion_guard(state, runtime)
-
-    @hook_config(can_jump_to=["model"])
-    @override
-    async def aafter_model(self, state: AgentState, runtime: Runtime) -> dict | None:
-        return self._apply_presentation_completion_guard(state, runtime)
+    def before_agent(self, state: ThreadState, runtime: Runtime) -> dict | None:
+        return self._capture_workflow_activation(state)
 
     @override
-    def wrap_tool_call(
-        self,
-        request: ToolCallRequest,
-        handler: Callable[[ToolCallRequest], ToolMessage | Command],
-    ) -> ToolMessage | Command:
-        blocked = self._check_reference_gate(request) or self._check_human_confirmation_gate(request) or self._check_declared_content_contract(request) or self._check_phase_gate(request)
-        if blocked is not None:
-            return normalize_tool_result(blocked)
-        result = handler(request)
-        if request.tool_call.get("name") == "read_file":
-            path = self._tool_path(request)
-            cache = self._activation_cache_from_tool_request(request)
-            if path is not None and cache is not None and self._successful_tool_message(result):
-                self._record_reference_read(cache, path)
-        self._record_phase_progress(request, result)
-        return result
-
-    @override
-    async def awrap_tool_call(
-        self,
-        request: ToolCallRequest,
-        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
-    ) -> ToolMessage | Command:
-        blocked = self._check_reference_gate(request) or self._check_human_confirmation_gate(request) or self._check_declared_content_contract(request) or self._check_phase_gate(request)
-        if blocked is not None:
-            return normalize_tool_result(blocked)
-        result = await handler(request)
-        if request.tool_call.get("name") == "read_file":
-            path = self._tool_path(request)
-            cache = self._activation_cache_from_tool_request(request)
-            if path is not None and cache is not None and self._successful_tool_message(result):
-                self._record_reference_read(cache, path)
-        self._record_phase_progress(request, result)
-        return result
+    async def abefore_agent(self, state: ThreadState, runtime: Runtime) -> dict | None:
+        return await asyncio.to_thread(self._capture_workflow_activation, state)
 
     @override
     def wrap_model_call(
@@ -1351,11 +924,10 @@ Failed commands and validation errors do not advance the workflow. Read the exac
         request: ModelRequest,
         handler: Callable[[ModelRequest], ModelResponse],
     ) -> ModelResponse | AIMessage:
-        prepared = self._handle_model_request(self._augment_presentation_completion_request(request), hook="wrap_model_call")
+        prepared = self._handle_model_request(request, hook="wrap_model_call")
         if isinstance(prepared, AIMessage):
             return prepared
-        response = self._ensure_structured_confirmation(prepared, handler(prepared))
-        return self._hide_incomplete_presentation_response(prepared, response)
+        return handler(prepared)
 
     @override
     async def awrap_model_call(
@@ -1365,10 +937,9 @@ Failed commands and validation errors do not advance the workflow. Read the exac
     ) -> ModelResponse | AIMessage:
         prepared = await asyncio.to_thread(
             self._handle_model_request,
-            self._augment_presentation_completion_request(request),
+            request,
             hook="awrap_model_call",
         )
         if isinstance(prepared, AIMessage):
             return prepared
-        response = self._ensure_structured_confirmation(prepared, await handler(prepared))
-        return self._hide_incomplete_presentation_response(prepared, response)
+        return await handler(prepared)

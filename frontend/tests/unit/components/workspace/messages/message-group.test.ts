@@ -119,9 +119,33 @@ describe("MessageGroup", () => {
     expect(html).toContain("1 more step");
     expect(html).not.toContain("Check how processing groups convert messages.");
   });
+
+  it("rewrites Sandbox Live Preview links in tool-calling progress text", () => {
+    const html = renderGroup(
+      [
+        {
+          id: "ai-1",
+          type: "ai",
+          content:
+            "Confirm at [http://127.0.0.1:5050](http://127.0.0.1:5050/).",
+          tool_calls: [
+            {
+              id: "call-1",
+              name: "bash",
+              args: { command: "confirm_ui --wait-only" },
+            },
+          ],
+        } as Message,
+      ],
+      "thread-1",
+    );
+
+    expect(html).toContain('href="/api/threads/thread-1/live-preview/5050/"');
+    expect(html).not.toContain('href="http://127.0.0.1:5050/"');
+  });
 });
 
-function renderGroup(messages: Message[]) {
+function renderGroup(messages: Message[], threadId?: string) {
   return renderToStaticMarkup(
     createElement(
       I18nContext.Provider,
@@ -131,7 +155,7 @@ function renderGroup(messages: Message[]) {
           setLocale: () => undefined,
         },
       },
-      createElement(MessageGroup, { messages }),
+      createElement(MessageGroup, { messages, threadId }),
     ),
   );
 }

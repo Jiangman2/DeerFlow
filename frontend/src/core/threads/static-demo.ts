@@ -4,8 +4,16 @@ import type { ThreadsClient } from "@langchain/langgraph-sdk/client";
 import type { AgentThread, AgentThreadState } from "./types";
 
 export const DEMO_THREAD_IDS = [
-  "b6d9a2c2-2c59-4e71-8b3c-7e2d2b70f6a1",
+  "1490ac9e-1573-479d-875c-bd5680f3ba66",
 ] as const;
+
+export function isStaticDemoThreadId(
+  threadId: string | null | undefined,
+): boolean {
+  return Boolean(
+    threadId && (DEMO_THREAD_IDS as readonly string[]).includes(threadId),
+  );
+}
 
 export type ThreadSearchParams = NonNullable<
   Parameters<ThreadsClient["search"]>[0]

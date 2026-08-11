@@ -66,12 +66,14 @@ import {
   type SidecarContext,
 } from "@/core/sidecar";
 import type { Subtask } from "@/core/tasks";
-import { useUpdateSubtask } from "@/core/tasks/context";
+import { useSubtaskContext, useUpdateSubtask } from "@/core/tasks/context";
+import { pptMasterTaskMessageToSubtaskUpdate } from "@/core/tasks/lifecycle";
 import {
   derivePendingSubtaskStatus,
   parseSubtaskResult,
 } from "@/core/tasks/subtask-result";
 import type { AgentThreadState } from "@/core/threads";
+import { isStaticDemoThreadId } from "@/core/threads/static-demo";
 import { cn } from "@/lib/utils";
 
 import { ArtifactFileList } from "../artifacts/artifact-file-list";
@@ -303,6 +305,16 @@ export function MessageList({
     }),
     [handleArtifactClick, threadId],
   );
+  // Live Preview links are usually emitted in ordinary assistant progress
+  // messages before the final present_files event. Those messages must use
+  // the thread-aware renderer too; otherwise 127.0.0.1:5050 remains a raw
+  // browser URL and points at the user's host instead of the Sandbox.
+  const threadMarkdownComponents = useMemo(
+    () => ({
+      a: createMarkdownLinkComponent(threadId),
+    }),
+    [threadId],
+  );
   const [selectionToolbar, setSelectionToolbar] =
     useState<SelectionToolbarState | null>(null);
   const [turnStartTime, setTurnStartTime] = useState<number | null>(null);
@@ -339,7 +351,34 @@ export function MessageList({
       .some((g) => g.type === "assistant");
   }, [groupedMessages]);
   const rehypePlugins = useRehypeSplitWordsIntoSpans(thread.isLoading);
+  const { tasks: subtasks } = useSubtaskContext();
   const updateSubtask = useUpdateSubtask();
+  useEffect(() => {
+    for (const message of messages) {
+      const durableTask = pptMasterTaskMessageToSubtaskUpdate(message);
+      if (durableTask) {
+        updateSubtask(durableTask, { eager: true });
+      }
+    }
+  }, [messages, updateSubtask]);
+  const standalonePptMasterTasks = useMemo(() => {
+    const referencedTaskIds = new Set<string>();
+    for (const message of messages) {
+      if (message.type !== "ai") {
+        continue;
+      }
+      for (const toolCall of message.tool_calls ?? []) {
+        if (toolCall.name === "task" && toolCall.id) {
+          referencedTaskIds.add(toolCall.id);
+        }
+      }
+    }
+    return Object.values(subtasks).filter(
+      (task) =>
+        task.modelName === "ppt-master-agent-host" &&
+        !referencedTaskIds.has(task.id),
+    );
+  }, [messages, subtasks]);
   const lastGroupIndex = groupedMessages.length - 1;
   let lastHumanGroupIndex = -1;
   for (let index = lastGroupIndex; index >= 0; index--) {
@@ -773,6 +812,7 @@ export function MessageList({
   const unrenderedArtifactPaths = artifactPaths.filter(
     (filepath) => !messagePresentedArtifactPaths.has(filepath),
   );
+  const isStaticDemo = isStaticDemoThreadId(threadId);
 
   return (
     <>
@@ -929,6 +969,7 @@ export function MessageList({
                       content={extractContentFromMessage(message)}
                       isLoading={thread.isLoading}
                       rehypePlugins={rehypePlugins}
+                      components={threadMarkdownComponents}
                     />
                     {renderTokenUsage({
                       messages: group.messages,
@@ -1029,6 +1070,7 @@ export function MessageList({
                       key={"thinking-group-" + message.id}
                       messages={[message]}
                       isLoading={currentTurnGroupIsLoading}
+                      threadId={threadId}
                       tokenDebugSteps={tokenDebugSteps.filter(
                         (step) => step.messageId === message.id,
                       )}
@@ -1074,6 +1116,7 @@ export function MessageList({
                 <MessageGroup
                   messages={group.messages}
                   isLoading={thread.isLoading}
+                  threadId={threadId}
                   tokenDebugSteps={tokenDebugSteps.filter((step) =>
                     group.messages.some(
                       (message) => message.id === step.messageId,
@@ -1091,17 +1134,40 @@ export function MessageList({
               </div>
             );
           })}
-          {thread.isLoading && !hasActiveAssistantText && (
-            <div className="w-full">
-              <Reasoning isStreaming={true} startTimeProp={turnStartTime}>
-                <ReasoningTrigger hasContent={false} />
-              </Reasoning>
+          {standalonePptMasterTasks.map((task) => (
+            <div
+              key={`standalone-ppt-master-${task.id}`}
+              className="relative z-1 flex max-w-full min-w-0 flex-col gap-2 overflow-hidden"
+            >
+              <SubtaskCard
+                taskId={task.id}
+                threadId={threadId}
+                runId={task.id}
+                isLoading={task.status === "in_progress"}
+              />
+            </div>
+          ))}
+          {isStaticDemo && unrenderedArtifactPaths.length > 0 && (
+            <div className="w-full pb-4">
+              <ArtifactFileList
+                files={unrenderedArtifactPaths}
+                threadId={threadId}
+              />
             </div>
           )}
+          {thread.isLoading &&
+            !hasActiveAssistantText &&
+            standalonePptMasterTasks.length === 0 && (
+              <div className="w-full">
+                <Reasoning isStreaming={true} startTimeProp={turnStartTime}>
+                  <ReasoningTrigger hasContent={false} />
+                </Reasoning>
+              </div>
+            )}
           <div style={{ height: `${paddingBottom}px` }} />
         </ConversationContent>
       </Conversation>
-      {unrenderedArtifactPaths.length > 0 && (
+      {!isStaticDemo && unrenderedArtifactPaths.length > 0 && (
         <div className="mx-auto w-full max-w-(--container-width-md) px-4 pb-4">
           <ArtifactFileList
             files={unrenderedArtifactPaths}

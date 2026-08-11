@@ -46,6 +46,11 @@ class SQLiteUserRepository(UserRepository):
             # SQLite loses tzinfo on read; reattach UTC so downstream
             # code can compare timestamps reliably.
             created_at=row.created_at if row.created_at.tzinfo else row.created_at.replace(tzinfo=UTC),
+            last_login_at=(
+                row.last_login_at
+                if row.last_login_at is None or row.last_login_at.tzinfo
+                else row.last_login_at.replace(tzinfo=UTC)
+            ),
             oauth_provider=row.oauth_provider,
             oauth_id=row.oauth_id,
             needs_setup=row.needs_setup,
@@ -65,6 +70,7 @@ class SQLiteUserRepository(UserRepository):
             organization_code=user.organization_code,
             organization_name=user.organization_name,
             created_at=user.created_at,
+            last_login_at=user.last_login_at,
             oauth_provider=user.oauth_provider,
             oauth_id=user.oauth_id,
             needs_setup=user.needs_setup,
@@ -121,6 +127,7 @@ class SQLiteUserRepository(UserRepository):
             row.needs_setup = user.needs_setup
             row.is_disabled = user.is_disabled
             row.token_version = user.token_version
+            row.last_login_at = user.last_login_at
             await session.commit()
         return user
 

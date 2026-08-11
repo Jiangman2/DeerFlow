@@ -412,11 +412,13 @@
       html[data-deerflow-weknora-ui="personal_workspace_owner"]
         .settings-modal[data-deerflow-kb-editor="simple"]
         [data-guide="kb-editor-sidebar"]
-        .nav-group-title,
+        .nav-group-title:not([data-deerflow-kb-sharing-group="true"]),
       html[data-deerflow-weknora-ui="personal_workspace_owner"]
         .settings-modal[data-deerflow-kb-editor="simple"]
         [data-guide="kb-editor-sidebar"]
-        .nav-item:not([data-guide="kb-editor-nav-basic"]) {
+        .nav-item:not([data-guide="kb-editor-nav-basic"]):not(
+          [data-deerflow-kb-sharing-item="true"]
+        ) {
         display: none !important;
       }
     </style>
@@ -430,11 +432,19 @@
           "Publish Integrations",
           "Integrations",
         ];
+        var knowledgeBaseSettingsLabels = [
+          "\u77e5\u8bc6\u5e93\u8bbe\u7f6e",
+          "Knowledge Base Settings",
+          "Knowledge Base Configuration",
+        ];
+        var sharingManagementLabels = [
+          "\u5171\u4eab\u7ba1\u7406",
+          "Sharing Management",
+          "Share Management",
+        ];
         var allowedStandardSidebarGuides = [
-          "nav-creatChat",
           "nav-knowledge-bases",
           "nav-organizations",
-          "nav-agents",
         ];
         function isStandardUser() {
           return (
@@ -511,6 +521,13 @@
                 '[data-guide="kb-editor-sidebar"]',
               );
               if (!sidebar) return;
+              var modalText = (modal.textContent || "")
+                .replace(/\s+/g, " ")
+                .trim();
+              var isExistingKnowledgeBaseSettings =
+                knowledgeBaseSettingsLabels.some(function (label) {
+                  return modalText.indexOf(label) >= 0;
+                });
               var firstPass =
                 modal.getAttribute("data-deerflow-kb-editor") !== "simple";
               modal.setAttribute("data-deerflow-kb-editor", "simple");
@@ -529,6 +546,20 @@
                   '[data-guide="kb-editor-sidebar"] .nav-item:not([data-guide="kb-editor-nav-basic"])',
                 )
                 .forEach(function (item) {
+                  var text = (item.textContent || "")
+                    .replace(/\s+/g, " ")
+                    .trim();
+                  var isSharingManagement =
+                    isExistingKnowledgeBaseSettings &&
+                    sharingManagementLabels.some(function (label) {
+                      return text === label || text.indexOf(label) >= 0;
+                    });
+                  if (isSharingManagement) {
+                    item.setAttribute("data-deerflow-kb-sharing-item", "true");
+                    item.hidden = false;
+                    return;
+                  }
+                  item.removeAttribute("data-deerflow-kb-sharing-item");
                   item.hidden = true;
                 });
               modal
@@ -536,6 +567,20 @@
                   '[data-guide="kb-editor-sidebar"] .nav-group-title',
                 )
                 .forEach(function (item) {
+                  var text = (item.textContent || "")
+                    .replace(/\s+/g, " ")
+                    .trim();
+                  var isSharingGroup =
+                    isExistingKnowledgeBaseSettings &&
+                    hiddenStandardLabels.some(function (label) {
+                      return text === label || text.indexOf(label) >= 0;
+                    });
+                  if (isSharingGroup) {
+                    item.setAttribute("data-deerflow-kb-sharing-group", "true");
+                    item.hidden = false;
+                    return;
+                  }
+                  item.removeAttribute("data-deerflow-kb-sharing-group");
                   item.hidden = true;
                 });
             });

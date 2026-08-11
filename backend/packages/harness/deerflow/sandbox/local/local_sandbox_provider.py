@@ -411,6 +411,16 @@ class LocalSandboxProvider(SandboxProvider):
                 return cached
         return None
 
+    def get_for_thread(self, thread_id: str, *, user_id: str | None = None) -> Sandbox | None:
+        """Return the cached thread sandbox without creating a new one."""
+        effective_user_id = self._effective_acquire_user_id(user_id)
+        key = self._thread_key(thread_id, effective_user_id)
+        with self._lock:
+            sandbox = self._thread_sandboxes.get(key)
+            if sandbox is not None:
+                self._thread_sandboxes.move_to_end(key)
+            return sandbox
+
     def release(self, sandbox_id: str) -> None:
         # LocalSandbox has no resources to release; keep the cached instance so
         # that ``_agent_written_paths`` (used to reverse-resolve agent-authored

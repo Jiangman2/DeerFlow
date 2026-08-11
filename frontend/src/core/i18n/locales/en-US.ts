@@ -208,7 +208,8 @@ export const enUS: Translations = {
       "Full-dimensional Logic Deduction + Multi-path Verification + Backward Check",
     searchModels: "Search models...",
     surpriseMe: "Surprise",
-    surpriseMePrompt: "Surprise me",
+    surpriseMePrompt:
+      "/surprise-me Combine the currently available skills into a creative, visually engaging, and genuinely surprising deliverable for me.",
     followupLoading: "Generating follow-up questions...",
     followupConfirmTitle: "Send suggestion?",
     followupConfirmDescription:
@@ -235,36 +236,81 @@ export const enUS: Translations = {
     compactFailed: "Context compaction failed.",
     suggestions: [
       {
-        suggestion: "Write",
-        prompt: "Write a blog post about the latest trends on [topic]",
-        icon: PenLineIcon,
+        suggestion: "Image Generation",
+        prompt:
+          "/image-generation Generate a high-quality image centered on [topic], choosing an appropriate visual style, composition, color palette, and lighting.",
+        icon: ImageIcon,
       },
       {
-        suggestion: "Research",
+        suggestion: "Presentation",
         prompt:
-          "Conduct a deep dive research on [topic], and summarize the findings.",
+          "/ppt-master Create a high-quality 5-slide presentation about [topic].",
+        icon: ShapesIcon,
+        menu: "ppt",
+      },
+      {
+        suggestion: "Deep Research",
+        prompt:
+          "/deep-research Conduct systematic, in-depth, multi-angle research on [topic], verify key facts, and summarize the evidence, findings, and conclusions.",
         icon: MicroscopeIcon,
       },
       {
-        suggestion: "Collect",
-        prompt: "Collect data from [source] and create a report.",
+        suggestion: "Data Analysis",
+        prompt:
+          "/data-analysis Analyze my uploaded Excel or CSV file, inspect its structure and quality first, then produce statistical summaries, key metrics, anomalies, and reusable insights.",
+        icon: PenLineIcon,
+      },
+    ],
+    pptRouteMenuTitle: "Choose a PPT workflow",
+    pptRouteSuggestions: [
+      {
+        id: "generate",
+        suggestion: "Generate PPTX",
+        description:
+          "Create a new presentation from a topic, sources, or an existing deck",
+        prompt:
+          "/ppt-master Create a high-quality 5-slide presentation about [topic].",
         icon: ShapesIcon,
+      },
+      {
+        id: "create-template",
+        suggestion: "Create Template",
+        description:
+          "Convert reference material into a reusable template workspace",
+        prompt:
+          "/ppt-master Convert my uploaded PPTX into a reusable Deck template workspace.",
+        icon: CompassIcon,
+      },
+      {
+        id: "fill-native",
+        suggestion: "Fill Native PPTX",
+        description:
+          "Preserve the native master, layouts, and slide shells while filling content",
+        prompt:
+          "/ppt-master Use my uploaded PPTX template, preserve its native master, layouts, and slide structure, and replace the content with [topic].",
+        icon: PenLineIcon,
+      },
+      {
+        id: "enhance-native",
+        suggestion: "Enhance Native PPTX",
+        description:
+          "Keep the visible slides unchanged and add notes, audio, timings, and transitions",
+        prompt:
+          "/ppt-master Keep my uploaded PPTX's visible content and design unchanged, and add speaker notes, narration, auto-advance timings, and slide transitions.",
+        icon: SparklesIcon,
       },
     ],
     suggestionsCreate: [
       {
         suggestion: "Webpage",
-        prompt: "Create a webpage about [topic]",
+        prompt:
+          "/frontend-design Create a distinctive, responsive, production-ready webpage centered on [topic].",
         icon: CompassIcon,
       },
       {
-        suggestion: "Image",
-        prompt: "Create an image about [topic]",
-        icon: ImageIcon,
-      },
-      {
         suggestion: "Video",
-        prompt: "Create a video about [topic]",
+        prompt:
+          "/video-generation Generate a high-quality video centered on [topic], with an appropriate shot plan, visual style, motion, and atmosphere.",
         icon: VideoIcon,
       },
       {
@@ -273,7 +319,7 @@ export const enUS: Translations = {
       {
         suggestion: "Skill",
         prompt:
-          "We're going to build a new skill step by step with `skill-creator`. To start, what do you want this skill to do?",
+          "/skill-creator Help me create a new skill. First ask what problem it should solve, its use cases, and expected deliverables, then guide me through design, implementation, and validation.",
         icon: SparklesIcon,
       },
     ],
@@ -686,6 +732,10 @@ export const enUS: Translations = {
     completed: "Subtask completed",
     failed: "Subtask failed",
     incomplete: "Subtask not completed",
+    viewStepDetails: "View details",
+    hideStepDetails: "Hide details",
+    toolInput: "Tool input",
+    toolOutput: "Tool output",
   },
 
   // Token Usage

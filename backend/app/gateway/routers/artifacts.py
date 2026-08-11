@@ -5,11 +5,14 @@ import inspect
 import io
 import logging
 import mimetypes
+import os
+import re
 import threading
 import zipfile
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
+import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 
@@ -18,6 +21,7 @@ from app.gateway.file_security import pdf_file_requires_attachment, pdf_payload_
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.path_utils import resolve_thread_virtual_path
 from deerflow.config.paths import make_safe_user_id
+from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +55,35 @@ MAX_PDF_PREVIEW_PAGES = 100
 _PDF_PREVIEW_RENDER_SCALE = 1.5
 _PDF_PREVIEW_LOCK = threading.Lock()
 
+# ``server.py --live`` currently listens on 5050 inside the AIO Sandbox.  Do
+# not turn this into an arbitrary localhost proxy: the port is an explicit
+# contract of the PPT Live Preview workflow.
+LIVE_PREVIEW_PORT = 5050
+MAX_LIVE_PREVIEW_BYTES = 64 * 1024 * 1024
+PPT_MASTER_RUNTIME_PROFILE = "ppt-master-runner"
+PPT_MASTER_RUNNER_INTERNAL_URL = os.environ.get(
+    "PPT_MASTER_RUNNER_INTERNAL_URL",
+    "http://127.0.0.1:8003",
+).rstrip("/")
+_LIVE_PREVIEW_TEXT_TYPES = {
+    "text/html",
+    "application/xhtml+xml",
+    "application/javascript",
+    "text/javascript",
+    "text/css",
+}
+_LIVE_PREVIEW_ROOT_URL_RE = re.compile(r"([\"'`(])/(api|static)(?=/|[\"'`)\s])")
+_LIVE_PREVIEW_HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+}
+
 PASSIVE_FILE_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
@@ -72,6 +105,242 @@ SECURE_ATTACHMENT_HEADERS = {
     "Cache-Control": "private, no-store",
     "X-Download-Options": "noopen",
 }
+
+
+def _live_preview_prefix(thread_id: str) -> str:
+    return f"/api/threads/{quote(thread_id, safe='')}/live-preview/{LIVE_PREVIEW_PORT}"
+
+
+def _rewrite_live_preview_root_urls(payload: bytes, thread_id: str) -> bytes:
+    """Keep the preview app's root-relative assets inside the proxy route.
+
+    The upstream preview uses paths such as ``/static/app.js`` and
+    ``/api/slides``.  Without rewriting, the browser would request those paths
+    from DeerFlow itself instead of the Sandbox.
+    """
+    try:
+        text = payload.decode("utf-8")
+    except UnicodeDecodeError:
+        return payload
+    prefix = _live_preview_prefix(thread_id)
+    rewritten = _LIVE_PREVIEW_ROOT_URL_RE.sub(rf"\1{prefix}/\2", text)
+    return rewritten.encode("utf-8")
+
+
+def _rewrite_live_preview_location(location: str, thread_id: str) -> str:
+    """Rewrite upstream root-relative redirects to the authenticated proxy."""
+    if location.startswith(("/api/", "/static/")):
+        return f"{_live_preview_prefix(thread_id)}{location}"
+    return location
+
+
+def _live_preview_target(sandbox: object, path: str) -> tuple[str, dict[str, str]] | None:
+    """Build the internal Sandbox URL and Host header for the preview port."""
+    normalized_path = "/" + path.lstrip("/")
+    if "\x00" in normalized_path or any(part == ".." for part in normalized_path.split("/")):
+        raise HTTPException(status_code=400, detail="Invalid Live Preview path")
+
+    base_url = getattr(sandbox, "base_url", None)
+    sandbox_id = str(getattr(sandbox, "id", ""))
+    if not isinstance(base_url, str) or not base_url:
+        # LocalSandbox runs commands on the Gateway host, so its local preview
+        # server is already reachable from the Gateway process.
+        if sandbox_id == "local" or sandbox_id.startswith("local:"):
+            return f"http://127.0.0.1:{LIVE_PREVIEW_PORT}{normalized_path}", {}
+        return None
+
+    parsed = urlsplit(base_url)
+    if not parsed.scheme or not parsed.netloc or not parsed.hostname:
+        return None
+    target = f"{parsed.scheme}://{parsed.netloc}{normalized_path}"
+    # AIO Sandbox's port proxy selects the inner process by the Host prefix,
+    # e.g. Host: 5050-sandbox-abc-svc.deer-flow.svc.cluster.local.
+    return target, {"Host": f"{LIVE_PREVIEW_PORT}-{parsed.hostname}"}
+
+
+def _live_preview_response_headers(upstream: httpx.Response, thread_id: str) -> dict[str, str]:
+    headers: dict[str, str] = {}
+    for name, value in upstream.headers.items():
+        lower_name = name.lower()
+        if lower_name in _LIVE_PREVIEW_HOP_BY_HOP_HEADERS or lower_name in {"content-length", "content-encoding"}:
+            continue
+        if lower_name == "location":
+            value = _rewrite_live_preview_location(value, thread_id)
+        headers[name] = value
+    headers["Cache-Control"] = "no-store"
+    headers["X-Content-Type-Options"] = "nosniff"
+    return headers
+
+
+async def _proxy_live_preview(
+    thread_id: str,
+    port: int,
+    path: str,
+    request: Request,
+    *,
+    user_can_write: bool,
+) -> Response:
+    del user_can_write  # The decorator on each route owns authorization.
+    if port != LIVE_PREVIEW_PORT:
+        raise HTTPException(status_code=404, detail="Unsupported Live Preview port")
+    owner_user_id = await _resolve_artifact_owner_user_id(request, thread_id)
+    runtime_profile = await _resolve_thread_runtime_profile(request, thread_id)
+    if (
+        runtime_profile == PPT_MASTER_RUNTIME_PROFILE
+        and os.environ.get("DEER_FLOW_RUNTIME_PROFILE") != PPT_MASTER_RUNTIME_PROFILE
+    ):
+        # The isolated Runner owns the Sandbox lifecycle.  Forward the browser
+        # request to the co-located Sidecar instead of discovering that Sandbox
+        # through the main Gateway's provider: discovery would make the main
+        # process eligible to release/destroy a Sandbox that is still executing
+        # in the Runner process.
+        return await _forward_live_preview_to_runner(request, thread_id)
+
+    provider = get_sandbox_provider()
+    sandbox = await asyncio.to_thread(provider.get_for_thread, thread_id, user_id=owner_user_id)
+    if sandbox is None:
+        raise HTTPException(status_code=404, detail="Live Preview sandbox is no longer available")
+
+    target_info = _live_preview_target(sandbox, path)
+    if target_info is None:
+        raise HTTPException(status_code=404, detail="Live Preview is unavailable for this sandbox")
+    target_url, sandbox_headers = target_info
+
+    forward_headers: dict[str, str] = dict(sandbox_headers)
+    for header_name in ("accept", "content-type", "if-none-match", "if-modified-since"):
+        value = request.headers.get(header_name)
+        if value:
+            forward_headers[header_name] = value
+    body = await request.body() if request.method not in {"GET", "HEAD", "OPTIONS"} else None
+    try:
+        timeout = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)
+        async with httpx.AsyncClient(follow_redirects=False, timeout=timeout) as client:
+            async with client.stream(
+                request.method,
+                target_url,
+                params=request.query_params,
+                headers=forward_headers,
+                content=body,
+            ) as upstream:
+                content_length = upstream.headers.get("content-length")
+                if content_length and int(content_length) > MAX_LIVE_PREVIEW_BYTES:
+                    raise HTTPException(status_code=413, detail="Live Preview response is too large")
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in upstream.aiter_bytes():
+                    total += len(chunk)
+                    if total > MAX_LIVE_PREVIEW_BYTES:
+                        raise HTTPException(status_code=413, detail="Live Preview response is too large")
+                    chunks.append(chunk)
+                payload = b"".join(chunks)
+                media_type = upstream.headers.get("content-type", "").split(";", 1)[0].lower()
+                if media_type in _LIVE_PREVIEW_TEXT_TYPES:
+                    payload = _rewrite_live_preview_root_urls(payload, thread_id)
+                return Response(
+                    content=payload,
+                    status_code=upstream.status_code,
+                    headers=_live_preview_response_headers(upstream, thread_id),
+                    media_type=None,
+                )
+    except httpx.HTTPError as exc:
+        logger.warning("Live Preview proxy failed for thread %s: %s", thread_id, exc)
+        raise HTTPException(status_code=502, detail="Live Preview server is not reachable") from exc
+
+
+async def _forward_live_preview_to_runner(
+    request: Request,
+    thread_id: str,
+) -> Response:
+    """Forward a Runner-owned preview to the Sidecar in the same K8S Pod."""
+    target_url = f"{PPT_MASTER_RUNNER_INTERNAL_URL}{request.url.path}"
+    forward_headers: dict[str, str] = {}
+    for header_name in (
+        "accept",
+        "content-type",
+        "cookie",
+        "forwarded",
+        "host",
+        "if-modified-since",
+        "if-none-match",
+        "origin",
+        "sec-fetch-site",
+        "user-agent",
+        "x-csrf-token",
+        "x-forwarded-for",
+        "x-forwarded-host",
+        "x-forwarded-port",
+        "x-forwarded-proto",
+    ):
+        value = request.headers.get(header_name)
+        if value:
+            forward_headers[header_name] = value
+
+    body = await request.body() if request.method not in {"GET", "HEAD", "OPTIONS"} else None
+    try:
+        timeout = httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)
+        async with httpx.AsyncClient(follow_redirects=False, timeout=timeout) as client:
+            async with client.stream(
+                request.method,
+                target_url,
+                params=request.query_params,
+                headers=forward_headers,
+                content=body,
+            ) as upstream:
+                content_length = upstream.headers.get("content-length")
+                if content_length and int(content_length) > MAX_LIVE_PREVIEW_BYTES:
+                    raise HTTPException(status_code=413, detail="Live Preview response is too large")
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in upstream.aiter_bytes():
+                    total += len(chunk)
+                    if total > MAX_LIVE_PREVIEW_BYTES:
+                        raise HTTPException(status_code=413, detail="Live Preview response is too large")
+                    chunks.append(chunk)
+                return Response(
+                    content=b"".join(chunks),
+                    status_code=upstream.status_code,
+                    headers=_live_preview_response_headers(upstream, thread_id),
+                    media_type=None,
+                )
+    except httpx.HTTPError as exc:
+        logger.warning(
+            "PPT Runner Live Preview bridge failed for thread %s: %s",
+            thread_id,
+            exc,
+        )
+        raise HTTPException(status_code=502, detail="PPT Runner Live Preview is not reachable") from exc
+
+
+@router.api_route(
+    "/threads/{thread_id}/live-preview/{port}/{path:path}",
+    methods=["GET", "HEAD", "OPTIONS"],
+    summary="Proxy Sandbox Live Preview",
+    description="Serve the authenticated Live Preview process from the active thread sandbox.",
+)
+@require_permission("threads", "read", owner_check=True)
+async def get_live_preview(
+    thread_id: str,
+    port: int,
+    path: str,
+    request: Request,
+) -> Response:
+    return await _proxy_live_preview(thread_id, port, path, request, user_can_write=False)
+
+
+@router.api_route(
+    "/threads/{thread_id}/live-preview/{port}/{path:path}",
+    methods=["POST", "PUT", "PATCH", "DELETE"],
+    summary="Update Sandbox Live Preview",
+    description="Proxy authenticated mutation requests made by the Live Preview editor.",
+)
+@require_permission("threads", "write", owner_check=True)
+async def mutate_live_preview(
+    thread_id: str,
+    port: int,
+    path: str,
+    request: Request,
+) -> Response:
+    return await _proxy_live_preview(thread_id, port, path, request, user_can_write=True)
 
 
 async def _resolve_artifact_owner_user_id(request: Request | None, thread_id: str) -> str | None:
@@ -101,6 +370,25 @@ async def _resolve_artifact_owner_user_id(request: Request | None, thread_id: st
 
     raw_owner = metadata_owner or trusted_owner
     return make_safe_user_id(raw_owner) if raw_owner else None
+
+
+async def _resolve_thread_runtime_profile(request: Request | None, thread_id: str) -> str | None:
+    """Read the durable runtime owner used to route Sidecar-owned previews."""
+    app = request.scope.get("app") if request is not None else None
+    thread_store = getattr(getattr(app, "state", None), "thread_store", None)
+    get_thread = getattr(thread_store, "get", None)
+    if not callable(get_thread):
+        return None
+
+    record_or_awaitable = get_thread(thread_id, user_id=None)
+    record = await record_or_awaitable if inspect.isawaitable(record_or_awaitable) else record_or_awaitable
+    if not isinstance(record, dict):
+        return None
+    metadata = record.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+    raw_profile = metadata.get("runtime_profile")
+    return str(raw_profile).strip() or None if raw_profile is not None else None
 
 
 def _build_content_disposition(disposition_type: str, filename: str) -> str:

@@ -29,3 +29,16 @@ export function dashboardUserSecondaryParts(
     ...(organization ? [`组织机构：${organization}`] : []),
   ];
 }
+
+export function dashboardAccountLabel(
+  name: string | null | undefined,
+  email: string | null | undefined,
+  fallback = "未知用户",
+): string {
+  const normalizedName = normalized(name);
+  const normalizedEmail = normalized(email);
+  if (normalizedName && normalizedEmail && normalizedName !== normalizedEmail) {
+    return `${normalizedName} · ${normalizedEmail}`;
+  }
+  return normalizedName ?? normalizedEmail ?? fallback;
+}

@@ -24,6 +24,7 @@ configMapGenerator:
 patches:
   - path: storage-patches.yaml
   - path: runtime-patches.yaml
+  - path: mineru-adapter-patch.yaml
 
 # Third-party images are the ARM64 manifests verified on datax-01 on
 # 2026-07-21. Custom images use immutable deployment tags and are imported
@@ -61,16 +62,16 @@ images:
     digest: sha256:401604e79a5717dd966a13383d775f15d3125481d3e080eba329e4a0fbcf9523
   - name: deer-flow-gateway
     newName: deerflow.local/deer-flow-gateway
-    newTag: 20260729-enterprise-arm64-rc12-imagequery1
+    newTag: 20260811-enterprise-arm64-rc15-consolidated2
   - name: deer-flow-frontend
     newName: deerflow.local/deer-flow-frontend
-    newTag: 20260728-enterprise-arm64-rc11
+    newTag: 20260811-enterprise-arm64-rc15-consolidated2
   - name: deer-flow-provisioner
     newName: deerflow.local/deer-flow-provisioner
-    newTag: 20260723-enterprise-arm64-rc3
+    newTag: 20260811-enterprise-arm64-rc15-consolidated2
   - name: deer-flow-skills
     newName: deerflow.local/deer-flow-skills
-    newTag: 20260723-enterprise-arm64-rc3
+    newTag: 20260811-enterprise-arm64-rc15-consolidated2
   - name: deer-flow-mineru-adapter
     newName: deerflow.local/deer-flow-mineru-adapter
-    newTag: 20260729-enterprise-arm64-rc12-minerustability1
+    newTag: 20260811-enterprise-arm64-rc15-consolidated2

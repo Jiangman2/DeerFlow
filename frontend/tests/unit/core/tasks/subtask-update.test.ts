@@ -137,6 +137,22 @@ describe("computeNextSubtask", () => {
     expect(changed).toBe(false);
   });
 
+  it("reports changed=false when the persisted step timeline is replayed", () => {
+    const previous = baseTask({
+      status: "completed",
+      steps: [step(1), step(2)],
+    });
+
+    const { changed, next } = computeNextSubtask(previous, {
+      id: "t1",
+      status: "completed",
+      steps: [step(1), step(2)],
+    });
+
+    expect(changed).toBe(false);
+    expect(next.steps).toBe(previous.steps);
+  });
+
   it("reports changed=true when runtime metadata actually differs", () => {
     const previous = baseTask({
       status: "completed",

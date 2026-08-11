@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import threading
 from collections.abc import Awaitable, Callable
 from typing import Any, override
@@ -19,6 +20,29 @@ _RECOVERY_PROMPT = "<system_reminder>\n你在工具执行后的上一条回复�
 _FALLBACK_CONTENT = "模型已完成工具调用，但在一次自动重试后仍未返回最终回复。请重试或改用其他模型。"
 
 _TOOL_CALL_FINISH_REASONS = {"tool_calls", "function_call"}
+
+_UNFINISHED_PLAN_RE = re.compile(
+    r"\b(?:let me|i(?:'ll| will)|now let me|next,?|proceed(?: to)?|i need to|i am going to)\b|"
+    r"(?:接下来|我将|现在我|让我|继续(?:处理|修复|生成))",
+    re.IGNORECASE,
+)
+_PLAN_COMPLETION_RE = re.compile(
+    r"\b(?:completed|complete|done|delivered|created|generated|attached|download|cannot|blocked|failed)\b|"
+    r"(?:已完成|完成了|已生成|已交付|下载|无法|阻塞|失败)",
+    re.IGNORECASE,
+)
+_WAITING_FOR_USER_RE = re.compile(
+    r"(?:\?|？|\bblocking\b|⛔|请确认|是否继续|等待(?:用户|你的)?确认|需要(?:用户)?确认|请(?:选择|回复|批准)|需要你的(?:选择|回复|确认))",
+    re.IGNORECASE,
+)
+_UNFINISHED_PLAN_PROMPT = (
+    "<system_reminder>\nYour last visible response only described a next step and did not execute or deliver a result. "
+    "Continue the activated skill's declared workflow and produce the actual result. Do not treat a future plan as "
+    "completion; if blocked, perform the necessary final diagnosis and report the concrete blocker.\n</system_reminder>"
+)
+_UNFINISHED_PLAN_FALLBACK = "The model returned only an unfinished plan after one continuation attempt and did not deliver a verifiable result. Please retry; no final artifact can be confirmed."
+_PPT_MASTER_SKILL_SUFFIX = "/ppt-master/SKILL.md"
+_PPT_MASTER_RECOMMENDATION_RE = re.compile(r"(?:^|/)confirm_ui/recommendations\.stage[123]\.json$")
 
 
 def _has_visible_content(message: AIMessage) -> bool:
@@ -65,6 +89,81 @@ def _tool_result_in_current_turn(messages: list[Any]) -> bool:
     return any(isinstance(message, ToolMessage) for message in messages[latest_user_index + 1 :])
 
 
+def _latest_tool_result_in_current_turn(messages: list[Any]) -> ToolMessage | None:
+    """Return the latest tool receipt after the current visible user turn."""
+    latest_user_index = -1
+    for index, message in enumerate(messages):
+        if isinstance(message, HumanMessage) and not (message.additional_kwargs or {}).get("hide_from_ui"):
+            latest_user_index = index
+    if latest_user_index == -1:
+        return None
+    for message in reversed(messages[latest_user_index + 1 :]):
+        if isinstance(message, ToolMessage):
+            return message
+    return None
+
+
+def _tool_call_for_result(messages: list[Any], result: ToolMessage) -> dict[str, Any] | None:
+    """Resolve a tool receipt to its originating structured tool call."""
+    tool_call_id = str(result.tool_call_id or "")
+    if not tool_call_id:
+        return None
+    for message in reversed(messages):
+        if not isinstance(message, AIMessage):
+            continue
+        for call in message.tool_calls or []:
+            if str(call.get("id") or "") == tool_call_id:
+                return call
+    return None
+
+
+def _ppt_master_confirmation_recommendation_ready(state: AgentState, messages: list[Any]) -> str:
+    """Return the active Confirm UI URL when a recommendation write is the last durable action.
+
+    The official ``ppt-master`` page becomes user-ready as soon as a valid
+    ``recommendations.stageN.json`` write succeeds.  If the model then ends on
+    future-plan prose instead of invoking the documented owner wait, that is a
+    legitimate interactive boundary, not an unfinished artifact delivery.
+    """
+    workflow = state.get("skill_workflow")
+    if not isinstance(workflow, dict):
+        return ""
+    skill_path = str(workflow.get("skill_path") or "").replace("\\", "/")
+    confirmation_url = str(workflow.get("confirmation_url") or "")
+    if not skill_path.endswith(_PPT_MASTER_SKILL_SUFFIX) or not workflow.get("confirmation_ui_active") or not confirmation_url:
+        return ""
+
+    result = _latest_tool_result_in_current_turn(messages)
+    if result is None or str(getattr(result, "status", "success") or "success").casefold() == "error":
+        return ""
+    call = _tool_call_for_result(messages, result)
+    if not call or str(call.get("name") or "") != "write_file":
+        return ""
+    args = call.get("args")
+    if not isinstance(args, dict):
+        return ""
+    path = str(args.get("path") or args.get("file_path") or "").replace("\\", "/")
+    if not _PPT_MASTER_RECOMMENDATION_RE.search(path):
+        return ""
+    return confirmation_url
+
+
+def _is_unfinished_plan_response(message: AIMessage, messages: list[Any]) -> bool:
+    """Detect a future-tense plan incorrectly ending a tool-using turn."""
+    if not _has_visible_content(message) or _has_tool_call_intent_or_error(message):
+        return False
+    content = message.content if isinstance(message.content, str) else str(message.content)
+    # A visible question or explicit blocking/confirmation request is a valid
+    # terminal state: the skill is intentionally waiting for the user. Never
+    # turn that state into an automatic continuation, or a workflow's own
+    # confirmation gate can be bypassed by DeerFlow.
+    if _WAITING_FOR_USER_RE.search(content):
+        return False
+    if not _UNFINISHED_PLAN_RE.search(content) or _PLAN_COMPLETION_RE.search(content):
+        return False
+    return _tool_result_in_current_turn(messages)
+
+
 class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
     """Retry one empty post-tool response, then persist a visible error fallback."""
 
@@ -73,6 +172,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
         self._lock = threading.Lock()
         self._retry_counts: BoundedDict[tuple[str, str], int] = BoundedDict(1000)
         self._pending_prompts: BoundedDict[tuple[str, str], bool] = BoundedDict(1000)
+        self._plan_retry_counts: BoundedDict[tuple[str, str], int] = BoundedDict(1000)
 
     @staticmethod
     def _key(runtime: Runtime) -> tuple[str, str]:
@@ -90,6 +190,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
         with self._lock:
             self._retry_counts.pop(key, None)
             self._pending_prompts.pop(key, None)
+            self._plan_retry_counts.pop(key, None)
 
     def _clear_other_runs(self, runtime: Runtime) -> None:
         thread_id, run_id = self._key(runtime)
@@ -98,6 +199,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
             for key in stale:
                 self._retry_counts.pop(key, None)
                 self._pending_prompts.pop(key, None)
+                self._plan_retry_counts.pop(key, None)
 
     def _apply(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
         messages = list(state.get("messages") or [])
@@ -105,6 +207,57 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
             return None
 
         last = messages[-1]
+        confirmation_url = _ppt_master_confirmation_recommendation_ready(state, messages)
+        if confirmation_url and not _has_tool_call_intent_or_error(last):
+            self._clear(runtime)
+            additional_kwargs = dict(last.additional_kwargs or {})
+            additional_kwargs.update(
+                {
+                    "deerflow_waiting_for_user": True,
+                    "waiting_reason": "ppt-master Confirm UI recommendation is ready",
+                }
+            )
+            return {
+                "messages": [
+                    last.model_copy(
+                        update={
+                            "content": (
+                                f"当前 PPT 设计确认页面已准备好，请在[确认页面]({confirmation_url})完成本阶段选择。"
+                                "确认后回到对话输入“继续”，任务将从已持久化的检查点继续。"
+                            ),
+                            "additional_kwargs": additional_kwargs,
+                        }
+                    )
+                ]
+            }
+        if _is_unfinished_plan_response(last, messages):
+            key = self._key(runtime)
+            with self._lock:
+                retry_count = self._plan_retry_counts.get(key, 0)
+                if retry_count == 0:
+                    self._plan_retry_counts[key] = 1
+                    self._pending_prompts[key] = True
+            if retry_count == 0:
+                return {"jump_to": "model"}
+
+            additional_kwargs = dict(last.additional_kwargs or {})
+            additional_kwargs.update(
+                {
+                    "deerflow_error_fallback": True,
+                    "error_reason": "Model returned an unfinished plan after one retry",
+                }
+            )
+            return {
+                "messages": [
+                    last.model_copy(
+                        update={
+                            "content": _UNFINISHED_PLAN_FALLBACK,
+                            "additional_kwargs": additional_kwargs,
+                        }
+                    )
+                ]
+            }
+
         if _has_visible_content(last) or _has_tool_call_intent_or_error(last):
             return None
         if not _tool_result_in_current_turn(messages):
@@ -149,9 +302,11 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
             self._pending_prompts.pop(key, None)
         if not pending:
             return request
+        with self._lock:
+            is_plan_retry = self._plan_retry_counts.get(key, 0) == 1
         reminder = HumanMessage(
-            content=_RECOVERY_PROMPT,
-            name="terminal_response_recovery",
+            content=_UNFINISHED_PLAN_PROMPT if is_plan_retry else _RECOVERY_PROMPT,
+            name="unfinished_plan_recovery" if is_plan_retry else "terminal_response_recovery",
             additional_kwargs={"hide_from_ui": True},
         )
         return request.override(messages=[*request.messages, reminder])

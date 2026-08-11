@@ -37,13 +37,85 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SANDBOX_IMAGE
-              value: deerflow.local/deer-flow-aio-sandbox:20260723-enterprise-arm64-rc3
+              value: deerflow.local/deer-flow-aio-sandbox:20260811-enterprise-arm64-rc15-consolidated2
             - name: SANDBOX_SERVICE_TYPE
               value: ClusterIP
+            - name: PPT_MASTER_AGENT_HOST_ENABLED
+              value: "true"
+            - name: PPT_MASTER_AGENT_HOST_PORT
+              value: "8788"
+            - name: PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS
+              value: PPT_MASTER_RESPONSES_RELAY_KEY
+            - name: CODEX_CONFIG_TOML
+              value: |-
+                model = "DeepSeek-V4-Flash"
+                model_provider = "cnooc_deepseek"
+                model_context_window = 1048576
+                model_auto_compact_token_limit = 850000
+                model_reasoning_effort = "high"
+                model_catalog_json = "/mnt/user-data/workspace/.ppt-master-agent/codex-home/model-catalog.local.json"
+
+                [model_providers.cnooc_deepseek]
+                name = "CNOOC DeepSeek Responses Bridge"
+                base_url = "http://gateway:8001/api/codex/deepseek/v1"
+                env_key = "PPT_MASTER_RESPONSES_RELAY_KEY"
+                wire_api = "responses"
+                request_max_retries = 2
+                stream_max_retries = 2
+                stream_idle_timeout_ms = 900000
+            - name: CODEX_MODEL_CATALOG_JSON
+              value: |-
+                {
+                  "models": [
+                    {
+                      "slug": "DeepSeek-V4-Flash",
+                      "display_name": "DeepSeek-V4-Flash",
+                      "description": "CNOOC enterprise DeepSeek Responses bridge",
+                      "default_reasoning_level": "high",
+                      "supported_reasoning_levels": [
+                        {"effort": "low", "description": "Faster reasoning"},
+                        {"effort": "high", "description": "Deep reasoning"},
+                        {"effort": "xhigh", "description": "Maximum reasoning"}
+                      ],
+                      "context_window": 1048576,
+                      "effective_context_window_percent": 85,
+                      "supports_parallel_tool_calls": false,
+                      "supports_image_detail_original": false,
+                      "input_modalities": ["text"],
+                      "shell_type": "default",
+                      "visibility": "list",
+                      "supported_in_api": true,
+                      "priority": 1,
+                      "base_instructions": "",
+                      "support_verbosity": false,
+                      "supports_reasoning_summaries": false,
+                      "experimental_supported_tools": [],
+                      "truncation_policy": {"mode": "bytes", "limit": 10000}
+                    }
+                  ]
+                }
+            - name: SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS
+              value: "5"
+            - name: SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD
+              value: "120"
+            - name: SANDBOX_READINESS_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_LIVENESS_TIMEOUT_SECONDS
+              value: "10"
+            - name: SANDBOX_CPU_REQUEST
+              value: "1"
+            - name: SANDBOX_MEMORY_REQUEST
+              value: 1Gi
+            - name: SANDBOX_CPU_LIMIT
+              value: "2"
+            - name: SANDBOX_MEMORY_LIMIT
+              value: 4Gi
             - name: SANDBOX_SECRET_ENV_KEYS
-              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,HTTP_PROXY,HTTPS_PROXY,http_proxy,https_proxy
+              value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,CODEX_API_KEY,ARK_API_KEY,OPENAI_API_KEY,PPT_MASTER_RESPONSES_RELAY_KEY,HTTP_PROXY,HTTPS_PROXY,http_proxy,https_proxy
             - name: SANDBOX_PASSTHROUGH_ENV_KEYS
-              value: IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy
+              value: CODEX_CONFIG_TOML,CODEX_MODEL_CATALOG_JSON,IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy
             - name: NO_PROXY
               value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
@@ -111,6 +183,8 @@ spec:
         - name: gateway
           imagePullPolicy: Never
           env:
+            - name: DEER_FLOW_SSO_ONLY
+              value: "true"
             - name: SSL_CERT_FILE
               value: /etc/deerflow-ca/ca-bundle.crt
             - name: REQUESTS_CA_BUNDLE
@@ -141,6 +215,12 @@ spec:
               value: "1024"
             - name: CNOOC_EMBEDDING_MRL_TRUNCATION_ENABLED
               value: "true"
+            - name: WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY
+              value: "200"
+            - name: WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRIES
+              value: "3"
+            - name: WEKNORA_INTERNAL_EMBEDDING_BUSY_RETRY_SECONDS
+              value: "0.75"
             - name: CNOOC_RETRIEVAL_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -151,6 +231,21 @@ spec:
                 secretKeyRef:
                   name: deer-flow-env
                   key: WEKNORA_INTERNAL_MODEL_RELAY_KEY
+            - name: PPT_MASTER_RESPONSES_RELAY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: PPT_MASTER_RESPONSES_RELAY_KEY
+            - name: PPT_MASTER_DEEPSEEK_UPSTREAM_URL
+              value: http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1/chat/completions
+            - name: PPT_MASTER_DEEPSEEK_MODEL
+              value: DeepSeek-V4-Flash
+            - name: PPT_MASTER_DEEPSEEK_MAX_OUTPUT_TOKENS
+              value: "65536"
+            - name: PPT_MASTER_DEEPSEEK_ATTEMPTS
+              value: "2"
+            - name: PPT_MASTER_DEEPSEEK_READ_TIMEOUT_SECONDS
+              value: "900"
             - name: EMBEDDING_BASE_URL
               value: http://gateway:8001/api/weknora/bailian/v1
             - name: EMBEDDING_PROVIDER
@@ -165,7 +260,39 @@ spec:
               value: "true"
             - name: WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK
               value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS
+              value: "1860"
             - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
+              value: "true"
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+            - name: openssl-compat
+              mountPath: /etc/deerflow-openssl
+              readOnly: true
+        - name: ppt-master-runner
+          imagePullPolicy: Never
+          env:
+            - name: DEER_FLOW_SSO_ONLY
+              value: "true"
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: NODE_EXTRA_CA_CERTS
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: NO_PROXY
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: no_proxy
+              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+            - name: OPENSSL_CONF
+              value: /etc/deerflow-openssl/openssl.cnf
+            - name: TAVILY_TLS_COMPAT
+              value: "true"
+            - name: DASHSCOPE_TLS_COMPAT
               value: "true"
           volumeMounts:
             - name: enterprise-ca
@@ -204,6 +331,8 @@ spec:
               value: /platform/knowledge-bases
             - name: DEER_FLOW_UNAUTHENTICATED_HOME_URL
               value: https://datalake.cnooc/#/home
+            - name: DEER_FLOW_SSO_ONLY
+              value: "true"
 ---
 apiVersion: apps/v1
 kind: Deployment

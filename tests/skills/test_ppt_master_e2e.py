@@ -98,7 +98,7 @@ def test_upstream_project_manager_has_no_deerflow_specific_path_guard():
 def test_vendored_skill_keeps_deerflow_adapter_outside_upstream_body():
     content = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8")
 
-    assert 'version: "4.3.0"' in content
+    assert 'version: "4.5.0"' in content
     assert "official_repository: \"https://github.com/hugohe3/ppt-master\"" in content
     assert "Hosted DeerFlow preview boundary" not in content
     assert "/mnt/user-data/outputs" not in content
@@ -165,8 +165,11 @@ def test_chart_svg_passes_quality_gate_and_exports(tmp_path: Path):
 
     _run(
         str(SCRIPTS_DIR / "svg_quality_checker.py"),
-        str(project / "svg_output"),
+        str(project),
         "--quick-generate",
+        "--stage",
+        "final",
+        "--json",
     )
     output = tmp_path / "chart.pptx"
     _run(
@@ -174,6 +177,7 @@ def test_chart_svg_passes_quality_gate_and_exports(tmp_path: Path):
         str(project),
         "-o",
         str(output),
+        "--quick-generate",
         "--no-notes",
     )
 

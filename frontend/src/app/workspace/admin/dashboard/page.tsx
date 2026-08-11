@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIcon,
   AlertTriangleIcon,
@@ -17,10 +18,17 @@ import {
   ZapIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   useDashboardSummary,
@@ -34,6 +42,7 @@ import {
   dashboardUserPrimaryLabel,
   dashboardUserSecondaryParts,
   dashboardBarStyle,
+  refreshDashboardQueries,
   type DashboardFilters,
   type ExternalAgentClickItem,
   type ExternalPlatformClickSummary,
@@ -44,7 +53,10 @@ import {
   type UserActivityPoint,
   type UserUsageItem,
 } from "@/core/dashboard";
-import { useObservabilityAnalytics } from "@/core/observability";
+import {
+  useObservabilityAnalytics,
+  useRunDiagnostics,
+} from "@/core/observability";
 import type { TraceSummary } from "@/core/observability";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +84,40 @@ function shortTime(value: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function AccountIdentity({
+  name,
+  email,
+  fallback = "-",
+}: {
+  name?: string | null;
+  email?: string | null;
+  fallback?: string;
+}) {
+  const normalizedName = name?.trim();
+  const normalizedEmail = email?.trim();
+  const distinctName =
+    normalizedName &&
+    normalizedName.toLocaleLowerCase() !== normalizedEmail?.toLocaleLowerCase()
+      ? normalizedName
+      : null;
+  return (
+    <div className="min-w-0 space-y-0.5">
+      <div
+        className="truncate font-medium text-slate-800"
+        title={distinctName ?? "未采集"}
+      >
+        姓名：{distinctName ?? "未采集"}
+      </div>
+      <div
+        className="truncate text-slate-500"
+        title={normalizedEmail ?? fallback}
+      >
+        登录账号：{normalizedEmail ?? fallback}
+      </div>
+    </div>
+  );
 }
 
 function toDateTimeLocal(value: Date): string {
@@ -202,7 +248,8 @@ function ActivityTrend({
 function RegisteredUserSessions() {
   const pageSize = 5;
   const [page, setPage] = useState(0);
-  const usersQuery = useDashboardUsers(pageSize, page * pageSize);
+  const [searchQuery, setSearchQuery] = useState("");
+  const usersQuery = useDashboardUsers(pageSize, page * pageSize, searchQuery);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [sessionPage, setSessionPage] = useState(0);
   const sessionsQuery = useDashboardUserSessions(
@@ -230,11 +277,38 @@ function RegisteredUserSessions() {
             注册用户现存会话
           </span>
           <span className="text-xs font-normal text-slate-500">
-            当前全量 · 共 {usersQuery.data?.total ?? 0} 个注册用户
+            按最后登录时间倒序 · 共 {usersQuery.data?.total ?? 0} 个注册用户
           </span>
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="mb-3 flex items-center gap-2">
+          <Input
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setPage(0);
+              setExpandedUserId(null);
+            }}
+            placeholder="检索用户姓名或邮箱账号"
+            aria-label="检索注册用户姓名或邮箱账号"
+            className="h-9"
+          />
+          {searchQuery ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setPage(0);
+                setExpandedUserId(null);
+              }}
+            >
+              清除
+            </Button>
+          ) : null}
+        </div>
         {usersQuery.isError ? (
           <EmptyState label={`用户会话加载失败：${usersQuery.error.message}`} />
         ) : pageUsers.length === 0 ? (
@@ -276,6 +350,10 @@ function RegisteredUserSessions() {
                           现存会话 {user.existing_threads} · 最后活动{" "}
                           {user.last_active_at
                             ? shortTime(user.last_active_at)
+                            : "暂无"}
+                          {" · 最后登录 "}
+                          {user.last_login_at
+                            ? shortTime(user.last_login_at)
                             : "暂无"}
                         </span>
                       </span>
@@ -898,13 +976,13 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
             知识库明细
           </div>
           <div className="max-h-96 overflow-auto">
-            <table className="w-full min-w-[900px] text-left text-xs">
+            <table className="w-full min-w-[680px] text-left text-xs">
               <thead className="sticky top-0 bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 font-medium">知识库 / 创建人</th>
+                  <th className="px-4 py-3 font-medium">
+                    知识库 / 创建人姓名与账号
+                  </th>
                   <th className="px-3 py-3 font-medium">文档</th>
-                  <th className="px-3 py-3 font-medium">会话</th>
-                  <th className="px-3 py-3 font-medium">提问</th>
                   <th className="px-3 py-3 font-medium">格式</th>
                 </tr>
               </thead>
@@ -915,24 +993,15 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
                       <div className="truncate font-medium text-slate-800">
                         {item.name}
                       </div>
-                      <div className="truncate text-slate-400">
-                        {item.creator_email ?? item.creator_name ?? "-"}
-                      </div>
+                      <AccountIdentity
+                        name={item.creator_name}
+                        email={item.creator_email}
+                      />
                     </td>
                     <td className="px-3 py-3 text-slate-600">
                       现存 {item.current_documents}
                       <br />
                       累计上传 {item.uploaded_documents}
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">
-                      现存 {item.current_conversation_sessions}
-                      <br />
-                      累计创建 {item.conversation_sessions}
-                    </td>
-                    <td className="px-3 py-3 text-slate-600">
-                      现存 {item.current_question_turns}
-                      <br />
-                      累计提问 {item.question_turns}
                     </td>
                     <td className="max-w-72 px-3 py-3 text-slate-500">
                       {item.file_formats.length
@@ -1007,7 +1076,9 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
               <table className="w-full min-w-[1100px] text-left text-xs">
                 <thead className="sticky top-0 bg-slate-50 text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 font-medium">共享空间 / 所有者</th>
+                    <th className="px-4 py-3 font-medium">
+                      共享空间 / 所有者姓名与账号
+                    </th>
                     <th className="px-3 py-3 font-medium">创建时间</th>
                     <th className="px-3 py-3 font-medium">成员角色</th>
                     <th className="px-3 py-3 font-medium">共享知识库</th>
@@ -1022,9 +1093,10 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
                         <div className="truncate font-medium text-slate-800">
                           {item.name}
                         </div>
-                        <div className="truncate text-slate-400">
-                          {item.owner_email ?? item.owner_name ?? "-"}
-                        </div>
+                        <AccountIdentity
+                          name={item.owner_name}
+                          email={item.owner_email}
+                        />
                       </td>
                       <td className="px-3 py-3 text-slate-600">
                         {shortTime(item.created_at)}
@@ -1074,25 +1146,25 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
             知识库使用排行
           </div>
           <div className="max-h-80 overflow-auto">
-            <table className="w-full min-w-[820px] text-left text-xs">
+            <table className="w-full min-w-[620px] text-left text-xs">
               <thead className="sticky top-0 bg-slate-50 text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 font-medium">用户</th>
+                  <th className="px-4 py-3 font-medium">用户姓名与账号</th>
                   <th className="px-3 py-3 font-medium">
                     知识库 现存/累计创建
                   </th>
                   <th className="px-3 py-3 font-medium">文档 现存/累计上传</th>
-                  <th className="px-3 py-3 font-medium">累计会话</th>
-                  <th className="px-3 py-3 font-medium">累计提问</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {visibleUsers.map((item) => (
                   <tr key={item.weknora_user_id}>
                     <td className="max-w-72 px-4 py-3">
-                      <div className="truncate font-medium text-slate-800">
-                        {item.email ?? item.name ?? item.weknora_user_id}
-                      </div>
+                      <AccountIdentity
+                        name={item.name}
+                        email={item.email}
+                        fallback={item.weknora_user_id}
+                      />
                     </td>
                     <td className="px-3 py-3">
                       {item.current_knowledge_bases} /{" "}
@@ -1101,8 +1173,6 @@ function KnowledgeUsagePanel({ summary }: { summary?: KnowledgeUsageSummary }) {
                     <td className="px-3 py-3">
                       {item.current_documents} / {item.uploaded_documents}
                     </td>
-                    <td className="px-3 py-3">{item.conversation_sessions}</td>
-                    <td className="px-3 py-3">{item.question_turns}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1297,26 +1367,57 @@ function FailedRuns({
   rows,
   total,
   page,
+  searchQuery,
   isLoading,
   isError,
+  onSearchChange,
   onPageChange,
 }: {
   rows: RecentFailureItem[];
   total: number;
   page: number;
+  searchQuery: string;
   isLoading: boolean;
   isError: boolean;
+  onSearchChange: (query: string) => void;
   onPageChange: (page: number) => void;
 }) {
+  const [selectedFailure, setSelectedFailure] =
+    useState<RecentFailureItem | null>(null);
+  const diagnosticsQuery = useRunDiagnostics(selectedFailure?.run_id ?? null);
   const totalPages = Math.max(1, Math.ceil(total / 5));
   const currentPage = Math.min(page, totalPages - 1);
   return (
-    <Card className="min-w-0 rounded-lg shadow-none">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <AlertTriangleIcon className="size-4" />
-          全部失败运行（{compactNumber(total)}）
+    <Card className="min-w-0 rounded-lg shadow-none xl:col-span-2">
+      <CardHeader className="gap-3">
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <AlertTriangleIcon className="size-4" />
+            全部失败运行（{compactNumber(total)}）
+          </span>
+          <span className="text-xs font-normal text-slate-500">
+            全历史 · 点击可查看只读错误诊断
+          </span>
         </CardTitle>
+        <div className="flex items-center gap-2">
+          <Input
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="按登录账号或姓名筛选失败任务"
+            aria-label="按登录账号或姓名筛选失败任务"
+            className="h-9"
+          />
+          {searchQuery ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onSearchChange("")}
+            >
+              清除
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -1324,44 +1425,96 @@ function FailedRuns({
         ) : isError ? (
           <EmptyState label="失败运行加载失败，请刷新后重试" />
         ) : rows.length === 0 ? (
-          <EmptyState label="目前没有失败运行" />
+          <EmptyState
+            label={
+              searchQuery
+                ? "没有匹配该账号或姓名的失败运行"
+                : "目前没有失败运行"
+            }
+          />
         ) : (
           <div className="space-y-3">
-            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-              {rows.map((row) => (
-                <div
-                  key={row.run_id}
-                  className="rounded-lg border border-red-100 bg-red-50/30 p-3 text-sm"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="truncate font-medium text-slate-800">
-                      {row.run_id}
-                    </span>
-                    {row.can_open && row.chat_url ? (
-                      <Link
-                        className="shrink-0 text-xs text-red-700 hover:text-red-900"
-                        href={row.chat_url}
-                      >
-                        查看原对话{" "}
-                        <ExternalLinkIcon className="inline size-3" />
-                      </Link>
-                    ) : (
-                      <Link
-                        className="shrink-0 text-xs text-amber-700 hover:text-amber-900"
-                        href={row.diagnostics_url}
-                      >
-                        查看诊断 <ExternalLinkIcon className="inline size-3" />
-                      </Link>
-                    )}
-                  </div>
-                  <div className="mt-2 line-clamp-2 text-xs text-red-700">
-                    {row.error ?? row.status}
-                  </div>
-                  <div className="mt-2 text-xs text-slate-500">
-                    {shortTime(row.updated_at)}
-                  </div>
-                </div>
-              ))}
+            <div className="max-h-[26rem] overflow-x-hidden overflow-y-auto rounded-lg border">
+              <table className="w-full table-fixed text-left text-xs">
+                <colgroup>
+                  <col className="w-[15%]" />
+                  <col className="w-[22%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[30%]" />
+                  <col className="w-[16%]" />
+                </colgroup>
+                <thead className="sticky top-0 bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">失败时间</th>
+                    <th className="px-3 py-3 font-medium">用户姓名与账号</th>
+                    <th className="px-3 py-3 font-medium">模型 / 状态</th>
+                    <th className="px-3 py-3 font-medium">错误摘要</th>
+                    <th className="px-3 py-3 font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {rows.map((row) => (
+                    <tr key={row.run_id} className="bg-red-50/20 align-top">
+                      <td className="min-w-0 px-3 py-3 text-slate-600">
+                        {shortTime(row.updated_at)}
+                        <div className="mt-1 text-slate-400">
+                          耗时 {duration(row.duration_ms)}
+                        </div>
+                      </td>
+                      <td className="min-w-0 px-3 py-3">
+                        <AccountIdentity
+                          name={row.display_name}
+                          email={row.email}
+                          fallback={row.user_id ?? "未识别"}
+                        />
+                      </td>
+                      <td className="min-w-0 px-3 py-3 text-slate-600">
+                        <div className="break-words">
+                          {row.model_name ?? "未记录模型"}
+                        </div>
+                        <div className="mt-1 text-red-700">{row.status}</div>
+                      </td>
+                      <td className="min-w-0 px-3 py-3 text-red-700">
+                        <div
+                          className="line-clamp-3"
+                          title={row.error ?? row.status}
+                        >
+                          {row.error ?? row.status}
+                        </div>
+                        <div className="mt-1 truncate text-slate-400">
+                          Run：{row.run_id}
+                        </div>
+                      </td>
+                      <td className="min-w-0 px-2 py-3">
+                        <div className="flex min-w-0 flex-col items-stretch gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-auto w-full px-2 py-1.5 whitespace-normal"
+                            onClick={() => setSelectedFailure(row)}
+                          >
+                            查看错误详情
+                          </Button>
+                          {row.can_open && row.chat_url ? (
+                            <Link
+                              className="text-center leading-5 text-cyan-700 hover:text-cyan-900"
+                              href={row.chat_url}
+                            >
+                              查看原对话{" "}
+                              <ExternalLinkIcon className="inline size-3" />
+                            </Link>
+                          ) : (
+                            <span className="text-center leading-5 text-slate-400">
+                              原对话不可用
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             <RankingPagination
               page={currentPage}
@@ -1371,6 +1524,187 @@ function FailedRuns({
           </div>
         )}
       </CardContent>
+      <Dialog
+        open={Boolean(selectedFailure)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedFailure(null);
+        }}
+      >
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>失败运行错误详情</DialogTitle>
+            <DialogDescription>
+              只读展示运行错误、节点、工具调用与事件记录，不会修改或重试该任务。
+            </DialogDescription>
+          </DialogHeader>
+          {diagnosticsQuery.isLoading ? (
+            <EmptyState label="正在加载错误诊断详情" />
+          ) : diagnosticsQuery.isError ? (
+            <EmptyState
+              label={`错误诊断加载失败：${diagnosticsQuery.error.message}`}
+            />
+          ) : diagnosticsQuery.data && selectedFailure ? (
+            <div className="space-y-5 text-sm">
+              <div className="grid gap-3 rounded-lg border bg-slate-50 p-4 sm:grid-cols-2 xl:grid-cols-4">
+                <AccountIdentity
+                  name={selectedFailure.display_name}
+                  email={selectedFailure.email}
+                  fallback={selectedFailure.user_id ?? "未识别"}
+                />
+                {[
+                  ["状态", diagnosticsQuery.data.status],
+                  ["模型", diagnosticsQuery.data.model ?? "未记录"],
+                  ["Agent", diagnosticsQuery.data.agent ?? "未记录"],
+                  [
+                    "最后成功节点",
+                    diagnosticsQuery.data.last_successful_node ?? "未记录",
+                  ],
+                  ["失败节点", diagnosticsQuery.data.failed_node ?? "未记录"],
+                  ["耗时", duration(diagnosticsQuery.data.duration_ms)],
+                  [
+                    "总 Token",
+                    compactNumber(diagnosticsQuery.data.tokens.total),
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0">
+                    <div className="text-xs text-slate-500">{label}</div>
+                    <div
+                      className="mt-1 truncate font-medium text-slate-800"
+                      title={String(value)}
+                    >
+                      {value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-slate-500">Run ID</div>
+                  <div className="mt-1 font-mono text-xs break-all">
+                    {diagnosticsQuery.data.run.run_id}
+                  </div>
+                </div>
+                <div className="rounded-lg border p-3">
+                  <div className="text-xs text-slate-500">Thread ID</div>
+                  <div className="mt-1 font-mono text-xs break-all">
+                    {diagnosticsQuery.data.run.thread_id}
+                  </div>
+                </div>
+              </div>
+
+              {diagnosticsQuery.data.user_question ? (
+                <section className="space-y-2">
+                  <h3 className="font-semibold text-slate-800">用户问题</h3>
+                  <div className="rounded-lg border bg-slate-50 p-3 whitespace-pre-wrap text-slate-700">
+                    {diagnosticsQuery.data.user_question}
+                  </div>
+                </section>
+              ) : null}
+
+              {diagnosticsQuery.data.possible_causes.length ? (
+                <section className="space-y-2">
+                  <h3 className="font-semibold text-slate-800">可能原因</h3>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {diagnosticsQuery.data.possible_causes.map((cause) => (
+                      <div
+                        key={`${cause.type}-${cause.label}`}
+                        className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900"
+                      >
+                        <div className="font-medium">{cause.label}</div>
+                        <div className="mt-1 text-xs">
+                          置信度：{cause.confidence}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="space-y-2">
+                <h3 className="font-semibold text-slate-800">错误堆栈</h3>
+                <pre className="max-h-64 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-xs break-all whitespace-pre-wrap text-red-800">
+                  {diagnosticsQuery.data.error_stack ??
+                    diagnosticsQuery.data.run.error ??
+                    "未记录错误堆栈"}
+                </pre>
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="font-semibold text-slate-800">
+                  工具调用（{diagnosticsQuery.data.tool_calls.length}）
+                </h3>
+                {diagnosticsQuery.data.tool_calls.length ? (
+                  <div className="max-h-64 space-y-2 overflow-auto rounded-lg border p-2">
+                    {diagnosticsQuery.data.tool_calls.map((tool) => (
+                      <div
+                        key={tool.id}
+                        className="rounded-md bg-slate-50 p-3 text-xs"
+                      >
+                        <div className="flex flex-wrap justify-between gap-2 font-medium text-slate-800">
+                          <span>{tool.name ?? "未知工具"}</span>
+                          <span>
+                            {tool.status} · {duration(tool.duration_ms ?? 0)}
+                          </span>
+                        </div>
+                        {tool.error ? (
+                          <div className="mt-2 whitespace-pre-wrap text-red-700">
+                            {tool.error}
+                          </div>
+                        ) : null}
+                        {tool.result_preview ? (
+                          <div className="mt-2 line-clamp-3 whitespace-pre-wrap text-slate-600">
+                            {tool.result_preview}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState label="该运行没有工具调用记录" />
+                )}
+              </section>
+
+              <section className="space-y-2">
+                <h3 className="font-semibold text-slate-800">
+                  末尾事件（最多 30 条）
+                </h3>
+                <div className="max-h-72 space-y-2 overflow-auto rounded-lg border p-2">
+                  {diagnosticsQuery.data.events.slice(-30).map((event) => (
+                    <div
+                      key={event.id}
+                      className="rounded-md bg-slate-50 p-3 text-xs"
+                    >
+                      <div className="flex flex-wrap justify-between gap-2 text-slate-500">
+                        <span>
+                          {event.seq} · {event.category} · {event.event_type}
+                        </span>
+                        <span>{shortTime(event.created_at)}</span>
+                      </div>
+                      <div className="mt-2 line-clamp-4 break-all whitespace-pre-wrap text-slate-700">
+                        {event.content || "（无正文）"}
+                      </div>
+                    </div>
+                  ))}
+                  {diagnosticsQuery.data.events.length === 0 ? (
+                    <EmptyState label="该运行没有事件记录" />
+                  ) : null}
+                </div>
+              </section>
+
+              {selectedFailure.can_open && selectedFailure.chat_url ? (
+                <div className="flex justify-end">
+                  <Button asChild variant="outline">
+                    <Link href={selectedFailure.chat_url}>
+                      查看原对话 <ExternalLinkIcon className="size-3" />
+                    </Link>
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -1412,6 +1746,7 @@ function FeedbackPanel({ summary }: { summary?: FeedbackSummary }) {
 }
 
 export default function DashboardPage() {
+  const queryClient = useQueryClient();
   const [hours, setHours] = useState(24);
   const [rangeMode, setRangeMode] = useState<"preset" | "custom">("preset");
   const [customStart, setCustomStart] = useState(() =>
@@ -1419,6 +1754,12 @@ export default function DashboardPage() {
   );
   const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
   const [failurePage, setFailurePage] = useState(0);
+  const [failureSearchQuery, setFailureSearchQuery] = useState("");
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [lastManualRefreshAt, setLastManualRefreshAt] = useState<Date | null>(
+    null,
+  );
+  const deferredFailureSearchQuery = useDeferredValue(failureSearchQuery);
   const draftStart = isoFromDateTimeLocal(customStart);
   const draftEnd = isoFromDateTimeLocal(customEnd);
   const draftHours = hoursBetween(draftStart, draftEnd);
@@ -1435,7 +1776,11 @@ export default function DashboardPage() {
     [activeHours, rangeEnd, rangeStart],
   );
   const summaryQuery = useDashboardSummary(filters);
-  const failuresQuery = useDashboardFailures(5, failurePage * 5);
+  const failuresQuery = useDashboardFailures(
+    5,
+    failurePage * 5,
+    deferredFailureSearchQuery,
+  );
   const analyticsQuery = useObservabilityAnalytics(
     activeHours,
     activeHours > 48 ? "day" : "hour",
@@ -1443,6 +1788,16 @@ export default function DashboardPage() {
     rangeEnd,
   );
   const summary = summaryQuery.data;
+
+  const handleRefresh = async () => {
+    setIsManualRefreshing(true);
+    try {
+      await refreshDashboardQueries(queryClient);
+      setLastManualRefreshAt(new Date());
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
 
   const windowLabel = useMemo(() => {
     if (!summary) return "加载中";
@@ -1513,31 +1868,26 @@ export default function DashboardPage() {
                     : "最近 24 小时"}
             </span>
             <Button
+              type="button"
               size="sm"
               variant="outline"
               className="bg-white"
-              onClick={() => {
-                void summaryQuery.refetch();
-                void analyticsQuery.refetch();
-                void failuresQuery.refetch();
-              }}
-              disabled={
-                summaryQuery.isFetching ||
-                analyticsQuery.isFetching ||
-                failuresQuery.isFetching
-              }
+              onClick={() => void handleRefresh()}
+              disabled={isManualRefreshing}
             >
               <RefreshCwIcon
-                className={cn(
-                  "size-4",
-                  (summaryQuery.isFetching ||
-                    analyticsQuery.isFetching ||
-                    failuresQuery.isFetching) &&
-                    "animate-spin",
-                )}
+                className={cn("size-4", isManualRefreshing && "animate-spin")}
               />
-              刷新
+              {isManualRefreshing ? "刷新中" : "刷新"}
             </Button>
+            {lastManualRefreshAt ? (
+              <span
+                className="text-xs whitespace-nowrap text-slate-500"
+                aria-live="polite"
+              >
+                上次手动刷新 {lastManualRefreshAt.toLocaleTimeString("zh-CN")}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -1692,8 +2042,13 @@ export default function DashboardPage() {
             rows={failuresQuery.data?.items ?? []}
             total={failuresQuery.data?.total ?? 0}
             page={failurePage}
+            searchQuery={failureSearchQuery}
             isLoading={failuresQuery.isLoading}
             isError={failuresQuery.isError}
+            onSearchChange={(query) => {
+              setFailureSearchQuery(query);
+              setFailurePage(0);
+            }}
             onPageChange={setFailurePage}
           />
         </div>

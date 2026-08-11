@@ -47,11 +47,13 @@ export async function getDashboardSummary(
 export async function getDashboardUsers(
   limit = 5,
   offset = 0,
+  query = "",
 ): Promise<RegisteredUserSessionList> {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
+  if (query.trim()) params.set("q", query.trim());
   const response = await fetch(
     `${getBackendBaseURL()}/api/admin/dashboard/users?${params}`,
   );
@@ -78,11 +80,13 @@ export async function getDashboardUserSessions(
 export async function getDashboardFailures(
   limit = 5,
   offset = 0,
+  query = "",
 ): Promise<FailedRunList> {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
+  if (query.trim()) params.set("q", query.trim());
   const response = await fetch(
     `${getBackendBaseURL()}/api/admin/dashboard/failures?${params}`,
   );

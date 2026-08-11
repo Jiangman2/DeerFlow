@@ -1,6 +1,7 @@
 """Tests for LoopDetectionMiddleware."""
 
 import copy
+import hashlib
 from collections import OrderedDict
 from types import SimpleNamespace
 from typing import Any
@@ -19,6 +20,7 @@ from deerflow.agents.middlewares.loop_detection_middleware import (
     _MAX_PENDING_WARNINGS_PER_RUN,
     LoopDetectionMiddleware,
     _hash_tool_calls,
+    _problem_result_signature,
 )
 
 
@@ -192,6 +194,207 @@ class TestHashToolCalls:
 
 
 class TestLoopDetection:
+    def test_problem_result_signature_ignores_runtime_paths_and_ids(self):
+        first = ToolMessage(
+            tool_call_id="call-1",
+            content="Error: validation failed for /mnt/user-data/workspace/a/123",
+            status="error",
+        )
+        second = ToolMessage(
+            tool_call_id="call-2",
+            content="Error: validation failed for /mnt/user-data/workspace/b/456",
+            status="error",
+        )
+
+        assert _problem_result_signature(first) == _problem_result_signature(second)
+
+    def test_unchanged_failure_across_different_calls_is_bounded(self):
+        mw = LoopDetectionMiddleware()
+        runtime = _make_runtime(thread_id="repair-thread", run_id="repair-run")
+
+        for index in range(3):
+            state = {
+                "messages": [
+                    ToolMessage(
+                        id=f"tool-{index}",
+                        tool_call_id=f"call-{index}",
+                        content="Error: validation failed for /mnt/user-data/workspace/page-123",
+                        status="error",
+                    ),
+                    AIMessage(
+                        content="I will try a different repair command.",
+                        tool_calls=[_bash_call(f"repair-{index}")],
+                    ),
+                ]
+            }
+            assert mw._apply(state, runtime) is None
+
+        warnings = mw._drain_pending_warnings(runtime)
+        assert any("NO PROGRESS DETECTED" in warning for warning in warnings)
+
+        state = {
+            "messages": [
+                ToolMessage(
+                    id="tool-4",
+                    tool_call_id="call-4",
+                    content="Error: validation failed for /mnt/user-data/workspace/page-123",
+                    status="error",
+                ),
+                AIMessage(
+                    content="I will try another repair command.",
+                    tool_calls=[_bash_call("repair-4")],
+                ),
+            ]
+        }
+        assert mw._apply(state, runtime) is None
+
+        state = {
+            "messages": [
+                ToolMessage(
+                    id="tool-5",
+                    tool_call_id="call-5",
+                    content="Error: validation failed for /mnt/user-data/workspace/page-123",
+                    status="error",
+                ),
+                AIMessage(
+                    content="I will try one more repair command.",
+                    tool_calls=[_bash_call("repair-5")],
+                ),
+            ]
+        }
+        result = mw._apply(state, runtime)
+        assert result is not None
+        assert result["messages"][0].tool_calls == []
+        assert "bounded repair limit" in result["messages"][0].content
+
+    def test_distinct_reads_after_mutation_are_not_treated_as_stall(self):
+        """Required multi-file analysis must not be capped as inspection-only."""
+        mw = LoopDetectionMiddleware(hard_limit=50, tool_freq_hard_limit=100)
+        runtime = _make_runtime(thread_id="analysis-thread", run_id="analysis-run")
+
+        write_call = {
+            "name": "write_file",
+            "id": "call-write",
+            "args": {"path": "/mnt/user-data/workspace/import.json", "content": "{}"},
+        }
+        assert mw._apply(_make_state(tool_calls=[write_call]), runtime) is None
+
+        for index in range(12):
+            read_call = {
+                "name": "read_file",
+                "id": f"call-read-{index}",
+                "args": {"path": f"/mnt/user-data/workspace/analysis-{index}.json"},
+            }
+            assert mw._apply(_make_state(tool_calls=[read_call]), runtime) is None
+
+        assert mw._drain_pending_warnings(runtime) == []
+
+    def test_changed_write_resets_identical_read_repetition_window(self):
+        """Read-before-write repair cycles are progress when each write changes the file."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=5, tool_freq_warn=100, tool_freq_hard_limit=200)
+        runtime = _make_runtime(thread_id="repair-thread", run_id="repair-run")
+        path = "/mnt/user-data/workspace/page.svg"
+        messages: list = []
+
+        for index in range(6):
+            read_call = {
+                "name": "read_file",
+                "id": f"read-{index}",
+                "args": {"path": path},
+            }
+            messages.append(AIMessage(content="", tool_calls=[read_call]))
+            assert mw._apply({"messages": list(messages)}, runtime) is None
+
+            current = f"version-{index}"
+            messages.append(
+                ToolMessage(
+                    id=f"read-result-{index}",
+                    tool_call_id=read_call["id"],
+                    name="read_file",
+                    content=current,
+                    additional_kwargs={
+                        "deerflow_read_mark": {
+                            "path": path,
+                            "hash": hashlib.sha256(current.encode("utf-8")).hexdigest(),
+                        }
+                    },
+                )
+            )
+
+            write_call = {
+                "name": "write_file",
+                "id": f"write-{index}",
+                "args": {"path": path, "content": f"version-{index + 1}"},
+            }
+            messages.append(AIMessage(content="", tool_calls=[write_call]))
+            assert mw._apply({"messages": list(messages)}, runtime) is None
+            messages.append(
+                ToolMessage(
+                    id=f"write-result-{index}",
+                    tool_call_id=write_call["id"],
+                    name="write_file",
+                    content=f"File written successfully to {path}",
+                )
+            )
+
+        assert mw._drain_pending_warnings(runtime) == []
+
+    def test_noop_write_does_not_reset_identical_read_repetition_window(self):
+        """A successful write of unchanged content must not disguise a read/write loop."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=10, tool_freq_warn=100, tool_freq_hard_limit=200)
+        runtime = _make_runtime(thread_id="noop-thread", run_id="noop-run")
+        path = "/mnt/user-data/workspace/page.svg"
+        content = "unchanged"
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        messages: list = []
+
+        for index in range(3):
+            read_call = {"name": "read_file", "id": f"read-{index}", "args": {"path": path}}
+            messages.append(AIMessage(content="", tool_calls=[read_call]))
+            assert mw._apply({"messages": list(messages)}, runtime) is None
+            messages.append(
+                ToolMessage(
+                    id=f"read-result-{index}",
+                    tool_call_id=read_call["id"],
+                    name="read_file",
+                    content=content,
+                    additional_kwargs={"deerflow_read_mark": {"path": path, "hash": content_hash}},
+                )
+            )
+
+            write_call = {
+                "name": "write_file",
+                "id": f"write-{index}",
+                "args": {"path": path, "content": content},
+            }
+            messages.append(AIMessage(content="", tool_calls=[write_call]))
+            assert mw._apply({"messages": list(messages)}, runtime) is None
+            messages.append(
+                ToolMessage(
+                    id=f"write-result-{index}",
+                    tool_call_id=write_call["id"],
+                    name="write_file",
+                    content=f"File written successfully to {path}",
+                )
+            )
+
+        assert any("LOOP DETECTED" in warning for warning in mw._drain_pending_warnings(runtime))
+
+    def test_new_run_does_not_inherit_identical_call_history(self):
+        """Repetition accounting is run-scoped even when a thread is reused."""
+        mw = LoopDetectionMiddleware(warn_threshold=3, hard_limit=5)
+        runtime_a = _make_runtime(thread_id="shared-thread", run_id="run-a")
+        runtime_b = _make_runtime(thread_id="shared-thread", run_id="run-b")
+        call = [{"name": "read_file", "id": "read", "args": {"path": "/tmp/page.svg"}}]
+
+        mw.before_agent({"messages": []}, runtime_a)
+        assert mw._apply(_make_state(tool_calls=call), runtime_a) is None
+        assert mw._apply(_make_state(tool_calls=call), runtime_a) is None
+
+        mw.before_agent({"messages": []}, runtime_b)
+        assert mw._apply(_make_state(tool_calls=call), runtime_b) is None
+        assert mw._drain_pending_warnings(runtime_b) == []
+
     def test_no_tool_calls_returns_none(self):
         mw = LoopDetectionMiddleware()
         runtime = _make_runtime()
@@ -409,6 +612,8 @@ class TestLoopDetection:
         assert isinstance(msgs[0], AIMessage)
         assert msgs[0].tool_calls == []
         assert _HARD_STOP_MSG in msgs[0].content
+        assert msgs[0].additional_kwargs["deerflow_terminal_stop"] is True
+        assert msgs[0].additional_kwargs["error_reason"] == "loop_capped"
 
     def test_hard_stop_stamps_loop_capped_stop_reason(self):
         """#3875 Phase 2 (ggnnggez review): the loop hard-stop stamps

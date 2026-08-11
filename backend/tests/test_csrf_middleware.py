@@ -22,6 +22,10 @@ def _make_app() -> FastAPI:
     async def protected_mutation():
         return {"ok": True}
 
+    @app.post("/api/threads/abc/live-preview/5050/api/confirm")
+    async def live_preview_mutation():
+        return {"ok": True}
+
     return app
 
 
@@ -233,6 +237,62 @@ def test_non_auth_mutation_rejects_mismatched_double_submit_token():
 
     assert response.status_code == 403
     assert response.json()["detail"] == "CSRF token mismatch."
+
+
+def test_live_preview_mutation_allows_browser_verified_same_origin():
+    client = TestClient(_make_app(), base_url="https://deerflow.example")
+
+    response = client.post(
+        "/api/threads/abc/live-preview/5050/api/confirm",
+        headers={
+            "Origin": "https://deerflow.example",
+            "Sec-Fetch-Site": "same-origin",
+        },
+    )
+
+    assert response.status_code == 200
+
+
+def test_live_preview_mutation_rejects_cross_site_browser_request():
+    client = TestClient(_make_app(), base_url="https://deerflow.example")
+
+    response = client.post(
+        "/api/threads/abc/live-preview/5050/api/confirm",
+        headers={
+            "Origin": "https://evil.example",
+            "Sec-Fetch-Site": "cross-site",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "CSRF token missing. Include X-CSRF-Token header."
+
+
+def test_live_preview_mutation_without_fetch_metadata_keeps_double_submit_csrf():
+    client = TestClient(_make_app(), base_url="https://deerflow.example")
+
+    response = client.post(
+        "/api/threads/abc/live-preview/5050/api/confirm",
+        headers={"Origin": "https://deerflow.example"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "CSRF token missing. Include X-CSRF-Token header."
+
+
+def test_non_live_preview_mutation_does_not_use_fetch_metadata_bridge():
+    client = TestClient(_make_app(), base_url="https://deerflow.example")
+
+    response = client.post(
+        "/api/threads/abc/runs/stream",
+        headers={
+            "Origin": "https://deerflow.example",
+            "Sec-Fetch-Site": "same-origin",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "CSRF token missing. Include X-CSRF-Token header."
 
 
 def test_channel_posts_require_double_submit_csrf():

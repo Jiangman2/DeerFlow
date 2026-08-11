@@ -25,6 +25,93 @@ test.describe("Chat workspace", () => {
     await expect(textarea).toHaveValue("Hello, DeerFlow!");
   });
 
+  test("offers four ppt-master workflow prompts from the presentation shortcut", async ({
+    page,
+  }) => {
+    await page.goto("/workspace/chats/new");
+
+    const textarea = page.getByPlaceholder(/how can i assist you/i);
+    const trigger = page.getByTestId("ppt-generation-menu-trigger");
+    await expect(trigger).toBeVisible({ timeout: 15_000 });
+
+    const routes = [
+      {
+        id: "generate",
+        prompt:
+          "/ppt-master Create a high-quality 5-slide presentation about [topic].",
+      },
+      {
+        id: "create-template",
+        prompt:
+          "/ppt-master Convert my uploaded PPTX into a reusable Deck template workspace.",
+      },
+      {
+        id: "fill-native",
+        prompt:
+          "/ppt-master Use my uploaded PPTX template, preserve its native master, layouts, and slide structure, and replace the content with [topic].",
+      },
+      {
+        id: "enhance-native",
+        prompt:
+          "/ppt-master Keep my uploaded PPTX's visible content and design unchanged, and add speaker notes, narration, auto-advance timings, and slide transitions.",
+      },
+    ] as const;
+
+    for (const route of routes) {
+      await trigger.click();
+      const item = page.getByTestId(`ppt-route-${route.id}`);
+      await expect(item).toBeVisible();
+      await item.click();
+      await expect(textarea).toHaveValue(route.prompt);
+      await textarea.fill("");
+    }
+  });
+
+  test("fills slash skill prompts from every other welcome shortcut", async ({
+    page,
+  }) => {
+    await page.goto("/workspace/chats/new");
+
+    const textarea = page.getByPlaceholder(/how can i assist you/i);
+    const directShortcuts = [
+      { label: "Surprise", slash: "/surprise-me" },
+      { label: "Image Generation", slash: "/image-generation" },
+      { label: "Deep Research", slash: "/deep-research" },
+      { label: "Data Analysis", slash: "/data-analysis" },
+    ] as const;
+
+    for (const shortcut of directShortcuts) {
+      await page
+        .getByRole("button", { name: shortcut.label, exact: true })
+        .click();
+      await expect(textarea).toHaveValue(
+        new RegExp(`^${shortcut.slash.replace("/", "\\/")}\\s`),
+      );
+      await textarea.fill("");
+    }
+
+    const createShortcuts = [
+      { label: "Webpage", slash: "/frontend-design" },
+      { label: "Video", slash: "/video-generation" },
+      { label: "Skill", slash: "/skill-creator" },
+    ] as const;
+    const createTrigger = page.getByRole("button", {
+      name: "Create",
+      exact: true,
+    });
+
+    for (const shortcut of createShortcuts) {
+      await createTrigger.click();
+      await page
+        .getByRole("menuitem", { name: shortcut.label, exact: true })
+        .click();
+      await expect(textarea).toHaveValue(
+        new RegExp(`^${shortcut.slash.replace("/", "\\/")}\\s`),
+      );
+      await textarea.fill("");
+    }
+  });
+
   test("polishes draft input before sending", async ({ page }) => {
     let polishRequest: { text?: string; model_name?: string } | undefined;
     let submittedText: string | undefined;
@@ -432,19 +519,19 @@ test.describe("Chat workspace", () => {
 
     const textarea = page.getByPlaceholder(/how can i assist you/i);
     await expect(textarea).toBeVisible({ timeout: 15_000 });
+    const suggestionTemplate =
+      "/deep-research Conduct systematic, in-depth, multi-angle research on [topic], verify key facts, and summarize the evidence, findings, and conclusions.";
+    const completedSuggestion =
+      "/deep-research Conduct systematic, in-depth, multi-angle research on AI agents, verify key facts, and summarize the evidence, findings, and conclusions.";
 
     await page.getByRole("button", { name: /research/i }).click();
-    await expect(textarea).toHaveValue(
-      "Conduct a deep dive research on [topic], and summarize the findings.",
-    );
+    await expect(textarea).toHaveValue(suggestionTemplate);
 
     await textarea.press("Enter");
     await page.waitForTimeout(500);
 
     expect(streamCalled).toBe(false);
-    await expect(textarea).toHaveValue(
-      "Conduct a deep dive research on [topic], and summarize the findings.",
-    );
+    await expect(textarea).toHaveValue(suggestionTemplate);
     await expect
       .poll(
         () =>
@@ -457,18 +544,14 @@ test.describe("Chat workspace", () => {
       .toBe("[topic]");
 
     await textarea.pressSequentially("AI agents");
-    await expect(textarea).toHaveValue(
-      "Conduct a deep dive research on AI agents, and summarize the findings.",
-    );
+    await expect(textarea).toHaveValue(completedSuggestion);
 
     await textarea.press("Enter");
 
     await expect.poll(() => streamCalled, { timeout: 10_000 }).toBeTruthy();
     await expect
       .poll(() => submittedText, { timeout: 10_000 })
-      .toBe(
-        "Conduct a deep dive research on AI agents, and summarize the findings.",
-      );
+      .toBe(completedSuggestion);
   });
 
   test("slash skill command is submitted as normal chat text", async ({

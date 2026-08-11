@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 from collections.abc import Mapping
 from types import SimpleNamespace
@@ -229,9 +230,7 @@ _CONTEXT_INTERNAL_CALLER_KEYS: frozenset[str] = frozenset({"non_interactive"})
 #                              webhooks) so ClarificationMiddleware proceeds
 #                              instead of dead-ending the run.
 _DATALAKE_CONTEXT_KEY = "datalake_enabled"
-_CONTEXT_RUNTIME_ONLY_KEYS: frozenset[str] = frozenset(
-    {"github_token", "disable_clarification", _DATALAKE_CONTEXT_KEY}
-)
+_CONTEXT_RUNTIME_ONLY_KEYS: frozenset[str] = frozenset({"github_token", "disable_clarification", _DATALAKE_CONTEXT_KEY})
 _INVALID_DATALAKE_CONTEXT_DETAIL = {
     "code": "invalid_datalake_context",
     "message": "datalake_enabled must be a boolean in body.context",
@@ -240,7 +239,8 @@ _INVALID_DATALAKE_CONTEXT_DETAIL = {
 
 
 def _validate_datalake_context(
-    config: Mapping[str, Any], context: Mapping[str, Any] | None,
+    config: Mapping[str, Any],
+    context: Mapping[str, Any] | None,
 ) -> None:
     for section_name in ("context", "configurable"):
         section = config.get(section_name)
@@ -427,6 +427,14 @@ def resolve_agent_factory(assistant_id: str | None):
     same factory; the routing happens inside ``make_lead_agent`` when it reads
     ``cfg["agent_name"]``.
     """
+    normalized = (assistant_id or "").strip().lower().replace("_", "-")
+    if normalized == "ppt-master-runner":
+        if os.environ.get("DEER_FLOW_RUNTIME_PROFILE") != "ppt-master-runner":
+            raise ValueError("ppt-master-runner must execute in the dedicated ppt-master runner sidecar")
+        from deerflow.agents.ppt_master_runner.agent import make_ppt_master_runner_agent
+
+        return make_ppt_master_runner_agent
+
     from deerflow.agents.lead_agent.agent import make_lead_agent
 
     return make_lead_agent
@@ -434,12 +442,13 @@ def resolve_agent_factory(assistant_id: str | None):
 
 # Lead-agent recursion budget bounds. The Gateway must NOT trust a
 # client-supplied ``recursion_limit`` verbatim: an arbitrarily large value lets
-# a single run execute unbounded LangGraph super-steps (each at least one LLM
-# call), enabling runaway API cost / DoS. ``_DEFAULT_RECURSION_LIMIT`` is the
+# a single run execute unbounded LangGraph super-steps. A super-step can be a
+# middleware or tool node and is not synonymous with an LLM call.
+# ``_DEFAULT_RECURSION_LIMIT`` is the
 # server default when the client sends nothing; the hard ceiling any client
 # value is clamped to is configurable via ``AppConfig.max_recursion_limit``.
 _DEFAULT_RECURSION_LIMIT = 100
-_DEFAULT_MAX_RECURSION_LIMIT = 1000
+_DEFAULT_MAX_RECURSION_LIMIT = 2000
 
 
 def _resolve_max_recursion_limit() -> int:
