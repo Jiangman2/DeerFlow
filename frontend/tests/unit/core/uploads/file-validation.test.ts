@@ -5,6 +5,7 @@ import {
   formatUploadSize,
   isLikelyMacOSAppBundle,
   splitUnsupportedUploadFiles,
+  validateIncomingUploadFiles,
   validateUploadLimits,
 } from "@/core/uploads/file-validation";
 
@@ -70,6 +71,26 @@ test("accepts a file at the per-file limit and rejects one byte over", () => {
   expect(result.rejected).toEqual([overLimit]);
   expect(result.violations).toEqual([
     { code: "max_file_size", files: [overLimit], limit: 5 },
+  ]);
+});
+
+test("rejects a 60 MiB zip against the default 50 MiB file limit", () => {
+  const zip = new File([], "archive.zip", { type: "application/zip" });
+  Object.defineProperty(zip, "size", { value: 60 * 1024 * 1024 });
+
+  const result = validateIncomingUploadFiles([], [zip], {
+    max_files: 10,
+    max_file_size: 50 * 1024 * 1024,
+    max_total_size: 100 * 1024 * 1024,
+  });
+
+  expect(result.accepted).toEqual([]);
+  expect(result.violations).toEqual([
+    {
+      code: "max_file_size",
+      files: [zip],
+      limit: 50 * 1024 * 1024,
+    },
   ]);
 });
 
