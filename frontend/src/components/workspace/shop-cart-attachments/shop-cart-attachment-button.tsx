@@ -4,10 +4,7 @@ import { DatabaseIcon, DatabaseZapIcon, ListIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import {
-  PromptInputButton,
-  usePromptInputAttachments,
-} from "@/components/ai-elements/prompt-input";
+import { PromptInputButton } from "@/components/ai-elements/prompt-input";
 import { useI18n } from "@/core/i18n/hooks";
 import type {
   DownloadableNewShopCartFile,
@@ -43,21 +40,24 @@ export function ShopCartAttachmentButton({
   className,
   context,
   disabled = false,
+  onAddFiles,
   onContextChange,
 }: {
   className?: string;
   context: ShopCartInputContext;
   disabled?: boolean;
+  onAddFiles: (files: File[]) => number;
   onContextChange?: (context: ShopCartInputContext) => void;
 }) {
   const { t } = useI18n();
-  const attachments = usePromptInputAttachments();
   const [newShopCartOpen, setNewShopCartOpen] = useState(false);
   const [newShopCartFiles, setNewShopCartFiles] = useState<NewShopCartFile[]>(
     [],
   );
   const [newShopCartLoading, setNewShopCartLoading] = useState(false);
   const requestSequence = useRef(0);
+  const onAddFilesRef = useRef(onAddFiles);
+  onAddFilesRef.current = onAddFiles;
   const dataLakeEnabled = context.datalake_enabled !== false;
 
   useEffect(() => {
@@ -93,16 +93,16 @@ export function ShopCartAttachmentButton({
         return false;
       }
 
-      attachments.add(files);
-      if (files.length > 0) {
-        toast.success(t.inputBox.shopCartAddedFiles(files.length));
+      const added = onAddFilesRef.current(files);
+      if (added > 0) {
+        toast.success(t.inputBox.shopCartAddedFiles(added));
       }
       if (failed > 0) {
         toast.warning(t.inputBox.shopCartPartialDownloadFailed(failed));
       }
-      return true;
+      return added > 0;
     },
-    [attachments, t],
+    [t],
   );
 
   const loadNewShopCartFiles = useCallback(async () => {
@@ -154,8 +154,7 @@ export function ShopCartAttachmentButton({
             <PromptInputButton
               className={cn(
                 "gap-1 px-2!",
-                dataLakeEnabled &&
-                  "border-[#6d5dfc]/40 bg-[#f4f2ff]",
+                dataLakeEnabled && "border-[#6d5dfc]/40 bg-[#f4f2ff]",
                 className,
               )}
               disabled={disabled}

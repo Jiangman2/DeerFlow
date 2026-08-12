@@ -52,6 +52,30 @@ export interface UploadLimitValidationResult {
   violations: UploadLimitViolation[];
 }
 
+export interface IncomingUploadValidationResult extends UploadLimitValidationResult {
+  unsupported: File[];
+  unsupportedMessage?: string;
+}
+
+export function validateIncomingUploadFiles(
+  existingFiles: File[],
+  incomingFiles: File[] | FileList,
+  limits?: UploadLimits,
+): IncomingUploadValidationResult {
+  const unsupported = splitUnsupportedUploadFiles(incomingFiles);
+  const limited = validateUploadLimits(
+    existingFiles,
+    unsupported.accepted,
+    limits,
+  );
+  return {
+    ...limited,
+    rejected: [...unsupported.rejected, ...limited.rejected],
+    unsupported: unsupported.rejected,
+    unsupportedMessage: unsupported.message,
+  };
+}
+
 /**
  * Validate files against the same per-request limits enforced by the gateway.
  * Existing files keep priority and incoming files are accepted in selection order.
