@@ -40,6 +40,7 @@ from app.gateway.routers import (
     thread_runs,
     threads,
     uploads,
+    voice_input,
     weknora,
 )
 from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
@@ -562,6 +563,8 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     app.include_router(dashboard.router)
     app.include_router(announcements.router)
     app.include_router(admin_users.router)
+    # Authenticated browser microphone streaming to enterprise Qwen ASR.
+    app.include_router(voice_input.router)
     # WeKnora integration API is mounted at /api/weknora.
     # The router is an enterprise extension and remains isolated from the
     # official thread, memory, and run lifecycle routers above.

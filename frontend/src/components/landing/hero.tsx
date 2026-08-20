@@ -40,7 +40,7 @@ export function Hero({ className }: { className?: string }) {
         <p className="mt-8 max-w-4xl text-center text-base leading-7 text-slate-700 sm:text-lg md:text-xl">
           面向油气勘探开发业务，集深度研究、专业报告、数据分析与智能办公于一体。
         </p>
-        <Link href={brand.links.workspace}>
+        <Link href={brand.links.login}>
           <Button
             className="mt-9 h-12 rounded-xl border border-[#07569f] bg-[#0868bd] px-7 text-white shadow-[0_8px_20px_rgba(8,104,189,0.24)] hover:-translate-y-0.5 hover:bg-[#075aa5] hover:shadow-[0_12px_26px_rgba(8,104,189,0.3)] active:translate-y-0 active:bg-[#064c8c] focus-visible:ring-[#0868bd]/35"
             size="lg"

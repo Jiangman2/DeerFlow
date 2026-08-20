@@ -53,7 +53,7 @@ The frontend is a stateful chat application. Users create **threads** (conversat
   - `workspace/` — Chat page components (messages, artifacts, settings)
   - `landing/` — Landing page sections
   - `docs/` — Docs / MDX rendering components
-- **`core/`** — Business logic, the heart of the app. Domains include `threads/` (creation, streaming, state), `api/` (LangGraph client singleton), `agents/` (custom agents), `auth/` (authentication), `artifacts/`, `channels/` (IM connections), `i18n/` (en-US, zh-CN), `settings/`, `memory/`, `skills/`, `messages/`, `mcp/`, `models/`, `input-polish/` (pre-send draft rewrite API), `voice-input/` (browser speech-recognition helpers), `suggestions/`, `tasks/`, `todos/`, `tools/`, `workspace-changes/` (run-scoped changed-file summaries and diff fetching), `config/`, `notification/`, `blog/`, plus rendering helpers (`rehype/`, `streamdown/`) and `utils/`.
+- **`core/`** — Business logic, the heart of the app. Domains include `threads/` (creation, streaming, state), `api/` (LangGraph client singleton), `agents/` (custom agents), `auth/` (authentication), `artifacts/`, `channels/` (IM connections), `i18n/` (en-US, zh-CN), `settings/`, `memory/`, `skills/`, `messages/`, `mcp/`, `models/`, `input-polish/` (pre-send draft rewrite API), `voice-input/` (secure microphone PCM capture and authenticated Gateway transcription), `suggestions/`, `tasks/`, `todos/`, `tools/`, `workspace-changes/` (run-scoped changed-file summaries and diff fetching), `config/`, `notification/`, `blog/`, plus rendering helpers (`rehype/`, `streamdown/`) and `utils/`.
 - **`hooks/`** — Shared React hooks
 - **`lib/`** — Utilities (`cn()` from clsx + tailwind-merge)
 - **`content/`** — MDX content (blog posts, docs) rendered by the app
@@ -73,6 +73,11 @@ that lack CSS `color-mix()`. Keep its pale primary background as a separate
 `bg-primary opacity-10` layer behind the inline icon; Tailwind opacity-color
 utilities such as `bg-primary/10` fall back to an opaque primary color in those
 browsers and hide the same-color icon.
+The custom-agent chat route must safely decode its dynamic `agent_name` segment
+before API lookup, run-context creation, or display, and must re-encode that
+decoded name when constructing navigation URLs. Its welcome avatar reuses the
+same separate-opacity icon treatment so enterprise browsers do not render an
+opaque blue disk over the robot glyph.
 
 The Kubernetes WeKnora UI bootstrap is served through the shared DeerFlow
 origin. Keep its session exchange URL relative as
@@ -83,10 +88,12 @@ successful DeerFlow exchange, the bootstrap must clear the standalone
 failure can persist Lite mode, which hides WeKnora organizations/shared spaces
 even after SSO recovers.
 The enterprise root entry sets the server-only
-`DEER_FLOW_UNAUTHENTICATED_HOME_URL`. The exact `/` route validates the current
-Gateway session and redirects only an unauthenticated browser to that HTTPS
-portal. Authenticated users, setup-required states, Gateway outages, APIs,
-static assets, and workspace deep links must not be redirected.
+`DEER_FLOW_UNAUTHENTICATED_HOME_URL`. The exact `/` route always renders the
+public landing page without checking the Gateway session. Login, New Chat, and
+Get Started all enter the existing server-side `/login` auth route, which sends
+an authenticated browser to the workspace and an unauthenticated browser to the
+configured HTTPS portal. APIs, static assets, workspace deep links, and Gateway
+authorization remain unchanged.
 The enterprise overlay also sets `DEER_FLOW_SSO_ONLY=true`. In that mode the
 entire `(auth)` route group redirects any unauthenticated state—including setup
 required or a temporarily unavailable Gateway—to the validated HTTPS portal;
@@ -125,7 +132,7 @@ administrators retain the complete native editor.
 
 ### Data Flow
 
-1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission, and `core/voice-input` can transcribe browser microphone input into that same local draft; confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming. When that draft explicitly starts with `/ppt-master`, `core/api/ppt-master-runtime.ts` marks the thread with `runtime_profile=ppt-master-runner` and routes stream, reconnect, and cancel through `/api/ppt-master-runtime`; ordinary thread/history/upload/artifact APIs remain on the main Gateway. If the same request includes a PPT/PPTX attachment, the pre-submit upload uses `upload_purpose=presentation_template` so Gateway preserves the original template instead of routing it through the document parser.
+1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission. `core/voice-input` records microphone input only in a secure browser context, converts it to 16 kHz mono PCM16, and streams it over the same-origin authenticated `/api/voice-input/stream` WebSocket; Gateway returns partial/final text into that same local draft. Do not restore browser-vendor `SpeechRecognition` as an implicit fallback. Confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming. When that draft explicitly starts with `/ppt-master`, `core/api/ppt-master-runtime.ts` marks the thread with `runtime_profile=ppt-master-runner` **before** `useStream.submit()` can start state hydration, then routes stream, reconnect, cancel, and LangGraph checkpoint state/history through `/api/ppt-master-runtime`; paged conversation history, uploads, metadata, and artifact APIs remain on the main Gateway. Delaying the marker until the wrapped `runs.stream()` call creates a first-submit race in which `useStream` can query the ordinary checkpoint namespace and log misleading 404s. If the same request includes a PPT/PPTX attachment, the pre-submit upload uses `upload_purpose=presentation_template` so Gateway preserves the original template instead of routing it through the document parser.
    Welcome-page quick actions fill editable prompts that begin with their real
    Slash Skill name. The PPT action is a four-item route menu for Generate
    PPTX, Create Template, Fill Native PPTX, and Enhance Native PPTX; selecting
@@ -152,7 +159,7 @@ affects every thread, removes the file-list menu item, closes the dialog,
 invalidates in-flight list loads, and sends the resolved boolean on normal,
 custom-agent, regenerated, and branched runs.
 
-PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning presentation. `core/artifacts/utils.ts` owns the deterministic pairing rule, including extraction from a persisted thread-state snapshot. On chat reload, `ChatBox` uses the live stream artifact channel when it is populated and otherwise fetches `threads.getState(threadId)` explicitly so paged message hydration cannot make the top-level Files control disappear. That restoration must not auto-open the panel. The artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated companion pages server-side. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
+PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning presentation. `core/artifacts/utils.ts` owns the deterministic pairing rule, including extraction from a persisted thread-state snapshot. On chat reload, `ChatBox` uses the live stream artifact channel when it is populated and otherwise fetches `threads.getState(threadId)` explicitly so paged message hydration cannot make the top-level Files control disappear. That restoration must not auto-open the panel. The artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated generated output PDFs—including PowerPoint companions—server-side. Original uploads and unsafe PDFs remain download-only. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
 Interactive lead-agent submissions and regenerations share `core/threads/run-config.ts::LEAD_AGENT_RECURSION_LIMIT` (currently 2000). This is a bounded LangGraph super-step budget, not an LLM-call count; the Gateway still clamps it and backend loop/token guards remain independent. Keep both submission paths on the shared constant so long, progressing Skill workflows do not diverge by UI action.
 Every recorded or guessed PowerPoint preview companion must pass a same-origin
 HEAD probe before the iframe is rendered. A stale/missing companion may show a
@@ -178,7 +185,7 @@ access to sidecars created before the metadata rename.
 - **Thread hooks** (`useThreadStream`, `useSubmitThread`, `useThreads`) are the primary API interface
 - **LangGraph client** is a singleton obtained via `getAPIClient()` in `core/api/`
 - **Environment validation** uses `@t3-oss/env-nextjs` with Zod schemas (`src/env.js`). Skip with `SKIP_ENV_VALIDATION=1`
-- **Subtask step history and runtime metadata** (`core/tasks/`) — the subtask card shows a subagent's full step timeline (#3779): its assistant reasoning turns interleaved with the tools it ran. `Subtask.steps[]` is accumulated live from `task_running` events (appended via `mergeSteps`, not overwritten) and backfilled on expand for historical runs by `fetchSubtaskSteps`, which pages the events endpoint scoped to one task (GET `/runs/{runId}/events?event_types=subagent.step&task_id=…&after_seq=…`) until a short page, so the run-wide limit can't truncate the timeline. `task_started` carries the effective `model_name`; `task_running` carries a cumulative usage snapshot after each completed LLM call. `core/tasks/lifecycle.ts` normalizes these additive events, and `computeNextSubtask` keeps the largest cumulative total so replayed or late SSE frames cannot double-count or roll the folded card backward. Terminal ToolMessage metadata (`subagent_model_name` / `subagent_token_usage`) restores the same values from normal history after reload; no per-card event fetch is needed. `core/tasks/steps.ts` is the pure step model: `messageToStep` (live), `eventsToSteps` (reload), `mergeSteps` (dedup by `message_index`), and `stepsForDisplay` (what the card renders — keeps tool steps + AI steps with text, drops the trailing final-answer AI step when completed since it's shown as `result`). `core/tasks/context.tsx`'s `useUpdateSubtask` applies updates against a `tasksRef` mirroring the latest state (not a closure snapshot), so a late-resolving `fetchSubtaskSteps` backfill merges into current state instead of clobbering SSE steps or sibling subtasks that arrived meanwhile. The owning `run_id` is carried onto history content messages in `buildVisibleHistoryMessages` so the card can resolve the events endpoint.
+- **Subtask step history and runtime metadata** (`core/tasks/`) — the subtask card shows a subagent's full step timeline (#3779): its assistant reasoning turns interleaved with the tools it ran. `Subtask.steps[]` is accumulated live from `task_running` events (appended via `mergeSteps`, not overwritten) and backfilled on expand for historical runs by `fetchSubtaskSteps`, which pages the events endpoint scoped to one task (GET `/runs/{runId}/events?event_types=subagent.step&task_id=…&after_seq=…`) until a short page, so the run-wide limit can't truncate the timeline. `task_started` carries the effective `model_name`; `task_running` carries a cumulative usage snapshot after each completed LLM call. `core/tasks/lifecycle.ts` normalizes these additive events, and `computeNextSubtask` keeps the largest cumulative total so replayed or late SSE frames cannot double-count or roll the folded card backward. Terminal ToolMessage metadata (`subagent_model_name` / `subagent_token_usage`) restores the same values from normal history after reload; no per-card event fetch is needed. `core/tasks/steps.ts` is the pure step model: `messageToStep` (live), `eventsToSteps` (reload), `mergeSteps` (dedup by `message_index`), and `stepsForDisplay` (what the card renders — keeps tool steps + AI steps with text, drops the trailing final-answer AI step when completed since it's shown as `result`). `core/tasks/context.tsx`'s `useUpdateSubtask` applies updates against a `tasksRef` mirroring the latest state (not a closure snapshot), so a late-resolving `fetchSubtaskSteps` backfill merges into current state instead of clobbering SSE steps or sibling subtasks that arrived meanwhile. The owning `run_id` is carried onto history content messages in `buildVisibleHistoryMessages` so the card can resolve the events endpoint. Next.js preserves dynamic layouts while only `[thread_id]` changes, so each chat layout must pass that id as `SubtasksProvider.scopeKey`; otherwise a previous thread's live workflow card is rendered in the new conversation until another event replaces it.
 - Expanded subtask cards retain tool-only assistant request steps and show a
   bounded command/query summary for every request plus an on-demand full input
   or output body. Long timelines use an internal scroll area, lazy detail
@@ -217,8 +224,12 @@ surfaces database-backed usage, run, failure, token, feedback, and management
 audit data. Incomplete component-health heuristics are intentionally hidden.
 The dashboard ranks users by run volume, reports launch clicks for the five
 built-in external agents, and links slow/high-token runs back to their chats.
-Its headline conversation value is the selected window's append-only creation
-count; the same card labels current and all-time totals separately. The
+Its headline cards keep conversation inventory and run execution as separate
+dimensions. The conversation card shows the selected window's append-only
+creation count, all-time creations, current all-time retained inventory, and
+the derived all-time deletion count. The run card shows runs started in the
+selected window, split into successful, failed/timeout/interrupted, and still
+active counts; "ended" never implies successful completion. The
 activity chart shows conversation creations plus active users, adaptively
 switches from daily to seven-day, 30-day, and 365-day buckets for arbitrary
 custom ranges, and remains horizontally readable instead of compressing every
@@ -279,6 +290,12 @@ items. Preview colors must use explicit light/dark palette classes rather than
 Tailwind slash-alpha utilities such as `bg-current/15` or
 `border-current/10`; audited enterprise browsers can drop the alpha modifier
 and render those shapes as opaque blocks. User-visible workspace and auth
+status surfaces such as active microphone and input-polish overlays must follow
+the same rule: use a separate `bg-primary` layer with explicit opacity or fixed
+light/dark palette classes. The desktop settings dialog uses the available
+viewport height with a bounded maximum and keeps both navigation and content in
+their own scroll regions; do not restore the fixed 75vh layout that clips lower
+sections on short enterprise-browser viewports. User-visible workspace and auth
 status text must come from `core/i18n`, with Simplified Chinese entries kept in
 sync with English. This enterprise branch defaults the first render and
 missing/unknown locale state to `zh-CN`; users may still explicitly select

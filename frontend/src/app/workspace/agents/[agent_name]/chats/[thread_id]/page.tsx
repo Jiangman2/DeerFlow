@@ -2,14 +2,18 @@
 
 import { BotIcon, PlusSquare } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { AgentWelcome } from "@/components/workspace/agent-welcome";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
-import { ChatBox, useThreadChat } from "@/components/workspace/chats";
+import {
+  ChatBox,
+  notifyThreadChatRouteChange,
+  useThreadChat,
+} from "@/components/workspace/chats";
 import { ExportTrigger } from "@/components/workspace/export-trigger";
 import { GoalStatus } from "@/components/workspace/goal-status";
 import {
@@ -30,7 +34,7 @@ import { TodoList } from "@/components/workspace/todo-list";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { Tooltip } from "@/components/workspace/tooltip";
 import { useActiveGoal } from "@/components/workspace/use-active-goal";
-import { useAgent } from "@/core/agents";
+import { decodeAgentNameRouteParam, useAgent } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 import {
   buildHumanInputResponseText,
@@ -56,11 +60,19 @@ export default function AgentChatPage() {
   const { t } = useI18n();
   const router = useRouter();
 
-  const { agent_name } = useParams<{
+  const { agent_name: agentNameParam } = useParams<{
     agent_name: string;
   }>();
+  const agentName = useMemo(
+    () => decodeAgentNameRouteParam(agentNameParam),
+    [agentNameParam],
+  );
+  const agentRouteName = useMemo(
+    () => encodeURIComponent(agentName),
+    [agentName],
+  );
 
-  const { agent } = useAgent(agent_name);
+  const { agent } = useAgent(agentName);
 
   const { threadId, setThreadId, isNewThread, setIsNewThread, isMock } =
     useThreadChat();
@@ -80,6 +92,7 @@ export default function AgentChatPage() {
     isMock,
   });
   const backendTokenUsage = threadTokenUsageToTokenUsage(threadTokenUsage.data);
+  const createdThreadIdRef = useRef<string | null>(null);
 
   const { showNotification } = useNotification();
 
@@ -99,20 +112,21 @@ export default function AgentChatPage() {
   } = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     displayThreadId: threadId,
-    context: { ...settings.context, agent_name: agent_name },
+    context: { ...settings.context, agent_name: agentName },
     isMock,
     onSend: () => {
       setIsWelcomeMode(false);
     },
     onStart: (createdThreadId) => {
-      // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
-      history.replaceState(
-        null,
-        "",
-        `/workspace/agents/${agent_name}/chats/${createdThreadId}`,
-      );
+      createdThreadIdRef.current = createdThreadId;
+      // Keep the official DeerFlow lifecycle used by ordinary chats. A
+      // Next.js RSC navigation while the first Agent stream is being created
+      // can remount the SDK transport and strand the page on a 404 poll.
+      const nextPath = `/workspace/agents/${agentRouteName}/chats/${createdThreadId}`;
+      history.replaceState(null, "", nextPath);
       setThreadId(createdThreadId);
       setIsNewThread(false);
+      notifyThreadChatRouteChange(nextPath);
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -138,24 +152,30 @@ export default function AgentChatPage() {
     if (
       !isNewThread &&
       !isMock &&
+      threadMetadata.isFetched &&
       threadMetadata.data === null &&
+      createdThreadIdRef.current !== threadId &&
+      !thread.isLoading &&
       !threadMetadata.isLoading &&
       !threadMetadata.isFetching &&
       !isHistoryLoading &&
       !hasMoreHistory &&
       !hasThreadMessages
     ) {
-      router.replace(`/workspace/agents/${agent_name}/chats/new`);
+      router.replace(`/workspace/agents/${agentRouteName}/chats/new`);
     }
   }, [
-    agent_name,
+    agentRouteName,
     hasMoreHistory,
     hasThreadMessages,
     isHistoryLoading,
     isMock,
     isNewThread,
     router,
+    threadId,
+    thread.isLoading,
     threadMetadata.data,
+    threadMetadata.isFetched,
     threadMetadata.isFetching,
     threadMetadata.isLoading,
   ]);
@@ -165,7 +185,7 @@ export default function AgentChatPage() {
       const sendPromise = sendMessage(
         threadId,
         message,
-        { agent_name },
+        { agent_name: agentName },
         options,
       );
       if (message.files.length > 0) {
@@ -173,7 +193,7 @@ export default function AgentChatPage() {
       }
       void sendPromise;
     },
-    [sendMessage, threadId, agent_name],
+    [agentName, sendMessage, threadId],
   );
 
   const handleSubmitHumanInput = useCallback(
@@ -185,7 +205,7 @@ export default function AgentChatPage() {
           text: buildHumanInputResponseText(request, response),
           files: [],
         },
-        { agent_name },
+        { agent_name: agentName },
         {
           additionalKwargs: {
             hide_from_ui: true,
@@ -198,7 +218,7 @@ export default function AgentChatPage() {
       );
       return sent;
     },
-    [agent_name, sendMessage, threadId],
+    [agentName, sendMessage, threadId],
   );
 
   const handleStop = useCallback(async () => {
@@ -231,10 +251,15 @@ export default function AgentChatPage() {
     <ThreadContext.Provider value={{ thread, isMock }}>
       <SidecarProvider
         parentThreadId={threadId}
-        context={{ ...settings.context, agent_name }}
+        context={{ ...settings.context, agent_name: agentName }}
         isMock={isMock}
       >
-        <ChatBox threadId={threadId}>
+        <ChatBox
+          threadId={threadId}
+          canHydratePersistedArtifacts={
+            !isNewThread && Boolean(threadMetadata.data)
+          }
+        >
           <div className="relative flex size-full min-h-0 justify-between">
             <header
               className={cn(
@@ -249,7 +274,7 @@ export default function AgentChatPage() {
               <div className="flex min-w-0 shrink-0 items-center gap-1 rounded-md border p-1 sm:gap-1.5 sm:px-2 sm:py-1">
                 <BotIcon className="text-primary h-3.5 w-3.5" />
                 <span className="hidden max-w-24 truncate text-xs font-medium sm:inline sm:max-w-none">
-                  {agent?.name ?? agent_name}
+                  {agent?.name ?? agentName}
                 </span>
               </div>
 
@@ -263,7 +288,9 @@ export default function AgentChatPage() {
                     size="sm"
                     variant="secondary"
                     onClick={() => {
-                      router.push(`/workspace/agents/${agent_name}/chats/new`);
+                      router.push(
+                        `/workspace/agents/${agentRouteName}/chats/new`,
+                      );
                     }}
                   >
                     <PlusSquare />
@@ -376,7 +403,7 @@ export default function AgentChatPage() {
                       isWelcomeMode &&
                       !hasGoal &&
                       !hasTodos && (
-                        <AgentWelcome agent={agent} agentName={agent_name} />
+                        <AgentWelcome agent={agent} agentName={agentName} />
                       )
                     }
                     disabled={

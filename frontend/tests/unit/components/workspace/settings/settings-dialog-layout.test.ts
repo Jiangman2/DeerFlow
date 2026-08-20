@@ -1,0 +1,25 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { describe, expect, test } from "@rstest/core";
+
+const source = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/components/workspace/settings/settings-dialog.tsx",
+  ),
+  "utf8",
+);
+
+describe("settings dialog viewport layout", () => {
+  test("uses the available desktop viewport instead of a fixed 75 percent height", () => {
+    expect(source).toContain("sm:h-[calc(100vh-2rem)]");
+    expect(source).toContain("sm:max-h-[56rem]");
+    expect(source).not.toContain("sm:h-[75vh]");
+  });
+
+  test("keeps nested settings panes inside the dialog scroll contract", () => {
+    expect(source).toMatch(/flex-1[^\"]*overflow-hidden/);
+    expect(source).toContain("h-full min-h-0 min-w-0");
+  });
+});

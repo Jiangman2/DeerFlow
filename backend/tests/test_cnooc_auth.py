@@ -1,3 +1,6 @@
+import logging
+
+import httpx
 import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
@@ -154,6 +157,86 @@ def test_load_config_reports_missing_required_env(monkeypatch):
         cnooc._load_config()
 
     assert "CNOOC_OAUTH_BASE_URL" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_cnooc_request_retries_transient_timeout(monkeypatch):
+    monkeypatch.setenv("CNOOC_OAUTH_REQUEST_ATTEMPTS", "2")
+    monkeypatch.setenv("CNOOC_OAUTH_RETRY_BACKOFF_SECONDS", "0.001")
+
+    class Client:
+        calls = 0
+
+        async def get(self, url, **_kwargs):
+            self.calls += 1
+            request = httpx.Request("GET", url)
+            if self.calls == 1:
+                raise httpx.ReadTimeout("slow upstream", request=request)
+            return httpx.Response(200, request=request, json={"code": 200})
+
+    client = Client()
+    response = await cnooc._get_with_retry(
+        client,
+        "http://sso.internal/token-check",
+        label="CNOOC token verification",
+        params={"query": "redacted"},
+    )
+
+    assert response.status_code == 200
+    assert client.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_cnooc_request_maps_exhausted_timeout_to_503(monkeypatch):
+    monkeypatch.setenv("CNOOC_OAUTH_REQUEST_ATTEMPTS", "2")
+    monkeypatch.setenv("CNOOC_OAUTH_RETRY_BACKOFF_SECONDS", "0.001")
+
+    class Client:
+        calls = 0
+
+        async def get(self, url, **_kwargs):
+            self.calls += 1
+            raise httpx.ReadTimeout("slow upstream", request=httpx.Request("GET", url))
+
+    client = Client()
+    with pytest.raises(CnoocAuthError) as exc_info:
+        await cnooc._get_with_retry(
+            client,
+            "http://sso.internal/token-check",
+            label="CNOOC token verification",
+            params={"query": "redacted"},
+        )
+
+    assert exc_info.value.status_code == 503
+    assert client.calls == 2
+
+
+def test_cnooc_login_maps_upstream_unavailable_to_503(monkeypatch):
+    async def unavailable(_token: str):
+        raise CnoocAuthError("CNOOC token verification temporarily unavailable", 503)
+
+    monkeypatch.setattr("app.gateway.routers.auth.check_cnooc_token", unavailable)
+    client = _make_cnooc_login_client(monkeypatch, _FakeProvider())
+
+    response = client.get("/api/v1/auth/cnooc/login?token=platform-token", follow_redirects=False)
+
+    assert response.status_code == 503
+
+
+def test_cnooc_httpx_log_filter_redacts_query_token():
+    record = logging.LogRecord(
+        "httpx",
+        logging.INFO,
+        __file__,
+        1,
+        'HTTP Request: GET "http://sso.internal/apigateway/tokenCheck?query=%7Bsecret%7D&appCode=ok"',
+        (),
+        None,
+    )
+
+    assert cnooc._CnoocHttpxLogFilter().filter(record) is True
+    assert "secret" not in record.getMessage()
+    assert "query=<redacted>" in record.getMessage()
 
 
 def test_cnooc_login_creates_oauth_user_and_sets_session_cookies(monkeypatch):

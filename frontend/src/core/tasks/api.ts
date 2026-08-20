@@ -26,6 +26,7 @@ export async function fetchSubtaskSteps(
   runId: string,
   taskId: string,
   pageSize: number = SUBTASK_STEPS_PAGE_SIZE,
+  signal?: AbortSignal,
 ): Promise<SubtaskStep[]> {
   const base = `${getBackendBaseURL()}/api/threads/${encodeURIComponent(
     threadId,
@@ -44,7 +45,7 @@ export async function fetchSubtaskSteps(
       params.set("after_seq", String(afterSeq));
     }
 
-    const res = await fetch(`${base}?${params.toString()}`);
+    const res = await fetch(`${base}?${params.toString()}`, { signal });
     if (!res.ok) {
       throw new Error(`Failed to fetch subtask steps: ${res.status}`);
     }

@@ -14,6 +14,12 @@ const MOCK_AGENTS = [
   },
 ];
 
+const CHINESE_AGENT = {
+  name: "月报助手",
+  description: "生成中文月报",
+  system_prompt: "你是月报助手。",
+};
+
 test.describe("Agent chat", () => {
   test("agent gallery page loads and shows agents", async ({ page }) => {
     mockLangGraphAPI(page, { agents: MOCK_AGENTS });
@@ -46,6 +52,33 @@ test.describe("Agent chat", () => {
     await expect(
       page.locator("header span", { hasText: "test-agent" }),
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("decodes a Chinese agent name and keeps its welcome icon visible", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page, { agents: [CHINESE_AGENT] });
+
+    await page.goto(
+      `/workspace/agents/${encodeURIComponent(CHINESE_AGENT.name)}/chats/new`,
+    );
+
+    await expect(
+      page.locator("header span", { hasText: CHINESE_AGENT.name }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText(CHINESE_AGENT.name, { exact: true }),
+    ).toHaveCount(2);
+    await expect(page.getByText(/%E6%9C%88/)).toHaveCount(0);
+
+    const welcomeIcon = page.locator('[aria-hidden="true"]', {
+      has: page.locator("svg.lucide-bot"),
+    });
+    await expect(welcomeIcon).toBeVisible();
+    await expect(welcomeIcon.locator("span.bg-primary.opacity-10")).toHaveCount(
+      1,
+    );
+    await expect(welcomeIcon).not.toHaveClass(/bg-primary\/10/);
   });
 
   test("agent chat can regenerate its latest response", async ({ page }) => {

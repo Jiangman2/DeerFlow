@@ -1,6 +1,8 @@
-"""Secure AppForge adapters for CNOOC DataLake question answering.
+"""Secure CNOOC DataLake adapters for question answering.
 
-The AppForge endpoint is an internal SSE API. Credentials and workflow identity
+``datalake_smart_qa`` uses the DataLake Retrieve API and returns only ranked
+source chunks for the DeerFlow model to analyze. The metrics and detail tools
+continue to use the internal AppForge SSE API. Credentials and workflow identity
 inputs are resolved only from server-side configuration; the model-visible tool
 schema contains only the business question.
 """
@@ -10,10 +12,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import uuid
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
 from langchain.tools import tool
@@ -26,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_API_URL = "http://10.77.124.142:9080"
 _DEFAULT_TIMEOUT_S = 180.0
+_DEFAULT_RETRIEVE_API_URL = "http://10.77.124.142:15955/rag/internal/v1/Retrieve"
+_DEFAULT_RETRIEVE_TIMEOUT_S = 30.0
 _OUTPUT_CHAR_LIMIT = 10_000
 _ANSWER_CHAR_LIMIT = 5_000
 _KNOWLEDGE_CHAR_LIMIT = 600
@@ -34,6 +40,14 @@ _MAX_PROGRESS_ITEMS = 10
 _PROGRESS_CHAR_LIMIT = 1_200
 _MAX_THINKING_ITEMS = 4
 _THINKING_CHAR_LIMIT = 400
+_RETRIEVE_CHUNK_CHAR_LIMIT = 3_000
+_MAX_RETRIEVE_CHUNKS = 10
+
+# AppForge can return image-preview URLs whose paths contain Chinese document
+# names. Normalize only those URLs before exposing them to shell-based skills.
+_IMAGE_PREVIEW_URL_RE = re.compile(r"https?://[^\s<>'\"`]+/img-preview/[^\s<>'\"`]+", re.IGNORECASE)
+_IMAGE_PREVIEW_PATH_SAFE = "/%:@!$&'()*+,;=-._~"
+_IMAGE_PREVIEW_QUERY_SAFE = "=&%:/?@!$'()*+,;,-._~"
 _missing_config_warned: set[str] = set()
 
 _TOOL_DEFAULTS: dict[str, dict[str, str]] = {
@@ -111,6 +125,39 @@ def _get_bool(tool_name: str, key: str, env_name: str, default: bool) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
+def _get_int(tool_name: str, key: str, env_name: str, default: int, *, minimum: int = 1, maximum: int = 50) -> int:
+    value = _tool_extra(tool_name).get(key)
+    if value is None:
+        value = os.getenv(env_name)
+    try:
+        return min(maximum, max(minimum, int(value))) if value is not None else default
+    except (TypeError, ValueError):
+        logger.warning("Invalid DataLake Retrieve %s for %s; using %s", key, tool_name, default)
+        return default
+
+
+def _get_float(tool_name: str, key: str, env_name: str, default: float, *, minimum: float = 0.0, maximum: float = 1.0) -> float:
+    value = _tool_extra(tool_name).get(key)
+    if value is None:
+        value = os.getenv(env_name)
+    try:
+        return min(maximum, max(minimum, float(value))) if value is not None else default
+    except (TypeError, ValueError):
+        logger.warning("Invalid DataLake Retrieve %s for %s; using %s", key, tool_name, default)
+        return default
+
+
+def _get_string_list(tool_name: str, key: str, env_name: str) -> list[str]:
+    value = _tool_extra(tool_name).get(key)
+    if value is None:
+        value = os.getenv(env_name)
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
 def _get_timeout(tool_name: str) -> float:
     defaults = _tool_defaults(tool_name)
     value = _tool_extra(tool_name).get("timeout_seconds")
@@ -129,6 +176,17 @@ def _get_timeout(tool_name: str) -> float:
             _DEFAULT_TIMEOUT_S,
         )
         return _DEFAULT_TIMEOUT_S
+
+
+def _retrieve_timeout(tool_name: str) -> float:
+    value = _tool_extra(tool_name).get("retrieve_timeout_seconds")
+    if value is None:
+        value = os.getenv("DATALAKE_RETRIEVE_TIMEOUT_SECONDS")
+    try:
+        return max(1.0, float(value) if value is not None else _DEFAULT_RETRIEVE_TIMEOUT_S)
+    except (TypeError, ValueError):
+        logger.warning("Invalid DataLake Retrieve timeout for %s; using %.1f seconds", tool_name, _DEFAULT_RETRIEVE_TIMEOUT_S)
+        return _DEFAULT_RETRIEVE_TIMEOUT_S
 
 
 def _api_url(tool_name: str) -> str:
@@ -383,8 +441,162 @@ def _fit_output_budget(result: dict[str, Any]) -> dict[str, Any]:
     return fitted
 
 
+def _encode_image_preview_url(match: re.Match[str]) -> str:
+    """Percent-encode non-ASCII characters in a reviewed preview URL."""
+
+    raw_url = match.group(0)
+    try:
+        parsed = urlsplit(raw_url)
+        if not parsed.hostname or "/img-preview/" not in parsed.path:
+            return raw_url
+        return urlunsplit(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                quote(parsed.path, safe=_IMAGE_PREVIEW_PATH_SAFE),
+                quote(parsed.query, safe=_IMAGE_PREVIEW_QUERY_SAFE),
+                quote(parsed.fragment, safe=_IMAGE_PREVIEW_QUERY_SAFE),
+            )
+        )
+    except ValueError:
+        return raw_url
+
+
+def _normalize_image_preview_urls(value: Any) -> Any:
+    """Normalize image-preview URLs anywhere in a structured tool result."""
+
+    if isinstance(value, str):
+        return _IMAGE_PREVIEW_URL_RE.sub(_encode_image_preview_url, value)
+    if isinstance(value, list):
+        return [_normalize_image_preview_urls(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _normalize_image_preview_urls(item) for key, item in value.items()}
+    return value
+
+
 def _safe_json(value: dict[str, Any]) -> str:
-    return json.dumps(_fit_output_budget(value), ensure_ascii=False, indent=2)
+    return json.dumps(_fit_output_budget(_normalize_image_preview_urls(value)), ensure_ascii=False, indent=2)
+
+
+def _retrieve_config_error(tool_name: str) -> str | None:
+    if not _get_string(tool_name, "retrieve_api_url", "DATALAKE_RETRIEVE_API_URL", _DEFAULT_RETRIEVE_API_URL):
+        return "missing_retrieve_api_url"
+    if not _get_string(tool_name, "project_id", "DATALAKE_RETRIEVE_PROJECT_ID"):
+        return "missing_retrieve_project_id"
+    if not _get_string_list(tool_name, "document_store_ids", "DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS"):
+        return "missing_retrieve_document_store_ids"
+    return None
+
+
+def _retrieve_payload(tool_name: str, query: str) -> dict[str, Any]:
+    retrieval_type = (_get_string(tool_name, "retrieve_type", "DATALAKE_RETRIEVE_TYPE", "Hybrid") or "Hybrid").title()
+    if retrieval_type not in {"Hybrid", "Fulltext", "Vector"}:
+        raise ValueError("invalid_retrieve_type")
+    retrieval_type = "FullText" if retrieval_type == "Fulltext" else retrieval_type
+    score_threshold_enabled = _get_bool(tool_name, "score_threshold_enabled", "DATALAKE_RETRIEVE_SCORE_THRESHOLD_ENABLED", False)
+    payload: dict[str, Any] = {
+        "projectID": _get_string(tool_name, "project_id", "DATALAKE_RETRIEVE_PROJECT_ID"),
+        "documentStoreIDs": _get_string_list(tool_name, "document_store_ids", "DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS"),
+        "documentIDs": _get_string_list(tool_name, "document_ids", "DATALAKE_RETRIEVE_DOCUMENT_IDS"),
+        "query": query.strip(),
+        "type": retrieval_type,
+        "extra_data": _tool_extra(tool_name).get("extra_data") if isinstance(_tool_extra(tool_name).get("extra_data"), dict) else {},
+        "rerankingEnabled": _get_bool(tool_name, "reranking_enabled", "DATALAKE_RETRIEVE_RERANKING_ENABLED", False),
+        "topK": _get_int(tool_name, "top_k", "DATALAKE_RETRIEVE_TOP_K", _MAX_RETRIEVE_CHUNKS, maximum=_MAX_RETRIEVE_CHUNKS),
+        "scoreThresholdEnabled": score_threshold_enabled,
+    }
+    if retrieval_type == "Hybrid":
+        payload["weight"] = _get_float(tool_name, "weight", "DATALAKE_RETRIEVE_WEIGHT", 0.5)
+    if score_threshold_enabled:
+        payload["scoreThreshold"] = _get_float(tool_name, "score_threshold", "DATALAKE_RETRIEVE_SCORE_THRESHOLD", 0.0)
+    return payload
+
+
+def _normalize_retrieve_chunks(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    chunks: list[dict[str, Any]] = []
+    for item in value[:_MAX_RETRIEVE_CHUNKS]:
+        if not isinstance(item, dict):
+            continue
+        chunk: dict[str, Any] = {
+            "chunk_id": str(item.get("id") or ""),
+            "document_id": str(item.get("documentID") or ""),
+            "document_store_id": str(item.get("documentStoreID") or ""),
+            "document_name": str(item.get("documentName") or ""),
+            "document_store_name": str(item.get("documentStoreName") or ""),
+            "file_uuid": str(item.get("fileUUID") or ""),
+            "type": str(item.get("type") or "text"),
+            "content": str(item.get("content") or "")[:_RETRIEVE_CHUNK_CHAR_LIMIT],
+        }
+        score = item.get("score")
+        if isinstance(score, (int, float)) and not isinstance(score, bool):
+            chunk["score"] = score
+        chunks.append(chunk)
+    return chunks
+
+
+def _retrieve_invoke(tool_name: str, query: str) -> dict[str, Any]:
+    endpoint = _get_string(tool_name, "retrieve_api_url", "DATALAKE_RETRIEVE_API_URL", _DEFAULT_RETRIEVE_API_URL)
+    assert endpoint is not None
+    with httpx.Client(
+        timeout=_retrieve_timeout(tool_name),
+        trust_env=_get_bool(tool_name, "trust_env", "DATALAKE_RETRIEVE_TRUST_ENV", False),
+    ) as client:
+        response = client.post(endpoint, headers={"Content-Type": "application/json", "Accept": "application/json"}, json=_retrieve_payload(tool_name, query))
+        response.raise_for_status()
+        result = response.json()
+    if not isinstance(result, dict):
+        raise ValueError("invalid_retrieve_response")
+    return {
+        "query": str(result.get("query") or query.strip()),
+        "chunks": _normalize_retrieve_chunks(result.get("retrieveChunks")),
+        "retrieval": {
+            "id": str(result.get("id") or ""),
+            "type": str(result.get("type") or ""),
+            "strategy": result.get("strategy") if isinstance(result.get("strategy"), dict) else {},
+        },
+        "truncated": len(result.get("retrieveChunks") or []) > _MAX_RETRIEVE_CHUNKS,
+    }
+
+
+def _safe_retrieve_json(value: dict[str, Any]) -> str:
+    """Keep source-rich Retrieve results below the inline tool-output budget."""
+
+    fitted = _normalize_image_preview_urls(deepcopy(value))
+    if _encoded_length(fitted) <= _OUTPUT_CHAR_LIMIT:
+        return json.dumps(fitted, ensure_ascii=False, indent=2)
+    fitted["truncated"] = True
+    chunks = fitted.get("chunks")
+    if isinstance(chunks, list):
+        for chunk in chunks:
+            if isinstance(chunk, dict):
+                chunk["content"] = str(chunk.get("content") or "")[:600]
+    while isinstance(fitted.get("chunks"), list) and _encoded_length(fitted) > _OUTPUT_CHAR_LIMIT:
+        fitted["chunks"].pop()
+    return json.dumps(fitted, ensure_ascii=False, indent=2)
+
+
+def _invoke_retrieve_tool(query: str, runtime: object | None) -> str:
+    runtime_context = getattr(runtime, "context", None)
+    if isinstance(runtime_context, Mapping) and runtime_context.get("datalake_enabled") is False:
+        return json.dumps({"error": "Data Lake use is disabled for this run", "code": "datalake_disabled", "retryable": False})
+    if not query.strip():
+        return json.dumps({"error": "query is required", "code": "invalid_query"})
+
+    config_error = _retrieve_config_error("datalake_smart_qa")
+    if config_error:
+        logger.warning("DataLake Retrieve configuration is incomplete: %s", config_error)
+        return json.dumps({"error": "DataLake Retrieve is not configured", "code": config_error, "retryable": False})
+    try:
+        return _safe_retrieve_json(_retrieve_invoke("datalake_smart_qa", query))
+    except httpx.HTTPStatusError as exc:
+        status_code = exc.response.status_code
+        logger.error("DataLake Retrieve was rejected with HTTP %s", status_code)
+        return json.dumps({"error": "DataLake Retrieve request was rejected", "code": f"http_{status_code}", "retryable": status_code >= 500 or status_code == 429})
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.exception("DataLake Retrieve request failed")
+        return json.dumps({"error": "DataLake Retrieve request failed", "code": type(exc).__name__, "retryable": True})
 
 
 def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
@@ -445,17 +657,31 @@ def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
 
 @tool("datalake_smart_qa", parse_docstring=True)
 def datalake_smart_qa_tool(runtime: Runtime, query: str) -> str:
-    """Query narrative well-engineering documents in the enterprise DataLake.
+    """Retrieve narrative well-engineering evidence from the enterprise DataLake.
 
     Use this for document, report, well-history, geology, completion, and other
     narrative questions. Use detail QA for table fields or record lists, and
     metrics QA for named KPIs, plans, actuals, rankings, rates, or totals.
 
+    This tool returns ranked source chunks only. Analyze and summarize those
+    chunks yourself, identify uncertainty when the evidence is incomplete, and
+    cite the returned document names. Do not state that the retrieval service
+    generated the final answer.
+
+    When the result contains an ``/img-preview/`` URL and the user requests an
+    image or original illustration, download it in the sandbox to
+    ``/mnt/user-data/outputs`` with ``curl --fail --location --noproxy 10.77.124.142``. Preview URLs are already percent encoded when needed.
+    Verify the resulting file is larger than 1 KiB, then call
+    ``present_files`` immediately. Never use ``--noproxy '*'``, claim the
+    internal image service is unavailable before this exact attempt fails, or
+    replace the retrieved illustration with a generated chart without reporting
+    the failed download.
+
     Args:
         query: The user's complete DataLake document question.
     """
 
-    return _invoke_tool("datalake_smart_qa", query, runtime)
+    return _invoke_retrieve_tool(query, runtime)
 
 
 @tool("datalake_metrics_qa", parse_docstring=True)

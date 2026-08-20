@@ -640,14 +640,20 @@ tool_groups:
 # Configure available tools for the agent to use
 
 tools:
-  # CNOOC DataLake AppForge tools (internal deployment only).
-  # Keep APPFORGE_API_KEY in the process environment or Kubernetes Secret.
+  # CNOOC DataLake tools (internal deployment only). Smart QA uses the
+  # Retrieve API; Metrics and Detail continue to use AppForge.
   # - name: datalake_smart_qa
   #   group: knowledge
   #   use: deerflow.community.appforge.tools:datalake_smart_qa_tool
-  #   api_url: $APPFORGE_API_URL
-  #   api_key: $APPFORGE_API_KEY
-  #   app_id: $APPFORGE_SMART_QA_APP_ID
+  #   retrieve_api_url: $DATALAKE_RETRIEVE_API_URL
+  #   project_id: $DATALAKE_RETRIEVE_PROJECT_ID
+  #   document_store_ids:
+  #     - $DATALAKE_RETRIEVE_DOCUMENT_STORE_ID
+  #   retrieve_type: Hybrid
+  #   reranking_enabled: false
+  #   top_k: 10
+  #   score_threshold_enabled: false
+  #   weight: 0.5
   #   trust_env: false
   # - name: datalake_metrics_qa
   #   group: knowledge

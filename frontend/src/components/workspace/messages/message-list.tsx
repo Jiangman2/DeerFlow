@@ -73,7 +73,6 @@ import {
   parseSubtaskResult,
 } from "@/core/tasks/subtask-result";
 import type { AgentThreadState } from "@/core/threads";
-import { isStaticDemoThreadId } from "@/core/threads/static-demo";
 import { cn } from "@/lib/utils";
 
 import { ArtifactFileList } from "../artifacts/artifact-file-list";
@@ -269,13 +268,13 @@ export function MessageList({
 }) {
   const { t } = useI18n();
   const sidecar = useMaybeSidecar();
-  const { select: selectArtifact, setOpen: setArtifactsOpen } = useArtifacts();
+  const { select: selectArtifact, openArtifactPanel } = useArtifacts();
   const handleArtifactClick = useCallback(
     (filepath: string) => {
       selectArtifact(filepath);
-      setArtifactsOpen(true);
+      openArtifactPanel();
     },
-    [selectArtifact, setArtifactsOpen],
+    [openArtifactPanel, selectArtifact],
   );
   const handleArtifactLinkClickCapture = useCallback(
     (event: MouseEvent<HTMLElement>) => {
@@ -812,8 +811,6 @@ export function MessageList({
   const unrenderedArtifactPaths = artifactPaths.filter(
     (filepath) => !messagePresentedArtifactPaths.has(filepath),
   );
-  const isStaticDemo = isStaticDemoThreadId(threadId);
-
   return (
     <>
       <Conversation
@@ -1147,8 +1144,11 @@ export function MessageList({
               />
             </div>
           ))}
-          {isStaticDemo && unrenderedArtifactPaths.length > 0 && (
-            <div className="w-full pb-4">
+          {unrenderedArtifactPaths.length > 0 && (
+            <div
+              className="w-full pb-4"
+              data-testid="conversation-artifact-fallback"
+            >
               <ArtifactFileList
                 files={unrenderedArtifactPaths}
                 threadId={threadId}
@@ -1167,14 +1167,6 @@ export function MessageList({
           <div style={{ height: `${paddingBottom}px` }} />
         </ConversationContent>
       </Conversation>
-      {!isStaticDemo && unrenderedArtifactPaths.length > 0 && (
-        <div className="mx-auto w-full max-w-(--container-width-md) px-4 pb-4">
-          <ArtifactFileList
-            files={unrenderedArtifactPaths}
-            threadId={threadId}
-          />
-        </div>
-      )}
       {selectionToolbar && sidecar && (
         <div
           className={cn(

@@ -1,5 +1,3 @@
-import { type AuthResult } from "./types";
-
 const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
 
 export function isSsoOnlyMode(value: string | undefined): boolean {
@@ -29,25 +27,4 @@ export function resolveSsoOnlyAuthRedirect(
   // Never render local login/setup forms merely because the external portal
   // URL is missing or malformed. The landing page contains no credential form.
   return "/";
-}
-
-export function resolveUnauthenticatedHomeRedirect(
-  authResult: AuthResult,
-  configuredUrl: string | undefined,
-): string | null {
-  if (authResult.tag !== "unauthenticated") {
-    return null;
-  }
-
-  const candidate = configuredUrl?.trim();
-  if (!candidate) {
-    return null;
-  }
-
-  try {
-    const target = new URL(candidate);
-    return target.protocol === "https:" ? target.toString() : null;
-  } catch {
-    return null;
-  }
 }

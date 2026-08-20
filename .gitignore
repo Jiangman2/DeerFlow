@@ -66,6 +66,16 @@ config.yaml.bak
 /frontend/playwright-report/
 .codex-ppt-build/
 outputs/
+
+# The bundled read-only demo thread ships real presentation artifacts. Keep
+# these files in release source archives even though generic runtime outputs
+# remain ignored everywhere else.
+!frontend/public/demo/
+!frontend/public/demo/threads/
+!frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66/
+!frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66/user-data/
+!frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66/user-data/outputs/
+!frontend/public/demo/threads/1490ac9e-1573-479d-875c-bd5680f3ba66/user-data/outputs/**
 .gstack/
 .worktrees
 

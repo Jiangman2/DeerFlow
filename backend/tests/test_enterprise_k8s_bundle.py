@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -179,6 +180,26 @@ def test_enterprise_ppt_runner_retains_proxy_and_ca_boundary():
     }
 
 
+def test_enterprise_ppt_agent_disables_provider_hosted_web_search():
+    patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
+    provisioner = next(
+        patch
+        for patch in patches
+        if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "provisioner"
+    )
+    env = {
+        entry["name"]: entry.get("value")
+        for entry in provisioner["spec"]["template"]["spec"]["containers"][0]["env"]
+        if "value" in entry
+    }
+
+    codex_config = tomllib.loads(env["CODEX_CONFIG_TOML"])
+
+    assert codex_config["web_search"] == "disabled"
+    assert codex_config["model_provider"] == "cnooc_deepseek"
+    assert codex_config["model_providers"]["cnooc_deepseek"]["wire_api"] == "responses"
+
+
 def test_networked_enterprise_builds_use_optional_buildkit_secrets():
     networked_dockerfiles = (
         "backend/Dockerfile",
@@ -210,11 +231,11 @@ def test_enterprise_runtime_images_are_immutable():
     assert custom
     assert all(image.get("digest", "").startswith("sha256:") for image in third_party)
     expected_tags = {
-        "deer-flow-gateway": "20260811-enterprise-arm64-rc15-consolidated1",
-        "deer-flow-frontend": "20260811-enterprise-arm64-rc15-consolidated1",
-        "deer-flow-provisioner": "20260811-enterprise-arm64-rc15-consolidated1",
-        "deer-flow-skills": "20260811-enterprise-arm64-rc15-consolidated1",
-        "deer-flow-mineru-adapter": "20260811-enterprise-arm64-rc15-consolidated1",
+        "deer-flow-gateway": "20260811-enterprise-arm64-rc15-consolidated2",
+        "deer-flow-frontend": "20260811-enterprise-arm64-rc15-consolidated2",
+        "deer-flow-provisioner": "20260811-enterprise-arm64-rc15-consolidated2",
+        "deer-flow-skills": "20260811-enterprise-arm64-rc15-consolidated2",
+        "deer-flow-mineru-adapter": "20260811-enterprise-arm64-rc15-consolidated2",
         "paradedb/paradedb": "pg16-search-arm64-20260722-1",
         "wechatopenai/weknora-app": "0.7.0-enterprise-proxy1-arm64-20260723",
     }
@@ -417,7 +438,7 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
     assert container["envFrom"] == [{"secretRef": {"name": "deer-flow-mineru"}}]
     assert container["imagePullPolicy"] == "Never"
     assert container["resources"]["requests"] == {"cpu": "500m", "memory": "1Gi"}
-    assert container["resources"]["limits"] == {"cpu": "2", "memory": "2Gi"}
+    assert container["resources"]["limits"] == {"cpu": "2", "memory": "4Gi"}
     assert container["readinessProbe"] == {
         "httpGet": {"path": "/health", "port": "http"},
         "initialDelaySeconds": 3,
@@ -481,6 +502,9 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert "model.ai.cnooc" in weknora_env["no_proxy"].split(",")
     assert weknora_env["WEKNORA_PREFER_CNOOC_DEEPSEEK"] == "true"
     assert weknora_env["WEKNORA_ASYNQ_CORE_CONCURRENCY"] == "2"
+    assert weknora_env["WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY"] == "2"
+    assert weknora_env["WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY"] == "12"
+    assert weknora_env["WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY"] == "4"
     assert weknora_env["WEKNORA_ASYNQ_SHARED_CONCURRENCY"] == "1"
     assert weknora_env["WEKNORA_DOCREADER_CALL_TIMEOUT"] == "30m"
     assert weknora_env["WEKNORA_DOCUMENT_PROCESS_TIMEOUT"] == "2h"
@@ -508,6 +532,11 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert adapter_env["MINERU_REQUEST_MODE"] == "async"
     assert adapter_env["MINERU_TIMEOUT_SECONDS"] == "1800"
     assert adapter_env["MINERU_POLL_INTERVAL_SECONDS"] == "3"
+    assert adapter_env["MINERU_TRANSIENT_POLL_RETRIES"] == "20"
+    assert adapter_env["MINERU_SYNC_MAX_PAGES_PER_REQUEST"] == "20"
+    assert adapter_env["MINERU_SYNC_TRANSIENT_RETRIES"] == "2"
+    assert adapter_env["MINERU_SYNC_RETRY_DELAY_SECONDS"] == "2"
+    assert adapter_env["MINERU_SYNC_RETRY_MAX_ELAPSED_SECONDS"] == "600"
     assert adapter_env["MINERU_TRUST_ENV"] == "false"
 
 
@@ -771,6 +800,8 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
     assert provisioner_values["SANDBOX_OPENSSL_CONFIGMAP_KEY"] == "openssl.cnf"
     assert provisioner_values["SANDBOX_OPENSSL_MOUNT_PATH"] == "/etc/deerflow-openssl"
     assert provisioner_values["DASHSCOPE_TLS_COMPAT"] == "true"
+    assert provisioner_values["SANDBOX_EPHEMERAL_STORAGE_REQUEST"] == "2Gi"
+    assert provisioner_values["SANDBOX_EPHEMERAL_STORAGE_LIMIT"] == "12Gi"
     sandbox_secret_keys = set(provisioner_values["SANDBOX_SECRET_ENV_KEYS"].split(","))
     assert "DASHSCOPE_API_KEY" in sandbox_secret_keys
     assert "GEMINI_API_KEY" not in sandbox_secret_keys
@@ -801,7 +832,17 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
     gateway_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
     gateway_env = gateway_patch["spec"]["template"]["spec"]["containers"][0]["env"]
     gateway_values = {entry["name"]: entry.get("value") for entry in gateway_env if "value" in entry}
+    gateway_secret_refs = {
+        entry["name"]: entry.get("valueFrom", {}).get("secretKeyRef", {})
+        for entry in gateway_env
+        if "valueFrom" in entry
+    }
     assert gateway_values["DASHSCOPE_TLS_COMPAT"] == "true"
+    for proxy_name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+        assert gateway_secret_refs[proxy_name] == {
+            "name": "deer-flow-env",
+            "key": proxy_name,
+        }
     assert gateway_values["NO_PROXY"] == gateway_values["no_proxy"]
     assert {
         "github.com",

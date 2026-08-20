@@ -292,7 +292,7 @@ function MessageContent_({
   runId?: string;
   turnStartTime?: number | null;
 }) {
-  const { select: selectArtifact, setOpen: setArtifactsOpen } = useArtifacts();
+  const { select: selectArtifact, openArtifactPanel } = useArtifacts();
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const isHuman = message.type === "human";
   const rawTurnDuration = message.additional_kwargs?.turn_duration as
@@ -341,9 +341,9 @@ function MessageContent_({
   const handleArtifactClick = useCallback(
     (filepath: string) => {
       selectArtifact(filepath);
-      setArtifactsOpen(true);
+      openArtifactPanel();
     },
-    [selectArtifact, setArtifactsOpen],
+    [openArtifactPanel, selectArtifact],
   );
   const handleArtifactLinkClickCapture = useCallback(
     (event: ReactMouseEvent<HTMLElement>) => {

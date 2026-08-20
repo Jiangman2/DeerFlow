@@ -1,0 +1,39 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { describe, expect, test } from "@rstest/core";
+
+const landingPageSource = readFileSync(
+  resolve(process.cwd(), "src/app/page.tsx"),
+  "utf8",
+);
+const headerSource = readFileSync(
+  resolve(process.cwd(), "src/components/landing/header.tsx"),
+  "utf8",
+);
+const heroSource = readFileSync(
+  resolve(process.cwd(), "src/components/landing/hero.tsx"),
+  "utf8",
+);
+const nginxSource = readFileSync(
+  resolve(process.cwd(), "../k8s/local-pvc/nginx.conf"),
+  "utf8",
+);
+
+describe("enterprise landing entry", () => {
+  test("always renders the landing page at the exact root", () => {
+    expect(landingPageSource).toContain("<Header />");
+    expect(landingPageSource).toContain("<Hero />");
+    expect(landingPageSource).not.toContain("getServerSideUser");
+    expect(landingPageSource).not.toContain("redirect(");
+    expect(nginxSource).not.toContain('if ($cookie_access_token = "")');
+    expect(nginxSource).not.toContain("location = / {");
+  });
+
+  test("sends every landing CTA through the existing server auth route", () => {
+    expect(headerSource.match(/href=\{brand\.links\.login\}/g)).toHaveLength(2);
+    expect(headerSource).not.toContain("href={brand.links.workspace}");
+    expect(heroSource).toContain("href={brand.links.login}");
+    expect(heroSource).not.toContain("href={brand.links.workspace}");
+  });
+});

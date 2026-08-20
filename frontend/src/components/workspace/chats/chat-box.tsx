@@ -1,6 +1,6 @@
 import { FilesIcon, XIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { ConversationEmptyState } from "@/components/ai-elements/conversation";
 import { Button } from "@/components/ui/button";
@@ -30,13 +30,15 @@ const RIGHT_PANEL_ANIMATION_MS = 280;
 
 type RightPanelKind = "sidecar" | "artifacts";
 
-const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
-  children,
-  threadId,
-}) => {
+const ChatBox: React.FC<{
+  children: React.ReactNode;
+  threadId: string;
+  canHydratePersistedArtifacts?: boolean;
+}> = ({ children, threadId, canHydratePersistedArtifacts = true }) => {
   const { thread } = useThread();
   const isMobile = useIsMobile();
   const pathname = usePathname();
+  const isNewChatPath = pathname.endsWith("/new");
   const { t } = useI18n();
   const threadIdRef = useRef(threadId);
 
@@ -50,56 +52,74 @@ const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
   } = useArtifacts();
   const sidecar = useMaybeSidecar();
   const sidecarOpen = sidecar?.open ?? false;
+  const artifactHydrationThreadIdRef = useRef<string | null>(null);
+
+  // The dynamic chat route reuses this provider while its thread id changes
+  // from the welcome id to the authoritative runtime id (and when navigating
+  // between conversations). Clear an opened file surface before the browser
+  // paints the new thread. Doing this in the asynchronous hydration effect
+  // leaves one stale frame in which the old drawer covers the new transcript.
+  useLayoutEffect(() => {
+    if (threadIdRef.current === threadId) {
+      return;
+    }
+    threadIdRef.current = threadId;
+    artifactHydrationThreadIdRef.current = null;
+    deselect();
+    setArtifacts([]);
+  }, [deselect, setArtifacts, threadId]);
 
   useEffect(() => {
-    let disposed = false;
     const threadArtifacts = Array.isArray(thread.values.artifacts)
       ? thread.values.artifacts
       : undefined;
 
-    if (threadIdRef.current !== threadId) {
-      threadIdRef.current = threadId;
-      deselect();
-      setArtifacts([]);
-    }
-
-    // Stream hydration can restore paged messages before it restores
-    // non-message channels after a page reload. Recover the persisted
-    // artifact channel explicitly when that first snapshot is empty.
     if (threadArtifacts?.length) {
       setArtifacts(threadArtifacts);
-    } else if (threadId) {
-      void getAPIClient(undefined, threadId)
-        .threads.getState(threadId)
-        .then((state) => {
-          const persistedArtifacts = extractArtifactsFromStateSnapshot(state);
-          if (!disposed && persistedArtifacts.length > 0) {
-            setArtifacts(persistedArtifacts);
-          }
-        })
-        .catch(() => {
-          // The normal stream remains authoritative; a transient state read
-          // must not break the conversation surface.
-        });
+    }
+  }, [setArtifacts, thread.values.artifacts]);
+
+  useEffect(() => {
+    // `/chats/new` owns a client-generated UUID before the first run creates
+    // the thread. Never probe that provisional id: the canonical response is
+    // necessarily 404 and was polluting the browser console on every refresh.
+    // For a persisted thread, make at most one fallback read per mount/thread;
+    // normal stream updates above remain authoritative afterwards.
+    if (
+      !canHydratePersistedArtifacts ||
+      isNewChatPath ||
+      !threadId ||
+      artifactHydrationThreadIdRef.current === threadId ||
+      (Array.isArray(thread.values.artifacts) &&
+        thread.values.artifacts.length > 0)
+    ) {
+      return;
     }
 
-    // DO NOT automatically deselect the artifact when switching threads, because the artifacts auto discovering is not work now.
-    // if (
-    //   selectedArtifact &&
-    //   !thread.values.artifacts?.includes(selectedArtifact)
-    // ) {
-    //   deselect();
-    // }
+    artifactHydrationThreadIdRef.current = threadId;
+    let disposed = false;
+    void getAPIClient(undefined, threadId)
+      .threads.getState(threadId)
+      .then((state) => {
+        const persistedArtifacts = extractArtifactsFromStateSnapshot(state);
+        if (!disposed && persistedArtifacts.length > 0) {
+          setArtifacts(persistedArtifacts);
+        }
+      })
+      .catch(() => {
+        // The normal stream remains authoritative; a transient state read
+        // must not break the conversation surface.
+      });
 
     return () => {
       disposed = true;
     };
   }, [
-    threadId,
-    deselect,
-    selectedArtifact,
+    canHydratePersistedArtifacts,
+    isNewChatPath,
     setArtifacts,
     thread.values.artifacts,
+    threadId,
   ]);
 
   const artifactPanelOpen = useMemo(() => {

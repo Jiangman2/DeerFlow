@@ -145,6 +145,9 @@ published, and their paired previews are regenerated when stale.
 The transport graph also derives a bounded title from the original Slash
 request and writes it to `ThreadState.title`; it does not attach the lead
 `TitleMiddleware` or invoke a second model solely for naming the conversation.
+That short initializer is state-only; LangGraph-injected node parameters must
+use the exact `config` / `runtime` names, and the compiled-graph invocation test
+guards this contract before release.
 
 The legacy `ppt-master` adapter additionally closes its official Executor authority set
 before SVG authoring and blocks entry while any `ai`/`web`/`slice` resource is
@@ -214,6 +217,7 @@ FastAPI application providing REST endpoints for frontend integration:
 | `GET /api/threads/{id}/uploads/list`         | List uploaded files                                                                                                                                   |
 | `DELETE /api/threads/{id}`                   | Delete DeerFlow-managed local thread data after LangGraph thread deletion; unexpected failures are logged server-side and return a generic 500 detail |
 | `GET /api/threads/{id}/artifacts/{path}`     | Serve generated artifacts                                                                                                                             |
+| `GET /api/threads/{id}/artifact-previews/pdf/{path}` | Render a validated generated output PDF as a scriptless server-rasterized page gallery; uploads and unsafe PDFs are rejected                         |
 
 ### IM Channels
 

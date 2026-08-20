@@ -323,9 +323,7 @@ class TestBuildPodVolumes:
             "SANDBOX_API_KEY",
             "PPT_MASTER_RESPONSES_RELAY_KEY",
         )
-        provisioner_module.PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS = frozenset(
-            {"PPT_MASTER_RESPONSES_RELAY_KEY"}
-        )
+        provisioner_module.PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS = frozenset({"PPT_MASTER_RESPONSES_RELAY_KEY"})
         pod = provisioner_module._build_pod("sandbox-1", "thread-1")
 
         assert [container.name for container in pod.spec.containers] == [
@@ -340,10 +338,36 @@ class TestBuildPodVolumes:
         host_env_names = {item.name for item in host.env}
         assert "PPT_MASTER_RESPONSES_RELAY_KEY" not in sandbox_env_names
         assert "PPT_MASTER_RESPONSES_RELAY_KEY" in host_env_names
-        assert [(mount.name, mount.mount_path, mount.read_only) for mount in host.volume_mounts] == [
-            (mount.name, mount.mount_path, mount.read_only)
-            for mount in pod.spec.containers[0].volume_mounts
-        ]
+        host_env = {item.name: item.value for item in host.env if item.value is not None}
+        assert host_env["TMPDIR"] == provisioner_module.PPT_MASTER_AGENT_TEMP_ROOT
+        assert host_env["TMP"] == provisioner_module.PPT_MASTER_AGENT_TEMP_ROOT
+        assert host_env["TEMP"] == provisioner_module.PPT_MASTER_AGENT_TEMP_ROOT
+        assert [(mount.name, mount.mount_path, mount.read_only) for mount in host.volume_mounts] == [(mount.name, mount.mount_path, mount.read_only) for mount in pod.spec.containers[0].volume_mounts]
+
+    def test_pod_uses_configurable_ephemeral_storage_budget(self, provisioner_module):
+        provisioner_module.SANDBOX_EPHEMERAL_STORAGE_REQUEST = "3Gi"
+        provisioner_module.SANDBOX_EPHEMERAL_STORAGE_LIMIT = "14Gi"
+
+        pod = provisioner_module._build_pod("sandbox-1", "thread-1")
+        resources = pod.spec.containers[0].resources
+
+        assert resources.requests["ephemeral-storage"] == "3Gi"
+        assert resources.limits["ephemeral-storage"] == "14Gi"
+
+    def test_pod_initializes_writable_user_data_roots_before_containers_start(self, provisioner_module):
+        pod = provisioner_module._build_pod("sandbox-1", "thread-1")
+
+        assert pod.spec.init_containers is not None
+        assert len(pod.spec.init_containers) == 1
+        initializer = pod.spec.init_containers[0]
+        assert initializer.name == "prepare-user-data"
+        assert initializer.command[:2] == ["python3", "-c"]
+        command = initializer.command[2]
+        assert "/mnt/user-data/workspace" in command
+        assert "/mnt/user-data/uploads" in command
+        assert "/mnt/user-data/outputs" in command
+        assert "/mnt/user-data/workspace/.ppt-master-agent/tmp" in command
+        assert [(mount.name, mount.mount_path, mount.read_only) for mount in initializer.volume_mounts] == [("user-data", "/mnt/user-data", False)]
 
     def test_ppt_master_agent_host_service_port_is_cluster_internal(self, provisioner_module):
         provisioner_module.PPT_MASTER_AGENT_HOST_ENABLED = True

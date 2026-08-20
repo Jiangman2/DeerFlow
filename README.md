@@ -313,10 +313,12 @@ validated employee display name together with the login account and
 organization name. Legacy or local accounts without those optional profile
 fields continue to display their login account.
 Enterprise deployments may set the server-only
-`DEER_FLOW_UNAUTHENTICATED_HOME_URL` to an HTTPS data-lake portal. A direct
-unauthenticated visit to DeerFlow's exact root path then returns to that portal,
-while authenticated sessions, API routes, static assets, and workspace deep
-links continue to use DeerFlow normally.
+`DEER_FLOW_UNAUTHENTICATED_HOME_URL` to an HTTPS data-lake portal. DeerFlow's
+exact root path always renders the public product landing page. Its Login, New
+Chat, and Get Started actions enter the server-side auth route: an authenticated
+session continues to the workspace, while an unauthenticated session returns to
+that portal. APIs, static assets, and workspace deep links keep their normal
+authorization behavior.
 Set `DEER_FLOW_SSO_ONLY=true` on both Gateway and Frontend when CNOOC DataLake
 SSO is the only approved sign-in path. In this mode every unauthenticated auth
 page redirects to `DEER_FLOW_UNAUTHENTICATED_HOME_URL`, while Gateway rejects
@@ -817,20 +819,21 @@ uv run python -m deerflow.skills.review.cli ../skills/public/data-analysis --for
 
 Tools follow the same philosophy. DeerFlow comes with a core toolset — web search, web fetch, rendered web capture, file operations, bash execution — and supports custom tools via MCP servers and Python functions. Swap anything. Add anything.
 
-Enterprise deployments can also enable three CNOOC DataLake tools backed by
-the internal AppForge application system: `datalake_smart_qa` for narrative
-document questions, `datalake_metrics_qa` for indicators and KPIs, and
-`datalake_detail_qa` for record/table-field lookups. Add their entries from
-`config.example.yaml`, inject `APPFORGE_API_KEY` through the runtime Secret,
-set the three reviewed workflow IDs explicitly (`app-p2cpu4dn`, `app-n9ahac7g`,
-and `app-5md031ia`), and keep `trust_env: false` for the reviewed internal
-direct route. Credentials and workflow identity values are never model-visible.
+Enterprise deployments can also enable three CNOOC DataLake tools:
+`datalake_smart_qa` calls the internal Retrieve API and returns ranked narrative
+source chunks, while `datalake_metrics_qa` and `datalake_detail_qa` continue to
+call the internal AppForge indicator and record workflows. Add their entries
+from `config.example.yaml`, inject the Retrieve endpoint/project/document-store
+identity and `APPFORGE_API_KEY` through the runtime Secret, keep the reviewed
+Metrics/Detail workflow IDs explicit (`app-n9ahac7g` and `app-5md031ia`), and
+keep `trust_env: false` for both reviewed internal direct routes. Credentials
+and workflow identity values are never model-visible.
 
 The chat composer exposes this integration as **Data Lake**. The user's
 enabled/disabled choice is stored once in browser settings and applies to every
 conversation; missing settings default to enabled. Choosing **Do not use Data
 Lake** hides the Data Lake file list, closes an open list dialog, and prevents
-the three AppForge tools from being assembled or contacted for each run.
+all three DataLake tools from being assembled or contacted for each run.
 Existing attachments remain part of their conversations, and the choice is
 carried into normal, regenerated, custom-agent, and branched runs.
 
@@ -838,7 +841,15 @@ Gateway-generated follow-up suggestions now normalize both plain-string model ou
 
 The Web UI composer can polish draft input before sending. The rewrite runs as a short Gateway LLM request using the `input_polish` model configuration, keeps slash skill prefixes such as `/data-analysis`, and only replaces the local draft after the user clicks the polish button; it does not create a thread run or persist a message.
 
-The Web UI composer also supports browser-based voice dictation when the browser exposes the Web Speech API. The microphone button transcribes speech into the local draft only; DeerFlow receives only the transcribed text, while audio handling is delegated to the browser or operating system speech-recognition service according to that environment's policy. Users can review or edit the text before sending.
+The Web UI composer supports same-origin enterprise voice dictation. The browser
+records microphone audio as 16 kHz mono PCM16 and streams it through the
+authenticated Gateway WebSocket at `/api/voice-input/stream`; Gateway owns the
+`QWEN_ASR_API_KEY` Secret and relays the audio to the configured Qwen3-ASR
+service. Only the bounded transcript contract returns to the composer, where
+users can review or edit it before sending. Microphone capture requires a
+secure browser context: deploy DeerFlow behind HTTPS, or use an audited
+enterprise-browser policy that marks the exact intranet HTTP origin as secure.
+The legacy browser `SpeechRecognition` service is not used as a fallback.
 
 Interrupted first-turn runs still persist a fallback conversation title, so stopping a streaming response does not leave the thread as "Untitled" after refresh.
 
@@ -923,6 +934,13 @@ and delegated agents apply the same default to user-visible answers, titles,
 descriptions, summaries, and reports while preserving code, API fields, paths,
 standards, and proper nouns where their original spelling matters.
 
+Custom-agent chat routes decode the URL path segment before looking up the
+agent, displaying its name, or creating the run context, then re-encode it for
+subsequent navigation. This keeps Chinese names readable and routes them to the
+correct agent. The welcome avatar uses a separate translucent background layer
+instead of slash-alpha Tailwind colors so the robot glyph remains visible in
+older enterprise browsers without `color-mix()` support.
+
 Ultra/parallel runs keep every subtask in the current user turn marked as
 running until that subtask returns a terminal result. If the parent run stops
 first, the UI reports the subtask as incomplete rather than failed; long task
@@ -955,9 +973,12 @@ encryption that prevents inspection. Original uploaded documents are delivered
 as downloads rather than rendered in the authenticated application origin
 (safe raster images, media, and passive text remain viewable). Inert generated
 PDF outputs retain the right-side preview with response CSP and an iframe
-sandbox. LibreOffice's strictly shaped first-page destination is treated as
+sandbox. Both ordinary generated PDFs and PowerPoint companion PDFs use a
+server-rasterized, scriptless page gallery, so enterprise browsers do not
+depend on a native PDF plug-in. LibreOffice's strictly shaped first-page destination is treated as
 inert navigation metadata; indirect actions, scripts, attachments, encryption,
-and other suspicious PDF features still fall back to download.
+oversized files, original uploads, and other suspicious PDF features remain
+excluded from the gallery and fall back to download.
 PPT/PPTX files attached to an explicit `/ppt-master` request are preserved as
 presentation templates rather than converted through the document parser.
 
@@ -966,10 +987,9 @@ and PPTX uploads reuse that same enterprise parser without creating a
 knowledge-base record. The Gateway keeps the original document and writes a
 same-stem Markdown companion for the current task. Searchable PDFs and Word
 documents use the adapter's native path, scanned PDFs use enterprise OCR, and
-presentations use its presentation conversion path. A successful native Word
-parse is retained when LibreOffice cannot produce the optional visual PDF
-supplement, so text, tables, and native images remain usable while that one
-document omits render-only chart/SmartArt evidence. Set
+presentations use its presentation conversion path. Word native content is
+merged only after its mandatory visual PDF and page-evidence path succeeds, so
+the adapter never labels a text-only result as visually complete. Set
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=false` to disable this bridge, or
 override its base URL with
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`. The older
@@ -977,6 +997,11 @@ override its base URL with
 The enterprise overlay sets `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860`,
 giving the Gateway 60 seconds beyond the Adapter's bounded 1800-second upstream
 wait to receive and persist the completed response.
+For knowledge-base ingestion, the enterprise WeKnora 0.7.0 deployment keeps
+MinerU admission on the small core/shared worker budget while assigning image
+OCR/caption and other model-heavy fan-out to its independent 12-worker
+enrichment pool. This keeps a large `multimodal` backlog from delaying newly
+parsed PDF and Word documents without increasing concurrent MinerU calls.
 When `uploads.auto_convert_documents=true`, or the enterprise-only
 `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true` override is set, an adapter
 failure falls back to DeerFlow's local `convert_file_to_markdown()` conversion.
@@ -1277,13 +1302,21 @@ adapter. Legacy OLE2 `.doc` and `.ppt` files are identified from their compound
 document root streams when WeKnora forwards the upload with a generic multipart
 filename, so parser routing never depends on the original extension surviving
 the internal handoff. Office files are converted to a temporary PDF for the
-visual pass and, when needed, the approved internal MinerU-2605 API. The adapter
-uses the native asynchronous Bearer-authenticated contract: multipart
-`POST /tasks`, bounded status polling, and JSON result retrieval from the
-task-scoped result endpoint. The Adapter still exposes a synchronous in-cluster
-contract to WeKnora, requests Markdown plus inline images, and treats HTTP-200
-business-error envelopes as failures. It never submits the same document again
-through the synchronous endpoint after an asynchronous task was accepted. The
+visual pass and, when needed, the approved internal MinerU-2605 API. The
+enterprise adapter uses the provider-supported asynchronous,
+Bearer-authenticated multipart `POST /tasks` contract with a bounded
+1800-second end-to-end timeout. It submits each parse once, polls only the
+accepted task ID, and retrieves that same task's result; short-lived status or
+result HTTP 404 responses, business code `20006`, and transient status/result
+connection or read-timeout failures receive bounded same-task retries. It never
+duplicates the task submission or silently falls back to a second synchronous
+request. The synchronous 20-page batching configuration is
+retained only as an explicit emergency rollback path. Word's native
+text/table extraction is merged only after its complete PDF visual pass
+succeeds; conversion, MinerU, or required source-page rendering failure rejects
+the incomplete document instead of falsely reporting visual success.
+The Adapter requests Markdown plus inline images and treats
+HTTP-200 business-error envelopes as failures. The
 direct client disables environment proxy inheritance
 but explicitly binds the mounted enterprise CA bundle, preserving certificate
 and hostname verification even though Requests no longer merges CA environment
@@ -1517,6 +1550,19 @@ artifact/preview persistence. The host fails closed when no real Codex auth or
 Responses-compatible provider is configured; a Chat-Completions-only endpoint
 is not silently treated as a Codex Agent host. See
 [`docs/ppt-master-isolated-runner.md`](docs/ppt-master-isolated-runner.md).
+Provisioning creates the thread's writable `workspace`, `uploads`, and `outputs`
+roots before either Sandbox container starts. The Agent host checks that contract
+again before every initial or delivery-repair process and restores its writable
+Skill/Codex runtime if the workspace disappeared, so a missing directory cannot
+abort the PPT task and leave the UI polling a thread state that was never saved.
+The bridge then waits for the Agent-host health endpoint independently of the
+Sandbox command API and retries only bounded transient DNS/connection failures;
+this prevents a newly provisioned Pod from failing merely because its sidecar
+or ClusterIP DNS record became ready a few seconds later than the main container.
+While an Agent turn is active, the runner also holds a cross-process filesystem
+execution lease. Gateway warm-pool and explicit-destroy paths must obtain the
+exclusive side of that lease before deleting the Sandbox, so an idle/capacity
+decision in another Gateway process cannot terminate a live PPT task.
 Agent progress is normalized to the same plain message-dictionary contract used
 by durable `task_*` events before it reaches the stream and event store; live
 LangChain message objects never cross that transport boundary. The isolated
@@ -1525,13 +1571,25 @@ invoking a second title model. Expanding the `ppt-master 官方工作流` card s
 the persisted command/query summary and provides on-demand tool input/output;
 real Sandbox Live Preview URLs in that timeline are rewritten to the
 authenticated thread proxy instead of exposing an unusable loopback link.
+The browser keeps isolated-runner state/history reads on the same runtime after
+refresh without first probing the ordinary checkpoint namespace. Thread task
+cards are keyed by the current conversation, and stale artifact selection is
+cleared before the next thread paints, preventing a running PPT workflow or a
+brief file drawer from appearing in a newly opened ordinary conversation.
 
 The local Kubernetes profile runs the host against Alibaba Cloud Model Studio's
 native Responses API with `qwen3.7-max` and the existing
 `DASHSCOPE_API_KEY`. The enterprise profile keeps the internal
 `DeepSeek-V4-Flash` Chat Completions credential in Gateway and gives the Agent
 host only a separate scoped relay key; Gateway translates the streamed
-enterprise protocol to Responses. Provider configuration without its selected
+enterprise protocol to Responses. Codex namespace tool containers are flattened
+to collision-safe Chat Completions function names at that boundary and restored
+with their original namespace on the Responses stream, so newer Codex CLI
+versions keep all grouped Agent tools without requiring native namespace support
+from the internal model endpoint. The enterprise Codex profile disables its
+provider-hosted `web_search`, and the relay defensively removes the two known
+hosted web-search definitions while preserving ordinary local Agent tools;
+unknown tool protocols remain hard errors. Provider configuration without its selected
 `env_key` is rejected before Codex starts, and the enterprise bridge never
 disables CA or hostname verification.
 

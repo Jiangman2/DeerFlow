@@ -32,8 +32,14 @@ class WarmPoolLifecycleMixin[WarmEntryT]:
         """Return active entry count while ``_lock`` is held."""
         raise NotImplementedError
 
-    def _destroy_warm_entry(self, sandbox_id: str, entry: WarmEntryT, *, reason: str) -> None:
-        """Destroy a warm-pool entry after it has been removed from the pool."""
+    def _destroy_warm_entry(self, sandbox_id: str, entry: WarmEntryT, *, reason: str) -> bool:
+        """Destroy a removed warm entry, returning whether it was destroyed.
+
+        A provider may temporarily refuse destruction while another process
+        holds an execution lease for the same resource. The shared lifecycle
+        helper then restores that entry instead of losing all tracking for a
+        still-running sandbox.
+        """
         raise NotImplementedError
 
     def _replica_count(self) -> tuple[int, int]:
@@ -58,13 +64,24 @@ class WarmPoolLifecycleMixin[WarmEntryT]:
     def _evict_oldest_warm(self) -> str | None:
         """Remove and destroy the oldest warm entry by timestamp."""
         with self._lock:
-            if not self._warm_pool:
-                return None
-            sandbox_id, (entry, _) = min(self._warm_pool.items(), key=lambda item: item[1][1])
-            self._warm_pool.pop(sandbox_id)
+            candidates = sorted(self._warm_pool.items(), key=lambda item: item[1][1])
 
-        self._destroy_warm_entry(sandbox_id, entry, reason="replica_enforcement")
-        return sandbox_id
+        # Try each candidate at most once. A cross-process execution lease may
+        # protect one or all warm entries; repeatedly selecting the protected
+        # oldest entry would otherwise spin forever during capacity checks.
+        for sandbox_id, (entry, _) in candidates:
+            with self._lock:
+                current = self._warm_pool.get(sandbox_id)
+                if current is None or current[0] is not entry:
+                    continue
+                self._warm_pool.pop(sandbox_id)
+
+            if self._destroy_warm_entry(sandbox_id, entry, reason="replica_enforcement"):
+                return sandbox_id
+
+            with self._lock:
+                self._warm_pool.setdefault(sandbox_id, (entry, time.time()))
+        return None
 
     def _evict_warm_until_capacity(self, *, reserve: int = 0) -> list[str]:
         """Evict warm entries until ``total + reserve <= replicas``.
@@ -99,7 +116,10 @@ class WarmPoolLifecycleMixin[WarmEntryT]:
                 self._warm_pool.pop(sandbox_id, None)
 
         for sandbox_id, entry in expired:
-            self._destroy_warm_entry(sandbox_id, entry, reason="idle_timeout")
+            if self._destroy_warm_entry(sandbox_id, entry, reason="idle_timeout"):
+                continue
+            with self._lock:
+                self._warm_pool.setdefault(sandbox_id, (entry, time.time()))
 
     def _start_idle_checker(self) -> None:
         """Start the daemon thread that periodically cleans idle warm entries."""

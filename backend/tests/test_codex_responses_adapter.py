@@ -130,13 +130,199 @@ def test_custom_tool_is_lowered_to_chat_function_and_restored() -> None:
         }
     )
 
-    output = adapter._response_output(completion, converted.tool_kinds)
+    output = adapter._response_output(completion, converted.tool_targets)
 
     assert converted.tool_kinds == {"apply_patch": "custom"}
     assert converted.payload["tools"][0]["function"]["parameters"]["required"] == ["input"]
     assert output[0]["type"] == "custom_tool_call"
     assert output[0]["name"] == "apply_patch"
     assert output[0]["input"] == "*** Begin Patch\n*** End Patch"
+
+
+def test_namespace_tools_are_flattened_and_restored_without_losing_history() -> None:
+    payload = _responses_payload(
+        tools=[
+            {
+                "type": "namespace",
+                "name": "multi_agent_v1",
+                "description": "Tools for managing sub-agents.",
+                "tools": [
+                    {
+                        "type": "function",
+                        "name": "spawn_agent",
+                        "description": "Spawn a sub-agent.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"message": {"type": "string"}},
+                            "required": ["message"],
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+    payload["input"].extend(
+        [
+            {
+                "type": "function_call",
+                "namespace": "multi_agent_v1",
+                "name": "spawn_agent",
+                "call_id": "call_spawn_1",
+                "arguments": '{"message":"inspect"}',
+            },
+            {
+                "type": "function_call_output",
+                "call_id": "call_spawn_1",
+                "output": '{"agent_id":"agent-1"}',
+            },
+        ]
+    )
+
+    converted = adapter.convert_responses_request(payload)
+    upstream_name = "multi_agent_v1__spawn_agent"
+
+    assert converted.payload["tools"][0]["function"]["name"] == upstream_name
+    assert converted.payload["messages"][2]["tool_calls"][0]["function"]["name"] == upstream_name
+    assert converted.tool_targets[upstream_name] == adapter.ResponseToolTarget(
+        kind="function",
+        name="spawn_agent",
+        namespace="multi_agent_v1",
+    )
+
+    completion = adapter.DeepSeekCompletion(model="DeepSeek-V4-Flash")
+    completion.consume(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call_spawn_2",
+                                "function": {
+                                    "name": upstream_name,
+                                    "arguments": '{"message":"build"}',
+                                },
+                            }
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        }
+    )
+
+    output = adapter._response_output(completion, converted.tool_targets)
+
+    assert output[0]["type"] == "function_call"
+    assert output[0]["name"] == "spawn_agent"
+    assert output[0]["namespace"] == "multi_agent_v1"
+    assert output[0]["arguments"] == '{"message":"build"}'
+
+
+def test_namespace_custom_tool_is_flattened_and_restored() -> None:
+    payload = _responses_payload(
+        tools=[
+            {
+                "type": "namespace",
+                "name": "editing",
+                "description": "Editing tools.",
+                "tools": [
+                    {
+                        "type": "custom",
+                        "name": "apply_patch",
+                        "description": "Apply a patch.",
+                        "format": {"type": "grammar", "syntax": "lark", "definition": "start: /.+/"},
+                    }
+                ],
+            }
+        ]
+    )
+    converted = adapter.convert_responses_request(payload)
+    upstream_name = "editing__apply_patch"
+    completion = adapter.DeepSeekCompletion(model="DeepSeek-V4-Flash")
+    completion.consume(
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call_patch",
+                                "function": {
+                                    "name": upstream_name,
+                                    "arguments": '{"input":"*** Begin Patch"}',
+                                },
+                            }
+                        ]
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ]
+        }
+    )
+
+    output = adapter._response_output(completion, converted.tool_targets)
+
+    assert output[0]["type"] == "custom_tool_call"
+    assert output[0]["name"] == "apply_patch"
+    assert output[0]["namespace"] == "editing"
+    assert output[0]["input"] == "*** Begin Patch"
+
+
+def test_provider_hosted_web_search_is_not_forwarded_to_chat_completions() -> None:
+    payload = _responses_payload(
+        tools=[
+            {
+                "type": "web_search",
+                "external_web_access": False,
+            },
+            {
+                "type": "function",
+                "name": "shell",
+                "description": "Run a local command.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        ]
+    )
+
+    converted = adapter.convert_responses_request(payload)
+
+    assert [tool["function"]["name"] for tool in converted.payload["tools"]] == ["shell"]
+    assert converted.ignored_hosted_tool_types == ("web_search",)
+    assert converted.payload["tool_choice"] == "auto"
+
+
+def test_legacy_web_search_preview_is_not_forwarded_to_chat_completions() -> None:
+    payload = _responses_payload(tools=[{"type": "web_search_preview"}])
+
+    converted = adapter.convert_responses_request(payload)
+
+    assert "tools" not in converted.payload
+    assert "tool_choice" not in converted.payload
+    assert converted.ignored_hosted_tool_types == ("web_search_preview",)
+
+
+def test_explicit_provider_hosted_tool_choice_is_rejected() -> None:
+    payload = _responses_payload(tools=[{"type": "web_search"}])
+    payload["tool_choice"] = {"type": "web_search"}
+
+    with pytest.raises(adapter.AdapterRequestError) as exc_info:
+        adapter.convert_responses_request(payload)
+
+    assert exc_info.value.code == "unsupported_hosted_tool_choice"
+    assert exc_info.value.param == "tool_choice.type"
+
+
+def test_unknown_responses_tool_type_remains_fail_closed() -> None:
+    payload = _responses_payload(tools=[{"type": "future_unknown_tool"}])
+
+    with pytest.raises(adapter.AdapterRequestError) as exc_info:
+        adapter.convert_responses_request(payload)
+
+    assert exc_info.value.code == "unsupported_tool_type"
+    assert exc_info.value.param == "tools[0].type"
 
 
 def test_request_rejects_non_streaming_and_unknown_item_types() -> None:
@@ -214,12 +400,8 @@ def test_stream_bridge_emits_completed_custom_tool_item(monkeypatch: pytest.Monk
         )
     )
     _FakeAsyncClient.lines = [
-        'data: {"model":"DeepSeek-V4-Flash","choices":[{"index":0,"delta":{"tool_calls":'
-        '[{"index":0,"id":"call_patch","function":{"name":"apply_patch","arguments":"{\\"input\\":\\"abc"}}]},'
-        '"finish_reason":null}]}',
-        'data: {"choices":[{"index":0,"delta":{"tool_calls":'
-        '[{"index":0,"function":{"arguments":"def\\"}"}}]},"finish_reason":"tool_calls"}],'
-        '"usage":{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14}}',
+        'data: {"model":"DeepSeek-V4-Flash","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_patch","function":{"name":"apply_patch","arguments":"{\\"input\\":\\"abc"}}]},"finish_reason":null}]}',
+        'data: {"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"def\\"}"}}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14}}',
         "data: [DONE]",
     ]
     monkeypatch.setattr(adapter.httpx, "AsyncClient", _FakeAsyncClient)

@@ -60,6 +60,15 @@ not decide route, stage order, template semantics, schema validity, retry
 policy, or phase progression. Those remain owned by the v4.5.0 Skill documents
 and scripts.
 
+The Gateway API and `ppt-master-runner` are separate processes and therefore do
+not share their in-memory active/warm Sandbox maps. During the complete external
+Agent turn the runner holds a shared lease file on the Gateway user-data volume.
+Idle reaping, replica eviction, unhealthy cleanup, explicit destruction, and
+process shutdown may destroy that Sandbox only after obtaining a non-blocking
+exclusive lease; while execution is active they defer deletion and restore the
+warm entry to tracking. The lease is released automatically when the runner
+process exits, so it cannot become a permanent stale lock.
+
 The bridge does enforce one deterministic delivery boundary around those
 upstream semantics. Every Agent turn receives the original Slash request again
 and is required to re-read the current upstream authorities before making a
@@ -82,10 +91,13 @@ it is missing or older than the accepted PPTX. These checks do not recreate the
 Skill workflow; they make its final, user-visible contract deterministic.
 
 The frontend renders the genuine Agent receipts as the normal durable task
-timeline. On page reload, it restores the artifact channel explicitly from the
-thread state snapshot when the tab-local stream has not hydrated that channel
-yet. Preview companions remain hidden from the file selector, while the selected
-PPTX opens the authenticated five-page PNG gallery backed by its persisted PDF.
+timeline. Task state is keyed by the dynamic thread id because Next.js preserves
+the surrounding layout during client-side navigation; a new chat must never
+inherit the previous thread's PPT workflow card. On page reload, it restores the
+artifact channel explicitly from the thread state snapshot when the tab-local
+stream has not hydrated that channel yet. Preview companions remain hidden from
+the file selector, while the selected PPTX opens the authenticated five-page PNG
+gallery backed by its persisted PDF.
 
 ## Agent provider requirement
 

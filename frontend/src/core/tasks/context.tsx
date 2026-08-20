@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -27,16 +28,67 @@ export const SubtaskContext = createContext<SubtaskContextValue>({
   },
 });
 
-export function SubtasksProvider({ children }: { children: React.ReactNode }) {
+function ScopedSubtasksProvider({
+  children,
+  scopeKey,
+}: {
+  children: React.ReactNode;
+  scopeKey: string;
+}) {
   const [tasks, setTasks] = useState<Record<string, Subtask>>({});
   const tasksRef = useRef(tasks);
+  const previousScopeKeyRef = useRef(scopeKey);
   // Keep the ref pointing at the freshest state on every render so reads in
   // async callbacks (backfill `.then`) never see a stale map.
   tasksRef.current = tasks;
+
+  // Preserve the mounted chat subtree during route transitions, but clear
+  // task cards before paint so an active PPT workflow can never appear in the
+  // newly selected conversation. Remounting this provider also remounted the
+  // input/stream surface and caused a visible flash after creating a thread.
+  useLayoutEffect(() => {
+    if (previousScopeKeyRef.current === scopeKey) {
+      return;
+    }
+    // Creating a thread starts on /new with a provisional client id and then
+    // adopts the persisted id returned by the first stream. That is one
+    // conversation, not a thread switch; preserve its live task timeline
+    // across that identity handoff. A real existing->new or existing->existing
+    // transition still clears the old conversation before paint.
+    if (
+      previousScopeKeyRef.current === "new" &&
+      scopeKey !== "new"
+    ) {
+      previousScopeKeyRef.current = scopeKey;
+      return;
+    }
+    previousScopeKeyRef.current = scopeKey;
+    tasksRef.current = {};
+    setTasks({});
+  }, [scopeKey]);
+
   return (
     <SubtaskContext.Provider value={{ tasks, tasksRef, setTasks }}>
       {children}
     </SubtaskContext.Provider>
+  );
+}
+
+export function SubtasksProvider({
+  children,
+  scopeKey = "default",
+}: {
+  children: React.ReactNode;
+  scopeKey?: string;
+}) {
+  // Next.js deliberately preserves dynamic-segment layouts while navigating
+  // between chat threads. Task events are thread-scoped, so pass the segment
+  // into the mounted provider; it clears its state in a layout effect before
+  // the new conversation is painted.
+  return (
+    <ScopedSubtasksProvider scopeKey={scopeKey}>
+      {children}
+    </ScopedSubtasksProvider>
   );
 }
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -17,7 +18,35 @@ import httpx
 # long-lived enough to reuse, but stale appCodes are cleared and retried once
 # by check_cnooc_token.
 APP_CODE_TTL_SECONDS = 110 * 60
+DEFAULT_CONNECT_TIMEOUT_SECONDS = 5.0
+DEFAULT_READ_TIMEOUT_SECONDS = 30.0
+DEFAULT_REQUEST_ATTEMPTS = 2
+DEFAULT_RETRY_BACKOFF_SECONDS = 0.5
 logger = logging.getLogger(__name__)
+
+
+class _CnoocHttpxLogFilter(logging.Filter):
+    """Prevent platform login tokens from appearing in httpx request logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        if "/apigateway/" not in message:
+            return True
+        redacted = re.sub(
+            r"([?&](?:query|token)=)[^&\s\"]+",
+            r"\1<redacted>",
+            message,
+            flags=re.IGNORECASE,
+        )
+        if redacted != message:
+            record.msg = redacted
+            record.args = ()
+        return True
+
+
+_httpx_logger = logging.getLogger("httpx")
+if not any(isinstance(item, _CnoocHttpxLogFilter) for item in _httpx_logger.filters):
+    _httpx_logger.addFilter(_CnoocHttpxLogFilter())
 
 
 class CnoocAuthError(Exception):
@@ -64,6 +93,71 @@ def _require_env(name: str) -> str:
     if not value:
         raise CnoocAuthError(f"missing CNOOC OAuth config: {name}", 500)
     return value
+
+
+def _positive_float_env(name: str, default: float) -> float:
+    try:
+        value = float(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _truthy_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _client_timeout() -> httpx.Timeout:
+    return httpx.Timeout(
+        connect=_positive_float_env("CNOOC_OAUTH_CONNECT_TIMEOUT_SECONDS", DEFAULT_CONNECT_TIMEOUT_SECONDS),
+        read=_positive_float_env("CNOOC_OAUTH_READ_TIMEOUT_SECONDS", DEFAULT_READ_TIMEOUT_SECONDS),
+        write=_positive_float_env("CNOOC_OAUTH_WRITE_TIMEOUT_SECONDS", DEFAULT_CONNECT_TIMEOUT_SECONDS),
+        pool=_positive_float_env("CNOOC_OAUTH_POOL_TIMEOUT_SECONDS", DEFAULT_CONNECT_TIMEOUT_SECONDS),
+    )
+
+
+async def _get_with_retry(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    label: str,
+    params: dict[str, str],
+    headers: dict[str, str] | None = None,
+) -> httpx.Response:
+    attempts = _positive_int_env("CNOOC_OAUTH_REQUEST_ATTEMPTS", DEFAULT_REQUEST_ATTEMPTS)
+    backoff = _positive_float_env("CNOOC_OAUTH_RETRY_BACKOFF_SECONDS", DEFAULT_RETRY_BACKOFF_SECONDS)
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            response = await client.get(url, params=params, headers=headers)
+        except httpx.TimeoutException as exc:
+            last_error = exc
+            logger.warning("%s timed out (attempt %d/%d)", label, attempt, attempts)
+        except httpx.RequestError as exc:
+            last_error = exc
+            logger.warning("%s transport failed (attempt %d/%d): %s", label, attempt, attempts, type(exc).__name__)
+        else:
+            if response.status_code < 500:
+                return response
+            logger.warning("%s upstream HTTP %d (attempt %d/%d)", label, response.status_code, attempt, attempts)
+            last_error = CnoocAuthError(f"{label} upstream unavailable", 503)
+
+        if attempt < attempts:
+            await asyncio.sleep(backoff * attempt)
+
+    raise CnoocAuthError(f"{label} temporarily unavailable", 503) from last_error
 
 
 def _load_config() -> CnoocAuthConfig:
@@ -125,8 +219,10 @@ async def _fetch_app_code(client: httpx.AsyncClient, config: CnoocAuthConfig) ->
     if _cached_app_code and _cached_app_code[1] > time.time():
         return _cached_app_code[0]
 
-    response = await client.get(
+    response = await _get_with_retry(
+        client,
         f"{config.base_url}/apigateway/appauth/getappid",
+        label="CNOOC appCode",
         params={
             "appName": config.app_name,
             "appId": config.app_id,
@@ -143,8 +239,10 @@ async def _fetch_app_code(client: httpx.AsyncClient, config: CnoocAuthConfig) ->
 
 
 async def _verify_token(client: httpx.AsyncClient, config: CnoocAuthConfig, app_code: str, token: str) -> None:
-    response = await client.get(
+    response = await _get_with_retry(
+        client,
         f"{config.base_url}/apigateway/kzxmw/zcjksjfw_9543",
+        label="CNOOC token verification",
         params={
             "appCode": app_code,
             "query": _query_payload("zhId", token),
@@ -159,8 +257,10 @@ async def _verify_token(client: httpx.AsyncClient, config: CnoocAuthConfig, app_
 
 
 async def _fetch_user_info(client: httpx.AsyncClient, config: CnoocAuthConfig, app_code: str, token: str) -> Any:
-    response = await client.get(
+    response = await _get_with_retry(
+        client,
         f"{config.base_url}/apigateway/zhy/tokenCheck",
+        label="CNOOC user info",
         params={
             "appCode": app_code,
             "query": _query_payload("token", token),
@@ -216,12 +316,20 @@ async def check_cnooc_token(token: str) -> CnoocTokenCheckResult:
         raise CnoocAuthError("token is required", 400)
 
     config = _load_config()
-    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0), verify=os.getenv("CNOOC_OAUTH_TLS_VERIFY", "true") != "false") as client:
+    async with httpx.AsyncClient(
+        timeout=_client_timeout(),
+        verify=_truthy_env("CNOOC_OAUTH_TLS_VERIFY", True),
+        # This is an internal identity service.  Never send bearer-equivalent
+        # platform tokens through the enterprise Internet proxy.
+        trust_env=_truthy_env("CNOOC_OAUTH_TRUST_ENV", False),
+    ) as client:
         app_code = await _fetch_app_code(client, config)
         try:
             await _verify_token(client, config, app_code, token)
             user_info = await _fetch_user_info(client, config, app_code, token)
-        except CnoocAuthError:
+        except CnoocAuthError as exc:
+            if exc.status_code == 503:
+                raise
             global _cached_app_code
             _cached_app_code = None
             app_code = await _fetch_app_code(client, config)

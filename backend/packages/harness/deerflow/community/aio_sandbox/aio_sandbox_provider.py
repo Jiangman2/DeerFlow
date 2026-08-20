@@ -20,6 +20,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from typing import IO
 
 try:
     import fcntl
@@ -68,6 +69,30 @@ def _lock_file_exclusive(lock_file) -> None:
 
     lock_file.seek(0)
     msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+
+
+def _lock_file_shared(lock_file) -> None:
+    if fcntl is not None:
+        fcntl.flock(lock_file, fcntl.LOCK_SH)
+        return
+
+    # Windows has no shared ``msvcrt.locking`` mode. An exclusive file lock is
+    # conservative but preserves the lifecycle safety contract in local tests.
+    lock_file.seek(0)
+    msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+
+
+def _try_lock_file_exclusive(lock_file) -> bool:
+    try:
+        if fcntl is not None:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True
+
+        lock_file.seek(0)
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+        return True
+    except (BlockingIOError, OSError):
+        return False
 
 
 def _unlock_file(lock_file) -> None:
@@ -177,9 +202,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         provisioner backend can declare the same contract when Gateway and sandbox
         Pods mount one shared PVC; otherwise remote backends require explicit sync.
         """
-        return isinstance(self._backend, LocalContainerBackend) or bool(
-            self._config.get("shared_thread_data_mounts", False)
-        )
+        return isinstance(self._backend, LocalContainerBackend) or bool(self._config.get("shared_thread_data_mounts", False))
 
     # ── Factory methods ──────────────────────────────────────────────────
 
@@ -241,9 +264,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             "idle_timeout": idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT,
             "replicas": replicas if replicas is not None else DEFAULT_REPLICAS,
             "startup_timeout": startup_timeout if startup_timeout is not None else DEFAULT_STARTUP_TIMEOUT,
-            "shared_thread_data_mounts": bool(
-                getattr(sandbox_config, "shared_thread_data_mounts", False)
-            ),
+            "shared_thread_data_mounts": bool(getattr(sandbox_config, "shared_thread_data_mounts", False)),
             "mounts": sandbox_config.mounts or [],
             "environment": self._resolve_env_vars(sandbox_config.environment or {}),
             # provisioner URL for dynamic pod management (e.g. http://provisioner:8002)
@@ -663,6 +684,71 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             logger.warning(f"Failed to check sandbox {sandbox_id} health: {e}")
             return None
 
+    def _execution_lease_path(self, sandbox_id: str):
+        """Return the shared lock path protecting one Sandbox execution."""
+
+        lease_dir = get_paths().base_dir / ".sandbox-execution-leases"
+        lease_dir.mkdir(parents=True, exist_ok=True)
+        safe_name = hashlib.sha256(sandbox_id.encode("utf-8")).hexdigest()
+        return lease_dir / f"{safe_name}.lock"
+
+    def acquire_execution_lease(self, sandbox_id: str) -> IO[str]:
+        """Hold a cross-process lease while an external host uses a Sandbox.
+
+        Gateway and the dedicated PPT runner are separate OS processes with
+        separate active/warm maps. This shared file lease is therefore the
+        authoritative boundary that prevents either process from deleting a
+        Pod while the other is still relaying an external Agent task.
+        """
+
+        lock_file: IO[str] = _open_lock_file(self._execution_lease_path(sandbox_id))
+        locked = False
+        try:
+            _lock_file_shared(lock_file)
+            locked = True
+            with self._lock:
+                info = self._sandbox_infos.get(sandbox_id)
+                if info is None:
+                    warm = self._warm_pool.get(sandbox_id)
+                    info = warm[0] if warm is not None else None
+            if info is None:
+                raise RuntimeError(f"Sandbox {sandbox_id} is no longer tracked")
+            alive = self._check_tracked_sandbox_alive(sandbox_id, info)
+            if alive is False:
+                raise RuntimeError(f"Sandbox {sandbox_id} is no longer alive")
+            logger.info("Acquired cross-process execution lease for sandbox %s", sandbox_id)
+            return lock_file
+        except Exception:
+            if locked:
+                _unlock_file(lock_file)
+            lock_file.close()
+            raise
+
+    def release_execution_lease(self, lock_file: IO[str], sandbox_id: str) -> None:
+        """Release a lease returned by :meth:`acquire_execution_lease`."""
+
+        try:
+            _unlock_file(lock_file)
+        finally:
+            lock_file.close()
+        logger.info("Released cross-process execution lease for sandbox %s", sandbox_id)
+
+    def _try_acquire_destroy_lease(self, sandbox_id: str) -> IO[str] | None:
+        """Acquire exclusive destruction authority without waiting."""
+
+        lock_file: IO[str] = _open_lock_file(self._execution_lease_path(sandbox_id))
+        if _try_lock_file_exclusive(lock_file):
+            return lock_file
+        lock_file.close()
+        return None
+
+    @staticmethod
+    def _release_destroy_lease(lock_file: IO[str]) -> None:
+        try:
+            _unlock_file(lock_file)
+        finally:
+            lock_file.close()
+
     def _remove_tracked_sandbox(
         self,
         sandbox_id: str,
@@ -698,43 +784,63 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
 
         return sandbox, info, True
 
-    def _drop_unhealthy_sandbox(self, sandbox_id: str, reason: str, *, expected_info: SandboxInfo | None = None) -> None:
+    def _drop_unhealthy_sandbox(self, sandbox_id: str, reason: str, *, expected_info: SandboxInfo | None = None) -> bool:
         """Remove and destroy a sandbox after a definitive failed health check."""
-        sandbox, info, removed = self._remove_tracked_sandbox(sandbox_id, expected_info=expected_info)
-        if not removed:
-            logger.info(f"Skipped dropping sandbox {sandbox_id}: tracked info changed after health check")
-            return
+        destroy_lease = self._try_acquire_destroy_lease(sandbox_id)
+        if destroy_lease is None:
+            logger.info("Deferred dropping sandbox %s because another process is executing in it", sandbox_id)
+            return False
+        try:
+            sandbox, info, removed = self._remove_tracked_sandbox(sandbox_id, expected_info=expected_info)
+            if not removed:
+                logger.info(f"Skipped dropping sandbox {sandbox_id}: tracked info changed after health check")
+                return False
 
-        if sandbox is not None:
-            try:
-                sandbox.close()
-            except Exception as e:
-                logger.warning(f"Error closing unhealthy sandbox {sandbox_id}: {e}")
+            if sandbox is not None:
+                try:
+                    sandbox.close()
+                except Exception as e:
+                    logger.warning(f"Error closing unhealthy sandbox {sandbox_id}: {e}")
 
-        if info is not None:
-            try:
-                self._backend.destroy(info)
-            except Exception as e:
-                logger.warning(f"Error destroying unhealthy sandbox {sandbox_id}: {e}")
+            if info is not None:
+                try:
+                    self._backend.destroy(info)
+                except Exception as e:
+                    logger.warning(f"Error destroying unhealthy sandbox {sandbox_id}: {e}")
+                    return False
 
-        logger.warning(f"Dropped unhealthy sandbox {sandbox_id}: {reason}")
+            logger.warning(f"Dropped unhealthy sandbox {sandbox_id}: {reason}")
+            return True
+        finally:
+            self._release_destroy_lease(destroy_lease)
 
     def _active_count_locked(self) -> int:
         """Return active AIO sandbox count while ``_lock`` is held."""
         return len(self._sandboxes)
 
-    def _destroy_warm_entry(self, sandbox_id: str, entry: SandboxInfo, *, reason: str) -> None:
+    def _destroy_warm_entry(self, sandbox_id: str, entry: SandboxInfo, *, reason: str) -> bool:
         """Destroy a warm-pool sandbox using AIO-specific backend logging."""
+        destroy_lease = self._try_acquire_destroy_lease(sandbox_id)
+        if destroy_lease is None:
+            logger.info(
+                "Deferred warm-pool destruction of sandbox %s (%s): external execution lease is active",
+                sandbox_id,
+                reason,
+            )
+            return False
         try:
-            self._backend.destroy(entry)
-        except Exception as e:
-            if reason == "idle_timeout":
-                logger.error(f"Failed to destroy idle warm-pool sandbox {sandbox_id}: {e}")
-            elif reason == "replica_enforcement":
-                logger.error(f"Failed to destroy warm-pool sandbox {sandbox_id}: {e}")
-            else:
-                logger.error(f"Failed to destroy warm-pool sandbox {sandbox_id} for {reason}: {e}")
-            return
+            try:
+                self._backend.destroy(entry)
+            except Exception as e:
+                if reason == "idle_timeout":
+                    logger.error(f"Failed to destroy idle warm-pool sandbox {sandbox_id}: {e}")
+                elif reason == "replica_enforcement":
+                    logger.error(f"Failed to destroy warm-pool sandbox {sandbox_id}: {e}")
+                else:
+                    logger.error(f"Failed to destroy warm-pool sandbox {sandbox_id} for {reason}: {e}")
+                return False
+        finally:
+            self._release_destroy_lease(destroy_lease)
 
         if reason == "idle_timeout":
             logger.info(f"Destroyed idle warm-pool sandbox {sandbox_id}")
@@ -742,6 +848,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             logger.info(f"Destroyed warm-pool sandbox {sandbox_id}")
         else:
             logger.info(f"Destroyed warm-pool sandbox {sandbox_id} for {reason}")
+        return True
 
     # ── Core: acquire / get / release / shutdown ─────────────────────────
 
@@ -993,12 +1100,16 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
             return self.get(active.id)
 
         deterministic_id = self._deterministic_sandbox_id(thread_id, effective_user_id)
-        reclaimed_id = self._reclaim_warm_pool_sandbox(
-            thread_id,
-            sandbox_id or deterministic_id,
-            user_id=effective_user_id,
-            post_lock=True,
-        ) if warm or sandbox_id == deterministic_id else None
+        reclaimed_id = (
+            self._reclaim_warm_pool_sandbox(
+                thread_id,
+                sandbox_id or deterministic_id,
+                user_id=effective_user_id,
+                post_lock=True,
+            )
+            if warm or sandbox_id == deterministic_id
+            else None
+        )
         if reclaimed_id is not None:
             return self.get(reclaimed_id)
 
@@ -1056,7 +1167,7 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
 
         logger.info(f"Released sandbox {sandbox_id} to warm pool (container still running)")
 
-    def destroy(self, sandbox_id: str) -> None:
+    def destroy(self, sandbox_id: str) -> bool:
         """Destroy a sandbox: stop the container and free all resources.
 
         Unlike release(), this actually stops the container.  Use this for
@@ -1069,20 +1180,31 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         Args:
             sandbox_id: The ID of the sandbox to destroy.
         """
-        sandbox, info, _ = self._remove_tracked_sandbox(sandbox_id)
+        destroy_lease = self._try_acquire_destroy_lease(sandbox_id)
+        if destroy_lease is None:
+            logger.info(
+                "Deferred explicit destruction of sandbox %s: external execution lease is active",
+                sandbox_id,
+            )
+            return False
 
-        if sandbox is not None:
-            # Defense-in-depth: close() already swallows its own errors; this
-            # guard only protects against a future close() that misbehaves, so
-            # host-side client cleanup can never block container destruction.
-            try:
-                sandbox.close()
-            except Exception as e:
-                logger.warning(f"Error closing sandbox {sandbox_id} during destroy: {e}")
+        try:
+            sandbox, info, _ = self._remove_tracked_sandbox(sandbox_id)
 
-        if info:
-            self._backend.destroy(info)
-            logger.info(f"Destroyed sandbox {sandbox_id}")
+            if sandbox is not None:
+                # Defense-in-depth: close() already swallows its own errors;
+                # this guard keeps client cleanup from blocking destruction.
+                try:
+                    sandbox.close()
+                except Exception as e:
+                    logger.warning(f"Error closing sandbox {sandbox_id} during destroy: {e}")
+
+            if info:
+                self._backend.destroy(info)
+                logger.info(f"Destroyed sandbox {sandbox_id}")
+            return True
+        finally:
+            self._release_destroy_lease(destroy_lease)
 
     def shutdown(self) -> None:
         """Shutdown all sandboxes. Thread-safe and idempotent."""
@@ -1106,7 +1228,6 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
 
         for sandbox_id, (info, _) in warm_items:
             try:
-                self._backend.destroy(info)
-                logger.info(f"Destroyed warm-pool sandbox {sandbox_id} during shutdown")
+                self._destroy_warm_entry(sandbox_id, info, reason="shutdown")
             except Exception as e:
                 logger.error(f"Failed to destroy warm-pool sandbox {sandbox_id} during shutdown: {e}")

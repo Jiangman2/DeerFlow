@@ -224,6 +224,44 @@
 
 :root {
   --radius: 0.5rem;
+  /*
+   * Tailwind v4 expresses semantic slash-alpha utilities with color-mix().
+   * The enterprise Chromium build in production does not implement that
+   * function consistently. The postcss semantic-alpha fallback plugin uses
+   * these sRGB channels to emit a legacy rgba() declaration before the modern
+   * declaration, so modern browsers retain the exact Tailwind result.
+   */
+  --legacy-background-rgb: 240, 247, 254;
+  --legacy-foreground-rgb: 25, 40, 55;
+  --legacy-card-rgb: 251, 254, 255;
+  --legacy-card-foreground-rgb: 25, 40, 55;
+  --legacy-popover-rgb: 251, 254, 255;
+  --legacy-popover-foreground-rgb: 25, 40, 55;
+  --legacy-primary-rgb: 0, 95, 188;
+  --legacy-primary-foreground-rgb: 250, 252, 254;
+  --legacy-secondary-rgb: 213, 233, 252;
+  --legacy-secondary-foreground-rgb: 18, 62, 106;
+  --legacy-muted-rgb: 228, 239, 250;
+  --legacy-muted-foreground-rgb: 85, 101, 119;
+  --legacy-accent-rgb: 202, 229, 255;
+  --legacy-accent-foreground-rgb: 10, 64, 117;
+  --legacy-destructive-rgb: 231, 0, 11;
+  --legacy-border-rgb: 196, 211, 226;
+  --legacy-input-rgb: 179, 199, 218;
+  --legacy-ring-rgb: 45, 132, 211;
+  --legacy-chart-1-rgb: 0, 95, 188;
+  --legacy-chart-2-rgb: 0, 135, 177;
+  --legacy-chart-3-rgb: 0, 163, 174;
+  --legacy-chart-4-rgb: 111, 117, 188;
+  --legacy-chart-5-rgb: 117, 169, 219;
+  --legacy-sidebar-rgb: 210, 233, 255;
+  --legacy-sidebar-foreground-rgb: 38, 60, 85;
+  --legacy-sidebar-primary-rgb: 0, 95, 188;
+  --legacy-sidebar-primary-foreground-rgb: 250, 250, 250;
+  --legacy-sidebar-accent-rgb: 241, 248, 255;
+  --legacy-sidebar-accent-foreground-rgb: 16, 57, 98;
+  --legacy-sidebar-border-rgb: 174, 199, 225;
+  --legacy-sidebar-ring-rgb: 45, 132, 211;
   --background: oklch(0.972 0.012 247);
   --foreground: oklch(0.27 0.035 251);
   --card: oklch(0.995 0.004 247);
@@ -258,6 +296,40 @@
 }
 
 .dark {
+  --legacy-background-rgb: 9, 24, 40;
+  --legacy-foreground-rgb: 226, 237, 247;
+  --legacy-card-rgb: 14, 31, 49;
+  --legacy-card-foreground-rgb: 226, 237, 247;
+  --legacy-popover-rgb: 11, 29, 48;
+  --legacy-popover-foreground-rgb: 226, 237, 247;
+  --legacy-primary-rgb: 60, 160, 232;
+  --legacy-primary-foreground-rgb: 3, 18, 37;
+  --legacy-secondary-rgb: 25, 47, 71;
+  --legacy-secondary-foreground-rgb: 221, 234, 245;
+  --legacy-muted-rgb: 25, 41, 59;
+  --legacy-muted-foreground-rgb: 147, 167, 186;
+  --legacy-accent-rgb: 24, 55, 85;
+  --legacy-accent-foreground-rgb: 234, 243, 251;
+  --legacy-destructive-rgb: 255, 100, 103;
+  --legacy-border-rgb: 74, 96, 118;
+  --legacy-border-opacity: 0.38;
+  --legacy-input-rgb: 83, 111, 139;
+  --legacy-input-opacity: 0.45;
+  --legacy-ring-rgb: 60, 160, 232;
+  --legacy-chart-1-rgb: 60, 160, 232;
+  --legacy-chart-2-rgb: 43, 190, 212;
+  --legacy-chart-3-rgb: 73, 210, 211;
+  --legacy-chart-4-rgb: 142, 141, 216;
+  --legacy-chart-5-rgb: 143, 197, 235;
+  --legacy-sidebar-rgb: 4, 20, 40;
+  --legacy-sidebar-foreground-rgb: 212, 228, 241;
+  --legacy-sidebar-primary-rgb: 60, 160, 232;
+  --legacy-sidebar-primary-foreground-rgb: 3, 18, 37;
+  --legacy-sidebar-accent-rgb: 16, 44, 74;
+  --legacy-sidebar-accent-foreground-rgb: 234, 243, 251;
+  --legacy-sidebar-border-rgb: 73, 102, 132;
+  --legacy-sidebar-border-opacity: 0.38;
+  --legacy-sidebar-ring-rgb: 60, 160, 232;
   --background: oklch(0.205 0.038 252);
   --foreground: oklch(0.94 0.018 245);
   --card: oklch(0.235 0.042 252);
@@ -307,7 +379,14 @@
   }
 
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
+    outline-color: rgba(
+      var(--legacy-ring-rgb),
+      calc(var(--legacy-ring-opacity, 1) * 0.5)
+    );
+    @supports (color: color-mix(in oklab, red 50%, transparent)) {
+      outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+    }
   }
   body {
     @apply bg-background text-foreground;

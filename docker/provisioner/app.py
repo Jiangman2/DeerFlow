@@ -241,6 +241,16 @@ SANDBOX_CPU_REQUEST = os.environ.get("SANDBOX_CPU_REQUEST", "500m")
 SANDBOX_MEMORY_REQUEST = os.environ.get("SANDBOX_MEMORY_REQUEST", "512Mi")
 SANDBOX_CPU_LIMIT = os.environ.get("SANDBOX_CPU_LIMIT", "2")
 SANDBOX_MEMORY_LIMIT = os.environ.get("SANDBOX_MEMORY_LIMIT", "2Gi")
+SANDBOX_EPHEMERAL_STORAGE_REQUEST = os.environ.get(
+    "SANDBOX_EPHEMERAL_STORAGE_REQUEST", "2Gi"
+)
+SANDBOX_EPHEMERAL_STORAGE_LIMIT = os.environ.get(
+    "SANDBOX_EPHEMERAL_STORAGE_LIMIT", "12Gi"
+)
+PPT_MASTER_AGENT_TEMP_ROOT = os.environ.get(
+    "PPT_MASTER_AGENT_TEMP_ROOT",
+    "/mnt/user-data/workspace/.ppt-master-agent/tmp",
+)
 
 _SANDBOX_HEALTHCHECK_CODE = (
     "import os,urllib.request;"
@@ -660,6 +670,34 @@ def _build_pod(
         include_legacy_skills=include_legacy_skills,
     )
     sandbox_env = _build_sandbox_env(include_agent_only_secrets=False)
+    user_data_mount = next(
+        mount for mount in volume_mounts if mount.name == "user-data"
+    )
+    user_data_initializer = k8s_client.V1Container(
+        name="prepare-user-data",
+        image=SANDBOX_IMAGE,
+        image_pull_policy="IfNotPresent",
+        command=[
+            "python3",
+            "-c",
+            (
+                "from pathlib import Path; "
+                "roots=[Path('/mnt/user-data/workspace'),Path('/mnt/user-data/uploads'),Path('/mnt/user-data/outputs')]; "
+                "[(path.mkdir(parents=True,exist_ok=True),path.chmod(0o777)) for path in roots]; "
+                "temp=Path('/mnt/user-data/workspace/.ppt-master-agent/tmp'); "
+                "temp.mkdir(parents=True,exist_ok=True); temp.chmod(0o700)"
+            ),
+        ],
+        resources=k8s_client.V1ResourceRequirements(
+            requests={"cpu": "10m", "memory": "32Mi"},
+            limits={"cpu": "100m", "memory": "128Mi"},
+        ),
+        volume_mounts=[user_data_mount],
+        security_context=k8s_client.V1SecurityContext(
+            privileged=False,
+            allow_privilege_escalation=False,
+        ),
+    )
     containers = [
         k8s_client.V1Container(
             name="sandbox",
@@ -703,12 +741,12 @@ def _build_pod(
                 requests={
                     "cpu": SANDBOX_CPU_REQUEST,
                     "memory": SANDBOX_MEMORY_REQUEST,
-                    "ephemeral-storage": "500Mi",
+                    "ephemeral-storage": SANDBOX_EPHEMERAL_STORAGE_REQUEST,
                 },
                 limits={
                     "cpu": SANDBOX_CPU_LIMIT,
                     "memory": SANDBOX_MEMORY_LIMIT,
-                    "ephemeral-storage": "500Mi",
+                    "ephemeral-storage": SANDBOX_EPHEMERAL_STORAGE_LIMIT,
                 },
             ),
             env=sandbox_env,
@@ -765,6 +803,22 @@ def _build_pod(
                         name="PPT_MASTER_AGENT_HOST_PORT",
                         value=str(PPT_MASTER_AGENT_HOST_PORT),
                     ),
+                    k8s_client.V1EnvVar(
+                        name="PPT_MASTER_TEMP_ROOT",
+                        value=PPT_MASTER_AGENT_TEMP_ROOT,
+                    ),
+                    k8s_client.V1EnvVar(
+                        name="TMPDIR",
+                        value=PPT_MASTER_AGENT_TEMP_ROOT,
+                    ),
+                    k8s_client.V1EnvVar(
+                        name="TMP",
+                        value=PPT_MASTER_AGENT_TEMP_ROOT,
+                    ),
+                    k8s_client.V1EnvVar(
+                        name="TEMP",
+                        value=PPT_MASTER_AGENT_TEMP_ROOT,
+                    ),
                 ],
                 volume_mounts=volume_mounts,
                 security_context=k8s_client.V1SecurityContext(
@@ -790,6 +844,7 @@ def _build_pod(
             # and prevents arbitrary code from turning the sandbox into a
             # cluster/database discovery console.
             automount_service_account_token=False,
+            init_containers=[user_data_initializer],
             containers=containers,
             volumes=_build_volumes(
                 thread_id,

@@ -370,6 +370,28 @@ def test_searchable_pdf_visual_evidence_keeps_caption_and_page_image(monkeypatch
     assert "images/source-page-0010.jpg" in markdown
 
 
+def test_searchable_pdf_visual_evidence_rejects_missing_required_page(monkeypatch):
+    monkeypatch.setattr(
+        app,
+        "inspect_pdf_visual_pages",
+        lambda content: (
+            app.VisualPageEvidence(page_number=10, context="图 2 完井结构"),
+        ),
+    )
+    monkeypatch.setattr(
+        app,
+        "render_pdf_page_images",
+        lambda content, page_numbers: ("", {}),
+    )
+
+    with pytest.raises(RuntimeError, match="omitted required source page 10"):
+        app.preserve_searchable_pdf_visuals(
+            b"%PDF-text",
+            "# 报告\n\n正文",
+            {},
+        )
+
+
 def test_text_pdf_uses_weknora_builtin_without_calling_mineru(monkeypatch):
     monkeypatch.setattr(
         app,
@@ -381,6 +403,7 @@ def test_text_pdf_uses_weknora_builtin_without_calling_mineru(monkeypatch):
         "parse_pdf_with_builtin",
         lambda content, filename: ("# Native PDF\n\nsearchable text", {"images/chart.png": "abc"}),
     )
+    monkeypatch.setattr(app, "inspect_pdf_visual_pages", lambda content: ())
 
     class _UnexpectedMinerU:
         def __init__(self, **kwargs):
@@ -435,6 +458,7 @@ def test_searchable_word_uses_converted_pdf_visual_parser_without_calling_mineru
             raise AssertionError("searchable Word documents must not call MinerU")
 
     monkeypatch.setattr(app, "EnterpriseMinerUClient", _UnexpectedMinerU)
+    monkeypatch.setattr(app, "inspect_pdf_visual_pages", lambda content: ())
 
     response = app.parse_upload(source, "数据资产管理实践白皮书.docx")
 
@@ -448,7 +472,7 @@ def test_searchable_word_uses_converted_pdf_visual_parser_without_calling_mineru
     assert "图 2 数据资产管理特征" in response["results"]["document"]["md_content"]
 
 
-def test_word_visual_conversion_failure_preserves_native_parse(monkeypatch, caplog):
+def test_word_visual_conversion_failure_rejects_incomplete_parse(monkeypatch):
     source = _fake_docx()
     native_markdown = "# Native Word\n\nRecovered body and tables"
     native_images = {"images/word-native.png": "word-native-image"}
@@ -463,16 +487,72 @@ def test_word_visual_conversion_failure_preserves_native_parse(monkeypatch, capl
 
     monkeypatch.setattr(app, "convert_to_pdf", failed_conversion)
 
-    class _UnexpectedMinerU:
+    with pytest.raises(RuntimeError, match="LibreOffice produced no PDF"):
+        app.parse_upload(source, "large-report.docx")
+
+
+def test_word_mineru_visual_failure_rejects_incomplete_parse(monkeypatch):
+    source = _fake_docx()
+    native_markdown = "# Native Word\n\nRecovered body and tables"
+    native_images = {"images/word-native.png": "word-native-image"}
+    converted_pdf = b"%PDF-word-visual"
+    monkeypatch.setenv("MINERU_API_URL", "https://model.ai.cnooc/mineru")
+    monkeypatch.setenv("MINERU_API_TOKEN", "test-token")
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_builtin",
+        lambda content, filename, suffix: (native_markdown, native_images),
+    )
+    monkeypatch.setattr(
+        app,
+        "convert_to_pdf",
+        lambda content, filename: converted_pdf,
+    )
+    monkeypatch.setattr(
+        app,
+        "inspect_pdf_routing",
+        lambda content: app.PDFRoutingDecision(
+            page_count=3,
+            scanned_pages=(2, 3),
+        ),
+    )
+
+    class _FailedMinerU:
         def __init__(self, **kwargs):
-            raise AssertionError("a successful native Word parse must survive optional visual conversion failure")
+            return None
 
-    monkeypatch.setattr(app, "EnterpriseMinerUClient", _UnexpectedMinerU)
+        def parse_pdf(self, content, filename):
+            raise app.requests.ConnectionError("upstream closed the connection")
 
-    response = app.parse_upload(source, "large-report.docx")
+    monkeypatch.setattr(app, "EnterpriseMinerUClient", _FailedMinerU)
 
-    assert response == app.weknora_response(native_markdown, native_images)
-    assert "preserving the successful native Word result" in caplog.text
+    with pytest.raises(app.requests.ConnectionError, match="upstream closed"):
+        app.parse_upload(source, "large-report.docx")
+
+
+def test_pdf_mineru_failure_remains_visible_without_native_word_result(monkeypatch):
+    monkeypatch.setenv("MINERU_API_URL", "https://model.ai.cnooc/mineru")
+    monkeypatch.setenv("MINERU_API_TOKEN", "test-token")
+    monkeypatch.setattr(
+        app,
+        "inspect_pdf_routing",
+        lambda content: app.PDFRoutingDecision(
+            page_count=1,
+            scanned_pages=(1,),
+        ),
+    )
+
+    class _FailedMinerU:
+        def __init__(self, **kwargs):
+            return None
+
+        def parse_pdf(self, content, filename):
+            raise app.requests.ConnectionError("upstream closed the connection")
+
+    monkeypatch.setattr(app, "EnterpriseMinerUClient", _FailedMinerU)
+
+    with pytest.raises(app.requests.ConnectionError, match="upstream closed"):
+        app.parse_upload(b"%PDF-scan", "scan.pdf")
 
 
 def test_convert_to_pdf_reports_silent_libreoffice_output_failure(monkeypatch):
@@ -525,6 +605,7 @@ def test_pdfium_inspection_failure_uses_builtin_parser(monkeypatch):
             {"images/chart.png": "abc"},
         ),
     )
+    monkeypatch.setattr(app, "inspect_pdf_visual_pages", lambda content: ())
 
     class _UnexpectedMinerU:
         def __init__(self, **kwargs):
@@ -617,7 +698,7 @@ def test_scanned_pdf_uses_mineru_instead_of_builtin(monkeypatch):
     assert response["results"]["document"]["md_content"] == "## 第 1 页\n\nOCR result"
 
 
-def test_source_page_render_failure_does_not_discard_mineru_result(monkeypatch):
+def test_source_page_render_failure_rejects_incomplete_mineru_result(monkeypatch):
     monkeypatch.setattr(
         app,
         "inspect_pdf_routing",
@@ -651,11 +732,8 @@ def test_source_page_render_failure_does_not_discard_mineru_result(monkeypatch):
     monkeypatch.setattr(app, "EnterpriseMinerUClient", _MinerU)
     monkeypatch.setattr(app, "render_pdf_page_images", failed_render)
 
-    response = app.parse_upload(b"%PDF-render-incompatible", "scan.pdf")
-    document = response["results"]["document"]
-
-    assert "OCR survived rendering failure" in document["md_content"]
-    assert document["images"] == {}
+    with pytest.raises(RuntimeError, match="PDFium: Data format error"):
+        app.parse_upload(b"%PDF-render-incompatible", "scan.pdf")
 
 
 def test_mineru_pages_to_markdown_preserves_page_and_block_content():
@@ -895,6 +973,211 @@ def test_enterprise_mineru_client_matches_native_rest_contract():
     assert captured["timeout"] == 123
 
 
+def test_split_pdf_for_sync_uses_lossless_page_ranges():
+    sources = []
+    batches = []
+
+    class _Source:
+        def __init__(self, content):
+            assert content == b"%PDF-large"
+            self.closed = False
+            sources.append(self)
+
+        def __len__(self):
+            return 5
+
+        def close(self):
+            self.closed = True
+
+    class _Batch:
+        def __init__(self):
+            self.pages = None
+            self.closed = False
+            batches.append(self)
+
+        def import_pages(self, source, pages):
+            assert source is sources[0]
+            self.pages = pages
+
+        def save(self, output):
+            output.write(b"%PDF-batch-" + bytes(self.pages))
+
+        def close(self):
+            self.closed = True
+
+    class _PdfDocument:
+        def __new__(cls, content):
+            return _Source(content)
+
+        @staticmethod
+        def new():
+            return _Batch()
+
+    result = app.split_pdf_for_sync(
+        b"%PDF-large",
+        2,
+        pdfium_module=SimpleNamespace(PdfDocument=_PdfDocument),
+    )
+
+    assert [(first, last) for _pdf, first, last in result] == [
+        (1, 2),
+        (3, 4),
+        (5, 5),
+    ]
+    assert [batch.pages for batch in batches] == [[0, 1], [2, 3], [4]]
+    assert sources[0].closed is True
+    assert all(batch.closed for batch in batches)
+
+
+def test_enterprise_mineru_sync_retries_only_an_early_connection_failure(
+    monkeypatch,
+):
+    calls = []
+
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "results": {
+                    "deck.pdf": {
+                        "md_content": "# Recovered",
+                        "images": {},
+                    }
+                }
+            }
+
+    class _Session:
+        def post(self, url, **kwargs):
+            calls.append(url)
+            if len(calls) == 1:
+                raise app.requests.ConnectionError("connection reset")
+            return _Response()
+
+    monkeypatch.setattr(
+        app,
+        "split_pdf_for_sync",
+        lambda pdf, maximum_pages: ((pdf, 1, 1),),
+    )
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        sync_transient_retries=1,
+        sync_retry_delay_seconds=0,
+        sync_retry_max_elapsed_seconds=60,
+        session=_Session(),
+    )
+
+    result = client.parse_pdf(b"%PDF-test", "deck.pdf")
+
+    assert result["results"]["deck.pdf"]["md_content"] == "# Recovered"
+    assert len(calls) == 2
+
+
+def test_enterprise_mineru_sync_retries_a_bounded_batch_after_late_disconnect(
+    monkeypatch,
+):
+    calls = []
+
+    class _Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "results": {
+                    "deck.pdf": {
+                        "md_content": "# Recovered bounded batch",
+                        "images": {},
+                    }
+                }
+            }
+
+    class _Session:
+        def post(self, url, **kwargs):
+            calls.append(url)
+            if len(calls) == 1:
+                raise app.requests.ConnectionError("late disconnect")
+            return _Response()
+
+    monotonic_values = iter((100.0, 588.0, 600.0))
+    monkeypatch.setattr(app.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(
+        app,
+        "split_pdf_for_sync",
+        lambda pdf, maximum_pages: ((pdf, 1, 20),),
+    )
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        sync_transient_retries=1,
+        sync_retry_delay_seconds=0,
+        sync_retry_max_elapsed_seconds=600,
+        session=_Session(),
+    )
+
+    result = client.parse_pdf(b"%PDF-test", "deck.pdf")
+
+    assert result["results"]["deck.pdf"]["md_content"] == (
+        "# Recovered bounded batch"
+    )
+    assert len(calls) == 2
+
+
+def test_enterprise_mineru_sync_splits_and_merges_large_pdf(monkeypatch):
+    calls = []
+
+    class _Response:
+        def __init__(self, filename):
+            self.filename = filename
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "results": {
+                    self.filename: {
+                        "md_content": f"# Parsed {self.filename}",
+                        "images": {},
+                    }
+                }
+            }
+
+    class _Session:
+        def post(self, url, **kwargs):
+            filename = kwargs["files"]["files"][0]
+            calls.append(filename)
+            return _Response(filename)
+
+    monkeypatch.setattr(
+        app,
+        "split_pdf_for_sync",
+        lambda pdf, maximum_pages: (
+            (b"%PDF-pages-1-40", 1, 40),
+            (b"%PDF-pages-41-69", 41, 69),
+        ),
+    )
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        session=_Session(),
+    )
+
+    result = client.parse_pdf(b"%PDF-large", "large-report.pdf")
+    document = result["results"]["large-report.pdf"]
+
+    assert calls == [
+        "large-report.pages-0001-0040.pdf",
+        "large-report.pages-0041-0069.pdf",
+    ]
+    assert "原始第 1-40 页" in document["md_content"]
+    assert "原始第 41-69 页" in document["md_content"]
+    assert "Parsed large-report.pages-0001-0040.pdf" in document["md_content"]
+    assert "Parsed large-report.pages-0041-0069.pdf" in document["md_content"]
+
+
 def test_enterprise_mineru_client_uses_async_task_contract_without_trusting_urls():
     calls = []
 
@@ -1065,6 +1348,371 @@ def test_enterprise_mineru_async_retries_transient_20006_on_same_task():
             "https://model.ai.cnooc/member1/mineru-2605/tasks/task-transient-20006/result",
         ),
     ]
+
+
+def test_enterprise_mineru_async_retries_transient_404_on_same_task():
+    calls = []
+    status_attempts = 0
+    result_attempts = 0
+
+    class _Response:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(f"HTTP {self.status_code}")
+
+        def json(self):
+            return self._payload
+
+    class _Session:
+        def post(self, url, **kwargs):
+            calls.append(("POST", url))
+            return _Response(202, {"task_id": "task-transient-404"})
+
+        def get(self, url, **kwargs):
+            nonlocal status_attempts, result_attempts
+            calls.append(("GET", url))
+            if url.endswith("/result"):
+                result_attempts += 1
+                if result_attempts == 1:
+                    return _Response(404, {"detail": "task result not visible"})
+                return _Response(
+                    200,
+                    {
+                        "results": {
+                            "document.pdf": {
+                                "md_content": "# Recovered after result 404",
+                                "images": {},
+                            }
+                        }
+                    },
+                )
+
+            status_attempts += 1
+            if status_attempts == 1:
+                return _Response(404, {"detail": "task not visible"})
+            return _Response(200, {"status": "completed"})
+
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        timeout_seconds=30,
+        request_mode="async",
+        poll_interval_seconds=0.001,
+        transient_poll_retries=2,
+        session=_Session(),
+    )
+
+    result = client.parse_pdf(b"%PDF-test", "document.pdf")
+
+    assert result["results"]["document.pdf"]["md_content"] == (
+        "# Recovered after result 404"
+    )
+    assert [call for call in calls if call[0] == "POST"] == [
+        ("POST", "https://model.ai.cnooc/member1/mineru-2605/tasks")
+    ]
+    assert calls[1:] == [
+        (
+            "GET",
+            "https://model.ai.cnooc/member1/mineru-2605/tasks/task-transient-404",
+        ),
+        (
+            "GET",
+            "https://model.ai.cnooc/member1/mineru-2605/tasks/task-transient-404",
+        ),
+        (
+            "GET",
+            "https://model.ai.cnooc/member1/mineru-2605/tasks/task-transient-404/result",
+        ),
+        (
+            "GET",
+            "https://model.ai.cnooc/member1/mineru-2605/tasks/task-transient-404/result",
+        ),
+    ]
+
+
+def test_enterprise_mineru_async_retries_status_timeout_on_same_task():
+    calls = []
+    status_attempts = 0
+
+    class _Response:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self._payload
+
+    class _Session:
+        def post(self, url, **kwargs):
+            calls.append(("POST", url))
+            return _Response(202, {"task_id": "task-status-timeout"})
+
+        def get(self, url, **kwargs):
+            nonlocal status_attempts
+            calls.append(("GET", url))
+            if url.endswith("/result"):
+                return _Response(
+                    200,
+                    {
+                        "results": {
+                            "document.pdf": {
+                                "md_content": "# Recovered after status timeout",
+                                "images": {},
+                            }
+                        }
+                    },
+                )
+            status_attempts += 1
+            if status_attempts == 1:
+                raise app.requests.ReadTimeout("status poll timed out")
+            return _Response(200, {"status": "completed"})
+
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        timeout_seconds=30,
+        request_mode="async",
+        poll_interval_seconds=0.001,
+        transient_poll_retries=2,
+        session=_Session(),
+    )
+
+    result = client.parse_pdf(b"%PDF-test", "document.pdf")
+
+    assert result["results"]["document.pdf"]["md_content"] == (
+        "# Recovered after status timeout"
+    )
+    assert len([call for call in calls if call[0] == "POST"]) == 1
+    assert calls[1:] == [
+        (
+            "GET",
+            "https://model.ai.cnooc/member1/mineru-2605/tasks/task-status-timeout",
+        ),
+        (
+            "GET",
+            "https://model.ai.cnooc/member1/mineru-2605/tasks/task-status-timeout",
+        ),
+        (
+            "GET",
+            "https://model.ai.cnooc/member1/mineru-2605/tasks/task-status-timeout/result",
+        ),
+    ]
+
+
+def test_enterprise_mineru_async_retries_result_connection_error_on_same_task():
+    calls = []
+    result_attempts = 0
+
+    class _Response:
+        status_code = 200
+
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self._payload
+
+    class _Session:
+        def post(self, url, **kwargs):
+            calls.append(("POST", url))
+            response = _Response({"task_id": "task-result-disconnect"})
+            response.status_code = 202
+            return response
+
+        def get(self, url, **kwargs):
+            nonlocal result_attempts
+            calls.append(("GET", url))
+            if not url.endswith("/result"):
+                return _Response({"status": "completed"})
+            result_attempts += 1
+            if result_attempts == 1:
+                raise app.requests.ConnectionError("result connection reset")
+            return _Response(
+                {
+                    "results": {
+                        "document.pdf": {
+                            "md_content": "# Recovered after result disconnect",
+                            "images": {},
+                        }
+                    }
+                }
+            )
+
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        timeout_seconds=30,
+        request_mode="async",
+        poll_interval_seconds=0.001,
+        transient_poll_retries=2,
+        session=_Session(),
+    )
+
+    result = client.parse_pdf(b"%PDF-test", "document.pdf")
+
+    assert result["results"]["document.pdf"]["md_content"] == (
+        "# Recovered after result disconnect"
+    )
+    assert len([call for call in calls if call[0] == "POST"]) == 1
+    assert result_attempts == 2
+
+
+def test_enterprise_mineru_async_bounds_status_transport_retries():
+    calls = []
+
+    class _Response:
+        status_code = 202
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"task_id": "task-persistent-timeout"}
+
+    class _Session:
+        def post(self, url, **kwargs):
+            calls.append(("POST", url))
+            return _Response()
+
+        def get(self, url, **kwargs):
+            calls.append(("GET", url))
+            raise app.requests.ReadTimeout("persistent status timeout")
+
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        timeout_seconds=30,
+        request_mode="async",
+        poll_interval_seconds=0.001,
+        transient_poll_retries=1,
+        session=_Session(),
+    )
+
+    with pytest.raises(app.requests.ReadTimeout, match="persistent status timeout"):
+        client.parse_pdf(b"%PDF-test", "document.pdf")
+
+    assert len([call for call in calls if call[0] == "POST"]) == 1
+    assert len([call for call in calls if call[0] == "GET"]) == 2
+
+
+def test_enterprise_mineru_async_resets_result_transport_streak_after_not_ready():
+    calls = []
+    result_attempts = 0
+
+    class _Response:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise RuntimeError(f"HTTP {self.status_code}")
+
+        def json(self):
+            return self._payload
+
+    class _Session:
+        def post(self, url, **kwargs):
+            calls.append(("POST", url))
+            return _Response(202, {"task_id": "task-reset-result-streak"})
+
+        def get(self, url, **kwargs):
+            nonlocal result_attempts
+            calls.append(("GET", url))
+            if not url.endswith("/result"):
+                return _Response(200, {"status": "completed"})
+            result_attempts += 1
+            if result_attempts in {1, 3}:
+                raise app.requests.ReadTimeout("separated result timeout")
+            if result_attempts == 2:
+                return _Response(202, {"status": "processing"})
+            return _Response(
+                200,
+                {
+                    "results": {
+                        "document.pdf": {
+                            "md_content": "# Recovered after separated timeouts",
+                            "images": {},
+                        }
+                    }
+                },
+            )
+
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        timeout_seconds=30,
+        request_mode="async",
+        poll_interval_seconds=0.001,
+        transient_poll_retries=1,
+        session=_Session(),
+    )
+
+    result = client.parse_pdf(b"%PDF-test", "document.pdf")
+
+    assert result["results"]["document.pdf"]["md_content"] == (
+        "# Recovered after separated timeouts"
+    )
+    assert len([call for call in calls if call[0] == "POST"]) == 1
+    assert result_attempts == 4
+
+
+def test_enterprise_mineru_async_bounds_transient_404_retries():
+    calls = []
+
+    class _Response:
+        status_code = 404
+
+        def raise_for_status(self):
+            raise RuntimeError("HTTP 404")
+
+        def json(self):
+            return {"detail": "task not visible"}
+
+    class _Session:
+        def post(self, url, **kwargs):
+            calls.append(("POST", url))
+
+            class _Submission(_Response):
+                status_code = 202
+
+                def raise_for_status(self):
+                    return None
+
+                def json(self):
+                    return {"task_id": "task-persistent-404"}
+
+            return _Submission()
+
+        def get(self, url, **kwargs):
+            calls.append(("GET", url))
+            return _Response()
+
+    client = app.EnterpriseMinerUClient(
+        api_url="https://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        timeout_seconds=30,
+        request_mode="async",
+        poll_interval_seconds=0.001,
+        transient_poll_retries=1,
+        session=_Session(),
+    )
+
+    with pytest.raises(RuntimeError, match="HTTP 404"):
+        client.parse_pdf(b"%PDF-test", "document.pdf")
+
+    assert len([call for call in calls if call[0] == "POST"]) == 1
+    assert len([call for call in calls if call[0] == "GET"]) == 2
 
 
 def test_enterprise_mineru_async_bounds_transient_20006_retries():

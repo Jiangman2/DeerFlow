@@ -14,6 +14,7 @@ import asyncio
 import logging
 import os
 import re
+from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -35,7 +36,10 @@ logger = logging.getLogger(__name__)
 
 PPT_MASTER_RUNNER_ASSISTANT_ID = "ppt-master-runner"
 PPT_MASTER_AGENT_HOST_PORT = int(os.environ.get("PPT_MASTER_AGENT_HOST_PORT", "8788"))
+PPT_MASTER_AGENT_HOST_READY_TIMEOUT_SECONDS = float(os.environ.get("PPT_MASTER_AGENT_HOST_READY_TIMEOUT_SECONDS", "120"))
+PPT_MASTER_AGENT_HOST_REQUEST_RETRY_ATTEMPTS = int(os.environ.get("PPT_MASTER_AGENT_HOST_REQUEST_RETRY_ATTEMPTS", "5"))
 _POLL_INTERVAL_SECONDS = 0.5
+_TRANSIENT_RETRY_BASE_SECONDS = 0.5
 _TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 _PPT_MASTER_SLASH_PREFIX = re.compile(r"^\s*/ppt-master(?:\s+|$)", re.IGNORECASE)
 _CHINESE_BOOK_TITLE = re.compile(r"《([^》\r\n]{2,100})》")
@@ -290,17 +294,126 @@ def _auth_headers(api_key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {api_key}"}
 
 
+def _transport_failure_kind(exc: Exception) -> str:
+    """Return a bounded, credential-free failure category for the task UI."""
+
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"agent host HTTP {exc.response.status_code}"
+    if isinstance(exc, httpx.ConnectError):
+        return "agent host DNS/connect failure"
+    if isinstance(exc, (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.WriteTimeout, httpx.PoolTimeout)):
+        return "agent host timeout"
+    if isinstance(exc, (httpx.ReadError, httpx.WriteError, httpx.RemoteProtocolError)):
+        return "agent host connection interrupted"
+    if "lease" in str(exc).casefold() or "sandbox" in str(exc).casefold():
+        return "Sandbox lifecycle failure"
+    return type(exc).__name__
+
+
+async def _wait_for_agent_host(
+    *,
+    client: httpx.AsyncClient,
+    host_url: str,
+    timeout_seconds: float = PPT_MASTER_AGENT_HOST_READY_TIMEOUT_SECONDS,
+) -> None:
+    """Wait until the thread-scoped Agent sidecar and its Service DNS are ready."""
+
+    deadline = asyncio.get_running_loop().time() + max(1.0, timeout_seconds)
+    last_error: Exception | None = None
+    while True:
+        try:
+            response = await client.get(f"{host_url}/health")
+            if response.status_code == 200:
+                return
+            last_error = RuntimeError(f"PPT Agent host health endpoint returned HTTP {response.status_code}")
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
+            last_error = exc
+
+        if asyncio.get_running_loop().time() >= deadline:
+            raise RuntimeError("PPT Agent host did not become ready before the startup deadline") from last_error
+        await asyncio.sleep(_POLL_INTERVAL_SECONDS)
+
+
+async def _get_agent_task_with_retry(
+    *,
+    client: httpx.AsyncClient,
+    host_url: str,
+    task_id: str,
+    after_seq: int,
+) -> httpx.Response:
+    """Read an Agent task while tolerating bounded transient Pod/DNS interruptions."""
+
+    attempts = max(1, PPT_MASTER_AGENT_HOST_REQUEST_RETRY_ATTEMPTS)
+    for attempt in range(1, attempts + 1):
+        try:
+            return await client.get(
+                f"{host_url}/v1/tasks/{task_id}",
+                params={"after_seq": after_seq},
+            )
+        except (
+            httpx.ConnectError,
+            httpx.ConnectTimeout,
+            httpx.ReadError,
+            httpx.ReadTimeout,
+            httpx.RemoteProtocolError,
+        ):
+            if attempt >= attempts:
+                raise
+            await asyncio.sleep(min(_TRANSIENT_RETRY_BASE_SECONDS * (2 ** (attempt - 1)), 4.0))
+    raise AssertionError("unreachable")
+
+
+async def _start_agent_task_with_retry(
+    *,
+    client: httpx.AsyncClient,
+    host_url: str,
+    payload: dict[str, Any],
+) -> httpx.Response:
+    """Start a task after health passed without losing a turn to a DNS flap."""
+
+    attempts = max(1, PPT_MASTER_AGENT_HOST_REQUEST_RETRY_ATTEMPTS)
+    for attempt in range(1, attempts + 1):
+        try:
+            return await client.post(f"{host_url}/v1/tasks", json=payload)
+        except (
+            httpx.ConnectError,
+            httpx.ConnectTimeout,
+            httpx.ReadError,
+            httpx.ReadTimeout,
+            httpx.RemoteProtocolError,
+        ):
+            if attempt >= attempts:
+                raise
+            await asyncio.sleep(min(_TRANSIENT_RETRY_BASE_SECONDS * (2 ** (attempt - 1)), 4.0))
+    raise AssertionError("unreachable")
+
+
 async def _poll_agent_turn(
     *,
     client: httpx.AsyncClient,
     host_url: str,
     task_id: str,
     writer,
+    thread_id: str | None = None,
+    keep_sandbox_alive: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     after_seq = 0
     message_index = 0
     while True:
-        response = await client.get(f"{host_url}/v1/tasks/{task_id}", params={"after_seq": after_seq})
+        # The external Agent can legitimately spend much longer than the AIO
+        # sandbox idle timeout building and validating a deck.  Host polling
+        # bypasses the normal Sandbox client, so explicitly renew the provider
+        # lease before every poll.  Without this heartbeat the idle reaper can
+        # delete a still-busy Pod and its Service after ~10 minutes, turning a
+        # healthy long-running task into a late DNS/transport failure.
+        if keep_sandbox_alive is not None and not keep_sandbox_alive():
+            raise RuntimeError("The active ppt-master Sandbox lease disappeared during Agent execution")
+        response = await _get_agent_task_with_retry(
+            client=client,
+            host_url=host_url,
+            task_id=task_id,
+            after_seq=after_seq,
+        )
         response.raise_for_status()
         payload = response.json()
         events = payload.get("events")
@@ -319,6 +432,7 @@ async def _poll_agent_turn(
                         {
                             "type": "task_running",
                             "task_id": task_id,
+                            **({"thread_id": thread_id} if thread_id else {}),
                             # ``task_running`` is a public/durable transport
                             # contract. The shared step-event projector expects
                             # the same plain message dictionaries emitted by the
@@ -354,10 +468,6 @@ async def _run_external_ppt_master(
     user_text = _latest_user_text(messages)
     resume = not user_text.lstrip().lower().startswith("/ppt-master")
     original_request = _original_ppt_master_request(messages, user_text)
-    thread_title = derive_ppt_master_thread_title(
-        original_request,
-        title_config=app_config.title,
-    )
     prompt = build_ppt_master_runner_system_prompt(
         user_text,
         original_request=original_request,
@@ -377,20 +487,28 @@ async def _run_external_ppt_master(
         {
             "type": "task_started",
             "task_id": run_id,
+            "thread_id": thread_id,
             "description": "ppt-master 官方工作流",
             "model_name": "ppt-master-agent-host",
         }
     )
 
     timeout = httpx.Timeout(connect=10.0, read=35.0, write=30.0, pool=10.0)
+    execution_lease = None
     try:
+        acquire_execution_lease = getattr(provider, "acquire_execution_lease", None)
+        if not callable(acquire_execution_lease):
+            raise RuntimeError("The configured Sandbox provider does not support external execution leases")
+        execution_lease = await asyncio.to_thread(acquire_execution_lease, sandbox_id)
         async with httpx.AsyncClient(
             headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""),
             timeout=timeout,
         ) as client:
-            response = await client.post(
-                f"{host_url}/v1/tasks",
-                json={
+            await _wait_for_agent_host(client=client, host_url=host_url)
+            response = await _start_agent_task_with_retry(
+                client=client,
+                host_url=host_url,
+                payload={
                     "task_id": run_id,
                     "thread_id": thread_id,
                     "prompt": prompt,
@@ -403,7 +521,9 @@ async def _run_external_ppt_master(
                 client=client,
                 host_url=host_url,
                 task_id=run_id,
+                thread_id=thread_id,
                 writer=writer,
+                keep_sandbox_alive=lambda: provider.get(sandbox_id) is not None,
             )
     except asyncio.CancelledError:
         try:
@@ -414,9 +534,31 @@ async def _run_external_ppt_master(
                 await client.post(f"{host_url}/v1/tasks/{run_id}/cancel")
         except Exception:
             logger.warning("Failed to cancel external ppt-master Agent task %s", run_id, exc_info=True)
-        writer({"type": "task_cancelled", "task_id": run_id})
+        writer({"type": "task_cancelled", "task_id": run_id, "thread_id": thread_id})
         raise
+    except Exception as exc:
+        failure_kind = _transport_failure_kind(exc)
+        logger.exception(
+            "External ppt-master transport failed (thread=%s run=%s sandbox=%s kind=%s)",
+            thread_id,
+            run_id,
+            sandbox_id,
+            failure_kind,
+        )
+        writer(
+            {
+                "type": "task_failed",
+                "task_id": run_id,
+                "thread_id": thread_id,
+                "error": f"PPT Agent host transport failed before task completion ({failure_kind})",
+            }
+        )
+        raise RuntimeError(f"PPT Agent host transport failed before task completion ({failure_kind})") from exc
     finally:
+        if execution_lease is not None:
+            release_execution_lease = getattr(provider, "release_execution_lease", None)
+            if callable(release_execution_lease):
+                await asyncio.to_thread(release_execution_lease, execution_lease, sandbox_id)
         await asyncio.to_thread(provider.release, sandbox_id)
 
     status = result.get("status")
@@ -427,6 +569,7 @@ async def _run_external_ppt_master(
             {
                 "type": "task_completed",
                 "task_id": run_id,
+                "thread_id": thread_id,
                 "result": final_message,
                 "model_name": "ppt-master-agent-host",
             }
@@ -436,13 +579,11 @@ async def _run_external_ppt_master(
             "artifacts": artifacts,
             "sandbox": {"sandbox_id": sandbox_id},
         }
-        if thread_title:
-            state_update["title"] = thread_title
         return state_update
 
     error = str(result.get("error") or final_message or f"external Agent ended with status={status}")
     event_type = "task_cancelled" if status == "cancelled" else "task_failed"
-    writer({"type": event_type, "task_id": run_id, "error": error})
+    writer({"type": event_type, "task_id": run_id, "thread_id": thread_id, "error": error})
     raise RuntimeError(f"PPT Agent host failed: {error}")
 
 
@@ -454,6 +595,34 @@ def make_ppt_master_runner_agent(
 
     del config
     effective_config = app_config or get_app_config()
+
+    async def initialize_thread_node(
+        state: ThreadState,
+    ) -> dict[str, Any]:
+        """Publish the deterministic title before the long external turn.
+
+        The sidebar consumes update events while the Agent host is still
+        working.  Returning the title from a short first node gives the UI and
+        checkpointer an authoritative title immediately instead of leaving a
+        long-running presentation thread as ``Untitled`` until completion.
+        """
+
+        current_title = str(state.get("title") or "").strip()
+        if current_title and current_title.casefold() not in {
+            "untitled",
+            "new chat",
+            "新对话",
+        }:
+            return {}
+
+        messages = list(state.get("messages") or [])
+        user_text = _latest_user_text(messages)
+        original_request = _original_ppt_master_request(messages, user_text)
+        title = derive_ppt_master_thread_title(
+            original_request,
+            title_config=effective_config.title,
+        )
+        return {"title": title} if title else {}
 
     async def external_agent_node(
         state: ThreadState,
@@ -468,8 +637,10 @@ def make_ppt_master_runner_agent(
         )
 
     builder = StateGraph(ThreadState)
+    builder.add_node("initialize_ppt_master_thread", initialize_thread_node)
     builder.add_node("external_ppt_master_agent", external_agent_node)
-    builder.add_edge(START, "external_ppt_master_agent")
+    builder.add_edge(START, "initialize_ppt_master_thread")
+    builder.add_edge("initialize_ppt_master_thread", "external_ppt_master_agent")
     builder.add_edge("external_ppt_master_agent", END)
     graph = builder.compile()
     graph.metadata = {"model_name": "ppt-master-agent-host"}
@@ -478,6 +649,8 @@ def make_ppt_master_runner_agent(
 
 __all__ = [
     "PPT_MASTER_AGENT_HOST_PORT",
+    "PPT_MASTER_AGENT_HOST_READY_TIMEOUT_SECONDS",
+    "PPT_MASTER_AGENT_HOST_REQUEST_RETRY_ATTEMPTS",
     "PPT_MASTER_RUNNER_ASSISTANT_ID",
     "build_ppt_master_runner_system_prompt",
     "codex_event_to_messages",

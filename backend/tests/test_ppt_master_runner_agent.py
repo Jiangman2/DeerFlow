@@ -1,11 +1,17 @@
 import asyncio
 import inspect
+from types import SimpleNamespace
 
-from langchain_core.messages import AIMessage, ToolMessage
+import httpx
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
+import deerflow.agents.ppt_master_runner.agent as ppt_master_runner_agent
 from deerflow.agents.ppt_master_runner.agent import (
     PPT_MASTER_AGENT_HOST_PORT,
+    _get_agent_task_with_retry,
     _poll_agent_turn,
+    _start_agent_task_with_retry,
+    _wait_for_agent_host,
     build_ppt_master_runner_system_prompt,
     codex_event_to_messages,
     completed_agent_message,
@@ -70,6 +76,84 @@ def test_agent_host_url_reuses_the_thread_sandbox_service():
     assert derive_agent_host_url("http://sandbox-abc-svc.deer-flow.svc.cluster.local:8080") == f"http://sandbox-abc-svc.deer-flow.svc.cluster.local:{PPT_MASTER_AGENT_HOST_PORT}"
 
 
+def test_agent_host_readiness_waits_through_transient_dns_failure():
+    class Response:
+        status_code = 200
+
+    class Client:
+        calls = 0
+
+        async def get(self, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise httpx.ConnectError("Name or service not known")
+            return Response()
+
+    client = Client()
+    asyncio.run(
+        _wait_for_agent_host(
+            client=client,
+            host_url="http://sandbox-agent:8788",
+            timeout_seconds=2,
+        )
+    )
+
+    assert client.calls == 2
+
+
+def test_agent_task_poll_retries_transient_connection_failure():
+    class Response:
+        status_code = 200
+
+    class Client:
+        calls = 0
+
+        async def get(self, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise httpx.ConnectError("temporary DNS failure")
+            return Response()
+
+    client = Client()
+    response = asyncio.run(
+        _get_agent_task_with_retry(
+            client=client,
+            host_url="http://sandbox-agent:8788",
+            task_id="run-1",
+            after_seq=0,
+        )
+    )
+
+    assert response.status_code == 200
+    assert client.calls == 2
+
+
+def test_agent_task_start_retries_transient_connection_failure():
+    class Response:
+        status_code = 202
+
+    class Client:
+        calls = 0
+
+        async def post(self, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise httpx.ConnectError("temporary DNS failure")
+            return Response()
+
+    client = Client()
+    response = asyncio.run(
+        _start_agent_task_with_retry(
+            client=client,
+            host_url="http://sandbox-agent:8788",
+            payload={"task_id": "run-1"},
+        )
+    )
+
+    assert response.status_code == 202
+    assert client.calls == 2
+
+
 def test_runner_derives_title_without_attaching_the_lead_title_middleware():
     assert (
         derive_ppt_master_thread_title(
@@ -88,6 +172,48 @@ def test_runner_respects_disabled_title_configuration():
         )
         is None
     )
+
+
+def test_runner_checkpoints_title_before_starting_the_long_external_turn():
+    graph = make_ppt_master_runner_agent(
+        {},
+        app_config=SimpleNamespace(title=TitleConfig()),
+    )
+    drawable = graph.get_graph()
+    edges = {(edge.source, edge.target) for edge in drawable.edges}
+
+    assert ("__start__", "initialize_ppt_master_thread") in edges
+    assert (
+        "initialize_ppt_master_thread",
+        "external_ppt_master_agent",
+    ) in edges
+
+
+def test_runner_initialization_node_accepts_the_compiled_graph_call_contract(
+    monkeypatch,
+):
+    async def fake_external_turn(state, config, runtime, *, app_config):
+        del config, runtime, app_config
+        return {"messages": list(state.get("messages") or [])}
+
+    monkeypatch.setattr(
+        ppt_master_runner_agent,
+        "_run_external_ppt_master",
+        fake_external_turn,
+    )
+    graph = make_ppt_master_runner_agent(
+        {},
+        app_config=SimpleNamespace(title=TitleConfig()),
+    )
+
+    result = asyncio.run(
+        graph.ainvoke(
+            {"messages": [HumanMessage(content=("/ppt-master 请创建5页高质量《中国海油海上新能源发展路线图》PPT。"))]},
+            config={"configurable": {"thread_id": "ppt-title-contract"}},
+        )
+    )
+
+    assert result["title"] == "中国海油海上新能源发展路线图"
 
 
 def test_codex_command_event_becomes_real_tool_timeline_steps():
@@ -150,6 +276,61 @@ def test_poll_agent_turn_emits_plain_message_dicts_for_durable_task_steps():
     assert isinstance(chunks[0]["message"], dict)
     assert chunks[0]["message"]["type"] == "ai"
     assert subagent_run_event(chunks[0])["content"]["text"] == "Loading ppt-master."
+
+
+def test_poll_agent_turn_renews_the_sandbox_lease_until_completion():
+    class Response:
+        def __init__(self, status: str):
+            self.status = status
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"status": self.status, "events": []}
+
+    class Client:
+        calls = 0
+
+        async def get(self, *_args, **_kwargs):
+            self.calls += 1
+            return Response("running" if self.calls == 1 else "completed")
+
+    heartbeats = []
+    result = asyncio.run(
+        _poll_agent_turn(
+            client=Client(),
+            host_url="http://sandbox-agent:8788",
+            task_id="run-lease",
+            writer=lambda _chunk: None,
+            keep_sandbox_alive=lambda: not heartbeats.append("touch"),
+        )
+    )
+
+    assert result["status"] == "completed"
+    assert heartbeats == ["touch", "touch"]
+
+
+def test_poll_agent_turn_fails_closed_when_the_sandbox_lease_disappears():
+    class Client:
+        async def get(self, *_args, **_kwargs):  # pragma: no cover - must not run
+            raise AssertionError("host poll must not run after lease loss")
+
+    async def poll():
+        await _poll_agent_turn(
+            client=Client(),
+            host_url="http://sandbox-agent:8788",
+            task_id="run-lost-lease",
+            writer=lambda _chunk: None,
+            keep_sandbox_alive=lambda: False,
+        )
+
+    try:
+        asyncio.run(poll())
+    except RuntimeError as exc:
+        assert "lease disappeared" in str(exc)
+    else:  # pragma: no cover - defensive assertion
+        raise AssertionError("missing Sandbox lease must fail the turn")
 
 
 def test_codex_agent_message_becomes_visible_progress():

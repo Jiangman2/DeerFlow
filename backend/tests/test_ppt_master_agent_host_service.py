@@ -53,9 +53,43 @@ wire_api = "responses"
     )
 
 
+def test_agent_host_restores_missing_writable_user_data_roots(tmp_path: Path, monkeypatch):
+    workspace = tmp_path / "user-data" / "workspace"
+    uploads = tmp_path / "user-data" / "uploads"
+    outputs = tmp_path / "user-data" / "outputs"
+    temp_root = workspace / ".ppt-master-agent" / "tmp"
+    uploads.mkdir(parents=True)
+    monkeypatch.setattr(host, "WORKSPACE_ROOT", workspace)
+    monkeypatch.setattr(host, "UPLOADS_ROOT", uploads)
+    monkeypatch.setattr(host, "OUTPUTS_ROOT", outputs)
+    monkeypatch.setattr(host, "TEMP_ROOT", temp_root)
+
+    restored = host.ensure_user_data_directories()
+
+    assert restored == [str(workspace), str(outputs)]
+    assert workspace.is_dir()
+    assert uploads.is_dir()
+    assert outputs.is_dir()
+    assert temp_root.is_dir()
+
+
+def test_agent_subprocess_temp_is_pinned_to_persistent_workspace(tmp_path: Path, monkeypatch):
+    temp_root = tmp_path / "workspace" / ".ppt-master-agent" / "tmp"
+    monkeypatch.setattr(host, "TEMP_ROOT", temp_root)
+
+    env = host._agent_subprocess_env({"PATH": "test-path", "TMPDIR": "/tmp"})
+
+    assert env["PATH"] == "test-path"
+    assert env["TMPDIR"] == str(temp_root)
+    assert env["TMP"] == str(temp_root)
+    assert env["TEMP"] == str(temp_root)
+    assert temp_root.is_dir()
+
+
 def test_agent_host_writes_valid_operator_model_catalog(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(host, "CODEX_HOME", tmp_path / "codex-home")
     monkeypatch.setattr(host, "RUNTIME_ROOT", tmp_path / "runtime")
+    monkeypatch.setattr(host, "TEMP_ROOT", tmp_path / "temp")
     monkeypatch.setattr(Path, "symlink_to", lambda self, target, target_is_directory=False: None)
     host.RUNTIME_ROOT.mkdir()
     catalog = {

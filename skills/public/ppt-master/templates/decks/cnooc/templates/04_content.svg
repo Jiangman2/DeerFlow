@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+  width="1280" height="720" viewBox="0 0 1280 720"
+  data-pptx-master="cnooc_corporate_master" data-pptx-master-name="CNOOC Corporate"
+  data-pptx-layout="content" data-pptx-layout-name="Title and Content">
+  <rect id="cnooc-master-background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"
+    data-pptx-layer="master" data-pptx-editable="false"/>
+
+  <image id="content-background" x="0" y="0" width="1280" height="720"
+    href="../images/content_bg.png" preserveAspectRatio="xMidYMid slice"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="content-title-blue-accent" x="56" y="112" width="112" height="4" rx="2" fill="#0060A6"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="content-title-red-accent" x="168" y="112" width="36" height="4" rx="2" fill="#DE002B"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="content-panel" x="56" y="138" width="1168" height="488" rx="20"
+    fill="#FFFFFF" fill-opacity="0.88" stroke="#D9DEE5" stroke-width="1"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+
+  <g id="content-title-slot" data-pptx-placeholder="title"
+    data-pptx-bounds="56 48 900 54">
+    <text id="content-title-carrier" data-pptx-carrier="true"
+      x="56" y="86" fill="#004C8B"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="30" font-weight="700">{{PAGE_TITLE}}</text>
+  </g>
+  <g id="content-object-slot" data-pptx-placeholder="object" data-pptx-idx="1"
+    data-pptx-bounds="80 162 1120 438">
+    <text id="content-object-carrier" data-pptx-carrier="true"
+      x="80" y="198" fill="#9AA7B4"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="20">{{CONTENT_AREA}}</text>
+  </g>
+  <g id="content-source-slot" data-pptx-placeholder="footer" data-pptx-idx="2"
+    data-pptx-bounds="72 658 760 28">
+    <text id="content-source-carrier" data-pptx-carrier="true"
+      x="72" y="678" fill="#6A7785"
+      font-family="Arial, Microsoft YaHei, sans-serif" font-size="13">{{SOURCE}}</text>
+  </g>
+  <g id="content-slide-number-slot" data-pptx-placeholder="slide-number"
+    data-pptx-idx="3" data-pptx-bounds="1128 658 80 28">
+    <text id="content-slide-number-carrier" data-pptx-carrier="true"
+      x="1208" y="678" text-anchor="end" fill="#6A7785"
+      font-family="Arial, sans-serif" font-size="13">{{PAGE_NUM}}</text>
+  </g>
+</svg>

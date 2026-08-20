@@ -168,19 +168,25 @@ export const enUS: Translations = {
     voiceInputStartLabel: "Dictate with voice",
     voiceInputStopLabel: "Stop voice input",
     voiceInputStart:
-      "Dictate with voice. 本平台 receives only transcribed text; audio is handled by your browser or system speech service.",
+      "Dictate with voice. Audio is streamed through Gateway to the enterprise Qwen ASR service.",
     voiceInputStop: "Stop voice input",
     voiceInputListening: "Listening... Click to stop voice input.",
     voiceInputUnsupported:
-      "Voice input is not supported in this browser. Try Chrome or Edge.",
+      "This browser does not support secure recording or WebSocket voice input.",
+    voiceInputInsecureContext:
+      "This page is not a secure context, so the browser blocks microphone access. Use HTTPS or an approved trusted-origin browser policy.",
     voiceInputPermissionDenied:
       "Microphone access was denied. Allow microphone access and try again.",
     voiceInputMicrophoneUnavailable:
       "No microphone was detected. Check your device input and try again.",
+    voiceInputAuthenticationRequired:
+      "Your session has expired. Sign in again to use voice input.",
+    voiceInputFinalTimeout:
+      "Voice transcription timed out. Please try again.",
     voiceInputUnsupportedLanguage:
       "Voice input does not support the current language in this browser.",
     voiceInputNetworkError:
-      "Voice input could not reach the browser speech service.",
+      "Voice input could not reach the enterprise transcription service.",
     voiceInputNoSpeech: "No speech was detected. Please try again.",
     voiceInputFailed: "Voice input failed. Please try again.",
     mode: "Mode",

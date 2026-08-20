@@ -1089,7 +1089,9 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
   void page.route("**/api/agents/*", (route) => {
     if (route.request().method() === "GET") {
       const url = route.request().url();
-      const agent = agents.find((a) => url.endsWith(`/api/agents/${a.name}`));
+      const encodedName = new URL(url).pathname.split("/").at(-1) ?? "";
+      const agentName = decodeURIComponent(encodedName);
+      const agent = agents.find((a) => a.name === agentName);
       if (agent) {
         return route.fulfill({
           status: 200,

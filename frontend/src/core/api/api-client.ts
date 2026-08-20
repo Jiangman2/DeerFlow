@@ -199,13 +199,55 @@ function createCompatibleClient(
       });
 
   const originalRunStream = client.runs.stream.bind(client.runs);
-  client.runs.stream = (async function* (threadId, assistantId, payload) {
+
+  // Explicit ppt-master threads are checkpointed by the isolated runtime on
+  // port 8003.  Keep read-side state/history on that same namespace.  Sending
+  // these reads to the ordinary LangGraph runtime produces misleading 404s
+  // and prevents artifact/history hydration after a page reload even while
+  // the external Agent turn itself is still healthy.
+  const originalGetThread = client.threads.get.bind(client.threads);
+  client.threads.get = (async (threadId, options) => {
+    const usePptMaster = Boolean(
+      pptMasterClient &&
+      threadId &&
+      (await shouldUsePptMasterRuntime(client, threadId)),
+    );
+    return usePptMaster && pptMasterClient
+      ? pptMasterClient.threads.get(threadId, options)
+      : originalGetThread(threadId, options);
+  }) as typeof client.threads.get;
+
+  const originalGetState = client.threads.getState.bind(client.threads);
+  client.threads.getState = (async (threadId, options) => {
+    const usePptMaster = Boolean(
+      pptMasterClient &&
+      threadId &&
+      (await shouldUsePptMasterRuntime(client, threadId)),
+    );
+    return usePptMaster && pptMasterClient
+      ? pptMasterClient.threads.getState(threadId, options)
+      : originalGetState(threadId, options);
+  }) as typeof client.threads.getState;
+
+  const originalGetHistory = client.threads.getHistory.bind(client.threads);
+  client.threads.getHistory = (async (threadId, options) => {
+    const usePptMaster = Boolean(
+      pptMasterClient &&
+      threadId &&
+      (await shouldUsePptMasterRuntime(client, threadId)),
+    );
+    return usePptMaster && pptMasterClient
+      ? pptMasterClient.threads.getHistory(threadId, options)
+      : originalGetHistory(threadId, options);
+  }) as typeof client.threads.getHistory;
+
+  client.runs.stream = async function* (threadId, assistantId, payload) {
     const sanitized = sanitizeRunStreamOptions(payload);
     const input = Reflect.get(sanitized as object, "input");
     const usePptMaster = Boolean(
       pptMasterClient &&
-        threadId &&
-        (await shouldUsePptMasterRuntime(client, threadId, input)),
+      threadId &&
+      (await shouldUsePptMasterRuntime(client, threadId, input)),
     );
     if (usePptMaster && pptMasterClient) {
       const metadata = Reflect.get(sanitized as object, "metadata");
@@ -215,8 +257,7 @@ function createCompatibleClient(
           ...(typeof metadata === "object" && metadata !== null
             ? metadata
             : {}),
-          [PPT_MASTER_RUNTIME_METADATA_KEY]:
-            PPT_MASTER_RUNTIME_ASSISTANT_ID,
+          [PPT_MASTER_RUNTIME_METADATA_KEY]: PPT_MASTER_RUNTIME_ASSISTANT_ID,
         },
       };
       yield* pptMasterClient.runs.stream(
@@ -227,14 +268,14 @@ function createCompatibleClient(
       return;
     }
     yield* originalRunStream(threadId, assistantId, sanitized);
-  }) as typeof client.runs.stream;
+  } as typeof client.runs.stream;
 
   const originalCancel = client.runs.cancel.bind(client.runs);
   client.runs.cancel = (async (threadId, runId, wait, action, options) => {
     const usePptMaster = Boolean(
       pptMasterClient &&
-        threadId &&
-        (await shouldUsePptMasterRuntime(client, threadId)),
+      threadId &&
+      (await shouldUsePptMasterRuntime(client, threadId)),
     );
     const cancel = usePptMaster
       ? pptMasterClient!.runs.cancel.bind(pptMasterClient!.runs)
@@ -260,8 +301,8 @@ function createCompatibleClient(
   client.runs.joinStream = async function* (threadId, runId, options) {
     const usePptMaster = Boolean(
       pptMasterClient &&
-        threadId &&
-        (await shouldUsePptMasterRuntime(client, threadId)),
+      threadId &&
+      (await shouldUsePptMasterRuntime(client, threadId)),
     );
     const streamClient = usePptMaster ? pptMasterClient! : client;
     const joinStream = usePptMaster
@@ -271,16 +312,15 @@ function createCompatibleClient(
     // reload after the backend's stream bridge is reaped blocks forever on a
     // drained condition variable, pinning ``isLoading`` true so the first
     // post-reload message is routed to ``stop`` instead of ``submit``.
-    if (threadId && (await shouldSkipReconnect(streamClient, threadId, runId))) {
+    if (
+      threadId &&
+      (await shouldSkipReconnect(streamClient, threadId, runId))
+    ) {
       clearReconnectRun(threadId, runId);
       return;
     }
     try {
-      yield* joinStream(
-        threadId,
-        runId,
-        sanitizeRunStreamOptions(options),
-      );
+      yield* joinStream(threadId, runId, sanitizeRunStreamOptions(options));
     } catch (error) {
       if (isInactiveRunStreamError(error)) {
         clearReconnectRun(threadId, runId);

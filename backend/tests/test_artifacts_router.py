@@ -259,8 +259,34 @@ def test_get_pdf_artifact_preview_renders_requested_page_as_png(tmp_path, monkey
     assert response.headers["x-content-type-options"] == "nosniff"
 
 
-def test_get_pdf_artifact_preview_rejects_non_companion_pdf(tmp_path, monkeypatch) -> None:
+def test_get_pdf_artifact_preview_accepts_generated_standalone_pdf(tmp_path, monkeypatch) -> None:
     artifact_path = tmp_path / "report.pdf"
+    artifact_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    monkeypatch.setattr(
+        artifacts_router,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path, user_id=None: artifact_path,
+    )
+    monkeypatch.setattr(artifacts_router, "_inspect_pdf_preview", lambda _path: 1)
+    monkeypatch.setattr(artifacts_router, "_render_pdf_preview_pages", lambda _path, page_count: [b"standalone-page"][:page_count])
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_pdf_artifact_preview,
+            "thread-1",
+            "mnt/user-data/outputs/report.pdf",
+            _make_request(),
+            page=None,
+        )
+    )
+
+    assert response.status_code == 200
+    assert response.media_type == "text/html"
+    assert "data:image/png;base64,c3RhbmRhbG9uZS1wYWdl" in bytes(response.body).decode("utf-8")
+
+
+def test_get_pdf_artifact_preview_rejects_uploaded_pdf(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "uploaded.pdf"
     artifact_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
     monkeypatch.setattr(
         artifacts_router,
@@ -273,7 +299,7 @@ def test_get_pdf_artifact_preview_rejects_non_companion_pdf(tmp_path, monkeypatc
             call_unwrapped(
                 artifacts_router.get_pdf_artifact_preview,
                 "thread-1",
-                "mnt/user-data/outputs/report.pdf",
+                "mnt/user-data/uploads/uploaded.pdf",
                 _make_request(),
                 page=None,
             )

@@ -42,6 +42,8 @@ import { MarkdownContent, type MarkdownContentProps } from "./markdown-content";
 import { createMarkdownLinkComponent } from "./markdown-link";
 
 const STEP_SUMMARY_MAX_CHARS = 180;
+const INITIAL_VISIBLE_STEP_COUNT = 80;
+const VISIBLE_STEP_INCREMENT = 80;
 const LIVE_PREVIEW_URL_PATTERN =
   /https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):5050(?:\/|\b)/i;
 
@@ -256,6 +258,9 @@ export function SubtaskCard({
 }) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(true);
+  const [visibleStepCount, setVisibleStepCount] = useState(
+    INITIAL_VISIBLE_STEP_COUNT,
+  );
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const task = useSubtask(taskId)!;
   const { models, tokenUsageEnabled } = useModels();
@@ -277,7 +282,13 @@ export function SubtaskCard({
   // The card shows the subagent's step timeline (#3779): its reasoning turns
   // (AI text) interleaved with the tools it ran (by name). See stepsForDisplay
   // for what is kept/dropped.
-  const displaySteps = stepsForDisplay(task.steps, task.status);
+  const displaySteps = useMemo(
+    () => stepsForDisplay(task.steps, task.status),
+    [task.steps, task.status],
+  );
+  const hiddenStepCount = Math.max(0, displaySteps.length - visibleStepCount);
+  const visibleSteps =
+    hiddenStepCount > 0 ? displaySteps.slice(hiddenStepCount) : displaySteps;
   const threadMarkdownComponents = useMemo(
     () => ({ a: createMarkdownLinkComponent(threadId) }),
     [threadId],
@@ -288,6 +299,10 @@ export function SubtaskCard({
   const stepsCount = task.steps?.length ?? 0;
   const backfilledRef = useRef(false);
   useEffect(() => {
+    setVisibleStepCount(INITIAL_VISIBLE_STEP_COUNT);
+  }, [taskId]);
+
+  useEffect(() => {
     if (collapsed || backfilledRef.current || stepsCount > 0) {
       return;
     }
@@ -295,16 +310,27 @@ export function SubtaskCard({
       return;
     }
     backfilledRef.current = true;
-    fetchSubtaskSteps(threadId, runId, taskId)
+    const controller = new AbortController();
+    fetchSubtaskSteps(threadId, runId, taskId, undefined, controller.signal)
       .then((steps) => {
         if (steps.length > 0) {
           updateSubtask({ id: taskId, steps });
         }
       })
       .catch(() => {
+        if (controller.signal.aborted) {
+          return;
+        }
         // Allow a retry on the next expand if the fetch failed.
         backfilledRef.current = false;
       });
+
+    return () => {
+      // A route change can unmount this card while its historical event pages
+      // are still in flight. Abort them so their late result cannot repopulate
+      // the next conversation's scoped task store.
+      controller.abort();
+    };
   }, [collapsed, stepsCount, threadId, runId, taskId, updateSubtask]);
   const icon = useMemo(() => {
     if (task.status === "completed") {
@@ -427,9 +453,26 @@ export function SubtaskCard({
               }
             ></ChainOfThoughtStep>
           )}
-          {displaySteps.map((step, i) => {
+          {hiddenStepCount > 0 && (
+            <ChainOfThoughtStep
+              label={
+                <Button
+                  className="h-auto px-2 py-1 text-xs"
+                  variant="ghost"
+                  onClick={() =>
+                    setVisibleStepCount(
+                      (count) => count + VISIBLE_STEP_INCREMENT,
+                    )
+                  }
+                >
+                  {t.toolCalls.moreSteps(hiddenStepCount)}
+                </Button>
+              }
+            />
+          )}
+          {visibleSteps.map((step, i) => {
             const isLastWhileRunning =
-              task.status === "in_progress" && i === displaySteps.length - 1;
+              task.status === "in_progress" && i === visibleSteps.length - 1;
             return (
               <SubtaskTimelineStep
                 key={`${step.message_index}-${i}`}

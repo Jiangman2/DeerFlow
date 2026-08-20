@@ -1,4 +1,4 @@
-"""Unit tests for the AppForge-backed DataLake community tools."""
+"""Unit tests for Retrieve-backed and AppForge-backed DataLake tools."""
 
 from __future__ import annotations
 
@@ -46,6 +46,11 @@ def reset_appforge_state(monkeypatch: pytest.MonkeyPatch):
         "APPFORGE_HYTOKEN",
         "APPFORGE_HYACCOUNT",
         "APPFORGE_TRUST_ENV",
+        "DATALAKE_RETRIEVE_API_URL",
+        "DATALAKE_RETRIEVE_PROJECT_ID",
+        "DATALAKE_RETRIEVE_DOCUMENT_STORE_ID",
+        "DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS",
+        "DATALAKE_RETRIEVE_TRUST_ENV",
     ):
         monkeypatch.delenv(name, raising=False)
     module._missing_config_warned = set()
@@ -81,6 +86,24 @@ def _invoke_with_stream(tool_name: str, app, lines: list[str]):
     return json.loads(raw), call, client_kwargs
 
 
+def _invoke_with_retrieve(app, response_payload: dict):
+    import deerflow.community.appforge.tools as module
+
+    response = httpx.Response(
+        200,
+        request=httpx.Request("POST", "http://datalake.invalid/retrieve"),
+        json=response_payload,
+    )
+    with patch.object(module, "get_app_config", return_value=app):
+        with patch.object(module.httpx, "Client") as client_cls:
+            client = client_cls.return_value.__enter__.return_value
+            client.post.return_value = response
+            raw = module._invoke_retrieve_tool("测试问题", _runtime())
+            call = client.post.call_args
+            client_kwargs = client_cls.call_args.kwargs
+    return json.loads(raw), call, client_kwargs
+
+
 def test_public_tool_schemas_expose_only_the_business_query():
     from deerflow.community.appforge.tools import (
         datalake_detail_qa_tool,
@@ -105,7 +128,7 @@ def test_disabled_data_lake_context_rejects_before_configuration_or_network():
     )
     with patch.object(module, "get_app_config", side_effect=AssertionError("config must not be read")):
         with patch.object(module.httpx, "Client", side_effect=AssertionError("network must not start")):
-            result = json.loads(module._invoke_tool("datalake_smart_qa", "问题", runtime))
+            result = json.loads(module._invoke_retrieve_tool("问题", runtime))
 
     assert result == {
         "error": "Data Lake use is disabled for this run",
@@ -128,9 +151,9 @@ def test_conversation_id_is_stable_per_user_thread_and_tool():
     assert first.startswith("ApiKeyAgent_")
 
 
-def test_smart_qa_invocation_uses_secret_config_and_parses_sse():
+def test_metrics_qa_invocation_uses_secret_config_and_parses_sse():
     app = _app_config(
-        datalake_smart_qa={
+        datalake_metrics_qa={
             "api_url": "http://appforge.internal:9080",
             "api_key": "secret-key",
             "app_id": "app-smart",
@@ -149,7 +172,7 @@ def test_smart_qa_invocation_uses_secret_config_and_parses_sse():
     ]
 
     result, call, client_kwargs = _invoke_with_stream(
-        "datalake_smart_qa",
+        "datalake_metrics_qa",
         app,
         lines,
     )
@@ -173,9 +196,120 @@ def test_smart_qa_invocation_uses_secret_config_and_parses_sse():
         "hytoken": "server-side-hytoken",
         "hyaccount": "server-side-account",
     }
-    assert call.kwargs["json"]["conversationId"].startswith("ApiKeyAgent_")
+    assert call.kwargs["json"]["conversationId"].startswith("WorkflowAgent_")
     assert "secret-key" not in json.dumps(result, ensure_ascii=False)
     assert "server-side-hytoken" not in json.dumps(result, ensure_ascii=False)
+
+
+def test_smart_qa_uses_retrieve_without_appforge_credentials():
+    app = _app_config(
+        datalake_smart_qa={
+            "retrieve_api_url": "http://datalake.internal/retrieve",
+            "project_id": "proj-tested",
+            "document_store_ids": ["docstore-tested"],
+            "retrieve_type": "Hybrid",
+            "reranking_enabled": False,
+            "top_k": 10,
+            "score_threshold_enabled": False,
+            "weight": 0.5,
+            "trust_env": False,
+        }
+    )
+    response_payload = {
+        "id": "retrieve-1",
+        "query": "测试问题",
+        "type": "Hybrid",
+        "strategy": {"weight": 0.5},
+        "retrieveChunks": [
+            {
+                "id": "chunk-1",
+                "documentID": "document-1",
+                "documentStoreID": "docstore-tested",
+                "documentName": "测试文档.pdf",
+                "documentStoreName": "默认文档库",
+                "fileUUID": "file-1",
+                "type": "text",
+                "content": "命中的叙述证据",
+                "score": 0.91,
+            }
+        ],
+    }
+
+    result, call, client_kwargs = _invoke_with_retrieve(app, response_payload)
+
+    assert client_kwargs == {"timeout": 30.0, "trust_env": False}
+    assert call.args[:2] == ("http://datalake.internal/retrieve",)
+    assert call.args[0] == "http://datalake.internal/retrieve"
+    assert call.kwargs["json"] == {
+        "projectID": "proj-tested",
+        "documentStoreIDs": ["docstore-tested"],
+        "documentIDs": [],
+        "query": "测试问题",
+        "type": "Hybrid",
+        "extra_data": {},
+        "rerankingEnabled": False,
+        "topK": 10,
+        "scoreThresholdEnabled": False,
+        "weight": 0.5,
+    }
+    assert result["chunks"] == [
+        {
+            "chunk_id": "chunk-1",
+            "document_id": "document-1",
+            "document_store_id": "docstore-tested",
+            "document_name": "测试文档.pdf",
+            "document_store_name": "默认文档库",
+            "file_uuid": "file-1",
+            "type": "text",
+            "content": "命中的叙述证据",
+            "score": 0.91,
+        }
+    ]
+
+
+def test_smart_qa_retrieve_requires_project_and_document_store():
+    import deerflow.community.appforge.tools as module
+
+    app = _app_config(datalake_smart_qa={"retrieve_api_url": "http://datalake.internal/retrieve"})
+    with patch.object(module, "get_app_config", return_value=app):
+        with patch.object(module.httpx, "Client", side_effect=AssertionError("network must not start")):
+            result = json.loads(module._invoke_retrieve_tool("问题", _runtime()))
+
+    assert result == {
+        "error": "DataLake Retrieve is not configured",
+        "code": "missing_retrieve_project_id",
+        "retryable": False,
+    }
+
+
+def test_retrieve_percent_encodes_chinese_image_preview_urls():
+    import deerflow.community.appforge.tools as module
+
+    raw = module._safe_retrieve_json(
+        {
+            "query": "图片",
+            "chunks": [
+                {
+                    "content": "http://10.77.124.142:30900/img-preview/中文目录/井身结构图.png",
+                }
+            ],
+        }
+    )
+
+    result = json.loads(raw)
+    normalized = result["chunks"][0]["content"]
+
+    assert normalized.startswith("http://10.77.124.142:30900/img-preview/")
+    assert "%E4%B8%AD%E6%96%87%E7%9B%AE%E5%BD%95" in normalized
+    assert "%E4%BA%95%E8%BA%AB%E7%BB%93%E6%9E%84%E5%9B%BE.png" in normalized
+
+
+def test_retrieve_does_not_proxy_an_unapproved_image_preview_origin():
+    import deerflow.community.appforge.tools as module
+
+    raw_url = "http://example.invalid:30900/img-preview/document/image.png"
+
+    assert module._normalize_image_preview_urls(raw_url) == raw_url
 
 
 def test_workflow_answer_interrupt_and_finished_events_are_supported():
@@ -235,10 +369,10 @@ def test_output_is_valid_json_and_stays_below_tool_budget():
 def test_missing_key_and_empty_query_are_safe_structured_errors():
     import deerflow.community.appforge.tools as module
 
-    app = _app_config(datalake_smart_qa={"api_url": "http://internal.invalid"})
+    app = _app_config(datalake_metrics_qa={"api_url": "http://internal.invalid"})
     with patch.object(module, "get_app_config", return_value=app):
-        missing = json.loads(module._invoke_tool("datalake_smart_qa", "问题", _runtime()))
-        empty = json.loads(module._invoke_tool("datalake_smart_qa", "  ", _runtime()))
+        missing = json.loads(module._invoke_tool("datalake_metrics_qa", "问题", _runtime()))
+        empty = json.loads(module._invoke_tool("datalake_metrics_qa", "  ", _runtime()))
 
     assert missing == {
         "error": "AppForge authentication is not configured",
@@ -251,7 +385,7 @@ def test_http_and_network_errors_do_not_expose_internal_details():
     import deerflow.community.appforge.tools as module
 
     app = _app_config(
-        datalake_smart_qa={
+        datalake_metrics_qa={
             "api_url": "http://10.77.124.142:9080",
             "api_key": "secret-key",
         }
@@ -265,7 +399,7 @@ def test_http_and_network_errors_do_not_expose_internal_details():
         with patch.object(module.httpx, "Client") as client_cls:
             client_cls.return_value.__enter__.return_value.stream.return_value = response
             http_error = module._invoke_tool(
-                "datalake_smart_qa",
+                "datalake_metrics_qa",
                 "问题",
                 _runtime(),
             )
@@ -275,7 +409,7 @@ def test_http_and_network_errors_do_not_expose_internal_details():
             side_effect=httpx.ConnectError("failed at http://10.77.124.142:9080"),
         ):
             network_error = module._invoke_tool(
-                "datalake_smart_qa",
+                "datalake_metrics_qa",
                 "问题",
                 _runtime(),
             )

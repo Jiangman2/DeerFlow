@@ -122,7 +122,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
       onOpenChange={(open) => props.onOpenChange?.(open)}
     >
       <DialogContent
-        className="mobile-fullscreen-surface app-safe-area flex w-screen max-w-none min-w-0 flex-col gap-3 rounded-none border-x-0 p-4 sm:h-[75vh] sm:max-h-[calc(100vh-2rem)] sm:w-full sm:max-w-5xl sm:rounded-lg sm:border sm:p-6 md:max-w-6xl"
+        className="mobile-fullscreen-surface app-safe-area flex w-screen max-w-none min-w-0 flex-col gap-3 overflow-hidden rounded-none border-x-0 p-4 sm:h-[calc(100vh-2rem)] sm:max-h-[56rem] sm:w-[calc(100vw-2rem)] sm:max-w-5xl sm:rounded-lg sm:border sm:p-6 md:max-w-6xl"
         aria-describedby={undefined}
         data-testid="settings-dialog"
       >
@@ -132,7 +132,7 @@ export function SettingsDialog(props: SettingsDialogProps) {
             {t.settings.description}
           </p>
         </DialogHeader>
-        <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
+        <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden md:grid-cols-[220px_minmax(0,1fr)] md:grid-rows-1 md:gap-4">
           <nav className="app-scroll-region bg-sidebar min-w-0 overflow-x-auto overflow-y-hidden rounded-lg border p-2 md:min-h-0 md:overflow-x-hidden md:overflow-y-auto">
             <ul className="flex w-max min-w-full gap-1 md:block md:w-auto md:min-w-0 md:space-y-1 md:pr-1">
               {sections.map(({ id, label, icon: Icon }) => {

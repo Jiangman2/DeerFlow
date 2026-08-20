@@ -38,7 +38,11 @@ export function ArtifactFileList({
   const { t } = useI18n();
   const { user } = useAuth();
   const isAdmin = user?.system_role === "admin";
-  const { artifacts, select: selectArtifact, setOpen } = useArtifacts();
+  const {
+    artifacts,
+    select: selectArtifact,
+    openArtifactPanel,
+  } = useArtifacts();
   const [installingFile, setInstallingFile] = useState<string | null>(null);
   const visibleFiles = filterUserVisibleArtifacts(
     files,
@@ -48,9 +52,9 @@ export function ArtifactFileList({
   const handleClick = useCallback(
     (filepath: string) => {
       selectArtifact(filepath);
-      setOpen(true);
+      openArtifactPanel();
     },
-    [selectArtifact, setOpen],
+    [openArtifactPanel, selectArtifact],
   );
 
   const handleInstallSkill = useCallback(

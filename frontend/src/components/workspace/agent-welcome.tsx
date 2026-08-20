@@ -1,9 +1,9 @@
 "use client";
 
-import { BotIcon } from "lucide-react";
-
 import { type Agent } from "@/core/agents";
 import { cn } from "@/lib/utils";
+
+import { AgentNameIcon } from "./agents/agent-name-icon";
 
 export function AgentWelcome({
   className,
@@ -24,9 +24,7 @@ export function AgentWelcome({
         className,
       )}
     >
-      <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full">
-        <BotIcon className="text-primary h-6 w-6" />
-      </div>
+      <AgentNameIcon className="h-12 w-12" iconClassName="h-6 w-6" />
       <div className="text-2xl font-bold">{displayName}</div>
       {description && (
         <p className="text-muted-foreground max-w-sm text-sm">{description}</p>

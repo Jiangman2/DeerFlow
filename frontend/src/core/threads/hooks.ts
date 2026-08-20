@@ -16,6 +16,10 @@ import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
 import { getAPIClient } from "../api";
 import { fetch } from "../api/fetcher";
+import {
+  inheritPptMasterRuntimeThread,
+  rememberPptMasterRuntimeThread,
+} from "../api/ppt-master-runtime";
 import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
 import { isHiddenFromUIMessage } from "../messages/utils";
@@ -38,6 +42,7 @@ import {
   rememberReconnectRun,
 } from "./active-run-recovery";
 import { branchThreadFromTurn, fetchThreadTokenUsage } from "./api";
+import { isCustomEventForThread } from "./custom-event-scope";
 import { LEAD_AGENT_RECURSION_LIMIT } from "./run-config";
 import { isStaticDemoThreadId, loadStaticDemoThread } from "./static-demo";
 import {
@@ -1069,6 +1074,20 @@ export function useThreadStream({
   const currentViewThreadId = displayThreadId ?? threadId ?? null;
   const currentViewThreadIdRef = useRef(currentViewThreadId);
   currentViewThreadIdRef.current = currentViewThreadId;
+  // A LangGraph SDK StreamManager may deliver one already-buffered callback
+  // after the route changed. Keep the accepted thread ids tied to the current
+  // view so that callback cannot write the previous conversation's task card
+  // into the new conversation.
+  const acceptedCustomEventThreadIdsRef = useRef<Set<string>>(
+    currentViewThreadId ? new Set([currentViewThreadId]) : new Set(),
+  );
+  const previousViewThreadIdRef = useRef(currentViewThreadId);
+  if (previousViewThreadIdRef.current !== currentViewThreadId) {
+    previousViewThreadIdRef.current = currentViewThreadId;
+    acceptedCustomEventThreadIdsRef.current = currentViewThreadId
+      ? new Set([currentViewThreadId])
+      : new Set();
+  }
   // Optimistic messages shown before the server stream responds.
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const [optimisticThreadId, setOptimisticThreadId] = useState<string | null>(
@@ -1133,6 +1152,15 @@ export function useThreadStream({
   }, [threadId]);
 
   const handleStreamStart = useCallback((_threadId: string, _runId: string) => {
+    // Preserve isolated-runtime ownership when the run creation response uses
+    // an authoritative id different from the welcome page's client id. Do
+    // this before changing refs or enabling state/history hydration.
+    inheritPptMasterRuntimeThread(
+      currentViewThreadIdRef.current,
+      _threadId,
+    );
+    inheritPptMasterRuntimeThread(threadIdRef.current, _threadId);
+    acceptedCustomEventThreadIdsRef.current.add(_threadId);
     threadIdRef.current = _threadId;
     setOptimisticThreadId((currentOptimisticThreadId) => {
       const currentView = currentViewThreadIdRef.current;
@@ -1152,9 +1180,14 @@ export function useThreadStream({
         (currentLiveMessagesThreadId === currentView ||
           currentLiveMessagesThreadId === _threadId)
       ) {
-        return _threadId;
+        // Keep the marker on the visible route identity. A new-chat route
+        // starts with a provisional client id, while the stream callback
+        // already knows the authoritative backend id. Storing the visible id
+        // prevents the old route's marker from making stale messages visible
+        // for one render during navigation.
+        return currentView ?? _threadId;
       }
-      return currentLiveMessagesThreadId;
+      return currentLiveMessagesThreadId ?? currentView ?? _threadId;
     });
     if (!startedRef.current) {
       listeners.current.onStart?.(_threadId, _runId);
@@ -1172,6 +1205,9 @@ export function useThreadStream({
       isStaticDemo ? (onStreamThreadId ?? undefined) : undefined,
     ),
     assistantId: "lead_agent",
+    // Keep the SDK's original stream identity contract. DeerFlow updates this
+    // marker when a run is created or when the selected thread changes; do not
+    // replace it with a render-time route id during a live stream transition.
     threadId: onStreamThreadId,
     reconnectOnMount: true,
     fetchStateHistory: { limit: 1 },
@@ -1265,6 +1301,16 @@ export function useThreadStream({
       }
     },
     onCustomEvent(event: unknown) {
+      if (
+        !isCustomEventForThread(
+          event,
+          acceptedCustomEventThreadIdsRef.current,
+          currentViewThreadIdRef.current,
+          isNewThread,
+        )
+      ) {
+        return;
+      }
       // Narrow `event.type` once; taskEventToSubtaskUpdate already validated the
       // task_* events, so the per-branch re-narrowing below reads this single
       // source of truth instead of re-checking the object shape each time.
@@ -1340,11 +1386,24 @@ export function useThreadStream({
 
   const streamedTitle = thread.values?.title;
   useEffect(() => {
-    if (isMock || isStaticDemo || !onStreamThreadId || !streamedTitle) {
+    if (
+      isNewThread ||
+      isMock ||
+      isStaticDemo ||
+      !onStreamThreadId ||
+      !streamedTitle
+    ) {
       return;
     }
     syncThreadTitleInListCaches(queryClient, onStreamThreadId, streamedTitle);
-  }, [isMock, isStaticDemo, onStreamThreadId, queryClient, streamedTitle]);
+  }, [
+    isMock,
+    isNewThread,
+    isStaticDemo,
+    onStreamThreadId,
+    queryClient,
+    streamedTitle,
+  ]);
   const threadRef = useRef(thread);
   threadRef.current = thread;
   const recoveringRunRef = useRef<{
@@ -1364,7 +1423,8 @@ export function useThreadStream({
   }, [displayThreadId, isMock, queryClient, thread, threadId]);
 
   const hasVisibleStreamState =
-    Boolean(threadId) || liveMessagesThreadId === currentViewThreadId;
+    liveMessagesThreadId === currentViewThreadId ||
+    (!isNewThread && Boolean(threadId));
   const persistedMessages = useMemo(
     () =>
       hasVisibleStreamState
@@ -1376,8 +1436,8 @@ export function useThreadStream({
     [hasVisibleStreamState, pendingSupersededMessageIds, thread.messages],
   );
   const visibleHistory = useMemo(
-    () => (threadId ? history : []),
-    [history, threadId],
+    () => (!isNewThread && threadId ? history : []),
+    [history, isNewThread, threadId],
   );
   const humanMessageCount = persistedMessages.filter(
     (m) => m.type === "human",
@@ -1740,25 +1800,29 @@ export function useThreadStream({
           }),
         );
 
-        await thread.submit(
-          {
-            messages: buildThreadSubmitMessages({
-              text,
-              additionalKwargs: options?.additionalKwargs,
-              additionalInputMessages: options?.additionalInputMessages,
-              filesForSubmit,
-            }),
+        const submitInput = {
+          messages: buildThreadSubmitMessages({
+            text,
+            additionalKwargs: options?.additionalKwargs,
+            additionalInputMessages: options?.additionalInputMessages,
+            filesForSubmit,
+          }),
+        };
+        // useStream may hydrate state/history before it reaches the wrapped
+        // runs.stream call. Mark an explicit ppt-master thread before submit
+        // so every read in that first-submit window uses the isolated runtime
+        // instead of racing the ordinary LangGraph namespace and logging 404s.
+        rememberPptMasterRuntimeThread(threadId, submitInput);
+
+        await thread.submit(submitInput, {
+          threadId: threadId,
+          streamSubgraphs: true,
+          streamResumable: true,
+          config: {
+            recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
           },
-          {
-            threadId: threadId,
-            streamSubgraphs: true,
-            streamResumable: true,
-            config: {
-              recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
-            },
-            context: buildThreadRunContext(context, threadId, extraContext),
-          },
-        );
+          context: buildThreadRunContext(context, threadId, extraContext),
+        });
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
         void queryClient.invalidateQueries({
           queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,

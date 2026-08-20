@@ -529,10 +529,8 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
 def _validate_pdf_preview_artifact(actual_path: Path, path: str) -> None:
     normalized_virtual_path = "/" + path.replace("\\", "/").lstrip("/")
     is_outputs_pdf = normalized_virtual_path.startswith("/mnt/user-data/outputs/") and normalized_virtual_path.lower().endswith(".pdf")
-    is_named_preview = normalized_virtual_path.lower().endswith(".preview.pdf")
-    has_legacy_deck_sibling = actual_path.with_suffix(".pptx").is_file() or actual_path.with_suffix(".ppt").is_file()
-    if not is_outputs_pdf or not (is_named_preview or has_legacy_deck_sibling):
-        raise HTTPException(status_code=400, detail="Only generated PowerPoint preview companions can use this endpoint")
+    if not is_outputs_pdf:
+        raise HTTPException(status_code=400, detail="Only generated output PDFs can use this preview endpoint")
     if not actual_path.exists():
         raise HTTPException(status_code=404, detail=f"Artifact not found: {path}")
     if not actual_path.is_file():
@@ -621,8 +619,8 @@ def _build_embedded_pdf_preview_gallery(path: str, page_payloads: list[bytes]) -
 
 @router.get(
     "/threads/{thread_id}/artifact-previews/pdf/{path:path}",
-    summary="Preview PowerPoint PDF Companion",
-    description="Render a generated PowerPoint PDF companion as a scriptless browser-compatible page gallery.",
+    summary="Preview Generated PDF Artifact",
+    description="Render a validated generated output PDF as a scriptless browser-compatible page gallery.",
 )
 @require_permission("threads", "read", owner_check=True)
 async def get_pdf_artifact_preview(

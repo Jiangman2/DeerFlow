@@ -6,16 +6,16 @@ import { handleRunStream, mockLangGraphAPI } from "./utils/mock-api";
  * Regression for https://github.com/bytedance/deer-flow/issues/2746.
  *
  * On a brand-new chat, the LangGraph SDK's useStream eagerly fetches
- * `/threads/{id}/history` the moment it receives a thread id, and the
- * frontend's own `useThreadRuns` fires `GET /threads/{id}/runs` for the same
- * reason.  Both endpoints assume the thread already exists on the backend;
+ * `/threads/{id}/history` the moment it receives a thread id, while other
+ * frontend hydration paths may request `/threads/{id}/state` or runs for the
+ * same reason. All endpoints assume the thread already exists on the backend;
  * if the frontend forwards the (client-generated) thread id before
  * `POST /runs/stream` has actually created the thread, both calls 404 in
  * production.  This test pins the request ordering so the regression cannot
  * re-appear silently.
  */
 test.describe("Chat: thread API request ordering on first send", () => {
-  test("does not call /history or GET /runs before /runs/stream is initiated", async ({
+  test("does not call /history, /state, or GET /runs before /runs/stream is initiated", async ({
     page,
   }) => {
     type EventLog = {
@@ -78,6 +78,9 @@ test.describe("Chat: thread API request ordering on first send", () => {
 
     const isHistory = (url: string) =>
       /\/api\/langgraph\/threads\/[^/]+\/history/.test(url);
+    const isState = (url: string, method: string) =>
+      method === "GET" &&
+      /\/api\/langgraph\/threads\/[^/]+\/state(?:\?|$)/.test(url);
     const isRunsList = (url: string, method: string) =>
       method === "GET" &&
       /\/api\/langgraph\/threads\/[^/]+\/runs(\?|$)/.test(url);
@@ -102,6 +105,12 @@ test.describe("Chat: thread API request ordering on first send", () => {
         isRunsList(e.url, e.method) &&
         e.seq < runsStreamSent!.seq,
     );
+    const earlyState = events.filter(
+      (e) =>
+        e.phase === "sent" &&
+        isState(e.url, e.method) &&
+        e.seq < runsStreamSent!.seq,
+    );
 
     expect(
       earlyHistory.map((e) => e.url),
@@ -111,5 +120,6 @@ test.describe("Chat: thread API request ordering on first send", () => {
       earlyRunsList.map((e) => e.url),
       "GET /runs must not be issued before POST /runs/stream — see issue #2746",
     ).toEqual([]);
+    expect(earlyState.map((e) => e.url)).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-"""AppForge-backed DataLake community tools."""
+"""CNOOC DataLake tools: Retrieve-backed Smart QA and AppForge QA workflows."""
 
 from .tools import (
     datalake_detail_qa_tool,

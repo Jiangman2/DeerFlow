@@ -37,24 +37,47 @@ spec:
             - name: MINERU_LISTEN_PORT
               value: "50052"
             - name: MINERU_REQUEST_MODE
+              # MinerU-2605 now guarantees that accepted /tasks IDs remain
+              # queryable. Submit once, then poll that same task until its
+              # result is ready; never duplicate the parse request.
               value: async
             - name: MINERU_TIMEOUT_SECONDS
               value: "1800"
             - name: MINERU_POLL_INTERVAL_SECONDS
               value: "3"
-            # Retry transient status/result IO envelopes against the same
-            # submitted task; never create a duplicate MinerU task.
             - name: MINERU_TRANSIENT_POLL_RETRIES
+              # Bound short task-registration/result-publication races (HTTP
+              # 404 or business code 20006) without submitting a second task.
               value: "20"
+            - name: MINERU_SYNC_MAX_PAGES_PER_REQUEST
+              # Retained as an explicit emergency rollback setting. It is
+              # inactive while MINERU_REQUEST_MODE=async.
+              value: "20"
+            - name: MINERU_SYNC_TRANSIENT_RETRIES
+              # Retry only the failed bounded page batch; never restart the
+              # already completed batches of the same document.
+              value: "2"
+            - name: MINERU_SYNC_RETRY_DELAY_SECONDS
+              value: "2"
+            - name: MINERU_SYNC_RETRY_MAX_ELAPSED_SECONDS
+              # A provider-side disconnect may arrive after several minutes.
+              # The 20-page cap keeps each retry bounded and avoids a
+              # whole-document retry.
+              value: "600"
             - name: MINERU_TRUST_ENV
               value: "false"
+            - name: MALLOC_ARENA_MAX
+              # PDFium, Pillow and LibreOffice all allocate native memory. Keep
+              # glibc arena growth bounded so released per-page buffers are
+              # reusable during long visual-document conversions.
+              value: "2"
             # PDFium/DocReader use native libraries that are unsafe under
             # concurrent in-process parsing. The adapter serializes parse jobs
             # while its threaded HTTP server keeps health probes responsive.
             - name: LIBREOFFICE_TIMEOUT_SECONDS
               value: "180"
             - name: MINERU_MAX_UPLOAD_BYTES
-              value: "52428800"
+              value: "104857600"
             - name: MINERU_MAX_INLINE_IMAGE_BYTES
               value: "20971520"
             - name: MINERU_SOURCE_PAGE_DPI
@@ -107,7 +130,12 @@ spec:
               memory: 1Gi
             limits:
               cpu: "2"
-              memory: 2Gi
+              # Visual completeness is fail-closed. A 2 GiB cgroup limit was
+              # observed to OOM-kill all three production Adapter Pods while
+              # converting image-heavy Office/PDF documents, which surfaced to
+              # WeKnora as an EOF. Retain one active parse per Pod and provide
+              # enough headroom for LibreOffice plus PDFium page rendering.
+              memory: 4Gi
           volumeMounts:
             - name: enterprise-ca
               mountPath: /etc/deerflow-ca

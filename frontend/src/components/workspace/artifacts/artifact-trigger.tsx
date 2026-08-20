@@ -10,7 +10,7 @@ import { useArtifacts } from "./context";
 
 export const ArtifactTrigger = () => {
   const { t } = useI18n();
-  const { artifacts, setOpen: setArtifactsOpen } = useArtifacts();
+  const { artifacts, openArtifactPanel } = useArtifacts();
   const sidecar = useMaybeSidecar();
 
   if (!artifacts || artifacts.length === 0) {
@@ -25,7 +25,7 @@ export const ArtifactTrigger = () => {
         data-testid="artifact-trigger"
         onClick={() => {
           sidecar?.close();
-          setArtifactsOpen(true);
+          openArtifactPanel();
         }}
       >
         <FilesIcon />

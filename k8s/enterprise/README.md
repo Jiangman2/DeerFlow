@@ -117,11 +117,11 @@ internal ClusterIP Service, and translates WeKnora's `/file_parse` contract.
 DOC/DOCX/PPT/PPTX input is converted to PDF with LibreOffice for its visual
 supplement. Word keeps the native parser's text, tables, and ordinary inline
 images; the PDF copy recovers charts, SmartArt, grouped shapes, and other
-render-only evidence. The PDF copy is an optional Word enhancement: if
-LibreOffice cannot export a DOC/DOCX after native Word parsing has succeeded,
-the adapter returns the recovered text, tables, and native images instead of
-failing the whole document. Presentation conversion remains strict because it
-has no equivalent native result to preserve. PDF input is inspected locally before parsing: documents
+render-only evidence. The PDF copy is mandatory for enterprise visual
+completeness: LibreOffice conversion, MinerU enhancement, and required
+source-page evidence must all succeed before DOC/DOCX is published. Native Word
+content is retained and merged for quality, but never used to hide a failed
+visual pass. Presentation conversion remains strict as well. PDF input is inspected locally before parsing: documents
 whose pages all contain usable text stay on the WeKnora builtin text parser,
 while a scanned/image-dominated page routes the whole PDF to the enterprise
 MinerU API. For searchable PDF/Word pages, multilingual `Figure N`/`图 N`
@@ -156,6 +156,14 @@ either concurrency value; both changes multiply active parser calls and defeat
 this memory-safety boundary. The adapter uses `maxSurge: 0` because required
 anti-affinity cannot place a fourth Pod on three nodes, and its disruption
 budget keeps two replicas available during voluntary maintenance.
+WeKnora 0.7.0 drains downstream `summary`, `multimodal`, `graph`, and `question`
+queues through an independent enrichment pool. Enterprise deployments keep
+`WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY=2`,
+`WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY=12`, and
+`WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY=4`; this prevents image OCR/caption
+fan-out from being constrained by the two parser workers without admitting
+additional MinerU calls. Raise enrichment only after checking the VLM/LLM
+provider quota and queue latency.
 
 The `weknora-enterprise-mineru-defaults-v2` Job applies
 `weknora-mineru-defaults.sql` once. It routes platform defaults for
@@ -226,12 +234,14 @@ deployment:
 
 The enterprise runtime patch sets `DEER_FLOW_SSO_ONLY=true` on both Gateway and
 Frontend and sets the Frontend's `DEER_FLOW_UNAUTHENTICATED_HOME_URL` to the
-approved DataLake portal. This combination redirects every unauthenticated auth
-page away from DeerFlow and makes Gateway return `403 local_auth_disabled` for
-local login, registration, setup initialization, password changes, and generic
-OIDC flows. Do not remove either variable or depend on the browser redirect
-alone; `/api/v1/auth/cnooc/login` is the only interactive enterprise sign-in
-entry that remains enabled.
+approved DataLake portal. The exact root remains a public landing page; its
+Login, New Chat, and Get Started actions enter the server-side auth route. This
+combination redirects every unauthenticated auth page away from DeerFlow and
+makes Gateway return `403 local_auth_disabled` for local login, registration,
+setup initialization, password changes, and generic OIDC flows. Do not remove
+either variable or depend on the browser redirect alone;
+`/api/v1/auth/cnooc/login` is the only interactive enterprise sign-in entry that
+remains enabled.
 
 - `deer-flow-config` ConfigMap
 - `deer-flow-extensions-config` ConfigMap
@@ -246,6 +256,13 @@ entry that remains enabled.
   `MINERU_API_TOKEN`
 
 Never print Secret YAML or decoded Secret values into an audit log.
+Store `QWEN_ASR_API_KEY` in `deer-flow-env` when main-composer voice input is
+enabled. Gateway calls the enterprise Qwen3-ASR stream directly and Nginx
+forwards `/api/voice-input/stream` as a WebSocket. The public browser origin
+must be a secure context; terminate TLS in front of NodePort `32026`, or deploy
+an audited browser policy that treats only the exact intranet origin as secure.
+Plain HTTP without that policy cannot access the microphone even when the
+Gateway and model are healthy.
 When Haineng or collaboration click telemetry is enabled, add a separately
 generated `EXTERNAL_AGENT_CLICK_INGEST_KEY` to `deer-flow-env`. Trusted
 server-side collectors submit events to `POST /api/agent_click` using that key;
@@ -274,10 +291,9 @@ unset NEO4J_PASSWORD
 ```
 
 Use the approved MinerU-2605 service root URL (for example, ending in
-`/member1/mineru-2605`) and its Bearer key. The Adapter derives the native
-`/tasks`, `/tasks/{id}`, and `/tasks/{id}/result` routes from that root; legacy
-full `/file_parse` and `/tasks` URLs are also normalized back to the reviewed
-service root. Do not copy either value into this repository, a Docker build
+`/member1/mineru-2605`) and its Bearer key. The Adapter derives the asynchronous
+`/tasks` routes from that root; legacy full `/file_parse` and `/tasks` URLs
+are normalized back to the reviewed service root. Do not copy either value into this repository, a Docker build
 argument, or a ConfigMap. Create the runtime Secret interactively on the server:
 
 ```bash
@@ -292,12 +308,15 @@ unset MINERU_API_URL MINERU_API_TOKEN
 
 The enterprise Adapter uses MinerU's asynchronous multipart `POST /tasks`
 workflow with `backend=pipeline`, `parse_method=auto`, Markdown and images
-enabled. It polls the task status every three seconds and retrieves the JSON
-result after completion, with a bounded 1800-second end-to-end timeout. The
-in-cluster WeKnora-facing contract remains synchronous, so no native WeKnora
-change is required. A transient HTTP-200 business envelope with code `20006`
-during status or result polling is retried with bounded backoff against the
-same task ID; it must never cause a second task submission. Before Markdown is
+enabled, and a bounded 1800-second end-to-end timeout. Keep
+`MINERU_REQUEST_MODE=async`; no native WeKnora change is required because the
+Adapter keeps its caller-facing `/file_parse` response open while it internally
+polls the accepted task. It submits exactly once, polls the same task every
+three seconds, and retrieves that task's result. Transient business code `20006`
+or short-lived status/result HTTP 404 responses receive at most 20 bounded
+same-task retries; they never trigger a duplicate task submission or an
+automatic synchronous fallback. The synchronous 20-page batch settings remain
+in the Deployment only as an explicit emergency rollback path. Before Markdown is
 returned to WeKnora, an implausibly large ATX heading is demoted to ordinary
 text without deleting content or image references, preventing that malformed
 heading from being copied into every child embedding request. Keep
@@ -524,7 +543,7 @@ printing any Secret values:
 ```bash
 kubectl -n deer-flow get deployment weknora-app \
   -o jsonpath='{range .spec.template.spec.containers[?(@.name=="app")].env[*]}{.name}={.value}{"\n"}{end}' \
-  | grep -E '^WEKNORA_(ASYNQ_CORE_CONCURRENCY|ASYNQ_SHARED_CONCURRENCY|DOCREADER_CALL_TIMEOUT|DOCUMENT_PROCESS_TIMEOUT)='
+  | grep -E '^WEKNORA_(ASYNQ_CORE_CONCURRENCY|ASYNQ_POSTPROCESS_CONCURRENCY|ASYNQ_ENRICHMENT_CONCURRENCY|ASYNQ_MAINTENANCE_CONCURRENCY|ASYNQ_SHARED_CONCURRENCY|DOCREADER_CALL_TIMEOUT|DOCUMENT_PROCESS_TIMEOUT)='
 ```
 
 Then upload three real files from the DeerFlow knowledge page: one searchable

@@ -821,6 +821,48 @@ def convert_to_pdf(content: bytes, filename: str) -> bytes:
         return pdf
 
 
+def split_pdf_for_sync(
+    pdf: bytes,
+    maximum_pages: int,
+    *,
+    pdfium_module: Any | None = None,
+) -> tuple[tuple[bytes, int, int], ...]:
+    """Split a large PDF into bounded, lossless page batches for sync parsing."""
+    if maximum_pages <= 0:
+        raise ValueError("MinerU synchronous batch size must be greater than zero")
+    if pdfium_module is None:
+        import pypdfium2 as pdfium_module
+
+    source = pdfium_module.PdfDocument(pdf)
+    try:
+        page_count = len(source)
+        if page_count <= maximum_pages:
+            return ((pdf, 1, page_count),)
+
+        batches: list[tuple[bytes, int, int]] = []
+        for start_index in range(0, page_count, maximum_pages):
+            end_index = min(start_index + maximum_pages, page_count)
+            batch_document = pdfium_module.PdfDocument.new()
+            try:
+                batch_document.import_pages(
+                    source,
+                    pages=list(range(start_index, end_index)),
+                )
+                output = io.BytesIO()
+                batch_document.save(output)
+                batch_pdf = output.getvalue()
+            finally:
+                _close_resource(batch_document)
+            if not batch_pdf.startswith(b"%PDF-"):
+                raise RuntimeError(
+                    "PDFium produced an invalid MinerU synchronous page batch"
+                )
+            batches.append((batch_pdf, start_index + 1, end_index))
+        return tuple(batches)
+    finally:
+        _close_resource(source)
+
+
 class MinerUBusinessError(RuntimeError):
     """Structured business error returned inside an HTTP-success envelope."""
 
@@ -839,6 +881,7 @@ class EnterpriseMinerUClient:
 
     _TASK_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
     _TRANSIENT_POLL_BUSINESS_CODES = frozenset({"20006"})
+    _TRANSIENT_POLL_HTTP_STATUSES = frozenset({HTTPStatus.NOT_FOUND})
 
     def __init__(
         self,
@@ -849,6 +892,9 @@ class EnterpriseMinerUClient:
         request_mode: str | None = None,
         poll_interval_seconds: float | None = None,
         transient_poll_retries: int | None = None,
+        sync_transient_retries: int | None = None,
+        sync_retry_delay_seconds: float | None = None,
+        sync_retry_max_elapsed_seconds: float | None = None,
         session: Any | None = None,
     ) -> None:
         normalized_url = api_url.rstrip("/")
@@ -884,6 +930,29 @@ class EnterpriseMinerUClient:
         if transient_poll_retries < 0:
             raise ValueError("MinerU transient poll retries cannot be negative")
         self.transient_poll_retries = transient_poll_retries
+        if sync_transient_retries is None:
+            sync_transient_retries = _int_env(
+                "MINERU_SYNC_TRANSIENT_RETRIES", 2
+            )
+        if sync_transient_retries < 0:
+            raise ValueError("MinerU synchronous retries cannot be negative")
+        self.sync_transient_retries = sync_transient_retries
+        if sync_retry_delay_seconds is None:
+            sync_retry_delay_seconds = _float_env(
+                "MINERU_SYNC_RETRY_DELAY_SECONDS", 2.0
+            )
+        if sync_retry_delay_seconds < 0:
+            raise ValueError("MinerU synchronous retry delay cannot be negative")
+        self.sync_retry_delay_seconds = sync_retry_delay_seconds
+        if sync_retry_max_elapsed_seconds is None:
+            sync_retry_max_elapsed_seconds = _float_env(
+                "MINERU_SYNC_RETRY_MAX_ELAPSED_SECONDS", 600.0
+            )
+        if sync_retry_max_elapsed_seconds <= 0:
+            raise ValueError(
+                "MinerU synchronous retry elapsed limit must be greater than zero"
+            )
+        self.sync_retry_max_elapsed_seconds = sync_retry_max_elapsed_seconds
         if session is None:
             session = requests.Session()
             trust_env = _bool_env("MINERU_TRUST_ENV", False)
@@ -987,6 +1056,79 @@ class EnterpriseMinerUClient:
         )
         return delay
 
+    def _transient_http_poll_delay(
+        self,
+        *,
+        task_id: str,
+        operation: str,
+        status_code: int,
+        consecutive_errors: int,
+        remaining: float,
+    ) -> float | None:
+        if (
+            status_code not in self._TRANSIENT_POLL_HTTP_STATUSES
+            or consecutive_errors > self.transient_poll_retries
+        ):
+            return None
+        delay = min(
+            self.poll_interval_seconds * (2 ** min(consecutive_errors - 1, 3)),
+            30.0,
+            max(0.0, remaining),
+        )
+        if delay <= 0:
+            raise TimeoutError(
+                f"Enterprise MinerU {operation} for task {task_id} exceeded "
+                f"{self.timeout_seconds} seconds"
+            )
+        logger.warning(
+            "Transient MinerU poll HTTP failure task_id=%s operation=%s "
+            "status_code=%d attempt=%d/%d retry_in_seconds=%.3f",
+            task_id,
+            operation,
+            status_code,
+            consecutive_errors,
+            self.transient_poll_retries,
+            delay,
+        )
+        return delay
+
+    def _transient_transport_poll_delay(
+        self,
+        *,
+        task_id: str,
+        operation: str,
+        error: requests.RequestException,
+        consecutive_errors: int,
+        remaining: float,
+    ) -> float:
+        """Retry a status/result transport failure without resubmitting the task."""
+        if (
+            not isinstance(error, (requests.ConnectionError, requests.Timeout))
+            or consecutive_errors > self.transient_poll_retries
+        ):
+            raise error
+        delay = min(
+            self.poll_interval_seconds * (2 ** min(consecutive_errors - 1, 3)),
+            30.0,
+            max(0.0, remaining),
+        )
+        if delay <= 0:
+            raise TimeoutError(
+                f"Enterprise MinerU {operation} for task {task_id} exceeded "
+                f"{self.timeout_seconds} seconds"
+            ) from error
+        logger.warning(
+            "Transient MinerU poll transport failure task_id=%s operation=%s "
+            "error_type=%s attempt=%d/%d retry_in_seconds=%.3f",
+            task_id,
+            operation,
+            type(error).__name__,
+            consecutive_errors,
+            self.transient_poll_retries,
+            delay,
+        )
+        return delay
+
     @staticmethod
     def _task_fields(payload: dict[str, Any]) -> dict[str, Any]:
         data = payload.get("data")
@@ -1000,21 +1142,109 @@ class EnterpriseMinerUClient:
             raise RuntimeError("Enterprise MinerU returned an invalid parse result")
         return payload
 
+    @staticmethod
+    def _retryable_sync_error(error: requests.RequestException) -> bool:
+        if isinstance(error, (requests.ConnectionError, requests.Timeout)):
+            return True
+        response = getattr(error, "response", None)
+        return getattr(response, "status_code", None) in {
+            HTTPStatus.BAD_GATEWAY,
+            HTTPStatus.SERVICE_UNAVAILABLE,
+            HTTPStatus.GATEWAY_TIMEOUT,
+        }
+
+    def _parse_pdf_sync_single(
+        self,
+        pdf: bytes,
+        filename: str,
+    ) -> dict[str, Any]:
+        for attempt in range(self.sync_transient_retries + 1):
+            started = time.monotonic()
+            try:
+                response = self.session.post(
+                    self.api_url,
+                    headers=self._headers(),
+                    files={
+                        "files": (filename, pdf, "application/pdf"),
+                    },
+                    data=self._request_data(),
+                    timeout=self.timeout_seconds,
+                )
+                response.raise_for_status()
+                payload = self._task_fields(
+                    self._decode_json_response(response, "synchronous parse")
+                )
+                return self._validate_result(payload)
+            except requests.RequestException as exc:
+                elapsed = time.monotonic() - started
+                should_retry = (
+                    self._retryable_sync_error(exc)
+                    and attempt < self.sync_transient_retries
+                    and elapsed <= self.sync_retry_max_elapsed_seconds
+                )
+                if not should_retry:
+                    raise
+                delay = self.sync_retry_delay_seconds * (2**attempt)
+                logger.warning(
+                    "Transient MinerU synchronous request failure filename=%s "
+                    "attempt=%d/%d elapsed_seconds=%.3f retry_in_seconds=%.3f: %s",
+                    filename,
+                    attempt + 1,
+                    self.sync_transient_retries,
+                    elapsed,
+                    delay,
+                    exc,
+                )
+                if delay:
+                    time.sleep(delay)
+        raise AssertionError("unreachable MinerU synchronous retry state")
+
     def _parse_pdf_sync(self, pdf: bytes, filename: str) -> dict[str, Any]:
-        response = self.session.post(
-            self.api_url,
-            headers=self._headers(),
-            files={
-                "files": (filename, pdf, "application/pdf"),
-            },
-            data=self._request_data(),
-            timeout=self.timeout_seconds,
+        maximum_pages = _int_env("MINERU_SYNC_MAX_PAGES_PER_REQUEST", 20)
+        try:
+            batches = split_pdf_for_sync(pdf, maximum_pages)
+        except Exception:
+            logger.warning(
+                "Could not split %s for bounded MinerU synchronous parsing; "
+                "submitting the original PDF once.",
+                filename,
+                exc_info=True,
+            )
+            batches = ((pdf, 1, 0),)
+        if len(batches) == 1:
+            return self._parse_pdf_sync_single(pdf, filename)
+
+        stem = Path(filename).stem or "document"
+        combined_markdown: list[str] = []
+        combined_images: dict[str, str] = {}
+        logger.info(
+            "Splitting MinerU synchronous parse filename=%s batches=%d "
+            "maximum_pages_per_request=%d",
+            filename,
+            len(batches),
+            maximum_pages,
         )
-        response.raise_for_status()
-        payload = self._task_fields(
-            self._decode_json_response(response, "synchronous parse")
-        )
-        return self._validate_result(payload)
+        for batch_pdf, first_page, last_page in batches:
+            batch_filename = (
+                f"{stem}.pages-{first_page:04d}-{last_page:04d}.pdf"
+            )
+            payload = self._parse_pdf_sync_single(batch_pdf, batch_filename)
+            markdown, images = mineru_pages_to_markdown(
+                payload,
+                filename=batch_filename,
+            )
+            combined_markdown.append(
+                f"## 原始第 {first_page}-{last_page} 页\n\n{markdown}"
+            )
+            combined_images.update(images)
+        return {
+            "results": {
+                filename: {
+                    "md_content": "\n\n".join(combined_markdown),
+                    "images": combined_images,
+                }
+            }
+        }
 
     def _parse_pdf_async(self, pdf: bytes, filename: str) -> dict[str, Any]:
         deadline = time.monotonic() + self.timeout_seconds
@@ -1044,11 +1274,35 @@ class EnterpriseMinerUClient:
                     f"Enterprise MinerU task {task_id} exceeded "
                     f"{self.timeout_seconds} seconds"
                 )
-            status_response = self.session.get(
-                status_url,
-                headers=self._headers(),
-                timeout=min(60.0, max(1.0, remaining)),
-            )
+            try:
+                status_response = self.session.get(
+                    status_url,
+                    headers=self._headers(),
+                    timeout=min(60.0, max(1.0, remaining)),
+                )
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                consecutive_status_errors += 1
+                delay = self._transient_transport_poll_delay(
+                    task_id=task_id,
+                    operation="task status",
+                    error=exc,
+                    consecutive_errors=consecutive_status_errors,
+                    remaining=deadline - time.monotonic(),
+                )
+                time.sleep(delay)
+                continue
+            if status_response.status_code in self._TRANSIENT_POLL_HTTP_STATUSES:
+                consecutive_status_errors += 1
+                delay = self._transient_http_poll_delay(
+                    task_id=task_id,
+                    operation="task status",
+                    status_code=status_response.status_code,
+                    consecutive_errors=consecutive_status_errors,
+                    remaining=deadline - time.monotonic(),
+                )
+                if delay is not None:
+                    time.sleep(delay)
+                    continue
             status_response.raise_for_status()
             try:
                 decoded_status = self._decode_json_response(
@@ -1094,17 +1348,44 @@ class EnterpriseMinerUClient:
                     f"Enterprise MinerU result for task {task_id} was not ready "
                     f"within {self.timeout_seconds} seconds"
                 )
-            result_response = self.session.get(
-                result_url,
-                headers=self._headers(),
-                timeout=min(60.0, max(1.0, remaining)),
-            )
+            try:
+                result_response = self.session.get(
+                    result_url,
+                    headers=self._headers(),
+                    timeout=min(60.0, max(1.0, remaining)),
+                )
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                consecutive_result_errors += 1
+                delay = self._transient_transport_poll_delay(
+                    task_id=task_id,
+                    operation="task result",
+                    error=exc,
+                    consecutive_errors=consecutive_result_errors,
+                    remaining=deadline - time.monotonic(),
+                )
+                time.sleep(delay)
+                continue
             if result_response.status_code in {
                 HTTPStatus.ACCEPTED,
                 HTTPStatus.CONFLICT,
             }:
+                # A valid not-ready response proves transport visibility has
+                # recovered, so a later timeout starts a fresh bounded streak.
+                consecutive_result_errors = 0
                 time.sleep(min(self.poll_interval_seconds, remaining))
                 continue
+            if result_response.status_code in self._TRANSIENT_POLL_HTTP_STATUSES:
+                consecutive_result_errors += 1
+                delay = self._transient_http_poll_delay(
+                    task_id=task_id,
+                    operation="task result",
+                    status_code=result_response.status_code,
+                    consecutive_errors=consecutive_result_errors,
+                    remaining=deadline - time.monotonic(),
+                )
+                if delay is not None:
+                    time.sleep(delay)
+                    continue
             result_response.raise_for_status()
             try:
                 decoded_result = self._decode_json_response(
@@ -1251,26 +1532,22 @@ def preserve_searchable_pdf_visuals(
     images: dict[str, str],
 ) -> tuple[str, dict[str, str]]:
     """Attach retrievable page evidence for figures on searchable PDF pages."""
-    try:
-        evidence = inspect_pdf_visual_pages(pdf)
-        if not evidence:
-            return markdown, images
-        _generic_markdown, page_images = render_pdf_page_images(
-            pdf,
-            tuple(item.page_number for item in evidence),
-        )
-    except Exception:
-        logger.warning(
-            "Searchable visual-page preservation failed; keeping parsed text and images.",
-            exc_info=True,
-        )
+    evidence = inspect_pdf_visual_pages(pdf)
+    if not evidence:
         return markdown, images
+    _generic_markdown, page_images = render_pdf_page_images(
+        pdf,
+        tuple(item.page_number for item in evidence),
+    )
 
     blocks: list[str] = []
     for item in evidence:
         path = f"images/source-page-{item.page_number:04d}.jpg"
         if path not in page_images:
-            continue
+            raise RuntimeError(
+                "Visual evidence rendering omitted required source page "
+                f"{item.page_number}"
+            )
         safe_context = item.context.replace("[", " ").replace("]", " ").strip()
         blocks.append(
             "\n\n".join(
@@ -1282,7 +1559,7 @@ def preserve_searchable_pdf_visuals(
             )
         )
     if not blocks:
-        return markdown, images
+        raise RuntimeError("Visual evidence rendering returned no page evidence")
     return merge_document_visuals(
         markdown,
         images,
@@ -1486,18 +1763,11 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
         pdf = content
         pdf_filename = filename
     else:
-        try:
-            pdf = convert_to_pdf(content, filename)
-        except Exception:
-            if suffix in {".doc", ".docx"} and native_word is not None:
-                logger.warning(
-                    "Word visual PDF conversion failed for %s; preserving the successful "
-                    "native Word result without optional visual evidence.",
-                    filename,
-                    exc_info=True,
-                )
-                return weknora_response(native_word[0], native_word[1])
-            raise
+        # Word's native parser protects text/table quality, but enterprise
+        # indexing also requires render-only charts, SmartArt, and page
+        # evidence. Never publish an incomplete Word parse when its visual
+        # conversion fails.
+        pdf = convert_to_pdf(content, filename)
         pdf_filename = f"{Path(filename).stem}.pdf"
 
     def finalize_searchable(
@@ -1564,18 +1834,10 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
     markdown, images = mineru_pages_to_markdown(parsed, filename=pdf_filename)
 
     page_numbers = decision.scanned_pages if searchable_document and decision is not None and decision.use_mineru else None
-    try:
-        source_page_markdown, source_page_images = render_pdf_page_images(
-            pdf,
-            page_numbers,
-        )
-    except Exception as exc:
-        logger.warning(
-            "Source-page rendering failed for %s; preserving parsed text without page images: %s",
-            filename,
-            exc,
-        )
-        source_page_markdown, source_page_images = "", {}
+    source_page_markdown, source_page_images = render_pdf_page_images(
+        pdf,
+        page_numbers,
+    )
     if source_page_markdown:
         markdown = f"{markdown}\n\n## 原始页面图像\n\n{source_page_markdown}"
     images.update(source_page_images)

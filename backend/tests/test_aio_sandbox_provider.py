@@ -488,6 +488,68 @@ def test_destroy_closes_cached_sandbox_client(tmp_path):
     assert "sandbox-destroy" not in provider._sandbox_infos
 
 
+def test_cross_process_execution_lease_blocks_warm_pool_eviction(tmp_path, monkeypatch):
+    """A runner lease must stop another provider process from deleting its Pod."""
+
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
+
+    runner, _, _ = _make_provider_with_active_sandbox(tmp_path, "sandbox-shared")
+    runner._backend.is_alive = MagicMock(return_value=True)
+
+    gateway = _make_provider(tmp_path)
+    gateway._lock = aio_mod.threading.Lock()
+    info = aio_mod.SandboxInfo(
+        sandbox_id="sandbox-shared",
+        sandbox_url="http://sandbox-host",
+    )
+    gateway._warm_pool = {"sandbox-shared": (info, 0.0)}
+    gateway._backend = SimpleNamespace(destroy=MagicMock())
+
+    lease = runner.acquire_execution_lease("sandbox-shared")
+    try:
+        assert (
+            gateway._destroy_warm_entry(
+                "sandbox-shared",
+                info,
+                reason="idle_timeout",
+            )
+            is False
+        )
+        gateway._backend.destroy.assert_not_called()
+    finally:
+        runner.release_execution_lease(lease, "sandbox-shared")
+
+    assert (
+        gateway._destroy_warm_entry(
+            "sandbox-shared",
+            info,
+            reason="idle_timeout",
+        )
+        is True
+    )
+    gateway._backend.destroy.assert_called_once_with(info)
+
+
+def test_execution_lease_blocks_explicit_destroy_without_losing_tracking(tmp_path, monkeypatch):
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
+    provider, sandbox, _ = _make_provider_with_active_sandbox(tmp_path, "sandbox-busy")
+    provider._backend.is_alive = MagicMock(return_value=True)
+
+    lease = provider.acquire_execution_lease("sandbox-busy")
+    try:
+        assert provider.destroy("sandbox-busy") is False
+        provider._backend.destroy.assert_not_called()
+        sandbox.close.assert_not_called()
+        assert provider._sandboxes["sandbox-busy"] is sandbox
+    finally:
+        provider.release_execution_lease(lease, "sandbox-busy")
+
+    assert provider.destroy("sandbox-busy") is True
+    provider._backend.destroy.assert_called_once()
+
+
 def test_shutdown_closes_all_active_sandbox_clients(tmp_path):
     """shutdown() must close every cached AioSandbox client during teardown (#2872)."""
     provider, sandbox, _ = _make_provider_with_active_sandbox(tmp_path, "sandbox-shut")

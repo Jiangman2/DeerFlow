@@ -8,6 +8,7 @@ import pytest
 from langchain.agents.middleware.types import ModelResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
+from langgraph.types import Command
 
 from deerflow.agents.middlewares.skill_workflow_middleware import (
     SkillWorkflowMiddleware,
@@ -4019,6 +4020,73 @@ def test_template_contract_postflight_rejects_shell_written_structural_imitation
 
     assert result.status == "error"
     assert "PPT_TEMPLATE_CONTRACT" in str(result.content)
+
+
+def test_non_ppt_present_files_command_passes_through_unchanged():
+    middleware = SkillWorkflowMiddleware()
+    workflow = _workflow(
+        skill_name="deep-research",
+        skill_path="/mnt/skills/public/deep-research/SKILL.md",
+        selected_authority="/mnt/skills/public/deep-research/SKILL.md",
+        completion_contract="research_delivery",
+    )
+    request = _file_tool_request(
+        "present_files",
+        {"filepaths": ["/mnt/user-data/outputs/report.md"]},
+        workflow,
+    )
+    command = Command(
+        update={
+            "artifacts": ["/mnt/user-data/outputs/report.md"],
+            "messages": [
+                ToolMessage(
+                    content="Successfully presented files",
+                    tool_call_id="template-contract",
+                    name="present_files",
+                )
+            ],
+        }
+    )
+    handler = MagicMock(return_value=command)
+
+    result = middleware.wrap_tool_call(request, handler)
+
+    assert result is command
+    handler.assert_called_once_with(request)
+
+
+@pytest.mark.asyncio
+async def test_non_ppt_present_files_command_passes_through_unchanged_async():
+    middleware = SkillWorkflowMiddleware()
+    workflow = _workflow(
+        skill_name="deep-research",
+        skill_path="/mnt/skills/public/deep-research/SKILL.md",
+        selected_authority="/mnt/skills/public/deep-research/SKILL.md",
+        completion_contract="research_delivery",
+    )
+    request = _file_tool_request(
+        "present_files",
+        {"filepaths": ["/mnt/user-data/outputs/report.md"]},
+        workflow,
+    )
+    command = Command(
+        update={
+            "artifacts": ["/mnt/user-data/outputs/report.md"],
+            "messages": [
+                ToolMessage(
+                    content="Successfully presented files",
+                    tool_call_id="template-contract",
+                    name="present_files",
+                )
+            ],
+        }
+    )
+    handler = AsyncMock(return_value=command)
+
+    result = await middleware.awrap_tool_call(request, handler)
+
+    assert result is command
+    handler.assert_awaited_once_with(request)
 
 
 def test_managed_confirmation_receipts_cannot_be_fabricated_by_file_tools():

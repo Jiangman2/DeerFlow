@@ -9,6 +9,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
 import {
   ChatBox,
+  notifyThreadChatRouteChange,
   useSpecificChatMode,
   useThreadChat,
 } from "@/components/workspace/chats";
@@ -88,6 +89,7 @@ export default function ChatPage() {
   const branchThread = useBranchThread();
   const backendTokenUsage = threadTokenUsageToTokenUsage(threadTokenUsage.data);
   const mountedRef = useRef(false);
+  const createdThreadIdRef = useRef<string | null>(null);
   useSpecificChatMode();
 
   useEffect(() => {
@@ -127,10 +129,17 @@ export default function ChatPage() {
       setIsWelcomeMode(false);
     },
     onStart: (createdThreadId) => {
-      // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
-      history.replaceState(null, "", `/workspace/chats/${createdThreadId}`);
+      // Keep the official DeerFlow lifecycle: first-run thread creation only
+      // replaces the address bar. A Next Router/RSC navigation here remounts
+      // the live stream while it is being established and can leave the page
+      // polling a 404 state forever. Notify the thread-local providers so the
+      // old task/artifact surface is still cleared without remounting the chat.
+      const nextPath = `/workspace/chats/${createdThreadId}`;
+      createdThreadIdRef.current = createdThreadId;
+      history.replaceState(null, "", nextPath);
       setThreadId(createdThreadId);
       setIsNewThread(false);
+      notifyThreadChatRouteChange(nextPath);
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -157,7 +166,10 @@ export default function ChatPage() {
       !isNewThread &&
       !isMock &&
       !isStaticDemo &&
+      threadMetadata.isFetched &&
       threadMetadata.data === null &&
+      createdThreadIdRef.current !== threadId &&
+      !thread.isLoading &&
       !threadMetadata.isLoading &&
       !threadMetadata.isFetching &&
       !isHistoryLoading &&
@@ -174,7 +186,10 @@ export default function ChatPage() {
     isStaticDemo,
     isNewThread,
     router,
+    threadId,
+    thread.isLoading,
     threadMetadata.data,
+    threadMetadata.isFetched,
     threadMetadata.isFetching,
     threadMetadata.isLoading,
   ]);
@@ -223,11 +238,7 @@ export default function ChatPage() {
   );
   const handleBranchTurn = useCallback(
     async (messageId: string, messageIds: string[]) => {
-      if (
-        isNewThread ||
-        isMock ||
-        isStaticDemo
-      ) {
+      if (isNewThread || isMock || isStaticDemo) {
         return;
       }
 
@@ -272,7 +283,12 @@ export default function ChatPage() {
         context={settings.context}
         isMock={isMock}
       >
-        <ChatBox threadId={threadId}>
+        <ChatBox
+          threadId={threadId}
+          canHydratePersistedArtifacts={
+            !isNewThread && (isStaticDemo || Boolean(threadMetadata.data))
+          }
+        >
           <div className="relative flex size-full min-h-0 justify-between">
             <header
               className={cn(
@@ -328,9 +344,7 @@ export default function ChatPage() {
                   }
                   onRegenerateMessage={handleRegenerate}
                   onSubmitHumanInput={
-                    isAdminReview ||
-                    isMock ||
-                    isStaticDemo
+                    isAdminReview || isMock || isStaticDemo
                       ? undefined
                       : handleSubmitHumanInput
                   }

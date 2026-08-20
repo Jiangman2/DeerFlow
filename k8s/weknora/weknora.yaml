@@ -157,6 +157,8 @@ spec:
           image: wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b
           imagePullPolicy: IfNotPresent
           env:
+            - name: MAX_FILE_SIZE_MB
+              value: "100"
             - name: DOCREADER_IMAGE_OUTPUT_DIR
               value: /tmp/docreader
             - name: PYTHONPATH
@@ -315,6 +317,8 @@ spec:
           image: wechatopenai/weknora-app@sha256:500262dfee6e10e759cde8726d75e159e9c78bd3e79bcea49e12271fc73f1ef3
           imagePullPolicy: IfNotPresent
           env:
+            - name: MAX_FILE_SIZE_MB
+              value: "100"
             - name: GIN_MODE
               value: release
             - name: LOG_LEVEL
@@ -534,7 +538,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: MAX_FILE_SIZE_MB
-              value: "50"
+              value: "100"
             - name: APP_HOST
               value: weknora-app
             - name: APP_PORT

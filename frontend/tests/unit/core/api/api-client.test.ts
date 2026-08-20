@@ -6,6 +6,10 @@ import {
   isInactiveRunStreamError,
   isRunNotCancellableError,
 } from "@/core/api/api-client";
+import {
+  inheritPptMasterRuntimeThread,
+  rememberPptMasterRuntimeThread,
+} from "@/core/api/ppt-master-runtime";
 
 function makeSessionStorage() {
   const values = new Map<string, string>();
@@ -331,4 +335,194 @@ test("short-circuits reconnect to an interrupted (user-cancelled) run", async ()
 
   expect(fetchFn).toHaveBeenCalledTimes(1);
   expect(sessionStorage.removeItem).toHaveBeenCalledWith("lg:stream:thread-1");
+});
+
+test("reads ppt-master checkpoint state from the isolated runtime", async () => {
+  const sessionStorage = makeSessionStorage();
+  sessionStorage.setItem(
+    "deerflow:ppt-master-runtime:thread-ppt",
+    "ppt-master-runner",
+  );
+  const fetchFn = rs.fn(async (url: string | URL) => {
+    const path = url.toString();
+    if (path.includes("/api/ppt-master-runtime/threads/thread-ppt/state")) {
+      return new Response(
+        JSON.stringify({ values: { messages: [] }, next: [], tasks: [] }),
+        { status: 200 },
+      );
+    }
+    return new Response(JSON.stringify({ detail: "wrong runtime" }), {
+      status: 404,
+    });
+  });
+  rs.stubGlobal("window", {
+    location: { origin: "http://localhost:2026" },
+    sessionStorage,
+  });
+  rs.stubGlobal("fetch", fetchFn);
+
+  await expect(
+    getAPIClient().threads.getState("thread-ppt"),
+  ).resolves.toMatchObject({ values: { messages: [] } });
+
+  expect(fetchFn).toHaveBeenCalledTimes(1);
+  expect(String(fetchFn.mock.calls[0]?.[0])).toContain(
+    "/api/ppt-master-runtime/threads/thread-ppt/state",
+  );
+});
+
+test("routes an authoritative runner thread id without ordinary 404 probes", async () => {
+  const sessionStorage = makeSessionStorage();
+  const fetchFn = rs.fn(async (url: string | URL) => {
+    const path = url.toString();
+    if (
+      path.includes("/api/ppt-master-runtime/threads/runner-thread-ppt/state")
+    ) {
+      return new Response(
+        JSON.stringify({ values: { messages: [] }, next: [], tasks: [] }),
+        { status: 200 },
+      );
+    }
+    return new Response(JSON.stringify({ detail: "wrong runtime" }), {
+      status: 404,
+    });
+  });
+  rs.stubGlobal("window", {
+    location: { origin: "http://localhost:2026" },
+    sessionStorage,
+  });
+  rs.stubGlobal("fetch", fetchFn);
+
+  rememberPptMasterRuntimeThread("welcome-thread-ppt", {
+    messages: [{ role: "user", content: "/ppt-master 创建演示文稿" }],
+  });
+  expect(
+    inheritPptMasterRuntimeThread("welcome-thread-ppt", "runner-thread-ppt"),
+  ).toBe(true);
+
+  await expect(
+    getAPIClient().threads.getState("runner-thread-ppt"),
+  ).resolves.toMatchObject({ values: { messages: [] } });
+
+  expect(fetchFn).toHaveBeenCalledTimes(1);
+  expect(String(fetchFn.mock.calls[0]?.[0])).toContain(
+    "/api/ppt-master-runtime/threads/runner-thread-ppt/state",
+  );
+});
+
+test("recovers ppt-master routing after a full refresh without 404 probes", async () => {
+  const sessionStorage = makeSessionStorage();
+  const fetchFn = rs.fn(async (url: string | URL) => {
+    const path = url.toString();
+    if (path.includes("/api/langgraph/threads/refreshed-ppt/runs")) {
+      return new Response(
+        JSON.stringify([
+          {
+            run_id: "run-ppt",
+            thread_id: "refreshed-ppt",
+            assistant_id: "ppt-master-runner",
+            status: "success",
+            metadata: {},
+            kwargs: {},
+            multitask_strategy: "reject",
+            created_at: "",
+            updated_at: "",
+          },
+        ]),
+        { status: 200 },
+      );
+    }
+    if (path.includes("/api/ppt-master-runtime/threads/refreshed-ppt/state")) {
+      return new Response(
+        JSON.stringify({ values: { messages: [] }, next: [], tasks: [] }),
+        { status: 200 },
+      );
+    }
+    return new Response(JSON.stringify({ detail: "wrong runtime" }), {
+      status: 404,
+    });
+  });
+  rs.stubGlobal("window", {
+    location: { origin: "http://localhost:2026" },
+    sessionStorage,
+  });
+  rs.stubGlobal("fetch", fetchFn);
+
+  await expect(
+    getAPIClient().threads.getState("refreshed-ppt"),
+  ).resolves.toMatchObject({ values: { messages: [] } });
+
+  const requestedURLs = fetchFn.mock.calls.map((call) => String(call[0]));
+  expect(requestedURLs).toHaveLength(2);
+  expect(requestedURLs).toEqual(
+    expect.arrayContaining([
+      expect.stringContaining("/api/langgraph/threads/refreshed-ppt/runs"),
+      expect.stringContaining(
+        "/api/ppt-master-runtime/threads/refreshed-ppt/state",
+      ),
+    ]),
+  );
+  expect(requestedURLs).not.toContain(
+    "http://localhost:2026/api/langgraph/threads/refreshed-ppt",
+  );
+  expect(requestedURLs).not.toContain(
+    "http://localhost:2026/api/langgraph/threads/refreshed-ppt/state",
+  );
+});
+
+test("routes refreshed ppt-master thread metadata to the isolated runtime", async () => {
+  const sessionStorage = makeSessionStorage();
+  const fetchFn = rs.fn(async (url: string | URL) => {
+    const path = url.toString();
+    if (path.includes("/api/langgraph/threads/refreshed-ppt-meta/runs")) {
+      return new Response(
+        JSON.stringify([
+          {
+            run_id: "run-ppt-meta",
+            thread_id: "refreshed-ppt-meta",
+            assistant_id: "ppt-master-runner",
+            status: "success",
+            metadata: {},
+            kwargs: {},
+            multitask_strategy: "reject",
+            created_at: "",
+            updated_at: "",
+          },
+        ]),
+        { status: 200 },
+      );
+    }
+    if (path.endsWith("/api/ppt-master-runtime/threads/refreshed-ppt-meta")) {
+      return new Response(
+        JSON.stringify({
+          thread_id: "refreshed-ppt-meta",
+          status: "idle",
+          metadata: { runtime_profile: "ppt-master-runner" },
+          values: {},
+        }),
+        { status: 200 },
+      );
+    }
+    return new Response(JSON.stringify({ detail: "wrong runtime" }), {
+      status: 404,
+    });
+  });
+  rs.stubGlobal("window", {
+    location: { origin: "http://localhost:2026" },
+    sessionStorage,
+  });
+  rs.stubGlobal("fetch", fetchFn);
+
+  await expect(
+    getAPIClient().threads.get("refreshed-ppt-meta"),
+  ).resolves.toMatchObject({
+    thread_id: "refreshed-ppt-meta",
+    metadata: { runtime_profile: "ppt-master-runner" },
+  });
+
+  const requestedURLs = fetchFn.mock.calls.map((call) => String(call[0]));
+  expect(requestedURLs).toHaveLength(2);
+  expect(requestedURLs[1]).toContain(
+    "/api/ppt-master-runtime/threads/refreshed-ppt-meta",
+  );
 });

@@ -420,8 +420,18 @@ async def task_tool(
     logger.info(f"[trace={trace_id}] Started background task {task_id} (subagent={subagent_type}, timeout={config.timeout_seconds}s, polling_limit={max_poll_count} polls)")
 
     writer = get_stream_writer()
+
+    def write_event(payload: dict[str, Any]) -> None:
+        """Publish a task lifecycle event scoped to its owning thread."""
+        if thread_id:
+            writer({**payload, "thread_id": str(thread_id)})
+        else:
+            # Keep internal/non-threaded callers compatible with the old event
+            # shape; browser task projection rejects these on a new chat.
+            writer(payload)
+
     # Send Task Started message'
-    writer(
+    write_event(
         {
             "type": "task_started",
             "task_id": task_id,
@@ -436,7 +446,7 @@ async def task_tool(
 
             if result is None:
                 logger.error(f"[trace={trace_id}] Task {task_id} not found in background tasks")
-                writer({"type": "task_failed", "task_id": task_id, "error": "Task disappeared from background tasks"})
+                write_event({"type": "task_failed", "task_id": task_id, "error": "Task disappeared from background tasks"})
                 cleanup_background_task(task_id)
                 error = f"Task {task_id} disappeared from background tasks"
                 return _task_result_command(
@@ -462,7 +472,7 @@ async def task_tool(
                 # Send task_running event for each new message
                 for i in range(last_message_count, current_message_count):
                     message = ai_messages[i]
-                    writer(
+                    write_event(
                         {
                             "type": "task_running",
                             "task_id": task_id,
@@ -480,7 +490,7 @@ async def task_tool(
             if result.status == SubagentStatus.COMPLETED:
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
                 _report_subagent_usage(runtime, result)
-                writer(
+                write_event(
                     {
                         "type": "task_completed",
                         "task_id": task_id,
@@ -505,7 +515,7 @@ async def task_tool(
             elif result.status == SubagentStatus.FAILED:
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
                 _report_subagent_usage(runtime, result)
-                writer(
+                write_event(
                     {
                         "type": "task_failed",
                         "task_id": task_id,
@@ -530,7 +540,7 @@ async def task_tool(
             elif result.status == SubagentStatus.CANCELLED:
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
                 _report_subagent_usage(runtime, result)
-                writer(
+                write_event(
                     {
                         "type": "task_cancelled",
                         "task_id": task_id,
@@ -551,7 +561,7 @@ async def task_tool(
             elif result.status == SubagentStatus.TIMED_OUT:
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
                 _report_subagent_usage(runtime, result)
-                writer(
+                write_event(
                     {
                         "type": "task_timed_out",
                         "task_id": task_id,
@@ -583,7 +593,7 @@ async def task_tool(
                 _report_subagent_usage(runtime, result)
                 usage = _summarize_usage(getattr(result, "token_usage_records", None))
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
-                writer(
+                write_event(
                     {
                         "type": "task_timed_out",
                         "task_id": task_id,

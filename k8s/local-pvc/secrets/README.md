@@ -108,24 +108,29 @@ kubectl create secret generic deer-flow-env `
 kubectl rollout restart deployment/gateway -n deer-flow
 ```
 
-## CNOOC AppForge DataLake tools
+## CNOOC DataLake tools
 
-The three AppForge DataLake QA tools execute in Gateway and use the approved
-internal direct route. Store the endpoint and credential in `deer-flow-env`,
-not in `config.yaml` or a ConfigMap:
+Smart QA uses the DataLake Retrieve API and returns ranked source chunks for
+DeerFlow to analyze. Metrics and Detail continue to use the approved AppForge
+workflows. Store runtime endpoint/identity values and the AppForge credential
+in `deer-flow-env`, not as literals in `config.yaml` or a ConfigMap:
 
 ```dotenv
+DATALAKE_RETRIEVE_API_URL=http://10.77.124.142:15955/rag/internal/v1/Retrieve
+DATALAKE_RETRIEVE_PROJECT_ID=proj-i7f8eref
+DATALAKE_RETRIEVE_DOCUMENT_STORE_ID=docstore_zmmAUVXW
 APPFORGE_API_URL=http://10.77.124.142:9080
 APPFORGE_API_KEY=replace-me
-APPFORGE_SMART_QA_APP_ID=app-p2cpu4dn
 APPFORGE_METRICS_QA_APP_ID=app-n9ahac7g
 APPFORGE_DETAIL_QA_APP_ID=app-5md031ia
 APPFORGE_TRUST_ENV=false
 ```
 
-Restart Gateway after installing or rotating the key. Keep the three explicit
-application IDs aligned with the reviewed AppForge workflows; update the
-corresponding value only when that workflow is republished under a new ID.
+Restart Gateway after installing or rotating the values. Keep Metrics and
+Detail application IDs aligned with the reviewed AppForge workflows; update a
+value only when that workflow is republished under a new ID. A comma-separated
+`DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS` is also accepted when multiple document
+stores are intentionally enabled.
 
 ## External agent click telemetry
 
@@ -162,6 +167,13 @@ Use a real secret-management workflow instead of committed Secret YAML:
 Required production rules:
 
 - Keep application secrets in `deer-flow-env`.
+
+Main-composer voice input additionally requires `QWEN_ASR_API_KEY` in
+`deer-flow-env`. Gateway consumes this key server-side for the enterprise
+Qwen3-ASR WebSocket; never place it in a ConfigMap, a `NEXT_PUBLIC_*` variable,
+or frontend JavaScript. The browser-facing DeerFlow origin must be HTTPS (or an
+explicitly audited enterprise-browser trusted origin) before `getUserMedia` is
+available.
 - Keep PostgreSQL credentials and `DATABASE_URL` in `deer-flow-postgres`.
 - Do not store `DATABASE_URL` in both Secrets.
 - Rotate all local/default credentials before exposing the app.

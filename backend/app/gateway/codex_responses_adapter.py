@@ -9,6 +9,7 @@ relay credential, never the upstream model credential.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import hmac
 import json
 import logging
@@ -27,9 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/codex/deepseek/v1", tags=["codex-responses"])
 
 _DEFAULT_MODEL = "DeepSeek-V4-Flash"
-_DEFAULT_UPSTREAM_URL = (
-    "http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1/chat/completions"
-)
+_DEFAULT_UPSTREAM_URL = "http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1/chat/completions"
 _DEFAULT_MAX_REQUEST_BYTES = 32 * 1024 * 1024
 _DEFAULT_MAX_OUTPUT_TOKENS = 65536
 _RETRYABLE_HTTP_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
@@ -71,9 +70,21 @@ class DeepSeekUpstreamError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class ResponseToolTarget:
+    kind: str
+    name: str
+    namespace: str | None = None
+
+
+@dataclass(frozen=True)
 class ConvertedRequest:
     payload: dict[str, Any]
-    tool_kinds: dict[str, str]
+    tool_targets: dict[str, ResponseToolTarget]
+    ignored_hosted_tool_types: tuple[str, ...] = ()
+
+    @property
+    def tool_kinds(self) -> dict[str, str]:
+        return {name: target.kind for name, target in self.tool_targets.items()}
 
 
 @dataclass
@@ -304,7 +315,25 @@ def _append_assistant_tool_call(messages: list[dict[str, Any]], tool_call: dict[
     assistant.setdefault("tool_calls", []).append(tool_call)
 
 
-def _convert_input_items(input_value: object, instructions: str) -> list[dict[str, Any]]:
+def _find_upstream_tool_name(
+    tool_targets: dict[str, ResponseToolTarget],
+    *,
+    name: str,
+    namespace: str | None,
+    kind: str,
+    param: str,
+) -> str:
+    for upstream_name, target in tool_targets.items():
+        if target.name == name and target.namespace == namespace and target.kind == kind:
+            return upstream_name
+    raise AdapterRequestError("Tool call references an unknown tool.", param=param)
+
+
+def _convert_input_items(
+    input_value: object,
+    instructions: str,
+    tool_targets: dict[str, ResponseToolTarget],
+) -> list[dict[str, Any]]:
     messages: list[dict[str, Any]] = []
     if instructions:
         messages.append({"role": "system", "content": instructions})
@@ -341,6 +370,17 @@ def _convert_input_items(input_value: object, instructions: str) -> list[dict[st
             call_id = item.get("call_id")
             if not isinstance(name, str) or not name or not isinstance(call_id, str) or not call_id:
                 raise AdapterRequestError("Tool call input is missing name or call_id.", param=param)
+            namespace = item.get("namespace")
+            if namespace is not None and not isinstance(namespace, str):
+                raise AdapterRequestError("Tool call namespace must be text.", param=f"{param}.namespace")
+            kind = "custom" if item_type == "custom_tool_call" else "function"
+            upstream_name = _find_upstream_tool_name(
+                tool_targets,
+                name=name,
+                namespace=namespace,
+                kind=kind,
+                param=f"{param}.name",
+            )
             if item_type == "custom_tool_call":
                 raw_input = item.get("input", "")
                 if not isinstance(raw_input, str):
@@ -348,11 +388,7 @@ def _convert_input_items(input_value: object, instructions: str) -> list[dict[st
                 arguments = json.dumps({"input": raw_input}, ensure_ascii=False, separators=(",", ":"))
             else:
                 raw_arguments = item.get("arguments", "{}")
-                arguments = (
-                    json.dumps(raw_arguments, ensure_ascii=False, separators=(",", ":"))
-                    if isinstance(raw_arguments, dict)
-                    else raw_arguments
-                )
+                arguments = json.dumps(raw_arguments, ensure_ascii=False, separators=(",", ":")) if isinstance(raw_arguments, dict) else raw_arguments
                 if not isinstance(arguments, str):
                     raise AdapterRequestError("Function arguments must be JSON text.", param=f"{param}.arguments")
             _append_assistant_tool_call(
@@ -360,7 +396,7 @@ def _convert_input_items(input_value: object, instructions: str) -> list[dict[st
                 {
                     "id": call_id,
                     "type": "function",
-                    "function": {"name": name, "arguments": arguments},
+                    "function": {"name": upstream_name, "arguments": arguments},
                 },
             )
             continue
@@ -384,19 +420,63 @@ def _convert_input_items(input_value: object, instructions: str) -> list[dict[st
     return messages
 
 
-def _convert_tools(tools_value: object) -> tuple[list[dict[str, Any]], dict[str, str]]:
+_MAX_CHAT_TOOL_NAME_LENGTH = 64
+_UNSUPPORTED_PROVIDER_HOSTED_TOOL_TYPES = frozenset({"web_search", "web_search_preview"})
+
+
+def _namespace_upstream_name(namespace: str, name: str) -> str:
+    candidate = f"{namespace}__{name}"
+    if len(candidate) <= _MAX_CHAT_TOOL_NAME_LENGTH:
+        return candidate
+    digest = hashlib.sha256(candidate.encode("utf-8")).hexdigest()[:12]
+    prefix_length = _MAX_CHAT_TOOL_NAME_LENGTH - len(digest) - 1
+    return f"{candidate[:prefix_length]}_{digest}"
+
+
+def _chat_function_definition(tool: dict[str, Any], *, kind: str, name: str, description: str) -> dict[str, Any]:
+    if kind == "custom":
+        parameters = {
+            "type": "object",
+            "properties": {"input": {"type": "string", "description": "Raw custom tool input."}},
+            "required": ["input"],
+            "additionalProperties": False,
+        }
+        description = f"{description}\nReturn the complete raw tool input in the JSON string field `input`.".strip()
+    else:
+        parameters = tool.get("parameters")
+        if not isinstance(parameters, dict):
+            parameters = {"type": "object", "properties": {}}
+    return {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": parameters,
+        },
+    }
+
+
+def _convert_tools(
+    tools_value: object,
+) -> tuple[list[dict[str, Any]], dict[str, ResponseToolTarget], tuple[str, ...]]:
     if tools_value is None:
-        return [], {}
+        return [], {}, ()
     if not isinstance(tools_value, list):
         raise AdapterRequestError("Responses tools must be an array.", param="tools")
     tools: list[dict[str, Any]] = []
-    tool_kinds: dict[str, str] = {}
+    tool_targets: dict[str, ResponseToolTarget] = {}
+    ignored_hosted_tool_types: list[str] = []
+    response_identities: set[tuple[str | None, str]] = set()
     for index, tool in enumerate(tools_value):
         param = f"tools[{index}]"
         if not isinstance(tool, dict):
             raise AdapterRequestError("Tool definition must be an object.", param=param)
         tool_type = tool.get("type")
-        if tool_type not in {"function", "custom"}:
+        if tool_type in _UNSUPPORTED_PROVIDER_HOSTED_TOOL_TYPES:
+            if tool_type not in ignored_hosted_tool_types:
+                ignored_hosted_tool_types.append(str(tool_type))
+            continue
+        if tool_type not in {"function", "custom", "namespace"}:
             raise AdapterRequestError(
                 f"Unsupported Responses tool type: {tool_type!r}.",
                 code="unsupported_tool_type",
@@ -405,47 +485,83 @@ def _convert_tools(tools_value: object) -> tuple[list[dict[str, Any]], dict[str,
         name = tool.get("name")
         if not isinstance(name, str) or not name:
             raise AdapterRequestError("Tool definition is missing name.", param=f"{param}.name")
-        if name in tool_kinds:
-            raise AdapterRequestError("Tool names must be unique.", param=f"{param}.name")
-        description = tool.get("description")
-        if not isinstance(description, str):
-            description = ""
-        if tool_type == "custom":
-            parameters = {
-                "type": "object",
-                "properties": {"input": {"type": "string", "description": "Raw custom tool input."}},
-                "required": ["input"],
-                "additionalProperties": False,
-            }
-            description = f"{description}\nReturn the complete raw tool input in the JSON string field `input`.".strip()
-        else:
-            parameters = tool.get("parameters")
-            if not isinstance(parameters, dict):
-                parameters = {"type": "object", "properties": {}}
-        tools.append(
-            {
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "description": description,
-                    "parameters": parameters,
-                },
-            }
-        )
-        tool_kinds[name] = tool_type
-    return tools, tool_kinds
+        description = tool.get("description") if isinstance(tool.get("description"), str) else ""
+        if tool_type != "namespace":
+            identity = (None, name)
+            if identity in response_identities or name in tool_targets:
+                raise AdapterRequestError("Tool names must be unique.", param=f"{param}.name")
+            response_identities.add(identity)
+            tool_targets[name] = ResponseToolTarget(kind=tool_type, name=name)
+            tools.append(_chat_function_definition(tool, kind=tool_type, name=name, description=description))
+            continue
+
+        namespace_tools = tool.get("tools")
+        if not isinstance(namespace_tools, list):
+            raise AdapterRequestError("Namespace tools must be an array.", param=f"{param}.tools")
+        for child_index, child in enumerate(namespace_tools):
+            child_param = f"{param}.tools[{child_index}]"
+            if not isinstance(child, dict):
+                raise AdapterRequestError("Namespace tool definition must be an object.", param=child_param)
+            child_type = child.get("type")
+            if child_type not in {"function", "custom"}:
+                raise AdapterRequestError(
+                    f"Unsupported namespace tool type: {child_type!r}.",
+                    code="unsupported_tool_type",
+                    param=f"{child_param}.type",
+                )
+            child_name = child.get("name")
+            if not isinstance(child_name, str) or not child_name:
+                raise AdapterRequestError("Namespace tool definition is missing name.", param=f"{child_param}.name")
+            identity = (name, child_name)
+            upstream_name = _namespace_upstream_name(name, child_name)
+            if identity in response_identities or upstream_name in tool_targets:
+                raise AdapterRequestError("Namespace tool names must be unique.", param=f"{child_param}.name")
+            response_identities.add(identity)
+            child_description = child.get("description") if isinstance(child.get("description"), str) else ""
+            qualified_description = f"Namespace `{name}`. {description}\n{child_description}".strip()
+            tool_targets[upstream_name] = ResponseToolTarget(
+                kind=child_type,
+                name=child_name,
+                namespace=name,
+            )
+            tools.append(
+                _chat_function_definition(
+                    child,
+                    kind=child_type,
+                    name=upstream_name,
+                    description=qualified_description,
+                )
+            )
+    return tools, tool_targets, tuple(ignored_hosted_tool_types)
 
 
-def _convert_tool_choice(value: object, tool_kinds: dict[str, str]) -> object:
+def _convert_tool_choice(value: object, tool_targets: dict[str, ResponseToolTarget]) -> object:
     if value is None:
         return "auto"
     if isinstance(value, str) and value in {"auto", "none", "required"}:
         return value
+    if isinstance(value, dict) and value.get("type") in _UNSUPPORTED_PROVIDER_HOSTED_TOOL_TYPES:
+        raise AdapterRequestError(
+            "The enterprise DeepSeek provider cannot execute hosted web search.",
+            code="unsupported_hosted_tool_choice",
+            param="tool_choice.type",
+        )
     if isinstance(value, dict) and value.get("type") in {"function", "custom"}:
         name = value.get("name")
-        if not isinstance(name, str) or name not in tool_kinds:
+        namespace = value.get("namespace")
+        if namespace is not None and not isinstance(namespace, str):
+            raise AdapterRequestError("tool_choice namespace must be text.", param="tool_choice.namespace")
+        kind = str(value["type"])
+        if not isinstance(name, str):
             raise AdapterRequestError("tool_choice references an unknown tool.", param="tool_choice.name")
-        return {"type": "function", "function": {"name": name}}
+        upstream_name = _find_upstream_tool_name(
+            tool_targets,
+            name=name,
+            namespace=namespace,
+            kind=kind,
+            param="tool_choice.name",
+        )
+        return {"type": "function", "function": {"name": upstream_name}}
     raise AdapterRequestError("Unsupported Responses tool_choice.", param="tool_choice")
 
 
@@ -474,8 +590,8 @@ def convert_responses_request(payload: dict[str, Any]) -> ConvertedRequest:
     instructions = payload.get("instructions", "")
     if not isinstance(instructions, str):
         raise AdapterRequestError("Responses instructions must be text.", param="instructions")
-    tools, tool_kinds = _convert_tools(payload.get("tools"))
-    messages = _convert_input_items(payload.get("input", []), instructions)
+    tools, tool_targets, ignored_hosted_tool_types = _convert_tools(payload.get("tools"))
+    messages = _convert_input_items(payload.get("input", []), instructions, tool_targets)
     if not messages:
         raise AdapterRequestError("Responses input produced no model messages.", param="input")
 
@@ -507,11 +623,21 @@ def convert_responses_request(payload: dict[str, Any]) -> ConvertedRequest:
         "enable_thinking": effort != "low",
         "reasoning_effort": effort,
     }
+    tool_choice = _convert_tool_choice(payload.get("tool_choice"), tool_targets)
     if tools:
         upstream["tools"] = tools
-        upstream["tool_choice"] = _convert_tool_choice(payload.get("tool_choice"), tool_kinds)
+        upstream["tool_choice"] = tool_choice
         upstream["parallel_tool_calls"] = bool(payload.get("parallel_tool_calls", True))
-    return ConvertedRequest(payload=upstream, tool_kinds=tool_kinds)
+    if ignored_hosted_tool_types:
+        logger.info(
+            "Omitted provider-hosted tools unsupported by enterprise DeepSeek: %s.",
+            ", ".join(ignored_hosted_tool_types),
+        )
+    return ConvertedRequest(
+        payload=upstream,
+        tool_targets=tool_targets,
+        ignored_hosted_tool_types=ignored_hosted_tool_types,
+    )
 
 
 def _is_business_error(payload: dict[str, Any]) -> bool:
@@ -593,7 +719,10 @@ def _usage_payload(usage: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def _response_output(completion: DeepSeekCompletion, tool_kinds: dict[str, str]) -> list[dict[str, Any]]:
+def _response_output(
+    completion: DeepSeekCompletion,
+    tool_targets: dict[str, ResponseToolTarget],
+) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     text = "".join(completion.content)
     if text:
@@ -614,8 +743,14 @@ def _response_output(completion: DeepSeekCompletion, tool_kinds: dict[str, str])
         )
     for index in sorted(completion.tool_calls):
         tool_call = completion.tool_calls[index]
-        kind = tool_kinds.get(tool_call.name, "function")
-        if kind == "custom":
+        target = tool_targets.get(tool_call.name)
+        if target is None:
+            raise DeepSeekUpstreamError(
+                "Enterprise DeepSeek called an unknown tool.",
+                code="unknown_tool_call",
+            )
+        namespace = {"namespace": target.namespace} if target.namespace is not None else {}
+        if target.kind == "custom":
             arguments = json.loads(tool_call.arguments_text)
             raw_input = arguments.get("input")
             if not isinstance(raw_input, str):
@@ -629,8 +764,9 @@ def _response_output(completion: DeepSeekCompletion, tool_kinds: dict[str, str])
                     "type": "custom_tool_call",
                     "status": "completed",
                     "call_id": tool_call.call_id,
-                    "name": tool_call.name,
+                    "name": target.name,
                     "input": raw_input,
+                    **namespace,
                 }
             )
         else:
@@ -640,8 +776,9 @@ def _response_output(completion: DeepSeekCompletion, tool_kinds: dict[str, str])
                     "type": "function_call",
                     "status": "completed",
                     "call_id": tool_call.call_id,
-                    "name": tool_call.name,
+                    "name": target.name,
                     "arguments": tool_call.arguments_text,
+                    **namespace,
                 }
             )
     return output
@@ -669,10 +806,10 @@ def _sse(event: dict[str, Any]) -> str:
 def _completed_events(
     response_id: str,
     completion: DeepSeekCompletion,
-    tool_kinds: dict[str, str],
+    tool_targets: dict[str, ResponseToolTarget],
     sequence_number: int,
 ) -> list[str]:
-    output = _response_output(completion, tool_kinds)
+    output = _response_output(completion, tool_targets)
     events: list[str] = []
     sequence = sequence_number
     for output_index, item in enumerate(output):
@@ -786,7 +923,7 @@ async def stream_deepseek_responses(converted: ConvertedRequest):
                             yield ": deepseek-progress\n\n"
                             last_progress = now
             _validate_completion(completion)
-            for event in _completed_events(response_id, completion, converted.tool_kinds, sequence):
+            for event in _completed_events(response_id, completion, converted.tool_targets, sequence):
                 yield event
             return
         except DeepSeekUpstreamError as exc:

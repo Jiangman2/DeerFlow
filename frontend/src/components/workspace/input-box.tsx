@@ -93,15 +93,10 @@ import {
   type UploadLimitViolation,
 } from "@/core/uploads";
 import {
-  appendSpeechTranscript,
-  getSpeechRecognitionConstructor,
-  getSpeechRecognitionLanguage,
-  mapSpeechRecognitionError,
-  readSpeechRecognitionTranscript,
-  shouldRestartSpeechRecognition,
-  type BrowserSpeechRecognition,
-  type SpeechRecognitionErrorKind,
-} from "@/core/voice-input/speech-recognition";
+  detectVoiceGatewaySupport,
+  GatewayVoiceSession,
+  type VoiceGatewaySupportReason,
+} from "@/core/voice-input/gateway-transcription";
 import { useWeKnoraKnowledgeBases } from "@/core/weknora";
 import { isIMEComposing } from "@/lib/ime";
 import { cn } from "@/lib/utils";
@@ -311,10 +306,6 @@ export type InputBoxSubmitOptions = {
   onSent?: () => void;
 };
 
-type VoiceRecognitionStartOptions = {
-  focusAfterStart?: boolean;
-};
-
 function buildHiddenConversationQuoteMessage({
   contexts,
 }: {
@@ -427,17 +418,7 @@ export function InputBox({
     controller: null,
     sequence: 0,
   });
-  const voiceRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  const voiceBaseTextRef = useRef("");
-  const voiceLatestTextRef = useRef("");
-  const voiceLastErrorKindRef = useRef<SpeechRecognitionErrorKind | null>(null);
-  const voiceStopRequestedRef = useRef(false);
-  const voiceRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const startVoiceRecognitionRef = useRef<
-    ((options?: VoiceRecognitionStartOptions) => boolean) | null
-  >(null);
+  const voiceSessionRef = useRef<GatewayVoiceSession | null>(null);
   const promptHistoryIndexRef = useRef<number | null>(null);
   const promptHistoryDraftRef = useRef("");
 
@@ -463,57 +444,11 @@ export function InputBox({
   const wasStreamingRef = useRef(false);
   const messagesRef = useRef(thread.messages);
 
-  const clearVoiceRestartTimer = useCallback(() => {
-    if (voiceRestartTimerRef.current === null) {
-      return;
-    }
-    clearTimeout(voiceRestartTimerRef.current);
-    voiceRestartTimerRef.current = null;
-  }, []);
-
-  const cleanupVoiceRecognition = useCallback(
-    (
-      recognition: BrowserSpeechRecognition | null,
-      options: { keepListening?: boolean } = {},
-    ) => {
-      clearVoiceRestartTimer();
-      if (!recognition) {
-        if (!options.keepListening) {
-          voiceLastErrorKindRef.current = null;
-          voiceStopRequestedRef.current = false;
-          setVoiceListening(false);
-        }
-        return;
-      }
-      recognition.onend = null;
-      recognition.onerror = null;
-      recognition.onresult = null;
-      if (voiceRecognitionRef.current === recognition) {
-        voiceRecognitionRef.current = null;
-      }
-      if (!options.keepListening) {
-        voiceLastErrorKindRef.current = null;
-        voiceStopRequestedRef.current = false;
-        setVoiceListening(false);
-      }
-    },
-    [clearVoiceRestartTimer],
-  );
-
   const abortVoiceInput = useCallback(() => {
-    const recognition = voiceRecognitionRef.current;
-    voiceStopRequestedRef.current = true;
-    if (!recognition) {
-      cleanupVoiceRecognition(null);
-      return;
-    }
-    cleanupVoiceRecognition(recognition);
-    try {
-      recognition.abort();
-    } catch {
-      // Browser implementations can throw when the recognizer already ended.
-    }
-  }, [cleanupVoiceRecognition]);
+    voiceSessionRef.current?.abort();
+    voiceSessionRef.current = null;
+    setVoiceListening(false);
+  }, []);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSuggestion, setPendingSuggestion] = useState<string | null>(
@@ -1170,30 +1105,37 @@ export function InputBox({
       (status === "streaming" ||
         slashSkillQuery !== null ||
         !canPolishInput(textInput.value ?? "")));
-  const speechRecognitionConstructor = useMemo(
+  const voiceGatewaySupport = useMemo(
     () =>
       typeof window === "undefined"
-        ? null
-        : getSpeechRecognitionConstructor(window),
+        ? ({ supported: false, reason: "insecure_context" } as const)
+        : detectVoiceGatewaySupport(),
     [],
   );
-  const voiceInputSupported = speechRecognitionConstructor !== null;
+  const voiceInputSupported = voiceGatewaySupport.supported;
 
   const getVoiceInputErrorMessage = useCallback(
-    (kind: SpeechRecognitionErrorKind) => {
+    (kind: VoiceGatewaySupportReason | string, serverMessage?: string) => {
+      if (serverMessage) {
+        return serverMessage;
+      }
       switch (kind) {
+        case "insecure_context":
+          return t.inputBox.voiceInputInsecureContext;
         case "permission_denied":
           return t.inputBox.voiceInputPermissionDenied;
+        case "media_devices_unavailable":
         case "microphone_unavailable":
           return t.inputBox.voiceInputMicrophoneUnavailable;
-        case "unsupported_language":
-          return t.inputBox.voiceInputUnsupportedLanguage;
+        case "authentication_required":
+          return t.inputBox.voiceInputAuthenticationRequired;
+        case "final_timeout":
+          return t.inputBox.voiceInputFinalTimeout;
+        case "upstream_timeout":
+        case "upstream_unavailable":
+        case "upstream_error":
         case "network":
           return t.inputBox.voiceInputNetworkError;
-        case "no_speech":
-          return t.inputBox.voiceInputNoSpeech;
-        case "cancelled":
-          return null;
         default:
           return t.inputBox.voiceInputFailed;
       }
@@ -1201,120 +1143,9 @@ export function InputBox({
     [t],
   );
 
-  const startVoiceRecognition = useCallback(
-    (options: VoiceRecognitionStartOptions = {}) => {
-      if (composerLocked || !speechRecognitionConstructor) {
-        return false;
-      }
-
-      const recognition = new speechRecognitionConstructor();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = getSpeechRecognitionLanguage(locale);
-      recognition.maxAlternatives = 1;
-      voiceLastErrorKindRef.current = null;
-      voiceLatestTextRef.current = voiceBaseTextRef.current;
-      voiceRecognitionRef.current = recognition;
-
-      recognition.onresult = (event) => {
-        if (voiceRecognitionRef.current !== recognition) {
-          return;
-        }
-        const transcript = readSpeechRecognitionTranscript(event.results).text;
-        const nextValue = appendSpeechTranscript(
-          voiceBaseTextRef.current,
-          transcript,
-        );
-        voiceLatestTextRef.current = nextValue;
-        textInput.setInput(nextValue);
-      };
-      recognition.onerror = (event) => {
-        const errorKind = mapSpeechRecognitionError(event.error);
-        voiceLastErrorKindRef.current = errorKind;
-        if (
-          !voiceStopRequestedRef.current &&
-          shouldRestartSpeechRecognition(errorKind)
-        ) {
-          return;
-        }
-
-        const message = getVoiceInputErrorMessage(errorKind);
-        if (message) {
-          toast.error(message);
-        }
-      };
-      recognition.onend = () => {
-        const shouldRestart =
-          voiceRecognitionRef.current === recognition &&
-          !voiceStopRequestedRef.current &&
-          shouldRestartSpeechRecognition(voiceLastErrorKindRef.current);
-        if (shouldRestart) {
-          voiceBaseTextRef.current = voiceLatestTextRef.current;
-          cleanupVoiceRecognition(recognition, { keepListening: true });
-          voiceRestartTimerRef.current = setTimeout(() => {
-            voiceRestartTimerRef.current = null;
-            if (voiceStopRequestedRef.current) {
-              cleanupVoiceRecognition(null);
-              return;
-            }
-            const restarted = startVoiceRecognitionRef.current?.() ?? false;
-            if (!restarted) {
-              cleanupVoiceRecognition(null);
-            }
-          }, 150);
-          return;
-        }
-        cleanupVoiceRecognition(recognition);
-      };
-
-      setVoiceListening(true);
-      try {
-        recognition.start();
-        if (options.focusAfterStart) {
-          requestAnimationFrame(() => {
-            if (selectedSlashSkill) {
-              focusContentEditableEnd(inlineSkillTextRef.current);
-            } else {
-              textareaRef.current?.focus();
-            }
-          });
-        }
-        return true;
-      } catch {
-        cleanupVoiceRecognition(recognition);
-        toast.error(t.inputBox.voiceInputFailed);
-        return false;
-      }
-    },
-    [
-      cleanupVoiceRecognition,
-      composerLocked,
-      getVoiceInputErrorMessage,
-      locale,
-      selectedSlashSkill,
-      speechRecognitionConstructor,
-      t.inputBox.voiceInputFailed,
-      textInput,
-    ],
-  );
-
-  useEffect(() => {
-    startVoiceRecognitionRef.current = startVoiceRecognition;
-  }, [startVoiceRecognition]);
-
   const stopVoiceInput = useCallback(() => {
-    const recognition = voiceRecognitionRef.current;
-    voiceStopRequestedRef.current = true;
-    if (!recognition) {
-      cleanupVoiceRecognition(null);
-      return;
-    }
-    try {
-      recognition.stop();
-    } catch {
-      cleanupVoiceRecognition(recognition);
-    }
-  }, [cleanupVoiceRecognition]);
+    voiceSessionRef.current?.stop();
+  }, []);
 
   const toggleVoiceInput = useCallback(() => {
     if (voiceListening) {
@@ -1324,8 +1155,8 @@ export function InputBox({
     if (composerLocked) {
       return;
     }
-    if (!speechRecognitionConstructor) {
-      toast.error(t.inputBox.voiceInputUnsupported);
+    if (!voiceGatewaySupport.supported) {
+      toast.error(getVoiceInputErrorMessage(voiceGatewaySupport.reason));
       return;
     }
 
@@ -1333,18 +1164,38 @@ export function InputBox({
     setInputPolishUndo(null);
     promptHistoryIndexRef.current = null;
     promptHistoryDraftRef.current = "";
-    voiceStopRequestedRef.current = false;
-    voiceBaseTextRef.current = textInput.value ?? "";
-    voiceLatestTextRef.current = voiceBaseTextRef.current;
-    startVoiceRecognition({ focusAfterStart: true });
+    const session = new GatewayVoiceSession({
+      baseText: textInput.value ?? "",
+      language: locale.startsWith("zh") ? "zh" : "auto",
+      onTranscript: (nextValue) => textInput.setInput(nextValue),
+      onListeningChange: (listening) => {
+        setVoiceListening(listening);
+        if (!listening && voiceSessionRef.current === session) {
+          voiceSessionRef.current = null;
+        }
+      },
+      onError: (code, serverMessage) => {
+        toast.error(getVoiceInputErrorMessage(code, serverMessage));
+      },
+    });
+    voiceSessionRef.current = session;
+    void session.start();
+    requestAnimationFrame(() => {
+      if (selectedSlashSkill) {
+        focusContentEditableEnd(inlineSkillTextRef.current);
+      } else {
+        textareaRef.current?.focus();
+      }
+    });
   }, [
     abortInputPolishRequest,
     composerLocked,
-    speechRecognitionConstructor,
-    startVoiceRecognition,
+    getVoiceInputErrorMessage,
+    locale,
+    selectedSlashSkill,
     stopVoiceInput,
-    t.inputBox.voiceInputUnsupported,
     textInput,
+    voiceGatewaySupport,
     voiceListening,
   ]);
 
@@ -1953,8 +1804,7 @@ export function InputBox({
       <PromptInput
         className={cn(
           "bg-background/85 relative z-10 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out *:data-[slot='input-group']:rounded-2xl",
-          polishingInput &&
-            "shadow-primary/10 ring-primary/25 shadow-lg ring-1",
+          polishingInput && "shadow-lg ring-1 ring-blue-200 dark:ring-blue-800",
           className,
         )}
         disabled={composerLocked}
@@ -1966,8 +1816,11 @@ export function InputBox({
         {polishingInput && (
           <div
             aria-hidden="true"
-            className="border-primary/30 bg-primary/5 pointer-events-auto absolute inset-0 z-20 animate-pulse cursor-wait rounded-2xl border opacity-80"
-          />
+            className="pointer-events-auto absolute inset-0 z-20 cursor-wait overflow-hidden rounded-2xl border border-blue-200 dark:border-blue-800"
+            data-testid="polish-input-overlay"
+          >
+            <span className="bg-primary pointer-events-none absolute inset-0 animate-pulse opacity-[0.06]" />
+          </div>
         )}
         {extraHeader && (
           <div className="absolute top-0 right-0 left-0 z-10">
@@ -1987,14 +1840,14 @@ export function InputBox({
           {polishingInput && (
             <div
               aria-live="polite"
-              className="text-primary bg-primary/10 border-primary/20 relative z-30 flex h-7 items-center gap-1.5 rounded-full border py-0 pr-1 pl-2.5 text-xs font-medium"
+              className="relative z-30 flex h-7 items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 py-0 pr-1 pl-2.5 text-xs font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300"
               role="status"
             >
               <Loader2Icon className="size-3 animate-spin" />
               {t.inputBox.inputPolishing}
               <button
                 aria-label={t.inputBox.inputPolishCancel}
-                className="hover:bg-primary/20 focus-visible:ring-primary/40 -mr-0.5 ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="-mr-0.5 ml-0.5 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none dark:hover:bg-blue-900"
                 data-testid="cancel-polish-input-button"
                 onClick={abortInputPolishRequest}
                 type="button"
@@ -2102,6 +1955,11 @@ export function InputBox({
               disabled={composerLocked}
               listening={voiceListening}
               supported={voiceInputSupported}
+              unsupportedMessage={
+                voiceGatewaySupport.supported
+                  ? undefined
+                  : getVoiceInputErrorMessage(voiceGatewaySupport.reason)
+              }
               onToggle={toggleVoiceInput}
             />
             <Tooltip
@@ -2526,16 +2384,18 @@ function VoiceInputButton({
   disabled,
   listening,
   supported,
+  unsupportedMessage,
   onToggle,
 }: {
   disabled?: boolean;
   listening: boolean;
   supported: boolean;
+  unsupportedMessage?: string;
   onToggle: () => void;
 }) {
   const { t } = useI18n();
   const tooltipContent = !supported
-    ? t.inputBox.voiceInputUnsupported
+    ? (unsupportedMessage ?? t.inputBox.voiceInputUnsupported)
     : listening
       ? t.inputBox.voiceInputListening
       : t.inputBox.voiceInputStart;
@@ -2550,14 +2410,21 @@ function VoiceInputButton({
         aria-pressed={listening}
         className={cn(
           "px-2!",
-          listening && "text-primary bg-primary/10 hover:bg-primary/15",
+          listening &&
+            "group/voice text-primary hover:text-primary relative overflow-hidden",
         )}
         data-testid="voice-input-button"
         disabled={(disabled ?? false) || !supported}
         onClick={onToggle}
       >
+        {listening && (
+          <span
+            aria-hidden="true"
+            className="bg-primary pointer-events-none absolute inset-0 opacity-10 transition-opacity group-hover/voice:opacity-15"
+          />
+        )}
         {listening ? (
-          <SquareIcon className="size-3 fill-current" />
+          <SquareIcon className="relative z-10 size-3 fill-current" />
         ) : (
           <MicIcon className="size-3" />
         )}

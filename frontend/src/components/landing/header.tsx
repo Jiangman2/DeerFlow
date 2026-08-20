@@ -53,13 +53,13 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
           className="h-9 rounded-lg border border-[#07569f] bg-[#0868bd] px-4 text-white shadow-[0_5px_14px_rgba(8,104,189,0.22)] hover:-translate-y-px hover:bg-[#075aa5] hover:shadow-[0_7px_18px_rgba(8,104,189,0.28)] active:translate-y-0 active:bg-[#064c8c] focus-visible:ring-[#0868bd]/30"
           asChild
         >
-          <Link href={brand.links.workspace}>{t.sidebar.newChat}</Link>
+          <Link href={brand.links.login}>{t.sidebar.newChat}</Link>
         </Button>
       </nav>
       <MobileNav
         links={[
           { href: brand.links.login, label: t.login.signIn },
-          { href: brand.links.workspace, label: t.sidebar.newChat },
+          { href: brand.links.login, label: t.sidebar.newChat },
         ]}
       />
       <hr className="from-border/0 via-border/45 to-border/0 absolute right-0 bottom-0 left-0 z-10 m-0 h-px w-full border-none bg-linear-to-r" />

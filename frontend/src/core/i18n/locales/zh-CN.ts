@@ -161,15 +161,18 @@ export const zhCN: Translations = {
     voiceInputStartLabel: "语音输入",
     voiceInputStopLabel: "停止语音输入",
     voiceInputStart:
-      "语音输入。本平台只接收转写文本，音频由浏览器或系统语音服务处理。",
+      "语音输入。录音将通过本平台 Gateway 发送至企业内网 Qwen ASR 服务转写。",
     voiceInputStop: "停止语音输入",
     voiceInputListening: "正在聆听... 点击停止语音输入。",
-    voiceInputUnsupported:
-      "当前浏览器不支持语音输入。建议使用 Chrome 或 Edge。",
+    voiceInputUnsupported: "当前浏览器不支持安全录音或 WebSocket 语音输入。",
+    voiceInputInsecureContext:
+      "当前页面不是安全连接，浏览器禁止录音。请使用 HTTPS，或由管理员将该内网地址配置为可信安全源。",
     voiceInputPermissionDenied: "麦克风权限被拒绝。请允许麦克风访问后重试。",
     voiceInputMicrophoneUnavailable: "未检测到麦克风。请检查设备输入后重试。",
+    voiceInputAuthenticationRequired: "登录状态已失效，请重新登录后使用语音输入。",
+    voiceInputFinalTimeout: "语音转写等待超时，请稍后重试。",
     voiceInputUnsupportedLanguage: "当前浏览器不支持该语言的语音输入。",
-    voiceInputNetworkError: "无法连接浏览器语音识别服务。",
+    voiceInputNetworkError: "无法连接企业内网语音转写服务，请稍后重试。",
     voiceInputNoSpeech: "没有检测到语音，请重试。",
     voiceInputFailed: "语音输入失败，请重试。",
     mode: "模式",

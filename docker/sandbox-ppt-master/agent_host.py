@@ -36,6 +36,7 @@ OUTPUTS_ROOT = Path(os.environ.get("PPT_MASTER_OUTPUTS_ROOT", "/mnt/user-data/ou
 RUNTIME_ROOT = Path(os.environ.get("PPT_MASTER_RUNTIME_ROOT", str(WORKSPACE_ROOT / ".ppt-master-runtime")))
 HOST_STATE_ROOT = Path(os.environ.get("PPT_MASTER_AGENT_STATE_ROOT", str(WORKSPACE_ROOT / ".ppt-master-agent")))
 CODEX_HOME = Path(os.environ.get("PPT_MASTER_CODEX_HOME", str(HOST_STATE_ROOT / "codex-home")))
+TEMP_ROOT = Path(os.environ.get("PPT_MASTER_TEMP_ROOT", str(HOST_STATE_ROOT / "tmp")))
 MAX_REQUEST_BYTES = 1024 * 1024
 MAX_EVENT_TEXT = 256 * 1024
 _SAFE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
@@ -56,6 +57,44 @@ _DELIVERY_CAPABILITIES = frozenset(
     }
 )
 MAX_DELIVERY_REPAIR_ATTEMPTS = 3
+
+
+def ensure_user_data_directories() -> list[str]:
+    """Restore the writable per-thread directory contract when it is missing.
+
+    The Sandbox main container and the Agent host share the same user-data
+    volume.  A resumed or delivery-repair turn must therefore not assume that
+    the three writable roots still exist merely because the Pod is healthy.
+    Return the paths that had to be recreated so the host can emit a useful
+    diagnostic receipt without treating this recoverable condition as a task
+    failure.
+    """
+
+    restored: list[str] = []
+    for path in (WORKSPACE_ROOT, UPLOADS_ROOT, OUTPUTS_ROOT):
+        existed = path.is_dir()
+        path.mkdir(mode=0o777, parents=True, exist_ok=True)
+        if not path.is_dir():
+            raise RuntimeError(f"PPT Agent writable directory is unavailable: {path}")
+        os.chmod(path, 0o777)
+        if not existed:
+            restored.append(str(path))
+    TEMP_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(TEMP_ROOT, 0o700)
+    return restored
+
+
+def _agent_subprocess_env(env: dict[str, str]) -> dict[str, str]:
+    """Pin PPT-only subprocess temporary files to the per-thread PVC."""
+
+    TEMP_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(TEMP_ROOT, 0o700)
+    return {
+        **env,
+        "TMPDIR": str(TEMP_ROOT),
+        "TMP": str(TEMP_ROOT),
+        "TEMP": str(TEMP_ROOT),
+    }
 
 
 def validate_id(value: object) -> str:
@@ -230,6 +269,7 @@ def _sanitize_payload(value: object, secret_values: list[str]) -> object:
 
 
 def _prepare_codex_home(env: dict[str, str]) -> None:
+    env = _agent_subprocess_env(env)
     CODEX_HOME.mkdir(parents=True, exist_ok=True)
     os.chmod(CODEX_HOME, 0o700)
     skills_dir = CODEX_HOME / "skills"
@@ -503,6 +543,7 @@ class CodexTaskManager:
         self.lock = threading.RLock()
         self.tasks: dict[str, AgentTask] = {}
         self.active_task_id: str | None = None
+        ensure_user_data_directories()
         HOST_STATE_ROOT.mkdir(parents=True, exist_ok=True)
 
     def start(
@@ -589,6 +630,7 @@ class CodexTaskManager:
     def _run(self, task: AgentTask) -> None:
         try:
             task.set_state(status="preparing")
+            ensure_user_data_directories()
             prepare_writable_skill_snapshot(SOURCE_SKILL_ROOT, RUNTIME_ROOT)
             _prepare_codex_home(task.env)
             if not has_codex_credentials(task.env, CODEX_HOME):
@@ -596,7 +638,7 @@ class CodexTaskManager:
             guard = subprocess.run(
                 ["python3", str(RUNTIME_ROOT / "scripts" / "attribution_guard.py")],
                 cwd=RUNTIME_ROOT,
-                env={**task.env, "CODEX_HOME": str(CODEX_HOME)},
+                env={**_agent_subprocess_env(task.env), "CODEX_HOME": str(CODEX_HOME)},
                 text=True,
                 capture_output=True,
                 timeout=120,
@@ -609,6 +651,20 @@ class CodexTaskManager:
             prompt = task.prompt
             final_message = ""
             for repair_attempt in range(MAX_DELIVERY_REPAIR_ATTEMPTS + 1):
+                restored = ensure_user_data_directories()
+                if restored:
+                    # Recreate runtime material as well: the workspace may have
+                    # disappeared between Agent turns, taking the writable Skill
+                    # snapshot and Codex home with it.
+                    prepare_writable_skill_snapshot(SOURCE_SKILL_ROOT, RUNTIME_ROOT)
+                    _prepare_codex_home(task.env)
+                    task.append_event(
+                        "host",
+                        {
+                            "message": "Restored missing persistent Sandbox directories before Agent launch",
+                            "paths": restored,
+                        },
+                    )
                 command = build_codex_command(session_id=session_id)
                 task.append_event(
                     "host",
@@ -618,7 +674,7 @@ class CodexTaskManager:
                 process = subprocess.Popen(
                     command,
                     cwd=WORKSPACE_ROOT,
-                    env={**task.env, "CODEX_HOME": str(CODEX_HOME)},
+                    env={**_agent_subprocess_env(task.env), "CODEX_HOME": str(CODEX_HOME)},
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,

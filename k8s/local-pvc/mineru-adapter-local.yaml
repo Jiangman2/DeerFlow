@@ -28,7 +28,7 @@ spec:
             - name: LIBREOFFICE_TIMEOUT_SECONDS
               value: "180"
             - name: MINERU_MAX_UPLOAD_BYTES
-              value: "52428800"
+              value: "104857600"
             - name: MINERU_MAX_INLINE_IMAGE_BYTES
               value: "20971520"
             - name: MINERU_SOURCE_PAGE_DPI

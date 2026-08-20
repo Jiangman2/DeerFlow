@@ -136,6 +136,10 @@ spec:
               value: "2"
             - name: SANDBOX_MEMORY_LIMIT
               value: 4Gi
+            - name: SANDBOX_EPHEMERAL_STORAGE_REQUEST
+              value: 2Gi
+            - name: SANDBOX_EPHEMERAL_STORAGE_LIMIT
+              value: 12Gi
             - name: KUBECONFIG_WAIT_SECONDS
               value: "0"
             - name: SANDBOX_READINESS_INITIAL_DELAY_SECONDS
@@ -328,6 +332,10 @@ spec:
               value: "true"
             - name: GATEWAY_PORT
               value: "8001"
+            - name: QWEN_ASR_STREAM_URL
+              value: ws://model.ai.cnooc/ws/member1/qwen3-asr-v3/stream-transcriptions
+            - name: QWEN_ASR_MODEL_NAME
+              value: Qwen3-ASR-1.7B
             - name: PPT_MASTER_RUNNER_INTERNAL_URL
               value: http://127.0.0.1:8003
             - name: DATABASE_URL

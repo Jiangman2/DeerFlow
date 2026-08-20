@@ -22,6 +22,7 @@ from langchain.agents.middleware.types import ModelCallResult, ModelRequest, Mod
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.runtime import Runtime
+from langgraph.types import Command
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
 from deerflow.agents.thread_state import SkillWorkflowEvidence, SkillWorkflowState, ThreadState
@@ -1682,11 +1683,23 @@ def _tool_call_id(call: dict[str, Any]) -> str:
 
 
 def _result_succeeded(
-    message: ToolMessage,
+    result: ToolMessage | Command,
     *,
     tool: str = "",
     action: str = "",
 ) -> bool:
+    if isinstance(result, Command):
+        update = getattr(result, "update", None)
+        if not isinstance(update, dict):
+            return True
+        messages = update.get("messages")
+        if not isinstance(messages, list):
+            return True
+        tool_messages = [message for message in messages if isinstance(message, ToolMessage)]
+        if not tool_messages:
+            return True
+        return all(_result_succeeded(message, tool=tool, action=action) for message in tool_messages)
+    message = result
     if getattr(message, "status", "success") == "error":
         return False
     detail = _message_text(message)
@@ -3437,12 +3450,12 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
         workflow: SkillWorkflowState,
         tool: str,
         args: dict[str, Any],
-        result: ToolMessage,
+        result: ToolMessage | Command,
     ) -> ToolMessage | None:
-        if not _result_succeeded(result, tool=tool, action=_action_for_tool(tool, args)):
-            return None
         targets = _ppt_master_svg_targets(tool, args, workflow)
         if not targets:
+            return None
+        if not _result_succeeded(result, tool=tool, action=_action_for_tool(tool, args)):
             return None
         project = str(workflow.get("project_path") or "").rstrip("/")
         sandbox = _resolve_active_sandbox(request)
@@ -3482,7 +3495,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
         workflow: SkillWorkflowState,
         tool: str,
         args: dict[str, Any],
-        result: ToolMessage,
+        result: ToolMessage | Command,
     ) -> ToolMessage | None:
         return await asyncio.to_thread(
             SkillWorkflowMiddleware._template_svg_postflight,
@@ -3534,7 +3547,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
         workflow: SkillWorkflowState,
         tool: str,
         args: dict[str, Any],
-        result: ToolMessage,
+        result: ToolMessage | Command,
     ) -> ToolMessage | None:
         if tool != "bash" or not str(workflow.get("skill_path") or "").endswith("/ppt-master/SKILL.md"):
             return None
@@ -3570,7 +3583,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
         workflow: SkillWorkflowState,
         tool: str,
         args: dict[str, Any],
-        result: ToolMessage,
+        result: ToolMessage | Command,
     ) -> ToolMessage | None:
         return await asyncio.to_thread(
             SkillWorkflowMiddleware._template_install_postflight,
@@ -3638,8 +3651,8 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
     def wrap_tool_call(
         self,
         request: ToolCallRequest,
-        handler: Callable[[ToolCallRequest], ToolMessage],
-    ) -> ToolMessage:
+        handler: Callable[[ToolCallRequest], ToolMessage | Command],
+    ) -> ToolMessage | Command:
         workflow = (request.state or {}).get("skill_workflow")
         if isinstance(workflow, dict):
             tool = _tool_call_name(request.tool_call)
@@ -3678,8 +3691,8 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
     async def awrap_tool_call(
         self,
         request: ToolCallRequest,
-        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage]],
-    ) -> ToolMessage:
+        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
+    ) -> ToolMessage | Command:
         workflow = (request.state or {}).get("skill_workflow")
         if isinstance(workflow, dict):
             tool = _tool_call_name(request.tool_call)

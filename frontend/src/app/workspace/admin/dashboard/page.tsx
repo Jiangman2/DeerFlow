@@ -39,6 +39,7 @@ import {
   activityChartMinWidth,
   activityPeriodLabel,
   activitySharedMax,
+  dashboardHeadlineCounts,
   dashboardUserPrimaryLabel,
   dashboardUserSecondaryParts,
   dashboardBarStyle,
@@ -62,10 +63,6 @@ import { cn } from "@/lib/utils";
 
 function compactNumber(value: number): string {
   return Intl.NumberFormat("zh-CN", { notation: "compact" }).format(value);
-}
-
-function percent(value: number): string {
-  return `${Math.round(value * 1000) / 10}%`;
 }
 
 function duration(ms: number): string {
@@ -220,7 +217,7 @@ function ActivityTrend({
                     ? `${activityBarPercent(item.threads, sharedMax)}%`
                     : 2,
                 }}
-                title={`${item.threads} 个创建会话`}
+                title={`${item.threads} 个新增会话`}
               />
               <div
                 className="w-2.5 rounded-t bg-emerald-500"
@@ -274,7 +271,7 @@ function RegisteredUserSessions() {
         <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
           <span className="flex items-center gap-2">
             <UsersIcon className="size-4" />
-            注册用户现存会话
+            注册用户当前保留会话
           </span>
           <span className="text-xs font-normal text-slate-500">
             按最后登录时间倒序 · 共 {usersQuery.data?.total ?? 0} 个注册用户
@@ -347,7 +344,7 @@ function RegisteredUserSessions() {
                           {user.system_role === "admin" ? "管理员" : "普通用户"}
                           {user.is_disabled ? " · 已停用" : ""}
                           {" · "}
-                          现存会话 {user.existing_threads} · 最后活动{" "}
+                          当前保留会话 {user.existing_threads} · 最后活动{" "}
                           {user.last_active_at
                             ? shortTime(user.last_active_at)
                             : "暂无"}
@@ -371,7 +368,7 @@ function RegisteredUserSessions() {
                       <div className="border-t bg-slate-50/60 p-3">
                         {sessionsQuery.isLoading ? (
                           <div className="py-3 text-center text-xs text-slate-500">
-                            正在加载现存会话…
+                            正在加载当前保留会话…
                           </div>
                         ) : sessionsQuery.isError ? (
                           <div className="py-3 text-center text-xs text-red-600">
@@ -1788,6 +1785,7 @@ export default function DashboardPage() {
     rangeEnd,
   );
   const summary = summaryQuery.data;
+  const headlineCounts = dashboardHeadlineCounts(summary?.overview);
 
   const handleRefresh = async () => {
     setIsManualRefreshing(true);
@@ -1915,17 +1913,17 @@ export default function DashboardPage() {
             tone="green"
           />
           <MetricCard
-            label="创建会话"
-            value={compactNumber(summary?.overview.threads ?? 0)}
-            detail={`已完成 ${compactNumber(summary?.overview.terminal_runs ?? 0)} · 运行中 ${compactNumber(summary?.overview.running_runs ?? 0)} · 现存会话 ${compactNumber(summary?.overview.existing_threads ?? 0)}`}
+            label="区间新增会话"
+            value={compactNumber(headlineCounts.threadsCreatedInWindow)}
+            detail={`历史累计创建 ${compactNumber(headlineCounts.threadsCreatedAllTime)} · 当前保留（全历史） ${compactNumber(headlineCounts.threadsRetainedAllTime)} · 历史已删除 ${compactNumber(headlineCounts.threadsDeletedAllTime)}`}
             icon={ActivityIcon}
           />
           <MetricCard
-            label="成功率"
-            value={percent(summary?.overview.success_rate ?? 0)}
-            detail={`成功 ${compactNumber(summary?.overview.successful_runs ?? 0)} + 失败 ${compactNumber(summary?.overview.failed_runs ?? 0)} = 已完成 ${compactNumber(summary?.overview.terminal_runs ?? 0)}`}
+            label="区间启动运行"
+            value={compactNumber(headlineCounts.runsStartedInWindow)}
+            detail={`已结束运行 ${compactNumber(headlineCounts.runsEnded)}（成功 ${compactNumber(headlineCounts.runsSuccessful)} · 失败/超时/中断 ${compactNumber(headlineCounts.runsUnsuccessful)}）· 仍在运行 ${compactNumber(headlineCounts.runsActive)}`}
             icon={ZapIcon}
-            tone={(summary?.overview.failed_runs ?? 0) > 0 ? "amber" : "green"}
+            tone={headlineCounts.runsUnsuccessful > 0 ? "amber" : "green"}
           />
           <MetricCard
             label="Token 与模型调用"
@@ -1944,7 +1942,7 @@ export default function DashboardPage() {
                   用户活跃趋势
                 </span>
                 <span className="text-xs font-normal text-slate-500">
-                  区间创建{" "}
+                  区间新增{" "}
                   {compactNumber(
                     summary?.user_activity.reduce(
                       (total, item) => total + item.threads,
@@ -1970,7 +1968,7 @@ export default function DashboardPage() {
               <div className="mt-3 flex gap-4 text-xs text-slate-500">
                 <span className="inline-flex items-center gap-1">
                   <span className="size-2 rounded-full bg-slate-800" />
-                  创建会话数
+                  区间新增会话数
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <span className="size-2 rounded-full bg-emerald-500" />
@@ -2031,11 +2029,11 @@ export default function DashboardPage() {
 
         <div className="grid min-w-0 gap-4 xl:grid-cols-2">
           <RunRanking
-            title="慢运行排行（已完成）"
+            title="慢运行排行（已结束）"
             rows={analyticsQuery.data?.slow_runs ?? []}
           />
           <RunRanking
-            title="高 Token 运行排行（已完成）"
+            title="高 Token 运行排行（已结束）"
             rows={analyticsQuery.data?.high_token_runs ?? []}
           />
           <FailedRuns

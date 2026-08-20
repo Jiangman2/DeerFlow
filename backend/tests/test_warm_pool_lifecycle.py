@@ -24,8 +24,9 @@ class _Provider(WarmPoolLifecycleMixin[str]):
     def _active_count_locked(self) -> int:
         return self.active_count
 
-    def _destroy_warm_entry(self, sandbox_id: str, entry: str, *, reason: str) -> None:
+    def _destroy_warm_entry(self, sandbox_id: str, entry: str, *, reason: str) -> bool:
         self.destroyed.append((sandbox_id, entry, reason))
+        return True
 
 
 def test_replica_count_includes_active_and_warm_entries() -> None:
@@ -53,6 +54,25 @@ def test_evict_oldest_warm_returns_none_when_pool_empty() -> None:
 
     assert provider._evict_oldest_warm() is None
     assert provider.destroyed == []
+
+
+def test_evict_skips_temporarily_protected_warm_entry() -> None:
+    provider = _Provider()
+    provider._warm_pool["protected"] = ("entry-protected", 100.0)
+    provider._warm_pool["available"] = ("entry-available", 200.0)
+
+    original_destroy = provider._destroy_warm_entry
+
+    def destroy(sandbox_id: str, entry: str, *, reason: str) -> bool:
+        if sandbox_id == "protected":
+            return False
+        return original_destroy(sandbox_id, entry, reason=reason)
+
+    provider._destroy_warm_entry = destroy  # type: ignore[method-assign]
+
+    assert provider._evict_oldest_warm() == "available"
+    assert "protected" in provider._warm_pool
+    assert "available" not in provider._warm_pool
 
 
 def test_reap_expired_warm_destroys_only_expired_entries() -> None:

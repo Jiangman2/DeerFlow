@@ -54,6 +54,7 @@ spec:
                 model_auto_compact_token_limit = 850000
                 model_reasoning_effort = "high"
                 model_catalog_json = "/mnt/user-data/workspace/.ppt-master-agent/codex-home/model-catalog.local.json"
+                web_search = "disabled"
 
                 [model_providers.cnooc_deepseek]
                 name = "CNOOC DeepSeek Responses Bridge"
@@ -112,6 +113,10 @@ spec:
               value: "2"
             - name: SANDBOX_MEMORY_LIMIT
               value: 4Gi
+            - name: SANDBOX_EPHEMERAL_STORAGE_REQUEST
+              value: 2Gi
+            - name: SANDBOX_EPHEMERAL_STORAGE_LIMIT
+              value: 12Gi
             - name: SANDBOX_SECRET_ENV_KEYS
               value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,CODEX_API_KEY,ARK_API_KEY,OPENAI_API_KEY,PPT_MASTER_RESPONSES_RELAY_KEY,HTTP_PROXY,HTTPS_PROXY,http_proxy,https_proxy
             - name: SANDBOX_PASSTHROUGH_ENV_KEYS
@@ -205,8 +210,45 @@ spec:
               value: "true"
             - name: DASHSCOPE_TLS_COMPAT
               value: "true"
+            # The local base intentionally clears proxy variables for Docker
+            # Desktop. Restore them from the enterprise runtime Secret here so
+            # every enterprise render keeps Gateway external egress working.
+            - name: HTTP_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: HTTP_PROXY
+            - name: HTTPS_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: HTTPS_PROXY
+            - name: http_proxy
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: http_proxy
+            - name: https_proxy
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: https_proxy
             - name: WEKNORA_ENTERPRISE_INTERNAL_MODELS_ONLY
               value: "true"
+            - name: QWEN_ASR_STREAM_URL
+              value: ws://model.ai.cnooc/ws/member1/qwen3-asr-v3/stream-transcriptions
+            - name: QWEN_ASR_MODEL_NAME
+              value: Qwen3-ASR-1.7B
+            - name: QWEN_ASR_MAX_DURATION_SECONDS
+              value: "600"
+            - name: QWEN_ASR_FINAL_TIMEOUT_SECONDS
+              value: "30"
+            - name: QWEN_ASR_MAX_CONCURRENT_SESSIONS
+              value: "20"
+            - name: QWEN_ASR_MAX_AUDIO_BYTES
+              value: "20971520"
+            - name: QWEN_ASR_MAX_FRAME_BYTES
+              value: "262144"
             - name: WEKNORA_DEFAULT_EMBEDDING_MODEL_ID
               value: deerflow-cnooc-qwen3-embedding-8b
             - name: WEKNORA_DEFAULT_RERANK_MODEL_ID
@@ -366,6 +408,15 @@ spec:
             # WeKnora's Redis/Asynq queue instead of filling adapter memory.
             - name: WEKNORA_ASYNQ_CORE_CONCURRENCY
               value: "2"
+            # Keep document parsing capped independently while allowing the
+            # model-heavy image/summary/graph/question fan-out to drain on its
+            # dedicated WeKnora 0.7.0 enrichment pool.
+            - name: WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY
+              value: "2"
+            - name: WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY
+              value: "12"
+            - name: WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY
+              value: "4"
             - name: WEKNORA_ASYNQ_SHARED_CONCURRENCY
               value: "1"
             - name: WEKNORA_DOCREADER_CALL_TIMEOUT

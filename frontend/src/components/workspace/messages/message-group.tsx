@@ -468,7 +468,7 @@ function ToolCall({
   tokenDebugStep?: TokenDebugStep;
 }) {
   const { t } = useI18n();
-  const { setOpen, select } = useArtifacts();
+  const { openArtifactPanel, select } = useArtifacts();
   const tokenLabel = tokenDebugStep
     ? formatDebugToken(tokenDebugStep, t)
     : null;
@@ -639,7 +639,7 @@ function ToolCall({
               `write-file:${path}?message_id=${messageId}&tool_call_id=${id}`,
             ).toString(),
           );
-          setOpen(true);
+          openArtifactPanel();
         }}
       >
         {path && (

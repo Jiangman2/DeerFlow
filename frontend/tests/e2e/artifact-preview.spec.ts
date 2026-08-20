@@ -11,6 +11,7 @@ const PRESENTED_PPTX_FILENAME =
 const PRESENTED_PPTX_PATH = `/mnt/user-data/outputs/${PRESENTED_PPTX_FILENAME}`;
 const PRESENTED_PPTX_PREVIEW_PATH =
   "/mnt/user-data/outputs/中国海油勘探开发智能体平台研究报告_20260805_111535.preview.pdf";
+const PRESENTED_PDF_PATH = "/mnt/user-data/outputs/普通任务报告_20260819.pdf";
 const IN_PROGRESS_THREAD_ID = "00000000-0000-0000-0000-000000003119";
 const COMPLETE_THREAD_ID = "00000000-0000-0000-0000-000000003120";
 const MARKDOWN_THREAD_ID = "00000000-0000-0000-0000-000000003121";
@@ -18,6 +19,7 @@ const MARKDOWN_ANCHOR_THREAD_ID = "00000000-0000-0000-0000-000000003123";
 const JSON_THREAD_ID = "00000000-0000-0000-0000-000000003122";
 const PRESENTED_THREAD_ID = "00000000-0000-0000-0000-000000003123";
 const PRESENTED_PPTX_THREAD_ID = "00000000-0000-0000-0000-000000003124";
+const PRESENTED_PDF_THREAD_ID = "00000000-0000-0000-0000-000000003128";
 const STATIC_DEMO_THREAD_ID = "1490ac9e-1573-479d-875c-bd5680f3ba66";
 const STATIC_DEMO_PPTX_PATH =
   "/mnt/user-data/outputs/cnooc_new_energy_20260811.pptx";
@@ -113,6 +115,53 @@ test.describe("Artifact preview stability", () => {
       form: { username: email, password },
     });
     expect(response.ok()).toBeTruthy();
+  });
+
+  test("keeps unpresented artifact cards in the transcript without narrowing chat", async ({
+    page,
+  }) => {
+    const fallbackThreadId = "00000000-0000-0000-0000-000000003118";
+    const fallbackDeck = "/mnt/user-data/outputs/fallback-layout-check.pptx";
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: fallbackThreadId,
+          title: "Artifact layout fallback",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-fallback-layout",
+              content: [{ type: "text", text: "Create a PowerPoint" }],
+            },
+            {
+              type: "ai",
+              id: "msg-ai-fallback-layout",
+              content: "The presentation is ready.",
+            },
+          ],
+          artifacts: [fallbackDeck],
+        },
+      ],
+    });
+
+    await page.goto(`/workspace/chats/${fallbackThreadId}`);
+
+    const messageList = page.getByTestId("main-message-list");
+    const fallback = page.getByTestId("conversation-artifact-fallback");
+    await expect(fallback).toBeVisible();
+    await expect(
+      fallback.locator(`[data-artifact-filepath="${fallbackDeck}"]`),
+    ).toBeVisible();
+    await expect(page.locator("#artifacts")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+
+    const messageListBox = await messageList.boundingBox();
+    const viewport = page.viewportSize();
+    expect(messageListBox).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    expect(messageListBox!.width).toBeGreaterThan(viewport!.width * 0.6);
   });
 
   test("shows the bundled demo PPTX from durable artifact state", async ({
@@ -516,6 +565,72 @@ test.describe("Artifact preview stability", () => {
     );
     await closeButton.click();
     await expect(artifactsPanel).toHaveAttribute("aria-hidden", "true");
+  });
+
+  test("opens a generated standalone PDF through the browser-compatible gallery", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: PRESENTED_PDF_THREAD_ID,
+          title: "Standalone PDF artifact preview",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-present-pdf",
+              content: [{ type: "text", text: "Create a PDF report" }],
+            },
+            {
+              type: "ai",
+              id: "msg-ai-present-pdf",
+              content: `[普通任务报告_20260819.pdf](/api/threads/${PRESENTED_PDF_THREAD_ID}/artifacts${PRESENTED_PDF_PATH})`,
+              tool_calls: [
+                {
+                  id: "present-pdf-artifact",
+                  name: "present_files",
+                  args: { filepaths: [PRESENTED_PDF_PATH] },
+                },
+              ],
+            },
+            {
+              type: "tool",
+              id: "msg-tool-present-pdf",
+              name: "present_files",
+              tool_call_id: "present-pdf-artifact",
+              status: "success",
+              content: "Published",
+              artifact: { presented_files: [PRESENTED_PDF_PATH] },
+            },
+          ],
+          artifacts: [PRESENTED_PDF_PATH],
+        },
+      ],
+    });
+    await page.route(
+      `**/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf/**`,
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "text/html",
+          body: '<!doctype html><html><body><main><img alt="PDF page"></main></body></html>',
+        }),
+    );
+
+    await page.goto(`/workspace/chats/${PRESENTED_PDF_THREAD_ID}`);
+    await page.getByRole("link", { name: "普通任务报告_20260819.pdf" }).click();
+
+    const artifactsPanel = page.locator("#artifacts");
+    const previewFrame = artifactsPanel.locator(
+      'iframe[title="Artifact preview"]',
+    );
+    await expect(artifactsPanel).toBeVisible();
+    await expect(previewFrame).toBeVisible();
+    await expect(previewFrame).toHaveAttribute(
+      "src",
+      `/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf${PRESENTED_PDF_PATH}`,
+    );
+    await expect(previewFrame).toHaveAttribute("sandbox", "");
   });
 
   test("does not open a blank iframe for a stale recorded PPT preview", async ({
