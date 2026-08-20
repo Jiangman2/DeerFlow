@@ -22,4 +22,14 @@ describe("settings dialog viewport layout", () => {
     expect(source).toMatch(/flex-1[^\"]*overflow-hidden/);
     expect(source).toContain("h-full min-h-0 min-w-0");
   });
+
+  test("keeps content spacing independent from the safe-area shell", () => {
+    expect(source).toContain(
+      'className="mobile-fullscreen-surface app-safe-area flex w-screen max-w-none min-w-0 flex-col gap-0',
+    );
+    expect(source).toContain('data-testid="settings-dialog-frame"');
+    expect(source).toContain(
+      'className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6"',
+    );
+  });
 });
