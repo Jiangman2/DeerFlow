@@ -88,6 +88,7 @@ import {
   formatUploadSize,
   splitUnsupportedUploadFiles,
   useUploadLimits,
+  validateIncomingUploadFiles,
   validateUploadLimits,
   type UploadLimits,
   type UploadLimitViolation,
@@ -400,6 +401,7 @@ export function InputBox({
   const { models } = useModels();
   const { thread, isMock } = useThread();
   const { attachments, textInput } = usePromptInputController();
+  const addAttachmentFiles = attachments.add;
   const sidecar = useMaybeSidecar();
   const attachmentParts = attachments.files;
   const removeAttachment = attachments.remove;
@@ -495,6 +497,33 @@ export function InputBox({
       }
     },
     [t.uploads],
+  );
+
+  const addValidatedAttachments = useCallback(
+    (incomingFiles: File[]) => {
+      const existingFiles = attachmentParts.flatMap((attachment) =>
+        attachment.file instanceof File ? [attachment.file] : [],
+      );
+      const validation = validateIncomingUploadFiles(
+        existingFiles,
+        incomingFiles,
+        uploadLimits,
+      );
+      if (validation.unsupportedMessage) {
+        toast.error(validation.unsupportedMessage);
+      }
+      reportUploadLimitViolations(validation.violations);
+      if (validation.accepted.length > 0) {
+        addAttachmentFiles(validation.accepted);
+      }
+      return validation.accepted.length;
+    },
+    [
+      addAttachmentFiles,
+      attachmentParts,
+      reportUploadLimitViolations,
+      uploadLimits,
+    ],
   );
 
   useEffect(() => {
@@ -1944,6 +1973,7 @@ export function InputBox({
             <ShopCartAttachmentButton
               context={context}
               disabled={composerLocked}
+              onAddFiles={addValidatedAttachments}
               onContextChange={onContextChange}
             />
             <KnowledgeScopeSelector
