@@ -829,6 +829,13 @@ Metrics/Detail workflow IDs explicit (`app-n9ahac7g` and `app-5md031ia`), and
 keep `trust_env: false` for both reviewed internal direct routes. Credentials
 and workflow identity values are never model-visible.
 
+When Retrieve evidence includes an image from the reviewed internal preview
+service, Gateway converts it to an authenticated same-origin
+`/api/datalake/image-preview` URL. The browser can render the original image on
+an HTTPS DeerFlow page without learning or directly contacting the HTTP-only
+internal origin; all other origins, redirects, non-image responses, traversal
+paths, and oversized payloads are rejected.
+
 The chat composer exposes this integration as **Data Lake**. The user's
 enabled/disabled choice is stored once in browser settings and applies to every
 conversation; missing settings default to enabled. Choosing **Do not use Data

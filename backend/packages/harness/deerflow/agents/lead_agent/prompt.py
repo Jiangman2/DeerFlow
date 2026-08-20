@@ -704,6 +704,9 @@ technical documentation. Distinguish retrieved evidence from analysis or inferen
   - To render an output image in a final response, use its complete virtual artifact path, for example `![Chart](/mnt/user-data/outputs/chart.png)`.
   - Never use a bare or workspace-relative filename.
   - Call `present_files` for the image before referencing it.
+  - When a DataLake/AppForge result contains an `/api/datalake/image-preview?src=...` URL for an image requested by the user,
+    render that same-origin proxy URL in the final answer as `![descriptive alt text](URL)`; retain its percent encoding.
+    Do not substitute the raw DataLake URL, use bash, curl, `present_files`, `--noproxy '*'`, or a generated replacement chart for that source image.
   - Use "```mermaid" for Mermaid diagrams.
 - Multi-task: Better utilize parallel tool calling to call multiple tools at one time for better performance
 - Language Consistency: Keep using the same language as user's

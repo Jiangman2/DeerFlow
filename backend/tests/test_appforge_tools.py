@@ -282,7 +282,7 @@ def test_smart_qa_retrieve_requires_project_and_document_store():
     }
 
 
-def test_retrieve_percent_encodes_chinese_image_preview_urls():
+def test_retrieve_normalizes_chinese_image_preview_urls():
     import deerflow.community.appforge.tools as module
 
     raw = module._safe_retrieve_json(
@@ -290,18 +290,19 @@ def test_retrieve_percent_encodes_chinese_image_preview_urls():
             "query": "图片",
             "chunks": [
                 {
-                    "content": "http://10.77.124.142:30900/img-preview/中文目录/井身结构图.png",
+                    "content": "http://10.77.124.142:30900/img-preview/中文目录/井身结构 图.png",
                 }
             ],
         }
     )
 
     result = json.loads(raw)
-    normalized = result["chunks"][0]["content"]
+    proxied = result["chunks"][0]["content"]
 
-    assert normalized.startswith("http://10.77.124.142:30900/img-preview/")
-    assert "%E4%B8%AD%E6%96%87%E7%9B%AE%E5%BD%95" in normalized
-    assert "%E4%BA%95%E8%BA%AB%E7%BB%93%E6%9E%84%E5%9B%BE.png" in normalized
+    assert proxied.startswith("/api/datalake/image-preview?src=")
+    assert "10.77.124.142%3A30900" in proxied
+    assert "%25E4%25B8%25AD%25E6%2596%2587%25E7%259B%25AE%25E5%25BD%2595" in proxied
+    assert "%25E4%25BA%2595%25E8%25BA%25AB%25E7%25BB%2593%25E6%259E%2584%2520%25E5%259B%25BE.png" in proxied
 
 
 def test_retrieve_does_not_proxy_an_unapproved_image_preview_origin():

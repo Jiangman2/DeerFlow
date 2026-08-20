@@ -879,6 +879,14 @@ the Secret, sanitize provider errors, and retain bounded valid JSON so the
 generic tool-output budget does not replace useful structured evidence with a
 file-only preview.
 
+Retrieve image references from the reviewed DataLake preview origin are
+percent-encoded and rewritten to the authenticated same-origin Gateway route
+`/api/datalake/image-preview`. That route is a strict read-only proxy for the
+single approved HTTP host, port, and path prefix: keep redirects disabled,
+`trust_env=false`, image MIME allowlisting, the 32 MiB cap, traversal rejection,
+and response hardening. The model embeds the proxy URL directly and must not
+download the source through Sandbox or publish a duplicate artifact.
+
 The web run context may carry the strict JSON boolean `datalake_enabled` only
 under `body.context`; Gateway keeps it runtime-only and rejects low-level
 `config.context`/`config.configurable` occurrences or non-boolean values. A

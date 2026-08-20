@@ -104,6 +104,14 @@ def test_apply_prompt_template_includes_relative_path_guidance(monkeypatch):
     assert "`hello.txt`, `../uploads/data.csv`, and `../outputs/report.md`" in prompt
 
 
+def test_system_prompt_renders_reviewed_datalake_images_through_gateway_proxy():
+    prompt = prompt_module.SYSTEM_PROMPT_TEMPLATE
+
+    assert "/api/datalake/image-preview?src=..." in prompt
+    assert "Do not substitute the raw DataLake URL" in prompt
+    assert "use bash, curl, `present_files`" in prompt
+
+
 def test_apply_prompt_template_uses_enterprise_identity(monkeypatch):
     config = SimpleNamespace(
         sandbox=SimpleNamespace(mounts=[]),

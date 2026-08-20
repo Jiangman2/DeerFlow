@@ -44,10 +44,20 @@ _RETRIEVE_CHUNK_CHAR_LIMIT = 3_000
 _MAX_RETRIEVE_CHUNKS = 10
 
 # AppForge can return image-preview URLs whose paths contain Chinese document
-# names. Normalize only those URLs before exposing them to shell-based skills.
-_IMAGE_PREVIEW_URL_RE = re.compile(r"https?://[^\s<>'\"`]+/img-preview/[^\s<>'\"`]+", re.IGNORECASE)
+# names and spaces. Normalize only the reviewed source URL, then point Markdown
+# at the authenticated same-origin Gateway proxy. Browsers must not load the raw
+# HTTP-only DataLake endpoint from an HTTPS DeerFlow page.
+_IMAGE_PREVIEW_URL_RE = re.compile(
+    r"https?://[^\s<>'\"`]+/img-preview/[^\r\n<>'\"`]+?"
+    r"\.(?:avif|gif|jpe?g|png|webp)(?:[?#][^\s<>'\"`]*)?",
+    re.IGNORECASE,
+)
 _IMAGE_PREVIEW_PATH_SAFE = "/%:@!$&'()*+,;=-._~"
 _IMAGE_PREVIEW_QUERY_SAFE = "=&%:/?@!$'()*+,;,-._~"
+_IMAGE_PREVIEW_SCHEME = "http"
+_IMAGE_PREVIEW_HOST = "10.77.124.142"
+_IMAGE_PREVIEW_PORT = 30900
+_IMAGE_PREVIEW_PROXY_PATH = "/api/datalake/image-preview?src="
 _missing_config_warned: set[str] = set()
 
 _TOOL_DEFAULTS: dict[str, dict[str, str]] = {
@@ -442,14 +452,21 @@ def _fit_output_budget(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def _encode_image_preview_url(match: re.Match[str]) -> str:
-    """Percent-encode non-ASCII characters in a reviewed preview URL."""
+    """Encode and proxy only the reviewed DataLake image-preview origin."""
 
     raw_url = match.group(0)
     try:
         parsed = urlsplit(raw_url)
-        if not parsed.hostname or "/img-preview/" not in parsed.path:
+        if (
+            parsed.scheme.lower() != _IMAGE_PREVIEW_SCHEME
+            or parsed.hostname != _IMAGE_PREVIEW_HOST
+            or parsed.port != _IMAGE_PREVIEW_PORT
+            or parsed.username is not None
+            or parsed.password is not None
+            or not parsed.path.startswith("/img-preview/")
+        ):
             return raw_url
-        return urlunsplit(
+        normalized = urlunsplit(
             (
                 parsed.scheme,
                 parsed.netloc,
@@ -458,6 +475,7 @@ def _encode_image_preview_url(match: re.Match[str]) -> str:
                 quote(parsed.fragment, safe=_IMAGE_PREVIEW_QUERY_SAFE),
             )
         )
+        return _IMAGE_PREVIEW_PROXY_PATH + quote(normalized, safe="")
     except ValueError:
         return raw_url
 
@@ -668,14 +686,13 @@ def datalake_smart_qa_tool(runtime: Runtime, query: str) -> str:
     cite the returned document names. Do not state that the retrieval service
     generated the final answer.
 
-    When the result contains an ``/img-preview/`` URL and the user requests an
-    image or original illustration, download it in the sandbox to
-    ``/mnt/user-data/outputs`` with ``curl --fail --location --noproxy 10.77.124.142``. Preview URLs are already percent encoded when needed.
-    Verify the resulting file is larger than 1 KiB, then call
-    ``present_files`` immediately. Never use ``--noproxy '*'``, claim the
-    internal image service is unavailable before this exact attempt fails, or
-    replace the retrieved illustration with a generated chart without reporting
-    the failed download.
+    When the result contains an ``/api/datalake/image-preview?src=...`` URL and
+    the user requests an image or original illustration, render that same-origin
+    proxy URL in the final answer with Markdown image syntax, for example
+    ``![NB27-1-1 wellbore structure](/api/datalake/image-preview?src=...)``.
+    Retain its percent encoding and do not substitute the raw DataLake URL. Do
+    not use bash, curl, ``present_files``, ``--noproxy '*'``, or a generated
+    replacement chart for that source image.
 
     Args:
         query: The user's complete DataLake document question.

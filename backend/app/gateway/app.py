@@ -25,6 +25,7 @@ from app.gateway.routers import (
     console,
     convert,
     dashboard,
+    datalake,
     features,
     feedback,
     github_webhooks,
@@ -563,6 +564,8 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     app.include_router(dashboard.router)
     app.include_router(announcements.router)
     app.include_router(admin_users.router)
+    # Authenticated same-origin proxy for reviewed DataLake preview images.
+    app.include_router(datalake.router)
     # Authenticated browser microphone streaming to enterprise Qwen ASR.
     app.include_router(voice_input.router)
     # WeKnora integration API is mounted at /api/weknora.
