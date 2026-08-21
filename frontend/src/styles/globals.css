@@ -222,6 +222,26 @@
   }
 }
 
+.cnooc-assistant-avatar {
+  animation: cnooc-avatar-float 4.8s ease-in-out infinite;
+  background: transparent !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+  overflow: visible;
+  transform-origin: 50% 72%;
+}
+
+.cnooc-assistant-avatar-image {
+  animation: cnooc-avatar-breathe 3.4s ease-in-out infinite;
+  background: transparent !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+}
+
 :root {
   --radius: 0.5rem;
   /*
@@ -560,6 +580,15 @@
     -webkit-overflow-scrolling: touch;
   }
 
+  .mobile-scroll-rail {
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-scroll-rail::-webkit-scrollbar {
+    display: none;
+  }
+
   @media (max-width: 47.999rem) {
     [data-mobile="true"][data-sidebar="sidebar"] {
       width: min(88vw, 20rem);
@@ -568,6 +597,17 @@
       padding-bottom: env(safe-area-inset-bottom, 0px);
       padding-left: env(safe-area-inset-left, 0px);
       overscroll-behavior: contain;
+    }
+
+    [data-mobile="true"][data-sidebar="sidebar"] [data-sidebar="menu-button"] {
+      min-height: 2.75rem;
+      border-radius: 0.75rem;
+      padding-inline: 0.75rem;
+      font-size: 0.9375rem;
+    }
+
+    [data-mobile="true"][data-sidebar="sidebar"] [data-sidebar="group"] {
+      padding-block: 0.25rem;
     }
 
     [data-mobile-touch-target="true"] {
@@ -624,6 +664,34 @@
   --container-width-md: calc(var(--spacing) * 204);
   --container-width-lg: calc(var(--spacing) * 256);
 }
+
+@keyframes cnooc-avatar-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-1deg);
+  }
+  50% {
+    transform: translate3d(0, -6px, 0) rotate(1deg);
+  }
+}
+
+@keyframes cnooc-avatar-breathe {
+  0%,
+  100% {
+    transform: scale(0.985);
+  }
+  50% {
+    transform: scale(1.025);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cnooc-assistant-avatar,
+  .cnooc-assistant-avatar-image {
+    animation: none;
+  }
+}
+
 @keyframes announcement-shine {
   0%,
   55% {

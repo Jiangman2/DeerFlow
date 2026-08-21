@@ -348,6 +348,17 @@ does not mutate the original workbook. After applying or updating the
 ConfigMap, restart `deployment/weknora-docreader` and validate both a standard
 XLSX and a representative affected XLSX before retrying failed documents.
 
+URL knowledge imports also remain in the official DocReader Pod. The enterprise
+overlay injects `DOCREADER_EXTERNAL_HTTP_PROXY`,
+`DOCREADER_EXTERNAL_HTTPS_PROXY`, and the mounted enterprise CA paths. The
+source-mounted compatibility hook handles server-rendered pages before WebKit,
+revalidates every redirect with the upstream SSRF policy, and treats the
+upstream `Error parsing web page` sentinel as a real failure. This prevents
+false `completed` records containing only diagnostic text. Re-import one real
+server-rendered page (including a representative WeChat article) and one
+dynamic page after rollout; each successful record must contain article/page
+content, and no chunk may begin with that sentinel.
+
 The PDF detector defaults match WeKnora's existing scanned-page heuristics:
 `PDF_SCAN_IMAGE_RATIO=0.5`, `PDF_SCAN_MIN_CHARS_PER_PAGE=10`, and
 `PDF_SCAN_LOW_TEXT_IMAGE_RATIO=0.1`. A full-page image remains a scanned page

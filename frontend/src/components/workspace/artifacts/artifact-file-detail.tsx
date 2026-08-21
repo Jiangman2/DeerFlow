@@ -70,7 +70,8 @@ import { useArtifacts } from "./context";
 import { artifactMarkdownPlugins } from "./markdown-preview-plugins";
 
 const WRITE_FILE_PREVIEW_REFRESH_INTERVAL_MS = 3000;
-const PRESENTATION_PREVIEW_PROBE_DELAYS_MS = [0, 300, 900] as const;
+const OFFICE_PREVIEW_PROBE_DELAYS_MS = [0, 300, 900] as const;
+const ARTIFACT_PREVIEW_LOAD_TIMEOUT_MS = 30_000;
 
 export function ArtifactFileDetail({
   className,
@@ -208,7 +209,7 @@ export function ArtifactFileDetail({
     const controller = new AbortController();
     setIsResolvingPreview(true);
     void (async () => {
-      for (const delayMs of PRESENTATION_PREVIEW_PROBE_DELAYS_MS) {
+      for (const delayMs of OFFICE_PREVIEW_PROBE_DELAYS_MS) {
         if (delayMs > 0) {
           await new Promise((resolve) => window.setTimeout(resolve, delayMs));
           if (controller.signal.aborted) {
@@ -244,7 +245,7 @@ export function ArtifactFileDetail({
         }
       }
 
-      // Keep the PPTX download fallback when no sibling preview exists.
+      // Keep the Office download fallback when no sibling preview exists.
       setIsResolvingPreview(false);
     })();
 
@@ -480,20 +481,14 @@ export function ArtifactFileDetail({
             role="status"
           >
             <LoaderIcon className="size-4 animate-spin" />
-            正在准备预览…
+            {t.artifactPreview.preparing}
           </div>
         )}
         {!isCodeFile && !isResolvingPreview && canPreviewInBrowser && (
-          <iframe
-            className="size-full"
+          <ArtifactBrowserPreview
+            key={browserPreviewUrl}
+            isPdf={browserPreviewPath.toLowerCase().endsWith(".pdf")}
             src={browserPreviewUrl}
-            referrerPolicy="no-referrer"
-            sandbox={
-              browserPreviewPath.toLocaleLowerCase().endsWith(".pdf")
-                ? ""
-                : undefined
-            }
-            title="Artifact preview"
           />
         )}
         {!isCodeFile && !isResolvingPreview && !canPreviewInBrowser && (
@@ -505,6 +500,80 @@ export function ArtifactFileDetail({
         )}
       </ArtifactContent>
     </Artifact>
+  );
+}
+
+function ArtifactBrowserPreview({
+  src,
+  isPdf,
+}: {
+  src: string;
+  isPdf: boolean;
+}) {
+  const { t } = useI18n();
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<"loading" | "loaded" | "failed">(
+    "loading",
+  );
+
+  useEffect(() => {
+    if (status !== "loading") {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      setStatus("failed");
+    }, ARTIFACT_PREVIEW_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [attempt, status]);
+
+  const retry = useCallback(() => {
+    setStatus("loading");
+    setAttempt((current) => current + 1);
+  }, []);
+
+  return (
+    <div className="bg-background relative size-full">
+      {status !== "loaded" && (
+        <div
+          className="bg-background absolute inset-0 z-10 flex items-center justify-center p-6"
+          role={status === "failed" ? "alert" : "status"}
+          aria-live="polite"
+        >
+          <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+            {status === "loading" ? (
+              <>
+                <LoaderIcon className="text-primary size-6 animate-spin" />
+                <span className="text-muted-foreground text-sm">
+                  {t.artifactPreview.loadingPages}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-muted-foreground text-sm">
+                  {t.artifactPreview.loadFailed}
+                </span>
+                <Button type="button" variant="outline" onClick={retry}>
+                  {t.artifactPreview.retry}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      <iframe
+        key={attempt}
+        className={cn(
+          "size-full",
+          status === "loaded" ? "visible" : "invisible",
+        )}
+        src={src}
+        referrerPolicy="no-referrer"
+        sandbox={isPdf ? "" : undefined}
+        title="Artifact preview"
+        onLoad={() => setStatus("loaded")}
+        onError={() => setStatus("failed")}
+      />
+    </div>
   );
 }
 

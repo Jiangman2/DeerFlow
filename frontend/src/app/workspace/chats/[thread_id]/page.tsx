@@ -24,6 +24,12 @@ import {
   MESSAGE_LIST_DEFAULT_PADDING_BOTTOM,
 } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
+import type { AgentMode } from "@/components/workspace/mode-hover-guide";
+import {
+  ModeSelector,
+  reasoningEffortForMode,
+  resolveAgentMode,
+} from "@/components/workspace/mode-selector";
 import {
   SidecarProvider,
   SidecarTrigger,
@@ -76,7 +82,7 @@ export default function ChatPage() {
   const [isWelcomeMode, setIsWelcomeMode] = useState(isNewThread);
   const [settings, setSettings] = useThreadSettings(threadId);
   const [localSettings, setLocalSettings] = useLocalSettings();
-  const { tokenUsageEnabled } = useModels();
+  const { models, tokenUsageEnabled } = useModels();
   const threadTokenUsage = useThreadTokenUsage(
     isNewThread || isMock || isStaticDemo ? undefined : threadId,
     { enabled: tokenUsageEnabled && !isMock && !isStaticDemo },
@@ -88,12 +94,29 @@ export default function ChatPage() {
   });
   const branchThread = useBranchThread();
   const backendTokenUsage = threadTokenUsageToTokenUsage(threadTokenUsage.data);
-  const mountedRef = useRef(false);
+  const selectedModel = useMemo(
+    () =>
+      models.find((model) => model.name === settings.context.model_name) ??
+      models[0],
+    [models, settings.context.model_name],
+  );
+  const supportsThinking = selectedModel?.supports_thinking ?? false;
+  const handleModeSelect = useCallback(
+    (mode: AgentMode) => {
+      setSettings("context", {
+        ...settings.context,
+        mode: resolveAgentMode(mode, supportsThinking),
+        reasoning_effort: reasoningEffortForMode(mode),
+      });
+    },
+    [setSettings, settings.context, supportsThinking],
+  );
+  const [isMounted, setIsMounted] = useState(false);
   const createdThreadIdRef = useRef<string | null>(null);
   useSpecificChatMode();
 
   useEffect(() => {
-    mountedRef.current = true;
+    setIsMounted(true);
   }, []);
 
   // Keep welcome layout in sync when navigating between threads (sidebar
@@ -299,6 +322,15 @@ export default function ChatPage() {
               )}
             >
               <SidebarTrigger className="md:hidden" />
+              {isWelcomeMode && (
+                <ModeSelector
+                  disabled={models.length === 0 || isAdminReview}
+                  mode={settings.context.mode}
+                  supportsThinking={supportsThinking}
+                  variant="mobile-header"
+                  onSelect={handleModeSelect}
+                />
+              )}
               <div className="flex min-w-0 flex-1 items-center text-sm font-medium">
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
@@ -363,14 +395,15 @@ export default function ChatPage() {
               <div
                 className={cn(
                   "right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
-                  isWelcomeMode ? "absolute" : "relative shrink-0 pb-4",
+                  isWelcomeMode
+                    ? "app-safe-area-bottom absolute pb-3 sm:pb-0"
+                    : "relative shrink-0 pb-4",
                 )}
               >
                 <div
                   className={cn(
                     "relative w-full",
-                    isWelcomeMode &&
-                      "-translate-y-[calc(50dvh-48px)] sm:-translate-y-[calc(50dvh-96px)]",
+                    isWelcomeMode && "sm:-translate-y-[calc(50dvh-96px)]",
                     isWelcomeMode
                       ? "max-w-(--container-width-sm)"
                       : "max-w-(--container-width-md)",
@@ -400,7 +433,7 @@ export default function ChatPage() {
                       </div>
                     </div>
                   )}
-                  {mountedRef.current ? (
+                  {isMounted ? (
                     <InputBox
                       className={cn(
                         "bg-background/5 w-full",

@@ -302,6 +302,8 @@ spec:
               value: "true"
             - name: WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK
               value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED
+              value: "true"
             - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS
               value: "1860"
             - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
@@ -375,6 +377,51 @@ spec:
               value: https://datalake.cnooc/#/home
             - name: DEER_FLOW_SSO_ONLY
               value: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-docreader
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: docreader
+          env:
+            # URL knowledge imports are rendered by DocReader's Playwright
+            # WebKit process.  It intentionally consumes these dedicated
+            # variables rather than the conventional HTTP(S)_PROXY names.
+            - name: DOCREADER_EXTERNAL_HTTP_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: HTTP_PROXY
+            - name: DOCREADER_EXTERNAL_HTTPS_PROXY
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-env
+                  key: HTTPS_PROXY
+            # The browser subprocess inherits this verified enterprise bundle
+            # when the egress proxy inspects TLS.  File parsing remains local;
+            # these settings affect only outbound URL/subresource retrieval.
+            - name: SSL_CERT_FILE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: REQUESTS_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+            - name: CURL_CA_BUNDLE
+              value: /etc/deerflow-ca/ca-bundle.crt
+          volumeMounts:
+            - name: enterprise-ca
+              mountPath: /etc/deerflow-ca
+              readOnly: true
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -300,9 +300,13 @@ export function MessageList({
   );
   const artifactMarkdownComponents = useMemo(
     () => ({
-      a: createMarkdownLinkComponent(threadId, handleArtifactClick),
+      a: createMarkdownLinkComponent(
+        threadId,
+        handleArtifactClick,
+        t.common.preview,
+      ),
     }),
-    [handleArtifactClick, threadId],
+    [handleArtifactClick, t.common.preview, threadId],
   );
   // Live Preview links are usually emitted in ordinary assistant progress
   // messages before the final present_files event. Those messages must use
@@ -310,9 +314,13 @@ export function MessageList({
   // browser URL and points at the user's host instead of the Sandbox.
   const threadMarkdownComponents = useMemo(
     () => ({
-      a: createMarkdownLinkComponent(threadId),
+      a: createMarkdownLinkComponent(
+        threadId,
+        undefined,
+        t.common.preview,
+      ),
     }),
-    [threadId],
+    [t.common.preview, threadId],
   );
   const [selectionToolbar, setSelectionToolbar] =
     useState<SelectionToolbarState | null>(null);

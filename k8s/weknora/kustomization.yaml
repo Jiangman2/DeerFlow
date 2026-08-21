@@ -26,6 +26,7 @@ configMapGenerator:
   - name: weknora-docreader-xlsx-compat
     files:
       - sitecustomize.py=docreader-compat/sitecustomize.py
+      - web_compat.py=docreader-compat/web_compat.py
       - xlsx_compat.py=docreader-compat/xlsx_compat.py
 
 generatorOptions:

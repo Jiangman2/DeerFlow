@@ -159,12 +159,16 @@ affects every thread, removes the file-list menu item, closes the dialog,
 invalidates in-flight list loads, and sends the resolved boolean on normal,
 custom-agent, regenerated, and branched runs.
 
-PowerPoint artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.pptx` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning presentation. `core/artifacts/utils.ts` owns the deterministic pairing rule, including extraction from a persisted thread-state snapshot. On chat reload, `ChatBox` uses the live stream artifact channel when it is populated and otherwise fetches `threads.getState(threadId)` explicitly so paged message hydration cannot make the top-level Files control disappear. That restoration must not auto-open the panel. The artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated generated output PDFs—including PowerPoint companions—server-side. Original uploads and unsafe PDFs remain download-only. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
+Generated Office artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.<office-extension>` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Supported owners are DOC/DOCX, XLS/XLSX, ODT/ODS/ODP, and PPT/PPTX. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning Office document. `core/artifacts/utils.ts` owns the deterministic pairing rule, including extraction from a persisted thread-state snapshot. On chat reload, `ChatBox` uses the live stream artifact channel when it is populated and otherwise fetches `threads.getState(threadId)` explicitly so paged message hydration cannot make the top-level Files control disappear. That restoration must not auto-open the panel. The artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated generated output PDFs—including Office companions—server-side. Original uploads and unsafe PDFs remain download-only. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
 Interactive lead-agent submissions and regenerations share `core/threads/run-config.ts::LEAD_AGENT_RECURSION_LIMIT` (currently 2000). This is a bounded LangGraph super-step budget, not an LLM-call count; the Gateway still clamps it and backend loop/token guards remain independent. Keep both submission paths on the shared constant so long, progressing Skill workflows do not diverge by UI action.
-Every recorded or guessed PowerPoint preview companion must pass a same-origin
+Every recorded or guessed Office preview companion must pass a same-origin
 HEAD probe before the iframe is rendered. A stale/missing companion may show a
-download fallback for legacy history, but every newly successful PPT/PPTX
+download fallback for legacy history, but every newly successful Office
 publication is backend-gated on a real persisted preview PDF.
+After that probe succeeds, keep an accessible loading surface over the preview
+until the iframe's real load event fires; never expose its intermediate blank
+document. A bounded timeout must replace the loader with a retry action that
+reloads only the preview frame.
 Writing or publishing an artifact must not automatically open the right-side panel. Keep files and final deliverables visible in the conversation and top-level Files list, but require an explicit user click on a write step, artifact link, file card, or Files control before selecting an artifact and narrowing the chat column.
 `MessageResponse` must use React's normal shallow-prop memoization (or compare every rendering prop), not a children-only comparator: thread-aware Markdown `components` arrive independently of unchanged text, and retaining an older link renderer turns preview links back into full-page artifact navigation. Interactive artifact links use an inert `#artifacts` href when a panel callback is available so an early pre-hydration click cannot replace the chat page with the raw file response.
 
@@ -192,7 +196,9 @@ access to sidecars created before the metadata rename.
   mounting, and `content-visibility`; do not eagerly render every persisted
   command result. Assistant/tool text containing a Sandbox `:5050` URL expands
   automatically and uses the same thread-aware Live Preview proxy link renderer
-  as normal chat messages.
+  as normal chat messages. When the link text itself is the loopback URL, render
+  the localized Live Preview label while preserving the authenticated proxy URL;
+  never display `127.0.0.1` or `localhost` as a browser destination.
 - All subtask groups after the latest human message remain live while that turn
   streams; a later processing/tool group must not make earlier parallel task
   cards look failed. If the parent run ends without a terminal task ToolMessage,
@@ -295,7 +301,10 @@ the same rule: use a separate `bg-primary` layer with explicit opacity or fixed
 light/dark palette classes. The desktop settings dialog uses the available
 viewport height with a bounded maximum and keeps both navigation and content in
 their own scroll regions; do not restore the fixed 75vh layout that clips lower
-sections on short enterprise-browser viewports. User-visible workspace and auth
+sections on short enterprise-browser viewports. Keep its safe-area shell at
+zero padding and put desktop/mobile content spacing on the inner flex frame;
+mixing those responsibilities lets legacy browsers collapse the inset and place
+the title or pane borders against the outer frame. User-visible workspace and auth
 status text must come from `core/i18n`, with Simplified Chinese entries kept in
 sync with English. This enterprise branch defaults the first render and
 missing/unknown locale state to `zh-CN`; users may still explicitly select
@@ -327,6 +336,19 @@ mobile settings/artifacts, and the knowledge-page navigation escape hatch in
 the shared component tree. Do not pass SSO tokens through URLs or browser
 JavaScript. Mobile changes must retain desktop behavior and add Playwright
 coverage at 320, 375, 390, and 412 pixel widths plus a short landscape view.
+The empty mobile chat uses a compact welcome message and a bottom composer. Its
+primary composer tools stay on a single horizontal line, and the welcome action
+chips form one touch-scrollable row instead of wrapping. The mobile workspace
+drawer uses a bounded viewport width and touch-sized rows while preserving the
+same route, permission, conversation-history, and settings sources as desktop;
+do not fork those business flows for mobile styling.
+The mobile header's mode selector must read and update the same thread mode,
+reasoning effort, thinking, and subagent settings as the composer selector. Keep
+all visible labels in the active locale. The welcome avatar is a transparent
+CNOOC-branded character cutout with a reduced-motion fallback; do not restore a
+rectangular or circular background plate around it. Settings state is owned
+above the mobile Sidebar Sheet so the drawer can finish closing before the
+full-screen Settings dialog opens without losing the requested section.
 The native App integration and release checklist live in
 `docs/mobile-webview-integration.md`.
 

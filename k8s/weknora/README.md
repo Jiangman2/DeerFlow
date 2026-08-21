@@ -26,12 +26,22 @@ prerequisite for retaining document images. `weknora-docreader-tmp` is temporary
 parser workspace and is not the durable asset store.
 
 The official DocReader image remains pinned and unmodified. The
-`weknora-docreader-xlsx-compat` ConfigMap mounts a small `sitecustomize` module
-at `/opt/deerflow-compat`; it ignores only the non-standard, formatting-only
-`defaultColWidthPt` worksheet attribute emitted by some enterprise XLSX
-exporters. It does not alter the uploaded XLSX, and all other openpyxl errors
-remain visible. Restart `deployment/weknora-docreader` after changing this
-ConfigMap because Python imports the hook only when the process starts.
+`weknora-docreader-xlsx-compat` ConfigMap mounts small `sitecustomize` hooks at
+`/opt/deerflow-compat`. The XLSX hook ignores only the non-standard,
+formatting-only `defaultColWidthPt` worksheet attribute emitted by some
+enterprise exporters. The URL hook first fetches server-rendered HTTP(S) HTML,
+validates every redirect through WeKnora's SSRF checker, and retains Playwright
+for dynamic pages. The static client has a 10 MiB response ceiling, ignores
+ambient proxy variables, and uses only DocReader's dedicated proxy plus a
+verified CA bundle. Browser/static hard failures raise a parser error instead
+of publishing `Error parsing web page` as valid knowledge. `/dev/shm` is a
+bounded 256 MiB memory-backed volume for the remaining browser fallback. File
+parsers and uploaded files are otherwise unchanged. Restart
+The webpage hook is registered as a one-shot post-import hook because the pinned
+image adds its application package path after `sitecustomize` runs; it observes
+only `docreader.parser.web_parser` and removes itself immediately after patching.
+Restart `deployment/weknora-docreader` after changing this ConfigMap because Python
+imports the hooks only when the process starts.
 
 Create the runtime secret before applying the Kustomize bundle:
 

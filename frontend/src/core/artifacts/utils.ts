@@ -4,6 +4,17 @@ import type { AgentThreadState } from "../threads";
 import { isStaticDemoThreadId } from "../threads/static-demo";
 
 const EMPTY_ARTIFACT_PATHS: readonly string[] = [];
+const OFFICE_PREVIEW_EXTENSIONS = [
+  ".docx",
+  ".doc",
+  ".xlsx",
+  ".xls",
+  ".pptx",
+  ".ppt",
+  ".odt",
+  ".ods",
+  ".odp",
+] as const;
 
 export function urlOfArtifact({
   filepath,
@@ -65,22 +76,18 @@ export function guessPreviewPdfPath(filepath: string): string | null {
 }
 
 export function guessPreviewPdfPaths(filepath: string): string[] {
-  if (filepath.toLowerCase().endsWith(".pptx")) {
-    return [
-      filepath.replace(/\.pptx$/i, ".preview.pdf"),
-      filepath.replace(/\.pptx$/i, ".pdf"),
-    ];
-  }
-  if (filepath.toLowerCase().endsWith(".ppt")) {
-    return [
-      filepath.replace(/\.ppt$/i, ".preview.pdf"),
-      filepath.replace(/\.ppt$/i, ".pdf"),
-    ];
+  const lowerFilepath = filepath.toLowerCase();
+  const extension = OFFICE_PREVIEW_EXTENSIONS.find((candidate) =>
+    lowerFilepath.endsWith(candidate),
+  );
+  if (extension) {
+    const stem = filepath.slice(0, -extension.length);
+    return [`${stem}.preview.pdf`, `${stem}.pdf`];
   }
   return [];
 }
 
-export function findPowerPointForPreviewArtifact(
+export function findOfficeDocumentForPreviewArtifact(
   filepath: string,
   files: readonly string[],
 ): string | null {
@@ -94,10 +101,14 @@ export function findPowerPointForPreviewArtifact(
   );
 }
 
+/** @deprecated Use findOfficeDocumentForPreviewArtifact. */
+export const findPowerPointForPreviewArtifact =
+  findOfficeDocumentForPreviewArtifact;
+
 /**
- * Keep generated PowerPoint preview PDFs as implementation details. They stay
- * in the artifact collection so the viewer can load them, but users select and
- * download the owning presentation rather than seeing duplicate deliverables.
+ * Keep generated Office preview PDFs as implementation details. They stay in
+ * the artifact collection so the viewer can load them, but users select and
+ * download the owning document rather than seeing duplicate deliverables.
  */
 export function filterUserVisibleArtifacts(
   files: readonly string[],
@@ -105,7 +116,7 @@ export function filterUserVisibleArtifacts(
 ): string[] {
   return files.filter(
     (filepath) =>
-      findPowerPointForPreviewArtifact(filepath, relatedFiles) === null,
+      findOfficeDocumentForPreviewArtifact(filepath, relatedFiles) === null,
   );
 }
 

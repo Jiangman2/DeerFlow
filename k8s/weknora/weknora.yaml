@@ -178,6 +178,11 @@ spec:
             - name: xlsx-compat
               mountPath: /opt/deerflow-compat
               readOnly: true
+            # Playwright remains the fallback for genuinely dynamic pages.
+            # Give that browser an isolated shared-memory filesystem instead
+            # of the container runtime's small default /dev/shm mount.
+            - name: browser-shm
+              mountPath: /dev/shm
       volumes:
         - name: tmp
           persistentVolumeClaim:
@@ -185,6 +190,10 @@ spec:
         - name: xlsx-compat
           configMap:
             name: weknora-docreader-xlsx-compat
+        - name: browser-shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
 ---
 apiVersion: v1
 kind: Service

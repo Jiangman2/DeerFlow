@@ -290,8 +290,14 @@ export function SubtaskCard({
   const visibleSteps =
     hiddenStepCount > 0 ? displaySteps.slice(hiddenStepCount) : displaySteps;
   const threadMarkdownComponents = useMemo(
-    () => ({ a: createMarkdownLinkComponent(threadId) }),
-    [threadId],
+    () => ({
+      a: createMarkdownLinkComponent(
+        threadId,
+        undefined,
+        t.common.preview,
+      ),
+    }),
+    [t.common.preview, threadId],
   );
 
   // Backfill step history on expand for historical runs (#3779). Live runs

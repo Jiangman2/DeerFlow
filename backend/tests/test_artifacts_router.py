@@ -84,6 +84,20 @@ def test_live_preview_proxy_rewrites_sandbox_root_urls(monkeypatch) -> None:
     assert response.headers["cache-control"] == "no-store"
 
 
+def test_live_preview_uses_aio_trusted_header_port_routing() -> None:
+    fake_sandbox = SimpleNamespace(
+        id="sandbox-abc12345",
+        base_url="http://sandbox-abc12345-svc.deer-flow.svc.cluster.local:8080",
+    )
+
+    target = artifacts_router._live_preview_target(fake_sandbox, "/api/health")
+
+    assert target == (
+        "http://sandbox-abc12345-svc.deer-flow.svc.cluster.local:8080/api/health",
+        {"x-aio-proxy-port": "5050"},
+    )
+
+
 def test_live_preview_for_isolated_ppt_runtime_is_forwarded_to_runner(monkeypatch) -> None:
     expected = artifacts_router.Response(content=b"runner-preview", status_code=200)
     forward = AsyncMock(return_value=expected)

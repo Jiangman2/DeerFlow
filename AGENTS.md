@@ -67,13 +67,16 @@ presentations use its presentation conversion path. The frontend marks PPT/PPTX
 files submitted with an explicit `/ppt-master` request as
 `presentation_template`; Gateway preserves those originals for the Skill and
 skips both MinerU and local Markdown conversion. Ordinary presentation uploads
-remain on the document-parser route. Presented PPT/PPTX outputs
-separately rely on the active sandbox's LibreOffice to generate a missing
-`.preview.pdf`; keep both integrations outside the `ppt-master` skill package
-and read the original sandbox-visible workspace source before Gateway publishes
-the normalized outputs copy. A deck is not published until that paired preview
-has been generated and persisted, so clicking every successfully delivered
-PPT/PPTX has a real browser preview. Hosted sandbox loopback URLs must never be
+remain on the document-parser route. Presented Office outputs (DOC/DOCX,
+XLS/XLSX, ODT/ODS/ODP, and PPT/PPTX) separately rely on the active sandbox's
+LibreOffice to generate a missing `.preview.pdf`; keep this integration outside
+individual Skill packages and read the original sandbox-visible workspace
+source before Gateway publishes the normalized outputs copy. An Office document
+is not published until that paired preview has been generated and persisted, so
+clicking every successfully delivered Office artifact has a real browser
+preview. Keep a visible loading state over the preview iframe until its real
+load event fires, with a bounded retry state instead of an unexplained blank
+panel. Hosted sandbox loopback URLs must never be
 shown to browser users, and Chinese tasks publish a Chinese topic filename with
 a date/time suffix instead of exposing the internal pinyin project slug.
 New explicit `/ppt-master` tasks are routed through Nginx
@@ -388,6 +391,24 @@ WeKnora workspace. File upload, artifact preview/download, agents, scheduled
 tasks, and settings must continue to use their normal APIs and authorization
 boundaries. See `docs/mobile-webview-integration.md` for the App contract and
 release matrix.
+On the mobile welcome surface, keep the product introduction compact, pin the
+composer above the safe area, keep its primary controls on one line, and expose
+welcome actions through a horizontally scrollable rail. The mobile navigation
+drawer may adapt width and touch targets, but it must reuse the existing routes,
+permissions, history, and settings components instead of creating a second
+navigation or conversation state model. The top mobile mode pill is another
+view of the existing thread mode and reasoning settings, not independent mobile
+state. Keep its labels localized. The CNOOC assistant avatar is a real-alpha
+transparent character cutout with reduced-motion support; never place a
+rectangular or circular background plate behind it. Desktop composition remains
+unchanged.
+
+The shared settings dialog keeps safe-area ownership on its outer shell and
+content padding on a separate inner flex frame. Preserve that separation and a
+bounded viewport inset so legacy enterprise browsers cannot overlap the title,
+navigation border, and settings content. The dialog owner must live outside the
+mobile Sidebar Sheet so closing the drawer cannot destroy a deferred Settings
+open; wait for the drawer transition before opening the dialog on mobile.
 
 External click telemetry from the Haineng and collaboration platforms enters
 through `POST /api/agent_click`. Keep `EXTERNAL_AGENT_CLICK_INGEST_KEY` in the

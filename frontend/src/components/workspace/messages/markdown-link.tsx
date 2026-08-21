@@ -49,6 +49,7 @@ export function resolveLivePreviewURL(
 export function createMarkdownLinkComponent(
   threadId?: string,
   onArtifactClick?: (filepath: string) => void,
+  livePreviewLabel?: string,
 ) {
   return function MarkdownLink({
     href,
@@ -93,7 +94,14 @@ export function createMarkdownLinkComponent(
     }
     const livePreviewURL = resolveLivePreviewURL(href, threadId);
     if (livePreviewURL) {
-      const { className, target, rel, ...rest } = props;
+      const { className, target, rel, children, ...rest } = props;
+      const visibleChildren =
+        typeof children === "string" &&
+        /https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):5050(?:\/|\b)/i.test(
+          children,
+        )
+          ? (livePreviewLabel ?? children)
+          : children;
       return (
         <a
           {...rest}
@@ -104,7 +112,9 @@ export function createMarkdownLinkComponent(
           )}
           target={target ?? "_blank"}
           rel={rel ?? "noopener noreferrer"}
-        />
+        >
+          {visibleChildren}
+        </a>
       );
     }
     const { className, target, rel, ...rest } = props;

@@ -135,7 +135,7 @@ def _rewrite_live_preview_location(location: str, thread_id: str) -> str:
 
 
 def _live_preview_target(sandbox: object, path: str) -> tuple[str, dict[str, str]] | None:
-    """Build the internal Sandbox URL and Host header for the preview port."""
+    """Build the internal Sandbox URL and trusted preview-port header."""
     normalized_path = "/" + path.lstrip("/")
     if "\x00" in normalized_path or any(part == ".." for part in normalized_path.split("/")):
         raise HTTPException(status_code=400, detail="Invalid Live Preview path")
@@ -153,9 +153,12 @@ def _live_preview_target(sandbox: object, path: str) -> tuple[str, dict[str, str
     if not parsed.scheme or not parsed.netloc or not parsed.hostname:
         return None
     target = f"{parsed.scheme}://{parsed.netloc}{normalized_path}"
-    # AIO Sandbox's port proxy selects the inner process by the Host prefix,
-    # e.g. Host: 5050-sandbox-abc-svc.deer-flow.svc.cluster.local.
-    return target, {"Host": f"{LIVE_PREVIEW_PORT}-{parsed.hostname}"}
+    # AIO Sandbox formally supports header-based routing for a trusted reverse
+    # proxy.  This reaches a process that intentionally binds only to the Pod's
+    # loopback interface without depending on a synthetic subdomain Host value.
+    # Never copy this header from the browser: it selects an internal port and
+    # must remain fixed at DeerFlow's single allowlisted preview port.
+    return target, {"x-aio-proxy-port": str(LIVE_PREVIEW_PORT)}
 
 
 def _live_preview_response_headers(upstream: httpx.Response, thread_id: str) -> dict[str, str]:

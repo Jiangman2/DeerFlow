@@ -27,7 +27,7 @@ import {
 import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 
-import { SettingsDialog } from "./settings";
+import { useWorkspaceSettingsDialog } from "./settings/workspace-settings-dialog-provider";
 
 function NavMenuButtonContent({
   isSidebarOpen,
@@ -50,12 +50,9 @@ function NavMenuButtonContent({
 }
 
 export function WorkspaceNavMenu() {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsDefaultSection, setSettingsDefaultSection] = useState<
-    "appearance" | "memory" | "tools" | "skills" | "notification" | "about"
-  >("appearance");
   const [mounted, setMounted] = useState(false);
   const { open: isSidebarOpen, isMobile, setOpenMobile } = useSidebar();
+  const { openSettings } = useWorkspaceSettingsDialog();
   const { user } = useAuth();
   const { t } = useI18n();
   const isAdmin = user?.system_role === "admin";
@@ -64,13 +61,22 @@ export function WorkspaceNavMenu() {
     setMounted(true);
   }, []);
 
+  const showSettings = (section: "appearance" | "about") => {
+    if (!isMobile) {
+      openSettings(section);
+      return;
+    }
+
+    setOpenMobile(false);
+    // The mobile sidebar closes with a 300 ms Sheet transition. Opening the
+    // settings portal after that boundary avoids two modal overlays briefly
+    // occupying the same viewport on older enterprise browsers. The provider
+    // sits outside the Sheet, so this deferred open survives Sidebar unmount.
+    openSettings(section, 320);
+  };
+
   return (
     <>
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        defaultSection={settingsDefaultSection}
-      />
       <SidebarMenu className="w-full">
         <SidebarMenuItem>
           {mounted ? (
@@ -105,11 +111,7 @@ export function WorkspaceNavMenu() {
                     </>
                   )}
                   <DropdownMenuItem
-                    onClick={() => {
-                      if (isMobile) setOpenMobile(false);
-                      setSettingsDefaultSection("appearance");
-                      setSettingsOpen(true);
-                    }}
+                    onClick={() => showSettings("appearance")}
                   >
                     <Settings2Icon />
                     {t.common.settings}
@@ -117,11 +119,7 @@ export function WorkspaceNavMenu() {
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => {
-                    if (isMobile) setOpenMobile(false);
-                    setSettingsDefaultSection("about");
-                    setSettingsOpen(true);
-                  }}
+                  onClick={() => showSettings("about")}
                 >
                   <InfoIcon />
                   {t.workspace.about}

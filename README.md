@@ -477,6 +477,22 @@ DeerFlow can also expose user-owned IM channel connections in the workspace UI. 
 
 Administrators can create, schedule, publish, and archive workspace announcements from Settings > Announcement Management. The active announcement is shown to signed-in users as a prominent animated workspace card; severity, display window, and whether users may dismiss it are configurable.
 
+The settings dialog uses a bounded desktop viewport inset and an independent
+inner content frame. This keeps the title, navigation, and content borders
+separated on legacy enterprise browsers while retaining full-screen, scrollable
+behavior on mobile WebViews.
+
+The mobile workspace keeps the same authenticated DeerFlow routes and APIs, but
+uses a compact welcome surface, a safe-area-aware bottom composer, single-line
+composer controls, horizontally scrollable quick actions, and a touch-sized
+navigation drawer. Its top mode pill reuses the current conversation's normal
+mode/reasoning settings, visible copy follows the selected locale, and the
+mobile welcome uses a circular CNOOC-branded animated assistant with a
+reduced-motion fallback. Closing the mobile drawer before opening Settings is
+coordinated by a persistent dialog host, so the settings surface cannot be lost
+when the Sidebar Sheet unmounts. Desktop layout and permission behavior are
+unchanged.
+
 | Channel       | Transport                    | Difficulty |
 | ------------- | ---------------------------- | ---------- |
 | Telegram      | Bot API (long-polling)       | Easy       |
@@ -1003,7 +1019,10 @@ override its base URL with
 `DEERFLOW_UPLOAD_PDF_*` names remain supported for deployment compatibility.
 The enterprise overlay sets `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860`,
 giving the Gateway 60 seconds beyond the Adapter's bounded 1800-second upstream
-wait to receive and persist the completed response.
+wait to receive and persist the completed response, and explicitly sets
+`DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=true`. The local Docker/PVC overlay
+keeps that switch disabled because it cannot reach the enterprise MinerU
+service.
 For knowledge-base ingestion, the enterprise WeKnora 0.7.0 deployment keeps
 MinerU admission on the small core/shared worker budget while assigning image
 OCR/caption and other model-heavy fan-out to its independent 12-worker
@@ -1019,10 +1038,19 @@ files are removed after the request.
 The original upload is retained in every case; a processing warning is returned
 only when all applicable parser and recovery paths fail.
 
-When a presented PPT/PPTX has no sibling preview, `present_files` asks the
-active sandbox's LibreOffice installation to create
-`<stem>.preview.pdf` automatically. The PPT/PPTX remains the selected download
-artifact while the generated PDF is published for the right-side preview.
+When a generated Office artifact (DOC/DOCX, XLS/XLSX, ODT/ODS/ODP, or
+PPT/PPTX) has no sibling preview, `present_files` asks the active sandbox's
+LibreOffice installation to create `<stem>.preview.pdf` automatically. The
+original Office file remains the selected download artifact while the generated
+PDF is persisted and rendered through the server-side static page gallery.
+The artifact panel keeps a visible loading indicator over that gallery until
+the preview iframe's real load event fires. A bounded timeout replaces the
+loader with a frame-only retry action instead of leaving an unexplained blank
+panel.
+Publication fails closed when conversion cannot produce the companion, so a
+successful file card never points at an empty preview. This applies only to
+task-generated outputs; original uploads retain their hardened download and
+document-parsing boundaries.
 For an explicitly activated Slash Skill, DeerFlow also checkpoints the original
 task, selected Skill version, workflow/profile reads, project path, tool-backed
 stage receipts, failed-gate resume pointer, and final artifacts. A later
@@ -1129,7 +1157,9 @@ agent immediately for correction instead of leaving the confirmation page in a
 permanent “preparing” state; the validation rules remain owned by `ppt-master`.
 After a successful owner-server launch, the host checkpoints its loopback URL
 and reminds the model to surface it in visible Markdown; the frontend rewrites
-that address to the authenticated thread-scoped proxy. The owner process stays
+that address to the authenticated thread-scoped proxy, replaces a visible
+loopback address with a localized preview label, and selects the allowlisted
+Sandbox port through AIO Sandbox's trusted proxy header. The owner process stays
 alive on its documented wait command, and a timestamped owner `[ERROR]` remains
 a failed receipt even when a shell pipeline masks the process exit code.
 Dependencies declared by the bundled `ppt-master` are release-image content:
@@ -1342,7 +1372,12 @@ startup by a DeerFlow-owned, source-mounted openpyxl compatibility shim. It
 ignores only the formatting-only `defaultColWidthPt` worksheet extension found
 in some enterprise XLSX exports; the uploaded workbook is not rewritten, normal
 XLSX behavior is unchanged, and unrelated workbook corruption still fails
-closed. Unknown, damaged, or encrypted OLE2 containers are
+closed. URL knowledge imports use the same source-mounted compatibility layer:
+server-rendered HTTP(S) pages are fetched first through the dedicated DocReader
+proxy and verified enterprise CA, every redirect is rechecked by the upstream
+SSRF policy, and genuinely dynamic pages retain Playwright as a fallback. A
+hard browser/network failure is surfaced as a failed parse instead of indexing
+the text `Error parsing web page` as successful knowledge. Unknown, damaged, or encrypted OLE2 containers are
 rejected rather than guessed as Word or PowerPoint. PDF files that open normally in browsers but are
 rejected by PDFium during route inspection first try the independent builtin
 parser before falling back to MinerU. A later source-page rendering error keeps

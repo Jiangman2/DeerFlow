@@ -70,6 +70,7 @@ export const zhCN: Translations = {
     greeting: "你好，欢迎回来！",
     description:
       "欢迎使用中海油勘探开发智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
+    mobileDescription: "面向油气业务的智能研究与协作助手",
 
     createYourOwnSkill: "创建你自己的 Agent SKill",
     createYourOwnSkillDescription:
@@ -90,6 +91,13 @@ export const zhCN: Translations = {
     citeCount: (count) => `${count} 次引用`,
     copyReference: (title) => `复制 ${title} 引用`,
     copiedReference: (title) => `已复制 ${title} 引用`,
+  },
+
+  artifactPreview: {
+    preparing: "正在准备预览…",
+    loadingPages: "正在加载预览页面…",
+    loadFailed: "预览加载失败，请重试。",
+    retry: "重新加载",
   },
 
   // Workspace Changes
@@ -169,7 +177,8 @@ export const zhCN: Translations = {
       "当前页面不是安全连接，浏览器禁止录音。请使用 HTTPS，或由管理员将该内网地址配置为可信安全源。",
     voiceInputPermissionDenied: "麦克风权限被拒绝。请允许麦克风访问后重试。",
     voiceInputMicrophoneUnavailable: "未检测到麦克风。请检查设备输入后重试。",
-    voiceInputAuthenticationRequired: "登录状态已失效，请重新登录后使用语音输入。",
+    voiceInputAuthenticationRequired:
+      "登录状态已失效，请重新登录后使用语音输入。",
     voiceInputFinalTimeout: "语音转写等待超时，请稍后重试。",
     voiceInputUnsupportedLanguage: "当前浏览器不支持该语言的语音输入。",
     voiceInputNetworkError: "无法连接企业内网语音转写服务，请稍后重试。",

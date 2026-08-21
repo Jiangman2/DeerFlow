@@ -28,12 +28,17 @@ describe("resolveLivePreviewURL", () => {
   });
 
   test("thread-aware markdown renderer rewrites ordinary assistant messages", () => {
-    const Link = createMarkdownLinkComponent("thread-1");
+    const Link = createMarkdownLinkComponent(
+      "thread-1",
+      undefined,
+      "Preview",
+    );
     const element = Link({
       href: "http://127.0.0.1:5050/",
-      children: "Live Preview",
+      children: "http://127.0.0.1:5050",
     });
 
     expect(element.props.href).toBe("/api/threads/thread-1/live-preview/5050/");
+    expect(element.props.children).toBe("Preview");
   });
 });

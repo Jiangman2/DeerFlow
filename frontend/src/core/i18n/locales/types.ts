@@ -58,6 +58,7 @@ export interface Translations {
   welcome: {
     greeting: string;
     description: string;
+    mobileDescription: string;
     createYourOwnSkill: string;
     createYourOwnSkillDescription: string;
   };
@@ -76,6 +77,13 @@ export interface Translations {
     citeCount: (count: number) => string;
     copyReference: (title: string) => string;
     copiedReference: (title: string) => string;
+  };
+
+  artifactPreview: {
+    preparing: string;
+    loadingPages: string;
+    loadFailed: string;
+    retry: string;
   };
 
   // Workspace Changes

@@ -19,11 +19,12 @@ def _yaml_documents(path: str) -> list[dict]:
     return [document for document in yaml.safe_load_all(_read(path)) if isinstance(document, dict)]
 
 
-def test_weknora_docreader_mounts_narrow_xlsx_compatibility_shim():
+def test_weknora_docreader_mounts_narrow_parser_compatibility_shims():
     kustomization = yaml.safe_load(_read("k8s/weknora/kustomization.yaml"))
     generators = {entry["name"]: entry for entry in kustomization["configMapGenerator"]}
     assert generators["weknora-docreader-xlsx-compat"]["files"] == [
         "sitecustomize.py=docreader-compat/sitecustomize.py",
+        "web_compat.py=docreader-compat/web_compat.py",
         "xlsx_compat.py=docreader-compat/xlsx_compat.py",
     ]
 
@@ -39,6 +40,8 @@ def test_weknora_docreader_mounts_narrow_xlsx_compatibility_shim():
     compat = _read("k8s/weknora/docreader-compat/xlsx_compat.py")
     assert 'kwargs.pop("defaultColWidthPt", None)' in compat
     assert "for key in" not in compat
+    sitecustomize = _read("k8s/weknora/docreader-compat/sitecustomize.py")
+    assert "install_docreader_web_compat_when_available()" in sitecustomize
 
 
 def test_enterprise_build_base_images_are_overridable():
@@ -483,6 +486,7 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert gateway_env["WEKNORA_MINERU_AUTO_CONFIGURE"] == "true"
     assert gateway_env["WEKNORA_MINERU_SCANNED_PDF_FALLBACK"] == "true"
     assert gateway_env["WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK"] == "true"
+    assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"] == "true"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS"] == "1860"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED"] == "true"
     assert "model.ai.cnooc" in gateway_env["NO_PROXY"].split(",")
