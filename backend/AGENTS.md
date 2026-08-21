@@ -322,6 +322,17 @@ and `bmmc`). Admin dashboard responses expose only the display name and
 organization name alongside the existing login account; credentials and the
 platform Token remain excluded.
 
+CNOOC IAM is a separate lane from DataLake platform-token SSO. Browser login
+uses IAM's authorization-code flow and may bind only a prior BIM-synchronized
+`oauth_provider="iam"` account; it must not auto-provision a user. BIM account
+synchronization reaches `/api/v1/iam/account-sync` through a Base64
+SM4-ECB-PKCS7 envelope, validates its independent remote credentials and SM3
+signature, and returns the same encrypted format. It is therefore exempt from
+browser session/CSRF checks but must never log encrypted bodies, plaintext
+credentials, signatures, or SM4 keys. Never place an IAM access token in the
+`cnooc.platform_token` cookie: DataLake compatibility/exchange is a distinct
+integration. See `docs/iam-integration.md`.
+
 In provisioner/Kubernetes mode, `sandbox.environment` is injected through the
 AIO sandbox's structured per-command `bash.exec` environment. The remote backend
 must not silently discard these values or persist credentials in Pod manifests;

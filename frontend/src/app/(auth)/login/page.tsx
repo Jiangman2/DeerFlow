@@ -290,7 +290,11 @@ export default function LoginPage() {
                 className="w-full"
                 disabled={loading}
                 onClick={() => {
-                  window.location.href = `/api/v1/auth/oauth/${provider.id}?next=${encodeURIComponent(redirectPath)}`;
+                  const route =
+                    provider.type === "iam"
+                      ? "/api/v1/auth/iam/login"
+                      : `/api/v1/auth/oauth/${provider.id}`;
+                  window.location.href = `${route}?next=${encodeURIComponent(redirectPath)}`;
                 }}
               >
                 {t.login.continueWith(provider.display_name)}

@@ -2101,3 +2101,32 @@ authorization:
 #         # Security features (enabled by default):
 #         pkce_enabled: true               # PKCE (S256) for authorization code flow
 #         nonce_enabled: true              # Nonce validation in ID tokens
+
+# ============================================================================
+# CNOOC IAM authentication and BIM account synchronization (optional)
+# ============================================================================
+# IAM browser login uses the authorization-code flow.  It accepts only users
+# that BIM has synchronized first; it never auto-creates a browser IAM user.
+# The client secret and the account-sync credentials below are runtime secrets.
+# Do not place their literal values in this file or expose them to the browser.
+#
+# auth:
+#   iam:
+#     enabled: true
+#     base_url: https://iam.example.com
+#     client_id: deerflow
+#     client_secret: $IAM_CLIENT_SECRET
+#     # Must match the callback registered in IAM. Leave unset only for local
+#     # development, where Gateway derives /api/v1/auth/iam/callback.
+#     redirect_uri: https://deerflow.example.com/api/v1/auth/iam/callback
+#     frontend_base_url: https://deerflow.example.com
+#
+# BIM sends Base64(SM4-ECB-PKCS7(JSON)) requests to these Gateway routes:
+#   POST /api/v1/iam/account-sync[/SchemaService]
+#   POST /api/v1/iam/account-sync/UserCreateService
+#   POST /api/v1/iam/account-sync/UserUpdateService
+#   POST /api/v1/iam/account-sync/UserDeleteService
+# Provide these only via the Gateway runtime environment / Kubernetes Secret:
+#   IAM_ACCOUNT_SYNC_SM4_KEY
+#   IAM_ACCOUNT_SYNC_REMOTE_USER
+#   IAM_ACCOUNT_SYNC_REMOTE_PASSWORD

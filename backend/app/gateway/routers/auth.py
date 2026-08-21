@@ -20,6 +20,7 @@ from app.gateway.auth import (
     create_access_token,
 )
 from app.gateway.auth.cnooc import CnoocAuthError, check_cnooc_token
+from app.gateway.auth.iam import IAMAuthError, account_email, build_authorization_url, exchange_code, get_user_info
 from app.gateway.auth.config import get_auth_config
 from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse
 from app.gateway.auth.oidc import OIDCError, OIDCService
@@ -679,6 +680,113 @@ async def cnooc_token_login(
     return redirect_response
 
 
+# ── CNOOC IAM authorization-code login ───────────────────────────────────
+
+
+def _get_iam_config():
+    from deerflow.config.app_config import get_app_config
+
+    config = get_app_config().auth.iam
+    if not config.enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="IAM authentication is not enabled")
+    return config
+
+
+def _resolve_iam_redirect_uri(request: Request, config) -> str:
+    if config.redirect_uri:
+        return config.redirect_uri
+    origin = _request_origin(request) or f"{request.url.scheme}://{request.headers.get('host', 'localhost:8001')}"
+    return f"{origin}/api/v1/auth/iam/callback"
+
+
+async def _find_iam_user(identity) -> object:
+    """Resolve a browser IAM identity only to a prior IAM-synchronized user."""
+    provider = get_local_provider()
+    existing = await provider.get_user_by_oauth("iam", identity.uid)
+    if existing is not None:
+        return existing
+
+    for account in identity.application_accounts:
+        try:
+            email = account_email(account)
+        except IAMAuthError:
+            continue
+        user = await provider.get_user_by_email(email)
+        if user is None:
+            # Preserve conversations created under releases that used a
+            # synthetic IAM address before the AD-mailbox contract existed.
+            from app.gateway.auth.iam import is_legacy_account_email, legacy_account_email
+
+            legacy = await provider.get_user_by_email(legacy_account_email(account))
+            if legacy is not None and is_legacy_account_email(legacy.email):
+                legacy.email = email
+                legacy.oauth_provider = "iam"
+                user = await provider.update_user(legacy)
+        if user is None:
+            continue
+        if user.oauth_provider != "iam":
+            raise HTTPException(status_code=409, detail="The corporate mailbox is already owned by a non-IAM account")
+        if user.oauth_id is not None and user.oauth_id != identity.uid:
+            raise HTTPException(status_code=409, detail="IAM account identity is already bound to another user")
+        user.oauth_id = identity.uid
+        return await provider.update_user(user)
+    raise HTTPException(status_code=403, detail="IAM user has not been synchronized to DeerFlow")
+
+
+@router.get("/iam/login")
+async def iam_login(request: Request, next: str | None = None):  # noqa: A002
+    config = _get_iam_config()
+    redirect_path = validate_next_param(next) or "/workspace/chats/new"
+    state = generate_oidc_state()
+    payload = OIDCStatePayload(provider="iam", state=state, next_path=redirect_path)
+    redirect_uri = _resolve_iam_redirect_uri(request, config)
+    try:
+        target = build_authorization_url(config, redirect_uri=redirect_uri, state=state)
+    except IAMAuthError as exc:
+        logger.error("IAM login is misconfigured: %s", exc)
+        raise HTTPException(status_code=503, detail="IAM authentication is unavailable") from exc
+    response = RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
+    set_state_cookie(response, request, payload)
+    return response
+
+
+# ``auth.iam.redirect_uri`` is an externally registered IAM application
+# contract. Existing deployments use this legacy callback path, so preserve
+# it as an explicit static route ahead of the generic OIDC callback route.
+@router.get("/callback/iam", include_in_schema=False)
+@router.get("/iam/callback")
+async def iam_callback(request: Request, code: str | None = None, state: str | None = None):
+    config = _get_iam_config()
+    state_payload = get_state_cookie(request, "iam")
+    if not code or not state or state_payload is None or not secrets.compare_digest(state, state_payload.state):
+        response = RedirectResponse(url=_build_error_redirect(config.frontend_base_url, "sso_failed"), status_code=status.HTTP_302_FOUND)
+        delete_state_cookie(response, request, "iam")
+        return response
+    try:
+        token = await exchange_code(config, code=code, redirect_uri=_resolve_iam_redirect_uri(request, config))
+        identity = await get_user_info(config, token)
+        user = await _find_iam_user(identity)
+        if user.is_disabled:
+            raise HTTPException(status_code=403, detail="This account has been disabled.")
+        user = await _record_user_login(user)
+    except HTTPException as exc:
+        logger.warning("IAM SSO callback failed: %s", exc.detail)
+        error = "sso_not_allowed" if exc.status_code == 403 else "sso_account_exists" if exc.status_code == 409 else "sso_failed"
+        response = RedirectResponse(url=_build_error_redirect(config.frontend_base_url, error), status_code=status.HTTP_302_FOUND)
+        delete_state_cookie(response, request, "iam")
+        return response
+    except IAMAuthError as exc:
+        logger.warning("IAM SSO callback failed: %s", exc)
+        response = RedirectResponse(url=_build_error_redirect(config.frontend_base_url, "sso_failed"), status_code=status.HTTP_302_FOUND)
+        delete_state_cookie(response, request, "iam")
+        return response
+    response = RedirectResponse(url=f"{config.frontend_base_url or ''}/auth/callback?next={urllib.parse.quote(state_payload.next_path)}", status_code=status.HTTP_302_FOUND)
+    _set_session_cookie(response, create_access_token(str(user.id), token_version=user.token_version), request)
+    _set_csrf_cookie(response, request)
+    delete_state_cookie(response, request, "iam")
+    return response
+
+
 _OIDC_PROVIDER_KEY_RE = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
@@ -739,18 +847,22 @@ async def list_auth_providers():
     Returns only safe frontend metadata — no secrets, endpoints, or
     internal configuration.
     """
-    if get_auth_config().sso_only:
-        return {"providers": [], "sso_only": True}
-
     from deerflow.config.app_config import get_app_config
 
     app_config = get_app_config()
     oidc_config = app_config.auth.oidc
-
-    if not oidc_config.enabled:
-        return {"providers": []}
+    iam_config = app_config.auth.iam
 
     providers = []
+    if iam_config.enabled:
+        providers.append({"id": "iam", "display_name": "CNOOC IAM", "type": "iam"})
+
+    if get_auth_config().sso_only:
+        return {"providers": providers, "sso_only": True}
+
+    if not oidc_config.enabled:
+        return {"providers": providers}
+
     for provider_id, provider_cfg in oidc_config.providers.items():
         providers.append(
             {
