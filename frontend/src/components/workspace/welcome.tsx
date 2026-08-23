@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 
 import { AuroraText } from "../ui/aurora-text";
 
+import { CnoocAssistantAvatar } from "./cnooc-assistant-avatar";
+
 let waved = false;
 
 function WelcomeDescription({ children }: { children: string }) {
@@ -40,16 +42,25 @@ export function Welcome({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full max-w-full flex-col items-center justify-center gap-2 px-4 py-4 text-center sm:w-[min(56rem,calc(100vw-6rem))] sm:max-w-none sm:px-8",
+        "mx-auto flex w-full max-w-full flex-col items-center justify-center gap-1 px-5 py-2 text-center sm:w-[min(56rem,calc(100vw-6rem))] sm:max-w-none sm:gap-2 sm:px-8 sm:py-4",
         className,
       )}
+      data-testid="welcome-panel"
     >
-      <div className="max-w-full text-2xl font-bold">
+      {searchParams.get("mode") !== "skill" && (
+        <CnoocAssistantAvatar className="mb-1 size-[4.75rem]" />
+      )}
+      <div className="max-w-full text-[1.35rem] leading-tight font-bold sm:text-2xl">
         {searchParams.get("mode") === "skill" ? (
           `✨ ${t.welcome.createYourOwnSkill} ✨`
         ) : (
           <div className="flex max-w-full flex-wrap items-center justify-center gap-2">
-            <div className={cn("inline-block", !waved ? "animate-wave" : "")}>
+            <div
+              className={cn(
+                "hidden sm:inline-block",
+                !waved ? "animate-wave" : "",
+              )}
+            >
               {isUltra ? "🚀" : "👋"}
             </div>
             <AuroraText colors={colors}>{t.welcome.greeting}</AuroraText>
@@ -63,9 +74,16 @@ export function Welcome({
           </WelcomeDescription>
         </div>
       ) : (
-        <div className="text-muted-foreground max-w-full text-sm">
-          <WelcomeDescription>{t.welcome.description}</WelcomeDescription>
-        </div>
+        <>
+          <div className="text-muted-foreground max-w-full text-sm sm:hidden">
+            <WelcomeDescription>
+              {t.welcome.mobileDescription}
+            </WelcomeDescription>
+          </div>
+          <div className="text-muted-foreground hidden max-w-full text-sm sm:block">
+            <WelcomeDescription>{t.welcome.description}</WelcomeDescription>
+          </div>
+        </>
       )}
     </div>
   );

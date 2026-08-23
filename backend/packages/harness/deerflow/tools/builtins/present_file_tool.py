@@ -18,6 +18,19 @@ from deerflow.tools.builtins.presentation_acceptance import validate_ppt_master_
 from deerflow.tools.types import Runtime
 
 OUTPUTS_VIRTUAL_PREFIX = f"{VIRTUAL_PATH_PREFIX}/outputs"
+OFFICE_PREVIEW_EXTENSIONS = frozenset(
+    {
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".odt",
+        ".ods",
+        ".odp",
+        ".ppt",
+        ".pptx",
+    }
+)
 logger = logging.getLogger(__name__)
 
 
@@ -92,29 +105,25 @@ def _download_virtual_file_to_host(
 
 
 def _preview_pdf_path_for(filepath: str) -> str | None:
-    lower = filepath.lower()
-    if lower.endswith(".pptx"):
-        return filepath[:-5] + ".preview.pdf"
-    if lower.endswith(".ppt"):
-        return filepath[:-4] + ".preview.pdf"
+    suffix = PurePosixPath(filepath).suffix.lower()
+    if suffix in OFFICE_PREVIEW_EXTENSIONS:
+        return filepath[: -len(suffix)] + ".preview.pdf"
     return None
 
 
-def _generate_missing_ppt_preview(
+def _generate_missing_office_preview(
     runtime: Runtime,
-    source_ppt_path: str,
-    normalized_ppt_path: str,
+    source_office_path: str,
+    normalized_office_path: str,
 ) -> None:
-    """Best-effort generation of a browser preview in the active sandbox.
+    """Generate an Office document's PDF companion in the active sandbox.
 
-    ``normalized_ppt_path`` is the persistent Gateway artifact path.  A model
-    commonly presents a deck directly from ``workspace/projects/.../exports``;
-    in that case only Gateway has copied the file into the normalized outputs
-    bucket.  LibreOffice still runs inside the active sandbox, so it must read
-    the original sandbox-visible source path rather than the new host-side
-    destination.
+    ``normalized_office_path`` is the persistent Gateway artifact path. A model
+    may present a document directly from ``workspace``; in that case only
+    Gateway has copied it into normalized outputs. LibreOffice still runs in
+    the active sandbox, so it must read the original sandbox-visible source.
     """
-    preview_path = _preview_pdf_path_for(normalized_ppt_path)
+    preview_path = _preview_pdf_path_for(normalized_office_path)
     if preview_path is None:
         return
 
@@ -136,7 +145,7 @@ def _generate_missing_ppt_preview(
                 return
         except Exception:
             logger.debug(
-                "Could not probe optional PPT preview path %s",
+                "Could not probe optional Office preview path %s",
                 preview_path,
                 exc_info=True,
             )
@@ -145,9 +154,9 @@ def _generate_missing_ppt_preview(
     if sandbox is None:
         return
 
-    temp_dir = f"/tmp/deerflow-ppt-preview-{uuid.uuid4().hex}"
+    temp_dir = f"/tmp/deerflow-office-preview-{uuid.uuid4().hex}"
     virtual_prefix = VIRTUAL_PATH_PREFIX.rstrip("/") + "/"
-    sandbox_source_path = source_ppt_path if source_ppt_path.startswith(virtual_prefix) else normalized_ppt_path
+    sandbox_source_path = source_office_path if source_office_path.startswith(virtual_prefix) else normalized_office_path
     generated_pdf = f"{temp_dir}/{PurePosixPath(sandbox_source_path).stem}.pdf"
     command = "\n".join(
         [
@@ -156,8 +165,15 @@ def _generate_missing_ppt_preview(
             'mkdir -p "$preview_tmp"',
             "trap 'rm -rf -- \"$preview_tmp\"' EXIT",
             'office_bin="$(command -v libreoffice || command -v soffice)"',
+            'test -n "$office_bin"',
             f"test -s {shlex.quote(sandbox_source_path)}",
-            (f'"$office_bin" --headless --convert-to pdf --outdir "$preview_tmp" {shlex.quote(sandbox_source_path)} >"$preview_tmp/convert.log" 2>&1'),
+            (
+                '"$office_bin" '
+                '-env:UserInstallation="file://$preview_tmp/profile" '
+                "--headless --nologo --nodefault --nolockcheck --nofirststartwizard "
+                f'--convert-to pdf --outdir "$preview_tmp" {shlex.quote(sandbox_source_path)} '
+                '>"$preview_tmp/convert.log" 2>&1'
+            ),
             f"test -s {shlex.quote(generated_pdf)}",
             f"cp -- {shlex.quote(generated_pdf)} {shlex.quote(preview_path)}",
         ]
@@ -166,8 +182,8 @@ def _generate_missing_ppt_preview(
         sandbox.execute_command(command, timeout=240)
     except Exception:
         logger.warning(
-            "Failed to generate optional PPT preview for %s",
-            normalized_ppt_path,
+            "Failed to generate optional Office preview for %s",
+            normalized_office_path,
             exc_info=True,
         )
 
@@ -183,6 +199,19 @@ def _validate_pptx_file(path: Path) -> None:
     required = {"[Content_Types].xml", "ppt/presentation.xml"}
     if not required.issubset(names):
         raise ValueError(f"Invalid PPTX file: {path.name} is missing required PowerPoint package entries")
+
+
+def _validate_ooxml_file(path: Path, *, label: str, required_entry: str) -> None:
+    """Reject generated OOXML files that only carry a trusted suffix."""
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            names = set(archive.namelist())
+    except zipfile.BadZipFile:
+        raise ValueError(f"Invalid {label} file: {path.name} is not a ZIP-based Office file") from None
+
+    required = {"[Content_Types].xml", required_entry}
+    if not required.issubset(names):
+        raise ValueError(f"Invalid {label} file: {path.name} is missing required Office package entries")
 
 
 def _validate_skill_file(path: Path) -> None:
@@ -202,9 +231,14 @@ def _validate_skill_file(path: Path) -> None:
 
 
 def _validate_presented_file(actual_path: Path) -> None:
-    if actual_path.suffix.lower() == ".pptx":
+    suffix = actual_path.suffix.lower()
+    if suffix == ".pptx":
         _validate_pptx_file(actual_path)
-    elif actual_path.suffix.lower() == ".skill":
+    elif suffix == ".docx":
+        _validate_ooxml_file(actual_path, label="DOCX", required_entry="word/document.xml")
+    elif suffix == ".xlsx":
+        _validate_ooxml_file(actual_path, label="XLSX", required_entry="xl/workbook.xml")
+    elif suffix == ".skill":
         _validate_skill_file(actual_path)
 
 
@@ -326,7 +360,7 @@ def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) 
             actual_pptx=actual_pptx,
         )
 
-    _generate_missing_ppt_preview(runtime, filepath, normalized_path)
+    _generate_missing_office_preview(runtime, filepath, normalized_path)
     preview_candidates = [
         candidate
         for candidate in (
@@ -353,7 +387,7 @@ def _normalize_presented_filepath_with_preview(runtime: Runtime, filepath: str) 
 
     if required_preview_path and required_preview_path not in normalized_paths:
         raise ValueError(
-            "PowerPoint preview generation failed. Keep the active sandbox available, verify LibreOffice can convert the final deck, and call present_files again; the deck is not published until its paired .preview.pdf is ready."
+            "Office preview generation failed. Keep the active sandbox available, verify LibreOffice can convert the final document, and call present_files again; the file is not published until its paired .preview.pdf is ready."
         )
 
     return normalized_paths

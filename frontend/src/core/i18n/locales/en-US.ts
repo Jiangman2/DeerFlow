@@ -70,6 +70,8 @@ export const enUS: Translations = {
     greeting: "Hello, again!",
     description:
       "Welcome to 本平台, an open source super agent. With built-in and custom skills, 本平台 helps you search on the web, analyze data, and generate artifacts like slides, web pages and do almost anything.",
+    mobileDescription:
+      "Your intelligent research assistant for oil and gas work",
 
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
@@ -91,6 +93,13 @@ export const enUS: Translations = {
     citeCount: (count) => `${count} ${count === 1 ? "cite" : "cites"}`,
     copyReference: (title) => `Copy ${title} reference`,
     copiedReference: (title) => `Copied ${title} reference`,
+  },
+
+  artifactPreview: {
+    preparing: "Preparing preview...",
+    loadingPages: "Loading preview pages...",
+    loadFailed: "The preview could not be loaded.",
+    retry: "Try again",
   },
 
   // Workspace Changes
@@ -181,8 +190,7 @@ export const enUS: Translations = {
       "No microphone was detected. Check your device input and try again.",
     voiceInputAuthenticationRequired:
       "Your session has expired. Sign in again to use voice input.",
-    voiceInputFinalTimeout:
-      "Voice transcription timed out. Please try again.",
+    voiceInputFinalTimeout: "Voice transcription timed out. Please try again.",
     voiceInputUnsupportedLanguage:
       "Voice input does not support the current language in this browser.",
     voiceInputNetworkError:

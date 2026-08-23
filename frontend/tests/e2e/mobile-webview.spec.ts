@@ -55,6 +55,116 @@ test.describe("mobile WebView workspace", () => {
     });
   }
 
+  test("phone welcome keeps the composer compact and actions on horizontal rails", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    mockLangGraphAPI(page);
+    await page.route("**/api/models", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          models: [
+            {
+              id: "deepseek-v4-flash",
+              name: "deepseek-v4-flash",
+              model: "DeepSeek-V4-Flash",
+              display_name: "DeepSeek-V4-Flash",
+              supports_thinking: true,
+              supports_reasoning_effort: true,
+            },
+          ],
+          token_usage: { enabled: false },
+        }),
+      }),
+    );
+    await page.goto("/workspace/chats/new", { waitUntil: "domcontentloaded" });
+
+    const composer = page.getByTestId("welcome-composer");
+    const welcome = page.getByTestId("welcome-panel");
+    const tools = page.getByTestId("composer-primary-tools");
+    const suggestions = page.getByTestId("welcome-suggestion-rail");
+    const assistantAvatar = page.getByTestId("cnooc-assistant-avatar");
+    const modeSelector = page.getByTestId("mobile-mode-selector");
+    const suggestionViewport = suggestions.locator(
+      "[data-slot='scroll-area-viewport']",
+    );
+
+    await expect(composer).toBeVisible({ timeout: 15_000 });
+    await expect(assistantAvatar).toBeVisible();
+    await expect(modeSelector).toBeVisible();
+    await expect(
+      welcome.getByText(
+        /面向油气业务的智能研究与协作助手|Your intelligent research assistant for oil and gas work/,
+      ),
+    ).toBeVisible();
+    await expect(
+      welcome.getByText(
+        /通过内置和自定义 Skills|With built-in and custom skills/,
+      ),
+    ).toBeHidden();
+
+    const [composerBox, toolMetrics, suggestionMetrics] = await Promise.all([
+      composer.boundingBox(),
+      tools.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        flexWrap: getComputedStyle(element).flexWrap,
+      })),
+      suggestionViewport.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      })),
+    ]);
+
+    expect(composerBox).not.toBeNull();
+    expect(composerBox!.height).toBeLessThan(190);
+    expect(toolMetrics.flexWrap).toBe("nowrap");
+    expect(toolMetrics.scrollWidth).toBeGreaterThan(toolMetrics.clientWidth);
+    expect(suggestionMetrics.scrollWidth).toBeGreaterThan(
+      suggestionMetrics.clientWidth,
+    );
+
+    await modeSelector.click();
+    const flashMode = page.getByRole("menuitem", {
+      name: /闪速|Flash/i,
+    });
+    await expect(flashMode).toBeVisible();
+    await flashMode.click();
+    await expect(modeSelector).toContainText(/闪速|Flash/i);
+    await expectNoPageOverflow(page, 320);
+  });
+
+  test("mobile drawer uses a wide touch-friendly navigation surface", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    mockLangGraphAPI(page);
+    await page.goto("/workspace/chats/new", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("textbox").first()).toBeEditable({
+      timeout: 15_000,
+    });
+    await page.locator("[data-sidebar='trigger']:visible").click();
+
+    const sidebar = page.locator(
+      "[data-mobile='true'][data-sidebar='sidebar']",
+    );
+    await expect(sidebar).toBeVisible();
+    const box = await sidebar.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThanOrEqual(320);
+    expect(box!.width).toBeLessThanOrEqual(344);
+
+    const navTargets = sidebar.locator("[data-sidebar='menu-button']:visible");
+    expect(await navTargets.count()).toBeGreaterThanOrEqual(4);
+    const targetHeights = await navTargets.evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect().height),
+    );
+    expect(Math.min(...targetHeights)).toBeGreaterThanOrEqual(43);
+    await expectNoPageOverflow(page, 390);
+  });
+
   test("mobile navigation closes after changing workspace routes", async ({
     page,
   }) => {
@@ -100,6 +210,7 @@ test.describe("mobile WebView workspace", () => {
 
     const dialog = page.getByTestId("settings-dialog");
     await expect(dialog).toBeVisible();
+    await expect.poll(() => dialog.boundingBox()).not.toBeNull();
     const box = await dialog.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(-1);
@@ -107,6 +218,56 @@ test.describe("mobile WebView workspace", () => {
     expect(box!.height).toBeLessThanOrEqual(813);
     await expect(dialog.locator("nav")).toBeVisible();
     await expectNoPageOverflow(page, 375);
+  });
+
+  test("desktop settings keeps a safe inset and separates its inner frame", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1744, height: 842 });
+    mockLangGraphAPI(page);
+    await page.goto("/workspace/chats/new", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("textbox").first()).toBeEditable({
+      timeout: 15_000,
+    });
+
+    await page
+      .getByRole("button", { name: /Settings and more|设置和更多/ })
+      .click();
+    await page.getByRole("menuitem", { name: /^Settings$|^设置$/ }).click();
+
+    const dialog = page.getByTestId("settings-dialog");
+    const frame = page.getByTestId("settings-dialog-frame");
+    await expect(dialog).toBeVisible();
+
+    const [dialogBox, frameBox, headerBox, navigationBox, contentBox] =
+      await Promise.all([
+        dialog.boundingBox(),
+        frame.boundingBox(),
+        frame.locator("[data-slot='dialog-header']").boundingBox(),
+        frame.locator("nav").boundingBox(),
+        frame.locator("[data-slot='scroll-area']").boundingBox(),
+      ]);
+
+    expect(dialogBox).not.toBeNull();
+    expect(frameBox).not.toBeNull();
+    expect(headerBox).not.toBeNull();
+    expect(navigationBox).not.toBeNull();
+    expect(contentBox).not.toBeNull();
+    expect(dialogBox!.x).toBeGreaterThanOrEqual(15);
+    expect(dialogBox!.y).toBeGreaterThanOrEqual(15);
+    expect(dialogBox!.width).toBeLessThanOrEqual(1153);
+    expect(dialogBox!.height).toBeLessThanOrEqual(811);
+    expect(frameBox!.x - dialogBox!.x).toBeGreaterThanOrEqual(0);
+    expect(frameBox!.y - dialogBox!.y).toBeGreaterThanOrEqual(0);
+    expect(headerBox!.x - dialogBox!.x).toBeGreaterThanOrEqual(23);
+    expect(headerBox!.y - dialogBox!.y).toBeGreaterThanOrEqual(23);
+    expect(navigationBox!.x - dialogBox!.x).toBeGreaterThanOrEqual(23);
+    expect(navigationBox!.y).toBeGreaterThanOrEqual(
+      headerBox!.y + headerBox!.height + 11,
+    );
+    expect(contentBox!.x).toBeGreaterThanOrEqual(
+      navigationBox!.x + navigationBox!.width + 15,
+    );
   });
 
   test("knowledge workspace keeps a DeerFlow navigation escape hatch", async ({

@@ -6,19 +6,15 @@ import type { ChatStatus } from "ai";
 import {
   BookOpenIcon,
   CheckIcon,
-  GraduationCapIcon,
-  LightbulbIcon,
   Loader2Icon,
   MicIcon,
   PaperclipIcon,
   PlusIcon,
-  RocketIcon,
   SparklesIcon,
   SquareIcon,
   TargetIcon,
   Undo2Icon,
   XIcon,
-  ZapIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -137,18 +133,22 @@ import {
   type SlashSuggestion,
 } from "./input-box-helpers";
 import { useThread } from "./messages/context";
-import { ModeHoverGuide } from "./mode-hover-guide";
+import type { AgentMode } from "./mode-hover-guide";
+import {
+  ModeSelector,
+  reasoningEffortForMode,
+  resolveAgentMode,
+} from "./mode-selector";
 import { ShopCartAttachmentButton } from "./shop-cart-attachments";
 import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { SlashSkillChip } from "./slash-skill-chip";
 import { Tooltip } from "./tooltip";
 
-type InputMode = "flash" | "thinking" | "pro" | "ultra";
 type InputBoxContext = Omit<
   AgentThreadContext,
   "thread_id" | "is_plan_mode" | "thinking_enabled" | "subagent_enabled"
 > & {
-  mode: "flash" | "thinking" | "pro" | "ultra" | undefined;
+  mode: AgentMode | undefined;
   reasoning_effort?: "minimal" | "low" | "medium" | "high";
 };
 
@@ -190,19 +190,6 @@ function insertPlainTextAtSelection(container: HTMLElement, text: string) {
   selection.removeAllRanges();
   selection.addRange(range);
   return true;
-}
-
-function getResolvedMode(
-  mode: InputMode | undefined,
-  supportsThinking: boolean,
-): InputMode {
-  if (!supportsThinking && mode !== "flash") {
-    return "flash";
-  }
-  if (mode) {
-    return mode;
-  }
-  return supportsThinking ? "pro" : "flash";
 }
 
 function KnowledgeScopeSelector({
@@ -567,7 +554,7 @@ export function InputBox({
     const fallbackModel = currentModel ?? models[0]!;
     const supportsThinking = fallbackModel.supports_thinking ?? false;
     const nextModelName = fallbackModel.name;
-    const nextMode = getResolvedMode(context.mode, supportsThinking);
+    const nextMode = resolveAgentMode(context.mode, supportsThinking);
 
     if (context.model_name === nextModelName && context.mode === nextMode) {
       return;
@@ -671,7 +658,7 @@ export function InputBox({
       onContextChange?.({
         ...context,
         model_name,
-        mode: getResolvedMode(context.mode, model.supports_thinking ?? false),
+        mode: resolveAgentMode(context.mode, model.supports_thinking ?? false),
         reasoning_effort: context.reasoning_effort,
       });
       setModelDialogOpen(false);
@@ -680,21 +667,14 @@ export function InputBox({
   );
 
   const handleModeSelect = useCallback(
-    (mode: InputMode) => {
+    (mode: AgentMode) => {
       if (disabled || polishingInput) {
         return;
       }
       onContextChange?.({
         ...context,
-        mode: getResolvedMode(mode, supportThinking),
-        reasoning_effort:
-          mode === "ultra"
-            ? "high"
-            : mode === "pro"
-              ? "medium"
-              : mode === "thinking"
-                ? "low"
-                : "minimal",
+        mode: resolveAgentMode(mode, supportThinking),
+        reasoning_effort: reasoningEffortForMode(mode),
       });
     },
     [disabled, onContextChange, context, polishingInput, supportThinking],
@@ -948,7 +928,7 @@ export function InputBox({
         onContextChange?.({
           ...context,
           model_name: resolvedModelName,
-          mode: getResolvedMode(
+          mode: resolveAgentMode(
             context.mode,
             selectedModel?.supports_thinking ?? false,
           ),
@@ -1750,7 +1730,8 @@ export function InputBox({
   return (
     <div
       ref={promptRootRef}
-      className={cn("relative flex min-w-0 flex-col", "gap-2")}
+      className={cn("relative flex min-w-0 flex-col gap-2")}
+      data-testid={isWelcomeMode ? "welcome-composer" : "chat-composer"}
     >
       {showFollowups && (
         <div className="flex items-center justify-center pb-1">
@@ -1853,7 +1834,7 @@ export function InputBox({
         )}
         {extraHeader && (
           <div className="absolute top-0 right-0 left-0 z-10">
-            <div className="absolute right-0 bottom-0 left-0 flex items-center justify-center">
+            <div className="absolute right-0 bottom-0 left-0 flex -translate-y-[clamp(4.75rem,18vh,8.5rem)] items-center justify-center sm:translate-y-0">
               {extraHeader}
             </div>
           </div>
@@ -1893,7 +1874,7 @@ export function InputBox({
             />
           )}
         </PromptInputHeader>
-        <div className="min-h-16 w-full min-w-0 px-3 py-3">
+        <div className="min-h-14 w-full min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
           {selectedSlashSkill ? (
             <div
               className="max-h-48 min-h-6 w-full min-w-0 cursor-text overflow-y-auto text-base leading-6 break-all whitespace-pre-wrap md:text-sm"
@@ -1954,8 +1935,11 @@ export function InputBox({
             />
           )}
         </div>
-        <PromptInputFooter className="flex flex-wrap gap-2 sm:flex-nowrap">
-          <PromptInputTools className="min-w-0 flex-1 flex-wrap">
+        <PromptInputFooter className="flex flex-nowrap gap-1 overflow-hidden px-2 pb-2 sm:gap-2 sm:px-3 sm:pb-3">
+          <PromptInputTools
+            className="mobile-scroll-rail min-w-0 flex-1 flex-nowrap overflow-x-auto overscroll-x-contain [&>*]:shrink-0"
+            data-testid="composer-primary-tools"
+          >
             {/* TODO: Add more connectors here
           <PromptInputActionMenu>
             <PromptInputActionMenuTrigger className="px-2!" />
@@ -2025,180 +2009,13 @@ export function InputBox({
                 )}
               </PromptInputButton>
             </Tooltip>
-            <PromptInputActionMenu>
-              <ModeHoverGuide
-                mode={
-                  context.mode === "flash" ||
-                  context.mode === "thinking" ||
-                  context.mode === "pro" ||
-                  context.mode === "ultra"
-                    ? context.mode
-                    : "flash"
-                }
-              >
-                <PromptInputActionMenuTrigger
-                  className="max-w-28 gap-1! px-2! sm:max-w-none"
-                  disabled={composerLocked}
-                >
-                  <div>
-                    {context.mode === "flash" && <ZapIcon className="size-3" />}
-                    {context.mode === "thinking" && (
-                      <LightbulbIcon className="size-3" />
-                    )}
-                    {context.mode === "pro" && (
-                      <GraduationCapIcon className="size-3" />
-                    )}
-                    {context.mode === "ultra" && (
-                      <RocketIcon className="size-3 text-[#dabb5e]" />
-                    )}
-                  </div>
-                  <div
-                    className={cn(
-                      "truncate text-xs font-normal",
-                      context.mode === "ultra" ? "golden-text" : "",
-                    )}
-                  >
-                    {(context.mode === "flash" && t.inputBox.flashMode) ||
-                      (context.mode === "thinking" &&
-                        t.inputBox.reasoningMode) ||
-                      (context.mode === "pro" && t.inputBox.proMode) ||
-                      (context.mode === "ultra" && t.inputBox.ultraMode)}
-                  </div>
-                </PromptInputActionMenuTrigger>
-              </ModeHoverGuide>
-              <PromptInputActionMenuContent className="w-80">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="text-muted-foreground text-xs">
-                    {t.inputBox.mode}
-                  </DropdownMenuLabel>
-                  <PromptInputActionMenu>
-                    <PromptInputActionMenuItem
-                      className={cn(
-                        context.mode === "flash"
-                          ? "text-accent-foreground"
-                          : "text-muted-foreground/65",
-                      )}
-                      onSelect={() => handleModeSelect("flash")}
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1 font-bold">
-                          <ZapIcon
-                            className={cn(
-                              "mr-2 size-4",
-                              context.mode === "flash" &&
-                                "text-accent-foreground",
-                            )}
-                          />
-                          {t.inputBox.flashMode}
-                        </div>
-                        <div className="pl-7 text-xs">
-                          {t.inputBox.flashModeDescription}
-                        </div>
-                      </div>
-                      {context.mode === "flash" ? (
-                        <CheckIcon className="ml-auto size-4" />
-                      ) : (
-                        <div className="ml-auto size-4" />
-                      )}
-                    </PromptInputActionMenuItem>
-                    {supportThinking && (
-                      <PromptInputActionMenuItem
-                        className={cn(
-                          context.mode === "thinking"
-                            ? "text-accent-foreground"
-                            : "text-muted-foreground/65",
-                        )}
-                        onSelect={() => handleModeSelect("thinking")}
-                      >
-                        <div className="flex flex-col gap-2">
-                          <div className="flex items-center gap-1 font-bold">
-                            <LightbulbIcon
-                              className={cn(
-                                "mr-2 size-4",
-                                context.mode === "thinking" &&
-                                  "text-accent-foreground",
-                              )}
-                            />
-                            {t.inputBox.reasoningMode}
-                          </div>
-                          <div className="pl-7 text-xs">
-                            {t.inputBox.reasoningModeDescription}
-                          </div>
-                        </div>
-                        {context.mode === "thinking" ? (
-                          <CheckIcon className="ml-auto size-4" />
-                        ) : (
-                          <div className="ml-auto size-4" />
-                        )}
-                      </PromptInputActionMenuItem>
-                    )}
-                    <PromptInputActionMenuItem
-                      className={cn(
-                        context.mode === "pro"
-                          ? "text-accent-foreground"
-                          : "text-muted-foreground/65",
-                      )}
-                      onSelect={() => handleModeSelect("pro")}
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1 font-bold">
-                          <GraduationCapIcon
-                            className={cn(
-                              "mr-2 size-4",
-                              context.mode === "pro" &&
-                                "text-accent-foreground",
-                            )}
-                          />
-                          {t.inputBox.proMode}
-                        </div>
-                        <div className="pl-7 text-xs">
-                          {t.inputBox.proModeDescription}
-                        </div>
-                      </div>
-                      {context.mode === "pro" ? (
-                        <CheckIcon className="ml-auto size-4" />
-                      ) : (
-                        <div className="ml-auto size-4" />
-                      )}
-                    </PromptInputActionMenuItem>
-                    <PromptInputActionMenuItem
-                      className={cn(
-                        context.mode === "ultra"
-                          ? "text-accent-foreground"
-                          : "text-muted-foreground/65",
-                      )}
-                      onSelect={() => handleModeSelect("ultra")}
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1 font-bold">
-                          <RocketIcon
-                            className={cn(
-                              "mr-2 size-4",
-                              context.mode === "ultra" && "text-[#dabb5e]",
-                            )}
-                          />
-                          <div
-                            className={cn(
-                              context.mode === "ultra" && "golden-text",
-                            )}
-                          >
-                            {t.inputBox.ultraMode}
-                          </div>
-                        </div>
-                        <div className="pl-7 text-xs">
-                          {t.inputBox.ultraModeDescription}
-                        </div>
-                      </div>
-                      {context.mode === "ultra" ? (
-                        <CheckIcon className="ml-auto size-4" />
-                      ) : (
-                        <div className="ml-auto size-4" />
-                      )}
-                    </PromptInputActionMenuItem>
-                  </PromptInputActionMenu>
-                </DropdownMenuGroup>
-              </PromptInputActionMenuContent>
-            </PromptInputActionMenu>
+            <ModeSelector
+              className={isWelcomeMode ? "hidden sm:inline-flex" : undefined}
+              disabled={composerLocked}
+              mode={context.mode}
+              supportsThinking={supportThinking}
+              onSelect={handleModeSelect}
+            />
             {supportReasoningEffort && context.mode !== "flash" && (
               <PromptInputActionMenu>
                 <PromptInputActionMenuTrigger
@@ -2319,14 +2136,14 @@ export function InputBox({
               </PromptInputActionMenu>
             )}
           </PromptInputTools>
-          <PromptInputTools className="min-w-0 justify-end">
+          <PromptInputTools className="min-w-0 shrink-0 justify-end">
             <ModelSelector
               open={modelDialogOpen}
               onOpenChange={setModelDialogOpen}
             >
               <ModelSelectorTrigger asChild>
                 <PromptInputButton
-                  className="max-w-40 min-w-0 sm:max-w-56"
+                  className="max-w-24 min-w-0 px-1.5! sm:max-w-56 sm:px-2!"
                   disabled={composerLocked}
                 >
                   <div className="flex min-w-0 flex-col items-start text-left">
@@ -2380,7 +2197,10 @@ export function InputBox({
         searchParams.get("mode") !== "skill" &&
         !selectedSlashSkill &&
         !showSkillSuggestions && (
-          <div className="flex items-center justify-center">
+          <div
+            className="mobile-scroll-rail h-11 min-w-0 overflow-x-auto [&>[data-slot='scroll-area']]:h-full [&>[data-slot='scroll-area']]:w-full"
+            data-testid="welcome-suggestion-rail"
+          >
             <SuggestionList onSelectPlaceholder={onSelectPlaceholder} />
           </div>
         )}
@@ -2479,9 +2299,9 @@ function SuggestionList({
     [textInput, onSelectPlaceholder],
   );
   return (
-    <Suggestions className="w-full max-w-full justify-center px-4 sm:w-fit sm:px-0">
+    <Suggestions className="w-max max-w-none min-w-full flex-nowrap justify-start px-1 sm:w-fit sm:max-w-full sm:min-w-0 sm:flex-wrap sm:justify-center sm:px-0 [&>span]:max-w-none [&>span]:shrink-0">
       <ConfettiButton
-        className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal"
+        className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal whitespace-nowrap"
         variant="outline"
         size="sm"
         onClick={() => handleSuggestionClick(t.inputBox.surpriseMePrompt)}
@@ -2493,6 +2313,7 @@ function SuggestionList({
           <DropdownMenu key={suggestion.suggestion}>
             <DropdownMenuTrigger asChild>
               <Suggestion
+                className="whitespace-nowrap"
                 data-testid="ppt-generation-menu-trigger"
                 icon={suggestion.icon}
                 suggestion={suggestion.suggestion}
@@ -2530,6 +2351,7 @@ function SuggestionList({
           </DropdownMenu>
         ) : (
           <Suggestion
+            className="whitespace-nowrap"
             key={suggestion.suggestion}
             icon={suggestion.icon}
             suggestion={suggestion.suggestion}
@@ -2539,7 +2361,11 @@ function SuggestionList({
       )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Suggestion icon={PlusIcon} suggestion={t.common.create} />
+          <Suggestion
+            className="whitespace-nowrap"
+            icon={PlusIcon}
+            suggestion={t.common.create}
+          />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuGroup>

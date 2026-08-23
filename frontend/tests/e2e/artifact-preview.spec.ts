@@ -12,6 +12,9 @@ const PRESENTED_PPTX_PATH = `/mnt/user-data/outputs/${PRESENTED_PPTX_FILENAME}`;
 const PRESENTED_PPTX_PREVIEW_PATH =
   "/mnt/user-data/outputs/中国海油勘探开发智能体平台研究报告_20260805_111535.preview.pdf";
 const PRESENTED_PDF_PATH = "/mnt/user-data/outputs/普通任务报告_20260819.pdf";
+const PRESENTED_DOCX_PATH = "/mnt/user-data/outputs/勘探分析报告_20260820.docx";
+const PRESENTED_DOCX_PREVIEW_PATH =
+  "/mnt/user-data/outputs/勘探分析报告_20260820.preview.pdf";
 const IN_PROGRESS_THREAD_ID = "00000000-0000-0000-0000-000000003119";
 const COMPLETE_THREAD_ID = "00000000-0000-0000-0000-000000003120";
 const MARKDOWN_THREAD_ID = "00000000-0000-0000-0000-000000003121";
@@ -20,6 +23,7 @@ const JSON_THREAD_ID = "00000000-0000-0000-0000-000000003122";
 const PRESENTED_THREAD_ID = "00000000-0000-0000-0000-000000003123";
 const PRESENTED_PPTX_THREAD_ID = "00000000-0000-0000-0000-000000003124";
 const PRESENTED_PDF_THREAD_ID = "00000000-0000-0000-0000-000000003128";
+const PRESENTED_DOCX_THREAD_ID = "00000000-0000-0000-0000-000000003129";
 const STATIC_DEMO_THREAD_ID = "1490ac9e-1573-479d-875c-bd5680f3ba66";
 const STATIC_DEMO_PPTX_PATH =
   "/mnt/user-data/outputs/cnooc_new_energy_20260811.pptx";
@@ -445,7 +449,7 @@ test.describe("Artifact preview stability", () => {
     await expect(presentedFileCard).toBeVisible({ timeout: 15_000 });
     await presentedFileCard.click();
 
-    await expect(artifactsPanel).toHaveAttribute("aria-hidden", "false");
+    await expect(artifactsPanel).not.toHaveAttribute("aria-hidden", "true");
     await expect(artifactsPanel.getByText("presented-report.md")).toBeVisible();
     await expect(artifactsPanel.getByText("Presented Report")).toBeVisible();
 
@@ -508,15 +512,21 @@ test.describe("Artifact preview stability", () => {
         },
       ],
     });
-    await page.route(`**/*111535.preview.pdf`, (route) =>
-      route.fulfill({
+    await page.route(`**/*111535.preview.pdf`, (route) => {
+      const request = route.request();
+      const isHead = request.method() === "HEAD";
+      const isGallery = request.url().includes("/artifact-previews/pdf/");
+      return route.fulfill({
         status: 200,
-        contentType: "application/pdf",
+        contentType: isGallery ? "text/html" : "application/pdf",
         headers: { "content-length": "14" },
-        body:
-          route.request().method() === "HEAD" ? undefined : "%PDF-1.4\n%%EOF",
-      }),
-    );
+        body: isHead
+          ? undefined
+          : isGallery
+            ? '<!doctype html><html><body><main><img alt="PDF page"></main></body></html>'
+            : "%PDF-1.4\n%%EOF",
+      });
+    });
 
     await page.goto(`/workspace/chats/${PRESENTED_PPTX_THREAD_ID}`);
     const pptxLink = page.getByRole("link", {
@@ -631,6 +641,92 @@ test.describe("Artifact preview stability", () => {
       `/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf${PRESENTED_PDF_PATH}`,
     );
     await expect(previewFrame).toHaveAttribute("sandbox", "");
+  });
+
+  test("opens a generated DOCX through its paired PDF preview", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: PRESENTED_DOCX_THREAD_ID,
+          title: "Word artifact preview",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-present-docx",
+              content: [{ type: "text", text: "Create a Word report" }],
+            },
+            {
+              type: "ai",
+              id: "msg-ai-present-docx",
+              content: `[勘探分析报告_20260820.docx](/api/threads/${PRESENTED_DOCX_THREAD_ID}/artifacts${PRESENTED_DOCX_PATH})`,
+              tool_calls: [
+                {
+                  id: "present-docx-artifact",
+                  name: "present_files",
+                  args: { filepaths: [PRESENTED_DOCX_PATH] },
+                },
+              ],
+            },
+            {
+              type: "tool",
+              id: "msg-tool-present-docx",
+              name: "present_files",
+              tool_call_id: "present-docx-artifact",
+              status: "success",
+              content: "Published",
+              artifact: {
+                presented_files: [
+                  PRESENTED_DOCX_PATH,
+                  PRESENTED_DOCX_PREVIEW_PATH,
+                ],
+              },
+            },
+          ],
+          artifacts: [PRESENTED_DOCX_PATH, PRESENTED_DOCX_PREVIEW_PATH],
+        },
+      ],
+    });
+    await page.route(`**/*20260820.preview.pdf`, async (route) => {
+      const isHead = route.request().method() === "HEAD";
+      if (!isHead) {
+        await new Promise((resolve) => setTimeout(resolve, 1_500));
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: isHead ? "application/pdf" : "text/html",
+        body: isHead
+          ? undefined
+          : '<!doctype html><html><body><main><img alt="PDF page"></main></body></html>',
+      });
+    });
+
+    await page.goto(`/workspace/chats/${PRESENTED_DOCX_THREAD_ID}`);
+    await page
+      .getByRole("link", { name: "勘探分析报告_20260820.docx" })
+      .click();
+
+    const artifactsPanel = page.locator("#artifacts");
+    await expect(
+      artifactsPanel.getByText("Loading preview pages...", { exact: true }),
+    ).toBeVisible();
+    const previewFrame = artifactsPanel.locator(
+      'iframe[title="Artifact preview"]',
+    );
+    await expect(previewFrame).toHaveClass(/invisible/);
+    await expect(previewFrame).toBeVisible({ timeout: 10_000 });
+    await expect(previewFrame).toHaveClass(/visible/);
+    await expect(
+      artifactsPanel.getByText("Loading preview pages...", { exact: true }),
+    ).toHaveCount(0);
+    await expect(previewFrame).toHaveAttribute(
+      "src",
+      `/api/threads/${PRESENTED_DOCX_THREAD_ID}/artifact-previews/pdf${PRESENTED_DOCX_PREVIEW_PATH}`,
+    );
+    await expect(
+      page.locator(`[data-artifact-filepath="${PRESENTED_DOCX_PREVIEW_PATH}"]`),
+    ).toHaveCount(0);
   });
 
   test("does not open a blank iframe for a stale recorded PPT preview", async ({

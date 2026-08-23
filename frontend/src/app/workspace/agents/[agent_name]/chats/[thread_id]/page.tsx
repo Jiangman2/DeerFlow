@@ -345,14 +345,15 @@ export default function AgentChatPage() {
               <div
                 className={cn(
                   "right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
-                  isWelcomeMode ? "absolute" : "relative shrink-0 pb-4",
+                  isWelcomeMode
+                    ? "app-safe-area-bottom absolute pb-3 sm:pb-0"
+                    : "relative shrink-0 pb-4",
                 )}
               >
                 <div
                   className={cn(
                     "relative w-full",
-                    isWelcomeMode &&
-                      "-translate-y-[calc(50dvh-48px)] sm:-translate-y-[calc(50dvh-96px)]",
+                    isWelcomeMode && "sm:-translate-y-[calc(50dvh-96px)]",
                     isWelcomeMode
                       ? "max-w-(--container-width-sm)"
                       : "max-w-(--container-width-md)",

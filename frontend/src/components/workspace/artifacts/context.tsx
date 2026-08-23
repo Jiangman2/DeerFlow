@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { findPowerPointForPreviewArtifact } from "@/core/artifacts/utils";
+import { findOfficeDocumentForPreviewArtifact } from "@/core/artifacts/utils";
 
 export interface ArtifactsContextType {
   artifacts: string[];
@@ -68,7 +68,7 @@ export function ArtifactsProvider({
   const select = useCallback(
     (artifact: string) => {
       setSelectedArtifact(
-        findPowerPointForPreviewArtifact(artifact, artifacts) ?? artifact,
+        findOfficeDocumentForPreviewArtifact(artifact, artifacts) ?? artifact,
       );
     },
     [artifacts],

@@ -29,6 +29,18 @@ def _write_minimal_pptx(path) -> None:
         archive.writestr("ppt/presentation.xml", "<p:presentation/>")
 
 
+def _write_minimal_docx(path) -> None:
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", "<w:document/>")
+
+
+def _write_minimal_xlsx(path) -> None:
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("xl/workbook.xml", "<workbook/>")
+
+
 def _write_minimal_skill(path) -> None:
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(
@@ -167,7 +179,7 @@ def test_present_files_downloads_virtual_output_from_active_sandbox(tmp_path, mo
 def test_present_files_persists_virtual_workspace_file_from_active_sandbox(tmp_path, monkeypatch):
     user_data_dir = tmp_path / "threads" / "thread-1" / "user-data"
     outputs_dir = user_data_dir / "outputs"
-    workspace_file = user_data_dir / "workspace" / "generated.docx"
+    workspace_file = user_data_dir / "workspace" / "generated.txt"
     outputs_dir.mkdir(parents=True)
 
     monkeypatch.setattr(
@@ -184,12 +196,12 @@ def test_present_files_persists_virtual_workspace_file_from_active_sandbox(tmp_p
 
     result = present_file_tool_module.present_file_tool.func(
         runtime=_make_runtime_with_sandbox(str(outputs_dir)),
-        filepaths=["/mnt/user-data/workspace/generated.docx"],
+        filepaths=["/mnt/user-data/workspace/generated.txt"],
         tool_call_id="tc-workspace-remote",
     )
 
-    assert result.update["artifacts"] == ["/mnt/user-data/outputs/generated.docx"]
-    assert (outputs_dir / "generated.docx").read_bytes() == b"document bytes"
+    assert result.update["artifacts"] == ["/mnt/user-data/outputs/generated.txt"]
+    assert (outputs_dir / "generated.txt").read_bytes() == b"document bytes"
 
 
 def test_present_files_auto_includes_pptx_preview_pdf(tmp_path):
@@ -209,6 +221,67 @@ def test_present_files_auto_includes_pptx_preview_pdf(tmp_path):
     assert result.update["artifacts"] == [
         "/mnt/user-data/outputs/deck.pptx",
         "/mnt/user-data/outputs/deck.preview.pdf",
+    ]
+
+
+def test_present_files_auto_includes_docx_preview_pdf(tmp_path):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    document_path = outputs_dir / "report.docx"
+    preview_path = outputs_dir / "report.preview.pdf"
+    _write_minimal_docx(document_path)
+    preview_path.write_bytes(b"%PDF-preview")
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime(str(outputs_dir)),
+        filepaths=[str(document_path)],
+        tool_call_id="tc-docx",
+    )
+
+    assert result.update["artifacts"] == [
+        "/mnt/user-data/outputs/report.docx",
+        "/mnt/user-data/outputs/report.preview.pdf",
+    ]
+
+
+def test_present_files_generates_missing_xlsx_preview_in_active_sandbox(
+    tmp_path,
+    monkeypatch,
+):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    workbook_path = outputs_dir / "metrics.xlsx"
+    preview_path = outputs_dir / "metrics.preview.pdf"
+    _write_minimal_xlsx(workbook_path)
+
+    class PreviewSandbox:
+        def execute_command(self, command, timeout=None):
+            assert "libreoffice" in command
+            assert "/mnt/user-data/outputs/metrics.xlsx" in command
+            assert "UserInstallation" in command
+            assert timeout == 240
+            preview_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+            return ""
+
+        def download_file(self, path):
+            assert path == "/mnt/user-data/outputs/metrics.preview.pdf"
+            return preview_path.read_bytes()
+
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get=lambda sandbox_id: PreviewSandbox()),
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime_with_sandbox(str(outputs_dir)),
+        filepaths=[str(workbook_path)],
+        tool_call_id="tc-xlsx-generate-preview",
+    )
+
+    assert result.update["artifacts"] == [
+        "/mnt/user-data/outputs/metrics.xlsx",
+        "/mnt/user-data/outputs/metrics.preview.pdf",
     ]
 
 
@@ -343,6 +416,36 @@ def test_present_files_rejects_pptx_when_preview_generation_fails(
     )
 
     assert "artifacts" not in result.update
+
+
+def test_present_files_rejects_docx_when_preview_generation_fails(
+    tmp_path,
+    monkeypatch,
+):
+    outputs_dir = tmp_path / "threads" / "thread-1" / "user-data" / "outputs"
+    outputs_dir.mkdir(parents=True)
+    document_path = outputs_dir / "报告.docx"
+    _write_minimal_docx(document_path)
+
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_paths",
+        lambda: SimpleNamespace(resolve_virtual_path=lambda thread_id, path, **kwargs: outputs_dir / path.removeprefix("/mnt/user-data/outputs/")),
+    )
+    monkeypatch.setattr(
+        present_file_tool_module,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get=lambda sandbox_id: None),
+    )
+
+    result = present_file_tool_module.present_file_tool.func(
+        runtime=_make_runtime_with_sandbox(str(outputs_dir)),
+        filepaths=["/mnt/user-data/outputs/报告.docx"],
+        tool_call_id="tc-docx-preview-required",
+    )
+
+    assert "artifacts" not in result.update
+    assert "Office preview generation failed" in result.update["messages"][0].content
 
 
 def test_ppt_master_acceptance_failure_keeps_workflow_blocked(tmp_path, monkeypatch):

@@ -292,6 +292,7 @@ function MessageContent_({
   runId?: string;
   turnStartTime?: number | null;
 }) {
+  const { t } = useI18n();
   const { select: selectArtifact, openArtifactPanel } = useArtifacts();
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const isHuman = message.type === "human";
@@ -377,9 +378,13 @@ function MessageContent_({
           maxWidth="90%"
         />
       ),
-      a: createMarkdownLinkComponent(threadId, handleArtifactClick),
+      a: createMarkdownLinkComponent(
+        threadId,
+        handleArtifactClick,
+        t.common.preview,
+      ),
     }),
-    [artifactPaths, handleArtifactClick, threadId],
+    [artifactPaths, handleArtifactClick, t.common.preview, threadId],
   );
 
   const rawContent = extractContentFromMessage(message);

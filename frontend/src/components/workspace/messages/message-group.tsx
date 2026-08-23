@@ -118,9 +118,13 @@ export function MessageGroup({
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const threadMarkdownComponents = useMemo(
     () => ({
-      a: createMarkdownLinkComponent(threadId),
+      a: createMarkdownLinkComponent(
+        threadId,
+        undefined,
+        t.common.preview,
+      ),
     }),
-    [threadId],
+    [t.common.preview, threadId],
   );
   const firstEligibleDebugSummaryStepIndexByMessageId = useMemo(() => {
     const firstIndices = new Map<string, number>();

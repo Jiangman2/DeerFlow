@@ -20,14 +20,21 @@ export function AgentWelcome({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full flex-col items-center justify-center gap-2 px-8 py-4 text-center",
+        "mx-auto flex w-full flex-col items-center justify-center gap-1 px-5 py-2 text-center sm:gap-2 sm:px-8 sm:py-4",
         className,
       )}
     >
-      <AgentNameIcon className="h-12 w-12" iconClassName="h-6 w-6" />
-      <div className="text-2xl font-bold">{displayName}</div>
+      <AgentNameIcon
+        className="h-9 w-9 sm:h-12 sm:w-12"
+        iconClassName="h-5 w-5 sm:h-6 sm:w-6"
+      />
+      <div className="max-w-full truncate text-[1.35rem] leading-tight font-bold sm:text-2xl">
+        {displayName}
+      </div>
       {description && (
-        <p className="text-muted-foreground max-w-sm text-sm">{description}</p>
+        <p className="text-muted-foreground line-clamp-1 max-w-[min(22rem,85vw)] text-xs sm:line-clamp-2 sm:max-w-sm sm:text-sm">
+          {description}
+        </p>
       )}
     </div>
   );

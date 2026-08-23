@@ -110,7 +110,7 @@ describe("artifact URL helpers", () => {
     );
   });
 
-  test("pairs PowerPoint artifacts with their browser preview PDF", async () => {
+  test("pairs Office artifacts with their browser preview PDF", async () => {
     const { findPreviewPdfPath, guessPreviewPdfPath, guessPreviewPdfPaths } =
       await loadFreshArtifactUtils();
 
@@ -133,22 +133,47 @@ describe("artifact URL helpers", () => {
       "/mnt/user-data/outputs/deck.preview.pdf",
       "/mnt/user-data/outputs/deck.pdf",
     ]);
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/report.docx")).toEqual([
+      "/mnt/user-data/outputs/report.preview.pdf",
+      "/mnt/user-data/outputs/report.pdf",
+    ]);
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/metrics.xlsx")).toEqual([
+      "/mnt/user-data/outputs/metrics.preview.pdf",
+      "/mnt/user-data/outputs/metrics.pdf",
+    ]);
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/notes.txt")).toEqual(
+      [],
+    );
   });
 
-  test("hides PowerPoint preview companions from user-facing artifacts", async () => {
-    const { filterUserVisibleArtifacts, findPowerPointForPreviewArtifact } =
+  test("hides Office preview companions from user-facing artifacts", async () => {
+    const { filterUserVisibleArtifacts, findOfficeDocumentForPreviewArtifact } =
       await loadFreshArtifactUtils();
     const pptxPath = "/mnt/user-data/outputs/deck.pptx";
-    const previewPath = "/mnt/user-data/outputs/deck.preview.pdf";
+    const docxPath = "/mnt/user-data/outputs/report.docx";
+    const pptxPreviewPath = "/mnt/user-data/outputs/deck.preview.pdf";
+    const docxPreviewPath = "/mnt/user-data/outputs/report.preview.pdf";
     const standalonePdfPath = "/mnt/user-data/outputs/standalone.pdf";
-    const files = [pptxPath, previewPath, standalonePdfPath];
+    const files = [
+      pptxPath,
+      docxPath,
+      pptxPreviewPath,
+      docxPreviewPath,
+      standalonePdfPath,
+    ];
 
-    expect(findPowerPointForPreviewArtifact(previewPath, files)).toBe(pptxPath);
+    expect(findOfficeDocumentForPreviewArtifact(pptxPreviewPath, files)).toBe(
+      pptxPath,
+    );
+    expect(findOfficeDocumentForPreviewArtifact(docxPreviewPath, files)).toBe(
+      docxPath,
+    );
     expect(filterUserVisibleArtifacts(files)).toEqual([
       pptxPath,
+      docxPath,
       standalonePdfPath,
     ]);
-    expect(filterUserVisibleArtifacts([previewPath], files)).toEqual([]);
+    expect(filterUserVisibleArtifacts([docxPreviewPath], files)).toEqual([]);
   });
 
   test("hides the legacy same-stem PDF only when its PowerPoint exists", async () => {
