@@ -1280,6 +1280,13 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
   by completion id, publishes only deltas, and clears terminal or idle state so
   LangChain cannot multiply prompt/cache usage by the chunk count. Keep the
   option disabled for providers that already emit per-chunk usage.
+  Historical aggregates written before that guard cannot recover the missing
+  final provider snapshot exactly. Use
+  `backend/scripts/correct_cumulative_token_usage.py` for PostgreSQL incident
+  repair: audit is read-only, apply quarantines only impossible per-call
+  contributions after writing an atomic backup, rollback restores the exact
+  original run aggregates, and `run_events` always remains immutable. Never
+  replace this with an unbacked bulk reset or an arbitrary estimated divisor.
 - `logging.enhance` - Optional request trace correlation (`enabled`, `format`) for Gateway `X-Trace-Id`, log `trace_id`, and Langfuse `deerflow_trace_id`
 - vLLM reasoning models should use `deerflow.models.vllm_provider:VllmChatModel`; for Qwen-style parsers prefer `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`, and DeerFlow will also normalize the older `thinking` alias
 - `tools[]` - Tool configs with `use` variable path and `group`

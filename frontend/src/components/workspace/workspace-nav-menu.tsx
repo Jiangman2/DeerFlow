@@ -63,7 +63,7 @@ export function WorkspaceNavMenu() {
     setMounted(true);
   }, []);
 
-  const showSettings = (section: "appearance" | "about") => {
+  const showSettings = (section: "account" | "about") => {
     if (!isMobile) {
       openSettings(section);
       return;
@@ -116,7 +116,7 @@ export function WorkspaceNavMenu() {
                       </DropdownMenuItem>
                     </>
                   )}
-                  <DropdownMenuItem onClick={() => showSettings("appearance")}>
+                  <DropdownMenuItem onClick={() => showSettings("account")}>
                     <Settings2Icon />
                     {t.common.settings}
                   </DropdownMenuItem>

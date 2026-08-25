@@ -195,6 +195,11 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
    LangChain aggregates them. Leave the option disabled for providers that
    already emit per-chunk usage.
 
+   If an older deployment already persisted impossible cumulative-stream
+   totals, use the audited and reversible maintenance procedure in
+   [Cumulative stream token-usage repair](docs/token-usage-cumulative-repair.md).
+   The tool defaults to a read-only audit and never rewrites `run_events`.
+
    To route OpenAI models through `/v1/responses`, keep using `langchain_openai:ChatOpenAI` and set `use_responses_api: true` with `output_version: responses/v1`.
 
    For vLLM 0.19.0, use `deerflow.models.vllm_provider:VllmChatModel`. For Qwen-style reasoning models, DeerFlow toggles reasoning with `extra_body.chat_template_kwargs.enable_thinking` and preserves vLLM's non-standard `reasoning` field across multi-turn tool-call conversations. Legacy `thinking` configs are normalized automatically for backward compatibility. Reasoning models may also require the server to be started with `--reasoning-parser ...`. If your local vLLM deployment accepts any non-empty API key, you can still set `VLLM_API_KEY` to a placeholder value.
@@ -489,7 +494,9 @@ Administrators can create, schedule, publish, and archive workspace announcement
 The settings dialog uses a bounded desktop viewport inset and an independent
 inner content frame. This keeps the title, navigation, and content borders
 separated on legacy enterprise browsers while retaining full-screen, scrollable
-behavior on mobile WebViews.
+behavior on mobile WebViews. The enterprise workspace hides the Appearance
+navigation entry and opens Settings on Account while retaining the underlying
+theme provider and existing stored theme preference.
 
 The mobile workspace keeps the same authenticated DeerFlow routes and APIs, but
 uses a compact welcome surface, a safe-area-aware bottom composer, single-line
@@ -501,6 +508,11 @@ reduced-motion fallback. Closing the mobile drawer before opening Settings is
 coordinated by a persistent dialog host, so the settings surface cannot be lost
 when the Sidebar Sheet unmounts. Desktop layout and permission behavior are
 unchanged.
+
+Custom-agent new-chat routes reuse that same CNOOC welcome composition on
+desktop and mobile. Their agent icon, name, and description remain a separate
+welcome region above the shared composer; custom-agent routing and every native
+task/header action are preserved after the first message is sent.
 
 | Channel       | Transport                    | Difficulty |
 | ------------- | ---------------------------- | ---------- |

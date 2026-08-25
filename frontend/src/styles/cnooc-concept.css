@@ -1082,6 +1082,57 @@
     pointer-events: none;
   }
 
+  .cnooc-agent-welcome-stage .cnooc-agent-welcome {
+    position: absolute;
+    top: clamp(160px, 21vh, 205px);
+    right: 42px;
+    left: 42px;
+    width: auto;
+    max-width: none;
+    gap: 8px;
+    padding: 0;
+    color: var(--cnooc-ink);
+    font-family: var(--cnooc-font);
+  }
+
+  .cnooc-agent-welcome-stage .cnooc-agent-welcome-icon {
+    width: 52px !important;
+    height: 52px !important;
+    flex: 0 0 52px;
+    box-shadow: 0 10px 24px rgba(61, 102, 172, 0.12);
+  }
+
+  .cnooc-agent-welcome-stage .cnooc-agent-welcome-title {
+    max-width: min(760px, calc(100vw - 160px));
+    overflow: visible;
+    color: var(--cnooc-ink);
+    font-size: clamp(28px, 2.05vw, 36px);
+    font-weight: 800;
+    line-height: 1.22;
+    letter-spacing: 0.025em;
+    white-space: normal;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+
+  .cnooc-agent-welcome-stage .cnooc-agent-welcome-description {
+    max-width: min(720px, calc(100vw - 160px));
+    margin: 2px 0 0;
+    color: #7890b1;
+    font-size: clamp(14px, 1.08vw, 17px);
+    font-weight: 400;
+    line-height: 1.65;
+    letter-spacing: 0.018em;
+  }
+
+  .cnooc-agent-header-badge {
+    min-height: 36px;
+    border-color: rgba(205, 219, 238, 0.92) !important;
+    background: rgba(255, 255, 255, 0.76) !important;
+    color: #315f9f;
+    box-shadow: 0 8px 18px rgba(61, 98, 153, 0.06);
+  }
+
   .cnooc-welcome-panel {
     position: relative;
     width: 100%;
@@ -2152,6 +2203,93 @@
     bottom: 0;
     left: 0;
     pointer-events: none;
+  }
+
+  .cnooc-agent-welcome-stage .cnooc-agent-welcome {
+    position: absolute;
+    top: 24px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    min-height: 188px;
+    gap: 7px;
+    padding: 24px 22px;
+    overflow: hidden;
+    border: 1px solid rgba(183, 211, 244, 0.62);
+    border-radius: 24px;
+    background:
+      radial-gradient(
+        circle at 82% 12%,
+        rgba(183, 215, 255, 0.58),
+        transparent 42%
+      ),
+      linear-gradient(
+        145deg,
+        rgba(255, 255, 255, 0.86),
+        rgba(226, 240, 255, 0.72)
+      );
+    color: var(--cnooc-ink);
+    box-shadow:
+      0 14px 34px rgba(61, 99, 153, 0.1),
+      0 0 30px rgba(198, 222, 252, 0.4);
+    backdrop-filter: blur(12px);
+  }
+
+  .cnooc-agent-welcome-stage .cnooc-agent-welcome-icon {
+    width: 46px !important;
+    height: 46px !important;
+    flex: 0 0 46px;
+  }
+
+  .cnooc-agent-welcome-stage .cnooc-agent-welcome-title {
+    max-width: 100%;
+    overflow: visible;
+    color: var(--cnooc-ink);
+    font-size: 23px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+    white-space: normal;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+
+  .cnooc-agent-welcome-stage .cnooc-agent-welcome-description {
+    display: -webkit-box;
+    max-width: 100%;
+    margin: 0;
+    overflow: hidden;
+    color: #617895;
+    font-size: 13px;
+    line-height: 1.65;
+    letter-spacing: 0.012em;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .cnooc-chat-header-welcome .cnooc-agent-header-badge {
+    position: absolute;
+    left: 50%;
+    max-width: calc(100vw - 136px);
+    min-height: 34px;
+    padding: 0 10px !important;
+    border: 0 !important;
+    background: rgba(226, 238, 255, 0.88) !important;
+    color: #315f9f;
+    transform: translateX(-50%);
+    box-shadow: none;
+  }
+
+  .cnooc-chat-header-welcome .cnooc-agent-header-badge svg {
+    width: 17px !important;
+    height: 17px !important;
+  }
+
+  .cnooc-chat-header-welcome .cnooc-agent-header-badge span {
+    max-width: calc(100vw - 180px);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
 
   .cnooc-welcome-panel {

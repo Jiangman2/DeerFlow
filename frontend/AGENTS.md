@@ -290,10 +290,14 @@ poll every 60 seconds. External-agent click telemetry must use the shared
 authenticated fetch wrapper so the CSRF token is sent; telemetry failure must
 not block navigation.
 
-Settings appearance previews must remain shrinkable inside the dialog grid:
-avoid fixed-width inner preview columns and retain `min-w-0` on nested grid
-items. Preview colors must use explicit light/dark palette classes rather than
-Tailwind slash-alpha utilities such as `bg-current/15` or
+The enterprise Settings dialog intentionally hides the Appearance navigation
+entry and opens on Account by default. Keep the underlying `next-themes`
+provider and stored theme compatibility intact; hiding the entry must not reset
+an existing user preference or delete the reusable Appearance page. If the
+entry is restored later, its previews must remain shrinkable inside the dialog
+grid: avoid fixed-width inner preview columns and retain `min-w-0` on nested
+grid items. Preview colors must use explicit light/dark palette classes rather
+than Tailwind slash-alpha utilities such as `bg-current/15` or
 `border-current/10`; audited enterprise browsers can drop the alpha modifier
 and render those shapes as opaque blocks. User-visible workspace and auth
 status surfaces such as active microphone and input-polish overlays must follow
@@ -349,6 +353,12 @@ CNOOC-branded character cutout with a reduced-motion fallback; do not restore a
 rectangular or circular background plate around it. Settings state is owned
 above the mobile Sidebar Sheet so the drawer can finish closing before the
 full-screen Settings dialog opens without losing the requested section.
+Custom-agent `/workspace/agents/[agent_name]/chats/new` pages reuse the same
+CNOOC header, welcome-stage, composer, quick-action rail, copyright, safe-area,
+and task backdrop classes as the ordinary new-chat route. Keep the agent name
+and description in the independent welcome stage rather than placing them in
+`InputBox.extraHeader`; the custom `agent_name` send context and native task
+header actions remain unchanged.
 The native App integration and release checklist live in
 `docs/mobile-webview-integration.md`.
 
