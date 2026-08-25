@@ -3054,15 +3054,6 @@
     max-height: 44px !important;
     flex-basis: 44px !important;
   }
-
-  .cnooc-create-menu .cnooc-action-artwork {
-    width: 44px !important;
-    height: 44px !important;
-    min-width: 44px !important;
-    max-width: 44px !important;
-    max-height: 44px !important;
-    flex-basis: 44px !important;
-  }
 }
 
 .cnooc-workspace-shell

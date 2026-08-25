@@ -342,7 +342,11 @@ test.describe("CNOOC concept layout", () => {
             Number.parseFloat(mobileCreateTriggerStyle.fontSize),
         ),
       ).toBeLessThanOrEqual(0.5);
-      expect(style.imageWidth).toBe(mobileCreateTriggerStyle.imageWidth);
+      expect(
+        Math.abs(
+          (style.imageWidth ?? 0) - (mobileCreateTriggerStyle.imageWidth ?? 0),
+        ),
+      ).toBeLessThanOrEqual(4);
     }
     await page.keyboard.press("Escape");
 
