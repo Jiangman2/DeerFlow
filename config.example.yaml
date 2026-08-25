@@ -539,6 +539,18 @@ models:
   #   max_tokens: 8192
   #   temperature: 0.7
 
+  # Example: enterprise OpenAI-compatible endpoint with cumulative stream usage
+  # Use RobustChatOpenAI when a gateway wraps application failures in HTTP 200
+  # responses. Enable cumulative_stream_usage only when every stream chunk
+  # repeats the completion's cumulative usage snapshot.
+  # - name: enterprise-openai-compatible
+  #   display_name: Enterprise OpenAI-Compatible Model
+  #   use: deerflow.models.robust_openai:RobustChatOpenAI
+  #   model: enterprise-model
+  #   api_key: $ENTERPRISE_LLM_API_KEY
+  #   base_url: https://llm.example.internal/v1
+  #   cumulative_stream_usage: true
+
   # Example: Atlas Cloud (OpenAI-compatible)
   # Atlas Cloud exposes a single OpenAI-compatible endpoint in front of many open
   # models (DeepSeek, Qwen, Kimi, GLM, MiniMax, Llama, ...), so it uses the same

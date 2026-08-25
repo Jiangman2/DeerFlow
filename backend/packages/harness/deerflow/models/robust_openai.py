@@ -18,8 +18,11 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
+import time
 import warnings
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections import OrderedDict
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from typing import Any, Literal
 
 import openai
@@ -32,6 +35,7 @@ from langchain_core.messages import (
     BaseMessage,
     BaseMessageChunk,
 )
+from langchain_core.messages.ai import UsageMetadata, subtract_usage
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_openai import ChatOpenAI
 from langchain_openai.chat_models.base import (
@@ -39,9 +43,12 @@ from langchain_openai.chat_models.base import (
     _handle_openai_api_error,
     _handle_openai_bad_request,
 )
+from pydantic import Field, PrivateAttr
 
 _MAX_PROVIDER_MESSAGE_CHARS = 1000
 _MAX_JSON_STRING_UNWRAP_DEPTH = 3
+_CUMULATIVE_USAGE_TRACKER_CAPACITY = 1024
+_CUMULATIVE_USAGE_TRACKER_IDLE_SECONDS = 60 * 60
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +190,20 @@ def _has_terminal_finish(chunk: dict[str, Any]) -> bool:
     return any(isinstance(choice, dict) and choice.get("finish_reason") is not None for choice in choices)
 
 
+def _get_completion_id(chunk: Mapping[str, Any]) -> str | None:
+    """Return a stable completion id when the provider supplied one."""
+
+    candidates = [chunk.get("id")]
+    nested_chunk = chunk.get("chunk")
+    if isinstance(nested_chunk, Mapping):
+        candidates.append(nested_chunk.get("id"))
+
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate
+    return None
+
+
 class _StreamFrameGuard:
     """Quarantine malformed scalar frames until a legal stream end is observed.
 
@@ -239,6 +260,71 @@ class RobustChatOpenAI(ChatOpenAI):
     """
 
     disable_streaming: bool | Literal["tool_calling"] = False
+    cumulative_stream_usage: bool = Field(
+        default=False,
+        description=("Treat streaming usage snapshots from an OpenAI-compatible provider as cumulative per completion and convert them to per-chunk deltas."),
+    )
+    _cumulative_usage_by_completion: OrderedDict[str, tuple[UsageMetadata, float]] = PrivateAttr(default_factory=OrderedDict)
+    _cumulative_usage_lock: Any = PrivateAttr(default_factory=threading.Lock)
+
+    def _usage_delta(self, completion_id: str, usage: UsageMetadata, *, terminal: bool) -> UsageMetadata:
+        """Convert a completion's cumulative usage snapshot into a delta."""
+
+        with self._cumulative_usage_lock:
+            previous_snapshot = self._cumulative_usage_by_completion.get(completion_id)
+            previous = previous_snapshot[0] if previous_snapshot is not None else None
+            delta = subtract_usage(usage, previous)
+            if terminal:
+                self._cumulative_usage_by_completion.pop(completion_id, None)
+            else:
+                now = time.monotonic()
+                self._cumulative_usage_by_completion[completion_id] = (usage, now)
+                self._cumulative_usage_by_completion.move_to_end(completion_id)
+                while len(self._cumulative_usage_by_completion) > _CUMULATIVE_USAGE_TRACKER_CAPACITY:
+                    oldest_completion_id, (_, updated_at) = next(iter(self._cumulative_usage_by_completion.items()))
+                    if now - updated_at < _CUMULATIVE_USAGE_TRACKER_IDLE_SECONDS:
+                        break
+                    self._cumulative_usage_by_completion.pop(oldest_completion_id, None)
+            return delta
+
+    def _clear_usage_snapshot(self, completion_id: str) -> None:
+        """Forget a completed stream even when its terminal frame has no usage."""
+
+        with self._cumulative_usage_lock:
+            self._cumulative_usage_by_completion.pop(completion_id, None)
+
+    def _convert_chunk_to_generation_chunk(
+        self,
+        chunk: dict[str, Any],
+        default_chunk_class: type[BaseMessageChunk],
+        base_generation_info: dict[str, Any],
+    ) -> ChatGenerationChunk | None:
+        """Normalize opt-in cumulative usage after standard chunk conversion."""
+
+        generation_chunk = super()._convert_chunk_to_generation_chunk(
+            chunk,
+            default_chunk_class,
+            base_generation_info,
+        )
+        if generation_chunk is None or not self.cumulative_stream_usage:
+            return generation_chunk
+
+        completion_id = _get_completion_id(chunk)
+        if completion_id is None:
+            return generation_chunk
+
+        choices = chunk.get("choices", []) or chunk.get("chunk", {}).get("choices", [])
+        terminal = len(choices) == 0
+        usage_metadata = getattr(generation_chunk.message, "usage_metadata", None)
+        if usage_metadata is not None and isinstance(generation_chunk.message, AIMessageChunk):
+            generation_chunk.message.usage_metadata = self._usage_delta(
+                completion_id,
+                usage_metadata,
+                terminal=terminal,
+            )
+        elif terminal:
+            self._clear_usage_snapshot(completion_id)
+        return generation_chunk
 
     @staticmethod
     def _normalize_stream_chunk(chunk: Any) -> dict[str, Any]:

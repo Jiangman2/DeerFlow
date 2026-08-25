@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pytest
+from langchain_core.messages import AIMessageChunk
 
 from deerflow.models.robust_openai import (
     OpenAICompatibleResponseError,
@@ -11,12 +12,318 @@ from deerflow.models.robust_openai import (
 )
 
 
-def _model() -> RobustChatOpenAI:
-    return RobustChatOpenAI(model="test-model", api_key="test-key")
+def _model(*, cumulative_stream_usage: bool = False) -> RobustChatOpenAI:
+    return RobustChatOpenAI(
+        model="test-model",
+        api_key="test-key",
+        cumulative_stream_usage=cumulative_stream_usage,
+    )
+
+
+def _stream_chunk(
+    *,
+    completion_id: str | None,
+    prompt_tokens: int,
+    completion_tokens: int,
+    cached_tokens: int = 0,
+    content: str = "",
+    finish_reason: str | None = None,
+) -> dict:
+    chunk = {
+        "model": "DeepSeek-V4-Flash",
+        "choices": [
+            {
+                "delta": {"role": "assistant", "content": content},
+                "finish_reason": finish_reason,
+            }
+        ],
+        "usage": {
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "total_tokens": prompt_tokens + completion_tokens,
+            "prompt_tokens_details": {"cached_tokens": cached_tokens},
+        },
+    }
+    if completion_id is not None:
+        chunk["id"] = completion_id
+    return chunk
+
+
+def _convert_stream_chunk(model: RobustChatOpenAI, chunk: dict):
+    return model._convert_chunk_to_generation_chunk(chunk, AIMessageChunk, {})
+
+
+def _assert_usage(message, *, input_tokens: int, output_tokens: int, total_tokens: int, cache_read: int | None = None) -> None:
+    assert message.usage_metadata is not None
+    assert message.usage_metadata["input_tokens"] == input_tokens
+    assert message.usage_metadata["output_tokens"] == output_tokens
+    assert message.usage_metadata["total_tokens"] == total_tokens
+    if cache_read is not None:
+        assert message.usage_metadata["input_token_details"]["cache_read"] == cache_read
 
 
 def test_streaming_remains_enabled_for_enterprise_tool_calls() -> None:
     assert _model().disable_streaming is False
+
+
+def test_cumulative_stream_usage_prevents_1024x_cache_inflation() -> None:
+    model = _model(cumulative_stream_usage=True)
+    chunks = [
+        _convert_stream_chunk(
+            model,
+            _stream_chunk(
+                completion_id="chatcmpl-production-regression",
+                prompt_tokens=36_144,
+                completion_tokens=0,
+                cached_tokens=36_144,
+            ),
+        )
+        for _ in range(1024)
+    ]
+    terminal = _convert_stream_chunk(
+        model,
+        {
+            "id": "chatcmpl-production-regression",
+            "model": "DeepSeek-V4-Flash",
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 36_144,
+                "completion_tokens": 0,
+                "total_tokens": 36_144,
+                "prompt_tokens_details": {"cached_tokens": 36_144},
+            },
+        },
+    )
+
+    assert all(chunk is not None for chunk in chunks)
+    assert terminal is not None
+    combined = chunks[0]
+    for chunk in chunks[1:]:
+        combined += chunk
+    combined += terminal
+
+    _assert_usage(
+        combined.message,
+        input_tokens=36_144,
+        output_tokens=0,
+        total_tokens=36_144,
+        cache_read=36_144,
+    )
+    assert not model._cumulative_usage_by_completion
+
+
+def test_cumulative_stream_usage_converts_snapshots_to_deltas() -> None:
+    model = _model(cumulative_stream_usage=True)
+
+    first = _convert_stream_chunk(
+        model,
+        _stream_chunk(
+            completion_id="chatcmpl-1",
+            prompt_tokens=100,
+            completion_tokens=1,
+            cached_tokens=80,
+            content="A",
+        ),
+    )
+    second = _convert_stream_chunk(
+        model,
+        _stream_chunk(
+            completion_id="chatcmpl-1",
+            prompt_tokens=100,
+            completion_tokens=3,
+            cached_tokens=80,
+            content="B",
+            finish_reason="stop",
+        ),
+    )
+    terminal = _convert_stream_chunk(
+        model,
+        {
+            "id": "chatcmpl-1",
+            "model": "DeepSeek-V4-Flash",
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 3,
+                "total_tokens": 103,
+                "prompt_tokens_details": {"cached_tokens": 80},
+            },
+        },
+    )
+
+    assert first is not None
+    _assert_usage(first.message, input_tokens=100, output_tokens=1, total_tokens=101, cache_read=80)
+    assert second is not None
+    _assert_usage(second.message, input_tokens=0, output_tokens=2, total_tokens=2, cache_read=0)
+    assert terminal is not None
+    _assert_usage(terminal.message, input_tokens=0, output_tokens=0, total_tokens=0, cache_read=0)
+    combined = first + second + terminal
+    _assert_usage(combined.message, input_tokens=100, output_tokens=3, total_tokens=103, cache_read=80)
+    assert combined.message.content == "AB"
+    assert not model._cumulative_usage_by_completion
+
+
+def test_cumulative_stream_usage_leaves_terminal_only_usage_unchanged() -> None:
+    model = _model(cumulative_stream_usage=True)
+
+    terminal = _convert_stream_chunk(
+        model,
+        {
+            "id": "chatcmpl-terminal",
+            "model": "DeepSeek-V4-Flash",
+            "choices": [],
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 4,
+                "total_tokens": 104,
+                "prompt_tokens_details": {"cached_tokens": 80},
+            },
+        },
+    )
+
+    assert terminal is not None
+    _assert_usage(terminal.message, input_tokens=100, output_tokens=4, total_tokens=104, cache_read=80)
+    assert not model._cumulative_usage_by_completion
+
+
+def test_cumulative_stream_usage_clears_snapshot_on_terminal_without_usage() -> None:
+    model = _model(cumulative_stream_usage=True)
+    _convert_stream_chunk(
+        model,
+        _stream_chunk(
+            completion_id="chatcmpl-no-terminal-usage",
+            prompt_tokens=100,
+            completion_tokens=1,
+        ),
+    )
+
+    terminal = _convert_stream_chunk(
+        model,
+        {
+            "id": "chatcmpl-no-terminal-usage",
+            "model": "DeepSeek-V4-Flash",
+            "choices": [],
+        },
+    )
+
+    assert terminal is not None
+    assert terminal.message.usage_metadata is None
+    assert not model._cumulative_usage_by_completion
+
+
+def test_cumulative_stream_usage_tracks_interleaved_completion_ids() -> None:
+    model = _model(cumulative_stream_usage=True)
+
+    stream_a_first = _convert_stream_chunk(
+        model,
+        _stream_chunk(completion_id="chatcmpl-a", prompt_tokens=10, completion_tokens=1),
+    )
+    stream_b_first = _convert_stream_chunk(
+        model,
+        _stream_chunk(completion_id="chatcmpl-b", prompt_tokens=20, completion_tokens=2),
+    )
+    stream_a_second = _convert_stream_chunk(
+        model,
+        _stream_chunk(completion_id="chatcmpl-a", prompt_tokens=10, completion_tokens=5),
+    )
+
+    assert stream_a_first is not None
+    _assert_usage(stream_a_first.message, input_tokens=10, output_tokens=1, total_tokens=11)
+    assert stream_b_first is not None
+    _assert_usage(stream_b_first.message, input_tokens=20, output_tokens=2, total_tokens=22)
+    assert stream_a_second is not None
+    _assert_usage(stream_a_second.message, input_tokens=0, output_tokens=4, total_tokens=4)
+
+
+def test_cumulative_stream_usage_does_not_advance_for_discarded_null_delta() -> None:
+    model = _model(cumulative_stream_usage=True)
+    first = _convert_stream_chunk(
+        model,
+        _stream_chunk(completion_id="chatcmpl-null-delta", prompt_tokens=10, completion_tokens=1),
+    )
+    discarded = _convert_stream_chunk(
+        model,
+        {
+            "id": "chatcmpl-null-delta",
+            "model": "DeepSeek-V4-Flash",
+            "choices": [{"delta": None, "finish_reason": None}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12},
+        },
+    )
+    next_chunk = _convert_stream_chunk(
+        model,
+        _stream_chunk(completion_id="chatcmpl-null-delta", prompt_tokens=10, completion_tokens=3),
+    )
+
+    assert first is not None
+    assert discarded is None
+    assert next_chunk is not None
+    _assert_usage(next_chunk.message, input_tokens=0, output_tokens=2, total_tokens=2)
+
+
+def test_cumulative_stream_usage_does_not_evict_active_streams_at_soft_capacity(monkeypatch) -> None:
+    monkeypatch.setattr("deerflow.models.robust_openai._CUMULATIVE_USAGE_TRACKER_CAPACITY", 2)
+    monkeypatch.setattr("deerflow.models.robust_openai.time.monotonic", lambda: 0.0)
+    model = _model(cumulative_stream_usage=True)
+
+    for index in range(3):
+        _convert_stream_chunk(
+            model,
+            _stream_chunk(completion_id=f"chatcmpl-{index}", prompt_tokens=10, completion_tokens=1),
+        )
+
+    assert list(model._cumulative_usage_by_completion) == ["chatcmpl-0", "chatcmpl-1", "chatcmpl-2"]
+
+
+def test_cumulative_stream_usage_evicts_only_idle_streams_above_soft_capacity(monkeypatch) -> None:
+    monkeypatch.setattr("deerflow.models.robust_openai._CUMULATIVE_USAGE_TRACKER_CAPACITY", 2)
+    monkeypatch.setattr("deerflow.models.robust_openai._CUMULATIVE_USAGE_TRACKER_IDLE_SECONDS", 10)
+    now = [0.0]
+    monkeypatch.setattr("deerflow.models.robust_openai.time.monotonic", lambda: now[0])
+    model = _model(cumulative_stream_usage=True)
+
+    for index in range(3):
+        _convert_stream_chunk(
+            model,
+            _stream_chunk(completion_id=f"chatcmpl-{index}", prompt_tokens=10, completion_tokens=1),
+        )
+
+    now[0] = 11.0
+    _convert_stream_chunk(
+        model,
+        _stream_chunk(completion_id="chatcmpl-3", prompt_tokens=10, completion_tokens=1),
+    )
+
+    assert list(model._cumulative_usage_by_completion) == ["chatcmpl-2", "chatcmpl-3"]
+
+
+def test_cumulative_stream_usage_is_opt_in_and_requires_completion_id() -> None:
+    default_model = _model()
+    opted_in_model = _model(cumulative_stream_usage=True)
+
+    _convert_stream_chunk(
+        default_model,
+        _stream_chunk(completion_id="chatcmpl-default", prompt_tokens=10, completion_tokens=1),
+    )
+    default_second = _convert_stream_chunk(
+        default_model,
+        _stream_chunk(completion_id="chatcmpl-default", prompt_tokens=10, completion_tokens=3),
+    )
+    _convert_stream_chunk(
+        opted_in_model,
+        _stream_chunk(completion_id=None, prompt_tokens=10, completion_tokens=1),
+    )
+    no_id_second = _convert_stream_chunk(
+        opted_in_model,
+        _stream_chunk(completion_id=None, prompt_tokens=10, completion_tokens=3),
+    )
+
+    assert default_second is not None
+    _assert_usage(default_second.message, input_tokens=10, output_tokens=3, total_tokens=13)
+    assert no_id_second is not None
+    _assert_usage(no_id_second.message, input_tokens=10, output_tokens=3, total_tokens=13)
+    assert not default_model._cumulative_usage_by_completion
+    assert not opted_in_model._cumulative_usage_by_completion
 
 
 def test_json_encoded_stream_chunk_is_normalized() -> None:

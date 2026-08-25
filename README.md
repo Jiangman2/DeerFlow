@@ -189,7 +189,11 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
    only when a later standard chunk proves a legal terminal finish; a truncated
    stream remains a typed failure and receives at most three fresh request
    attempts. Raw malformed frame content is never logged or promoted to an
-   assistant message or tool call.
+   assistant message or tool call. If that endpoint emits cumulative token
+   usage on every streamed chunk, set `cumulative_stream_usage: true` on the
+   model so DeerFlow converts each completion's snapshots to deltas before
+   LangChain aggregates them. Leave the option disabled for providers that
+   already emit per-chunk usage.
 
    To route OpenAI models through `/v1/responses`, keep using `langchain_openai:ChatOpenAI` and set `use_responses_api: true` with `output_version: responses/v1`.
 
