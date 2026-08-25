@@ -77,10 +77,10 @@ export default function ChatsPage() {
       <WorkspaceHeader></WorkspaceHeader>
       <WorkspaceBody>
         <div className="flex size-full flex-col">
-          <header className="flex shrink-0 items-center justify-center px-3 pt-4 sm:px-4 sm:pt-8">
+          <header className="cnooc-list-search flex shrink-0 items-center justify-center px-3 pt-4 sm:px-4 sm:pt-8">
             <Input
               type="search"
-              className="h-11 w-full max-w-(--container-width-md) text-base sm:h-12 sm:text-xl"
+              className="cnooc-search-input h-11 w-full max-w-(--container-width-md) text-base sm:h-12 sm:text-xl"
               placeholder={t.chats.searchChats}
               autoFocus
               value={search}
@@ -89,7 +89,7 @@ export default function ChatsPage() {
           </header>
           <main className="min-h-0 flex-1">
             <ScrollArea className="app-scroll-region size-full py-2 sm:py-4">
-              <div className="mx-auto flex size-full max-w-(--container-width-md) flex-col">
+              <div className="cnooc-thread-list mx-auto flex size-full max-w-(--container-width-md) flex-col">
                 {filteredThreads.map((thread) => {
                   const channelSource = channelSourceOfThread(thread);
                   return (

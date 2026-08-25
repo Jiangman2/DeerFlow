@@ -300,7 +300,7 @@ export default function AgentChatPage() {
                 <TokenUsageIndicator
                   threadId={isNewThread ? undefined : threadId}
                   backendUsage={backendTokenUsage}
-                  enabled={tokenUsageEnabled}
+                  enabled
                   messages={thread.messages}
                   pendingMessages={pendingUsageMessages}
                   preferences={localSettings.tokenUsage}

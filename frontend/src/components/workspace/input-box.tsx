@@ -6,16 +6,18 @@ import type { ChatStatus } from "ai";
 import {
   BookOpenIcon,
   CheckIcon,
+  ChevronDownIcon,
   Loader2Icon,
   MicIcon,
   PaperclipIcon,
-  PlusIcon,
+  SquarePlusIcon,
   SparklesIcon,
   SquareIcon,
   TargetIcon,
   Undo2Icon,
   XIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -25,6 +27,7 @@ import {
   useState,
   type ComponentProps,
   type ClipboardEvent,
+  type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
 } from "react";
@@ -144,6 +147,22 @@ import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { SlashSkillChip } from "./slash-skill-chip";
 import { Tooltip } from "./tooltip";
 
+const QUICK_ACTION_ARTWORK = {
+  surprise: "/images/action-surprise.png",
+  suggestions: [
+    "/images/action-image.png",
+    "/images/action-ppt.png",
+    "/images/action-research.png",
+    "/images/action-analysis.png",
+  ],
+  createTrigger: "/images/action-create.svg",
+  create: [
+    "/images/action-web.png",
+    "/images/action-video.png",
+    "/images/action-skill.png",
+  ],
+} as const;
+
 type InputBoxContext = Omit<
   AgentThreadContext,
   "thread_id" | "is_plan_mode" | "thinking_enabled" | "subagent_enabled"
@@ -193,10 +212,12 @@ function insertPlainTextAtSelection(container: HTMLElement, text: string) {
 }
 
 function KnowledgeScopeSelector({
+  className,
   context,
   disabled,
   onContextChange,
 }: {
+  className?: string;
   context: InputBoxContext;
   disabled?: boolean;
   onContextChange?: (context: InputBoxContext) => void;
@@ -229,7 +250,9 @@ function KnowledgeScopeSelector({
           className={cn(
             "max-w-32 min-w-0 gap-1 px-2!",
             selectedCount > 0 && "border-[#6d5dfc]/40 bg-[#f4f2ff]",
+            className,
           )}
+          data-active={selectedCount > 0}
           disabled={disabled}
         >
           <BookOpenIcon className="size-3" />
@@ -395,6 +418,30 @@ export function InputBox({
   const { skills } = useSkills();
   const { data: uploadLimits } = useUploadLimits(threadId);
   const promptRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isWelcomeMode) {
+      return;
+    }
+    const welcomeSurface =
+      promptRootRef.current?.closest<HTMLElement>(".cnooc-chat-main");
+    if (!welcomeSurface) {
+      return;
+    }
+    const desktopAttachmentOffset =
+      Math.max(0, Math.ceil(attachmentParts.length / 4) - 1) * 40;
+    welcomeSurface.style.setProperty(
+      "--cnooc-desktop-attachment-offset",
+      `${desktopAttachmentOffset}px`,
+    );
+    welcomeSurface.dataset.hasComposerAttachments = String(
+      attachmentParts.length > 0,
+    );
+    return () => {
+      welcomeSurface.style.removeProperty("--cnooc-desktop-attachment-offset");
+      delete welcomeSurface.dataset.hasComposerAttachments;
+    };
+  }, [attachmentParts.length, isWelcomeMode]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const inlineSkillTextRef = useRef<HTMLSpanElement | null>(null);
   const inlineSkillComposingRef = useRef(false);
@@ -1727,10 +1774,69 @@ export function InputBox({
     }
   }, []);
 
+  const voiceInputControl = (
+    <VoiceInputButton
+      className="cnooc-tool-voice"
+      disabled={composerLocked}
+      listening={voiceListening}
+      supported={voiceInputSupported}
+      onToggle={toggleVoiceInput}
+    />
+  );
+
+  const polishInputControl = (
+    <Tooltip
+      content={
+        polishingInput
+          ? t.inputBox.inputPolishing
+          : inputPolishUndoAvailable
+            ? t.inputBox.inputPolishUndo
+            : t.inputBox.inputPolish
+      }
+    >
+      <PromptInputButton
+        aria-label={
+          inputPolishUndoAvailable
+            ? t.inputBox.inputPolishUndo
+            : t.inputBox.inputPolish
+        }
+        className="cnooc-tool-polish px-2!"
+        data-active={polishingInput || inputPolishUndoAvailable}
+        data-testid="polish-input-button"
+        disabled={inputPolishDisabled}
+        onClick={
+          inputPolishUndoAvailable ? handleUndoInputPolish : handlePolishInput
+        }
+      >
+        {polishingInput ? (
+          <Loader2Icon className="size-3 animate-spin" />
+        ) : inputPolishUndoAvailable ? (
+          <Undo2Icon className="size-3" />
+        ) : (
+          <SparklesIcon className="size-3" />
+        )}
+      </PromptInputButton>
+    </Tooltip>
+  );
+
   return (
     <div
       ref={promptRootRef}
-      className={cn("relative flex min-w-0 flex-col gap-2")}
+      className={cn(
+        "cnooc-composer-shell relative flex min-w-0 flex-col gap-2",
+      )}
+      style={
+        {
+          "--cnooc-desktop-attachment-rows": Math.max(
+            1,
+            Math.ceil(attachmentParts.length / 4),
+          ),
+          "--cnooc-desktop-attachment-offset": `${
+            Math.max(0, Math.ceil(attachmentParts.length / 4) - 1) * 40
+          }px`,
+        } as CSSProperties
+      }
+      data-has-attachments={attachmentParts.length > 0}
       data-testid={isWelcomeMode ? "welcome-composer" : "chat-composer"}
     >
       {showFollowups && (
@@ -1813,7 +1919,7 @@ export function InputBox({
       )}
       <PromptInput
         className={cn(
-          "bg-background/85 relative z-10 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out *:data-[slot='input-group']:rounded-2xl",
+          "cnooc-composer bg-background/85 relative z-10 rounded-2xl backdrop-blur-sm transition-all duration-300 ease-out *:data-[slot='input-group']:rounded-2xl",
           polishingInput && "shadow-lg ring-1 ring-blue-200 dark:ring-blue-800",
           className,
         )}
@@ -1839,7 +1945,7 @@ export function InputBox({
             </div>
           </div>
         )}
-        <PromptInputHeader className="flex-wrap px-3 pt-3 pb-0 empty:hidden">
+        <PromptInputHeader className="cnooc-composer-header flex-wrap px-3 pt-3 pb-0 empty:hidden">
           <PromptInputAttachments className="contents p-0">
             {(attachment) => (
               <div className="max-w-60">
@@ -1874,7 +1980,7 @@ export function InputBox({
             />
           )}
         </PromptInputHeader>
-        <div className="min-h-14 w-full min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
+        <div className="cnooc-composer-input min-h-14 min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
           {selectedSlashSkill ? (
             <div
               className="max-h-48 min-h-6 w-full min-w-0 cursor-text overflow-y-auto text-base leading-6 break-all whitespace-pre-wrap md:text-sm"
@@ -1922,9 +2028,9 @@ export function InputBox({
             </div>
           ) : (
             <PromptInputTextarea
-              className="min-h-6! w-full min-w-0 p-0! leading-6!"
+              className="cnooc-composer-textarea min-h-6! w-full min-w-0 p-0! leading-6!"
               disabled={composerLocked}
-              placeholder={t.inputBox.placeholder}
+              placeholder="随心输入"
               autoFocus={autoFocus}
               defaultValue={initialValue}
               onBlur={() => setTextareaFocused(false)}
@@ -1935,9 +2041,14 @@ export function InputBox({
             />
           )}
         </div>
-        <PromptInputFooter className="flex flex-nowrap gap-1 overflow-hidden px-2 pb-2 sm:gap-2 sm:px-3 sm:pb-3">
+        <PromptInputFooter
+          className={cn(
+            "cnooc-composer-footer flex flex-nowrap gap-1 px-2 pb-2 sm:gap-2 sm:px-3 sm:pb-3",
+            isWelcomeMode ? "overflow-visible" : "overflow-hidden",
+          )}
+        >
           <PromptInputTools
-            className="mobile-scroll-rail min-w-0 flex-1 flex-nowrap overflow-x-auto overscroll-x-contain [&>*]:shrink-0"
+            className="cnooc-primary-tools mobile-scroll-rail min-w-0 flex-1 flex-nowrap overflow-x-auto overscroll-x-contain [&>*]:shrink-0"
             data-testid="composer-primary-tools"
           >
             {/* TODO: Add more connectors here
@@ -1950,67 +2061,31 @@ export function InputBox({
             </PromptInputActionMenuContent>
           </PromptInputActionMenu> */}
             <AddAttachmentsButton
-              className="px-2!"
+              className="cnooc-tool-attachments px-2!"
               disabled={composerLocked}
+              showLabel
               uploadLimits={uploadLimits}
             />
             <ShopCartAttachmentButton
+              className="cnooc-tool-datalake"
               context={context}
               disabled={composerLocked}
               onAddFiles={addValidatedAttachments}
               onContextChange={onContextChange}
             />
             <KnowledgeScopeSelector
+              className="cnooc-tool-knowledge"
               context={context}
               disabled={composerLocked}
               onContextChange={onContextChange}
             />
-            <VoiceInputButton
-              disabled={composerLocked}
-              listening={voiceListening}
-              supported={voiceInputSupported}
-              unsupportedMessage={
-                voiceGatewaySupport.supported
-                  ? undefined
-                  : getVoiceInputErrorMessage(voiceGatewaySupport.reason)
-              }
-              onToggle={toggleVoiceInput}
-            />
-            <Tooltip
-              content={
-                polishingInput
-                  ? t.inputBox.inputPolishing
-                  : inputPolishUndoAvailable
-                    ? t.inputBox.inputPolishUndo
-                    : t.inputBox.inputPolish
-              }
-            >
-              <PromptInputButton
-                aria-label={
-                  inputPolishUndoAvailable
-                    ? t.inputBox.inputPolishUndo
-                    : t.inputBox.inputPolish
-                }
-                className="px-2!"
-                data-testid="polish-input-button"
-                disabled={inputPolishDisabled}
-                onClick={
-                  inputPolishUndoAvailable
-                    ? handleUndoInputPolish
-                    : handlePolishInput
-                }
-              >
-                {polishingInput ? (
-                  <Loader2Icon className="size-3 animate-spin" />
-                ) : inputPolishUndoAvailable ? (
-                  <Undo2Icon className="size-3" />
-                ) : (
-                  <SparklesIcon className="size-3" />
-                )}
-              </PromptInputButton>
-            </Tooltip>
+            {!isWelcomeMode && voiceInputControl}
+            {!isWelcomeMode && polishInputControl}
             <ModeSelector
-              className={isWelcomeMode ? "hidden sm:inline-flex" : undefined}
+              className={cn(
+                "cnooc-tool-mode",
+                isWelcomeMode ? "hidden sm:inline-flex" : undefined,
+              )}
               disabled={composerLocked}
               mode={context.mode}
               supportsThinking={supportThinking}
@@ -2136,21 +2211,27 @@ export function InputBox({
               </PromptInputActionMenu>
             )}
           </PromptInputTools>
-          <PromptInputTools className="min-w-0 shrink-0 justify-end">
+          <PromptInputTools className="cnooc-model-tools min-w-0 shrink-0 justify-end">
+            {isWelcomeMode && voiceInputControl}
+            {isWelcomeMode && polishInputControl}
             <ModelSelector
               open={modelDialogOpen}
               onOpenChange={setModelDialogOpen}
             >
               <ModelSelectorTrigger asChild>
                 <PromptInputButton
-                  className="max-w-24 min-w-0 px-1.5! sm:max-w-56 sm:px-2!"
+                  className="cnooc-model-selector min-w-0 px-2!"
                   disabled={composerLocked}
                 >
                   <div className="flex min-w-0 flex-col items-start text-left">
-                    <ModelSelectorName className="text-xs font-normal">
-                      {selectedModel?.display_name}
+                    <ModelSelectorName className="cnooc-model-name font-normal">
+                      {selectedModel?.display_name ?? "DeepSeek-V4-Flash"}
                     </ModelSelectorName>
                   </div>
+                  <ChevronDownIcon
+                    aria-hidden="true"
+                    className="cnooc-model-chevron"
+                  />
                 </PromptInputButton>
               </ModelSelectorTrigger>
               <ModelSelectorContent>
@@ -2179,7 +2260,7 @@ export function InputBox({
               </ModelSelectorContent>
             </ModelSelector>
             <PromptInputSubmit
-              className="rounded-full"
+              className="cnooc-submit rounded-full"
               disabled={composerLocked}
               variant="outline"
               status={status}
@@ -2189,7 +2270,18 @@ export function InputBox({
                   onStop?.();
                 }
               }}
-            />
+            >
+              {status === "ready" ? (
+                <Image
+                  alt=""
+                  className="cnooc-paper-plane-icon"
+                  height={64}
+                  src="/images/cnooc-send-plane.png"
+                  unoptimized
+                  width={64}
+                />
+              ) : undefined}
+            </PromptInputSubmit>
           </PromptInputTools>
         </PromptInputFooter>
       </PromptInput>
@@ -2198,7 +2290,7 @@ export function InputBox({
         !selectedSlashSkill &&
         !showSkillSuggestions && (
           <div
-            className="mobile-scroll-rail h-11 min-w-0 overflow-x-auto [&>[data-slot='scroll-area']]:h-full [&>[data-slot='scroll-area']]:w-full"
+            className="cnooc-welcome-actions mobile-scroll-rail h-11 min-w-0 overflow-x-auto [&>[data-slot='scroll-area']]:h-full [&>[data-slot='scroll-area']]:w-full"
             data-testid="welcome-suggestion-rail"
           >
             <SuggestionList onSelectPlaceholder={onSelectPlaceholder} />
@@ -2231,24 +2323,20 @@ export function InputBox({
 }
 
 function VoiceInputButton({
+  className,
   disabled,
   listening,
   supported,
-  unsupportedMessage,
   onToggle,
 }: {
+  className?: string;
   disabled?: boolean;
   listening: boolean;
   supported: boolean;
-  unsupportedMessage?: string;
   onToggle: () => void;
 }) {
   const { t } = useI18n();
-  const tooltipContent = !supported
-    ? (unsupportedMessage ?? t.inputBox.voiceInputUnsupported)
-    : listening
-      ? t.inputBox.voiceInputListening
-      : t.inputBox.voiceInputStart;
+  const tooltipContent = "语音输入";
   const label = listening
     ? t.inputBox.voiceInputStopLabel
     : t.inputBox.voiceInputStartLabel;
@@ -2260,6 +2348,7 @@ function VoiceInputButton({
         aria-pressed={listening}
         className={cn(
           "px-2!",
+          className,
           listening &&
             "group/voice text-primary hover:text-primary relative overflow-hidden",
         )}
@@ -2283,6 +2372,21 @@ function VoiceInputButton({
   );
 }
 
+function QuickActionArtwork({ src }: { src: string }) {
+  return (
+    <Image
+      aria-hidden="true"
+      alt=""
+      className="cnooc-action-artwork"
+      height={44}
+      loading="eager"
+      src={src}
+      unoptimized
+      width={44}
+    />
+  );
+}
+
 function SuggestionList({
   onSelectPlaceholder,
 }: {
@@ -2302,13 +2406,15 @@ function SuggestionList({
     <Suggestions className="w-max max-w-none min-w-full flex-nowrap justify-start px-1 sm:w-fit sm:max-w-full sm:min-w-0 sm:flex-wrap sm:justify-center sm:px-0 [&>span]:max-w-none [&>span]:shrink-0">
       <ConfettiButton
         className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal whitespace-nowrap"
+        data-slot="suggestion"
         variant="outline"
         size="sm"
         onClick={() => handleSuggestionClick(t.inputBox.surpriseMePrompt)}
       >
-        <SparklesIcon className="size-4" /> {t.inputBox.surpriseMe}
+        <QuickActionArtwork src={QUICK_ACTION_ARTWORK.surprise} />
+        <span>{t.inputBox.surpriseMe}</span>
       </ConfettiButton>
-      {t.inputBox.suggestions.map((suggestion) =>
+      {t.inputBox.suggestions.map((suggestion, suggestionIndex) =>
         suggestion.menu === "ppt" ? (
           <DropdownMenu key={suggestion.suggestion}>
             <DropdownMenuTrigger asChild>
@@ -2317,7 +2423,12 @@ function SuggestionList({
                 data-testid="ppt-generation-menu-trigger"
                 icon={suggestion.icon}
                 suggestion={suggestion.suggestion}
-              />
+              >
+                <QuickActionArtwork
+                  src={QUICK_ACTION_ARTWORK.suggestions[suggestionIndex]!}
+                />
+                <span>{suggestion.suggestion}</span>
+              </Suggestion>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="center"
@@ -2356,35 +2467,54 @@ function SuggestionList({
             icon={suggestion.icon}
             suggestion={suggestion.suggestion}
             onClick={() => handleSuggestionClick(suggestion.prompt)}
-          />
+          >
+            <QuickActionArtwork
+              src={QUICK_ACTION_ARTWORK.suggestions[suggestionIndex]!}
+            />
+            <span>{suggestion.suggestion}</span>
+          </Suggestion>
         ),
       )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Suggestion
             className="whitespace-nowrap"
-            icon={PlusIcon}
+            data-testid="create-menu-trigger"
+            icon={SquarePlusIcon}
             suggestion={t.common.create}
-          />
+          >
+            <QuickActionArtwork src={QUICK_ACTION_ARTWORK.createTrigger} />
+            <span>{t.common.create}</span>
+          </Suggestion>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuGroup>
-            {t.inputBox.suggestionsCreate.map((suggestion, index) =>
-              "type" in suggestion && suggestion.type === "separator" ? (
-                <DropdownMenuSeparator key={index} />
-              ) : (
-                !("type" in suggestion) && (
-                  <DropdownMenuItem
-                    key={suggestion.suggestion}
-                    onClick={() => handleSuggestionClick(suggestion.prompt)}
-                  >
-                    {suggestion.icon && <suggestion.icon className="size-4" />}
-                    {suggestion.suggestion}
-                  </DropdownMenuItem>
-                )
-              ),
-            )}
-          </DropdownMenuGroup>
+        <DropdownMenuContent
+          align="end"
+          className="cnooc-create-menu w-56"
+          sideOffset={8}
+        >
+          {t.inputBox.suggestionsCreate.map((suggestion, suggestionIndex) => {
+            if ("type" in suggestion) {
+              return (
+                <DropdownMenuSeparator key={`separator-${suggestionIndex}`} />
+              );
+            }
+            const artworkIndex = t.inputBox.suggestionsCreate
+              .slice(0, suggestionIndex)
+              .filter((entry) => !("type" in entry)).length;
+            return (
+              <DropdownMenuItem
+                className="gap-3 py-2.5"
+                data-testid={`create-option-${artworkIndex}`}
+                key={suggestion.suggestion}
+                onClick={() => handleSuggestionClick(suggestion.prompt)}
+              >
+                <QuickActionArtwork
+                  src={QUICK_ACTION_ARTWORK.create[artworkIndex]!}
+                />
+                <span>{suggestion.suggestion}</span>
+              </DropdownMenuItem>
+            );
+          })}
         </DropdownMenuContent>
       </DropdownMenu>
     </Suggestions>
@@ -2394,10 +2524,12 @@ function SuggestionList({
 function AddAttachmentsButton({
   className,
   disabled,
+  showLabel = false,
   uploadLimits,
 }: {
   className?: string;
   disabled?: boolean;
+  showLabel?: boolean;
   uploadLimits?: UploadLimits;
 }) {
   const { t } = useI18n();
@@ -2419,6 +2551,7 @@ function AddAttachmentsButton({
         onClick={() => attachments.openFileDialog()}
       >
         <PaperclipIcon className="size-3" />
+        {showLabel && <span className="text-xs font-normal">附件</span>}
       </PromptInputButton>
     </Tooltip>
   );

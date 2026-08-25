@@ -1269,8 +1269,12 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
   audited enterprise endpoint: its safety gateway returns business code
   `20009` for non-streaming tool-call completions but accepts the equivalent
   streamed protocol. The adapter normalizes JSON-encoded streamed chunks before
-  LangChain conversion, and it must never recover tool calls embedded in a
-  provider error message.
+  LangChain conversion. It may quarantine an isolated malformed scalar frame
+  only when a later normal chunk contains a terminal `finish_reason`; otherwise
+  the incomplete stream remains a typed `MALFORMED_RESPONSE` failure. That exact
+  transport defect may use up to three fresh request attempts, bounded by the
+  operator retry cap. Never log the raw scalar, turn it into assistant content,
+  or recover tool calls embedded in a provider error message.
 - `logging.enhance` - Optional request trace correlation (`enabled`, `format`) for Gateway `X-Trace-Id`, log `trace_id`, and Langfuse `deerflow_trace_id`
 - vLLM reasoning models should use `deerflow.models.vllm_provider:VllmChatModel`; for Qwen-style parsers prefer `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`, and DeerFlow will also normalize the older `thinking` alias
 - `tools[]` - Tool configs with `use` variable path and `group`

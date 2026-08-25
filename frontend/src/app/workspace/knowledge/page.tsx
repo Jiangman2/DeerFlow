@@ -21,7 +21,7 @@ export default function KnowledgePage() {
   }, [setOpen, setOpenMobile]);
 
   return (
-    <main className="app-scroll-region relative h-full min-h-0 min-w-0 overflow-hidden bg-white">
+    <main className="cnooc-knowledge-page app-scroll-region relative h-full min-h-0 min-w-0 overflow-hidden bg-white">
       {sidebarInitialized && (
         <SidebarTrigger className="absolute top-2 right-2 z-30 size-10 border bg-white/95 opacity-100 shadow-md backdrop-blur md:hidden" />
       )}

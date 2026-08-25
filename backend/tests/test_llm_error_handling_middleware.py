@@ -781,6 +781,20 @@ def test_classify_error_null_choices_type_error_is_retriable_transient() -> None
     assert middleware._max_attempts_for(exc) == 2
 
 
+def test_malformed_openai_compatible_retry_budget_respects_operator_cap() -> None:
+    from deerflow.models.robust_openai import OpenAICompatibleResponseError
+
+    middleware = _build_middleware(retry_max_attempts=2)
+    exc = OpenAICompatibleResponseError(
+        code="MALFORMED_RESPONSE",
+        message="Expected a JSON object but received str data.",
+        success=False,
+        reason="OpenAI-compatible provider returned a malformed response",
+    )
+
+    assert middleware._max_attempts_for(exc) == 2
+
+
 def test_async_null_choices_retries_once_then_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -842,7 +856,7 @@ def test_classify_malformed_openai_compatible_response_is_retriable() -> None:
 
     assert retriable is True
     assert reason == "transient"
-    assert middleware._max_attempts_for(exc) == 2
+    assert middleware._max_attempts_for(exc) == 3
 
 
 def test_classify_typed_null_choices_context_error_is_not_retriable() -> None:

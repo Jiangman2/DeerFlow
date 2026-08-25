@@ -185,6 +185,11 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
    `deerflow.models.robust_openai:RobustChatOpenAI`. DeerFlow then preserves a
    bounded diagnostic, retries unknown transient null responses once, and
    avoids retrying recognized authentication, quota, or context-limit errors.
+   For streamed endpoints, isolated malformed scalar SSE frames are discarded
+   only when a later standard chunk proves a legal terminal finish; a truncated
+   stream remains a typed failure and receives at most three fresh request
+   attempts. Raw malformed frame content is never logged or promoted to an
+   assistant message or tool call.
 
    To route OpenAI models through `/v1/responses`, keep using `langchain_openai:ChatOpenAI` and set `use_responses_api: true` with `output_version: responses/v1`.
 

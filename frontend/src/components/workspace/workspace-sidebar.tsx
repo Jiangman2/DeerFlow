@@ -42,7 +42,7 @@ export function WorkspaceSidebar({
       <Sidebar
         variant="sidebar"
         collapsible="icon"
-        className="mobile-workspace-sidebar border-sidebar-border text-sidebar-foreground border-r bg-[linear-gradient(180deg,oklch(0.94_0.04_248)_0%,oklch(0.91_0.05_250)_52%,oklch(0.88_0.06_252)_100%)] dark:bg-[linear-gradient(180deg,oklch(0.22_0.055_253)_0%,oklch(0.18_0.05_255)_100%)]"
+        className="mobile-workspace-sidebar cnooc-workspace-sidebar border-sidebar-border text-sidebar-foreground border-r"
         {...props}
       >
         <SidebarHeader className="mx-1 rounded-md border border-transparent bg-transparent py-0 group-data-[collapsible=icon]:mx-0">
