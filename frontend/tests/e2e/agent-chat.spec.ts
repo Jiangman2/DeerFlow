@@ -54,6 +54,45 @@ test.describe("Agent chat", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
+  test("new-chat action is shown only for an existing agent conversation", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page, {
+      agents: MOCK_AGENTS,
+      threads: [
+        {
+          thread_id: MOCK_THREAD_ID,
+          title: "Agent conversation",
+          agent_name: "test-agent",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-agent-new-chat",
+              content: [{ type: "text", text: "Existing agent question" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    await page.goto("/workspace/agents/test-agent/chats/new");
+    await expect(page.getByTestId("agent-new-chat-button")).toHaveCount(0);
+
+    await page.goto(`/workspace/agents/test-agent/chats/${MOCK_THREAD_ID}`);
+    const newChatButton = page.getByTestId("agent-new-chat-button");
+    await expect(newChatButton).toBeVisible({ timeout: 15_000 });
+    await newChatButton.click();
+    await expect(page).toHaveURL(/\/workspace\/agents\/test-agent\/chats\/new$/);
+    await expect(newChatButton).toHaveCount(0);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/workspace/agents/test-agent/chats/${MOCK_THREAD_ID}`);
+    await expect(newChatButton).toBeVisible();
+    await newChatButton.click();
+    await expect(page).toHaveURL(/\/workspace\/agents\/test-agent\/chats\/new$/);
+    await expect(newChatButton).toHaveCount(0);
+  });
+
   test("decodes a Chinese agent name and keeps its welcome icon visible", async ({
     page,
   }) => {
