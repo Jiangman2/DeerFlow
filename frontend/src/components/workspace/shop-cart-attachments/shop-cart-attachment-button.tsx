@@ -157,6 +157,7 @@ export function ShopCartAttachmentButton({
                 dataLakeEnabled && "border-[#6d5dfc]/40 bg-[#f4f2ff]",
                 className,
               )}
+              data-active={dataLakeEnabled}
               disabled={disabled}
             >
               <DatabaseIcon className="size-3" />

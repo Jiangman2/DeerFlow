@@ -36,16 +36,18 @@ function NavMenuButtonContent({
   isSidebarOpen: boolean;
   t: ReturnType<typeof useI18n>["t"];
 }) {
-  return isSidebarOpen ? (
-    <div className="text-sidebar-foreground/80 flex w-full items-center gap-2 text-left text-sm">
-      <SettingsIcon className="text-primary/65 size-4" />
-      <span>{t.workspace.settingsAndMore}</span>
-      <ChevronsUpDown className="text-primary/65 ml-auto size-4" />
-    </div>
-  ) : (
-    <div className="flex size-full items-center justify-center">
-      <SettingsIcon className="text-primary/65 size-4" />
-    </div>
+  return (
+    <>
+      <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+        <SettingsIcon className="cnooc-settings-icon" />
+      </span>
+      <span className="cnooc-settings-label">
+        {isSidebarOpen ? t.workspace.settingsAndMore : t.common.settings}
+      </span>
+      {isSidebarOpen ? (
+        <ChevronsUpDown className="cnooc-settings-chevron ml-auto" />
+      ) : null}
+    </>
   );
 }
 
@@ -61,7 +63,7 @@ export function WorkspaceNavMenu() {
     setMounted(true);
   }, []);
 
-  const showSettings = (section: "appearance" | "about") => {
+  const showSettings = (section: "account" | "about") => {
     if (!isMobile) {
       openSettings(section);
       return;
@@ -90,9 +92,13 @@ export function WorkspaceNavMenu() {
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                align="end"
-                sideOffset={4}
+                className="cnooc-settings-menu"
+                data-collapsed={!isSidebarOpen}
+                data-mobile={isMobile || undefined}
+                align={isMobile ? "start" : "end"}
+                side={isMobile ? "top" : isSidebarOpen ? "top" : "right"}
+                sideOffset={isMobile ? 12 : 8}
+                collisionPadding={isMobile ? 16 : 8}
               >
                 <DropdownMenuGroup>
                   {isAdmin && (
@@ -110,17 +116,13 @@ export function WorkspaceNavMenu() {
                       </DropdownMenuItem>
                     </>
                   )}
-                  <DropdownMenuItem
-                    onClick={() => showSettings("appearance")}
-                  >
+                  <DropdownMenuItem onClick={() => showSettings("account")}>
                     <Settings2Icon />
                     {t.common.settings}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => showSettings("about")}
-                >
+                <DropdownMenuItem onClick={() => showSettings("about")}>
                   <InfoIcon />
                   {t.workspace.about}
                 </DropdownMenuItem>

@@ -12,6 +12,12 @@ const source = readFileSync(
 );
 
 describe("settings dialog viewport layout", () => {
+  test("hides the appearance entry while preserving the underlying theme module", () => {
+    expect(source).not.toContain("AppearanceSettingsPage");
+    expect(source).not.toContain('id: "appearance"');
+    expect(source).toContain('defaultSection = "account"');
+  });
+
   test("uses the available desktop viewport instead of a fixed 75 percent height", () => {
     expect(source).toContain("sm:h-[calc(100vh-2rem)]");
     expect(source).toContain("sm:max-h-[56rem]");

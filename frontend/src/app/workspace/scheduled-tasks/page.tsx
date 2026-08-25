@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ScheduledTaskScheduleInput,
@@ -256,9 +257,7 @@ export default function ScheduledTasksPage() {
     if (models.length === 0) {
       return;
     }
-    setCreateModelName((current) =>
-      resolveScheduledModelName(models, current),
-    );
+    setCreateModelName((current) => resolveScheduledModelName(models, current));
   }, [models]);
 
   useEffect(() => {
@@ -302,9 +301,7 @@ export default function ScheduledTasksPage() {
     if (!selectedTask?.id || models.length === 0) {
       return;
     }
-    setEditModelName(
-      resolveScheduledModelName(models, selectedTaskModelName),
-    );
+    setEditModelName(resolveScheduledModelName(models, selectedTaskModelName));
   }, [models, selectedTask?.id, selectedTaskModelName]);
 
   const isChineseLocale = locale.startsWith("zh");
@@ -345,20 +342,23 @@ export default function ScheduledTasksPage() {
       <WorkspaceBody className="min-w-0 overflow-x-hidden overflow-y-auto">
         <div
           className={cn(
-            "mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-5 p-4 sm:p-6",
+            "cnooc-scheduled-page mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-5 p-4 sm:p-6",
             createOpen ? "h-full" : "min-h-full",
           )}
         >
-          <header className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold">
-                {createOpen ? st.create.title : t.sidebar.scheduledTasks}
-              </h1>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {createOpen
-                  ? st.create.description
-                  : st.detail.emptyDescription}
-              </p>
+          <header className="cnooc-page-heading flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-2">
+              <SidebarTrigger className="mt-0.5 -ml-2 shrink-0 md:hidden" />
+              <div className="min-w-0">
+                <h1 className="text-2xl font-semibold">
+                  {createOpen ? st.create.title : t.sidebar.scheduledTasks}
+                </h1>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {createOpen
+                    ? st.create.description
+                    : st.detail.emptyDescription}
+                </p>
+              </div>
             </div>
             <Button
               size="sm"
@@ -546,9 +546,7 @@ export default function ScheduledTasksPage() {
                           // Clear the form so a follow-up task starts fresh.
                           setTitle("");
                           setPrompt("");
-                          setCreateModelName(
-                            resolveScheduledModelName(models),
-                          );
+                          setCreateModelName(resolveScheduledModelName(models));
                           setTargetThreadId("");
                           setContextMode("fresh_thread_per_run");
                           setCreateSchedule({
@@ -971,8 +969,7 @@ export default function ScheduledTasksPage() {
                     <span className="text-foreground">
                       {models.find(
                         (model) =>
-                          model.name ===
-                          selectedTask.run_context?.model_name,
+                          model.name === selectedTask.run_context?.model_name,
                       )?.display_name ??
                         (typeof selectedTask.run_context?.model_name ===
                         "string"

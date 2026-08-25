@@ -1,5 +1,6 @@
 import "katex/dist/katex.min.css";
 import "@/styles/globals.css";
+import "@/styles/cnooc-concept.css";
 
 import { type Metadata, type Viewport } from "next";
 

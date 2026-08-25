@@ -137,7 +137,14 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         Falls back to `self.retry_max_attempts` unless the exception class name
         appears in the per-exception override table.
         """
-        override = _RETRY_BUDGET_OVERRIDES.get(type(exc).__name__)
+        exc_name = type(exc).__name__
+        override = _RETRY_BUDGET_OVERRIDES.get(exc_name)
+        if exc_name == "OpenAICompatibleResponseError" and getattr(exc, "code", "") == "MALFORMED_RESPONSE":
+            # The enterprise DeepSeek edge occasionally emits one malformed
+            # scalar SSE frame while the surrounding streamed response remains
+            # healthy. Give this exact transport defect one additional fresh
+            # request without expanding retries for provider business errors.
+            override = 3
         if override is None and isinstance(exc, TypeError):
             detail = _extract_error_detail(exc).lower()
             if _NULL_CHOICES_PATTERN in detail:
@@ -264,10 +271,16 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         backoff = self.retry_base_delay_ms * (2 ** max(0, attempt - 1))
         return min(backoff, self.retry_cap_delay_ms)
 
-    def _build_retry_message(self, attempt: int, wait_ms: int, reason: str) -> str:
+    def _build_retry_message(
+        self,
+        attempt: int,
+        wait_ms: int,
+        reason: str,
+        max_attempts: int,
+    ) -> str:
         seconds = max(1, round(wait_ms / 1000))
         reason_text = "provider is busy" if reason == "busy" else "provider request failed temporarily"
-        return f"LLM request retry {attempt}/{self.retry_max_attempts}: {reason_text}. Retrying in {seconds}s."
+        return f"LLM request retry {attempt}/{max_attempts}: {reason_text}. Retrying in {seconds}s."
 
     def _build_circuit_breaker_message(self) -> str:
         return "The configured LLM provider is currently unavailable due to continuous failures. Circuit breaker is engaged to protect the system. Please wait a moment before trying again."
@@ -324,7 +337,13 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
             detail=_extract_error_detail(exc),
         )
 
-    def _emit_retry_event(self, attempt: int, wait_ms: int, reason: str) -> None:
+    def _emit_retry_event(
+        self,
+        attempt: int,
+        wait_ms: int,
+        reason: str,
+        max_attempts: int,
+    ) -> None:
         try:
             from langgraph.config import get_stream_writer
 
@@ -333,10 +352,15 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                 {
                     "type": "llm_retry",
                     "attempt": attempt,
-                    "max_attempts": self.retry_max_attempts,
+                    "max_attempts": max_attempts,
                     "wait_ms": wait_ms,
                     "reason": reason,
-                    "message": self._build_retry_message(attempt, wait_ms, reason),
+                    "message": self._build_retry_message(
+                        attempt,
+                        wait_ms,
+                        reason,
+                        max_attempts,
+                    ),
                 }
             )
         except Exception:
@@ -374,11 +398,16 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                     logger.warning(
                         "Transient LLM error on attempt %d/%d; retrying in %dms: %s",
                         attempt,
-                        self.retry_max_attempts,
+                        max_attempts,
                         wait_ms,
                         _extract_error_detail(exc),
                     )
-                    self._emit_retry_event(attempt, wait_ms, reason)
+                    self._emit_retry_event(
+                        attempt,
+                        wait_ms,
+                        reason,
+                        max_attempts,
+                    )
                     time.sleep(wait_ms / 1000)
                     attempt += 1
                     continue
@@ -427,11 +456,16 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                     logger.warning(
                         "Transient LLM error on attempt %d/%d; retrying in %dms: %s",
                         attempt,
-                        self.retry_max_attempts,
+                        max_attempts,
                         wait_ms,
                         _extract_error_detail(exc),
                     )
-                    self._emit_retry_event(attempt, wait_ms, reason)
+                    self._emit_retry_event(
+                        attempt,
+                        wait_ms,
+                        reason,
+                        max_attempts,
+                    )
                     await asyncio.sleep(wait_ms / 1000)
                     attempt += 1
                     continue

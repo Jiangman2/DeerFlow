@@ -1409,6 +1409,29 @@ def test_api_base_normalized_for_patched_chatopenai(monkeypatch):
     assert "api_base" not in captured
 
 
+def test_cumulative_stream_usage_reaches_robust_provider(monkeypatch):
+    """The enterprise opt-in must remain a constructor field, not leak into request kwargs."""
+    from deerflow.models.robust_openai import RobustChatOpenAI
+
+    cfg = _make_app_config(
+        [
+            _make_model_with_extras(
+                "enterprise",
+                use="deerflow.models.robust_openai:RobustChatOpenAI",
+                api_key="test-key",
+                base_url="http://model.example/v1",
+                cumulative_stream_usage=True,
+            )
+        ]
+    )
+    captured: dict = {}
+    _patch_factory(monkeypatch, cfg, model_class=_capturing_class(RobustChatOpenAI, captured))
+
+    factory_module.create_chat_model(name="enterprise")
+
+    assert captured["cumulative_stream_usage"] is True
+
+
 def test_api_base_dropped_when_openai_api_base_field_name_set(monkeypatch):
     """If the field-name openai_api_base is set alongside api_base, the alias is dropped (no dup)."""
     from langchain_openai import ChatOpenAI

@@ -23,7 +23,10 @@ export function WorkspaceContainer({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("app-viewport flex min-h-0 w-full flex-col", className)}
+      className={cn(
+        "cnooc-workspace-page app-viewport flex min-h-0 w-full flex-col",
+        className,
+      )}
       {...props}
     >
       {children}
@@ -47,7 +50,7 @@ export function WorkspaceHeader({
   return (
     <header
       className={cn(
-        "border-border bg-card/95 text-foreground top-0 right-0 left-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 border-b shadow-[0_1px_12px_oklch(0.49_0.17_252/0.08)] backdrop-blur transition-[width,height] ease-out group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
+        "cnooc-section-header border-border bg-card/95 text-foreground top-0 right-0 left-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 border-b shadow-[0_1px_12px_oklch(0.49_0.17_252/0.08)] backdrop-blur transition-[width,height] ease-out group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
         className,
       )}
       {...props}
@@ -105,7 +108,7 @@ export function WorkspaceBody({
   return (
     <main
       className={cn(
-        "relative flex min-h-0 w-full flex-1 flex-col items-center",
+        "cnooc-section-body relative flex min-h-0 w-full flex-1 flex-col items-center",
         className,
       )}
       {...props}

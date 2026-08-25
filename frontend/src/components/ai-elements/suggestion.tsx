@@ -26,6 +26,7 @@ export const Suggestions = ({
         child != null ? (
           <span
             className="animate-fade-in-up max-w-full opacity-0"
+            data-slot="suggestion-item"
             style={{
               animationDelay: `${STAGGER_DELAY_MS_OFFSET + index * STAGGER_DELAY_MS}ms`,
             }}
@@ -67,13 +68,14 @@ export const Suggestion = ({
         "text-muted-foreground dark:bg-background h-auto max-w-full cursor-pointer rounded-full px-4 py-2 text-center text-xs font-normal whitespace-normal",
         className,
       )}
+      data-slot="suggestion"
       onClick={handleClick}
       size={size}
       type="button"
       variant={variant}
       {...props}
     >
-      {Icon && <Icon className="size-4" />}
+      {!children && Icon && <Icon className="size-4" />}
       {children ?? suggestion}
     </Button>
   );

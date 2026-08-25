@@ -81,6 +81,61 @@ test.describe("Agent chat", () => {
     await expect(welcomeIcon).not.toHaveClass(/bg-primary\/10/);
   });
 
+  test("custom agent welcome reuses the responsive CNOOC composition", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    mockLangGraphAPI(page, { agents: [CHINESE_AGENT] });
+
+    await page.goto(
+      `/workspace/agents/${encodeURIComponent(CHINESE_AGENT.name)}/chats/new`,
+    );
+
+    const welcome = page.locator(".cnooc-agent-welcome-stage");
+    const composer = page.getByTestId("welcome-composer");
+    const rail = page.getByTestId("welcome-suggestion-rail");
+    await expect(welcome).toBeVisible({ timeout: 15_000 });
+    await expect(composer).toBeVisible();
+    await expect(rail).toBeVisible();
+    await expect(composer.locator(".cnooc-agent-welcome")).toHaveCount(0);
+
+    const welcomeBox = await welcome
+      .locator(".cnooc-agent-welcome")
+      .boundingBox();
+    const composerBox = await composer.boundingBox();
+    const railBox = await rail.boundingBox();
+    expect(welcomeBox).not.toBeNull();
+    expect(composerBox).not.toBeNull();
+    expect(railBox).not.toBeNull();
+    expect(welcomeBox!.y + welcomeBox!.height).toBeLessThan(composerBox!.y);
+    expect(composerBox!.width).toBeGreaterThanOrEqual(1000);
+    expect(railBox!.width).toBeLessThan(composerBox!.width);
+    expect(
+      Math.abs(
+        composerBox!.x +
+          composerBox!.width / 2 -
+          (railBox!.x + railBox!.width / 2),
+      ),
+    ).toBeLessThanOrEqual(3);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(welcome).toBeVisible();
+    await expect(composer).toBeVisible();
+    const mobileComposerBox = await composer.boundingBox();
+    expect(mobileComposerBox).not.toBeNull();
+    expect(mobileComposerBox!.x).toBeGreaterThanOrEqual(0);
+    expect(mobileComposerBox!.x + mobileComposerBox!.width).toBeLessThanOrEqual(
+      390,
+    );
+    expect(
+      mobileComposerBox!.y + mobileComposerBox!.height,
+    ).toBeLessThanOrEqual(844);
+    await expect(page.locator(".cnooc-tool-attachments")).toBeVisible();
+    await expect(page.locator(".cnooc-tool-datalake")).toBeVisible();
+    await expect(page.locator(".cnooc-tool-knowledge")).toBeVisible();
+    await expect(page.locator(".cnooc-model-selector")).toBeVisible();
+  });
+
   test("agent chat can regenerate its latest response", async ({ page }) => {
     const humanMessage = {
       type: "human",

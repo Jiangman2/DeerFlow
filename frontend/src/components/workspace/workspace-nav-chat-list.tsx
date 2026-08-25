@@ -33,6 +33,7 @@ export function WorkspaceNavChatList() {
   const { enabled: agentsEnabled } = useAgentsApiEnabled();
   const { isMobile, setOpenMobile } = useSidebar();
   const [knowledgeUrl, setKnowledgeUrl] = useState<string>();
+  const resolvedKnowledgeUrl = knowledgeUrl ?? "/platform/knowledge-bases";
   const closeMobileSidebar = () => {
     if (isMobile) setOpenMobile(false);
   };
@@ -62,7 +63,9 @@ export function WorkspaceNavChatList() {
             asChild
           >
             <Link href="/workspace/chats" onClick={closeMobileSidebar}>
-              <MessagesSquare />
+              <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+                <MessagesSquare />
+              </span>
               <span>{t.sidebar.chats}</span>
             </Link>
           </SidebarMenuButton>
@@ -74,26 +77,26 @@ export function WorkspaceNavChatList() {
             asChild
           >
             <Link href="/workspace/knowledge" onClick={closeMobileSidebar}>
-              <BookOpenIcon />
+              <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+                <BookOpenIcon />
+              </span>
               <span>{t.sidebar.knowledge}</span>
             </Link>
           </SidebarMenuButton>
-          {knowledgeUrl && (
-            <SidebarMenuAction
-              asChild
-              className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              title="打开知识库平台"
+          <SidebarMenuAction
+            asChild
+            className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            title="打开知识库平台"
+          >
+            <a
+              href={resolvedKnowledgeUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              aria-label="打开知识库平台"
             >
-              <a
-                href={knowledgeUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label="打开知识库平台"
-              >
-                <ExternalLinkIcon />
-              </a>
-            </SidebarMenuAction>
-          )}
+              <ExternalLinkIcon />
+            </a>
+          </SidebarMenuAction>
         </SidebarMenuItem>
         <SidebarMenuItem>
           {agentsEnabled ? (
@@ -103,7 +106,9 @@ export function WorkspaceNavChatList() {
               asChild
             >
               <Link href="/workspace/agents" onClick={closeMobileSidebar}>
-                <BotIcon />
+                <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+                  <BotIcon />
+                </span>
                 <span>{t.sidebar.agents}</span>
               </Link>
             </SidebarMenuButton>
@@ -124,7 +129,12 @@ export function WorkspaceNavChatList() {
                     aria-disabled
                     aria-describedby="agents-disabled-reason"
                   >
-                    <BotIcon />
+                    <span
+                      aria-hidden="true"
+                      className="cnooc-sidebar-icon-tile"
+                    >
+                      <BotIcon />
+                    </span>
                     <span>{t.sidebar.agents}</span>
                   </SidebarMenuButton>
                   <span id="agents-disabled-reason" className="sr-only">
@@ -148,7 +158,9 @@ export function WorkspaceNavChatList() {
               href="/workspace/scheduled-tasks"
               onClick={closeMobileSidebar}
             >
-              <CalendarClock />
+              <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+                <CalendarClock />
+              </span>
               <span>{t.sidebar.scheduledTasks}</span>
             </Link>
           </SidebarMenuButton>

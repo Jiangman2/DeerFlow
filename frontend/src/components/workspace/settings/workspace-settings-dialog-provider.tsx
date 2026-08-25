@@ -12,7 +12,7 @@ import {
 import { SettingsDialog } from "./settings-dialog";
 
 type SettingsSection =
-  | "appearance"
+  | "account"
   | "memory"
   | "tools"
   | "skills"
@@ -31,11 +31,11 @@ export function WorkspaceSettingsDialogProvider({
 }: Readonly<{ children: React.ReactNode }>) {
   const [open, setOpen] = useState(false);
   const [defaultSection, setDefaultSection] =
-    useState<SettingsSection>("appearance");
+    useState<SettingsSection>("account");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openSettings = useCallback(
-    (section: SettingsSection = "appearance", delayMs = 0) => {
+    (section: SettingsSection = "account", delayMs = 0) => {
       setDefaultSection(section);
       if (timerRef.current) {
         clearTimeout(timerRef.current);

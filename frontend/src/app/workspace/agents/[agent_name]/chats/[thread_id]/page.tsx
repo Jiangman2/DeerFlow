@@ -263,7 +263,8 @@ export default function AgentChatPage() {
           <div className="relative flex size-full min-h-0 justify-between">
             <header
               className={cn(
-                "absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
+                "cnooc-chat-header absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
+                isWelcomeMode && "cnooc-chat-header-welcome",
                 isWelcomeMode
                   ? "bg-background/0 backdrop-blur-none"
                   : "bg-background/80 shadow-xs backdrop-blur",
@@ -271,17 +272,22 @@ export default function AgentChatPage() {
             >
               <SidebarTrigger className="md:hidden" />
               {/* Agent badge */}
-              <div className="flex min-w-0 shrink-0 items-center gap-1 rounded-md border p-1 sm:gap-1.5 sm:px-2 sm:py-1">
+              <div className="cnooc-agent-header-badge flex min-w-0 shrink-0 items-center gap-1 rounded-md border p-1 sm:gap-1.5 sm:px-2 sm:py-1">
                 <BotIcon className="text-primary h-3.5 w-3.5" />
-                <span className="hidden max-w-24 truncate text-xs font-medium sm:inline sm:max-w-none">
+                <span className="max-w-36 truncate text-xs font-medium sm:max-w-none">
                   {agent?.name ?? agentName}
                 </span>
               </div>
 
-              <div className="flex min-w-0 flex-1 items-center text-sm font-medium">
+              <div
+                className={cn(
+                  "flex min-w-0 flex-1 items-center text-sm font-medium",
+                  isWelcomeMode && "cnooc-welcome-thread-title",
+                )}
+              >
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
-              <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:mr-4 sm:gap-1">
+              <div className="cnooc-header-actions flex min-w-0 shrink-0 items-center gap-0.5 sm:mr-4 sm:gap-1">
                 <Tooltip content={t.agents.newChat}>
                   <Button
                     className="size-8 px-0 sm:h-8 sm:w-auto sm:px-3"
@@ -300,7 +306,7 @@ export default function AgentChatPage() {
                 <TokenUsageIndicator
                   threadId={isNewThread ? undefined : threadId}
                   backendUsage={backendTokenUsage}
-                  enabled={tokenUsageEnabled}
+                  enabled
                   messages={thread.messages}
                   pendingMessages={pendingUsageMessages}
                   preferences={localSettings.tokenUsage}
@@ -314,7 +320,17 @@ export default function AgentChatPage() {
               </div>
             </header>
 
-            <main className="flex min-h-0 max-w-full grow flex-col">
+            <main
+              className={cn(
+                "cnooc-chat-main flex min-h-0 max-w-full grow flex-col",
+                !isWelcomeMode && "cnooc-chat-main-task",
+              )}
+            >
+              {isWelcomeMode && !hasGoal && !hasTodos && (
+                <div className="cnooc-welcome-stage cnooc-agent-welcome-stage">
+                  <AgentWelcome agent={agent} agentName={agentName} />
+                </div>
+              )}
               <div className="flex min-h-0 flex-1 justify-center">
                 <MessageList
                   className={cn("size-full", !isWelcomeMode && "pt-10")}
@@ -344,16 +360,15 @@ export default function AgentChatPage() {
 
               <div
                 className={cn(
-                  "right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
+                  "cnooc-composer-dock right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
                   isWelcomeMode
-                    ? "app-safe-area-bottom absolute pb-3 sm:pb-0"
+                    ? "cnooc-composer-dock-welcome app-safe-area-bottom absolute pb-3 sm:pb-0"
                     : "relative shrink-0 pb-4",
                 )}
               >
                 <div
                   className={cn(
-                    "relative w-full",
-                    isWelcomeMode && "sm:-translate-y-[calc(50dvh-96px)]",
+                    "cnooc-composer-frame relative w-full",
                     isWelcomeMode
                       ? "max-w-(--container-width-sm)"
                       : "max-w-(--container-width-md)",
@@ -387,7 +402,7 @@ export default function AgentChatPage() {
                   <InputBox
                     className={cn(
                       "bg-background/5 w-full",
-                      isWelcomeMode && "-translate-y-2 sm:-translate-y-4",
+                      isWelcomeMode && "cnooc-welcome-composer",
                     )}
                     isWelcomeMode={isWelcomeMode}
                     threadId={threadId}
@@ -400,13 +415,7 @@ export default function AgentChatPage() {
                           : "ready"
                     }
                     context={settings.context}
-                    extraHeader={
-                      isWelcomeMode &&
-                      !hasGoal &&
-                      !hasTodos && (
-                        <AgentWelcome agent={agent} agentName={agentName} />
-                      )
-                    }
+                    extraHeader={undefined}
                     disabled={
                       env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
                       isUploading ||
@@ -427,6 +436,16 @@ export default function AgentChatPage() {
                   )}
                 </div>
               </div>
+              {isWelcomeMode && (
+                <footer
+                  aria-label="版权信息"
+                  className="cnooc-welcome-copyright"
+                >
+                  Copyright © 2025-2026 中海油研究总院有限责任公司 版权所有
+                  <span aria-hidden="true">　</span>
+                  地址：北京市朝阳区太阳宫南街6号院
+                </footer>
+              )}
             </main>
           </div>
         </ChatBox>
