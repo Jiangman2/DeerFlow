@@ -107,9 +107,27 @@ test.describe("real backend render (replay, no API key)", () => {
       "fixture should contain a suggestions turn (re-record; the record spec waits for /suggestions)",
     ).not.toBe("");
     const chat = page.locator("#chat");
-    await expect(page.getByText(EXPECTED_TITLE)).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect
+      .poll(
+        async () => {
+          const threadId = new URL(page.url()).pathname.split("/").at(-1);
+          if (!threadId || threadId === "new") return null;
+
+          const response = await page.context().request.get(
+            `${APP}/api/threads/${threadId}`,
+          );
+          if (!response.ok()) return null;
+
+          const payload = (await response.json()) as {
+            values?: { title?: unknown };
+          };
+          return typeof payload.values?.title === "string"
+            ? payload.values.title
+            : null;
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(EXPECTED_TITLE);
     await expect(chat.getByText(EXPECTED_SUGGESTION)).toBeVisible({
       timeout: 30_000,
     });
