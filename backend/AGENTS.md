@@ -149,6 +149,10 @@ When making code changes, you MUST update the relevant documentation:
 - Keep documentation synchronized with the codebase at all times
 - Ensure accuracy and timeliness of all documentation
 
+## Replay golden test
+
+`tests/test_replay_golden.py` uses recursion_limit 2000 to match the browser lead-agent budget; title and suggestion nodes exceed the former 50-step test ceiling. Regenerate `write_read_file.ultra.events.json` only after a normal replay completion with no replay misses.
+
 ## Commands
 
 **Root directory** (for full application):
