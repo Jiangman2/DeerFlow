@@ -315,6 +315,12 @@ missing/unknown locale state to `zh-CN`; users may still explicitly select
 English. The About markdown heading contains the product name only;
 build version metadata must not be appended to that heading.
 
+The CNOOC composer uses a white paper-plane image, so both the welcome composer
+and the existing-thread `chat-composer` must provide an explicit filled blue
+send-button background in their resting state; hover-only fill makes the action
+effectively invisible on the white task-page composer. Ordinary and custom-agent
+welcome footers share the `2026-2027` copyright year range.
+
 Scheduled tasks own their execution-model choice independently of chat settings.
 The create form prefers `deepseek-v4-flash` when that configured enterprise model
 is available, falls back to the first available model elsewhere, and persists the

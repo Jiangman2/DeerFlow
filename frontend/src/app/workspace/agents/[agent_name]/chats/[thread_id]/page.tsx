@@ -446,7 +446,7 @@ export default function AgentChatPage() {
                   aria-label="版权信息"
                   className="cnooc-welcome-copyright"
                 >
-                  Copyright © 2025-2026 中海油研究总院有限责任公司 版权所有
+                  Copyright © 2026-2027 中海油研究总院有限责任公司 版权所有
                   <span aria-hidden="true">　</span>
                   地址：北京市朝阳区太阳宫南街6号院
                 </footer>

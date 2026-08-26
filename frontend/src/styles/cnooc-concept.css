@@ -121,6 +121,31 @@
   color: #476487;
 }
 
+/* Keep the task-page send affordance visible on desktop as well as mobile.
+ * The paper-plane asset is white, so the outline button's transparent default
+ * made the control disappear against the white composer until hover. */
+[data-testid="chat-composer"] .cnooc-submit {
+  display: grid !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  flex: 0 0 38px !important;
+  place-items: center;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: linear-gradient(145deg, #5d86ed, #3570e2) !important;
+  color: white !important;
+  box-shadow: 0 8px 18px rgba(52, 106, 222, 0.24) !important;
+}
+
+[data-testid="chat-composer"] .cnooc-submit:not(:disabled):hover,
+[data-testid="chat-composer"] .cnooc-submit:not(:disabled):focus-visible {
+  background: linear-gradient(145deg, #6891f4, #2d66d8) !important;
+  color: white !important;
+  transform: translateY(-1px) scale(1.02);
+}
+
 .cnooc-workspace-shell button,
 .cnooc-workspace-shell a,
 .cnooc-workspace-shell [role="button"] {
