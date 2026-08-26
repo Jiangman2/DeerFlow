@@ -30,21 +30,13 @@ const fixture = JSON.parse(
   ),
 ) as {
   prompt: string;
-  turns: Array<{ output: { data: { content?: unknown } } }>;
+  turns: Array<{ caller?: string; output: { data: { content?: unknown } } }>;
 };
 
 const PROMPT = fixture.prompt;
-const FALLBACK_TITLE_MAX_CHARS = 50;
 
-function fallbackTitle(userMsg: string): string {
-  if (!userMsg) return "New Conversation";
-  if (userMsg.length <= FALLBACK_TITLE_MAX_CHARS) return userMsg;
-  return `${userMsg.slice(0, FALLBACK_TITLE_MAX_CHARS).trimEnd()}...`;
-}
-
-// Suggestions still come from the recorded model fixture. The default title no
-// longer does: TitleMiddleware uses a local fallback when title.model_name is
-// unset, so derive that expected title from the prompt.
+// Suggestions and the title both come from the recorded replay fixture.
+// Read the title turn by its middleware caller so the expectation matches the real backend contract.
 const textTurns = fixture.turns
   .map((t) => t.output?.data?.content)
   .filter((c): c is string => typeof c === "string" && c.trim().length > 0);
@@ -61,7 +53,8 @@ const EXPECTED_SUGGESTION = ((): string => {
     return "";
   }
 })();
-const EXPECTED_TITLE = fallbackTitle(PROMPT);
+const titleRaw = fixture.turns.find((t) => t.caller === "middleware:title")?.output.data.content;
+const EXPECTED_TITLE = typeof titleRaw === "string" ? titleRaw : "";
 
 test.describe("real backend render (replay, no API key)", () => {
   test.beforeEach(async ({ context }) => {
@@ -100,7 +93,7 @@ test.describe("real backend render (replay, no API key)", () => {
     // through the real frontend.
     expect(
       EXPECTED_TITLE,
-      "default local fallback title should be derived from the prompt",
+      "fixture should contain a middleware:title replay turn",
     ).not.toBe("");
     expect(
       EXPECTED_SUGGESTION,
