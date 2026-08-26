@@ -30,21 +30,13 @@ const fixture = JSON.parse(
   ),
 ) as {
   prompt: string;
-  turns: Array<{ output: { data: { content?: unknown } } }>;
+  turns: Array<{ caller?: string; output: { data: { content?: unknown } } }>;
 };
 
 const PROMPT = fixture.prompt;
-const FALLBACK_TITLE_MAX_CHARS = 50;
 
-function fallbackTitle(userMsg: string): string {
-  if (!userMsg) return "New Conversation";
-  if (userMsg.length <= FALLBACK_TITLE_MAX_CHARS) return userMsg;
-  return `${userMsg.slice(0, FALLBACK_TITLE_MAX_CHARS).trimEnd()}...`;
-}
-
-// Suggestions still come from the recorded model fixture. The default title no
-// longer does: TitleMiddleware uses a local fallback when title.model_name is
-// unset, so derive that expected title from the prompt.
+// Suggestions and the title both come from the recorded replay fixture.
+// Read the title turn by its middleware caller so the expectation matches the real backend contract.
 const textTurns = fixture.turns
   .map((t) => t.output?.data?.content)
   .filter((c): c is string => typeof c === "string" && c.trim().length > 0);
@@ -61,7 +53,8 @@ const EXPECTED_SUGGESTION = ((): string => {
     return "";
   }
 })();
-const EXPECTED_TITLE = fallbackTitle(PROMPT);
+const titleRaw = fixture.turns.find((t) => t.caller === "middleware:title")?.output.data.content;
+const EXPECTED_TITLE = typeof titleRaw === "string" ? titleRaw : "";
 
 test.describe("real backend render (replay, no API key)", () => {
   test.beforeEach(async ({ context }) => {
@@ -89,7 +82,7 @@ test.describe("real backend render (replay, no API key)", () => {
 
     await page.goto("/workspace/chats/new");
 
-    const textarea = page.getByPlaceholder(/how can i assist you/i);
+    const textarea = page.getByPlaceholder("随心输入");
     await expect(textarea).toBeVisible({ timeout: 30_000 });
     await textarea.fill(PROMPT);
     await textarea.press("Enter");
@@ -100,16 +93,34 @@ test.describe("real backend render (replay, no API key)", () => {
     // through the real frontend.
     expect(
       EXPECTED_TITLE,
-      "default local fallback title should be derived from the prompt",
+      "fixture should contain a middleware:title replay turn",
     ).not.toBe("");
     expect(
       EXPECTED_SUGGESTION,
       "fixture should contain a suggestions turn (re-record; the record spec waits for /suggestions)",
     ).not.toBe("");
     const chat = page.locator("#chat");
-    await expect(chat.getByText(EXPECTED_TITLE)).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect
+      .poll(
+        async () => {
+          const threadId = new URL(page.url()).pathname.split("/").at(-1);
+          if (!threadId || threadId === "new") return null;
+
+          const response = await page.context().request.get(
+            `${APP}/api/threads/${threadId}`,
+          );
+          if (!response.ok()) return null;
+
+          const payload = (await response.json()) as {
+            values?: { title?: unknown };
+          };
+          return typeof payload.values?.title === "string"
+            ? payload.values.title
+            : null;
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(EXPECTED_TITLE);
     await expect(chat.getByText(EXPECTED_SUGGESTION)).toBeVisible({
       timeout: 30_000,
     });

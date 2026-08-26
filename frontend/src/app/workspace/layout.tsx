@@ -26,7 +26,7 @@ export default async function WorkspaceLayout({
     case "system_setup_required":
       redirect("/setup");
     case "unauthenticated":
-      redirect("/login");
+      redirect("/api/v1/auth/iam/login?next=%2Fworkspace%2Fchats%2Fnew");
     case "gateway_unavailable":
       // GatewayOfflineFallback supplies the AuthProvider; WorkspaceContent
       // already mounts the banner inside its sidebar layout, so renderBanner

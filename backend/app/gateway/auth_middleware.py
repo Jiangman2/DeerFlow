@@ -36,6 +36,9 @@ _PUBLIC_PATH_PREFIXES: tuple[str, ...] = (
     "/openapi.json",
     "/api/v1/auth/oauth/",
     "/api/v1/auth/callback/",
+    "/api/v1/auth/iam/",
+    # IAM's BIM account service authenticates encrypted payloads itself.
+    "/api/v1/iam/account-sync/",
     # Inbound webhooks authenticate themselves via provider-specific signatures
     # (e.g. GitHub's X-Hub-Signature-256), not session cookies.
     "/api/webhooks/",
@@ -52,6 +55,8 @@ _PUBLIC_EXACT_PATHS: frozenset[str] = frozenset(
         "/api/v1/auth/initialize",
         "/api/v1/auth/providers",
         "/api/v1/auth/cnooc/login",
+        # BIM calls the base SchemaService path without a trailing slash.
+        "/api/v1/iam/account-sync",
         # Machine-to-machine click collector. The route itself requires the
         # dedicated external click Bearer key.
         "/api/agent_click",

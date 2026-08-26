@@ -66,4 +66,3 @@ PYTHONPATH=packages/harness:. .venv/bin/python \
 Rollback restores the original token columns, model breakdown, and run metadata
 and marks the backup rows with `rolled_back_at`. It does not delete the audit
 record.
-

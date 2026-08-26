@@ -340,6 +340,15 @@ local login, registration, first-admin initialization, password changes, and
 generic OIDC entry points. The CNOOC token SSO route remains enabled. This is a
 server-side policy as well as a UI redirect, so direct API calls cannot restore
 local account access.
+
+Optional CNOOC IAM support adds a separate authorization-code sign-in flow and
+a BIM-to-Gateway account synchronization API. IAM sign-in only binds an account
+already synchronized by BIM; it never silently creates a local browser account.
+The BIM API uses an SM4-encrypted, SM3-signed server-to-server envelope and
+dedicated runtime secrets, rather than browser cookies or CSRF tokens. See
+[`docs/iam-integration.md`](docs/iam-integration.md) for configuration, routes,
+and rollout guidance.
+
 The dashboard also reads WeKnora's own database in read-only mode to report
 current users, knowledge bases, documents, file formats, knowledge-scoped
 conversations, and question turns alongside creation/upload/conversation
