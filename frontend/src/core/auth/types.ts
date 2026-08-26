@@ -9,14 +9,18 @@ export const userSchema = z.object({
   needs_setup: z.boolean().optional().default(false),
   is_disabled: z.boolean().optional().default(false),
   oauth_provider: z.string().nullable().optional().default(null),
+  display_name: z.string().nullable().optional().default(null),
+  organization_name: z.string().nullable().optional().default(null),
 });
 
 export type User = Omit<
   z.infer<typeof userSchema>,
-  "oauth_provider" | "is_disabled"
+  "oauth_provider" | "is_disabled" | "display_name" | "organization_name"
 > & {
   is_disabled?: boolean;
   oauth_provider?: string | null;
+  display_name?: string | null;
+  organization_name?: string | null;
 };
 
 // ── SSR auth result (tagged union) ────────────────────────────────
