@@ -68,6 +68,14 @@ language policy provides the same default for lead and delegated model output.
 Do not reintroduce an unconditional English requirement into the bootstrap
 copy.
 
+The conversational step of `/workspace/agents/new` intentionally follows the
+upstream text-only builder composer. Keep it visually aligned with the CNOOC
+workspace and responsive to the mobile visual viewport, but do not silently
+add the main chat's attachment, Data Lake, knowledge-base, voice, polish, or
+mode state to this workflow. Its existing model selector, `agent_name`,
+`is_bootstrap`, hidden human-input responses, and save interaction must remain
+intact.
+
 The new-agent name-step badge must remain compatible with enterprise browsers
 that lack CSS `color-mix()`. Keep its pale primary background as a separate
 `bg-primary opacity-10` layer behind the inline icon; Tailwind opacity-color
@@ -346,6 +354,11 @@ mobile settings/artifacts, and the knowledge-page navigation escape hatch in
 the shared component tree. Do not pass SSO tokens through URLs or browser
 JavaScript. Mobile changes must retain desktop behavior and add Playwright
 coverage at 320, 375, 390, and 412 pixel widths plus a short landscape view.
+The site root redirects to `/workspace/chats/new`; IAM may interpose its normal
+login, but its return target remains new chat on desktop and mobile.
+`StyleAssetGuard` performs one cache-busting recovery when stale HTML references
+a missing hashed stylesheet. Its probe must depend on the external Tailwind
+`hidden` utility; adding inline `display:none` would defeat the health check.
 `WorkspaceViewportController` is the shared keyboard/viewport owner: it mirrors
 the VisualViewport height into `--app-viewport-height`, marks a composer-only
 software-keyboard state, and restores the page origin after focus leaves. Keep

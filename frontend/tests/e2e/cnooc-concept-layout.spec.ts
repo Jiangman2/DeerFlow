@@ -390,4 +390,115 @@ test.describe("CNOOC concept layout", () => {
       fullPage: true,
     });
   });
+
+  test("root opens new chat and desktop zoom-equivalent viewports stay composed", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await useChineseLocale(page);
+    mockLangGraphAPI(page);
+
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/workspace\/chats\/new$/);
+    await expect(page.getByRole("textbox").first()).toBeEditable({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId("style-asset-health-probe")).toHaveCSS(
+      "display",
+      "none",
+    );
+    await page.waitForTimeout(800);
+
+    const viewports = [
+      { width: 1920, height: 1080, label: "100" },
+      { width: 1536, height: 864, label: "125" },
+      { width: 1280, height: 720, label: "150" },
+      { width: 960, height: 540, label: "200" },
+    ];
+
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await expect(page.locator(".cnooc-desktop-welcome-copy")).toBeVisible();
+      await expect(page.getByTestId("welcome-composer")).toBeVisible();
+      await expect(page.getByTestId("welcome-suggestion-rail")).toBeVisible();
+
+      const geometry = await page.evaluate(() => {
+        const title = document
+          .querySelector(".cnooc-desktop-welcome-copy")
+          ?.getBoundingClientRect();
+        const composer = document
+          .querySelector(".cnooc-welcome-composer")
+          ?.getBoundingClientRect();
+        const rail = document
+          .querySelector('[data-testid="welcome-suggestion-rail"]')
+          ?.getBoundingClientRect();
+        const actionBoxes = Array.from(
+          document.querySelectorAll(
+            '[data-testid="welcome-suggestion-rail"] [data-slot="suggestion-item"] > button',
+          ),
+        ).map((button) => {
+          const box = button.getBoundingClientRect();
+          return {
+            left: box.left,
+            right: box.right,
+            top: box.top,
+            bottom: box.bottom,
+          };
+        });
+        return {
+          titleBottom: title?.bottom ?? Number.POSITIVE_INFINITY,
+          composerTop: composer?.top ?? 0,
+          composerBottom: composer?.bottom ?? Number.POSITIVE_INFINITY,
+          composerRight: composer?.right ?? Number.POSITIVE_INFINITY,
+          railTop: rail?.top ?? 0,
+          railBottom: rail?.bottom ?? Number.POSITIVE_INFINITY,
+          actionBoxes,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+          documentWidth: Math.max(
+            document.body.scrollWidth,
+            document.documentElement.scrollWidth,
+          ),
+          documentHeight: Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight,
+          ),
+        };
+      });
+
+      expect(
+        geometry.titleBottom,
+        `${viewport.label}% title must remain above the composer`,
+      ).toBeLessThanOrEqual(geometry.composerTop + 2);
+      expect(geometry.composerRight).toBeLessThanOrEqual(
+        geometry.viewportWidth + 1,
+      );
+      expect(geometry.railTop).toBeGreaterThanOrEqual(
+        geometry.composerBottom - 1,
+      );
+      expect(geometry.railBottom).toBeLessThanOrEqual(
+        geometry.viewportHeight + 1,
+      );
+      expect(geometry.actionBoxes).toHaveLength(6);
+      for (const action of geometry.actionBoxes) {
+        expect(action.left).toBeGreaterThanOrEqual(0);
+        expect(action.right).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+        expect(action.top).toBeGreaterThanOrEqual(geometry.composerBottom - 1);
+        expect(action.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+      }
+      expect(geometry.documentWidth).toBeLessThanOrEqual(
+        geometry.viewportWidth + 1,
+      );
+      expect(geometry.documentHeight).toBeLessThanOrEqual(
+        geometry.viewportHeight + 1,
+      );
+
+      if (viewport.label === "200") {
+        await page.screenshot({
+          path: testInfo.outputPath("new-chat-desktop-zoom-200.png"),
+          fullPage: true,
+        });
+      }
+    }
+  });
 });

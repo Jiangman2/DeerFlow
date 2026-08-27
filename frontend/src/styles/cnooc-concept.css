@@ -72,6 +72,191 @@
   background: transparent !important;
 }
 
+/* Agent builder keeps DeerFlow's deliberately minimal text composer. This
+ * scoped skin improves hierarchy and mobile viewport behavior without adding
+ * main-chat tools or a second interaction state model. */
+.cnooc-agent-builder-page {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  color: var(--cnooc-copy);
+  background:
+    radial-gradient(
+      circle at 50% 12%,
+      rgba(255, 255, 255, 0.78) 0,
+      rgba(255, 255, 255, 0.22) 42%,
+      transparent 68%
+    ),
+    linear-gradient(180deg, rgba(242, 248, 255, 0.22), transparent 44%);
+}
+
+.cnooc-agent-builder-header {
+  position: relative;
+  z-index: 4;
+  min-height: 52px;
+  border-color: rgba(195, 213, 237, 0.82) !important;
+  background: rgba(250, 253, 255, 0.78) !important;
+  color: var(--cnooc-ink);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(122%);
+  -webkit-backdrop-filter: blur(18px) saturate(122%);
+}
+
+.cnooc-agent-builder-header h1 {
+  letter-spacing: 0.015em;
+}
+
+.cnooc-agent-builder-name-stage,
+.cnooc-agent-builder-main {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.cnooc-agent-builder-name-card {
+  padding: 28px;
+  border: 1px solid rgba(196, 214, 238, 0.9);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 20px 52px rgba(49, 91, 151, 0.14);
+  backdrop-filter: blur(22px) saturate(122%);
+  -webkit-backdrop-filter: blur(22px) saturate(122%);
+}
+
+.cnooc-agent-builder-model-strip {
+  position: relative;
+  z-index: 3;
+  border-color: rgba(197, 215, 238, 0.78) !important;
+  background: rgba(247, 251, 255, 0.66);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+
+.cnooc-agent-builder-model-strip button {
+  min-height: 34px;
+  border-color: rgba(178, 203, 235, 0.92) !important;
+  background: rgba(255, 255, 255, 0.76) !important;
+  color: #3568b3 !important;
+}
+
+.cnooc-agent-builder-hint {
+  position: relative;
+  z-index: 2;
+}
+
+.cnooc-agent-builder-hint-card {
+  border-color: rgba(187, 210, 239, 0.88) !important;
+  border-radius: 14px !important;
+  background: rgba(250, 253, 255, 0.84) !important;
+  color: #526985 !important;
+  box-shadow: 0 10px 26px rgba(56, 96, 151, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.cnooc-agent-builder-messages {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cnooc-agent-builder-dock {
+  position: relative;
+  z-index: 3;
+  border-top: 1px solid rgba(195, 214, 238, 0.72);
+  background: linear-gradient(
+    180deg,
+    rgba(237, 246, 255, 0.18),
+    rgba(246, 251, 255, 0.78) 30%,
+    rgba(248, 252, 255, 0.92)
+  );
+  backdrop-filter: blur(18px) saturate(118%);
+  -webkit-backdrop-filter: blur(18px) saturate(118%);
+}
+
+.cnooc-agent-builder-dock-inner {
+  min-width: 0;
+}
+
+.cnooc-agent-builder-prompt [data-slot="input-group"] {
+  min-height: 132px;
+  overflow: hidden;
+  border: 1px solid rgba(177, 202, 234, 0.94) !important;
+  border-radius: 22px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow:
+    0 18px 46px rgba(50, 91, 151, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.cnooc-agent-builder-prompt
+  [data-slot="input-group"]:has(
+    [data-slot="input-group-control"]:focus-visible
+  ) {
+  border-color: rgba(82, 132, 225, 0.92) !important;
+  box-shadow:
+    0 0 0 3px rgba(82, 132, 225, 0.13),
+    0 20px 48px rgba(50, 91, 151, 0.18) !important;
+}
+
+.cnooc-agent-builder-textarea {
+  min-height: 84px !important;
+  max-height: 180px !important;
+  padding: 18px 20px 8px !important;
+  color: #2b4364 !important;
+  font-family: var(--cnooc-font);
+  font-size: 16px !important;
+  line-height: 1.65 !important;
+}
+
+.cnooc-agent-builder-textarea::placeholder {
+  color: #93a2b8 !important;
+  opacity: 1;
+}
+
+.cnooc-agent-builder-prompt-footer {
+  min-height: 48px;
+  padding: 0 14px 14px !important;
+}
+
+.cnooc-agent-builder-submit {
+  display: grid !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  place-items: center;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: linear-gradient(145deg, #5f88ef, #3470e2) !important;
+  color: white !important;
+  box-shadow: 0 9px 20px rgba(52, 106, 222, 0.25) !important;
+}
+
+.cnooc-agent-builder-submit:not(:disabled):hover,
+.cnooc-agent-builder-submit:not(:disabled):focus-visible {
+  background: linear-gradient(145deg, #6b93f3, #2d66d8) !important;
+  transform: translateY(-1px);
+}
+
+.cnooc-agent-builder-submit:disabled {
+  background: linear-gradient(145deg, #b9c9e8, #98aed6) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: none !important;
+  opacity: 0.78 !important;
+}
+
+.cnooc-agent-builder-complete {
+  border-color: rgba(184, 208, 237, 0.9) !important;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 42px rgba(49, 91, 151, 0.13);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
 .cnooc-section-body,
 .cnooc-page-content,
 .cnooc-agents-page,
@@ -1882,6 +2067,83 @@
   }
 }
 
+/* Browser zoom reduces the CSS-pixel viewport. Keep the desktop composition
+ * intact on the short viewport produced by 175-200% zoom instead of letting
+ * the fixed welcome stack run below the visible canvas. */
+@media (min-width: 48rem) and (max-height: 44rem) {
+  .cnooc-chat-header {
+    height: 58px !important;
+    padding-top: 8px !important;
+  }
+
+  .cnooc-desktop-welcome-copy {
+    top: clamp(116px, 21vh, 150px);
+  }
+
+  .cnooc-desktop-welcome-copy h1 {
+    font-size: clamp(26px, 2.6vw, 31px);
+  }
+
+  .cnooc-desktop-welcome-copy p {
+    margin-top: 6px;
+    font-size: clamp(14px, 1.55vw, 17px);
+  }
+
+  .cnooc-composer-dock-welcome {
+    top: clamp(206px, 39vh, 232px) !important;
+    padding: 0 20px !important;
+  }
+
+  .cnooc-composer-dock-welcome .cnooc-composer-frame {
+    width: min(100%, 82vw) !important;
+  }
+
+  .cnooc-composer-shell {
+    gap: 7px !important;
+  }
+
+  .cnooc-welcome-composer.cnooc-composer {
+    height: 202px !important;
+    min-height: 202px !important;
+    border-radius: 22px !important;
+  }
+
+  .cnooc-welcome-composer .cnooc-composer-input {
+    top: 58px;
+    padding: 14px 22px 56px !important;
+  }
+
+  .cnooc-welcome-composer .cnooc-composer-textarea,
+  .cnooc-welcome-composer [contenteditable="true"] {
+    min-height: 58px !important;
+  }
+
+  .cnooc-welcome-composer .cnooc-primary-tools {
+    bottom: 10px;
+  }
+
+  .cnooc-welcome-composer .cnooc-submit {
+    bottom: 8px;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+  }
+
+  .cnooc-welcome-actions,
+  .cnooc-welcome-actions [data-slot="suggestions-list"] {
+    height: 42px !important;
+  }
+
+  .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
+    height: 40px !important;
+  }
+
+  .cnooc-welcome-copyright {
+    bottom: 4px !important;
+    font-size: 11px !important;
+  }
+}
+
 @media (min-width: 48rem) {
   .cnooc-welcome-copyright {
     position: absolute;
@@ -3236,6 +3498,125 @@
  * the same composition without disabling user zoom.
  */
 @media (max-width: 47.999rem) {
+  .cnooc-agent-builder-header {
+    min-height: 54px;
+    padding-right: 10px !important;
+    padding-left: 10px !important;
+  }
+
+  .cnooc-agent-builder-header h1 {
+    max-width: min(68vw, 310px);
+    overflow: hidden;
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cnooc-agent-builder-name-stage {
+    justify-content: flex-start !important;
+    padding: 18px 12px calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .cnooc-agent-builder-name-card {
+    max-width: 430px;
+    padding: 24px 18px;
+    border-radius: 20px;
+  }
+
+  .cnooc-agent-builder-model-strip {
+    padding: 7px 12px !important;
+  }
+
+  .cnooc-agent-builder-model-strip p:first-child {
+    font-size: 10px;
+  }
+
+  .cnooc-agent-builder-model-strip p:last-child {
+    max-width: 47vw;
+    font-size: 13px;
+  }
+
+  .cnooc-agent-builder-model-strip button {
+    min-height: 36px;
+    padding-right: 10px;
+    padding-left: 10px;
+    font-size: 13px;
+  }
+
+  .cnooc-agent-builder-hint {
+    padding: 10px 10px 0 !important;
+  }
+
+  .cnooc-agent-builder-hint-card {
+    padding: 10px 12px !important;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .cnooc-agent-builder-messages > * {
+    min-width: 0;
+  }
+
+  .cnooc-agent-builder-dock {
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .cnooc-agent-builder-prompt [data-slot="input-group"] {
+    min-height: 116px;
+    border-radius: 18px !important;
+  }
+
+  .cnooc-agent-builder-textarea {
+    min-height: 72px !important;
+    max-height: 132px !important;
+    padding: 15px 15px 6px !important;
+    font-size: 16px !important;
+    line-height: 1.55 !important;
+  }
+
+  .cnooc-agent-builder-prompt-footer {
+    min-height: 44px;
+    padding: 0 10px 10px !important;
+  }
+
+  .cnooc-agent-builder-submit {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-model-strip,
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-hint {
+    display: none !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-dock {
+    padding: 7px 8px max(7px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-prompt
+    [data-slot="input-group"] {
+    min-height: 94px;
+    border-radius: 16px !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-textarea {
+    min-height: 54px !important;
+    max-height: 92px !important;
+    padding-top: 12px !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-prompt-footer {
+    min-height: 40px;
+    padding-bottom: 7px !important;
+  }
+
   .cnooc-workspace-shell[data-mobile-keyboard-open="true"] .cnooc-welcome-stage,
   .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
     .cnooc-welcome-actions {

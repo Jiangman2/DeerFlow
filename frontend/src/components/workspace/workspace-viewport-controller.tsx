@@ -5,7 +5,7 @@ import { useEffect } from "react";
 const MOBILE_VIEWPORT_QUERY =
   "(max-width: 47.999rem), (orientation: landscape) and (max-height: 32rem) and (max-width: 64rem)";
 const COMPOSER_EDITABLE_SELECTOR =
-  '.cnooc-composer textarea, .cnooc-composer input, .cnooc-composer [contenteditable="true"]';
+  '.cnooc-composer textarea, .cnooc-composer input, .cnooc-composer [contenteditable="true"], [data-mobile-composer="true"] textarea, [data-mobile-composer="true"] input, [data-mobile-composer="true"] [contenteditable="true"]';
 
 /**
  * Keeps the workspace bound to the actually visible mobile viewport.
