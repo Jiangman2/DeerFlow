@@ -310,12 +310,35 @@ comma-separated build argument; Docker Compose continues to pass its explicit
 environment-derived value.
 
 CNOOC SSO stores the validated upstream platform Token in the HttpOnly
-`cnooc.platform_token` cookie. The frontend's same-origin server launch routes
-read that cookie only for the five allowlisted data-lake external agents and
-add the current Token to the final redirect URL. Those responses must remain
+`cnooc.platform_token` cookie and stores only its SHA-256 digest in the nullable,
+unique `users.cnooc_platform_token_hash` binding. Token login must commit that
+binding before issuing either login cookie. The frontend's same-origin server
+launch routes read the cookie only for the five allowlisted data-lake external
+agents and add the current Token to the final redirect URL. Before any launch,
+file-list, or download route consumes the Token, it calls the authenticated
+`GET /api/v1/data-lake/auth/session` endpoint, which compares the Cookie digest
+with the current user's binding in constant time. A mismatch clears the stale
+Cookie; temporary validation failure remains fail-closed without deleting a
+possibly valid Cookie. Those responses must remain
 `no-store` and `no-referrer`; the Token must never be hardcoded, returned in a
 response body, read by frontend JavaScript, or placed in browser-readable
 storage. Logout clears this cookie together with the DeerFlow `access_token`.
+The composer can acquire the same cookie through authenticated
+`POST /api/v1/data-lake/auth/token`. Gateway persists a SHA-256 challenge digest
+bound to the current user for 60 seconds, then calls the Data Lake appCode and
+token APIs, validates an exchanged Token through the CNOOC identity endpoint,
+requires that stable identity to match the challenge-bound user's CNOOC identity,
+and commits the same user Token digest before setting the Cookie. The provider
+calls the public, exact-path and CSRF-exempt
+`POST /api/v1/data-lake/auth/callback`; that route enforces a 16 KiB strict
+schema with a published OpenAPI request body, atomically consumes the
+challenge, supports only identical idempotent retries, and returns the bound
+user profile with `no-store`/`no-referrer` headers. The shared Nginx entry
+rate-limits the exact callback path per client IP and returns the documented
+JSON 429 response before excess traffic reaches SQL. Keep callback challenges
+in shared SQL persistence so multi-worker
+issuance and callbacks cannot diverge. Never persist the raw challenge or
+platform token.
 When `DEER_FLOW_SSO_ONLY=true`, the Gateway is the authoritative enforcement
 boundary for enterprise-only authentication: local login, registration,
 first-admin initialization, password changes, and generic OIDC authorization

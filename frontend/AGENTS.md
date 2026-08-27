@@ -154,10 +154,23 @@ administrators retain the complete native editor.
 The composer labels the legacy shop-cart attachment flow as **Data Lake** while
 keeping its internal routes and modules unchanged. The control stores
 `datalake_enabled` in the user's shared local settings, defaults missing values
-to `true`, and offers **Do not use Data Lake** / re-enable actions. Disabling it
-affects every thread, removes the file-list menu item, closes the dialog,
-invalidates in-flight list loads, and sends the resolved boolean on normal,
-custom-agent, regenerated, and branched runs.
+to `false`, and offers **Do not use Data Lake** / re-enable actions. Re-enabling
+must first call the CSRF-aware same-origin
+`POST /api/v1/data-lake/auth/token`; update the shared setting only after that
+request succeeds. The platform token remains HttpOnly and must never be read or
+stored by client code. Opening the file list repeats that idempotent request
+before loading files, including when the persisted setting is already `true`,
+and logout resets the setting to `false`. Every Next.js file-list, download, and
+external-agent launch route must call Gateway's authenticated
+`GET /api/v1/data-lake/auth/session` before consuming the Cookie. A 401 clears
+the stale Cookie, closes the Data Lake UI, and resets the shared setting to
+`false`; a temporary Gateway failure returns 503 without deleting a possibly
+valid Cookie or preference. Async enable/disable completion must merge into the
+latest context rather than overwrite model, mode, reasoning, or knowledge
+changes made while authorization was pending. Disabling affects every thread,
+removes the file-list
+menu item, closes the dialog, invalidates in-flight list loads, and sends the
+resolved boolean on normal, custom-agent, regenerated, and branched runs.
 
 Generated Office artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.<office-extension>` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Supported owners are DOC/DOCX, XLS/XLSX, ODT/ODS/ODP, and PPT/PPTX. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning Office document. `core/artifacts/utils.ts` owns the deterministic pairing rule, including extraction from a persisted thread-state snapshot. On chat reload, `ChatBox` uses the live stream artifact channel when it is populated and otherwise fetches `threads.getState(threadId)` explicitly so paged message hydration cannot make the top-level Files control disappear. That restoration must not auto-open the panel. The artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated generated output PDFs—including Office companions—server-side. Original uploads and unsafe PDFs remain download-only. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
 Interactive lead-agent submissions and regenerations share `core/threads/run-config.ts::LEAD_AGENT_RECURSION_LIMIT` (currently 2000). This is a bounded LangGraph super-step budget, not an LLM-call count; the Gateway still clamps it and backend loop/token guards remain independent. Keep both submission paths on the shared constant so long, progressing Skill workflows do not diverge by UI action.
@@ -276,9 +289,10 @@ The backend remains the authoritative enforcement boundary. The panel must not m
 conversations into that current-session view.
 The five built-in external-agent cards navigate through same-origin server
 launch routes under `/api/cnooc/external-agents/<agent>/launch`. Those routes
-read the HttpOnly `cnooc.platform_token` cookie and redirect only to the fixed
-canonical HTTPS paths on `datalake.cnooc`, adding the current Token at redirect
-time. Keep the strict target allowlist plus `no-store` and `no-referrer`
+read the HttpOnly `cnooc.platform_token` cookie, validate its current-user
+binding through Gateway's Data Lake session endpoint, and redirect only to the
+fixed canonical HTTPS paths on `datalake.cnooc`, adding the current Token at
+redirect time. Keep the strict target allowlist plus `no-store` and `no-referrer`
 headers, and keep the shared Nginx entry's exact launch-prefix location ahead
 of its general `/api/` Gateway catch-all. The Token must never be hardcoded,
 returned to client JavaScript, or
