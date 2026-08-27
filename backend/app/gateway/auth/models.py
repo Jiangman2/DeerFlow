@@ -31,6 +31,12 @@ class User(BaseModel):
     # OAuth linkage (optional)
     oauth_provider: str | None = Field(None, description="e.g. 'github', 'google'")
     oauth_id: str | None = Field(None, description="User ID from OAuth provider")
+    cnooc_platform_token_hash: str | None = Field(
+        None,
+        min_length=64,
+        max_length=64,
+        description="Internal SHA-256 binding for the CNOOC platform token",
+    )
 
     # Auth lifecycle
     needs_setup: bool = Field(default=False, description="True when a reset account must complete setup")

@@ -26,6 +26,7 @@ from app.gateway.routers import (
     convert,
     dashboard,
     datalake,
+    data_lake_auth,
     features,
     feedback,
     github_webhooks,
@@ -549,6 +550,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Auth API is mounted at /api/v1/auth
     app.include_router(auth.router)
+    app.include_router(data_lake_auth.router)
     app.include_router(iam_account_sync.router)
 
     # Feedback API is mounted at /api/threads/{thread_id}/runs/{run_id}/feedback
