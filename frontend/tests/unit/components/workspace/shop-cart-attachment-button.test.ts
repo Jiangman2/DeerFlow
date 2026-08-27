@@ -3,10 +3,15 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { toast } from "sonner";
 
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { NewShopCartDialog } from "@/components/workspace/shop-cart-attachments/new-shop-cart-dialog";
 import { ShopCartAttachmentButton } from "@/components/workspace/shop-cart-attachments/shop-cart-attachment-button";
+import { ensureDataLakeAuthorization } from "@/core/data-lake/auth";
 import type { DownloadableNewShopCartFile } from "@/core/shop-cart/api-files";
-import { downloadNewShopCartFile } from "@/core/shop-cart/new-api";
+import {
+  downloadNewShopCartFile,
+  fetchNewShopCartFiles,
+} from "@/core/shop-cart/new-api";
 import { validateIncomingUploadFiles } from "@/core/uploads/file-validation";
 
 rs.mock("@/components/ai-elements/prompt-input", () => ({
@@ -17,7 +22,9 @@ rs.mock("@/components/ai-elements/prompt-input", () => ({
 rs.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: "div",
   DropdownMenuContent: "div",
-  DropdownMenuItem: "div",
+  DropdownMenuItem: rs.fn(
+    ({ children }: { children: React.ReactNode }) => children,
+  ),
   DropdownMenuSeparator: "hr",
   DropdownMenuTrigger: "div",
 }));
@@ -34,6 +41,10 @@ rs.mock(
 rs.mock("@/core/shop-cart/new-api", () => ({
   downloadNewShopCartFile: rs.fn(),
   fetchNewShopCartFiles: rs.fn(),
+}));
+
+rs.mock("@/core/data-lake/auth", () => ({
+  ensureDataLakeAuthorization: rs.fn(),
 }));
 
 rs.mock("sonner", () => ({
@@ -55,6 +66,8 @@ rs.mock("@/core/i18n/hooks", () => ({
         dataLakeFileList: "Data Lake file list",
         disableDataLake: "Do not use Data Lake",
         enableDataLake: "Use Data Lake",
+        dataLakeAuthorizationFailed: "Authorization failed",
+        newShopCartLoadFailed: "Load failed",
         shopCartAddedFiles: (count: number) => `Added ${count}`,
         shopCartDownloadFailed: "Download failed",
         shopCartDownloading: "Downloading",
@@ -68,7 +81,10 @@ rs.mock("@/core/i18n/hooks", () => ({
 describe("ShopCartAttachmentButton", () => {
   beforeEach(() => {
     rs.mocked(NewShopCartDialog).mockClear();
+    rs.mocked(DropdownMenuItem).mockClear();
+    rs.mocked(ensureDataLakeAuthorization).mockReset();
     rs.mocked(downloadNewShopCartFile).mockReset();
+    rs.mocked(fetchNewShopCartFiles).mockReset();
     rs.mocked(toast.dismiss).mockClear();
     rs.mocked(toast.error).mockClear();
     rs.mocked(toast.loading).mockClear();
@@ -92,6 +108,123 @@ describe("ShopCartAttachmentButton", () => {
     expect(html).not.toContain("Data Lake file list");
     expect(html).not.toContain("new-shop-cart-dialog");
     expect(html).not.toContain("border-[#6d5dfc]/40 bg-[#f4f2ff]");
+  });
+
+  it("treats a missing Data Lake setting as disabled", () => {
+    const html = renderDataLakeControl(undefined);
+
+    expect(html).toContain("Use Data Lake");
+    expect(html).not.toContain("Data Lake file list");
+  });
+
+  it("reauthorizes before opening a persisted enabled Data Lake", async () => {
+    rs.mocked(ensureDataLakeAuthorization).mockResolvedValue({ ok: true });
+    rs.mocked(fetchNewShopCartFiles).mockResolvedValue({ ok: true, files: [] });
+    renderDataLakeControl(true);
+
+    const fileListItem = rs
+      .mocked(DropdownMenuItem)
+      .mock.calls.find(([props]) =>
+        hasChildText(
+          (props as { children?: React.ReactNode }).children,
+          "Data Lake file list",
+        ),
+      )?.[0] as { onSelect?: () => void | Promise<void> } | undefined;
+
+    await fileListItem?.onSelect?.();
+
+    expect(ensureDataLakeAuthorization).toHaveBeenCalledTimes(1);
+    expect(fetchNewShopCartFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not load files when persisted Data Lake reauthorization fails", async () => {
+    rs.mocked(ensureDataLakeAuthorization).mockResolvedValue({
+      ok: false,
+      message: "Denied",
+    });
+    renderDataLakeControl(true);
+
+    const fileListItem = rs
+      .mocked(DropdownMenuItem)
+      .mock.calls.find(([props]) =>
+        hasChildText(
+          (props as { children?: React.ReactNode }).children,
+          "Data Lake file list",
+        ),
+      )?.[0] as { onSelect?: () => void | Promise<void> } | undefined;
+
+    await fileListItem?.onSelect?.();
+
+    expect(fetchNewShopCartFiles).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith("Denied");
+  });
+
+  it("disables a persisted Data Lake after an identity mismatch", async () => {
+    const onContextChange = rs.fn();
+    rs.mocked(ensureDataLakeAuthorization).mockResolvedValue({
+      ok: false,
+      status: 403,
+      message: "Identity mismatch",
+    });
+    renderToStaticMarkup(
+      createElement(ShopCartAttachmentButton, {
+        context: {
+          model_name: "latest-model",
+          mode: "thinking",
+          datalake_enabled: true,
+        },
+        onAddFiles: (files) => files.length,
+        onContextChange,
+      }),
+    );
+
+    const fileListItem = rs
+      .mocked(DropdownMenuItem)
+      .mock.calls.find(([props]) =>
+        hasChildText(
+          (props as { children?: React.ReactNode }).children,
+          "Data Lake file list",
+        ),
+      )?.[0] as { onSelect?: () => void | Promise<void> } | undefined;
+    await fileListItem?.onSelect?.();
+
+    expect(onContextChange).toHaveBeenCalledWith({
+      model_name: "latest-model",
+      mode: "thinking",
+      datalake_enabled: false,
+    });
+    expect(fetchNewShopCartFiles).not.toHaveBeenCalled();
+  });
+
+  it("disables Data Lake when the file API rejects a stale user cookie", async () => {
+    const onContextChange = rs.fn();
+    rs.mocked(fetchNewShopCartFiles).mockResolvedValue({
+      ok: false,
+      status: 401,
+      message: "Unauthorized",
+    });
+    renderToStaticMarkup(
+      createElement(ShopCartAttachmentButton, {
+        context: {
+          model_name: "latest-model",
+          mode: "thinking",
+          datalake_enabled: true,
+        },
+        onAddFiles: (files) => files.length,
+        onContextChange,
+      }),
+    );
+
+    const dialogProps = rs.mocked(NewShopCartDialog).mock.calls.at(-1)?.[0];
+    expect(dialogProps).toBeDefined();
+    const refresh = dialogProps!.onRefresh as unknown as () => Promise<void>;
+    await refresh();
+
+    expect(onContextChange).toHaveBeenCalledWith({
+      model_name: "latest-model",
+      mode: "thinking",
+      datalake_enabled: false,
+    });
   });
 
   it("does not report success when every downloaded file is rejected", async () => {
@@ -171,8 +304,20 @@ const downloadableFile: DownloadableNewShopCartFile = {
   shopType: 1,
 };
 
+function hasChildText(children: React.ReactNode, text: string): boolean {
+  if (typeof children === "string") {
+    return children.includes(text);
+  }
+  if (Array.isArray(children)) {
+    return children.some(
+      (child) => typeof child === "string" && child.includes(text),
+    );
+  }
+  return false;
+}
+
 function renderDataLakeControl(
-  datalakeEnabled: boolean,
+  datalakeEnabled: boolean | undefined,
   onAddFiles: (files: File[]) => number = (files) => files.length,
 ) {
   const props = {

@@ -11,7 +11,6 @@ export const env = createEnv({
     DEER_FLOW_UNAUTHENTICATED_HOME_URL: z.string().url().optional(),
     DEER_FLOW_SSO_ONLY: z.string().optional(),
     SHOP_CART_API_BASE_URL: z.string().optional(),
-    SHOP_CART_DOWNLOAD_TOKEN: z.string().optional(),
     SHOP_CART_DOWNLOAD_TLS_VERIFY: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -53,7 +52,6 @@ export const env = createEnv({
       process.env.DEER_FLOW_UNAUTHENTICATED_HOME_URL,
     DEER_FLOW_SSO_ONLY: process.env.DEER_FLOW_SSO_ONLY,
     SHOP_CART_API_BASE_URL: process.env.SHOP_CART_API_BASE_URL,
-    SHOP_CART_DOWNLOAD_TOKEN: process.env.SHOP_CART_DOWNLOAD_TOKEN,
     SHOP_CART_DOWNLOAD_TLS_VERIFY: process.env.SHOP_CART_DOWNLOAD_TLS_VERIFY,
   },
   /**

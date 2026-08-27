@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { parseNewShopCartListResponse } from "@/core/shop-cart/api-files";
-import { env } from "@/env";
 import {
-  CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
-  resolveCnoocPlatformToken,
+  authorizeCnoocPlatformToken,
+  buildCnoocPlatformTokenRejection,
 } from "@/server/cnooc-auth/platform-token";
 import {
   getNewShopCartApiBaseUrl,
@@ -14,15 +13,18 @@ import {
 const NEW_SHOP_CART_LIST_PATH = "/jretrieve/bd_search/result-inquiry/list";
 
 export async function GET(request: NextRequest) {
-  const url = new URL(`${getNewShopCartApiBaseUrl()}${NEW_SHOP_CART_LIST_PATH}`);
-  const token = resolveCnoocPlatformToken(
-    request.cookies.get(CNOOC_PLATFORM_TOKEN_COOKIE_NAME)?.value,
-    env.SHOP_CART_DOWNLOAD_TOKEN,
+  const authorization = await authorizeCnoocPlatformToken(request);
+  if (!authorization.authorized) {
+    return buildCnoocPlatformTokenRejection(authorization.reason);
+  }
+
+  const url = new URL(
+    `${getNewShopCartApiBaseUrl()}${NEW_SHOP_CART_LIST_PATH}`,
   );
 
   let response: Response;
   try {
-    response = await requestDataLakeJson(url, token);
+    response = await requestDataLakeJson(url, authorization.token);
   } catch (error) {
     console.error("Failed to reach new shop cart list service", {
       error,
