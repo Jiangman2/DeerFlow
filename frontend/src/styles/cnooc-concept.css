@@ -2484,7 +2484,7 @@
     min-height: 48px !important;
     color: #293c59 !important;
     font-family: var(--cnooc-font);
-    font-size: 14px !important;
+    font-size: 16px !important;
     line-height: 1.65 !important;
   }
 
@@ -2656,7 +2656,7 @@
     left: 18px;
     display: flex !important;
     width: max-content !important;
-    max-width: calc(100vw - 110px) !important;
+    max-width: calc(100% - 110px) !important;
     min-width: 0 !important;
     height: 32px !important;
     justify-content: flex-start !important;
@@ -2673,7 +2673,7 @@
   }
 
   .cnooc-welcome-composer .cnooc-model-name {
-    max-width: calc(100vw - 150px);
+    max-width: calc(100% - 38px);
     overflow: hidden;
     font-size: 12.5px !important;
     font-weight: 500 !important;
@@ -2772,19 +2772,29 @@
     overflow: hidden !important;
   }
 
+  .cnooc-welcome-actions [data-slot="scroll-area-viewport"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .cnooc-welcome-actions [data-slot="suggestions-list"] {
-    display: grid !important;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    width: 100% !important;
-    min-width: 0 !important;
+    display: flex !important;
+    width: max-content !important;
+    min-width: 100% !important;
     height: 70px;
     gap: 8px !important;
     padding: 0 2px;
   }
 
   .cnooc-welcome-actions [data-slot="suggestion-item"] {
-    width: 100% !important;
-    min-width: 0 !important;
+    width: clamp(72px, 21vw, 84px) !important;
+    min-width: clamp(72px, 21vw, 84px) !important;
+    flex: 0 0 clamp(72px, 21vw, 84px) !important;
+    scroll-snap-align: start;
   }
 
   .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
@@ -2907,7 +2917,7 @@
   [data-testid="chat-composer"] [contenteditable="true"] {
     min-height: 48px !important;
     color: #293c59 !important;
-    font-size: 14px !important;
+    font-size: 16px !important;
     line-height: 1.65 !important;
   }
 
@@ -3216,6 +3226,102 @@
     max-width: 44px !important;
     max-height: 44px !important;
     flex-basis: 44px !important;
+  }
+}
+
+/*
+ * Mobile keyboard and short-screen contract.
+ * The workspace controller owns the visible-height variable and keyboard flag;
+ * CSS only reflows the welcome surface, so Android WebViews and iOS Safari use
+ * the same composition without disabling user zoom.
+ */
+@media (max-width: 47.999rem) {
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"] .cnooc-welcome-stage,
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-welcome-actions {
+    display: none !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-composer-shell {
+    gap: 0 !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-composer-dock-welcome {
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .cnooc-workspace-shell button,
+  .cnooc-workspace-shell [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 47.999rem) and (max-height: 43rem) {
+  .cnooc-mobile-welcome-card {
+    height: clamp(
+      178px,
+      calc(var(--app-viewport-height, 100dvh) - 378px),
+      220px
+    );
+    margin-top: 12px;
+  }
+
+  .cnooc-mobile-welcome-copy {
+    top: 24px;
+    left: 22px;
+  }
+
+  .cnooc-mobile-welcome-eyebrow {
+    margin-bottom: 8px;
+    font-size: clamp(14px, 4vw, 17px);
+  }
+
+  .cnooc-mobile-welcome-copy h1 {
+    font-size: clamp(17px, 5vw, 22px);
+    line-height: 1.25;
+  }
+
+  .cnooc-mobile-welcome-description {
+    display: -webkit-box;
+    margin-top: 6px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .cnooc-welcome-mascot {
+    top: -10px;
+    width: min(29vw, 108px) !important;
+  }
+
+  .cnooc-composer-shell {
+    gap: 10px !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 32rem) and (max-width: 64rem) {
+  .cnooc-workspace-shell {
+    --cnooc-mobile-landscape-inset: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .cnooc-chat-main {
+    padding-top: calc(58px + env(safe-area-inset-top));
+  }
+
+  .cnooc-chat-header {
+    min-height: 58px !important;
+  }
+
+  .cnooc-composer-dock-welcome {
+    padding-bottom: var(--cnooc-mobile-landscape-inset) !important;
+  }
+
+  .cnooc-welcome-stage {
+    display: none !important;
   }
 }
 

@@ -486,6 +486,23 @@ export function InputBox({
     setVoiceListening(false);
   }, []);
 
+  const releaseComposerFocus = useCallback(() => {
+    const activeElement = document.activeElement;
+    if (
+      activeElement instanceof HTMLElement &&
+      promptRootRef.current?.contains(activeElement)
+    ) {
+      activeElement.blur();
+    }
+    textareaRef.current?.blur();
+    inlineSkillTextRef.current?.blur();
+    setTextareaFocused(false);
+
+    if (window.matchMedia("(max-width: 47.999rem)").matches) {
+      window.requestAnimationFrame(() => window.scrollTo(0, 0));
+    }
+  }, []);
+
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSuggestion, setPendingSuggestion] = useState<string | null>(
     null,
@@ -1020,6 +1037,9 @@ export function InputBox({
         fileCount: messageWithSlashSkill.files.length,
         status,
       });
+      if (submitAction.kind !== "empty" && submitAction.kind !== "stop") {
+        releaseComposerFocus();
+      }
       if (submitAction.kind === "goal") {
         promptHistoryIndexRef.current = null;
         promptHistoryDraftRef.current = "";
@@ -1057,6 +1077,7 @@ export function InputBox({
       handleCompactCommand,
       handleGoalCommand,
       onStop,
+      releaseComposerFocus,
       selectedSlashSkill,
       status,
       submitThreadMessage,
@@ -1837,6 +1858,7 @@ export function InputBox({
         } as CSSProperties
       }
       data-has-attachments={attachmentParts.length > 0}
+      data-focused={textareaFocused}
       data-testid={isWelcomeMode ? "welcome-composer" : "chat-composer"}
     >
       {showFollowups && (

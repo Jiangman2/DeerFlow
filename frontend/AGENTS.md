@@ -346,6 +346,11 @@ mobile settings/artifacts, and the knowledge-page navigation escape hatch in
 the shared component tree. Do not pass SSO tokens through URLs or browser
 JavaScript. Mobile changes must retain desktop behavior and add Playwright
 coverage at 320, 375, 390, and 412 pixel widths plus a short landscape view.
+`WorkspaceViewportController` is the shared keyboard/viewport owner: it mirrors
+the VisualViewport height into `--app-viewport-height`, marks a composer-only
+software-keyboard state, and restores the page origin after focus leaves. Keep
+mobile editable text at least 16 CSS pixels to prevent iOS focus zoom; never
+solve keyboard overlap by disabling the user's pinch zoom.
 The empty mobile chat uses a compact welcome message and a bottom composer. Its
 primary composer tools stay on a single horizontal line, and the welcome action
 chips form one touch-scrollable row instead of wrapping. The mobile workspace
