@@ -33,11 +33,19 @@ export async function WorkspaceContent({
     <QueryClientProvider>
       <WorkspaceSettingsDialogProvider>
         <SidebarProvider
-          className="app-viewport app-safe-area bg-background min-h-0 overflow-hidden"
+          className="app-viewport app-safe-area cnooc-workspace-shell bg-background min-h-0 overflow-hidden"
           defaultOpen={initialSidebarOpen}
+          style={
+            {
+              // Keep the shadcn layout gap in lockstep with the branded rail.
+              // The visible frame is inset inside these reserved widths.
+              "--sidebar-width": "19rem",
+              "--sidebar-width-icon": "7rem",
+            } as React.CSSProperties
+          }
         >
           <WorkspaceSidebar />
-          <SidebarInset className="border-border bg-background min-h-0 min-w-0 overflow-hidden bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center md:border-l dark:bg-none">
+          <SidebarInset className="cnooc-workspace-canvas border-border bg-background min-h-0 min-w-0 overflow-hidden bg-cover bg-center md:border-l dark:bg-none">
             <GatewayOfflineBanner gatewayUnavailable={gatewayUnavailable} />
             {!gatewayUnavailable && <AnnouncementBanner />}
             {children}

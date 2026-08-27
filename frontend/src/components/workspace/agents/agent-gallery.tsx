@@ -4,6 +4,7 @@ import { BotIcon, PlusIcon, StoreIcon, UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AgentsApiDisabledError,
@@ -42,14 +43,20 @@ export function AgentGallery() {
   };
 
   return (
-    <Tabs defaultValue="mine" className="flex size-full flex-col">
+    <Tabs
+      defaultValue="mine"
+      className="cnooc-agents-page flex size-full flex-col"
+    >
       {/* Page header */}
-      <div className="flex min-w-0 flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
-        <div className="min-w-0">
-          <h1 className="text-xl font-semibold">{t.agents.title}</h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">
-            {t.agents.description}
-          </p>
+      <div className="cnooc-page-heading flex min-w-0 flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+        <div className="flex min-w-0 items-start gap-2">
+          <SidebarTrigger className="mt-0.5 -ml-2 shrink-0 md:hidden" />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold">{t.agents.title}</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {t.agents.description}
+            </p>
+          </div>
         </div>
         <div className="flex min-w-0 items-center justify-between gap-2 sm:shrink-0 sm:justify-start sm:gap-3">
           <TabsList className="min-w-0 flex-1 sm:flex-none">
@@ -74,7 +81,7 @@ export function AgentGallery() {
       </div>
 
       {/* Content */}
-      <div className="app-scroll-region min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
+      <div className="cnooc-page-content app-scroll-region min-h-0 flex-1 overflow-y-auto p-3 sm:p-6">
         <TabsContent value="mine" className="mt-0">
           {agentsApiDisabled ? (
             <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">

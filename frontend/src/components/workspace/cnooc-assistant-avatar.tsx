@@ -14,9 +14,9 @@ export function CnoocAssistantAvatar({ className }: { className?: string }) {
       <Image
         alt=""
         className="cnooc-assistant-avatar-image size-full object-contain"
-        height={140}
+        height={192}
         priority
-        src="/images/cnooc-assistant-avatar.png"
+        src="/images/cnooc-mobile-mascot-v2.png"
         unoptimized
         width={140}
       />

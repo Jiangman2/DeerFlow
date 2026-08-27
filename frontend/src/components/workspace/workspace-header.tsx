@@ -3,6 +3,7 @@
 import { MessageSquarePlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 import { brand } from "@/brand";
 import { BrandLogo } from "@/components/brand/brand-logo";
@@ -21,6 +22,20 @@ export function WorkspaceHeader({ className }: { className?: string }) {
   const { t } = useI18n();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const pathname = usePathname();
+  const [suppressCollapsedHover, setSuppressCollapsedHover] = useState(false);
+  const releasePointerFocus = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // After a pointer-triggered collapse the control moves into the collapsed
+    // brand slot. Releasing its focus immediately restores the logo at rest;
+    // keyboard-triggered toggles keep focus for accessible navigation.
+    if (event.detail > 0) {
+      if (state === "expanded") {
+        setSuppressCollapsedHover(true);
+      }
+      const target = event.currentTarget;
+      target.blur();
+      requestAnimationFrame(() => target.blur());
+    }
+  };
   return (
     <>
       <div
@@ -29,13 +44,21 @@ export function WorkspaceHeader({ className }: { className?: string }) {
           className,
         )}
       >
-        {state === "collapsed" ? (
-          <div className="group-has-data-[collapsible=icon]/sidebar-wrapper:-translate-y flex w-full cursor-pointer items-center justify-center">
+        {state === "collapsed" && !isMobile ? (
+          <div
+            className="cnooc-collapsed-brand-slot group-has-data-[collapsible=icon]/sidebar-wrapper:-translate-y flex w-full cursor-pointer items-center justify-center"
+            data-suppress-hover={suppressCollapsedHover || undefined}
+            onPointerLeave={() => setSuppressCollapsedHover(false)}
+          >
             <BrandLogo
               variant="mark"
-              className="block size-7 translate-x-0.5 -translate-y-px object-contain group-hover/workspace-header:hidden"
+              priority
+              className="cnooc-collapsed-brand-mark block size-7 -translate-y-px object-contain group-hover/workspace-header:hidden"
             />
-            <SidebarTrigger className="hidden pl-2 group-hover/workspace-header:block" />
+            <SidebarTrigger
+              className="cnooc-collapsed-brand-trigger hidden group-hover/workspace-header:flex"
+              onClick={releasePointerFocus}
+            />
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2">
@@ -48,7 +71,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
                 <BrandLogo variant="full" priority className="h-8 w-auto" />
               </div>
             )}
-            <SidebarTrigger />
+            <SidebarTrigger onClick={releasePointerFocus} />
           </div>
         )}
       </div>
@@ -65,7 +88,9 @@ export function WorkspaceHeader({ className }: { className?: string }) {
                 if (isMobile) setOpenMobile(false);
               }}
             >
-              <MessageSquarePlus size={16} />
+              <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+                <MessageSquarePlus size={16} />
+              </span>
               <span>{t.sidebar.newChat}</span>
             </Link>
           </SidebarMenuButton>

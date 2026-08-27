@@ -149,6 +149,10 @@ When making code changes, you MUST update the relevant documentation:
 - Keep documentation synchronized with the codebase at all times
 - Ensure accuracy and timeliness of all documentation
 
+## Replay golden test
+
+`tests/test_replay_golden.py` uses recursion_limit 2000 to match the browser lead-agent budget; title and suggestion nodes exceed the former 50-step test ceiling. Regenerate `write_read_file.ultra.events.json` only after a normal replay completion with no replay misses.
+
 ## Commands
 
 **Root directory** (for full application):
@@ -1303,8 +1307,24 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
   audited enterprise endpoint: its safety gateway returns business code
   `20009` for non-streaming tool-call completions but accepts the equivalent
   streamed protocol. The adapter normalizes JSON-encoded streamed chunks before
-  LangChain conversion, and it must never recover tool calls embedded in a
-  provider error message.
+  LangChain conversion. It may quarantine an isolated malformed scalar frame
+  only when a later normal chunk contains a terminal `finish_reason`; otherwise
+  the incomplete stream remains a typed `MALFORMED_RESPONSE` failure. That exact
+  transport defect may use up to three fresh request attempts, bounded by the
+  operator retry cap. Never log the raw scalar, turn it into assistant content,
+  or recover tool calls embedded in a provider error message. Providers that
+  repeat cumulative usage on each streamed chunk must set
+  `cumulative_stream_usage: true`; the adapter tracks snapshots independently
+  by completion id, publishes only deltas, and clears terminal or idle state so
+  LangChain cannot multiply prompt/cache usage by the chunk count. Keep the
+  option disabled for providers that already emit per-chunk usage.
+  Historical aggregates written before that guard cannot recover the missing
+  final provider snapshot exactly. Use
+  `backend/scripts/correct_cumulative_token_usage.py` for PostgreSQL incident
+  repair: audit is read-only, apply quarantines only impossible per-call
+  contributions after writing an atomic backup, rollback restores the exact
+  original run aggregates, and `run_events` always remains immutable. Never
+  replace this with an unbacked bulk reset or an arbitrary estimated divisor.
 - `logging.enhance` - Optional request trace correlation (`enabled`, `format`) for Gateway `X-Trace-Id`, log `trace_id`, and Langfuse `deerflow_trace_id`
 - vLLM reasoning models should use `deerflow.models.vllm_provider:VllmChatModel`; for Qwen-style parsers prefer `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`, and DeerFlow will also normalize the older `thinking` alias
 - `tools[]` - Tool configs with `use` variable path and `group`

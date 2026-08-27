@@ -139,14 +139,21 @@ export function ModeSelector({
         >
           {labels[selectedMode]}
         </span>
+        <ChevronDownIcon className="cnooc-mode-chevron text-muted-foreground size-3.5 shrink-0" />
       </PromptInputButton>
     );
 
+  const dropdownTrigger = (
+    <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+  );
+
   return (
     <DropdownMenu>
-      <ModeHoverGuide mode={selectedMode}>
-        <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      </ModeHoverGuide>
+      {variant === "mobile-header" ? (
+        dropdownTrigger
+      ) : (
+        <ModeHoverGuide mode={selectedMode}>{dropdownTrigger}</ModeHoverGuide>
+      )}
       <DropdownMenuContent
         align="start"
         className={cn(

@@ -6,7 +6,6 @@ import {
   InfoIcon,
   BrainIcon,
   MegaphoneIcon,
-  PaletteIcon,
   SparklesIcon,
   UserIcon,
   UsersIcon,
@@ -24,7 +23,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { AboutSettingsPage } from "@/components/workspace/settings/about-settings-page";
 import { AccountSettingsPage } from "@/components/workspace/settings/account-settings-page";
 import { AnnouncementSettingsPage } from "@/components/workspace/settings/announcement-settings-page";
-import { AppearanceSettingsPage } from "@/components/workspace/settings/appearance-settings-page";
 import { ChannelsSettingsPage } from "@/components/workspace/settings/channels-settings-page";
 import { MemorySettingsPage } from "@/components/workspace/settings/memory-settings-page";
 import { NotificationSettingsPage } from "@/components/workspace/settings/notification-settings-page";
@@ -38,7 +36,6 @@ import { cn } from "@/lib/utils";
 type SettingsSection =
   | "account"
   | "announcements"
-  | "appearance"
   | "channels"
   | "memory"
   | "tools"
@@ -52,7 +49,7 @@ type SettingsDialogProps = React.ComponentProps<typeof Dialog> & {
 };
 
 export function SettingsDialog(props: SettingsDialogProps) {
-  const { defaultSection = "appearance", ...dialogProps } = props;
+  const { defaultSection = "account", ...dialogProps } = props;
   const { t } = useI18n();
   const { user } = useAuth();
   const isAdmin = user?.system_role === "admin";
@@ -73,11 +70,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
         id: "account",
         label: t.settings.sections.account,
         icon: UserIcon,
-      },
-      {
-        id: "appearance",
-        label: t.settings.sections.appearance,
-        icon: PaletteIcon,
       },
       {
         id: "notification",
@@ -106,7 +98,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
     ],
     [
       t.settings.sections.account,
-      t.settings.sections.appearance,
       t.settings.sections.channels,
       t.settings.sections.memory,
       t.settings.sections.tools,
@@ -167,7 +158,6 @@ export function SettingsDialog(props: SettingsDialogProps) {
                 {activeSection === "announcements" && isAdmin && (
                   <AnnouncementSettingsPage />
                 )}
-                {activeSection === "appearance" && <AppearanceSettingsPage />}
                 {activeSection === "memory" && <MemorySettingsPage />}
                 {activeSection === "tools" && <ToolSettingsPage />}
                 {activeSection === "skills" && (

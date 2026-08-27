@@ -1,11 +1,14 @@
 "use client";
 
+import { MenuIcon } from "lucide-react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar";
+import { AnnouncementNotificationButton } from "@/components/workspace/announcement-banner";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
 import {
   ChatBox,
@@ -315,33 +318,61 @@ export default function ChatPage() {
           <div className="relative flex size-full min-h-0 justify-between">
             <header
               className={cn(
-                "absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
+                "cnooc-chat-header absolute top-0 right-0 left-0 z-40 flex h-12 min-w-0 shrink-0 items-center gap-1 overflow-hidden px-2 sm:gap-2 sm:px-4",
+                isWelcomeMode && "cnooc-chat-header-welcome",
                 isWelcomeMode
                   ? "bg-background/0 backdrop-blur-none"
                   : "bg-background/80 shadow-xs backdrop-blur",
               )}
             >
-              <SidebarTrigger className="md:hidden" />
+              <MobileSidebarTrigger />
               {isWelcomeMode && (
-                <ModeSelector
-                  disabled={models.length === 0 || isAdminReview}
-                  mode={settings.context.mode}
-                  supportsThinking={supportsThinking}
-                  variant="mobile-header"
-                  onSelect={handleModeSelect}
-                />
+                <>
+                  <div className="cnooc-desktop-brandline">
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      className="cnooc-brandline-mark"
+                      height={128}
+                      priority
+                      src="/images/cnooc-haineng-mark.png"
+                      unoptimized
+                      width={128}
+                    />
+                    <strong>智启海油&nbsp; 赋能未来</strong>
+                    <span aria-hidden="true">|</span>
+                    <span>海能 AI</span>
+                  </div>
+                  <div className="cnooc-mobile-product-title">
+                    <strong>中海油勘探开发智能体</strong>
+                    <ModeSelector
+                      className="cnooc-mobile-mode-pill"
+                      disabled={isAdminReview}
+                      mode={settings.context.mode}
+                      supportsThinking={supportsThinking}
+                      variant="mobile-header"
+                      onSelect={handleModeSelect}
+                    />
+                  </div>
+                </>
               )}
-              <div className="flex min-w-0 flex-1 items-center text-sm font-medium">
+              <div
+                className={cn(
+                  "flex min-w-0 flex-1 items-center text-sm font-medium",
+                  isWelcomeMode && "cnooc-welcome-thread-title",
+                )}
+              >
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
-              <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-2">
-                {!isNewThread && !isAdminReview && (
+              <div className="cnooc-header-actions flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-2">
+                {!isAdminReview && !isNewThread && (
                   <ThreadScheduledTasksLink threadId={threadId} />
                 )}
                 <TokenUsageIndicator
+                  className="cnooc-token-usage-link"
                   threadId={isNewThread ? undefined : threadId}
                   backendUsage={backendTokenUsage}
-                  enabled={tokenUsageEnabled}
+                  enabled
                   messages={thread.messages}
                   pendingMessages={pendingUsageMessages}
                   preferences={localSettings.tokenUsage}
@@ -349,12 +380,23 @@ export default function ChatPage() {
                     setLocalSettings("tokenUsage", preferences)
                   }
                 />
+                {isWelcomeMode && <AnnouncementNotificationButton />}
                 {!isAdminReview && <SidecarTrigger />}
                 <ExportTrigger threadId={threadId} />
                 <ArtifactTrigger />
               </div>
             </header>
-            <main className="flex min-h-0 max-w-full grow flex-col">
+            <main
+              className={cn(
+                "cnooc-chat-main flex min-h-0 max-w-full grow flex-col",
+                !isWelcomeMode && "cnooc-chat-main-task",
+              )}
+            >
+              {isWelcomeMode && !hasGoal && !hasTodos && (
+                <div className="cnooc-welcome-stage">
+                  <Welcome mode={settings.context.mode} />
+                </div>
+              )}
               <div className="flex min-h-0 flex-1 justify-center">
                 <MessageList
                   className={cn("size-full", !isWelcomeMode && "pt-10")}
@@ -394,16 +436,15 @@ export default function ChatPage() {
               </div>
               <div
                 className={cn(
-                  "right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
+                  "cnooc-composer-dock right-0 bottom-0 left-0 z-30 flex min-w-0 justify-center px-2 sm:px-4",
                   isWelcomeMode
-                    ? "app-safe-area-bottom absolute pb-3 sm:pb-0"
+                    ? "cnooc-composer-dock-welcome app-safe-area-bottom absolute pb-3 sm:pb-0"
                     : "relative shrink-0 pb-4",
                 )}
               >
                 <div
                   className={cn(
-                    "relative w-full",
-                    isWelcomeMode && "sm:-translate-y-[calc(50dvh-96px)]",
+                    "cnooc-composer-frame relative w-full",
                     isWelcomeMode
                       ? "max-w-(--container-width-sm)"
                       : "max-w-(--container-width-md)",
@@ -437,7 +478,7 @@ export default function ChatPage() {
                     <InputBox
                       className={cn(
                         "bg-background/5 w-full",
-                        isWelcomeMode && "-translate-y-2 sm:-translate-y-4",
+                        isWelcomeMode && "cnooc-welcome-composer",
                       )}
                       isWelcomeMode={isWelcomeMode}
                       threadId={threadId}
@@ -450,11 +491,7 @@ export default function ChatPage() {
                             : "ready"
                       }
                       context={settings.context}
-                      extraHeader={
-                        isWelcomeMode &&
-                        !hasGoal &&
-                        !hasTodos && <Welcome mode={settings.context.mode} />
-                      }
+                      extraHeader={undefined}
                       disabled={
                         isAdminReview ||
                         isMock ||
@@ -475,7 +512,7 @@ export default function ChatPage() {
                       aria-hidden="true"
                       className={cn(
                         "bg-background/5 h-32 w-full rounded-2xl",
-                        isWelcomeMode && "-translate-y-2 sm:-translate-y-4",
+                        isWelcomeMode && "cnooc-welcome-composer",
                       )}
                     />
                   )}
@@ -486,10 +523,35 @@ export default function ChatPage() {
                   )}
                 </div>
               </div>
+              {isWelcomeMode && (
+                <footer
+                  aria-label="版权信息"
+                  className="cnooc-welcome-copyright"
+                >
+                  Copyright © 2025-2026 中海油研究总院有限责任公司 版权所有
+                  <span aria-hidden="true">　</span>
+                  地址：北京市朝阳区太阳宫南街6号院
+                </footer>
+              )}
             </main>
           </div>
         </ChatBox>
       </SidecarProvider>
     </ThreadContext.Provider>
+  );
+}
+
+function MobileSidebarTrigger() {
+  const { toggleSidebar } = useSidebar();
+
+  return (
+    <button
+      aria-label="打开导航菜单"
+      className="cnooc-mobile-menu-trigger hidden items-center justify-center md:hidden"
+      type="button"
+      onClick={toggleSidebar}
+    >
+      <MenuIcon aria-hidden="true" />
+    </button>
   );
 }

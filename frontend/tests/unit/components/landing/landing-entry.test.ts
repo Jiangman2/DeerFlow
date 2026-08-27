@@ -33,7 +33,7 @@ describe("enterprise landing entry", () => {
   test("sends every landing CTA through the existing server auth route", () => {
     expect(headerSource.match(/href=\{brand\.links\.login\}/g)).toHaveLength(2);
     expect(headerSource).not.toContain("href={brand.links.workspace}");
-    expect(heroSource).toContain("href={brand.links.login}");
+    expect(heroSource).toContain('href="/api/v1/auth/iam/login?next=/workspace/chats/new"');
     expect(heroSource).not.toContain("href={brand.links.workspace}");
   });
 });

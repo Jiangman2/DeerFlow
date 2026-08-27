@@ -645,8 +645,12 @@ Enterprise Kubernetes storage note:
   gateway rejects non-streaming OpenAI tool-call completions with business code
   `20009`, while the equivalent streamed tool call succeeds. The adapter
   normalizes JSON-encoded streamed chunks before LangChain consumes them so a
-  scalar compatibility response cannot regress to `str.model_dump()`. Never
-  recover or execute nested tool calls from an upstream error message.
+  scalar compatibility response cannot regress to `str.model_dump()`. The
+  enterprise DeepSeek model also sets `cumulative_stream_usage: true` because
+  its stream repeats cumulative token snapshots; the adapter converts those
+  snapshots to completion-scoped deltas before LangChain aggregation. Never
+  enable that option for providers that already return per-chunk usage, and
+  never recover or execute nested tool calls from an upstream error message.
   Null-choices failures receive at most one retry.
 - Enterprise Qwen3 Embedding and Reranker requests pass through authenticated Gateway relays. Keep the upstream `CNOOC_RETRIEVAL_API_KEY` separate from the independently generated `WEKNORA_INTERNAL_MODEL_RELAY_KEY`, never expose either key to browsers, and keep the upstream client direct with `trust_env=false`. The Qwen3 embedding relay requests 1024-dimensional Matryoshka output; if the approved endpoint returns 4096 values, Gateway truncates the prefix to 1024 and L2-normalizes it before returning the OpenAI-compatible response. Changing this dimension after documents are indexed requires a complete re-parse of every affected knowledge base. The approved retrieval credential admits 200 concurrent upstream requests, so keep `WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY=200` as both the default and hard Gateway ceiling; WeKnora's 2+1 worker limits continue to control document parsing pressure. Retain bounded retries for transient business code `10020` to absorb brief shared-capacity races with rerank traffic.
 - Keep the exact internal model hostname `model.ai.cnooc` and the authenticated in-cluster `gateway` relay Service in the WeKnora App's comma-separated `SSRF_WHITELIST_EXTRA` as well as both proxy-bypass variables. WeKnora correctly blocks private addresses by default; this narrow deployment allowlist permits only the approved internal endpoints without opening the surrounding private network or disabling SSRF validation.

@@ -109,11 +109,11 @@ spec:
     spec:
       containers:
         - name: redis
-          image: redis:7.0-alpine
+          image: redis:7.4.11-alpine
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
-            - redis-server --appendonly yes --requirepass "$REDIS_PASSWORD"
+            - exec redis-server --appendonly yes --requirepass "$REDIS_PASSWORD" --cluster-enabled no --cluster-port 0 --protected-mode yes
           env:
             - name: REDIS_PASSWORD
               valueFrom:
