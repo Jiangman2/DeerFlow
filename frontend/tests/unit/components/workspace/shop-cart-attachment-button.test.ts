@@ -67,6 +67,7 @@ rs.mock("@/core/i18n/hooks", () => ({
         disableDataLake: "Do not use Data Lake",
         enableDataLake: "Use Data Lake",
         dataLakeAuthorizationFailed: "Authorization failed",
+        dataLakePermissionDenied: "No Data Lake permission",
         newShopCartLoadFailed: "Load failed",
         shopCartAddedFiles: (count: number) => `Added ${count}`,
         shopCartDownloadFailed: "Download failed",
@@ -157,6 +158,28 @@ describe("ShopCartAttachmentButton", () => {
 
     expect(fetchNewShopCartFiles).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith("Denied");
+  });
+
+  it("shows a dedicated message when the account has no Data Lake permission", async () => {
+    rs.mocked(ensureDataLakeAuthorization).mockResolvedValue({
+      ok: false,
+      status: 403,
+      code: "data_lake_permission_denied",
+      message: "The current account does not have Data Lake access.",
+    });
+    renderDataLakeControl(false);
+
+    const enableItem = rs
+      .mocked(DropdownMenuItem)
+      .mock.calls.find(([props]) =>
+        hasChildText(
+          (props as { children?: React.ReactNode }).children,
+          "Use Data Lake",
+        ),
+      )?.[0] as { onSelect?: () => void | Promise<void> } | undefined;
+    await enableItem?.onSelect?.();
+
+    expect(toast.error).toHaveBeenCalledWith("No Data Lake permission");
   });
 
   it("disables a persisted Data Lake after an identity mismatch", async () => {

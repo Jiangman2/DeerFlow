@@ -36,4 +36,23 @@ describe("ensureDataLakeAuthorization", () => {
       message: "upstream unavailable",
     });
   });
+
+  it("preserves the permission-denied error code for the Data Lake control", async () => {
+    rs.mocked(fetchWithAuth).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: "data_lake_permission_denied",
+          message: "The current account does not have Data Lake access.",
+        }),
+        { status: 403 },
+      ),
+    );
+
+    await expect(ensureDataLakeAuthorization()).resolves.toEqual({
+      ok: false,
+      status: 403,
+      code: "data_lake_permission_denied",
+      message: "The current account does not have Data Lake access.",
+    });
+  });
 });

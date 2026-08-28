@@ -117,6 +117,7 @@ export interface Translations {
     disableDataLake: string;
     enableDataLake: string;
     dataLakeAuthorizationFailed: string;
+    dataLakePermissionDenied: string;
     shopCartDialogTitle: string;
     shopCartDialogDescription: string;
     shopCartWindowDescription: string;
