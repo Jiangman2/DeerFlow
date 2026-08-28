@@ -142,11 +142,16 @@ export function ShopCartAttachmentButton({
     setNewShopCartLoading(false);
 
     if (!result.ok) {
-      if (result.status === 401) {
+      const loginRequired = result.code === "data_lake_login_required";
+      if (result.status === 401 && !loginRequired) {
         resetDataLakeUi();
         commitDataLakeEnabled(false);
       }
-      toast.error(t.inputBox.newShopCartLoadFailed);
+      toast.error(
+        loginRequired
+          ? t.inputBox.dataLakeLoginRequired
+          : t.inputBox.newShopCartLoadFailed,
+      );
       return;
     }
 
@@ -155,6 +160,7 @@ export function ShopCartAttachmentButton({
     commitDataLakeEnabled,
     dataLakeEnabled,
     resetDataLakeUi,
+    t.inputBox.dataLakeLoginRequired,
     t.inputBox.newShopCartLoadFailed,
   ]);
 

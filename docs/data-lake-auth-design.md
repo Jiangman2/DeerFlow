@@ -180,9 +180,14 @@ GET /api/v1/data-lake/auth/session
 Next.js 所有直接消费平台 Token 的服务端路由，包括购物车文件列表、文件下载和
 五个外部智能体启动路由，都必须在使用 Token 前调用该校验。校验失败时返回未授权，
 清除失配的平台 Cookie，不得把 Token 转发给数据湖或拼入外部智能体跳转地址。
-浏览器收到这些路由的 401 后关闭数据湖界面，并把共享设置中的
+浏览器收到平台 Token 绑定校验产生的 401 后关闭数据湖界面，并把共享设置中的
 `datalake_enabled` 重置为 `false`；Gateway 暂时不可用时返回 503，保留可能仍然
 有效的 Cookie 和用户偏好，避免把基础设施故障误判为身份切换。
+
+购物车列表上游以 HTTP 401 返回业务响应 `code=1`、`msg=invalid_token` 时，表示
+用户尚未登录数据湖平台，而不是 DeerFlow 用户与平台 Token 的绑定失配。Next.js
+列表路由将其映射为稳定错误码 `data_lake_login_required`，前端提示“请先登录数据湖”，
+同时保留 HttpOnly 平台 Cookie 和 `datalake_enabled=true`。其他 401 仍沿用失配清理策略。
 
 ### 5.3 数据湖平台回调
 
@@ -484,7 +489,10 @@ CNOOC_OAUTH_TLS_VERIFY
 - 打开文件列表前重新授权。
 - 授权失败时不加载文件。
 - 关闭时隐藏列表、关闭弹窗并使旧请求失效。
-- 文件列表或下载返回 401 时清除旧授权界面并把共享设置重置为 `false`。
+- 文件列表或下载因平台 Token 绑定失配返回 401 时清除旧授权界面并把共享设置重置为
+  `false`。
+- 文件列表返回 `data_lake_login_required` 时提示“请先登录数据湖”，保留 Cookie 和
+  `datalake_enabled=true`。
 - 授权异步完成时只更新最新上下文中的 `datalake_enabled`，不得覆盖期间发生的模型、
   模式或知识库设置变更。
 - 登出时重置设置。

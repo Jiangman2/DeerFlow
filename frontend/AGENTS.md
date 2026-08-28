@@ -162,10 +162,14 @@ stored by client code. Opening the file list repeats that idempotent request
 before loading files, including when the persisted setting is already `true`,
 and logout resets the setting to `false`. Every Next.js file-list, download, and
 external-agent launch route must call Gateway's authenticated
-`GET /api/v1/data-lake/auth/session` before consuming the Cookie. A 401 clears
-the stale Cookie, closes the Data Lake UI, and resets the shared setting to
-`false`; a temporary Gateway failure returns 503 without deleting a possibly
-valid Cookie or preference. The Data Lake control maps only
+`GET /api/v1/data-lake/auth/session` before consuming the Cookie. A 401 from
+that binding check clears the stale Cookie, closes the Data Lake UI, and resets
+the shared setting to `false`; a temporary Gateway failure returns 503 without
+deleting a possibly valid Cookie or preference. When the shop-cart list upstream
+instead returns HTTP 401 with `code=1` and `msg=invalid_token`, map it to
+`data_lake_login_required`, show the localized **Please sign in to Data Lake
+first** message, and retain both the HttpOnly Cookie and `datalake_enabled=true`.
+The Data Lake control maps only
 `data_lake_permission_denied` to the localized **No Data Lake permission**
 message; other authorization failures keep their normal diagnostic or retry
 message. Async enable/disable completion must merge into the

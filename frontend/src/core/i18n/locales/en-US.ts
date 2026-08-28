@@ -137,6 +137,7 @@ export const enUS: Translations = {
     dataLakeAuthorizationFailed:
       "Could not obtain Data Lake access. Please try again.",
     dataLakePermissionDenied: "No Data Lake permission",
+    dataLakeLoginRequired: "Please sign in to Data Lake first.",
     shopCartDialogTitle: "Select attachments from Data Lake",
     shopCartDialogDescription:
       "Data Lake opened in a new window. Select files there, then return here to add the selected files.",

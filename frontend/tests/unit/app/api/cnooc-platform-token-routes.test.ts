@@ -8,6 +8,12 @@ import {
 } from "@rstest/core";
 import { NextRequest } from "next/server";
 
+rs.mock("@/server/shop-cart/new-api", () => ({
+  getNewShopCartApiBaseUrl: () => "http://shop-cart.internal",
+  requestDataLakeBinary: rs.fn(),
+  requestDataLakeJson: rs.fn(),
+}));
+
 const TOKEN = "another-users-token";
 const COOKIE = `access_token=current-session; cnooc.platform_token=${TOKEN}`;
 
@@ -94,6 +100,36 @@ describe("routes that consume cnooc.platform_token", () => {
     expect(response.headers.get("set-cookie")?.toLowerCase()).toContain(
       "max-age=0",
     );
+  });
+
+  test("new shop-cart list reports when the upstream Data Lake login is missing", async () => {
+    rs.stubGlobal(
+      "fetch",
+      rs.fn(() =>
+        Promise.resolve(Response.json({ authorized: true }, { status: 200 })),
+      ),
+    );
+    const { requestDataLakeJson } = await import("@/server/shop-cart/new-api");
+    rs.mocked(requestDataLakeJson).mockResolvedValue(
+      Response.json(
+        { code: 1, msg: "invalid_token", data: TOKEN },
+        { status: 401 },
+      ),
+    );
+
+    const { GET } = await import("@/app/api/shop-cart/new/list/route");
+    const response = await GET(
+      new NextRequest("http://deerflow.local/api/shop-cart/new/list", {
+        headers: { cookie: COOKIE },
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({
+      code: "data_lake_login_required",
+      detail: "请先登录数据湖",
+    });
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 
   test("new shop-cart download refuses a token bound to another user", async () => {

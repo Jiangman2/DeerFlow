@@ -68,6 +68,7 @@ rs.mock("@/core/i18n/hooks", () => ({
         enableDataLake: "Use Data Lake",
         dataLakeAuthorizationFailed: "Authorization failed",
         dataLakePermissionDenied: "No Data Lake permission",
+        dataLakeLoginRequired: "Please sign in to Data Lake first.",
         newShopCartLoadFailed: "Load failed",
         shopCartAddedFiles: (count: number) => `Added ${count}`,
         shopCartDownloadFailed: "Download failed",
@@ -248,6 +249,37 @@ describe("ShopCartAttachmentButton", () => {
       mode: "thinking",
       datalake_enabled: false,
     });
+  });
+
+  it("keeps Data Lake enabled when the upstream platform login is missing", async () => {
+    const onContextChange = rs.fn();
+    rs.mocked(fetchNewShopCartFiles).mockResolvedValue({
+      ok: false,
+      status: 401,
+      code: "data_lake_login_required",
+      message: "请先登录数据湖",
+    });
+    renderToStaticMarkup(
+      createElement(ShopCartAttachmentButton, {
+        context: {
+          model_name: "latest-model",
+          mode: "thinking",
+          datalake_enabled: true,
+        },
+        onAddFiles: (files) => files.length,
+        onContextChange,
+      }),
+    );
+
+    const dialogProps = rs.mocked(NewShopCartDialog).mock.calls.at(-1)?.[0];
+    expect(dialogProps).toBeDefined();
+    const refresh = dialogProps!.onRefresh as unknown as () => Promise<void>;
+    await refresh();
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Please sign in to Data Lake first.",
+    );
+    expect(onContextChange).not.toHaveBeenCalled();
   });
 
   it("does not report success when every downloaded file is rejected", async () => {

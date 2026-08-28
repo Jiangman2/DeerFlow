@@ -37,6 +37,25 @@ export async function GET(request: NextRequest) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      const payload: unknown = await response.json().catch(() => null);
+      if (
+        payload !== null &&
+        typeof payload === "object" &&
+        "code" in payload &&
+        payload.code === 1 &&
+        "msg" in payload &&
+        payload.msg === "invalid_token"
+      ) {
+        return NextResponse.json(
+          {
+            code: "data_lake_login_required",
+            detail: "请先登录数据湖",
+          },
+          { status: 401 },
+        );
+      }
+    }
     return NextResponse.json(
       { detail: "New shop cart list failed" },
       { status: response.status },

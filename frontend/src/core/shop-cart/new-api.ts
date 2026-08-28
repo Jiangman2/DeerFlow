@@ -6,7 +6,12 @@ import {
 
 export type FetchNewShopCartFilesResult =
   | { ok: true; files: NewShopCartFile[] }
-  | { ok: false; status?: number; message: string };
+  | {
+      ok: false;
+      status?: number;
+      code?: "data_lake_login_required";
+      message: string;
+    };
 
 export type DownloadNewShopCartFileResult =
   | { ok: true; file: File }
@@ -16,6 +21,22 @@ export async function fetchNewShopCartFiles(): Promise<FetchNewShopCartFilesResu
   try {
     const response = await fetch("/api/shop-cart/new/list");
     if (!response.ok) {
+      const payload: unknown = await response.json().catch(() => null);
+      if (
+        payload !== null &&
+        typeof payload === "object" &&
+        "code" in payload &&
+        payload.code === "data_lake_login_required" &&
+        "detail" in payload &&
+        typeof payload.detail === "string"
+      ) {
+        return {
+          ok: false,
+          status: response.status,
+          code: "data_lake_login_required",
+          message: payload.detail,
+        };
+      }
       return {
         ok: false,
         status: response.status,
