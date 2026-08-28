@@ -192,11 +192,12 @@ async def authorize_data_lake(
         token = await issue_data_lake_token(challenge)
         checked = await check_cnooc_token(token)
     except CnoocAuthError as exc:
+        permission_denied = exc.status_code == status.HTTP_403_FORBIDDEN
         return _error_response(
             request,
             exc.status_code,
-            "data_lake_authorization_failed",
-            str(exc),
+            ("data_lake_permission_denied" if permission_denied else "data_lake_authorization_failed"),
+            ("The current account does not have Data Lake access." if permission_denied else str(exc)),
         )
 
     if not _checked_identity_matches_user(user, checked.user.platform_user_id):

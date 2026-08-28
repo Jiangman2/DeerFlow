@@ -170,6 +170,25 @@ def test_data_lake_authorization_persists_60_second_challenge_and_sets_cookie(
     assert provider.bound_token_hash == _token_hash("issued-platform-token")
 
 
+def test_data_lake_authorization_returns_permission_denied_code(monkeypatch):
+    repository = _ChallengeRepository()
+    user = User(email="user@example.com")
+
+    async def reject_permission(_challenge: str):
+        raise cnooc.CnoocAuthError("permission denied", 403)
+
+    monkeypatch.setattr(data_lake_auth, "issue_data_lake_token", reject_permission)
+
+    response = _client(repository, user).post("/api/v1/data-lake/auth/token")
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "code": "data_lake_permission_denied",
+        "message": "The current account does not have Data Lake access.",
+    }
+    assert "cnooc.platform_token" not in response.headers.get("set-cookie", "")
+
+
 def test_data_lake_authorization_rejects_exchanged_token_for_different_user(
     monkeypatch,
 ):

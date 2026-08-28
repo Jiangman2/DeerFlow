@@ -348,7 +348,7 @@ async def _exchange_data_lake_token(
         },
     )
     payload = await _read_json(response, "CNOOC Data Lake token exchange")
-    _api_success(payload, "CNOOC Data Lake token exchange")
+    _api_success(payload, "CNOOC Data Lake token exchange", 403)
     token = payload.get("data")
     if not isinstance(token, str) or not token.strip():
         raise CnoocAuthError("CNOOC Data Lake token exchange missing data", 502)

@@ -270,6 +270,37 @@ async def test_data_lake_token_exchange_uses_app_code_and_persisted_challenge():
     }
 
 
+@pytest.mark.asyncio
+async def test_data_lake_token_exchange_maps_business_rejection_to_forbidden():
+    class Client:
+        async def post(self, url, **kwargs):
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={
+                    "code": 403,
+                    "msg": "permission denied",
+                    "bizCode": "NO_PERMISSION",
+                    "dataSize": 0,
+                    "data": "",
+                },
+            )
+
+    config = cnooc.CnoocDataLakeExchangeConfig(
+        base_url="http://datalake.internal",
+        app_name="deerflow",
+        app_id="app-id",
+        api_token="issue-api-token",
+        login_user_code="login-user",
+        callback_id="integration-002",
+    )
+
+    with pytest.raises(CnoocAuthError) as exc_info:
+        await cnooc._exchange_data_lake_token(Client(), config, "cached-app-code", "A" * 32)
+
+    assert exc_info.value.status_code == 403
+
+
 def test_cnooc_login_maps_upstream_unavailable_to_503(monkeypatch):
     async def unavailable(_token: str):
         raise CnoocAuthError("CNOOC token verification temporarily unavailable", 503)
