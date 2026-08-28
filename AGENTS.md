@@ -501,7 +501,10 @@ the Cookie digest with the current user's binding; every Next.js file-list,
 download, and external-agent launch route must pass that check before consuming
 the Token. A mismatch clears the stale Cookie and the frontend resets
 `datalake_enabled` to `false`; a temporary Gateway failure returns 503 without
-destroying the possibly valid authorization. The public exact callback
+destroying the possibly valid authorization. A token-exchange HTTP 200 response
+whose business code still rejects the account after appCode refresh maps to
+`403 data_lake_permission_denied`; the frontend shows the localized no-access
+message and stays disabled. The public exact callback
 `POST /api/v1/data-lake/auth/callback` is CSRF-exempt, body-limited, documented
 with a strict OpenAPI request body, and rate-limited by the shared Nginx entry
 before it resolves the one-time persisted challenge. Rate-limit responses use

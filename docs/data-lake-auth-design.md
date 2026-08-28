@@ -345,6 +345,12 @@ POST /apigateway/zcshf/zcjksjfw_9725
 网络超时、传输错误和上游 5xx 按配置进行有限次数重试。非临时失败可能表示
 appCode 已失效，此时 Gateway 清空 appCode 缓存，重新获取后再尝试一次。
 
+如果 Token 交换接口以 HTTP 200 返回，但刷新 appCode 重试后业务 `code` 仍不为
+`200`，Gateway 将其视为当前账号没有数据湖权限，返回 HTTP 403 和错误码
+`data_lake_permission_denied`。前端显示“无数据湖权限”，并保持
+`datalake_enabled=false`。网络、超时、非法 JSON 和上游 5xx 继续作为服务故障
+处理，不能误报为权限不足。
+
 上游客户端默认启用 TLS 证书和主机名验证，并使用 `trust_env=false`，避免将
 平台凭证发送到企业互联网代理。
 
@@ -389,6 +395,7 @@ Token 不得返回给前端 JavaScript，不得写入 `localStorage`，不得硬
 | HTTP 状态 | 错误码 | 场景 |
 | --- | --- | --- |
 | 400 | `invalid_request` | JSON、字段或类型非法 |
+| 403 | `data_lake_permission_denied` | Token 交换业务拒绝，当前账号没有数据湖权限 |
 | 409 | `invalid_or_expired_challenge` | challenge 不存在或已过期 |
 | 409 | `callback_replayed` | 已使用的 challenge 被不同回调重放 |
 | 409 | `callback_payload_mismatch` | 幂等重试内容与首次回调不一致 |

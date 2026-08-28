@@ -165,7 +165,10 @@ external-agent launch route must call Gateway's authenticated
 `GET /api/v1/data-lake/auth/session` before consuming the Cookie. A 401 clears
 the stale Cookie, closes the Data Lake UI, and resets the shared setting to
 `false`; a temporary Gateway failure returns 503 without deleting a possibly
-valid Cookie or preference. Async enable/disable completion must merge into the
+valid Cookie or preference. The Data Lake control maps only
+`data_lake_permission_denied` to the localized **No Data Lake permission**
+message; other authorization failures keep their normal diagnostic or retry
+message. Async enable/disable completion must merge into the
 latest context rather than overwrite model, mode, reasoning, or knowledge
 changes made while authorization was pending. Disabling affects every thread,
 removes the file-list

@@ -894,8 +894,11 @@ login creates the same binding before issuing either login cookie. Opening the
 file list repeats this idempotent authorization check. Every Next.js file-list,
 download, and external-agent launch route asks Gateway to compare that Cookie
 with the current user's binding before forwarding it; a mismatch clears the old
-Cookie and resets the browser Data Lake preference to disabled. Logging out also
-resets the preference. The public
+Cookie and resets the browser Data Lake preference to disabled. If token
+exchange is reachable but rejects the account at the business layer, the UI
+shows **No Data Lake permission** and remains disabled; transport and upstream
+service failures retain the retry-oriented authorization error. Logging out
+also resets the preference. The public
 provider callback is
 `POST /api/v1/data-lake/auth/callback`; it accepts the one-time challenge and
 returns the bound user profile without exposing the token to browser

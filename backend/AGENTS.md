@@ -323,7 +323,10 @@ file-list, or download route consumes the Token, it calls the authenticated
 `GET /api/v1/data-lake/auth/session` endpoint, which compares the Cookie digest
 with the current user's binding in constant time. A mismatch clears the stale
 Cookie; temporary validation failure remains fail-closed without deleting a
-possibly valid Cookie. Those responses must remain
+possibly valid Cookie. After the existing appCode-refresh retry, an HTTP 200
+token-exchange response with a non-success business code maps to
+`403 data_lake_permission_denied`; transport, invalid-response, and upstream 5xx
+failures must not use that permission code. Those responses must remain
 `no-store` and `no-referrer`; the Token must never be hardcoded, returned in a
 response body, read by frontend JavaScript, or placed in browser-readable
 storage. Logout clears this cookie together with the DeerFlow `access_token`.
