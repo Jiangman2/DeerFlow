@@ -15,10 +15,10 @@ test("WeKnora bootstrap persists SSO and applies the DeerFlow UI policy", () => 
   expect(html).toContain("personal_workspace_owner");
   expect(html).toContain("installDeerFlowPolicyNavigationGuard");
   expect(html).toContain("allowedStandardSidebarGuides");
-  expect(html).not.toContain('"nav-creatChat"');
+  expect(html).toContain('"nav-creatChat"');
   expect(html).toContain('"nav-knowledge-bases"');
   expect(html).toContain('"nav-organizations"');
-  expect(html).not.toContain('"nav-agents"');
+  expect(html).toContain('"nav-agents"');
   expect(html).toContain('"/platform/agents"');
   expect(html).not.toContain('"/platform/integrations"');
   expect(html).not.toContain('          "nav-integrations",');

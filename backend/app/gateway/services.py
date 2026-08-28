@@ -206,6 +206,9 @@ _CONTEXT_CONFIGURABLE_KEYS: frozenset[str] = frozenset(
         "is_bootstrap",
         "weknora_knowledge_base_ids",
         "weknora_knowledge_bases",
+        "weknora_knowledge_ids",
+        "weknora_tag_scopes",
+        "weknora_scope_items",
     }
 )
 
@@ -398,8 +401,11 @@ async def inject_weknora_user_context(
         return
 
     runtime_context = config.setdefault("context", {})
-    selected_ids = runtime_context.get("weknora_knowledge_base_ids") if isinstance(runtime_context, dict) else None
-    if not selected_ids:
+    if not isinstance(runtime_context, dict):
+        return
+    from deerflow.runtime.weknora_context import has_weknora_scope
+
+    if not has_weknora_scope(runtime_context):
         return
 
     try:

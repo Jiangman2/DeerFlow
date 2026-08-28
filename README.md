@@ -856,6 +856,14 @@ When you install `.skill` archives through the Gateway, DeerFlow accepts standar
 
 Skill installs and agent-managed skill edits run through **SkillScan**, a native deterministic safety scanner before the LLM-based skill scanner. Phase 1 runs offline with no Semgrep/OpenGrep dependency, blocks high-confidence `CRITICAL` findings such as private keys or shell execution, and passes warning findings to the LLM scanner for contextual review. Set `skill_scan.enabled: false` in `config.yaml` to disable only the deterministic analyzers; safe archive extraction and the LLM scanner still run.
 
+Set `skill_evolution.enabled: true` to let the bundled `skill-creator` persist
+agent-authored skills through `skill_manage`. Each authenticated user's skills
+are stored under that user's `.deer-flow/users/<user_id>/skills/custom/`
+directory, become available to that user's later conversations immediately,
+and remain subject to SkillScan plus LLM moderation. Moderation accepts both
+Chat Completions string responses and Responses API text blocks; reasoning and
+tool-call blocks never participate in the security decision.
+
 DeerFlow also ships with **skill-reviewer**, a public skill for read-only skill quality review. It uses the built-in `review_skill_package` tool to inspect installed skills, local packages, archives, or pasted `SKILL.md` content without activating the target skill, binding its secrets, executing its scripts, or installing it. The tool returns a compact, tag-neutralized JSON payload to the model context and keeps the full raw review payload in the tool artifact for programmatic consumers. The deterministic review core reuses DeerFlow parsing and SkillScan facts, emits versioned JSON contracts under `contracts/skill_review/`, and can be run from the backend CLI:
 
 ```bash
@@ -1309,10 +1317,16 @@ tenant memberships and forwards the matching consumer tenant as `X-Tenant-ID`.
 It returns an authorization error instead of falling back to an unrelated active
 tenant when the knowledge base is not present in those memberships.
 Knowledge bases selected in the chat composer are forwarded as the exact scope
-for `weknora_search` and `weknora_ask`, using a server-derived per-user token.
-When no knowledge base is selected, both tools are removed from lead and subagent
-toolsets, and historical knowledge-base references in memory are explicitly treated
-as non-operative context.
+for DeerFlow's ten permission-scoped WeKnora wrappers, using a server-derived
+per-user token. The tool family covers knowledge-base/document discovery,
+parsed-document reading, search, RAG answer generation, agent discovery, and
+official WeKnora agent-chat invocation. The wrapper names are DeerFlow-specific;
+the underlying APIs are official WeKnora capabilities. Internal mutation-capable
+agent tools remain behind WeKnora authorization and pending human approval is
+never auto-approved. When no knowledge base is selected, the complete
+`weknora_*` family is removed from lead and subagent toolsets, and historical
+knowledge-base references in memory are explicitly treated as non-operative
+context. See [docs/weknora_integration.md](docs/weknora_integration.md).
 For the local Kubernetes stack, the native knowledge UI opens on port `32090`;
 the optional same-origin `/platform/knowledge-bases` fallback is routed through
 the stable `weknora-frontend` service name rather than an ephemeral ClusterIP.

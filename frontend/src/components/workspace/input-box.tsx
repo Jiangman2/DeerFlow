@@ -4,7 +4,6 @@ import type { Message } from "@langchain/langgraph-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChatStatus } from "ai";
 import {
-  BookOpenIcon,
   CheckIcon,
   ChevronDownIcon,
   Loader2Icon,
@@ -97,7 +96,6 @@ import {
   GatewayVoiceSession,
   type VoiceGatewaySupportReason,
 } from "@/core/voice-input/gateway-transcription";
-import { useWeKnoraKnowledgeBases } from "@/core/weknora";
 import { isIMEComposing } from "@/lib/ime";
 import { cn } from "@/lib/utils";
 
@@ -113,7 +111,6 @@ import {
 import { Suggestion, Suggestions } from "../ai-elements/suggestion";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -135,6 +132,7 @@ import {
   readGoalResponseError,
   type SlashSuggestion,
 } from "./input-box-helpers";
+import { KnowledgeScopeSelector } from "./knowledge-scope-selector";
 import { useThread } from "./messages/context";
 import type { AgentMode } from "./mode-hover-guide";
 import {
@@ -209,98 +207,6 @@ function insertPlainTextAtSelection(container: HTMLElement, text: string) {
   selection.removeAllRanges();
   selection.addRange(range);
   return true;
-}
-
-function KnowledgeScopeSelector({
-  className,
-  context,
-  disabled,
-  onContextChange,
-}: {
-  className?: string;
-  context: InputBoxContext;
-  disabled?: boolean;
-  onContextChange?: (context: InputBoxContext) => void;
-}) {
-  const { data, isError, isLoading } = useWeKnoraKnowledgeBases();
-  const knowledgeBases = useMemo(() => data?.items ?? [], [data?.items]);
-  const selectedIds = Array.isArray(context.weknora_knowledge_base_ids)
-    ? context.weknora_knowledge_base_ids
-    : [];
-  const selectedCount = selectedIds.length;
-
-  const applySelection = useCallback(
-    (nextIds: string[]) => {
-      const selectedBases = knowledgeBases
-        .filter((kb) => nextIds.includes(kb.id))
-        .map((kb) => ({ id: kb.id, name: kb.name }));
-      onContextChange?.({
-        ...context,
-        weknora_knowledge_base_ids: nextIds,
-        weknora_knowledge_bases: selectedBases,
-      });
-    },
-    [context, knowledgeBases, onContextChange],
-  );
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <PromptInputButton
-          className={cn(
-            "max-w-32 min-w-0 gap-1 px-2!",
-            selectedCount > 0 && "border-[#6d5dfc]/40 bg-[#f4f2ff]",
-            className,
-          )}
-          data-active={selectedCount > 0}
-          disabled={disabled}
-        >
-          <BookOpenIcon className="size-3" />
-          <span className="truncate text-xs font-normal">
-            {selectedCount > 0 ? `知识库 ${selectedCount}` : "知识库"}
-          </span>
-        </PromptInputButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-72">
-        <DropdownMenuLabel className="text-muted-foreground text-xs">
-          本次任务知识范围
-        </DropdownMenuLabel>
-        {isLoading && (
-          <DropdownMenuItem disabled>正在加载知识库</DropdownMenuItem>
-        )}
-        {isError && (
-          <DropdownMenuItem disabled>知识库服务不可用</DropdownMenuItem>
-        )}
-        {!isLoading && !isError && knowledgeBases.length === 0 && (
-          <DropdownMenuItem disabled>暂无 WeKnora 知识库</DropdownMenuItem>
-        )}
-        {knowledgeBases.map((kb) => (
-          <DropdownMenuCheckboxItem
-            key={kb.id}
-            checked={selectedIds.includes(kb.id)}
-            onCheckedChange={(checked) => {
-              const nextIds = checked
-                ? [...selectedIds, kb.id]
-                : selectedIds.filter((id) => id !== kb.id);
-              applySelection(nextIds);
-            }}
-          >
-            <div className="min-w-0">
-              <div className="truncate text-sm">{kb.name}</div>
-              <div className="text-muted-foreground truncate text-xs">
-                {(kb.knowledge_count ?? 0).toString()} 文档
-                {kb.processing_count ? ` · ${kb.processing_count} 处理中` : ""}
-              </div>
-            </div>
-          </DropdownMenuCheckboxItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => applySelection([])}>
-          不使用知识库
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 }
 
 function escapeXmlAttribute(value: string) {
@@ -2245,7 +2151,7 @@ export function InputBox({
                   className="cnooc-model-selector min-w-0 px-2!"
                   disabled={composerLocked}
                 >
-                  <div className="flex min-w-0 flex-col items-start text-left">
+                  <div className="cnooc-model-label flex min-w-0 flex-col items-start text-left">
                     <ModelSelectorName className="cnooc-model-name font-normal">
                       {selectedModel?.display_name ?? "DeepSeek-V4-Flash"}
                     </ModelSelectorName>
@@ -2426,16 +2332,6 @@ function SuggestionList({
   );
   return (
     <Suggestions className="w-max max-w-none min-w-full flex-nowrap justify-start px-1 sm:w-fit sm:max-w-full sm:min-w-0 sm:flex-wrap sm:justify-center sm:px-0 [&>span]:max-w-none [&>span]:shrink-0">
-      <ConfettiButton
-        className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal whitespace-nowrap"
-        data-slot="suggestion"
-        variant="outline"
-        size="sm"
-        onClick={() => handleSuggestionClick(t.inputBox.surpriseMePrompt)}
-      >
-        <QuickActionArtwork src={QUICK_ACTION_ARTWORK.surprise} />
-        <span>{t.inputBox.surpriseMe}</span>
-      </ConfettiButton>
       {t.inputBox.suggestions.map((suggestion, suggestionIndex) =>
         suggestion.menu === "ppt" ? (
           <DropdownMenu key={suggestion.suggestion}>
@@ -2539,6 +2435,17 @@ function SuggestionList({
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+      <ConfettiButton
+        className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal whitespace-nowrap"
+        data-slot="suggestion"
+        data-testid="surprise-suggestion"
+        variant="outline"
+        size="sm"
+        onClick={() => handleSuggestionClick(t.inputBox.surpriseMePrompt)}
+      >
+        <QuickActionArtwork src={QUICK_ACTION_ARTWORK.surprise} />
+        <span>{t.inputBox.surpriseMe}</span>
+      </ConfettiButton>
     </Suggestions>
   );
 }

@@ -39,6 +39,79 @@ async function expectLoadedImages(
     .toBeGreaterThanOrEqual(minimum);
 }
 
+async function mockWeKnoraKnowledgeScope(page: Page) {
+  await page.route("**/api/weknora/knowledge-bases", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "kb-1",
+            name: "运行制度库",
+            type: "document",
+            access_tenant_id: "11",
+            knowledge_count: 2,
+          },
+          {
+            id: "kb-2",
+            name: "月报资料库",
+            type: "document",
+            access_tenant_id: "12",
+            knowledge_count: 1,
+          },
+        ],
+        total: 2,
+      }),
+    });
+  });
+  await page.route(
+    "**/api/weknora/knowledge-bases/kb-1/knowledge?*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "file-1",
+              knowledge_base_id: "kb-1",
+              title: "井控操作手册.pdf",
+              file_type: "pdf",
+              parse_status: "completed",
+            },
+            {
+              id: "file-2",
+              knowledge_base_id: "kb-1",
+              title: "生产运行制度.docx",
+              file_type: "docx",
+              parse_status: "completed",
+            },
+          ],
+          total: 2,
+        }),
+      });
+    },
+  );
+  await page.route(
+    "**/api/weknora/knowledge-bases/kb-1/tags?*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "tag-1",
+              name: "井控",
+              knowledge_base_id: "kb-1",
+              knowledge_count: 1,
+            },
+          ],
+          total: 1,
+        }),
+      });
+    },
+  );
+}
+
 test.describe("CNOOC concept layout", () => {
   test("desktop composition and collapsed rail stay aligned", async ({
     page,
@@ -250,6 +323,106 @@ test.describe("CNOOC concept layout", () => {
       path: "test-results/cnooc-concept-desktop-collapsed.png",
       fullPage: true,
     });
+  });
+
+  test("surprise action stays last in the responsive welcome rail", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    mockLangGraphAPI(page);
+
+    await page.goto("/workspace/chats/new?visualQa=cnooc-concept");
+    const rail = page.getByTestId("welcome-suggestion-rail");
+    await expect(rail).toBeVisible({ timeout: 15_000 });
+    await expect(rail.getByRole("button")).toHaveCount(6);
+    await expect(rail.getByTestId("surprise-suggestion")).toBeVisible();
+    await expect(
+      rail.locator('[data-slot="suggestion-item"] > button').last(),
+    ).toHaveAttribute("data-testid", "surprise-suggestion");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(rail.getByRole("button")).toHaveCount(6);
+    await expect(
+      rail.locator('[data-slot="suggestion-item"] > button').last(),
+    ).toHaveAttribute("data-testid", "surprise-suggestion");
+  });
+
+  test("knowledge scope selects exact files and tags on desktop and mobile", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await useChineseLocale(page);
+    mockLangGraphAPI(page);
+    await mockWeKnoraKnowledgeScope(page);
+
+    await page.goto("/workspace/chats/new?visualQa=cnooc-concept");
+    const trigger = page.getByTestId("knowledge-scope-trigger");
+    const modelName = page.locator(".cnooc-model-name").first();
+    const modelSelector = page.locator(".cnooc-model-selector").first();
+    await expect(trigger).toBeVisible({ timeout: 15_000 });
+    await expect(trigger).toContainText("知识库");
+    await expect(modelName).toHaveText("DeepSeek-V4-Flash");
+    await expect
+      .poll(() =>
+        modelName.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        const selectorBox = await modelSelector.boundingBox();
+        const nameBox = await modelName.boundingBox();
+        return selectorBox && nameBox
+          ? selectorBox.width - nameBox.width
+          : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(84);
+    await trigger.click();
+
+    const dialog = page.getByTestId("knowledge-scope-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "运行制度库 2 个文件" }),
+    ).toBeVisible();
+    await dialog.getByRole("button", { name: /井控操作手册/ }).click();
+    await dialog.getByRole("button", { name: "标签" }).click();
+    await dialog.getByRole("button", { name: /井控/ }).last().click();
+    await dialog.getByRole("button", { name: "应用范围" }).click();
+    await expect(trigger).toContainText("知识库");
+    await expect(trigger).toHaveAttribute("data-selected-count", "2");
+    await expect(trigger).toHaveAttribute("data-active", "true");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(trigger).toContainText("知识库");
+    await expect(modelName).toHaveText("DeepSeek-V4-Flash");
+    await expect
+      .poll(() =>
+        modelName.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        const selectorBox = await modelSelector.boundingBox();
+        const nameBox = await modelName.boundingBox();
+        return selectorBox && nameBox
+          ? selectorBox.width - nameBox.width
+          : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(64);
+    await trigger.click();
+    await expect(dialog).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "文件", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "标签", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "应用范围" }),
+    ).toBeVisible();
   });
 
   test("mobile composition is compact and safe-area aware", async ({

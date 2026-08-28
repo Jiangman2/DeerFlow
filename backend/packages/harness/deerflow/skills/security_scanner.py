@@ -12,6 +12,7 @@ from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
 from deerflow.models import create_chat_model
 from deerflow.skills.types import SKILL_MD_FILE
+from deerflow.utils.llm_text import extract_response_text
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ async def scan_skill_content(
             config={"run_name": "security_agent"},
         )
         model_responded = True
-        raw = str(getattr(response, "content", "") or "")
+        raw = extract_response_text(getattr(response, "content", ""))
         parsed = _extract_json_object(raw)
         if parsed:
             decision = str(parsed.get("decision", "")).lower()

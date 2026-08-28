@@ -327,10 +327,124 @@ async def test_created_kb_persists_presentation_parser_rule(monkeypatch):
     ]
 
 
+@pytest.mark.asyncio
+async def test_list_knowledge_tags_uses_resolved_access_tenant(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_context(user, knowledge_base_id, requested_tenant_id):
+        assert knowledge_base_id == "kb-1"
+        assert requested_tenant_id == "tenant-requested"
+        return "user-token", "tenant-access"
+
+    async def fake_request(method, path, access_token, **kwargs):
+        captured.update(
+            {
+                "method": method,
+                "path": path,
+                "access_token": access_token,
+                **kwargs,
+            }
+        )
+        return {
+            "success": True,
+            "data": [{"id": "tag-1", "name": "财务"}],
+            "total": 1,
+        }
+
+    monkeypatch.setattr(
+        weknora,
+        "_resolve_knowledge_base_access_context",
+        fake_context,
+    )
+    monkeypatch.setattr(weknora, "_request", fake_request)
+
+    result = await weknora.list_knowledge_tags(
+        "kb-1",
+        page=2,
+        page_size=50,
+        tenant_id="tenant-requested",
+        user=SimpleNamespace(),
+    )
+
+    assert result["items"] == [{"id": "tag-1", "name": "财务"}]
+    assert result["total"] == 1
+    assert result["success"] is True
+    assert captured == {
+        "method": "GET",
+        "path": "/knowledge-bases/kb-1/tags",
+        "access_token": "user-token",
+        "tenant_id": "tenant-access",
+        "params": {"page": 2, "page_size": 50},
+    }
+
+
 def test_presentation_parser_falls_back_to_markitdown_for_local_development(monkeypatch):
     monkeypatch.delenv("WEKNORA_PRESENTATION_PARSER_ENGINE", raising=False)
 
     assert weknora._presentation_parser_rules() == [{"file_types": ["ppt", "pptx"], "engine": "markitdown"}]
+
+
+@pytest.mark.asyncio
+async def test_runtime_queue_snapshot_forwards_read_only_admin_endpoint(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_token(user):
+        return "short-lived-token"
+
+    async def fake_request(method, path, access_token, **kwargs):
+        captured.update({"method": method, "path": path, "access_token": access_token, **kwargs})
+        return {"available": True, "queues": {"default": {"pending": 7}}}
+
+    monkeypatch.setattr(weknora, "_current_weknora_token", fake_token)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+
+    result = await weknora.runtime_queue_snapshot(SimpleNamespace())
+
+    assert result["queues"]["default"]["pending"] == 7
+    assert captured == {
+        "method": "GET",
+        "path": "/system/admin/runtime/queues",
+        "access_token": "short-lived-token",
+    }
+
+
+@pytest.mark.asyncio
+async def test_runtime_queue_tasks_validates_queue_and_state_before_forwarding(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_token(user):
+        return "token"
+
+    async def fake_request(method, path, access_token, **kwargs):
+        captured.update({"method": method, "path": path, "access_token": access_token, **kwargs})
+        return {"tasks": []}
+
+    monkeypatch.setattr(weknora, "_current_weknora_token", fake_token)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+
+    result = await weknora.runtime_queue_tasks(
+        " DEFAULT ",
+        state="RETRY",
+        cursor="next-page",
+        page_size=40,
+        user=SimpleNamespace(),
+    )
+
+    assert result == {"tasks": []}
+    assert captured == {
+        "method": "GET",
+        "path": "/system/admin/runtime/queues/default/tasks",
+        "access_token": "token",
+        "params": {"state": "retry", "page_size": 40, "cursor": "next-page"},
+    }
+
+    with pytest.raises(HTTPException) as queue_error:
+        await weknora.runtime_queue_tasks("default/../../users", user=SimpleNamespace())
+    assert queue_error.value.status_code == 400
+
+    with pytest.raises(HTTPException) as state_error:
+        await weknora.runtime_queue_tasks("default", state="unknown", user=SimpleNamespace())
+    assert state_error.value.status_code == 400
 
 
 @pytest.mark.asyncio

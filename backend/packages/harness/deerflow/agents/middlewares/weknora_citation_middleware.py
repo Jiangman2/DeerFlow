@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.runtime import Runtime
 
 from deerflow.community.weknora.citations import extract_canonical_weknora_references, normalize_weknora_citations
-from deerflow.runtime.weknora_context import WEKNORA_TOOL_NAMES
+from deerflow.runtime.weknora_context import WEKNORA_CITATION_TOOL_NAMES
 
 
 def _tool_content_text(content: Any) -> str:
@@ -33,7 +33,7 @@ def _tool_content_text(content: Any) -> str:
 def _references_from_tool_message(message: ToolMessage) -> list[dict[str, Any]]:
     if message.name == "task":
         return extract_canonical_weknora_references(_tool_content_text(message.content))
-    if message.name not in WEKNORA_TOOL_NAMES:
+    if message.name not in WEKNORA_CITATION_TOOL_NAMES:
         return []
     try:
         payload = json.loads(_tool_content_text(message.content))
@@ -42,14 +42,14 @@ def _references_from_tool_message(message: ToolMessage) -> list[dict[str, Any]]:
     if not isinstance(payload, dict):
         return []
 
-    raw = payload.get("references") if message.name == "weknora_ask" else payload.get("results")
+    raw = payload.get("results") if message.name == "weknora_search" else payload.get("references")
     if not isinstance(raw, list):
         return []
     return [item for item in raw if isinstance(item, dict)]
 
 
 def _answer_images_from_tool_message(message: ToolMessage) -> list[dict[str, str]]:
-    if message.name not in WEKNORA_TOOL_NAMES:
+    if message.name not in WEKNORA_CITATION_TOOL_NAMES:
         return []
     try:
         payload = json.loads(_tool_content_text(message.content))

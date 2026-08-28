@@ -14,25 +14,41 @@ class NamedTool:
 def test_selected_weknora_scope_restores_tools_removed_by_skill_policy():
     from deerflow.agents.lead_agent.agent import _restore_weknora_tools_for_selected_scope
 
-    raw_tools = [NamedTool("bash"), NamedTool("weknora_search"), NamedTool("weknora_ask")]
+    raw_tools = [
+        NamedTool("bash"),
+        NamedTool("weknora_list_knowledge_bases"),
+        NamedTool("weknora_read_document"),
+        NamedTool("weknora_search"),
+        NamedTool("weknora_ask"),
+        NamedTool("weknora_list_agents"),
+        NamedTool("weknora_invoke_agent"),
+    ]
     filtered_tools = [NamedTool("read_file")]
 
     restored = _restore_weknora_tools_for_selected_scope(
         raw_tools,
         filtered_tools,
-        selected_ids=["kb-1"],
+        scope_context={"weknora_knowledge_base_ids": ["kb-1"]},
     )
 
-    assert [tool.name for tool in restored] == ["read_file", "weknora_search", "weknora_ask"]
+    assert [tool.name for tool in restored] == [
+        "read_file",
+        "weknora_list_knowledge_bases",
+        "weknora_read_document",
+        "weknora_search",
+        "weknora_ask",
+        "weknora_list_agents",
+        "weknora_invoke_agent",
+    ]
 
 
 def test_weknora_tools_remain_filtered_without_selected_scope():
     from deerflow.agents.lead_agent.agent import _restore_weknora_tools_for_selected_scope
 
-    raw_tools = [NamedTool("weknora_search"), NamedTool("weknora_ask")]
-    filtered_tools = [NamedTool("read_file"), NamedTool("weknora_search"), NamedTool("weknora_ask")]
+    raw_tools = [NamedTool("weknora_search"), NamedTool("weknora_invoke_agent")]
+    filtered_tools = [NamedTool("read_file"), NamedTool("weknora_search"), NamedTool("weknora_invoke_agent")]
 
-    restored = _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, selected_ids=[])
+    restored = _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, scope_context={})
 
     assert [tool.name for tool in restored] == ["read_file"]
 

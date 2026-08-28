@@ -76,6 +76,15 @@ mode state to this workflow. Its existing model selector, `agent_name`,
 `is_bootstrap`, hidden human-input responses, and save interaction must remain
 intact.
 
+The main workspace composer's knowledge control mirrors WeKnora New Chat's
+mention scope without copying WeKnora conversation state. It supports complete
+knowledge bases, individual files, and tags. Preserve each file/tag's parent
+knowledge-base identity in `weknora_scope_items`, group tags in
+`weknora_tag_scopes`, and keep legacy KB-only context readable. Selecting a
+complete KB replaces its child selections; selecting a file/tag replaces the
+complete-KB selection for that parent. The selector must remain usable in both
+desktop and mobile dialogs.
+
 The new-agent name-step badge must remain compatible with enterprise browsers
 that lack CSS `color-mix()`. Keep its pale primary background as a separate
 `bg-primary opacity-10` layer behind the inline icon; Tailwind opacity-color
@@ -120,8 +129,8 @@ than reimplementing its knowledge-management UI. Keep the iframe entry at
 `/platform/knowledge-bases` and let the iframe fill the whole page without a
 second DeerFlow title/action bar. The mounted WeKnora bootstrap persists the
 Gateway-provided `ui_policy`: system administrators retain the complete native
-navigation, while ordinary personal-workspace Owners see only Knowledge Bases
-and Shared Spaces and do not see New Chat, Agents, Publish Integrations, system
+navigation, while ordinary personal-workspace Owners see New Chat, Knowledge
+Bases, Shared Spaces, and Agents but do not see Publish Integrations, system
 settings, or tenant-creation controls. Entering the
 embedded workspace collapses DeerFlow's sidebar and expands WeKnora's sidebar
 once for both ordinary users and administrators. The automatic collapse must

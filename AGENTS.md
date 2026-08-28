@@ -358,9 +358,9 @@ native RBAC, not UI hiding, remains the authorization boundary. The embedded
 page has no extra DeerFlow header. Entering it collapses DeerFlow's sidebar and
 expands WeKnora's sidebar once for both ordinary users and administrators; the
 native WeKnora toggle remains available afterwards so chat history stays
-reachable. Ordinary users see only Knowledge Bases and Shared Spaces in the
-native sidebar; New Chat, Agents, the global Publish Integrations navigation,
-and system settings remain hidden and the embedded
+reachable. Ordinary users see New Chat, Knowledge Bases, Shared Spaces, and
+Agents in the native sidebar; the global Publish Integrations navigation and
+system settings remain hidden and the embedded
 user menu also hides logout. Their New Knowledge Base dialog exposes only Basic
 Information, while preserving all native knowledge-base type and indexing choices
 on that page. Existing knowledge-base Settings expose Basic Information plus
@@ -454,6 +454,12 @@ Skill quality review note:
   `skill-creator` ownership boundaries.
 - Downloadable `.skill` deliverables must be ZIP packages containing `SKILL.md`;
   `present_files` validates the archive before publishing it.
+- Agent-managed creation is opt-in through `skill_evolution.enabled`. When
+  enabled, `skill-creator` must use `skill_manage`, which writes only to the
+  effective user's custom-skill root, refreshes that user's prompt cache, and
+  keeps deterministic SkillScan plus fail-closed LLM moderation in front of
+  every write. Normalize moderation output through the shared LLM text helper:
+  Responses reasoning/tool blocks are not trusted decision text.
 
 Durable-memory boundary note:
 - Long-term memory is descriptive background, not task authority. One-turn
@@ -525,6 +531,7 @@ Enterprise Kubernetes storage note:
   never rewrite source workbooks or broadly swallow unknown openpyxl fields.
 - The patched WeKnora UI must fetch `/api/weknora/sso-session` through a same-origin relative URL in both `config.js` and the `index.html` fallback. These ConfigMap files are mounted with `subPath`, so restart `weknora-frontend` after changing them.
 - Keep the WeKnora UI on the official v0.7.0 multi-platform manifest digest declared in both the base and enterprise Kustomize bundles. That build understands the App's `resource://` and request-local image handles and uses authenticated, knowledge-base-scoped file retrieval; the earlier UI digest renders retrieved knowledge images as failed previews. DeerFlow chat separately rewrites those handles to its tenant-aware `/api/weknora/knowledge-bases/{id}/files` proxy; never expose WeKnora bearer tokens or direct storage paths to the browser.
+- DeerFlow chat exposes ten permission-scoped WeKnora wrappers for knowledge-base and document discovery/read, search, RAG ask, and native agent discovery/invocation. The wrapper names are DeerFlow-owned while the endpoints are official WeKnora v0.7.0 APIs. Keep every tool bound to the current user's server-derived token and explicit selected knowledge-base IDs. Native agent tool execution stays inside WeKnora; omit raw system prompts and never auto-approve a returned human-approval event.
 - The enterprise Gateway, WeKnora App, and MinerU Adapter trust outbound HTTPS through the runtime-created `deer-flow-enterprise-ca` Secret. Keep the projected `/etc/deerflow-ca/ca-bundle.crt` mount and CA environment variables in their enterprise manifests; create the Secret before apply and restart the affected Deployments after CA rotation so long-lived HTTP clients reload trust state.
 - The production Gateway image bundles the hash-verified `cl100k_base`
   tiktoken cache and sets `TIKTOKEN_CACHE_DIR`; keep this cache in release

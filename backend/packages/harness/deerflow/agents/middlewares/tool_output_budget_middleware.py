@@ -403,6 +403,9 @@ def _build_weknora_ask_preview(
         references.append(reference)
 
     compact: dict[str, Any] = {
+        "query": payload.get("query", ""),
+        "agent_id": payload.get("agent_id", ""),
+        "session_id": payload.get("session_id", ""),
         "answer": answer,
         "references": references,
         "answer_images": payload.get("answer_images") if isinstance(payload.get("answer_images"), list) else [],
@@ -415,6 +418,9 @@ def _build_weknora_ask_preview(
     if answer_truncated:
         compact["answer_truncated"] = True
         compact["answer_chars"] = len(str(payload.get("answer") or ""))
+    for key in ("tool_calls", "tool_results", "pending_actions", "errors"):
+        if isinstance(payload.get(key), list):
+            compact[key] = payload[key]
 
     serialized = json.dumps(compact, indent=2, ensure_ascii=False)
     if len(serialized) <= _WEKNORA_SEARCH_COMPACT_MAX_CHARS:
@@ -591,7 +597,7 @@ def _budget_content(
                 )
                 if compact_preview is not None:
                     return compact_preview
-            if tool_name == "weknora_ask":
+            if tool_name in {"weknora_ask", "weknora_invoke_agent"}:
                 compact_preview = _build_weknora_ask_preview(
                     content,
                     virtual_path=virtual_path,

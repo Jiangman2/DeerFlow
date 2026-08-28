@@ -761,19 +761,33 @@ def test_merge_run_context_overrides_forwards_weknora_scope():
         {"id": "kb-1", "name": "Team Playbook"},
         {"id": "kb-2", "name": "Ops Manual"},
     ]
+    selected_items = [
+        {"id": "doc-1", "name": "Policy.pdf", "type": "file", "kb_id": "kb-1"},
+        {"id": "tag-1", "name": "Finance", "type": "tag", "kb_id": "kb-2"},
+    ]
+    tag_scopes = [{"knowledge_base_id": "kb-2", "tag_ids": ["tag-1"]}]
     config = build_run_config("thread-1", None, None)
     merge_run_context_overrides(
         config,
         {
             "weknora_knowledge_base_ids": ["kb-1", "kb-2"],
             "weknora_knowledge_bases": selected_bases,
+            "weknora_knowledge_ids": ["doc-1"],
+            "weknora_tag_scopes": tag_scopes,
+            "weknora_scope_items": selected_items,
         },
     )
 
     assert config["context"]["weknora_knowledge_base_ids"] == ["kb-1", "kb-2"]
     assert config["context"]["weknora_knowledge_bases"] == selected_bases
+    assert config["context"]["weknora_knowledge_ids"] == ["doc-1"]
+    assert config["context"]["weknora_tag_scopes"] == tag_scopes
+    assert config["context"]["weknora_scope_items"] == selected_items
     assert config["configurable"]["weknora_knowledge_base_ids"] == ["kb-1", "kb-2"]
     assert config["configurable"]["weknora_knowledge_bases"] == selected_bases
+    assert config["configurable"]["weknora_knowledge_ids"] == ["doc-1"]
+    assert config["configurable"]["weknora_tag_scopes"] == tag_scopes
+    assert config["configurable"]["weknora_scope_items"] == selected_items
 
 
 def test_merge_run_context_overrides_keeps_data_lake_flag_runtime_only():

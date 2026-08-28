@@ -255,6 +255,19 @@ remains enabled.
 - `deer-flow-mineru` Secret, containing `MINERU_API_URL` and
   `MINERU_API_TOKEN`
 
+The production `deer-flow-config` may formally enable user-owned Skill creation
+with the following non-secret runtime section. Keep the moderation model valid
+and available; scanner failure remains fail-closed. The Gateway user-data mount
+must remain persistent because created skills live below
+`.deer-flow/users/<user_id>/skills/custom/` and are intentionally isolated by
+the authenticated user identity.
+
+```yaml
+skill_evolution:
+  enabled: true
+  moderation_model_name: deepseek-v4-flash
+```
+
 Never print Secret YAML or decoded Secret values into an audit log.
 Store `QWEN_ASR_API_KEY` in `deer-flow-env` when main-composer voice input is
 enabled. Gateway calls the enterprise Qwen3-ASR stream directly and Nginx
@@ -582,6 +595,18 @@ its read-only runtime queue API) together with each adapter Pod's `/health`.
 Abort the test if any Pod restarts, becomes OOMKilled, logs native allocator
 errors, or if `parser.waiting` grows persistently: that indicates the upstream
 three-call gate is no longer aligned with adapter capacity.
+
+For repeatable diagnosis from the DeerFlow origin, SystemAdmin users can read
+`GET /api/weknora/admin/runtime/queues`; it forwards the upstream WeKnora queue
+snapshot without exposing a platform API key. Use
+`GET /api/weknora/admin/runtime/queues/{queue}/tasks?state=pending&page_size=100`
+to inspect the oldest pending tasks. Interpret the result together with
+`parser.waiting`: a growing `default` queue with low Adapter wait indicates the
+WeKnora worker budget is the limiter; low `default` depth with growing
+`parser.waiting` indicates Adapter capacity or uneven Service distribution;
+growing `summary`/`multimodal`/`graph`/`question` queues indicates downstream
+model or provider capacity. Do not raise worker concurrency until the queue's
+downstream dependency has headroom.
 
 The Gateway proxy bypass list includes `model.ai.cnooc` in both `NO_PROXY` and
 `no_proxy`. Internal model endpoints on that host must be reached directly;

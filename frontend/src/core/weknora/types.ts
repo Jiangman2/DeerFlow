@@ -30,6 +30,7 @@ export interface WeKnoraKnowledgeBase {
 
 export interface WeKnoraKnowledge {
   id: string;
+  knowledge_base_id?: string;
   title?: string;
   description?: string;
   file_name?: string;
@@ -44,6 +45,34 @@ export interface WeKnoraKnowledge {
   created_at?: string;
   updated_at?: string;
   processed_at?: string | null;
+  tag_id?: string;
+  tags?: WeKnoraTag[];
+}
+
+export interface WeKnoraTag {
+  id: string;
+  name: string;
+  knowledge_base_id?: string;
+  knowledge_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type WeKnoraScopeItemType = "kb" | "file" | "tag";
+
+export interface WeKnoraScopeItem {
+  id: string;
+  name: string;
+  type: WeKnoraScopeItemType;
+  kb_id?: string;
+  kb_name?: string;
+  kb_type?: string;
+  tenant_id?: string;
+}
+
+export interface WeKnoraTagScope {
+  knowledge_base_id: string;
+  tag_ids: string[];
 }
 
 export interface WeKnoraListResponse<T> {
