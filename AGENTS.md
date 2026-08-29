@@ -504,7 +504,9 @@ the Token. A mismatch clears the stale Cookie and the frontend resets
 destroying the possibly valid authorization. A token-exchange HTTP 200 response
 whose business code still rejects the account after appCode refresh maps to
 `403 data_lake_permission_denied`; the frontend shows the localized no-access
-message and stays disabled. The public exact callback
+message and stays disabled. The shared Nginx entry must route the
+`^~ /api/v1/data-lake/auth/` browser-auth prefix to Gateway before the WeKnora
+`/api/v1/` catch-all. The public exact callback
 `POST /api/v1/data-lake/auth/callback` is CSRF-exempt, body-limited, documented
 with a strict OpenAPI request body, and rate-limited by the shared Nginx entry
 before it resolves the one-time persisted challenge. Rate-limit responses use

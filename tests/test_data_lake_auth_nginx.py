@@ -8,6 +8,36 @@ NGINX_CONFIGS = (
     ROOT / "k8s" / "local-pvc" / "nginx.conf",
 )
 
+GATEWAY_UPSTREAMS = {
+    ROOT / "docker" / "nginx" / "nginx.conf": "$gateway_upstream",
+    ROOT / "docker" / "nginx" / "nginx.local.conf": "gateway",
+    ROOT / "k8s" / "local-pvc" / "nginx.conf": "$gateway_upstream",
+}
+
+
+def test_data_lake_browser_auth_routes_to_gateway_before_api_catch_alls() -> None:
+    auth_route = "location ^~ /api/v1/data-lake/auth/ {"
+    weknora_catch_all = "location ^~ /api/v1/ {"
+
+    for path, gateway_upstream in GATEWAY_UPSTREAMS.items():
+        config = path.read_text(encoding="utf-8")
+
+        assert config.count(auth_route) == 1, path
+        route_start = config.index(auth_route)
+        route_end = config.index("\n        }", route_start)
+        route_block = config[route_start:route_end]
+
+        assert f"proxy_pass http://{gateway_upstream};" in route_block, path
+        assert "proxy_http_version 1.1;" in route_block, path
+        assert "proxy_set_header Host $http_host;" in route_block, path
+        assert (
+            "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;"
+            in route_block
+        ), path
+
+        if weknora_catch_all in config:
+            assert route_start < config.index(weknora_catch_all), path
+
 
 def test_data_lake_callback_is_rate_limited_before_gateway_catch_all() -> None:
     exact_route = "location = /api/v1/data-lake/auth/callback {"

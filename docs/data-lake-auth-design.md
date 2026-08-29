@@ -425,8 +425,9 @@ Token 无效、Token 身份与当前用户不一致或 Token 已绑定其他用�
 
 ## 11. Nginx 防护
 
-Docker、本地前台和 K8s Nginx 均为以下路径配置精确匹配，并将其放在通用
-`/api/` 路由之前：
+Docker、本地前台和 K8s Nginx 均使用 `^~ /api/v1/data-lake/auth/` 将浏览器
+Token 与 Session 接口路由到 Gateway，并将该前缀放在 WeKnora 的通用
+`/api/v1/` 路由之前。以下公开回调仍使用精确匹配，因此优先于该前缀并保留独立限流：
 
 ```text
 /api/v1/data-lake/auth/callback
@@ -465,7 +466,7 @@ CNOOC_OAUTH_TLS_VERIFY
    `cnooc_platform_token_hash` 字段。若 `0013_data_lake_auth_challenges` 尚未部署，
    可以在该迁移中一并加入；若已经部署，则必须新增后续迁移，不得修改已发布迁移。
 2. 通过运行时 Secret 注入数据湖平台配置和凭证。
-3. 发布包含新 Gateway 路由和 Nginx 精确回调路由的版本。
+3. 发布包含新 Gateway 路由、Nginx 数据湖认证前缀路由和精确回调路由的版本。
 4. 确认数据湖平台能够访问部署环境的 HTTPS 回调地址。
 5. 确认 Gateway 与数据湖平台时间同步。
 6. 对实际部署配置运行 `nginx -t`，再进行端到端授权验证。
@@ -509,6 +510,8 @@ CNOOC_OAUTH_TLS_VERIFY
 
 部署配置测试至少覆盖：
 
+- 三套 Nginx 配置都将 `/api/v1/data-lake/auth/` 前缀路由到 Gateway，且优先于
+  WeKnora 的 `/api/v1/` catch-all。
 - 三套 Nginx 配置都有精确回调路由。
 - 限流为每秒 5 次、突发 10 次。
 - 429 返回统一 JSON 和安全响应头。
