@@ -18,9 +18,11 @@ describe("ensureDataLakeAuthorization", () => {
     );
 
     await expect(ensureDataLakeAuthorization()).resolves.toEqual({ ok: true });
-    expect(fetchWithAuth).toHaveBeenCalledWith("/api/v1/data-lake/auth/token", {
-      method: "POST",
-    });
+    expect(fetchWithAuth).toHaveBeenCalledWith(
+      "/api/v1/data-lake/auth/token",
+      { method: "POST" },
+      { redirectOnUnauthorized: false },
+    );
   });
 
   it("does not enable Data Lake when token acquisition fails", async () => {
@@ -53,6 +55,25 @@ describe("ensureDataLakeAuthorization", () => {
       status: 403,
       code: "data_lake_permission_denied",
       message: "The current account does not have Data Lake access.",
+    });
+  });
+
+  it("preserves the Data Lake login-required response without throwing", async () => {
+    rs.mocked(fetchWithAuth).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: "data_lake_login_required",
+          message: "Please sign in to Data Lake first.",
+        }),
+        { status: 401 },
+      ),
+    );
+
+    await expect(ensureDataLakeAuthorization()).resolves.toEqual({
+      ok: false,
+      status: 401,
+      code: "data_lake_login_required",
+      message: "Please sign in to Data Lake first.",
     });
   });
 });

@@ -189,6 +189,35 @@ def test_data_lake_authorization_returns_permission_denied_code(monkeypatch):
     assert "cnooc.platform_token" not in response.headers.get("set-cookie", "")
 
 
+def test_data_lake_authorization_returns_login_required_for_invalid_platform_token(
+    monkeypatch,
+):
+    repository = _ChallengeRepository()
+    user = User(
+        email="user@example.com",
+        oauth_provider="cnooc",
+        oauth_id="CNOOC-001",
+    )
+
+    async def exchange(_challenge: str):
+        return "invalid-platform-token"
+
+    async def reject_invalid_token(_token: str):
+        raise cnooc.CnoocAuthError("token verification failed", 401)
+
+    monkeypatch.setattr(data_lake_auth, "issue_data_lake_token", exchange)
+    monkeypatch.setattr(data_lake_auth, "check_cnooc_token", reject_invalid_token)
+
+    response = _client(repository, user).post("/api/v1/data-lake/auth/token")
+
+    assert response.status_code == 401
+    assert response.json() == {
+        "code": "data_lake_login_required",
+        "message": "Please sign in to Data Lake first.",
+    }
+    assert "cnooc.platform_token" not in response.headers.get("set-cookie", "")
+
+
 def test_data_lake_authorization_rejects_exchanged_token_for_different_user(
     monkeypatch,
 ):

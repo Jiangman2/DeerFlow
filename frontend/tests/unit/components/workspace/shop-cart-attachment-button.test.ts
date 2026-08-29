@@ -183,6 +183,30 @@ describe("ShopCartAttachmentButton", () => {
     expect(toast.error).toHaveBeenCalledWith("No Data Lake permission");
   });
 
+  it("prompts for Data Lake login when token acquisition requires it", async () => {
+    rs.mocked(ensureDataLakeAuthorization).mockResolvedValue({
+      ok: false,
+      status: 401,
+      code: "data_lake_login_required",
+      message: "Upstream token verification failed.",
+    });
+    renderDataLakeControl(false);
+
+    const enableItem = rs
+      .mocked(DropdownMenuItem)
+      .mock.calls.find(([props]) =>
+        hasChildText(
+          (props as { children?: React.ReactNode }).children,
+          "Use Data Lake",
+        ),
+      )?.[0] as { onSelect?: () => void | Promise<void> } | undefined;
+    await enableItem?.onSelect?.();
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Please sign in to Data Lake first.",
+    );
+  });
+
   it("disables a persisted Data Lake after an identity mismatch", async () => {
     const onContextChange = rs.fn();
     rs.mocked(ensureDataLakeAuthorization).mockResolvedValue({

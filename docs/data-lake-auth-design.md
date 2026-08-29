@@ -94,6 +94,11 @@ sequenceDiagram
 3. 只有接口成功返回后才写入 `datalake_enabled=true`。
 4. 授权失败时显示安全错误，不修改设置，也不打开文件列表。
 
+该调用仍使用统一封装注入 DeerFlow Cookie 和 CSRF Header，但关闭封装的通用 401
+登录跳转。Gateway 返回 `data_lake_login_required` 时，前端只显示“请先登录数据湖”，
+不得短暂显示 `Unauthorized`，也不得离开当前对话。其他 API 的 401 自动登录行为保持
+不变。
+
 ### 4.3 文件列表
 
 即使持久化设置已经是 `true`，每次打开文件列表仍重复调用 Token 接口：
@@ -163,6 +168,10 @@ Gateway 读取 `cnooc.platform_token` Cookie，计算 SHA-256，并使用恒定�
 任何持久化或上游调用失败都必须保持前端 Data Lake 关闭。
 Cookie 与数据库绑定不匹配时，不允许用现有 Cookie 自动覆盖数据库绑定，也不允许
 把现有 Cookie 自动绑定给当前用户；必须重新完成可信授权。
+
+若数据湖平台签发的 Token 随后被中海油身份接口拒绝，Gateway 保留 HTTP 401，但
+必须返回稳定业务码 `data_lake_login_required` 和安全提示，不得返回会被误判为
+DeerFlow 登录失效的通用错误。
 
 ### 5.2 校验当前数据湖会话
 

@@ -6,9 +6,11 @@ export type DataLakeAuthorizationResult =
 
 export async function ensureDataLakeAuthorization(): Promise<DataLakeAuthorizationResult> {
   try {
-    const response = await fetchWithAuth("/api/v1/data-lake/auth/token", {
-      method: "POST",
-    });
+    const response = await fetchWithAuth(
+      "/api/v1/data-lake/auth/token",
+      { method: "POST" },
+      { redirectOnUnauthorized: false },
+    );
     if (response.ok) {
       return { ok: true };
     }

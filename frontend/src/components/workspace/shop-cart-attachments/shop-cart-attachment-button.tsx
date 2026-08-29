@@ -180,7 +180,9 @@ export function ShopCartAttachmentButton({
         toast.error(
           authorized.code === "data_lake_permission_denied"
             ? t.inputBox.dataLakePermissionDenied
-            : (authorized.message ?? t.inputBox.dataLakeAuthorizationFailed),
+            : authorized.code === "data_lake_login_required"
+              ? t.inputBox.dataLakeLoginRequired
+              : (authorized.message ?? t.inputBox.dataLakeAuthorizationFailed),
         );
         return;
       }
@@ -197,6 +199,7 @@ export function ShopCartAttachmentButton({
     loadNewShopCartFiles,
     resetDataLakeUi,
     t.inputBox.dataLakeAuthorizationFailed,
+    t.inputBox.dataLakeLoginRequired,
     t.inputBox.dataLakePermissionDenied,
   ]);
 
@@ -215,7 +218,9 @@ export function ShopCartAttachmentButton({
         toast.error(
           authorized.code === "data_lake_permission_denied"
             ? t.inputBox.dataLakePermissionDenied
-            : (authorized.message ?? t.inputBox.dataLakeAuthorizationFailed),
+            : authorized.code === "data_lake_login_required"
+              ? t.inputBox.dataLakeLoginRequired
+              : (authorized.message ?? t.inputBox.dataLakeAuthorizationFailed),
         );
         return;
       }
@@ -225,6 +230,7 @@ export function ShopCartAttachmentButton({
       commitDataLakeEnabled,
       resetDataLakeUi,
       t.inputBox.dataLakeAuthorizationFailed,
+      t.inputBox.dataLakeLoginRequired,
       t.inputBox.dataLakePermissionDenied,
     ],
   );

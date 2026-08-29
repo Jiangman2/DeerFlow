@@ -157,8 +157,12 @@ keeping its internal routes and modules unchanged. The control stores
 to `false`, and offers **Do not use Data Lake** / re-enable actions. Re-enabling
 must first call the CSRF-aware same-origin
 `POST /api/v1/data-lake/auth/token`; update the shared setting only after that
-request succeeds. The platform token remains HttpOnly and must never be read or
-stored by client code. Opening the file list repeats that idempotent request
+request succeeds. This call keeps the shared credential and CSRF handling but
+opts out of the generic 401 login redirect because Gateway can return the
+scoped `data_lake_login_required` business code; show the localized **Please
+sign in to Data Lake first** message without navigating away. The platform
+token remains HttpOnly and must never be read or stored by client code. Opening
+the file list repeats that idempotent request
 before loading files, including when the persisted setting is already `true`,
 and logout resets the setting to `false`. Every Next.js file-list, download, and
 external-agent launch route must call Gateway's authenticated
@@ -169,10 +173,10 @@ deleting a possibly valid Cookie or preference. When the shop-cart list upstream
 instead returns HTTP 401 with `code=1` and `msg=invalid_token`, map it to
 `data_lake_login_required`, show the localized **Please sign in to Data Lake
 first** message, and retain both the HttpOnly Cookie and `datalake_enabled=true`.
-The Data Lake control maps only
-`data_lake_permission_denied` to the localized **No Data Lake permission**
-message; other authorization failures keep their normal diagnostic or retry
-message. Async enable/disable completion must merge into the
+The Data Lake control maps `data_lake_permission_denied` to the localized **No
+Data Lake permission** message and `data_lake_login_required` to the localized
+login prompt; other authorization failures keep their normal diagnostic or
+retry message. Async enable/disable completion must merge into the
 latest context rather than overwrite model, mode, reasoning, or knowledge
 changes made while authorization was pending. Disabling affects every thread,
 removes the file-list
