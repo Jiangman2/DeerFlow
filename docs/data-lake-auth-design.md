@@ -376,10 +376,17 @@ appCode 已失效，此时 Gateway 清空 appCode 缓存，重新获取后再尝
 - 如果交换接口只返回 Token，则必须额外调用与
   `/api/v1/auth/cnooc/login` 相同的中海油认证接口验证 Token，并取得稳定用户标识。
 
-随后必须将该稳定身份与 challenge 绑定的 DeerFlow 用户已有 CNOOC 身份进行比较。
-身份不一致时拒绝绑定并清除可能存在的旧平台 Cookie。对于尚未建立 CNOOC 身份关联
-的用户，只有明确的账号关联流程才能首次建立身份关系；不能仅凭 challenge 或 Token
-非空自动关联。
+随后必须将该稳定身份与 challenge 绑定的 DeerFlow 用户进行比较：
+
+- `oauth_provider=cnooc` 时，必须恒定时间精确比较 DeerFlow `oauth_id` 与数据湖
+  `userid`。
+- `oauth_provider=iam` 时，IAM 记录必须已有非空 `oauth_id`，并且 DeerFlow 用户邮箱与
+  数据湖可信身份派生邮箱都必须是规范的单一 `@cnooc.com.cn` 企业邮箱；只有忽略大小写
+  后完全相同时才能绑定。
+- 本地账号、其他 OAuth 提供方、缺少 IAM `oauth_id`、非企业邮箱和不同邮箱全部拒绝。
+
+身份不一致时拒绝绑定并清除可能存在的旧平台 Cookie。不能仅凭 challenge、Token
+非空、显示名、部门或模糊用户名建立身份关系。
 
 ## 9. Cookie 策略
 
@@ -483,6 +490,8 @@ CNOOC_OAUTH_TLS_VERIFY
 - 数据湖交换只返回 Token 时调用中海油认证接口，并在身份一致后绑定。
 - 数据湖交换返回可信身份时复用交换结果，避免重复验证调用。
 - Token 无效、身份不一致和唯一约束冲突时不写 Cookie、不改变已有绑定。
+- IAM 登录用户仅在非空 IAM 身份和双方规范企业邮箱完全一致时允许绑定；不同邮箱、
+  非企业邮箱、本地账号和其他 OAuth 提供方继续拒绝。
 - 存量空哈希用户不能由已有 Cookie 自动回填。
 - 本地、OIDC 和 IAM 登录成功时清除遗留平台 Cookie。
 - `/api/v1/data-lake/auth/session` 不返回 Token，并正确校验当前用户绑定。

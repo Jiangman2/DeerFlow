@@ -170,6 +170,92 @@ def test_data_lake_authorization_persists_60_second_challenge_and_sets_cookie(
     assert provider.bound_token_hash == _token_hash("issued-platform-token")
 
 
+def test_data_lake_authorization_allows_matching_iam_corporate_email(monkeypatch):
+    repository = _ChallengeRepository()
+    user = User(
+        email="Employee.One@cnooc.com.cn",
+        oauth_provider="iam",
+        oauth_id="IAM-001",
+    )
+    provider = _Provider(user)
+
+    async def exchange(_challenge: str):
+        return "iam-users-token"
+
+    async def check(token: str):
+        return cnooc.CnoocTokenCheckResult(
+            provider="cnooc",
+            platform_token_hash=_token_hash(token),
+            user=cnooc.CnoocUser(
+                platform_user_id="CNOOC-001",
+                deerflow_user_id="cnooc_CNOOC-001",
+                name="Employee One",
+                email="employee.one@cnooc.com.cn",
+            ),
+        )
+
+    monkeypatch.setattr(data_lake_auth, "issue_data_lake_token", exchange)
+    monkeypatch.setattr(data_lake_auth, "check_cnooc_token", check)
+    monkeypatch.setattr(data_lake_auth, "get_local_provider", lambda: provider)
+
+    response = _client(repository, user).post("/api/v1/data-lake/auth/token")
+
+    assert response.status_code == 200
+    assert response.json() == {"code": "authorized"}
+    assert provider.bound_token_hash == _token_hash("iam-users-token")
+
+
+@pytest.mark.parametrize(
+    ("oauth_provider", "oauth_id", "current_email"),
+    [
+        ("iam", "IAM-001", "different.user@cnooc.com.cn"),
+        ("iam", None, "employee.one@cnooc.com.cn"),
+        ("iam", "IAM-001", "employee.one@example.com"),
+        ("github", "GITHUB-001", "employee.one@cnooc.com.cn"),
+        (None, None, "employee.one@cnooc.com.cn"),
+    ],
+)
+def test_data_lake_authorization_rejects_untrusted_email_linkage(
+    monkeypatch,
+    oauth_provider,
+    oauth_id,
+    current_email,
+):
+    repository = _ChallengeRepository()
+    user = User(
+        email=current_email,
+        oauth_provider=oauth_provider,
+        oauth_id=oauth_id,
+    )
+    provider = _Provider(user)
+
+    async def exchange(_challenge: str):
+        return "untrusted-users-token"
+
+    async def check(token: str):
+        return cnooc.CnoocTokenCheckResult(
+            provider="cnooc",
+            platform_token_hash=_token_hash(token),
+            user=cnooc.CnoocUser(
+                platform_user_id="CNOOC-001",
+                deerflow_user_id="cnooc_CNOOC-001",
+                name="Employee One",
+                email="employee.one@cnooc.com.cn",
+            ),
+        )
+
+    monkeypatch.setattr(data_lake_auth, "issue_data_lake_token", exchange)
+    monkeypatch.setattr(data_lake_auth, "check_cnooc_token", check)
+    monkeypatch.setattr(data_lake_auth, "get_local_provider", lambda: provider)
+
+    response = _client(repository, user).post("/api/v1/data-lake/auth/token")
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "data_lake_identity_mismatch"
+    assert provider.bound_token_hash is None
+    assert "untrusted-users-token" not in response.headers.get("set-cookie", "")
+
+
 def test_data_lake_authorization_returns_permission_denied_code(monkeypatch):
     repository = _ChallengeRepository()
     user = User(email="user@example.com")

@@ -334,8 +334,13 @@ The composer can acquire the same cookie through authenticated
 `POST /api/v1/data-lake/auth/token`. Gateway persists a SHA-256 challenge digest
 bound to the current user for 60 seconds, then calls the Data Lake appCode and
 token APIs, validates an exchanged Token through the CNOOC identity endpoint,
-requires that stable identity to match the challenge-bound user's CNOOC identity,
-and commits the same user Token digest before setting the Cookie. The appCode
+requires that stable identity to match the challenge-bound user, and commits
+the same user Token digest before setting the Cookie. A `cnooc` user must match
+the trusted platform `userid` exactly. An `iam` user must already have a
+non-empty IAM `oauth_id`, and both the current and trusted platform identities
+must have the same canonical `@cnooc.com.cn` email. Local users, other OAuth
+providers, missing IAM identities, non-corporate emails, and mismatches remain
+fail-closed. The appCode
 request must send `timeStamp` as the first eight digits of the Unix-seconds
 string; the platform rejects the complete ten-digit epoch. The provider
 maps an exchanged Token rejected by that identity endpoint to the scoped

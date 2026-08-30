@@ -495,7 +495,11 @@ digest of a user-bound 60-second challenge, reuses the bounded appCode cache,
 calls the platform token exchange, verifies the returned Token against the
 CNOOC identity service, binds only its unique SHA-256 digest to the current
 `users` row, and writes the raw Token to the HttpOnly cookie only after that
-binding commits. The appCode request's `timeStamp` is the first eight digits of
+binding commits. CNOOC-authenticated users match the trusted platform `userid`
+exactly. IAM-authenticated users require a non-empty IAM `oauth_id` and an exact
+canonical `@cnooc.com.cn` email match with the trusted Data Lake identity;
+local users, other OAuth providers, and non-corporate or mismatched emails stay
+fail-closed. The appCode request's `timeStamp` is the first eight digits of
 the Unix-seconds string, not the complete ten-digit epoch. CNOOC Token login
 establishes the same binding before issuing
 cookies. The authenticated `GET /api/v1/data-lake/auth/session` route compares

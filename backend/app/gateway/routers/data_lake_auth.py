@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 _CALLBACK_BODY_LIMIT = 16 * 1024
 _CHALLENGE_TTL = timedelta(seconds=60)
+_CNOOC_CORPORATE_EMAIL_DOMAIN = "cnooc.com.cn"
 _INT64_MIN = -(2**63)
 _INT64_MAX = 2**63 - 1
 _SAFE_HEADERS = {
@@ -107,8 +108,34 @@ def _platform_token_matches_user(user, token: str) -> bool:
     return secrets.compare_digest(hash_cnooc_platform_token(token), stored_hash)
 
 
-def _checked_identity_matches_user(user, platform_user_id: str) -> bool:
-    return getattr(user, "oauth_provider", None) == "cnooc" and bool(getattr(user, "oauth_id", None)) and secrets.compare_digest(str(user.oauth_id), platform_user_id)
+def _canonical_cnooc_email(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    email = value.strip().casefold()
+    local_part, separator, domain = email.rpartition("@")
+    if separator != "@" or not local_part or "@" in local_part or domain != _CNOOC_CORPORATE_EMAIL_DOMAIN:
+        return None
+    return email
+
+
+def _checked_identity_matches_user(
+    user,
+    platform_user_id: str,
+    platform_email: str,
+) -> bool:
+    oauth_provider = getattr(user, "oauth_provider", None)
+    oauth_id = getattr(user, "oauth_id", None)
+    if oauth_provider == "cnooc":
+        return bool(oauth_id) and secrets.compare_digest(str(oauth_id), platform_user_id)
+    if oauth_provider != "iam" or not oauth_id:
+        return False
+
+    current_email = _canonical_cnooc_email(str(getattr(user, "email", "")))
+    checked_email = _canonical_cnooc_email(platform_email)
+    return bool(current_email and checked_email) and secrets.compare_digest(
+        current_email,
+        checked_email,
+    )
 
 
 def _callback_payload_hash(payload: DataLakeCallbackRequest) -> str:
@@ -208,7 +235,11 @@ async def authorize_data_lake(
             error_message,
         )
 
-    if not _checked_identity_matches_user(user, checked.user.platform_user_id):
+    if not _checked_identity_matches_user(
+        user,
+        checked.user.platform_user_id,
+        checked.user.email,
+    ):
         mismatch_response = _error_response(
             request,
             status.HTTP_403_FORBIDDEN,
