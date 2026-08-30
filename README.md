@@ -889,7 +889,8 @@ selected and the HttpOnly `cnooc.platform_token` cookie is absent, Gateway
 persists a user-bound 60-second challenge, obtains the cached platform appCode,
 exchanges the challenge for a token, validates the exchanged Token through the
 CNOOC identity endpoint, stores only its unique SHA-256 binding on the current
-user, and then writes the raw Token only to the HttpOnly cookie. CNOOC Token
+user, and then writes the raw Token only to the HttpOnly cookie. The appCode
+request follows the platform's eight-digit Unix-time prefix contract. CNOOC Token
 login creates the same binding before issuing either login cookie. Opening the
 file list repeats this idempotent authorization check. Every Next.js file-list,
 download, and external-agent launch route asks Gateway to compare that Cookie

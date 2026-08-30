@@ -178,6 +178,40 @@ def test_load_config_reports_missing_required_env(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_fetch_app_code_uses_first_eight_timestamp_digits(monkeypatch):
+    captured = {}
+
+    class Client:
+        async def get(self, url, **kwargs):
+            captured.update(url=url, **kwargs)
+            return httpx.Response(
+                200,
+                request=httpx.Request("GET", url),
+                json={"code": 200, "data": "app-code"},
+            )
+
+    monkeypatch.setattr(cnooc, "_cached_app_code", None)
+    monkeypatch.setattr(cnooc.time, "time", lambda: 1_723_456_789.9)
+    config = cnooc.CnoocAuthConfig(
+        base_url="http://datalake.internal",
+        app_name="deerflow",
+        app_id="app-id",
+        token_check_api_token="token-check",
+        token_check_login_user_code="login-user",
+        user_info_api_token="user-info",
+    )
+
+    app_code = await cnooc._fetch_app_code(Client(), config)
+
+    assert app_code == "app-code"
+    assert captured["params"] == {
+        "appName": "deerflow",
+        "appId": "app-id",
+        "timeStamp": "17234567",
+    }
+
+
+@pytest.mark.asyncio
 async def test_cnooc_request_retries_transient_timeout(monkeypatch):
     monkeypatch.setenv("CNOOC_OAUTH_REQUEST_ATTEMPTS", "2")
     monkeypatch.setenv("CNOOC_OAUTH_RETRY_BACKOFF_SECONDS", "0.001")

@@ -334,8 +334,9 @@ Gateway 调用：
 GET /apigateway/appauth/getappid
 ```
 
-参数为 `appName`、`appId` 和当前秒级时间戳。appCode 在单个 Gateway 进程内
-缓存 110 分钟，比上游声明的 2 小时有效期少 10 分钟安全余量。
+参数为 `appName`、`appId` 和当前 Unix 秒数字符串的前 8 位。数据湖平台不接受
+完整的 10 位 Unix 秒值。appCode 在单个 Gateway 进程内缓存 110 分钟，比上游
+声明的 2 小时有效期少 10 分钟安全余量。
 
 ### 8.2 Token 交换与身份校验
 

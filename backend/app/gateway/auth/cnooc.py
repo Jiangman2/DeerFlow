@@ -313,7 +313,9 @@ async def _fetch_app_code(
         params={
             "appName": config.app_name,
             "appId": config.app_id,
-            "timeStamp": str(int(time.time())),
+            # The platform app-auth contract expects the first eight digits of
+            # the Unix-seconds string, not the full ten-digit epoch value.
+            "timeStamp": str(int(time.time()))[:8],
         },
     )
     payload = await _read_json(response, "CNOOC appCode")

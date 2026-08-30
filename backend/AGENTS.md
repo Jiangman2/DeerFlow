@@ -335,7 +335,9 @@ The composer can acquire the same cookie through authenticated
 bound to the current user for 60 seconds, then calls the Data Lake appCode and
 token APIs, validates an exchanged Token through the CNOOC identity endpoint,
 requires that stable identity to match the challenge-bound user's CNOOC identity,
-and commits the same user Token digest before setting the Cookie. The provider
+and commits the same user Token digest before setting the Cookie. The appCode
+request must send `timeStamp` as the first eight digits of the Unix-seconds
+string; the platform rejects the complete ten-digit epoch. The provider
 maps an exchanged Token rejected by that identity endpoint to the scoped
 `401 data_lake_login_required` response; the frontend handles this business 401
 without invoking its generic DeerFlow-login redirect. The provider

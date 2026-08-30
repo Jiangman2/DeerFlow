@@ -495,7 +495,9 @@ digest of a user-bound 60-second challenge, reuses the bounded appCode cache,
 calls the platform token exchange, verifies the returned Token against the
 CNOOC identity service, binds only its unique SHA-256 digest to the current
 `users` row, and writes the raw Token to the HttpOnly cookie only after that
-binding commits. CNOOC Token login establishes the same binding before issuing
+binding commits. The appCode request's `timeStamp` is the first eight digits of
+the Unix-seconds string, not the complete ten-digit epoch. CNOOC Token login
+establishes the same binding before issuing
 cookies. The authenticated `GET /api/v1/data-lake/auth/session` route compares
 the Cookie digest with the current user's binding; every Next.js file-list,
 download, and external-agent launch route must pass that check before consuming
