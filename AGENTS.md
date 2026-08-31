@@ -493,12 +493,43 @@ Platform-confidentiality boundary note:
 User-scoped Data Lake note:
 The chat composer keeps the existing file-list/API implementation behind a
 Data Lake control. `datalake_enabled` is persisted in the user's frontend local
-settings, applies to every thread, and is sent explicitly in each normal,
-custom-agent, regenerated, and branched run. When it is `false`, the Gateway
-and lead/delegated agent assembly remove the three AppForge Data Lake tools,
-and the AppForge invocation guard rejects stale direct calls before reading
-configuration or making a network request. Internal `/api/shop-cart/*` routes
-and source module names remain unchanged for compatibility.
+settings, defaults to `false`, applies to every thread, and is sent explicitly
+in each normal, custom-agent, regenerated, and branched run. Enabling it first
+calls the authenticated `POST /api/v1/data-lake/auth/token` route. If the
+HttpOnly platform-token cookie is absent, Gateway persists only the SHA-256
+digest of a user-bound 60-second challenge, reuses the bounded appCode cache,
+calls the platform token exchange, verifies the returned Token against the
+CNOOC identity service, binds only its unique SHA-256 digest to the current
+`users` row, and writes the raw Token to the HttpOnly cookie only after that
+binding commits. CNOOC-authenticated users match the trusted platform `userid`
+exactly. IAM-authenticated users require a non-empty IAM `oauth_id` and an exact
+canonical `@cnooc.com.cn` email match with the trusted Data Lake identity;
+local users, other OAuth providers, and non-corporate or mismatched emails stay
+fail-closed. The appCode request's `timeStamp` is the first eight digits of
+the Unix-seconds string, not the complete ten-digit epoch. CNOOC Token login
+establishes the same binding before issuing
+cookies. The authenticated `GET /api/v1/data-lake/auth/session` route compares
+the Cookie digest with the current user's binding; every Next.js file-list,
+download, and external-agent launch route must pass that check before consuming
+the Token. A mismatch clears the stale Cookie and the frontend resets
+`datalake_enabled` to `false`; a temporary Gateway failure returns 503 without
+destroying the possibly valid authorization. A token-exchange HTTP 200 response
+whose business code still rejects the account after appCode refresh maps to
+`403 data_lake_permission_denied`; the frontend shows the localized no-access
+message and stays disabled. The shared Nginx entry must route the
+`^~ /api/v1/data-lake/auth/` browser-auth prefix to Gateway before the WeKnora
+`/api/v1/` catch-all. The public exact callback
+`POST /api/v1/data-lake/auth/callback` is CSRF-exempt, body-limited, documented
+with a strict OpenAPI request body, and rate-limited by the shared Nginx entry
+before it resolves the one-time persisted challenge. Rate-limit responses use
+the callback's JSON error contract. When the
+persisted setting is already `true`, opening the file list repeats the
+idempotent token call before loading files so an expired or logout-cleared
+cookie cannot bypass authorization. Logout resets the setting to `false`.
+When the setting is `false`, Gateway and lead/delegated agent assembly remove
+the three AppForge Data Lake tools, and the invocation guard rejects stale direct calls
+before configuration or network access. Internal `/api/shop-cart/*` routes and
+source module names remain unchanged for compatibility.
 
 Academic research skill note:
 - `skills/public/academic-research/` is the single platform-visible compatibility

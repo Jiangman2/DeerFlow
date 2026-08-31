@@ -892,11 +892,37 @@ paths, and oversized payloads are rejected.
 
 The chat composer exposes this integration as **Data Lake**. The user's
 enabled/disabled choice is stored once in browser settings and applies to every
-conversation; missing settings default to enabled. Choosing **Do not use Data
-Lake** hides the Data Lake file list, closes an open list dialog, and prevents
-all three DataLake tools from being assembled or contacted for each run.
-Existing attachments remain part of their conversations, and the choice is
-carried into normal, regenerated, custom-agent, and branched runs.
+conversation; missing settings default to disabled. When **Use Data Lake** is
+selected and the HttpOnly `cnooc.platform_token` cookie is absent, Gateway
+persists a user-bound 60-second challenge, obtains the cached platform appCode,
+exchanges the challenge for a token, validates the exchanged Token through the
+CNOOC identity endpoint, stores only its unique SHA-256 binding on the current
+user, and then writes the raw Token only to the HttpOnly cookie. The appCode
+request follows the platform's eight-digit Unix-time prefix contract. Users who
+sign in through enterprise IAM can authorize Data Lake only when their trusted
+IAM corporate email exactly matches the corporate email verified from the Data
+Lake Token; other identity providers and mismatches remain blocked. CNOOC Token
+login creates the same binding before issuing either login cookie. Opening the
+file list repeats this idempotent authorization check. Every Next.js file-list,
+download, and external-agent launch route asks Gateway to compare that Cookie
+with the current user's binding before forwarding it; a mismatch clears the old
+Cookie and resets the browser Data Lake preference to disabled. If the
+shop-cart list service instead reports `code=1` and `msg=invalid_token`, the UI
+prompts the user to sign in to Data Lake while preserving the Cookie and enabled
+preference. If token exchange is reachable but rejects the account at the
+business layer, the UI shows **No Data Lake permission** and remains disabled;
+transport and upstream service failures retain the retry-oriented authorization
+error. Logging out also resets the preference. The public
+provider callback is
+`POST /api/v1/data-lake/auth/callback`; it accepts the one-time challenge and
+returns the bound user profile without exposing the token to browser
+JavaScript. Its OpenAPI operation declares the strict JSON request body, and
+the shared Nginx entry returns a JSON 429 response when the per-client limit is
+exceeded. Choosing **Do not use Data Lake** hides the file list, closes an
+open list dialog, and prevents all three DataLake tools from being assembled or
+contacted for each run. Existing attachments remain part of their
+conversations, and the choice is carried into normal, regenerated,
+custom-agent, and branched runs.
 
 Gateway-generated follow-up suggestions now normalize both plain-string model output and block/list-style rich content before parsing the JSON array response, so provider-specific content wrappers do not silently drop suggestions.
 

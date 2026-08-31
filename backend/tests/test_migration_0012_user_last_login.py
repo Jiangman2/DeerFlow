@@ -31,17 +31,13 @@ def test_upgrade_adds_nullable_last_login_and_index(tmp_path) -> None:
             )
         )
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0012_user_last_login")
 
     columns = {column["name"]: column for column in inspect(engine).get_columns("users")}
     indexes = {index["name"] for index in inspect(engine).get_indexes("users")}
     with engine.connect() as connection:
-        row = connection.exec_driver_sql(
-            "SELECT last_login_at FROM users WHERE id = 'user-existing'"
-        ).one()
-        version = connection.exec_driver_sql(
-            "SELECT version_num FROM alembic_version"
-        ).scalar_one()
+        row = connection.exec_driver_sql("SELECT last_login_at FROM users WHERE id = 'user-existing'").one()
+        version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
 
     assert version == "0012_user_last_login"
     assert row == (None,)
@@ -61,9 +57,7 @@ def test_downgrade_removes_last_login_and_index(tmp_path) -> None:
     columns = {column["name"] for column in inspect(engine).get_columns("users")}
     indexes = {index["name"] for index in inspect(engine).get_indexes("users")}
     with engine.connect() as connection:
-        version = connection.exec_driver_sql(
-            "SELECT version_num FROM alembic_version"
-        ).scalar_one()
+        version = connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one()
 
     assert version == "0011_user_sso_profile"
     assert "last_login_at" not in columns

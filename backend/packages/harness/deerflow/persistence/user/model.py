@@ -52,6 +52,7 @@ class UserRow(Base):
     # unconstrained so plain password accounts can coexist.
     oauth_provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
     oauth_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    cnooc_platform_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Auth lifecycle flags
     needs_setup: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -65,5 +66,10 @@ class UserRow(Base):
             "oauth_id",
             unique=True,
             sqlite_where=text("oauth_provider IS NOT NULL AND oauth_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_users_cnooc_platform_token_hash",
+            "cnooc_platform_token_hash",
+            unique=True,
         ),
     )

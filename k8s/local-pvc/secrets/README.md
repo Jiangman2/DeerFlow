@@ -88,6 +88,9 @@ CNOOC_OAUTH_APP_ID=replace-me
 CNOOC_OAUTH_TOKEN_CHECK_API_TOKEN=replace-me
 CNOOC_OAUTH_TOKEN_CHECK_LOGIN_USER_CODE=replace-me
 CNOOC_OAUTH_USER_INFO_API_TOKEN=replace-me
+CNOOC_DATALAKE_TOKEN_API_TOKEN=replace-me
+CNOOC_DATALAKE_TOKEN_LOGIN_USER_CODE=replace-me
+CNOOC_DATALAKE_CALLBACK_ID=deerflow
 CNOOC_OAUTH_TLS_VERIFY=true
 NEXT_PUBLIC_AUTH_LOGIN_URL=https://datalake.cnooc/path/to/deerflow-login
 ```
@@ -96,6 +99,12 @@ NEXT_PUBLIC_AUTH_LOGIN_URL=https://datalake.cnooc/path/to/deerflow-login
 when an existing DeerFlow session expires. DeerFlow appends a `next` query
 parameter so the platform can redirect back through
 `/api/v1/auth/cnooc/login?token=<platform-token>&next=<path>`.
+
+The three `CNOOC_DATALAKE_*` values enable the chat composer's **Use Data
+Lake** action. Register
+`https://<deerflow-host>/api/v1/data-lake/auth/callback` with the Data Lake
+platform. Gateway stores the returned token only in the HttpOnly browser
+cookie; it is never included in the authorization response body.
 
 After changing these values, recreate `deer-flow-env` and restart Gateway:
 

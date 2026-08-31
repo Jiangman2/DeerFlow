@@ -21,6 +21,7 @@ from deerflow.persistence.channel_connections.model import (
     ChannelCredentialRow,
     ChannelOAuthStateRow,
 )
+from deerflow.persistence.data_lake_auth.model import DataLakeAuthChallengeRow
 from deerflow.persistence.feedback.model import FeedbackRow
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
@@ -36,6 +37,7 @@ __all__ = [
     "ChannelConversationRow",
     "ChannelCredentialRow",
     "ChannelOAuthStateRow",
+    "DataLakeAuthChallengeRow",
     "FeedbackRow",
     "AuditLogRow",
     "OperationDispositionRow",
