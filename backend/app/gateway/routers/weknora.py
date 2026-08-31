@@ -468,14 +468,31 @@ def _weknora_root_endpoint(path: str) -> str:
 
 
 def _unwrap_list_response(data: dict[str, Any]) -> dict[str, Any]:
-    items = data.get("data")
+    # WeKnora currently exposes both list shapes below:
+    #
+    # * knowledge: {"data": [...], "total": ...}
+    # * tags:      {"data": {"data": [...], "total": ..., ...}}
+    #
+    # Keep the Gateway response stable for DeerFlow instead of silently
+    # turning the paginated tag payload into an empty list.
+    payload = data.get("data")
+    metadata = data
+    if isinstance(payload, dict):
+        metadata = payload
+        items = payload.get("data")
+        if not isinstance(items, list):
+            items = payload.get("items")
+    else:
+        items = payload
+    if not isinstance(items, list):
+        items = data.get("items")
     if not isinstance(items, list):
         items = []
     return {
         "items": items,
-        "total": data.get("total", len(items)),
-        "page": data.get("page"),
-        "page_size": data.get("page_size"),
+        "total": metadata.get("total", data.get("total", len(items))),
+        "page": metadata.get("page", data.get("page")),
+        "page_size": metadata.get("page_size", data.get("page_size")),
         "success": data.get("success", True),
         "message": data.get("message", ""),
     }
@@ -889,7 +906,7 @@ async def list_knowledge(
 async def list_knowledge_tags(
     knowledge_base_id: str,
     page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=100, ge=1, le=100),
+    page_size: int = Query(default=100, ge=1, le=1000),
     tenant_id: str | None = None,
     user: Any = Depends(get_current_user_from_request),
 ) -> dict[str, Any]:
@@ -908,6 +925,40 @@ async def list_knowledge_tags(
         params={"page": page, "page_size": page_size},
     )
     return _unwrap_list_response(data)
+
+
+@router.get("/knowledge/search")
+async def search_knowledge(
+    keyword: str | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    recent: bool = False,
+    user: Any = Depends(get_current_user_from_request),
+) -> dict[str, Any]:
+    """Mirror WeKnora New Chat's cross-knowledge-base file picker search."""
+
+    normalized_keyword = (keyword or "").strip()
+    if not normalized_keyword and not recent:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide a search keyword or set recent=true.",
+        )
+    params: dict[str, Any] = {
+        "offset": offset,
+        "limit": limit,
+        "recent": str(recent).lower(),
+    }
+    if normalized_keyword:
+        params["keyword"] = normalized_keyword
+    data = await _request(
+        "GET",
+        "/knowledge/search",
+        await _current_weknora_token(user),
+        params=params,
+    )
+    normalized = _unwrap_list_response(data)
+    normalized["has_more"] = bool(data.get("has_more")) if isinstance(data, dict) else False
+    return normalized
 
 
 @router.get("/admin/runtime/queues")

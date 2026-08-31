@@ -23,6 +23,7 @@ from deerflow.config import get_app_config
 from deerflow.runtime.weknora_context import (
     get_current_weknora_access_token,
     get_current_weknora_scope,
+    get_current_weknora_tenant_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -125,7 +126,7 @@ def _endpoint(api_url: str, path: str) -> str:
     return f"{base}/api/v1{path}"
 
 
-def _headers(api_key: str | None = None) -> dict[str, str]:
+def _headers(api_key: str | None = None, *, tenant_id: str | None = None) -> dict[str, str]:
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
@@ -135,6 +136,8 @@ def _headers(api_key: str | None = None) -> dict[str, str]:
         headers["Authorization"] = f"Bearer {access_token}"
     elif api_key:
         headers["X-API-Key"] = api_key
+    if isinstance(tenant_id, str) and tenant_id.strip():
+        headers["X-Tenant-ID"] = tenant_id.strip()
     return headers
 
 
@@ -161,14 +164,7 @@ def _build_scope(
                 payload[key] = value
         tag_scopes = run_scope.get("tag_scopes")
         if isinstance(tag_scopes, list) and tag_scopes:
-            payload["tag_ids"] = list(
-                dict.fromkeys(
-                    tag_id
-                    for tag_scope in tag_scopes
-                    if isinstance(tag_scope, dict)
-                    for tag_id in _split_csv(tag_scope.get("tag_ids"))
-                )
-            )
+            payload["tag_ids"] = list(dict.fromkeys(tag_id for tag_scope in tag_scopes if isinstance(tag_scope, dict) for tag_id in _split_csv(tag_scope.get("tag_ids"))))
         return payload
 
     payload: dict[str, Any] = {}
@@ -233,6 +229,35 @@ def _run_scope_effective_kb_ids() -> set[str]:
     return {item for item in result if item}
 
 
+def _scope_tenant_id(
+    scope: dict[str, Any] | None = None,
+    *,
+    knowledge_base_id: str | None = None,
+    knowledge_id: str | None = None,
+) -> str | None:
+    """Return the trusted tenant routing context for a scoped tool call."""
+
+    resolved_scope = scope or get_current_weknora_scope() or {}
+    if isinstance(knowledge_base_id, str) and knowledge_base_id.strip():
+        return get_current_weknora_tenant_id(knowledge_base_id=knowledge_base_id.strip())
+
+    if isinstance(knowledge_id, str) and knowledge_id.strip():
+        for item in resolved_scope.get("mentioned_items") or []:
+            if not isinstance(item, dict) or item.get("type") != "file":
+                continue
+            if str(item.get("id") or "").strip() != knowledge_id.strip():
+                continue
+            kb_id = str(item.get("kb_id") or "").strip()
+            if kb_id:
+                return get_current_weknora_tenant_id(knowledge_base_id=kb_id)
+
+    kb_ids = _scope_knowledge_base_ids(resolved_scope)
+    tenant_ids = {tenant_id for kb_id in kb_ids if (tenant_id := get_current_weknora_tenant_id(knowledge_base_id=kb_id))}
+    if len(tenant_ids) == 1:
+        return next(iter(tenant_ids))
+    return get_current_weknora_tenant_id()
+
+
 def _document_row_matches_run_scope(item: dict[str, Any]) -> bool:
     scope = get_current_weknora_scope()
     if not scope:
@@ -246,11 +271,7 @@ def _document_row_matches_run_scope(item: dict[str, Any]) -> bool:
 
     tag_ids = {
         str(item.get("tag_id") or "").strip(),
-        *(
-            str(tag.get("id") or "").strip()
-            for tag in item.get("tags") or []
-            if isinstance(tag, dict)
-        ),
+        *(str(tag.get("id") or "").strip() for tag in item.get("tags") or [] if isinstance(tag, dict)),
     }
     for tag_scope in scope.get("tag_scopes") or []:
         if not isinstance(tag_scope, dict):
@@ -326,12 +347,7 @@ def _resource_image_alts(value: Any) -> dict[str, str]:
             return
         if isinstance(item, dict):
             uri = next(
-                (
-                    candidate
-                    for key in ("url", "uri", "resource_uri", "file_path")
-                    if isinstance((candidate := item.get(key)), str)
-                    and _RESOURCE_URI_RE.fullmatch(candidate)
-                ),
+                (candidate for key in ("url", "uri", "resource_uri", "file_path") if isinstance((candidate := item.get(key)), str) and _RESOURCE_URI_RE.fullmatch(candidate)),
                 None,
             )
             if uri:
@@ -510,14 +526,20 @@ def _format_search_results(query: str, data: dict[str, Any], max_results: int, s
     )
 
 
-def _post_json(tool_name: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _post_json(
+    tool_name: str,
+    path: str,
+    payload: dict[str, Any],
+    *,
+    tenant_id: str | None = None,
+) -> dict[str, Any]:
     api_key = _get_api_key(tool_name)
     if not api_key and not get_current_weknora_access_token():
         raise ValueError("WEKNORA_API_KEY is not configured")
 
     url = _endpoint(_get_api_url(tool_name), path)
     with httpx.Client(timeout=_get_timeout(tool_name)) as client:
-        response = client.post(url, headers=_headers(api_key), json=payload)
+        response = client.post(url, headers=_headers(api_key, tenant_id=tenant_id), json=payload)
     response.raise_for_status()
     data = response.json()
     return data if isinstance(data, dict) else {"data": data}
@@ -528,6 +550,7 @@ def _get_json(
     path: str,
     *,
     params: dict[str, Any] | None = None,
+    tenant_id: str | None = None,
 ) -> dict[str, Any]:
     api_key = _get_api_key(tool_name)
     if not api_key and not get_current_weknora_access_token():
@@ -535,7 +558,7 @@ def _get_json(
 
     url = _endpoint(_get_api_url(tool_name), path)
     with httpx.Client(timeout=_get_timeout(tool_name)) as client:
-        response = client.get(url, headers=_headers(api_key), params=params)
+        response = client.get(url, headers=_headers(api_key, tenant_id=tenant_id), params=params)
     response.raise_for_status()
     data = response.json()
     return data if isinstance(data, dict) else {"data": data}
@@ -657,9 +680,14 @@ def _tool_error(
     return json.dumps({"error": str(exc), **context}, ensure_ascii=False)
 
 
-def _create_session(tool_name: str, query: str) -> str:
+def _create_session(tool_name: str, query: str, *, tenant_id: str | None = None) -> str:
     title = query.strip().replace("\n", " ")[:80] or "WeKnora RAG"
-    data = _post_json(tool_name, "/sessions", {"title": title, "description": "Created by DeerFlow WeKnora tool"})
+    data = _post_json(
+        tool_name,
+        "/sessions",
+        {"title": title, "description": "Created by DeerFlow WeKnora tool"},
+        tenant_id=tenant_id,
+    )
     session = data.get("data") if isinstance(data.get("data"), dict) else data
     session_id = session.get("id") if isinstance(session, dict) else None
     if not session_id:
@@ -687,22 +715,44 @@ def weknora_list_knowledge_bases_tool(
         knowledge_base_ids: Optional exact knowledge-base IDs to retain. Pass the IDs selected in the current DeerFlow run.
     """
     tool_name = "weknora_list_knowledge_bases"
+    tenant_id = _scope_tenant_id()
     try:
-        data = _get_json(tool_name, "/knowledge-bases")
+        data = _get_json(tool_name, "/knowledge-bases", tenant_id=tenant_id)
     except Exception as exc:
         return _tool_error(tool_name, "knowledge-base list", exc)
 
     rows = data.get("data") if isinstance(data.get("data"), list) else []
+    # Native WeKnora exposes resources shared into the consumer workspace from
+    # a sibling endpoint. Include them whenever the run has a user/tenant
+    # context so list/get/document behavior is consistent for shared KBs.
+    if tenant_id and get_current_weknora_access_token():
+        try:
+            shared_data = _get_json(
+                tool_name,
+                "/shared-knowledge-bases",
+                tenant_id=tenant_id,
+            )
+            for shared_item in shared_data.get("data") or []:
+                if not isinstance(shared_item, dict):
+                    continue
+                knowledge_base = shared_item.get("knowledge_base")
+                if isinstance(knowledge_base, dict):
+                    rows.append(knowledge_base)
+        except httpx.HTTPStatusError as exc:
+            # Older WeKnora deployments may not expose the shared-list route.
+            # Keep the official owned-list result for 404 only; authorization
+            # and server errors remain visible instead of being masked.
+            if exc.response.status_code != 404:
+                return _tool_error(tool_name, "shared knowledge-base list", exc)
+        except Exception as exc:
+            return _tool_error(tool_name, "shared knowledge-base list", exc)
+
     requested_ids = set(_split_csv(knowledge_base_ids))
     run_scope_ids = _run_scope_effective_kb_ids()
     if get_current_weknora_scope():
         requested_ids = requested_ids.intersection(run_scope_ids) if requested_ids else run_scope_ids
-    knowledge_bases = [
-        _public_knowledge_base(item)
-        for item in rows
-        if isinstance(item, dict)
-        and (not requested_ids or str(item.get("id") or "") in requested_ids)
-    ]
+    rows_by_id = {str(item.get("id") or ""): item for item in rows if isinstance(item, dict) and item.get("id")}
+    knowledge_bases = [_public_knowledge_base(item) for item in rows_by_id.values() if not requested_ids or str(item.get("id") or "") in requested_ids]
     return json.dumps(
         {"total": len(knowledge_bases), "knowledge_bases": knowledge_bases},
         indent=2,
@@ -726,7 +776,11 @@ def weknora_get_knowledge_base_tool(knowledge_base_id: str) -> str:
             knowledge_base_id=knowledge_base_id,
         )
     try:
-        data = _get_json(tool_name, f"/knowledge-bases/{quote(knowledge_base_id.strip(), safe='')}")
+        data = _get_json(
+            tool_name,
+            f"/knowledge-bases/{quote(knowledge_base_id.strip(), safe='')}",
+            tenant_id=_scope_tenant_id(knowledge_base_id=knowledge_base_id),
+        )
     except Exception as exc:
         return _tool_error(tool_name, "knowledge-base detail", exc, knowledge_base_id=knowledge_base_id)
 
@@ -781,16 +835,13 @@ def weknora_list_documents_tool(
             tool_name,
             f"/knowledge-bases/{quote(knowledge_base_id.strip(), safe='')}/knowledge",
             params=params,
+            tenant_id=_scope_tenant_id(knowledge_base_id=knowledge_base_id),
         )
     except Exception as exc:
         return _tool_error(tool_name, "document list", exc, knowledge_base_id=knowledge_base_id)
 
     rows = data.get("data") if isinstance(data.get("data"), list) else []
-    documents = [
-        _public_document(item)
-        for item in rows
-        if isinstance(item, dict) and _document_row_matches_run_scope(item)
-    ]
+    documents = [_public_document(item) for item in rows if isinstance(item, dict) and _document_row_matches_run_scope(item)]
     return json.dumps(
         {
             "knowledge_base_id": knowledge_base_id.strip(),
@@ -815,7 +866,11 @@ def weknora_get_document_tool(knowledge_id: str) -> str:
     if not knowledge_id.strip():
         return json.dumps({"error": "knowledge_id is required"}, ensure_ascii=False)
     try:
-        data = _get_json(tool_name, f"/knowledge/{quote(knowledge_id.strip(), safe='')}")
+        data = _get_json(
+            tool_name,
+            f"/knowledge/{quote(knowledge_id.strip(), safe='')}",
+            tenant_id=_scope_tenant_id(knowledge_id=knowledge_id),
+        )
     except Exception as exc:
         return _tool_error(tool_name, "document detail", exc, knowledge_id=knowledge_id)
 
@@ -858,7 +913,11 @@ def weknora_list_document_chunks_tool(
     }
     try:
         if get_current_weknora_scope():
-            document_data = _get_json(tool_name, f"/knowledge/{quote(knowledge_id.strip(), safe='')}")
+            document_data = _get_json(
+                tool_name,
+                f"/knowledge/{quote(knowledge_id.strip(), safe='')}",
+                tenant_id=_scope_tenant_id(knowledge_id=knowledge_id),
+            )
             document_row = document_data.get("data") if isinstance(document_data.get("data"), dict) else document_data
             if not isinstance(document_row, dict) or not _document_row_matches_run_scope(document_row):
                 return _scope_error(
@@ -869,6 +928,7 @@ def weknora_list_document_chunks_tool(
             tool_name,
             f"/chunks/{quote(knowledge_id.strip(), safe='')}",
             params=params,
+            tenant_id=_scope_tenant_id(knowledge_id=knowledge_id),
         )
     except Exception as exc:
         return _tool_error(tool_name, "document chunks", exc, knowledge_id=knowledge_id)
@@ -909,7 +969,11 @@ def weknora_read_document_tool(
         maximum=_READ_CHUNKS_CAP,
     )
     try:
-        document_data = _get_json(tool_name, f"/knowledge/{quote(knowledge_id.strip(), safe='')}")
+        document_data = _get_json(
+            tool_name,
+            f"/knowledge/{quote(knowledge_id.strip(), safe='')}",
+            tenant_id=_scope_tenant_id(knowledge_id=knowledge_id),
+        )
         document_row = document_data.get("data") if isinstance(document_data.get("data"), dict) else document_data
         if not isinstance(document_row, dict):
             raise ValueError("Unexpected WeKnora document response shape")
@@ -931,6 +995,7 @@ def weknora_read_document_tool(
                     "page_size": page_size,
                     "chunk_type": ["text", "image_caption", "image_ocr"],
                 },
+                tenant_id=_scope_tenant_id(knowledge_id=knowledge_id),
             )
             rows = chunk_data.get("data") if isinstance(chunk_data.get("data"), list) else []
             chunks.extend(_public_chunk(item) for item in rows if isinstance(item, dict))
@@ -992,7 +1057,12 @@ def weknora_search_tool(
         )
 
     try:
-        data = _post_json(tool_name, "/knowledge-search", payload)
+        data = _post_json(
+            tool_name,
+            "/knowledge-search",
+            payload,
+            tenant_id=_scope_tenant_id(payload),
+        )
     except ValueError as e:
         return _missing_config(tool_name, str(e), query=query)
     except httpx.HTTPStatusError as e:
@@ -1052,6 +1122,7 @@ def _stream_chat(
     session_id: str,
     *,
     agent_mode: bool,
+    tenant_id: str | None = None,
 ) -> dict[str, Any]:
     api_key = _get_api_key(tool_name)
     if not api_key and not get_current_weknora_access_token():
@@ -1067,7 +1138,12 @@ def _stream_chat(
     errors: list[str] = []
 
     with httpx.Client(timeout=_get_timeout(tool_name)) as client:
-        with client.stream("POST", url, headers=_headers(api_key), json=payload) as response:
+        with client.stream(
+            "POST",
+            url,
+            headers=_headers(api_key, tenant_id=tenant_id),
+            json=payload,
+        ) as response:
             if response.is_error:
                 response.read()
             response.raise_for_status()
@@ -1150,18 +1226,13 @@ def weknora_list_agents_tool(include_disabled: bool = True) -> str:
     """
     tool_name = "weknora_list_agents"
     try:
-        data = _get_json(tool_name, "/agents")
+        data = _get_json(tool_name, "/agents", tenant_id=_scope_tenant_id())
     except Exception as exc:
         return _tool_error(tool_name, "agent list", exc)
 
     rows = data.get("data") if isinstance(data.get("data"), list) else []
     disabled_ids = set(_split_csv(data.get("disabled_own_agent_ids")))
-    agents = [
-        _public_agent(item, disabled_ids)
-        for item in rows
-        if isinstance(item, dict)
-        and (include_disabled or str(item.get("id") or "") not in disabled_ids)
-    ]
+    agents = [_public_agent(item, disabled_ids) for item in rows if isinstance(item, dict) and (include_disabled or str(item.get("id") or "") not in disabled_ids)]
     return json.dumps({"total": len(agents), "agents": agents}, indent=2, ensure_ascii=False)
 
 
@@ -1222,12 +1293,14 @@ def weknora_invoke_agent_tool(
         )
 
     try:
-        resolved_session_id = session_id or _create_session(tool_name, query)
+        tenant_id = _scope_tenant_id(scope)
+        resolved_session_id = session_id or _create_session(tool_name, query, tenant_id=tenant_id)
         result = _stream_chat(
             tool_name,
             payload,
             resolved_session_id,
             agent_mode=True,
+            tenant_id=tenant_id,
         )
     except Exception as exc:
         return _tool_error(tool_name, "agent chat", exc, query=query, agent_id=agent_id)
@@ -1299,12 +1372,14 @@ def weknora_ask_tool(
         )
 
     try:
-        resolved_session_id = session_id or _create_session(tool_name, query)
+        tenant_id = _scope_tenant_id(scope)
+        resolved_session_id = session_id or _create_session(tool_name, query, tenant_id=tenant_id)
         result = _stream_chat(
             tool_name,
             payload,
             resolved_session_id,
             agent_mode=bool(resolved_agent_id),
+            tenant_id=tenant_id,
         )
     except ValueError as e:
         return _missing_config(tool_name, str(e), query=query)

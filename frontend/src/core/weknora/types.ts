@@ -54,6 +54,9 @@ export interface WeKnoraTag {
   name: string;
   knowledge_base_id?: string;
   knowledge_count?: number;
+  chunk_count?: number;
+  color?: string;
+  sort_order?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -78,6 +81,7 @@ export interface WeKnoraTagScope {
 export interface WeKnoraListResponse<T> {
   items: T[];
   total: number;
+  has_more?: boolean;
   page?: number;
   page_size?: number;
   success?: boolean;

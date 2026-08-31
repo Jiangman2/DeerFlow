@@ -2,6 +2,7 @@ import { describe, expect, it } from "@rstest/core";
 
 import {
   buildWeKnoraScopeContext,
+  MAX_WEKNORA_SCOPE_ITEMS,
   normalizeWeKnoraScopeItems,
   toggleWeKnoraScopeItem,
   weknoraScopeItemsFromContext,
@@ -70,5 +71,40 @@ describe("WeKnora chat scope", () => {
         kb,
       ]),
     ).toEqual([kb]);
+  });
+
+  it("keeps same-id child selections from different knowledge bases distinct", () => {
+    const sharedIdInAnotherKb: WeKnoraScopeItem = {
+      id: file.id,
+      name: "同编号安全手册.pdf",
+      type: "file",
+      kb_id: "kb-2",
+      kb_name: "安全库",
+    };
+
+    expect(toggleWeKnoraScopeItem([file], sharedIdInAnotherKb)).toEqual([
+      file,
+      sharedIdInAnotherKb,
+    ]);
+  });
+
+  it("caps one chat turn to a bounded number of selected scopes", () => {
+    const manyFiles = Array.from(
+      { length: MAX_WEKNORA_SCOPE_ITEMS + 5 },
+      (_, index): WeKnoraScopeItem => ({
+        id: `doc-${index}`,
+        name: `文件 ${index}`,
+        type: "file",
+        kb_id: "kb-1",
+        kb_name: "制度库",
+      }),
+    );
+
+    expect(normalizeWeKnoraScopeItems(manyFiles)).toHaveLength(
+      MAX_WEKNORA_SCOPE_ITEMS,
+    );
+    expect(
+      buildWeKnoraScopeContext(manyFiles).weknora_scope_items,
+    ).toHaveLength(MAX_WEKNORA_SCOPE_ITEMS);
   });
 });

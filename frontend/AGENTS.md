@@ -83,7 +83,22 @@ knowledge-base identity in `weknora_scope_items`, group tags in
 `weknora_tag_scopes`, and keep legacy KB-only context readable. Selecting a
 complete KB replaces its child selections; selecting a file/tag replaces the
 complete-KB selection for that parent. The selector must remain usable in both
-desktop and mobile dialogs.
+desktop and mobile dialogs. Keep the native mention interaction model: one
+grouped Knowledge Base / Tag / File menu, drill-in navigation, global search,
+immediate selection, and removable selected-scope chips above the prompt. A
+file row must retain and display its parent knowledge base and native tags;
+switching groups or search terms must never reuse stale rows from a previous
+knowledge base. The selected chips are not presentation-only: submit the same
+scope with every run so Gateway can enforce it on all `weknora_*` tools.
+Keep the selector header and selected-summary footer fixed while the result
+viewport scrolls independently. Selection stays open for consecutive
+multi-select, long rows must remain inside the popup, and selected knowledge
+chips share the responsive composer material area with attachments so neither
+can overlap the model selector or crowd mobile primary controls. Desktop
+materials flow at their intrinsic bounded width and wrap only when the row is
+full; mobile keeps one horizontally scrollable material rail. One run may
+select at most 20 knowledge-scope items, with a visible rejection message for
+the next item; attachment limits remain owned by the existing upload policy.
 
 The new-agent name-step badge must remain compatible with enterprise browsers
 that lack CSS `color-mix()`. Keep its pale primary background as a separate

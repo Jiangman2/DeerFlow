@@ -4,26 +4,39 @@ metadata:
   name: deer-flow-mineru-adapter
   namespace: deer-flow
 spec:
-  replicas: 3
+  replicas: 6
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      # Required hostname anti-affinity leaves no room for a fourth surge Pod
-      # on the audited three-node cluster. Replace one replica at a time.
+      # Six serialized workers are spread two-per-node. One bounded surge Pod
+      # keeps upgrades available without weakening the per-process parse lock.
       maxUnavailable: 1
-      maxSurge: 0
+      maxSurge: 1
   template:
+    metadata:
+      labels:
+        deerflow.cnooc/mineru-role: worker
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: deer-flow-mineru-adapter
+              deerflow.cnooc/mineru-role: worker
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
-                    operator: In
-                    values:
-                      - deer-flow-mineru-adapter
-              topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - deer-flow-mineru-adapter
+                topologyKey: kubernetes.io/hostname
       containers:
         - name: adapter
           image: deer-flow-mineru-adapter:enterprise
@@ -34,6 +47,8 @@ spec:
           env:
             # Replace local development endpoint/token placeholders entirely.
             - $patch: replace
+            - name: MINERU_ADAPTER_MODE
+              value: worker
             - name: MINERU_LISTEN_PORT
               value: "50052"
             - name: MINERU_REQUEST_MODE
@@ -147,3 +162,12 @@ spec:
             items:
               - key: ca-bundle.crt
                 path: ca-bundle.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deer-flow-mineru-adapter
+  namespace: deer-flow
+spec:
+  selector:
+    app: deer-flow-mineru-dispatcher

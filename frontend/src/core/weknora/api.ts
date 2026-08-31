@@ -100,7 +100,7 @@ export async function listWeKnoraTags(
   knowledgeBaseId: string,
   tenantId?: string | number,
 ): Promise<WeKnoraListResponse<WeKnoraTag>> {
-  const params = new URLSearchParams({ page: "1", page_size: "100" });
+  const params = new URLSearchParams({ page: "1", page_size: "1000" });
   if (tenantId !== undefined && String(tenantId).trim()) {
     params.set("tenant_id", String(tenantId));
   }
@@ -110,6 +110,82 @@ export async function listWeKnoraTags(
     ),
   );
   return readJson<WeKnoraListResponse<WeKnoraTag>>(response);
+}
+
+export async function searchWeKnoraKnowledge(
+  keyword = "",
+  offset = 0,
+  limit = 100,
+): Promise<WeKnoraListResponse<WeKnoraKnowledge>> {
+  const params = new URLSearchParams({
+    offset: String(offset),
+    limit: String(limit),
+  });
+  const normalizedKeyword = keyword.trim();
+  if (normalizedKeyword) {
+    params.set("keyword", normalizedKeyword);
+  } else {
+    params.set("recent", "true");
+  }
+  const response = await fetch(
+    apiPath(`/api/weknora/knowledge/search?${params.toString()}`),
+  );
+  return readJson<WeKnoraListResponse<WeKnoraKnowledge>>(response);
+}
+
+export async function searchAllWeKnoraKnowledge(
+  keyword = "",
+  maxItems = 2_000,
+): Promise<WeKnoraListResponse<WeKnoraKnowledge>> {
+  const pageSize = 100;
+  const first = await searchWeKnoraKnowledge(keyword, 0, pageSize);
+  const total = Math.max(first.total ?? first.items.length, first.items.length);
+  if (
+    (!first.has_more && first.items.length >= total) ||
+    maxItems <= pageSize
+  ) {
+    return first;
+  }
+
+  const maximumPages = Math.max(1, Math.ceil(maxItems / pageSize));
+  const knownPages =
+    total > first.items.length
+      ? Math.min(Math.ceil(total / pageSize), maximumPages)
+      : 1;
+  const pages: WeKnoraListResponse<WeKnoraKnowledge>[] = [first];
+
+  if (knownPages > 1) {
+    pages.push(
+      ...(await Promise.all(
+        Array.from({ length: knownPages - 1 }, (_, index) =>
+          searchWeKnoraKnowledge(keyword, (index + 1) * pageSize, pageSize),
+        ),
+      )),
+    );
+  } else {
+    let page = first;
+    for (let index = 1; index < maximumPages && page.has_more; index += 1) {
+      page = await searchWeKnoraKnowledge(keyword, index * pageSize, pageSize);
+      pages.push(page);
+    }
+  }
+
+  const items: WeKnoraKnowledge[] = [];
+  const seen = new Set<string>();
+  for (const item of pages.flatMap((page) => page.items)) {
+    const key = `${item.knowledge_base_id ?? ""}:${item.id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      items.push(item);
+    }
+  }
+
+  return {
+    ...first,
+    items: items.slice(0, maxItems),
+    total,
+    has_more: items.length < total || pages.at(-1)?.has_more === true,
+  };
 }
 
 export async function uploadWeKnoraKnowledgeFile(

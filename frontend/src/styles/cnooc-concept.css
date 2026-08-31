@@ -1724,7 +1724,7 @@
     padding: 0 14px !important;
     border-radius: 12px !important;
     color: #405777 !important;
-    font-size: 16px !important;
+    font-size: 15px !important;
     font-weight: 500 !important;
   }
 
@@ -2033,6 +2033,15 @@
     flex-basis: 38px !important;
   }
 
+  .cnooc-create-menu .cnooc-action-artwork {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    max-height: 38px !important;
+    flex-basis: 38px !important;
+  }
+
   .cnooc-action-line-icon {
     width: 25px !important;
     height: 25px !important;
@@ -2162,67 +2171,79 @@
     white-space: nowrap;
   }
 
-  .cnooc-chat-main[data-has-composer-attachments="true"]
+  .cnooc-chat-main[data-has-composer-materials="true"]
     .cnooc-desktop-welcome-copy,
-  .cnooc-chat-main[data-has-composer-attachments="true"]
+  .cnooc-chat-main[data-has-composer-materials="true"]
     .cnooc-composer-dock-welcome {
     transform: translateY(
-      calc(0px - var(--cnooc-desktop-attachment-offset, 0px))
+      calc(0px - var(--cnooc-desktop-material-offset, 0px))
     );
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-welcome-composer.cnooc-composer {
     height: calc(
-      270px + (var(--cnooc-desktop-attachment-rows, 1) * 40px)
+      270px + (var(--cnooc-desktop-material-rows, 1) * 40px)
     ) !important;
     min-height: calc(
-      270px + (var(--cnooc-desktop-attachment-rows, 1) * 40px)
+      270px + (var(--cnooc-desktop-material-rows, 1) * 40px)
     ) !important;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header {
     position: absolute;
     top: 62px;
     right: 18px;
     left: 18px;
     z-index: 4;
-    display: grid !important;
+    display: flex !important;
     height: auto;
-    grid-auto-rows: 32px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    flex-wrap: wrap !important;
     gap: 8px;
+    align-content: flex-start;
+    align-items: center;
+    justify-content: start;
     padding: 0 !important;
     box-sizing: border-box;
     width: auto !important;
     overflow: hidden;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header
     > div
     > div,
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header
     > div
     > div
     > div {
     box-sizing: border-box;
-    width: 100%;
+    width: auto;
     min-width: 0;
-    max-width: 100%;
+    max-width: min(240px, 15vw);
     overflow: hidden;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-composer-attachment-chip,
+  [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-knowledge-scope-chip {
+    width: fit-content;
+    min-width: 0;
+    max-width: min(240px, 15vw);
+    justify-self: start;
+  }
+
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-model-selector {
     top: 16px;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-input {
-    top: calc(68px + (var(--cnooc-desktop-attachment-rows, 1) * 40px));
+    top: calc(68px + (var(--cnooc-desktop-material-rows, 1) * 40px));
   }
 }
 
@@ -2948,17 +2969,17 @@
     height: 15px !important;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-welcome-composer.cnooc-composer,
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-welcome-composer.cnooc-composer
     > [data-slot="input-group"] {
     min-height: 214px !important;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header,
-  [data-testid="chat-composer"][data-has-attachments="true"]
+  [data-testid="chat-composer"][data-has-materials="true"]
     .cnooc-composer-header {
     position: absolute;
     top: 50px;
@@ -2975,14 +2996,14 @@
     scrollbar-width: none;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header::-webkit-scrollbar,
-  [data-testid="chat-composer"][data-has-attachments="true"]
+  [data-testid="chat-composer"][data-has-materials="true"]
     .cnooc-composer-header::-webkit-scrollbar {
     display: none;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-input {
     top: 94px;
   }
@@ -3355,19 +3376,19 @@
     box-shadow: 0 8px 18px rgba(73, 113, 213, 0.24) !important;
   }
 
-  [data-testid="chat-composer"][data-has-attachments="true"] .cnooc-composer,
-  [data-testid="chat-composer"][data-has-attachments="true"]
+  [data-testid="chat-composer"][data-has-materials="true"] .cnooc-composer,
+  [data-testid="chat-composer"][data-has-materials="true"]
     .cnooc-composer
     > [data-slot="input-group"] {
     min-height: 214px !important;
   }
 
-  [data-testid="chat-composer"][data-has-attachments="true"]
+  [data-testid="chat-composer"][data-has-materials="true"]
     .cnooc-composer-input {
     top: 94px;
   }
 
-  [data-testid="chat-composer"][data-has-attachments="true"] .cnooc-tool-mode {
+  [data-testid="chat-composer"][data-has-materials="true"] .cnooc-tool-mode {
     top: 158px;
   }
 
@@ -3760,6 +3781,10 @@
 }
 
 @media (max-width: 47.999rem) {
+  .cnooc-workspace-shell .cnooc-knowledge-scope-count {
+    display: none !important;
+  }
+
   .cnooc-workspace-shell .cnooc-model-selector {
     width: max-content !important;
   }

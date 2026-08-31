@@ -9,8 +9,16 @@ type WeKnoraScopeContext = {
   weknora_scope_items?: WeKnoraScopeItem[];
 };
 
+export const MAX_WEKNORA_SCOPE_ITEMS = 20;
+
 export function weknoraScopeItemKey(item: WeKnoraScopeItem): string {
-  return `${item.type}:${item.id}`;
+  if (item.type === "kb") {
+    return `kb:${item.id}`;
+  }
+  // WeKnora tag and document identifiers are meaningful inside their parent
+  // knowledge-base scope. Including that parent keeps selections stable when
+  // two accessible workspaces expose the same child identifier.
+  return `${item.type}:${item.kb_id ?? ""}:${item.id}`;
 }
 
 export function normalizeWeKnoraScopeItems(value: unknown): WeKnoraScopeItem[] {
@@ -52,6 +60,9 @@ export function normalizeWeKnoraScopeItems(value: unknown): WeKnoraScopeItem[] {
     if (!seen.has(key)) {
       seen.add(key);
       items.push(item);
+      if (items.length >= MAX_WEKNORA_SCOPE_ITEMS) {
+        break;
+      }
     }
   }
   return items;

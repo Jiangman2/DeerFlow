@@ -3,10 +3,42 @@ from types import SimpleNamespace
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware, is_weknora_scope_reminder
+from deerflow.runtime.weknora_context import WEKNORA_SCOPE_SELECTION_LIMIT, normalize_weknora_scope_items
 
 
 def _runtime(context):
     return SimpleNamespace(context=context)
+
+
+def test_scope_items_keep_same_child_id_from_different_knowledge_bases():
+    rows = normalize_weknora_scope_items(
+        [
+            {"id": "shared-tag", "name": "A 标签", "type": "tag", "kb_id": "kb-a"},
+            {"id": "shared-tag", "name": "B 标签", "type": "tag", "kb_id": "kb-b"},
+        ]
+    )
+
+    assert [(row["kb_id"], row["id"]) for row in rows] == [
+        ("kb-a", "shared-tag"),
+        ("kb-b", "shared-tag"),
+    ]
+
+
+def test_scope_items_are_bounded_for_one_run():
+    rows = normalize_weknora_scope_items(
+        [
+            {
+                "id": f"doc-{index}",
+                "name": f"Document {index}",
+                "type": "file",
+                "kb_id": "kb-a",
+            }
+            for index in range(WEKNORA_SCOPE_SELECTION_LIMIT + 5)
+        ]
+    )
+
+    assert len(rows) == WEKNORA_SCOPE_SELECTION_LIMIT
+    assert rows[-1]["id"] == f"doc-{WEKNORA_SCOPE_SELECTION_LIMIT - 1}"
 
 
 def test_weknora_scope_middleware_blocks_historical_kb_context_when_scope_is_empty():

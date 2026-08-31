@@ -257,12 +257,14 @@ because the native parser stack can corrupt its allocator state when two
 documents enter it concurrently. `/health` remains responsive during a long
 parse and reports `parser.active` plus `parser.waiting`; do not bypass the
 coordinator or increase in-process parser concurrency.
-The enterprise three-node overlay obtains safe parallelism from three
-anti-affined adapter Pods rather than from threads inside one process. Keep the
-single WeKnora App replica at two core Asynq workers plus one shared worker, so
-no more than three document requests leave its durable Redis queue at once.
-MinerU-2605's 20-request upstream capacity is reserve headroom and does not
-override this local native-parser safety boundary.
+The enterprise three-node overlay obtains safe parallelism from six adapter
+worker Pods, evenly spread two per node, rather than from threads inside one
+process. A separate bounded dispatcher routes only to free worker Pod IPs and
+prioritizes interactive conversation uploads over batch work that has not yet
+started. Keep the single WeKnora App replica at four core Asynq workers plus two
+shared workers, so no more than six document requests leave its durable Redis
+queue at once. MinerU-2605's 20-request upstream capacity is reserve headroom
+and does not override this local native-parser safety boundary.
 Any WeKnora replica or worker-pool increase must be paired with a reviewed
 adapter-capacity change and a 3/10/30-document acceptance test.
 The pinned WeKnora DocReader image receives narrow source-mounted parser
@@ -1502,6 +1504,14 @@ so list and upload endpoints do not repeat registration/login on every call. For
 scoped chat runs, Gateway forwards the selected knowledge-base IDs, derives a
 per-user token server-side, and the run worker binds that token only for the
 duration of the configured permission-scoped `weknora_*` tool execution.
+The native knowledge picker also supplies a consumer-tenant routing hint for
+each selected KB. Gateway accepts that hint only when it belongs to the
+authenticated user's WeKnora memberships, publishes a server-owned
+KB-to-tenant map in the run context, and every direct WeKnora GET, JSON POST,
+session, and SSE tool request sends the resulting `X-Tenant-ID` beside the
+per-user bearer token. Never use the knowledge-base owner/source tenant for a
+shared-resource call, and never treat a browser tenant hint as authorization;
+WeKnora remains the final per-user RBAC boundary.
 The browser scope may contain complete knowledge bases, individual knowledge
 documents, or tags grouped under their parent knowledge base. Normalize it once
 from `weknora_knowledge_base_ids`, `weknora_knowledge_ids`,
@@ -1577,6 +1587,16 @@ Lead and delegated agents expose those tools only when the current run contains
 non-empty `weknora_knowledge_base_ids`. Without an explicit selection,
 `WeKnoraScopeMiddleware` also prevents stale durable-memory references from being
 treated as an active KB scope or `/mnt/user-data/knowledge_bases` file source.
+The browser scope adapter mirrors WeKnora New Chat's Knowledge Base / Tag / File
+mention selector. Its list-envelope normalizer must accept both flat `data: []`
+and official nested `data: {data: [], total: ...}` responses, especially for
+tags. Global file lookup proxies the official `/knowledge/search` contract and
+must preserve each result's parent knowledge base and tags. Whole-KB, exact-file,
+and per-KB tag selections remain distinct in run context; model-supplied tool
+arguments may narrow output but must never replace or widen that server-bound
+run scope. Normalize at most 20 explicit knowledge-scope selections per run so
+browser state, middleware guidance, and downstream WeKnora calls remain
+bounded; this does not replace the independent upload limits.
 
 Runs with an explicit WeKnora scope skip the durable DeerMem queue entirely: retrieved
 enterprise-document facts belong to that task and remain in its checkpoint/history.

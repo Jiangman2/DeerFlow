@@ -961,6 +961,10 @@ async def test_inject_weknora_user_context_derives_runtime_token_for_selected_sc
             token="run-scoped-token",
             user={"id": "weknora-user-7"},
             tenant={"id": "tenant-3"},
+            memberships=[
+                {"tenant_id": "tenant-3"},
+                {"tenant_id": "tenant-shared"},
+            ],
         )
 
     monkeypatch.setattr("app.gateway.services.ensure_weknora_session_for_deerflow_user", fake_ensure_session)
@@ -970,7 +974,50 @@ async def test_inject_weknora_user_context_derives_runtime_token_for_selected_sc
     assert config["context"]["weknora_access_token"] == "run-scoped-token"
     assert config["context"]["weknora_user_id"] == "weknora-user-7"
     assert config["context"]["weknora_tenant_id"] == "tenant-3"
+    assert config["context"]["weknora_access_tenant_ids"] == {"kb-1": "tenant-3"}
     assert "weknora_access_token" not in config["configurable"]
+
+
+@pytest.mark.asyncio
+async def test_inject_weknora_user_context_accepts_only_membership_tenant_hints(monkeypatch):
+    """Browser tenant hints are routing-only and cannot escape user memberships."""
+    from types import SimpleNamespace
+
+    from app.gateway.services import build_run_config, inject_weknora_user_context, merge_run_context_overrides
+
+    authenticated_user = SimpleNamespace(id="auth-user-42", system_role="member")
+    request = SimpleNamespace(state=SimpleNamespace(user=authenticated_user))
+    config = build_run_config("thread-1", None, None)
+    merge_run_context_overrides(
+        config,
+        {
+            "weknora_scope_items": [
+                {"id": "kb-shared", "name": "共享库", "type": "kb", "tenant_id": "tenant-shared"},
+                {"id": "kb-spoofed", "name": "伪造库", "type": "kb", "tenant_id": "tenant-foreign"},
+            ]
+        },
+    )
+
+    async def fake_ensure_session(user):
+        assert user is authenticated_user
+        return SimpleNamespace(
+            token="run-scoped-token",
+            user={"id": "weknora-user-7"},
+            tenant={"id": "tenant-active"},
+            memberships=[
+                {"tenant_id": "tenant-active"},
+                {"tenant_id": "tenant-shared"},
+            ],
+        )
+
+    monkeypatch.setattr("app.gateway.services.ensure_weknora_session_for_deerflow_user", fake_ensure_session)
+
+    await inject_weknora_user_context(config, request)
+
+    assert config["context"]["weknora_access_tenant_ids"] == {
+        "kb-shared": "tenant-shared",
+        "kb-spoofed": "tenant-active",
+    }
 
 
 def test_merge_run_context_overrides_propagates_user_id():

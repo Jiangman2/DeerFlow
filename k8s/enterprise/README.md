@@ -145,17 +145,17 @@ The readiness and liveness probes intentionally tolerate several short health
 response delays during native-library cleanup while retaining a bounded failure
 window for a genuinely wedged process.
 
-The audited three-node cluster runs exactly three adapter replicas with required
-hostname anti-affinity, so each node contributes one independent native parser
-process while every process remains serial. The WeKnora App is intentionally a
-single replica with `WEKNORA_ASYNQ_CORE_CONCURRENCY=2` and
-`WEKNORA_ASYNQ_SHARED_CONCURRENCY=1`: at most three document parse calls can
-enter the adapter Service, and additional uploads remain durable in the
-Redis/Asynq `default` queue. Do not independently scale `weknora-app` or raise
-either concurrency value; both changes multiply active parser calls and defeat
-this memory-safety boundary. The adapter uses `maxSurge: 0` because required
-anti-affinity cannot place a fourth Pod on three nodes, and its disruption
-budget keeps two replicas available during voluntary maintenance.
+The audited three-node cluster runs exactly six serialized adapter workers,
+spread two per node. A separate dispatcher owns the bounded cross-Pod queue,
+round-robins free workers, and lets interactive DeerFlow uploads move ahead of
+knowledge-base batch work that has not started. The WeKnora App remains a single
+replica with `WEKNORA_ASYNQ_CORE_CONCURRENCY=4` and
+`WEKNORA_ASYNQ_SHARED_CONCURRENCY=2`: at most six document parse calls can enter
+the dispatcher, and additional uploads remain durable in the Redis/Asynq
+`default` queue. Do not raise those values without adding reviewed serialized
+worker capacity and passing the 3/10/30-document acceptance matrix. Worker
+topology uses `maxSkew: 1`; its disruption budget keeps four workers available,
+and the dispatcher has its own `minAvailable: 1` budget.
 WeKnora 0.7.0 drains downstream `summary`, `multimodal`, `graph`, and `question`
 queues through an independent enrichment pool. Enterprise deployments keep
 `WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY=2`,
@@ -342,9 +342,9 @@ the MinerU `/health` response must report at least 20 concurrent upstream
 requests before rollout. Some reviewed gateway prefixes do not publish
 `/health`; in that case a real authenticated asynchronous PDF parse is the hard
 preflight gate. This upstream capacity does not
-authorize in-process PDFium/DocReader concurrency; retain the three serialized
-Adapter Pods and WeKnora's 2+1 worker limits unless a separate memory and native
-library safety review approves a different topology.
+authorize in-process PDFium/DocReader concurrency; retain the six serialized
+Adapter workers, dispatcher, and WeKnora's 4+2 worker limits unless a separate
+memory and native-library safety review approves a different topology.
 
 The enterprise Gateway routes `.pdf`, `.ppt`, and `.pptx` uploads to the
 in-cluster adapter and passes its endpoint as a per-upload override. Only
@@ -414,8 +414,8 @@ Gateway reaches `model.ai.cnooc` directly with `trust_env=false`, fixes
 embeddings at 1024 Matryoshka dimensions, and L2-normalizes any
 4096-dimensional native response after prefix truncation. The Gateway
 embedding relay is capped at 200 concurrent upstream requests to match the
-approved retrieval credential. This does not change WeKnora's 2+1 document
-worker limit or the three serialized MinerU Adapter replicas; rerank continues
+approved retrieval credential. This does not change WeKnora's 4+2 document
+worker limit or the six serialized MinerU Adapter workers; rerank continues
 through its independent relay path and shares the same upstream application
 quota. Bounded retries for transient business code `10020` remain enabled. The versioned
 WeKnora defaults Job applies

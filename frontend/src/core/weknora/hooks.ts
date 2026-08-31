@@ -6,6 +6,7 @@ import {
   listAllWeKnoraKnowledge,
   listWeKnoraKnowledgeBases,
   listWeKnoraTags,
+  searchAllWeKnoraKnowledge,
   uploadWeKnoraKnowledgeFile,
 } from "./api";
 
@@ -59,6 +60,15 @@ export function useWeKnoraTags(
     queryFn: () => listWeKnoraTags(knowledgeBaseId!, tenantId),
     enabled: Boolean(knowledgeBaseId),
     staleTime: 30_000,
+  });
+}
+
+export function useWeKnoraKnowledgeSearch(keyword: string, enabled = true) {
+  return useQuery({
+    queryKey: ["weknora", "knowledge-search", keyword.trim()],
+    queryFn: () => searchAllWeKnoraKnowledge(keyword),
+    enabled,
+    staleTime: keyword.trim() ? 10_000 : 30_000,
   });
 }
 

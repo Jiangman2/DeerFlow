@@ -4,7 +4,102 @@ metadata:
   name: deer-flow-mineru-adapter
   namespace: deer-flow
 spec:
-  minAvailable: 2
+  minAvailable: 4
   selector:
     matchLabels:
       app: deer-flow-mineru-adapter
+      deerflow.cnooc/mineru-role: worker
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deer-flow-mineru-adapter-workers
+  namespace: deer-flow
+spec:
+  clusterIP: None
+  selector:
+    app: deer-flow-mineru-adapter
+    deerflow.cnooc/mineru-role: worker
+  ports:
+    - name: http
+      port: 50052
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deer-flow-mineru-dispatcher
+  namespace: deer-flow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deer-flow-mineru-dispatcher
+  template:
+    metadata:
+      labels:
+        app: deer-flow-mineru-dispatcher
+    spec:
+      containers:
+        - name: dispatcher
+          image: deer-flow-mineru-adapter:enterprise
+          imagePullPolicy: Never
+          env:
+            - name: MINERU_ADAPTER_MODE
+              value: dispatcher
+            - name: MINERU_LISTEN_PORT
+              value: "50052"
+            - name: MINERU_MAX_UPLOAD_BYTES
+              value: "104857600"
+            - name: MINERU_DISPATCH_BACKEND_HOST
+              value: deer-flow-mineru-adapter-workers
+            - name: MINERU_DISPATCH_BACKEND_PORT
+              value: "50052"
+            - name: MINERU_DISPATCH_MIN_BACKENDS
+              value: "3"
+            - name: MINERU_DISPATCH_MAX_WAITING
+              value: "16"
+            - name: MINERU_DISPATCH_WAIT_TIMEOUT_SECONDS
+              # Leave enough of Gateway's 1860-second envelope for the actual
+              # 1800-second parse. Interactive uploads fail over to DeerFlow's
+              # local parser instead of displaying an unbounded queue wait.
+              value: "45"
+            - name: MINERU_DISPATCH_REQUEST_TIMEOUT_SECONDS
+              value: "1800"
+          ports:
+            - name: http
+              containerPort: 50052
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            timeoutSeconds: 2
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: deer-flow-mineru-dispatcher
+  namespace: deer-flow
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: deer-flow-mineru-dispatcher

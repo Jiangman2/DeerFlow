@@ -347,8 +347,12 @@ async def test_list_knowledge_tags_uses_resolved_access_tenant(monkeypatch):
         )
         return {
             "success": True,
-            "data": [{"id": "tag-1", "name": "财务"}],
-            "total": 1,
+            "data": {
+                "data": [{"id": "tag-1", "name": "财务"}],
+                "total": 1,
+                "page": 2,
+                "page_size": 50,
+            },
         }
 
     monkeypatch.setattr(
@@ -368,6 +372,8 @@ async def test_list_knowledge_tags_uses_resolved_access_tenant(monkeypatch):
 
     assert result["items"] == [{"id": "tag-1", "name": "财务"}]
     assert result["total"] == 1
+    assert result["page"] == 2
+    assert result["page_size"] == 50
     assert result["success"] is True
     assert captured == {
         "method": "GET",
@@ -375,6 +381,74 @@ async def test_list_knowledge_tags_uses_resolved_access_tenant(monkeypatch):
         "access_token": "user-token",
         "tenant_id": "tenant-access",
         "params": {"page": 2, "page_size": 50},
+    }
+
+
+def test_unwrap_list_response_keeps_flat_knowledge_shape_compatible():
+    assert weknora._unwrap_list_response(
+        {
+            "success": True,
+            "data": [{"id": "doc-1"}],
+            "total": 1,
+            "page": 1,
+            "page_size": 20,
+        }
+    ) == {
+        "items": [{"id": "doc-1"}],
+        "total": 1,
+        "page": 1,
+        "page_size": 20,
+        "success": True,
+        "message": "",
+    }
+
+
+@pytest.mark.asyncio
+async def test_search_knowledge_mirrors_weknora_new_chat_file_search(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def fake_token(user):
+        return "short-lived-token"
+
+    async def fake_request(method, path, access_token, **kwargs):
+        captured.update({"method": method, "path": path, "access_token": access_token, **kwargs})
+        return {
+            "success": True,
+            "data": [
+                {
+                    "id": "doc-1",
+                    "knowledge_base_id": "kb-1",
+                    "title": "井控手册.pdf",
+                }
+            ],
+            "total": 1,
+            "has_more": False,
+        }
+
+    monkeypatch.setattr(weknora, "_current_weknora_token", fake_token)
+    monkeypatch.setattr(weknora, "_request", fake_request)
+
+    result = await weknora.search_knowledge(
+        keyword="井控",
+        offset=0,
+        limit=20,
+        recent=False,
+        user=SimpleNamespace(),
+    )
+
+    assert result["items"][0]["id"] == "doc-1"
+    assert result["total"] == 1
+    assert result["has_more"] is False
+    assert captured == {
+        "method": "GET",
+        "path": "/knowledge/search",
+        "access_token": "short-lived-token",
+        "params": {
+            "offset": 0,
+            "limit": 20,
+            "recent": "false",
+            "keyword": "井控",
+        },
     }
 
 

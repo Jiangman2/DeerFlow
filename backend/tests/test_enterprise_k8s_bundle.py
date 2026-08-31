@@ -410,34 +410,40 @@ def test_enterprise_gateway_scopes_legacy_proxy_tls_compatibility_to_its_pod():
 
 
 def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
-    deployment = _yaml_documents("k8s/enterprise/mineru-adapter-patch.yaml")[0]
+    patch_documents = _yaml_documents("k8s/enterprise/mineru-adapter-patch.yaml")
+    deployment = patch_documents[0]
+    service_patch = patch_documents[1]
     service = next(document for document in _yaml_documents("k8s/local-pvc/mineru-adapter-local.yaml") if document["kind"] == "Service")
-    disruption_budget = _yaml_documents("k8s/enterprise/mineru-adapter.yaml")[0]
+    enterprise_resources = _yaml_documents("k8s/enterprise/mineru-adapter.yaml")
+    disruption_budget = enterprise_resources[0]
+    worker_service = next(document for document in enterprise_resources if document.get("kind") == "Service")
+    dispatcher = next(document for document in enterprise_resources if document.get("kind") == "Deployment")
+    dispatcher_pdb = enterprise_resources[-1]
     container = deployment["spec"]["template"]["spec"]["containers"][0]
     env = {item["name"]: item["value"] for item in container["env"] if "name" in item}
     pod_spec = deployment["spec"]["template"]["spec"]
 
     assert deployment["metadata"]["name"] == "deer-flow-mineru-adapter"
-    assert deployment["spec"]["replicas"] == 3
+    assert deployment["spec"]["replicas"] == 6
     assert deployment["spec"]["strategy"] == {
         "type": "RollingUpdate",
-        "rollingUpdate": {"maxUnavailable": 1, "maxSurge": 0},
+        "rollingUpdate": {"maxUnavailable": 1, "maxSurge": 1},
     }
-    required_anti_affinity = pod_spec["affinity"]["podAntiAffinity"]["requiredDuringSchedulingIgnoredDuringExecution"]
-    assert required_anti_affinity == [
+    assert pod_spec["topologySpreadConstraints"] == [
         {
-            "labelSelector": {
-                "matchExpressions": [
-                    {
-                        "key": "app",
-                        "operator": "In",
-                        "values": ["deer-flow-mineru-adapter"],
-                    }
-                ]
-            },
             "topologyKey": "kubernetes.io/hostname",
+            "maxSkew": 1,
+            "whenUnsatisfiable": "DoNotSchedule",
+            "labelSelector": {
+                "matchLabels": {
+                    "app": "deer-flow-mineru-adapter",
+                    "deerflow.cnooc/mineru-role": "worker",
+                }
+            },
         }
     ]
+    assert pod_spec["affinity"]["podAntiAffinity"]["preferredDuringSchedulingIgnoredDuringExecution"][0]["weight"] == 100
+    assert deployment["spec"]["template"]["metadata"]["labels"]["deerflow.cnooc/mineru-role"] == "worker"
     assert container["envFrom"] == [{"secretRef": {"name": "deer-flow-mineru"}}]
     assert container["imagePullPolicy"] == "Never"
     assert container["resources"]["requests"] == {"cpu": "500m", "memory": "1Gi"}
@@ -458,6 +464,13 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
     }
     assert service["metadata"]["name"] == "deer-flow-mineru-adapter"
     assert service["spec"]["ports"][0]["port"] == 50052
+    assert service_patch["spec"]["selector"] == {"app": "deer-flow-mineru-dispatcher"}
+    assert worker_service["metadata"]["name"] == "deer-flow-mineru-adapter-workers"
+    assert worker_service["spec"]["clusterIP"] == "None"
+    assert dispatcher["metadata"]["name"] == "deer-flow-mineru-dispatcher"
+    dispatcher_env = {item["name"]: item["value"] for item in dispatcher["spec"]["template"]["spec"]["containers"][0]["env"]}
+    assert dispatcher_env["MINERU_ADAPTER_MODE"] == "dispatcher"
+    assert dispatcher_env["MINERU_DISPATCH_BACKEND_HOST"] == "deer-flow-mineru-adapter-workers"
     assert all(
         document["kind"] != "Secret"
         for path in (
@@ -471,9 +484,11 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
     assert container["volumeMounts"] == [{"name": "enterprise-ca", "mountPath": "/etc/deerflow-ca", "readOnly": True}]
     assert disruption_budget["metadata"]["name"] == "deer-flow-mineru-adapter"
     assert disruption_budget["spec"] == {
-        "minAvailable": 2,
-        "selector": {"matchLabels": {"app": "deer-flow-mineru-adapter"}},
+        "minAvailable": 4,
+        "selector": {"matchLabels": {"app": "deer-flow-mineru-adapter", "deerflow.cnooc/mineru-role": "worker"}},
     }
+    assert dispatcher_pdb["metadata"]["name"] == "deer-flow-mineru-dispatcher"
+    assert dispatcher_pdb["spec"]["minAvailable"] == 1
 
 
 def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru_adapter():
@@ -505,11 +520,11 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert "model.ai.cnooc" in weknora_env["NO_PROXY"].split(",")
     assert "model.ai.cnooc" in weknora_env["no_proxy"].split(",")
     assert weknora_env["WEKNORA_PREFER_CNOOC_DEEPSEEK"] == "true"
-    assert weknora_env["WEKNORA_ASYNQ_CORE_CONCURRENCY"] == "2"
+    assert weknora_env["WEKNORA_ASYNQ_CORE_CONCURRENCY"] == "4"
     assert weknora_env["WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY"] == "2"
     assert weknora_env["WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY"] == "12"
     assert weknora_env["WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY"] == "4"
-    assert weknora_env["WEKNORA_ASYNQ_SHARED_CONCURRENCY"] == "1"
+    assert weknora_env["WEKNORA_ASYNQ_SHARED_CONCURRENCY"] == "2"
     assert weknora_env["WEKNORA_DOCREADER_CALL_TIMEOUT"] == "30m"
     assert weknora_env["WEKNORA_DOCUMENT_PROCESS_TIMEOUT"] == "2h"
     assert weknora_env["SSL_CERT_FILE"] == "/etc/deerflow-ca/ca-bundle.crt"

@@ -132,7 +132,10 @@ import {
   readGoalResponseError,
   type SlashSuggestion,
 } from "./input-box-helpers";
-import { KnowledgeScopeSelector } from "./knowledge-scope-selector";
+import {
+  KnowledgeScopeChips,
+  KnowledgeScopeSelector,
+} from "./knowledge-scope-selector";
 import { useThread } from "./messages/context";
 import type { AgentMode } from "./mode-hover-guide";
 import {
@@ -320,10 +323,69 @@ export function InputBox({
   const addAttachmentFiles = attachments.add;
   const sidecar = useMaybeSidecar();
   const attachmentParts = attachments.files;
+  const knowledgeScopeCount = Array.isArray(context.weknora_scope_items)
+    ? context.weknora_scope_items.length
+    : Array.isArray(context.weknora_knowledge_bases)
+      ? context.weknora_knowledge_bases.length
+      : Array.isArray(context.weknora_knowledge_base_ids)
+        ? context.weknora_knowledge_base_ids.length
+        : 0;
+  const composerMaterialCount = attachmentParts.length + knowledgeScopeCount;
+  const [desktopMaterialRows, setDesktopMaterialRows] = useState(1);
+  const desktopMaterialOffset = Math.max(0, desktopMaterialRows - 1) * 40;
   const removeAttachment = attachments.remove;
   const { skills } = useSkills();
   const { data: uploadLimits } = useUploadLimits(threadId);
   const promptRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const header = promptRootRef.current?.querySelector<HTMLElement>(
+      ".cnooc-composer-header",
+    );
+    if (!header || composerMaterialCount === 0) {
+      setDesktopMaterialRows(1);
+      return;
+    }
+
+    const desktopQuery = window.matchMedia("(min-width: 48rem)");
+    const measureRows = () => {
+      if (!desktopQuery.matches) {
+        setDesktopMaterialRows(1);
+        return;
+      }
+      const tops = new Set(
+        Array.from(
+          header.querySelectorAll<HTMLElement>(
+            ".cnooc-composer-attachment-chip, .cnooc-knowledge-scope-chip",
+          ),
+        ).map((item) => Math.round(item.getBoundingClientRect().top)),
+      );
+      setDesktopMaterialRows(Math.max(1, tops.size));
+    };
+    const requestMeasurement = () => window.requestAnimationFrame(measureRows);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(requestMeasurement);
+    resizeObserver?.observe(header);
+    window.addEventListener("resize", requestMeasurement);
+    if (typeof desktopQuery.addEventListener === "function") {
+      desktopQuery.addEventListener("change", requestMeasurement);
+    } else {
+      desktopQuery.addListener(requestMeasurement);
+    }
+    const frame = window.requestAnimationFrame(measureRows);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", requestMeasurement);
+      if (typeof desktopQuery.removeEventListener === "function") {
+        desktopQuery.removeEventListener("change", requestMeasurement);
+      } else {
+        desktopQuery.removeListener(requestMeasurement);
+      }
+    };
+  }, [composerMaterialCount]);
 
   useEffect(() => {
     if (!isWelcomeMode) {
@@ -334,20 +396,18 @@ export function InputBox({
     if (!welcomeSurface) {
       return;
     }
-    const desktopAttachmentOffset =
-      Math.max(0, Math.ceil(attachmentParts.length / 4) - 1) * 40;
     welcomeSurface.style.setProperty(
-      "--cnooc-desktop-attachment-offset",
-      `${desktopAttachmentOffset}px`,
+      "--cnooc-desktop-material-offset",
+      `${desktopMaterialOffset}px`,
     );
-    welcomeSurface.dataset.hasComposerAttachments = String(
-      attachmentParts.length > 0,
+    welcomeSurface.dataset.hasComposerMaterials = String(
+      composerMaterialCount > 0,
     );
     return () => {
-      welcomeSurface.style.removeProperty("--cnooc-desktop-attachment-offset");
-      delete welcomeSurface.dataset.hasComposerAttachments;
+      welcomeSurface.style.removeProperty("--cnooc-desktop-material-offset");
+      delete welcomeSurface.dataset.hasComposerMaterials;
     };
-  }, [attachmentParts.length, isWelcomeMode]);
+  }, [composerMaterialCount, desktopMaterialOffset, isWelcomeMode]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const inlineSkillTextRef = useRef<HTMLSpanElement | null>(null);
   const inlineSkillComposingRef = useRef(false);
@@ -1754,16 +1814,13 @@ export function InputBox({
       )}
       style={
         {
-          "--cnooc-desktop-attachment-rows": Math.max(
-            1,
-            Math.ceil(attachmentParts.length / 4),
-          ),
-          "--cnooc-desktop-attachment-offset": `${
-            Math.max(0, Math.ceil(attachmentParts.length / 4) - 1) * 40
-          }px`,
+          "--cnooc-desktop-material-rows": desktopMaterialRows,
+          "--cnooc-desktop-material-offset": `${desktopMaterialOffset}px`,
         } as CSSProperties
       }
       data-has-attachments={attachmentParts.length > 0}
+      data-has-knowledge-scope={knowledgeScopeCount > 0}
+      data-has-materials={composerMaterialCount > 0}
       data-focused={textareaFocused}
       data-testid={isWelcomeMode ? "welcome-composer" : "chat-composer"}
     >
@@ -1876,11 +1933,17 @@ export function InputBox({
         <PromptInputHeader className="cnooc-composer-header flex-wrap px-3 pt-3 pb-0 empty:hidden">
           <PromptInputAttachments className="contents p-0">
             {(attachment) => (
-              <div className="max-w-60">
+              <div className="cnooc-composer-attachment-chip max-w-60">
                 <PromptInputAttachment data={attachment} />
               </div>
             )}
           </PromptInputAttachments>
+          <KnowledgeScopeChips
+            className="contents"
+            context={context}
+            disabled={composerLocked}
+            onContextChange={onContextChange}
+          />
           {polishingInput && (
             <div
               aria-live="polite"
