@@ -288,21 +288,26 @@ export default function AgentChatPage() {
                 <ThreadTitle threadId={threadId} thread={thread} />
               </div>
               <div className="cnooc-header-actions flex min-w-0 shrink-0 items-center gap-0.5 sm:mr-4 sm:gap-1">
-                <Tooltip content={t.agents.newChat}>
-                  <Button
-                    className="size-8 px-0 sm:h-8 sm:w-auto sm:px-3"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      router.push(
-                        `/workspace/agents/${agentRouteName}/chats/new`,
-                      );
-                    }}
-                  >
-                    <PlusSquare />
-                    <span className="hidden sm:inline">{t.agents.newChat}</span>
-                  </Button>
-                </Tooltip>
+                {!isNewThread ? (
+                  <Tooltip content={t.agents.newChat}>
+                    <Button
+                      className="size-8 px-0 sm:h-8 sm:w-auto sm:px-3"
+                      data-testid="agent-new-chat-button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        router.push(
+                          `/workspace/agents/${agentRouteName}/chats/new`,
+                        );
+                      }}
+                    >
+                      <PlusSquare />
+                      <span className="hidden sm:inline">
+                        {t.agents.newChat}
+                      </span>
+                    </Button>
+                  </Tooltip>
+                ) : null}
                 <TokenUsageIndicator
                   threadId={isNewThread ? undefined : threadId}
                   backendUsage={backendTokenUsage}
@@ -441,7 +446,7 @@ export default function AgentChatPage() {
                   aria-label="版权信息"
                   className="cnooc-welcome-copyright"
                 >
-                  Copyright © 2025-2026 中海油研究总院有限责任公司 版权所有
+                  Copyright © 2026-2027 中海油研究总院有限责任公司 版权所有
                   <span aria-hidden="true">　</span>
                   地址：北京市朝阳区太阳宫南街6号院
                 </footer>

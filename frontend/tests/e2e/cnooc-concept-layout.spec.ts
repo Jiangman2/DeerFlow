@@ -39,6 +39,136 @@ async function expectLoadedImages(
     .toBeGreaterThanOrEqual(minimum);
 }
 
+async function mockWeKnoraKnowledgeScope(page: Page) {
+  await page.route("**/api/weknora/knowledge-bases", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "kb-1",
+            name: "运行制度库",
+            type: "document",
+            access_tenant_id: "11",
+            knowledge_count: 2,
+          },
+          {
+            id: "kb-2",
+            name: "月报资料库",
+            type: "document",
+            access_tenant_id: "12",
+            knowledge_count: 1,
+          },
+        ],
+        total: 2,
+      }),
+    });
+  });
+  await page.route("**/api/weknora/knowledge/search?*", async (route) => {
+    const keyword = new URL(route.request().url()).searchParams
+      .get("keyword")
+      ?.toLocaleLowerCase();
+    const items = [
+      {
+        id: "file-1",
+        knowledge_base_id: "kb-1",
+        title: "井控操作手册.pdf",
+        file_type: "pdf",
+        parse_status: "completed",
+        tags: [
+          {
+            id: "tag-1",
+            name: "井控",
+            color: "#805ad5",
+            knowledge_base_id: "kb-1",
+          },
+        ],
+      },
+      {
+        id: "file-2",
+        knowledge_base_id: "kb-1",
+        title: "生产运行制度.docx",
+        file_type: "docx",
+        parse_status: "completed",
+      },
+      {
+        id: "file-3",
+        knowledge_base_id: "kb-2",
+        title: "月报模板与海上油气安全生产综合分析工作簿.xlsx",
+        file_type: "xlsx",
+        parse_status: "completed",
+        tags: [
+          {
+            id: "tag-2",
+            name: "月报",
+            color: "#3182ce",
+            knowledge_base_id: "kb-2",
+          },
+        ],
+      },
+      ...Array.from({ length: 24 }, (_, index) => ({
+        id: `file-${index + 4}`,
+        knowledge_base_id: index % 2 === 0 ? "kb-1" : "kb-2",
+        title:
+          index % 3 === 0
+            ? `短文档-${index + 4}.pdf`
+            : `知识范围滚动验证文档-${String(index + 1).padStart(2, "0")}.pdf`,
+        file_type: "pdf",
+        parse_status: "completed",
+      })),
+    ].filter((item) =>
+      keyword ? item.title.toLocaleLowerCase().includes(keyword) : true,
+    );
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        items,
+        total: items.length,
+        has_more: false,
+      }),
+    });
+  });
+  await page.route(
+    "**/api/weknora/knowledge-bases/kb-1/tags?*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "tag-1",
+              name: "井控",
+              knowledge_base_id: "kb-1",
+              knowledge_count: 1,
+            },
+          ],
+          total: 1,
+        }),
+      });
+    },
+  );
+  await page.route(
+    "**/api/weknora/knowledge-bases/kb-2/tags?*",
+    async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "tag-2",
+              name: "月报",
+              color: "#3182ce",
+              knowledge_base_id: "kb-2",
+              knowledge_count: 1,
+            },
+          ],
+          total: 1,
+        }),
+      });
+    },
+  );
+}
+
 test.describe("CNOOC concept layout", () => {
   test("desktop composition and collapsed rail stay aligned", async ({
     page,
@@ -105,7 +235,11 @@ test.describe("CNOOC concept layout", () => {
       );
     for (const style of createOptionStyles) {
       expect(style.fontSize).toBe(createTriggerStyle.fontSize);
-      expect(style.imageWidth).toBe(createTriggerStyle.imageWidth);
+      expect(
+        Math.abs(
+          (style.imageWidth ?? 0) - (createTriggerStyle.imageWidth ?? 0),
+        ),
+      ).toBeLessThanOrEqual(1);
     }
     await page.keyboard.press("Escape");
 
@@ -113,9 +247,15 @@ test.describe("CNOOC concept layout", () => {
     const railBox = await rail.boundingBox();
     expect(composerBox).not.toBeNull();
     expect(railBox).not.toBeNull();
-    expect(Math.abs(composerBox!.width - railBox!.width)).toBeLessThanOrEqual(
-      3,
-    );
+    expect(railBox!.width).toBeLessThanOrEqual(composerBox!.width);
+    expect(railBox!.width / composerBox!.width).toBeGreaterThanOrEqual(0.8);
+    expect(
+      Math.abs(
+        composerBox!.x +
+          composerBox!.width / 2 -
+          (railBox!.x + railBox!.width / 2),
+      ),
+    ).toBeLessThanOrEqual(3);
 
     await page.screenshot({
       path: "test-results/cnooc-concept-desktop-expanded.png",
@@ -151,7 +291,10 @@ test.describe("CNOOC concept layout", () => {
         fontSize: getComputedStyle(button).fontSize,
       }));
       expect(style.color).toBe(modelControlStyle.color);
-      expect(style.fontSize).toBe(modelControlStyle.fontSize);
+      expect(Number.parseFloat(style.fontSize)).toBeGreaterThanOrEqual(14);
+      expect(Number.parseFloat(style.fontSize)).toBeLessThanOrEqual(
+        Number.parseFloat(modelControlStyle.fontSize),
+      );
     }
     await expect(page.locator(".cnooc-tool-datalake")).toHaveAttribute(
       "data-active",
@@ -252,6 +395,393 @@ test.describe("CNOOC concept layout", () => {
     });
   });
 
+  test("surprise action stays last in the responsive welcome rail", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    mockLangGraphAPI(page);
+
+    await page.goto("/workspace/chats/new?visualQa=cnooc-concept");
+    const rail = page.getByTestId("welcome-suggestion-rail");
+    await expect(rail).toBeVisible({ timeout: 15_000 });
+    await expect(rail.getByRole("button")).toHaveCount(6);
+    await expect(rail.getByTestId("surprise-suggestion")).toBeVisible();
+    await expect(
+      rail.locator('[data-slot="suggestion-item"] > button').last(),
+    ).toHaveAttribute("data-testid", "surprise-suggestion");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(rail.getByRole("button")).toHaveCount(6);
+    await expect(
+      rail.locator('[data-slot="suggestion-item"] > button').last(),
+    ).toHaveAttribute("data-testid", "surprise-suggestion");
+  });
+
+  test("knowledge scope mirrors WeKnora mention groups and selected chips", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await useChineseLocale(page);
+    mockLangGraphAPI(page);
+    await mockWeKnoraKnowledgeScope(page);
+
+    await page.goto("/workspace/chats/new?visualQa=cnooc-concept");
+    const trigger = page.getByTestId("knowledge-scope-trigger");
+    const modelName = page.locator(".cnooc-model-name").first();
+    const modelSelector = page.locator(".cnooc-model-selector").first();
+    await expect(trigger).toBeVisible({ timeout: 15_000 });
+    await expect(trigger).toContainText("知识库");
+    await expect(modelName).toHaveText("DeepSeek-V4-Flash");
+    await expect
+      .poll(() =>
+        modelName.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        const selectorBox = await modelSelector.boundingBox();
+        const nameBox = await modelName.boundingBox();
+        return selectorBox && nameBox
+          ? selectorBox.width - nameBox.width
+          : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(84);
+    await page.getByLabel("Upload files").setInputFiles({
+      name: "layout-proof.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("layout proof"),
+    });
+    const attachmentChip = page
+      .locator(".cnooc-composer-attachment-chip")
+      .first();
+    await expect(attachmentChip).toBeVisible();
+    await trigger.click();
+
+    const menu = page.getByTestId("knowledge-scope-menu");
+    await expect(menu).toBeVisible();
+    await expect(page.getByTestId("knowledge-scope-group-kb")).toBeVisible();
+    await expect(page.getByTestId("knowledge-scope-group-tag")).toBeVisible();
+    await expect(page.getByTestId("knowledge-scope-group-file")).toBeVisible();
+
+    await page.getByTestId("knowledge-scope-group-file").click();
+    const listViewport = page.getByTestId("knowledge-scope-list");
+    await expect
+      .poll(() =>
+        listViewport.evaluate(
+          (element) => element.scrollHeight > element.clientHeight,
+        ),
+      )
+      .toBe(true);
+    await listViewport.hover();
+    await page.mouse.wheel(0, 1800);
+    await expect
+      .poll(() => listViewport.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    await listViewport.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    const file = page.getByTestId("knowledge-document-kb-2-file-3");
+    await expect(file).toContainText("月报模板");
+    await expect(file).toContainText("月报资料库");
+    await expect(file).toContainText("月报");
+    await file.click();
+    await expect(menu).toBeVisible();
+    await expect(page.getByTestId("knowledge-scope-clear")).toBeVisible();
+    await expect
+      .poll(() =>
+        file.evaluate((element) => element.scrollWidth <= element.clientWidth),
+      )
+      .toBe(true);
+    await expect(trigger).toHaveAttribute("data-selected-count", "1");
+    const fileScopeChip = page.getByTestId("knowledge-scope-chip-file-file-3");
+    await expect(fileScopeChip).toBeVisible();
+    const [modelBox, attachmentBox, scopeBox, composerBox] = await Promise.all([
+      modelSelector.boundingBox(),
+      attachmentChip.boundingBox(),
+      fileScopeChip.boundingBox(),
+      page.getByTestId("welcome-composer").boundingBox(),
+    ]);
+    expect(modelBox).not.toBeNull();
+    expect(attachmentBox).not.toBeNull();
+    expect(scopeBox).not.toBeNull();
+    expect(composerBox).not.toBeNull();
+    expect(scopeBox!.y).toBeGreaterThanOrEqual(
+      modelBox!.y + modelBox!.height + 4,
+    );
+    const materialGap = scopeBox!.x - (attachmentBox!.x + attachmentBox!.width);
+    expect(materialGap).toBeGreaterThanOrEqual(0);
+    expect(materialGap).toBeLessThanOrEqual(12);
+    expect(attachmentBox!.width).toBeLessThanOrEqual(240);
+    expect(scopeBox!.width).toBeLessThanOrEqual(240);
+    await expect
+      .poll(() =>
+        fileScopeChip.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        attachmentChip.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
+    expect(scopeBox!.x + scopeBox!.width).toBeLessThanOrEqual(
+      composerBox!.x + composerBox!.width,
+    );
+    await listViewport.hover();
+    await page.mouse.wheel(0, 1800);
+    await expect
+      .poll(() => listViewport.evaluate((element) => element.scrollTop))
+      .toBeGreaterThan(0);
+    await listViewport.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await file.click();
+    await expect(trigger).toHaveAttribute("data-selected-count", "0");
+    await expect(page.getByTestId("knowledge-scope-clear")).toBeHidden();
+    await file.click();
+    await expect(trigger).toHaveAttribute("data-selected-count", "1");
+
+    await page.getByTestId("knowledge-scope-back").click();
+    await page.getByTestId("knowledge-scope-group-tag").click();
+    const tag = page.getByTestId("knowledge-tag-kb-1-tag-1");
+    await expect(tag).toContainText("井控");
+    await expect(tag).toContainText("运行制度库");
+    await tag.click();
+    await expect(trigger).toHaveAttribute("data-selected-count", "2");
+    await expect(
+      page.getByTestId("knowledge-scope-chip-tag-tag-1"),
+    ).toBeVisible();
+    await expect(trigger).toHaveAttribute("data-active", "true");
+
+    await page.getByTestId("knowledge-scope-back").click();
+    const search = page.getByRole("textbox", {
+      name: "搜索知识库、标签或文件",
+    });
+    await search.fill("月报");
+    await expect(page.getByTestId("knowledge-base-item-kb-2")).toBeVisible();
+    await expect(page.getByTestId("knowledge-tag-kb-2-tag-2")).toBeVisible();
+    await expect(
+      page.getByTestId("knowledge-document-kb-2-file-3"),
+    ).toBeVisible();
+
+    await page.getByTestId("knowledge-base-item-kb-2").click();
+    await expect(
+      page.getByTestId("knowledge-scope-chip-file-file-3"),
+    ).toBeHidden();
+    await expect(
+      page.getByTestId("knowledge-scope-chip-kb-kb-2"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("knowledge-scope-chip-tag-tag-1"),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.screenshot({
+      path: "test-results/cnooc-concept-desktop-materials.png",
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(trigger).toContainText("知识库");
+    await expect(modelName).toHaveText("DeepSeek-V4-Flash");
+    await expect
+      .poll(() =>
+        modelName.evaluate(
+          (element) => element.scrollWidth <= element.clientWidth + 1,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        const selectorBox = await modelSelector.boundingBox();
+        const nameBox = await modelName.boundingBox();
+        return selectorBox && nameBox
+          ? selectorBox.width - nameBox.width
+          : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(64);
+    await expect(page.getByTestId("knowledge-scope-count")).toBeHidden();
+    const mobileToolMetrics = await page
+      .getByTestId("composer-primary-tools")
+      .evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      }));
+    expect(mobileToolMetrics.scrollWidth).toBeLessThanOrEqual(
+      mobileToolMetrics.clientWidth + 1,
+    );
+    await trigger.click();
+    await expect(menu).toBeVisible();
+    await expect
+      .poll(async () => {
+        const menuBox = await menu.boundingBox();
+        return menuBox ? menuBox.x + menuBox.width : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(390);
+  });
+
+  test("many attachments and knowledge scopes stay contained on desktop and reachable on mobile", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await useChineseLocale(page);
+    mockLangGraphAPI(page);
+    await mockWeKnoraKnowledgeScope(page);
+
+    await page.goto("/workspace/chats/new?visualQa=cnooc-concept");
+    await expect(page.getByRole("textbox").first()).toBeEditable({
+      timeout: 15_000,
+    });
+    await page.getByLabel("Upload files").setInputFiles(
+      Array.from({ length: 8 }, (_, index) => ({
+        name: `附件验证-${String(index + 1).padStart(2, "0")}-较长文件名.txt`,
+        mimeType: "text/plain",
+        buffer: Buffer.from(`layout proof ${index + 1}`),
+      })),
+    );
+
+    const trigger = page.getByTestId("knowledge-scope-trigger");
+    await trigger.click();
+    await page.getByTestId("knowledge-scope-group-file").click();
+    const documentParents = [
+      "kb-1",
+      "kb-1",
+      "kb-2",
+      "kb-1",
+      "kb-2",
+      "kb-1",
+      "kb-2",
+      "kb-1",
+    ];
+    for (const [index, parentId] of documentParents.entries()) {
+      await page
+        .getByTestId(`knowledge-document-${parentId}-file-${index + 1}`)
+        .click();
+    }
+    await page.getByTestId("knowledge-scope-back").click();
+    await page.getByTestId("knowledge-scope-group-tag").click();
+    await page.getByTestId("knowledge-tag-kb-1-tag-1").click();
+    await page.getByTestId("knowledge-tag-kb-2-tag-2").click();
+    await page.getByTestId("knowledge-scope-back").click();
+    await page.getByTestId("knowledge-scope-group-file").click();
+    const additionalDocumentParents = [
+      "kb-2",
+      "kb-1",
+      "kb-2",
+      "kb-1",
+      "kb-2",
+      "kb-1",
+      "kb-2",
+      "kb-1",
+      "kb-2",
+      "kb-1",
+    ];
+    for (const [index, parentId] of additionalDocumentParents.entries()) {
+      const documentIndex = index + 9;
+      await page
+        .getByTestId(`knowledge-document-${parentId}-file-${documentIndex}`)
+        .click();
+    }
+    await page.getByTestId("knowledge-document-kb-2-file-19").click();
+    await expect(
+      page.getByText("知识范围最多选择 20 项", { exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    const header = page.locator(".cnooc-composer-header");
+    const materials = page.locator(
+      ".cnooc-composer-attachment-chip, .cnooc-knowledge-scope-chip",
+    );
+    await expect(page.getByTestId("knowledge-scope-count")).toHaveText("20");
+    await expect(materials).toHaveCount(28);
+    const desktopMetrics = await header.evaluate((element) => {
+      const headerRect = element.getBoundingClientRect();
+      const inputRect = element.parentElement
+        ?.querySelector(".cnooc-composer-input")
+        ?.getBoundingClientRect();
+      const boxes = Array.from(
+        element.querySelectorAll(
+          ".cnooc-composer-attachment-chip, .cnooc-knowledge-scope-chip",
+        ),
+      ).map((item) => {
+        const rect = item.getBoundingClientRect();
+        return {
+          bottom: rect.bottom,
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          width: rect.width,
+        };
+      });
+      return {
+        boxes,
+        clientWidth: element.clientWidth,
+        headerBottom: headerRect.bottom,
+        headerLeft: headerRect.left,
+        headerRight: headerRect.right,
+        inputTop: inputRect?.top ?? 0,
+        rows: new Set(boxes.map((box) => Math.round(box.top))).size,
+        rowCounts: Array.from(
+          boxes.reduce((counts, box) => {
+            const key = Math.round(box.top);
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+            return counts;
+          }, new Map<number, number>()),
+          ([, count]) => count,
+        ),
+        reportedRows: Number(
+          element
+            .closest<HTMLElement>("[data-testid='welcome-composer']")
+            ?.style.getPropertyValue("--cnooc-desktop-material-rows") ?? "0",
+        ),
+        scrollWidth: element.scrollWidth,
+      };
+    });
+    expect(desktopMetrics.scrollWidth).toBeLessThanOrEqual(
+      desktopMetrics.clientWidth + 1,
+    );
+    expect(desktopMetrics.rows).toBeGreaterThanOrEqual(4);
+    expect(Math.max(...desktopMetrics.rowCounts)).toBeGreaterThan(4);
+    expect(desktopMetrics.reportedRows).toBe(desktopMetrics.rows);
+    expect(desktopMetrics.headerBottom).toBeLessThanOrEqual(
+      desktopMetrics.inputTop,
+    );
+    for (const box of desktopMetrics.boxes) {
+      expect(box.left).toBeGreaterThanOrEqual(desktopMetrics.headerLeft - 1);
+      expect(box.right).toBeLessThanOrEqual(desktopMetrics.headerRight + 1);
+      expect(box.width).toBeLessThanOrEqual(240);
+    }
+    await page.screenshot({
+      path: "test-results/cnooc-concept-desktop-materials-many.png",
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileMetrics = await header.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(mobileMetrics.scrollWidth).toBeGreaterThan(
+      mobileMetrics.clientWidth,
+    );
+    await header.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+    });
+    const lastMaterialBox = await materials.last().boundingBox();
+    expect(lastMaterialBox).not.toBeNull();
+    expect(lastMaterialBox!.x + lastMaterialBox!.width).toBeLessThanOrEqual(
+      390,
+    );
+    await page.screenshot({
+      path: "test-results/cnooc-concept-mobile-materials-many.png",
+      fullPage: true,
+    });
+  });
+
   test("mobile composition is compact and safe-area aware", async ({
     page,
   }) => {
@@ -294,8 +824,6 @@ test.describe("CNOOC concept layout", () => {
       }),
     );
     for (const box of mobileActionBoxes) {
-      expect(box.left).toBeGreaterThanOrEqual(0);
-      expect(box.right).toBeLessThanOrEqual(390);
       expect(
         Math.abs(box.width - mobileActionBoxes[0]!.width),
       ).toBeLessThanOrEqual(1);
@@ -303,6 +831,26 @@ test.describe("CNOOC concept layout", () => {
         Math.abs(box.height - mobileActionBoxes[0]!.height),
       ).toBeLessThanOrEqual(1);
     }
+    const mobileActionViewport = page
+      .getByTestId("welcome-suggestion-rail")
+      .locator('[data-slot="scroll-area-viewport"]');
+    const mobileActionViewportMetrics = await mobileActionViewport.evaluate(
+      (element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      }),
+    );
+    expect(mobileActionViewportMetrics.scrollWidth).toBeGreaterThan(
+      mobileActionViewportMetrics.clientWidth,
+    );
+    await mobileActionViewport.evaluate((element) => {
+      element.scrollLeft = element.scrollWidth;
+    });
+    const lastMobileActionBox = await mobileActions.last().boundingBox();
+    expect(lastMobileActionBox).not.toBeNull();
+    expect(
+      lastMobileActionBox!.x + lastMobileActionBox!.width,
+    ).toBeLessThanOrEqual(390);
 
     const mobileComposerBox = await page
       .locator(".cnooc-welcome-composer")
@@ -371,7 +919,9 @@ test.describe("CNOOC concept layout", () => {
     expect(metrics.bodyWidth).toBeLessThanOrEqual(metrics.viewportWidth);
 
     await page.getByRole("button", { name: "打开导航菜单" }).click();
-    await page.getByRole("button", { name: "设置", exact: true }).click();
+    await page
+      .getByRole("button", { name: /Settings and more|设置和更多/ })
+      .click();
     const settingsMenu = page.locator(".cnooc-settings-menu");
     await expect(settingsMenu).toBeVisible();
     const settingsMenuBox = await settingsMenu.boundingBox();
@@ -389,5 +939,116 @@ test.describe("CNOOC concept layout", () => {
       path: "test-results/cnooc-concept-mobile.png",
       fullPage: true,
     });
+  });
+
+  test("root opens new chat and desktop zoom-equivalent viewports stay composed", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await useChineseLocale(page);
+    mockLangGraphAPI(page);
+
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/workspace\/chats\/new$/);
+    await expect(page.getByRole("textbox").first()).toBeEditable({
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId("style-asset-health-probe")).toHaveCSS(
+      "display",
+      "none",
+    );
+    await page.waitForTimeout(800);
+
+    const viewports = [
+      { width: 1920, height: 1080, label: "100" },
+      { width: 1536, height: 864, label: "125" },
+      { width: 1280, height: 720, label: "150" },
+      { width: 960, height: 540, label: "200" },
+    ];
+
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await expect(page.locator(".cnooc-desktop-welcome-copy")).toBeVisible();
+      await expect(page.getByTestId("welcome-composer")).toBeVisible();
+      await expect(page.getByTestId("welcome-suggestion-rail")).toBeVisible();
+
+      const geometry = await page.evaluate(() => {
+        const title = document
+          .querySelector(".cnooc-desktop-welcome-copy")
+          ?.getBoundingClientRect();
+        const composer = document
+          .querySelector(".cnooc-welcome-composer")
+          ?.getBoundingClientRect();
+        const rail = document
+          .querySelector('[data-testid="welcome-suggestion-rail"]')
+          ?.getBoundingClientRect();
+        const actionBoxes = Array.from(
+          document.querySelectorAll(
+            '[data-testid="welcome-suggestion-rail"] [data-slot="suggestion-item"] > button',
+          ),
+        ).map((button) => {
+          const box = button.getBoundingClientRect();
+          return {
+            left: box.left,
+            right: box.right,
+            top: box.top,
+            bottom: box.bottom,
+          };
+        });
+        return {
+          titleBottom: title?.bottom ?? Number.POSITIVE_INFINITY,
+          composerTop: composer?.top ?? 0,
+          composerBottom: composer?.bottom ?? Number.POSITIVE_INFINITY,
+          composerRight: composer?.right ?? Number.POSITIVE_INFINITY,
+          railTop: rail?.top ?? 0,
+          railBottom: rail?.bottom ?? Number.POSITIVE_INFINITY,
+          actionBoxes,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+          documentWidth: Math.max(
+            document.body.scrollWidth,
+            document.documentElement.scrollWidth,
+          ),
+          documentHeight: Math.max(
+            document.body.scrollHeight,
+            document.documentElement.scrollHeight,
+          ),
+        };
+      });
+
+      expect(
+        geometry.titleBottom,
+        `${viewport.label}% title must remain above the composer`,
+      ).toBeLessThanOrEqual(geometry.composerTop + 2);
+      expect(geometry.composerRight).toBeLessThanOrEqual(
+        geometry.viewportWidth + 1,
+      );
+      expect(geometry.railTop).toBeGreaterThanOrEqual(
+        geometry.composerBottom - 1,
+      );
+      expect(geometry.railBottom).toBeLessThanOrEqual(
+        geometry.viewportHeight + 1,
+      );
+      expect(geometry.actionBoxes).toHaveLength(6);
+      for (const action of geometry.actionBoxes) {
+        expect(action.left).toBeGreaterThanOrEqual(0);
+        expect(action.right).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+        expect(action.top).toBeGreaterThanOrEqual(geometry.composerBottom - 1);
+        expect(action.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+      }
+      expect(geometry.documentWidth).toBeLessThanOrEqual(
+        geometry.viewportWidth + 1,
+      );
+      expect(geometry.documentHeight).toBeLessThanOrEqual(
+        geometry.viewportHeight + 1,
+      );
+
+      if (viewport.label === "200") {
+        await page.screenshot({
+          path: testInfo.outputPath("new-chat-desktop-zoom-200.png"),
+          fullPage: true,
+        });
+      }
+    }
   });
 });

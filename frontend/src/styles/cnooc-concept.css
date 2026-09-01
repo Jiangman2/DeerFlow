@@ -72,6 +72,191 @@
   background: transparent !important;
 }
 
+/* Agent builder keeps DeerFlow's deliberately minimal text composer. This
+ * scoped skin improves hierarchy and mobile viewport behavior without adding
+ * main-chat tools or a second interaction state model. */
+.cnooc-agent-builder-page {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  color: var(--cnooc-copy);
+  background:
+    radial-gradient(
+      circle at 50% 12%,
+      rgba(255, 255, 255, 0.78) 0,
+      rgba(255, 255, 255, 0.22) 42%,
+      transparent 68%
+    ),
+    linear-gradient(180deg, rgba(242, 248, 255, 0.22), transparent 44%);
+}
+
+.cnooc-agent-builder-header {
+  position: relative;
+  z-index: 4;
+  min-height: 52px;
+  border-color: rgba(195, 213, 237, 0.82) !important;
+  background: rgba(250, 253, 255, 0.78) !important;
+  color: var(--cnooc-ink);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(122%);
+  -webkit-backdrop-filter: blur(18px) saturate(122%);
+}
+
+.cnooc-agent-builder-header h1 {
+  letter-spacing: 0.015em;
+}
+
+.cnooc-agent-builder-name-stage,
+.cnooc-agent-builder-main {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.cnooc-agent-builder-name-card {
+  padding: 28px;
+  border: 1px solid rgba(196, 214, 238, 0.9);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 20px 52px rgba(49, 91, 151, 0.14);
+  backdrop-filter: blur(22px) saturate(122%);
+  -webkit-backdrop-filter: blur(22px) saturate(122%);
+}
+
+.cnooc-agent-builder-model-strip {
+  position: relative;
+  z-index: 3;
+  border-color: rgba(197, 215, 238, 0.78) !important;
+  background: rgba(247, 251, 255, 0.66);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+
+.cnooc-agent-builder-model-strip button {
+  min-height: 34px;
+  border-color: rgba(178, 203, 235, 0.92) !important;
+  background: rgba(255, 255, 255, 0.76) !important;
+  color: #3568b3 !important;
+}
+
+.cnooc-agent-builder-hint {
+  position: relative;
+  z-index: 2;
+}
+
+.cnooc-agent-builder-hint-card {
+  border-color: rgba(187, 210, 239, 0.88) !important;
+  border-radius: 14px !important;
+  background: rgba(250, 253, 255, 0.84) !important;
+  color: #526985 !important;
+  box-shadow: 0 10px 26px rgba(56, 96, 151, 0.08);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.cnooc-agent-builder-messages {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cnooc-agent-builder-dock {
+  position: relative;
+  z-index: 3;
+  border-top: 1px solid rgba(195, 214, 238, 0.72);
+  background: linear-gradient(
+    180deg,
+    rgba(237, 246, 255, 0.18),
+    rgba(246, 251, 255, 0.78) 30%,
+    rgba(248, 252, 255, 0.92)
+  );
+  backdrop-filter: blur(18px) saturate(118%);
+  -webkit-backdrop-filter: blur(18px) saturate(118%);
+}
+
+.cnooc-agent-builder-dock-inner {
+  min-width: 0;
+}
+
+.cnooc-agent-builder-prompt [data-slot="input-group"] {
+  min-height: 132px;
+  overflow: hidden;
+  border: 1px solid rgba(177, 202, 234, 0.94) !important;
+  border-radius: 22px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow:
+    0 18px 46px rgba(50, 91, 151, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.cnooc-agent-builder-prompt
+  [data-slot="input-group"]:has(
+    [data-slot="input-group-control"]:focus-visible
+  ) {
+  border-color: rgba(82, 132, 225, 0.92) !important;
+  box-shadow:
+    0 0 0 3px rgba(82, 132, 225, 0.13),
+    0 20px 48px rgba(50, 91, 151, 0.18) !important;
+}
+
+.cnooc-agent-builder-textarea {
+  min-height: 84px !important;
+  max-height: 180px !important;
+  padding: 18px 20px 8px !important;
+  color: #2b4364 !important;
+  font-family: var(--cnooc-font);
+  font-size: 16px !important;
+  line-height: 1.65 !important;
+}
+
+.cnooc-agent-builder-textarea::placeholder {
+  color: #93a2b8 !important;
+  opacity: 1;
+}
+
+.cnooc-agent-builder-prompt-footer {
+  min-height: 48px;
+  padding: 0 14px 14px !important;
+}
+
+.cnooc-agent-builder-submit {
+  display: grid !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  place-items: center;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: linear-gradient(145deg, #5f88ef, #3470e2) !important;
+  color: white !important;
+  box-shadow: 0 9px 20px rgba(52, 106, 222, 0.25) !important;
+}
+
+.cnooc-agent-builder-submit:not(:disabled):hover,
+.cnooc-agent-builder-submit:not(:disabled):focus-visible {
+  background: linear-gradient(145deg, #6b93f3, #2d66d8) !important;
+  transform: translateY(-1px);
+}
+
+.cnooc-agent-builder-submit:disabled {
+  background: linear-gradient(145deg, #b9c9e8, #98aed6) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: none !important;
+  opacity: 0.78 !important;
+}
+
+.cnooc-agent-builder-complete {
+  border-color: rgba(184, 208, 237, 0.9) !important;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 42px rgba(49, 91, 151, 0.13);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
 .cnooc-section-body,
 .cnooc-page-content,
 .cnooc-agents-page,
@@ -119,6 +304,31 @@
 [data-testid="chat-composer"] .cnooc-primary-tools button,
 [data-testid="chat-composer"] .cnooc-model-tools button {
   color: #476487;
+}
+
+/* Keep the task-page send affordance visible on desktop as well as mobile.
+ * The paper-plane asset is white, so the outline button's transparent default
+ * made the control disappear against the white composer until hover. */
+[data-testid="chat-composer"] .cnooc-submit {
+  display: grid !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  flex: 0 0 38px !important;
+  place-items: center;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: linear-gradient(145deg, #5d86ed, #3570e2) !important;
+  color: white !important;
+  box-shadow: 0 8px 18px rgba(52, 106, 222, 0.24) !important;
+}
+
+[data-testid="chat-composer"] .cnooc-submit:not(:disabled):hover,
+[data-testid="chat-composer"] .cnooc-submit:not(:disabled):focus-visible {
+  background: linear-gradient(145deg, #6891f4, #2d66d8) !important;
+  color: white !important;
+  transform: translateY(-1px) scale(1.02);
 }
 
 .cnooc-workspace-shell button,
@@ -1514,7 +1724,7 @@
     padding: 0 14px !important;
     border-radius: 12px !important;
     color: #405777 !important;
-    font-size: 16px !important;
+    font-size: 15px !important;
     font-weight: 500 !important;
   }
 
@@ -1823,6 +2033,15 @@
     flex-basis: 38px !important;
   }
 
+  .cnooc-create-menu .cnooc-action-artwork {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    max-height: 38px !important;
+    flex-basis: 38px !important;
+  }
+
   .cnooc-action-line-icon {
     width: 25px !important;
     height: 25px !important;
@@ -1857,6 +2076,83 @@
   }
 }
 
+/* Browser zoom reduces the CSS-pixel viewport. Keep the desktop composition
+ * intact on the short viewport produced by 175-200% zoom instead of letting
+ * the fixed welcome stack run below the visible canvas. */
+@media (min-width: 48rem) and (max-height: 44rem) {
+  .cnooc-chat-header {
+    height: 58px !important;
+    padding-top: 8px !important;
+  }
+
+  .cnooc-desktop-welcome-copy {
+    top: clamp(116px, 21vh, 150px);
+  }
+
+  .cnooc-desktop-welcome-copy h1 {
+    font-size: clamp(26px, 2.6vw, 31px);
+  }
+
+  .cnooc-desktop-welcome-copy p {
+    margin-top: 6px;
+    font-size: clamp(14px, 1.55vw, 17px);
+  }
+
+  .cnooc-composer-dock-welcome {
+    top: clamp(206px, 39vh, 232px) !important;
+    padding: 0 20px !important;
+  }
+
+  .cnooc-composer-dock-welcome .cnooc-composer-frame {
+    width: min(100%, 82vw) !important;
+  }
+
+  .cnooc-composer-shell {
+    gap: 7px !important;
+  }
+
+  .cnooc-welcome-composer.cnooc-composer {
+    height: 202px !important;
+    min-height: 202px !important;
+    border-radius: 22px !important;
+  }
+
+  .cnooc-welcome-composer .cnooc-composer-input {
+    top: 58px;
+    padding: 14px 22px 56px !important;
+  }
+
+  .cnooc-welcome-composer .cnooc-composer-textarea,
+  .cnooc-welcome-composer [contenteditable="true"] {
+    min-height: 58px !important;
+  }
+
+  .cnooc-welcome-composer .cnooc-primary-tools {
+    bottom: 10px;
+  }
+
+  .cnooc-welcome-composer .cnooc-submit {
+    bottom: 8px;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+  }
+
+  .cnooc-welcome-actions,
+  .cnooc-welcome-actions [data-slot="suggestions-list"] {
+    height: 42px !important;
+  }
+
+  .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
+    height: 40px !important;
+  }
+
+  .cnooc-welcome-copyright {
+    bottom: 4px !important;
+    font-size: 11px !important;
+  }
+}
+
 @media (min-width: 48rem) {
   .cnooc-welcome-copyright {
     position: absolute;
@@ -1875,67 +2171,79 @@
     white-space: nowrap;
   }
 
-  .cnooc-chat-main[data-has-composer-attachments="true"]
+  .cnooc-chat-main[data-has-composer-materials="true"]
     .cnooc-desktop-welcome-copy,
-  .cnooc-chat-main[data-has-composer-attachments="true"]
+  .cnooc-chat-main[data-has-composer-materials="true"]
     .cnooc-composer-dock-welcome {
     transform: translateY(
-      calc(0px - var(--cnooc-desktop-attachment-offset, 0px))
+      calc(0px - var(--cnooc-desktop-material-offset, 0px))
     );
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-welcome-composer.cnooc-composer {
     height: calc(
-      270px + (var(--cnooc-desktop-attachment-rows, 1) * 40px)
+      270px + (var(--cnooc-desktop-material-rows, 1) * 40px)
     ) !important;
     min-height: calc(
-      270px + (var(--cnooc-desktop-attachment-rows, 1) * 40px)
+      270px + (var(--cnooc-desktop-material-rows, 1) * 40px)
     ) !important;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header {
     position: absolute;
     top: 62px;
     right: 18px;
     left: 18px;
     z-index: 4;
-    display: grid !important;
+    display: flex !important;
     height: auto;
-    grid-auto-rows: 32px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    flex-wrap: wrap !important;
     gap: 8px;
+    align-content: flex-start;
+    align-items: center;
+    justify-content: start;
     padding: 0 !important;
     box-sizing: border-box;
     width: auto !important;
     overflow: hidden;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header
     > div
     > div,
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header
     > div
     > div
     > div {
     box-sizing: border-box;
-    width: 100%;
+    width: auto;
     min-width: 0;
-    max-width: 100%;
+    max-width: min(240px, 15vw);
     overflow: hidden;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-composer-attachment-chip,
+  [data-testid="welcome-composer"][data-has-materials="true"]
+    .cnooc-knowledge-scope-chip {
+    width: fit-content;
+    min-width: 0;
+    max-width: min(240px, 15vw);
+    justify-self: start;
+  }
+
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-model-selector {
     top: 16px;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-input {
-    top: calc(68px + (var(--cnooc-desktop-attachment-rows, 1) * 40px));
+    top: calc(68px + (var(--cnooc-desktop-material-rows, 1) * 40px));
   }
 }
 
@@ -2459,7 +2767,7 @@
     min-height: 48px !important;
     color: #293c59 !important;
     font-family: var(--cnooc-font);
-    font-size: 14px !important;
+    font-size: 16px !important;
     line-height: 1.65 !important;
   }
 
@@ -2631,7 +2939,7 @@
     left: 18px;
     display: flex !important;
     width: max-content !important;
-    max-width: calc(100vw - 110px) !important;
+    max-width: calc(100% - 110px) !important;
     min-width: 0 !important;
     height: 32px !important;
     justify-content: flex-start !important;
@@ -2648,7 +2956,7 @@
   }
 
   .cnooc-welcome-composer .cnooc-model-name {
-    max-width: calc(100vw - 150px);
+    max-width: calc(100% - 38px);
     overflow: hidden;
     font-size: 12.5px !important;
     font-weight: 500 !important;
@@ -2661,17 +2969,17 @@
     height: 15px !important;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-welcome-composer.cnooc-composer,
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-welcome-composer.cnooc-composer
     > [data-slot="input-group"] {
     min-height: 214px !important;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header,
-  [data-testid="chat-composer"][data-has-attachments="true"]
+  [data-testid="chat-composer"][data-has-materials="true"]
     .cnooc-composer-header {
     position: absolute;
     top: 50px;
@@ -2688,14 +2996,14 @@
     scrollbar-width: none;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-header::-webkit-scrollbar,
-  [data-testid="chat-composer"][data-has-attachments="true"]
+  [data-testid="chat-composer"][data-has-materials="true"]
     .cnooc-composer-header::-webkit-scrollbar {
     display: none;
   }
 
-  [data-testid="welcome-composer"][data-has-attachments="true"]
+  [data-testid="welcome-composer"][data-has-materials="true"]
     .cnooc-composer-input {
     top: 94px;
   }
@@ -2747,19 +3055,29 @@
     overflow: hidden !important;
   }
 
+  .cnooc-welcome-actions [data-slot="scroll-area-viewport"] {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x proximity;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .cnooc-welcome-actions [data-slot="suggestions-list"] {
-    display: grid !important;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    width: 100% !important;
-    min-width: 0 !important;
+    display: flex !important;
+    width: max-content !important;
+    min-width: 100% !important;
     height: 70px;
     gap: 8px !important;
     padding: 0 2px;
   }
 
   .cnooc-welcome-actions [data-slot="suggestion-item"] {
-    width: 100% !important;
-    min-width: 0 !important;
+    width: clamp(72px, 21vw, 84px) !important;
+    min-width: clamp(72px, 21vw, 84px) !important;
+    flex: 0 0 clamp(72px, 21vw, 84px) !important;
+    scroll-snap-align: start;
   }
 
   .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
@@ -2882,7 +3200,7 @@
   [data-testid="chat-composer"] [contenteditable="true"] {
     min-height: 48px !important;
     color: #293c59 !important;
-    font-size: 14px !important;
+    font-size: 16px !important;
     line-height: 1.65 !important;
   }
 
@@ -3058,19 +3376,19 @@
     box-shadow: 0 8px 18px rgba(73, 113, 213, 0.24) !important;
   }
 
-  [data-testid="chat-composer"][data-has-attachments="true"] .cnooc-composer,
-  [data-testid="chat-composer"][data-has-attachments="true"]
+  [data-testid="chat-composer"][data-has-materials="true"] .cnooc-composer,
+  [data-testid="chat-composer"][data-has-materials="true"]
     .cnooc-composer
     > [data-slot="input-group"] {
     min-height: 214px !important;
   }
 
-  [data-testid="chat-composer"][data-has-attachments="true"]
+  [data-testid="chat-composer"][data-has-materials="true"]
     .cnooc-composer-input {
     top: 94px;
   }
 
-  [data-testid="chat-composer"][data-has-attachments="true"] .cnooc-tool-mode {
+  [data-testid="chat-composer"][data-has-materials="true"] .cnooc-tool-mode {
     top: 158px;
   }
 
@@ -3194,6 +3512,221 @@
   }
 }
 
+/*
+ * Mobile keyboard and short-screen contract.
+ * The workspace controller owns the visible-height variable and keyboard flag;
+ * CSS only reflows the welcome surface, so Android WebViews and iOS Safari use
+ * the same composition without disabling user zoom.
+ */
+@media (max-width: 47.999rem) {
+  .cnooc-agent-builder-header {
+    min-height: 54px;
+    padding-right: 10px !important;
+    padding-left: 10px !important;
+  }
+
+  .cnooc-agent-builder-header h1 {
+    max-width: min(68vw, 310px);
+    overflow: hidden;
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cnooc-agent-builder-name-stage {
+    justify-content: flex-start !important;
+    padding: 18px 12px calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .cnooc-agent-builder-name-card {
+    max-width: 430px;
+    padding: 24px 18px;
+    border-radius: 20px;
+  }
+
+  .cnooc-agent-builder-model-strip {
+    padding: 7px 12px !important;
+  }
+
+  .cnooc-agent-builder-model-strip p:first-child {
+    font-size: 10px;
+  }
+
+  .cnooc-agent-builder-model-strip p:last-child {
+    max-width: 47vw;
+    font-size: 13px;
+  }
+
+  .cnooc-agent-builder-model-strip button {
+    min-height: 36px;
+    padding-right: 10px;
+    padding-left: 10px;
+    font-size: 13px;
+  }
+
+  .cnooc-agent-builder-hint {
+    padding: 10px 10px 0 !important;
+  }
+
+  .cnooc-agent-builder-hint-card {
+    padding: 10px 12px !important;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .cnooc-agent-builder-messages > * {
+    min-width: 0;
+  }
+
+  .cnooc-agent-builder-dock {
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .cnooc-agent-builder-prompt [data-slot="input-group"] {
+    min-height: 116px;
+    border-radius: 18px !important;
+  }
+
+  .cnooc-agent-builder-textarea {
+    min-height: 72px !important;
+    max-height: 132px !important;
+    padding: 15px 15px 6px !important;
+    font-size: 16px !important;
+    line-height: 1.55 !important;
+  }
+
+  .cnooc-agent-builder-prompt-footer {
+    min-height: 44px;
+    padding: 0 10px 10px !important;
+  }
+
+  .cnooc-agent-builder-submit {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-model-strip,
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-hint {
+    display: none !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-dock {
+    padding: 7px 8px max(7px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-prompt
+    [data-slot="input-group"] {
+    min-height: 94px;
+    border-radius: 16px !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-textarea {
+    min-height: 54px !important;
+    max-height: 92px !important;
+    padding-top: 12px !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-agent-builder-prompt-footer {
+    min-height: 40px;
+    padding-bottom: 7px !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"] .cnooc-welcome-stage,
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-welcome-actions {
+    display: none !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-composer-shell {
+    gap: 0 !important;
+  }
+
+  .cnooc-workspace-shell[data-mobile-keyboard-open="true"]
+    .cnooc-composer-dock-welcome {
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .cnooc-workspace-shell button,
+  .cnooc-workspace-shell [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+@media (max-width: 47.999rem) and (max-height: 43rem) {
+  .cnooc-mobile-welcome-card {
+    height: clamp(
+      178px,
+      calc(var(--app-viewport-height, 100dvh) - 378px),
+      220px
+    );
+    margin-top: 12px;
+  }
+
+  .cnooc-mobile-welcome-copy {
+    top: 24px;
+    left: 22px;
+  }
+
+  .cnooc-mobile-welcome-eyebrow {
+    margin-bottom: 8px;
+    font-size: clamp(14px, 4vw, 17px);
+  }
+
+  .cnooc-mobile-welcome-copy h1 {
+    font-size: clamp(17px, 5vw, 22px);
+    line-height: 1.25;
+  }
+
+  .cnooc-mobile-welcome-description {
+    display: -webkit-box;
+    margin-top: 6px;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .cnooc-welcome-mascot {
+    top: -10px;
+    width: min(29vw, 108px) !important;
+  }
+
+  .cnooc-composer-shell {
+    gap: 10px !important;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 32rem) and (max-width: 64rem) {
+  .cnooc-workspace-shell {
+    --cnooc-mobile-landscape-inset: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .cnooc-chat-main {
+    padding-top: calc(58px + env(safe-area-inset-top));
+  }
+
+  .cnooc-chat-header {
+    min-height: 58px !important;
+  }
+
+  .cnooc-composer-dock-welcome {
+    padding-bottom: var(--cnooc-mobile-landscape-inset) !important;
+  }
+
+  .cnooc-welcome-stage {
+    display: none !important;
+  }
+}
+
 .cnooc-workspace-shell
   .cnooc-welcome-composer
   .cnooc-primary-tools
@@ -3224,6 +3757,43 @@
   .cnooc-tool-knowledge[data-active="true"]
   svg {
   color: #2c67d2 !important;
+}
+
+/* Keep the compact knowledge and model controls readable at mobile widths and
+ * desktop zoom levels that cross the responsive breakpoint. Selection count
+ * remains available through the trigger's accessible label/data attribute. */
+.cnooc-workspace-shell .cnooc-tool-knowledge > span {
+  flex: 0 0 auto;
+  max-width: none !important;
+  overflow: visible !important;
+  white-space: nowrap;
+  text-overflow: clip !important;
+}
+
+.cnooc-workspace-shell .cnooc-model-selector .cnooc-model-label {
+  width: auto;
+  flex: 1 1 auto;
+}
+
+.cnooc-workspace-shell .cnooc-model-selector .cnooc-model-name {
+  width: max-content;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 47.999rem) {
+  .cnooc-workspace-shell .cnooc-knowledge-scope-count {
+    display: none !important;
+  }
+
+  .cnooc-workspace-shell .cnooc-model-selector {
+    width: max-content !important;
+  }
+
+  .cnooc-workspace-shell .cnooc-model-selector .cnooc-model-name {
+    max-width: calc(100vw - 160px) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

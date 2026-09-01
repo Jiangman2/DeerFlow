@@ -13,7 +13,7 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
     model_name: undefined,
     mode: undefined,
     reasoning_effort: undefined,
-    datalake_enabled: true,
+    datalake_enabled: false,
   },
 };
 

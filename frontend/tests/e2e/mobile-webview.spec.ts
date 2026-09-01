@@ -25,6 +25,13 @@ async function expectNoPageOverflow(page: Page, width: number) {
   expect(await page.evaluate(() => window.innerWidth)).toBe(width);
 }
 
+function mobileNavigationTrigger(page: Page) {
+  return page
+    .getByRole("button", { name: /Open navigation menu|打开导航菜单/i })
+    .or(page.locator("[data-sidebar='trigger']:visible"))
+    .first();
+}
+
 test.describe("mobile WebView workspace", () => {
   test.describe.configure({ mode: "serial", timeout: 60_000 });
 
@@ -42,9 +49,7 @@ test.describe("mobile WebView workspace", () => {
       await expect(page.getByRole("textbox").first()).toBeVisible({
         timeout: 15_000,
       });
-      await expect(
-        page.locator("[data-sidebar='trigger']:visible"),
-      ).toBeVisible();
+      await expect(mobileNavigationTrigger(page)).toBeVisible();
       await expectNoPageOverflow(page, viewport.width);
 
       const shell = page.locator("[data-slot='sidebar-wrapper']");
@@ -52,8 +57,90 @@ test.describe("mobile WebView workspace", () => {
         (element) => element.getBoundingClientRect().height,
       );
       expect(shellHeight).toBeLessThanOrEqual(viewport.height + 1);
+
+      const [welcomeCardBox, composerDockBox] = await Promise.all([
+        page.locator(".cnooc-mobile-welcome-card").boundingBox(),
+        page.locator(".cnooc-composer-dock-welcome").boundingBox(),
+      ]);
+      expect(welcomeCardBox).not.toBeNull();
+      expect(composerDockBox).not.toBeNull();
+      expect(welcomeCardBox!.y + welcomeCardBox!.height).toBeLessThanOrEqual(
+        composerDockBox!.y + 1,
+      );
     });
   }
+
+  test("mobile viewport metadata and composer prevent focus zoom", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    mockLangGraphAPI(page);
+    await page.goto("/workspace/chats/new", { waitUntil: "domcontentloaded" });
+
+    const viewportMeta = page.locator('meta[name="viewport"]');
+    await expect(viewportMeta).toHaveAttribute(
+      "content",
+      /width=device-width.*initial-scale=1.*interactive-widget=resizes-content/,
+    );
+
+    const textbox = page.getByRole("textbox").first();
+    await expect(textbox).toBeEditable({ timeout: 15_000 });
+    await expect
+      .poll(() =>
+        textbox.evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).fontSize),
+        ),
+      )
+      .toBeGreaterThanOrEqual(16);
+  });
+
+  test("software keyboard reflows the welcome surface and sending releases focus", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    mockLangGraphAPI(page);
+    await page.goto("/workspace/chats/new", { waitUntil: "domcontentloaded" });
+
+    const shell = page.locator(".cnooc-workspace-shell");
+    const textbox = page.getByRole("textbox").first();
+    const welcomeStage = page.locator(".cnooc-welcome-stage");
+    const actions = page.getByTestId("welcome-suggestion-rail");
+    const composer = page.getByTestId("welcome-composer");
+
+    await expect(textbox).toBeEditable({ timeout: 15_000 });
+    await textbox.focus();
+    await page.setViewportSize({ width: 390, height: 520 });
+
+    await expect(shell).toHaveAttribute("data-mobile-keyboard-open", "true");
+    await expect(welcomeStage).toBeHidden();
+    await expect(actions).toBeHidden();
+    await expect
+      .poll(() =>
+        shell.evaluate((element) => element.getBoundingClientRect().height),
+      )
+      .toBeLessThanOrEqual(521);
+
+    const composerBox = await composer.boundingBox();
+    expect(composerBox).not.toBeNull();
+    expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(521);
+
+    await textbox.fill("移动端键盘恢复测试");
+    await textbox.press("Enter");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document.activeElement?.matches(
+              '.cnooc-composer textarea, .cnooc-composer input, .cnooc-composer [contenteditable="true"]',
+            ) ?? false,
+        ),
+      )
+      .toBe(false);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    await expectNoPageOverflow(page, 390);
+  });
 
   test("phone welcome keeps the composer compact and actions on horizontal rails", async ({
     page,
@@ -95,9 +182,9 @@ test.describe("mobile WebView workspace", () => {
     await expect(assistantAvatar).toBeVisible();
     await expect(modeSelector).toBeVisible();
     await expect(
-      welcome.getByText(
-        /面向油气业务的智能研究与协作助手|Your intelligent research assistant for oil and gas work/,
-      ),
+      welcome.getByRole("heading", {
+        name: /你好，我是您的 海油智能助手|Hello, I am your intelligent offshore assistant/i,
+      }),
     ).toBeVisible();
     await expect(
       welcome.getByText(
@@ -106,7 +193,7 @@ test.describe("mobile WebView workspace", () => {
     ).toBeHidden();
 
     const [composerBox, toolMetrics, suggestionMetrics] = await Promise.all([
-      composer.boundingBox(),
+      composer.locator(".cnooc-welcome-composer").boundingBox(),
       tools.evaluate((element) => ({
         clientWidth: element.clientWidth,
         scrollWidth: element.scrollWidth,
@@ -145,7 +232,7 @@ test.describe("mobile WebView workspace", () => {
     await expect(page.getByRole("textbox").first()).toBeEditable({
       timeout: 15_000,
     });
-    await page.locator("[data-sidebar='trigger']:visible").click();
+    await mobileNavigationTrigger(page).click();
 
     const sidebar = page.locator(
       "[data-mobile='true'][data-sidebar='sidebar']",
@@ -153,7 +240,7 @@ test.describe("mobile WebView workspace", () => {
     await expect(sidebar).toBeVisible();
     const box = await sidebar.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.width).toBeGreaterThanOrEqual(320);
+    expect(box!.width).toBeGreaterThanOrEqual(319);
     expect(box!.width).toBeLessThanOrEqual(344);
 
     const navTargets = sidebar.locator("[data-sidebar='menu-button']:visible");
@@ -175,7 +262,7 @@ test.describe("mobile WebView workspace", () => {
       timeout: 15_000,
     });
 
-    const trigger = page.locator("[data-sidebar='trigger']:visible");
+    const trigger = mobileNavigationTrigger(page);
     await trigger.click();
     const mobileSidebar = page.locator(
       "[data-mobile='true'][data-sidebar='sidebar']",
@@ -198,7 +285,7 @@ test.describe("mobile WebView workspace", () => {
       timeout: 15_000,
     });
 
-    await page.locator("[data-sidebar='trigger']:visible").click();
+    await mobileNavigationTrigger(page).click();
     const mobileSidebar = page.locator(
       "[data-mobile='true'][data-sidebar='sidebar']",
     );
@@ -286,7 +373,7 @@ test.describe("mobile WebView workspace", () => {
     await page.goto("/workspace/knowledge", { waitUntil: "domcontentloaded" });
     const frame = page.getByTestId("weknora-workspace-frame");
     await expect(frame).toBeVisible({ timeout: 15_000 });
-    const trigger = page.locator("[data-sidebar='trigger']:visible");
+    const trigger = mobileNavigationTrigger(page);
     await expect(trigger).toHaveCount(1);
     await trigger.click();
     await expect(

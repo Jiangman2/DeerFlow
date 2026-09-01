@@ -50,6 +50,7 @@ kubectl_df rollout status deployment/frontend --timeout=180s
 kubectl_df rollout status deployment/weknora-app --timeout=180s
 kubectl_df rollout status deployment/weknora-frontend --timeout=180s
 kubectl_df rollout status deployment/deer-flow-mineru-adapter --timeout=180s
+kubectl_df rollout status deployment/deer-flow-mineru-dispatcher --timeout=180s
 kubectl_df rollout status statefulset/postgres --timeout=180s
 kubectl_df rollout status statefulset/weknora-postgres --timeout=180s
 kubectl_df rollout status statefulset/weknora-neo4j --timeout=180s
@@ -159,7 +160,8 @@ for WORKLOAD in \
   deployment/gateway \
   deployment/frontend \
   deployment/provisioner \
-  deployment/deer-flow-mineru-adapter
+  deployment/deer-flow-mineru-adapter \
+  deployment/deer-flow-mineru-dispatcher
 do
     IMAGE="$(
         kubectl_df get "$WORKLOAD" \
@@ -212,21 +214,21 @@ POSTGRES_ACCESS="$(
 echo "postgres_access_mode=$POSTGRES_ACCESS"
 test "$POSTGRES_ACCESS" = "ReadWriteOnce"
 
-echo "===== MINERU THREE-NODE CAPACITY ====="
+echo "===== MINERU DISPATCHED THREE-NODE CAPACITY ====="
 kubectl_df wait \
   --for=condition=Ready \
   pod \
-  -l app=deer-flow-mineru-adapter \
+  -l 'app=deer-flow-mineru-adapter,deerflow.cnooc/mineru-role=worker' \
   --timeout=180s
 MINERU_POD_COUNT="$(
     kubectl_df get pod \
-      -l app=deer-flow-mineru-adapter \
+      -l 'app=deer-flow-mineru-adapter,deerflow.cnooc/mineru-role=worker' \
       --no-headers |
     awk 'END {print NR+0}'
 )"
 MINERU_NODE_COUNT="$(
     kubectl_df get pod \
-      -l app=deer-flow-mineru-adapter \
+      -l 'app=deer-flow-mineru-adapter,deerflow.cnooc/mineru-role=worker' \
       -o jsonpath='{range .items[*]}{.spec.nodeName}{"\n"}{end}' |
     sort -u |
     awk 'END {print NR+0}'
@@ -238,9 +240,32 @@ PDB_MIN_AVAILABLE="$(
 echo "mineru_pod_count=$MINERU_POD_COUNT"
 echo "mineru_distinct_node_count=$MINERU_NODE_COUNT"
 echo "mineru_pdb_min_available=$PDB_MIN_AVAILABLE"
-test "$MINERU_POD_COUNT" -eq 3
+test "$MINERU_POD_COUNT" -eq 6
 test "$MINERU_NODE_COUNT" -eq 3
-test "$PDB_MIN_AVAILABLE" = "2"
+test "$PDB_MIN_AVAILABLE" = "4"
+for NODE in datax-01 datax-02 datax-03
+do
+    NODE_WORKERS="$(
+        kubectl_df get pod \
+          -l 'app=deer-flow-mineru-adapter,deerflow.cnooc/mineru-role=worker' \
+          --field-selector "spec.nodeName=$NODE" \
+          --no-headers |
+        awk 'END {print NR+0}'
+    )"
+    echo "mineru_node=$NODE serialized_workers=$NODE_WORKERS"
+    test "$NODE_WORKERS" -eq 2
+done
+gateway_python '
+import json
+from urllib.request import urlopen
+
+with urlopen("http://deer-flow-mineru-adapter:50052/health", timeout=5) as response:
+    payload = json.load(response)
+assert payload["role"] == "dispatcher", payload
+assert payload["dispatcher"]["discovered"] == 6, payload
+assert payload["dispatcher"]["ready"] is True, payload
+print("mineru_dispatcher_health=PASS")
+'
 
 echo "===== WEKNORA GRAPH, MODEL, AND SSRF CONTRACT ====="
 WEKNORA_ENV="$(
@@ -251,8 +276,8 @@ for REQUIRED in \
   'ENABLE_GRAPH_RAG=true' \
   'NEO4J_ENABLE=true' \
   'NEO4J_URI=bolt://weknora-neo4j:7687' \
-  'WEKNORA_ASYNQ_CORE_CONCURRENCY=2' \
-  'WEKNORA_ASYNQ_SHARED_CONCURRENCY=1' \
+  'WEKNORA_ASYNQ_CORE_CONCURRENCY=4' \
+  'WEKNORA_ASYNQ_SHARED_CONCURRENCY=2' \
   'SSRF_WHITELIST_EXTRA=deer-flow-mineru-adapter,model.ai.cnooc,gateway'
 do
     grep -Fxq "$REQUIRED" <<<"$WEKNORA_ENV"
@@ -277,7 +302,7 @@ test "$NODEPORT" = "32026"
 echo "===== FINAL STATUS ====="
 kubectl_df get deployment \
   gateway frontend provisioner weknora-app weknora-frontend \
-  deer-flow-mineru-adapter \
+  deer-flow-mineru-adapter deer-flow-mineru-dispatcher \
   -o wide
 kubectl_df get statefulset postgres weknora-postgres weknora-neo4j -o wide
 echo "enterprise_runtime_baseline=PASS"

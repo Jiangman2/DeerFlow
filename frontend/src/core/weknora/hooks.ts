@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createWeKnoraKnowledgeBase,
   createWeKnoraManualKnowledge,
-  listWeKnoraKnowledge,
+  listAllWeKnoraKnowledge,
   listWeKnoraKnowledgeBases,
+  listWeKnoraTags,
+  searchAllWeKnoraKnowledge,
   uploadWeKnoraKnowledgeFile,
 } from "./api";
 
@@ -15,6 +17,13 @@ export function weknoraKnowledgeQueryKey(
   tenantId?: string | number,
 ) {
   return ["weknora", "knowledge", knowledgeBaseId, tenantId];
+}
+
+export function weknoraTagsQueryKey(
+  knowledgeBaseId: string | undefined,
+  tenantId?: string | number,
+) {
+  return ["weknora", "tags", knowledgeBaseId, tenantId];
 }
 
 export function useWeKnoraKnowledgeBases(userId?: string) {
@@ -31,7 +40,7 @@ export function useWeKnoraKnowledge(
 ) {
   return useQuery({
     queryKey: weknoraKnowledgeQueryKey(knowledgeBaseId, tenantId),
-    queryFn: () => listWeKnoraKnowledge(knowledgeBaseId!, tenantId),
+    queryFn: () => listAllWeKnoraKnowledge(knowledgeBaseId!, tenantId),
     enabled: Boolean(knowledgeBaseId),
     refetchInterval: (query) => {
       const items = query.state.data?.items ?? [];
@@ -39,6 +48,27 @@ export function useWeKnoraKnowledge(
         ? 5_000
         : false;
     },
+  });
+}
+
+export function useWeKnoraTags(
+  knowledgeBaseId: string | undefined,
+  tenantId?: string | number,
+) {
+  return useQuery({
+    queryKey: weknoraTagsQueryKey(knowledgeBaseId, tenantId),
+    queryFn: () => listWeKnoraTags(knowledgeBaseId!, tenantId),
+    enabled: Boolean(knowledgeBaseId),
+    staleTime: 30_000,
+  });
+}
+
+export function useWeKnoraKnowledgeSearch(keyword: string, enabled = true) {
+  return useQuery({
+    queryKey: ["weknora", "knowledge-search", keyword.trim()],
+    queryFn: () => searchAllWeKnoraKnowledge(keyword),
+    enabled,
+    staleTime: keyword.trim() ? 10_000 : 30_000,
   });
 }
 

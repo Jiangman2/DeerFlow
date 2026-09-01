@@ -369,7 +369,7 @@ export default function NewAgentPage() {
   ) : null;
 
   const header = (
-    <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 border-b px-3 py-2 sm:px-4 sm:py-3">
+    <header className="cnooc-agent-builder-header flex min-w-0 shrink-0 items-center justify-between gap-3 border-b px-3 py-2 sm:px-4 sm:py-3">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -410,10 +410,10 @@ export default function NewAgentPage() {
 
   if (step === "name") {
     return (
-      <div className="flex size-full flex-col">
+      <div className="cnooc-agent-builder-page flex size-full flex-col">
         {header}
-        <main className="app-scroll-region flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-6">
-          <div className="w-full max-w-sm space-y-6 sm:space-y-8">
+        <main className="cnooc-agent-builder-name-stage app-scroll-region flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-6">
+          <div className="cnooc-agent-builder-name-card w-full max-w-sm space-y-6 sm:space-y-8">
             <div className="space-y-3 text-center">
               <AgentNameIcon />
               <div className="space-y-1">
@@ -471,12 +471,12 @@ export default function NewAgentPage() {
   return (
     <ThreadContext.Provider value={{ thread }}>
       <ArtifactsProvider>
-        <div className="flex size-full flex-col">
+        <div className="cnooc-agent-builder-page flex size-full flex-col">
           {header}
 
-          <main className="flex min-h-0 flex-1 flex-col">
+          <main className="cnooc-agent-builder-main flex min-h-0 flex-1 flex-col">
             {selectedModel ? (
-              <div className="bg-muted/30 border-b px-4 py-2">
+              <div className="cnooc-agent-builder-model-strip border-b px-3 py-2 sm:px-4">
                 <div className="mx-auto flex w-full max-w-(--container-width-md) items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-muted-foreground text-xs">
@@ -491,9 +491,9 @@ export default function NewAgentPage() {
               </div>
             ) : null}
             {showSaveHint ? (
-              <div className="px-4 pt-4">
+              <div className="cnooc-agent-builder-hint px-3 pt-3 sm:px-4 sm:pt-4">
                 <div className="mx-auto w-full max-w-(--container-width-md)">
-                  <Alert>
+                  <Alert className="cnooc-agent-builder-hint-card">
                     <InfoIcon className="h-4 w-4" />
                     <AlertDescription>{t.agents.saveHint}</AlertDescription>
                   </Alert>
@@ -501,7 +501,7 @@ export default function NewAgentPage() {
               </div>
             ) : null}
 
-            <div className="flex min-h-0 flex-1 justify-center">
+            <div className="cnooc-agent-builder-messages flex min-h-0 flex-1 justify-center">
               <MessageList
                 className={cn("size-full", showSaveHint ? "pt-4" : "pt-10")}
                 threadId={threadId}
@@ -512,10 +512,10 @@ export default function NewAgentPage() {
               />
             </div>
 
-            <div className="app-safe-area-bottom bg-background flex shrink-0 justify-center border-t px-3 py-3 sm:px-4 sm:py-4">
-              <div className="w-full max-w-(--container-width-md)">
+            <div className="cnooc-agent-builder-dock app-safe-area-bottom flex shrink-0 justify-center px-3 py-3 sm:px-4 sm:py-4">
+              <div className="cnooc-agent-builder-dock-inner w-full max-w-(--container-width-md)">
                 {agent ? (
-                  <div className="flex flex-col items-center gap-4 rounded-2xl border py-8 text-center">
+                  <div className="cnooc-agent-builder-complete flex flex-col items-center gap-4 rounded-2xl border py-8 text-center">
                     <CheckCircleIcon className="text-primary h-10 w-10" />
                     <p className="font-semibold">{t.agents.agentCreated}</p>
                     <div className="flex gap-2">
@@ -540,16 +540,21 @@ export default function NewAgentPage() {
                   </div>
                 ) : (
                   <PromptInput
+                    data-mobile-composer="true"
+                    data-testid="agent-builder-composer"
+                    className="cnooc-agent-builder-prompt"
                     disabled={thread.isLoading || hasOpenHumanInputCard}
                     onSubmit={({ text }) => void handleChatSubmit(text)}
                   >
                     <PromptInputTextarea
                       autoFocus
+                      className="cnooc-agent-builder-textarea"
                       placeholder={t.agents.createPageSubtitle}
                       disabled={thread.isLoading || hasOpenHumanInputCard}
                     />
-                    <PromptInputFooter className="justify-end">
+                    <PromptInputFooter className="cnooc-agent-builder-prompt-footer justify-end">
                       <PromptInputSubmit
+                        className="cnooc-agent-builder-submit"
                         disabled={thread.isLoading || hasOpenHumanInputCard}
                       />
                     </PromptInputFooter>

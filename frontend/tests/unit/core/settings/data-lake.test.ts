@@ -18,17 +18,17 @@ afterEach(() => {
   delete (globalThis as { localStorage?: unknown }).localStorage;
 });
 
-test("defaults the user Data Lake setting to enabled", () => {
-  expect(DEFAULT_LOCAL_SETTINGS.context.datalake_enabled).toBe(true);
+test("defaults the user Data Lake setting to disabled", () => {
+  expect(DEFAULT_LOCAL_SETTINGS.context.datalake_enabled).toBe(false);
 });
 
-test("defaults an invalid persisted Data Lake setting to enabled", () => {
+test("defaults an invalid persisted Data Lake setting to disabled", () => {
   const invalidSettings = JSON.parse(
     '{"context":{"datalake_enabled":"false"}}',
   ) as Partial<typeof DEFAULT_LOCAL_SETTINGS>;
 
   expect(mergeLocalSettings(invalidSettings).context.datalake_enabled).toBe(
-    true,
+    false,
   );
 });
 

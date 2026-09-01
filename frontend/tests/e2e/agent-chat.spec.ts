@@ -20,6 +20,15 @@ const CHINESE_AGENT = {
   system_prompt: "你是月报助手。",
 };
 
+const BUILDER_MODEL = {
+  id: "builder-flash",
+  name: "builder-flash",
+  model: "deepseek-v4-flash",
+  display_name: "Builder Flash",
+  supports_thinking: true,
+  supports_reasoning_effort: true,
+};
+
 test.describe("Agent chat", () => {
   test("agent gallery page loads and shows agents", async ({ page }) => {
     mockLangGraphAPI(page, { agents: MOCK_AGENTS });
@@ -52,6 +61,145 @@ test.describe("Agent chat", () => {
     await expect(
       page.locator("header span", { hasText: "test-agent" }),
     ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("agent builder keeps its minimal composer responsive and visible", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    mockLangGraphAPI(page);
+    await page.route("**/api/agents/check?*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ available: true, name: "builder-layout-agent" }),
+      }),
+    );
+    await page.route("**/api/models", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          models: [BUILDER_MODEL],
+          token_usage: { enabled: false },
+        }),
+      }),
+    );
+
+    await page.goto("/workspace/agents/new", {
+      waitUntil: "domcontentloaded",
+    });
+    await page
+      .locator(".cnooc-agent-builder-name-card input")
+      .fill("builder-layout-agent");
+    await page.getByRole("button", { name: /Continue|继续/i }).click();
+
+    const composer = page.getByTestId("agent-builder-composer");
+    const textarea = composer.getByRole("textbox");
+    await expect(composer).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.locator(".cnooc-agent-builder-model-strip"),
+    ).toBeVisible();
+    await expect(page.getByTestId("add-attachments-button")).toHaveCount(0);
+    await expect(page.locator(".cnooc-tool-mode")).toHaveCount(0);
+    await expect
+      .poll(() =>
+        composer.locator('[data-slot="input-group"]').evaluate((element) => ({
+          radius: Number.parseFloat(getComputedStyle(element).borderRadius),
+          minHeight: Number.parseFloat(getComputedStyle(element).minHeight),
+        })),
+      )
+      .toMatchObject({ radius: 22, minHeight: 132 });
+    await page.screenshot({
+      path: testInfo.outputPath("agent-builder-desktop.png"),
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(composer).toBeVisible();
+    await expect
+      .poll(() =>
+        textarea.evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).fontSize),
+        ),
+      )
+      .toBeGreaterThanOrEqual(16);
+    const mobileComposerBox = await composer.boundingBox();
+    expect(mobileComposerBox).not.toBeNull();
+    expect(mobileComposerBox!.x).toBeGreaterThanOrEqual(0);
+    expect(mobileComposerBox!.x + mobileComposerBox!.width).toBeLessThanOrEqual(
+      390,
+    );
+    expect(
+      await page.evaluate(
+        () =>
+          Math.max(
+            document.body.scrollWidth,
+            document.documentElement.scrollWidth,
+          ) <=
+          window.innerWidth + 1,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath("agent-builder-mobile.png"),
+      fullPage: true,
+    });
+
+    await textarea.focus();
+    await page.setViewportSize({ width: 390, height: 520 });
+    await expect(page.locator(".cnooc-workspace-shell")).toHaveAttribute(
+      "data-mobile-keyboard-open",
+      "true",
+    );
+    await expect(page.locator(".cnooc-agent-builder-model-strip")).toBeHidden();
+    const keyboardComposerBox = await composer.boundingBox();
+    expect(keyboardComposerBox).not.toBeNull();
+    expect(
+      keyboardComposerBox!.y + keyboardComposerBox!.height,
+    ).toBeLessThanOrEqual(520);
+  });
+
+  test("new-chat action is shown only for an existing agent conversation", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page, {
+      agents: MOCK_AGENTS,
+      threads: [
+        {
+          thread_id: MOCK_THREAD_ID,
+          title: "Agent conversation",
+          agent_name: "test-agent",
+          messages: [
+            {
+              type: "human",
+              id: "msg-human-agent-new-chat",
+              content: [{ type: "text", text: "Existing agent question" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    await page.goto("/workspace/agents/test-agent/chats/new");
+    await expect(page.getByTestId("agent-new-chat-button")).toHaveCount(0);
+
+    await page.goto(`/workspace/agents/test-agent/chats/${MOCK_THREAD_ID}`);
+    const newChatButton = page.getByTestId("agent-new-chat-button");
+    await expect(newChatButton).toBeVisible({ timeout: 15_000 });
+    await newChatButton.click();
+    await expect(page).toHaveURL(
+      /\/workspace\/agents\/test-agent\/chats\/new$/,
+    );
+    await expect(newChatButton).toHaveCount(0);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/workspace/agents/test-agent/chats/${MOCK_THREAD_ID}`);
+    await expect(newChatButton).toBeVisible();
+    await newChatButton.click();
+    await expect(page).toHaveURL(
+      /\/workspace\/agents\/test-agent\/chats\/new$/,
+    );
+    await expect(newChatButton).toHaveCount(0);
   });
 
   test("decodes a Chinese agent name and keeps its welcome icon visible", async ({

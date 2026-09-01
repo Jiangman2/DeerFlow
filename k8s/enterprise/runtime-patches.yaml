@@ -449,12 +449,11 @@ spec:
               value: generic
             - name: WEKNORA_PREFER_CNOOC_DEEPSEEK
               value: "true"
-            # The three adapter Pods each serialize native parsing in-process.
-            # Two dedicated core workers plus one elastic shared worker cap
-            # active parser calls at three; later uploads stay durable in
-            # WeKnora's Redis/Asynq queue instead of filling adapter memory.
+            # Six adapter Pods each serialize native parsing in-process. Four
+            # core workers plus two shared workers cap active parser calls at
+            # six; later uploads remain durable in WeKnora's Redis queue.
             - name: WEKNORA_ASYNQ_CORE_CONCURRENCY
-              value: "2"
+              value: "4"
             # Keep document parsing capped independently while allowing the
             # model-heavy image/summary/graph/question fan-out to drain on its
             # dedicated WeKnora 0.7.0 enrichment pool.
@@ -465,7 +464,7 @@ spec:
             - name: WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY
               value: "4"
             - name: WEKNORA_ASYNQ_SHARED_CONCURRENCY
-              value: "1"
+              value: "2"
             - name: WEKNORA_DOCREADER_CALL_TIMEOUT
               value: 30m
             - name: WEKNORA_DOCUMENT_PROCESS_TIMEOUT

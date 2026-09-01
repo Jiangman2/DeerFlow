@@ -358,9 +358,9 @@ native RBAC, not UI hiding, remains the authorization boundary. The embedded
 page has no extra DeerFlow header. Entering it collapses DeerFlow's sidebar and
 expands WeKnora's sidebar once for both ordinary users and administrators; the
 native WeKnora toggle remains available afterwards so chat history stays
-reachable. Ordinary users see only Knowledge Bases and Shared Spaces in the
-native sidebar; New Chat, Agents, the global Publish Integrations navigation,
-and system settings remain hidden and the embedded
+reachable. Ordinary users see New Chat, Knowledge Bases, Shared Spaces, and
+Agents in the native sidebar; the global Publish Integrations navigation and
+system settings remain hidden and the embedded
 user menu also hides logout. Their New Knowledge Base dialog exposes only Basic
 Information, while preserving all native knowledge-base type and indexing choices
 on that page. Existing knowledge-base Settings expose Basic Information plus
@@ -454,6 +454,12 @@ Skill quality review note:
   `skill-creator` ownership boundaries.
 - Downloadable `.skill` deliverables must be ZIP packages containing `SKILL.md`;
   `present_files` validates the archive before publishing it.
+- Agent-managed creation is opt-in through `skill_evolution.enabled`. When
+  enabled, `skill-creator` must use `skill_manage`, which writes only to the
+  effective user's custom-skill root, refreshes that user's prompt cache, and
+  keeps deterministic SkillScan plus fail-closed LLM moderation in front of
+  every write. Normalize moderation output through the shared LLM text helper:
+  Responses reasoning/tool blocks are not trusted decision text.
 
 Durable-memory boundary note:
 - Long-term memory is descriptive background, not task authority. One-turn
@@ -487,12 +493,43 @@ Platform-confidentiality boundary note:
 User-scoped Data Lake note:
 The chat composer keeps the existing file-list/API implementation behind a
 Data Lake control. `datalake_enabled` is persisted in the user's frontend local
-settings, applies to every thread, and is sent explicitly in each normal,
-custom-agent, regenerated, and branched run. When it is `false`, the Gateway
-and lead/delegated agent assembly remove the three AppForge Data Lake tools,
-and the AppForge invocation guard rejects stale direct calls before reading
-configuration or making a network request. Internal `/api/shop-cart/*` routes
-and source module names remain unchanged for compatibility.
+settings, defaults to `false`, applies to every thread, and is sent explicitly
+in each normal, custom-agent, regenerated, and branched run. Enabling it first
+calls the authenticated `POST /api/v1/data-lake/auth/token` route. If the
+HttpOnly platform-token cookie is absent, Gateway persists only the SHA-256
+digest of a user-bound 60-second challenge, reuses the bounded appCode cache,
+calls the platform token exchange, verifies the returned Token against the
+CNOOC identity service, binds only its unique SHA-256 digest to the current
+`users` row, and writes the raw Token to the HttpOnly cookie only after that
+binding commits. CNOOC-authenticated users match the trusted platform `userid`
+exactly. IAM-authenticated users require a non-empty IAM `oauth_id` and an exact
+canonical `@cnooc.com.cn` email match with the trusted Data Lake identity;
+local users, other OAuth providers, and non-corporate or mismatched emails stay
+fail-closed. The appCode request's `timeStamp` is the first eight digits of
+the Unix-seconds string, not the complete ten-digit epoch. CNOOC Token login
+establishes the same binding before issuing
+cookies. The authenticated `GET /api/v1/data-lake/auth/session` route compares
+the Cookie digest with the current user's binding; every Next.js file-list,
+download, and external-agent launch route must pass that check before consuming
+the Token. A mismatch clears the stale Cookie and the frontend resets
+`datalake_enabled` to `false`; a temporary Gateway failure returns 503 without
+destroying the possibly valid authorization. A token-exchange HTTP 200 response
+whose business code still rejects the account after appCode refresh maps to
+`403 data_lake_permission_denied`; the frontend shows the localized no-access
+message and stays disabled. The shared Nginx entry must route the
+`^~ /api/v1/data-lake/auth/` browser-auth prefix to Gateway before the WeKnora
+`/api/v1/` catch-all. The public exact callback
+`POST /api/v1/data-lake/auth/callback` is CSRF-exempt, body-limited, documented
+with a strict OpenAPI request body, and rate-limited by the shared Nginx entry
+before it resolves the one-time persisted challenge. Rate-limit responses use
+the callback's JSON error contract. When the
+persisted setting is already `true`, opening the file list repeats the
+idempotent token call before loading files so an expired or logout-cleared
+cookie cannot bypass authorization. Logout resets the setting to `false`.
+When the setting is `false`, Gateway and lead/delegated agent assembly remove
+the three AppForge Data Lake tools, and the invocation guard rejects stale direct calls
+before configuration or network access. Internal `/api/shop-cart/*` routes and
+source module names remain unchanged for compatibility.
 
 Academic research skill note:
 - `skills/public/academic-research/` is the single platform-visible compatibility
@@ -525,6 +562,7 @@ Enterprise Kubernetes storage note:
   never rewrite source workbooks or broadly swallow unknown openpyxl fields.
 - The patched WeKnora UI must fetch `/api/weknora/sso-session` through a same-origin relative URL in both `config.js` and the `index.html` fallback. These ConfigMap files are mounted with `subPath`, so restart `weknora-frontend` after changing them.
 - Keep the WeKnora UI on the official v0.7.0 multi-platform manifest digest declared in both the base and enterprise Kustomize bundles. That build understands the App's `resource://` and request-local image handles and uses authenticated, knowledge-base-scoped file retrieval; the earlier UI digest renders retrieved knowledge images as failed previews. DeerFlow chat separately rewrites those handles to its tenant-aware `/api/weknora/knowledge-bases/{id}/files` proxy; never expose WeKnora bearer tokens or direct storage paths to the browser.
+- DeerFlow chat exposes ten permission-scoped WeKnora wrappers for knowledge-base and document discovery/read, search, RAG ask, and native agent discovery/invocation. The wrapper names are DeerFlow-owned while the endpoints are official WeKnora v0.7.0 APIs. Keep every tool bound to the current user's server-derived token and explicit selected knowledge-base IDs. Native agent tool execution stays inside WeKnora; omit raw system prompts and never auto-approve a returned human-approval event.
 - The enterprise Gateway, WeKnora App, and MinerU Adapter trust outbound HTTPS through the runtime-created `deer-flow-enterprise-ca` Secret. Keep the projected `/etc/deerflow-ca/ca-bundle.crt` mount and CA environment variables in their enterprise manifests; create the Secret before apply and restart the affected Deployments after CA rotation so long-lived HTTP clients reload trust state.
 - The production Gateway image bundles the hash-verified `cl100k_base`
   tiktoken cache and sets `TIKTOKEN_CACHE_DIR`; keep this cache in release
@@ -665,7 +703,7 @@ Enterprise Kubernetes storage note:
 - Strict visual-completeness override: do not apply the older optional-Word-visual clauses above. Enterprise knowledge-base publication requires Word's converted visual PDF, every required MinerU batch, and required source-page evidence to succeed before native Word text/tables/images are merged and returned. Split MinerU work into ordered 20-page batches, retry only the failed batch at most twice (including a delayed provider disconnect), and never repeat already completed batches. A final failed visual stage must fail the document rather than publish incomplete text-only success.
 - MinerU-2605 asynchronous production override: the reviewed provider now guarantees the `/tasks` lifecycle, so this supersedes the older synchronous-production clause above. Keep `MINERU_REQUEST_MODE=async`, submit exactly one `POST /tasks`, and poll only its locally constructed `/tasks/{task_id}` and `/tasks/{task_id}/result` URLs within the shared 1800-second deadline. Retry transient business code `20006`, short-lived HTTP 404, and transient status/result connection or read-timeout failures with bounded backoff against that same task ID. Never repeat the accepted submission or fall back to a second synchronous request. Keep synchronous 20-page batching only as an explicit emergency rollback path.
 - Enterprise conversation uploads set `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860`, which leaves 60 seconds beyond the Adapter's bounded 1800-second upstream wait for response transfer and atomic Markdown persistence. They also set `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`, so an unavailable or unsuccessful Adapter call falls back once to DeerFlow's local `convert_file_to_markdown()` path. Keep the Adapter as the primary parser; the fallback runs in Gateway and provides explicitly warned text recovery rather than the Adapter's complete OCR and visual-evidence contract, and must never be represented as complete visual parsing. MarkItDown does not understand legacy binary `.doc`, so that one format may use the task sandbox's LibreOffice to create a request-scoped temporary DOCX before it re-enters `convert_file_to_markdown()`; never retain the temporary office file or add LibreOffice to Gateway. A user-visible processing warning is required whenever the complete Adapter path fails.
-- The audited three-node enterprise layout runs three MinerU Adapter replicas with required hostname anti-affinity, one independent process per node. Each process remains internally serialized through `ParseCoordinator`. Keep the single WeKnora App replica at `WEKNORA_ASYNQ_CORE_CONCURRENCY=2` plus `WEKNORA_ASYNQ_SHARED_CONCURRENCY=1`, so at most three parser calls are active and later uploads stay in Redis/Asynq. WeKnora 0.7.0 isolates post-processing and model-heavy enrichment from that parser pool; keep `WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY=2`, `WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY=12`, and `WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY=4` so image OCR/caption fan-out cannot starve behind document parsing. Increasing core/shared or the WeKnora replica count multiplies parser admission and requires a matching parser-capacity review; changing enrichment instead requires a VLM/LLM quota review but does not increase MinerU parser calls. Because anti-affinity leaves no fourth node, keep the adapter RollingUpdate at `maxSurge: 0`, `maxUnavailable: 1`, and retain its `minAvailable: 2` PodDisruptionBudget.
+- The audited three-node enterprise layout runs six MinerU Adapter worker replicas, spread evenly at two independent processes per node. Every worker remains internally serialized through `ParseCoordinator`; never add in-process parser concurrency. A separate dispatcher resolves the worker headless Service, owns the bounded cross-Pod queue, round-robins free workers, and gives `X-DeerFlow-Parse-Priority: interactive` conversation uploads priority over knowledge-base batch work that has not started. Keep the public `deer-flow-mineru-adapter` Service pointed only at that dispatcher. Keep the single WeKnora App replica at `WEKNORA_ASYNQ_CORE_CONCURRENCY=4` plus `WEKNORA_ASYNQ_SHARED_CONCURRENCY=2`, so at most six parser calls are active and later uploads stay durable in Redis/Asynq. WeKnora 0.7.0 isolates post-processing and model-heavy enrichment from that parser pool; keep `WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY=2`, `WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY=12`, and `WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY=4`. Increasing core/shared or the WeKnora replica count requires a matching serialized-worker capacity review and 3/10/30-document acceptance run. Keep worker topology `maxSkew: 1`, RollingUpdate `maxSurge: 1`/`maxUnavailable: 1`, worker PDB `minAvailable: 4`, and dispatcher PDB `minAvailable: 1`.
 
 ## Commands: Root vs. Module
 

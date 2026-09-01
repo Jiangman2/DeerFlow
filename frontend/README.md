@@ -28,6 +28,11 @@ cp .env.example .env
 
 ### Development
 
+The enterprise CNOOC workspace skin keeps the circular send action visibly
+filled in both welcome and existing-thread composers, including before hover,
+and renders the current `2026-2027` copyright notice on ordinary and custom
+agent welcome pages.
+
 ```bash
 # Start development server
 pnpm dev

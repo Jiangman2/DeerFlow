@@ -393,8 +393,8 @@ def validate_manifest(path: Path) -> list[str]:
         _assert_proxy_bypass(f"{workload} NO_PROXY", upper)
 
     expected_weknora = {
-        "WEKNORA_ASYNQ_CORE_CONCURRENCY": "2",
-        "WEKNORA_ASYNQ_SHARED_CONCURRENCY": "1",
+        "WEKNORA_ASYNQ_CORE_CONCURRENCY": "4",
+        "WEKNORA_ASYNQ_SHARED_CONCURRENCY": "2",
         "WEKNORA_INTERNAL_MODEL_RELAY_KEY": "",
         "SSRF_WHITELIST_EXTRA": "deer-flow-mineru-adapter,model.ai.cnooc,gateway",
     }
@@ -592,29 +592,55 @@ def validate_repository(repo_root: Path) -> list[str]:
         enterprise / "mineru-adapter-patch.yaml"
     )
     mineru = _deployment(mineru_patch_documents, "deer-flow-mineru-adapter")
-    if mineru["spec"].get("replicas") != 3:
-        raise ValidationError("MinerU Adapter must retain three replicas")
+    if mineru["spec"].get("replicas") != 6:
+        raise ValidationError("MinerU Adapter must retain six serialized workers")
     rolling = mineru["spec"].get("strategy", {}).get("rollingUpdate", {})
-    if rolling != {"maxUnavailable": 1, "maxSurge": 0}:
+    if rolling != {"maxUnavailable": 1, "maxSurge": 1}:
         raise ValidationError(
-            "MinerU rolling update must retain maxUnavailable=1 and maxSurge=0"
+            "MinerU rolling update must retain maxUnavailable=1 and maxSurge=1"
         )
-    required_anti_affinity = (
-        mineru["spec"]["template"]["spec"]
-        .get("affinity", {})
-        .get("podAntiAffinity", {})
-        .get("requiredDuringSchedulingIgnoredDuringExecution", [])
+    topology_spread = mineru["spec"]["template"]["spec"].get(
+        "topologySpreadConstraints", []
     )
-    if not required_anti_affinity:
-        raise ValidationError("MinerU Adapter requires hostname anti-affinity")
+    if not topology_spread or topology_spread[0].get("maxSkew") != 1:
+        raise ValidationError("MinerU workers require maxSkew=1 hostname spread")
+    service_patch = _resource(
+        mineru_patch_documents,
+        "Service",
+        "deer-flow-mineru-adapter",
+    )
+    if service_patch["spec"].get("selector") != {
+        "app": "deer-flow-mineru-dispatcher"
+    }:
+        raise ValidationError("MinerU public Service must select the dispatcher")
     mineru_resources = _load_documents(enterprise / "mineru-adapter.yaml")
     pdb = _resource(
         mineru_resources,
         "PodDisruptionBudget",
         "deer-flow-mineru-adapter",
     )
-    if pdb["spec"].get("minAvailable") != 2:
-        raise ValidationError("MinerU Adapter PDB minAvailable must be 2")
+    if pdb["spec"].get("minAvailable") != 4:
+        raise ValidationError("MinerU Adapter PDB minAvailable must be 4")
+    _resource(
+        mineru_resources,
+        "Service",
+        "deer-flow-mineru-adapter-workers",
+    )
+    dispatcher = _resource(
+        mineru_resources,
+        "Deployment",
+        "deer-flow-mineru-dispatcher",
+    )
+    dispatcher_env = _environment(_container(dispatcher, "dispatcher"))
+    if dispatcher_env.get("MINERU_ADAPTER_MODE") != "dispatcher":
+        raise ValidationError("MinerU dispatcher mode must be explicit")
+    dispatcher_pdb = _resource(
+        mineru_resources,
+        "PodDisruptionBudget",
+        "deer-flow-mineru-dispatcher",
+    )
+    if dispatcher_pdb["spec"].get("minAvailable") != 1:
+        raise ValidationError("MinerU dispatcher PDB minAvailable must be 1")
 
     nodeport_documents = _load_documents(enterprise / "nginx-nodeport.yaml")
     nodeport = _resource(nodeport_documents, "Service", "nginx-nodeport")

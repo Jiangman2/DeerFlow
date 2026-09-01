@@ -59,7 +59,12 @@ from deerflow.runtime.goal import (
 from deerflow.runtime.serialization import serialize
 from deerflow.runtime.stream_bridge import StreamBridge
 from deerflow.runtime.user_context import get_effective_user_id, resolve_runtime_user_id
-from deerflow.runtime.weknora_context import reset_current_weknora_access_token, set_current_weknora_access_token
+from deerflow.runtime.weknora_context import (
+    reset_current_weknora_access_token,
+    reset_current_weknora_scope,
+    set_current_weknora_access_token,
+    set_current_weknora_scope,
+)
 from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
 from deerflow.tracing import inject_langfuse_metadata
 from deerflow.utils.messages import message_to_text
@@ -391,6 +396,7 @@ async def run_agent(
 
     journal = None
     weknora_token_context = None
+    weknora_scope_context = None
     # Buffers subagent step events for batched persistence (#3779); assigned once
     # streaming starts and flushed in the finally block. Pre-bound to None so the
     # finally is safe even if an exception fires before streaming begins.
@@ -474,6 +480,7 @@ async def run_agent(
         # manually here because we drive the graph through ``agent.astream(config=...)``
         # without passing the official ``context=`` parameter.
         runtime_ctx = _build_runtime_context(thread_id, run_id, config.get("context"), ctx.app_config)
+        weknora_scope_context = set_current_weknora_scope(runtime_ctx)
         weknora_access_token = runtime_ctx.get("weknora_access_token")
         if isinstance(weknora_access_token, str) and weknora_access_token.strip():
             weknora_token_context = set_current_weknora_access_token(weknora_access_token.strip())
@@ -819,6 +826,8 @@ async def run_agent(
     finally:
         if weknora_token_context is not None:
             reset_current_weknora_access_token(weknora_token_context)
+        if weknora_scope_context is not None:
+            reset_current_weknora_scope(weknora_scope_context)
 
         # Persist any subagent step events still buffered (#3779) — including on
         # abort/exception paths, where the stream loop broke before its own flush.

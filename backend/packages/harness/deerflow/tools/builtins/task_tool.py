@@ -380,7 +380,7 @@ async def task_tool(
     tools = gate_weknora_tools_for_scope(
         tools,
         tools,
-        selected_ids=parent_context.get("weknora_knowledge_base_ids"),
+        scope_context=parent_context,
     )
     tools = filter_tools_by_datalake_scope(tools, enabled=datalake_enabled)
 

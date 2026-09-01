@@ -652,6 +652,62 @@ tool_groups:
 # Configure available tools for the agent to use
 
 tools:
+  # WeKnora's permission-scoped read/agent surface. Browser runs use a
+  # server-derived per-user bearer token; WEKNORA_API_KEY is only a fallback
+  # for trusted background runs. Every tool remains hidden unless the current
+  # DeerFlow run explicitly selects at least one WeKnora knowledge base.
+  # - name: weknora_list_knowledge_bases
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_list_knowledge_bases_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  # - name: weknora_get_knowledge_base
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_get_knowledge_base_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  # - name: weknora_list_documents
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_list_documents_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  # - name: weknora_get_document
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_get_document_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  # - name: weknora_list_document_chunks
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_list_document_chunks_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  # - name: weknora_read_document
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_read_document_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  # - name: weknora_search
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_search_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  #   max_results: 8
+  # - name: weknora_ask
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_ask_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  # - name: weknora_list_agents
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_list_agents_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+  # - name: weknora_invoke_agent
+  #   group: knowledge
+  #   use: deerflow.community.weknora.tools:weknora_invoke_agent_tool
+  #   api_url: $WEKNORA_API_URL
+  #   api_key: $WEKNORA_API_KEY
+
   # CNOOC DataLake tools (internal deployment only). Smart QA uses the
   # Retrieve API; Metrics and Detail continue to use AppForge.
   # - name: datalake_smart_qa

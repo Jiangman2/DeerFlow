@@ -206,6 +206,9 @@ _CONTEXT_CONFIGURABLE_KEYS: frozenset[str] = frozenset(
         "is_bootstrap",
         "weknora_knowledge_base_ids",
         "weknora_knowledge_bases",
+        "weknora_knowledge_ids",
+        "weknora_tag_scopes",
+        "weknora_scope_items",
     }
 )
 
@@ -398,8 +401,11 @@ async def inject_weknora_user_context(
         return
 
     runtime_context = config.setdefault("context", {})
-    selected_ids = runtime_context.get("weknora_knowledge_base_ids") if isinstance(runtime_context, dict) else None
-    if not selected_ids:
+    if not isinstance(runtime_context, dict):
+        return
+    from deerflow.runtime.weknora_context import has_weknora_scope
+
+    if not has_weknora_scope(runtime_context):
         return
 
     try:
@@ -416,6 +422,45 @@ async def inject_weknora_user_context(
         tenant_id = session.tenant.get("id")
         if tenant_id is not None:
             runtime_context["weknora_tenant_id"] = str(tenant_id)
+
+        # Scope items carry WeKnora's consumer-tenant routing hint.  Accept it
+        # only when it belongs to the authenticated user's memberships, then
+        # publish a server-owned KB -> tenant map for the run worker.  WeKnora
+        # still performs the final per-user RBAC check on every request.
+        active_tenant_id = str(tenant_id).strip() if tenant_id is not None else ""
+        memberships = getattr(session, "memberships", None)
+        allowed_tenant_ids = {str(item.get("tenant_id")).strip() for item in memberships or [] if isinstance(item, dict) and item.get("tenant_id") is not None}
+        if active_tenant_id:
+            allowed_tenant_ids.add(active_tenant_id)
+
+        access_tenant_ids: dict[str, str] = {}
+        for item in runtime_context.get("weknora_scope_items") or []:
+            if not isinstance(item, dict):
+                continue
+            item_type = item.get("type")
+            kb_id = item.get("id") if item_type == "kb" else item.get("kb_id")
+            requested_tenant_id = item.get("tenant_id")
+            kb_id = str(kb_id).strip() if kb_id is not None else ""
+            requested_tenant_id = str(requested_tenant_id).strip() if requested_tenant_id is not None else ""
+            if not kb_id:
+                continue
+            if requested_tenant_id and requested_tenant_id in allowed_tenant_ids:
+                access_tenant_ids[kb_id] = requested_tenant_id
+            elif active_tenant_id:
+                access_tenant_ids.setdefault(kb_id, active_tenant_id)
+
+        for kb_id in runtime_context.get("weknora_knowledge_base_ids") or []:
+            normalized_kb_id = str(kb_id).strip() if kb_id is not None else ""
+            if normalized_kb_id and active_tenant_id:
+                access_tenant_ids.setdefault(normalized_kb_id, active_tenant_id)
+        for tag_scope in runtime_context.get("weknora_tag_scopes") or []:
+            if not isinstance(tag_scope, dict):
+                continue
+            kb_id = str(tag_scope.get("knowledge_base_id") or "").strip()
+            if kb_id and active_tenant_id:
+                access_tenant_ids.setdefault(kb_id, active_tenant_id)
+        if access_tenant_ids:
+            runtime_context["weknora_access_tenant_ids"] = access_tenant_ids
 
 
 def resolve_agent_factory(assistant_id: str | None):

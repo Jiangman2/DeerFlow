@@ -62,6 +62,7 @@ def should_check_csrf(request: Request) -> bool:
         "/api/weknora/internal-models/v1/embeddings",
         "/api/weknora/internal-models/v1/rerank",
         "/api/codex/deepseek/v1/responses",
+        "/api/v1/data-lake/auth/callback",
     }:
         return False
     # Inbound webhooks authenticate themselves via provider-specific signatures

@@ -11,7 +11,7 @@ from langgraph.runtime import Runtime
 from deerflow.agents.memory import get_memory_manager
 from deerflow.config.memory_config import get_memory_config
 from deerflow.runtime.user_context import get_effective_user_id
-from deerflow.runtime.weknora_context import normalize_weknora_scope_ids
+from deerflow.runtime.weknora_context import has_weknora_scope
 from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
 
 if TYPE_CHECKING:
@@ -66,8 +66,7 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
             return None
 
         runtime_context = runtime.context if isinstance(runtime.context, dict) else {}
-        selected_weknora_ids = normalize_weknora_scope_ids(runtime_context.get("weknora_knowledge_base_ids"))
-        if selected_weknora_ids:
+        if has_weknora_scope(runtime_context):
             # Retrieved enterprise-document facts belong to the selected run scope,
             # not to the user's durable identity or preferences.  Skipping the
             # whole conversation is deterministic and also prevents delayed queue

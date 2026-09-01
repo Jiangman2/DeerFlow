@@ -101,6 +101,7 @@ async def parse_conversation_document(
         ) as client:
             response = await client.post(
                 endpoint,
+                headers={"X-DeerFlow-Parse-Priority": "interactive"},
                 files={
                     "file": (
                         Path(filename).name,

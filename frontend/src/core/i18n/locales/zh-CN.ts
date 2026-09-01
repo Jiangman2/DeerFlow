@@ -132,6 +132,9 @@ export const zhCN: Translations = {
     dataLakeFileList: "数据湖文件列表",
     disableDataLake: "不使用数据湖",
     enableDataLake: "使用数据湖",
+    dataLakeAuthorizationFailed: "数据湖权限获取失败，请重试",
+    dataLakePermissionDenied: "无数据湖权限",
+    dataLakeLoginRequired: "请先登录数据湖",
     shopCartDialogTitle: "从数据湖选择附件",
     shopCartDialogDescription:
       "数据湖已在新窗口打开。请在数据湖中选择文件，然后回到这里添加所选文件。",

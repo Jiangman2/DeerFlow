@@ -528,6 +528,45 @@ class TestWrapToolCallExternalize:
             assert compact["full_output"]["path"].startswith("/mnt/user-data/outputs/.tool-results/weknora_ask-")
             assert len(result.content) < len(content)
 
+    def test_weknora_agent_keeps_tool_receipts_and_pending_actions_inline(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = ToolOutputConfig(externalize_min_chars=500)
+            mw = ToolOutputBudgetMiddleware(config=config)
+            payload = {
+                "query": "分析数据",
+                "agent_id": "builtin-data-analyst",
+                "session_id": "session-1",
+                "answer": "分析完成" + "结果" * 2_000,
+                "references": [],
+                "answer_images": [],
+                "tool_calls": [{"tool_name": "data_schema", "arguments": {}}],
+                "tool_results": [{"tool_name": "data_schema", "content": "ready"}],
+                "pending_actions": [
+                    {
+                        "type": "tool_approval_required",
+                        "content": "approval required",
+                        "data": {"pending_id": "approval-1"},
+                    }
+                ],
+            }
+            content = json.dumps(payload, ensure_ascii=False)
+            msg = _tm(content, name="weknora_invoke_agent")
+            req = _make_request(
+                tool_name="weknora_invoke_agent",
+                outputs_path=tmpdir,
+            )
+
+            result = mw.wrap_tool_call(req, lambda _: msg)
+
+            assert isinstance(result, ToolMessage)
+            compact = json.loads(result.content)
+            assert compact["agent_id"] == "builtin-data-analyst"
+            assert compact["tool_calls"][0]["tool_name"] == "data_schema"
+            assert compact["pending_actions"][0]["data"]["pending_id"] == "approval-1"
+            assert compact["full_output"]["path"].startswith(
+                "/mnt/user-data/outputs/.tool-results/weknora_invoke_agent-"
+            )
+
 
 class TestWrapToolCallFallback:
     def test_fallback_when_no_outputs_path(self):
@@ -1045,9 +1084,11 @@ class TestMiddlewareChainIntegration:
         # InputSanitizationMiddleware is the outermost wrap_model_call wrapper;
         # ToolOutputBudgetMiddleware is the first wrap_tool_call handler.
         from deerflow.agents.middlewares.input_sanitization_middleware import InputSanitizationMiddleware
+        from deerflow.agents.middlewares.platform_confidentiality_middleware import PlatformConfidentialityMiddleware
 
         assert isinstance(middlewares[0], InputSanitizationMiddleware)
-        assert isinstance(middlewares[1], ToolOutputBudgetMiddleware)
+        assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
+        assert isinstance(middlewares[2], ToolOutputBudgetMiddleware)
 
     def test_budget_middleware_in_lead_chain(self):
         from deerflow.agents.middlewares.tool_error_handling_middleware import build_lead_runtime_middlewares
@@ -1056,9 +1097,11 @@ class TestMiddlewareChainIntegration:
         middlewares = build_lead_runtime_middlewares(app_config=app_config, lazy_init=False)
 
         from deerflow.agents.middlewares.input_sanitization_middleware import InputSanitizationMiddleware
+        from deerflow.agents.middlewares.platform_confidentiality_middleware import PlatformConfidentialityMiddleware
 
         assert isinstance(middlewares[0], InputSanitizationMiddleware)
-        assert isinstance(middlewares[1], ToolOutputBudgetMiddleware)
+        assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
+        assert isinstance(middlewares[2], ToolOutputBudgetMiddleware)
 
 
 # ===========================================================================
