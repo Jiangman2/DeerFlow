@@ -33,12 +33,25 @@ const HIDDEN_CONTROL_MESSAGE_NAMES = new Set([
   "todo_completion_reminder",
 ]);
 
-export function getMessageGroups(messages: Message[]): MessageGroup[] {
+export function getMessageGroups(
+  messages: Message[],
+  { isCurrentTurnLoading = false }: { isCurrentTurnLoading?: boolean } = {},
+): MessageGroup[] {
   if (messages.length === 0) {
     return [];
   }
 
   const groups: MessageGroup[] = [];
+  let currentTurnStartIndex = -1;
+  if (isCurrentTurnLoading) {
+    for (let index = messages.length - 1; index >= 0; index--) {
+      const message = messages[index];
+      if (message?.type === "human" && !isHiddenFromUIMessage(message)) {
+        currentTurnStartIndex = index;
+        break;
+      }
+    }
+  }
 
   // Returns the last group if it can still accept tool messages
   // (i.e. it's an in-flight processing group, not a terminal human/assistant group).
@@ -55,7 +68,7 @@ export function getMessageGroups(messages: Message[]): MessageGroup[] {
     return null;
   }
 
-  for (const message of messages) {
+  for (const [messageIndex, message] of messages.entries()) {
     if (isHiddenFromUIMessage(message)) {
       continue;
     }
@@ -152,8 +165,15 @@ export function getMessageGroups(messages: Message[]): MessageGroup[] {
       // panel above the bubble paints the identical reasoning a second time
       // (#3868). Intermediate reasoning (no content) and tool-calling steps
       // still belong in the processing group.
+      const isUnresolvedAssistantText =
+        currentTurnStartIndex >= 0 &&
+        messageIndex > currentTurnStartIndex &&
+        hasContent(message) &&
+        !hasToolCalls(message);
       const becomesAssistantBubble =
-        hasContent(message) && !hasToolCalls(message);
+        hasContent(message) &&
+        !hasToolCalls(message) &&
+        !isUnresolvedAssistantText;
 
       const hasClarificationCall = message.tool_calls?.some(
         (toolCall) => toolCall.name === "ask_clarification",
@@ -179,7 +199,9 @@ export function getMessageGroups(messages: Message[]): MessageGroup[] {
         });
       } else if (
         !becomesAssistantBubble &&
-        (hasReasoning(message) || hasToolCalls(message))
+        (hasReasoning(message) ||
+          hasToolCalls(message) ||
+          isUnresolvedAssistantText)
       ) {
         const lastGroup = groups[groups.length - 1];
         // Accumulate consecutive intermediate AI messages into one processing group.
@@ -694,19 +716,9 @@ export function isHiddenFromUIMessage(message: Message) {
   ) {
     return true;
   }
-  // Only the enterprise summary shim and the human activation envelope need
-  // message text. Tool/system messages can return before content extraction;
-  // this keeps the official per-stream grouping optimization while preserving
-  // the enterprise-only hidden summary contract.
-  if (message.type === "ai") {
-    const content = extractTextFromMessage(message);
-    return (
-      content.trimStart().startsWith("<analysis>") &&
-      content.includes("</analysis>") &&
-      content.includes("<summary>") &&
-      content.trimEnd().endsWith("</summary>")
-    );
-  }
+  // Only the human activation envelope needs message text. Internal AI
+  // messages must carry hide_from_ui or a control-message name so this hot
+  // predicate never scans every streamed assistant answer.
   if (message.type !== "human") {
     return false;
   }

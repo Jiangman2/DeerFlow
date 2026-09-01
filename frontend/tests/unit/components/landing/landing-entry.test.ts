@@ -21,11 +21,9 @@ const nginxSource = readFileSync(
 );
 
 describe("enterprise landing entry", () => {
-  test("always renders the landing page at the exact root", () => {
-    expect(landingPageSource).toContain("<Header />");
-    expect(landingPageSource).toContain("<Hero />");
+  test("sends the exact root directly to the new-chat entry", () => {
+    expect(landingPageSource).toContain('redirect("/workspace/chats/new")');
     expect(landingPageSource).not.toContain("getServerSideUser");
-    expect(landingPageSource).not.toContain("redirect(");
     expect(nginxSource).not.toContain('if ($cookie_access_token = "")');
     expect(nginxSource).not.toContain("location = / {");
   });

@@ -1962,7 +1962,8 @@ export function useThreadStream({
 
         await thread.submit(submitInput, {
           threadId: threadId,
-          streamSubgraphs: true,
+          // No streamSubgraphs: subtask progress arrives through root custom
+          // events; subgraph frames would duplicate delegated values/messages.
           streamResumable: true,
           config: {
             recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
@@ -2061,7 +2062,7 @@ export function useThreadStream({
           threadId,
           checkpoint: prepared.checkpoint,
           metadata: prepared.metadata,
-          streamSubgraphs: true,
+          // No streamSubgraphs — keep the resume path aligned with submit.
           streamResumable: true,
           config: {
             recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
@@ -2209,6 +2210,11 @@ type ThreadHistoryOptions = {
   isStaticDemo?: boolean;
 };
 
+export const THREAD_HISTORY_QUERY_POLICY = {
+  refetchOnWindowFocus: false,
+  staleTime: 5 * 60 * 1_000,
+} as const;
+
 export function useThreadHistory(
   threadId: string,
   {
@@ -2224,6 +2230,7 @@ export function useThreadHistory(
     ReturnType<typeof threadHistoryQueryKey>,
     number | null
   >({
+    ...THREAD_HISTORY_QUERY_POLICY,
     queryKey: threadHistoryQueryKey(threadId),
     enabled: enabled && Boolean(threadId),
     initialPageParam: null,

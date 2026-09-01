@@ -171,7 +171,7 @@ administrators retain the complete native editor.
    an item fills its `/ppt-master` example without submitting it. Keep these
    labels and prompts locale-owned, and do not replace them with implicit
    non-Skill prose.
-2. Stream events update thread state (messages, artifacts, todos, goal). The main thread stream uses the LangGraph SDK's `throttle: true` mode so updates received in the same macrotask coalesce before React is notified; do not replace it with a numeric delay without validating the SDK's trailing-debounce behavior on a continuous stream. File-tool artifact auto-open work must run in an effect with timer cleanup; never schedule timers while rendering streamed `write_file` or `str_replace` updates.
+2. Stream events update thread state (messages, artifacts, todos, goal). The main thread stream uses the LangGraph SDK's `throttle: true` mode so updates received in the same macrotask coalesce before React is notified; do not replace it with a numeric delay without validating the SDK's trailing-debounce behavior on a continuous stream. Browser submit and regenerate paths intentionally omit `streamSubgraphs`: delegated progress already arrives through root custom events, and subgraph value frames must not duplicate another agent's messages in the root conversation. File-tool artifact auto-open work must run in an effect with timer cleanup; never schedule timers while rendering streamed `write_file` or `str_replace` updates.
    When an existing chat page mounts without the SDK's tab-local reconnect key,
    `core/threads/hooks.ts` must query the Gateway run store for the newest
    `pending`/`running` run and join that run's stream. Keep the composer busy
@@ -181,7 +181,7 @@ administrators retain the complete native editor.
 3. `useThreadHistory` loads persisted conversation pages from `GET /api/threads/{id}/messages/page`, preserving the backend's thread-global event `seq`; rendering overlays checkpoint/live copies at their matching canonical identities (a summarized checkpoint may contain a protected early input plus a recent tail), suppresses checkpoint/transient prefixes whose canonical position is still behind an unloaded cursor page instead of collapsing that unknown gap before a recent anchor, then adds optimistic messages without timestamp re-sorting. History invalidation preserves already-loaded pages so their established ordering positions are not discarded.
 4. Stop actions call the LangGraph SDK stream stop path; `core/threads/hooks.ts` invalidates current-thread, thread-history, token-usage, and sidebar/search caches immediately and schedules one follow-up refetch because SDK stop may finish via abort + fire-and-forget cancel before backend title finalization commits
 5. TanStack Query manages server state; localStorage stores user settings
-6. Components subscribe to thread state and render updates
+6. Components subscribe to thread state and render updates. Completed message groups and turn-usage derivations retain stable references while only the active tail changes; histories with at least 60 groups use measured row virtualization while keeping the live tail mounted. Streaming Markdown uses a deferred, bounded 50 ms reveal cadence so provider token frequency cannot force a complete Markdown parse and React commit for every chunk.
 
 The composer labels the legacy shop-cart attachment flow as **Data Lake** while
 keeping its internal routes and modules unchanged. The control stores
@@ -464,3 +464,13 @@ When adding features:
 3. Write unit tests under `tests/unit/` (`pnpm test`) and E2E tests under `tests/e2e/` (`pnpm test:e2e`)
 4. Run `pnpm check` before committing
 5. Update this `AGENTS.md` when architecture, commands, or conventions change
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

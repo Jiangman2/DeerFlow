@@ -16,8 +16,6 @@ import {
   hasReasoning,
   isAssistantMessageGroupStreaming,
   isHiddenFromUIMessage,
-  parseUploadedFiles,
-  stripInternalMarkers,
   stripUploadedFilesTag,
 } from "@/core/messages/utils";
 
@@ -226,9 +224,12 @@ test("reasoning + content (no tool calls) yields a single assistant bubble, not 
 });
 
 test("hides leaked internal context-compaction transcripts", () => {
-  const leaked = aiMessage(
-    "<analysis>internal chronology</analysis><summary>compact state</summary>",
-  );
+  const leaked = {
+    ...aiMessage(
+      "<analysis>internal chronology</analysis><summary>compact state</summary>",
+    ),
+    name: "summary",
+  } as Message;
   const ordinary = aiMessage("A normal answer mentioning <summary> as code.");
 
   expect(isHiddenFromUIMessage(leaked)).toBe(true);
