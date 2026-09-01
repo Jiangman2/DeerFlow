@@ -68,6 +68,38 @@ language policy provides the same default for lead and delegated model output.
 Do not reintroduce an unconditional English requirement into the bootstrap
 copy.
 
+The conversational step of `/workspace/agents/new` intentionally follows the
+upstream text-only builder composer. Keep it visually aligned with the CNOOC
+workspace and responsive to the mobile visual viewport, but do not silently
+add the main chat's attachment, Data Lake, knowledge-base, voice, polish, or
+mode state to this workflow. Its existing model selector, `agent_name`,
+`is_bootstrap`, hidden human-input responses, and save interaction must remain
+intact.
+
+The main workspace composer's knowledge control mirrors WeKnora New Chat's
+mention scope without copying WeKnora conversation state. It supports complete
+knowledge bases, individual files, and tags. Preserve each file/tag's parent
+knowledge-base identity in `weknora_scope_items`, group tags in
+`weknora_tag_scopes`, and keep legacy KB-only context readable. Selecting a
+complete KB replaces its child selections; selecting a file/tag replaces the
+complete-KB selection for that parent. The selector must remain usable in both
+desktop and mobile dialogs. Keep the native mention interaction model: one
+grouped Knowledge Base / Tag / File menu, drill-in navigation, global search,
+immediate selection, and removable selected-scope chips above the prompt. A
+file row must retain and display its parent knowledge base and native tags;
+switching groups or search terms must never reuse stale rows from a previous
+knowledge base. The selected chips are not presentation-only: submit the same
+scope with every run so Gateway can enforce it on all `weknora_*` tools.
+Keep the selector header and selected-summary footer fixed while the result
+viewport scrolls independently. Selection stays open for consecutive
+multi-select, long rows must remain inside the popup, and selected knowledge
+chips share the responsive composer material area with attachments so neither
+can overlap the model selector or crowd mobile primary controls. Desktop
+materials flow at their intrinsic bounded width and wrap only when the row is
+full; mobile keeps one horizontally scrollable material rail. One run may
+select at most 20 knowledge-scope items, with a visible rejection message for
+the next item; attachment limits remain owned by the existing upload policy.
+
 The new-agent name-step badge must remain compatible with enterprise browsers
 that lack CSS `color-mix()`. Keep its pale primary background as a separate
 `bg-primary opacity-10` layer behind the inline icon; Tailwind opacity-color
@@ -112,8 +144,8 @@ than reimplementing its knowledge-management UI. Keep the iframe entry at
 `/platform/knowledge-bases` and let the iframe fill the whole page without a
 second DeerFlow title/action bar. The mounted WeKnora bootstrap persists the
 Gateway-provided `ui_policy`: system administrators retain the complete native
-navigation, while ordinary personal-workspace Owners see only Knowledge Bases
-and Shared Spaces and do not see New Chat, Agents, Publish Integrations, system
+navigation, while ordinary personal-workspace Owners see New Chat, Knowledge
+Bases, Shared Spaces, and Agents but do not see Publish Integrations, system
 settings, or tenant-creation controls. Entering the
 embedded workspace collapses DeerFlow's sidebar and expands WeKnora's sidebar
 once for both ordinary users and administrators. The automatic collapse must
@@ -154,10 +186,34 @@ administrators retain the complete native editor.
 The composer labels the legacy shop-cart attachment flow as **Data Lake** while
 keeping its internal routes and modules unchanged. The control stores
 `datalake_enabled` in the user's shared local settings, defaults missing values
-to `true`, and offers **Do not use Data Lake** / re-enable actions. Disabling it
-affects every thread, removes the file-list menu item, closes the dialog,
-invalidates in-flight list loads, and sends the resolved boolean on normal,
-custom-agent, regenerated, and branched runs.
+to `false`, and offers **Do not use Data Lake** / re-enable actions. Re-enabling
+must first call the CSRF-aware same-origin
+`POST /api/v1/data-lake/auth/token`; update the shared setting only after that
+request succeeds. This call keeps the shared credential and CSRF handling but
+opts out of the generic 401 login redirect because Gateway can return the
+scoped `data_lake_login_required` business code; show the localized **Please
+sign in to Data Lake first** message without navigating away. The platform
+token remains HttpOnly and must never be read or stored by client code. Opening
+the file list repeats that idempotent request
+before loading files, including when the persisted setting is already `true`,
+and logout resets the setting to `false`. Every Next.js file-list, download, and
+external-agent launch route must call Gateway's authenticated
+`GET /api/v1/data-lake/auth/session` before consuming the Cookie. A 401 from
+that binding check clears the stale Cookie, closes the Data Lake UI, and resets
+the shared setting to `false`; a temporary Gateway failure returns 503 without
+deleting a possibly valid Cookie or preference. When the shop-cart list upstream
+instead returns HTTP 401 with `code=1` and `msg=invalid_token`, map it to
+`data_lake_login_required`, show the localized **Please sign in to Data Lake
+first** message, and retain both the HttpOnly Cookie and `datalake_enabled=true`.
+The Data Lake control maps `data_lake_permission_denied` to the localized **No
+Data Lake permission** message and `data_lake_login_required` to the localized
+login prompt; other authorization failures keep their normal diagnostic or
+retry message. Async enable/disable completion must merge into the
+latest context rather than overwrite model, mode, reasoning, or knowledge
+changes made while authorization was pending. Disabling affects every thread,
+removes the file-list
+menu item, closes the dialog, invalidates in-flight list loads, and sends the
+resolved boolean on normal, custom-agent, regenerated, and branched runs.
 
 Generated Office artifacts use a paired-preview contract: `/mnt/user-data/outputs/<name>.<office-extension>` remains the selected and downloadable artifact, while `<name>.preview.pdf` is rendered in the right-side iframe when present; `<name>.pdf` is accepted as a compatibility fallback for older/model-authored outputs. Supported owners are DOC/DOCX, XLS/XLSX, ODT/ODS/ODP, and PPT/PPTX. Paired preview PDFs are internal companions: keep them in complete thread artifact state for iframe resolution, but omit them from file cards and the artifact selector, and normalize any legacy direct companion selection back to its owning Office document. `core/artifacts/utils.ts` owns the deterministic pairing rule, including extraction from a persisted thread-state snapshot. On chat reload, `ChatBox` uses the live stream artifact channel when it is populated and otherwise fetches `threads.getState(threadId)` explicitly so paged message hydration cannot make the top-level Files control disappear. That restoration must not auto-open the panel. The artifact detail component may probe the sibling preview path for histories whose artifact state predates automatic preview publication. Artifact headers must let long filenames shrink and truncate while keeping preview controls, downloads, and the close button fixed inside the panel. Markdown links to a current-thread artifact open that same right-side artifact panel; links carrying `?download=true` retain normal browser download behavior. The PDF iframe must load Gateway's browser-compatible `/artifact-previews/pdf/` gallery, which rasterizes validated generated output PDFs—including Office companions—server-side. Original uploads and unsafe PDFs remain download-only. Keep the iframe sandboxed without `allow-scripts` or `allow-same-origin`, use `no-referrer`, and do not restore a raw unrestricted same-origin PDF iframe.
 Interactive lead-agent submissions and regenerations share `core/threads/run-config.ts::LEAD_AGENT_RECURSION_LIMIT` (currently 2000). This is a bounded LangGraph super-step budget, not an LLM-call count; the Gateway still clamps it and backend loop/token guards remain independent. Keep both submission paths on the shared constant so long, progressing Skill workflows do not diverge by UI action.
@@ -276,9 +332,10 @@ The backend remains the authoritative enforcement boundary. The panel must not m
 conversations into that current-session view.
 The five built-in external-agent cards navigate through same-origin server
 launch routes under `/api/cnooc/external-agents/<agent>/launch`. Those routes
-read the HttpOnly `cnooc.platform_token` cookie and redirect only to the fixed
-canonical HTTPS paths on `datalake.cnooc`, adding the current Token at redirect
-time. Keep the strict target allowlist plus `no-store` and `no-referrer`
+read the HttpOnly `cnooc.platform_token` cookie, validate its current-user
+binding through Gateway's Data Lake session endpoint, and redirect only to the
+fixed canonical HTTPS paths on `datalake.cnooc`, adding the current Token at
+redirect time. Keep the strict target allowlist plus `no-store` and `no-referrer`
 headers, and keep the shared Nginx entry's exact launch-prefix location ahead
 of its general `/api/` Gateway catch-all. The Token must never be hardcoded,
 returned to client JavaScript, or
@@ -315,6 +372,12 @@ missing/unknown locale state to `zh-CN`; users may still explicitly select
 English. The About markdown heading contains the product name only;
 build version metadata must not be appended to that heading.
 
+The CNOOC composer uses a white paper-plane image, so both the welcome composer
+and the existing-thread `chat-composer` must provide an explicit filled blue
+send-button background in their resting state; hover-only fill makes the action
+effectively invisible on the white task-page composer. Ordinary and custom-agent
+welcome footers share the `2026-2027` copyright year range.
+
 Scheduled tasks own their execution-model choice independently of chat settings.
 The create form prefers `deepseek-v4-flash` when that configured enterprise model
 is available, falls back to the first available model elsewhere, and persists the
@@ -340,6 +403,16 @@ mobile settings/artifacts, and the knowledge-page navigation escape hatch in
 the shared component tree. Do not pass SSO tokens through URLs or browser
 JavaScript. Mobile changes must retain desktop behavior and add Playwright
 coverage at 320, 375, 390, and 412 pixel widths plus a short landscape view.
+The site root redirects to `/workspace/chats/new`; IAM may interpose its normal
+login, but its return target remains new chat on desktop and mobile.
+`StyleAssetGuard` performs one cache-busting recovery when stale HTML references
+a missing hashed stylesheet. Its probe must depend on the external Tailwind
+`hidden` utility; adding inline `display:none` would defeat the health check.
+`WorkspaceViewportController` is the shared keyboard/viewport owner: it mirrors
+the VisualViewport height into `--app-viewport-height`, marks a composer-only
+software-keyboard state, and restores the page origin after focus leaves. Keep
+mobile editable text at least 16 CSS pixels to prevent iOS focus zoom; never
+solve keyboard overlap by disabling the user's pinch zoom.
 The empty mobile chat uses a compact welcome message and a bottom composer. Its
 primary composer tools stay on a single horizontal line, and the welcome action
 chips form one touch-scrollable row instead of wrapping. The mobile workspace

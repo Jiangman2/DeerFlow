@@ -551,13 +551,15 @@
    * desktop browsers and Android WebViews without display cutouts.
    */
   .app-viewport {
-    height: 100vh;
+    height: var(--app-viewport-height, 100vh);
+    max-height: var(--app-viewport-height, 100vh);
     min-height: 0;
   }
 
   @supports (height: 100dvh) {
     .app-viewport {
-      height: 100dvh;
+      height: var(--app-viewport-height, 100dvh);
+      max-height: var(--app-viewport-height, 100dvh);
     }
   }
 

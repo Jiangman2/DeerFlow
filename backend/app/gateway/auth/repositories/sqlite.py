@@ -46,13 +46,10 @@ class SQLiteUserRepository(UserRepository):
             # SQLite loses tzinfo on read; reattach UTC so downstream
             # code can compare timestamps reliably.
             created_at=row.created_at if row.created_at.tzinfo else row.created_at.replace(tzinfo=UTC),
-            last_login_at=(
-                row.last_login_at
-                if row.last_login_at is None or row.last_login_at.tzinfo
-                else row.last_login_at.replace(tzinfo=UTC)
-            ),
+            last_login_at=(row.last_login_at if row.last_login_at is None or row.last_login_at.tzinfo else row.last_login_at.replace(tzinfo=UTC)),
             oauth_provider=row.oauth_provider,
             oauth_id=row.oauth_id,
+            cnooc_platform_token_hash=row.cnooc_platform_token_hash,
             needs_setup=row.needs_setup,
             is_disabled=row.is_disabled,
             token_version=row.token_version,
@@ -73,6 +70,7 @@ class SQLiteUserRepository(UserRepository):
             last_login_at=user.last_login_at,
             oauth_provider=user.oauth_provider,
             oauth_id=user.oauth_id,
+            cnooc_platform_token_hash=user.cnooc_platform_token_hash,
             needs_setup=user.needs_setup,
             is_disabled=user.is_disabled,
             token_version=user.token_version,
@@ -129,6 +127,7 @@ class SQLiteUserRepository(UserRepository):
             row.token_version = user.token_version
             row.last_login_at = user.last_login_at
             await session.commit()
+            user.cnooc_platform_token_hash = row.cnooc_platform_token_hash
         return user
 
     async def count_users(self) -> int:
@@ -147,3 +146,19 @@ class SQLiteUserRepository(UserRepository):
             result = await session.execute(stmt)
             row = result.scalar_one_or_none()
             return self._row_to_user(row) if row is not None else None
+
+    async def bind_cnooc_platform_token(self, user_id: str, token_hash: str) -> User:
+        if len(token_hash) != 64:
+            raise ValueError("Invalid CNOOC platform-token hash")
+        async with self._sf() as session:
+            row = await session.get(UserRow, user_id)
+            if row is None:
+                raise UserNotFoundError(f"User {user_id} no longer exists")
+            row.cnooc_platform_token_hash = token_hash
+            try:
+                await session.commit()
+            except IntegrityError as exc:
+                await session.rollback()
+                raise ValueError("CNOOC platform token is already bound to another user") from exc
+            await session.refresh(row)
+            return self._row_to_user(row)

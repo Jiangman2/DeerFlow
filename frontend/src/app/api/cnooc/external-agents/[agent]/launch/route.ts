@@ -5,8 +5,8 @@ import {
   isCnoocExternalAgentKey,
 } from "@/server/cnooc-auth/external-agent-launch";
 import {
-  CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
-  resolveCnoocPlatformToken,
+  authorizeCnoocPlatformToken,
+  buildCnoocPlatformTokenRejection,
 } from "@/server/cnooc-auth/platform-token";
 
 export const dynamic = "force-dynamic";
@@ -34,32 +34,20 @@ export async function GET(
   const { agent } = await context.params;
   if (!isCnoocExternalAgentKey(agent)) {
     return applySecurityHeaders(
-      NextResponse.json(
-        { detail: "Unknown external agent." },
-        { status: 404 },
-      ),
+      NextResponse.json({ detail: "Unknown external agent." }, { status: 404 }),
     );
   }
 
-  const platformToken = resolveCnoocPlatformToken(
-    request.cookies.get(CNOOC_PLATFORM_TOKEN_COOKIE_NAME)?.value,
-    null,
-  );
-  if (!platformToken) {
+  const authorization = await authorizeCnoocPlatformToken(request);
+  if (!authorization.authorized) {
     return applySecurityHeaders(
-      NextResponse.json(
-        {
-          detail:
-            "The CNOOC platform SSO token is unavailable. Re-enter DeerFlow from the data-lake portal.",
-        },
-        { status: 401 },
-      ),
+      buildCnoocPlatformTokenRejection(authorization.reason),
     );
   }
 
   let target: URL;
   try {
-    target = buildCnoocExternalAgentTargetUrl(agent, platformToken);
+    target = buildCnoocExternalAgentTargetUrl(agent, authorization.token);
   } catch {
     return applySecurityHeaders(
       NextResponse.json(

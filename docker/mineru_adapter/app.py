@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+import socket
 import subprocess
 import tempfile
 import threading
@@ -175,6 +176,230 @@ class ParseCoordinator:
 
 
 _PARSE_COORDINATOR = ParseCoordinator()
+
+
+class DispatchQueueFull(RuntimeError):
+    """Raised when the bounded dispatcher queue cannot accept more uploads."""
+
+
+class DispatchUnavailable(RuntimeError):
+    """Raised when no healthy serialized parser worker becomes available."""
+
+
+class ParseDispatcher:
+    """Priority-aware dispatcher for the serialized parser worker Pods.
+
+    Each worker process remains strictly single-parse.  The dispatcher owns the
+    cross-Pod queue so Kubernetes connection reuse cannot accidentally pin most
+    of the document traffic to one Pod.  Interactive DeerFlow chat uploads may
+    move ahead of queued knowledge-base batch work, but never interrupt a parse
+    that has already started.
+    """
+
+    _PRIORITY_RANK = {"interactive": 0, "bulk": 1}
+
+    def __init__(
+        self,
+        *,
+        backend_host: str,
+        backend_port: int,
+        maximum_waiting: int,
+        minimum_backends: int,
+        wait_timeout_seconds: float,
+        request_timeout_seconds: float,
+        session: Any | None = None,
+        resolver: Callable[[str], list[str]] | None = None,
+    ) -> None:
+        if backend_port <= 0:
+            raise ValueError("Dispatcher backend port must be greater than zero")
+        if maximum_waiting <= 0:
+            raise ValueError("Dispatcher queue size must be greater than zero")
+        if minimum_backends <= 0:
+            raise ValueError("Dispatcher minimum backend count must be positive")
+        self.backend_host = backend_host
+        self.backend_port = backend_port
+        self.maximum_waiting = maximum_waiting
+        self.minimum_backends = minimum_backends
+        self.wait_timeout_seconds = wait_timeout_seconds
+        self.request_timeout_seconds = request_timeout_seconds
+        self._condition = threading.Condition()
+        self._pending: list[tuple[int, int, str]] = []
+        self._busy: set[str] = set()
+        self._known: tuple[str, ...] = ()
+        self._sequence = 0
+        self._cursor = 0
+        self._resolver = resolver or self._resolve_ipv4
+        if session is None:
+            session = requests.Session()
+            session.trust_env = False
+        self._session = session
+
+    @staticmethod
+    def _resolve_ipv4(host: str) -> list[str]:
+        addresses = {
+            result[4][0]
+            for result in socket.getaddrinfo(
+                host,
+                None,
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+            )
+        }
+        return sorted(addresses)
+
+    def _discover(self) -> tuple[str, ...]:
+        try:
+            addresses = tuple(sorted(set(self._resolver(self.backend_host))))
+        except OSError as exc:
+            logger.warning(
+                "MinerU dispatcher backend discovery failed host=%s error=%s",
+                self.backend_host,
+                type(exc).__name__,
+            )
+            addresses = ()
+        with self._condition:
+            self._known = addresses
+        return addresses
+
+    def snapshot(self) -> dict[str, Any]:
+        discovered = self._discover()
+        with self._condition:
+            return {
+                "discovered": len(discovered),
+                "minimum": self.minimum_backends,
+                "busy": len(self._busy),
+                "waiting": len(self._pending),
+                "ready": len(discovered) >= self.minimum_backends,
+            }
+
+    def _acquire_backend(self, priority: str) -> tuple[str, str, float]:
+        normalized_priority = priority.strip().lower()
+        rank = self._PRIORITY_RANK.get(normalized_priority, 1)
+        ticket_id = uuid.uuid4().hex[:12]
+        queued_at = time.monotonic()
+        deadline = queued_at + self.wait_timeout_seconds
+        with self._condition:
+            if len(self._pending) >= self.maximum_waiting:
+                raise DispatchQueueFull(
+                    "Document parser dispatcher queue is full; retry later"
+                )
+            self._sequence += 1
+            ticket = (rank, self._sequence, ticket_id)
+            self._pending.append(ticket)
+
+        while True:
+            self._discover()
+            with self._condition:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    if ticket in self._pending:
+                        self._pending.remove(ticket)
+                    self._condition.notify_all()
+                    raise DispatchUnavailable(
+                        "Timed out waiting for an available document parser worker"
+                    )
+                head = min(self._pending) if self._pending else None
+                free = [address for address in self._known if address not in self._busy]
+                if head == ticket and free:
+                    backend = free[self._cursor % len(free)]
+                    self._cursor += 1
+                    self._pending.remove(ticket)
+                    self._busy.add(backend)
+                    return backend, ticket_id, time.monotonic() - queued_at
+                self._condition.wait(timeout=min(0.5, remaining))
+
+    def _release_backend(self, backend: str) -> None:
+        with self._condition:
+            self._busy.discard(backend)
+            self._condition.notify_all()
+
+    def forward(
+        self,
+        *,
+        body: bytes,
+        content_type: str,
+        priority: str,
+    ) -> tuple[int, str, bytes, str]:
+        backend, request_id, wait_seconds = self._acquire_backend(priority)
+        backend_url = f"http://{backend}:{self.backend_port}/file_parse"
+        logger.info(
+            "Dispatch started request_id=%s priority=%s backend=%s "
+            "wait_seconds=%.3f bytes=%d",
+            request_id,
+            priority,
+            backend,
+            wait_seconds,
+            len(body),
+        )
+        started_at = time.monotonic()
+        try:
+            response = self._session.post(
+                backend_url,
+                headers={"Content-Type": content_type},
+                data=body,
+                timeout=(5.0, self.request_timeout_seconds),
+            )
+            return (
+                int(response.status_code),
+                response.headers.get("Content-Type", "application/json; charset=utf-8"),
+                bytes(response.content),
+                backend,
+            )
+        except requests.RequestException as exc:
+            logger.warning(
+                "Dispatch transport failure request_id=%s backend=%s error=%s",
+                request_id,
+                backend,
+                type(exc).__name__,
+            )
+            # A transport failure after request delivery is ambiguous.  Do not
+            # resubmit automatically because that could duplicate a MinerU job.
+            raise DispatchUnavailable(
+                f"Document parser worker transport failed: {type(exc).__name__}"
+            ) from exc
+        finally:
+            self._release_backend(backend)
+            logger.info(
+                "Dispatch finished request_id=%s backend=%s elapsed_seconds=%.3f",
+                request_id,
+                backend,
+                time.monotonic() - started_at,
+            )
+
+
+_PARSE_DISPATCHER: ParseDispatcher | None = None
+_PARSE_DISPATCHER_LOCK = threading.Lock()
+
+
+def adapter_mode() -> str:
+    mode = os.getenv("MINERU_ADAPTER_MODE", "worker").strip().lower()
+    if mode not in {"worker", "dispatcher"}:
+        raise ValueError("MINERU_ADAPTER_MODE must be worker or dispatcher")
+    return mode
+
+
+def parse_dispatcher() -> ParseDispatcher:
+    global _PARSE_DISPATCHER
+    with _PARSE_DISPATCHER_LOCK:
+        if _PARSE_DISPATCHER is None:
+            _PARSE_DISPATCHER = ParseDispatcher(
+                backend_host=os.getenv(
+                    "MINERU_DISPATCH_BACKEND_HOST",
+                    "deer-flow-mineru-adapter-workers",
+                ).strip(),
+                backend_port=_int_env("MINERU_DISPATCH_BACKEND_PORT", 50052),
+                maximum_waiting=_int_env("MINERU_DISPATCH_MAX_WAITING", 16),
+                minimum_backends=_int_env("MINERU_DISPATCH_MIN_BACKENDS", 3),
+                wait_timeout_seconds=_float_env(
+                    "MINERU_DISPATCH_WAIT_TIMEOUT_SECONDS",
+                    45.0,
+                ),
+                request_timeout_seconds=_float_env(
+                    "MINERU_DISPATCH_REQUEST_TIMEOUT_SECONDS",
+                    1800.0,
+                ),
+            )
+        return _PARSE_DISPATCHER
 
 
 def _float_env(name: str, default: float) -> float:
@@ -876,6 +1101,21 @@ class MinerUBusinessError(RuntimeError):
         )
 
 
+class MinerUHTTPError(requests.HTTPError, RuntimeError):
+    """HTTP failure with a bounded upstream diagnostic and stable status."""
+
+    def __init__(self, *, operation: str, response: Any) -> None:
+        self.operation = operation
+        self.status_code = int(response.status_code)
+        body = re.sub(r"\s+", " ", str(getattr(response, "text", ""))).strip()
+        self.detail = body[:300] or "empty response"
+        super().__init__(
+            f"Enterprise MinerU HTTP {self.status_code} during {operation}: "
+            f"{self.detail}",
+            response=response,
+        )
+
+
 class EnterpriseMinerUClient:
     """Client for the native enterprise MinerU RESTful API."""
 
@@ -981,6 +1221,15 @@ class EnterpriseMinerUClient:
             "Authorization": f"Bearer {self.api_token}",
             "Accept": "application/json",
         }
+
+    @staticmethod
+    def _raise_for_status(response: Any, operation: str) -> None:
+        status_code = getattr(response, "status_code", None)
+        if status_code is None:
+            response.raise_for_status()
+            return
+        if int(status_code) >= 400:
+            raise MinerUHTTPError(operation=operation, response=response)
 
     @staticmethod
     def _request_data() -> dict[str, str]:
@@ -1170,7 +1419,7 @@ class EnterpriseMinerUClient:
                     data=self._request_data(),
                     timeout=self.timeout_seconds,
                 )
-                response.raise_for_status()
+                self._raise_for_status(response, "synchronous parse")
                 payload = self._task_fields(
                     self._decode_json_response(response, "synchronous parse")
                 )
@@ -1256,7 +1505,7 @@ class EnterpriseMinerUClient:
             timeout=min(self.timeout_seconds, 120),
         )
         if submission.status_code not in {HTTPStatus.OK, HTTPStatus.ACCEPTED}:
-            submission.raise_for_status()
+            self._raise_for_status(submission, "asynchronous submission")
         submission_payload = self._task_fields(
             self._decode_json_response(submission, "asynchronous submission")
         )
@@ -1303,7 +1552,7 @@ class EnterpriseMinerUClient:
                 if delay is not None:
                     time.sleep(delay)
                     continue
-            status_response.raise_for_status()
+            self._raise_for_status(status_response, "task status")
             try:
                 decoded_status = self._decode_json_response(
                     status_response, "task status"
@@ -1386,7 +1635,7 @@ class EnterpriseMinerUClient:
                 if delay is not None:
                     time.sleep(delay)
                     continue
-            result_response.raise_for_status()
+            self._raise_for_status(result_response, "task result")
             try:
                 decoded_result = self._decode_json_response(
                     result_response, "task result"
@@ -1879,21 +2128,40 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
 
     def _json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
         encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        self.send_response(status.value)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(encoded)))
+        self._bytes(status.value, "application/json; charset=utf-8", encoded)
+
+    def _bytes(self, status: int, content_type: str, content: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Cache-Control", "no-store")
+        if content_type:
+            self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(content)))
         self.end_headers()
-        self.wfile.write(encoded)
+        self.wfile.write(content)
 
     def do_GET(self) -> None:  # noqa: N802
         # WeKnora's built-in MinerU availability check calls /docs, while the
         # Kubernetes probes use /health. Both are intentionally side-effect free.
         normalized_path = self.path.rstrip("/")
         if normalized_path == "/health":
+            if adapter_mode() == "dispatcher":
+                dispatcher = parse_dispatcher().snapshot()
+                self._json(
+                    HTTPStatus.OK
+                    if dispatcher["ready"]
+                    else HTTPStatus.SERVICE_UNAVAILABLE,
+                    {
+                        "status": "ok" if dispatcher["ready"] else "unavailable",
+                        "role": "dispatcher",
+                        "dispatcher": dispatcher,
+                    },
+                )
+                return
             self._json(
                 HTTPStatus.OK,
                 {
                     "status": "ok",
+                    "role": "worker",
                     "parser": _PARSE_COORDINATOR.snapshot(),
                 },
             )
@@ -1912,9 +2180,28 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", "0"))
             if content_length <= 0 or content_length > max_bytes:
                 raise ValueError("Upload is empty or exceeds the configured size limit")
+            content_type = self.headers.get("Content-Type", "")
+            body = self.rfile.read(content_length)
+            if adapter_mode() == "dispatcher":
+                status, response_type, response_body, backend = parse_dispatcher().forward(
+                    body=body,
+                    content_type=content_type,
+                    priority=self.headers.get(
+                        "X-DeerFlow-Parse-Priority",
+                        "bulk",
+                    ),
+                )
+                logger.info(
+                    "Dispatch response backend=%s status=%d bytes=%d",
+                    backend,
+                    status,
+                    len(response_body),
+                )
+                self._bytes(status, response_type, response_body)
+                return
             filename, content = parse_multipart_upload(
-                self.headers.get("Content-Type", ""),
-                self.rfile.read(content_length),
+                content_type,
+                body,
             )
             parsed = _PARSE_COORDINATOR.run(
                 lambda: parse_upload(content, filename),
@@ -1925,6 +2212,33 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
         except (KeyError, ValueError) as exc:
             logger.warning("Rejected MinerU adapter request: %s", exc)
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+        except DispatchQueueFull as exc:
+            logger.warning("MinerU dispatcher queue full: %s", exc)
+            self._json(HTTPStatus.TOO_MANY_REQUESTS, {"error": str(exc)})
+        except DispatchUnavailable as exc:
+            logger.warning("MinerU dispatcher unavailable: %s", exc)
+            self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": str(exc)})
+        except MinerUHTTPError as exc:
+            logger.warning("MinerU upstream request rejected: %s", exc)
+            if exc.status_code == HTTPStatus.BAD_REQUEST and exc.operation in {
+                "synchronous parse",
+                "asynchronous submission",
+            }:
+                self._json(
+                    HTTPStatus.UNPROCESSABLE_ENTITY,
+                    {
+                        "error": "The document was rejected by the parser",
+                        "detail": exc.detail,
+                    },
+                )
+            else:
+                self._json(
+                    HTTPStatus.BAD_GATEWAY,
+                    {
+                        "error": "Upstream document parser failed",
+                        "upstream_status": exc.status_code,
+                    },
+                )
         except Exception as exc:
             logger.exception("MinerU adapter request failed")
             self._json(HTTPStatus.BAD_GATEWAY, {"error": str(exc)[:500]})
@@ -1932,11 +2246,17 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
 
 def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
-    if not os.getenv("MINERU_API_URL") or not os.getenv("MINERU_API_TOKEN"):
+    mode = adapter_mode()
+    if mode == "worker" and (
+        not os.getenv("MINERU_API_URL") or not os.getenv("MINERU_API_TOKEN")
+    ):
         raise SystemExit("MINERU_API_URL and MINERU_API_TOKEN are required")
+    if mode == "dispatcher":
+        snapshot = parse_dispatcher().snapshot()
+        logger.info("MinerU dispatcher initial state: %s", snapshot)
     port = int(os.getenv("MINERU_LISTEN_PORT", "50052"))
     server = ThreadingHTTPServer(("0.0.0.0", port), MinerUAdapterHandler)
-    logger.info("MinerU compatibility adapter listening on port %d", port)
+    logger.info("MinerU compatibility adapter role=%s listening on port %d", mode, port)
     server.serve_forever()
 
 

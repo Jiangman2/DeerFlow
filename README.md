@@ -856,6 +856,14 @@ When you install `.skill` archives through the Gateway, DeerFlow accepts standar
 
 Skill installs and agent-managed skill edits run through **SkillScan**, a native deterministic safety scanner before the LLM-based skill scanner. Phase 1 runs offline with no Semgrep/OpenGrep dependency, blocks high-confidence `CRITICAL` findings such as private keys or shell execution, and passes warning findings to the LLM scanner for contextual review. Set `skill_scan.enabled: false` in `config.yaml` to disable only the deterministic analyzers; safe archive extraction and the LLM scanner still run.
 
+Set `skill_evolution.enabled: true` to let the bundled `skill-creator` persist
+agent-authored skills through `skill_manage`. Each authenticated user's skills
+are stored under that user's `.deer-flow/users/<user_id>/skills/custom/`
+directory, become available to that user's later conversations immediately,
+and remain subject to SkillScan plus LLM moderation. Moderation accepts both
+Chat Completions string responses and Responses API text blocks; reasoning and
+tool-call blocks never participate in the security decision.
+
 DeerFlow also ships with **skill-reviewer**, a public skill for read-only skill quality review. It uses the built-in `review_skill_package` tool to inspect installed skills, local packages, archives, or pasted `SKILL.md` content without activating the target skill, binding its secrets, executing its scripts, or installing it. The tool returns a compact, tag-neutralized JSON payload to the model context and keeps the full raw review payload in the tool artifact for programmatic consumers. The deterministic review core reuses DeerFlow parsing and SkillScan facts, emits versioned JSON contracts under `contracts/skill_review/`, and can be run from the backend CLI:
 
 ```bash
@@ -884,11 +892,37 @@ paths, and oversized payloads are rejected.
 
 The chat composer exposes this integration as **Data Lake**. The user's
 enabled/disabled choice is stored once in browser settings and applies to every
-conversation; missing settings default to enabled. Choosing **Do not use Data
-Lake** hides the Data Lake file list, closes an open list dialog, and prevents
-all three DataLake tools from being assembled or contacted for each run.
-Existing attachments remain part of their conversations, and the choice is
-carried into normal, regenerated, custom-agent, and branched runs.
+conversation; missing settings default to disabled. When **Use Data Lake** is
+selected and the HttpOnly `cnooc.platform_token` cookie is absent, Gateway
+persists a user-bound 60-second challenge, obtains the cached platform appCode,
+exchanges the challenge for a token, validates the exchanged Token through the
+CNOOC identity endpoint, stores only its unique SHA-256 binding on the current
+user, and then writes the raw Token only to the HttpOnly cookie. The appCode
+request follows the platform's eight-digit Unix-time prefix contract. Users who
+sign in through enterprise IAM can authorize Data Lake only when their trusted
+IAM corporate email exactly matches the corporate email verified from the Data
+Lake Token; other identity providers and mismatches remain blocked. CNOOC Token
+login creates the same binding before issuing either login cookie. Opening the
+file list repeats this idempotent authorization check. Every Next.js file-list,
+download, and external-agent launch route asks Gateway to compare that Cookie
+with the current user's binding before forwarding it; a mismatch clears the old
+Cookie and resets the browser Data Lake preference to disabled. If the
+shop-cart list service instead reports `code=1` and `msg=invalid_token`, the UI
+prompts the user to sign in to Data Lake while preserving the Cookie and enabled
+preference. If token exchange is reachable but rejects the account at the
+business layer, the UI shows **No Data Lake permission** and remains disabled;
+transport and upstream service failures retain the retry-oriented authorization
+error. Logging out also resets the preference. The public
+provider callback is
+`POST /api/v1/data-lake/auth/callback`; it accepts the one-time challenge and
+returns the bound user profile without exposing the token to browser
+JavaScript. Its OpenAPI operation declares the strict JSON request body, and
+the shared Nginx entry returns a JSON 429 response when the per-client limit is
+exceeded. Choosing **Do not use Data Lake** hides the file list, closes an
+open list dialog, and prevents all three DataLake tools from being assembled or
+contacted for each run. Existing attachments remain part of their
+conversations, and the choice is carried into normal, regenerated,
+custom-agent, and branched runs.
 
 Gateway-generated follow-up suggestions now normalize both plain-string model output and block/list-style rich content before parsing the JSON array response, so provider-specific content wrappers do not silently drop suggestions.
 
@@ -1309,10 +1343,16 @@ tenant memberships and forwards the matching consumer tenant as `X-Tenant-ID`.
 It returns an authorization error instead of falling back to an unrelated active
 tenant when the knowledge base is not present in those memberships.
 Knowledge bases selected in the chat composer are forwarded as the exact scope
-for `weknora_search` and `weknora_ask`, using a server-derived per-user token.
-When no knowledge base is selected, both tools are removed from lead and subagent
-toolsets, and historical knowledge-base references in memory are explicitly treated
-as non-operative context.
+for DeerFlow's ten permission-scoped WeKnora wrappers, using a server-derived
+per-user token. The tool family covers knowledge-base/document discovery,
+parsed-document reading, search, RAG answer generation, agent discovery, and
+official WeKnora agent-chat invocation. The wrapper names are DeerFlow-specific;
+the underlying APIs are official WeKnora capabilities. Internal mutation-capable
+agent tools remain behind WeKnora authorization and pending human approval is
+never auto-approved. When no knowledge base is selected, the complete
+`weknora_*` family is removed from lead and subagent toolsets, and historical
+knowledge-base references in memory are explicitly treated as non-operative
+context. See [docs/weknora_integration.md](docs/weknora_integration.md).
 For the local Kubernetes stack, the native knowledge UI opens on port `32090`;
 the optional same-origin `/platform/knowledge-bases` fallback is routed through
 the stable `weknora-frontend` service name rather than an ephemeral ClusterIP.

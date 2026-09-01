@@ -5,6 +5,7 @@ import "@/styles/cnooc-concept.css";
 import { type Metadata, type Viewport } from "next";
 
 import { brand } from "@/brand";
+import { StyleAssetGuard } from "@/components/style-asset-guard";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/core/i18n/context";
 import { detectLocaleServer } from "@/core/i18n/server";
@@ -24,6 +25,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
   colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f4f7fb" },
@@ -38,6 +40,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressContentEditableWarning suppressHydrationWarning>
       <body>
+        <StyleAssetGuard />
         <ThemeProvider attribute="class" enableSystem disableTransitionOnChange>
           <I18nProvider initialLocale={locale}>{children}</I18nProvider>
         </ThemeProvider>

@@ -2,6 +2,7 @@ import type { Message, Thread } from "@langchain/langgraph-sdk";
 
 import type { FeedbackData } from "../api/feedback";
 import type { Todo } from "../todos";
+import type { WeKnoraScopeItem, WeKnoraTagScope } from "../weknora/types";
 
 export interface GoalState {
   objective: string;
@@ -49,6 +50,9 @@ export interface AgentThreadContext extends Record<string, unknown> {
   datalake_enabled?: boolean;
   weknora_knowledge_base_ids?: string[];
   weknora_knowledge_bases?: { id: string; name: string }[];
+  weknora_knowledge_ids?: string[];
+  weknora_tag_scopes?: WeKnoraTagScope[];
+  weknora_scope_items?: WeKnoraScopeItem[];
 }
 
 export interface AgentThread extends Thread<AgentThreadState> {

@@ -20,9 +20,9 @@ from app.gateway.auth import (
     create_access_token,
 )
 from app.gateway.auth.cnooc import CnoocAuthError, check_cnooc_token
-from app.gateway.auth.iam import IAMAuthError, account_email, build_authorization_url, exchange_code, get_user_info
 from app.gateway.auth.config import get_auth_config
 from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse
+from app.gateway.auth.iam import IAMAuthError, account_email, build_authorization_url, exchange_code, get_user_info
 from app.gateway.auth.oidc import OIDCError, OIDCService
 from app.gateway.auth.oidc_state import (
     OIDCStatePayload,
@@ -33,6 +33,11 @@ from app.gateway.auth.oidc_state import (
     generate_oidc_state,
     get_state_cookie,
     set_state_cookie,
+)
+from app.gateway.auth.platform_token_cookie import (
+    CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
+    clear_cnooc_platform_token_cookie,
+    set_cnooc_platform_token_cookie,
 )
 from app.gateway.auth.user_provisioning import get_or_provision_oidc_user
 from app.gateway.csrf_middleware import CSRF_COOKIE_NAME, _request_origin, generate_csrf_token, is_secure_request
@@ -149,9 +154,6 @@ class MessageResponse(BaseModel):
     message: str
 
 
-CNOOC_PLATFORM_TOKEN_COOKIE_NAME = "cnooc.platform_token"
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
@@ -192,17 +194,6 @@ async def _record_user_login(user):
     """Persist a successful login time before issuing the session cookie."""
     user.last_login_at = datetime.now(UTC)
     return await get_local_provider().update_user(user)
-
-
-def _set_cnooc_platform_token_cookie(response: Response, token: str, request: Request) -> None:
-    response.set_cookie(
-        key=CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
-        value=token,
-        httponly=True,
-        secure=is_secure_request(request),
-        samesite="lax",
-        max_age=7 * 24 * 3600,
-    )
 
 
 # ── Rate Limiting ────────────────────────────────────────────────────────
@@ -356,6 +347,7 @@ async def login_local(
     user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
+    clear_cnooc_platform_token_cookie(response, request)
 
     return LoginResponse(
         expires_in=get_auth_config().token_expiry_days * 24 * 3600,
@@ -382,6 +374,7 @@ async def register(request: Request, response: Response, body: RegisterRequest):
     user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
+    clear_cnooc_platform_token_cookie(response, request)
 
     return UserResponse(
         id=str(user.id),
@@ -588,6 +581,7 @@ async def initialize_admin(request: Request, response: Response, body: Initializ
     user = await _record_user_login(user)
     token = create_access_token(str(user.id), token_version=user.token_version)
     _set_session_cookie(response, token, request)
+    clear_cnooc_platform_token_cookie(response, request)
 
     return UserResponse(
         id=str(user.id),
@@ -670,13 +664,27 @@ async def cnooc_token_login(
     if user.is_disabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been disabled.")
 
+    try:
+        user = await provider.bind_cnooc_platform_token(str(user.id), checked.platform_token_hash)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="CNOOC platform token is already bound to another account.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("Failed to bind CNOOC platform token for user %s", user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to persist CNOOC login.",
+        ) from exc
+
     user = await _record_user_login(user)
     access_token = create_access_token(str(user.id), token_version=user.token_version)
     redirect_path = validate_next_param(next) or "/workspace/chats/new"
     redirect_response = RedirectResponse(url=redirect_path, status_code=status.HTTP_302_FOUND)
     _set_session_cookie(redirect_response, access_token, request)
     _set_csrf_cookie(redirect_response, request)
-    _set_cnooc_platform_token_cookie(redirect_response, token, request)
+    set_cnooc_platform_token_cookie(redirect_response, token, request)
     return redirect_response
 
 
@@ -783,6 +791,7 @@ async def iam_callback(request: Request, code: str | None = None, state: str | N
     response = RedirectResponse(url=f"{config.frontend_base_url or ''}/auth/callback?next={urllib.parse.quote(state_payload.next_path)}", status_code=status.HTTP_302_FOUND)
     _set_session_cookie(response, create_access_token(str(user.id), token_version=user.token_version), request)
     _set_csrf_cookie(response, request)
+    clear_cnooc_platform_token_cookie(response, request)
     delete_state_cookie(response, request, "iam")
     return response
 
@@ -1066,6 +1075,7 @@ async def oauth_callback(
 
     # Set CSRF cookie (callback is a GET, so CSRF middleware won't set it)
     _set_csrf_cookie(redirect_response, request)
+    clear_cnooc_platform_token_cookie(redirect_response, request)
 
     # Delete state cookie
     delete_state_cookie(redirect_response, request, provider)

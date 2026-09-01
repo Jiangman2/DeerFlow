@@ -50,8 +50,8 @@ from deerflow.config.subagents_config import DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN
 from deerflow.models import create_chat_model
 from deerflow.skills.tool_policy import ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES, filter_tools_by_skill_allowed_tools
 from deerflow.skills.types import Skill
-from deerflow.tracing import build_tracing_callbacks
 from deerflow.tools.tools import filter_tools_by_datalake_scope
+from deerflow.tracing import build_tracing_callbacks
 
 logger = logging.getLogger(__name__)
 
@@ -462,7 +462,7 @@ def _restore_task_tool_for_subagent_mode(raw_tools, filtered_tools, *, subagent_
     return [*filtered_tools, task_tool] if task_tool is not None else filtered_tools
 
 
-def _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, *, selected_ids: object):
+def _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, *, scope_context: object):
     """Gate WeKnora on an explicit KB scope, restoring configured tools when selected.
 
     Skill ``allowed-tools`` policy may remove domain tools globally even though
@@ -473,7 +473,7 @@ def _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, *, sele
 
     from deerflow.runtime.weknora_context import gate_weknora_tools_for_scope
 
-    gated = gate_weknora_tools_for_scope(raw_tools, filtered_tools, selected_ids=selected_ids)
+    gated = gate_weknora_tools_for_scope(raw_tools, filtered_tools, scope_context=scope_context)
     restored_names = [tool.name for tool in gated if tool not in filtered_tools and getattr(tool, "name", None)]
     if restored_names:
         logger.info("Selected WeKnora scope restored executable tools: %s", restored_names)
@@ -624,7 +624,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         filtered = _restore_weknora_tools_for_selected_scope(
             raw_tools,
             filtered,
-            selected_ids=cfg.get("weknora_knowledge_base_ids"),
+            scope_context=cfg,
         )
         filtered = filter_tools_by_datalake_scope(filtered, enabled=datalake_enabled)
         if non_interactive:
@@ -699,7 +699,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     filtered = _restore_weknora_tools_for_selected_scope(
         raw_tools,
         filtered,
-        selected_ids=cfg.get("weknora_knowledge_base_ids"),
+        scope_context=cfg,
     )
     filtered = filter_tools_by_datalake_scope(filtered, enabled=datalake_enabled)
     if non_interactive:

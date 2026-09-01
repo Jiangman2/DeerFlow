@@ -88,9 +88,10 @@ def test_parse_conversation_document_preserves_pptx_media_type(monkeypatch) -> N
         async def __aexit__(self, exc_type, exc, traceback):
             return None
 
-        async def post(self, endpoint, *, files):
+        async def post(self, endpoint, *, headers, files):
             request_files.update(files)
             assert endpoint == "http://parser:50052/file_parse"
+            assert headers == {"X-DeerFlow-Parse-Priority": "interactive"}
             return FakeResponse()
 
     monkeypatch.setattr(

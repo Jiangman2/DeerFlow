@@ -280,9 +280,9 @@ and DeerFlow UI policy. After a successful exchange it also removes the
 standalone `weknora_lite_mode` fallback (and its session-only last path), because
 Lite mode hides organizations/shared spaces and must not survive an earlier
 failed native-auth bootstrap. System administrators keep every native route.
-Ordinary users see only Knowledge Bases and Shared Spaces in the native
-sidebar. New Chat, Agents, Publish Integrations, system settings, and
-tenant-management entries remain hidden, while native RBAC remains the
+Ordinary users see New Chat, Knowledge Bases, Shared Spaces, and Agents in the
+native sidebar. Publish Integrations, system settings, and tenant-management
+entries remain hidden, while native RBAC remains the
 authorization boundary. Entering the DeerFlow Knowledge page collapses
 DeerFlow's own sidebar and the patch expands WeKnora's sidebar once for both
 ordinary users and administrators. The native WeKnora sidebar toggle remains

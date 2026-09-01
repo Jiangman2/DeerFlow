@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0012_user_last_login"
+HEAD = "0013_data_lake_auth_challenges"
 BASELINE = "0001_baseline"
 
 
@@ -78,6 +78,16 @@ async def _runs_column_meta(engine, column_name: str) -> dict:
 async def _runs_index_names(engine) -> set[str]:
     async with engine.connect() as conn:
         return await conn.run_sync(lambda c: {ix["name"] for ix in sa.inspect(c).get_indexes("runs")})
+
+
+async def _users_columns(engine) -> set[str]:
+    async with engine.connect() as conn:
+        return await conn.run_sync(lambda c: {col["name"] for col in sa.inspect(c).get_columns("users")})
+
+
+async def _users_index_names(engine) -> set[str]:
+    async with engine.connect() as conn:
+        return await conn.run_sync(lambda c: {ix["name"] for ix in sa.inspect(c).get_indexes("users")})
 
 
 async def _alembic_version(engine) -> str | None:
@@ -147,6 +157,8 @@ async def test_empty_branch_creates_all_and_stamps_head(tmp_path: Path) -> None:
         }:
             assert required in tables, f"missing table: {required}"
         assert "token_usage_by_model" in await _runs_columns(engine)
+        assert "cnooc_platform_token_hash" in await _users_columns(engine)
+        assert "uq_users_cnooc_platform_token_hash" in await _users_index_names(engine)
         assert await _alembic_version(engine) == HEAD
         # The partial unique index on (thread_id WHERE status IN pending/running)
         # must exist on a fresh DB because the empty-branch stamps head without
@@ -847,7 +859,7 @@ class TestDecideState:
 # ---------------------------------------------------------------------------
 
 
-def test_head_revision_is_thread_creation_ledger_revision() -> None:
+def test_head_revision_is_data_lake_auth_challenge_revision() -> None:
     assert _get_head_revision() == HEAD
 
 

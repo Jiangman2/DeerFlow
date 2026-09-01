@@ -2100,6 +2100,7 @@ def test_health_probe_remains_responsive_while_parse_is_running(monkeypatch):
         assert response.status == 200
         assert health == {
             "status": "ok",
+            "role": "worker",
             "parser": {"active": 1, "waiting": 0},
         }
     finally:
@@ -2124,3 +2125,188 @@ def test_weknora_docs_probe_is_supported():
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_parse_dispatcher_round_robins_serialized_workers():
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=1,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=2,
+        resolver=lambda _host: ["10.0.0.1", "10.0.0.2"],
+    )
+
+    first, _, _ = dispatcher._acquire_backend("bulk")
+    dispatcher._release_backend(first)
+    second, _, _ = dispatcher._acquire_backend("bulk")
+    dispatcher._release_backend(second)
+
+    assert (first, second) == ("10.0.0.1", "10.0.0.2")
+    assert dispatcher.snapshot() == {
+        "discovered": 2,
+        "minimum": 1,
+        "busy": 0,
+        "waiting": 0,
+        "ready": True,
+    }
+
+
+def test_parse_dispatcher_prioritizes_interactive_uploads():
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=1,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=2,
+        resolver=lambda _host: ["10.0.0.1"],
+    )
+    active, _, _ = dispatcher._acquire_backend("bulk")
+    order: list[str] = []
+
+    def acquire(label: str, priority: str) -> None:
+        backend, _, _ = dispatcher._acquire_backend(priority)
+        order.append(label)
+        dispatcher._release_backend(backend)
+
+    queued_bulk = threading.Thread(target=acquire, args=("bulk", "bulk"))
+    queued_bulk.start()
+    deadline = time.monotonic() + 1
+    while dispatcher.snapshot()["waiting"] != 1 and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    interactive = threading.Thread(
+        target=acquire,
+        args=("interactive", "interactive"),
+    )
+    interactive.start()
+    deadline = time.monotonic() + 1
+    while dispatcher.snapshot()["waiting"] != 2 and time.monotonic() < deadline:
+        time.sleep(0.01)
+
+    dispatcher._release_backend(active)
+    interactive.join(timeout=2)
+    queued_bulk.join(timeout=2)
+
+    assert not interactive.is_alive()
+    assert not queued_bulk.is_alive()
+    assert order == ["interactive", "bulk"]
+
+
+def test_dispatcher_forwards_request_without_automatic_resubmission():
+    calls: list[dict[str, object]] = []
+
+    class Response:
+        status_code = 200
+        content = b'{"status":"ok"}'
+        headers = {"Content-Type": "application/json"}
+
+    class Session:
+        def post(self, url, *, headers, data, timeout):
+            calls.append(
+                {
+                    "url": url,
+                    "headers": headers,
+                    "data": data,
+                    "timeout": timeout,
+                }
+            )
+            return Response()
+
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=1,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=30,
+        resolver=lambda _host: ["10.0.0.7"],
+        session=Session(),
+    )
+
+    result = dispatcher.forward(
+        body=b"multipart-body",
+        content_type="multipart/form-data; boundary=test",
+        priority="interactive",
+    )
+
+    assert result == (
+        200,
+        "application/json",
+        b'{"status":"ok"}',
+        "10.0.0.7",
+    )
+    assert calls == [
+        {
+            "url": "http://10.0.0.7:50052/file_parse",
+            "headers": {"Content-Type": "multipart/form-data; boundary=test"},
+            "data": b"multipart-body",
+            "timeout": (5.0, 30),
+        }
+    ]
+
+
+@pytest.mark.parametrize("document_count", [3, 10, 30])
+def test_parse_dispatcher_acceptance_matrix_bounds_worker_parallelism(
+    document_count,
+):
+    state_lock = threading.Lock()
+    active = 0
+    maximum_active = 0
+    backends: set[str] = set()
+
+    class Response:
+        status_code = 200
+        content = b'{"status":"ok"}'
+        headers = {"Content-Type": "application/json"}
+
+    class Session:
+        def post(self, url, **_kwargs):
+            nonlocal active, maximum_active
+            with state_lock:
+                active += 1
+                maximum_active = max(maximum_active, active)
+                backends.add(url.split("//", 1)[1].split(":", 1)[0])
+            time.sleep(0.03)
+            with state_lock:
+                active -= 1
+            return Response()
+
+    worker_addresses = [f"10.0.0.{index}" for index in range(1, 7)]
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=64,
+        minimum_backends=3,
+        wait_timeout_seconds=3,
+        request_timeout_seconds=3,
+        resolver=lambda _host: worker_addresses,
+        session=Session(),
+    )
+    results: list[tuple[int, str, bytes, str]] = []
+    threads = [
+        threading.Thread(
+            target=lambda: results.append(
+                dispatcher.forward(
+                    body=b"document",
+                    content_type="multipart/form-data; boundary=test",
+                    priority="bulk",
+                )
+            )
+        )
+        for _ in range(document_count)
+    ]
+
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert len(results) == document_count
+    assert all(result[0] == 200 for result in results)
+    assert maximum_active == min(document_count, 6)
+    assert len(backends) == min(document_count, 6)
+    assert dispatcher.snapshot()["waiting"] == 0

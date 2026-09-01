@@ -55,6 +55,7 @@ _PUBLIC_EXACT_PATHS: frozenset[str] = frozenset(
         "/api/v1/auth/initialize",
         "/api/v1/auth/providers",
         "/api/v1/auth/cnooc/login",
+        "/api/v1/data-lake/auth/callback",
         # BIM calls the base SchemaService path without a trailing slash.
         "/api/v1/iam/account-sync",
         # Machine-to-machine click collector. The route itself requires the

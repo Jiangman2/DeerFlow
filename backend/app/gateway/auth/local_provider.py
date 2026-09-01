@@ -102,6 +102,10 @@ class LocalAuthProvider(AuthProvider):
         """Update an existing user."""
         return await self._repo.update_user(user)
 
+    async def bind_cnooc_platform_token(self, user_id: str, token_hash: str) -> User:
+        """Bind a validated CNOOC platform-token hash without a stale user write."""
+        return await self._repo.bind_cnooc_platform_token(user_id, token_hash)
+
     async def get_user_by_email(self, email: str) -> User | None:
         """Get user by email."""
         return await self._repo.get_user_by_email(email)

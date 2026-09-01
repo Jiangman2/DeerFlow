@@ -4,7 +4,6 @@ import type { Message } from "@langchain/langgraph-sdk";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChatStatus } from "ai";
 import {
-  BookOpenIcon,
   CheckIcon,
   ChevronDownIcon,
   Loader2Icon,
@@ -97,7 +96,6 @@ import {
   GatewayVoiceSession,
   type VoiceGatewaySupportReason,
 } from "@/core/voice-input/gateway-transcription";
-import { useWeKnoraKnowledgeBases } from "@/core/weknora";
 import { isIMEComposing } from "@/lib/ime";
 import { cn } from "@/lib/utils";
 
@@ -113,7 +111,6 @@ import {
 import { Suggestion, Suggestions } from "../ai-elements/suggestion";
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -135,6 +132,10 @@ import {
   readGoalResponseError,
   type SlashSuggestion,
 } from "./input-box-helpers";
+import {
+  KnowledgeScopeChips,
+  KnowledgeScopeSelector,
+} from "./knowledge-scope-selector";
 import { useThread } from "./messages/context";
 import type { AgentMode } from "./mode-hover-guide";
 import {
@@ -209,98 +210,6 @@ function insertPlainTextAtSelection(container: HTMLElement, text: string) {
   selection.removeAllRanges();
   selection.addRange(range);
   return true;
-}
-
-function KnowledgeScopeSelector({
-  className,
-  context,
-  disabled,
-  onContextChange,
-}: {
-  className?: string;
-  context: InputBoxContext;
-  disabled?: boolean;
-  onContextChange?: (context: InputBoxContext) => void;
-}) {
-  const { data, isError, isLoading } = useWeKnoraKnowledgeBases();
-  const knowledgeBases = useMemo(() => data?.items ?? [], [data?.items]);
-  const selectedIds = Array.isArray(context.weknora_knowledge_base_ids)
-    ? context.weknora_knowledge_base_ids
-    : [];
-  const selectedCount = selectedIds.length;
-
-  const applySelection = useCallback(
-    (nextIds: string[]) => {
-      const selectedBases = knowledgeBases
-        .filter((kb) => nextIds.includes(kb.id))
-        .map((kb) => ({ id: kb.id, name: kb.name }));
-      onContextChange?.({
-        ...context,
-        weknora_knowledge_base_ids: nextIds,
-        weknora_knowledge_bases: selectedBases,
-      });
-    },
-    [context, knowledgeBases, onContextChange],
-  );
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <PromptInputButton
-          className={cn(
-            "max-w-32 min-w-0 gap-1 px-2!",
-            selectedCount > 0 && "border-[#6d5dfc]/40 bg-[#f4f2ff]",
-            className,
-          )}
-          data-active={selectedCount > 0}
-          disabled={disabled}
-        >
-          <BookOpenIcon className="size-3" />
-          <span className="truncate text-xs font-normal">
-            {selectedCount > 0 ? `知识库 ${selectedCount}` : "知识库"}
-          </span>
-        </PromptInputButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-72">
-        <DropdownMenuLabel className="text-muted-foreground text-xs">
-          本次任务知识范围
-        </DropdownMenuLabel>
-        {isLoading && (
-          <DropdownMenuItem disabled>正在加载知识库</DropdownMenuItem>
-        )}
-        {isError && (
-          <DropdownMenuItem disabled>知识库服务不可用</DropdownMenuItem>
-        )}
-        {!isLoading && !isError && knowledgeBases.length === 0 && (
-          <DropdownMenuItem disabled>暂无 WeKnora 知识库</DropdownMenuItem>
-        )}
-        {knowledgeBases.map((kb) => (
-          <DropdownMenuCheckboxItem
-            key={kb.id}
-            checked={selectedIds.includes(kb.id)}
-            onCheckedChange={(checked) => {
-              const nextIds = checked
-                ? [...selectedIds, kb.id]
-                : selectedIds.filter((id) => id !== kb.id);
-              applySelection(nextIds);
-            }}
-          >
-            <div className="min-w-0">
-              <div className="truncate text-sm">{kb.name}</div>
-              <div className="text-muted-foreground truncate text-xs">
-                {(kb.knowledge_count ?? 0).toString()} 文档
-                {kb.processing_count ? ` · ${kb.processing_count} 处理中` : ""}
-              </div>
-            </div>
-          </DropdownMenuCheckboxItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => applySelection([])}>
-          不使用知识库
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
 }
 
 function escapeXmlAttribute(value: string) {
@@ -414,10 +323,69 @@ export function InputBox({
   const addAttachmentFiles = attachments.add;
   const sidecar = useMaybeSidecar();
   const attachmentParts = attachments.files;
+  const knowledgeScopeCount = Array.isArray(context.weknora_scope_items)
+    ? context.weknora_scope_items.length
+    : Array.isArray(context.weknora_knowledge_bases)
+      ? context.weknora_knowledge_bases.length
+      : Array.isArray(context.weknora_knowledge_base_ids)
+        ? context.weknora_knowledge_base_ids.length
+        : 0;
+  const composerMaterialCount = attachmentParts.length + knowledgeScopeCount;
+  const [desktopMaterialRows, setDesktopMaterialRows] = useState(1);
+  const desktopMaterialOffset = Math.max(0, desktopMaterialRows - 1) * 40;
   const removeAttachment = attachments.remove;
   const { skills } = useSkills();
   const { data: uploadLimits } = useUploadLimits(threadId);
   const promptRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const header = promptRootRef.current?.querySelector<HTMLElement>(
+      ".cnooc-composer-header",
+    );
+    if (!header || composerMaterialCount === 0) {
+      setDesktopMaterialRows(1);
+      return;
+    }
+
+    const desktopQuery = window.matchMedia("(min-width: 48rem)");
+    const measureRows = () => {
+      if (!desktopQuery.matches) {
+        setDesktopMaterialRows(1);
+        return;
+      }
+      const tops = new Set(
+        Array.from(
+          header.querySelectorAll<HTMLElement>(
+            ".cnooc-composer-attachment-chip, .cnooc-knowledge-scope-chip",
+          ),
+        ).map((item) => Math.round(item.getBoundingClientRect().top)),
+      );
+      setDesktopMaterialRows(Math.max(1, tops.size));
+    };
+    const requestMeasurement = () => window.requestAnimationFrame(measureRows);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(requestMeasurement);
+    resizeObserver?.observe(header);
+    window.addEventListener("resize", requestMeasurement);
+    if (typeof desktopQuery.addEventListener === "function") {
+      desktopQuery.addEventListener("change", requestMeasurement);
+    } else {
+      desktopQuery.addListener(requestMeasurement);
+    }
+    const frame = window.requestAnimationFrame(measureRows);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", requestMeasurement);
+      if (typeof desktopQuery.removeEventListener === "function") {
+        desktopQuery.removeEventListener("change", requestMeasurement);
+      } else {
+        desktopQuery.removeListener(requestMeasurement);
+      }
+    };
+  }, [composerMaterialCount]);
 
   useEffect(() => {
     if (!isWelcomeMode) {
@@ -428,20 +396,18 @@ export function InputBox({
     if (!welcomeSurface) {
       return;
     }
-    const desktopAttachmentOffset =
-      Math.max(0, Math.ceil(attachmentParts.length / 4) - 1) * 40;
     welcomeSurface.style.setProperty(
-      "--cnooc-desktop-attachment-offset",
-      `${desktopAttachmentOffset}px`,
+      "--cnooc-desktop-material-offset",
+      `${desktopMaterialOffset}px`,
     );
-    welcomeSurface.dataset.hasComposerAttachments = String(
-      attachmentParts.length > 0,
+    welcomeSurface.dataset.hasComposerMaterials = String(
+      composerMaterialCount > 0,
     );
     return () => {
-      welcomeSurface.style.removeProperty("--cnooc-desktop-attachment-offset");
-      delete welcomeSurface.dataset.hasComposerAttachments;
+      welcomeSurface.style.removeProperty("--cnooc-desktop-material-offset");
+      delete welcomeSurface.dataset.hasComposerMaterials;
     };
-  }, [attachmentParts.length, isWelcomeMode]);
+  }, [composerMaterialCount, desktopMaterialOffset, isWelcomeMode]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const inlineSkillTextRef = useRef<HTMLSpanElement | null>(null);
   const inlineSkillComposingRef = useRef(false);
@@ -484,6 +450,23 @@ export function InputBox({
     voiceSessionRef.current?.abort();
     voiceSessionRef.current = null;
     setVoiceListening(false);
+  }, []);
+
+  const releaseComposerFocus = useCallback(() => {
+    const activeElement = document.activeElement;
+    if (
+      activeElement instanceof HTMLElement &&
+      promptRootRef.current?.contains(activeElement)
+    ) {
+      activeElement.blur();
+    }
+    textareaRef.current?.blur();
+    inlineSkillTextRef.current?.blur();
+    setTextareaFocused(false);
+
+    if (window.matchMedia("(max-width: 47.999rem)").matches) {
+      window.requestAnimationFrame(() => window.scrollTo(0, 0));
+    }
   }, []);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -1020,6 +1003,9 @@ export function InputBox({
         fileCount: messageWithSlashSkill.files.length,
         status,
       });
+      if (submitAction.kind !== "empty" && submitAction.kind !== "stop") {
+        releaseComposerFocus();
+      }
       if (submitAction.kind === "goal") {
         promptHistoryIndexRef.current = null;
         promptHistoryDraftRef.current = "";
@@ -1057,6 +1043,7 @@ export function InputBox({
       handleCompactCommand,
       handleGoalCommand,
       onStop,
+      releaseComposerFocus,
       selectedSlashSkill,
       status,
       submitThreadMessage,
@@ -1827,16 +1814,14 @@ export function InputBox({
       )}
       style={
         {
-          "--cnooc-desktop-attachment-rows": Math.max(
-            1,
-            Math.ceil(attachmentParts.length / 4),
-          ),
-          "--cnooc-desktop-attachment-offset": `${
-            Math.max(0, Math.ceil(attachmentParts.length / 4) - 1) * 40
-          }px`,
+          "--cnooc-desktop-material-rows": desktopMaterialRows,
+          "--cnooc-desktop-material-offset": `${desktopMaterialOffset}px`,
         } as CSSProperties
       }
       data-has-attachments={attachmentParts.length > 0}
+      data-has-knowledge-scope={knowledgeScopeCount > 0}
+      data-has-materials={composerMaterialCount > 0}
+      data-focused={textareaFocused}
       data-testid={isWelcomeMode ? "welcome-composer" : "chat-composer"}
     >
       {showFollowups && (
@@ -1948,11 +1933,17 @@ export function InputBox({
         <PromptInputHeader className="cnooc-composer-header flex-wrap px-3 pt-3 pb-0 empty:hidden">
           <PromptInputAttachments className="contents p-0">
             {(attachment) => (
-              <div className="max-w-60">
+              <div className="cnooc-composer-attachment-chip max-w-60">
                 <PromptInputAttachment data={attachment} />
               </div>
             )}
           </PromptInputAttachments>
+          <KnowledgeScopeChips
+            className="contents"
+            context={context}
+            disabled={composerLocked}
+            onContextChange={onContextChange}
+          />
           {polishingInput && (
             <div
               aria-live="polite"
@@ -2223,7 +2214,7 @@ export function InputBox({
                   className="cnooc-model-selector min-w-0 px-2!"
                   disabled={composerLocked}
                 >
-                  <div className="flex min-w-0 flex-col items-start text-left">
+                  <div className="cnooc-model-label flex min-w-0 flex-col items-start text-left">
                     <ModelSelectorName className="cnooc-model-name font-normal">
                       {selectedModel?.display_name ?? "DeepSeek-V4-Flash"}
                     </ModelSelectorName>
@@ -2404,16 +2395,6 @@ function SuggestionList({
   );
   return (
     <Suggestions className="w-max max-w-none min-w-full flex-nowrap justify-start px-1 sm:w-fit sm:max-w-full sm:min-w-0 sm:flex-wrap sm:justify-center sm:px-0 [&>span]:max-w-none [&>span]:shrink-0">
-      <ConfettiButton
-        className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal whitespace-nowrap"
-        data-slot="suggestion"
-        variant="outline"
-        size="sm"
-        onClick={() => handleSuggestionClick(t.inputBox.surpriseMePrompt)}
-      >
-        <QuickActionArtwork src={QUICK_ACTION_ARTWORK.surprise} />
-        <span>{t.inputBox.surpriseMe}</span>
-      </ConfettiButton>
       {t.inputBox.suggestions.map((suggestion, suggestionIndex) =>
         suggestion.menu === "ppt" ? (
           <DropdownMenu key={suggestion.suggestion}>
@@ -2517,6 +2498,17 @@ function SuggestionList({
           })}
         </DropdownMenuContent>
       </DropdownMenu>
+      <ConfettiButton
+        className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal whitespace-nowrap"
+        data-slot="suggestion"
+        data-testid="surprise-suggestion"
+        variant="outline"
+        size="sm"
+        onClick={() => handleSuggestionClick(t.inputBox.surpriseMePrompt)}
+      >
+        <QuickActionArtwork src={QUICK_ACTION_ARTWORK.surprise} />
+        <span>{t.inputBox.surpriseMe}</span>
+      </ConfettiButton>
     </Suggestions>
   );
 }

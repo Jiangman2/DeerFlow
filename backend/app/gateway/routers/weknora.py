@@ -53,6 +53,20 @@ _DEFAULT_CNOOC_RETRIEVAL_MAX_BYTES = 8 * 1024 * 1024
 _DEFAULT_CNOOC_EMBEDDING_CONCURRENCY = 200
 _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRIES = 3
 _DEFAULT_CNOOC_EMBEDDING_BUSY_RETRY_SECONDS = 0.75
+_RUNTIME_QUEUE_NAMES = frozenset(
+    {
+        "default",
+        "postprocess",
+        "summary",
+        "multimodal",
+        "graph",
+        "question",
+        "sync",
+        "low",
+        "wiki",
+    }
+)
+_RUNTIME_TASK_STATES = frozenset({"pending", "active", "scheduled", "retry", "archived", "completed"})
 _ALLOWED_SSO_ORIGINS = {
     "http://127.0.0.1:32090",
     "http://localhost:32090",
@@ -454,14 +468,31 @@ def _weknora_root_endpoint(path: str) -> str:
 
 
 def _unwrap_list_response(data: dict[str, Any]) -> dict[str, Any]:
-    items = data.get("data")
+    # WeKnora currently exposes both list shapes below:
+    #
+    # * knowledge: {"data": [...], "total": ...}
+    # * tags:      {"data": {"data": [...], "total": ..., ...}}
+    #
+    # Keep the Gateway response stable for DeerFlow instead of silently
+    # turning the paginated tag payload into an empty list.
+    payload = data.get("data")
+    metadata = data
+    if isinstance(payload, dict):
+        metadata = payload
+        items = payload.get("data")
+        if not isinstance(items, list):
+            items = payload.get("items")
+    else:
+        items = payload
+    if not isinstance(items, list):
+        items = data.get("items")
     if not isinstance(items, list):
         items = []
     return {
         "items": items,
-        "total": data.get("total", len(items)),
-        "page": data.get("page"),
-        "page_size": data.get("page_size"),
+        "total": metadata.get("total", data.get("total", len(items))),
+        "page": metadata.get("page", data.get("page")),
+        "page_size": metadata.get("page_size", data.get("page_size")),
         "success": data.get("success", True),
         "message": data.get("message", ""),
     }
@@ -869,6 +900,108 @@ async def list_knowledge(
         params=params,
     )
     return _unwrap_list_response(data)
+
+
+@router.get("/knowledge-bases/{knowledge_base_id}/tags")
+async def list_knowledge_tags(
+    knowledge_base_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=1000),
+    tenant_id: str | None = None,
+    user: Any = Depends(get_current_user_from_request),
+) -> dict[str, Any]:
+    """List tags in one accessible knowledge base for the chat scope picker."""
+
+    access_token, access_tenant_id = await _resolve_knowledge_base_access_context(
+        user,
+        knowledge_base_id,
+        requested_tenant_id=tenant_id,
+    )
+    data = await _request(
+        "GET",
+        f"/knowledge-bases/{knowledge_base_id}/tags",
+        access_token,
+        tenant_id=access_tenant_id,
+        params={"page": page, "page_size": page_size},
+    )
+    return _unwrap_list_response(data)
+
+
+@router.get("/knowledge/search")
+async def search_knowledge(
+    keyword: str | None = None,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+    recent: bool = False,
+    user: Any = Depends(get_current_user_from_request),
+) -> dict[str, Any]:
+    """Mirror WeKnora New Chat's cross-knowledge-base file picker search."""
+
+    normalized_keyword = (keyword or "").strip()
+    if not normalized_keyword and not recent:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide a search keyword or set recent=true.",
+        )
+    params: dict[str, Any] = {
+        "offset": offset,
+        "limit": limit,
+        "recent": str(recent).lower(),
+    }
+    if normalized_keyword:
+        params["keyword"] = normalized_keyword
+    data = await _request(
+        "GET",
+        "/knowledge/search",
+        await _current_weknora_token(user),
+        params=params,
+    )
+    normalized = _unwrap_list_response(data)
+    normalized["has_more"] = bool(data.get("has_more")) if isinstance(data, dict) else False
+    return normalized
+
+
+@router.get("/admin/runtime/queues")
+async def runtime_queue_snapshot(user: Any = Depends(get_current_user_from_request)) -> dict[str, Any]:
+    """Return WeKnora's read-only worker and queue snapshot.
+
+    WeKnora enforces the SystemAdmin boundary on the upstream endpoint. Keeping
+    this proxy read-only and forwarding the user's short-lived SSO token lets
+    administrators inspect parser backlog from the DeerFlow origin without
+    exposing a platform API key to the browser.
+    """
+    return await _request(
+        "GET",
+        "/system/admin/runtime/queues",
+        await _current_weknora_token(user),
+    )
+
+
+@router.get("/admin/runtime/queues/{queue_name}/tasks")
+async def runtime_queue_tasks(
+    queue_name: str,
+    state: str = Query(default="pending"),
+    cursor: str | None = None,
+    page_size: int = Query(default=20, ge=1, le=100),
+    user: Any = Depends(get_current_user_from_request),
+) -> dict[str, Any]:
+    """Return a bounded read-only page of tasks from one runtime queue."""
+    normalized_queue = queue_name.strip().lower()
+    if normalized_queue not in _RUNTIME_QUEUE_NAMES:
+        raise HTTPException(status_code=400, detail="Unsupported WeKnora runtime queue.")
+    normalized_state = state.strip().lower()
+    if normalized_state not in _RUNTIME_TASK_STATES:
+        raise HTTPException(status_code=400, detail="Unsupported WeKnora runtime task state.")
+
+    params: dict[str, Any] = {"state": normalized_state, "page_size": page_size}
+    if cursor:
+        params["cursor"] = cursor
+    return await _request(
+        "GET",
+        f"/system/admin/runtime/queues/{normalized_queue}/tasks",
+        await _current_weknora_token(user),
+        params=params,
+    )
 
 
 @router.get("/knowledge/{knowledge_id}")

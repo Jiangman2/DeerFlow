@@ -1,3 +1,4 @@
+import hashlib
 import logging
 
 import httpx
@@ -24,6 +25,8 @@ class _FakeProvider:
         self.email_user = email_user
         self.created_oauth_user_args: dict | None = None
         self.updated_user: User | None = None
+        self.bound_token: tuple[str, str] | None = None
+        self.bind_error: Exception | None = None
 
     async def get_user_by_oauth(self, provider: str, oauth_id: str) -> User | None:
         self.last_oauth_lookup = {"provider": provider, "oauth_id": oauth_id}
@@ -70,11 +73,25 @@ class _FakeProvider:
         self.updated_user = user
         return user
 
+    async def bind_cnooc_platform_token(self, user_id: str, token_hash: str) -> User:
+        if self.bind_error is not None:
+            raise self.bind_error
+        user = self.oauth_user or self.email_user
+        if user is None:
+            user = User(
+                email=self.created_oauth_user_args["email"],
+                oauth_provider="cnooc",
+                oauth_id="CNOOC-001",
+            )
+        self.bound_token = (user_id, token_hash)
+        user.cnooc_platform_token_hash = token_hash
+        return user
+
 
 def _checked_identity():
     return cnooc.CnoocTokenCheckResult(
         provider="cnooc",
-        platform_token_hash="hashed-token",
+        platform_token_hash=hashlib.sha256(b"platform-token").hexdigest(),
         user=cnooc.CnoocUser(
             platform_user_id="CNOOC-001",
             deerflow_user_id="cnooc_CNOOC-001",
@@ -105,7 +122,7 @@ def test_map_user_info_builds_cnooc_identity():
     )
 
     assert result.provider == "cnooc"
-    assert result.platform_token_hash != "platform-token"
+    assert result.platform_token_hash == hashlib.sha256(b"platform-token").hexdigest()
     assert result.user.platform_user_id == "USER-001"
     assert result.user.deerflow_user_id == "cnooc_USER-001"
     assert result.user.email == "zhangsan@cnooc.com.cn"
@@ -125,7 +142,8 @@ def test_map_user_info_sanitizes_platform_user_id():
         "platform-token",
     )
 
-    assert result.user.deerflow_user_id.startswith("cnooc_user_with_spaces_")
+    legacy_suffix = hashlib.sha1(b"user/with spaces").hexdigest()[:10]
+    assert result.user.deerflow_user_id == f"cnooc_user_with_spaces_{legacy_suffix}"
 
 
 @pytest.mark.parametrize(
@@ -157,6 +175,40 @@ def test_load_config_reports_missing_required_env(monkeypatch):
         cnooc._load_config()
 
     assert "CNOOC_OAUTH_BASE_URL" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_fetch_app_code_uses_first_eight_timestamp_digits(monkeypatch):
+    captured = {}
+
+    class Client:
+        async def get(self, url, **kwargs):
+            captured.update(url=url, **kwargs)
+            return httpx.Response(
+                200,
+                request=httpx.Request("GET", url),
+                json={"code": 200, "data": "app-code"},
+            )
+
+    monkeypatch.setattr(cnooc, "_cached_app_code", None)
+    monkeypatch.setattr(cnooc.time, "time", lambda: 1_723_456_789.9)
+    config = cnooc.CnoocAuthConfig(
+        base_url="http://datalake.internal",
+        app_name="deerflow",
+        app_id="app-id",
+        token_check_api_token="token-check",
+        token_check_login_user_code="login-user",
+        user_info_api_token="user-info",
+    )
+
+    app_code = await cnooc._fetch_app_code(Client(), config)
+
+    assert app_code == "app-code"
+    assert captured["params"] == {
+        "appName": "deerflow",
+        "appId": "app-id",
+        "timeStamp": "17234567",
+    }
 
 
 @pytest.mark.asyncio
@@ -209,6 +261,78 @@ async def test_cnooc_request_maps_exhausted_timeout_to_503(monkeypatch):
 
     assert exc_info.value.status_code == 503
     assert client.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_data_lake_token_exchange_uses_app_code_and_persisted_challenge():
+    captured = {}
+
+    class Client:
+        async def post(self, url, **kwargs):
+            captured.update(url=url, **kwargs)
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={"code": 200, "msg": "success", "data": "issued-token"},
+            )
+
+    config = cnooc.CnoocDataLakeExchangeConfig(
+        base_url="http://datalake.internal",
+        app_name="deerflow",
+        app_id="app-id",
+        api_token="issue-api-token",
+        login_user_code="login-user",
+        callback_id="integration-002",
+    )
+
+    token = await cnooc._exchange_data_lake_token(Client(), config, "cached-app-code", "A" * 32)
+
+    assert token == "issued-token"
+    assert captured == {
+        "url": "http://datalake.internal/apigateway/zcshf/zcjksjfw_9725",
+        "headers": {
+            "appCode": "cached-app-code",
+            "loginUserCode": "login-user",
+            "apiToken": "issue-api-token",
+        },
+        "json": {
+            "jsonObj": {
+                "callbackId": "integration-002",
+                "challenge": "A" * 32,
+            }
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_data_lake_token_exchange_maps_business_rejection_to_forbidden():
+    class Client:
+        async def post(self, url, **kwargs):
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", url),
+                json={
+                    "code": 403,
+                    "msg": "permission denied",
+                    "bizCode": "NO_PERMISSION",
+                    "dataSize": 0,
+                    "data": "",
+                },
+            )
+
+    config = cnooc.CnoocDataLakeExchangeConfig(
+        base_url="http://datalake.internal",
+        app_name="deerflow",
+        app_id="app-id",
+        api_token="issue-api-token",
+        login_user_code="login-user",
+        callback_id="integration-002",
+    )
+
+    with pytest.raises(CnoocAuthError) as exc_info:
+        await cnooc._exchange_data_lake_token(Client(), config, "cached-app-code", "A" * 32)
+
+    assert exc_info.value.status_code == 403
 
 
 def test_cnooc_login_maps_upstream_unavailable_to_503(monkeypatch):
@@ -267,11 +391,28 @@ def test_cnooc_login_creates_oauth_user_and_sets_session_cookies(monkeypatch):
         "organization_code": "0102030",
         "organization_name": "Exploration Department",
     }
+    assert provider.bound_token is not None
+    assert provider.bound_token[1] == hashlib.sha256(b"platform-token").hexdigest()
 
     cookie_headers = _set_cookie_headers(response)
     assert any(header.startswith("access_token=") and "httponly" in header.lower() for header in cookie_headers)
     assert any(header.startswith("csrf_token=") for header in cookie_headers)
     assert any(header.startswith("cnooc.platform_token=platform-token") and "httponly" in header.lower() for header in cookie_headers)
+
+
+def test_cnooc_login_does_not_issue_cookies_when_token_binding_fails(monkeypatch):
+    async def fake_check_cnooc_token(_token: str):
+        return _checked_identity()
+
+    provider = _FakeProvider()
+    provider.bind_error = ValueError("platform token already belongs to another user")
+    monkeypatch.setattr("app.gateway.routers.auth.check_cnooc_token", fake_check_cnooc_token)
+    client = _make_cnooc_login_client(monkeypatch, provider)
+
+    response = client.get("/api/v1/auth/cnooc/login?token=platform-token", follow_redirects=False)
+
+    assert response.status_code == 409
+    assert not _set_cookie_headers(response)
 
 
 def test_logout_clears_cnooc_platform_token_cookie(monkeypatch):

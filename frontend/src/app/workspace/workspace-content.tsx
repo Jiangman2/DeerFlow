@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/workspace/command-palette";
 import { GatewayOfflineBanner } from "@/components/workspace/gateway-offline-banner";
 import { WorkspaceSettingsDialogProvider } from "@/components/workspace/settings/workspace-settings-dialog-provider";
 import { WorkspaceSidebar } from "@/components/workspace/workspace-sidebar";
+import { WorkspaceViewportController } from "@/components/workspace/workspace-viewport-controller";
 
 function parseSidebarOpenCookie(
   value: string | undefined,
@@ -44,6 +45,7 @@ export async function WorkspaceContent({
             } as React.CSSProperties
           }
         >
+          <WorkspaceViewportController />
           <WorkspaceSidebar />
           <SidebarInset className="cnooc-workspace-canvas border-border bg-background min-h-0 min-w-0 overflow-hidden bg-cover bg-center md:border-l dark:bg-none">
             <GatewayOfflineBanner gatewayUnavailable={gatewayUnavailable} />

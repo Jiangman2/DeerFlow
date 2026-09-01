@@ -128,6 +128,20 @@ def build_weknora_ui_policy(user: Any) -> dict[str, Any]:
     }
 
 
+_WEKNORA_CONFIG_TOOL_NAMES = (
+    "weknora_search",
+    "weknora_ask",
+    "weknora_list_knowledge_bases",
+    "weknora_get_knowledge_base",
+    "weknora_list_documents",
+    "weknora_get_document",
+    "weknora_list_document_chunks",
+    "weknora_read_document",
+    "weknora_list_agents",
+    "weknora_invoke_agent",
+)
+
+
 def _tool_extra(tool_name: str = "weknora_search") -> dict[str, Any]:
     config = get_app_config().get_tool_config(tool_name)
     if config is None:
@@ -137,7 +151,7 @@ def _tool_extra(tool_name: str = "weknora_search") -> dict[str, Any]:
 
 
 def _string_config(key: str, env_name: str | None = None, default: str | None = None) -> str | None:
-    for tool_name in ("weknora_search", "weknora_ask"):
+    for tool_name in _WEKNORA_CONFIG_TOOL_NAMES:
         value = _tool_extra(tool_name).get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
@@ -154,7 +168,7 @@ def weknora_api_url() -> str:
 
 def weknora_timeout() -> float:
     raw = os.getenv("WEKNORA_TIMEOUT_SECONDS")
-    for tool_name in ("weknora_search", "weknora_ask"):
+    for tool_name in _WEKNORA_CONFIG_TOOL_NAMES:
         value = _tool_extra(tool_name).get("timeout_seconds")
         if value is not None:
             raw = value

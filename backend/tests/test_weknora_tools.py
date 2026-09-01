@@ -164,10 +164,7 @@ def test_weknora_search_rewrites_resource_images_to_authenticated_gateway_proxy(
     assert image["resource_uri"] == "resource://image_handle-1"
     assert image["url"] == ("/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Fimage_handle-1")
     assert image["alt"] == "井位图"
-    assert image["markdown"] == (
-        "![井位图](/api/weknora/knowledge-bases/kb-1/files?"
-        "file_path=resource%3A%2F%2Fimage_handle-1)"
-    )
+    assert image["markdown"] == ("![井位图](/api/weknora/knowledge-bases/kb-1/files?file_path=resource%3A%2F%2Fimage_handle-1)")
     assert image["url"] in parsed["results"][0]["content"]
     assert "resource://" not in parsed["results"][0]["content"]
 
@@ -215,16 +212,11 @@ def test_weknora_search_rewrites_standalone_image_file_metadata():
 
             from deerflow.community.weknora.tools import weknora_search_tool
 
-            parsed = json.loads(
-                weknora_search_tool.invoke({"query": "显示知识库中的四维元数据体系图片"})
-            )
+            parsed = json.loads(weknora_search_tool.invoke({"query": "显示知识库中的四维元数据体系图片"}))
 
     image = parsed["results"][0]["resource_images"][0]
     assert image["resource_uri"] == "resource://standalone_image_handle-1"
-    assert image["url"] == (
-        "/api/weknora/knowledge-bases/kb-images/files?"
-        "file_path=resource%3A%2F%2Fstandalone_image_handle-1"
-    )
+    assert image["url"] == ("/api/weknora/knowledge-bases/kb-images/files?file_path=resource%3A%2F%2Fstandalone_image_handle-1")
     assert image["alt"] == "海上平台四维元数据体系图"
     assert image["markdown"] == f"![海上平台四维元数据体系图]({image['url']})"
 
@@ -257,6 +249,74 @@ def test_weknora_search_accepts_explicit_file_scope_over_config():
         "knowledge_ids": ["doc-1"],
     }
     assert json.loads(raw)["total_results"] == 0
+
+
+def test_weknora_search_uses_exact_run_selected_kb_file_and_tag_scope():
+    app_config = _config_for(
+        {
+            "weknora_search": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+                "knowledge_base_ids": ["kb-config-must-not-leak"],
+            }
+        }
+    )
+    run_context = {
+        "weknora_knowledge_base_ids": ["kb-whole"],
+        "weknora_knowledge_ids": ["doc-exact"],
+        "weknora_tag_scopes": [
+            {"knowledge_base_id": "kb-tagged", "tag_ids": ["tag-finance"]},
+        ],
+        "weknora_scope_items": [
+            {"id": "kb-whole", "name": "整库", "type": "kb"},
+            {
+                "id": "doc-exact",
+                "name": "精确文件.pdf",
+                "type": "file",
+                "kb_id": "kb-files",
+                "kb_name": "文件库",
+            },
+            {
+                "id": "tag-finance",
+                "name": "财务",
+                "type": "tag",
+                "kb_id": "kb-tagged",
+                "kb_name": "标签库",
+            },
+        ],
+    }
+
+    from deerflow.runtime.weknora_context import (
+        reset_current_weknora_scope,
+        set_current_weknora_scope,
+    )
+
+    token = set_current_weknora_scope(run_context)
+    try:
+        with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+            with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+                client = client_cls.return_value.__enter__.return_value
+                client.post.return_value = _response({"success": True, "data": []})
+
+                from deerflow.community.weknora.tools import weknora_search_tool
+
+                weknora_search_tool.invoke(
+                    {
+                        "query": "报销",
+                        "knowledge_base_ids": ["kb-model-must-not-widen"],
+                        "knowledge_ids": ["doc-model-must-not-widen"],
+                    }
+                )
+    finally:
+        reset_current_weknora_scope(token)
+
+    assert client.post.call_args.kwargs["json"] == {
+        "query": "报销",
+        "knowledge_base_ids": ["kb-whole"],
+        "knowledge_ids": ["doc-exact"],
+        "mentioned_items": run_context["weknora_scope_items"],
+        "tag_ids": ["tag-finance"],
+    }
 
 
 def test_weknora_search_returns_error_without_scope():
@@ -325,11 +385,13 @@ def test_weknora_ask_parses_sse_answer_and_references():
     client.stream.assert_called_once()
     args = client.stream.call_args.args
     kwargs = client.stream.call_args.kwargs
-    assert args == ("POST", "http://weknora:8080/api/v1/knowledge-chat/session-1")
+    assert args == ("POST", "http://weknora:8080/api/v1/agent-chat/session-1")
     assert kwargs["json"] == {
         "query": "报销标准是什么？",
-        "knowledge_base_id": "kb-1",
+        "knowledge_base_ids": ["kb-1"],
         "agent_id": "builtin-quick-answer",
+        "agent_enabled": True,
+        "web_search_enabled": False,
     }
 
     parsed = json.loads(raw)
@@ -420,3 +482,579 @@ def test_weknora_ask_creates_session_when_omitted():
     parsed = json.loads(raw)
     assert parsed["session_id"] == "session-new"
     assert parsed["answer"] == "命中答案"
+
+
+def test_weknora_list_knowledge_bases_filters_to_requested_scope():
+    app_config = _config_for(
+        {
+            "weknora_list_knowledge_bases": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+            }
+        }
+    )
+    api_response = _response(
+        {
+            "success": True,
+            "data": [
+                {
+                    "id": "kb-1",
+                    "name": "生产制度",
+                    "description": "制度库",
+                    "type": "document",
+                    "knowledge_count": 4,
+                    "chunk_count": 20,
+                    "storage_config": {"secret_key": "must-not-leak"},
+                },
+                {"id": "kb-2", "name": "未选择知识库", "type": "document"},
+            ],
+        }
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client = client_cls.return_value.__enter__.return_value
+            client.get.return_value = api_response
+
+            from deerflow.community.weknora.tools import weknora_list_knowledge_bases_tool
+
+            parsed = json.loads(weknora_list_knowledge_bases_tool.invoke({"knowledge_base_ids": ["kb-1"]}))
+
+    client.get.assert_called_once()
+    assert client.get.call_args.args[0] == "http://weknora:8080/api/v1/knowledge-bases"
+    assert parsed["total"] == 1
+    assert parsed["knowledge_bases"][0] == {
+        "id": "kb-1",
+        "name": "生产制度",
+        "description": "制度库",
+        "type": "document",
+        "is_pinned": False,
+        "knowledge_count": 4,
+        "chunk_count": 20,
+        "is_processing": False,
+        "processing_count": 0,
+    }
+    assert "secret_key" not in json.dumps(parsed, ensure_ascii=False)
+
+
+def test_weknora_get_knowledge_base_returns_safe_metadata():
+    app_config = _config_for(
+        {
+            "weknora_get_knowledge_base": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+            }
+        }
+    )
+    api_response = _response(
+        {
+            "success": True,
+            "data": {
+                "id": "kb-1",
+                "name": "生产制度",
+                "description": "制度库",
+                "type": "document",
+                "knowledge_count": 4,
+                "chunk_count": 20,
+                "storage_config": {"secret_key": "must-not-leak"},
+            },
+        }
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client = client_cls.return_value.__enter__.return_value
+            client.get.return_value = api_response
+
+            from deerflow.community.weknora.tools import weknora_get_knowledge_base_tool
+
+            parsed = json.loads(weknora_get_knowledge_base_tool.invoke({"knowledge_base_id": "kb-1"}))
+
+    assert client.get.call_args.args[0] == "http://weknora:8080/api/v1/knowledge-bases/kb-1"
+    assert parsed["knowledge_base"]["knowledge_count"] == 4
+    assert "secret_key" not in json.dumps(parsed, ensure_ascii=False)
+
+
+def test_weknora_list_knowledge_bases_includes_shared_scope_under_consumer_tenant():
+    from deerflow.runtime.weknora_context import (
+        reset_current_weknora_access_token,
+        reset_current_weknora_scope,
+        set_current_weknora_access_token,
+        set_current_weknora_scope,
+    )
+
+    app_config = _config_for({"weknora_list_knowledge_bases": {"api_url": "http://weknora:8080"}})
+    owned_response = _response({"success": True, "data": []})
+    shared_response = _response(
+        {
+            "success": True,
+            "data": [
+                {
+                    "permission": "read",
+                    "knowledge_base": {
+                        "id": "kb-shared",
+                        "name": "共享标准库",
+                        "description": "团队共享",
+                        "type": "document",
+                    },
+                }
+            ],
+        }
+    )
+    scope_token = set_current_weknora_scope(
+        {
+            "weknora_knowledge_base_ids": ["kb-shared"],
+            "weknora_access_tenant_ids": {"kb-shared": "tenant-consumer"},
+            "weknora_tenant_id": "tenant-active",
+        }
+    )
+    access_token = set_current_weknora_access_token("user-jwt")
+    try:
+        with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+            with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+                client = client_cls.return_value.__enter__.return_value
+                client.get.side_effect = [owned_response, shared_response]
+
+                from deerflow.community.weknora.tools import weknora_list_knowledge_bases_tool
+
+                parsed = json.loads(weknora_list_knowledge_bases_tool.invoke({}))
+
+        assert parsed["knowledge_bases"] == [
+            {
+                "id": "kb-shared",
+                "name": "共享标准库",
+                "description": "团队共享",
+                "type": "document",
+                "is_pinned": False,
+                "knowledge_count": 0,
+                "chunk_count": 0,
+                "is_processing": False,
+                "processing_count": 0,
+            }
+        ]
+        assert [call.args[0] for call in client.get.call_args_list] == [
+            "http://weknora:8080/api/v1/knowledge-bases",
+            "http://weknora:8080/api/v1/shared-knowledge-bases",
+        ]
+        assert all(call.kwargs["headers"]["X-Tenant-ID"] == "tenant-consumer" for call in client.get.call_args_list)
+    finally:
+        reset_current_weknora_access_token(access_token)
+        reset_current_weknora_scope(scope_token)
+
+
+def test_weknora_list_documents_uses_public_filters_and_normalizes_rows():
+    app_config = _config_for(
+        {
+            "weknora_list_documents": {
+                "api_url": "http://weknora:8080/api/v1",
+                "api_key": "test-key",
+            }
+        }
+    )
+    api_response = _response(
+        {
+            "success": True,
+            "data": [
+                {
+                    "id": "doc-1",
+                    "knowledge_base_id": "kb-1",
+                    "title": "安全制度",
+                    "description": "摘要",
+                    "source": "file",
+                    "channel": "web",
+                    "parse_status": "completed",
+                    "enable_status": "enabled",
+                    "file_name": "safety.pdf",
+                    "file_type": "pdf",
+                    "file_size": 1024,
+                    "file_path": "/private/storage/safety.pdf",
+                }
+            ],
+            "total": 1,
+            "page": 2,
+            "page_size": 15,
+        }
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client = client_cls.return_value.__enter__.return_value
+            client.get.return_value = api_response
+
+            from deerflow.community.weknora.tools import weknora_list_documents_tool
+
+            parsed = json.loads(
+                weknora_list_documents_tool.invoke(
+                    {
+                        "knowledge_base_id": "kb-1",
+                        "page": 2,
+                        "page_size": 15,
+                        "keyword": "安全",
+                        "file_type": "pdf",
+                        "parse_status": "completed",
+                    }
+                )
+            )
+
+    assert client.get.call_args.args[0] == "http://weknora:8080/api/v1/knowledge-bases/kb-1/knowledge"
+    assert client.get.call_args.kwargs["params"] == {
+        "page": 2,
+        "page_size": 15,
+        "keyword": "安全",
+        "file_type": "pdf",
+        "parse_status": "completed",
+    }
+    assert parsed["total"] == 1
+    document = parsed["documents"][0]
+    assert document["id"] == "doc-1"
+    assert document["citation_url"] == "/platform/knowledge-bases/kb-1?knowledge_id=doc-1"
+    assert "file_path" not in document
+
+
+def test_weknora_transport_uses_run_token_and_consumer_tenant_for_all_request_modes():
+    """GET, JSON POST, and SSE transports share the same run-scoped RBAC headers."""
+    from deerflow.community.weknora import tools as tools_module
+    from deerflow.runtime.weknora_context import (
+        reset_current_weknora_access_token,
+        reset_current_weknora_scope,
+        set_current_weknora_access_token,
+        set_current_weknora_scope,
+    )
+
+    app_config = _config_for(
+        {
+            "weknora_get_knowledge_base": {"api_url": "http://weknora:8080"},
+            "weknora_search": {"api_url": "http://weknora:8080"},
+            "weknora_ask": {"api_url": "http://weknora:8080"},
+        }
+    )
+    get_response = _response({"success": True, "data": {"id": "kb-1"}})
+    post_response = _response({"success": True, "data": []})
+    stream_response = _StreamResponse(['data: {"response_type":"answer","content":"PASS"}'])
+    scope_token = set_current_weknora_scope(
+        {
+            "weknora_knowledge_base_ids": ["kb-1"],
+            "weknora_scope_items": [{"id": "kb-1", "name": "生产制度", "type": "kb"}],
+            "weknora_access_tenant_ids": {"kb-1": "tenant-consumer"},
+            "weknora_tenant_id": "tenant-active",
+        }
+    )
+    access_token = set_current_weknora_access_token("user-jwt")
+    try:
+        with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+            with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+                client = client_cls.return_value.__enter__.return_value
+                client.get.return_value = get_response
+                client.post.return_value = post_response
+                client.stream.return_value = stream_response
+
+                tools_module._get_json(
+                    "weknora_get_knowledge_base",
+                    "/knowledge-bases/kb-1",
+                    tenant_id=tools_module._scope_tenant_id(knowledge_base_id="kb-1"),
+                )
+                tools_module._post_json(
+                    "weknora_search",
+                    "/knowledge-search",
+                    {"query": "安全"},
+                    tenant_id=tools_module._scope_tenant_id(),
+                )
+                tools_module._stream_chat(
+                    "weknora_ask",
+                    {"query": "安全"},
+                    "session-1",
+                    agent_mode=False,
+                    tenant_id=tools_module._scope_tenant_id(),
+                )
+
+        for headers in (
+            client.get.call_args.kwargs["headers"],
+            client.post.call_args.kwargs["headers"],
+            client.stream.call_args.kwargs["headers"],
+        ):
+            assert headers["Authorization"] == "Bearer user-jwt"
+            assert headers["X-Tenant-ID"] == "tenant-consumer"
+            assert "X-API-Key" not in headers
+    finally:
+        reset_current_weknora_access_token(access_token)
+        reset_current_weknora_scope(scope_token)
+
+
+def test_weknora_document_transport_resolves_parent_kb_tenant_from_selected_file():
+    from deerflow.community.weknora import tools as tools_module
+    from deerflow.runtime.weknora_context import reset_current_weknora_scope, set_current_weknora_scope
+
+    scope_token = set_current_weknora_scope(
+        {
+            "weknora_knowledge_ids": ["doc-1"],
+            "weknora_scope_items": [
+                {
+                    "id": "doc-1",
+                    "name": "安全制度.pdf",
+                    "type": "file",
+                    "kb_id": "kb-shared",
+                    "kb_name": "共享制度库",
+                }
+            ],
+            "weknora_access_tenant_ids": {"kb-shared": "tenant-shared"},
+            "weknora_tenant_id": "tenant-active",
+        }
+    )
+    try:
+        assert tools_module._scope_tenant_id(knowledge_id="doc-1") == "tenant-shared"
+    finally:
+        reset_current_weknora_scope(scope_token)
+
+
+def test_weknora_get_document_and_read_document_chunks():
+    app_config = _config_for(
+        {
+            "weknora_get_document": {"api_url": "http://weknora:8080", "api_key": "test-key"},
+            "weknora_read_document": {"api_url": "http://weknora:8080", "api_key": "test-key"},
+        }
+    )
+    document_response = _response(
+        {
+            "success": True,
+            "data": {
+                "id": "doc-1",
+                "knowledge_base_id": "kb-1",
+                "title": "作业手册",
+                "file_name": "manual.docx",
+                "parse_status": "completed",
+            },
+        }
+    )
+    chunks_response = _response(
+        {
+            "success": True,
+            "data": [
+                {"id": "chunk-2", "knowledge_id": "doc-1", "knowledge_base_id": "kb-1", "content": "第二段", "chunk_index": 2, "chunk_type": "text"},
+                {"id": "chunk-1", "knowledge_id": "doc-1", "knowledge_base_id": "kb-1", "content": "第一段", "chunk_index": 1, "chunk_type": "text"},
+            ],
+            "total": 2,
+            "page": 1,
+            "page_size": 50,
+        }
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client = client_cls.return_value.__enter__.return_value
+            client.get.side_effect = [document_response, document_response, chunks_response]
+
+            from deerflow.community.weknora.tools import weknora_get_document_tool, weknora_read_document_tool
+
+            metadata = json.loads(weknora_get_document_tool.invoke({"knowledge_id": "doc-1"}))
+            contents = json.loads(weknora_read_document_tool.invoke({"knowledge_id": "doc-1", "max_chunks": 50}))
+
+    assert metadata["document"]["title"] == "作业手册"
+    assert contents["document"]["file_name"] == "manual.docx"
+    assert [chunk["chunk_index"] for chunk in contents["chunks"]][:2] == [1, 2]
+    assert contents["content"] == "第一段\n\n第二段"
+    assert client.get.call_args_list[-1].args[0] == "http://weknora:8080/api/v1/chunks/doc-1"
+    assert client.get.call_args_list[-1].kwargs["params"] == {
+        "page": 1,
+        "page_size": 50,
+        "chunk_type": ["text", "image_caption", "image_ocr"],
+    }
+
+
+def test_weknora_list_document_chunks_pages_and_orders_results():
+    app_config = _config_for(
+        {
+            "weknora_list_document_chunks": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+            }
+        }
+    )
+    chunks_response = _response(
+        {
+            "success": True,
+            "data": [
+                {
+                    "id": "chunk-2",
+                    "knowledge_id": "doc-1",
+                    "knowledge_base_id": "kb-1",
+                    "content": "第二段",
+                    "chunk_index": 2,
+                    "chunk_type": "text",
+                },
+                {
+                    "id": "chunk-1",
+                    "knowledge_id": "doc-1",
+                    "knowledge_base_id": "kb-1",
+                    "content": "第一段",
+                    "chunk_index": 1,
+                    "chunk_type": "text",
+                },
+            ],
+            "total": 2,
+            "page": 2,
+            "page_size": 25,
+        }
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client = client_cls.return_value.__enter__.return_value
+            client.get.return_value = chunks_response
+
+            from deerflow.community.weknora.tools import weknora_list_document_chunks_tool
+
+            parsed = json.loads(
+                weknora_list_document_chunks_tool.invoke(
+                    {
+                        "knowledge_id": "doc-1",
+                        "page": 2,
+                        "page_size": 25,
+                        "chunk_types": ["text"],
+                    }
+                )
+            )
+
+    assert client.get.call_args.args[0] == "http://weknora:8080/api/v1/chunks/doc-1"
+    assert client.get.call_args.kwargs["params"] == {
+        "page": 2,
+        "page_size": 25,
+        "chunk_type": ["text"],
+    }
+    assert [chunk["chunk_index"] for chunk in parsed["chunks"]] == [1, 2]
+
+
+def test_weknora_list_agents_exposes_builtin_capabilities_without_prompts():
+    app_config = _config_for({"weknora_list_agents": {"api_url": "http://weknora:8080", "api_key": "test-key"}})
+    api_response = _response(
+        {
+            "success": True,
+            "data": [
+                {
+                    "id": "builtin-data-analyst",
+                    "name": "数据分析",
+                    "description": "分析结构化数据",
+                    "is_builtin": True,
+                    "config": {
+                        "agent_mode": "smart-reasoning",
+                        "agent_type": "data-analyst",
+                        "allowed_tools": ["data_schema", "data_analysis"],
+                        "data_analysis_enabled": True,
+                        "system_prompt": "internal prompt must not leak",
+                    },
+                },
+                {
+                    "id": "custom-disabled",
+                    "name": "停用智能体",
+                    "is_builtin": False,
+                    "config": {},
+                },
+            ],
+            "disabled_own_agent_ids": ["custom-disabled"],
+        }
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client_cls.return_value.__enter__.return_value.get.return_value = api_response
+
+            from deerflow.community.weknora.tools import weknora_list_agents_tool
+
+            parsed = json.loads(weknora_list_agents_tool.invoke({}))
+
+    assert parsed["total"] == 2
+    analyst = parsed["agents"][0]
+    assert analyst["enabled"] is True
+    assert analyst["allowed_tools"] == ["data_schema", "data_analysis"]
+    assert analyst["capabilities"]["data_analysis"] is True
+    assert "system_prompt" not in json.dumps(analyst, ensure_ascii=False)
+    assert parsed["agents"][1]["enabled"] is False
+
+
+def test_weknora_invoke_agent_uses_agent_chat_and_reports_internal_tools():
+    app_config = _config_for(
+        {
+            "weknora_invoke_agent": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+                "knowledge_base_ids": ["kb-1"],
+            }
+        }
+    )
+    stream_response = _StreamResponse(
+        [
+            'data: {"response_type":"tool_call","data":{"tool_name":"data_schema","arguments":{"knowledge_base_ids":["kb-1"]}}}',
+            'data: {"response_type":"tool_result","content":"schema ready","data":{"tool_name":"data_schema"}}',
+            'data: {"response_type":"references","knowledge_references":[{"id":"chunk-1","content":"产量 100","knowledge_id":"doc-1","knowledge_base_id":"kb-1","knowledge_title":"月报"}]}',
+            'data: {"response_type":"answer","content":"分析完成","done":false}',
+            'data: {"response_type":"complete","content":"","done":true}',
+        ]
+    )
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client = client_cls.return_value.__enter__.return_value
+            client.stream.return_value = stream_response
+
+            from deerflow.community.weknora.tools import weknora_invoke_agent_tool
+
+            parsed = json.loads(
+                weknora_invoke_agent_tool.invoke(
+                    {
+                        "agent_id": "builtin-data-analyst",
+                        "query": "分析月报",
+                        "session_id": "session-agent",
+                        "knowledge_base_ids": ["kb-1"],
+                    }
+                )
+            )
+
+    assert client.stream.call_args.args == (
+        "POST",
+        "http://weknora:8080/api/v1/agent-chat/session-agent",
+    )
+    assert client.stream.call_args.kwargs["json"] == {
+        "query": "分析月报",
+        "knowledge_base_ids": ["kb-1"],
+        "agent_id": "builtin-data-analyst",
+        "agent_enabled": True,
+        "web_search_enabled": False,
+    }
+    assert parsed["answer"] == "分析完成"
+    assert parsed["tool_calls"] == [
+        {
+            "tool_name": "data_schema",
+            "arguments": {"knowledge_base_ids": ["kb-1"]},
+        }
+    ]
+    assert parsed["tool_results"][0]["tool_name"] == "data_schema"
+    assert parsed["references"][0]["citation_markdown"].startswith("[citation:月报]")
+
+
+def test_weknora_invoke_agent_returns_pending_human_action_without_auto_approval():
+    app_config = _config_for(
+        {
+            "weknora_invoke_agent": {
+                "api_url": "http://weknora:8080",
+                "api_key": "test-key",
+                "knowledge_base_id": "kb-1",
+            }
+        }
+    )
+    stream_response = _StreamResponse(['data: {"response_type":"tool_approval_required","content":"MCP tool requires human approval","done":true,"data":{"pending_id":"approval-1","tool_name":"dangerous_mcp"}}'])
+
+    with patch("deerflow.community.weknora.tools.get_app_config", return_value=app_config):
+        with patch("deerflow.community.weknora.tools.httpx.Client") as client_cls:
+            client_cls.return_value.__enter__.return_value.stream.return_value = stream_response
+
+            from deerflow.community.weknora.tools import weknora_invoke_agent_tool
+
+            parsed = json.loads(weknora_invoke_agent_tool.invoke({"agent_id": "custom-agent", "query": "执行操作", "session_id": "session-1"}))
+
+    assert parsed["pending_actions"] == [
+        {
+            "type": "tool_approval_required",
+            "content": "MCP tool requires human approval",
+            "data": {"pending_id": "approval-1", "tool_name": "dangerous_mcp"},
+        }
+    ]
+    assert parsed["answer"] == ""

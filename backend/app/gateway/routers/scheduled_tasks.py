@@ -42,6 +42,9 @@ _SCHEDULED_RUN_CONTEXT_KEYS = frozenset(
         "max_total_subagents",
         "weknora_knowledge_base_ids",
         "weknora_knowledge_bases",
+        "weknora_knowledge_ids",
+        "weknora_tag_scopes",
+        "weknora_scope_items",
     }
 )
 
