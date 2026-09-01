@@ -813,6 +813,12 @@ The bundled academic research package is exposed through one public skill,
 `/academic-research`. Its vendored component skills are runtime implementation
 details under `skills/third_party/` and do not appear as separate platform skills.
 
+The bundled `/research-fund-settlement` public skill generates validated Chinese
+research-fund settlement reports for group-company, National Natural Science
+Foundation, and MIIT projects. It uses profile-specific source-field and layout
+contracts, preserves the corresponding reference template, and publishes an
+editable DOCX with the platform-generated PDF preview.
+
 Users can explicitly activate an enabled skill for a single turn by starting the request with `/skill-name`, for example `/data-analysis analyze uploads/foo.csv`. DeerFlow loads that skill's complete `SKILL.md` as hidden context on the first model call, then restores a compact validated continuation contract after each tool call. This retains exact reference paths and mandatory phase gates without multiplying a large skill body by every tool iteration. The skill is read from disk and audited once; the per-run contract is never written to chat history or persisted run configuration. Slash activation respects disabled skills, custom-agent skill whitelists, and existing channel commands such as `/new` and `/help`.
 
 When an activated skill declares a mandatory `read_file` reference or names a

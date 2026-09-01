@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deerflow.local/schemas/research-fund-settlement-case.v1.json",
+  "title": "Research Fund Settlement Case",
+  "type": "object",
+  "required": ["schema_version", "profile", "report", "project", "organizations", "funding", "expenses", "management", "audit", "selected_sections", "evidence", "conflicts", "assumptions"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "profile": {"enum": ["group_company", "national_science", "miit"]},
+    "report": {"type": "object"},
+    "project": {"type": "object"},
+    "organizations": {"type": "object"},
+    "funding": {
+      "type": "object",
+      "required": ["currency", "unit", "tax_basis", "approved_total", "sources", "annual_appropriations", "adjustments", "transfers"],
+      "properties": {
+        "currency": {"const": "CNY"},
+        "unit": {"const": "万元"},
+        "tax_basis": {"enum": ["tax_included", "tax_excluded", "not_applicable", null]},
+        "expense_scope": {"type": ["string", "null"]},
+        "approved_total": {"type": ["number", "null"]},
+        "adjusted_total": {"type": ["number", "null"]},
+        "sources": {"type": "array", "items": {"$ref": "#/$defs/fundingSource"}},
+        "annual_appropriations": {"type": "array", "items": {"type": "object"}},
+        "adjustments": {"type": "object"},
+        "transfers": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "expenses": {"type": "array", "items": {"$ref": "#/$defs/expense"}},
+    "management": {"type": "object"},
+    "procurement": {"type": "object"},
+    "audit": {"type": "object"},
+    "assets": {"type": "array", "items": {"type": "object"}},
+    "outcomes": {"type": "array", "items": {"type": "object"}},
+    "narratives": {"type": "object", "additionalProperties": {"type": "string"}},
+    "selected_sections": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+    "conflicts": {"type": "array", "items": {"type": "object"}},
+    "assumptions": {"type": "array", "items": {"type": "object"}}
+  },
+  "$defs": {
+    "fundingSource": {
+      "type": "object",
+      "required": ["name", "approved", "received", "evidence_refs"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "kind": {"type": ["string", "null"]},
+        "approved": {"type": ["number", "null"]},
+        "received": {"type": ["number", "null"]},
+        "spent": {"type": ["number", "null"]},
+        "audited": {"type": ["number", "null"]},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "expense": {
+      "type": "object",
+      "required": ["code", "name", "budget", "adjusted_budget", "reported", "actual", "audited", "description", "variance_reason", "evidence_refs"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "budget": {"type": ["number", "null"]},
+        "adjusted_budget": {"type": ["number", "null"]},
+        "reported": {"type": ["number", "null"]},
+        "actual": {"type": ["number", "null"]},
+        "audited": {"type": ["number", "null"]},
+        "description": {"type": ["string", "null"]},
+        "variance_reason": {"type": ["string", "null"]},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["id", "source_file", "locator", "fact"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "source_file": {"type": "string", "minLength": 1},
+        "locator": {"type": "string", "minLength": 1},
+        "fact": {"type": "string", "minLength": 1},
+        "as_of": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

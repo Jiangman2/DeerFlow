@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "profile": "group_company",
+  "report": {"cutoff_date": "2025-12-31", "prepared_date": "2026-02-18", "prepared_by": "财务管理部", "reviewed_by": "科研财务主管", "status": "final"},
+  "project": {
+    "name": "海上设施数字化运维技术研究项目",
+    "topic_name": null,
+    "code": "GROUP-2023-006",
+    "plan_name": "集团公司科技项目",
+    "entity_mode": "limited_company",
+    "responsible_person": "周涛",
+    "researchers": ["周涛", "陈晨"],
+    "start_date": "2023-01-01",
+    "end_date": "2025-12-31",
+    "actual_start_date": "2023-01-01",
+    "actual_end_date": "2025-12-31",
+    "research_content": ["设备健康监测", "数字化运维平台", "现场示范应用"],
+    "governance_summary": "项目组按任务书组织实施。",
+    "completion_summary": "项目已完成任务书约定内容。",
+    "approval_document": {"title": "项目任务合同书", "number": "GROUP-2023-006", "date": "2023-01-15"}
+  },
+  "organizations": {
+    "lead": {"name": "海洋工程研究总院有限责任公司", "short_name": "研究总院", "affiliation": "海洋能源集团有限公司", "established_date": "2008-06-12", "unified_social_credit_code": "91110000DEMO000002", "registered_capital": "人民币30000万元", "legal_representative": "刘洋", "registered_address": "北京市朝阳区示例街2号", "business_scope": "海洋工程技术研究与服务", "relevant_capability": "海上设施数字化运维"},
+    "participants": [],
+    "no_participants_reason": "本项目由承担单位独立实施。"
+  },
+  "funding": {
+    "currency": "CNY",
+    "unit": "万元",
+    "tax_basis": "tax_excluded",
+    "expense_scope": "all_funds",
+    "approved_total": 800,
+    "adjusted_total": 800,
+    "sources": [
+      {"name": "有限公司资金", "kind": "company", "approved": 500, "received": 500, "spent": 475, "audited": null, "evidence_refs": ["E1", "E3"]},
+      {"name": "承担单位自筹资金", "kind": "self_funded", "approved": 200, "received": 200, "spent": 190, "audited": null, "evidence_refs": ["E1", "E3"]},
+      {"name": "依托工程资金", "kind": "engineering", "approved": 100, "received": 100, "spent": 90, "audited": null, "evidence_refs": ["E1", "E3"]}
+    ],
+    "annual_appropriations": [
+      {"year": 2023, "amount": 300, "document": "2023年度科技计划"},
+      {"year": 2024, "amount": 300, "document": "2024年度科技计划"},
+      {"year": 2025, "amount": 200, "document": "2025年度科技计划"}
+    ],
+    "adjustments": {"none_declared": true, "items": []},
+    "transfers": []
+  },
+  "expenses": [
+    {"code": "equipment_software", "name": "设备与软件费", "budget": 180, "adjusted_budget": 180, "reported": 170, "actual": 170, "audited": null, "description": "用于监测终端和平台软件购置。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
+    {"code": "materials_energy", "name": "材料/燃料动力费", "budget": 140, "adjusted_budget": 140, "reported": 135, "actual": 135, "audited": null, "description": "用于传感器辅材和现场试验能源消耗。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
+    {"code": "external_testing", "name": "外协实验/试验费", "budget": 120, "adjusted_budget": 120, "reported": 110, "actual": 110, "audited": null, "description": "用于第三方可靠性测试。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
+    {"code": "commissioned_research", "name": "外委研究费", "budget": 100, "adjusted_budget": 100, "reported": 96, "actual": 96, "audited": null, "description": "委托专业单位开展故障诊断模型研究。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
+    {"code": "publication_ip", "name": "出版/文献/信息传播/知识产权事务费", "budget": 70, "adjusted_budget": 70, "reported": 66, "actual": 66, "audited": null, "description": "用于论文、专利和资料印制。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
+    {"code": "travel_meeting_cooperation", "name": "会议/差旅/国际合作交流费", "budget": 70, "adjusted_budget": 70, "reported": 65, "actual": 65, "audited": null, "description": "用于现场调研、试验和项目研讨。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
+    {"code": "consulting_labor", "name": "专家咨询评审/劳务费", "budget": 60, "adjusted_budget": 60, "reported": 58, "actual": 58, "audited": null, "description": "用于专家评审和临时辅助人员劳务。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
+    {"code": "other", "name": "其他费用", "budget": 60, "adjusted_budget": 60, "reported": 55, "actual": 55, "audited": null, "description": "用于运输、租赁、维修和其他合规支出。", "variance_reason": "", "evidence_refs": ["E1", "E2"]}
+  ],
+  "management": {
+    "accounting_standard": "《企业会计准则》",
+    "accounting_system": "集团ERP系统",
+    "cost_accounting_summary": "按项目WBS设置明细，单独核算和归集费用。",
+    "accounting_policy": "有限公司项目按不含税口径归集项目成本。",
+    "internal_control_summary": "预算、报销、合同和资金支付按单位制度执行。",
+    "management_summary": "项目经费纳入统一财务管理，在ERP系统按WBS单独核算，财务档案按制度归档。未发现需要在决算报告中披露的重大管理问题。",
+    "finance_department_opinion": "项目资金按任务合同书批复预算执行，科研经费单独核算，支出记录与财务账一致，财务信息真实有效。",
+    "no_transfers_reason": "本项目无参研单位转拨。",
+    "policies": [
+      {"name": "科研项目财务管理办法", "number": "研总财〔2022〕8号", "execution": "用于预算、核算和决算管理"},
+      {"name": "经费报销管理细则", "number": "研总财〔2022〕10号", "execution": "用于费用报销审核"},
+      {"name": "会计档案管理细则", "number": "研总财〔2021〕5号", "execution": "用于项目财务档案归档"}
+    ]
+  },
+  "procurement": {"summary": "", "contracts": [], "tendering_summary": "", "tenders": []},
+  "audit": {"audit_org": null, "report_no": null, "reported_expenditure": 755, "audit_reduction": null, "recognized_expenditure": null, "payables": 0, "expected_expenditure": 0, "opinion": null},
+  "assets": [],
+  "outcomes": [],
+  "narratives": {},
+  "selected_sections": [],
+  "evidence": [
+    {"id": "E1", "source_file": "项目任务合同书.pdf", "locator": "预算批复表及项目基本信息", "fact": "批复总额800万元并列示八类费用预算。", "as_of": "2023-01-15"},
+    {"id": "E2", "source_file": "项目财务明细账.xlsx", "locator": "项目WBS费用明细", "fact": "截至2025-12-31实际支出755万元。", "as_of": "2025-12-31"},
+    {"id": "E3", "source_file": "年度预算及资金台账.xlsx", "locator": "2023-2025年度预算下达与到账记录", "fact": "分年预算和各来源资金均按计划下达。", "as_of": "2025-12-31"}
+  ],
+  "conflicts": [],
+  "assumptions": []
+}
