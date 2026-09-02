@@ -419,6 +419,17 @@ audit logs. Dashboard totals preserve Haineng and collaboration as independent
 sources, exclude `通用智能体平台`, use the Asia/Shanghai calendar day, and show a
 fixed latest-30-natural-day trend independent of the dashboard's main range.
 
+Group OA policy-to-JointJS requests enter only through the dedicated
+machine-authenticated `/api/v1/integrations/oa/policy-flow/jobs` API. Pin the
+target owner, personal custom Agent, and callback URL in Gateway runtime
+Secrets; callers may submit only one document, a business request ID, and
+bounded JSON fields. The durable SQL job must launch through the existing
+Gateway run path as the real owner, require exactly one valid JSON artifact
+from `present_files`, and keep signed callback retries plus authenticated
+status/result polling. Never let OA select an owner, Agent, callback URL,
+internal thread/run endpoint, or filesystem path. See
+`docs/oa-policy-flow-integration.md`.
+
 ## Repository Map
 
 ```

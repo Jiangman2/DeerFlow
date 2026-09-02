@@ -84,6 +84,16 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   unknown future hosted tool types still fail closed instead of being silently
   discarded.
 - Scheduled-task executions must reuse that same Gateway run lifecycle. The scheduler may decide _when_ work runs, but it must dispatch through the existing run path rather than introducing a parallel execution stack.
+- Group OA policy-flow work is a durable orchestration layer over that same run
+  lifecycle, not a second Agent runtime. The public machine API is limited to
+  `/api/v1/integrations/oa/policy-flow/jobs`; it authenticates a scoped Bearer
+  key, pins owner/agent/callback from server environment, stores idempotency,
+  leases, retries, and callback state in `oa_policy_flow_jobs`, and launches via
+  `launch_scheduled_thread_run`. Completion requires exactly one valid UTF-8
+  JSON artifact from `present_files`. Keep callback targets operator-owned,
+  `trust_env=false`, redirect-disabled, and TLS verified. Never allow an OA
+  request to select a user, custom agent, callback URL, filesystem path, or
+  internal thread/run API. See `docs/oa-policy-flow-integration.md`.
 - Run persistence records the effective model resolved by the agent factory even when callers omit `context.model_name`, so new default-model runs remain attributable in admin usage reports.
 
 **Project Structure**:

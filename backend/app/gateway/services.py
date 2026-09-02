@@ -11,7 +11,6 @@ import asyncio
 import json
 import logging
 import os
-import re
 from collections.abc import Mapping
 from types import SimpleNamespace
 from typing import Any
@@ -615,9 +614,14 @@ def build_run_config(
     # Inject custom agent name when the caller specified a non-default assistant.
     # Honour an explicit agent_name in either runtime options container.
     if assistant_id and assistant_id != _DEFAULT_ASSISTANT_ID:
-        normalized = assistant_id.strip().lower().replace("_", "-")
-        if not normalized or not re.fullmatch(r"[a-z0-9-]+", normalized):
-            raise ValueError(f"Invalid assistant_id {assistant_id!r}: must contain only letters, digits, and hyphens after normalization.")
+        from deerflow.config.agents_config import validate_agent_name
+
+        # Preserve the existing API-to-storage normalization (lowercase and
+        # underscore-to-hyphen), then use the custom-agent path authority. The
+        # old inline ASCII regex rejected valid Chinese agent directories.
+        normalized = validate_agent_name(assistant_id.strip().lower().replace("_", "-"))
+        if normalized is None:  # defensive: assistant_id is truthy above
+            raise ValueError("assistant_id must not be empty")
         configurable = config.setdefault("configurable", {})
         runtime_context = config.setdefault("context", {})
         explicit_agent_name: str | None = None

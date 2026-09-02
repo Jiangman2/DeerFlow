@@ -415,6 +415,32 @@ def test_build_run_config_custom_agent_injects_agent_name():
     assert config["run_name"] == "finalis"
 
 
+def test_build_run_config_accepts_safe_chinese_custom_agent_name():
+    """The agent registry allows Unicode names, so the run path must too."""
+    from app.gateway.services import build_run_config
+
+    config = build_run_config("thread-1", None, None, assistant_id="制度文生图智能体")
+
+    assert config["configurable"]["agent_name"] == "制度文生图智能体"
+    assert config["context"]["agent_name"] == "制度文生图智能体"
+    assert config["run_name"] == "制度文生图智能体"
+
+
+def test_build_run_config_preserves_existing_ascii_name_normalization():
+    from app.gateway.services import build_run_config
+
+    config = build_run_config("thread-1", None, None, assistant_id="MY_AGENT")
+
+    assert config["configurable"]["agent_name"] == "my-agent"
+
+
+def test_build_run_config_rejects_unsafe_custom_agent_name():
+    from app.gateway.services import build_run_config
+
+    with pytest.raises(ValueError, match="Invalid agent name"):
+        build_run_config("thread-1", None, None, assistant_id="../../other-user")
+
+
 def test_build_run_config_lead_agent_no_agent_name():
     """'lead_agent' assistant_id must NOT inject configurable['agent_name']."""
     from app.gateway.services import build_run_config

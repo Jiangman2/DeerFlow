@@ -349,6 +349,15 @@ dedicated runtime secrets, rather than browser cookies or CSRF tokens. See
 [`docs/iam-integration.md`](docs/iam-integration.md) for configuration, routes,
 and rollout guidance.
 
+Group OA can submit a policy document plus business fields to a dedicated
+machine-authenticated asynchronous API. Gateway runs the server-pinned,
+user-owned `制度文生图智能体`, accepts exactly one valid JointJS JSON artifact,
+delivers it to a fixed signed OA callback, and retains status/result polling as
+a recovery path. The durable job/lease state lives in SQL, and callers cannot
+select another user, agent, or callback URL. See
+[`docs/oa-policy-flow-integration.md`](docs/oa-policy-flow-integration.md) for
+the API, callback, Secret, and rollout contract.
+
 The dashboard also reads WeKnora's own database in read-only mode to report
 current users, knowledge bases, documents, file formats, knowledge-scoped
 conversations, and question turns alongside creation/upload/conversation

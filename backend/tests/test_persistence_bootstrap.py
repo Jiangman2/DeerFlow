@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0013_data_lake_auth_challenges"
+HEAD = "0014_oa_policy_flow_jobs"
 BASELINE = "0001_baseline"
 
 
@@ -859,7 +859,7 @@ class TestDecideState:
 # ---------------------------------------------------------------------------
 
 
-def test_head_revision_is_data_lake_auth_challenge_revision() -> None:
+def test_head_revision_is_oa_policy_flow_revision() -> None:
     assert _get_head_revision() == HEAD
 
 

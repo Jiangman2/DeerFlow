@@ -24,6 +24,7 @@ from deerflow.persistence.channel_connections.model import (
 from deerflow.persistence.data_lake_auth.model import DataLakeAuthChallengeRow
 from deerflow.persistence.feedback.model import FeedbackRow
 from deerflow.persistence.models.run_event import RunEventRow
+from deerflow.persistence.oa_policy_flow_jobs.model import OAPolicyFlowJobRow
 from deerflow.persistence.observability.model import AuditLogRow, OperationDispositionRow
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
@@ -41,6 +42,7 @@ __all__ = [
     "FeedbackRow",
     "AuditLogRow",
     "OperationDispositionRow",
+    "OAPolicyFlowJobRow",
     "RunEventRow",
     "RunRow",
     "ScheduledTaskRow",

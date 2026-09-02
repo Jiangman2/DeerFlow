@@ -69,6 +69,11 @@ def should_check_csrf(request: Request) -> bool:
     # (e.g. GitHub's X-Hub-Signature-256), not the CSRF double-submit cookie.
     if request.url.path.startswith("/api/webhooks/"):
         return False
+    # Group OA uses a scoped machine credential and never has a browser CSRF cookie.
+    if request.url.path == "/api/v1/integrations/oa/policy-flow/jobs" or request.url.path.startswith(
+        "/api/v1/integrations/oa/policy-flow/jobs/"
+    ):
+        return False
     # IAM account synchronization is a server-to-server protocol protected by
     # its independently verified SM4/SM3 envelope and remote credentials.
     if request.url.path == "/api/v1/iam/account-sync" or request.url.path.startswith("/api/v1/iam/account-sync/"):

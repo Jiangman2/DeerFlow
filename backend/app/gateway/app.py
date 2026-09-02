@@ -25,8 +25,8 @@ from app.gateway.routers import (
     console,
     convert,
     dashboard,
-    datalake,
     data_lake_auth,
+    datalake,
     features,
     feedback,
     github_webhooks,
@@ -35,6 +35,7 @@ from app.gateway.routers import (
     mcp,
     memory,
     models,
+    oa_policy_flow,
     observability,
     runs,
     scheduled_tasks,
@@ -199,6 +200,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # snapshot on `app.state` to keep that contract enforceable.
     try:
         startup_config = get_app_config()
+        from app.gateway.oa_policy_flow_config import load_oa_policy_flow_config
+
+        oa_policy_flow_config = load_oa_policy_flow_config()
+        app.state.oa_policy_flow_config = oa_policy_flow_config
         configure_logging(startup_config)
         logger.info("Configuration loaded successfully")
         warn_if_auth_disabled_enabled()
@@ -304,6 +309,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception:
                 logger.exception("Failed to initialize scheduled task service")
 
+        if not isolated_ppt_runner and oa_policy_flow_config.enabled:
+            from app.gateway.oa_policy_flow_service import OAPolicyFlowService
+
+            repository = getattr(app.state, "oa_policy_flow_job_repo", None)
+            if repository is None:
+                raise RuntimeError("OA policy-flow integration requires SQL persistence")
+            oa_service = OAPolicyFlowService(
+                app=app,
+                repository=repository,
+                config=oa_policy_flow_config,
+            )
+            app.state.oa_policy_flow_service = oa_service
+            await oa_service.start()
+
         yield
 
         try:
@@ -333,6 +352,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 await app.state.scheduled_task_service.stop()
             except Exception:
                 logger.exception("Failed to stop scheduled task service")
+
+        if not isolated_ppt_runner and getattr(app.state, "oa_policy_flow_service", None) is not None:
+            try:
+                await app.state.oa_policy_flow_service.stop()
+            except Exception:
+                logger.exception("Failed to stop OA policy-flow service")
 
         # Drain the memory backend's pending-update buffer before the worker
         # exits (best-effort, bounded). IM channels and the scheduler are
@@ -576,6 +601,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # The router is an enterprise extension and remains isolated from the
     # official thread, memory, and run lifecycle routers above.
     app.include_router(weknora.router)
+
+    # Machine-authenticated Group OA policy document integration.
+    app.include_router(oa_policy_flow.router)
 
     # Cluster-internal OpenAI Responses compatibility endpoint used only by
     # the sandboxed ppt-master Codex Agent in enterprise deployments.

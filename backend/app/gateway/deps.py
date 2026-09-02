@@ -285,6 +285,7 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
 
         app.state.thread_store = make_thread_store(sf, app.state.store)
         if sf is not None:
+            from deerflow.persistence.oa_policy_flow_jobs import OAPolicyFlowJobRepository
             from deerflow.persistence.scheduled_task_runs import (
                 ScheduledTaskRunRepository,
             )
@@ -292,9 +293,11 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
 
             app.state.scheduled_task_repo = ScheduledTaskRepository(sf)
             app.state.scheduled_task_run_repo = ScheduledTaskRunRepository(sf)
+            app.state.oa_policy_flow_job_repo = OAPolicyFlowJobRepository(sf)
         else:
             app.state.scheduled_task_repo = None
             app.state.scheduled_task_run_repo = None
+            app.state.oa_policy_flow_job_repo = None
 
         # Run event store. The store and the matching ``run_events_config`` are
         # both frozen at startup so ``get_run_context`` does not combine a

@@ -165,6 +165,17 @@ Bearer header. Valid sources are `海能平台` and `协同平台`; the dashboar
 them separate and excludes `通用智能体平台`. Do not put the ingestion key in
 frontend code or a ConfigMap.
 
+## Group OA policy-flow integration
+
+The OA bridge uses `OA_POLICY_FLOW_*` values from `deer-flow-env`. Its inbound
+key, callback token, and callback signing secret are separate credentials. Pin
+the owner and agent to the server-verified values and keep the callback URL
+operator-owned; submissions must never choose any of them. Leave
+`OA_POLICY_FLOW_ENABLED=false` until the OA callback and network path have been
+tested. See
+[`docs/oa-policy-flow-integration.md`](../../../docs/oa-policy-flow-integration.md)
+for the complete API and rollout contract.
+
 ## Production
 
 Use a real secret-management workflow instead of committed Secret YAML:
