@@ -1349,6 +1349,40 @@
     height: 100%;
   }
 
+  /* Skill creation keeps DeerFlow's native centered title/description while
+     respecting the branded header and fixed welcome composer. */
+  .cnooc-welcome-skill {
+    position: absolute;
+    top: clamp(205px, 29vh, 284px);
+    right: 30px;
+    left: 30px;
+    width: auto !important;
+    padding: 0 !important;
+    color: var(--cnooc-ink);
+    font-family: var(--cnooc-font);
+    pointer-events: none;
+  }
+
+  .cnooc-welcome-skill h1 {
+    margin: 0;
+    color: var(--cnooc-ink);
+    font-size: clamp(24px, 1.8vw, 30px);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72);
+  }
+
+  .cnooc-welcome-skill p {
+    max-width: min(720px, calc(100vw - 180px));
+    margin: 8px auto 0;
+    color: #7890b1;
+    font-size: clamp(14px, 1.05vw, 17px);
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: 0.018em;
+  }
+
   .cnooc-desktop-welcome-copy {
     position: absolute;
     top: clamp(205px, 29vh, 284px);
@@ -1855,7 +1889,8 @@
     font-size: 14px;
   }
 
-  .cnooc-desktop-welcome-copy {
+  .cnooc-desktop-welcome-copy,
+  .cnooc-welcome-skill {
     top: clamp(234px, 30.5vh, 278px);
   }
 
@@ -2085,7 +2120,8 @@
     padding-top: 8px !important;
   }
 
-  .cnooc-desktop-welcome-copy {
+  .cnooc-desktop-welcome-copy,
+  .cnooc-welcome-skill {
     top: clamp(116px, 21vh, 150px);
   }
 
@@ -2511,6 +2547,36 @@
     bottom: 0;
     left: 0;
     pointer-events: none;
+  }
+
+  .cnooc-welcome-skill {
+    position: absolute;
+    top: clamp(28px, 8vh, 72px);
+    right: 16px;
+    left: 16px;
+    width: auto !important;
+    padding: 16px 12px !important;
+    color: var(--cnooc-ink);
+    font-family: var(--cnooc-font);
+    pointer-events: none;
+  }
+
+  .cnooc-welcome-skill h1 {
+    margin: 0;
+    color: var(--cnooc-ink);
+    font-size: clamp(21px, 5.8vw, 26px);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.018em;
+  }
+
+  .cnooc-welcome-skill p {
+    max-width: 34rem;
+    margin: 7px auto 0;
+    color: #718199;
+    font-size: clamp(13px, 3.45vw, 15px);
+    line-height: 1.6;
+    letter-spacing: 0.012em;
   }
 
   .cnooc-agent-welcome-stage .cnooc-agent-welcome {

@@ -72,9 +72,9 @@ export const zhCN: Translations = {
       "欢迎使用中海油勘探开发智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
     mobileDescription: "面向油气业务的智能研究与协作助手",
 
-    createYourOwnSkill: "创建你自己的 Agent SKill",
+    createYourOwnSkill: "创建您的专属技能",
     createYourOwnSkillDescription:
-      "创建你的 Agent Skill 来释放本平台的潜力。通过自定义技能，本平台\n可以帮你搜索网络、分析数据，还能为你生成幻灯片、\n网页等作品，几乎可以做任何事情。",
+      "描述您希望智能体完成的工作，我们会协助您搭建可复用的技能。",
   },
 
   // Clipboard

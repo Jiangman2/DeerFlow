@@ -2,9 +2,18 @@
 
 import { useSearchParams } from "next/navigation";
 
+import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
 import { CnoocAssistantAvatar } from "./cnooc-assistant-avatar";
+
+function WelcomeDescription({ children }: { children: string }) {
+  return (
+    <p className="max-w-full text-wrap break-words whitespace-pre-line">
+      {children}
+    </p>
+  );
+}
 
 export function Welcome({
   className,
@@ -12,17 +21,27 @@ export function Welcome({
   className?: string;
   mode?: "ultra" | "pro" | "thinking" | "flash";
 }) {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const isSkillMode = searchParams.get("mode") === "skill";
 
   if (isSkillMode) {
     return (
       <section
-        className={cn("cnooc-welcome-skill", className)}
+        className={cn(
+          "cnooc-welcome-skill mx-auto flex w-full max-w-full flex-col items-center justify-center gap-2 px-4 py-4 text-center sm:px-8",
+          className,
+        )}
         data-testid="welcome-panel"
       >
-        <h1>创建您的专属技能</h1>
-        <p>描述您希望智能体完成的工作，我们会协助您搭建可复用的技能。</p>
+        <h1 className="max-w-full text-2xl font-bold">
+          {t.welcome.createYourOwnSkill}
+        </h1>
+        <div className="text-muted-foreground max-w-full text-sm">
+          <WelcomeDescription>
+            {t.welcome.createYourOwnSkillDescription}
+          </WelcomeDescription>
+        </div>
       </section>
     );
   }

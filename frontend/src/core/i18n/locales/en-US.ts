@@ -75,7 +75,7 @@ export const enUS: Translations = {
 
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
-      "Create your own skill to release the power of 本平台. With customized skills,\n本平台 can help you search on the web, analyze data, and generate\n artifacts like slides, web pages and do almost anything.",
+      "Describe the work you want the agent to perform, and we will help you build a reusable skill.",
   },
 
   // Clipboard

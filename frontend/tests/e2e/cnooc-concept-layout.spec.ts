@@ -395,6 +395,110 @@ test.describe("CNOOC concept layout", () => {
     });
   });
 
+  test("skill creation welcome stays centered below the branded header", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await useChineseLocale(page);
+    mockLangGraphAPI(page);
+
+    await page.goto("/workspace/chats/new?mode=skill&visualQa=cnooc-concept");
+
+    const panel = page.getByTestId("welcome-panel");
+    const heading = panel.getByRole("heading", {
+      level: 1,
+      name: "创建您的专属技能",
+    });
+    const textbox = page.getByRole("textbox").first();
+
+    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await expect(panel).toContainText(
+      "描述您希望智能体完成的工作，我们会协助您搭建可复用的技能。",
+    );
+    await expect(textbox).toBeEditable();
+
+    const desktopLayout = await page.evaluate(() => {
+      const box = (selector: string) => {
+        const element = document.querySelector(selector);
+        if (!element) {
+          throw new Error(`Missing ${selector}`);
+        }
+        const bounds = element.getBoundingClientRect();
+        return {
+          top: bounds.top,
+          right: bounds.right,
+          bottom: bounds.bottom,
+          left: bounds.left,
+        };
+      };
+      return {
+        brand: box(".cnooc-desktop-brandline"),
+        panel: box(".cnooc-welcome-skill"),
+        composer: box('[data-testid="welcome-composer"]'),
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      };
+    });
+
+    expect(desktopLayout.panel.top).toBeGreaterThan(
+      desktopLayout.brand.bottom + 60,
+    );
+    expect(desktopLayout.panel.bottom).toBeLessThan(
+      desktopLayout.composer.top - 24,
+    );
+    expect(desktopLayout.scrollWidth).toBeLessThanOrEqual(
+      desktopLayout.viewportWidth,
+    );
+    await page.screenshot({
+      path: "test-results/cnooc-skill-mode-desktop.png",
+      fullPage: true,
+    });
+
+    await textbox.fill("创建一个测试技能");
+    await expect(textbox).toHaveValue("创建一个测试技能");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(heading).toBeVisible();
+    const mobileLayout = await page.evaluate(() => {
+      const box = (selector: string) => {
+        const element = document.querySelector(selector);
+        if (!element) {
+          throw new Error(`Missing ${selector}`);
+        }
+        const bounds = element.getBoundingClientRect();
+        return {
+          top: bounds.top,
+          right: bounds.right,
+          bottom: bounds.bottom,
+          left: bounds.left,
+        };
+      };
+      return {
+        header: box(".cnooc-chat-header"),
+        panel: box(".cnooc-welcome-skill"),
+        composer: box('[data-testid="welcome-composer"]'),
+        scrollWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+      };
+    });
+
+    expect(mobileLayout.panel.top).toBeGreaterThanOrEqual(
+      mobileLayout.header.bottom,
+    );
+    expect(mobileLayout.panel.left).toBeGreaterThanOrEqual(0);
+    expect(mobileLayout.panel.right).toBeLessThanOrEqual(390);
+    expect(mobileLayout.panel.bottom).toBeLessThan(
+      mobileLayout.composer.top - 12,
+    );
+    expect(mobileLayout.scrollWidth).toBeLessThanOrEqual(
+      mobileLayout.viewportWidth,
+    );
+    await page.screenshot({
+      path: "test-results/cnooc-skill-mode-mobile.png",
+      fullPage: true,
+    });
+  });
+
   test("surprise action stays last in the responsive welcome rail", async ({
     page,
   }) => {
