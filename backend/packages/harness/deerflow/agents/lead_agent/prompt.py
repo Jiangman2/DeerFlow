@@ -899,9 +899,9 @@ def get_agent_soul(agent_name: str | None) -> str:
     return ""
 
 
-def _build_self_update_section(agent_name: str | None) -> str:
+def _build_self_update_section(agent_name: str | None, *, enabled: bool = True) -> str:
     """Prompt block that teaches the custom agent to persist self-updates via update_agent."""
-    if not agent_name:
+    if not agent_name or not enabled:
         return ""
     return f"""<self_update>
 You are running as the custom agent **{agent_name}** with a persisted SOUL.md and config.yaml.
@@ -1004,6 +1004,7 @@ def apply_prompt_template(
     max_total_subagents: int | None = None,
     *,
     agent_name: str | None = None,
+    self_update_enabled: bool = True,
     available_skills: set[str] | None = None,
     app_config: AppConfig | None = None,
     deferred_names: frozenset[str] = frozenset(),
@@ -1073,7 +1074,7 @@ def apply_prompt_template(
         enterprise_product_name=ENTERPRISE_PRODUCT_NAME,
         enterprise_product_description=ENTERPRISE_PRODUCT_DESCRIPTION,
         soul=get_agent_soul(agent_name),
-        self_update_section=_build_self_update_section(agent_name),
+        self_update_section=_build_self_update_section(agent_name, enabled=self_update_enabled),
         skills_section=skills_section,
         deferred_tools_section=deferred_tools_section,
         mcp_routing_hints_section=mcp_routing_hints_section,

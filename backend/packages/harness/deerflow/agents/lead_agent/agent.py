@@ -43,7 +43,7 @@ from deerflow.agents.middlewares.view_image_middleware import ViewImageMiddlewar
 from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
 from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware
 from deerflow.agents.thread_state import ThreadState
-from deerflow.config.agents_config import load_agent_config, validate_agent_name
+from deerflow.config.agents_config import is_personal_agent, load_agent_config, validate_agent_name
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.memory_config import should_use_memory_tools
 from deerflow.config.subagents_config import DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN
@@ -667,8 +667,10 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             state_schema=ThreadState,
         )
 
-    # Custom agents can update their own SOUL.md / config via update_agent.
-    # The default agent (no agent_name) does not see this tool.
+    # Personal custom agents can update their own SOUL.md / config via
+    # update_agent. Team/legacy shared agents and the default agent do not see
+    # this tool: shared agents are immutable published snapshots, and exposing
+    # the tool would let a viewer create a same-name personal shadow.
     # Build skill search setup from policy-filtered skills (same list used for
     # tool-policy filtering), so describe_skill only exposes allowed skills.
     skill_setup = build_skill_search_setup(
@@ -688,10 +690,11 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     #
     # The channel name is plumbed into ``run_context`` by
     # ``ChannelManager._resolve_run_params``; bootstrap and direct invocations
-    # leave it unset, so ``update_agent`` remains available there.
+    # leave it unset, so personal agents keep ``update_agent`` there.
     channel_name = cfg.get("channel_name")
     is_webhook_channel = channel_name in _WEBHOOK_CHANNELS
-    extra_tools = [update_agent] if agent_name and not is_webhook_channel else []
+    can_update_agent = bool(agent_name and not is_webhook_channel and is_personal_agent(agent_name, user_id=resolved_user_id))
+    extra_tools = [update_agent] if can_update_agent else []
     # Default lead agent (unchanged behavior)
     raw_tools = get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled, app_config=resolved_app_config)
     filtered = filter_tools_by_skill_allowed_tools(raw_tools + extra_tools, skills_for_tool_policy, always_allowed_tool_names=ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES)
@@ -734,6 +737,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
                 max_concurrent_subagents=max_concurrent_subagents,
                 max_total_subagents=max_total_subagents,
                 agent_name=agent_name,
+                self_update_enabled=can_update_agent,
                 available_skills=available_skills,
                 app_config=resolved_app_config,
                 deferred_names=setup.deferred_names,

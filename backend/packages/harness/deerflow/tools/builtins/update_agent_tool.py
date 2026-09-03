@@ -1,9 +1,9 @@
 """update_agent tool — let a custom agent persist updates to its own SOUL.md / config.
 
-Bound to the lead agent only when ``runtime.context['agent_name']`` is set
-(i.e. inside an existing custom agent's chat). The default agent does not see
-this tool, and the bootstrap flow continues to use ``setup_agent`` for the
-initial creation handshake.
+Bound to the lead agent only when ``runtime.context['agent_name']`` identifies
+a personal custom agent owned by the current user. The default and team-shared
+agents do not see this tool, and the bootstrap flow continues to use
+``setup_agent`` for the initial creation handshake.
 
 The tool writes back to ``{base_dir}/users/{user_id}/agents/{agent_name}/{config.yaml,SOUL.md}``
 so an agent created by one user is never visible to (or mutable by) another.
@@ -25,7 +25,7 @@ from langchain_core.tools import tool
 from langgraph.types import Command
 from pydantic import BeforeValidator
 
-from deerflow.config.agents_config import load_agent_config, preserve_non_managed_fields, validate_agent_name
+from deerflow.config.agents_config import is_personal_agent, load_agent_config, preserve_non_managed_fields, validate_agent_name
 from deerflow.config.app_config import get_app_config
 from deerflow.config.paths import get_paths
 from deerflow.runtime.user_context import resolve_runtime_user_id
@@ -170,17 +170,18 @@ def update_agent(
 
     paths = get_paths()
     agent_dir = paths.user_agent_dir(user_id, agent_name)
+    team_dir = paths.team_agent_dir(agent_name)
     legacy_dir = paths.agent_dir(agent_name)
-    # Require config.yaml, not bare directory existence — a per-user agent
-    # directory can exist containing only memory.json (written the first
-    # time this user chats with a legacy shared agent, before update_agent
-    # is ever called). Bare .exists() would miss that case and let this
-    # fall through to load_agent_config, which correctly resolves through
-    # to the legacy shared config via resolve_agent_dir, silently forking
-    # a brand-new config.yaml/SOUL.md into the memory-only directory
-    # instead of blocking (mirrors resolve_agent_dir's guard, see #3390).
-    if not (agent_dir / "config.yaml").exists() and (legacy_dir / "config.yaml").exists():
-        return _err(f"Agent '{agent_name}' only exists in the legacy shared layout and is not scoped to a user. Run scripts/migrate_user_isolation.py to move legacy agents into the per-user layout before updating.")
+    # Require a personal config.yaml, not bare directory existence. A shared
+    # agent chat may create only per-user memory in this directory; treating
+    # that as ownership would let load_agent_config resolve the team/legacy
+    # snapshot and then silently fork personal config/SOUL files here.
+    if not is_personal_agent(agent_name, user_id=user_id):
+        if (team_dir / "config.yaml").is_file():
+            return _err(f"Agent '{agent_name}' is a read-only published snapshot in the team square and is not scoped to the current user. Create a personal copy before updating it.")
+        if (legacy_dir / "config.yaml").is_file():
+            return _err(f"Agent '{agent_name}' only exists in the legacy shared layout and is not scoped to a user. Run scripts/migrate_user_isolation.py to move legacy agents into the per-user layout before updating.")
+        return _err(f"Agent '{agent_name}' does not exist for the current user. Use setup_agent to create a new agent first.")
 
     try:
         existing_cfg = load_agent_config(agent_name, user_id=user_id)
@@ -191,6 +192,11 @@ def update_agent(
 
     if existing_cfg is None:
         return _err(f"Agent '{agent_name}' could not be loaded.")
+
+    # Recheck ownership after loading so a concurrent unpublish/delete cannot
+    # turn the shared-read fallback into a personal write target.
+    if not is_personal_agent(agent_name, user_id=user_id):
+        return _err(f"Agent '{agent_name}' is no longer a personal agent for the current user. Reload the agent before updating it.")
 
     updated_fields: list[str] = []
 

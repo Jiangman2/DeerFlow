@@ -358,6 +358,13 @@ select another user, agent, or callback URL. See
 [`docs/oa-policy-flow-integration.md`](docs/oa-policy-flow-integration.md) for
 the API, callback, Secret, and rollout contract.
 
+Personal custom agents remain writable only by their owner. Publishing an agent
+to the enterprise team square creates a shared, read-only snapshot: other users
+can chat with it and retain their own isolated conversation memory, but those
+chats cannot change the published `config.yaml` / `SOUL.md` or silently create a
+same-name personal shadow. The publisher updates the personal source agent and
+publishes it again when the shared version should change.
+
 The dashboard also reads WeKnora's own database in read-only mode to report
 current users, knowledge bases, documents, file formats, knowledge-scoped
 conversations, and question turns alongside creation/upload/conversation

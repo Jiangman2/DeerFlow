@@ -49,6 +49,8 @@ def _make_paths_mock(tmp_path: Path) -> MagicMock:
     paths.base_dir = tmp_path
     paths.agent_dir = lambda name: tmp_path / "agents" / name
     paths.agents_dir = tmp_path / "agents"
+    paths.team_agent_dir = lambda name: tmp_path / "team_agents" / name
+    paths.team_agents_dir = tmp_path / "team_agents"
     paths.user_agent_dir = lambda user_id, name: tmp_path / "users" / user_id / "agents" / name
     paths.user_agents_dir = lambda user_id: tmp_path / "users" / user_id / "agents"
     return paths
@@ -153,6 +155,31 @@ def test_update_agent_rejects_legacy_agent_when_user_dir_has_only_memory(tmp_pat
     assert not (user_agent_dir / "config.yaml").exists()
     assert not (user_agent_dir / "SOUL.md").exists()
     assert (user_agent_dir / "memory.json").exists(), "the user's existing memory must be left untouched"
+
+
+def test_update_agent_rejects_team_agent_without_creating_personal_shadow(tmp_path, patched_paths):
+    """A team-square chat must never fork shared config into the viewer's account."""
+    team_dir = tmp_path / "team_agents" / "shared-agent"
+    team_dir.mkdir(parents=True)
+    team_config = {"name": "shared-agent", "description": "published", "published_by_user_id": "publisher"}
+    (team_dir / "config.yaml").write_text(yaml.safe_dump(team_config, sort_keys=False), encoding="utf-8")
+    (team_dir / "SOUL.md").write_text("published soul", encoding="utf-8")
+
+    user_agent_dir = _user_agent_dir(tmp_path, "shared-agent")
+    user_agent_dir.mkdir(parents=True)
+    (user_agent_dir / "memory.json").write_text("{}", encoding="utf-8")
+
+    result = update_agent.func(runtime=_runtime(agent_name="shared-agent"), soul="viewer mutation")
+
+    msg = result.update["messages"][0]
+    assert "team square" in msg.content
+    assert "read-only" in msg.content
+    assert msg.status == "error"
+    assert yaml.safe_load((team_dir / "config.yaml").read_text(encoding="utf-8")) == team_config
+    assert (team_dir / "SOUL.md").read_text(encoding="utf-8") == "published soul"
+    assert not (user_agent_dir / "config.yaml").exists()
+    assert not (user_agent_dir / "SOUL.md").exists()
+    assert (user_agent_dir / "memory.json").exists(), "per-user conversation memory must remain intact"
 
 
 def test_update_agent_requires_at_least_one_field(tmp_path, patched_paths):

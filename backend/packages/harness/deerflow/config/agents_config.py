@@ -7,7 +7,8 @@ installations that pre-date user isolation continue to work until they run the
 per-user layout.
 
 Enterprise team agents are stored separately under ``{base_dir}/team_agents``.
-They are readable by every user but remain distinct from personal agents.
+They are readable by every user but remain distinct from personal agents and
+are never writable through a viewer's agent chat.
 """
 
 import logging
@@ -243,6 +244,22 @@ def resolve_agent_dir(name: str, *, user_id: str | None = None) -> Path:
         return legacy_path
 
     return user_path
+
+
+def is_personal_agent(name: str, *, user_id: str | None = None) -> bool:
+    """Return whether ``name`` has a real config owned by the current user.
+
+    Directory existence is insufficient because per-agent conversation memory
+    may create a user directory while the executable agent still resolves from
+    the shared team or legacy layout. Mutation gates must require the personal
+    ``config.yaml`` so a shared chat cannot silently create a same-name shadow.
+    """
+    validated_name = validate_agent_name(name)
+    if not validated_name:
+        return False
+    paths = get_paths()
+    effective_user = user_id or get_effective_user_id()
+    return (paths.user_agent_dir(effective_user, validated_name) / "config.yaml").is_file()
 
 
 def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentConfig | None:

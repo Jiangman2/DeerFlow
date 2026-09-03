@@ -911,7 +911,7 @@ Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runti
    - `ask_clarification` - Request clarification (intercepted by ClarificationMiddleware, which preserves text fallback and adds `artifact.human_input` for Web UI Human Input Cards)
    - `view_image` - Read image as base64 (added only if model supports vision)
    - `setup_agent` - Bootstrap-only: persist a brand-new custom agent's `SOUL.md` and `config.yaml`. Bound only when `is_bootstrap=True`.
-   - `update_agent` - Custom-agent-only: persist self-updates to the current agent's `SOUL.md` / `config.yaml` from inside a normal chat (partial update + atomic write). Bound when `agent_name` is set and `is_bootstrap=False`.
+   - `update_agent` - Personal-custom-agent-only: persist self-updates to the current user's `SOUL.md` / `config.yaml` from inside a normal chat (partial update + atomic write). The lead factory binds it and emits the model-facing `<self_update>` guidance only when the current user owns a real personal `config.yaml`; team-square and legacy shared agents are read-only and receive neither. The tool repeats the ownership check before loading and writing so a custom factory cannot turn a shared chat into a same-name personal shadow. Publishing is snapshot-based: update the personal source and republish to change the team copy.
    - Model-facing lead and subagent prompts share `agents/language_policy.py`.
      Simplified Chinese is the default for user-visible answers, titles,
      descriptions, summaries, and reports unless the current user request
