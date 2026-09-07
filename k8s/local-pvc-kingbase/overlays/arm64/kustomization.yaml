@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../base
+images:
+- name: kingbase-vendor
+  newName: kingbase_v009r001c010b0004_single_arm
+  newTag: v1
+patches:
+- target:
+    kind: StatefulSet
+    name: kingbase
+  patch: '[{"op": "add", "path": "/spec/template/spec/nodeSelector", "value": {"kubernetes.io/arch":
+    "arm64"}}]'

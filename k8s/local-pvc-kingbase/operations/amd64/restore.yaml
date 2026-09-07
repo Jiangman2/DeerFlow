@@ -1,0 +1,67 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kingbase-restore
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: restore
+        image: kingbase_v009r001c010b0004_single_x86:v1
+        imagePullPolicy: Never
+        command:
+        - /bin/bash
+        - -c
+        - "#!/bin/bash\nset -euo pipefail\nbin=/home/kingbase/install/kingbase/bin\n\
+          export LD_LIBRARY_PATH=\"/home/kingbase/install/kingbase/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\
+          \nexport KINGBASE_PASSWORD\nKINGBASE_PASSWORD=$(cat /run/kingbase-auth/password)\n\
+          : \"${DB_USER:?}\"\n: \"${RESTORE_DATABASE:?}\"\n: \"${RESTORE_FILE:?}\"\
+          \n# Restore only to an operator-created, empty scratch database. No drop/clean\
+          \ mode.\n[[ \"$RESTORE_DATABASE\" =~ ^deerflow_restore_check_[a-z0-9_]+$\
+          \ ]]\n[[ \"$RESTORE_FILE\" =~ ^[0-9]{8}T[0-9]{6}Z.dump$ ]]\nfile=\"/backups/kingbase/$RESTORE_FILE\"\
+          \ntest -s \"$file\"\nobjects=$(\"$bin/ksql\" -X -h kingbase -p 54321 -U\
+          \ \"$DB_USER\" -d \"$RESTORE_DATABASE\" -v ON_ERROR_STOP=1 -Atc \"SELECT\
+          \ count(*) FROM information_schema.tables WHERE table_schema='public'\"\
+          )\n[ \"$objects\" = 0 ]\n\"$bin/sys_restore\" --exit-on-error --single-transaction\
+          \ --no-owner --no-privileges -h kingbase -p 54321 -U \"$DB_USER\" -d \"\
+          $RESTORE_DATABASE\" \"$file\"\nfor table in users threads_meta runs run_events;\
+          \ do\n    \"$bin/ksql\" -X -h kingbase -p 54321 -U \"$DB_USER\" -d \"$RESTORE_DATABASE\"\
+          \ -v ON_ERROR_STOP=1 -Atc \"SELECT '$table', count(*) FROM $table\"\ndone\n"
+        env:
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: deer-flow-kingbase
+              key: DB_USER
+        - name: RESTORE_DATABASE
+          value: deerflow_restore_check_REPLACE
+        - name: RESTORE_FILE
+          value: REPLACE.dump
+        volumeMounts:
+        - name: backups
+          mountPath: /backups
+          readOnly: true
+        - name: auth
+          mountPath: /run/kingbase-auth
+          readOnly: true
+      volumes:
+      - name: backups
+        persistentVolumeClaim:
+          claimName: deer-flow-kingbase-backups
+      - name: auth
+        secret:
+          secretName: deer-flow-kingbase
+          defaultMode: 288
+          items:
+          - key: DB_PASSWORD
+            path: password
+  backoffLimit: 0
+  activeDeadlineSeconds: 3600

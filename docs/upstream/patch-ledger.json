@@ -1,0 +1,32 @@
+{
+  "status": "historical_review_pending",
+  "policy": "Record each modification to upstream-owned files with purpose, tests, upstream disposition and deletion condition.",
+  "patches": [
+    {
+      "id": "configurable-postgres-maintenance",
+      "purpose": "Allow a PG-compatible server to use an existing maintenance database without duplicating persistence implementations.",
+      "files": [
+        "backend/packages/harness/deerflow/config/database_config.py",
+        "backend/packages/harness/deerflow/persistence/engine.py"
+      ],
+      "tests": [
+        "backend/tests/test_postgres_maintenance_database.py"
+      ],
+      "upstream_status": "not_submitted",
+      "deletion_condition": "Upstream offers equivalent configuration and safe identifier quoting; remove downstream duplicate after regression passes."
+    },
+    {
+      "id": "migration-regression-current-head",
+      "purpose": "Existing regression tests pinned revision 0012 although enterprise migrations already reach 0014; derive expected current head while keeping column/read assertions.",
+      "files": [
+        "backend/tests/test_persistence_bootstrap_regression.py"
+      ],
+      "tests": [
+        "backend/tests/test_persistence_bootstrap_regression.py"
+      ],
+      "upstream_status": "not_submitted",
+      "deletion_condition": "Upstream regression already resolves current migration head."
+    }
+  ],
+  "note": "An empty list is not evidence of an unmodified enterprise core. Historical enterprise patches must be inventoried before the next upstream merge."
+}

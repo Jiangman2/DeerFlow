@@ -1,0 +1,2130 @@
+{
+  "upstream_commit": "9b32b5d8413a07bb9edc26e0c7c20e1e64c112ee",
+  "enterprise_commit": "af6c9e7642393cbbc0afc5f861c0b8e1656ef2e7",
+  "merge_base": "94a34f382d6672342998b09dda893cdc79d6dec7",
+  "includes_uncommitted_changes": false,
+  "certifies_compatibility": false,
+  "shared_files_requiring_review": [
+    {
+      "path": ".dockerignore",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": ".env.example",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": ".gitignore",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "AGENTS.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "README.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "README_zh.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/AGENTS.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/Dockerfile",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/README.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/app.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth/config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth/errors.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth/local_provider.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth/models.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth/oidc_state.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth/repositories/base.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth/repositories/sqlite.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth_disabled.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/auth_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/authz.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/csrf_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/deps.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/__init__.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/agents.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/artifacts.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/assistants_compat.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/auth.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/input_polish.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/scheduled_tasks.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/thread_runs.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/threads.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/routers/uploads.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/gateway/services.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/app/scheduler/service.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/docs/CONFIGURATION.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/lead_agent/agent.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/lead_agent/prompt.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/memory/backends/deermem/deermem/core/prompt.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/memory/backends/deermem/deermem/core/updater.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/memory/manager.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/clarification_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/dangling_tool_call_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/durable_context_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/llm_error_handling_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/loop_detection_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/memory_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/sandbox_audit_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/skill_activation_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/terminal_response_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/title_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/tool_error_handling_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/tool_output_budget_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/middlewares/tool_progress_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/agents/thread_state.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/aio_sandbox/aio_sandbox_provider.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/aio_sandbox/backend.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/aio_sandbox/local_backend.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/boxlite/provider.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/tavily/tools.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/community/warm_pool_lifecycle.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/agents_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/app_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/auth_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/memory_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/paths.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/sandbox_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/scheduler_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/subagents_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/config/title_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/constants.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/persistence/models/__init__.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/persistence/scheduled_tasks/model.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/persistence/scheduled_tasks/sql.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/persistence/thread_meta/model.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/persistence/thread_meta/sql.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/persistence/user/model.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/runtime/journal.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/runtime/runs/worker.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/runtime/secret_context.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/sandbox/local/local_sandbox_provider.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/sandbox/sandbox_provider.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/sandbox/tools.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/skills/security_scanner.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/skills/storage/local_skill_storage.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/skills/storage/user_scoped_skill_storage.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/subagents/builtins/bash_agent.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/subagents/builtins/general_purpose.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/subagents/executor.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/tools/builtins/present_file_tool.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/tools/builtins/task_tool.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/tools/builtins/update_agent_tool.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/deerflow/tools/tools.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/packages/harness/pyproject.toml",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/pyproject.toml",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/_replay_fixture.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/fixtures/replay/write_read_file.ultra.events.json",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_aio_sandbox.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_aio_sandbox_provider.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_aio_sandbox_readiness.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_app_config_reload.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_artifacts_router.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_auth.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_auth_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_auth_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_auth_type_system.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_clarification_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_csrf_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_custom_agent.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_dangling_tool_call_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_deermem_self_contained.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_delegation_ledger_live.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_deploy_uv_extras.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_durable_context_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_gateway_lifespan_shutdown.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_gateway_services.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_lead_agent_model_resolution.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_lead_agent_prompt.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_lead_agent_skills.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_llm_error_handling_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_loop_detection_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_memory_manager_pluggable.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_memory_prompt_injection.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_migration_0004_run_ownership_dedupe.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_model_factory.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_persistence_bootstrap.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_persistence_bootstrap_concurrency.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_persistence_bootstrap_regression.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_present_file_tool_core_logic.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_provisioner_pvc_volumes.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_provisioner_request_threading.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_run_journal.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_run_worker_rollback.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_sandbox_audit_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_scheduled_task_models.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_scheduled_task_repository.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_scheduled_task_router.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_scheduled_task_router_behavior.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_scheduled_task_service.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_security_scanner.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_skill_metadata_prompt_injection.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_skill_request_scoped_secrets.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_slash_skills.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_subagent_executor.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_subagent_prompt_security.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_subagent_skills_config.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_task_tool_core_logic.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_tavily_tools.py",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_terminal_response_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_thread_messages_page.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_thread_meta_repo.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_thread_state_reducers.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_three_way_skills_mount_e2e.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_title_middleware_core_logic.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_tool_args_schema_no_pydantic_warning.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_tool_deduplication.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_tool_error_handling_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_tool_output_budget_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_tool_output_truncation.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_tool_progress_middleware.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_update_agent_tool.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_uploads_router.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/tests/test_warm_pool_lifecycle.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "backend/uv.lock",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "config.example.yaml",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "deploy/helm/deer-flow/README.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "deploy/helm/deer-flow/values.yaml",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "docker/docker-compose-dev.yaml",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "docker/docker-compose.yaml",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "docker/nginx/nginx.conf",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "docker/nginx/nginx.local.conf",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "docker/provisioner/Dockerfile",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "docker/provisioner/README.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "docker/provisioner/app.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/.env.example",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/AGENTS.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/Dockerfile",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/README.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/next.config.js",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/package.json",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/playwright.config.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/pnpm-lock.yaml",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/postcss.config.js",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/21cfea46-34bd-4aa6-9e1f-3009452fbeb9/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/21cfea46-34bd-4aa6-9e1f-3009452fbeb9/user-data/outputs/doraemon-moe-comic.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/3823e443-4e2b-4679-b496-a9506eae462b/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/3823e443-4e2b-4679-b496-a9506eae462b/user-data/outputs/fei-fei-li-podcast-timeline.md",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/4f3e55ee-f853-43db-bfb3-7d1a411f03cb/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/4f3e55ee-f853-43db-bfb3-7d1a411f03cb/user-data/outputs/darcy-proposal-reference.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/4f3e55ee-f853-43db-bfb3-7d1a411f03cb/user-data/outputs/darcy-proposal-video.mp4",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/5aa47db1-d0cb-4eb9-aea5-3dac1b371c5a/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/5aa47db1-d0cb-4eb9-aea5-3dac1b371c5a/user-data/outputs/jiangsu-football/css/style.css",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/5aa47db1-d0cb-4eb9-aea5-3dac1b371c5a/user-data/outputs/jiangsu-football/favicon.html",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/5aa47db1-d0cb-4eb9-aea5-3dac1b371c5a/user-data/outputs/jiangsu-football/index.html",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/5aa47db1-d0cb-4eb9-aea5-3dac1b371c5a/user-data/outputs/jiangsu-football/js/data.js",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/5aa47db1-d0cb-4eb9-aea5-3dac1b371c5a/user-data/outputs/jiangsu-football/js/main.js",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7cfa5f8f-a2f8-47ad-acbd-da7137baf990/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7cfa5f8f-a2f8-47ad-acbd-da7137baf990/user-data/outputs/index.html",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7cfa5f8f-a2f8-47ad-acbd-da7137baf990/user-data/outputs/script.js",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7cfa5f8f-a2f8-47ad-acbd-da7137baf990/user-data/outputs/style.css",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7f9dc56c-e49c-4671-a3d2-c492ff4dce0c/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7f9dc56c-e49c-4671-a3d2-c492ff4dce0c/user-data/outputs/leica-master-photography-article.md",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7f9dc56c-e49c-4671-a3d2-c492ff4dce0c/user-data/outputs/leica-nyc-candid.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7f9dc56c-e49c-4671-a3d2-c492ff4dce0c/user-data/outputs/leica-paris-decisive-moment.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/7f9dc56c-e49c-4671-a3d2-c492ff4dce0c/user-data/outputs/leica-tokyo-night.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/90040b36-7eba-4b97-ba89-02c3ad47a8b9/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/90040b36-7eba-4b97-ba89-02c3ad47a8b9/user-data/outputs/american-woman-newyork.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/90040b36-7eba-4b97-ba89-02c3ad47a8b9/user-data/outputs/american-woman-shanghai.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/outputs/titanic_summary.txt",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/outputs/visualizations/class_gender_survival.png",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/outputs/visualizations/correlation_heatmap.png",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/outputs/visualizations/family_size_analysis.png",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/outputs/visualizations/fare_analysis.png",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/outputs/visualizations/survival_by_age.png",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/outputs/visualizations/survival_by_class.png",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/outputs/visualizations/survival_overview.png",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/ad76c455-5bf9-4335-8517-fc03834ab828/user-data/uploads/titanic.csv",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/b83fbb2a-4e36-4d82-9de0-7b2a02c2092a/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/b83fbb2a-4e36-4d82-9de0-7b2a02c2092a/user-data/outputs/caren-hero.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/b83fbb2a-4e36-4d82-9de0-7b2a02c2092a/user-data/outputs/caren-ingredients.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/b83fbb2a-4e36-4d82-9de0-7b2a02c2092a/user-data/outputs/caren-lifestyle.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/b83fbb2a-4e36-4d82-9de0-7b2a02c2092a/user-data/outputs/caren-products.jpg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/b83fbb2a-4e36-4d82-9de0-7b2a02c2092a/user-data/outputs/index.html",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/c02bb4d5-4202-490e-ae8f-ff4864fc0d2e/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/c02bb4d5-4202-490e-ae8f-ff4864fc0d2e/user-data/outputs/index.html",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/c02bb4d5-4202-490e-ae8f-ff4864fc0d2e/user-data/outputs/script.js",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/c02bb4d5-4202-490e-ae8f-ff4864fc0d2e/user-data/outputs/styles.css",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/d3e5adaf-084c-4dd5-9d29-94f1d6bccd98/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/d3e5adaf-084c-4dd5-9d29-94f1d6bccd98/user-data/outputs/diana_hu_research.md",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/f4125791-0128-402a-8ca9-50e0947557e4/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/f4125791-0128-402a-8ca9-50e0947557e4/user-data/outputs/index.html",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/fe3f7974-1bcb-4a01-a950-79673baafefd/thread.json",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/fe3f7974-1bcb-4a01-a950-79673baafefd/user-data/outputs/index.html",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/demo/threads/fe3f7974-1bcb-4a01-a950-79673baafefd/user-data/outputs/research_deerflow_20260201.md",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/favicon.ico",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/public/images/deer.svg",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/(auth)/auth/callback/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/(auth)/layout.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/(auth)/login/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/(auth)/setup/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/[lang]/docs/[[...mdxPath]]/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/[lang]/docs/layout.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/blog/[[...mdxPath]]/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/blog/layout.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/blog/posts/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/blog/tags/[tag]/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/layout.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/mock/api/mcp/config/route.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/mock/api/skills/route.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/agents/[agent_name]/chats/[thread_id]/layout.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/agents/[agent_name]/chats/[thread_id]/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/agents/new/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/chats/[thread_id]/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/chats/[thread_id]/providers.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/chats/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/layout.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/scheduled-tasks/page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/app/workspace/workspace-content.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/ai-elements/message.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/ai-elements/model-selector.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/ai-elements/open-in-chat.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/ai-elements/suggestion.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/footer.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/header.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/hero.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/mobile-nav.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/progressive-skills-animation.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/sections/case-study-section.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/sections/community-section.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/sections/sandbox-section.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/sections/skills-section.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/landing/sections/whats-new-section.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/ui/button.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/ui/sidebar.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/agent-welcome.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/agents/agent-card.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/agents/agent-gallery.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/artifacts/artifact-file-detail.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/artifacts/artifact-file-list.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/artifacts/artifact-trigger.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/artifacts/context.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/chats/chat-box.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/chats/use-thread-chat.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/citations/citation-link.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/export-trigger.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/input-box.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/human-input-card.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/markdown-content.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/markdown-link.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/message-group.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/message-list-item.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/message-list.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/subtask-card.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/messages/virtual-message-list.tsx",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/recent-chat-list.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/scheduled-task-schedule-input.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/settings/about-content.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/settings/about.md",
+      "change": "D",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/settings/appearance-settings-page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/settings/memory-settings-page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/settings/settings-dialog.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/settings/skill-settings-page.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/sidecar/sidecar-trigger.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/slash-skill-chip.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/thread-scheduled-tasks-link.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/todo-list.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/token-usage-indicator.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/welcome.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/workspace-container.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/workspace-header.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/workspace-nav-chat-list.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/workspace-nav-menu.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/components/workspace/workspace-sidebar.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/agents/api.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/agents/feature-cache.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/agents/hooks.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/agents/index.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/agents/types.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/api/api-client.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/api/fetcher.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/api/stream-mode.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/artifacts/preview.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/artifacts/utils.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/auth/AuthProvider.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/auth/auth-disabled-user.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/auth/server.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/auth/types.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/i18n/locale.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/en-US.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/types.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/i18n/locales/zh-CN.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/messages/derived-state.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/messages/human-input.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/messages/run-duration.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/messages/usage-model.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/messages/utils.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/scheduled-tasks/api.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/scheduled-tasks/recipes.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/scheduled-tasks/types.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/settings/local.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/settings/store.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/sidecar/api.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/sidecar/context.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/sidecar/thread.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/skills/slash.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/streamdown/preprocess.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/tasks/api.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/tasks/context.tsx",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/tasks/lifecycle.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/tasks/steps.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/tasks/subtask-result.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/tasks/subtask-update.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/tasks/types.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/threads/export.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/threads/hooks.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/threads/static-demo.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/threads/thread-search-query.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/threads/types.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/uploads/api.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/uploads/file-validation.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/core/uploads/index.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/env.js",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/src/styles/globals.css",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e-real-backend/real-backend-render.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/agent-chat.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/artifact-preview.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/artifact-stream-state.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/chat-thread-init-ordering.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/chat.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/scheduled-tasks.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/settings-notification.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/subtask-card.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/thread-history.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/ui-polish-mobile.spec.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/e2e/utils/mock-api.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/components/workspace/citations/citation-link.test.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/components/workspace/messages/human-input-card.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/components/workspace/messages/message-group.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/components/workspace/messages/virtual-message-list.test.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/components/workspace/settings/about-content.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/agents/api.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/api/api-client.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/artifacts/preview.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/artifacts/utils.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/messages/derived-state.test.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/messages/human-input.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/messages/utils.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/sidecar/api.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/sidecar/thread.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/streamdown/preprocess.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/tasks/lifecycle.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/tasks/steps.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/tasks/subtask-result.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/tasks/subtask-update.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/coalesce.test.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/delete-thread.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/infinite.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/message-merge.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/send-message.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/static-demo.test.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/stream-throttle.test.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/thread-history-options.test.ts",
+      "change": "A",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/threads/thread-search-query.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "frontend/tests/unit/core/uploads/file-validation.test.ts",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/bootstrap/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/code-documentation/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/consulting-analysis/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/deep-research/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/frontend-design/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/image-generation/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/image-generation/scripts/generate.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/music-generation/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/music-generation/scripts/generate.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/podcast-generation/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/podcast-generation/scripts/generate.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/skill-creator/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/systematic-literature-review/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/systematic-literature-review/scripts/arxiv_search.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/vercel-deploy-claimable/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/video-generation/SKILL.md",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "skills/public/video-generation/scripts/generate.py",
+      "change": "M",
+      "review_status": "pending"
+    },
+    {
+      "path": "tests/skills/test_image_generation.py",
+      "change": "M",
+      "review_status": "pending"
+    }
+  ],
+  "enterprise_added_file_count": 13700
+}

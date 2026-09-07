@@ -1763,3 +1763,13 @@ Your unwavering commitment and expertise have been the driving force behind Deer
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=bytedance/deer-flow&type=Date)](https://star-history.com/#bytedance/deer-flow&Date)
+
+企业上游同步与金仓主库验证：[升级手册](docs/upstream/upgrade-runbook.md)、[隔离数据库 PoC](scripts/kingbase/README.md)。当前为适配开发阶段，尚未通过真实金仓生产验收。
+
+金仓远端 PoC 现包含当前应用建库迁移及图中断恢复；上游差异可通过 scripts/upstream/inventory.py 生成，详见升级手册。
+
+企业数据库 CI 会检查迁移与依赖漂移；候选指纹更新不等于金仓认证，仍需远端验收。
+
+已提供 [V009R001C010B0004 双架构部署候选](k8s/local-pvc-kingbase/README.md)，包括 Secret 挂载、备份与隔离恢复；清单和本地回归通过不代表实机认证。
+
+金仓启动器会拒绝半初始化目录；失败保留现场，不能通过手工补完成标记绕过检查。

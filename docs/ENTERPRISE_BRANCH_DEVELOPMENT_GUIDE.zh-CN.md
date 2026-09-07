@@ -9,7 +9,7 @@
 | 分支                                      | 职责                       | 是否直接开发 |
 | ----------------------------------------- | -------------------------- | ------------ |
 | `main`                                    | 原有生产和历史代码线       | 否           |
-| `vendor/upstream-main`                    | 官方上游同步基线           | 否           |
+| `upstream/main`                    | 官方上游同步基线           | 否           |
 | `codex/enterprise-consolidation-20260716` | 当前企业版本的稳定集成基线 | 原则上否     |
 
 `codex/upstream-compatible-20260713` 是仍包含独立兼容提交的历史分支。在完成差异审查前保留，不作为新功能开发基线。
@@ -71,9 +71,9 @@ git switch -c codex/feature-enterprise-landing-polish
 如果统一分支已推送远端，开始工作前先同步：
 
 ```powershell
-git fetch fork
+git fetch origin
 git switch codex/enterprise-consolidation-20260716
-git pull --ff-only fork codex/enterprise-consolidation-20260716
+git pull --ff-only origin codex/enterprise-consolidation-20260716
 git switch -c codex/feature-enterprise-landing-polish
 ```
 
@@ -323,3 +323,5 @@ git merge --no-ff codex/feature-example
 git branch -d codex/feature-example
 git status
 ```
+
+上游固定基线、共享补丁与金仓数据库验收流程见 [上游升级手册](upstream/upgrade-runbook.md)。当前远程名称以 origin 和 upstream 为准。

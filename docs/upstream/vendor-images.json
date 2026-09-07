@@ -1,0 +1,25 @@
+{
+  "source": "user-supplied Docker archives",
+  "images": [
+    {
+      "archive": "KingbaseES_V009R001C010B0004_aarch64_Docker.tar",
+      "sha256": "3d08f5a99f5659723c34315b71d49f783847cba19c7a0c61c2628bf9f131c8ee",
+      "image_config_sha256": "b40efc4e2c59a598807424d183c4aec50dc6b6f34ab930b5a155cc221bd348a9",
+      "architecture": "arm64",
+      "tags": [
+        "kingbase_v009r001c010b0004_single_arm:v1"
+      ],
+      "runtime_verified": false
+    },
+    {
+      "archive": "KingbaseES_V009R001C010B0004_x86_64_Docker.tar",
+      "sha256": "16a436608cc204349e510cb136b8fc1fcbdf6874aee7b204cdac20a3522282da",
+      "image_config_sha256": "10ba6f33e228ddd6be155e80523afe712be333ee25ccf9f912ee3a31899dc82f",
+      "architecture": "amd64",
+      "tags": [
+        "kingbase_v009r001c010b0004_single_x86:v1"
+      ],
+      "runtime_verified": false
+    }
+  ]
+}

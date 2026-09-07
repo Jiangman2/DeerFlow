@@ -55,6 +55,12 @@ class DatabaseConfig(BaseModel):
             "(the +asyncpg driver suffix is added automatically where needed)."
         ),
     )
+    postgres_maintenance_database: str = Field(
+        default="postgres",
+        min_length=1,
+        pattern=r"^[^\x00]+$",
+        description="Existing maintenance database used only when auto-creating the application database. Defaults to postgres; PG-compatible deployments may select template1.",
+    )
     echo_sql: bool = Field(
         default=False,
         description="Echo all SQL statements to log (debug only).",

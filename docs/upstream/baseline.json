@@ -1,0 +1,31 @@
+{
+  "upstream_repository": "https://github.com/bytedance/deer-flow",
+  "enterprise_branch": "codex/enterprise-consolidation-20260716",
+  "enterprise_start_commit": "af6c9e764",
+  "observed_upstream_commit": "9b32b5d8413a07bb9edc26e0c7c20e1e64c112ee",
+  "observed_upstream_is_local_cache": true,
+  "merge_base": "94a34f382d6672342998b09dda893cdc79d6dec7",
+  "certified_upstream_tag": null,
+  "certified_enterprise_release": null,
+  "scope": [
+    "DeerFlow primary database",
+    "KingbaseES V9 PostgreSQL compatibility",
+    "upstream integration"
+  ],
+  "excluded": [
+    "Dameng adaptation",
+    "WeKnora database migration"
+  ],
+  "certification_status": "not_verified",
+  "target_database": {
+    "product": "KingbaseES",
+    "version": "V9R1C10",
+    "architectures": [
+      "x86_64",
+      "ARM64"
+    ],
+    "test_environment": "operator-run enterprise intranet server",
+    "runtime_verified": false,
+    "build": "V009R001C010B0004"
+  }
+}

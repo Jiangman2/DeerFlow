@@ -777,3 +777,14 @@ These apply repo-wide; module guides own the module-specific detail.
   frontend tests live in `frontend/tests/`.
 - **Format before pushing** — run `make format` (backend) / `pnpm check` (frontend). Backend
   CI enforces `ruff format --check`, so formatting must be clean before a push.
+
+## Upstream integration and Kingbase validation
+Track observed versus certified baselines in docs/upstream/baseline.json. See docs/upstream/upgrade-runbook.md. scripts/kingbase/probe.py runs only against explicitly confirmed disposable databases; it is preliminary evidence, not production certification. Dameng and WeKnora database migration are out of scope. Preserve standard PostgreSQL and upstream LangGraph implementations pending real compatibility evidence.
+
+Use scripts/upstream/inventory.py to regenerate committed divergence evidence. Pending inventory rows are not reviewed patches. The Kingbase PoC includes actual schema bootstrap and an interrupted graph reopen/resume; its in-memory scenario test is not database compatibility evidence.
+
+The enterprise-database-guards workflow checks scripts/upstream/check_persistence_drift.py. Fingerprint updates acknowledge a new candidate only; never treat them or green static CI as Kingbase certification.
+
+Kingbase V009R001C010B0004 candidate manifests live in k8s/local-pvc-kingbase. Match vendor archive hashes in docs/upstream/vendor-images.json. The foreground launcher uses SYS_VERSION, sys_hba.conf and initdb --pwfile; vendor clients use KINGBASE_PASSWORD. Keep backups suspended until a restore drill succeeds. Do not change existing PostgreSQL/WeKnora resources during candidate deployment.
+
+The Kingbase launcher writes .deerflow-init-complete only after successful initialization and configuration checks. Do not fabricate this marker for partial or imported data directories. tests/test_kingbase_launcher.py executes the shell against fake vendor binaries to cover these failure boundaries; it is not real database certification.

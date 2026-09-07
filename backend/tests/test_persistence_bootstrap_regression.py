@@ -24,13 +24,17 @@ from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
+from alembic.script import ScriptDirectory
 
 import deerflow.persistence.models  # noqa: F401  -- registers ORM models
+from deerflow.persistence import bootstrap
 from deerflow.persistence.base import Base
 from deerflow.persistence.engine import close_engine, get_session_factory, init_engine
 from deerflow.persistence.run import RunRepository
 
 pytestmark = pytest.mark.asyncio
+
+CURRENT_HEAD = ScriptDirectory(str(Path(bootstrap.__file__).parent / "migrations")).get_current_head()
 
 
 def _seed_pre_3658_database(db_path: Path) -> None:
@@ -76,7 +80,7 @@ async def test_legacy_database_recovers_token_usage_column(tmp_path: Path) -> No
             cols = {row[1] for row in raw.execute("PRAGMA table_info(runs)").fetchall()}
             assert "token_usage_by_model" in cols
             version_row = raw.execute("SELECT version_num FROM alembic_version").fetchone()
-            assert version_row[0] == "0012_user_last_login"
+            assert version_row[0] == CURRENT_HEAD
 
         # And the read path that originally 500'd must now succeed.
         sf = get_session_factory()
@@ -116,6 +120,6 @@ async def test_legacy_database_with_manual_alter_still_bootstraps(tmp_path: Path
             # No duplicate column -- list, not set, to catch dupes.
             assert cols.count("token_usage_by_model") == 1
             version_row = raw.execute("SELECT version_num FROM alembic_version").fetchone()
-            assert version_row[0] == "0012_user_last_login"
+            assert version_row[0] == CURRENT_HEAD
     finally:
         await close_engine()

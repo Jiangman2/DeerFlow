@@ -600,3 +600,5 @@ See the [LICENSE](../LICENSE) file in the project root.
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+PostgreSQL-compatible deployments may set database.postgres_maintenance_database (default postgres) to an existing maintenance database such as template1. It is used only for automatic application database creation. Kingbase V009R001C010B0004 deployment candidates and acceptance instructions are in ../k8s/local-pvc-kingbase/README.md; real database certification is pending.

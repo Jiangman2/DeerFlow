@@ -1682,3 +1682,6 @@ See `docs/` directory for detailed documentation:
 - [PATH_EXAMPLES.md](docs/PATH_EXAMPLES.md) - Path types and usage
 - [summarization.md](docs/summarization.md) - Context summarization
 - [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
+
+## PostgreSQL maintenance database
+DatabaseConfig.postgres_maintenance_database defaults to postgres and is forwarded only through persistence engine initialization. CREATE DATABASE quotes its identifier through the dialect. Do not add vendor branches to Checkpointer or Store. Tests: tests/test_postgres_maintenance_database.py. The Kingbase deployment candidate uses template1; runtime certification remains a separate real-server acceptance gate.

@@ -1,0 +1,112 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kingbase
+spec:
+  type: ClusterIP
+  selector:
+    app: deerflow-kingbase
+  ports:
+    - name: database
+      port: 54321
+      targetPort: database
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kingbase
+spec:
+  serviceName: kingbase
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deerflow-kingbase
+  template:
+    metadata:
+      labels:
+        app: deerflow-kingbase
+    spec:
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: kingbase
+          image: kingbase-vendor:SELECT-ARCHITECTURE-OVERLAY
+          imagePullPolicy: Never
+          command: [/bin/bash, /opt/deerflow-kingbase/start.sh]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-kingbase
+                  key: DB_USER
+            - name: DATA_DIR
+              value: /home/kingbase/userdata/data
+          ports:
+            - name: database
+              containerPort: 54321
+          startupProbe:
+            exec:
+              command: [/home/kingbase/install/kingbase/bin/sys_isready, -h, '127.0.0.1', -p, '54321']
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 120
+          readinessProbe:
+            exec:
+              command: [/home/kingbase/install/kingbase/bin/sys_isready, -h, '127.0.0.1', -p, '54321']
+            periodSeconds: 10
+            timeoutSeconds: 5
+          lifecycle:
+            preStop:
+              exec:
+                command: [/home/kingbase/install/kingbase/bin/sys_ctl, -D, /home/kingbase/userdata/data, -m, fast, -w, -t, '90', stop]
+          resources:
+            requests:
+              cpu: '1'
+              memory: 2Gi
+            limits:
+              cpu: '4'
+              memory: 4Gi
+          volumeMounts:
+            - name: data
+              mountPath: /home/kingbase/userdata
+            - name: startup
+              mountPath: /opt/deerflow-kingbase
+              readOnly: true
+            - name: auth
+              mountPath: /run/kingbase-auth
+              readOnly: true
+            - name: license
+              mountPath: /home/kingbase/install/kingbase/bin/license.dat
+              subPath: license.dat
+              readOnly: true
+      volumes:
+        - name: startup
+          configMap:
+            name: kingbase-startup
+        - name: auth
+          secret:
+            secretName: deer-flow-kingbase
+            defaultMode: 0440
+            items:
+              - key: DB_PASSWORD
+                path: password
+        - name: license
+          secret:
+            secretName: deer-flow-kingbase-license
+            defaultMode: 0440
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 20Gi

@@ -1,0 +1,6 @@
+# Merge these fields into the existing application configuration after PoC.
+# This is not a complete replacement for config.yaml.
+database:
+  backend: postgres
+  postgres_url: $DATABASE_URL
+  postgres_maintenance_database: template1

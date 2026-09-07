@@ -1,0 +1,91 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kingbase-backup
+  namespace: deer-flow
+spec:
+  suspend: true
+  schedule: 0 3 * * *
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/arch: arm64
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+          - name: backup
+            image: kingbase_v009r001c010b0004_single_arm:v1
+            imagePullPolicy: Never
+            command:
+            - /bin/bash
+            - -c
+            - '#!/bin/bash
+
+              set -euo pipefail
+
+              umask 077
+
+              bin=/home/kingbase/install/kingbase/bin
+
+              export LD_LIBRARY_PATH="/home/kingbase/install/kingbase/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+              export KINGBASE_PASSWORD
+
+              KINGBASE_PASSWORD=$(cat /run/kingbase-auth/password)
+
+              : "${DB_USER:?}"
+
+              : "${DB_NAME:?}"
+
+              mkdir -p /backups/kingbase
+
+              stamp=$(date -u +%Y%m%dT%H%M%SZ)
+
+              partial="/backups/kingbase/${stamp}.dump.partial"
+
+              trap ''rm -f -- "$partial"'' EXIT
+
+              "$bin/sys_dump" -h kingbase -p 54321 -U "$DB_USER" -d "$DB_NAME" -Fc
+              -f "$partial"
+
+              "$bin/sys_restore" --list "$partial" >/dev/null
+
+              mv -- "$partial" "/backups/kingbase/${stamp}.dump"
+
+              # Retention is deliberately manual until a real restore drill is accepted.
+
+              '
+            env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-kingbase
+                  key: DB_USER
+            - name: DB_NAME
+              value: deerflow
+            volumeMounts:
+            - name: backups
+              mountPath: /backups
+              readOnly: false
+            - name: auth
+              mountPath: /run/kingbase-auth
+              readOnly: true
+          volumes:
+          - name: backups
+            persistentVolumeClaim:
+              claimName: deer-flow-kingbase-backups
+          - name: auth
+            secret:
+              secretName: deer-flow-kingbase
+              defaultMode: 288
+              items:
+              - key: DB_PASSWORD
+                path: password
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600

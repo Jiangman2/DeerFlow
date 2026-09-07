@@ -28,11 +28,11 @@ _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
-async def _auto_create_postgres_db(url: str) -> None:
-    """Connect to the ``postgres`` maintenance DB and CREATE DATABASE.
+async def _auto_create_postgres_db(url: str, maintenance_database: str = "postgres") -> None:
+    """Connect to the configured maintenance DB and CREATE DATABASE.
 
     The target database name is extracted from *url*.  The connection is
-    made to the default ``postgres`` database on the same server using
+    made to the selected maintenance database on the same server using
     ``AUTOCOMMIT`` isolation (CREATE DATABASE cannot run inside a
     transaction).
     """
@@ -44,12 +44,13 @@ async def _auto_create_postgres_db(url: str) -> None:
     if not db_name:
         raise ValueError("Cannot auto-create database: no database name in URL")
 
-    # Connect to the default 'postgres' database to issue CREATE DATABASE
-    maint_url = parsed.set(database="postgres")
+    if not maintenance_database or "\x00" in maintenance_database:
+        raise ValueError("Invalid maintenance database name")
+    maint_url = parsed.set(database=maintenance_database)
     maint_engine = create_async_engine(maint_url, isolation_level="AUTOCOMMIT")
     try:
         async with maint_engine.connect() as conn:
-            await conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+            await conn.execute(text('CREATE DATABASE ' + conn.dialect.identifier_preparer.quote_identifier(db_name)))
         logger.info("Auto-created PostgreSQL database: %s", db_name)
     finally:
         await maint_engine.dispose()
@@ -62,6 +63,7 @@ async def init_engine(
     echo: bool = False,
     pool_size: int = 5,
     sqlite_dir: str = "",
+    postgres_maintenance_database: str = "postgres",
 ) -> None:
     """Create the async engine and session factory, then auto-create tables.
 
@@ -71,6 +73,7 @@ async def init_engine(
         echo: Echo SQL to log.
         pool_size: Postgres connection pool size.
         sqlite_dir: Directory to create for SQLite (ensured to exist).
+        postgres_maintenance_database: Existing database for CREATE DATABASE connections.
     """
     global _engine, _session_factory
 
@@ -159,7 +162,7 @@ async def init_engine(
     except Exception as exc:
         if backend == "postgres" and "does not exist" in str(exc):
             # Database not yet created -- attempt to auto-create it, then retry.
-            await _auto_create_postgres_db(url)
+            await _auto_create_postgres_db(url, postgres_maintenance_database)
             # Rebuild engine against the now-existing database
             await _engine.dispose()
             _engine = create_async_engine(url, echo=echo, pool_size=pool_size, pool_pre_ping=True, json_serializer=_json_serializer)
@@ -182,6 +185,7 @@ async def init_engine_from_config(config) -> None:
         echo=config.echo_sql,
         pool_size=config.pool_size,
         sqlite_dir=config.sqlite_dir if config.backend == "sqlite" else "",
+        postgres_maintenance_database=getattr(config, "postgres_maintenance_database", "postgres"),
     )
 
 

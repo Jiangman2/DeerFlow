@@ -1,0 +1,36 @@
+name: Enterprise database compatibility guards
+
+on:
+  pull_request:
+    branches: [codex/enterprise-consolidation-20260716]
+  push:
+    branches: [codex/enterprise-consolidation-20260716]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v7
+      - name: Install locked test environment
+        working-directory: backend
+        run: uv sync --frozen --group dev
+      - name: Verify candidate fingerprint
+        run: python scripts/upstream/check_persistence_drift.py
+      - name: Test admission and upgrade guards
+        run: |
+          backend/.venv/bin/python tests/test_kingbase_probe.py
+          backend/.venv/bin/python tests/test_kingbase_acceptance_graph.py
+          backend/.venv/bin/python tests/test_upstream_inventory.py
+          backend/.venv/bin/python tests/test_persistence_drift.py
+          backend/.venv/bin/python tests/test_kingbase_manifests.py
+          backend/.venv/bin/python tests/test_kingbase_launcher.py
+          backend/.venv/bin/python -m pytest backend/tests/test_postgres_maintenance_database.py -q
