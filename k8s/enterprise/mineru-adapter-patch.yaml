@@ -98,8 +98,12 @@ spec:
               # 180-second failures or occupy every worker slot.
               value: "false"
             - name: DEERFLOW_ANYDOC_WORD_ENABLED
-              # Conversation DOCX attachments use local AnyDoc first. A
-              # bounded failure or thin result resumes the existing chain.
+              # Conversation DOCX attachments use local AnyDoc first. Large
+              # knowledge-base DOCX files may use the same bounded fast path.
+              value: "true"
+            - name: DEERFLOW_ANYDOC_KNOWLEDGE_WORD_ENABLED
+              # Preserve the configured knowledge route for ordinary files;
+              # only structurally large DOCX enters the AnyDoc fast path.
               value: "true"
             - name: DEERFLOW_ANYDOC_WORD_EXTENSIONS
               # Legacy binary DOC remains on the proven DocReader route.
@@ -109,9 +113,21 @@ spec:
             - name: DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS
               value: "32"
             - name: DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS
-              # Keep the original native fallback, but outside the HTTP
-              # worker process so a native hang cannot fail /live probes.
+              # DocReader 0.8 stays outside the HTTP worker process. Large
+              # DOCX bypasses its unbounded StdMarkitdownParser first stage.
               value: "120"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_INPUT_BYTES
+              value: "16777216"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_UNCOMPRESSED_BYTES
+              value: "67108864"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES
+              value: "33554432"
+            - name: DEERFLOW_DOCX_STREAM_TIMEOUT_SECONDS
+              value: "60"
+            - name: DEERFLOW_DOCX_STREAM_MAX_DOCUMENT_XML_BYTES
+              value: "536870912"
+            - name: DEERFLOW_DOCX_STREAM_MAX_TEXT_CHARACTERS
+              value: "20000000"
             - name: DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS
               value: "120"
             - name: DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS

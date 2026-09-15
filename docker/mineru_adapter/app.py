@@ -20,6 +20,7 @@ import threading
 import time
 import uuid
 import zipfile
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from email.parser import BytesParser
@@ -103,6 +104,20 @@ class VisualPageEvidence:
 
     page_number: int
     context: str
+
+
+@dataclass(frozen=True)
+class DOCXWorkload:
+    """Central-directory workload facts used before entering a DOCX parser."""
+
+    compressed_bytes: int
+    uncompressed_bytes: int
+    document_xml_bytes: int
+    entry_count: int
+
+    @property
+    def expansion_ratio(self) -> float:
+        return self.uncompressed_bytes / max(self.compressed_bytes, 1)
 
 
 class ParseCoordinator:
@@ -918,6 +933,7 @@ def _parse_word_with_builtin_in_process(
     suffix: str,
     *,
     parser_factory: Callable[[], Any] | None = None,
+    bypass_markitdown: bool = False,
 ) -> tuple[str, dict[str, str]]:
     """Parse Word with DocReader's native first-success parser chain.
 
@@ -928,6 +944,20 @@ def _parse_word_with_builtin_in_process(
     doubled work, and exposed successful text parses to its process-pool
     failure mode.
     """
+    if bypass_markitdown:
+        if suffix.lower() != ".docx":
+            raise ValueError("MarkItDown bypass is only valid for DOCX")
+        if parser_factory is None:
+            from docreader.parser.docx_parser import DocxParser
+
+            parser = DocxParser(file_name=filename, file_type="docx")
+        else:
+            parser = parser_factory()
+        document = parser.parse(content)
+        markdown = str(getattr(document, "content", "") or "").strip()
+        images = getattr(document, "images", None)
+        return markdown, dict(images) if isinstance(images, dict) else {}
+
     if parser_factory is None:
         from docreader.parser import Parser
 
@@ -947,6 +977,7 @@ def parse_word_with_builtin(
     suffix: str,
     *,
     parser_factory: Callable[[], Any] | None = None,
+    bypass_markitdown: bool = False,
 ) -> tuple[str, dict[str, str]]:
     """Run DocReader in a bounded child unless a test supplies its parser."""
 
@@ -956,6 +987,7 @@ def parse_word_with_builtin(
             filename,
             suffix,
             parser_factory=parser_factory,
+            bypass_markitdown=bypass_markitdown,
         )
 
     timeout = _float_env("DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS", 120.0)
@@ -975,7 +1007,8 @@ def parse_word_with_builtin(
         output = workspace / "result.json"
         source.write_bytes(content)
         source.chmod(0o600)
-        command = [sys.executable, str(worker), str(source), str(output)]
+        mode = "native-docx" if bypass_markitdown else "first-success"
+        command = [sys.executable, str(worker), mode, str(source), str(output)]
         try:
             completed = _run_converter_command(
                 command,
@@ -1005,13 +1038,158 @@ def parse_word_with_builtin(
         return markdown, images
 
 
+def inspect_docx_workload(content: bytes) -> DOCXWorkload:
+    """Inspect OOXML sizes without expanding document parts into memory."""
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            entries = archive.infolist()
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise ValueError("Invalid DOCX container") from exc
+
+    document_parts = [entry for entry in entries if entry.filename == "word/document.xml"]
+    if len(document_parts) != 1:
+        raise ValueError("DOCX must contain exactly one word/document.xml part")
+    if any(entry.flag_bits & 0x1 for entry in entries):
+        raise ValueError("Encrypted DOCX containers are not supported")
+
+    return DOCXWorkload(
+        compressed_bytes=len(content),
+        uncompressed_bytes=sum(entry.file_size for entry in entries),
+        document_xml_bytes=document_parts[0].file_size,
+        entry_count=len(entries),
+    )
+
+
+def docx_requires_large_document_route(workload: DOCXWorkload) -> bool:
+    """Keep structurally large OOXML away from unbounded MarkItDown parsing."""
+
+    return (
+        workload.compressed_bytes > _int_env("DEERFLOW_DOCX_MARKITDOWN_MAX_INPUT_BYTES", 16 * 1024 * 1024)
+        or workload.uncompressed_bytes
+        > _int_env("DEERFLOW_DOCX_MARKITDOWN_MAX_UNCOMPRESSED_BYTES", 64 * 1024 * 1024)
+        or workload.document_xml_bytes
+        > _int_env("DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES", 32 * 1024 * 1024)
+    )
+
+
+def _parse_docx_streaming_in_process(content: bytes) -> tuple[str, dict[str, str]]:
+    """Recover readable DOCX text with bounded-memory XML streaming.
+
+    This is deliberately a last-resort text recovery path. Rich parsing stays
+    owned by official DocReader/AnyDoc; this path prevents one pathological
+    OOXML tree from turning a retained upload into a permanent parse failure.
+    """
+
+    maximum_xml_bytes = _int_env("DEERFLOW_DOCX_STREAM_MAX_DOCUMENT_XML_BYTES", 512 * 1024 * 1024)
+    maximum_text_characters = _int_env("DEERFLOW_DOCX_STREAM_MAX_TEXT_CHARACTERS", 20_000_000)
+    workload = inspect_docx_workload(content)
+    if workload.document_xml_bytes > maximum_xml_bytes:
+        raise ValueError(
+            "DOCX document.xml exceeds the emergency streaming safety limit: "
+            f"bytes={workload.document_xml_bytes}"
+        )
+
+    paragraphs: list[str] = []
+    current: list[str] = []
+    character_count = 0
+    word_namespace = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    text_tag = f"{word_namespace}t"
+    paragraph_tag = f"{word_namespace}p"
+    tab_tag = f"{word_namespace}tab"
+    break_tags = {f"{word_namespace}br", f"{word_namespace}cr"}
+
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        with archive.open("word/document.xml") as source:
+            for _event, element in ET.iterparse(source, events=("end",)):
+                if element.tag == text_tag:
+                    value = element.text or ""
+                    character_count += len(value)
+                    if character_count > maximum_text_characters:
+                        raise ValueError("DOCX emergency text output exceeds its safety limit")
+                    current.append(value)
+                elif element.tag == tab_tag:
+                    current.append("\t")
+                elif element.tag in break_tags:
+                    current.append("\n")
+                elif element.tag == paragraph_tag:
+                    paragraph = "".join(current).strip()
+                    if paragraph:
+                        paragraphs.append(paragraph)
+                    current.clear()
+                element.clear()
+
+    markdown = "\n\n".join(paragraphs).strip()
+    if not markdown:
+        raise ValueError("DOCX emergency streaming recovery returned no readable text")
+    return markdown, {}
+
+
+def parse_docx_with_streaming_recovery(content: bytes, filename: str) -> tuple[str, dict[str, str]]:
+    """Run last-resort DOCX text recovery in a separately killable child."""
+
+    timeout = _float_env("DEERFLOW_DOCX_STREAM_TIMEOUT_SECONDS", 60.0)
+    maximum_output_bytes = _int_env("DEERFLOW_DOCREADER_WORD_MAX_OUTPUT_BYTES", 104_857_600)
+    worker = Path(
+        os.getenv(
+            "DEERFLOW_DOCREADER_WORKER_PATH",
+            str(Path(__file__).with_name("docreader_worker.py")),
+        )
+    )
+    if not worker.is_file():
+        raise RuntimeError(f"DocReader worker is missing: {worker}")
+
+    with tempfile.TemporaryDirectory(prefix="deerflow-docx-stream-") as temp_dir:
+        workspace = Path(temp_dir)
+        source = workspace / "input.docx"
+        output = workspace / "result.json"
+        source.write_bytes(content)
+        source.chmod(0o600)
+        command = [sys.executable, str(worker), "streaming-docx", str(source), str(output)]
+        try:
+            completed = _run_converter_command(
+                command,
+                timeout=timeout,
+                env=_isolated_local_parser_environment(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"DOCX streaming recovery timed out after {timeout:g}s for {filename}") from exc
+        if completed.returncode != 0 or not output.is_file():
+            detail = (completed.stderr or "<empty>").strip().replace("\n", " ")[:500]
+            raise RuntimeError(
+                f"DOCX streaming recovery failed for {filename}: "
+                f"returncode={completed.returncode}; stderr={detail}"
+            )
+        if output.stat().st_size <= 0 or output.stat().st_size > maximum_output_bytes:
+            raise RuntimeError(f"DOCX streaming recovery produced an invalid result size for {filename}")
+        payload = json.loads(output.read_text(encoding="utf-8"))
+        markdown = payload.get("markdown")
+        images = payload.get("images")
+        if not isinstance(markdown, str) or not markdown.strip() or not isinstance(images, dict):
+            raise RuntimeError(f"DOCX streaming recovery produced an invalid result for {filename}")
+        return markdown, images
+
+
 def _anydoc_word_extensions() -> set[str]:
     configured = os.getenv("DEERFLOW_ANYDOC_WORD_EXTENSIONS", "docx")
     return {f".{item.strip().lower().lstrip('.')}" for item in configured.split(",") if item.strip()}
 
 
-def _anydoc_word_enabled(suffix: str, parse_profile: str) -> bool:
-    return parse_profile == "conversation" and _bool_env("DEERFLOW_ANYDOC_WORD_ENABLED", False) and suffix.lower() in _anydoc_word_extensions()
+def _anydoc_word_enabled(
+    suffix: str,
+    parse_profile: str,
+    *,
+    structurally_large_docx: bool = False,
+) -> bool:
+    if not _bool_env("DEERFLOW_ANYDOC_WORD_ENABLED", False) or suffix.lower() not in _anydoc_word_extensions():
+        return False
+    if parse_profile == "conversation":
+        return True
+    return (
+        parse_profile == "knowledge"
+        and structurally_large_docx
+        and _bool_env("DEERFLOW_ANYDOC_KNOWLEDGE_WORD_ENABLED", False)
+    )
 
 
 def _isolated_local_parser_environment() -> dict[str, str]:
@@ -2316,8 +2494,30 @@ def parse_upload(
     searchable_document = suffix in {".pdf", ".doc", ".docx"}
     native_word: tuple[str, dict[str, str]] | None = None
     word_route = "native-first-success"
+    structurally_large_docx = False
+    docx_workload: DOCXWorkload | None = None
     if suffix in {".doc", ".docx"}:
-        if _anydoc_word_enabled(suffix, parse_profile):
+        if suffix == ".docx":
+            docx_workload = inspect_docx_workload(content)
+            structurally_large_docx = docx_requires_large_document_route(docx_workload)
+            logger.info(
+                "DOCX workload filename=%s profile=%s compressed_bytes=%d "
+                "uncompressed_bytes=%d document_xml_bytes=%d entries=%d "
+                "expansion_ratio=%.2f large_document_route=%s",
+                filename,
+                parse_profile,
+                docx_workload.compressed_bytes,
+                docx_workload.uncompressed_bytes,
+                docx_workload.document_xml_bytes,
+                docx_workload.entry_count,
+                docx_workload.expansion_ratio,
+                structurally_large_docx,
+            )
+        if _anydoc_word_enabled(
+            suffix,
+            parse_profile,
+            structurally_large_docx=structurally_large_docx,
+        ):
             try:
                 native_word = parse_word_with_anydoc(content, filename, suffix)
                 word_route = "anydoc-first-success"
@@ -2329,19 +2529,40 @@ def parse_upload(
                 )
         try:
             if native_word is None:
-                native_word = parse_word_with_builtin(content, filename, suffix)
+                if structurally_large_docx:
+                    native_word = parse_word_with_builtin(
+                        content,
+                        filename,
+                        suffix,
+                        bypass_markitdown=True,
+                    )
+                    word_route = "docreader-native-large-docx"
+                else:
+                    native_word = parse_word_with_builtin(content, filename, suffix)
             if not native_word[0].strip():
                 logger.warning(
                     "Native Word parser returned no readable text for %s; continuing through PDF visual fallback.",
                     filename,
                 )
                 native_word = None
+                if structurally_large_docx:
+                    raise RuntimeError("Large DOCX native parser returned no readable text")
         except Exception:
             logger.warning(
                 "Native Word parsing failed for %s; continuing through PDF visual fallback.",
                 filename,
                 exc_info=True,
             )
+            if structurally_large_docx:
+                try:
+                    native_word = parse_docx_with_streaming_recovery(content, filename)
+                    word_route = "emergency-streaming-large-docx"
+                except Exception:
+                    logger.warning(
+                        "Emergency DOCX text recovery failed for %s; continuing through visual fallback.",
+                        filename,
+                        exc_info=True,
+                    )
         if native_word is not None and not _bool_env(
             "MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED",
             False,

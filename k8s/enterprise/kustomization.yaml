@@ -58,7 +58,7 @@ images:
     newTag: 0.8.0-enterprise-proxy1-anydoc1-arm64-20260912
   - name: wechatopenai/weknora-docreader
     newName: m.daocloud.io/docker.io/wechatopenai/weknora-docreader
-    digest: sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b
+    digest: sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b
   - name: wechatopenai/weknora-ui
     newName: deerflow.local/weknora-ui
     newTag: 0.8.0-enterprise-sso2-r5-arm64-20260913
@@ -79,4 +79,4 @@ images:
     newTag: 20260901-enterprise-arm64-rc15-researchfund1
   - name: deer-flow-mineru-adapter
     newName: deerflow.local/deer-flow-mineru-adapter
-    newTag: 20260915-enterprise-arm64-rc15-uploadstability2
+    newTag: 20260915-enterprise-arm64-rc15-docxstability1

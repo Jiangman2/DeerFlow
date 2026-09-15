@@ -114,7 +114,7 @@ DELETE /api/threads/{thread_id}/uploads/{filename}
 
 默认情况下，自动转换是关闭的，以避免在网关主机上对不受信任的 Office/PDF 上传执行解析。只有在受信任部署中明确接受此风险时，才应将 `uploads.auto_convert_documents` 设置为 `true`。
 
-企业 Kubernetes 部署仍沿用同一个同步上传接口和响应结构，但会把会话文档交给独立的文档解析服务。会话 DOCX 优先使用本地 AnyDoc；AnyDoc 输出过少、报错或超时时，依次回退到现有 DocReader、LibreOffice 和 MinerU 路径。每个本地解析器在独立子进程中运行并有明确超时，因此单个异常大文件不会阻塞解析服务的健康探针。WeKnora 知识库流量使用独立的 `knowledge` 解析配置，不会因为会话附件启用 AnyDoc 优先级而改变默认路由。
+企业 Kubernetes 部署仍沿用同一个同步上传接口和响应结构，但会把会话文档交给独立的文档解析服务。会话 DOCX 优先使用本地 AnyDoc；普通 WeKnora 知识库文件仍保持显式解析规则，只有达到结构型大文档门槛的 DOCX 才进入同一条 AnyDoc 快速路径。AnyDoc 输出过少、达到 XML 节点安全上限、报错或超时时，大型 DOCX 会绕过 `StdMarkitdownParser`，转入官方 DocReader 0.8 原生 `DocxParser`，并保留低内存流式正文恢复，随后仍可使用 LibreOffice 和 MinerU 路径。每个本地解析器在独立子进程中运行并有明确超时，因此单个异常大文件不会阻塞解析服务的健康探针，也不需要放宽 AnyDoc 的安全上限。
 
 企业部署保持同步语义：上传响应只在 Markdown companion 已生成后返回，前端仍在上传完成后再提交对话。解析队列、各级回退及 Gateway 的超时均小于 Nginx 的 600 秒上游读取边界；全部解析方式失败时返回可识别的 `503`，而不是等待反向代理产生不明确的 `504`。Gateway 在企业解析服务已完成整条回退链后不会再次执行本地重复转换。
 

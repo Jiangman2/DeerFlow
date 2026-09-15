@@ -1,4 +1,4 @@
-ARG DOCREADER_IMAGE=wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b
+ARG DOCREADER_IMAGE=wechatopenai/weknora-docreader@sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b
 FROM ${DOCREADER_IMAGE}
 
 COPY requirements-anydoc.txt /tmp/requirements-anydoc.txt

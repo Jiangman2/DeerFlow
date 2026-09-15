@@ -332,12 +332,18 @@ def test_enterprise_runtime_images_are_immutable():
         "deer-flow-frontend": "20260914-enterprise-arm64-rc15-digitalemployee-ui2-r1",
         "deer-flow-provisioner": "20260817-enterprise-arm64-rc15-sandboxstorage1",
         "deer-flow-skills": "20260901-enterprise-arm64-rc15-researchfund1",
-        "deer-flow-mineru-adapter": "20260915-enterprise-arm64-rc15-uploadstability2",
+        "deer-flow-mineru-adapter": "20260915-enterprise-arm64-rc15-docxstability1",
         "paradedb/paradedb": "pg16-search-arm64-20260722-1",
         "wechatopenai/weknora-app": "0.8.0-enterprise-proxy1-anydoc1-arm64-20260912",
         "wechatopenai/weknora-ui": "0.8.0-enterprise-sso2-r5-arm64-20260913",
     }
     assert {image["name"]: image.get("newTag") for image in custom} == expected_tags
+    docreader = next(image for image in images if image["name"] == "wechatopenai/weknora-docreader")
+    assert docreader["digest"] == "sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b"
+    assert (
+        "ARG DOCREADER_IMAGE="
+        "wechatopenai/weknora-docreader@sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b"
+    ) in _read("docker/mineru_adapter/Dockerfile")
     assert "latest" not in _read("k8s/enterprise/kustomization.yaml")
 
 
@@ -683,9 +689,14 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert adapter_env["MINERU_TRUST_ENV"] == "false"
     assert adapter_env["MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED"] == "false"
     assert adapter_env["DEERFLOW_ANYDOC_WORD_ENABLED"] == "true"
+    assert adapter_env["DEERFLOW_ANYDOC_KNOWLEDGE_WORD_ENABLED"] == "true"
     assert adapter_env["DEERFLOW_ANYDOC_WORD_EXTENSIONS"] == "docx"
     assert adapter_env["DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS"] == "120"
     assert adapter_env["DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS"] == "120"
+    assert adapter_env["DEERFLOW_DOCX_MARKITDOWN_MAX_INPUT_BYTES"] == "16777216"
+    assert adapter_env["DEERFLOW_DOCX_MARKITDOWN_MAX_UNCOMPRESSED_BYTES"] == "67108864"
+    assert adapter_env["DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES"] == "33554432"
+    assert adapter_env["DEERFLOW_DOCX_STREAM_TIMEOUT_SECONDS"] == "60"
     assert adapter_env["DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS"] == "120"
     assert adapter_env["DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS"] == "120"
 

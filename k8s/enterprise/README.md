@@ -155,8 +155,8 @@ contains LibreOffice. Build it on an ARM64 server with
 
 ```bash
 docker build -f docker/mineru_adapter/Dockerfile \
-  --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b \
-  -t deerflow.local/deer-flow-mineru-adapter:20260915-enterprise-arm64-rc15-uploadstability2 \
+  --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b \
+  -t deerflow.local/deer-flow-mineru-adapter:20260915-enterprise-arm64-rc15-docxstability1 \
   docker/mineru_adapter
 ```
 
@@ -165,9 +165,16 @@ node where the adapter may run. The adapter is stateless, receives only an
 internal ClusterIP Service, and translates WeKnora's `/file_parse` contract.
 The dispatcher labels interactive DeerFlow uploads with a `conversation` parse
 profile while WeKnora knowledge-base work retains the `knowledge` profile.
-Conversation DOCX first uses pinned `firecrawl-anydoc==0.1.9`; thin, failed, or
-timed-out output falls back through isolated DocReader, LibreOffice, and MinerU.
-Legacy DOC and knowledge-base DOCX keep the existing native-first route. A
+Conversation DOCX first uses pinned `firecrawl-anydoc==0.1.9`; structurally
+large knowledge-base DOCX may use the same bounded fast path without changing
+ordinary knowledge-base parser rules. The Adapter inspects compressed,
+expanded, and `word/document.xml` sizes before parsing. Large DOCX bypasses
+DocReader's `StdMarkitdownParser`, uses the official v0.8 native `DocxParser`,
+and retains an isolated low-memory XML text recovery after richer native
+parsing fails. This handles documents that correctly trip AnyDoc's fixed XML
+node safety limit without weakening that limit. Thin, failed, or timed-out
+output continues through the existing LibreOffice and MinerU fallbacks. Legacy
+DOC and ordinary knowledge-base DOCX keep the existing native-first route. A
 non-empty result is published immediately. Operators may enable
 `MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED=true` for a best-effort supplement,
 but its failure cannot invalidate already recovered native text, tables, and

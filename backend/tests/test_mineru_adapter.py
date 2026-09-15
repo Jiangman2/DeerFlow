@@ -35,6 +35,19 @@ def _fake_docx() -> bytes:
     return data.getvalue()
 
 
+def _fake_docx_with_text(text: str = "大型文档恢复正文") -> bytes:
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "<Types />")
+        archive.writestr(
+            "word/document.xml",
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            f"<w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body>"
+            "</w:document>",
+        )
+    return data.getvalue()
+
+
 def _compound_directory_entry(
     name: str,
     object_type: int,
@@ -539,6 +552,94 @@ def test_anydoc_does_not_change_weknora_knowledge_base_routes(monkeypatch):
     assert response["results"]["document"]["md_content"] == "# Knowledge base route\n\n正文"
 
 
+def test_structurally_large_knowledge_docx_uses_anydoc_when_enabled(monkeypatch):
+    source = _fake_docx_with_text()
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORD_ENABLED", "true")
+    monkeypatch.setenv("DEERFLOW_ANYDOC_KNOWLEDGE_WORD_ENABLED", "true")
+    monkeypatch.setenv("DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES", "1")
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_anydoc",
+        lambda content, filename, suffix: ("# AnyDoc knowledge\n\n大型正文", {}),
+    )
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_builtin",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("AnyDoc success must return immediately")),
+    )
+
+    response = app.parse_upload(source, "large-knowledge.docx")
+
+    assert response["results"]["document"]["md_content"] == "# AnyDoc knowledge\n\n大型正文"
+
+
+def test_large_knowledge_docx_bypasses_markitdown_after_anydoc_limit(monkeypatch):
+    source = _fake_docx_with_text()
+    calls: list[bool] = []
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORD_ENABLED", "true")
+    monkeypatch.setenv("DEERFLOW_ANYDOC_KNOWLEDGE_WORD_ENABLED", "true")
+    monkeypatch.setenv("DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES", "1")
+
+    def resource_limited_anydoc(content, filename, suffix):
+        raise RuntimeError("resource limit exceeded (max_xml_nodes)")
+
+    def native_docreader(content, filename, suffix, *, bypass_markitdown=False):
+        calls.append(bypass_markitdown)
+        return "# DocReader 0.8 native\n\n恢复正文", {}
+
+    monkeypatch.setattr(app, "parse_word_with_anydoc", resource_limited_anydoc)
+    monkeypatch.setattr(app, "parse_word_with_builtin", native_docreader)
+
+    response = app.parse_upload(source, "large-knowledge.docx")
+
+    assert calls == [True]
+    assert "DocReader 0.8 native" in response["results"]["document"]["md_content"]
+
+
+def test_large_docx_streaming_recovery_is_last_native_fallback(monkeypatch):
+    source = _fake_docx_with_text("超过 AnyDoc 节点上限后的恢复正文")
+    monkeypatch.setenv("DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES", "1")
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_builtin",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("native parser timed out")),
+    )
+    monkeypatch.setattr(
+        app,
+        "parse_docx_with_streaming_recovery",
+        lambda content, filename: app._parse_docx_streaming_in_process(content),
+    )
+    monkeypatch.setattr(
+        app,
+        "convert_to_pdf",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("streaming recovery must return immediately")),
+    )
+
+    response = app.parse_upload(source, "large-knowledge.docx")
+
+    assert "超过 AnyDoc 节点上限后的恢复正文" in response["results"]["document"]["md_content"]
+
+
+def test_docx_workload_routes_on_expanded_document_xml(monkeypatch):
+    source = _fake_docx_with_text("正文" * 100)
+    workload = app.inspect_docx_workload(source)
+    monkeypatch.setenv("DEERFLOW_DOCX_MARKITDOWN_MAX_INPUT_BYTES", str(len(source) * 10))
+    monkeypatch.setenv("DEERFLOW_DOCX_MARKITDOWN_MAX_UNCOMPRESSED_BYTES", str(workload.uncompressed_bytes * 10))
+    monkeypatch.setenv("DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES", "1")
+
+    assert workload.document_xml_bytes > len(source)
+    assert app.docx_requires_large_document_route(workload) is True
+
+
+def test_docx_streaming_recovery_extracts_text_without_images():
+    markdown, images = app._parse_docx_streaming_in_process(
+        _fake_docx_with_text("低内存流式正文")
+    )
+
+    assert markdown == "低内存流式正文"
+    assert images == {}
+
+
 def test_parse_word_with_anydoc_uses_bounded_isolated_subprocess(monkeypatch, tmp_path):
     captured = {}
     worker_path = tmp_path / "worker.py"
@@ -618,9 +719,38 @@ def test_parse_word_with_builtin_uses_bounded_isolated_subprocess(monkeypatch, t
     assert images == {"images/fallback.png": "encoded"}
     assert captured["timeout"] == 41
     assert captured["command"][1] == str(worker_path)
+    assert captured["command"][2] == "first-success"
     assert captured["env"]["PYTHONNOUSERSITE"] == "1"
     assert "MINERU_API_TOKEN" not in captured["env"]
     assert "HTTPS_PROXY" not in captured["env"]
+
+
+def test_large_docx_builtin_worker_explicitly_selects_native_parser(monkeypatch, tmp_path):
+    captured = {}
+    worker_path = tmp_path / "docreader-worker.py"
+    worker_path.write_text("# test worker\n", encoding="utf-8")
+
+    def fake_runner(command, *, timeout, termination_grace_seconds=5.0, env=None):
+        captured["command"] = command
+        Path(command[-1]).write_text(
+            json.dumps({"markdown": "# Native DocxParser\n\n正文", "images": {}}),
+            encoding="utf-8",
+        )
+        return app.subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setenv("DEERFLOW_DOCREADER_WORKER_PATH", str(worker_path))
+    monkeypatch.setattr(app, "_run_converter_command", fake_runner)
+
+    markdown, images = app.parse_word_with_builtin(
+        _fake_docx(),
+        "large-report.docx",
+        ".docx",
+        bypass_markitdown=True,
+    )
+
+    assert "Native DocxParser" in markdown
+    assert images == {}
+    assert captured["command"][2] == "native-docx"
 
 
 def test_optional_word_visual_conversion_failure_preserves_native_parse(monkeypatch):

@@ -9,24 +9,36 @@ from pathlib import Path
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print("usage: docreader_worker.py INPUT OUTPUT", file=sys.stderr)
+    if len(sys.argv) != 4:
+        print("usage: docreader_worker.py MODE INPUT OUTPUT", file=sys.stderr)
         return 64
 
-    source = Path(sys.argv[1])
-    output = Path(sys.argv[2])
+    mode = sys.argv[1]
+    source = Path(sys.argv[2])
+    output = Path(sys.argv[3])
+    if mode not in {"first-success", "native-docx", "streaming-docx"}:
+        print("docreader_worker_error=invalid_mode", file=sys.stderr)
+        return 64
     if not source.is_file() or source.is_symlink():
         print("docreader_worker_error=invalid_input", file=sys.stderr)
         return 65
 
     try:
-        from deerflow_mineru_adapter import _parse_word_with_builtin_in_process
-
-        markdown, images = _parse_word_with_builtin_in_process(
-            source.read_bytes(),
-            source.name,
-            source.suffix.lower(),
+        from deerflow_mineru_adapter import (
+            _parse_docx_streaming_in_process,
+            _parse_word_with_builtin_in_process,
         )
+
+        content = source.read_bytes()
+        if mode == "streaming-docx":
+            markdown, images = _parse_docx_streaming_in_process(content)
+        else:
+            markdown, images = _parse_word_with_builtin_in_process(
+                content,
+                source.name,
+                source.suffix.lower(),
+                bypass_markitdown=mode == "native-docx",
+            )
         temporary = output.with_suffix(".tmp")
         temporary.write_text(
             json.dumps(

@@ -1161,9 +1161,13 @@ knowledge-base record. The Gateway keeps the original document and writes a
 same-stem Markdown companion for the current task. Searchable PDFs retain their
 native route, scanned PDFs use enterprise OCR, and presentations use the strict
 presentation route. Interactive DeerFlow DOCX attachments use pinned local
-AnyDoc first, followed by bounded isolated DocReader, LibreOffice, and MinerU
-fallback; legacy DOC remains native-first. This conversation-only profile does
-not alter WeKnora knowledge-base parser rules. An explicitly enabled visual
+AnyDoc first. Ordinary WeKnora knowledge-base documents retain their explicit
+parser rules, while only structurally large knowledge-base DOCX may use the
+same bounded AnyDoc fast path. Large DOCX bypasses `StdMarkitdownParser` for
+the official DocReader v0.8 native parser and has an isolated low-memory text
+recovery for files that reach AnyDoc's XML-node safety limit; that limit is
+never weakened. LibreOffice and MinerU remain bounded fallbacks, and legacy DOC
+remains native-first. An explicitly enabled visual
 supplement remains best-effort and cannot invalidate recovered native text,
 tables, and images. Set
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=false` to disable this bridge, or
