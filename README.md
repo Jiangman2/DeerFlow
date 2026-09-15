@@ -1750,9 +1750,13 @@ Final files published with `present_files` are persisted in the thread-scoped ou
 Packaged `.skill` files are first-class downloadable artifacts: `present_files`
 accepts valid ZIP-based packages containing `SKILL.md` and rejects malformed or
 path-traversing archives before publication.
-New tasks beginning with `/ppt-master` use a thin transport runtime on port
-`8003`, while the real Agent CLI runs as a second container in that thread's
-Kubernetes Sandbox Pod. The transport graph contains no LangChain model,
+New tasks beginning with `/ppt-master` use a thin transport runtime in its own
+Kubernetes Deployment and ClusterIP Service on port `8003`, while the real Agent
+CLI runs as a second container in that thread's Kubernetes Sandbox Pod. The
+transport never shares the ordinary Gateway Pod failure domain. A bounded init
+gate requires three consecutive PostgreSQL connectivity samples, so a transient
+service-DNS or database startup failure cannot make the ordinary Gateway lose its
+Service endpoint. The transport graph contains no LangChain model,
 `create_agent`, or DeerFlow Agent middleware. The Sandbox-side host installs the
 vendored upstream `ppt-master` v4.5.0 package into the Agent's normal Skill
 directory, keeps an exact writable thread-persistent snapshot, persists the

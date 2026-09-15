@@ -188,54 +188,89 @@ def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands():
     assert "proxy_send_timeout 86400s;" in dockerfile
 
 
-def test_ppt_master_runner_is_an_isolated_gateway_sidecar():
+def test_ppt_master_runner_is_an_independent_failure_domain():
     documents = _yaml_documents("k8s/local-pvc/deer-flow-pvc-stack.yaml")
-    deployment = next(document for document in documents if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "gateway")
-    containers = {container["name"]: container for container in deployment["spec"]["template"]["spec"]["containers"]}
-    runner = containers["ppt-master-runner"]
+    gateway_deployment = next(document for document in documents if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "gateway")
+    runner_deployment = next(document for document in documents if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "ppt-master-runner")
+    gateway_containers = {container["name"]: container for container in gateway_deployment["spec"]["template"]["spec"]["containers"]}
+    runner_containers = {container["name"]: container for container in runner_deployment["spec"]["template"]["spec"]["containers"]}
+    runner = runner_containers["ppt-master-runner"]
     runner_env = {entry["name"]: entry.get("value") for entry in runner["env"] if "value" in entry}
-    gateway_env = {entry["name"]: entry.get("value") for entry in containers["gateway"]["env"] if "value" in entry}
+    gateway_env = {entry["name"]: entry.get("value") for entry in gateway_containers["gateway"]["env"] if "value" in entry}
 
-    assert containers["gateway"]["image"].startswith("deer-flow-gateway:")
+    assert set(gateway_containers) == {"gateway"}
+    assert gateway_containers["gateway"]["image"].startswith("deer-flow-gateway:")
     assert runner["image"].startswith("deer-flow-ppt-master-runner:")
-    assert runner["image"].partition(":")[2] == containers["gateway"]["image"].partition(":")[2]
+    assert runner["image"].partition(":")[2] == gateway_containers["gateway"]["image"].partition(":")[2]
     assert runner["ports"] == [{"containerPort": 8003}]
     assert runner_env["GATEWAY_PORT"] == "8003"
     assert runner_env["DEER_FLOW_RUNTIME_PROFILE"] == "ppt-master-runner"
-    assert gateway_env["PPT_MASTER_RUNNER_INTERNAL_URL"] == "http://127.0.0.1:8003"
+    assert gateway_env["PPT_MASTER_RUNNER_INTERNAL_URL"] == "http://ppt-master-runner:8003"
+    assert "ppt-master-runner" in gateway_env["NO_PROXY"].split(",")
     assert runner_env["HTTP_PROXY"] == ""
+    assert "ppt-master-runner" in runner_env["NO_PROXY"].split(",")
     assert {mount["name"] for mount in runner["volumeMounts"]} == {
         "config",
         "extensions-config",
         "userdata",
         "skills",
     }
+    runner_spec = runner_deployment["spec"]["template"]["spec"]
+    assert runner_spec["automountServiceAccountToken"] is False
+    assert runner_deployment["spec"]["strategy"]["rollingUpdate"] == {
+        "maxUnavailable": 0,
+        "maxSurge": 1,
+    }
+    init_containers = {container["name"]: container for container in runner_spec["initContainers"]}
+    database_guard = init_containers["wait-for-postgres"]
+    assert database_guard["image"].startswith("deer-flow-ppt-master-runner:")
+    database_guard_script = database_guard["args"][0]
+    assert "SELECT 1" in database_guard_script
+    assert "consecutive == 3" in database_guard_script
+    assert "time.monotonic() + 300" in database_guard_script
 
-    service = next(document for document in documents if document.get("kind") == "Service" and document.get("metadata", {}).get("name") == "gateway")
-    assert {
-        "name": "ppt-master-runner",
+    gateway_service = next(document for document in documents if document.get("kind") == "Service" and document.get("metadata", {}).get("name") == "gateway")
+    runner_service = next(document for document in documents if document.get("kind") == "Service" and document.get("metadata", {}).get("name") == "ppt-master-runner")
+    assert gateway_service["spec"]["ports"] == [{"name": "http", "port": 8001, "targetPort": 8001}]
+    assert runner_service["spec"]["selector"] == {"app": "ppt-master-runner"}
+    assert runner_service["spec"]["ports"] == [{
+        "name": "http",
         "port": 8003,
         "targetPort": 8003,
-    } in service["spec"]["ports"]
+    }]
 
     nginx = _read("k8s/local-pvc/nginx.conf")
     assert "location /api/ppt-master-runtime/" in nginx
     assert "rewrite ^/api/ppt-master-runtime/(.*) /api/$1 break;" in nginx
     assert "proxy_pass http://$ppt_master_runner_upstream;" in nginx
+    stack = _read("k8s/local-pvc/deer-flow-pvc-stack.yaml")
+    assert "proxy_pass http://ppt-master-runner:8003;" in stack
 
 
 def test_enterprise_ppt_runner_retains_proxy_and_ca_boundary():
     patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
-    gateway_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
-    runner = next(container for container in gateway_patch["spec"]["template"]["spec"]["containers"] if container["name"] == "ppt-master-runner")
+    runner_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "ppt-master-runner")
+    runner = next(container for container in runner_patch["spec"]["template"]["spec"]["containers"] if container["name"] == "ppt-master-runner")
     env = {entry["name"]: entry.get("value") for entry in runner["env"] if "value" in entry}
 
     assert env["SSL_CERT_FILE"] == "/etc/deerflow-ca/ca-bundle.crt"
     assert env["OPENSSL_CONF"] == "/etc/deerflow-openssl/openssl.cnf"
     assert env["TAVILY_TLS_COMPAT"] == "true"
+    assert "ppt-master-runner" in env["NO_PROXY"].split(",")
     assert {mount["name"] for mount in runner["volumeMounts"]} == {
         "enterprise-ca",
         "openssl-compat",
+    }
+
+    gateway_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
+    gateway = next(container for container in gateway_patch["spec"]["template"]["spec"]["containers"] if container["name"] == "gateway")
+    assert gateway["resources"] == {
+        "requests": {"cpu": "500m", "memory": "4Gi"},
+        "limits": {"cpu": "2", "memory": "16Gi"},
+    }
+    assert gateway_patch["spec"]["strategy"]["rollingUpdate"] == {
+        "maxUnavailable": 0,
+        "maxSurge": 1,
     }
 
 

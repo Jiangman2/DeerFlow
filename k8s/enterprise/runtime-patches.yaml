@@ -122,9 +122,9 @@ spec:
             - name: SANDBOX_PASSTHROUGH_ENV_KEYS
               value: CODEX_CONFIG_TOML,CODEX_MODEL_CATALOG_JSON,IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: SANDBOX_CA_SECRET_NAME
               value: deer-flow-enterprise-ca
             - name: SANDBOX_CA_SECRET_KEY
@@ -182,6 +182,11 @@ metadata:
   name: gateway
   namespace: deer-flow
 spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   template:
     spec:
       containers:
@@ -225,9 +230,9 @@ spec:
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/deerflow-ca/ca-bundle.crt
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: OPENSSL_CONF
               value: /etc/deerflow-openssl/openssl.cnf
             - name: WEKNORA_BAILIAN_TLS_COMPAT
@@ -361,6 +366,44 @@ spec:
             - name: openssl-compat
               mountPath: /etc/deerflow-openssl
               readOnly: true
+          resources:
+            requests:
+              cpu: 500m
+              memory: 4Gi
+            limits:
+              cpu: "2"
+              memory: 16Gi
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+        - name: openssl-compat
+          configMap:
+            name: deer-flow-gateway-openssl-compat
+            items:
+              - key: openssl.cnf
+                path: openssl.cnf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ppt-master-runner
+  namespace: deer-flow
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          imagePullPolicy: Never
+      containers:
         - name: ppt-master-runner
           imagePullPolicy: Never
           env:
@@ -375,9 +418,9 @@ spec:
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/deerflow-ca/ca-bundle.crt
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: OPENSSL_CONF
               value: /etc/deerflow-openssl/openssl.cnf
             - name: TAVILY_TLS_COMPAT

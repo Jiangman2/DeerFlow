@@ -540,9 +540,18 @@ def validate_repository(repo_root: Path) -> list[str]:
         raise ValidationError("the local overlay must leave the PPT Runner image key intact so the enterprise parent can pin it independently")
     local_stack = _load_documents(local_pvc / "deer-flow-pvc-stack.yaml")
     local_gateway = _deployment(local_stack, "gateway")
-    local_runner_image = _container(local_gateway, "ppt-master-runner").get("image", "")
+    local_runner = _deployment(local_stack, "ppt-master-runner")
+    if any(container.get("name") == "ppt-master-runner" for container in local_gateway["spec"]["template"]["spec"].get("containers", [])):
+        raise ValidationError("PPT Runner must not share the ordinary Gateway Pod failure domain")
+    local_runner_image = _container(local_runner, "ppt-master-runner").get("image", "")
     if not str(local_runner_image).startswith("deer-flow-ppt-master-runner:"):
         raise ValidationError("PPT Runner must use its independent symbolic image key")
+    local_runner_service = _resource(local_stack, "Service", "ppt-master-runner")
+    if local_runner_service.get("spec", {}).get("selector") != {"app": "ppt-master-runner"}:
+        raise ValidationError("PPT Runner Service must select only the independent Runner Pods")
+    gateway_environment = _environment(_container(local_gateway, "gateway"))
+    if gateway_environment.get("PPT_MASTER_RUNNER_INTERNAL_URL") != "http://ppt-master-runner:8003":
+        raise ValidationError("Gateway must reach the PPT Runner through its stable internal Service")
 
     replica_documents = _load_documents(enterprise / "dashboard-postgres-replica.yaml")
     replica = _resource(replica_documents, "StatefulSet", "postgres-dashboard-replica")

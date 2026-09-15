@@ -192,8 +192,8 @@ async def _proxy_live_preview(
         runtime_profile == PPT_MASTER_RUNTIME_PROFILE
         and os.environ.get("DEER_FLOW_RUNTIME_PROFILE") != PPT_MASTER_RUNTIME_PROFILE
     ):
-        # The isolated Runner owns the Sandbox lifecycle.  Forward the browser
-        # request to the co-located Sidecar instead of discovering that Sandbox
+        # The isolated Runner owns the Sandbox lifecycle. Forward the browser
+        # request to its internal Service instead of discovering that Sandbox
         # through the main Gateway's provider: discovery would make the main
         # process eligible to release/destroy a Sandbox that is still executing
         # in the Runner process.
@@ -254,7 +254,7 @@ async def _forward_live_preview_to_runner(
     request: Request,
     thread_id: str,
 ) -> Response:
-    """Forward a Runner-owned preview to the Sidecar in the same K8S Pod."""
+    """Forward a Runner-owned preview to the isolated internal Service."""
     target_url = f"{PPT_MASTER_RUNNER_INTERNAL_URL}{request.url.path}"
     forward_headers: dict[str, str] = {}
     for header_name in (

@@ -40,6 +40,22 @@ production_snapshot:
     skillhub: enabled-separately-managed
 
 controls:
+  - id: ppt-master.failure-isolation
+    layer: kubernetes+routing
+    source:
+      - k8s/local-pvc/deer-flow-pvc-stack.yaml
+      - k8s/enterprise/runtime-patches.yaml
+      - docs/ppt-master-isolated-runner.md
+    enforcement: offline+live+functional
+    acceptance: Gateway and ppt-master-runner use different Deployments, Pods, Services, and image keys; the runner requires three consecutive PostgreSQL readiness samples, and a runner restart does not remove the ordinary Gateway endpoint.
+
+  - id: gateway.memory-headroom
+    layer: kubernetes
+    source:
+      - k8s/enterprise/runtime-patches.yaml
+    enforcement: offline+live
+    acceptance: Gateway keeps its 4Gi request and has a 16Gi limit, with post-rollout OOM counters monitored independently from PPT Runner health.
+
   - id: model.deepseek-only
     layer: runtime-config
     source:

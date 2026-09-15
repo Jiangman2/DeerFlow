@@ -8,7 +8,8 @@ Skill as a second LangChain Agent.
 
 There are two deliberately different processes:
 
-1. `ppt-master-runner` on Gateway Pod port `8003` is only a
+1. `ppt-master-runner` is an independent Deployment exposed only by the
+   `ppt-master-runner` ClusterIP Service on port `8003`. It is only a
    LangGraph-compatible streaming/checkpoint transport. Its graph has one relay
    node and contains no model factory, `create_agent`, Skill middleware, loop
    guard, summarizer, or presentation workflow schema.
@@ -22,6 +23,13 @@ control API is authenticated with the existing `SANDBOX_API_KEY` and must never
 be exposed as a NodePort. Both containers in the Sandbox Pod share network and
 the thread's user-data/Skills volumes, so a Confirm UI bound to port `5050`
 remains reachable through the existing authenticated Live Preview proxy.
+
+The transport runner never shares the ordinary Gateway Pod. Its init phase
+resolves and connects to PostgreSQL repeatedly and requires three consecutive
+successful `SELECT 1` samples within a bounded deadline. A transient service-DNS
+or database readiness failure can restart or delay the runner without changing
+the readiness or endpoint membership of the ordinary Gateway. Nginx and Gateway
+both reach the transport by the stable `ppt-master-runner:8003` service name.
 
 ## Upstream Skill and writable state
 
@@ -60,8 +68,9 @@ not decide route, stage order, template semantics, schema validity, retry
 policy, or phase progression. Those remain owned by the v4.5.0 Skill documents
 and scripts.
 
-The Gateway API and `ppt-master-runner` are separate processes and therefore do
-not share their in-memory active/warm Sandbox maps. During the complete external
+The Gateway API and `ppt-master-runner` are separate Pods and therefore do not
+share their in-memory active/warm Sandbox maps or readiness failure domain.
+During the complete external
 Agent turn the runner holds a shared lease file on the Gateway user-data volume.
 Idle reaping, replica eviction, unhealthy cleanup, explicit destruction, and
 process shutdown may destroy that Sandbox only after obtaining a non-blocking

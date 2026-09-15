@@ -64,7 +64,11 @@ grep -n 'image:' /tmp/deerflow-enterprise-rendered.yaml
 
 渲染结果中的主 Gateway 必须是 `digitalemployee-promptfix1`，
 `ppt-master-runner` 必须保留 `skillhubux-dashboard1-r2`，两者不能被 Kustomize
-合并成同一个最终镜像。
+合并成同一个最终镜像，也不能位于同一个 Pod。Runner 必须由独立
+`Deployment/ppt-master-runner` 与同名 ClusterIP Service 承载；Gateway 通过
+`http://ppt-master-runner:8003` 访问它，Runner 启动前须连续三次通过数据库
+连接检查。这样 Runner 的 DNS、数据库或进程故障不会移除普通 Gateway 的
+Service Endpoint。
 
 ## 4. 配置与 Secret 边界
 

@@ -45,6 +45,7 @@ done
 
 echo "===== CORE WORKLOAD READINESS ====="
 kubectl_df rollout status deployment/gateway --timeout=180s
+kubectl_df rollout status deployment/ppt-master-runner --timeout=180s
 kubectl_df rollout status deployment/provisioner --timeout=180s
 kubectl_df rollout status deployment/frontend --timeout=180s
 kubectl_df rollout status deployment/weknora-app --timeout=180s
@@ -58,6 +59,70 @@ kubectl_df rollout status statefulset/weknora-neo4j --timeout=180s
 kubectl_df get configmap "$CONFIGMAP" -o name
 kubectl_df get secret deer-flow-enterprise-ca -o name
 kubectl_df get secret deer-flow-dashboard-postgres -o name
+
+echo "===== PPT RUNNER FAILURE-DOMAIN ISOLATION ====="
+GATEWAY_CONTAINERS="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\n"}{end}'
+)"
+RUNNER_CONTAINERS="$(
+    kubectl_df get deployment ppt-master-runner \
+      -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\n"}{end}'
+)"
+GATEWAY_RUNNER_URL="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="gateway")].env[?(@.name=="PPT_MASTER_RUNNER_INTERNAL_URL")].value}'
+)"
+GATEWAY_MEMORY_REQUEST="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="gateway")].resources.requests.memory}'
+)"
+GATEWAY_MEMORY_LIMIT="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="gateway")].resources.limits.memory}'
+)"
+RUNNER_SERVICE_SELECTOR="$(
+    kubectl_df get service ppt-master-runner \
+      -o jsonpath='{.spec.selector.app}'
+)"
+RUNNER_SERVICE_PORT="$(
+    kubectl_df get service ppt-master-runner \
+      -o jsonpath='{.spec.ports[?(@.name=="http")].port}'
+)"
+RUNNER_ENDPOINTS="$(
+    kubectl_df get endpointslice \
+      -l kubernetes.io/service-name=ppt-master-runner -o json |
+    python3 -c '
+import json, sys
+count = 0
+for item in json.load(sys.stdin).get("items") or []:
+    for endpoint in item.get("endpoints") or []:
+        if (endpoint.get("conditions") or {}).get("ready") is not False:
+            count += len(endpoint.get("addresses") or [])
+print(count)
+'
+)"
+echo "gateway_containers=$(tr '\n' ',' <<<"$GATEWAY_CONTAINERS" | sed 's/,$//')"
+echo "runner_containers=$(tr '\n' ',' <<<"$RUNNER_CONTAINERS" | sed 's/,$//')"
+echo "gateway_runner_url=$GATEWAY_RUNNER_URL"
+echo "gateway_memory_request=$GATEWAY_MEMORY_REQUEST"
+echo "gateway_memory_limit=$GATEWAY_MEMORY_LIMIT"
+echo "runner_service_selector=$RUNNER_SERVICE_SELECTOR"
+echo "runner_service_port=$RUNNER_SERVICE_PORT"
+echo "runner_ready_endpoints=$RUNNER_ENDPOINTS"
+grep -Fxq gateway <<<"$GATEWAY_CONTAINERS"
+if grep -Fxq ppt-master-runner <<<"$GATEWAY_CONTAINERS"; then
+    echo "FAILED: PPT Runner still shares the Gateway Pod"
+    exit 1
+fi
+grep -Fxq ppt-master-runner <<<"$RUNNER_CONTAINERS"
+test "$GATEWAY_RUNNER_URL" = "http://ppt-master-runner:8003"
+test "$GATEWAY_MEMORY_REQUEST" = "4Gi"
+test "$GATEWAY_MEMORY_LIMIT" = "16Gi"
+test "$RUNNER_SERVICE_SELECTOR" = "ppt-master-runner"
+test "$RUNNER_SERVICE_PORT" = "8003"
+test "$RUNNER_ENDPOINTS" -ge 1
+echo "ppt_master_runner_failure_isolation=PASS"
 
 echo "===== DASHBOARD READ-REPLICA ISOLATION ====="
 DASHBOARD_REPLICA_NODE="$(

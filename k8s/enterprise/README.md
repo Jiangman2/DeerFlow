@@ -103,9 +103,13 @@ Third-party images remain pinned to the ARM64 manifest digests verified on
 `datax-01`. DeerFlow- and WeKnora-owned images use the immutable tags in
 `release-baseline.yaml -> production_snapshot`; that inventory is the source of
 truth for reproducing the accepted 2026-09-15 production capability baseline.
-It deliberately keeps the main Gateway and the `ppt-master-runner` on separate
-image keys: the main Gateway contains the digital-employee, Browser Live, UI2,
-and prompt-ABI fixes, while the runner retains its separately accepted image.
+It deliberately keeps the main Gateway and the `ppt-master-runner` in separate
+Deployments, Services, Pod failure domains, and image keys: the main Gateway
+contains the digital-employee, Browser Live, UI2, and prompt-ABI fixes, while the
+runner retains its separately accepted image. The runner requires three
+consecutive PostgreSQL readiness samples before startup. Gateway uses a 4 GiB
+request and 16 GiB limit in this overlay to preserve scheduling behavior while
+adding headroom above the previously observed 10 GiB OOM boundary.
 The same snapshot locks the WeKnora v0.8 App with AnyDoc, the v0.8 SSO UI,
 Provisioner, Skills, MinerU Adapter, AIO Sandbox runtime, and the separately
 managed SkillHub server/web images.

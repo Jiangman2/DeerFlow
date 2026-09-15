@@ -9,7 +9,7 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
 **Architecture**:
 
 - **Gateway API** (port 8001): REST API plus embedded LangGraph-compatible agent runtime
-- **PPT Master Bridge** (port 8003): transport/checkpoint sidecar for the external Sandbox Agent
+- **PPT Master Bridge** (port 8003): independently deployed transport/checkpoint service for the external Sandbox Agent
 - **Frontend** (port 3000): Next.js web interface
 - **Nginx** (port 2026): Unified reverse proxy entry point
 - **Provisioner** (port 8002, optional in Docker dev): Started only when sandbox is configured for provisioner/Kubernetes mode
@@ -17,8 +17,13 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
 **Runtime**:
 
 - `make dev`, Docker dev, and production all run the agent runtime in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Nginx exposes that runtime at `/api/langgraph/*` and rewrites it to Gateway's native `/api/*` routers.
-- Kubernetes also starts `ppt-master-runner` from the Gateway image as a separate
-  transport process. Nginx rewrites `/api/ppt-master-runtime/*` to port 8003.
+- Kubernetes starts `ppt-master-runner` from its independently pinned image as a
+  separate Deployment and ClusterIP Service. It must not share the ordinary
+  Gateway Pod failure domain. Nginx rewrites `/api/ppt-master-runtime/*` to that
+  Service on port 8003, while Gateway uses the same stable service DNS name.
+  A bounded init gate requires three consecutive PostgreSQL connection samples;
+  transient cluster-DNS or database startup failures therefore block only the
+  Runner Pod and never remove the ordinary Gateway endpoint.
   `agents/ppt_master_runner/` compiles one `StateGraph` relay node and must not
   call `create_agent`, create a chat model, or install Agent middleware. It
   acquires the thread Sandbox and talks to the authenticated
@@ -40,7 +45,7 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   readiness of the host sidecar on port 8788. Bounded transient DNS/connect/read
   failures are retried during startup and task polling, while a missed deadline
   remains a visible host-startup failure. Because Gateway and the runner are
-  separate processes with separate warm-pool maps, the runner must also hold a
+  separate Pods with separate warm-pool maps, the runner must also hold a
   shared filesystem execution lease for the whole Agent turn. Every AIO Sandbox
   destruction path requires a non-blocking exclusive lease and defers deletion
   without dropping tracking when another process is executing. Exact owning

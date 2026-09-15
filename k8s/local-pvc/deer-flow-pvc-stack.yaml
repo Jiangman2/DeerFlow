@@ -252,6 +252,11 @@ metadata:
   namespace: deer-flow
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: gateway
@@ -337,7 +342,7 @@ spec:
             - name: QWEN_ASR_MODEL_NAME
               value: Qwen3-ASR-1.7B
             - name: PPT_MASTER_RUNNER_INTERNAL_URL
-              value: http://127.0.0.1:8003
+              value: http://ppt-master-runner:8003
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
@@ -424,9 +429,9 @@ spec:
             - name: DASHSCOPE_TLS_COMPAT
               value: ""
             - name: NO_PROXY
-              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
+              value: localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
             - name: no_proxy
-              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
+              value: localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
           volumeMounts:
             - name: config
               mountPath: /app/backend/config.yaml
@@ -472,9 +477,129 @@ spec:
             limits:
               cpu: "2"
               memory: 6Gi
+      volumes:
+        - name: config
+          configMap:
+            name: deer-flow-config
+        - name: extensions-config
+          configMap:
+            name: deer-flow-extensions-config
+        - name: userdata
+          persistentVolumeClaim:
+            claimName: deer-flow-userdata-pvc
+        - name: skills
+          persistentVolumeClaim:
+            claimName: deer-flow-skills-pvc
+            readOnly: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: deer-flow
+spec:
+  selector:
+    app: gateway
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ppt-master-runner
+  namespace: deer-flow
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: ppt-master-runner
+  template:
+    metadata:
+      labels:
+        app: ppt-master-runner
+    spec:
+      automountServiceAccountToken: false
+      initContainers:
+        - name: wait-for-postgres
+          # Reuse the exact Runner image so no extra network-fetched runtime is
+          # introduced. Require three successful database samples before the
+          # transport starts; transient cluster-DNS failures remain isolated
+          # from the ordinary Gateway Pod.
+          image: deer-flow-ppt-master-runner:dev-20260811-ppt-task-timeline-v1
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-ec"]
+          args:
+            - |
+              cd /app/backend
+              /app/backend/.venv/bin/python - <<'PY'
+              import os
+              import time
+              from urllib.parse import urlsplit
+
+              import psycopg
+
+              database_url = os.environ["DATABASE_URL"]
+              parsed = urlsplit(database_url)
+              host = parsed.hostname or ""
+              if not host:
+                  raise SystemExit("DATABASE_URL does not contain a host")
+              dsn = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+              deadline = time.monotonic() + 300
+              consecutive = 0
+              attempt = 0
+              while time.monotonic() < deadline:
+                  attempt += 1
+                  try:
+                      with psycopg.connect(dsn, connect_timeout=5) as connection:
+                          with connection.cursor() as cursor:
+                              cursor.execute("SELECT 1")
+                              cursor.fetchone()
+                      consecutive += 1
+                      print(
+                          f"ppt_master_runner_database_probe=PASS "
+                          f"host={host} sample={consecutive}/3 attempt={attempt}",
+                          flush=True,
+                      )
+                      if consecutive == 3:
+                          break
+                  except Exception as exc:
+                      consecutive = 0
+                      print(
+                          f"ppt_master_runner_database_probe=RETRY "
+                          f"host={host} attempt={attempt} error={type(exc).__name__}",
+                          flush=True,
+                      )
+                  time.sleep(2)
+              else:
+                  raise SystemExit("database readiness deadline exceeded")
+              PY
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: DATABASE_URL
+        - name: wait-for-skills
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -c
+            - until test -f /app/skills/.deerflow-skills-ready; do sleep 2; done
+          volumeMounts:
+            - name: skills
+              mountPath: /app/skills
+              readOnly: true
+      containers:
         - name: ppt-master-runner
-          # Use a distinct Kustomize image key so production can pin the
-          # compatibility-frozen PPT runner independently from Gateway.
+          # Keep an independent image key so production can retain the
+          # compatibility-frozen transport image while Gateway advances.
           image: deer-flow-ppt-master-runner:dev-20260811-ppt-task-timeline-v1
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
@@ -530,9 +655,9 @@ spec:
             - name: DASHSCOPE_TLS_COMPAT
               value: ""
             - name: NO_PROXY
-              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
+              value: localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
             - name: no_proxy
-              value: localhost,127.0.0.1,::1,gateway,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
+              value: localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,host.docker.internal,model.ai.cnooc,.svc,.cluster.local
           volumeMounts:
             - name: config
               mountPath: /app/backend/config.yaml
@@ -596,16 +721,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: gateway
+  name: ppt-master-runner
   namespace: deer-flow
 spec:
   selector:
-    app: gateway
+    app: ppt-master-runner
   ports:
     - name: http
-      port: 8001
-      targetPort: 8001
-    - name: ppt-master-runner
       port: 8003
       targetPort: 8003
 ---
@@ -715,7 +837,7 @@ spec:
               sed -i 's|set $frontend_upstream frontend:3000;|# frontend upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|set $provisioner_upstream provisioner:8002;|# provisioner upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$gateway_upstream;|proxy_pass http://gateway:8001;|g' /tmp/nginx.conf
-              sed -i 's|proxy_pass http://$ppt_master_runner_upstream;|proxy_pass http://gateway:8003;|g' /tmp/nginx.conf
+              sed -i 's|proxy_pass http://$ppt_master_runner_upstream;|proxy_pass http://ppt-master-runner:8003;|g' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$frontend_upstream;|proxy_pass http://frontend:3000;|g' /tmp/nginx.conf
               sed -i 's|proxy_pass http://$provisioner_upstream;|proxy_pass http://provisioner:8002;|g' /tmp/nginx.conf
               nginx -c /tmp/nginx.conf -g 'daemon off;'

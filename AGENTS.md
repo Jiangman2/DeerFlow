@@ -86,7 +86,11 @@ shown to browser users, and Chinese tasks publish a Chinese topic filename with
 a date/time suffix instead of exposing the internal pinyin project slug.
 New explicit `/ppt-master` tasks are routed through Nginx
 `/api/ppt-master-runtime/*` to the dedicated `ppt-master-runner` transport
-process on Gateway Pod port 8003. Its graph is one external-process relay node:
+Service on port 8003. The runner has its own Deployment and Pod failure domain;
+it must never be restored as a Gateway sidecar. Its startup gate requires three
+consecutive database connection samples, so a transient Kubernetes DNS or
+PostgreSQL readiness failure delays only the runner and cannot remove the
+ordinary Gateway endpoint. Its graph is one external-process relay node:
 it must never construct a LangChain model/Agent or attach DeerFlow Agent
 middleware. The real Agent CLI runs in the `ppt-master-agent-host` container of
 the thread's provisioned Sandbox Pod on authenticated ClusterIP port 8788. That
@@ -106,8 +110,9 @@ for the Agent host `/health` endpoint because the two containers do not become
 ready atomically. Treat bounded DNS/connect/read failures during startup and
 polling as transient, but fail visibly after the configured deadline rather
 than leaking a raw Kubernetes resolver exception to the browser.
-The ordinary Gateway and `ppt-master-runner` have independent in-memory Sandbox
-registries. Hold a shared cross-process execution lease for the entire external
+The ordinary Gateway and `ppt-master-runner` run in separate Pods and have
+independent in-memory Sandbox registries. Hold a shared cross-process execution
+lease for the entire external
 Agent turn; every idle, capacity, unhealthy, explicit, and shutdown destruction
 path must obtain the corresponding non-blocking exclusive lease first. A busy
 Sandbox is deferred and remains tracked, never deleted from another process.
@@ -760,7 +765,7 @@ Enterprise Kubernetes storage note:
   substitute stock footage, or fall back to Gemini/MiniMax. Its asynchronous
   entry point ignores stale provider-selection variables, and CLI invocation
   without `--submit-only` or `--status-only` is rejected.
-- The audited enterprise TLS proxy presents a CA-validated legacy RSA certificate that OpenSSL 3 rejects at its default security level. Keep `gateway-openssl-compat.yaml` scoped to the Gateway Pod through `OPENSSL_CONF`, retain `WEKNORA_BAILIAN_TLS_COMPAT=true` for the authenticated Bailian embedding/ASR adapter clients, and retain `TAVILY_TLS_COMPAT=true` for DeerFlow's Tavily-only verified HTTPS session. These clients construct explicit `DEFAULT:@SECLEVEL=1` SSL contexts while CA-chain and hostname verification remain enabled. Never replace this with `verify=false`/`--insecure` or a host/cluster-wide downgrade, and remove the compatibility flags after the proxy certificate is modernized.
+- The audited enterprise TLS proxy presents a CA-validated legacy RSA certificate that OpenSSL 3 rejects at its default security level. Keep `gateway-openssl-compat.yaml` scoped to the Gateway and PPT Runner Pods through `OPENSSL_CONF`, retain `WEKNORA_BAILIAN_TLS_COMPAT=true` for the authenticated Bailian embedding/ASR adapter clients, and retain `TAVILY_TLS_COMPAT=true` for DeerFlow's Tavily-only verified HTTPS session. These clients construct explicit `DEFAULT:@SECLEVEL=1` SSL contexts while CA-chain and hostname verification remain enabled. Never replace this with `verify=false`/`--insecure` or a host/cluster-wide downgrade, and remove the compatibility flags after the proxy certificate is modernized.
 - Keep the internal model host `model.ai.cnooc` in both Gateway proxy-bypass variables. Its streamed chat endpoints are direct-only in the audited enterprise network; sending them through the outbound proxy causes connection resets.
 - Configure the internal DeepSeek chat endpoint with
   `deerflow.models.robust_openai:RobustChatOpenAI`. The enterprise gateway can
