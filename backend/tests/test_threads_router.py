@@ -14,7 +14,7 @@ from langgraph.store.memory import InMemoryStore
 
 from app.gateway.routers import threads
 from deerflow.config.paths import Paths
-from deerflow.persistence.thread_meta import InvalidMetadataFilterError
+from deerflow.persistence.thread_meta import THREAD_ARCHIVED_METADATA_KEY, THREAD_PINNED_METADATA_KEY, InvalidMetadataFilterError
 from deerflow.persistence.thread_meta.memory import THREADS_NS, MemoryThreadMetaStore
 
 _ISO_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
@@ -45,8 +45,15 @@ class _PermissiveThreadMetaStore(MemoryThreadMetaStore):
     async def create(self, thread_id, *, assistant_id=None, user_id=None, display_name=None, metadata=None):  # type: ignore[override]
         return await super().create(thread_id, assistant_id=assistant_id, user_id=None, display_name=display_name, metadata=metadata)
 
-    async def search(self, *, metadata=None, status=None, limit=100, offset=0, user_id=None):  # type: ignore[override]
-        return await super().search(metadata=metadata, status=status, limit=limit, offset=offset, user_id=None)
+    async def search(self, *, metadata=None, status=None, archived=None, limit=100, offset=0, user_id=None):  # type: ignore[override]
+        return await super().search(
+            metadata=metadata,
+            status=status,
+            archived=archived,
+            limit=limit,
+            offset=offset,
+            user_id=None,
+        )
 
 
 def _build_thread_app() -> tuple[FastAPI, InMemoryStore, InMemorySaver]:
@@ -577,6 +584,37 @@ def test_patch_thread_returns_iso_and_advances_updated_at() -> None:
     assert body["metadata"] == {"k": "v1"}
 
 
+def test_patch_thread_pin_preserves_updated_at() -> None:
+    app, store, _checkpointer = _build_thread_app()
+    thread_id = "pin-target"
+    legacy_updated = "1777000000.000000"
+
+    async def _seed() -> None:
+        await store.aput(
+            THREADS_NS,
+            thread_id,
+            {
+                "thread_id": thread_id,
+                "status": "idle",
+                "created_at": legacy_updated,
+                "updated_at": legacy_updated,
+                "metadata": {},
+            },
+        )
+
+    asyncio.run(_seed())
+    with TestClient(app) as client:
+        response = client.patch(
+            f"/api/threads/{thread_id}",
+            json={"metadata": {THREAD_PINNED_METADATA_KEY: True}},
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["updated_at"] == body["created_at"]
+    assert body["metadata"][THREAD_PINNED_METADATA_KEY] is True
+
+
 def test_search_threads_normalizes_legacy_unix_seconds_to_iso() -> None:
     """``MemoryThreadMetaStore`` may hold legacy ``time.time()`` floats
     written by older Gateway versions. ``/search`` must surface them as
@@ -624,6 +662,41 @@ def test_search_threads_normalizes_legacy_unix_seconds_to_iso() -> None:
     for item in items:
         assert _ISO_TIMESTAMP_RE.match(item["created_at"]), item
         assert _ISO_TIMESTAMP_RE.match(item["updated_at"]), item
+
+
+def test_search_threads_filters_archive_before_pagination() -> None:
+    app, store, _checkpointer = _build_thread_app()
+
+    async def _seed() -> None:
+        for thread_id, archived in (
+            ("legacy-active", None),
+            ("active", False),
+            ("archived", True),
+        ):
+            await store.aput(
+                THREADS_NS,
+                thread_id,
+                {
+                    "thread_id": thread_id,
+                    "status": "idle",
+                    "created_at": "2026-09-01T00:00:00+00:00",
+                    "updated_at": "2026-09-01T00:00:00+00:00",
+                    "metadata": ({} if archived is None else {THREAD_ARCHIVED_METADATA_KEY: archived}),
+                },
+            )
+
+    asyncio.run(_seed())
+    with TestClient(app) as client:
+        active = client.post("/api/threads/search", json={"archived": False, "limit": 10})
+        archived = client.post("/api/threads/search", json={"archived": True, "limit": 10})
+
+    assert active.status_code == 200, active.text
+    assert {item["thread_id"] for item in active.json()} == {
+        "legacy-active",
+        "active",
+    }
+    assert archived.status_code == 200, archived.text
+    assert [item["thread_id"] for item in archived.json()] == ["archived"]
 
 
 def test_memory_thread_meta_store_writes_iso_on_create() -> None:

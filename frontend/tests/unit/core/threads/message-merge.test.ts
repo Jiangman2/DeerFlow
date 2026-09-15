@@ -17,6 +17,7 @@ import {
   removeSetItems,
   resolveThreadTransientHistoryBridge,
   resolveTransientHistoryBridge,
+  settleOptimisticUploadMessages,
   type ThreadMessagesPageResponse,
 } from "@/core/threads/hooks";
 import type { RunMessage } from "@/core/threads/types";
@@ -392,6 +393,51 @@ test("getVisibleOptimisticMessages hides the upload optimistic pair after server
       1,
     ),
   ).toEqual([]);
+});
+
+test("settleOptimisticUploadMessages clears only the upload placeholder after parsing succeeds", () => {
+  const optimisticHuman = {
+    id: "opt-human-upload",
+    type: "human",
+    content: "analyse this",
+    additional_kwargs: { request_source: "composer" },
+  } as Message;
+  const uploadPlaceholder = {
+    id: "opt-ai-uploading",
+    type: "ai",
+    content: "Uploading files...",
+  } as Message;
+  const unrelatedStatus = {
+    id: "opt-ai-other",
+    type: "ai",
+    content: "Preparing run...",
+  } as Message;
+  const files = [
+    {
+      filename: "policy.docx",
+      size: 1024,
+      path: "/mnt/user-data/uploads/policy.docx",
+      status: "uploaded" as const,
+    },
+  ];
+
+  expect(
+    settleOptimisticUploadMessages(
+      [optimisticHuman, uploadPlaceholder, unrelatedStatus],
+      "opt-human-upload",
+      "opt-ai-uploading",
+      files,
+    ),
+  ).toEqual([
+    {
+      ...optimisticHuman,
+      additional_kwargs: {
+        request_source: "composer",
+        files,
+      },
+    },
+    unrelatedStatus,
+  ]);
 });
 
 test("getVisibleOptimisticMessages hides optimistic user input after later server turns", () => {

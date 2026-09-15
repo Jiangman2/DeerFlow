@@ -171,7 +171,15 @@ def _apply_stream_chunk_timeout_default(model_class: type, model_settings_from_c
     model_settings_from_config["stream_chunk_timeout"] = _DEFAULT_STREAM_CHUNK_TIMEOUT_SECONDS
 
 
-def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *, app_config: AppConfig | None = None, attach_tracing: bool = True, **kwargs) -> BaseChatModel:
+def create_chat_model(
+    name: str | None = None,
+    thinking_enabled: bool = False,
+    *,
+    app_config: AppConfig | None = None,
+    attach_tracing: bool = True,
+    model_overrides: dict | None = None,
+    **kwargs,
+) -> BaseChatModel:
     """Create a chat model instance from the config.
 
     Args:
@@ -189,6 +197,8 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
             the model) and ``session_id`` / ``user_id`` metadata never reach the trace
             because the model becomes a nested observation whose ``langfuse_*`` keys
             get stripped.
+        model_overrides: Optional per-employee sampling overrides layered over
+            the selected model profile before provider-specific normalization.
 
     Returns:
         A chat model instance.
@@ -219,6 +229,8 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
             "pricing",
         },
     )
+    if model_overrides:
+        model_settings_from_config.update({key: value for key, value in model_overrides.items() if value is not None})
     # Compute effective when_thinking_enabled by merging in the `thinking` shortcut field.
     # The `thinking` shortcut is equivalent to setting when_thinking_enabled["thinking"].
     has_thinking_settings = (model_config.when_thinking_enabled is not None) or (model_config.thinking is not None)

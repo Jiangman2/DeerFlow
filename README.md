@@ -302,7 +302,35 @@ runs use five-row paginated, scrollable lists. The all-history failed-run table
 supports account/name filtering and opens a read-only diagnostic view with the
 stored error, failed node, tool calls, and events. The former standalone
 observability page redirects to the dashboard; incomplete health heuristics are
-not presented as live monitoring. Headline data refreshes every 15 seconds.
+not presented as live monitoring. Headline data and WeKnora analytics load in
+parallel so a slow knowledge query does not block the first screen. Short
+rolling windows refresh once per minute; fixed custom ranges and ranges longer
+than seven days refresh only on selection or manual refresh. Gateway responses
+use a bounded single-flight cache (shared through Redis when configured), and
+large event scans are excluded from the compact UI request.
+The rollup migrations are additive and do not make existing history depend on
+empty fact tables. Until operators explicitly set
+`DEER_FLOW_DASHBOARD_ROLLUPS_ENABLED=true`, the dashboard keeps its bounded,
+cached source-history behavior. After daily/hourly backfill and readiness checks,
+the compact summary reads versioned daily facts from two complete Shanghai
+calendar days onward. Rolling windows such as 24 hours read completed-hour facts
+for the latest 72 hours, leaving at most the fractional edge hour as raw data;
+range changes keep the previous result visible while the new query is in flight.
+In enabled mode, missing required facts return a visible "history is being
+prepared" response and never trigger a wide source-table scan. Rollups are
+maintained only by the separate, bounded operator command/CronJob, never at
+Gateway startup or inside an HTTP request. The shipped CronJob is suspended by
+default.
+The enterprise overlay uses a physical PostgreSQL standby on a different node
+and disk. `DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA=true` verifies both
+transaction read-only mode and `pg_is_in_recovery()`; an absent or unhealthy
+replica disables only the dashboard and never falls back to the primary used by
+chat and role-expert execution. Rollup maintenance also scans source rows on the
+standby; the primary receives only small atomic fact/state upserts. See
+[`docs/dashboard-rollup-operations.md`](docs/dashboard-rollup-operations.md).
+The immutable image/capability inventory and safe test-environment replay
+sequence are documented in
+[`docs/production-capability-reproduction-2026-09-15.md`](docs/production-capability-reproduction-2026-09-15.md).
 Success rates and durations use completed runs only, daily buckets use
 Asia/Shanghai calendar dates, and feature/artifact counters are derived from
 structured tool events rather than assistant prose or serialized prompts.
@@ -352,8 +380,8 @@ and rollout guidance.
 Group OA can submit a policy document plus business fields to a dedicated
 machine-authenticated asynchronous API. Gateway runs the server-pinned,
 user-owned `制度文生图智能体`, accepts exactly one valid JointJS JSON artifact,
-delivers it to a fixed signed OA callback, and retains status/result polling as
-a recovery path. The durable job/lease state lives in SQL, and callers cannot
+and exposes authenticated status/result polling. A fixed signed callback remains
+available as an operator-controlled optional delivery mode. The durable job/lease state lives in SQL, and callers cannot
 select another user, agent, or callback URL. See
 [`docs/oa-policy-flow-integration.md`](docs/oa-policy-flow-integration.md) for
 the API, callback, Secret, and rollout contract.
@@ -805,6 +833,22 @@ Use it as-is. Or tear it apart and make it yours.
 
 ## Core Features
 
+### Digital Employees
+
+The enterprise workspace presents custom Agents as **Digital Employees**. It
+includes 24 CNOOC-themed cartoon portraits plus validated custom uploads,
+administrator-governed categories, per-employee tag CRUD and deterministic tag
+suggestions, and fuzzy discovery across names, categories, tags, descriptions,
+tools, and skills. Compact directory rows and a collapsible filter drawer are
+responsive across desktop and mobile layouts.
+
+Personal employee definitions can be isolated by user in SQL. Each employee can
+select a model and override temperature, maximum output tokens, thinking mode,
+and reasoning effort. Employees with the `browser` tool group can also expose an
+authenticated same-origin Browser Live view. See
+[`docs/digital-employee-upgrade-operations.md`](docs/digital-employee-upgrade-operations.md)
+for deployment, migration, limits, and rollback details.
+
 ### Skills & Tools
 
 Long skill entry files and their supporting resources use separate
@@ -824,6 +868,26 @@ Skills are what make DeerFlow do _almost anything_.
 A standard Agent Skill is a structured capability module — a Markdown file that defines a workflow, best practices, and references to supporting resources. DeerFlow ships with built-in skills for research, report generation, slide creation, web pages, image and video generation, and more. But the real power is extensibility: add your own skills, replace the built-in ones, or combine them into compound workflows.
 
 Skills are loaded progressively — only when the task needs them, not all at once. This keeps the context window lean and makes DeerFlow work well even with token-sensitive models.
+
+The workspace can also expose a private **iFLYTEK SkillHub** deployment as a
+native **Skill Center**. DeerFlow adds only a same-origin workbench entry at
+`/workspace/skills` and a reverse proxy at `/platform/skillhub/`; SkillHub keeps
+ownership of its original marketplace, publishing, review, versioning, and
+administrator screens. The entry remains closed unless
+`DEER_FLOW_SKILLHUB_ENABLED=true`; once enabled, an exact Nginx bootstrap route
+turns the existing authenticated user into a short-lived role-free HMAC
+assertion which the customized SkillHub server verifies before creating its own
+session. SkillHub roles remain native and are never copied from DeerFlow. From
+an approved native skill detail page, the DeerFlow
+install bar can deploy or upgrade that exact version into the authenticated
+user's isolated `skills/custom` tree after archive validation, deterministic
+SkillScan, and fail-closed LLM security review. Enable/disable and uninstall are
+also per-user, and prompt discovery is refreshed for the next Agent run. The
+Skill Center's **My Skills** tab combines that installation registry with the
+existing custom-skill inventory, so a user can see created and installed skills,
+their enabled state, SkillHub origin/version, and the available management
+actions without reopening Settings. See
+[`docs/skillhub-integration.md`](docs/skillhub-integration.md).
 
 The bundled academic research package is exposed through one public skill,
 `/academic-research`. Its vendored component skills are runtime implementation
@@ -1096,9 +1160,10 @@ and PPTX uploads reuse that same enterprise parser without creating a
 knowledge-base record. The Gateway keeps the original document and writes a
 same-stem Markdown companion for the current task. Searchable PDFs and Word
 documents use the adapter's native path, scanned PDFs use enterprise OCR, and
-presentations use its presentation conversion path. Word native content is
-merged only after its mandatory visual PDF and page-evidence path succeeds, so
-the adapter never labels a text-only result as visually complete. Set
+presentations use its presentation conversion path. A non-empty native Word
+parse returns immediately; only an empty or failed native parse uses the
+LibreOffice/MinerU visual fallback. An explicitly enabled visual supplement is
+best-effort and cannot invalidate native text, tables, and images. Set
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=false` to disable this bridge, or
 override its base URL with
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`. The older
@@ -1109,7 +1174,15 @@ wait to receive and persist the completed response, and explicitly sets
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=true`. The local Docker/PVC overlay
 keeps that switch disabled because it cannot reach the enterprise MinerU
 service.
-For knowledge-base ingestion, the enterprise WeKnora 0.7.0 deployment keeps
+The enterprise parser uses six independent workers, each admitting one document
+at a time. Extra work remains in the dispatcher or WeKnora's durable Redis queue
+rather than accumulating inside a worker. A busy worker remains process-ready
+but is skipped by the dispatcher's parse-admission check, and a timed-out or 5xx
+worker is not reused until it reports ready.
+LibreOffice conversions run in a dedicated process group whose descendants are
+terminated and reaped on timeout, preventing leaked `soffice.bin` processes from
+eventually exhausting a worker's memory and restarting it mid-document.
+For knowledge-base ingestion, the enterprise WeKnora 0.8.0 deployment keeps
 MinerU admission on the small core/shared worker budget while assigning image
 OCR/caption and other model-heavy fan-out to its independent 12-worker
 enrichment pool. This keeps a large `multimodal` backlog from delaying newly
@@ -1342,6 +1415,10 @@ The workspace knowledge-base integration uses the current DeerFlow identity to
 create or reuse a matching WeKnora account, then forwards knowledge-base and
 document operations with that user's bearer token. DeerFlow administrator roles
 are synchronized to the linked knowledge platform during SSO.
+Newly provisioned accounts use a deterministic 32-character credential that
+meets WeKnora 0.8's registration policy. Accounts created by earlier releases
+continue to sign in through the legacy deterministic credential, so the
+upgrade does not require users to reset passwords or recreate workspaces.
 The DeerFlow knowledge page embeds the complete native WeKnora workspace on the
 same origin and gives the iframe the full knowledge-page area without an extra
 DeerFlow title/action bar. New Chat, Knowledge Bases, Shared Spaces, and Agents
@@ -1581,18 +1658,22 @@ All dict-returning methods are validated against Gateway Pydantic response model
 
 ## Scheduled Tasks
 
-DeerFlow now includes a first-class scheduled-task MVP in the workspace.
+DeerFlow includes first-class scheduled tasks in the workspace, extended here with the
+upstream scheduler reliability and interval-scheduling improvements.
 
 Current MVP capabilities:
 
 - Manage tasks at `/workspace/scheduled-tasks`
 - Choose whether each scheduled task reuses a thread or creates a fresh thread per run
-- Support `once` and `cron` schedules
+- Support `once`, `cron`, and fixed `interval` schedules (minimum 60 seconds), with server-side cron occurrence previews
 - Preserve the selected model, mode, reasoning, subagent, and knowledge-base scope for every scheduled execution
+- Pin either the default lead agent or a selected custom agent to each task
 - Select or edit the execution model per task; when configured, enterprise task creation defaults to `deepseek-v4-flash`
 - Run background scheduled executions as non-interactive DeerFlow runs (`ask_clarification` is not exposed there)
-- Use `skip` overlap behavior for due cron executions that collide with an active run on the same reused thread
-- Pause, resume, trigger, inspect history, and delete tasks
+- Persist overlapping occurrences in a durable queue, enforce one active occurrence per task, and expire entries that exceed `scheduler.queue_timeout_seconds`
+- Apply the same global `scheduler.max_concurrent_runs` budget to scheduled and manual triggers
+- Pause, resume, trigger, duplicate, inspect paginated history, and delete tasks
+- Optionally run multiple scheduler instances safely with database-backed leases and atomic completion bookkeeping
 - Execute scheduled work through the normal DeerFlow run lifecycle
 
 Scheduled execution is deliberately **non-interactive**: after a run starts, it cannot pause to ask the user a question, wait for confirmation, or collect temporary input. It is a good fit for fully specified recurring summaries, fixed-scope analysis, monitoring checks, and report generation. It is not a good fit for work that needs one-time codes, runtime uploads, temporary authorization, human approval, risk confirmation, dynamic choices, or iterative review. Move those inputs and approvals ahead of the run, or use a normal interactive thread instead.
@@ -1602,9 +1683,8 @@ Current MVP limits:
 - No conversation-created `schedule_task` tool yet
 - No text-only notification jobs
 - No channel or GitHub dispatch targets
-- No `interval` schedule type in this first cut
 
-Enable background polling with `config.yaml -> scheduler.enabled` and restart the Gateway. The page reports the automatic poller's actual state in the current process; when it is stopped, tasks can still be saved and triggered manually, but they will not run automatically at their scheduled time. Manual trigger uses the same non-interactive scheduled-task execution path.
+Enable background polling with `config.yaml -> scheduler.enabled` and restart the Gateway. The page reports the automatic poller's actual state in the current process; when it is stopped, tasks can still be saved and triggered manually, but they will not run automatically at their scheduled time. Manual trigger uses the same non-interactive scheduled-task execution path and concurrency budget. `scheduler.multi_instance` is off by default; enabling it requires PostgreSQL persistence, database run events, and run-ownership heartbeats.
 
 The Gateway stores only an allowlisted subset of the task's run context. Authentication identity, internal execution flags, runtime-only credentials, and unknown client fields are discarded. Tasks created before run-context persistence was added retain an empty context and therefore use the configured default model until they are edited or recreated.
 

@@ -37,7 +37,7 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SANDBOX_IMAGE
-              value: deerflow.local/deer-flow-aio-sandbox:20260811-enterprise-arm64-rc15-consolidated2
+              value: deerflow.local/deer-flow-aio-sandbox:20260817-enterprise-arm64-rc15-sandboxstorage1
             - name: SANDBOX_SERVICE_TYPE
               value: ClusterIP
             - name: PPT_MASTER_AGENT_HOST_ENABLED
@@ -190,6 +190,32 @@ spec:
           env:
             - name: DEER_FLOW_SSO_ONLY
               value: "true"
+            - name: DEER_FLOW_DASHBOARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: DATABASE_URL
+                  optional: true
+            - name: DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_MAX_CONCURRENT_QUERIES
+              value: "1"
+            - name: DEER_FLOW_DASHBOARD_QUERY_QUEUE_TIMEOUT_MS
+              value: "250"
+            - name: DEER_FLOW_DASHBOARD_STATEMENT_TIMEOUT_MS
+              value: "5000"
+            - name: DEER_FLOW_DASHBOARD_ROLLUPS_ENABLED
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_ROLLUP_MIN_DAYS
+              value: "2"
+            - name: DEER_FLOW_DASHBOARD_HOURLY_ROLLUP_MIN_HOURS
+              value: "6"
+            - name: DEER_FLOW_DASHBOARD_HOURLY_RETENTION_HOURS
+              value: "72"
+            - name: DEER_FLOW_DASHBOARD_REQUIRE_HOURLY_ROLLUPS
+              value: "true"
             - name: SSL_CERT_FILE
               value: /etc/deerflow-ca/ca-bundle.crt
             - name: REQUESTS_CA_BUNDLE
@@ -306,8 +332,28 @@ spec:
               value: "true"
             - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS
               value: "1860"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS
+              # Six serialized parser workers are the real active capacity.
+              # Keep a small bounded waiting margin without allowing every
+              # upload request to create a fresh connection/client.
+              value: "16"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS
+              value: "8"
             - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
               value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT
+              # Enterprise chat tasks must not start with an unreadable source
+              # or a missing/empty Markdown companion. The code default stays
+              # false to preserve upstream DeerFlow behavior elsewhere.
+              value: "true"
+            - name: DEERFLOW_UPLOAD_PDF_SECURITY_MODE
+              # Keep the security boundary enabled while flattening ordinary
+              # active-content PDFs into inert image-only copies automatically.
+              value: sanitize
+            - name: DEERFLOW_UPLOAD_PDF_SANITIZE_DPI
+              value: "120"
+            - name: DEERFLOW_UPLOAD_PDF_SANITIZE_MAX_PAGES
+              value: "200"
           volumeMounts:
             - name: enterprise-ca
               mountPath: /etc/deerflow-ca
@@ -456,7 +502,7 @@ spec:
               value: "4"
             # Keep document parsing capped independently while allowing the
             # model-heavy image/summary/graph/question fan-out to drain on its
-            # dedicated WeKnora 0.7.0 enrichment pool.
+            # dedicated WeKnora v0.8 enrichment pool.
             - name: WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY
               value: "2"
             - name: WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY
@@ -545,3 +591,54 @@ spec:
           env:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dashboard-rollup-maintenance
+  namespace: deer-flow
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: dashboard-rollup-maintenance
+              imagePullPolicy: Never
+              env:
+                - name: DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA
+                  value: "true"
+                - name: DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA
+                  value: "true"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgres
+          args:
+            - -c
+            - wal_level=replica
+            - -c
+            - max_wal_senders=4
+            - -c
+            - max_replication_slots=4
+            - -c
+            - wal_keep_size=512MB
+            - -c
+            - max_slot_wal_keep_size=4GB
+            - -c
+            - hba_file=/etc/postgresql/replication/pg_hba.conf
+          volumeMounts:
+            - name: replication-config
+              mountPath: /etc/postgresql/replication
+              readOnly: true
+      volumes:
+        - name: replication-config
+          configMap:
+            name: deer-flow-postgres-replication

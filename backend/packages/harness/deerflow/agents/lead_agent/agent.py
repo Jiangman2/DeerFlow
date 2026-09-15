@@ -88,6 +88,15 @@ def _default_max_total_subagents(app_config: object) -> int:
     return getattr(subagents_config, "max_total_per_run", DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN)
 
 
+def _resolve_runtime_option(cfg: dict, key: str, agent_value, default):
+    """Resolve request > digital employee > runtime-default precedence."""
+    if key in cfg:
+        return cfg[key]
+    if agent_value is not None:
+        return agent_value
+    return default
+
+
 def _append_memory_tools_without_name_conflicts(tools: list) -> None:
     """Append memory tools without dropping unrelated duplicate-named tools."""
     from deerflow.agents.memory.tools import get_memory_tools
@@ -516,11 +525,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
 
     cfg = _get_runtime_config(config)
     runtime_context = config.get("context")
-    datalake_enabled = (
-        runtime_context.get("datalake_enabled", True)
-        if isinstance(runtime_context, dict)
-        else True
-    )
+    datalake_enabled = runtime_context.get("datalake_enabled", True) if isinstance(runtime_context, dict) else True
     resolved_app_config = app_config
 
     # Extract user_id for user-scoped skill loading.
@@ -531,8 +536,6 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     runtime_user_id = cfg.get("user_id")
     resolved_user_id = str(runtime_user_id) if runtime_user_id else get_effective_user_id()
 
-    thinking_enabled = cfg.get("thinking_enabled", True)
-    reasoning_effort = cfg.get("reasoning_effort", None)
     requested_model_name: str | None = cfg.get("model_name") or cfg.get("model")
     is_plan_mode = cfg.get("is_plan_mode", False)
     subagent_enabled = cfg.get("subagent_enabled", False)
@@ -546,6 +549,18 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     available_skills = _available_skill_names(agent_config, is_bootstrap)
     # Custom agent model from agent config (if any), or None to let _resolve_model_name pick the default
     agent_model_name = agent_config.model if agent_config and agent_config.model else None
+
+    agent_thinking = getattr(agent_config, "thinking_enabled", None) if agent_config else None
+    agent_reasoning = getattr(agent_config, "reasoning_effort", None) if agent_config else None
+    thinking_enabled = bool(_resolve_runtime_option(cfg, "thinking_enabled", agent_thinking, True))
+    reasoning_effort = _resolve_runtime_option(
+        cfg,
+        "reasoning_effort",
+        agent_reasoning,
+        None,
+    )
+    agent_model_settings = getattr(agent_config, "model_settings", None) if agent_config else None
+    agent_model_overrides = agent_model_settings.model_dump(exclude_none=True) if agent_model_settings else None
 
     # Final model name resolution: request → agent config → global default, with fallback for unknown names
     model_name = _resolve_model_name(requested_model_name or agent_model_name, app_config=resolved_app_config)
@@ -719,7 +734,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     if should_use_memory_tools(resolved_app_config.memory):
         _append_memory_tools_without_name_conflicts(final_tools)
     return create_agent(
-        model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, reasoning_effort=reasoning_effort, app_config=resolved_app_config, attach_tracing=False),
+        model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, reasoning_effort=reasoning_effort, app_config=resolved_app_config, attach_tracing=False, model_overrides=agent_model_overrides),
         tools=final_tools,
         middleware=build_middlewares(
             config,

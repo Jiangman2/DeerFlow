@@ -37,6 +37,7 @@ def _config(**overrides) -> OAPolicyFlowConfig:
         "ingest_key": "i" * 32,
         "owner_user_id": "owner-1",
         "assistant_id": "制度文生图智能体",
+        "callback_enabled": True,
         "callback_url": "https://oa.example.test/callback",
         "callback_bearer_token": "callback-token",
         "callback_signing_secret": "signing-secret",
@@ -104,6 +105,23 @@ def test_enabled_config_loads_verified_target(monkeypatch):
     assert config.owner_user_id == "d1792c77-c297-439d-843f-81ea66095d1a"
     assert config.assistant_id == "制度文生图智能体"
     assert config.run_timeout_seconds == 30 * 60
+
+
+def test_polling_only_config_does_not_require_callback_settings(monkeypatch):
+    monkeypatch.setenv("OA_POLICY_FLOW_ENABLED", "true")
+    monkeypatch.setenv("OA_POLICY_FLOW_INGEST_KEY", "x" * 32)
+    monkeypatch.setenv("OA_POLICY_FLOW_OWNER_USER_ID", "owner")
+    monkeypatch.setenv("OA_POLICY_FLOW_AGENT_NAME", "agent")
+    monkeypatch.setenv("OA_POLICY_FLOW_CALLBACK_ENABLED", "false")
+    monkeypatch.delenv("OA_POLICY_FLOW_CALLBACK_URL", raising=False)
+    monkeypatch.delenv("OA_POLICY_FLOW_CALLBACK_BEARER_TOKEN", raising=False)
+    monkeypatch.delenv("OA_POLICY_FLOW_CALLBACK_SIGNING_SECRET", raising=False)
+
+    config = load_oa_policy_flow_config()
+
+    assert config.enabled is True
+    assert config.callback_enabled is False
+    assert config.callback_url == ""
 
 
 def test_enabled_config_rejects_http_callback_by_default(monkeypatch):
@@ -268,13 +286,7 @@ async def test_result_acceptance_requires_one_valid_presented_json(tmp_path, mon
 
     class Checkpointer:
         async def aget_tuple(self, _config):
-            return SimpleNamespace(
-                checkpoint={
-                    "channel_values": {
-                        "artifacts": ["/mnt/user-data/outputs/流程.json"]
-                    }
-                }
-            )
+            return SimpleNamespace(checkpoint={"channel_values": {"artifacts": ["/mnt/user-data/outputs/流程.json"]}})
 
     monkeypatch.setenv("DEER_FLOW_HOME", str(tmp_path))
     monkeypatch.setattr(paths_module, "_paths", None)
@@ -325,9 +337,7 @@ async def test_active_agent_run_is_interrupted_after_configured_deadline():
             cancellations.append((run_id, action))
             return "cancelled"
 
-    app = SimpleNamespace(
-        state=SimpleNamespace(run_store=RunStore(), run_manager=RunManager())
-    )
+    app = SimpleNamespace(state=SimpleNamespace(run_store=RunStore(), run_manager=RunManager()))
     service = OAPolicyFlowService(app=app, repository=Repository(), config=_config())
     service._worker_id = "worker-test"
     job = {
@@ -345,6 +355,92 @@ async def test_active_agent_run_is_interrupted_after_configured_deadline():
 
 
 @pytest.mark.asyncio
+async def test_polling_only_terminal_failure_never_schedules_callback():
+    patches: list[dict] = []
+
+    class Repository:
+        async def patch(self, _job_id, **values):
+            patches.append(values)
+            return True
+
+    service = OAPolicyFlowService(
+        app=SimpleNamespace(),
+        repository=Repository(),
+        config=_config(callback_enabled=False, callback_url="", callback_bearer_token="", callback_signing_secret=""),
+    )
+    service._worker_id = "worker-test"
+
+    await service._set_terminal_failure(_job_values(), "agent_run_failed", "failed")
+
+    assert patches[-1]["status"] == "failed"
+    assert patches[-1]["callback_status"] == "disabled"
+    assert patches[-1]["next_attempt_at"] is None
+
+
+@pytest.mark.asyncio
+async def test_polling_only_success_exposes_result_without_scheduling_callback(tmp_path):
+    patches: list[dict] = []
+
+    class Repository:
+        async def patch(self, _job_id, **values):
+            patches.append(values)
+            return True
+
+    class RunStore:
+        async def get(self, _run_id, *, user_id):
+            assert user_id == "owner-1"
+            return {"status": "success"}
+
+    service = OAPolicyFlowService(
+        app=SimpleNamespace(state=SimpleNamespace(run_store=RunStore())),
+        repository=Repository(),
+        config=_config(callback_enabled=False, callback_url="", callback_bearer_token="", callback_signing_secret=""),
+    )
+    service._worker_id = "worker-test"
+    output = tmp_path / "result.json"
+    output.write_text('{"cells":[]}', encoding="utf-8")
+
+    async def accept_result(_job):
+        return output, "/mnt/user-data/outputs/result.json", "d" * 64
+
+    service._accept_result = accept_result
+    await service._poll_run({**_job_values(), "status": "running", "run_id": "run-1"})
+
+    assert patches[-1]["status"] == "succeeded"
+    assert patches[-1]["callback_status"] == "disabled"
+    assert patches[-1]["output_virtual_path"] == "/mnt/user-data/outputs/result.json"
+    assert patches[-1]["output_sha256"] == "d" * 64
+    assert patches[-1]["next_attempt_at"] is None
+
+
+@pytest.mark.asyncio
+async def test_disabling_callback_drains_legacy_pending_callback_without_http():
+    patches: list[dict] = []
+
+    class Repository:
+        async def patch(self, _job_id, **values):
+            patches.append(values)
+            return True
+
+    service = OAPolicyFlowService(
+        app=SimpleNamespace(),
+        repository=Repository(),
+        config=_config(callback_enabled=False, callback_url="", callback_bearer_token="", callback_signing_secret=""),
+    )
+    service._worker_id = "worker-test"
+    job = {
+        **_job_values(),
+        "status": "succeeded",
+        "callback_status": "pending",
+    }
+
+    await service._process_claimed_body(job)
+
+    assert patches[-1]["callback_status"] == "disabled"
+    assert patches[-1]["next_attempt_at"] is None
+
+
+@pytest.mark.asyncio
 async def test_repository_idempotency_and_expiring_lease(tmp_path):
     engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'oa.db'}")
     async with engine.begin() as connection:
@@ -357,9 +453,7 @@ async def test_repository_idempotency_and_expiring_lease(tmp_path):
     repository = OAPolicyFlowJobRepository(async_sessionmaker(engine, expire_on_commit=False))
     try:
         created, was_created = await repository.create_or_get(_job_values())
-        duplicate, duplicate_created = await repository.create_or_get(
-            _job_values(job_id="job-2")
-        )
+        duplicate, duplicate_created = await repository.create_or_get(_job_values(job_id="job-2"))
 
         assert was_created is True
         assert duplicate_created is False
@@ -467,9 +561,7 @@ async def test_successful_failure_callback_is_signed_and_marked_delivered(monkey
 
 
 @pytest.mark.asyncio
-async def test_success_callback_carries_result_file_and_verifiable_sha_signature(
-    tmp_path, monkeypatch
-):
+async def test_success_callback_carries_result_file_and_verifiable_sha_signature(tmp_path, monkeypatch):
     from deerflow.config import paths as paths_module
 
     patches: list[dict] = []
@@ -509,10 +601,7 @@ async def test_success_callback_carries_result_file_and_verifiable_sha_signature
     monkeypatch.setattr(paths_module, "_paths", None)
     payload = b'{"cells":[{"id":"start","type":"standard.Rectangle"}]}'
     digest = hashlib.sha256(payload).hexdigest()
-    output = (
-        paths_module.get_paths().sandbox_outputs_dir("oa-job-1", user_id="owner-1")
-        / "policy-flow.json"
-    )
+    output = paths_module.get_paths().sandbox_outputs_dir("oa-job-1", user_id="owner-1") / "policy-flow.json"
     output.parent.mkdir(parents=True)
     output.write_bytes(payload)
     monkeypatch.setattr("app.gateway.oa_policy_flow_service.httpx.AsyncClient", Client)
@@ -552,9 +641,7 @@ async def test_success_callback_carries_result_file_and_verifiable_sha_signature
     ("status_code", "expected_status", "should_retry"),
     [(503, "pending", True), (422, "exhausted", False)],
 )
-async def test_callback_retries_only_retryable_statuses(
-    status_code, expected_status, should_retry, monkeypatch
-):
+async def test_callback_retries_only_retryable_statuses(status_code, expected_status, should_retry, monkeypatch):
     patches: list[dict] = []
 
     class Repository:

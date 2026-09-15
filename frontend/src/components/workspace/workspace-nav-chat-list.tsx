@@ -6,6 +6,7 @@ import {
   CalendarClock,
   ExternalLinkIcon,
   MessagesSquare,
+  PackageSearchIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -33,6 +34,7 @@ export function WorkspaceNavChatList() {
   const { enabled: agentsEnabled } = useAgentsApiEnabled();
   const { isMobile, setOpenMobile } = useSidebar();
   const [knowledgeUrl, setKnowledgeUrl] = useState<string>();
+  const [skillHubEnabled, setSkillHubEnabled] = useState(false);
   const resolvedKnowledgeUrl = knowledgeUrl ?? "/platform/knowledge-bases";
   const closeMobileSidebar = () => {
     if (isMobile) setOpenMobile(false);
@@ -42,12 +44,24 @@ export function WorkspaceNavChatList() {
     let active = true;
     void fetch("/api/runtime-config", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((config: { weknoraFrontendUrl?: string | null } | null) => {
-        const url = config?.weknoraFrontendUrl?.trim();
-        if (active && url) setKnowledgeUrl(url);
-      })
+      .then(
+        (
+          config: {
+            skillHubEnabled?: boolean;
+            weknoraFrontendUrl?: string | null;
+          } | null,
+        ) => {
+          const url = config?.weknoraFrontendUrl?.trim();
+          if (!active) return;
+          if (url) setKnowledgeUrl(url);
+          setSkillHubEnabled(config?.skillHubEnabled === true);
+        },
+      )
       .catch(() => {
-        if (active) setKnowledgeUrl(undefined);
+        if (active) {
+          setKnowledgeUrl(undefined);
+          setSkillHubEnabled(false);
+        }
       });
     return () => {
       active = false;
@@ -98,6 +112,36 @@ export function WorkspaceNavChatList() {
             </a>
           </SidebarMenuAction>
         </SidebarMenuItem>
+        {skillHubEnabled ? (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              isActive={pathname.startsWith("/workspace/skills")}
+              className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
+              asChild
+            >
+              <Link href="/workspace/skills" onClick={closeMobileSidebar}>
+                <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+                  <PackageSearchIcon />
+                </span>
+                <span>{t.sidebar.skillCenter}</span>
+              </Link>
+            </SidebarMenuButton>
+            <SidebarMenuAction
+              asChild
+              className="text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              title={t.sidebar.openSkillCenter}
+            >
+              <a
+                href="/workspace/skills"
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label={t.sidebar.openSkillCenter}
+              >
+                <ExternalLinkIcon />
+              </a>
+            </SidebarMenuAction>
+          </SidebarMenuItem>
+        ) : null}
         <SidebarMenuItem>
           {agentsEnabled ? (
             <SidebarMenuButton

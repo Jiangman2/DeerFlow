@@ -6,6 +6,7 @@ import json
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 import zipfile
 from http.server import ThreadingHTTPServer
@@ -374,9 +375,7 @@ def test_searchable_pdf_visual_evidence_rejects_missing_required_page(monkeypatc
     monkeypatch.setattr(
         app,
         "inspect_pdf_visual_pages",
-        lambda content: (
-            app.VisualPageEvidence(page_number=10, context="图 2 完井结构"),
-        ),
+        lambda content: (app.VisualPageEvidence(page_number=10, context="图 2 完井结构"),),
     )
     monkeypatch.setattr(
         app,
@@ -423,18 +422,13 @@ def test_text_pdf_uses_weknora_builtin_without_calling_mineru(monkeypatch):
     }
 
 
-def test_searchable_word_uses_converted_pdf_visual_parser_without_calling_mineru(
-    monkeypatch,
-):
+def test_weknora_response_rejects_whitespace_only_markdown():
+    with pytest.raises(ValueError, match="no readable text"):
+        app.weknora_response(" \n\t ")
+
+
+def test_searchable_word_returns_native_parse_without_visual_conversion(monkeypatch):
     source = _fake_docx()
-    converted_pdf = b"%PDF-converted-word"
-    monkeypatch.setattr(app, "convert_to_pdf", lambda content, filename: converted_pdf)
-    monkeypatch.setattr(
-        app,
-        "inspect_pdf_routing",
-        lambda content: app.PDFRoutingDecision(page_count=2, scanned_pages=()),
-    )
-    captured: dict[str, object] = {}
     monkeypatch.setattr(
         app,
         "parse_word_with_builtin",
@@ -443,39 +437,23 @@ def test_searchable_word_uses_converted_pdf_visual_parser_without_calling_mineru
             {"images/word-native.png": "word-native-image"},
         ),
     )
-
-    def parse_builtin(content, filename):
-        captured.update({"content": content, "filename": filename})
-        return (
-            "# Word 报告\n\n![图 2](images/report_p1_fig1.jpg)\n\n图 2 数据资产管理特征",
-            {"images/report_p1_fig1.jpg": "word-page-image"},
-        )
-
-    monkeypatch.setattr(app, "parse_pdf_with_builtin", parse_builtin)
-
-    class _UnexpectedMinerU:
-        def __init__(self, **kwargs):
-            raise AssertionError("searchable Word documents must not call MinerU")
-
-    monkeypatch.setattr(app, "EnterpriseMinerUClient", _UnexpectedMinerU)
-    monkeypatch.setattr(app, "inspect_pdf_visual_pages", lambda content: ())
+    monkeypatch.setattr(
+        app,
+        "convert_to_pdf",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("successful native Word parsing must not call LibreOffice")),
+    )
 
     response = app.parse_upload(source, "数据资产管理实践白皮书.docx")
 
-    assert captured == {
-        "content": converted_pdf,
-        "filename": "数据资产管理实践白皮书.pdf",
-    }
-    assert response["results"]["document"]["images"] == {"images/word-native.png": "word-native-image", "images/report_p1_fig1.jpg": "word-page-image"}
+    assert response["results"]["document"]["images"] == {"images/word-native.png": "word-native-image"}
     assert "Word 原生解析" in response["results"]["document"]["md_content"]
-    assert "文档视觉内容" in response["results"]["document"]["md_content"]
-    assert "图 2 数据资产管理特征" in response["results"]["document"]["md_content"]
 
 
-def test_word_visual_conversion_failure_rejects_incomplete_parse(monkeypatch):
+def test_optional_word_visual_conversion_failure_preserves_native_parse(monkeypatch):
     source = _fake_docx()
     native_markdown = "# Native Word\n\nRecovered body and tables"
     native_images = {"images/word-native.png": "word-native-image"}
+    monkeypatch.setenv("MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED", "true")
     monkeypatch.setattr(
         app,
         "parse_word_with_builtin",
@@ -487,15 +465,20 @@ def test_word_visual_conversion_failure_rejects_incomplete_parse(monkeypatch):
 
     monkeypatch.setattr(app, "convert_to_pdf", failed_conversion)
 
-    with pytest.raises(RuntimeError, match="LibreOffice produced no PDF"):
-        app.parse_upload(source, "large-report.docx")
+    response = app.parse_upload(source, "large-report.docx")
+
+    assert response["results"]["document"] == {
+        "md_content": native_markdown,
+        "images": native_images,
+    }
 
 
-def test_word_mineru_visual_failure_rejects_incomplete_parse(monkeypatch):
+def test_optional_word_mineru_visual_failure_preserves_native_parse(monkeypatch):
     source = _fake_docx()
     native_markdown = "# Native Word\n\nRecovered body and tables"
     native_images = {"images/word-native.png": "word-native-image"}
     converted_pdf = b"%PDF-word-visual"
+    monkeypatch.setenv("MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED", "true")
     monkeypatch.setenv("MINERU_API_URL", "https://model.ai.cnooc/mineru")
     monkeypatch.setenv("MINERU_API_TOKEN", "test-token")
     monkeypatch.setattr(
@@ -526,8 +509,12 @@ def test_word_mineru_visual_failure_rejects_incomplete_parse(monkeypatch):
 
     monkeypatch.setattr(app, "EnterpriseMinerUClient", _FailedMinerU)
 
-    with pytest.raises(app.requests.ConnectionError, match="upstream closed"):
-        app.parse_upload(source, "large-report.docx")
+    response = app.parse_upload(source, "large-report.docx")
+
+    assert response["results"]["document"] == {
+        "md_content": native_markdown,
+        "images": native_images,
+    }
 
 
 def test_pdf_mineru_failure_remains_visible_without_native_word_result(monkeypatch):
@@ -557,8 +544,8 @@ def test_pdf_mineru_failure_remains_visible_without_native_word_result(monkeypat
 
 def test_convert_to_pdf_reports_silent_libreoffice_output_failure(monkeypatch):
     monkeypatch.setattr(
-        app.subprocess,
-        "run",
+        app,
+        "_run_converter_command",
         lambda *args, **kwargs: SimpleNamespace(
             returncode=0,
             stderr="",
@@ -574,6 +561,56 @@ def test_convert_to_pdf_reports_silent_libreoffice_output_failure(monkeypatch):
     assert "output_exists=false" in message
     assert "input.docx" in message
     assert "writer_pdf_Export" in message
+
+
+def test_converter_timeout_terminates_and_reaps_the_process_group(monkeypatch):
+    signals: list[int] = []
+    popen_kwargs: dict[str, object] = {}
+
+    class Process:
+        pid = 4321
+        returncode = None
+
+        def __init__(self):
+            self.communicate_calls = 0
+
+        def communicate(self, timeout=None):
+            self.communicate_calls += 1
+            if self.communicate_calls < 3:
+                raise app.subprocess.TimeoutExpired(["libreoffice"], timeout)
+            self.returncode = -9
+            return "partial stdout", "partial stderr"
+
+    process = Process()
+
+    def fake_popen(command, **kwargs):
+        assert command == ["libreoffice", "--headless"]
+        popen_kwargs.update(kwargs)
+        return process
+
+    monkeypatch.setattr(app, "_POSIX_PROCESS_GROUPS", True)
+    monkeypatch.setattr(app, "_SIGKILL", 9)
+    monkeypatch.setattr(app.os, "getpgid", lambda pid: pid, raising=False)
+    monkeypatch.setattr(
+        app.os,
+        "killpg",
+        lambda _pgid, sig: signals.append(sig),
+        raising=False,
+    )
+    monkeypatch.setattr(app.subprocess, "Popen", fake_popen)
+
+    with pytest.raises(app.subprocess.TimeoutExpired) as exc_info:
+        app._run_converter_command(
+            ["libreoffice", "--headless"],
+            timeout=1,
+            termination_grace_seconds=0.1,
+        )
+
+    assert popen_kwargs["start_new_session"] is True
+    assert signals == [app.signal.SIGTERM, 9]
+    assert process.communicate_calls == 3
+    assert exc_info.value.output == "partial stdout"
+    assert exc_info.value.stderr == "partial stderr"
 
 
 def test_word_conversion_failure_still_fails_when_native_parse_also_failed(monkeypatch):
@@ -932,8 +969,7 @@ def test_enterprise_mineru_client_matches_native_rest_contract():
                     "deck.pdf": {
                         "md_content": "# Parsed\n\n![chart](chart.png)",
                         "images": {
-                            "chart.png": "data:image/png;base64,"
-                            + base64.b64encode(b"\x89PNG\r\n\x1a\nchart").decode(),
+                            "chart.png": "data:image/png;base64," + base64.b64encode(b"\x89PNG\r\n\x1a\nchart").decode(),
                         },
                     }
                 },
@@ -958,9 +994,7 @@ def test_enterprise_mineru_client_matches_native_rest_contract():
     assert captured["headers"]["Authorization"] == "Bearer secret-token"
     assert captured["headers"]["Accept"] == "application/json"
     assert "Content-Type" not in captured["headers"]
-    assert captured["files"] == {
-        "files": ("deck.pdf", b"%PDF-test", "application/pdf")
-    }
+    assert captured["files"] == {"files": ("deck.pdf", b"%PDF-test", "application/pdf")}
     assert captured["data"] == {
         "backend": "pipeline",
         "parse_method": "auto",
@@ -1119,9 +1153,7 @@ def test_enterprise_mineru_sync_retries_a_bounded_batch_after_late_disconnect(
 
     result = client.parse_pdf(b"%PDF-test", "deck.pdf")
 
-    assert result["results"]["deck.pdf"]["md_content"] == (
-        "# Recovered bounded batch"
-    )
+    assert result["results"]["deck.pdf"]["md_content"] == ("# Recovered bounded batch")
     assert len(calls) == 2
 
 
@@ -1222,11 +1254,7 @@ def test_enterprise_mineru_client_uses_async_task_contract_without_trusting_urls
                         }
                     },
                 )
-            statuses = [
-                entry
-                for method, entry, _kwargs in calls
-                if method == "GET" and not entry.endswith("/result")
-            ]
+            statuses = [entry for method, entry, _kwargs in calls if method == "GET" and not entry.endswith("/result")]
             status = "processing" if len(statuses) == 1 else "completed"
             return _Response(200, {"task_id": "task-2605-1", "status": status})
 
@@ -1327,9 +1355,7 @@ def test_enterprise_mineru_async_retries_transient_20006_on_same_task():
     result = client.parse_pdf(b"%PDF-test", "document.pdf")
 
     assert result["results"]["document.pdf"]["md_content"] == "# Recovered result"
-    assert [call for call in calls if call[0] == "POST"] == [
-        ("POST", "https://model.ai.cnooc/member1/mineru-2605/tasks")
-    ]
+    assert [call for call in calls if call[0] == "POST"] == [("POST", "https://model.ai.cnooc/member1/mineru-2605/tasks")]
     assert calls[1:] == [
         (
             "GET",
@@ -1408,12 +1434,8 @@ def test_enterprise_mineru_async_retries_transient_404_on_same_task():
 
     result = client.parse_pdf(b"%PDF-test", "document.pdf")
 
-    assert result["results"]["document.pdf"]["md_content"] == (
-        "# Recovered after result 404"
-    )
-    assert [call for call in calls if call[0] == "POST"] == [
-        ("POST", "https://model.ai.cnooc/member1/mineru-2605/tasks")
-    ]
+    assert result["results"]["document.pdf"]["md_content"] == ("# Recovered after result 404")
+    assert [call for call in calls if call[0] == "POST"] == [("POST", "https://model.ai.cnooc/member1/mineru-2605/tasks")]
     assert calls[1:] == [
         (
             "GET",
@@ -1486,9 +1508,7 @@ def test_enterprise_mineru_async_retries_status_timeout_on_same_task():
 
     result = client.parse_pdf(b"%PDF-test", "document.pdf")
 
-    assert result["results"]["document.pdf"]["md_content"] == (
-        "# Recovered after status timeout"
-    )
+    assert result["results"]["document.pdf"]["md_content"] == ("# Recovered after status timeout")
     assert len([call for call in calls if call[0] == "POST"]) == 1
     assert calls[1:] == [
         (
@@ -1560,9 +1580,7 @@ def test_enterprise_mineru_async_retries_result_connection_error_on_same_task():
 
     result = client.parse_pdf(b"%PDF-test", "document.pdf")
 
-    assert result["results"]["document.pdf"]["md_content"] == (
-        "# Recovered after result disconnect"
-    )
+    assert result["results"]["document.pdf"]["md_content"] == ("# Recovered after result disconnect")
     assert len([call for call in calls if call[0] == "POST"]) == 1
     assert result_attempts == 2
 
@@ -1660,9 +1678,7 @@ def test_enterprise_mineru_async_resets_result_transport_streak_after_not_ready(
 
     result = client.parse_pdf(b"%PDF-test", "document.pdf")
 
-    assert result["results"]["document.pdf"]["md_content"] == (
-        "# Recovered after separated timeouts"
-    )
+    assert result["results"]["document.pdf"]["md_content"] == ("# Recovered after separated timeouts")
     assert len([call for call in calls if call[0] == "POST"]) == 1
     assert result_attempts == 4
 
@@ -1821,9 +1837,7 @@ def test_enterprise_mineru_async_rejects_untrusted_task_identifier():
         client.parse_pdf(b"%PDF-test", "document.pdf")
 
 
-def test_enterprise_mineru_client_explicitly_uses_ca_when_env_is_not_trusted(
-    monkeypatch, tmp_path
-):
+def test_enterprise_mineru_client_explicitly_uses_ca_when_env_is_not_trusted(monkeypatch, tmp_path):
     ca_bundle = tmp_path / "enterprise-ca.pem"
     ca_bundle.write_text("test enterprise ca", encoding="utf-8")
     created = []
@@ -1916,8 +1930,7 @@ def test_native_mineru_response_preserves_markdown_and_images():
             "document.pdf": {
                 "md_content": "# 原生结果\n\n![图 1](images/chart.png)",
                 "images": {
-                    "images/chart.png": "data:image/png;base64,"
-                    + base64.b64encode(png).decode(),
+                    "images/chart.png": "data:image/png;base64," + base64.b64encode(png).decode(),
                 },
             }
         }
@@ -1961,14 +1974,7 @@ def test_weknora_response_wraps_markdown_and_images_in_expected_schema():
 
 def test_weknora_response_demotes_only_implausibly_large_headings():
     giant_heading = "深层勘探视觉证据" * 600
-    markdown = (
-        "# 正常标题\n\n"
-        f"## {giant_heading}\n\n"
-        "正文保持不变\n\n"
-        "```markdown\n"
-        f"### {giant_heading}\n"
-        "```\n"
-    )
+    markdown = f"# 正常标题\n\n## {giant_heading}\n\n正文保持不变\n\n```markdown\n### {giant_heading}\n```\n"
 
     response = app.weknora_response(markdown)
     normalized = response["results"]["document"]["md_content"]
@@ -1997,21 +2003,16 @@ def test_parse_multipart_upload_accepts_weknora_files_field():
     assert content == b"%PDF-test"
 
 
-def test_parse_coordinator_serializes_native_parser_calls():
+def test_parse_coordinator_rejects_a_second_in_process_parse():
     coordinator = app.ParseCoordinator()
     first_entered = threading.Event()
     release_first = threading.Event()
-    second_entered = threading.Event()
     results: list[dict[str, str]] = []
 
     def first_operation():
         first_entered.set()
         assert release_first.wait(timeout=2)
         return {"request": "first"}
-
-    def second_operation():
-        second_entered.set()
-        return {"request": "second"}
 
     first = threading.Thread(
         target=lambda: results.append(
@@ -2022,36 +2023,32 @@ def test_parse_coordinator_serializes_native_parser_calls():
             )
         )
     )
-    second = threading.Thread(
-        target=lambda: results.append(
-            coordinator.run(
-                second_operation,
-                filename="second.pdf",
-                content_bytes=200,
-            )
-        )
-    )
-
     first.start()
     assert first_entered.wait(timeout=2)
-    second.start()
 
-    deadline = time.monotonic() + 2
-    while coordinator.snapshot()["waiting"] != 1 and time.monotonic() < deadline:
-        time.sleep(0.01)
+    with pytest.raises(app.ParseWorkerBusy, match="already processing"):
+        coordinator.run(
+            lambda: {"request": "second"},
+            filename="second.pdf",
+            content_bytes=200,
+        )
 
-    assert coordinator.snapshot() == {"active": 1, "waiting": 1}
-    assert not second_entered.is_set()
+    assert coordinator.snapshot() == {
+        "active": 1,
+        "waiting": 0,
+        "rejected": 1,
+    }
 
     release_first.set()
     first.join(timeout=2)
-    second.join(timeout=2)
 
     assert not first.is_alive()
-    assert not second.is_alive()
-    assert second_entered.is_set()
-    assert results == [{"request": "first"}, {"request": "second"}]
-    assert coordinator.snapshot() == {"active": 0, "waiting": 0}
+    assert results == [{"request": "first"}]
+    assert coordinator.snapshot() == {
+        "active": 0,
+        "waiting": 0,
+        "rejected": 1,
+    }
 
 
 def test_health_probe_remains_responsive_while_parse_is_running(monkeypatch):
@@ -2074,16 +2071,19 @@ def test_health_probe_remains_responsive_while_parse_is_running(monkeypatch):
 
     boundary = "deerflow-serialized-parse"
     body = (f'--{boundary}\r\nContent-Disposition: form-data; name="files"; filename="queued.pdf"\r\nContent-Type: application/pdf\r\n\r\n').encode() + b"%PDF-test" + f"\r\n--{boundary}--\r\n".encode()
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{server.server_port}/file_parse",
-        data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
-        method="POST",
-    )
+
+    def parse_request():
+        return urllib.request.Request(
+            f"http://127.0.0.1:{server.server_port}/file_parse",
+            data=body,
+            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            method="POST",
+        )
+
     post_result: list[int] = []
 
     def post_document():
-        with urllib.request.urlopen(request, timeout=3) as response:
+        with urllib.request.urlopen(parse_request(), timeout=3) as response:
             post_result.append(response.status)
             response.read()
 
@@ -2101,8 +2101,30 @@ def test_health_probe_remains_responsive_while_parse_is_running(monkeypatch):
         assert health == {
             "status": "ok",
             "role": "worker",
-            "parser": {"active": 1, "waiting": 0},
+            "parser": {"active": 1, "waiting": 0, "rejected": 0},
         }
+
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{server.server_port}/live",
+            timeout=1,
+        ) as live_response:
+            assert live_response.status == 200
+
+        with pytest.raises(urllib.error.HTTPError) as ready_error:
+            urllib.request.urlopen(
+                f"http://127.0.0.1:{server.server_port}/ready",
+                timeout=1,
+            )
+        assert ready_error.value.code == 503
+        ready = json.loads(ready_error.value.read())
+        assert ready["status"] == "busy"
+        assert ready["parser"]["active"] == 1
+
+        with pytest.raises(urllib.error.HTTPError) as busy_error:
+            urllib.request.urlopen(parse_request(), timeout=1)
+        assert busy_error.value.code == 429
+        busy = json.loads(busy_error.value.read())
+        assert busy["retryable"] is True
     finally:
         release_parse.set()
         post_thread.join(timeout=3)
@@ -2136,6 +2158,7 @@ def test_parse_dispatcher_round_robins_serialized_workers():
         wait_timeout_seconds=2,
         request_timeout_seconds=2,
         resolver=lambda _host: ["10.0.0.1", "10.0.0.2"],
+        prober=lambda _backend, _path: True,
     )
 
     first, _, _ = dispatcher._acquire_backend("bulk")
@@ -2149,7 +2172,10 @@ def test_parse_dispatcher_round_robins_serialized_workers():
         "minimum": 1,
         "busy": 0,
         "waiting": 0,
+        "live": 2,
+        "quarantined": 0,
         "ready": True,
+        "capacity_target_met": True,
     }
 
 
@@ -2162,6 +2188,7 @@ def test_parse_dispatcher_prioritizes_interactive_uploads():
         wait_timeout_seconds=2,
         request_timeout_seconds=2,
         resolver=lambda _host: ["10.0.0.1"],
+        prober=lambda _backend, _path: True,
     )
     active, _, _ = dispatcher._acquire_backend("bulk")
     order: list[str] = []
@@ -2224,6 +2251,7 @@ def test_dispatcher_forwards_request_without_automatic_resubmission():
         request_timeout_seconds=30,
         resolver=lambda _host: ["10.0.0.7"],
         session=Session(),
+        prober=lambda _backend, _path: True,
     )
 
     result = dispatcher.forward(
@@ -2246,6 +2274,168 @@ def test_dispatcher_forwards_request_without_automatic_resubmission():
             "timeout": (5.0, 30),
         }
     ]
+
+
+def test_dispatcher_retries_only_worker_busy_rejection_on_another_backend():
+    calls: list[str] = []
+
+    class Response:
+        headers = {"Content-Type": "application/json"}
+
+        def __init__(self, status_code: int):
+            self.status_code = status_code
+            self.content = b'{"error":"busy","retryable":true}' if status_code == 429 else b'{"status":"ok"}'
+
+    class Session:
+        def post(self, url, **_kwargs):
+            calls.append(url)
+            return Response(429 if "10.0.0.1" in url else 200)
+
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=1,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=30,
+        busy_retry_limit=2,
+        resolver=lambda _host: ["10.0.0.1", "10.0.0.2"],
+        session=Session(),
+        prober=lambda _backend, _path: True,
+    )
+
+    result = dispatcher.forward(
+        body=b"document",
+        content_type="multipart/form-data; boundary=test",
+        priority="interactive",
+    )
+
+    assert result[0] == 200
+    assert result[3] == "10.0.0.2"
+    assert calls == [
+        "http://10.0.0.1:50052/file_parse",
+        "http://10.0.0.2:50052/file_parse",
+    ]
+
+
+def test_dispatcher_quarantines_failed_worker_and_uses_healthy_worker_next():
+    calls: list[str] = []
+
+    class Response:
+        headers = {"Content-Type": "application/json"}
+
+        def __init__(self, status_code: int):
+            self.status_code = status_code
+            self.content = b'{"status":"error"}' if status_code >= 500 else b'{"status":"ok"}'
+
+    class Session:
+        def post(self, url, **_kwargs):
+            calls.append(url)
+            return Response(503 if "10.0.0.1" in url else 200)
+
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=2,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=30,
+        failure_cooldown_seconds=30,
+        resolver=lambda _host: ["10.0.0.1", "10.0.0.2"],
+        session=Session(),
+        prober=lambda _backend, _path: True,
+    )
+
+    first = dispatcher.forward(body=b"one", content_type="application/pdf", priority="bulk")
+    snapshot = dispatcher.snapshot()
+    second = dispatcher.forward(body=b"two", content_type="application/pdf", priority="bulk")
+
+    assert first[0] == 503
+    assert second[0] == 200
+    assert calls == [
+        "http://10.0.0.1:50052/file_parse",
+        "http://10.0.0.2:50052/file_parse",
+    ]
+    assert snapshot["quarantined"] == 1
+    assert snapshot["live"] == 2
+    assert snapshot["ready"] is True
+    assert snapshot["capacity_target_met"] is False
+
+
+def test_dispatcher_quarantine_clears_only_after_worker_reports_ready():
+    ready = False
+
+    def prober(_backend: str, path: str) -> bool:
+        return path == "/live" or ready
+
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=1,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=2,
+        failure_cooldown_seconds=1,
+        resolver=lambda _host: ["10.0.0.1"],
+        prober=prober,
+    )
+    dispatcher._quarantined["10.0.0.1"] = 0
+
+    assert dispatcher._ready_backends(("10.0.0.1",)) == ()
+    assert "10.0.0.1" in dispatcher._quarantined
+
+    ready = True
+    dispatcher._quarantined["10.0.0.1"] = 0
+    assert dispatcher._ready_backends(("10.0.0.1",)) == ("10.0.0.1",)
+    assert "10.0.0.1" not in dispatcher._quarantined
+
+
+def test_dispatcher_health_snapshot_recovers_an_idle_quarantined_worker():
+    ready = False
+
+    def prober(_backend: str, path: str) -> bool:
+        return path == "/live" or ready
+
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=1,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=2,
+        failure_cooldown_seconds=1,
+        resolver=lambda _host: ["10.0.0.1"],
+        prober=prober,
+    )
+    dispatcher._quarantined["10.0.0.1"] = 0
+
+    unavailable = dispatcher.snapshot()
+    assert unavailable["ready"] is False
+    assert unavailable["quarantined"] == 1
+
+    ready = True
+    dispatcher._quarantined["10.0.0.1"] = 0
+    recovered = dispatcher.snapshot()
+    assert recovered["ready"] is True
+    assert recovered["quarantined"] == 0
+
+
+def test_dispatcher_never_assigns_a_live_but_busy_worker():
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=1,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=2,
+        resolver=lambda _host: ["10.0.0.1", "10.0.0.2"],
+        prober=lambda backend, path: path == "/live" or backend == "10.0.0.2",
+    )
+
+    backend, _, _ = dispatcher._acquire_backend("bulk")
+    dispatcher._release_backend(backend)
+
+    assert backend == "10.0.0.2"
 
 
 @pytest.mark.parametrize("document_count", [3, 10, 30])
@@ -2284,6 +2474,7 @@ def test_parse_dispatcher_acceptance_matrix_bounds_worker_parallelism(
         request_timeout_seconds=3,
         resolver=lambda _host: worker_addresses,
         session=Session(),
+        prober=lambda _backend, _path: True,
     )
     results: list[tuple[int, str, bytes, str]] = []
     threads = [

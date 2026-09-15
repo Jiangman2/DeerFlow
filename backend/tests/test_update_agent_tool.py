@@ -23,6 +23,21 @@ from deerflow.tools.builtins.update_agent_tool import update_agent
 DEFAULT_USER = "test-user-autouse"  # matches the autouse fixture in tests/conftest.py
 
 
+@pytest.fixture(autouse=True)
+def _use_isolated_file_agent_store(monkeypatch):
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    store = FileAgentStore()
+    monkeypatch.setattr(
+        "deerflow.persistence.agents.get_agent_store",
+        lambda: store,
+    )
+    monkeypatch.setattr(
+        "deerflow.tools.builtins.update_agent_tool.get_agent_store",
+        lambda: store,
+    )
+
+
 class _DummyRuntime(SimpleNamespace):
     context: dict
     tool_call_id: str
@@ -124,6 +139,18 @@ def test_update_agent_rejects_unknown_agent(tmp_path, patched_paths):
     msg = result.update["messages"][0]
     assert "does not exist" in msg.content
     assert not _user_agent_dir(tmp_path, "ghost").exists()
+
+
+def test_update_agent_rejects_overlong_description(tmp_path, patched_paths):
+    agent_dir = _seed_agent(tmp_path, description="keep")
+
+    result = update_agent.func(runtime=_runtime(), description="x" * 501)
+
+    message = result.update["messages"][0]
+    assert message.status == "error"
+    assert "500 characters or fewer" in message.content
+    config = yaml.safe_load((agent_dir / "config.yaml").read_text())
+    assert config["description"] == "keep"
 
 
 def test_update_agent_rejects_legacy_agent_when_user_dir_has_only_memory(tmp_path, patched_paths):
@@ -287,6 +314,18 @@ def test_update_agent_updates_soul_only(tmp_path, patched_paths):
     cfg = yaml.safe_load((agent_dir / "config.yaml").read_text())
     assert cfg["description"] == "keep me", "description must be preserved"
     assert "soul" in result.update["messages"][0].content
+
+
+def test_update_agent_rejects_empty_soul_without_overwriting(tmp_path, patched_paths):
+    agent_dir = _seed_agent(tmp_path, description="keep me", soul="original soul")
+
+    result = update_agent.func(runtime=_runtime(), soul="  \n\t")
+
+    message = result.update["messages"][0]
+    assert message.status == "error"
+    assert "soul content is empty" in message.content
+    assert "Omit the soul field" in message.content
+    assert (agent_dir / "SOUL.md").read_text() == "original soul"
 
 
 def test_update_agent_updates_description_only(tmp_path, patched_paths):
@@ -465,7 +504,17 @@ def test_update_agent_round_trips_known_fields(tmp_path, patched_paths):
     """
     _seed_agent(tmp_path, description="legacy")
 
-    fake_cfg = AgentConfig(name="test-agent", description="legacy", skills=["s1"], tool_groups=["g1"], model="m1")
+    fake_cfg = AgentConfig(
+        name="test-agent",
+        display_name="Offshore Production Assistant",
+        description="legacy",
+        category_id="development",
+        tags=["production", "daily-report"],
+        avatar_id="05-offshore",
+        skills=["s1"],
+        tool_groups=["g1"],
+        model="m1",
+    )
     fake_app_config = MagicMock()
     fake_app_config.get_model_config.return_value = object()
     with patch("deerflow.tools.builtins.update_agent_tool.load_agent_config", return_value=fake_cfg):
@@ -477,6 +526,10 @@ def test_update_agent_round_trips_known_fields(tmp_path, patched_paths):
     assert cfg["skills"] == ["s1"]
     assert cfg["tool_groups"] == ["g1"]
     assert cfg["model"] == "m1"
+    assert cfg["display_name"] == "Offshore Production Assistant"
+    assert cfg["category_id"] == "development"
+    assert cfg["tags"] == ["production", "daily-report"]
+    assert cfg["avatar_id"] == "05-offshore"
 
 
 def test_update_agent_refuses_on_webhook_channel(tmp_path, patched_paths):

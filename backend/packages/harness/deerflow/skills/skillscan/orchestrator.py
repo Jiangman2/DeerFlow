@@ -62,7 +62,7 @@ _SPECS = [
     RuleSpec("python-dynamic-exec", "CRITICAL", "Python dynamic code execution primitive is used in a skill file.", "Remove dynamic execution and replace it with explicit typed logic."),
     RuleSpec("python-shell-exec", "CRITICAL", "Python shell execution primitive is used in a skill file.", "Use subprocess with a fixed argument list and shell=False, or remove shell execution."),
     RuleSpec("python-sensitive-exfil", "CRITICAL", "Python code reads a sensitive path and uses an outbound network sink in the same file.", "Remove the sensitive read or network sink, and keep credential access outside skills."),
-    RuleSpec("python-env-dump-exfil", "CRITICAL", "Python code reads the process environment in bulk and uses an outbound network sink in the same file.", "Avoid bulk environment reads and never send environment data over the network."),
+    RuleSpec("python-env-dump-exfil", "CRITICAL", "Python code sends a bulk process-environment value to an outbound network sink.", "Avoid bulk environment reads and never send environment data over the network."),
     RuleSpec("python-reverse-shell", "CRITICAL", "Python code matches a reverse-shell shape.", "Remove reverse-shell behavior from the skill."),
     RuleSpec("python-dynamic-import", "HIGH", "Python dynamically imports a non-literal module.", "Use explicit imports or a constrained allowlist."),
     RuleSpec("python-subprocess", "HIGH", "Python invokes subprocess without shell=True.", "Review subprocess usage and keep arguments fixed and minimal."),
@@ -343,13 +343,14 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
 
     aliases = _collect_python_aliases(tree)
     has_sensitive_read = False
-    has_env_dump = False
     has_network_sink = False
     sensitive_node: ast.AST | None = None
-    env_node: ast.AST | None = None
     network_node: ast.AST | None = None
+    env_exfil_node: ast.AST | None = None
     reverse_shell_parts: set[str] = set()
     reverse_shell_node: ast.AST | None = None
+    env_dump_names = _collect_python_env_dump_names(tree, aliases)
+    network_connection_names = _collect_python_network_connection_names(tree, aliases)
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -359,10 +360,6 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
             if _is_outbound_url(node.value):
                 has_network_sink = True
                 network_node = network_node or node
-
-        if isinstance(node, (ast.Attribute, ast.Name)) and _python_name(node, aliases) == "os.environ":
-            has_env_dump = True
-            env_node = env_node or node
 
         if not isinstance(node, ast.Call):
             continue
@@ -384,6 +381,14 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
             has_network_sink = True
             network_node = network_node or node
 
+        if env_exfil_node is None and _call_sends_environment_dump(
+            node,
+            aliases,
+            env_dump_names=env_dump_names,
+            network_connection_names=network_connection_names,
+        ):
+            env_exfil_node = node
+
         if call_name == "os.dup2":
             reverse_shell_parts.add("dup2")
             reverse_shell_node = reverse_shell_node or node
@@ -399,8 +404,8 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
         findings.append(_finding_for_node("python-sensitive-exfil", rel_path, sensitive_node or network_node, "sensitive read + network sink"))
     elif has_sensitive_read:
         findings.append(_finding_for_node("python-sensitive-path-read", rel_path, sensitive_node, "sensitive path read"))
-    if has_env_dump and has_network_sink:
-        findings.append(_finding_for_node("python-env-dump-exfil", rel_path, env_node or network_node, "environment dump + network sink"))
+    if env_exfil_node is not None:
+        findings.append(_finding_for_node("python-env-dump-exfil", rel_path, env_exfil_node, "environment dump flows to network sink"))
     return findings
 
 
@@ -642,6 +647,129 @@ def _python_name(node: ast.AST, aliases: dict[str, str]) -> str:
 
 def _python_call_name(node: ast.Call, aliases: dict[str, str]) -> str:
     return _python_name(node.func, aliases)
+
+
+def _python_assigned_names(target: ast.AST) -> set[str]:
+    if isinstance(target, ast.Name):
+        return {target.id}
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return {name for item in target.elts for name in _python_assigned_names(item)}
+    return set()
+
+
+def _python_value_references_names(node: ast.AST, names: set[str]) -> bool:
+    return bool(names) and any(isinstance(item, ast.Name) and item.id in names for item in ast.walk(node))
+
+
+def _python_value_contains_bulk_environment_read(node: ast.AST, aliases: dict[str, str]) -> bool:
+    """Return whether *node* evaluates the whole process environment.
+
+    Reading one configured value through ``os.environ.get`` or
+    ``os.environ["KEY"]`` is deliberately not a bulk read.  That distinction
+    keeps ordinary API clients from being classified as credential exfiltration
+    merely because the same module also performs an HTTP request.
+    """
+
+    if isinstance(node, (ast.Name, ast.Attribute)):
+        return _python_name(node, aliases) == "os.environ"
+    if isinstance(node, ast.Subscript) and _python_name(node.value, aliases) == "os.environ":
+        return False
+    if isinstance(node, ast.Call):
+        call_name = _python_call_name(node, aliases)
+        if call_name == "os.environ.get":
+            return False
+        if call_name in {
+            "os.environ.copy",
+            "os.environ.items",
+            "os.environ.keys",
+            "os.environ.values",
+        }:
+            return True
+        receiver = node.func.value if isinstance(node.func, ast.Attribute) else None
+        return (
+            receiver is not None
+            and _python_value_contains_bulk_environment_read(receiver, aliases)
+            or any(_python_value_contains_bulk_environment_read(arg, aliases) for arg in node.args)
+            or any(_python_value_contains_bulk_environment_read(keyword.value, aliases) for keyword in node.keywords)
+        )
+    if isinstance(node, ast.Dict):
+        return any(key is None and _python_value_contains_bulk_environment_read(value, aliases) for key, value in zip(node.keys, node.values, strict=True)) or any(
+            _python_value_contains_bulk_environment_read(value, aliases) for value in node.values
+        )
+    return any(_python_value_contains_bulk_environment_read(child, aliases) for child in ast.iter_child_nodes(node))
+
+
+def _collect_python_env_dump_names(tree: ast.AST, aliases: dict[str, str]) -> set[str]:
+    """Collect local names that transitively hold a bulk environment value."""
+
+    tainted: set[str] = set()
+    assignments: list[tuple[set[str], ast.AST]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            names = {name for target in node.targets for name in _python_assigned_names(target)}
+            assignments.append((names, node.value))
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            assignments.append((_python_assigned_names(node.target), node.value))
+        elif isinstance(node, ast.NamedExpr):
+            assignments.append((_python_assigned_names(node.target), node.value))
+
+    changed = True
+    while changed:
+        changed = False
+        for names, value in assignments:
+            if names <= tainted:
+                continue
+            if _python_value_contains_bulk_environment_read(value, aliases) or _python_value_references_names(value, tainted):
+                tainted.update(names)
+                changed = True
+    return tainted
+
+
+def _collect_python_network_connection_names(tree: ast.AST, aliases: dict[str, str]) -> set[str]:
+    """Collect local names that hold sockets created by recognized sinks."""
+
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
+            continue
+        value = node.value
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if isinstance(value, ast.Call) and _python_call_name(value, aliases) in {
+            "socket.socket",
+            "socket.create_connection",
+        }:
+            for target in targets:
+                names.update(_python_assigned_names(target))
+    return names
+
+
+def _python_call_is_network_transfer(
+    node: ast.Call,
+    aliases: dict[str, str],
+    network_connection_names: set[str],
+) -> bool:
+    call_name = _python_call_name(node, aliases)
+    if _call_is_network_sink(call_name):
+        return True
+    if not isinstance(node.func, ast.Attribute) or node.func.attr not in {"send", "sendall", "sendto"}:
+        return False
+    receiver = node.func.value
+    if isinstance(receiver, ast.Name) and receiver.id in network_connection_names:
+        return True
+    return any(isinstance(child, ast.Call) and _call_is_network_sink(_python_call_name(child, aliases)) for child in ast.walk(receiver))
+
+
+def _call_sends_environment_dump(
+    node: ast.Call,
+    aliases: dict[str, str],
+    *,
+    env_dump_names: set[str],
+    network_connection_names: set[str],
+) -> bool:
+    if not _python_call_is_network_transfer(node, aliases, network_connection_names):
+        return False
+    values = [*node.args, *(keyword.value for keyword in node.keywords)]
+    return any(_python_value_contains_bulk_environment_read(value, aliases) or _python_value_references_names(value, env_dump_names) for value in values)
 
 
 def _compile_mode_is_exec(node: ast.Call) -> bool:

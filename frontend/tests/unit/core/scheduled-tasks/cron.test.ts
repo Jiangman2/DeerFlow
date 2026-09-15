@@ -1,8 +1,13 @@
 import { describe, expect, test } from "@rstest/core";
 
 import {
+  clampIntervalAmount,
   describeSchedule,
+  hasScheduleSpec,
+  intervalToSeconds,
+  minIntervalAmount,
   parseCron,
+  secondsToInterval,
   serializeCron,
   utcToZonedLocalInput,
   zonedLocalToUtcIso,
@@ -258,6 +263,56 @@ describe("describeSchedule", () => {
         "en",
       ),
     ).toBe("Custom: */5 * * * * (UTC)");
+  });
+
+  test("interval descriptions omit timezone and support singular hours", () => {
+    expect(
+      describeSchedule(
+        {
+          scheduleType: "interval",
+          intervalAmount: 90,
+          intervalUnit: "minutes",
+          timezone: "Asia/Shanghai",
+        },
+        "zh",
+      ),
+    ).toBe("每 90 分钟");
+    expect(
+      describeSchedule(
+        {
+          scheduleType: "interval",
+          intervalAmount: 1,
+          intervalUnit: "hours",
+          timezone: "UTC",
+        },
+        "en",
+      ),
+    ).toBe("Every hour");
+  });
+});
+
+describe("interval conversion", () => {
+  test("converts and round-trips stored seconds", () => {
+    expect(intervalToSeconds(90, "seconds")).toBe(90);
+    expect(intervalToSeconds(90, "minutes")).toBe(5400);
+    expect(intervalToSeconds(2, "hours")).toBe(7200);
+    expect(secondsToInterval(7200)).toEqual({ amount: 2, unit: "hours" });
+    expect(secondsToInterval(90)).toEqual({ amount: 90, unit: "seconds" });
+  });
+
+  test("enforces the 60-second server floor", () => {
+    expect(minIntervalAmount("seconds")).toBe(60);
+    expect(minIntervalAmount("minutes")).toBe(1);
+    expect(clampIntervalAmount(30, "seconds")).toBe(60);
+    expect(clampIntervalAmount(90, "seconds")).toBe(90);
+  });
+
+  test("recognizes every supported schedule spec", () => {
+    expect(hasScheduleSpec({ every_seconds: 90 })).toBe(true);
+    expect(hasScheduleSpec({ cron: "0 9 * * *" })).toBe(true);
+    expect(hasScheduleSpec({ run_at: "2026-07-02T01:00:00+00:00" })).toBe(true);
+    expect(hasScheduleSpec({ every_seconds: 0 })).toBe(false);
+    expect(hasScheduleSpec({})).toBe(false);
   });
 });
 

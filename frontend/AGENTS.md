@@ -76,6 +76,42 @@ mode state to this workflow. Its existing model selector, `agent_name`,
 `is_bootstrap`, hidden human-input responses, and save interaction must remain
 intact.
 
+The Agent gallery presents custom Agents as **数字员工 / Digital Employees**.
+Keep its compact horizontal portrait-and-details rows, circular CNOOC cartoon
+portraits, desktop sidebar filters, mobile filter drawer, and fuzzy discovery
+across name, description, model, category, tags, tools, and skills. Personal
+employees persist category, tags, bundled/custom avatar selection, model,
+temperature, output limit, thinking default, and reasoning effort through the
+Agent API; never restore the former localStorage-only portrait contract.
+Categories are globally readable but only administrators may replace their
+definitions or order. Per-employee tags support manual add/edit/delete and
+deterministic local suggestions. Browser Live is feature-gated and only appears
+for a custom employee when its tool-group allowlist is unset or includes
+`browser`; on mobile it is a bottom sheet, while desktop uses the side panel.
+Do not fork the conversational builder or weaken its existing save workflow.
+The directory paginates both the shared square and personal list at the UI
+boundary; filtering returns to page one. Popular tags and the new-agent avatar
+picker show compact previews with explicit expand/collapse controls. The
+new-agent name step is a viewport-bounded card with a fixed header/footer and
+an independently scrolling form body, so the primary action never falls below
+the browser viewport. The personal edit dialog intentionally omits dedicated
+model and inference controls; updates must leave any existing model,
+temperature, output-token, thinking, and reasoning configuration unchanged.
+
+Ordinary and Digital Employee chat layouts reuse the single
+`components/workspace/chats/chat-providers.tsx` provider stack. Keep thread-keyed
+subtasks/artifacts, Browser Live state, and prompt-input state in that shared
+stack so the two routes cannot drift or leave one chat mode without a provider.
+
+Recent-chat organization follows upstream DeerFlow's namespaced metadata
+contracts. `deerflow_pinned` sorts pinned chats first without touching their
+activity timestamp, and `deerflow_archived` removes archived chats from the
+sidebar while keeping them restorable from the Chats page. Keep archive and
+delete mutations hosted above rows that may unmount, and retain the upstream
+confirmation dialog before destructive chat deletion. Workspace change badges
+show at most three file rows by default and expose a reversible remainder
+toggle; the full diff panel remains unchanged.
+
 The main workspace composer's knowledge control mirrors WeKnora New Chat's
 mention scope without copying WeKnora conversation state. It supports complete
 knowledge bases, individual files, and tags. Preserve each file/tag's parent
@@ -161,6 +197,42 @@ Integrations > Sharing Management; the global Publish Integrations navigation
 remains hidden. Deployment defaults supply the other hidden model, parser,
 chunking, VLM, ASR, and storage values. System
 administrators retain the complete native editor.
+
+`/workspace/skills` is the phase-1 DeerFlow shell for native iFLYTEK SkillHub
+content. It owns the visible Skill Center header, discovery/personal tabs,
+role-aware management menu, loading state, and embedded DeerFlow theme. Keep the
+iframe on the authenticated same-origin `/platform/skillhub/` mount, start it
+on native search, and hide SkillHub's standalone header/footer and
+dashboard-return control. Do not recreate SkillHub marketplace, publishing,
+review, governance, or administrator content in DeerFlow. The shell reads
+native `/api/v1/auth/me` roles only to present the matching navigation; native
+SkillHub API authorization remains the security boundary. The Skill Center
+sidebar item stays immediately below Knowledge, its new-window action preserves
+the DeerFlow shell, entering the route collapses the DeerFlow sidebar once per
+mount, and mobile retains the sidebar escape hatch. The native session is
+established only through the exact same-origin passive-bootstrap route backed by
+Gateway's short-lived role-free HMAC assertion. The feature gate must hide the
+entry and keep the page inert until that server path is ready. SkillHub sessions
+and RBAC remain native and independent from DeerFlow authorization.
+The first-party **My Skills** tab is the one exception to the embedded native
+content: it is a DeerFlow-owned view of the authenticated user's complete
+`custom` skill library. Build it from the existing `/api/skills` inventory and
+`/api/skillhub/runtime/skills` installation registry rather than introducing a
+second skill store. It must include both user-created and SkillHub-installed
+skills, show registry provenance/version where available, retain the existing
+create-skill route, and preserve the existing authorization boundary for
+user-created skill switches. SkillHub-installed entries use their per-user
+runtime enable/disable and uninstall APIs. Keep the detail-page action labelled
+**Add to My Skills** (localized in the UI) so installation is not presented as
+binding the skill to one Digital Employee.
+On native skill detail routes, the DeerFlow-owned runtime bar may fetch the
+published version with the browser's SkillHub session and upload its bytes to
+the authenticated Gateway runtime endpoint. Keep registry coordinates parsed
+from the same-origin detail route/API, never accept an arbitrary download URL,
+and do not present a client-side success state until the Gateway confirms the
+per-user install. Enable/disable and uninstall use only the matching
+namespace/slug installation record. SkillHub still owns publication and review;
+DeerFlow owns runtime installation and its security result.
 
 ### Data Flow
 
@@ -332,20 +404,27 @@ launch bars, use explicit solid `backgroundColor` values instead of gradients
 or alpha-color syntax so the audited enterprise browser renders them reliably.
 The backend remains the authoritative enforcement boundary. The panel must not mix runs from deleted
 conversations into that current-session view.
-The five built-in external-agent cards navigate through same-origin server
-launch routes under `/api/cnooc/external-agents/<agent>/launch`. Those routes
+The five built-in external-agent cards navigate directly to their fixed
+same-origin HTTPS aliases under `cnoocclaw.cnooc.com.cn`; do not rewrite those
+current aliases through the legacy launch API. Legacy `datalake.cnooc` card
+records may still use `/api/cnooc/external-agents/<agent>/launch`. Those routes
 read the HttpOnly `cnooc.platform_token` cookie, validate its current-user
 binding through Gateway's Data Lake session endpoint, and redirect only to the
-fixed canonical HTTPS paths on `datalake.cnooc`, adding the current Token at
-redirect time. Keep the strict target allowlist plus `no-store` and `no-referrer`
-headers, and keep the shared Nginx entry's exact launch-prefix location ahead
-of its general `/api/` Gateway catch-all. The Token must never be hardcoded,
-returned to client JavaScript, or
-stored in card data; do not restore the legacy `/agent-tools/*` proxies.
+fixed canonical Data Lake paths, adding the current Token at redirect time.
+Keep the strict target allowlist plus `no-store` and `no-referrer` headers, and
+keep the shared Nginx entry's exact launch-prefix location ahead of its general
+`/api/` Gateway catch-all. The Token must never be hardcoded, returned to client
+JavaScript, or stored in card data; do not restore the legacy `/agent-tools/*`
+proxies.
 Slow-run, high-token, and recent-failure cards share five-row pagination plus a
 bounded vertical scroll area.
-Headline summaries poll every 15 seconds while heavier observability rankings
-poll every 60 seconds. External-agent click telemetry must use the shared
+The visible dashboard requests a compact summary with native WeKnora and unused
+business-event detail excluded; the WeKnora panel has its own parallel query.
+Short rolling summaries poll every 60 seconds and knowledge data every five
+minutes. Fixed custom windows and windows longer than seven days do not poll.
+Editing a custom date/time input must not change the active query until the user
+clicks Apply. Heavier observability rankings poll every 60 seconds.
+External-agent click telemetry must use the shared
 authenticated fetch wrapper so the CSRF token is sent; telemetry failure must
 not block navigation.
 
@@ -384,7 +463,10 @@ Scheduled tasks own their execution-model choice independently of chat settings.
 The create form prefers `deepseek-v4-flash` when that configured enterprise model
 is available, falls back to the first available model elsewhere, and persists the
 selection in `run_context`. Editing a task may change that saved model; switching
-models in a chat must not mutate scheduled tasks.
+models in a chat must not mutate scheduled tasks. Keep create/edit/duplicate flows
+aligned for `once`, `cron`, and minimum-60-second `interval` schedules and for the
+pinned custom-agent selection. Run history uses server pagination; older pages pause
+live refresh and must not be merged with the latest-page cache.
 
 ### Workspace announcements
 

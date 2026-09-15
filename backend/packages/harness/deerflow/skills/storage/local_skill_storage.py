@@ -9,6 +9,7 @@ import logging
 import os
 import shutil
 import tempfile
+import uuid
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,7 +17,7 @@ from pathlib import Path
 from deerflow.config.runtime_paths import resolve_path
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
 from deerflow.skills.package_paths import is_eval_fixture_skill_md
-from deerflow.skills.permissions import make_skill_written_path_sandbox_readable
+from deerflow.skills.permissions import make_skill_tree_sandbox_readable, make_skill_written_path_sandbox_readable
 from deerflow.skills.storage.skill_storage import SKILL_MD_FILE, SkillStorage
 from deerflow.skills.types import SkillCategory
 
@@ -140,6 +141,67 @@ class LocalSkillStorage(SkillStorage):
             "message": f"Skill '{skill_name}' installed successfully",
         }
 
+    async def ainstall_or_upgrade_skill_from_archive(
+        self,
+        archive_path: str | Path,
+        *,
+        expected_name: str,
+    ) -> dict:
+        """Install or atomically replace one validated custom skill tree.
+
+        Registry adapters use this path after they have established ownership
+        of an existing installation.  The new archive is fully extracted and
+        scanned before the current directory is moved aside, and a failed swap
+        restores the previous directory.
+        """
+        from deerflow.skills.installer import _scan_skill_archive_contents_or_raise
+
+        expected_name = self.validate_skill_name(expected_name)
+        path = Path(archive_path)
+        custom_dir = self.get_custom_skill_dir(expected_name).parent
+        await asyncio.to_thread(custom_dir.mkdir, parents=True, exist_ok=True)
+
+        tmp = await asyncio.to_thread(tempfile.mkdtemp)
+        try:
+            skill_dir, skill_name, target = await asyncio.to_thread(
+                self._prepare_skill_archive,
+                path,
+                Path(tmp),
+                custom_dir,
+                archive_path,
+                True,
+            )
+            if skill_name != expected_name:
+                raise ValueError(f"Archive skill name '{skill_name}' must match registry slug '{expected_name}'.")
+
+            await _scan_skill_archive_contents_or_raise(
+                skill_dir,
+                skill_name,
+                app_config=self._app_config,
+            )
+            action = await asyncio.to_thread(
+                self._commit_skill_upsert,
+                skill_dir,
+                skill_name,
+                custom_dir,
+                target,
+            )
+        finally:
+            try:
+                await asyncio.wait_for(
+                    asyncio.to_thread(self._cleanup_install_tmp, tmp),
+                    timeout=_INSTALL_TMP_CLEANUP_TIMEOUT_SECONDS,
+                )
+            except TimeoutError:
+                logger.warning("Timed out cleaning up skill install temp dir %s", tmp)
+
+        return {
+            "success": True,
+            "skill_name": skill_name,
+            "action": action,
+            "message": f"Skill '{skill_name}' {action} successfully",
+        }
+
     @staticmethod
     def _cleanup_install_tmp(tmp: str) -> None:
         """Best-effort removal that never masks the install outcome, but leaves a trace."""
@@ -148,7 +210,14 @@ class LocalSkillStorage(SkillStorage):
         except OSError:
             logger.warning("Failed to clean up skill install temp dir %s", tmp, exc_info=True)
 
-    def _prepare_skill_archive(self, path: Path, tmp_path: Path, custom_dir: Path, archive_path: str | Path) -> tuple[Path, str, Path]:
+    def _prepare_skill_archive(
+        self,
+        path: Path,
+        tmp_path: Path,
+        custom_dir: Path,
+        archive_path: str | Path,
+        allow_existing: bool = False,
+    ) -> tuple[Path, str, Path]:
         """Extract and validate the archive (blocking; runs off the event loop)."""
         import zipfile
 
@@ -189,7 +258,7 @@ class LocalSkillStorage(SkillStorage):
             raise ValueError(f"Invalid skill name: {skill_name}")
 
         target = custom_dir / skill_name
-        if target.exists():
+        if target.exists() and not allow_existing:
             raise SkillAlreadyExistsError(f"Skill '{skill_name}' already exists")
 
         return skill_dir, skill_name, target
@@ -203,6 +272,40 @@ class LocalSkillStorage(SkillStorage):
             shutil.copytree(skill_dir, staging_target)
             _move_staged_skill_into_reserved_target(staging_target, target)
         make_skill_written_path_sandbox_readable(custom_dir, target)
+
+    def _commit_skill_upsert(
+        self,
+        skill_dir: Path,
+        skill_name: str,
+        custom_dir: Path,
+        target: Path,
+    ) -> str:
+        """Swap a scanned tree into place and restore the old tree on error."""
+        custom_dir.mkdir(parents=True, exist_ok=True)
+        transaction_root = custom_dir / ".registry-transactions" / f"{skill_name}-{uuid.uuid4().hex}"
+        staging_target = transaction_root / "next"
+        previous_target = transaction_root / "previous"
+        transaction_root.mkdir(parents=True)
+        had_previous = target.exists()
+        committed = False
+        try:
+            shutil.copytree(skill_dir, staging_target)
+            make_skill_tree_sandbox_readable(staging_target)
+            if had_previous:
+                target.replace(previous_target)
+            try:
+                staging_target.replace(target)
+                committed = True
+            except Exception:
+                if had_previous and previous_target.exists() and not target.exists():
+                    previous_target.replace(target)
+                raise
+            make_skill_tree_sandbox_readable(target)
+            return "upgraded" if had_previous else "installed"
+        finally:
+            if not committed and had_previous and previous_target.exists() and not target.exists():
+                previous_target.replace(target)
+            shutil.rmtree(transaction_root, ignore_errors=True)
 
     def delete_custom_skill(self, name: str, *, history_meta: dict | None = None) -> None:
         self.validate_skill_name(name)

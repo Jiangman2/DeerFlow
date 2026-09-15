@@ -119,6 +119,75 @@ async def test_scan_skill_content_blocks_when_model_unavailable(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_scan_skill_content_retries_transient_model_failure(monkeypatch):
+    config = SimpleNamespace(skill_evolution=SimpleNamespace(moderation_model_name=None))
+    attempts = 0
+    create_kwargs = []
+
+    class FakeModel:
+        async def ainvoke(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise RuntimeError("temporary provider failure")
+            return SimpleNamespace(content='{"decision":"allow","reason":"ok"}')
+
+    monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
+    monkeypatch.setattr(
+        "deerflow.skills.security_scanner.create_chat_model",
+        lambda **kwargs: create_kwargs.append(kwargs) or FakeModel(),
+    )
+    monkeypatch.setattr("deerflow.skills.security_scanner.asyncio.sleep", lambda *_: _async_none())
+
+    result = await scan_skill_content(SKILL_CONTENT, executable=False)
+
+    assert result.decision == "allow"
+    assert attempts == 2
+    assert len(create_kwargs) == 2
+    assert all(kwargs["attach_tracing"] is False for kwargs in create_kwargs)
+
+
+@pytest.mark.anyio
+async def test_scan_skill_content_retries_unparseable_model_response(monkeypatch):
+    config = SimpleNamespace(skill_evolution=SimpleNamespace(moderation_model_name=None))
+    attempts = 0
+
+    class FakeModel:
+        async def ainvoke(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                return SimpleNamespace(content="temporarily truncated")
+            return SimpleNamespace(content='{"decision":"allow","reason":"ok"}')
+
+    monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
+    monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", lambda **kwargs: FakeModel())
+    monkeypatch.setattr("deerflow.skills.security_scanner.asyncio.sleep", lambda *_: _async_none())
+
+    result = await scan_skill_content(SKILL_CONTENT, executable=False)
+
+    assert result.decision == "allow"
+    assert attempts == 2
+
+
+async def _async_none():
+    return None
+
+
+@pytest.mark.anyio
+async def test_scan_skill_content_blocks_when_configuration_unavailable(monkeypatch):
+    monkeypatch.setattr(
+        "deerflow.skills.security_scanner.get_app_config",
+        lambda: (_ for _ in ()).throw(RuntimeError("config unavailable")),
+    )
+
+    result = await scan_skill_content(SKILL_CONTENT, executable=False)
+
+    assert result.decision == "block"
+    assert "unavailable" in result.reason
+
+
+@pytest.mark.anyio
 async def test_scan_allows_markdown_fenced_response(monkeypatch):
     _make_env(monkeypatch, '```json\n{"decision": "allow", "reason": "clean"}\n```')
     result = await scan_skill_content(SKILL_CONTENT, executable=False)

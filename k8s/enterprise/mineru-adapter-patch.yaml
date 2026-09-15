@@ -91,6 +91,12 @@ spec:
             # while its threaded HTTP server keeps health probes responsive.
             - name: LIBREOFFICE_TIMEOUT_SECONDS
               value: "180"
+            - name: MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED
+              # Native DOC/DOCX extraction is the normal success path. Only
+              # empty/failed native parses fall back to LibreOffice + MinerU,
+              # so visual conversion cannot turn readable Word files into
+              # 180-second failures or occupy every worker slot.
+              value: "false"
             - name: MINERU_MAX_UPLOAD_BYTES
               value: "104857600"
             - name: MINERU_MAX_INLINE_IMAGE_BYTES
@@ -125,7 +131,10 @@ spec:
               value: /etc/deerflow-ca/ca-bundle.crt
           readinessProbe:
             httpGet:
-              path: /health
+              # Keep a parsing Pod in discovery. The dispatcher separately
+              # calls /ready before assignment, so a busy worker is skipped
+              # without making the Deployment 0/6 Ready or stalling rollout.
+              path: /live
               port: http
             initialDelaySeconds: 3
             periodSeconds: 5
@@ -133,11 +142,13 @@ spec:
             failureThreshold: 12
           livenessProbe:
             httpGet:
-              path: /health
+              path: /live
               port: http
             initialDelaySeconds: 15
             periodSeconds: 15
             timeoutSeconds: 10
+            # /live does not acquire the parser lock. Six consecutive failures
+            # therefore indicate a wedged process rather than normal parsing.
             failureThreshold: 6
           resources:
             requests:

@@ -9,6 +9,7 @@ resources:
   - postgres.yaml
   - skills-sync.yaml
   - deer-flow-pvc-stack.yaml
+  - dashboard-rollup-cronjob.yaml
   - mineru-adapter-local.yaml
 
 patches:

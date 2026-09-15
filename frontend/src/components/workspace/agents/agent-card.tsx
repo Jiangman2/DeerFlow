@@ -1,34 +1,23 @@
 "use client";
 
 import {
-  ActivityIcon,
   BotIcon,
-  DatabaseIcon,
   ExternalLinkIcon,
-  FileTextIcon,
+  EyeIcon,
   MessageSquareIcon,
-  ScanTextIcon,
-  ShieldIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
   Share2Icon,
   Trash2Icon,
   Undo2Icon,
-  UserIcon,
-  type LucideIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ComponentProps, type ReactElement, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -38,12 +27,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  getDefaultExpertAvatar,
+  getExpertAvatarById,
+  getStoredExpertAvatarId,
   recordExternalAgentClick,
+  resolveExternalAgentLaunchHref,
   useDeleteAgent,
   usePublishAgent,
   useUnpublishTeamAgent,
@@ -54,139 +58,55 @@ import { cn } from "@/lib/utils";
 
 interface AgentCardProps {
   agent: Agent;
+  categoryLabel?: string;
   showDelete?: boolean;
   showPublish?: boolean;
   showUnpublish?: boolean;
+  onEdit?: (agent: Agent) => void;
 }
 
-type AgentVisualConfig = {
-  cardClassName: string;
-  accentBarClassName: string;
-  avatarClassName: string;
-  avatarUrl: string;
-  domainIcon: LucideIcon;
-};
-
-const EXTERNAL_AGENT_VISUAL_CONFIG: Record<string, AgentVisualConfig> = {
-  "https://datalake.cnooc/dzsjtpzj": {
-    cardClassName:
-      "border-cyan-200/70 from-cyan-50/80 via-background to-blue-50/55 hover:border-cyan-400/60 hover:shadow-cyan-500/10",
-    accentBarClassName: "from-cyan-400/45 via-cyan-300/10 to-blue-400/35",
-    avatarClassName:
-      "bg-[linear-gradient(145deg,rgba(6,182,212,0.24),rgba(37,99,235,0.16))] text-cyan-800 ring-cyan-500/25",
-    avatarUrl: "/images/experts/expert-analysis.svg",
-    domainIcon: ActivityIcon,
-  },
-  "https://datalake.cnooc/qqyjbgbxzj": {
-    cardClassName:
-      "border-amber-200/70 from-amber-50/75 via-background to-orange-50/50 hover:border-amber-400/60 hover:shadow-amber-500/10",
-    accentBarClassName: "from-amber-400/45 via-amber-300/10 to-orange-400/35",
-    avatarClassName:
-      "bg-[linear-gradient(145deg,rgba(245,158,11,0.24),rgba(249,115,22,0.16))] text-amber-800 ring-amber-500/25",
-    avatarUrl: "/images/experts/expert-report.svg",
-    domainIcon: FileTextIcon,
-  },
-  "https://datalake.cnooc/zywdjxzj": {
-    cardClassName:
-      "border-blue-200/70 from-blue-50/80 via-background to-sky-50/55 hover:border-blue-400/60 hover:shadow-blue-500/10",
-    accentBarClassName: "from-blue-400/45 via-blue-300/10 to-sky-400/35",
-    avatarClassName:
-      "bg-[linear-gradient(145deg,rgba(59,130,246,0.24),rgba(14,165,233,0.16))] text-blue-800 ring-blue-500/25",
-    avatarUrl: "/images/experts/expert-analysis.svg",
-    domainIcon: ScanTextIcon,
-  },
-  "https://datalake.cnooc/zdsczj": {
-    cardClassName:
-      "border-violet-200/70 from-violet-50/75 via-background to-fuchsia-50/45 hover:border-violet-400/60 hover:shadow-violet-500/10",
-    accentBarClassName:
-      "from-violet-400/45 via-violet-300/10 to-fuchsia-400/35",
-    avatarClassName:
-      "bg-[linear-gradient(145deg,rgba(139,92,246,0.24),rgba(217,70,239,0.16))] text-violet-800 ring-violet-500/25",
-    avatarUrl: "/images/experts/expert-data.svg",
-    domainIcon: DatabaseIcon,
-  },
-  "https://datalake.cnooc/zjbgjszj/": {
-    cardClassName:
-      "border-emerald-200/70 from-emerald-50/75 via-background to-green-50/50 hover:border-emerald-400/60 hover:shadow-emerald-500/10",
-    accentBarClassName:
-      "from-emerald-400/45 via-emerald-300/10 to-green-400/35",
-    avatarClassName:
-      "bg-[linear-gradient(145deg,rgba(16,185,129,0.25),rgba(34,197,94,0.16))] text-emerald-800 ring-emerald-500/25",
-    avatarUrl: "/images/experts/expert-review.svg",
-    domainIcon: ShieldIcon,
-  },
-};
-
-const EXTERNAL_AGENT_LAUNCH_PATHS: Record<string, string> = {
-  "https://datalake.cnooc/zywdjxzj":
-    "/api/cnooc/external-agents/zywdjxzj/launch",
-  "https://datalake.cnooc/qqyjbgbxzj":
-    "/api/cnooc/external-agents/qqyjbgbxzj/launch",
-  "https://datalake.cnooc/zjbgjszj/":
-    "/api/cnooc/external-agents/zjbgjszj/launch",
-  "https://datalake.cnooc/zdsczj":
-    "/api/cnooc/external-agents/zdsczj/launch",
-  "https://datalake.cnooc/dzsjtpzj":
-    "/api/cnooc/external-agents/dzsjtpzj/launch",
-};
-
-function TruncatedTooltip({
-  text,
-  children,
-}: {
-  text: string;
-  children: ReactElement;
-}) {
-  const [truncated, setTruncated] = useState(false);
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        asChild
-        onPointerEnter={(e) => {
-          const el = e.currentTarget;
-          setTruncated(
-            el.scrollWidth > el.clientWidth ||
-              el.scrollHeight > el.clientHeight,
-          );
-        }}
-      >
-        {children}
-      </TooltipTrigger>
-      {truncated && (
-        <TooltipContent className="max-w-xs text-wrap break-words">
-          {text}
-        </TooltipContent>
-      )}
-    </Tooltip>
-  );
-}
-
-function TruncatedBadge({
-  label,
-  variant,
+function DigitalEmployeeAvatar({
+  agent,
   className,
 }: {
-  label: string;
-  variant: ComponentProps<typeof Badge>["variant"];
+  agent: Agent;
   className?: string;
 }) {
+  const [storedAvatarId, setStoredAvatarId] = useState<string>();
+  useEffect(() => {
+    setStoredAvatarId(getStoredExpertAvatarId(agent.name));
+  }, [agent.name]);
+  const preset =
+    getExpertAvatarById(agent.avatar_id ?? storedAvatarId) ??
+    getDefaultExpertAvatar(agent);
+  const accessibleName = agent.display_name?.trim();
+
   return (
-    <TruncatedTooltip text={label}>
-      <Badge
-        variant={variant}
-        className={cn("block max-w-full truncate", className)}
-      >
-        {label}
-      </Badge>
-    </TruncatedTooltip>
+    <Avatar
+      className={cn(
+        "bg-primary/5 ring-background shrink-0 rounded-full border-2 border-white shadow-sm ring-1 ring-blue-100 dark:border-slate-800 dark:ring-slate-700",
+        className,
+      )}
+    >
+      <AvatarImage
+        src={agent.avatar_url ?? preset.src}
+        alt={accessibleName?.length ? accessibleName : agent.name}
+        className="rounded-full object-cover"
+      />
+      <AvatarFallback className="rounded-full bg-blue-50 text-blue-700">
+        <BotIcon aria-hidden="true" />
+      </AvatarFallback>
+    </Avatar>
   );
 }
 
 export function AgentCard({
   agent,
+  categoryLabel,
   showDelete = true,
   showPublish = false,
   showUnpublish = false,
+  onEdit,
 }: AgentCardProps) {
   const { t } = useI18n();
   const router = useRouter();
@@ -195,15 +115,21 @@ export function AgentCard({
   const unpublishTeamAgent = useUnpublishTeamAgent();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [unpublishOpen, setUnpublishOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const externalUrl = agent.external_url?.trim();
-  const isExternalAgent = Boolean(externalUrl);
-  const externalHref = externalUrl
-    ? (EXTERNAL_AGENT_LAUNCH_PATHS[externalUrl] ?? externalUrl)
-    : undefined;
-  const displayConfig = externalUrl
-    ? EXTERNAL_AGENT_VISUAL_CONFIG[externalUrl]
-    : undefined;
-  const DomainIcon = displayConfig?.domainIcon;
+  const externalHref = resolveExternalAgentLaunchHref(externalUrl);
+  const configuredDisplayName = agent.display_name?.trim();
+  const displayName = configuredDisplayName?.length
+    ? configuredDisplayName
+    : agent.name;
+  const sourceLabel =
+    agent.source === "personal" ? t.agents.personal : t.agents.enterprise;
+  const capabilityLabels = [
+    ...(agent.tags ?? []),
+    ...(agent.tool_groups ?? []),
+    ...(agent.skills ?? []),
+    ...(agent.model ? [agent.model] : []),
+  ].filter((value, index, values) => values.indexOf(value) === index);
 
   function recordExternalClick() {
     if (!externalUrl) return;
@@ -221,8 +147,8 @@ export function AgentCard({
       await deleteAgent.mutateAsync(agent.name);
       toast.success(t.agents.deleteSuccess);
       setDeleteOpen(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -230,8 +156,8 @@ export function AgentCard({
     try {
       await publishAgent.mutateAsync(agent.name);
       toast.success(t.agents.publishSuccess);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -240,188 +166,192 @@ export function AgentCard({
       await unpublishTeamAgent.mutateAsync(agent.name);
       toast.success(t.agents.unpublishSuccess);
       setUnpublishOpen(false);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : String(err));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
     }
   }
 
-  const hasCapabilities =
-    (agent.tool_groups?.length ?? 0) > 0 || (agent.skills?.length ?? 0) > 0;
+  const primaryAction = externalHref ? (
+    <Button asChild size="sm" className="h-8 shrink-0 rounded-lg px-3">
+      <a
+        href={externalHref}
+        target="_blank"
+        rel="noreferrer"
+        onClick={recordExternalClick}
+      >
+        <ExternalLinkIcon data-icon="inline-start" />
+        {t.agents.openExternal}
+      </a>
+    </Button>
+  ) : (
+    <Button
+      size="sm"
+      className="h-8 shrink-0 rounded-lg px-3"
+      onClick={handleChat}
+    >
+      <MessageSquareIcon data-icon="inline-start" />
+      {t.agents.chat}
+    </Button>
+  );
 
   return (
     <>
-      <Card
-        className={cn(
-          "group relative flex h-full flex-col overflow-hidden border bg-gradient-to-br shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg",
-          displayConfig?.cardClassName ??
-            "from-background to-muted/30 hover:border-primary/30 hover:shadow-primary/10",
-        )}
+      <article
+        data-testid="digital-employee-card"
+        className="group bg-card hover:border-primary/45 hover:shadow-primary/5 flex min-w-0 flex-col gap-3 rounded-xl border p-3.5 shadow-sm transition-[border-color,box-shadow] duration-200 sm:flex-row sm:items-center sm:gap-4 sm:px-4 sm:py-3"
       >
-        <div
-          className={cn(
-            "pointer-events-none absolute inset-x-0 top-0 h-1.5 rounded-t-xl bg-gradient-to-r via-transparent to-transparent opacity-80",
-            displayConfig?.accentBarClassName ?? "from-primary/12",
-          )}
-        />
-        <CardHeader className="pb-3">
-          <div className="flex min-w-0 items-start justify-between gap-2">
-            <div className="flex min-w-0 items-start gap-2">
-              {displayConfig ? (
-                <div
-                  className={cn(
-                    "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 transition-transform duration-300 group-hover:scale-105",
-                    displayConfig.avatarClassName,
-                  )}
-                  aria-label={agent.name}
-                >
-                  <img
-                    src={displayConfig.avatarUrl}
-                    alt={agent.name}
-                    className="h-7 w-7 rounded-full border border-white/70 object-cover shadow-sm"
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = "none";
-                      target.nextElementSibling?.classList.remove("hidden");
-                    }}
-                  />
-                  <span className="bg-background/90 hidden h-7 w-7 items-center justify-center rounded-full border border-white/60 shadow-sm">
-                    <UserIcon className="h-4 w-4" />
-                  </span>
-                  {DomainIcon && (
-                    <span className="bg-background text-foreground absolute -right-1 -bottom-1 flex h-4.5 w-4.5 items-center justify-center rounded-full border shadow-sm">
-                      <DomainIcon className="h-2.5 w-2.5" />
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-primary text-primary-foreground ring-primary/20 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 transition-transform duration-300 group-hover:scale-105">
-                  <BotIcon className="h-5 w-5" />
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <TruncatedTooltip text={agent.name}>
-                  <CardTitle
-                    className={cn(
-                      "text-sm leading-6 tracking-tight sm:text-base",
-                      isExternalAgent
-                        ? "line-clamp-2 break-words whitespace-normal"
-                        : "truncate whitespace-nowrap",
-                    )}
-                  >
-                    {agent.name}
-                  </CardTitle>
-                </TruncatedTooltip>
-                {agent.model && (
-                  <TruncatedBadge
-                    label={agent.model}
-                    variant="secondary"
-                    className="bg-muted/70 mt-1 rounded-md text-xs"
-                  />
+        <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+          <DigitalEmployeeAvatar agent={agent} className="size-14 sm:size-16" />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <h2 className="max-w-full truncate text-sm font-semibold tracking-tight sm:text-[15px]">
+                {displayName}
+              </h2>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "h-5 px-1.5 text-[10px] font-medium",
+                  agent.source === "personal"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    : "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300",
                 )}
+              >
+                {sourceLabel}
+              </Badge>
+              {categoryLabel ? (
+                <span className="text-muted-foreground text-[11px]">
+                  · {categoryLabel}
+                </span>
+              ) : null}
+            </div>
+            {agent.display_name && agent.display_name !== agent.name ? (
+              <p className="text-muted-foreground mt-0.5 truncate text-[11px]">
+                {agent.name}
+              </p>
+            ) : null}
+            <p className="text-muted-foreground mt-1 line-clamp-1 text-xs leading-5 sm:text-[13px]">
+              {agent.description || t.agents.noDescription}
+            </p>
+            {capabilityLabels.length > 0 ? (
+              <div className="mt-1.5 flex min-w-0 gap-1 overflow-hidden">
+                {capabilityLabels.slice(0, 4).map((label) => (
+                  <Badge
+                    key={label}
+                    variant="secondary"
+                    className="h-5 max-w-28 shrink-0 truncate rounded-md px-1.5 text-[10px] font-normal"
+                  >
+                    {label}
+                  </Badge>
+                ))}
+                {capabilityLabels.length > 4 ? (
+                  <span className="text-muted-foreground self-center text-[10px]">
+                    +{capabilityLabels.length - 4}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center justify-end gap-1.5 pl-[4.25rem] sm:pl-0">
+          {primaryAction}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={t.agents.more}
+                className="rounded-lg"
+              >
+                <MoreHorizontalIcon />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
+                <EyeIcon />
+                {t.agents.viewProfile}
+              </DropdownMenuItem>
+              {onEdit ? (
+                <DropdownMenuItem onSelect={() => onEdit(agent)}>
+                  <PencilIcon />
+                  {t.agents.edit}
+                </DropdownMenuItem>
+              ) : null}
+              {showPublish ? (
+                <DropdownMenuItem
+                  disabled={publishAgent.isPending}
+                  onSelect={() => void handlePublish()}
+                >
+                  <Share2Icon />
+                  {t.agents.publishToSquare}
+                </DropdownMenuItem>
+              ) : null}
+              {showUnpublish ? (
+                <DropdownMenuItem onSelect={() => setUnpublishOpen(true)}>
+                  <Undo2Icon />
+                  {t.agents.unpublishFromSquare}
+                </DropdownMenuItem>
+              ) : null}
+              {showDelete ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => setDeleteOpen(true)}
+                  >
+                    <Trash2Icon />
+                    {t.agents.delete}
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </article>
+
+      <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
+        <SheetContent className="w-full gap-0 sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{t.agents.profileTitle}</SheetTitle>
+            <SheetDescription>{t.agents.profileDescription}</SheetDescription>
+          </SheetHeader>
+          <div className="app-scroll-region flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4">
+            <div className="flex items-center gap-4">
+              <DigitalEmployeeAvatar agent={agent} className="size-24" />
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold break-words">
+                  {displayName}
+                </h2>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Badge variant="outline">{sourceLabel}</Badge>
+                  {categoryLabel ? (
+                    <Badge variant="secondary">{categoryLabel}</Badge>
+                  ) : null}
+                </div>
               </div>
             </div>
-          </div>
-          {agent.description && (
-            <TruncatedTooltip text={agent.description}>
-              <CardDescription className="text-muted-foreground/90 mt-2 line-clamp-2 text-sm leading-relaxed break-all">
+            {agent.description ? (
+              <p className="text-muted-foreground text-sm leading-7">
                 {agent.description}
-              </CardDescription>
-            </TruncatedTooltip>
-          )}
-        </CardHeader>
-
-        {hasCapabilities && (
-          <CardContent className="pt-0 pb-3">
-            <div className="flex flex-wrap gap-1">
-              {agent.tool_groups?.map((group) => (
-                <TruncatedBadge
-                  key={`tg:${group}`}
-                  label={group}
-                  variant="outline"
-                  className="bg-background/90 rounded-md text-xs"
-                />
-              ))}
-              {agent.skills?.map((skill) => (
-                <TruncatedBadge
-                  key={`sk:${skill}`}
-                  label={skill}
-                  variant="secondary"
-                  className="bg-muted/70 rounded-md text-xs"
-                />
-              ))}
-            </div>
-          </CardContent>
-        )}
-
-        <CardFooter className="mt-auto flex items-center justify-between gap-2 border-t pt-3">
-          {externalUrl ? (
-            <Button
-              asChild
-              size="sm"
-              className="flex-1 rounded-lg shadow-sm transition-all duration-300 group-hover:shadow"
-            >
-              <a
-                href={externalHref}
-                target="_blank"
-                rel="noreferrer"
-                onClick={recordExternalClick}
-              >
-                <ExternalLinkIcon className="mr-1.5 h-3.5 w-3.5" />
-                {t.agents.openExternal}
-              </a>
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              className="flex-1 rounded-lg shadow-sm transition-all duration-300 group-hover:shadow"
-              onClick={handleChat}
-            >
-              <MessageSquareIcon className="mr-1.5 h-3.5 w-3.5" />
-              {t.agents.chat}
-            </Button>
-          )}
-          {(showPublish || showUnpublish || showDelete) && (
-            <div className="flex gap-1">
-              {showPublish && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-primary hover:text-primary hover:bg-primary/10 h-8 w-8 shrink-0 rounded-lg transition-colors"
-                  onClick={() => void handlePublish()}
-                  disabled={publishAgent.isPending}
-                  title={t.agents.publishToSquare}
-                >
-                  <Share2Icon className="h-3.5 w-3.5" />
-                </Button>
-              )}
-              {showUnpublish && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-muted-foreground hover:text-foreground hover:bg-muted h-8 w-8 shrink-0 rounded-lg transition-colors"
-                  onClick={() => setUnpublishOpen(true)}
-                  disabled={unpublishTeamAgent.isPending}
-                  title={t.agents.unpublishFromSquare}
-                >
-                  <Undo2Icon className="h-3.5 w-3.5" />
-                </Button>
-              )}
-              {showDelete && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive h-8 w-8 shrink-0 rounded-lg transition-colors hover:bg-red-500/10"
-                  onClick={() => setDeleteOpen(true)}
-                  title={t.agents.delete}
-                >
-                  <Trash2Icon className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-          )}
-        </CardFooter>
-      </Card>
+              </p>
+            ) : null}
+            {capabilityLabels.length > 0 ? <Separator /> : null}
+            {capabilityLabels.length > 0 ? (
+              <section className="flex flex-col gap-2">
+                <h3 className="text-sm font-medium">{t.agents.capabilities}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {capabilityLabels.map((label) => (
+                    <Badge key={label} variant="secondary">
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+          </div>
+          <SheetFooter>{primaryAction}</SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
@@ -430,11 +360,7 @@ export function AgentCard({
             <DialogDescription>{t.agents.deleteConfirm}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteOpen(false)}
-              disabled={deleteAgent.isPending}
-            >
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
               {t.common.cancel}
             </Button>
             <Button
@@ -455,11 +381,7 @@ export function AgentCard({
             <DialogDescription>{t.agents.unpublishConfirm}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setUnpublishOpen(false)}
-              disabled={unpublishTeamAgent.isPending}
-            >
+            <Button variant="outline" onClick={() => setUnpublishOpen(false)}>
               {t.common.cancel}
             </Button>
             <Button

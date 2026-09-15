@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import ssl
 import tomllib
 from pathlib import Path
 
@@ -17,6 +18,63 @@ def _read(path: str) -> str:
 
 def _yaml_documents(path: str) -> list[dict]:
     return [document for document in yaml.safe_load_all(_read(path)) if isinstance(document, dict)]
+
+
+def test_dashboard_rollup_job_is_suspended_and_resource_bounded_by_default():
+    job = yaml.safe_load(_read("k8s/local-pvc/dashboard-rollup-cronjob.yaml"))
+    assert job["kind"] == "CronJob"
+    assert job["spec"]["suspend"] is True
+    assert job["spec"]["concurrencyPolicy"] == "Forbid"
+    assert job["spec"]["jobTemplate"]["spec"]["backoffLimit"] == 0
+    assert job["spec"]["jobTemplate"]["spec"]["activeDeadlineSeconds"] == 300
+    container = job["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    assert container["resources"]["limits"] == {"cpu": "100m", "memory": "256Mi"}
+    assert "--max-changed-days" in container["args"]
+    assert "--max-backfill-days" in container["args"]
+    assert "--max-changed-hours" in container["args"]
+    assert "--max-backfill-hours" in container["args"]
+    assert job["spec"]["schedule"] == "*/5 * * * *"
+    enterprise_patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
+    enterprise_job = next(document for document in enterprise_patches if document.get("kind") == "CronJob" and document.get("metadata", {}).get("name") == "dashboard-rollup-maintenance")
+    enterprise_container = enterprise_job["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    assert enterprise_container["imagePullPolicy"] == "Never"
+    assert {item["name"]: item["value"] for item in enterprise_container["env"]} == {
+        "DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA": "true",
+        "DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA": "true",
+    }
+
+
+def test_enterprise_dashboard_uses_a_verified_physical_read_replica():
+    replica_documents = _yaml_documents("k8s/enterprise/dashboard-postgres-replica.yaml")
+    replica = next(document for document in replica_documents if document.get("kind") == "StatefulSet" and document.get("metadata", {}).get("name") == "postgres-dashboard-replica")
+    assert replica["spec"]["template"]["spec"]["nodeSelector"] == {"kubernetes.io/hostname": "datax-03"}
+    container = replica["spec"]["template"]["spec"]["containers"][0]
+    assert "default_transaction_read_only=on" in container["args"]
+    assert "pg_is_in_recovery()" in container["readinessProbe"]["exec"]["command"][-1]
+    init_script = replica["spec"]["template"]["spec"]["initContainers"][0]["command"][-1]
+    assert 'REPLICATION_USER" != "deerflow_dashboard_replica' in init_script
+    assert "--checkpoint=spread --max-rate=32M" in init_script
+    volume = next(document for document in replica_documents if document.get("kind") == "PersistentVolume")
+    assert volume["spec"]["local"]["path"] == "/opt/deerflow-storage/dashboard-postgresql"
+    assert volume["spec"]["nodeAffinity"]["required"]["nodeSelectorTerms"][0]["matchExpressions"][0]["values"] == ["datax-03"]
+
+    patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
+    gateway = next(document for document in patches if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "gateway")
+    env = {entry["name"]: entry for entry in gateway["spec"]["template"]["spec"]["containers"][0]["env"]}
+    assert env["DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA"]["value"] == "true"
+    assert env["DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA"]["value"] == "true"
+    assert env["DEER_FLOW_DASHBOARD_ROLLUPS_ENABLED"]["value"] == "true"
+    assert env["DEER_FLOW_DASHBOARD_REQUIRE_HOURLY_ROLLUPS"]["value"] == "true"
+    assert env["DEER_FLOW_DASHBOARD_DATABASE_URL"]["valueFrom"]["secretKeyRef"] == {
+        "name": "deer-flow-dashboard-postgres",
+        "key": "DATABASE_URL",
+        "optional": True,
+    }
+
+    primary = next(document for document in patches if document.get("kind") == "StatefulSet" and document.get("metadata", {}).get("name") == "postgres")
+    primary_args = primary["spec"]["template"]["spec"]["containers"][0]["args"]
+    assert "wal_level=replica" in primary_args
+    assert "max_slot_wal_keep_size=4GB" in primary_args
 
 
 def test_weknora_docreader_mounts_narrow_parser_compatibility_shims():
@@ -136,13 +194,11 @@ def test_ppt_master_runner_is_an_isolated_gateway_sidecar():
     containers = {container["name"]: container for container in deployment["spec"]["template"]["spec"]["containers"]}
     runner = containers["ppt-master-runner"]
     runner_env = {entry["name"]: entry.get("value") for entry in runner["env"] if "value" in entry}
-    gateway_env = {
-        entry["name"]: entry.get("value")
-        for entry in containers["gateway"]["env"]
-        if "value" in entry
-    }
+    gateway_env = {entry["name"]: entry.get("value") for entry in containers["gateway"]["env"] if "value" in entry}
 
-    assert runner["image"] == containers["gateway"]["image"]
+    assert containers["gateway"]["image"].startswith("deer-flow-gateway:")
+    assert runner["image"].startswith("deer-flow-ppt-master-runner:")
+    assert runner["image"].partition(":")[2] == containers["gateway"]["image"].partition(":")[2]
     assert runner["ports"] == [{"containerPort": 8003}]
     assert runner_env["GATEWAY_PORT"] == "8003"
     assert runner_env["DEER_FLOW_RUNTIME_PROFILE"] == "ppt-master-runner"
@@ -185,16 +241,8 @@ def test_enterprise_ppt_runner_retains_proxy_and_ca_boundary():
 
 def test_enterprise_ppt_agent_disables_provider_hosted_web_search():
     patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
-    provisioner = next(
-        patch
-        for patch in patches
-        if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "provisioner"
-    )
-    env = {
-        entry["name"]: entry.get("value")
-        for entry in provisioner["spec"]["template"]["spec"]["containers"][0]["env"]
-        if "value" in entry
-    }
+    provisioner = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "provisioner")
+    env = {entry["name"]: entry.get("value") for entry in provisioner["spec"]["template"]["spec"]["containers"][0]["env"] if "value" in entry}
 
     codex_config = tomllib.loads(env["CODEX_CONFIG_TOML"])
 
@@ -234,19 +282,21 @@ def test_enterprise_runtime_images_are_immutable():
     assert custom
     assert all(image.get("digest", "").startswith("sha256:") for image in third_party)
     expected_tags = {
-        "deer-flow-gateway": "20260811-enterprise-arm64-rc15-consolidated2",
-        "deer-flow-frontend": "20260811-enterprise-arm64-rc15-consolidated2",
-        "deer-flow-provisioner": "20260811-enterprise-arm64-rc15-consolidated2",
-        "deer-flow-skills": "20260811-enterprise-arm64-rc15-consolidated2",
-        "deer-flow-mineru-adapter": "20260811-enterprise-arm64-rc15-consolidated2",
+        "deer-flow-gateway": "20260914-enterprise-arm64-rc15-digitalemployee-promptfix1",
+        "deer-flow-ppt-master-runner": "20260907-enterprise-arm64-rc15-skillhubux-dashboard1-r2",
+        "deer-flow-frontend": "20260914-enterprise-arm64-rc15-digitalemployee-ui2-r1",
+        "deer-flow-provisioner": "20260817-enterprise-arm64-rc15-sandboxstorage1",
+        "deer-flow-skills": "20260901-enterprise-arm64-rc15-researchfund1",
+        "deer-flow-mineru-adapter": "20260904-enterprise-arm64-rc15-uploadstability1",
         "paradedb/paradedb": "pg16-search-arm64-20260722-1",
-        "wechatopenai/weknora-app": "0.7.0-enterprise-proxy1-arm64-20260723",
+        "wechatopenai/weknora-app": "0.8.0-enterprise-proxy1-anydoc1-arm64-20260912",
+        "wechatopenai/weknora-ui": "0.8.0-enterprise-sso2-r5-arm64-20260913",
     }
     assert {image["name"]: image.get("newTag") for image in custom} == expected_tags
     assert "latest" not in _read("k8s/enterprise/kustomization.yaml")
 
 
-def test_weknora_ui_uses_official_v070_resource_aware_manifest():
+def test_enterprise_weknora_ui_replaces_the_official_v070_base_image():
     expected_digest = "sha256:401604e79a5717dd966a13383d775f15d3125481d3e080eba329e4a0fbcf9523"
     base_documents = _yaml_documents("k8s/weknora/weknora.yaml")
     frontend = next(document for document in base_documents if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "weknora-frontend")
@@ -257,9 +307,17 @@ def test_weknora_ui_uses_official_v070_resource_aware_manifest():
     override = next(image for image in enterprise["images"] if image["name"] == "wechatopenai/weknora-ui")
     assert override == {
         "name": "wechatopenai/weknora-ui",
-        "newName": "m.daocloud.io/docker.io/wechatopenai/weknora-ui",
-        "digest": expected_digest,
+        "newName": "deerflow.local/weknora-ui",
+        "newTag": "0.8.0-enterprise-sso2-r5-arm64-20260913",
     }
+
+    v08_patches = _yaml_documents("k8s/enterprise/weknora-v08-runtime-patches.yaml")
+    v08_frontend = next(document for document in v08_patches if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "weknora-frontend")
+    pod_spec = v08_frontend["spec"]["template"]["spec"]
+    container = next(item for item in pod_spec["containers"] if item["name"] == "frontend")
+    assert container["imagePullPolicy"] == "Never"
+    assert container["volumeMounts"] is None
+    assert pod_spec["volumes"] is None
 
     patched_index = _read("k8s/weknora/ui-patches/index.html")
     for asset in (
@@ -449,14 +507,14 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
     assert container["resources"]["requests"] == {"cpu": "500m", "memory": "1Gi"}
     assert container["resources"]["limits"] == {"cpu": "2", "memory": "4Gi"}
     assert container["readinessProbe"] == {
-        "httpGet": {"path": "/health", "port": "http"},
+        "httpGet": {"path": "/live", "port": "http"},
         "initialDelaySeconds": 3,
         "periodSeconds": 5,
         "timeoutSeconds": 5,
         "failureThreshold": 12,
     }
     assert container["livenessProbe"] == {
-        "httpGet": {"path": "/health", "port": "http"},
+        "httpGet": {"path": "/live", "port": "http"},
         "initialDelaySeconds": 15,
         "periodSeconds": 15,
         "timeoutSeconds": 10,
@@ -468,9 +526,16 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
     assert worker_service["metadata"]["name"] == "deer-flow-mineru-adapter-workers"
     assert worker_service["spec"]["clusterIP"] == "None"
     assert dispatcher["metadata"]["name"] == "deer-flow-mineru-dispatcher"
+    assert dispatcher["spec"]["strategy"] == {"type": "Recreate"}
     dispatcher_env = {item["name"]: item["value"] for item in dispatcher["spec"]["template"]["spec"]["containers"][0]["env"]}
     assert dispatcher_env["MINERU_ADAPTER_MODE"] == "dispatcher"
     assert dispatcher_env["MINERU_DISPATCH_BACKEND_HOST"] == "deer-flow-mineru-adapter-workers"
+    assert dispatcher_env["MINERU_DISPATCH_FAILURE_COOLDOWN_SECONDS"] == "15"
+    assert dispatcher_env["MINERU_DISPATCH_PROBE_TIMEOUT_SECONDS"] == "0.25"
+    assert dispatcher_env["MINERU_DISPATCH_BUSY_RETRY_LIMIT"] == "3"
+    dispatcher_container = dispatcher["spec"]["template"]["spec"]["containers"][0]
+    assert dispatcher_container["readinessProbe"]["httpGet"]["path"] == "/ready"
+    assert dispatcher_container["livenessProbe"]["httpGet"]["path"] == "/live"
     assert all(
         document["kind"] != "Secret"
         for path in (
@@ -503,7 +568,12 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert gateway_env["WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK"] == "true"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"] == "true"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS"] == "1860"
+    assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS"] == "16"
+    assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS"] == "8"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED"] == "true"
+    assert gateway_env["DEERFLOW_UPLOAD_PDF_SECURITY_MODE"] == "sanitize"
+    assert gateway_env["DEERFLOW_UPLOAD_PDF_SANITIZE_DPI"] == "120"
+    assert gateway_env["DEERFLOW_UPLOAD_PDF_SANITIZE_MAX_PAGES"] == "200"
     assert "model.ai.cnooc" in gateway_env["NO_PROXY"].split(",")
     assert "model.ai.cnooc" in gateway_env["no_proxy"].split(",")
 
@@ -557,6 +627,7 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert adapter_env["MINERU_SYNC_RETRY_DELAY_SECONDS"] == "2"
     assert adapter_env["MINERU_SYNC_RETRY_MAX_ELAPSED_SECONDS"] == "600"
     assert adapter_env["MINERU_TRUST_ENV"] == "false"
+    assert adapter_env["MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED"] == "false"
 
 
 def test_enterprise_routes_internal_retrieval_models_through_gateway():
@@ -851,11 +922,7 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
     gateway_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
     gateway_env = gateway_patch["spec"]["template"]["spec"]["containers"][0]["env"]
     gateway_values = {entry["name"]: entry.get("value") for entry in gateway_env if "value" in entry}
-    gateway_secret_refs = {
-        entry["name"]: entry.get("valueFrom", {}).get("secretKeyRef", {})
-        for entry in gateway_env
-        if "valueFrom" in entry
-    }
+    gateway_secret_refs = {entry["name"]: entry.get("valueFrom", {}).get("secretKeyRef", {}) for entry in gateway_env if "valueFrom" in entry}
     assert gateway_values["DASHSCOPE_TLS_COMPAT"] == "true"
     for proxy_name in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
         assert gateway_secret_refs[proxy_name] == {
@@ -932,3 +999,57 @@ def test_enterprise_neo4j_uses_pinned_image_and_static_storage():
     assert claim["spec"]["storageClassName"] == "deerflow-weknora-local"
     assert claim["spec"]["volumeName"] == "deerflow-weknora-neo4j-pv-datax-03"
     assert claim["spec"]["resources"]["requests"]["storage"] == "50Gi"
+
+
+def test_skillhub_server_trusts_only_the_pinned_globalsign_r46_root():
+    certificate = REPO_ROOT / "k8s" / "skillhub" / "certs" / "globalsign-root-r46.pem"
+    der = ssl.PEM_cert_to_DER_cert(certificate.read_text(encoding="ascii"))
+    assert hashlib.sha1(der).hexdigest() == "53a2b04bca6bd645e6398a8ec40dd2bf77c3a290"
+    assert hashlib.sha256(der).hexdigest() == "4fa3126d8d3a11d1c4855a4f807cbad6cf919d3a5a88b03bea2c6372d93c40c9"
+
+    dockerfile = _read("k8s/skillhub/Dockerfile.server-overlay")
+    assert "-alias globalsign-root-r46" in dockerfile
+    assert "-cacerts -storepass changeit" in dockerfile
+    assert "trustAll" not in dockerfile
+    assert "disableHostnameVerification" not in dockerfile
+
+
+def test_skillhub_enterprise_values_keep_native_service_capabilities_enabled():
+    values = yaml.safe_load(_read("k8s/skillhub/values-deer-flow.example.yaml"))
+
+    assert values["ingress"]["enabled"] is False
+    assert values["web"]["service"]["enabled"] is True
+    assert values["server"]["service"]["enabled"] is True
+    assert values["auth"]["direct"]["enabled"] is True
+    assert values["bootstrapAdmin"]["enabled"] is True
+    assert values["postgresql"]["enabled"] is True
+    assert values["postgresql"]["primary"]["persistence"]["enabled"] is True
+    assert values["redis"]["enabled"] is True
+    assert values["redis"]["master"]["persistence"]["enabled"] is True
+    assert values["scanner"]["enabled"] is True
+
+    server_env = {item["name"]: item.get("value") for item in values["server"]["extraEnv"]}
+    assert server_env["SKILLHUB_AUTH_SESSION_BOOTSTRAP_ENABLED"] == "true"
+    assert server_env["SKILLHUB_AUTH_DEERFLOW_SESSION_ENABLED"] == "true"
+    # This disables only automatic personal namespace creation. Native
+    # namespace workbench/create/governance routes remain available under RBAC.
+    assert server_env["SKILLHUB_NAMESPACE_PERSONAL_PROVISIONING_ENABLED"] == "false"
+
+
+def test_skillhub_nginx_routes_survive_the_kubernetes_template_renderer():
+    config = _read("k8s/local-pvc/nginx.conf")
+    assert "proxy_pass http://gateway:8001/internal/skillhub/session/assertion;" in config
+    assert config.count("proxy_pass http://skillhub-web:80;") == 3
+    assert "proxy_pass http://$gateway_upstream/internal/skillhub" not in config
+    assert "proxy_pass http://$skillhub_upstream" not in config
+
+    for path in (
+        "k8s/local-pvc/nginx.conf",
+        "docker/nginx/nginx.conf",
+        "docker/nginx/nginx.local.conf",
+    ):
+        nginx = _read(path)
+        bootstrap = nginx.split("location = /platform/skillhub/api/v1/auth/session/bootstrap {", 1)[1].split("\n        }", 1)[0]
+        assertion = nginx.split("location = /_internal/skillhub/session-assertion {", 1)[1].split("\n        }", 1)[0]
+        assert 'proxy_set_header Cookie "";' in bootstrap
+        assert "proxy_set_header Cookie $http_cookie;" in assertion

@@ -16,6 +16,7 @@ export const MOCK_THREAD_ID = "00000000-0000-0000-0000-000000000001";
 export const MOCK_THREAD_ID_2 = "00000000-0000-0000-0000-000000000002";
 export const MOCK_SIDECAR_THREAD_ID = "00000000-0000-0000-0000-0000000000aa";
 export const MOCK_RUN_ID = "00000000-0000-0000-0000-000000000099";
+export const THREAD_PINNED_METADATA_KEY = "deerflow_pinned";
 
 const MOCK_AUTH_USER = {
   id: "default",
@@ -41,8 +42,17 @@ export type MockThread = {
 
 export type MockAgent = {
   name: string;
+  display_name?: string | null;
   description?: string;
   system_prompt?: string;
+  model?: string | null;
+  tool_groups?: string[] | null;
+  skills?: string[] | null;
+  category_id?: string | null;
+  tags?: string[];
+  avatar_id?: string | null;
+  avatar_url?: string | null;
+  source?: "personal" | "team" | "legacy" | null;
 };
 
 export type MockSkill = {
@@ -56,17 +66,19 @@ export type MockSkill = {
 export type MockAPIOptions = {
   threads?: MockThread[];
   agents?: MockAgent[];
+  teamAgents?: MockAgent[];
   skills?: MockSkill[];
   schedulerEnabled?: boolean;
   scheduledTasks?: Array<{
     id: string;
     thread_id: string | null;
     context_mode?: "fresh_thread_per_run" | "reuse_thread";
+    assistant_id?: string | null;
     last_thread_id?: string | null;
     title: string;
     prompt: string;
     run_context?: Record<string, unknown>;
-    schedule_type: "once" | "cron";
+    schedule_type: "once" | "cron" | "interval";
     schedule_spec: Record<string, unknown>;
     timezone: string;
     status:
@@ -88,6 +100,11 @@ export type MockAPIOptions = {
     max_files: number;
     max_file_size: number;
     max_total_size: number;
+  };
+  features?: {
+    agentsApiEnabled?: boolean;
+    browserControlEnabled?: boolean;
+    mcpTasksEnabled?: boolean;
   };
 };
 
@@ -222,6 +239,7 @@ function runStreamThreadId(route: Route) {
 export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
   let threads = [...(options?.threads ?? [])];
   const agents = options?.agents ?? [];
+  const teamAgents = options?.teamAgents ?? [];
   const skills = options?.skills ?? DEFAULT_SKILLS;
   const scheduledTasks = options?.scheduledTasks ?? [];
   let mutableScheduledTasks = [...scheduledTasks];
@@ -234,8 +252,16 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
       run_id: string | null;
       scheduled_for: string;
       trigger: "scheduled" | "manual";
-      status: "queued" | "running" | "success" | "failed" | "skipped";
+      status:
+        | "queued"
+        | "launching"
+        | "running"
+        | "success"
+        | "failed"
+        | "skipped"
+        | "interrupted";
       error: string | null;
+      attempt_count: number;
       started_at: string | null;
       finished_at: string | null;
       created_at: string;
@@ -245,6 +271,11 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
     max_files: 10,
     max_file_size: 50 * 1024 * 1024,
     max_total_size: 100 * 1024 * 1024,
+  };
+  const featureFlags = {
+    agentsApiEnabled: options?.features?.agentsApiEnabled ?? true,
+    browserControlEnabled: options?.features?.browserControlEnabled ?? true,
+    mcpTasksEnabled: options?.features?.mcpTasksEnabled ?? true,
   };
 
   const upsertThread = (thread: MockThread) => {
@@ -265,6 +296,37 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
     status: "idle",
     values: { title: thread.title ?? "Untitled", goal: thread.goal ?? null },
   });
+
+  const threadUpdatedAt = (thread: MockThread) =>
+    Date.parse(thread.updated_at ?? "2025-01-01T00:00:00Z") || 0;
+
+  const sortThreadSearchResults = (items: readonly MockThread[]) =>
+    [...items].sort((left, right) => {
+      const pinnedDifference =
+        Number(right.metadata?.[THREAD_PINNED_METADATA_KEY] === true) -
+        Number(left.metadata?.[THREAD_PINNED_METADATA_KEY] === true);
+      return (
+        pinnedDifference ||
+        threadUpdatedAt(right) - threadUpdatedAt(left) ||
+        right.thread_id.localeCompare(left.thread_id)
+      );
+    });
+
+  const patchThreadMetadata = (
+    threadId: string,
+    metadata: Record<string, unknown>,
+  ) => {
+    let updated: MockThread | undefined;
+    threads = threads.map((thread) => {
+      if (thread.thread_id !== threadId) return thread;
+      updated = {
+        ...thread,
+        metadata: { ...(thread.metadata ?? {}), ...metadata },
+      };
+      return updated;
+    });
+    return updated;
+  };
 
   // Auth — keep workspace tests independent from a real gateway session.
   void page.route("**/api/v1/auth/me", (route) => {
@@ -338,6 +400,9 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
           scheduler_enabled: options?.schedulerEnabled ?? true,
           execution_mode: "non_interactive",
           supports_clarification: false,
+          schedule_types: ["once", "cron", "interval"],
+          supports_custom_agents: true,
+          supports_queued_admission: true,
         }),
       });
     }
@@ -373,12 +438,16 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
         context_mode:
           (payload.context_mode as "fresh_thread_per_run" | "reuse_thread") ??
           "fresh_thread_per_run",
+        assistant_id:
+          typeof payload.assistant_id === "string"
+            ? payload.assistant_id
+            : "lead_agent",
         last_thread_id: null,
         title,
         prompt,
         run_context:
           (payload.run_context as Record<string, unknown> | undefined) ?? {},
-        schedule_type: payload.schedule_type as "once" | "cron",
+        schedule_type: payload.schedule_type as "once" | "cron" | "interval",
         schedule_spec: (payload.schedule_spec as Record<string, unknown>) ?? {},
         timezone,
         status: "enabled" as const,
@@ -455,6 +524,7 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
             trigger: "manual",
             status: "success",
             error: null,
+            attempt_count: 1,
             started_at: "2026-07-01T00:00:00+00:00",
             finished_at: "2026-07-01T00:00:00+00:00",
             created_at: "2026-07-01T00:00:00+00:00",
@@ -500,6 +570,17 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
             : {}),
           ...(typeof payload.prompt === "string"
             ? { prompt: payload.prompt }
+            : {}),
+          ...(typeof payload.assistant_id === "string"
+            ? { assistant_id: payload.assistant_id }
+            : {}),
+          ...(typeof payload.schedule_type === "string"
+            ? {
+                schedule_type: payload.schedule_type as
+                  | "once"
+                  | "cron"
+                  | "interval",
+              }
             : {}),
           ...(payload.schedule_spec
             ? {
@@ -562,13 +643,16 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
 
   void page.route("**/api/scheduled-tasks/*/runs", (route) => {
     if (route.request().method() === "GET") {
-      const taskId = decodeURIComponent(
-        new URL(route.request().url()).pathname.split("/").at(-2) ?? "",
-      );
+      const url = new URL(route.request().url());
+      const taskId = decodeURIComponent(url.pathname.split("/").at(-2) ?? "");
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      const limit = Number(url.searchParams.get("limit") ?? 50);
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(mutableTaskRuns[taskId] ?? []),
+        body: JSON.stringify(
+          (mutableTaskRuns[taskId] ?? []).slice(offset, offset + limit),
+        ),
       });
     }
     return route.fallback();
@@ -576,7 +660,7 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
 
   // Thread search — sidebar thread list & chats list page
   void page.route("**/api/langgraph/threads/search", async (route) => {
-    let body = threads.map(threadSearchResult);
+    let body = sortThreadSearchResults(threads).map(threadSearchResult);
 
     let limit: number | undefined;
     let offset = 0;
@@ -663,10 +747,23 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
       });
     }
     if (route.request().method() === "PATCH") {
+      const body = route.request().postDataJSON() as {
+        metadata?: Record<string, unknown>;
+      };
+      const updated = body.metadata
+        ? patchThreadMetadata(threadId, body.metadata)
+        : matchingThread;
+      if (!updated) {
+        return route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Thread not found" }),
+        });
+      }
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ thread_id: MOCK_THREAD_ID }),
+        body: JSON.stringify(threadSearchResult(updated)),
       });
     }
     if (route.request().method() === "DELETE") {
@@ -709,6 +806,32 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
   });
 
   void page.route(/\/api\/threads\/[^/]+$/, (route) => {
+    if (route.request().method() === "PATCH") {
+      const threadId = decodeURIComponent(
+        new URL(route.request().url()).pathname.split("/").at(-1) ?? "",
+      );
+      const body = route.request().postDataJSON() as {
+        metadata?: Record<string, unknown>;
+      };
+      const matchingThread = threads.find(
+        (thread) => thread.thread_id === threadId,
+      );
+      const updated = body.metadata
+        ? patchThreadMetadata(threadId, body.metadata)
+        : matchingThread;
+      if (!updated) {
+        return route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: `Thread ${threadId} not found` }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(threadSearchResult(updated)),
+      });
+    }
     if (route.request().method() === "DELETE") {
       const threadId = decodeURIComponent(
         new URL(route.request().url()).pathname.split("/").at(-1) ?? "",
@@ -731,6 +854,39 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
       });
     }
     return route.fallback();
+  });
+
+  void page.route("**/api/threads/search", (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const request = route.request().postDataJSON() as {
+      archived?: boolean;
+      metadata?: Record<string, unknown>;
+      limit?: number;
+      offset?: number;
+    };
+    let body = sortThreadSearchResults(threads);
+    if (typeof request.archived === "boolean") {
+      body = body.filter(
+        (thread) =>
+          (thread.metadata?.deerflow_archived === true) === request.archived,
+      );
+    }
+    if (request.metadata) {
+      body = body.filter((thread) =>
+        Object.entries(request.metadata ?? {}).every(
+          ([key, value]) => thread.metadata?.[key] === value,
+        ),
+      );
+    }
+    const offset = request.offset ?? 0;
+    const limit = request.limit ?? body.length;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        body.slice(offset, offset + limit).map(threadSearchResult),
+      ),
+    });
   });
 
   void page.route(/\/api\/threads\/[^/]+\/branches$/, (route) => {
@@ -1043,7 +1199,11 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ agents_api: { enabled: true } }),
+        body: JSON.stringify({
+          agents_api: { enabled: featureFlags.agentsApiEnabled },
+          browser_control: { enabled: featureFlags.browserControlEnabled },
+          mcp_tasks: { enabled: featureFlags.mcpTasksEnabled },
+        }),
       });
     }
     return route.fallback();
@@ -1074,6 +1234,31 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
   });
 
   // Agents list — sidebar & gallery page
+  void page.route("**/api/digital-employee-categories", (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        items: [
+          {
+            id: "general",
+            name: "General",
+            description: "General purpose",
+            sort_order: 0,
+          },
+        ],
+      }),
+    });
+  });
+
+  void page.route("**/api/team-agents", (route) => {
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ agents: teamAgents }),
+    });
+  });
+
   void page.route("**/api/agents", (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({

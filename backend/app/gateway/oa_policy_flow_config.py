@@ -29,6 +29,7 @@ class OAPolicyFlowConfig:
     ingest_key: str
     owner_user_id: str
     assistant_id: str
+    callback_enabled: bool
     callback_url: str
     callback_bearer_token: str
     callback_signing_secret: str
@@ -50,6 +51,7 @@ def load_oa_policy_flow_config() -> OAPolicyFlowConfig:
     ingest_key = os.getenv("OA_POLICY_FLOW_INGEST_KEY", "").strip()
     owner_user_id = os.getenv("OA_POLICY_FLOW_OWNER_USER_ID", "").strip()
     assistant_id = os.getenv("OA_POLICY_FLOW_AGENT_NAME", "").strip()
+    callback_enabled = _truthy("OA_POLICY_FLOW_CALLBACK_ENABLED", True)
     callback_url = os.getenv("OA_POLICY_FLOW_CALLBACK_URL", "").strip()
     callback_bearer_token = os.getenv("OA_POLICY_FLOW_CALLBACK_BEARER_TOKEN", "").strip()
     callback_signing_secret = os.getenv("OA_POLICY_FLOW_CALLBACK_SIGNING_SECRET", "").strip()
@@ -62,32 +64,35 @@ def load_oa_policy_flow_config() -> OAPolicyFlowConfig:
                 ("OA_POLICY_FLOW_INGEST_KEY", ingest_key),
                 ("OA_POLICY_FLOW_OWNER_USER_ID", owner_user_id),
                 ("OA_POLICY_FLOW_AGENT_NAME", assistant_id),
-                ("OA_POLICY_FLOW_CALLBACK_URL", callback_url),
             )
             if not value
         ]
+        if callback_enabled and not callback_url:
+            missing.append("OA_POLICY_FLOW_CALLBACK_URL")
         if missing:
             raise ValueError(f"OA policy-flow integration is enabled but missing: {', '.join(missing)}")
         if len(ingest_key) < 32:
             raise ValueError("OA_POLICY_FLOW_INGEST_KEY must contain at least 32 characters")
-        if not callback_bearer_token and not callback_signing_secret:
-            raise ValueError("Configure an OA callback Bearer token, signing secret, or both")
-        if callback_signing_secret and len(callback_signing_secret) < 32:
-            raise ValueError("OA_POLICY_FLOW_CALLBACK_SIGNING_SECRET must contain at least 32 characters")
-        parsed = urlsplit(callback_url)
-        allow_http = _truthy("OA_POLICY_FLOW_CALLBACK_ALLOW_HTTP")
-        if parsed.scheme not in ({"https", "http"} if allow_http else {"https"}) or not parsed.hostname:
-            raise ValueError("OA_POLICY_FLOW_CALLBACK_URL must be a fixed HTTPS URL (HTTP requires the explicit allow flag)")
-        if parsed.username or parsed.password or parsed.fragment:
-            raise ValueError("OA_POLICY_FLOW_CALLBACK_URL must not contain credentials or a fragment")
-        if callback_ca_bundle is not None and not Path(callback_ca_bundle).is_file():
-            raise ValueError("OA_POLICY_FLOW_CALLBACK_CA_BUNDLE does not point to a readable file")
+        if callback_enabled:
+            if not callback_bearer_token and not callback_signing_secret:
+                raise ValueError("Configure an OA callback Bearer token, signing secret, or both")
+            if callback_signing_secret and len(callback_signing_secret) < 32:
+                raise ValueError("OA_POLICY_FLOW_CALLBACK_SIGNING_SECRET must contain at least 32 characters")
+            parsed = urlsplit(callback_url)
+            allow_http = _truthy("OA_POLICY_FLOW_CALLBACK_ALLOW_HTTP")
+            if parsed.scheme not in ({"https", "http"} if allow_http else {"https"}) or not parsed.hostname:
+                raise ValueError("OA_POLICY_FLOW_CALLBACK_URL must be a fixed HTTPS URL (HTTP requires the explicit allow flag)")
+            if parsed.username or parsed.password or parsed.fragment:
+                raise ValueError("OA_POLICY_FLOW_CALLBACK_URL must not contain credentials or a fragment")
+            if callback_ca_bundle is not None and not Path(callback_ca_bundle).is_file():
+                raise ValueError("OA_POLICY_FLOW_CALLBACK_CA_BUNDLE does not point to a readable file")
 
     return OAPolicyFlowConfig(
         enabled=enabled,
         ingest_key=ingest_key,
         owner_user_id=owner_user_id,
         assistant_id=assistant_id,
+        callback_enabled=callback_enabled,
         callback_url=callback_url,
         callback_bearer_token=callback_bearer_token,
         callback_signing_secret=callback_signing_secret,

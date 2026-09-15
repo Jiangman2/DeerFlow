@@ -5,11 +5,9 @@ a personal custom agent owned by the current user. The default and team-shared
 agents do not see this tool, and the bootstrap flow continues to use
 ``setup_agent`` for the initial creation handshake.
 
-The tool writes back to ``{base_dir}/users/{user_id}/agents/{agent_name}/{config.yaml,SOUL.md}``
-so an agent created by one user is never visible to (or mutable by) another.
-Writes are staged into temp files first; both files are renamed into place only
-after both temp files are successfully written, so a partial failure cannot leave
-config.yaml updated while SOUL.md still holds stale content.
+The tool writes through the configured file/SQL agent store so an employee
+created by one user is never visible to (or mutable by) another. SQL mode
+commits config and soul in one transaction; file mode uses atomic replacements.
 """
 
 from __future__ import annotations
@@ -25,9 +23,16 @@ from langchain_core.tools import tool
 from langgraph.types import Command
 from pydantic import BeforeValidator
 
-from deerflow.config.agents_config import is_personal_agent, load_agent_config, preserve_non_managed_fields, validate_agent_name
+from deerflow.config.agents_config import (
+    MAX_AGENT_DESCRIPTION_LENGTH,
+    is_personal_agent,
+    load_agent_config,
+    preserve_non_managed_fields,
+    validate_agent_name,
+)
 from deerflow.config.app_config import get_app_config
 from deerflow.config.paths import get_paths
+from deerflow.persistence.agents import get_agent_store
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.tools.types import Runtime
 
@@ -45,37 +50,22 @@ _UNTRUSTED_CHANNELS: frozenset[str] = frozenset({"github"})
 
 
 def _stage_temp(path: Path, text: str) -> Path:
-    """Write ``text`` into a sibling temp file and return its path.
-
-    The caller is responsible for ``Path.replace``-ing the temp into the target
-    once every staged file is ready, or for unlinking it on failure.
-    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd = tempfile.NamedTemporaryFile(
-        mode="w",
-        dir=path.parent,
-        suffix=".tmp",
-        delete=False,
-        encoding="utf-8",
-    )
+    handle = tempfile.NamedTemporaryFile(mode="w", dir=path.parent, suffix=".tmp", delete=False, encoding="utf-8")
     try:
-        fd.write(text)
-        fd.flush()
-        fd.close()
-        return Path(fd.name)
+        handle.write(text)
+        handle.flush()
+        handle.close()
+        return Path(handle.name)
     except BaseException:
-        fd.close()
-        Path(fd.name).unlink(missing_ok=True)
+        handle.close()
+        Path(handle.name).unlink(missing_ok=True)
         raise
 
 
 def _cleanup_temps(temps: list[Path]) -> None:
-    """Best-effort removal of staged temp files."""
-    for tmp in temps:
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            logger.debug("Failed to clean up temp file %s", tmp, exc_info=True)
+    for temporary in temps:
+        temporary.unlink(missing_ok=True)
 
 
 def _is_nullish_string(value: object) -> bool:
@@ -145,6 +135,12 @@ def update_agent(
     if soul is None and description is None and skills is None and tool_groups is None and model is None:
         return _err('No fields provided. Pass at least one of: soul, description, skills, tool_groups, model. Omit unchanged fields instead of passing null-like strings such as "null", "none", or "undefined".')
 
+    if soul is not None and not soul.strip():
+        return _err("soul content is empty; refusing to update the digital employee with an empty SOUL.md. Omit the soul field if you do not want to change it.")
+
+    if description is not None and len(description) > MAX_AGENT_DESCRIPTION_LENGTH:
+        return _err(f"description must be {MAX_AGENT_DESCRIPTION_LENGTH} characters or fewer")
+
     try:
         agent_name = validate_agent_name(agent_name_raw)
     except ValueError as e:
@@ -169,7 +165,6 @@ def update_agent(
         return _err(f"Unknown model '{model}'. Pass a model name that exists in config.yaml's models section.")
 
     paths = get_paths()
-    agent_dir = paths.user_agent_dir(user_id, agent_name)
     team_dir = paths.team_agent_dir(agent_name)
     legacy_dir = paths.agent_dir(agent_name)
     # Require a personal config.yaml, not bare directory existence. A shared
@@ -226,6 +221,23 @@ def update_agent(
     if skills is not None and skills != existing_cfg.skills:
         updated_fields.append("skills")
 
+    # The conversational updater does not expose directory presentation
+    # metadata, but it must preserve values written by the Digital Employee
+    # settings surface.  These fields are part of AgentConfig's managed set so
+    # the HTTP route can update them explicitly.
+    for metadata_field in (
+        "display_name",
+        "category_id",
+        "tags",
+        "avatar_id",
+        "model_settings",
+        "thinking_enabled",
+        "reasoning_effort",
+    ):
+        metadata_value = getattr(existing_cfg, metadata_field)
+        if metadata_value is not None:
+            config_data[metadata_field] = metadata_value
+
     # Preserve every top-level AgentConfig field that this tool does not
     # expose as an argument (currently ``github:``, plus any future field
     # added to :class:`AgentConfig`). The same helper is used by the HTTP
@@ -239,57 +251,56 @@ def update_agent(
 
     config_changed = bool({"description", "model", "tool_groups", "skills"} & set(updated_fields))
 
-    # Stage every file we intend to rewrite into a temp sibling. Only after
-    # *all* temp files exist do we rename them into place — so a failure on
-    # SOUL.md cannot leave config.yaml already replaced.
-    pending: list[tuple[Path, Path]] = []
-    staged_temps: list[Path] = []
+    if soul is not None:
+        updated_fields.append("soul")
 
-    try:
-        agent_dir.mkdir(parents=True, exist_ok=True)
-
-        if config_changed:
-            yaml_text = yaml.dump(config_data, default_flow_style=False, allow_unicode=True, sort_keys=False)
-            config_target = agent_dir / "config.yaml"
-            config_tmp = _stage_temp(config_target, yaml_text)
-            staged_temps.append(config_tmp)
-            pending.append((config_tmp, config_target))
-
-        if soul is not None:
-            soul_target = agent_dir / "SOUL.md"
-            soul_tmp = _stage_temp(soul_target, soul)
-            staged_temps.append(soul_tmp)
-            pending.append((soul_tmp, soul_target))
-            updated_fields.append("soul")
-
-        # Commit phase. ``Path.replace`` is atomic per file on POSIX/NTFS and
-        # the staging step above means any earlier failure has already been
-        # reported. The remaining failure mode is a crash *between* two
-        # ``replace`` calls, which is reported via the partial-write error
-        # branch below so the caller knows which files are now on disk.
-        committed: list[Path] = []
+    if config_changed or soul is not None:
         try:
-            for tmp, target in pending:
-                tmp.replace(target)
-                committed.append(target)
-        except Exception as e:
-            _cleanup_temps([t for t, _ in pending if t not in committed])
-            if committed:
-                logger.error(
-                    "[update_agent] Partial write for agent '%s' (user=%s): committed=%s, failed during rename: %s",
+            store = get_agent_store()
+            if store.__class__.__name__ == "FileAgentStore":
+                agent_dir = paths.user_agent_dir(user_id, agent_name)
+                agent_dir.mkdir(parents=True, exist_ok=True)
+                pending: list[tuple[Path, Path]] = []
+                staged: list[Path] = []
+                try:
+                    if config_changed:
+                        target = agent_dir / "config.yaml"
+                        temporary = _stage_temp(
+                            target,
+                            yaml.safe_dump(
+                                config_data,
+                                allow_unicode=True,
+                                sort_keys=False,
+                            ),
+                        )
+                        staged.append(temporary)
+                        pending.append((temporary, target))
+                    if soul is not None:
+                        target = agent_dir / "SOUL.md"
+                        temporary = _stage_temp(target, soul)
+                        staged.append(temporary)
+                        pending.append((temporary, target))
+                    for temporary, target in pending:
+                        temporary.replace(target)
+                        staged.remove(temporary)
+                finally:
+                    _cleanup_temps(staged)
+            else:
+                store.update(
                     agent_name,
-                    user_id,
-                    [p.name for p in committed],
-                    e,
-                    exc_info=True,
+                    config_data if config_changed else None,
+                    soul,
+                    user_id=user_id,
                 )
-                return _err(f"Partial update for agent '{agent_name}': {[p.name for p in committed]} were updated, but the rest failed ({e}). Re-run update_agent to retry the remaining fields.")
-            raise
-
-    except Exception as e:
-        _cleanup_temps(staged_temps)
-        logger.error("[update_agent] Failed to update agent '%s' (user=%s): %s", agent_name, user_id, e, exc_info=True)
-        return _err(f"Failed to update agent '{agent_name}': {e}")
+        except Exception as e:
+            logger.error(
+                "[update_agent] Failed to update agent '%s' (user=%s): %s",
+                agent_name,
+                user_id,
+                e,
+                exc_info=True,
+            )
+            return _err(f"Failed to update agent '{agent_name}': {e}")
 
     if not updated_fields:
         return Command(update={"messages": [ToolMessage(content=f"No changes applied to agent '{agent_name}'. The provided values matched the existing config.", tool_call_id=tool_call_id)]})

@@ -298,7 +298,7 @@ test.describe("CNOOC concept layout", () => {
     }
     await expect(page.locator(".cnooc-tool-datalake")).toHaveAttribute(
       "data-active",
-      "true",
+      "false",
     );
     await expect(page.locator(".cnooc-tool-knowledge")).toHaveAttribute(
       "data-active",
@@ -1004,7 +1004,7 @@ test.describe("CNOOC concept layout", () => {
 
     await expect(page.locator(".cnooc-tool-datalake")).toHaveAttribute(
       "data-active",
-      "true",
+      "false",
     );
     await expect(page.locator(".cnooc-tool-knowledge")).toHaveAttribute(
       "data-active",

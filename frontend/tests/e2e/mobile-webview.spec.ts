@@ -35,6 +35,61 @@ function mobileNavigationTrigger(page: Page) {
 test.describe("mobile WebView workspace", () => {
   test.describe.configure({ mode: "serial", timeout: 60_000 });
 
+  test("workspace remains light and legible when the device prefers dark mode", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    mockLangGraphAPI(page);
+
+    await page.goto("/workspace/chats/new", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByRole("textbox").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          htmlLight: document.documentElement.classList.contains("light"),
+          htmlDark: document.documentElement.classList.contains("dark"),
+          colorScheme: getComputedStyle(
+            document.querySelector(".cnooc-workspace-shell")!,
+          ).colorScheme,
+        })),
+      )
+      .toEqual({ htmlLight: true, htmlDark: false, colorScheme: "light" });
+
+    await mobileNavigationTrigger(page).click();
+    const drawer = page.locator("[data-mobile='true'][data-sidebar='sidebar']");
+    await expect(drawer).toBeVisible();
+    await expect
+      .poll(() =>
+        drawer.evaluate((element) => getComputedStyle(element).backgroundColor),
+      )
+      .not.toBe("rgb(0, 0, 0)");
+    await page.screenshot({
+      path: "test-results/workspace-dark-system-mobile.png",
+      fullPage: true,
+    });
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator(".cnooc-desktop-welcome-copy")).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          htmlLight: document.documentElement.classList.contains("light"),
+          htmlDark: document.documentElement.classList.contains("dark"),
+        })),
+      )
+      .toEqual({ htmlLight: true, htmlDark: false });
+    await page.screenshot({
+      path: "test-results/workspace-dark-system-desktop.png",
+      fullPage: true,
+    });
+  });
+
   for (const viewport of PHONE_VIEWPORTS) {
     test(`${viewport.name} keeps the primary chat flow inside the viewport`, async ({
       page,

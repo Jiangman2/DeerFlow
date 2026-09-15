@@ -26,7 +26,7 @@ def test_upgrade_adds_data_lake_token_binding_and_challenge_table(tmp_path) -> N
     with engine.connect() as connection:
         version = connection.execute(sa.text("SELECT version_num FROM alembic_version")).scalar_one()
 
-    assert version == "0013_data_lake_auth_challenges"
+    assert version == "0019_digital_employee_agents"
     assert columns["cnooc_platform_token_hash"]["nullable"] is True
     assert indexes["uq_users_cnooc_platform_token_hash"]["unique"] == 1
     assert "data_lake_auth_challenges" in tables

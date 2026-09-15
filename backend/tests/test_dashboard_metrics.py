@@ -6,9 +6,11 @@ from uuid import UUID
 import pytest
 from _router_auth_helpers import make_authed_test_app
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.gateway.auth.models import User
+from app.gateway.dashboard_cache import dashboard_response_cache
 from app.gateway.routers import dashboard, observability
 from deerflow.persistence.base import Base
 from deerflow.persistence.models.run_event import RunEventRow
@@ -146,6 +148,54 @@ async def test_summary_uses_selected_thread_creations_and_weekly_activity_bucket
         assert len(payload["external_platform_agent_clicks"]["trend"]["dates"]) == 30
         assert len(payload["external_platform_agent_clicks"]["agents"]) == 5
     finally:
+        await engine.dispose()
+
+
+async def test_compact_summary_skips_independent_knowledge_and_event_scans(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sf, engine = await _session_factory()
+    start = datetime(2031, 1, 1, tzinfo=UTC)
+    end = datetime(2031, 1, 2, tzinfo=UTC)
+    await dashboard_response_cache.clear()
+    statements: list[str] = []
+
+    def record_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", record_statement)
+
+    async def fail_knowledge_load(**_kwargs):
+        raise AssertionError("compact summary must not wait for WeKnora")
+
+    def fail_event_classification(*_args, **_kwargs):
+        raise AssertionError("compact summary must not scan run event content")
+
+    monkeypatch.setattr(dashboard, "get_weknora_dashboard_analytics", fail_knowledge_load)
+    monkeypatch.setattr(dashboard, "classify_dashboard_features", fail_event_classification)
+    try:
+        async with sf() as session:
+            session.add(UserRow(id=ADMIN_ID, email="admin@example.com", system_role="admin"))
+            await session.commit()
+
+        with _client(sf, monkeypatch) as client:
+            params = {
+                "start_at": start.isoformat(),
+                "end_at": end.isoformat(),
+                "include_knowledge": "false",
+                "include_business_details": "false",
+            }
+            first = client.get("/api/admin/dashboard/summary", params=params)
+            second = client.get("/api/admin/dashboard/summary", params=params)
+
+        assert first.status_code == 200
+        assert first.headers["X-Dashboard-Cache"] == "computed"
+        assert second.status_code == 200
+        assert second.headers["X-Dashboard-Cache"] == "local"
+        assert first.json()["knowledge_usage"]["available"] is False
+        assert not any("run_events" in statement.casefold() for statement in statements)
+    finally:
+        await dashboard_response_cache.clear()
         await engine.dispose()
 
 

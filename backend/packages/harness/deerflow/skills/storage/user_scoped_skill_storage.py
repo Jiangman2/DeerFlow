@@ -325,7 +325,11 @@ class UserScopedSkillStorage(LocalSkillStorage):
         try:
             skill_dir, skill_name, target = await asyncio.to_thread(self._prepare_skill_archive, path, Path(tmp), custom_dir, archive_path)
 
-            await _scan_skill_archive_contents_or_raise(skill_dir, skill_name)
+            await _scan_skill_archive_contents_or_raise(
+                skill_dir,
+                skill_name,
+                app_config=self._app_config,
+            )
 
             await asyncio.to_thread(self._commit_skill_install, skill_dir, skill_name, custom_dir, target)
             logger.info("Skill %r installed to %s for user %s", skill_name, target, self._user_id)
@@ -376,6 +380,18 @@ class UserScopedSkillStorage(LocalSkillStorage):
     def get_user_custom_root(self) -> Path:
         """Host path to this user's custom skills root directory."""
         return self._user_custom_root
+
+    def get_user_skills_root(self) -> Path:
+        """Host path containing this user's skills, state and registry metadata."""
+        return self._user_skills_root
+
+    def clear_skill_enabled_state(self, skill_name: str) -> None:
+        """Remove a custom skill's explicit state after uninstall."""
+        self.validate_skill_name(skill_name)
+        states = self._read_skill_states()
+        if skill_name in states:
+            del states[skill_name]
+            self._write_skill_states(states)
 
     # ------------------------------------------------------------------
     # Path validation — accept per-user custom root as well as global root

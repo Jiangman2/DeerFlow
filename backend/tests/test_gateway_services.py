@@ -1463,7 +1463,7 @@ def test_launch_scheduled_thread_run_marks_context_non_interactive(_stub_app_con
         "user_id": "user-1",
     }
     assert captured["metadata"] == {"scheduled_task_id": "task-1"}
-    assert captured["config"] == {"recursion_limit": 300}
+    assert captured["config"] == {"recursion_limit": 1000}
     assert result == {"run_id": "run-1", "thread_id": "thread-scheduled"}
 
 

@@ -32,6 +32,10 @@ metadata:
   namespace: deer-flow
 spec:
   replicas: 1
+  strategy:
+    # Dispatcher admission state is process-local. Avoid two rollout replicas
+    # independently assigning the same serialized worker.
+    type: Recreate
   selector:
     matchLabels:
       app: deer-flow-mineru-dispatcher
@@ -66,12 +70,22 @@ spec:
               value: "45"
             - name: MINERU_DISPATCH_REQUEST_TIMEOUT_SECONDS
               value: "1800"
+            - name: MINERU_DISPATCH_FAILURE_COOLDOWN_SECONDS
+              # Failed workers are re-probed after this delay and remain
+              # quarantined until /ready proves that parsing is idle.
+              value: "15"
+            - name: MINERU_DISPATCH_PROBE_TIMEOUT_SECONDS
+              value: "0.25"
+            - name: MINERU_DISPATCH_BUSY_RETRY_LIMIT
+              # A worker 429 is emitted before parsing starts, so trying
+              # another ready worker cannot duplicate document work.
+              value: "3"
           ports:
             - name: http
               containerPort: 50052
           readinessProbe:
             httpGet:
-              path: /health
+              path: /ready
               port: http
             initialDelaySeconds: 2
             periodSeconds: 3
@@ -79,7 +93,7 @@ spec:
             failureThreshold: 20
           livenessProbe:
             httpGet:
-              path: /health
+              path: /live
               port: http
             initialDelaySeconds: 15
             periodSeconds: 15

@@ -120,10 +120,14 @@ def resolve_oa_result_path(job: dict[str, Any], *, max_result_bytes: int) -> Pat
         virtual_path,
         user_id=job["owner_user_id"],
     )
-    output_root = get_paths().sandbox_outputs_dir(
-        job["thread_id"],
-        user_id=job["owner_user_id"],
-    ).resolve()
+    output_root = (
+        get_paths()
+        .sandbox_outputs_dir(
+            job["thread_id"],
+            user_id=job["owner_user_id"],
+        )
+        .resolve()
+    )
     try:
         path.resolve().relative_to(output_root)
     except ValueError as exc:
@@ -243,6 +247,15 @@ class OAPolicyFlowService:
 
     async def _process_claimed_body(self, job: dict[str, Any]) -> None:
         if job["callback_status"] == "pending" and job["status"] in {"succeeded", "failed"}:
+            if not self.config.callback_enabled:
+                await self._patch_claimed_job(
+                    job["id"],
+                    callback_status="disabled",
+                    next_attempt_at=None,
+                    last_callback_status_code=None,
+                    last_callback_error=None,
+                )
+                return
             try:
                 await self._deliver_callback(job)
             except asyncio.CancelledError:
@@ -274,9 +287,7 @@ class OAPolicyFlowService:
             callback_status="exhausted" if exhausted else "pending",
             callback_attempts=attempt,
             next_attempt_at=None if exhausted else _retry_at(attempt),
-            last_callback_error=_bounded_detail(
-                f"OA callback preparation failed: {type(error).__name__}"
-            ),
+            last_callback_error=_bounded_detail(f"OA callback preparation failed: {type(error).__name__}"),
         )
 
     async def _patch_claimed_job(
@@ -312,11 +323,7 @@ class OAPolicyFlowService:
                 limit=20,
             )
             recovered = next(
-                (
-                    run
-                    for run in runs
-                    if (run.get("metadata") or {}).get("oa_policy_flow_job_id") == job["id"]
-                ),
+                (run for run in runs if (run.get("metadata") or {}).get("oa_policy_flow_job_id") == job["id"]),
                 None,
             )
             if recovered is not None:
@@ -377,10 +384,13 @@ class OAPolicyFlowService:
             _write_parsed_markdown,
         )
 
-        source_path = get_paths().sandbox_uploads_dir(
-            job["thread_id"],
-            user_id=job["owner_user_id"],
-        ) / job["document_filename"]
+        source_path = (
+            get_paths().sandbox_uploads_dir(
+                job["thread_id"],
+                user_id=job["owner_user_id"],
+            )
+            / job["document_filename"]
+        )
         if not source_path.is_file():
             raise OAPolicyFlowError("document_missing", "The submitted policy document is no longer available")
 
@@ -432,10 +442,13 @@ class OAPolicyFlowService:
         source_virtual = upload_virtual_path(job["document_filename"])
         source_path = Path(job["document_filename"])
         markdown_name = source_path.with_suffix(".md").name
-        markdown_host = get_paths().sandbox_uploads_dir(
-            job["thread_id"],
-            user_id=job["owner_user_id"],
-        ) / markdown_name
+        markdown_host = (
+            get_paths().sandbox_uploads_dir(
+                job["thread_id"],
+                user_id=job["owner_user_id"],
+            )
+            / markdown_name
+        )
         readable_virtual = upload_virtual_path(markdown_name) if markdown_host.is_file() else source_virtual
         key_fields_json = json.dumps(job["key_fields"], ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return (
@@ -524,12 +537,12 @@ class OAPolicyFlowService:
         await self._patch_claimed_job(
             job["id"],
             status="succeeded",
-            callback_status="pending",
+            callback_status="pending" if self.config.callback_enabled else "disabled",
             output_virtual_path=output_virtual,
             output_filename=output_path.name,
             output_sha256=output_sha,
             completed_at=_utcnow(),
-            next_attempt_at=_utcnow(),
+            next_attempt_at=_utcnow() if self.config.callback_enabled else None,
             last_error_code=None,
             last_error_detail=None,
         )
@@ -546,17 +559,11 @@ class OAPolicyFlowService:
         logger.warning("OA policy-flow run %s exceeded its deadline; cancel outcome=%s", run_id, outcome)
 
     async def _accept_result(self, job: dict[str, Any]) -> tuple[Path, str, str]:
-        checkpoint_tuple = await self._app.state.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": job["thread_id"]}}
-        )
+        checkpoint_tuple = await self._app.state.checkpointer.aget_tuple({"configurable": {"thread_id": job["thread_id"]}})
         checkpoint = getattr(checkpoint_tuple, "checkpoint", None) if checkpoint_tuple is not None else None
         channel_values = checkpoint.get("channel_values", {}) if isinstance(checkpoint, dict) else {}
         artifacts = channel_values.get("artifacts", []) if isinstance(channel_values, dict) else []
-        json_artifacts = [
-            value
-            for value in artifacts
-            if isinstance(value, str) and Path(value).suffix.lower() == ".json"
-        ]
+        json_artifacts = [value for value in artifacts if isinstance(value, str) and Path(value).suffix.lower() == ".json"]
         if len(json_artifacts) != 1:
             raise OAPolicyFlowError("invalid_artifact_count", "Agent must present exactly one JSON artifact")
         virtual_path = json_artifacts[0]
@@ -596,13 +603,13 @@ class OAPolicyFlowService:
         await self._patch_claimed_job(
             job["id"],
             status="failed",
-            callback_status="pending",
+            callback_status="pending" if self.config.callback_enabled else "disabled",
             callback_attempts=0,
             output_virtual_path=None,
             output_filename=None,
             output_sha256=None,
             completed_at=_utcnow(),
-            next_attempt_at=_utcnow(),
+            next_attempt_at=_utcnow() if self.config.callback_enabled else None,
             last_error_code=code[:64],
             last_error_detail=_external_error_detail(error),
             last_callback_error=None,
@@ -633,11 +640,14 @@ class OAPolicyFlowService:
             headers["Authorization"] = f"Bearer {self.config.callback_bearer_token}"
         if self.config.callback_signing_secret:
             signing_payload = f"{timestamp}.{manifest_json}.{job.get('output_sha256') or ''}".encode()
-            headers["X-OA-Callback-Signature"] = "sha256=" + hmac.new(
-                self.config.callback_signing_secret.encode(),
-                signing_payload,
-                hashlib.sha256,
-            ).hexdigest()
+            headers["X-OA-Callback-Signature"] = (
+                "sha256="
+                + hmac.new(
+                    self.config.callback_signing_secret.encode(),
+                    signing_payload,
+                    hashlib.sha256,
+                ).hexdigest()
+            )
 
         files: dict[str, Any] = {"manifest": (None, manifest_json, "application/json")}
         if job["status"] == "succeeded":

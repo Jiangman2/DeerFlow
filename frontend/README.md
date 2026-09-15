@@ -33,6 +33,10 @@ filled in both welcome and existing-thread composers, including before hover,
 and renders the current `2026-2027` copyright notice on ordinary and custom
 agent welcome pages.
 
+Ordinary and Digital Employee chats share one provider stack for thread-scoped
+subtasks, artifacts, Browser Live state, and prompt input, keeping both routes
+behaviorally aligned.
+
 ```bash
 # Start development server
 pnpm dev

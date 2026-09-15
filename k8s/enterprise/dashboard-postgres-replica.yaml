@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deer-flow-postgres-replication
+  namespace: deer-flow
+data:
+  pg_hba.conf: |
+    local   all             all                                     trust
+    host    all             all             127.0.0.1/32            trust
+    host    all             all             ::1/128                 trust
+    host    replication     deerflow_dashboard_replica 10.244.0.0/16 scram-sha-256
+    host    all             all             10.244.0.0/16           scram-sha-256
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-dashboard-postgresql-pv-datax-03
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-postgresql-local
+  volumeMode: Filesystem
+  local:
+    path: /opt/deerflow-storage/dashboard-postgresql
+    fsType: xfs
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [datax-03]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-dashboard-replica
+  namespace: deer-flow
+spec:
+  clusterIP: None
+  selector:
+    app: postgres-dashboard-replica
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-dashboard-replica
+  namespace: deer-flow
+spec:
+  serviceName: postgres-dashboard-replica
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-dashboard-replica
+  template:
+    metadata:
+      labels:
+        app: postgres-dashboard-replica
+    spec:
+      securityContext:
+        fsGroup: 999
+      nodeSelector:
+        kubernetes.io/hostname: datax-03
+      initContainers:
+        - name: clone-primary
+          image: postgres:16
+          imagePullPolicy: Never
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: POSTGRES_PASSWORD
+            - name: REPLICATION_USER
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: REPLICATION_USER
+            - name: REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: REPLICATION_PASSWORD
+            - name: DASHBOARD_USER
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: DASHBOARD_USER
+            - name: DASHBOARD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: DASHBOARD_PASSWORD
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          command:
+            - sh
+            - -ec
+            - |
+              if [ -s "$PGDATA/PG_VERSION" ]; then
+                exit 0
+              fi
+              if [ -e "$PGDATA" ]; then
+                echo "Replica PGDATA exists without PG_VERSION; manual recovery is required." >&2
+                exit 1
+              fi
+              if [ "$REPLICATION_USER" != "deerflow_dashboard_replica" ]; then
+                echo "REPLICATION_USER must match the fixed pg_hba/slot identity deerflow_dashboard_replica." >&2
+                exit 1
+              fi
+              until PGPASSWORD="$POSTGRES_PASSWORD" pg_isready -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB"; do
+                sleep 2
+              done
+              export PGPASSWORD="$POSTGRES_PASSWORD"
+              psql -X -v ON_ERROR_STOP=1 -h postgres -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                -v repl_user="$REPLICATION_USER" -v repl_password="$REPLICATION_PASSWORD" \
+                -v dashboard_user="$DASHBOARD_USER" -v dashboard_password="$DASHBOARD_PASSWORD" \
+                -v database_name="$POSTGRES_DB" <<'SQL'
+              SELECT format('CREATE ROLE %I WITH LOGIN REPLICATION PASSWORD %L', :'repl_user', :'repl_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'repl_user') \gexec
+              SELECT format('ALTER ROLE %I WITH LOGIN REPLICATION PASSWORD %L', :'repl_user', :'repl_password') \gexec
+              SELECT format('CREATE ROLE %I WITH LOGIN PASSWORD %L', :'dashboard_user', :'dashboard_password')
+              WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'dashboard_user') \gexec
+              SELECT format('ALTER ROLE %I WITH LOGIN PASSWORD %L', :'dashboard_user', :'dashboard_password') \gexec
+              SELECT format('ALTER ROLE %I SET default_transaction_read_only = %L', :'dashboard_user', 'on') \gexec
+              SELECT format('ALTER ROLE %I SET statement_timeout = %L', :'dashboard_user', '5s') \gexec
+              SELECT format('ALTER ROLE %I SET idle_in_transaction_session_timeout = %L', :'dashboard_user', '5s') \gexec
+              SELECT format('ALTER ROLE %I SET work_mem = %L', :'dashboard_user', '4MB') \gexec
+              SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'database_name', :'dashboard_user') \gexec
+              SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'dashboard_user') \gexec
+              SELECT format('REVOKE CREATE ON SCHEMA public FROM %I', :'dashboard_user') \gexec
+              SELECT format('GRANT SELECT ON ALL TABLES IN SCHEMA public TO %I', :'dashboard_user') \gexec
+              SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT SELECT ON TABLES TO %I', current_user, :'dashboard_user') \gexec
+              SELECT pg_create_physical_replication_slot('deerflow_dashboard_replica')
+              WHERE NOT EXISTS (
+                SELECT 1 FROM pg_replication_slots WHERE slot_name = 'deerflow_dashboard_replica'
+              );
+              SQL
+              export PGPASSWORD="$REPLICATION_PASSWORD"
+              bootstrap_dir=/var/lib/postgresql/data/pgdata.bootstrap
+              rm -rf -- "$bootstrap_dir"
+              mkdir -p "$bootstrap_dir"
+              pg_basebackup -h postgres -U "$REPLICATION_USER" -D "$bootstrap_dir" \
+                -Fp -Xs -R -S deerflow_dashboard_replica \
+                --checkpoint=spread --max-rate=32M
+              chmod 0700 "$bootstrap_dir"
+              mv "$bootstrap_dir" "$PGDATA"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      containers:
+        - name: postgres
+          image: postgres:16
+          imagePullPolicy: Never
+          args:
+            - -c
+            - hot_standby=on
+            - -c
+            - default_transaction_read_only=on
+            - -c
+            - max_standby_streaming_delay=30s
+            - -c
+            - hot_standby_feedback=off
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-postgres
+                  key: POSTGRES_DB
+            - name: DASHBOARD_USER
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: DASHBOARD_USER
+            - name: DASHBOARD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: DASHBOARD_PASSWORD
+          ports:
+            - name: postgres
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -ec
+                - PGPASSWORD="$DASHBOARD_PASSWORD" psql -X -h 127.0.0.1 -U "$DASHBOARD_USER" -d "$POSTGRES_DB" -tAc 'SELECT pg_is_in_recovery() AND current_setting('"'"'transaction_read_only'"'"') = '"'"'on'"'"' AND COALESCE(pg_wal_lsn_diff(pg_last_wal_receive_lsn(), pg_last_wal_replay_lsn()), 0) < 67108864' | grep -qx t
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -ec
+                - pg_isready -h 127.0.0.1 -U "$DASHBOARD_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: deerflow-postgresql-local
+        volumeName: deerflow-dashboard-postgresql-pv-datax-03
+        resources:
+          requests:
+            storage: 100Gi

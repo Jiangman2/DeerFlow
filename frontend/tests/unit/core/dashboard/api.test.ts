@@ -9,7 +9,13 @@ rs.mock("@/core/config", () => ({
 }));
 
 import { fetch as fetcher } from "@/core/api/fetcher";
-import { getDashboardFailures, getDashboardUsers } from "@/core/dashboard/api";
+import {
+  getDashboardFailures,
+  getDashboardKnowledge,
+  getDashboardRunRankings,
+  getDashboardSummary,
+  getDashboardUsers,
+} from "@/core/dashboard/api";
 
 const mockedFetch = rs.mocked(fetcher);
 
@@ -63,6 +69,75 @@ describe("dashboard failures api", () => {
 
     expect(mockedFetch).toHaveBeenCalledWith(
       "/backend/api/admin/dashboard/failures?limit=5&offset=0&q=%E5%BC%A0+%E4%B8%89",
+    );
+  });
+});
+
+describe("dashboard progressive summary api", () => {
+  test("does not expose an upstream HTML error page to users", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response("<html><h1>502 Bad Gateway</h1></html>", {
+        status: 502,
+        headers: { "Content-Type": "text/html" },
+      }),
+    );
+
+    await expect(getDashboardSummary({ hours: 24 })).rejects.toThrow(
+      "服务暂时不可用（HTTP 502），请稍后重试",
+    );
+  });
+
+  test("keeps heavy knowledge and event analytics out of the headline request", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ overview: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await getDashboardSummary({ hours: 720 });
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/backend/api/admin/dashboard/summary?hours=720&limit=10&include_knowledge=false&include_business_details=false",
+    );
+  });
+
+  test("loads WeKnora analytics through the independent knowledge endpoint", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ available: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await getDashboardKnowledge({
+      hours: 48,
+      start_at: "2026-09-01T00:00:00Z",
+      end_at: "2026-09-03T00:00:00Z",
+      status: "success",
+    });
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/backend/api/admin/dashboard/knowledge?hours=48&limit=10&start_at=2026-09-01T00%3A00%3A00Z&end_at=2026-09-03T00%3A00%3A00Z",
+    );
+  });
+
+  test("loads slow and high-token cards from the bounded ranking endpoint", async () => {
+    mockedFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ slow_runs: [], high_token_runs: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await getDashboardRunRankings({
+      hours: 720,
+      start_at: "2026-08-01T00:00:00Z",
+      end_at: "2026-09-01T00:00:00Z",
+    });
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/backend/api/admin/dashboard/run-rankings?hours=720&limit=10&start_at=2026-08-01T00%3A00%3A00Z&end_at=2026-09-01T00%3A00%3A00Z",
     );
   });
 });

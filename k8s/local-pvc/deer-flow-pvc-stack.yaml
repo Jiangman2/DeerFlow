@@ -473,7 +473,9 @@ spec:
               cpu: "2"
               memory: 6Gi
         - name: ppt-master-runner
-          image: deer-flow-gateway:dev-20260811-ppt-task-timeline-v1
+          # Use a distinct Kustomize image key so production can pin the
+          # compatibility-frozen PPT runner independently from Gateway.
+          image: deer-flow-ppt-master-runner:dev-20260811-ppt-task-timeline-v1
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c"]
           args:
@@ -705,7 +707,9 @@ spec:
           args:
             - |
               cp /etc/nginx/nginx.conf.template /tmp/nginx.conf
-              sed -i 's|resolver 127.0.0.11 valid=10s ipv6=off;|# Static Kubernetes Service upstreams do not need Docker DNS.|' /tmp/nginx.conf
+              KUBERNETES_DNS="$(awk '/^nameserver[[:space:]]/{print $2; exit}' /etc/resolv.conf)"
+              test -n "$KUBERNETES_DNS"
+              sed -i "s|resolver 127.0.0.11 valid=10s ipv6=off;|resolver ${KUBERNETES_DNS} valid=10s ipv6=off;|" /tmp/nginx.conf
               sed -i 's|set $gateway_upstream gateway:8001;|# gateway upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|set $ppt_master_runner_upstream ppt-master-runner:8003;|# ppt-master runner upstream is a Kubernetes Service.|' /tmp/nginx.conf
               sed -i 's|set $frontend_upstream frontend:3000;|# frontend upstream is a Kubernetes Service.|' /tmp/nginx.conf

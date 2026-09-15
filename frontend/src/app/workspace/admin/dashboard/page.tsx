@@ -31,8 +31,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
-  useDashboardSummary,
   useDashboardFailures,
+  useDashboardKnowledge,
+  useDashboardRunRankings,
+  useDashboardSummary,
   useDashboardUsers,
   useDashboardUserSessions,
   activityBarPercent,
@@ -45,6 +47,7 @@ import {
   dashboardBarStyle,
   refreshDashboardQueries,
   type DashboardFilters,
+  type DashboardRunRankingItem,
   type ExternalAgentClickItem,
   type ExternalPlatformClickSummary,
   type FeedbackSummary,
@@ -54,11 +57,7 @@ import {
   type UserActivityPoint,
   type UserUsageItem,
 } from "@/core/dashboard";
-import {
-  useObservabilityAnalytics,
-  useRunDiagnostics,
-} from "@/core/observability";
-import type { TraceSummary } from "@/core/observability";
+import { useRunDiagnostics } from "@/core/observability";
 import { cn } from "@/lib/utils";
 
 function compactNumber(value: number): string {
@@ -617,6 +616,17 @@ function ExternalPlatformClicks({
       <Card className="min-w-0 rounded-xl border-white/80 bg-white/80 shadow-sm backdrop-blur">
         <CardContent className="pt-6">
           <EmptyState label="正在加载外部智能体点击统计" />
+        </CardContent>
+      </Card>
+    );
+  }
+  if (!summary.available) {
+    return (
+      <Card className="min-w-0 rounded-xl border-amber-200 bg-amber-50 shadow-sm">
+        <CardContent className="pt-6">
+          <EmptyState
+            label={summary.error ?? "外部智能体历史点击汇总正在准备"}
+          />
         </CardContent>
       </Card>
     );
@@ -1294,7 +1304,13 @@ function ScheduledTaskUsagePanel({
   );
 }
 
-function RunRanking({ title, rows }: { title: string; rows: TraceSummary[] }) {
+function RunRanking({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: DashboardRunRankingItem[];
+}) {
   const pageSize = 5;
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
@@ -1750,6 +1766,11 @@ export default function DashboardPage() {
     toDateTimeLocal(new Date(Date.now() - 24 * 3_600_000)),
   );
   const [customEnd, setCustomEnd] = useState(() => toDateTimeLocal(new Date()));
+  const [appliedCustomRange, setAppliedCustomRange] = useState<{
+    start: string;
+    end: string;
+    hours: number;
+  } | null>(null);
   const [failurePage, setFailurePage] = useState(0);
   const [failureSearchQuery, setFailureSearchQuery] = useState("");
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
@@ -1761,9 +1782,11 @@ export default function DashboardPage() {
   const draftEnd = isoFromDateTimeLocal(customEnd);
   const draftHours = hoursBetween(draftStart, draftEnd);
   const canApplyCustomRange = draftHours !== null;
-  const rangeStart = rangeMode === "custom" ? draftStart : undefined;
-  const rangeEnd = rangeMode === "custom" ? draftEnd : undefined;
-  const activeHours = rangeMode === "custom" ? (draftHours ?? hours) : hours;
+  const rangeStart =
+    rangeMode === "custom" ? appliedCustomRange?.start : undefined;
+  const rangeEnd = rangeMode === "custom" ? appliedCustomRange?.end : undefined;
+  const activeHours =
+    rangeMode === "custom" ? (appliedCustomRange?.hours ?? hours) : hours;
   const filters = useMemo<DashboardFilters>(
     () => ({
       hours: activeHours,
@@ -1773,18 +1796,17 @@ export default function DashboardPage() {
     [activeHours, rangeEnd, rangeStart],
   );
   const summaryQuery = useDashboardSummary(filters);
+  const knowledgeQuery = useDashboardKnowledge(filters);
   const failuresQuery = useDashboardFailures(
     5,
     failurePage * 5,
     deferredFailureSearchQuery,
   );
-  const analyticsQuery = useObservabilityAnalytics(
-    activeHours,
-    activeHours > 48 ? "day" : "hour",
-    rangeStart,
-    rangeEnd,
-  );
   const summary = summaryQuery.data;
+  const rankingsQuery = useDashboardRunRankings(
+    filters,
+    Boolean(summary) && !summaryQuery.isFetching,
+  );
   const headlineCounts = dashboardHeadlineCounts(summary?.overview);
 
   const handleRefresh = async () => {
@@ -1851,7 +1873,15 @@ export default function DashboardPage() {
                 size="sm"
                 variant={rangeMode === "custom" ? "default" : "outline"}
                 disabled={!canApplyCustomRange}
-                onClick={() => setRangeMode("custom")}
+                onClick={() => {
+                  if (!draftStart || !draftEnd || draftHours === null) return;
+                  setAppliedCustomRange({
+                    start: draftStart,
+                    end: draftEnd,
+                    hours: draftHours,
+                  });
+                  setRangeMode("custom");
+                }}
               >
                 应用区间
               </Button>
@@ -1865,6 +1895,15 @@ export default function DashboardPage() {
                     ? "最近 7 天"
                     : "最近 24 小时"}
             </span>
+            {summary &&
+            (summaryQuery.isPlaceholderData || summaryQuery.isFetching) ? (
+              <span
+                className="text-xs whitespace-nowrap text-blue-600"
+                aria-live="polite"
+              >
+                数据更新中，当前先保留上次结果
+              </span>
+            ) : null}
             <Button
               type="button"
               size="sm"
@@ -1896,10 +1935,17 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         ) : null}
-        {analyticsQuery.isError ? (
+        {rankingsQuery.isError ? (
           <Card className="rounded-lg border-amber-200 bg-amber-50 py-5 text-amber-800 shadow-none">
             <CardContent>
-              运行排行加载失败：{analyticsQuery.error.message}
+              运行排行加载失败：{rankingsQuery.error.message}
+            </CardContent>
+          </Card>
+        ) : null}
+        {knowledgeQuery.isError ? (
+          <Card className="rounded-lg border-amber-200 bg-amber-50 py-5 text-amber-800 shadow-none">
+            <CardContent>
+              知识库统计加载失败：{knowledgeQuery.error.message}
             </CardContent>
           </Card>
         ) : null}
@@ -1984,7 +2030,9 @@ export default function DashboardPage() {
 
         <FeedbackPanel summary={summary?.feedback} />
 
-        <KnowledgeUsagePanel summary={summary?.knowledge_usage} />
+        {knowledgeQuery.isError ? null : (
+          <KnowledgeUsagePanel summary={knowledgeQuery.data} />
+        )}
 
         <ScheduledTaskUsagePanel summary={summary?.scheduled_task_usage} />
 
@@ -2030,11 +2078,11 @@ export default function DashboardPage() {
         <div className="grid min-w-0 gap-4 xl:grid-cols-2">
           <RunRanking
             title="慢运行排行（已结束）"
-            rows={analyticsQuery.data?.slow_runs ?? []}
+            rows={rankingsQuery.data?.slow_runs ?? []}
           />
           <RunRanking
             title="高 Token 运行排行（已结束）"
-            rows={analyticsQuery.data?.high_token_runs ?? []}
+            rows={rankingsQuery.data?.high_token_runs ?? []}
           />
           <FailedRuns
             rows={failuresQuery.data?.items ?? []}

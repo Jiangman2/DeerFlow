@@ -361,6 +361,33 @@ class MemoryUpdateQueue:
             self._processing_thread = None
             self._reprocess_pending = False
 
+    def cancel_by_agent(
+        self,
+        agent_name: str | None = None,
+        *,
+        user_id: str | None = None,
+        all_agents: bool = False,
+    ) -> int:
+        """Drop pending contexts for an employee/user scope without running them.
+
+        Work already pulled by an in-flight extraction is intentionally left
+        alone; interrupting a running model call requires a durable queue.
+        """
+        with self._lock:
+            before = len(self._queue)
+
+            def _keep(context: ConversationContext) -> bool:
+                if not all_agents and context.agent_name != agent_name:
+                    return True
+                return context.user_id != user_id
+
+            self._queue = [context for context in self._queue if _keep(context)]
+            removed = before - len(self._queue)
+            if removed and not self._queue and self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+            return removed
+
     @property
     def pending_count(self) -> int:
         """Get the number of pending updates."""

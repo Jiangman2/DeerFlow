@@ -7,8 +7,8 @@ release, and server verification.
 
 This integration accepts a policy document and OA business fields, runs the
 configured user-owned DeerFlow agent asynchronously, validates the single JSON
-artifact it presents, and delivers the artifact plus the original business
-fields to a fixed OA callback.
+artifact it presents, and exposes status/result polling. It can optionally
+deliver the artifact plus the original business fields to a fixed OA callback.
 
 Production API base URL:
 
@@ -77,12 +77,12 @@ The response is `202 Accepted`:
 ```
 
 The submit request does not wait for the agent. OA should use a 60-second HTTP
-timeout for this upload/acceptance call, then wait for the callback or poll the
+timeout for this upload/acceptance call, then poll the
 status route. DeerFlow gives the agent run 1,800 seconds (30 minutes) by
 default; after that it interrupts the run, marks the job `failed` with
-`error_code=agent_run_timeout`, and sends the normal failure callback. OA should
-use a 40-minute overall business wait window so callback retries have room to
-complete.
+`error_code=agent_run_timeout`. OA should use a 40-minute overall business wait
+window. Callback-enabled deployments may additionally wait for the normal
+failure callback.
 
 `Idempotency-Key` is mandatory. Replaying the same key with the same document,
 request ID, and key fields returns the original job. Reusing it with different
@@ -96,8 +96,9 @@ Authorization: Bearer <OA_POLICY_FLOW_INGEST_KEY>
 ```
 
 Job `status` values are `queued`, `launching`, `running`, `succeeded`, and
-`failed`. Callback status values are `not_ready`, `pending`, `delivered`, and
-`exhausted`. A succeeded job remains succeeded if callback delivery is
+`failed`. Callback status values are `not_ready`, `disabled`, `pending`,
+`delivered`, and `exhausted`. In polling-only mode, a terminal job reports
+`callback_status=disabled`. A succeeded job remains succeeded if callback delivery is
 temporarily pending or ultimately exhausted.
 
 ## 3. Download the accepted result
@@ -107,11 +108,14 @@ GET /api/v1/integrations/oa/policy-flow/jobs/{job_id}/result
 Authorization: Bearer <OA_POLICY_FLOW_INGEST_KEY>
 ```
 
-This returns `application/json` only after `status=succeeded`. It is the
-poll/recovery path if an OA callback is delayed or missed. Before completion the
+This returns `application/json` only after `status=succeeded`. It is the primary
+result path in polling-only mode and the recovery path if a callback is delayed
+or missed. Before completion the
 route returns `409`; a result removed from storage returns `410`.
 
 ## OA callback contract
+
+This section applies only when `OA_POLICY_FLOW_CALLBACK_ENABLED=true`.
 
 The callback URL is server-owned configuration. A submission cannot override
 it, which prevents request-driven SSRF. DeerFlow sends `multipart/form-data`:
@@ -155,6 +159,14 @@ OA_POLICY_FLOW_ENABLED=true
 OA_POLICY_FLOW_INGEST_KEY=<openssl rand -hex 32>
 OA_POLICY_FLOW_OWNER_USER_ID=d1792c77-c297-439d-843f-81ea66095d1a
 OA_POLICY_FLOW_AGENT_NAME=制度文生图智能体
+OA_POLICY_FLOW_CALLBACK_ENABLED=false
+```
+
+Polling-only mode requires no callback URL or callback credential. To enable
+optional callback delivery, set:
+
+```dotenv
+OA_POLICY_FLOW_CALLBACK_ENABLED=true
 OA_POLICY_FLOW_CALLBACK_URL=https://oa.example.cnooc/path/to/callback
 OA_POLICY_FLOW_CALLBACK_BEARER_TOKEN=<OA-provided token>
 OA_POLICY_FLOW_CALLBACK_SIGNING_SECRET=<openssl rand -hex 32>
@@ -181,9 +193,10 @@ HTTPS is mandatory by default. Set the HTTP allow flag only for a reviewed
 internal test callback. The callback client does not inherit proxy environment
 variables and keeps CA-chain and hostname verification enabled.
 
-The Gateway fails startup when the integration is enabled with an incomplete
-configuration, missing/disabled owner, missing agent, non-SQL persistence, or
-invalid callback TLS settings. After changing the Secret, restart Gateway.
+The Gateway fails startup when the integration is enabled with incomplete core
+configuration, a missing/disabled owner, missing agent, or non-SQL persistence.
+Callback URL, authentication, CA, and TLS settings are validated only when
+callback delivery is enabled. After changing the Secret, restart Gateway.
 
 ## Processing and recovery guarantees
 
@@ -197,13 +210,14 @@ invalid callback TLS settings. After changing the Secret, restart Gateway.
   tools, skills, memory, sandbox, and file bucket resolve correctly.
 - Completion requires exactly one `.json` artifact delivered by
   `present_files`. DeerFlow independently bounds its size, decodes UTF-8, parses
-  JSON, and records its SHA-256 before callback.
+  JSON, and records its SHA-256 before making it available for download or callback.
 - Jobs, retry state, callback state, and leases live in PostgreSQL. A restarted
   or competing Gateway worker recovers due work without blindly launching a
   second conversation. A crash between run creation and job update is repaired
   by finding the run's persisted `oa_policy_flow_job_id` metadata.
-- OA can always query status and pull the accepted result even when callback
-  delivery is exhausted.
+- OA can always query status and pull the accepted result. Polling-only mode
+  schedules no callback work; callback-enabled mode preserves recovery when
+  callback delivery is exhausted.
 - Document parsing is outside the 30-minute agent-run budget. Each callback
   attempt has its own 30-second network timeout; neither timeout keeps the
   original submit connection open.
@@ -213,21 +227,23 @@ invalid callback TLS settings. After changing the Secret, restart Gateway.
 1. Apply the database migration and deploy the Gateway image containing this
    feature with `OA_POLICY_FLOW_ENABLED=false`.
 2. Confirm `GET /health` and the existing browser chat path.
-3. Obtain OA's test callback URL and credentials; update `deer-flow-env` and
-   enable the integration.
+3. Agree the delivery mode. For polling-only integration, set
+   `OA_POLICY_FLOW_CALLBACK_ENABLED=false`; otherwise obtain OA's test callback
+   URL and credentials. Update `deer-flow-env` and enable the integration.
 4. Restart Gateway and require a successful readiness rollout. A bad target or
    incomplete config intentionally prevents startup.
-5. Submit one small real DOCX fixture first, then a representative DOC/PDF. Verify the job
-   reaches `succeeded`, the callback's SHA-256 matches the download endpoint,
-   and the JSON opens in the OA JointJS renderer.
+5. Submit one small real DOCX fixture first, then a representative DOC/PDF.
+   Verify the job reaches `succeeded`, the downloaded SHA-256 matches the status
+   response, and the JSON opens in the OA JointJS renderer. When callbacks are
+   enabled, also verify the callback copy has the same SHA-256.
 6. Replay the same idempotency key and verify that no second run is created.
-7. Stop the callback temporarily, confirm retry/poll fallback, restore it, and
-   confirm delivery.
+7. In callback-enabled mode, stop the callback temporarily, confirm retry/poll
+   fallback, restore it, and confirm delivery.
 8. Rotate test credentials before production handoff.
 
-Do not enable the production integration until OA supplies its callback URL,
-callback authentication material, key-field schema, and network allowlist
-requirements.
+Do not enable production until OA confirms polling behavior, key-field schema,
+authentication, timeout, and network allowlist requirements. Callback URL and
+callback authentication material are required only when callback delivery is enabled.
 
 ## Server-side verification commands
 

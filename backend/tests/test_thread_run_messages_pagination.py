@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
+from uuid import UUID
 
 from _router_auth_helpers import make_authed_test_app
 from _run_message_pagination_helpers import assert_run_message_page
 from fastapi.testclient import TestClient
 
+from app.gateway.auth.models import User
 from app.gateway.routers import thread_runs
 from deerflow.runtime import END_SENTINEL, MemoryStreamBridge, RunManager
 from deerflow.runtime.runs.store.memory import MemoryRunStore
@@ -18,9 +20,21 @@ from deerflow.runtime.runs.store.memory import MemoryRunStore
 # ---------------------------------------------------------------------------
 
 
-def _make_app(event_store=None, run_manager=None, stream_bridge=None):
+_STORE_ONLY_USER_ID = "10000000-0000-0000-0000-000000000001"
+
+
+def _store_only_user() -> User:
+    return User(
+        email="store-only@example.com",
+        password_hash="x",
+        system_role="user",
+        id=UUID(_STORE_ONLY_USER_ID),
+    )
+
+
+def _make_app(event_store=None, run_manager=None, stream_bridge=None, user_factory=None):
     """Build a test FastAPI app with stub auth and mocked state."""
-    app = make_authed_test_app()
+    app = make_authed_test_app(user_factory=user_factory)
     app.include_router(thread_runs.router)
 
     app.state.stream_bridge = stream_bridge or MemoryStreamBridge()
@@ -71,6 +85,7 @@ def _make_store_only_run_manager() -> RunManager:
             "store-only-run",
             thread_id="thread-store",
             assistant_id="lead_agent",
+            user_id=_STORE_ONLY_USER_ID,
             status="running",
             multitask_strategy="reject",
             metadata={},
@@ -214,7 +229,10 @@ def test_empty_data_when_no_messages():
 
 def test_get_run_hydrates_store_only_run():
     """GET /api/threads/{tid}/runs/{rid} should read historical store rows."""
-    app = _make_app(run_manager=_make_store_only_run_manager())
+    app = _make_app(
+        run_manager=_make_store_only_run_manager(),
+        user_factory=_store_only_user,
+    )
     with TestClient(app) as client:
         response = client.get("/api/threads/thread-store/runs/store-only-run")
 

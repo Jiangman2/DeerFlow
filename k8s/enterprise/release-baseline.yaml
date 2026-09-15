@@ -8,6 +8,37 @@ scope:
     - datax-02
     - datax-03
 
+# Capability-parity snapshot of the production deployment after the accepted
+# 2026-09-15 rollouts. This inventory contains no credentials or production
+# data. Test environments must provide their own Secret values and storage.
+production_snapshot:
+  captured_at: 2026-09-15
+  source_branch: codex/enterprise-consolidation-20260716
+  database_schema: 90|false
+  kustomize_images:
+    paradedb/paradedb: deerflow.local/weknora-postgres:pg16-search-arm64-20260722-1
+    wechatopenai/weknora-app: deerflow.local/weknora-app:0.8.0-enterprise-proxy1-anydoc1-arm64-20260912
+    wechatopenai/weknora-ui: deerflow.local/weknora-ui:0.8.0-enterprise-sso2-r5-arm64-20260913
+    deer-flow-gateway: deerflow.local/deer-flow-gateway:20260914-enterprise-arm64-rc15-digitalemployee-promptfix1
+    deer-flow-ppt-master-runner: deerflow.local/deer-flow-gateway:20260907-enterprise-arm64-rc15-skillhubux-dashboard1-r2
+    deer-flow-frontend: deerflow.local/deer-flow-frontend:20260914-enterprise-arm64-rc15-digitalemployee-ui2-r1
+    deer-flow-provisioner: deerflow.local/deer-flow-provisioner:20260817-enterprise-arm64-rc15-sandboxstorage1
+    deer-flow-skills: deerflow.local/deer-flow-skills:20260901-enterprise-arm64-rc15-researchfund1
+    deer-flow-mineru-adapter: deerflow.local/deer-flow-mineru-adapter:20260904-enterprise-arm64-rc15-uploadstability1
+  runtime_images:
+    deer-flow-aio-sandbox: deerflow.local/deer-flow-aio-sandbox:20260817-enterprise-arm64-rc15-sandboxstorage1
+  separately_managed_images:
+    skillhub-server: deerflow.local/skillhub-server:20260908-enterprise-arm64-rc15-skillhubsession2
+    skillhub-web: deerflow.local/skillhub-web:20260907-enterprise-arm64-rc15-skillhubux-dashboard1-r2
+  capabilities:
+    deerflow_browser_live: enabled
+    deerflow_digital_employees: enabled
+    oa_policy_flow: polling-enabled-callback-disabled
+    weknora_v08: enabled
+    weknora_anydoc: enabled-with-existing-xlsx-route-freeze
+    weknora_sandbox: disabled-not-in-production
+    skillhub: enabled-separately-managed
+
 controls:
   - id: model.deepseek-only
     layer: runtime-config
@@ -30,6 +61,15 @@ controls:
       - docker/provisioner/app.py
     enforcement: offline+live
     acceptance: Provisioner-created Sandbox Pods receive proxy variables, enterprise CA, scoped OpenSSL compatibility, and no service-account token.
+
+  - id: sandbox.shared-thread-data
+    layer: runtime-config+kubernetes
+    source:
+      - config.yaml
+      - k8s/local-pvc/deer-flow-pvc-stack.yaml
+      - docker/provisioner/app.py
+    enforcement: offline+live+functional
+    acceptance: Gateway and provisioner-created Sandbox Pods mount the same thread-scoped user-data PVC, and uploads never cold-start or wait for a Sandbox merely to copy bytes.
 
   - id: external.dashscope-image
     layer: runtime-config
@@ -172,10 +212,15 @@ controls:
     layer: source+database
     source:
       - backend/app/gateway/routers/dashboard.py
+      - backend/app/gateway/dashboard_database.py
+      - backend/app/gateway/dashboard_rollups.py
+      - backend/packages/harness/deerflow/persistence/migrations/versions/0017_dashboard_hourly_rollups.py
       - backend/app/gateway/external_agent_analytics.py
       - frontend/src/app/workspace/admin/dashboard/page.tsx
+      - k8s/enterprise/dashboard-postgres-replica.yaml
+      - k8s/local-pvc/dashboard-rollup-cronjob.yaml
     enforcement: tests+functional
-    acceptance: Dashboard current-state and cumulative audit metrics remain distinct and external click ingestion stays server-authenticated.
+    acceptance: Dashboard current-state and cumulative audit metrics remain distinct, 24-hour reads use hourly facts, and enterprise dashboard reads fail closed onto a verified physical standby without primary fallback.
 
   - id: operations.backup-before-rollout
     layer: operations
@@ -198,7 +243,7 @@ manual_acceptance:
   - id: external-agents
     action: Verify all five allowlisted external-agent redirects with the current HttpOnly SSO token.
   - id: dashboard
-    action: Verify current and cumulative WeKnora, scheduled-task, conversation, file, and external-click metrics.
+    action: Verify current and cumulative WeKnora, scheduled-task, conversation, file, and external-click metrics; prove the dashboard connection reports pg_is_in_recovery()=true and transaction_read_only=on, replica lag is bounded, 24-hour responses use hourly_rollup, and stopping the replica affects only the dashboard.
   - id: browser
     action: Verify the audited enterprise browser renders settings, human-input cards, Skill chips, schedule dialogs, and dashboard bars without opaque fallback blocks.
   - id: security

@@ -160,7 +160,7 @@ async def submit_policy_flow_job(
             user_id=config.owner_user_id,
         )
         limits = _get_upload_limits(get_app_config())
-        raw_path, file_size, _total_size = await _write_upload_file_with_limits(
+        raw_path, file_size, _total_size, _security_result, _rollback_snapshot = await _write_upload_file_with_limits(
             document,
             uploads_dir=uploads_dir,
             display_filename=filename,
@@ -173,9 +173,7 @@ async def submit_policy_flow_job(
             raise HTTPException(status_code=422, detail="document must not be empty")
         await run_file_io(_make_uploaded_paths_sandbox_readable, [written_path])
         document_sha = await run_file_io(_hash_file, written_path)
-        fingerprint = hashlib.sha256(
-            f"{request_id}\n{canonical_fields}\n{document_sha}".encode()
-        ).hexdigest()
+        fingerprint = hashlib.sha256(f"{request_id}\n{canonical_fields}\n{document_sha}".encode()).hexdigest()
         now = datetime.now(UTC)
         job, created = await repository.create_or_get(
             {

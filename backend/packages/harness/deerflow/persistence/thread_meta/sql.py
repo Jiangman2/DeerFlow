@@ -6,11 +6,12 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import case, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.orm.attributes import flag_modified
 
 from deerflow.persistence.json_compat import json_match
-from deerflow.persistence.thread_meta.base import InvalidMetadataFilterError, ThreadMetaStore
+from deerflow.persistence.thread_meta.base import THREAD_ARCHIVED_METADATA_KEY, THREAD_PINNED_METADATA_KEY, InvalidMetadataFilterError, ThreadMetaStore
 from deerflow.persistence.thread_meta.model import ThreadCreationRow, ThreadMetaRow
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, resolve_user_id
 from deerflow.utils.time import coerce_iso
@@ -128,6 +129,7 @@ class ThreadMetaRepository(ThreadMetaStore):
         *,
         metadata: dict[str, Any] | None = None,
         status: str | None = None,
+        archived: bool | None = None,
         limit: int = 100,
         offset: int = 0,
         user_id: str | None | _AutoSentinel = AUTO,
@@ -138,7 +140,15 @@ class ThreadMetaRepository(ThreadMetaStore):
         context. Pass ``user_id=None`` to bypass (migration/CLI).
         """
         resolved_user_id = resolve_user_id(user_id, method_name="ThreadMetaRepository.search")
-        stmt = select(ThreadMetaRow).order_by(ThreadMetaRow.updated_at.desc(), ThreadMetaRow.thread_id.desc())
+        pinned_order = case(
+            (json_match(ThreadMetaRow.metadata_json, THREAD_PINNED_METADATA_KEY, True), 1),
+            else_=0,
+        )
+        stmt = select(ThreadMetaRow).order_by(
+            pinned_order.desc(),
+            ThreadMetaRow.updated_at.desc(),
+            ThreadMetaRow.thread_id.desc(),
+        )
         if resolved_user_id is not None:
             stmt = stmt.where(ThreadMetaRow.user_id == resolved_user_id)
         if status:
@@ -158,6 +168,13 @@ class ThreadMetaRepository(ThreadMetaStore):
                 # easy for clients to read. Sorted for determinism.
                 rejected_keys = ", ".join(sorted(str(k) for k in metadata))
                 raise InvalidMetadataFilterError(f"All metadata filter keys were rejected as unsafe: {rejected_keys}")
+
+        if archived is not None:
+            archive_flag = case(
+                (json_match(ThreadMetaRow.metadata_json, THREAD_ARCHIVED_METADATA_KEY, True), 1),
+                else_=0,
+            )
+            stmt = stmt.where(archive_flag == int(archived))
 
         stmt = stmt.limit(limit).offset(offset)
         async with self._sf() as session:
@@ -205,6 +222,7 @@ class ThreadMetaRepository(ThreadMetaStore):
         thread_id: str,
         metadata: dict,
         *,
+        touch: bool = True,
         user_id: str | None | _AutoSentinel = AUTO,
     ) -> None:
         """Merge ``metadata`` into ``metadata_json``.
@@ -223,7 +241,12 @@ class ThreadMetaRepository(ThreadMetaStore):
             merged = dict(row.metadata_json or {})
             merged.update(metadata)
             row.metadata_json = merged
-            row.updated_at = datetime.now(UTC)
+            if touch:
+                row.updated_at = datetime.now(UTC)
+            else:
+                # ``updated_at`` has an onupdate hook. Mark the existing value
+                # dirty so SQLAlchemy preserves recency for pin-only updates.
+                flag_modified(row, "updated_at")
             await session.commit()
 
     async def update_owner(

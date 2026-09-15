@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0014_oa_policy_flow_jobs"
+HEAD = "0019_digital_employee_agents"
 BASELINE = "0001_baseline"
 
 

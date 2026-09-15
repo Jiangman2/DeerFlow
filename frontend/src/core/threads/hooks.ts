@@ -41,7 +41,13 @@ import {
   readReconnectRun,
   rememberReconnectRun,
 } from "./active-run-recovery";
-import { branchThreadFromTurn, fetchThreadTokenUsage } from "./api";
+import {
+  branchThreadFromTurn,
+  fetchThreadTokenUsage,
+  patchThreadMetadata,
+  searchThreadsByArchive,
+  type ThreadMetadataPatch,
+} from "./api";
 import { isCustomEventForThread } from "./custom-event-scope";
 import { LEAD_AGENT_RECURSION_LIMIT } from "./run-config";
 import { isStaticDemoThreadId, loadStaticDemoThread } from "./static-demo";
@@ -58,6 +64,7 @@ import type {
   RunMessage,
   ThreadTokenUsageResponse,
 } from "./types";
+import { THREAD_PINNED_METADATA_KEY } from "./utils";
 
 export type ToolEndEvent = {
   name: string;
@@ -783,6 +790,28 @@ export function getVisibleOptimisticMessages(
   return optimisticMessages;
 }
 
+export function settleOptimisticUploadMessages(
+  messages: Message[],
+  humanMessageId: string | null,
+  uploadPlaceholderId: string | null,
+  uploadedFiles: FileInMessage[],
+): Message[] {
+  return messages
+    .filter((message) => message.id !== uploadPlaceholderId)
+    .map((message) => {
+      if (message.id !== humanMessageId) {
+        return message;
+      }
+      return {
+        ...message,
+        additional_kwargs: {
+          ...message.additional_kwargs,
+          files: uploadedFiles,
+        },
+      };
+    });
+}
+
 export function getSummarizationMiddlewareMessages(
   data: unknown,
 ): Message[] | undefined {
@@ -983,10 +1012,18 @@ export function upsertThreadInInfiniteCache(
   queryClient: QueryClient,
   thread: AgentThread,
 ) {
+  const hasArchiveFilter = ({ queryKey }: { queryKey: readonly unknown[] }) =>
+    typeof (queryKey[2] as InfiniteThreadsParams | undefined)?.archived ===
+    "boolean";
+  void queryClient.invalidateQueries({
+    queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+    predicate: hasArchiveFilter,
+  });
   queryClient.setQueriesData(
     {
       queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
       exact: false,
+      predicate: (query) => !hasArchiveFilter(query),
     },
     (oldData: InfiniteData<AgentThread[]> | undefined) => {
       if (!oldData) {
@@ -1292,10 +1329,7 @@ export function useThreadStream({
     // Preserve isolated-runtime ownership when the run creation response uses
     // an authoritative id different from the welcome page's client id. Do
     // this before changing refs or enabling state/history hydration.
-    inheritPptMasterRuntimeThread(
-      currentViewThreadIdRef.current,
-      _threadId,
-    );
+    inheritPptMasterRuntimeThread(currentViewThreadIdRef.current, _threadId);
     inheritPptMasterRuntimeThread(threadIdRef.current, _threadId);
     acceptedCustomEventThreadIdsRef.current.add(_threadId);
     threadIdRef.current = _threadId;
@@ -1829,11 +1863,19 @@ export function useThreadStream({
         ...(optimisticFiles.length > 0 ? { files: optimisticFiles } : {}),
       };
 
+      const optimisticTimestamp = Date.now();
+      const optimisticHumanMessageId = hideFromUI
+        ? null
+        : `opt-human-${optimisticTimestamp}`;
+      const uploadPlaceholderId =
+        optimisticFiles.length > 0 && !hideFromUI
+          ? `opt-ai-${optimisticTimestamp}`
+          : null;
       const newOptimistic: Message[] = [];
       if (!hideFromUI) {
         newOptimistic.push({
           type: "human",
-          id: `opt-human-${Date.now()}`,
+          id: optimisticHumanMessageId!,
           content: text ? [{ type: "text", text }] : "",
           additional_kwargs: optimisticAdditionalKwargs,
         });
@@ -1843,7 +1885,7 @@ export function useThreadStream({
         // Mock AI message while files are being uploaded
         newOptimistic.push({
           type: "ai",
-          id: `opt-ai-${Date.now()}`,
+          id: uploadPlaceholderId!,
           content: t.uploads.uploadingFiles,
           additional_kwargs: { element: "task" },
         });
@@ -1907,19 +1949,18 @@ export function useThreadStream({
                   status: "uploaded" as const,
                 }),
               );
-              setOptimisticMessages((messages) => {
-                if (messages.length > 1 && messages[0]) {
-                  const humanMessage: Message = messages[0];
-                  return [
-                    {
-                      ...humanMessage,
-                      additional_kwargs: { files: uploadedFiles },
-                    },
-                    ...messages.slice(1),
-                  ];
-                }
-                return messages;
-              });
+              // The upload endpoint returns only after synchronous parsing and
+              // atomic persistence complete. Remove the upload-only placeholder
+              // before starting the run so later thread/session startup latency
+              // is never presented as file-upload latency.
+              setOptimisticMessages((messages) =>
+                settleOptimisticUploadMessages(
+                  messages,
+                  optimisticHumanMessageId,
+                  uploadPlaceholderId,
+                  uploadedFiles,
+                ),
+              );
             }
           } catch (error) {
             const errorMessage =
@@ -2322,9 +2363,9 @@ const INFINITE_THREADS_NEXT_PAGE_PARAM = Symbol(
 );
 
 type InfiniteThreadsParams = Omit<
-  Parameters<ThreadsClient["search"]>[0],
+  NonNullable<Parameters<ThreadsClient["search"]>[0]>,
   "limit" | "offset"
->;
+> & { archived?: boolean };
 
 type InfiniteThreadsSearchClient = {
   threads: {
@@ -2358,11 +2399,20 @@ export async function fetchInfiniteThreadsPage(
 
   while (threads.length < pageSize) {
     const currentLimit = pageSize - threads.length;
-    const response = (await apiClient.threads.search<AgentThreadState>({
-      ...params,
-      limit: currentLimit,
-      offset,
-    })) as AgentThread[];
+    const response =
+      params.archived === undefined
+        ? ((await apiClient.threads.search<AgentThreadState>({
+            ...params,
+            limit: currentLimit,
+            offset,
+          })) as AgentThread[])
+        : await searchThreadsByArchive({
+            ...params,
+            archived: params.archived,
+            metadata: params.metadata ?? undefined,
+            limit: currentLimit,
+            offset,
+          });
 
     threads.push(...filterThreadSearchResults(response, params));
     offset += response.length;
@@ -2421,6 +2471,49 @@ export function filterInfiniteThreadsCache(
     ...oldData,
     pages: oldData.pages.map((page) => page.filter(predicate)),
   };
+}
+
+function mergeThreadMetadata(
+  thread: AgentThread,
+  metadata: ThreadMetadataPatch,
+): AgentThread {
+  return {
+    ...thread,
+    metadata: {
+      ...(thread.metadata ?? {}),
+      ...metadata,
+    },
+  };
+}
+
+export function setThreadMetadataInCaches(
+  queryClient: QueryClient,
+  threadId: string,
+  metadata: ThreadMetadataPatch,
+) {
+  queryClient.setQueriesData(
+    { queryKey: ["threads", "search"], exact: false },
+    (oldData: Array<AgentThread> | undefined) =>
+      oldData?.map((thread) =>
+        thread.thread_id === threadId
+          ? mergeThreadMetadata(thread, metadata)
+          : thread,
+      ),
+  );
+  queryClient.setQueriesData(
+    { queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX, exact: false },
+    (oldData: InfiniteData<AgentThread[]> | undefined) =>
+      mapInfiniteThreadsCache(oldData, (thread) =>
+        thread.thread_id === threadId
+          ? mergeThreadMetadata(thread, metadata)
+          : thread,
+      ),
+  );
+  queryClient.setQueriesData(
+    { queryKey: ["thread", "metadata", threadId], exact: false },
+    (oldData: AgentThread | null | undefined) =>
+      oldData ? mergeThreadMetadata(oldData, metadata) : oldData,
+  );
 }
 
 export function useInfiniteThreads(
@@ -2553,6 +2646,33 @@ export function useBranchThread() {
   });
 }
 
+export function usePinThread() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      threadId,
+      pinned,
+    }: {
+      threadId: string;
+      pinned: boolean;
+    }) =>
+      patchThreadMetadata(threadId, {
+        [THREAD_PINNED_METADATA_KEY]: pinned,
+      }),
+    onSuccess(_response, { threadId, pinned }) {
+      setThreadMetadataInCaches(queryClient, threadId, {
+        [THREAD_PINNED_METADATA_KEY]: pinned,
+      });
+    },
+    onSettled() {
+      void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+      void queryClient.invalidateQueries({
+        queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+      });
+    },
+  });
+}
+
 export function useRunDetail(threadId: string, runId: string) {
   const apiClient = getAPIClient();
   return useQuery<Run>({
@@ -2590,7 +2710,12 @@ async function deleteThreadEverywhere(
   apiClient: ThreadDeleteClient,
   threadId: string,
 ) {
-  await apiClient.threads.delete(threadId);
+  try {
+    await apiClient.threads.delete(threadId);
+  } catch (error) {
+    // A retry can observe the remote deletion from the previous attempt.
+    if (getHttpStatus(error) !== 404) throw error;
+  }
   await deleteLocalThreadData(threadId);
 }
 
@@ -2687,18 +2812,17 @@ export function useDeleteThread() {
   return useMutation({
     mutationFn: async ({
       threadId,
-      onRemoteDeleted,
+      onDeleted,
     }: {
       threadId: string;
-      onRemoteDeleted?: () => void;
+      onDeleted?: () => void;
     }) => {
       const deletedSidecarThreadIds = await deleteSidecarThreadsForParent(
         apiClient,
         threadId,
       );
-      await apiClient.threads.delete(threadId);
-      onRemoteDeleted?.();
-      await deleteLocalThreadData(threadId);
+      await deleteThreadEverywhere(apiClient, threadId);
+      onDeleted?.();
       return deletedSidecarThreadIds;
     },
     onSuccess(deletedSidecarThreadIds, { threadId }) {

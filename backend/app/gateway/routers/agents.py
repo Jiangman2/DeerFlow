@@ -1,17 +1,24 @@
 """CRUD API for custom agents."""
 
 import asyncio
+import io
 import logging
 import os
 import re
 import secrets
 import shutil
 import unicodedata
+from pathlib import Path
+from typing import Literal
+from urllib.parse import quote
 
 import yaml
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
+from PIL import Image, ImageOps, UnidentifiedImageError
+from pydantic import BaseModel, Field, field_validator
 
+from app.gateway.deps import require_admin_user
 from app.gateway.external_agent_analytics import (
     EXTERNAL_PLATFORM_AGENT_NAMES,
     EXTERNAL_PLATFORM_CLICK_ACTION,
@@ -19,16 +26,23 @@ from app.gateway.external_agent_analytics import (
     normalize_external_agent_name,
     normalize_external_agent_source,
 )
+from deerflow.agents.memory.manager import get_memory_manager
 from deerflow.config.agents_api_config import get_agents_api_config
 from deerflow.config.agents_config import (
+    MAX_AGENT_NAME_LENGTH,
     AgentConfig,
+    AgentModelSettings,
+    is_personal_agent,
     list_custom_agents,
     list_team_agents,
     load_agent_config,
     load_agent_soul,
     preserve_non_managed_fields,
+    validate_agent_display_name,
 )
+from deerflow.config.app_config import get_app_config
 from deerflow.config.paths import get_paths
+from deerflow.persistence.agents import AgentExistsError, get_agent_store
 from deerflow.persistence.engine import get_session_factory
 from deerflow.persistence.observability.model import AuditLogRow
 from deerflow.runtime.user_context import get_effective_user_id
@@ -38,16 +52,101 @@ router = APIRouter(prefix="/api", tags=["agents"])
 
 AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
 EXTERNAL_AGENT_NAMES = set(EXTERNAL_PLATFORM_AGENT_NAMES)
+MAX_AVATAR_BYTES = 5 * 1024 * 1024
+MAX_AVATAR_DIMENSION = 8192
+MAX_DIGITAL_EMPLOYEE_TAGS = 8
+MAX_DIGITAL_EMPLOYEE_TAG_LENGTH = 20
+DIGITAL_EMPLOYEE_AVATAR_IDS = {
+    "exploration-geologist",
+    "seismic-processing",
+    "reservoir-development",
+    "drilling-completion",
+    "offshore-engineering",
+    "production-operations",
+    "hse",
+    "intelligent-oilfield-data",
+    "report-research",
+    "knowledge-service",
+    "equipment-maintenance",
+    "emergency-response",
+    "senior-geologist",
+    "rov-pilot",
+    "offshore-medic",
+    "environmental-analyst",
+    "lng-engineer",
+    "ai-scientist",
+    "procurement-specialist",
+    "helicopter-logistics",
+    "platform-manager",
+    "subsea-inspector",
+    "finance-analyst",
+    "renewables-engineer",
+}
+_CATEGORY_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+_categories_write_lock = asyncio.Lock()
+ReasoningEffort = Literal["low", "medium", "high"]
+_MODEL_BEHAVIOR_FIELDS = (
+    "model",
+    "model_settings",
+    "thinking_enabled",
+    "reasoning_effort",
+)
+
+
+def _normalize_tags(value: list[str] | None) -> list[str] | None:
+    if value is None:
+        return None
+    result: list[str] = []
+    seen: set[str] = set()
+    for raw_tag in value:
+        tag = raw_tag.strip()
+        if not tag:
+            continue
+        if len(tag) > MAX_DIGITAL_EMPLOYEE_TAG_LENGTH:
+            raise ValueError(f"Each tag must be {MAX_DIGITAL_EMPLOYEE_TAG_LENGTH} characters or fewer")
+        folded = tag.casefold()
+        if folded not in seen:
+            seen.add(folded)
+            result.append(tag)
+    if len(result) > MAX_DIGITAL_EMPLOYEE_TAGS:
+        raise ValueError(f"A digital employee can have at most {MAX_DIGITAL_EMPLOYEE_TAGS} tags")
+    return result
+
+
+def _validate_avatar_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if normalized not in DIGITAL_EMPLOYEE_AVATAR_IDS:
+        raise ValueError("Unknown preset avatar")
+    return normalized
+
+
+def _validate_category_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not _CATEGORY_ID_PATTERN.fullmatch(normalized):
+        raise ValueError("Category id must use lowercase letters, digits, and hyphens")
+    return normalized
 
 
 class AgentResponse(BaseModel):
     """Response model for a custom agent."""
 
     name: str = Field(..., description="Agent name")
-    description: str = Field(default="", description="Agent description")
+    display_name: str | None = Field(default=None, description="Editable Unicode display name")
+    description: str = Field(default="", max_length=500, description="Agent description")
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all, []=none)")
+    category_id: str | None = Field(default=None, description="Admin-defined digital employee category")
+    tags: list[str] = Field(default_factory=list, description="Search and discovery tags")
+    avatar_id: str | None = Field(default=None, description="Bundled cartoon avatar identifier")
+    avatar_url: str | None = Field(default=None, description="Same-origin custom avatar URL")
+    model_settings: AgentModelSettings | None = Field(default=None, description="Per-employee sampling overrides")
+    thinking_enabled: bool | None = Field(default=None, description="Per-employee thinking-mode default")
+    reasoning_effort: ReasoningEffort | None = Field(default=None, description="Per-employee reasoning effort")
     soul: str | None = Field(default=None, description="SOUL.md content")
     source: str | None = Field(default=None, description="Agent source: personal, team, or legacy")
     published_by_user_id: str | None = Field(default=None, description="User id that published this team agent")
@@ -65,23 +164,89 @@ class AgentCreateRequest(BaseModel):
 
     name: str = Field(
         ...,
+        max_length=MAX_AGENT_NAME_LENGTH,
         description="Agent name (Chinese characters, letters, digits, and hyphens)",
     )
-    description: str = Field(default="", description="Agent description")
+    display_name: str | None = Field(default=None, max_length=80, description="Editable Unicode display name")
+    description: str = Field(
+        default="",
+        max_length=500,
+        description="Agent description",
+    )
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all enabled, []=none)")
+    category_id: str | None = Field(default=None, max_length=64, description="Digital employee category id")
+    tags: list[str] = Field(default_factory=list, description="Search and discovery tags")
+    avatar_id: str | None = Field(default=None, description="Bundled cartoon avatar identifier")
+    model_settings: AgentModelSettings | None = Field(default=None, description="Per-employee sampling overrides")
+    thinking_enabled: bool | None = Field(default=None, description="Per-employee thinking-mode default")
+    reasoning_effort: ReasoningEffort | None = Field(default=None, description="Per-employee reasoning effort")
     soul: str = Field(default="", description="SOUL.md content — agent personality and behavioral guardrails")
+
+    _clean_tags = field_validator("tags")(_normalize_tags)
+    _clean_avatar_id = field_validator("avatar_id")(_validate_avatar_id)
+    _clean_category_id = field_validator("category_id")(_validate_category_id)
+    _clean_display_name = field_validator("display_name")(validate_agent_display_name)
 
 
 class AgentUpdateRequest(BaseModel):
     """Request body for updating a custom agent."""
 
-    description: str | None = Field(default=None, description="Updated description")
+    display_name: str | None = Field(default=None, max_length=80, description="Updated display name")
+    description: str | None = Field(default=None, max_length=500, description="Updated description")
     model: str | None = Field(default=None, description="Updated model override")
     tool_groups: list[str] | None = Field(default=None, description="Updated tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Updated skill whitelist (None=all, []=none)")
+    category_id: str | None = Field(default=None, max_length=64, description="Updated category id")
+    tags: list[str] | None = Field(default=None, description="Updated search and discovery tags")
+    avatar_id: str | None = Field(default=None, description="Updated bundled avatar identifier")
+    model_settings: AgentModelSettings | None = Field(default=None, description="Updated per-employee sampling overrides")
+    thinking_enabled: bool | None = Field(default=None, description="Updated per-employee thinking-mode default")
+    reasoning_effort: ReasoningEffort | None = Field(default=None, description="Updated per-employee reasoning effort")
     soul: str | None = Field(default=None, description="Updated SOUL.md content")
+
+    _clean_tags = field_validator("tags")(_normalize_tags)
+    _clean_avatar_id = field_validator("avatar_id")(_validate_avatar_id)
+    _clean_category_id = field_validator("category_id")(_validate_category_id)
+    _clean_display_name = field_validator("display_name")(validate_agent_display_name)
+
+
+class DigitalEmployeeCategory(BaseModel):
+    id: str = Field(..., min_length=1, max_length=64)
+    name: str = Field(..., min_length=1, max_length=32)
+    description: str = Field(default="", max_length=160)
+    sort_order: int = Field(default=0, ge=0, le=10_000)
+
+    @field_validator("id")
+    @classmethod
+    def validate_id(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not _CATEGORY_ID_PATTERN.fullmatch(normalized):
+            raise ValueError("Category id must use lowercase letters, digits, and hyphens")
+        return normalized
+
+    @field_validator("name", "description")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        return value.strip()
+
+
+class DigitalEmployeeCategoriesResponse(BaseModel):
+    items: list[DigitalEmployeeCategory]
+
+
+DEFAULT_DIGITAL_EMPLOYEE_CATEGORIES = DigitalEmployeeCategoriesResponse(
+    items=[
+        DigitalEmployeeCategory(id="general", name="通用协作", description="跨业务的通用数字员工", sort_order=0),
+        DigitalEmployeeCategory(id="exploration", name="勘探研究", description="地质、物探与勘探研究", sort_order=10),
+        DigitalEmployeeCategory(id="development", name="开发生产", description="油藏、钻完井与生产运行", sort_order=20),
+        DigitalEmployeeCategory(id="engineering", name="工程建设", description="海洋工程与设备设施", sort_order=30),
+        DigitalEmployeeCategory(id="safety", name="安全环保", description="HSE、风险与应急管理", sort_order=40),
+        DigitalEmployeeCategory(id="digital", name="数智技术", description="数据、算法与智能油田", sort_order=50),
+        DigitalEmployeeCategory(id="research", name="研究与报告", description="研究分析、文档和报告编制", sort_order=60),
+    ]
+)
 
 
 class AgentPublishRequest(BaseModel):
@@ -207,11 +372,11 @@ def _validate_agent_name(name: str) -> None:
     Raises:
         HTTPException: 422 if the name is invalid.
     """
-    is_safe = bool(name) and AGENT_NAME_PATTERN.fullmatch(name) and all(char == "-" or unicodedata.category(char)[0] in {"L", "N"} for char in name)
+    is_safe = bool(name) and len(name) <= MAX_AGENT_NAME_LENGTH and AGENT_NAME_PATTERN.fullmatch(name) and all(char == "-" or unicodedata.category(char)[0] in {"L", "N"} for char in name)
     if not is_safe:
         raise HTTPException(
             status_code=422,
-            detail=(f"Invalid agent name '{name}'. Use Chinese characters, letters, digits, and hyphens only."),
+            detail=(f"Invalid agent name '{name}'. Use at most {MAX_AGENT_NAME_LENGTH} Chinese characters, letters, digits, and hyphens."),
         )
 
 
@@ -229,6 +394,210 @@ def _require_agents_api_enabled() -> None:
         )
 
 
+def _validate_model_exists(model: str | None) -> None:
+    if not model:
+        return
+    try:
+        app_config = get_app_config()
+    except Exception:
+        logger.warning(
+            "Could not load app config to validate employee model %r; skipping",
+            model,
+        )
+        return
+    if app_config.get_model_config(model) is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown model '{model}'. Select a configured model profile.",
+        )
+
+
+def _merge_model_settings_update(
+    value: AgentModelSettings,
+    existing: AgentModelSettings | None,
+) -> dict:
+    merged = existing.model_dump(exclude_none=True) if existing is not None else {}
+    for field in value.model_fields_set:
+        field_value = getattr(value, field)
+        if field_value is None:
+            merged.pop(field, None)
+        else:
+            merged[field] = field_value
+    return merged
+
+
+def _apply_model_behavior(
+    config_data: dict,
+    source: BaseModel,
+    existing: AgentConfig | None = None,
+) -> None:
+    for field in _MODEL_BEHAVIOR_FIELDS:
+        value = getattr(source, field) if field in source.model_fields_set else getattr(existing, field, None) if existing is not None else None
+        if value is None:
+            continue
+        if field == "model_settings" and isinstance(value, AgentModelSettings):
+            dumped = _merge_model_settings_update(
+                value,
+                existing.model_settings if existing is not None else None,
+            )
+            if dumped:
+                config_data[field] = dumped
+            continue
+        config_data[field] = value.model_dump(exclude_none=True) if isinstance(value, BaseModel) else value
+
+
+def _category_config_path() -> Path:
+    return get_paths().base_dir / "digital_employee_categories.yaml"
+
+
+def _load_digital_employee_categories() -> DigitalEmployeeCategoriesResponse:
+    path = _category_config_path()
+    if not path.exists():
+        return DEFAULT_DIGITAL_EMPLOYEE_CATEGORIES.model_copy(deep=True)
+    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    categories = DigitalEmployeeCategoriesResponse.model_validate(payload)
+    categories.items.sort(key=lambda item: (item.sort_order, item.name.casefold()))
+    return categories
+
+
+def _ensure_category_exists(category_id: str | None) -> None:
+    if category_id is None:
+        return
+    configured = {item.id for item in _load_digital_employee_categories().items}
+    if category_id not in configured:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown digital employee category '{category_id}'",
+        )
+
+
+def _agent_exists(name: str, user_id: str | None) -> bool:
+    """Resolve the configured store and check ownership in one worker call."""
+    return get_agent_store().exists(name, user_id=user_id)
+
+
+def _write_digital_employee_categories(categories: DigitalEmployeeCategoriesResponse) -> None:
+    path = _category_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
+    try:
+        temporary.write_text(
+            yaml.safe_dump(
+                categories.model_dump(mode="json"),
+                allow_unicode=True,
+                sort_keys=False,
+            ),
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _find_category_usage(category_ids: set[str]) -> dict[str, list[str]]:
+    """Return bounded owner/name references for categories that are still used."""
+    usage: dict[str, list[str]] = {category_id: [] for category_id in category_ids}
+    for owner_id, config in get_agent_store().list_all():
+        if config.category_id in usage and len(usage[config.category_id]) < 10:
+            usage[config.category_id].append(f"{owner_id}/{config.name}")
+    for config in list_team_agents():
+        if config.category_id in usage and len(usage[config.category_id]) < 10:
+            usage[config.category_id].append(f"team/{config.name}")
+    return {category_id: refs for category_id, refs in usage.items() if refs}
+
+
+def _avatar_path(agent_dir: Path) -> Path:
+    return agent_dir / "avatar.webp"
+
+
+def _avatar_url(name: str, source: str, agent_dir: Path) -> str | None:
+    if not _avatar_path(agent_dir).is_file():
+        return None
+    encoded_name = quote(name, safe="")
+    if source in {"team", "legacy"}:
+        return f"/api/team-agents/{encoded_name}/avatar"
+    return f"/api/agents/{encoded_name}/avatar"
+
+
+def _encode_custom_avatar(payload: bytes, destination: Path) -> None:
+    try:
+        with Image.open(io.BytesIO(payload)) as image:
+            image.verify()
+        with Image.open(io.BytesIO(payload)) as image:
+            if getattr(image, "is_animated", False):
+                raise ValueError("Animated avatars are not supported")
+            if max(image.size) > MAX_AVATAR_DIMENSION:
+                raise ValueError("Avatar dimensions are too large")
+            image = ImageOps.exif_transpose(image)
+            image = ImageOps.fit(
+                image.convert("RGB"),
+                (512, 512),
+                method=Image.Resampling.LANCZOS,
+            )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            temporary = destination.with_name(f".{destination.name}.{secrets.token_hex(8)}.tmp")
+            try:
+                image.save(temporary, format="WEBP", quality=86, method=6)
+                os.replace(temporary, destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+    except (UnidentifiedImageError, OSError) as exc:
+        raise ValueError("Avatar must be a valid PNG, JPEG, or WebP image") from exc
+
+
+@router.get(
+    "/digital-employee-categories",
+    response_model=DigitalEmployeeCategoriesResponse,
+    summary="List Digital Employee Categories",
+)
+async def list_digital_employee_categories() -> DigitalEmployeeCategoriesResponse:
+    _require_agents_api_enabled()
+    try:
+        return await asyncio.to_thread(_load_digital_employee_categories)
+    except Exception as exc:
+        logger.error("Failed to load digital employee categories", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load digital employee categories: {exc}",
+        ) from exc
+
+
+@router.put(
+    "/admin/digital-employee-categories",
+    response_model=DigitalEmployeeCategoriesResponse,
+    summary="Replace Digital Employee Categories",
+)
+async def replace_digital_employee_categories(
+    request: Request,
+    body: DigitalEmployeeCategoriesResponse,
+) -> DigitalEmployeeCategoriesResponse:
+    _require_agents_api_enabled()
+    await require_admin_user(
+        request,
+        detail="Admin privileges are required to manage digital employee categories",
+    )
+    ids = [item.id for item in body.items]
+    if len(ids) != len(set(ids)):
+        raise HTTPException(status_code=422, detail="Category ids must be unique")
+    names = [item.name.casefold() for item in body.items]
+    if len(names) != len(set(names)):
+        raise HTTPException(status_code=422, detail="Category names must be unique")
+    body.items.sort(key=lambda item: (item.sort_order, item.name.casefold()))
+    async with _categories_write_lock:
+        current = await asyncio.to_thread(_load_digital_employee_categories)
+        removed_ids = {item.id for item in current.items} - set(ids)
+        if removed_ids:
+            usage = await asyncio.to_thread(_find_category_usage, removed_ids)
+            if usage:
+                references = "; ".join(f"{category_id}: {', '.join(agent_refs)}" for category_id, agent_refs in sorted(usage.items()))
+                raise HTTPException(
+                    status_code=409,
+                    detail=(f"Cannot remove categories that are assigned to digital employees. Reassign them first ({references})."),
+                )
+        await asyncio.to_thread(_write_digital_employee_categories, body)
+    return body
+
+
 def _agent_config_to_response(
     agent_cfg: AgentConfig,
     include_soul: bool = False,
@@ -241,12 +610,21 @@ def _agent_config_to_response(
     if include_soul:
         soul = load_agent_soul(agent_cfg.name, user_id=user_id) or ""
 
+    agent_dir = get_paths().user_agent_dir(user_id or get_effective_user_id(), agent_cfg.name)
     return AgentResponse(
         name=agent_cfg.name,
+        display_name=agent_cfg.display_name,
         description=agent_cfg.description,
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         skills=agent_cfg.skills,
+        category_id=agent_cfg.category_id,
+        tags=agent_cfg.tags,
+        avatar_id=agent_cfg.avatar_id,
+        avatar_url=_avatar_url(agent_cfg.name, source or "personal", agent_dir),
+        model_settings=agent_cfg.model_settings,
+        thinking_enabled=agent_cfg.thinking_enabled,
+        reasoning_effort=agent_cfg.reasoning_effort,
         soul=soul,
         source=source,
     )
@@ -279,10 +657,18 @@ def _shared_agent_response(
     published_by_user_id = str(published_by) if published_by is not None else None
     return AgentResponse(
         name=agent_cfg.name,
+        display_name=agent_cfg.display_name,
         description=agent_cfg.description,
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         skills=agent_cfg.skills,
+        category_id=agent_cfg.category_id,
+        tags=agent_cfg.tags,
+        avatar_id=agent_cfg.avatar_id,
+        avatar_url=_avatar_url(agent_cfg.name, source, agent_dir),
+        model_settings=agent_cfg.model_settings,
+        thinking_enabled=agent_cfg.thinking_enabled,
+        reasoning_effort=agent_cfg.reasoning_effort,
         soul=soul_path.read_text(encoding="utf-8").strip() if soul_path.exists() else "",
         source=source,
         published_by_user_id=published_by_user_id,
@@ -305,9 +691,13 @@ async def list_agents() -> AgentsListResponse:
     _require_agents_api_enabled()
 
     user_id = get_effective_user_id()
-    try:
+
+    def _list() -> AgentsListResponse:
         agents = list_custom_agents(user_id=user_id)
         return AgentsListResponse(agents=[_agent_config_to_response(a, include_soul=True, user_id=user_id) for a in agents])
+
+    try:
+        return await asyncio.to_thread(_list)
     except Exception as e:
         logger.error(f"Failed to list agents: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
@@ -386,12 +776,8 @@ async def check_agent_name(name: str) -> dict:
     _validate_agent_name(name)
     normalized = _normalize_agent_name(name)
     user_id = get_effective_user_id()
-    paths = get_paths()
-    # Treat the name as taken if either the per-user path or the legacy shared
-    # path holds an agent — picking a name that collides with an unmigrated
-    # legacy agent would shadow the legacy entry once migration runs.
-    available = not paths.user_agent_dir(user_id, normalized).exists() and not paths.agent_dir(normalized).exists()
-    return {"available": available, "name": normalized}
+    exists = await asyncio.to_thread(_agent_exists, normalized, user_id)
+    return {"available": not exists, "name": normalized}
 
 
 @router.get(
@@ -417,14 +803,121 @@ async def get_agent(name: str) -> AgentResponse:
     name = _normalize_agent_name(name)
     user_id = get_effective_user_id()
 
-    try:
+    def _get() -> AgentResponse:
         agent_cfg = load_agent_config(name, user_id=user_id)
         return _agent_config_to_response(agent_cfg, include_soul=True, user_id=user_id)
+
+    try:
+        return await asyncio.to_thread(_get)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
     except Exception as e:
         logger.error(f"Failed to get agent '{name}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get agent: {str(e)}")
+
+
+@router.get(
+    "/agents/{name}/avatar",
+    response_class=FileResponse,
+    summary="Get Custom Digital Employee Avatar",
+)
+async def get_agent_avatar(name: str) -> FileResponse:
+    _require_agents_api_enabled()
+    _validate_agent_name(name)
+    normalized = _normalize_agent_name(name)
+    avatar = _avatar_path(get_paths().user_agent_dir(get_effective_user_id(), normalized))
+    if not await asyncio.to_thread(avatar.is_file):
+        raise HTTPException(status_code=404, detail="Custom avatar not found")
+    return FileResponse(
+        avatar,
+        media_type="image/webp",
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get(
+    "/team-agents/{name}/avatar",
+    response_class=FileResponse,
+    summary="Get Shared Digital Employee Avatar",
+)
+async def get_team_agent_avatar(name: str) -> FileResponse:
+    _require_agents_api_enabled()
+    _validate_agent_name(name)
+    normalized = _normalize_agent_name(name)
+    try:
+        agent_dir, _source = await asyncio.to_thread(_shared_agent_dir, normalized)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Team agent not found") from exc
+    avatar = _avatar_path(agent_dir)
+    if not await asyncio.to_thread(avatar.is_file):
+        raise HTTPException(status_code=404, detail="Custom avatar not found")
+    return FileResponse(
+        avatar,
+        media_type="image/webp",
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.post(
+    "/agents/{name}/avatar",
+    response_model=AgentResponse,
+    summary="Upload Custom Digital Employee Avatar",
+)
+async def upload_agent_avatar(
+    name: str,
+    file: UploadFile = File(...),
+) -> AgentResponse:
+    _require_agents_api_enabled()
+    _validate_agent_name(name)
+    normalized = _normalize_agent_name(name)
+    user_id = get_effective_user_id()
+    agent_dir = await asyncio.to_thread(lambda: get_paths().user_agent_dir(user_id, normalized))
+    if not await asyncio.to_thread(_agent_exists, normalized, user_id):
+        raise HTTPException(status_code=404, detail=f"Agent '{normalized}' not found")
+
+    payload = await file.read(MAX_AVATAR_BYTES + 1)
+    if not payload:
+        raise HTTPException(status_code=422, detail="Avatar image is empty")
+    if len(payload) > MAX_AVATAR_BYTES:
+        raise HTTPException(status_code=413, detail="Avatar image exceeds 5 MB")
+    try:
+        await asyncio.to_thread(_encode_custom_avatar, payload, _avatar_path(agent_dir))
+        agent_cfg = await asyncio.to_thread(load_agent_config, normalized, user_id=user_id)
+        return await asyncio.to_thread(
+            _agent_config_to_response,
+            agent_cfg,
+            True,
+            user_id=user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("Failed to store custom avatar for '%s'", normalized, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to store custom avatar") from exc
+
+
+@router.delete(
+    "/agents/{name}/avatar",
+    status_code=204,
+    summary="Remove Custom Digital Employee Avatar",
+)
+async def delete_agent_avatar(name: str) -> None:
+    _require_agents_api_enabled()
+    _validate_agent_name(name)
+    normalized = _normalize_agent_name(name)
+    user_id = get_effective_user_id()
+    agent_dir = await asyncio.to_thread(lambda: get_paths().user_agent_dir(user_id, normalized))
+    if not await asyncio.to_thread(_agent_exists, normalized, user_id):
+        raise HTTPException(status_code=404, detail=f"Agent '{normalized}' not found")
+    await asyncio.to_thread(_avatar_path(agent_dir).unlink, missing_ok=True)
 
 
 @router.post(
@@ -448,64 +941,53 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
     """
     _require_agents_api_enabled()
     _validate_agent_name(request.name)
+    await asyncio.to_thread(_validate_model_exists, request.model)
+    await asyncio.to_thread(_ensure_category_exists, request.category_id)
     normalized_name = _normalize_agent_name(request.name)
     user_id = get_effective_user_id()
-    paths = get_paths()
+    config_data: dict = {"name": normalized_name}
+    if request.display_name:
+        config_data["display_name"] = request.display_name.strip()
+    if request.description:
+        config_data["description"] = request.description
+    if request.tool_groups is not None:
+        config_data["tool_groups"] = request.tool_groups
+    if request.skills is not None:
+        config_data["skills"] = request.skills
+    if request.category_id:
+        config_data["category_id"] = request.category_id
+    if request.tags:
+        config_data["tags"] = request.tags
+    if request.avatar_id:
+        config_data["avatar_id"] = request.avatar_id
+    _apply_model_behavior(config_data, request)
 
-    def _create_agent() -> AgentResponse | None:
-        # Worker thread: base-dir resolution, existence checks, directory/file
-        # creation, read-back, and failure cleanup are all blocking filesystem
-        # IO that must stay off the event loop.
-        agent_dir = paths.user_agent_dir(user_id, normalized_name)
-        legacy_dir = paths.agent_dir(normalized_name)
-
-        if legacy_dir.exists():
-            return None  # signals 409 to the caller
-
-        try:
-            try:
-                agent_dir.mkdir(parents=True, exist_ok=False)
-            except FileExistsError:
-                return None  # signals 409 to the caller
-            # Write config.yaml
-            config_data: dict = {"name": normalized_name}
-            if request.description:
-                config_data["description"] = request.description
-            if request.model is not None:
-                config_data["model"] = request.model
-            if request.tool_groups is not None:
-                config_data["tool_groups"] = request.tool_groups
-            if request.skills is not None:
-                config_data["skills"] = request.skills
-
-            config_file = agent_dir / "config.yaml"
-            with open(config_file, "w", encoding="utf-8") as f:
-                yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True)
-
-            # Write SOUL.md
-            soul_file = agent_dir / "SOUL.md"
-            soul_file.write_text(request.soul, encoding="utf-8")
-
-            logger.info(f"Created agent '{normalized_name}' at {agent_dir}")
-
-            agent_cfg = load_agent_config(normalized_name, user_id=user_id)
-            return _agent_config_to_response(agent_cfg, include_soul=True, user_id=user_id)
-        except Exception:
-            # Clean up partial state on failure before surfacing the error.
-            if agent_dir.exists():
-                shutil.rmtree(agent_dir)
-            raise
+    def _create_agent() -> AgentResponse:
+        store = get_agent_store()
+        store.create(
+            normalized_name,
+            config_data,
+            request.soul,
+            user_id=user_id,
+        )
+        agent_cfg = load_agent_config(normalized_name, user_id=user_id)
+        logger.info("Created digital employee '%s'", normalized_name)
+        return _agent_config_to_response(
+            agent_cfg,
+            include_soul=True,
+            user_id=user_id,
+        )
 
     try:
-        response = await asyncio.to_thread(_create_agent)
+        return await asyncio.to_thread(_create_agent)
+    except AgentExistsError:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Agent '{normalized_name}' already exists",
+        )
     except Exception as e:
         logger.error(f"Failed to create agent '{request.name}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create agent: {str(e)}")
-
-    if response is None:
-        raise HTTPException(status_code=409, detail=f"Agent '{normalized_name}' already exists")
-
-    return response
 
 
 @router.post(
@@ -524,8 +1006,7 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
 
     def _publish() -> AgentResponse | None:
         source_dir = paths.user_agent_dir(user_id, name)
-        config_file = source_dir / "config.yaml"
-        if not config_file.exists():
+        if not is_personal_agent(name, user_id=user_id):
             raise FileNotFoundError(name)
 
         team_dir = paths.team_agent_dir(name)
@@ -535,18 +1016,20 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
             shutil.rmtree(team_dir)
         team_dir.mkdir(parents=True, exist_ok=False)
 
-        with open(config_file, encoding="utf-8") as file:
-            config_data = yaml.safe_load(file) or {}
+        personal = load_agent_config(name, user_id=user_id)
+        config_data = personal.model_dump(exclude_none=True)
         config_data["name"] = name
         config_data["published_by_user_id"] = user_id
         with open(team_dir / "config.yaml", "w", encoding="utf-8") as file:
             yaml.safe_dump(config_data, file, default_flow_style=False, allow_unicode=True)
 
-        soul_path = source_dir / "SOUL.md"
         (team_dir / "SOUL.md").write_text(
-            soul_path.read_text(encoding="utf-8") if soul_path.exists() else "",
+            load_agent_soul(name, user_id=user_id) or "",
             encoding="utf-8",
         )
+        custom_avatar = _avatar_path(source_dir)
+        if custom_avatar.is_file():
+            shutil.copy2(custom_avatar, _avatar_path(team_dir))
         return _shared_agent_response(name, current_user_id=user_id)
 
     try:
@@ -640,59 +1123,60 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
     user_id = get_effective_user_id()
 
     try:
-        agent_cfg = load_agent_config(name, user_id=user_id)
+        agent_cfg = await asyncio.to_thread(
+            load_agent_config,
+            name,
+            user_id=user_id,
+        )
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
 
-    paths = get_paths()
-    agent_dir = paths.user_agent_dir(user_id, name)
-    legacy_dir = paths.agent_dir(name)
-    # Require config.yaml, not bare directory existence — a per-user agent
-    # directory can exist containing only memory.json (written the first
-    # time this user chats with a legacy shared agent, before this route
-    # is ever called). Bare .exists() would miss that case and let this
-    # fall through to a silent fork of a brand-new config.yaml/SOUL.md
-    # into the memory-only directory instead of blocking (mirrors
-    # resolve_agent_dir's guard, see #3390).
-    if not (agent_dir / "config.yaml").exists():
-        if (paths.team_agent_dir(name) / "config.yaml").exists():
+    if not await asyncio.to_thread(is_personal_agent, name, user_id=user_id):
+        paths = get_paths()
+        if await asyncio.to_thread((paths.team_agent_dir(name) / "config.yaml").is_file):
             raise HTTPException(
                 status_code=409,
                 detail=(f"Agent '{name}' exists in the team square but is not scoped to the current user. Create a personal copy before updating it."),
             )
-        if (legacy_dir / "config.yaml").exists():
+        if await asyncio.to_thread((paths.agent_dir(name) / "config.yaml").is_file):
             raise HTTPException(
                 status_code=409,
                 detail=(f"Agent '{name}' only exists in the legacy shared layout and is not scoped to a user. Run scripts/migrate_user_isolation.py to move legacy agents into the per-user layout before updating."),
             )
+
+    if "model" in request.model_fields_set:
+        await asyncio.to_thread(_validate_model_exists, request.model)
+    if "category_id" in request.model_fields_set:
+        await asyncio.to_thread(_ensure_category_exists, request.category_id)
 
     try:
         # Update config if any config fields changed
         # Use model_fields_set to distinguish "field omitted" from "explicitly set to null".
         # This is critical for skills where None means "inherit all" (not "don't change").
         fields_set = request.model_fields_set
-        config_changed = bool(fields_set & {"description", "model", "tool_groups", "skills"})
+        managed_fields = {
+            "display_name",
+            "description",
+            "model",
+            "tool_groups",
+            "skills",
+            "category_id",
+            "tags",
+            "avatar_id",
+            "model_settings",
+            "thinking_enabled",
+            "reasoning_effort",
+        }
+        config_changed = bool(fields_set & managed_fields)
 
+        updated: dict | None = None
         if config_changed:
-            updated: dict = {
-                "name": agent_cfg.name,
-                "description": request.description if "description" in fields_set else agent_cfg.description,
-            }
-            new_model = request.model if "model" in fields_set else agent_cfg.model
-            if new_model is not None:
-                updated["model"] = new_model
-
-            new_tool_groups = request.tool_groups if "tool_groups" in fields_set else agent_cfg.tool_groups
-            if new_tool_groups is not None:
-                updated["tool_groups"] = new_tool_groups
-
-            # skills: None = inherit all, [] = no skills, ["a","b"] = whitelist
-            if "skills" in fields_set:
-                new_skills = request.skills
-            else:
-                new_skills = agent_cfg.skills
-            if new_skills is not None:
-                updated["skills"] = new_skills
+            updated = {"name": agent_cfg.name}
+            for field_name in managed_fields - set(_MODEL_BEHAVIOR_FIELDS):
+                value = getattr(request, field_name) if field_name in fields_set else getattr(agent_cfg, field_name)
+                if value is not None:
+                    updated[field_name] = value
+            _apply_model_behavior(updated, request, existing=agent_cfg)
 
             # Carry forward every top-level AgentConfig field this route does
             # not manage (currently ``github:``, plus any future field added
@@ -705,19 +1189,29 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
             for key, value in preserve_non_managed_fields(agent_cfg).items():
                 updated.setdefault(key, value)
 
-            config_file = agent_dir / "config.yaml"
-            with open(config_file, "w", encoding="utf-8") as f:
-                yaml.dump(updated, f, default_flow_style=False, allow_unicode=True)
+        if updated is not None or request.soul is not None:
 
-        # Update SOUL.md if provided
-        if request.soul is not None:
-            soul_path = agent_dir / "SOUL.md"
-            soul_path.write_text(request.soul, encoding="utf-8")
+            def _update_agent_store() -> None:
+                get_agent_store().update(
+                    name,
+                    updated,
+                    request.soul,
+                    user_id=user_id,
+                )
+
+            await asyncio.to_thread(_update_agent_store)
 
         logger.info(f"Updated agent '{name}'")
 
-        refreshed_cfg = load_agent_config(name, user_id=user_id)
-        return _agent_config_to_response(refreshed_cfg, include_soul=True, user_id=user_id)
+        def _refresh() -> AgentResponse:
+            refreshed_cfg = load_agent_config(name, user_id=user_id)
+            return _agent_config_to_response(
+                refreshed_cfg,
+                include_soul=True,
+                user_id=user_id,
+            )
+
+        return await asyncio.to_thread(_refresh)
 
     except HTTPException:
         raise
@@ -811,24 +1305,21 @@ async def delete_agent(name: str) -> None:
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
     user_id = get_effective_user_id()
-    paths = get_paths()
-
-    def _remove_agent_dir() -> tuple[str, str]:
-        # Runs in a worker thread: resolving the base dir, probing the directory
-        # (`exists`), and removing it (`rmtree`) are all blocking filesystem IO
-        # that must stay off the event loop.
-        agent_dir = paths.user_agent_dir(user_id, name)
-        if not agent_dir.exists():
-            if (paths.team_agent_dir(name) / "config.yaml").exists():
-                outcome = "team"
-            else:
-                outcome = "legacy" if paths.agent_dir(name).exists() else "missing"
-            return outcome, str(agent_dir)
-        shutil.rmtree(agent_dir)
-        return "deleted", str(agent_dir)
-
     try:
-        outcome, agent_dir = await asyncio.to_thread(_remove_agent_dir)
+        if not await asyncio.to_thread(is_personal_agent, name, user_id=user_id):
+            paths = get_paths()
+            if await asyncio.to_thread((paths.team_agent_dir(name) / "config.yaml").is_file):
+                outcome = "team"
+            elif await asyncio.to_thread((paths.agent_dir(name) / "config.yaml").is_file):
+                outcome = "legacy"
+            else:
+                outcome = "missing"
+        else:
+            outcome = await asyncio.to_thread(
+                _delete_agent_with_memory_cancel,
+                name,
+                user_id,
+            )
     except Exception as e:
         logger.error(f"Failed to delete agent '{name}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to delete agent: {str(e)}")
@@ -846,4 +1337,32 @@ async def delete_agent(name: str) -> None:
     if outcome == "missing":
         raise HTTPException(status_code=404, detail=f"Agent '{name}' not found")
 
-    logger.info(f"Deleted agent '{name}' from {agent_dir}")
+    logger.info("Deleted digital employee '%s'", name)
+
+
+def _delete_agent_with_memory_cancel(name: str, user_id: str | None) -> str:
+    """Cancel queued memory before and after deleting a digital employee."""
+    store = get_agent_store()
+    _cancel_pending_memory_for_agent(name, user_id)
+    outcome = store.delete(name, user_id=user_id)
+    if outcome == "deleted":
+        _cancel_pending_memory_for_agent(name, user_id)
+    return outcome
+
+
+def _cancel_pending_memory_for_agent(name: str, user_id: str | None) -> None:
+    """Best-effort scoped cancellation; memory failure must not block deletion."""
+    try:
+        cancelled = get_memory_manager().cancel_by_agent(name, user_id=user_id)
+        if cancelled:
+            logger.info(
+                "Cancelled %d pending memory update(s) for digital employee %r",
+                cancelled,
+                name,
+            )
+    except Exception:
+        logger.warning(
+            "Failed to cancel pending memory for digital employee %r (non-fatal)",
+            name,
+            exc_info=True,
+        )

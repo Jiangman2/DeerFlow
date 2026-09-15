@@ -53,6 +53,12 @@ class RunRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     __table_args__ = (
+        Index("ix_runs_created_at", "created_at"),
+        Index("ix_runs_status_created_at", "status", "created_at"),
+        Index("ix_runs_model_created_at", "model_name", "created_at"),
+        Index("ix_runs_assistant_created_at", "assistant_id", "created_at"),
+        Index("ix_runs_user_created_at", "user_id", "created_at"),
+        Index("ix_runs_updated_at", "updated_at"),
         Index("ix_runs_thread_status", "thread_id", "status"),
         Index("ix_runs_lease", "lease_expires_at"),
         # Cross-process atomicity guarantee: at most one pending/running run per

@@ -217,7 +217,26 @@ class DeerMem(MemoryManager):
         user_id: str | None = None,
         agent_name: str | None = None,
     ) -> dict[str, Any]:
-        return self._updater.clear_memory_data(agent_name=agent_name, user_id=user_id)
+        # Cancel both sides of the clear to close the debounce-timer race where
+        # a queued extraction could otherwise restore just-cleared memory.
+        self.cancel_by_agent(agent_name, user_id=user_id)
+        memory_data = self._updater.clear_memory_data(agent_name=agent_name, user_id=user_id)
+        self.cancel_by_agent(agent_name, user_id=user_id)
+        return memory_data
+
+    def cancel_by_agent(
+        self,
+        agent_name: str | None = None,
+        *,
+        user_id: str | None = None,
+    ) -> int:
+        """Drop queued extraction for a canonical employee/user bucket."""
+        normalized = agent_name.lower() if agent_name is not None else None
+        return self._queue.cancel_by_agent(
+            normalized,
+            user_id=user_id,
+            all_agents=agent_name is None,
+        )
 
     def import_memory(
         self,

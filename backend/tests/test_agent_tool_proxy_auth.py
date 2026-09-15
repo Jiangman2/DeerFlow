@@ -11,12 +11,12 @@ NGINX_CONFIGS = (
     "k8s/local-pvc/nginx.conf",
 )
 
-DATA_LAKE_AGENTS = {
-    "专业文档解析专家": "https://datalake.cnooc/zywdjxzj",
-    "前期研究报告编写专家": "https://datalake.cnooc/qqyjbgbxzj",
-    "专业报告校审专家": "https://datalake.cnooc/zjbgjszj/",
-    "自动数采专家": "https://datalake.cnooc/zdsczj",
-    "地震数据提频专家": "https://datalake.cnooc/dzsjtpzj",
+CNOOCCLAW_AGENTS = {
+    "专业文档解析专家": "https://cnoocclaw.cnooc.com.cn/zywdjxzj/",
+    "前期研究报告编写专家": "https://cnoocclaw.cnooc.com.cn/qqyjbgbxzj/",
+    "专业报告校审专家": "https://cnoocclaw.cnooc.com.cn/zjbgjszj/",
+    "自动数采专家": "https://cnoocclaw.cnooc.com.cn/zdsczj/",
+    "地震数据提频专家": "https://cnoocclaw.cnooc.com.cn/dzsjtpzj/",
 }
 
 
@@ -24,10 +24,10 @@ def _read(path: str) -> str:
     return (REPO_ROOT / path).read_text(encoding="utf-8")
 
 
-def test_shared_external_agents_use_data_lake_entry_points():
+def test_shared_external_agents_use_cnoocclaw_entry_points():
     shared_agents = _read("frontend/src/core/agents/shared-agents.ts")
 
-    for name, url in DATA_LAKE_AGENTS.items():
+    for name, url in CNOOCCLAW_AGENTS.items():
         card_definition = rf'name: "{re.escape(name)}",.*?external_url: "{re.escape(url)}"'
         assert re.search(card_definition, shared_agents, re.DOTALL)
 
@@ -38,10 +38,13 @@ def test_shared_external_agents_use_data_lake_entry_points():
 
 def test_agent_cards_open_external_urls_without_proxy_rewriting():
     card_source = _read("frontend/src/components/workspace/agents/agent-card.tsx")
+    launch_source = _read("frontend/src/core/agents/external-launch.ts")
     next_config = _read("frontend/next.config.js")
 
-    for url in DATA_LAKE_AGENTS.values():
-        assert url in card_source
+    assert "resolveExternalAgentLaunchHref" in card_source
+    assert "return value" in launch_source
+    assert "hostname === CNOOCCLAW_EXTERNAL_AGENT_HOST" in launch_source
+    assert "hostname === LEGACY_EXTERNAL_AGENT_HOST" in launch_source
 
     assert "EXTERNAL_AGENT_PROXY_PATHS" not in card_source
     assert "buildExternalAgentHref" not in card_source
@@ -52,10 +55,12 @@ def test_agent_cards_open_external_urls_without_proxy_rewriting():
 
 def test_external_agent_launch_route_reads_http_only_cookie_server_side():
     route_source = _read("frontend/src/app/api/cnooc/external-agents/[agent]/launch/route.ts")
+    authorization_source = _read("frontend/src/server/cnooc-auth/platform-token.ts")
     target_source = _read("frontend/src/server/cnooc-auth/external-agent-launch.ts")
 
-    assert "CNOOC_PLATFORM_TOKEN_COOKIE_NAME" in route_source
-    assert "request.cookies.get" in route_source
+    assert "authorizeCnoocPlatformToken" in route_source
+    assert "CNOOC_PLATFORM_TOKEN_COOKIE_NAME" in authorization_source
+    assert "request.cookies.get" in authorization_source
     assert "Cache-Control" in route_source
     assert "no-store" in route_source
     assert "Referrer-Policy" in route_source

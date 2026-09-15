@@ -70,6 +70,8 @@ export interface ExternalPlatformAgentMetric {
 }
 
 export interface ExternalPlatformClickSummary {
+  available: boolean;
+  error: string | null;
   today: string;
   days: number;
   agents: ExternalPlatformAgentMetric[];
@@ -324,6 +326,28 @@ export interface RecentBusinessEventItem {
   snippet: string;
 }
 
+export interface DashboardAggregationInfo {
+  source: "raw" | "rollup" | "rollup+raw" | string;
+  schema_version: number;
+  rollup_days: number;
+  rollup_hours: number;
+  raw_segments: number;
+}
+
+export interface DashboardRunRankingItem {
+  run_id: string;
+  thread_id: string;
+  model: string | null;
+  agent: string | null;
+  duration_ms: number;
+  tokens: number;
+}
+
+export interface DashboardRunRankings {
+  slow_runs: DashboardRunRankingItem[];
+  high_token_runs: DashboardRunRankingItem[];
+}
+
 export interface DashboardSummary {
   window: DashboardWindow;
   overview: DashboardOverview;
@@ -342,6 +366,7 @@ export interface DashboardSummary {
   knowledge_usage: KnowledgeUsageSummary;
   scheduled_task_usage: ScheduledTaskUsageSummary;
   recent_failures: RecentFailureItem[];
+  aggregation: DashboardAggregationInfo;
 }
 
 export interface RegisteredUserSessionSummary {

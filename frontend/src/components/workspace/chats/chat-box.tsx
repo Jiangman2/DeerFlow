@@ -23,18 +23,25 @@ import {
   ArtifactFileList,
   useArtifacts,
 } from "../artifacts";
+import { BrowserViewPanel, useMaybeBrowserView } from "../browser-view";
 import { useThread } from "../messages/context";
 import { SidecarPanel, useMaybeSidecar } from "../sidecar";
 
 const RIGHT_PANEL_ANIMATION_MS = 280;
 
-type RightPanelKind = "sidecar" | "artifacts";
+type RightPanelKind = "sidecar" | "artifacts" | "browser";
 
 const ChatBox: React.FC<{
   children: React.ReactNode;
   threadId: string;
   canHydratePersistedArtifacts?: boolean;
-}> = ({ children, threadId, canHydratePersistedArtifacts = true }) => {
+  browserEnabled?: boolean;
+}> = ({
+  children,
+  threadId,
+  canHydratePersistedArtifacts = true,
+  browserEnabled = true,
+}) => {
   const { thread } = useThread();
   const isMobile = useIsMobile();
   const pathname = usePathname();
@@ -52,6 +59,8 @@ const ChatBox: React.FC<{
   } = useArtifacts();
   const sidecar = useMaybeSidecar();
   const sidecarOpen = sidecar?.open ?? false;
+  const browserView = useMaybeBrowserView();
+  const browserViewOpen = browserEnabled && (browserView?.open ?? false);
   const artifactHydrationThreadIdRef = useRef<string | null>(null);
 
   // The dynamic chat route reuses this provider while its thread id changes
@@ -134,9 +143,11 @@ const ChatBox: React.FC<{
 
   const activeRightPanel: RightPanelKind | null = sidecarOpen
     ? "sidecar"
-    : artifactPanelOpen
-      ? "artifacts"
-      : null;
+    : browserViewOpen
+      ? "browser"
+      : artifactPanelOpen
+        ? "artifacts"
+        : null;
   const rightPanelOpen = activeRightPanel !== null;
   const artifactsOverlayOpen = activeRightPanel === "artifacts";
   const [renderedRightPanel, setRenderedRightPanel] =
@@ -167,7 +178,16 @@ const ChatBox: React.FC<{
     }
   }, [artifactsOpen, setArtifactsOpen, sidecarOpen]);
 
+  useEffect(() => {
+    if (!browserEnabled && browserView?.open) {
+      browserView.close();
+    }
+  }, [browserEnabled, browserView]);
+
   const rightPanelContent = useMemo(() => {
+    if (renderedRightPanel === "browser") {
+      return <BrowserViewPanel className="size-full" threadId={threadId} />;
+    }
     if (renderedRightPanel === "sidecar") {
       return <SidecarPanel />;
     }
@@ -245,6 +265,9 @@ const ChatBox: React.FC<{
             if (artifactsOpen) {
               setArtifactsOpen(false);
             }
+            if (browserView?.open) {
+              browserView.close();
+            }
           }}
         >
           <SheetContent
@@ -253,10 +276,14 @@ const ChatBox: React.FC<{
           >
             <SheetHeader className="sr-only">
               <SheetTitle>
-                {renderedRightPanel === "sidecar" ? "Sidecar" : "Artifacts"}
+                {renderedRightPanel === "sidecar"
+                  ? "Sidecar"
+                  : renderedRightPanel === "browser"
+                    ? t.browser.title
+                    : t.common.artifacts}
               </SheetTitle>
               <SheetDescription>
-                Browse the side panel for this conversation.
+                {t.browser.sidePanelDescription}
               </SheetDescription>
             </SheetHeader>
             <div className="app-scroll-region min-h-0 flex-1 p-2 pt-10 sm:p-3 sm:pt-10">

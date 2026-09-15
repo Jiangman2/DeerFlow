@@ -24,6 +24,22 @@
 }
 
 .cnooc-workspace-shell {
+  color-scheme: light;
+  --background: oklch(0.972 0.012 247);
+  --foreground: oklch(0.27 0.035 251);
+  --card: oklch(0.995 0.004 247);
+  --card-foreground: oklch(0.27 0.035 251);
+  --popover: oklch(0.995 0.004 247);
+  --popover-foreground: oklch(0.27 0.035 251);
+  --muted: oklch(0.947 0.019 247);
+  --muted-foreground: oklch(0.5 0.035 251);
+  --border: oklch(0.86 0.027 248);
+  --input: oklch(0.82 0.035 249);
+  --sidebar: oklch(0.925 0.041 249);
+  --sidebar-foreground: oklch(0.35 0.052 252);
+  --sidebar-accent: oklch(0.975 0.012 247);
+  --sidebar-accent-foreground: oklch(0.34 0.085 252);
+  font-weight: 400;
   height: 100dvh;
   min-height: 100svh;
   overflow: hidden;
@@ -2284,6 +2300,19 @@
 }
 
 @media (max-width: 47.999rem) {
+  .dark [data-mobile="true"][data-sidebar="sidebar"] {
+    color-scheme: light;
+    --foreground: oklch(0.27 0.035 251);
+    --muted-foreground: oklch(0.5 0.035 251);
+    --sidebar: oklch(0.925 0.041 249);
+    --sidebar-foreground: oklch(0.35 0.052 252);
+    --sidebar-accent: oklch(0.975 0.012 247);
+    --sidebar-accent-foreground: oklch(0.34 0.085 252);
+    --sidebar-border: oklch(0.82 0.045 249);
+    color: var(--cnooc-copy);
+    font-weight: 400;
+  }
+
   .cnooc-workspace-shell {
     background-image:
       linear-gradient(

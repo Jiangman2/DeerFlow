@@ -12,7 +12,9 @@ def test_app_config_exposes_scheduler_section():
     assert config.scheduler.enabled is False
     assert config.scheduler.poll_interval_seconds == 5
     assert config.scheduler.lease_seconds == 120
-    assert config.scheduler.recursion_limit == 300
+    assert config.scheduler.recursion_limit == 1000
+    assert config.scheduler.queue_timeout_seconds == 3600
+    assert config.scheduler.multi_instance is False
 
 
 def test_scheduled_task_models_registered():

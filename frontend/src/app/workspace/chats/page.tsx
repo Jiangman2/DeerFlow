@@ -1,15 +1,18 @@
 "use client";
 
+import { ArchiveRestore } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ThreadChannelBadge,
   ThreadChannelIcon,
 } from "@/components/workspace/thread-channel-source";
+import { useThreadArchiveAction } from "@/components/workspace/use-thread-archive-action";
 import {
   WorkspaceBody,
   WorkspaceContainer,
@@ -20,20 +23,29 @@ import { useInfiniteThreads } from "@/core/threads/hooks";
 import {
   channelSourceOfThread,
   pathOfThread,
+  sortPinnedThreads,
   titleOfThread,
 } from "@/core/threads/utils";
 import { formatTimeAgo } from "@/core/utils/datetime";
+import { env } from "@/env";
 
 export default function ChatsPage() {
   const { t } = useI18n();
+  const [view, setView] = useState("active");
+  const archived = view === "archived";
+  const staticWebsite = env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true";
+  const archiveAction = useThreadArchiveAction();
   const {
     data: infiniteThreads,
+    isLoading,
+    isError,
+    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useInfiniteThreads();
+  } = useInfiniteThreads({ archived: staticWebsite ? undefined : archived });
   const threads = useMemo(
-    () => infiniteThreads?.pages.flat() ?? [],
+    () => sortPinnedThreads(infiniteThreads?.pages.flat() ?? []),
     [infiniteThreads],
   );
   const [search, setSearch] = useState("");
@@ -70,14 +82,26 @@ export default function ChatsPage() {
     );
     observer.observe(element);
     return () => observer.disconnect();
-  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isSearching]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage, isSearching, view]);
 
   return (
     <WorkspaceContainer>
       <WorkspaceHeader></WorkspaceHeader>
       <WorkspaceBody>
-        <div className="flex size-full flex-col">
-          <header className="cnooc-list-search flex shrink-0 items-center justify-center px-3 pt-4 sm:px-4 sm:pt-8">
+        <Tabs
+          value={view}
+          onValueChange={setView}
+          className="flex size-full flex-col"
+        >
+          <header className="cnooc-list-search mx-auto flex w-full max-w-(--container-width-md) shrink-0 flex-col gap-3 px-3 pt-4 sm:px-4 sm:pt-8">
+            {!staticWebsite ? (
+              <TabsList aria-label={t.pages.chats}>
+                <TabsTrigger value="active">{t.chats.activeChats}</TabsTrigger>
+                <TabsTrigger value="archived">
+                  {t.chats.archivedChats}
+                </TabsTrigger>
+              </TabsList>
+            ) : null}
             <Input
               type="search"
               className="cnooc-search-input h-11 w-full max-w-(--container-width-md) text-base sm:h-12 sm:text-xl"
@@ -90,28 +114,70 @@ export default function ChatsPage() {
           <main className="min-h-0 flex-1">
             <ScrollArea className="app-scroll-region size-full py-2 sm:py-4">
               <div className="cnooc-thread-list mx-auto flex size-full max-w-(--container-width-md) flex-col">
+                {isError ? (
+                  <div role="alert" className="p-4 text-center">
+                    <p>{t.chats.loadChatsFailed}</p>
+                    <Button variant="outline" onClick={() => void refetch()}>
+                      {t.chats.retryLoadChats}
+                    </Button>
+                  </div>
+                ) : null}
+                {!isLoading && !isError && filteredThreads.length === 0 ? (
+                  <p
+                    role="status"
+                    className="text-muted-foreground p-8 text-center"
+                  >
+                    {isSearching
+                      ? t.chats.noMatchingChats
+                      : archived
+                        ? t.chats.noArchivedChats
+                        : t.chats.noActiveChats}
+                  </p>
+                ) : null}
                 {filteredThreads.map((thread) => {
                   const channelSource = channelSourceOfThread(thread);
                   return (
-                    <Link key={thread.thread_id} href={pathOfThread(thread)}>
-                      <div className="flex flex-col gap-2 border-b p-4">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <ThreadChannelIcon source={channelSource} />
-                          <div className="min-w-0 flex-1 truncate">
-                            {titleOfThread(thread)}
+                    <div
+                      key={thread.thread_id}
+                      className="flex items-center gap-2 border-b"
+                    >
+                      <Link
+                        className="min-w-0 flex-1"
+                        href={pathOfThread(thread)}
+                      >
+                        <div className="flex flex-col gap-2 p-4">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ThreadChannelIcon source={channelSource} />
+                            <div className="min-w-0 flex-1 truncate">
+                              {titleOfThread(thread)}
+                            </div>
+                            <ThreadChannelBadge
+                              source={channelSource}
+                              className="hidden sm:inline-flex"
+                            />
                           </div>
-                          <ThreadChannelBadge
-                            source={channelSource}
-                            className="hidden sm:inline-flex"
-                          />
+                          {thread.updated_at ? (
+                            <div className="text-muted-foreground text-sm">
+                              {formatTimeAgo(thread.updated_at)}
+                            </div>
+                          ) : null}
                         </div>
-                        {thread.updated_at && (
-                          <div className="text-muted-foreground text-sm">
-                            {formatTimeAgo(thread.updated_at)}
-                          </div>
-                        )}
-                      </div>
-                    </Link>
+                      </Link>
+                      {archived ? (
+                        <Button
+                          className="mr-4 shrink-0"
+                          variant="outline"
+                          size="sm"
+                          disabled={archiveAction.isPending}
+                          onClick={() =>
+                            archiveAction.setArchived(thread.thread_id, false)
+                          }
+                        >
+                          <ArchiveRestore className="size-4" />
+                          {t.chats.restoreChat}
+                        </Button>
+                      ) : null}
+                    </div>
                   );
                 })}
                 {hasNextPage && !isSearching && (
@@ -139,7 +205,7 @@ export default function ChatsPage() {
               </div>
             </ScrollArea>
           </main>
-        </div>
+        </Tabs>
       </WorkspaceBody>
     </WorkspaceContainer>
   );

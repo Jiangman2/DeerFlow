@@ -4,10 +4,11 @@ import { enableSkill, SkillRequestError } from "./api";
 
 import { loadSkills } from ".";
 
-export function useSkills() {
+export function useSkills({ enabled = true }: { enabled?: boolean } = {}) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["skills"],
     queryFn: () => loadSkills(),
+    enabled,
     retry: (count, err) => !(err instanceof SkillRequestError) && count < 3,
   });
   return { skills: data ?? [], isLoading, error };

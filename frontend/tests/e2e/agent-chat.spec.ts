@@ -10,6 +10,9 @@ const MOCK_AGENTS = [
   {
     name: "test-agent",
     description: "A test agent for E2E tests",
+    model: "builder-flash",
+    tool_groups: ["search"],
+    skills: ["report"],
     system_prompt: "You are a test agent.",
   },
 ];
@@ -31,14 +34,51 @@ const BUILDER_MODEL = {
 
 test.describe("Agent chat", () => {
   test("agent gallery page loads and shows agents", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     mockLangGraphAPI(page, { agents: MOCK_AGENTS });
 
     await page.goto("/workspace/agents");
+    await page
+      .getByRole("tab", { name: /My digital employees|我的数字员工/i })
+      .click();
 
     // The agent card should appear with the agent name
     await expect(page.getByText("test-agent")).toBeVisible({
       timeout: 15_000,
     });
+    const card = page.getByTestId("digital-employee-card");
+    await expect(card).toHaveCount(1);
+    await expect(card.getByText("builder-flash")).toBeVisible();
+    await expect(card.getByText("search")).toBeVisible();
+    await expect(card.getByText("report")).toBeVisible();
+    await expect(card.locator("img")).toHaveAttribute(
+      "src",
+      /\/images\/digital-employees\/cartoon\//,
+    );
+
+    await card.getByRole("button", { name: /More actions|更多操作/i }).click();
+    await page
+      .getByRole("menuitem", { name: /View profile|查看档案/i })
+      .click();
+    await expect(
+      page.getByRole("heading", {
+        name: /Digital employee profile|数字员工档案/i,
+      }),
+    ).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(card).toBeVisible();
+    expect(
+      await page.evaluate(
+        () =>
+          Math.max(
+            document.body.scrollWidth,
+            document.documentElement.scrollWidth,
+          ) <=
+          window.innerWidth + 1,
+      ),
+    ).toBe(true);
   });
 
   test("agent chat page loads with input box", async ({ page }) => {
@@ -47,7 +87,7 @@ test.describe("Agent chat", () => {
     await page.goto("/workspace/agents/test-agent/chats/new");
 
     // The prompt input textarea should be visible
-    const textarea = page.getByPlaceholder(/how can i assist you/i);
+    const textarea = page.getByRole("textbox").first();
     await expect(textarea).toBeVisible({ timeout: 15_000 });
   });
 
@@ -89,8 +129,34 @@ test.describe("Agent chat", () => {
     await page.goto("/workspace/agents/new", {
       waitUntil: "domcontentloaded",
     });
+    const createDialog = page.getByTestId("agent-create-dialog");
+    const scrollRegion = page.getByTestId("agent-create-scroll-region");
+    await expect(createDialog).toBeVisible({ timeout: 15_000 });
+    expect(
+      await scrollRegion.evaluate((node) => getComputedStyle(node).overflowY),
+    ).toBe("auto");
+    const dialogBounds = await createDialog.boundingBox();
+    expect(dialogBounds).not.toBeNull();
+    expect(dialogBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(dialogBounds!.y + dialogBounds!.height).toBeLessThanOrEqual(900);
+
+    const avatarOptions = page.getByTestId("expert-avatar-option");
+    await expect(avatarOptions).toHaveCount(6);
+    const avatarToggle = page.getByRole("button", {
+      name: /Show all 24 avatars|展开全部 24 个头像/i,
+    });
+    await avatarToggle.click();
+    await expect(avatarOptions).toHaveCount(24);
+    await avatarOptions.nth(10).click();
     await page
-      .locator(".cnooc-agent-builder-name-card input")
+      .getByRole("button", { name: /Show fewer avatars|收起头像/i })
+      .click();
+    await expect(avatarOptions).toHaveCount(6);
+    await expect(
+      page.locator('[data-testid="expert-avatar-option"][aria-pressed="true"]'),
+    ).toHaveCount(1);
+    await page
+      .getByRole("textbox", { name: /monthly-report-expert|月报/i })
       .fill("builder-layout-agent");
     await page.getByRole("button", { name: /Continue|继续/i }).click();
 
@@ -183,7 +249,9 @@ test.describe("Agent chat", () => {
     await page.goto("/workspace/agents/test-agent/chats/new");
     await expect(page.getByTestId("agent-new-chat-button")).toHaveCount(0);
 
-    await page.goto(`/workspace/agents/test-agent/chats/${MOCK_THREAD_ID}`);
+    await page.goto(`/workspace/agents/test-agent/chats/${MOCK_THREAD_ID}`, {
+      waitUntil: "domcontentloaded",
+    });
     const newChatButton = page.getByTestId("agent-new-chat-button");
     await expect(newChatButton).toBeVisible({ timeout: 15_000 });
     await newChatButton.click();
@@ -219,7 +287,7 @@ test.describe("Agent chat", () => {
     ).toHaveCount(2);
     await expect(page.getByText(/%E6%9C%88/)).toHaveCount(0);
 
-    const welcomeIcon = page.locator('[aria-hidden="true"]', {
+    const welcomeIcon = page.locator(".cnooc-agent-welcome-icon", {
       has: page.locator("svg.lucide-bot"),
     });
     await expect(welcomeIcon).toBeVisible();

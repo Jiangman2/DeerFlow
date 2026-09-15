@@ -19,6 +19,9 @@ from typing import Any
 
 from deerflow.runtime.user_context import AUTO, _AutoSentinel
 
+THREAD_PINNED_METADATA_KEY = "deerflow_pinned"
+THREAD_ARCHIVED_METADATA_KEY = "deerflow_archived"
+
 
 class InvalidMetadataFilterError(ValueError):
     """Raised when all client-supplied metadata filter keys are rejected."""
@@ -47,10 +50,16 @@ class ThreadMetaStore(abc.ABC):
         *,
         metadata: dict[str, Any] | None = None,
         status: str | None = None,
+        archived: bool | None = None,
         limit: int = 100,
         offset: int = 0,
         user_id: str | None | _AutoSentinel = AUTO,
     ) -> list[dict[str, Any]]:
+        """Filter before paging; return pinned first, then newest per group.
+
+        ``archived=None`` includes all threads. ``False`` also includes legacy
+        rows without an archive flag.
+        """
         pass
 
     @abc.abstractmethod
@@ -62,12 +71,22 @@ class ThreadMetaStore(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def update_metadata(self, thread_id: str, metadata: dict, *, user_id: str | None | _AutoSentinel = AUTO) -> None:
+    async def update_metadata(
+        self,
+        thread_id: str,
+        metadata: dict,
+        *,
+        touch: bool = True,
+        user_id: str | None | _AutoSentinel = AUTO,
+    ) -> None:
         """Merge ``metadata`` into the thread's metadata field.
 
         Existing keys are overwritten by the new values; keys absent from
         ``metadata`` are preserved. No-op if the thread does not exist
         or the owner check fails.
+
+        Set ``touch=False`` for metadata changes, such as pinning, that should
+        not alter conversation recency.
         """
         pass
 

@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, TypeVar, cast
 from fastapi import FastAPI, HTTPException, Request
 from langgraph.types import Checkpointer
 
+from deerflow.community.browser_automation.session import browser_multi_worker_error
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.persistence.feedback import FeedbackRepository
 from deerflow.runtime import RunContext, RunManager, StreamBridge
@@ -46,17 +47,26 @@ logger = logging.getLogger(__name__)
 _RUN_DRAIN_TIMEOUT_SECONDS = 5.0
 
 
+def _browser_tools_enabled_in_config(config: AppConfig) -> bool:
+    """Return whether process-local agentic browser sessions are configured."""
+    get_tool_config = getattr(config, "get_tool_config", None)
+    if callable(get_tool_config):
+        return get_tool_config("browser_navigate") is not None
+    return any(getattr(tool, "name", None) == "browser_navigate" for tool in (getattr(config, "tools", None) or []))
+
+
 def _enforce_postgres_for_multi_worker(config: AppConfig) -> None:
-    """Refuse to start when GATEWAY_WORKERS > 1 and safety preconditions are not met.
+    """Refuse unsafe multi-process and multi-instance scheduler configurations.
 
-    Two checks (both must pass for multi-worker):
+    Multi-instance scheduling requires PostgreSQL, database-backed run events,
+    and run-ownership heartbeats even when each Pod has one Gateway worker.
+    Multi-worker Gateway processes require the same database and heartbeat
+    guarantees, and an enabled scheduler must explicitly opt into that mode.
 
-    1. The DB backend must be Postgres — SQLite write-locks cannot support
-       concurrent multi-process access.
-    2. ``run_ownership.heartbeat_enabled`` must be True — without heartbeat,
-       every run has a NULL lease, so reconciliation treats all inflight
-       runs as orphans and Worker B would kill Worker A's live runs on
-       every rolling update or scale-up.
+    SQLite write-locks cannot support concurrent multi-process access, and a
+    process-local run-event store cannot provide the shared singleton receipts
+    required by scheduler reconciliation. Without heartbeats, every run has a
+    NULL lease, so a peer could reclaim live work during a rolling update.
 
     This gate runs once at startup before any persistence engine is
     initialised so the error message is clear and the process exits
@@ -67,14 +77,32 @@ def _enforce_postgres_for_multi_worker(config: AppConfig) -> None:
     except (TypeError, ValueError):
         workers = 1
 
+    scheduler = getattr(config, "scheduler", None)
+    multi_instance_requested = bool(getattr(scheduler, "multi_instance", False))
+    multi_instance_scheduler = bool(getattr(scheduler, "enabled", False) and multi_instance_requested)
+    backend = getattr(config.database, "backend", None)
+    run_events_backend = getattr(getattr(config, "run_events", None), "backend", None)
+    run_ownership = getattr(config, "run_ownership", None)
+
+    if multi_instance_requested and backend != "postgres":
+        raise SystemExit("scheduler.multi_instance=true requires database.backend='postgres'.")
+    if multi_instance_requested and run_events_backend != "db":
+        raise SystemExit("scheduler.multi_instance=true requires run_events.backend='db'.")
+    if multi_instance_requested and (run_ownership is None or not run_ownership.heartbeat_enabled):
+        raise SystemExit("scheduler.multi_instance=true requires run_ownership.heartbeat_enabled=true.")
+
     if workers <= 1:
         return
 
-    backend = getattr(config.database, "backend", None)
+    if _browser_tools_enabled_in_config(config):
+        raise SystemExit(browser_multi_worker_error(workers))
+
+    if bool(getattr(scheduler, "enabled", False)) and not multi_instance_scheduler:
+        raise SystemExit(f"GATEWAY_WORKERS={workers} cannot run with scheduler.enabled=true unless scheduler.multi_instance=true.")
+
     if backend != "postgres":
         raise SystemExit(f"GATEWAY_WORKERS={workers} requires database.backend='postgres', but database.backend is '{backend}'. SQLite cannot support concurrent multi-process access. Set GATEWAY_WORKERS=1 or switch to Postgres.")
 
-    run_ownership = getattr(config, "run_ownership", None)
     if run_ownership is None or not run_ownership.heartbeat_enabled:
         raise SystemExit(
             f"GATEWAY_WORKERS={workers} requires run_ownership.heartbeat_enabled=true. "
@@ -82,6 +110,23 @@ def _enforce_postgres_for_multi_worker(config: AppConfig) -> None:
             "treats all inflight runs as orphans — Worker B would kill Worker A's "
             "live runs on every rolling update or scale-up. "
             "Set run_ownership.heartbeat_enabled=true in config.yaml."
+        )
+
+
+def _validate_agent_storage(config: AppConfig) -> None:
+    """Fail fast when SQL digital-employee storage has no durable database."""
+    backend = getattr(getattr(config, "agent_storage", None), "backend", "file")
+    database_backend = getattr(getattr(config, "database", None), "backend", None)
+    if backend == "db" and database_backend not in {"sqlite", "postgres"}:
+        raise SystemExit(f"agent_storage.backend='db' requires database.backend='sqlite' or 'postgres', but database.backend is '{database_backend}'.")
+    try:
+        workers = int(os.environ.get("GATEWAY_WORKERS", "1"))
+    except (TypeError, ValueError):
+        workers = 1
+    if workers > 1 and database_backend == "postgres" and backend == "file":
+        logger.warning(
+            "GATEWAY_WORKERS=%s uses file-backed digital employees; they are not visible across workers. Set agent_storage.backend='db' so definitions are shared across nodes.",
+            workers,
         )
 
 
@@ -254,6 +299,7 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
     # SQLite write-locks cannot support concurrent multi-process access.
     # ------------------------------------------------------------------
     _enforce_postgres_for_multi_worker(startup_config)
+    _validate_agent_storage(startup_config)
 
     async with AsyncExitStack() as stack:
         config = startup_config
@@ -263,6 +309,18 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
         # Initialize persistence engine BEFORE checkpointer so that
         # auto-create-database logic runs first (postgres backend).
         await init_engine_from_config(config.database)
+        # Dashboard-only pool/read replica. Initialization is deliberately
+        # non-fatal and never runs schema work. In enterprise strict mode a
+        # failed replica disables only analytics instead of falling back to the
+        # primary, so conversations and digital employees remain independent.
+        from app.gateway.dashboard_database import (
+            close_dashboard_read_database,
+            init_dashboard_read_database,
+            start_dashboard_read_database_retry,
+        )
+
+        await init_dashboard_read_database()
+        await start_dashboard_read_database_retry()
 
         app.state.checkpointer = await stack.enter_async_context(make_checkpointer(config))
         app.state.store = await stack.enter_async_context(make_store(config))
@@ -291,8 +349,14 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
             )
             from deerflow.persistence.scheduled_tasks import ScheduledTaskRepository
 
-            app.state.scheduled_task_repo = ScheduledTaskRepository(sf)
-            app.state.scheduled_task_run_repo = ScheduledTaskRunRepository(sf)
+            app.state.scheduled_task_repo = ScheduledTaskRepository(
+                sf,
+                run_repository=app.state.run_store,
+            )
+            app.state.scheduled_task_run_repo = ScheduledTaskRunRepository(
+                sf,
+                run_repository=app.state.run_store,
+            )
             app.state.oa_policy_flow_job_repo = OAPolicyFlowJobRepository(sf)
         else:
             app.state.scheduled_task_repo = None
@@ -343,6 +407,7 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
             run_manager = getattr(app.state, "run_manager", None)
             if run_manager is not None:
                 await _drain_inflight_runs(run_manager)
+            await close_dashboard_read_database()
             await close_engine()
 
 
