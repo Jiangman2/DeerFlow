@@ -601,6 +601,20 @@ def _require_parsed_text_enabled() -> bool:
     ).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _local_fallback_after_enterprise_enabled() -> bool:
+    """Allow the legacy Gateway fallback after the Adapter exhausts its chain.
+
+    Enterprise can disable this duplicate, unbounded parse path because the
+    Adapter already owns AnyDoc, DocReader, LibreOffice, and MinerU fallback.
+    The code default stays enabled for upstream-compatible deployments.
+    """
+
+    return os.getenv(
+        "DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED",
+        "true",
+    ).strip().lower() in {"1", "true", "yes", "on"}
+
+
 @router.post("", response_model=UploadResponse)
 @require_permission("threads", "write", owner_check=True, require_existing=False)
 async def upload_files(
@@ -776,7 +790,8 @@ async def upload_files(
                         exc,
                     )
 
-            if auto_convert_documents and not parsed_document and not is_presentation_template and file_ext in CONVERTIBLE_EXTENSIONS:
+            local_fallback_allowed = not enterprise_parse_enabled or _local_fallback_after_enterprise_enabled()
+            if auto_convert_documents and local_fallback_allowed and not parsed_document and not is_presentation_template and file_ext in CONVERTIBLE_EXTENSIONS:
                 parse_attempted = True
                 md_path = await convert_file_to_markdown(
                     file_path,

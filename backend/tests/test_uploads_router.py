@@ -750,6 +750,51 @@ def test_upload_files_falls_back_to_local_conversion_after_enterprise_parser_fai
     assert "kept without enterprise parsed text" not in result.message
 
 
+def test_enterprise_can_disable_duplicate_gateway_parse_after_adapter_failure(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    converter = AsyncMock()
+
+    with (
+        patch.dict(
+            os.environ,
+            {"DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED": "false"},
+        ),
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_auto_convert_documents_enabled", return_value=True),
+        patch.object(uploads, "_require_parsed_text_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(
+            uploads,
+            "parse_conversation_document",
+            AsyncMock(side_effect=UploadDocumentParseError("Document parser returned HTTP 503")),
+        ),
+        patch.object(uploads, "convert_file_to_markdown", converter),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                call_unwrapped(
+                    uploads.upload_files,
+                    "thread-enterprise-no-duplicate",
+                    request=MagicMock(),
+                    files=[UploadFile(filename="report.docx", file=BytesIO(b"word-document"))],
+                    config=SimpleNamespace(),
+                )
+            )
+
+    assert exc_info.value.status_code == 503
+    assert "不会提交空白解析结果" in exc_info.value.detail
+    converter.assert_not_awaited()
+    assert list(thread_uploads_dir.iterdir()) == []
+
+
 def test_upload_files_recovers_legacy_doc_through_sandbox_after_local_conversion_failure(
     tmp_path,
 ):

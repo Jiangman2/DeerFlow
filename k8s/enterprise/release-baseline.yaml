@@ -24,7 +24,7 @@ production_snapshot:
     deer-flow-frontend: deerflow.local/deer-flow-frontend:20260914-enterprise-arm64-rc15-digitalemployee-ui2-r1
     deer-flow-provisioner: deerflow.local/deer-flow-provisioner:20260817-enterprise-arm64-rc15-sandboxstorage1
     deer-flow-skills: deerflow.local/deer-flow-skills:20260901-enterprise-arm64-rc15-researchfund1
-    deer-flow-mineru-adapter: deerflow.local/deer-flow-mineru-adapter:20260904-enterprise-arm64-rc15-uploadstability1
+    deer-flow-mineru-adapter: deerflow.local/deer-flow-mineru-adapter:20260915-enterprise-arm64-rc15-uploadstability2
   runtime_images:
     deer-flow-aio-sandbox: deerflow.local/deer-flow-aio-sandbox:20260817-enterprise-arm64-rc15-sandboxstorage1
   separately_managed_images:

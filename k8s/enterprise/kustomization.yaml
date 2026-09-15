@@ -79,4 +79,4 @@ images:
     newTag: 20260901-enterprise-arm64-rc15-researchfund1
   - name: deer-flow-mineru-adapter
     newName: deerflow.local/deer-flow-mineru-adapter
-    newTag: 20260904-enterprise-arm64-rc15-uploadstability1
+    newTag: 20260915-enterprise-arm64-rc15-uploadstability2

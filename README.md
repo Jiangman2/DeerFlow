@@ -1158,22 +1158,26 @@ presentation templates rather than converted through the document parser.
 When `WEKNORA_MINERU_ENDPOINT` is configured, conversation PDF, DOC/DOCX, PPT,
 and PPTX uploads reuse that same enterprise parser without creating a
 knowledge-base record. The Gateway keeps the original document and writes a
-same-stem Markdown companion for the current task. Searchable PDFs and Word
-documents use the adapter's native path, scanned PDFs use enterprise OCR, and
-presentations use its presentation conversion path. A non-empty native Word
-parse returns immediately; only an empty or failed native parse uses the
-LibreOffice/MinerU visual fallback. An explicitly enabled visual supplement is
-best-effort and cannot invalidate native text, tables, and images. Set
+same-stem Markdown companion for the current task. Searchable PDFs retain their
+native route, scanned PDFs use enterprise OCR, and presentations use the strict
+presentation route. Interactive DeerFlow DOCX attachments use pinned local
+AnyDoc first, followed by bounded isolated DocReader, LibreOffice, and MinerU
+fallback; legacy DOC remains native-first. This conversation-only profile does
+not alter WeKnora knowledge-base parser rules. An explicitly enabled visual
+supplement remains best-effort and cannot invalidate recovered native text,
+tables, and images. Set
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=false` to disable this bridge, or
 override its base URL with
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`. The older
 `DEERFLOW_UPLOAD_PDF_*` names remain supported for deployment compatibility.
-The enterprise overlay sets `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860`,
-giving the Gateway 60 seconds beyond the Adapter's bounded 1800-second upstream
-wait to receive and persist the completed response, and explicitly sets
-`DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=true`. The local Docker/PVC overlay
-keeps that switch disabled because it cannot reach the enterprise MinerU
-service.
+The enterprise overlay sets a 45-second dispatcher admission wait, a 550-second
+interactive Adapter timeout, and
+`DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=570`. These boundaries remain
+below Nginx's 600-second upload timeout, so a failed chain returns a controlled
+parser error instead of an unexplained 504. It also disables Gateway's duplicate
+local conversion after the enterprise Adapter has exhausted its full fallback
+chain. The local Docker/PVC overlay keeps the bridge disabled because it cannot
+reach the enterprise MinerU service.
 The enterprise parser uses six independent workers, each admitting one document
 at a time. Extra work remains in the dispatcher or WeKnora's durable Redis queue
 rather than accumulating inside a worker. A busy worker remains process-ready
@@ -1188,8 +1192,9 @@ OCR/caption and other model-heavy fan-out to its independent 12-worker
 enrichment pool. This keeps a large `multimodal` backlog from delaying newly
 parsed PDF and Word documents without increasing concurrent MinerU calls.
 When `uploads.auto_convert_documents=true`, or the enterprise-only
-`DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true` override is set, an adapter
-failure falls back to DeerFlow's local `convert_file_to_markdown()` conversion.
+`DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true` override is set, deployments
+without the complete enterprise Adapter may fall back to DeerFlow's local
+`convert_file_to_markdown()` conversion.
 Legacy Word `.doc` files receive one additional text-recovery step: the task
 sandbox converts the binary document to a temporary DOCX with LibreOffice, then
 the normal local Markdown converter processes that DOCX. Temporary conversion

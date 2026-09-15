@@ -114,6 +114,10 @@ DELETE /api/threads/{thread_id}/uploads/{filename}
 
 默认情况下，自动转换是关闭的，以避免在网关主机上对不受信任的 Office/PDF 上传执行解析。只有在受信任部署中明确接受此风险时，才应将 `uploads.auto_convert_documents` 设置为 `true`。
 
+企业 Kubernetes 部署仍沿用同一个同步上传接口和响应结构，但会把会话文档交给独立的文档解析服务。会话 DOCX 优先使用本地 AnyDoc；AnyDoc 输出过少、报错或超时时，依次回退到现有 DocReader、LibreOffice 和 MinerU 路径。每个本地解析器在独立子进程中运行并有明确超时，因此单个异常大文件不会阻塞解析服务的健康探针。WeKnora 知识库流量使用独立的 `knowledge` 解析配置，不会因为会话附件启用 AnyDoc 优先级而改变默认路由。
+
+企业部署保持同步语义：上传响应只在 Markdown companion 已生成后返回，前端仍在上传完成后再提交对话。解析队列、各级回退及 Gateway 的超时均小于 Nginx 的 600 秒上游读取边界；全部解析方式失败时返回可识别的 `503`，而不是等待反向代理产生不明确的 `504`。Gateway 在企业解析服务已完成整条回退链后不会再次执行本地重复转换。
+
 ## Agent 集成
 
 ### 自动文件列举
@@ -235,13 +239,18 @@ backend/.deer-flow/threads/
 
 1. **Upload Router** (`app/gateway/routers/uploads.py`)
    - 处理文件上传、列表、删除请求
-   - 使用 markitdown 转换文档
+   - 默认部署使用 markitdown 转换文档；企业部署可调用独立解析服务
 
-2. **Uploads Middleware** (`packages/harness/deerflow/agents/middlewares/uploads_middleware.py`)
+2. **Enterprise Document Adapter** (`docker/mineru_adapter/`)
+   - 只在企业 Kubernetes 配置中启用
+   - 区分会话附件与 WeKnora 知识库解析流量
+   - 对会话 DOCX 执行 AnyDoc、DocReader、LibreOffice、MinerU 的有界回退链
+
+3. **Uploads Middleware** (`packages/harness/deerflow/agents/middlewares/uploads_middleware.py`)
    - 在每次 Agent 请求前注入文件列表
    - 自动生成格式化的文件列表消息
 
-3. **Nginx 配置** (`nginx.conf`)
+4. **Nginx 配置** (`nginx.conf`)
    - 路由上传请求到 Gateway API
    - 配置大文件上传支持
 

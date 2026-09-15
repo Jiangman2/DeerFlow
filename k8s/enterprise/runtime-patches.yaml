@@ -336,7 +336,10 @@ spec:
             - name: DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED
               value: "true"
             - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS
-              value: "1860"
+              # Must remain below Nginx's 600-second upload timeout. DOCX owns
+              # a four-stage bounded Adapter chain plus dispatcher queueing;
+              # Gateway returns a controlled 503 before Nginx emits a 504.
+              value: "570"
             - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS
               # Six serialized parser workers are the real active capacity.
               # Keep a small bounded waiting margin without allowing every
@@ -346,6 +349,11 @@ spec:
               value: "8"
             - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
               value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED
+              # The Adapter already exhausts AnyDoc, DocReader,
+              # LibreOffice, and MinerU. Repeating an unbounded local parse in
+              # Gateway can outlive Nginx and surface a misleading 504.
+              value: "false"
             - name: DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT
               # Enterprise chat tasks must not start with an unreadable source
               # or a missing/empty Markdown companion. The code default stays

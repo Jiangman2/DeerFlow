@@ -64,12 +64,15 @@ spec:
             - name: MINERU_DISPATCH_MAX_WAITING
               value: "16"
             - name: MINERU_DISPATCH_WAIT_TIMEOUT_SECONDS
-              # Leave enough of Gateway's 1860-second envelope for the actual
-              # 1800-second parse. Interactive uploads fail over to DeerFlow's
-              # local parser instead of displaying an unbounded queue wait.
+              # Bound interactive queueing before the route's 600-second
+              # Nginx timeout. Bulk WeKnora work keeps its long worker wait.
               value: "45"
             - name: MINERU_DISPATCH_REQUEST_TIMEOUT_SECONDS
               value: "1800"
+            - name: MINERU_DISPATCH_INTERACTIVE_REQUEST_TIMEOUT_SECONDS
+              # Conversation Word parsing owns four bounded fallback stages.
+              # Return a controlled parser failure before Gateway/Nginx.
+              value: "550"
             - name: MINERU_DISPATCH_FAILURE_COOLDOWN_SECONDS
               # Failed workers are re-probed after this delay and remain
               # quarantined until /ready proves that parsing is idle.

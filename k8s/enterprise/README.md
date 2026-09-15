@@ -156,19 +156,24 @@ contains LibreOffice. Build it on an ARM64 server with
 ```bash
 docker build -f docker/mineru_adapter/Dockerfile \
   --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b \
-  -t deerflow.local/deer-flow-mineru-adapter:20260904-enterprise-arm64-rc15-uploadstability1 \
+  -t deerflow.local/deer-flow-mineru-adapter:20260915-enterprise-arm64-rc15-uploadstability2 \
   docker/mineru_adapter
 ```
 
 Import the resulting image into the `k8s.io` containerd namespace on every
 node where the adapter may run. The adapter is stateless, receives only an
 internal ClusterIP Service, and translates WeKnora's `/file_parse` contract.
-DOC/DOCX first uses the bundled native parser. A non-empty native result is
-published immediately; only an empty or failed native result is converted to
-PDF with LibreOffice and sent through the visual fallback. Operators may enable
+The dispatcher labels interactive DeerFlow uploads with a `conversation` parse
+profile while WeKnora knowledge-base work retains the `knowledge` profile.
+Conversation DOCX first uses pinned `firecrawl-anydoc==0.1.9`; thin, failed, or
+timed-out output falls back through isolated DocReader, LibreOffice, and MinerU.
+Legacy DOC and knowledge-base DOCX keep the existing native-first route. A
+non-empty result is published immediately. Operators may enable
 `MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED=true` for a best-effort supplement,
 but its failure cannot invalidate already recovered native text, tables, and
-images. Presentation conversion remains strict. PDF input is inspected locally before parsing: documents
+images. AnyDoc and DocReader run in bounded child processes so a malformed Word
+file cannot fail the worker's liveness endpoint. Presentation conversion
+remains strict. PDF input is inspected locally before parsing: documents
 whose pages all contain usable text stay on the WeKnora builtin text parser,
 while a scanned/image-dominated page routes the whole PDF to the enterprise
 MinerU API. For searchable PDF/Word pages, multilingual `Figure N`/`图 N`
@@ -530,16 +535,18 @@ literal empty strings override the correct proxy environment already present in
 the Sandbox Pod and force authenticated DashScope POSTs onto the blocked direct
 route:
 
-The enterprise Gateway manifest also sets
-`DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860` and
-`DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`. The Gateway wait therefore
-extends 60 seconds beyond the Adapter's bounded 1800-second upstream wait so a
-completed response can still be transferred and persisted. Conversation PDF,
-DOC/DOCX, and PPT/PPTX uploads try the in-cluster MinerU Adapter first and use
-DeerFlow's local Markdown conversion only when that request fails. The upload is
-reported as partially unreadable only when both paths fail. Legacy binary
-`.doc` uses the current task sandbox's LibreOffice to make a temporary DOCX
-before the local Markdown step; those temporary files are deleted immediately.
+The enterprise Gateway manifest sets
+`DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=570`, while the dispatcher uses
+a 45-second admission wait and a 550-second interactive request timeout. All
+three remain below Nginx's 600-second upload timeout. Conversation Word fallback
+stages are independently bounded at 120 seconds. The Adapter therefore returns
+success or a controlled parser failure before Nginx can emit 504. Enterprise
+also sets
+`DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED=false` so
+Gateway does not repeat another unbounded local parse after the Adapter has
+already exhausted AnyDoc, DocReader, LibreOffice, and MinerU. The upstream-
+compatible code default still permits local conversion where the complete
+enterprise Adapter is not deployed.
 
 ```yaml
 sandbox:

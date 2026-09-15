@@ -97,6 +97,25 @@ spec:
               # so visual conversion cannot turn readable Word files into
               # 180-second failures or occupy every worker slot.
               value: "false"
+            - name: DEERFLOW_ANYDOC_WORD_ENABLED
+              # Conversation DOCX attachments use local AnyDoc first. A
+              # bounded failure or thin result resumes the existing chain.
+              value: "true"
+            - name: DEERFLOW_ANYDOC_WORD_EXTENSIONS
+              # Legacy binary DOC remains on the proven DocReader route.
+              value: docx
+            - name: DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS
+              value: "120"
+            - name: DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS
+              value: "32"
+            - name: DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS
+              # Keep the original native fallback, but outside the HTTP
+              # worker process so a native hang cannot fail /live probes.
+              value: "120"
+            - name: DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS
+              value: "120"
+            - name: DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS
+              value: "120"
             - name: MINERU_MAX_UPLOAD_BYTES
               value: "104857600"
             - name: MINERU_MAX_INLINE_IMAGE_BYTES

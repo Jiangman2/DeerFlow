@@ -309,6 +309,8 @@ def validate_manifest(path: Path) -> list[str]:
         "DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA": "true",
         "DEER_FLOW_DASHBOARD_MAX_CONCURRENT_QUERIES": "1",
         "DEER_FLOW_DASHBOARD_REQUIRE_HOURLY_ROLLUPS": "true",
+        "DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS": "570",
+        "DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED": "false",
     }
     for key, expected in expected_gateway.items():
         if gateway_env.get(key) != expected:
@@ -596,6 +598,18 @@ def validate_repository(repo_root: Path) -> list[str]:
     topology_spread = mineru["spec"]["template"]["spec"].get("topologySpreadConstraints", [])
     if not topology_spread or topology_spread[0].get("maxSkew") != 1:
         raise ValidationError("MinerU workers require maxSkew=1 hostname spread")
+    mineru_env = _environment(_container(mineru, "adapter"))
+    expected_word_parser = {
+        "DEERFLOW_ANYDOC_WORD_ENABLED": "true",
+        "DEERFLOW_ANYDOC_WORD_EXTENSIONS": "docx",
+        "DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS": "120",
+        "DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS": "120",
+        "DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS": "120",
+        "DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS": "120",
+    }
+    for key, expected in expected_word_parser.items():
+        if mineru_env.get(key) != expected:
+            raise ValidationError(f"MinerU Adapter {key} must be {expected!r}, got {mineru_env.get(key)!r}")
     service_patch = _resource(
         mineru_patch_documents,
         "Service",
@@ -624,6 +638,8 @@ def validate_repository(repo_root: Path) -> list[str]:
     dispatcher_env = _environment(_container(dispatcher, "dispatcher"))
     if dispatcher_env.get("MINERU_ADAPTER_MODE") != "dispatcher":
         raise ValidationError("MinerU dispatcher mode must be explicit")
+    if dispatcher_env.get("MINERU_DISPATCH_INTERACTIVE_REQUEST_TIMEOUT_SECONDS") != "550":
+        raise ValidationError("MinerU dispatcher interactive timeout must remain 550 seconds")
     dispatcher_pdb = _resource(
         mineru_resources,
         "PodDisruptionBudget",

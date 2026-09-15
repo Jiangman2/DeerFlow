@@ -449,6 +449,180 @@ def test_searchable_word_returns_native_parse_without_visual_conversion(monkeypa
     assert "Word 原生解析" in response["results"]["document"]["md_content"]
 
 
+def test_docx_uses_anydoc_before_builtin_parser(monkeypatch):
+    source = _fake_docx()
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORD_ENABLED", "true")
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_anydoc",
+        lambda content, filename, suffix: ("# AnyDoc\n\n高速解析正文", {}),
+    )
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_builtin",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("AnyDoc success must not call DocReader")),
+    )
+
+    response = app.parse_upload(
+        source,
+        "large-report.docx",
+        parse_profile="conversation",
+    )
+
+    assert response["results"]["document"] == {
+        "md_content": "# AnyDoc\n\n高速解析正文",
+        "images": {},
+    }
+
+
+def test_anydoc_failure_falls_back_to_existing_word_parser_chain(monkeypatch):
+    source = _fake_docx()
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORD_ENABLED", "true")
+
+    def failed_anydoc(content, filename, suffix):
+        raise RuntimeError("AnyDoc subprocess timed out")
+
+    monkeypatch.setattr(app, "parse_word_with_anydoc", failed_anydoc)
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_builtin",
+        lambda content, filename, suffix: ("# DocReader fallback\n\n正文", {"images/fallback.png": "image"}),
+    )
+
+    response = app.parse_upload(
+        source,
+        "large-report.docx",
+        parse_profile="conversation",
+    )
+
+    assert response["results"]["document"] == {
+        "md_content": "# DocReader fallback\n\n正文",
+        "images": {"images/fallback.png": "image"},
+    }
+
+
+def test_anydoc_is_disabled_by_default_and_does_not_change_legacy_doc(monkeypatch):
+    source = _fake_legacy_office("WordDocument")
+    monkeypatch.delenv("DEERFLOW_ANYDOC_WORD_ENABLED", raising=False)
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_anydoc",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("AnyDoc must remain opt-in")),
+    )
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_builtin",
+        lambda content, filename, suffix: ("# Legacy DOC\n\n正文", {}),
+    )
+
+    response = app.parse_upload(source, "legacy.doc")
+
+    assert response["results"]["document"]["md_content"] == "# Legacy DOC\n\n正文"
+
+
+def test_anydoc_does_not_change_weknora_knowledge_base_routes(monkeypatch):
+    source = _fake_docx()
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORD_ENABLED", "true")
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_anydoc",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("knowledge-base parsing must retain its configured route")),
+    )
+    monkeypatch.setattr(
+        app,
+        "parse_word_with_builtin",
+        lambda content, filename, suffix: ("# Knowledge base route\n\n正文", {}),
+    )
+
+    response = app.parse_upload(source, "knowledge-base.docx")
+
+    assert response["results"]["document"]["md_content"] == "# Knowledge base route\n\n正文"
+
+
+def test_parse_word_with_anydoc_uses_bounded_isolated_subprocess(monkeypatch, tmp_path):
+    captured = {}
+    worker_path = tmp_path / "worker.py"
+    worker_path.write_text("# test worker\n", encoding="utf-8")
+
+    def fake_runner(command, *, timeout, termination_grace_seconds=5.0, env=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        captured["env"] = env
+        Path(command[-1]).write_text("# AnyDoc\n\n足够长的有效正文内容，用于通过最小质量门槛。", encoding="utf-8")
+        return app.subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setenv("MINERU_API_TOKEN", "must-not-leak")
+    monkeypatch.setenv("HTTPS_PROXY", "http://user:password@proxy.example")
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS", "37")
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS", "8")
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORKER_PATH", str(worker_path))
+    monkeypatch.setattr(app, "_run_converter_command", fake_runner)
+
+    markdown, images = app.parse_word_with_anydoc(_fake_docx(), "large-report.docx", ".docx")
+
+    assert "有效正文" in markdown
+    assert images == {}
+    assert captured["timeout"] == 37
+    assert captured["command"][1] == str(worker_path)
+    assert captured["env"]["PYTHONNOUSERSITE"] == "1"
+    assert "MINERU_API_TOKEN" not in captured["env"]
+    assert "HTTPS_PROXY" not in captured["env"]
+
+
+def test_parse_word_with_anydoc_rejects_thin_output(monkeypatch):
+    def fake_runner(command, *, timeout, termination_grace_seconds=5.0, env=None):
+        Path(command[-1]).write_text("![image](embedded)", encoding="utf-8")
+        return app.subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setenv("DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS", "8")
+    monkeypatch.setattr(app, "_run_converter_command", fake_runner)
+
+    with pytest.raises(ValueError, match="readable text threshold"):
+        app.parse_word_with_anydoc(_fake_docx(), "image-only.docx", ".docx")
+
+
+def test_parse_word_with_builtin_uses_bounded_isolated_subprocess(monkeypatch, tmp_path):
+    captured = {}
+    worker_path = tmp_path / "docreader-worker.py"
+    worker_path.write_text("# test worker\n", encoding="utf-8")
+
+    def fake_runner(command, *, timeout, termination_grace_seconds=5.0, env=None):
+        captured["command"] = command
+        captured["timeout"] = timeout
+        captured["env"] = env
+        Path(command[-1]).write_text(
+            json.dumps(
+                {
+                    "markdown": "# DocReader\n\n有界子进程回退正文",
+                    "images": {"images/fallback.png": "encoded"},
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        return app.subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setenv("MINERU_API_TOKEN", "must-not-leak")
+    monkeypatch.setenv("HTTPS_PROXY", "http://user:password@proxy.example")
+    monkeypatch.setenv("DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS", "41")
+    monkeypatch.setenv("DEERFLOW_DOCREADER_WORKER_PATH", str(worker_path))
+    monkeypatch.setattr(app, "_run_converter_command", fake_runner)
+
+    markdown, images = app.parse_word_with_builtin(
+        _fake_docx(),
+        "large-report.docx",
+        ".docx",
+    )
+
+    assert "有界子进程" in markdown
+    assert images == {"images/fallback.png": "encoded"}
+    assert captured["timeout"] == 41
+    assert captured["command"][1] == str(worker_path)
+    assert captured["env"]["PYTHONNOUSERSITE"] == "1"
+    assert "MINERU_API_TOKEN" not in captured["env"]
+    assert "HTTPS_PROXY" not in captured["env"]
+
+
 def test_optional_word_visual_conversion_failure_preserves_native_parse(monkeypatch):
     source = _fake_docx()
     native_markdown = "# Native Word\n\nRecovered body and tables"
@@ -2057,9 +2231,10 @@ def test_health_probe_remains_responsive_while_parse_is_running(monkeypatch):
     release_parse = threading.Event()
     monkeypatch.setattr(app, "_PARSE_COORDINATOR", coordinator)
 
-    def blocking_parse(content, filename):
+    def blocking_parse(content, filename, *, parse_profile):
         assert content == b"%PDF-test"
         assert filename == "queued.pdf"
+        assert parse_profile == "conversation"
         parse_entered.set()
         assert release_parse.wait(timeout=2)
         return app.weknora_response("# Parsed")
@@ -2076,7 +2251,10 @@ def test_health_probe_remains_responsive_while_parse_is_running(monkeypatch):
         return urllib.request.Request(
             f"http://127.0.0.1:{server.server_port}/file_parse",
             data=body,
-            headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "X-DeerFlow-Parse-Profile": "conversation",
+            },
             method="POST",
         )
 
@@ -2249,6 +2427,7 @@ def test_dispatcher_forwards_request_without_automatic_resubmission():
         minimum_backends=1,
         wait_timeout_seconds=2,
         request_timeout_seconds=30,
+        interactive_request_timeout_seconds=17,
         resolver=lambda _host: ["10.0.0.7"],
         session=Session(),
         prober=lambda _backend, _path: True,
@@ -2269,9 +2448,65 @@ def test_dispatcher_forwards_request_without_automatic_resubmission():
     assert calls == [
         {
             "url": "http://10.0.0.7:50052/file_parse",
-            "headers": {"Content-Type": "multipart/form-data; boundary=test"},
+            "headers": {
+                "Content-Type": "multipart/form-data; boundary=test",
+                "X-DeerFlow-Parse-Profile": "conversation",
+            },
             "data": b"multipart-body",
-            "timeout": (5.0, 30),
+            "timeout": (5.0, 17),
+        }
+    ]
+
+
+def test_dispatcher_preserves_knowledge_profile_and_long_timeout_for_bulk_work():
+    calls: list[dict[str, object]] = []
+
+    class Response:
+        status_code = 200
+        content = b'{"status":"ok"}'
+        headers = {"Content-Type": "application/json"}
+
+    class Session:
+        def post(self, url, *, headers, data, timeout):
+            calls.append(
+                {
+                    "url": url,
+                    "headers": headers,
+                    "data": data,
+                    "timeout": timeout,
+                }
+            )
+            return Response()
+
+    dispatcher = app.ParseDispatcher(
+        backend_host="workers.test",
+        backend_port=50052,
+        maximum_waiting=4,
+        minimum_backends=1,
+        wait_timeout_seconds=2,
+        request_timeout_seconds=1800,
+        interactive_request_timeout_seconds=550,
+        resolver=lambda _host: ["10.0.0.8"],
+        session=Session(),
+        prober=lambda _backend, _path: True,
+    )
+
+    result = dispatcher.forward(
+        body=b"knowledge-document",
+        content_type="multipart/form-data; boundary=test",
+        priority="bulk",
+    )
+
+    assert result[0] == 200
+    assert calls == [
+        {
+            "url": "http://10.0.0.8:50052/file_parse",
+            "headers": {
+                "Content-Type": "multipart/form-data; boundary=test",
+                "X-DeerFlow-Parse-Profile": "knowledge",
+            },
+            "data": b"knowledge-document",
+            "timeout": (5.0, 1800),
         }
     ]
 

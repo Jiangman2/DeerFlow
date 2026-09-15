@@ -127,6 +127,10 @@ def test_enterprise_build_base_images_are_overridable():
         "docker/mineru_adapter/Dockerfile": (
             "ARG DOCREADER_IMAGE=",
             "FROM ${DOCREADER_IMAGE}",
+            "COPY requirements-anydoc.txt",
+            "--require-hashes",
+            "COPY anydoc_worker.py",
+            "COPY docreader_worker.py",
         ),
     }
 
@@ -134,6 +138,10 @@ def test_enterprise_build_base_images_are_overridable():
         dockerfile = _read(path)
         for token in tokens:
             assert token in dockerfile, f"{path} is missing {token}"
+
+    anydoc_requirements = _read("docker/mineru_adapter/requirements-anydoc.txt")
+    assert "firecrawl-anydoc==0.1.9" in anydoc_requirements
+    assert "sha256:ba1c19bdaa97f4850daf3fb4ca2855cefa146b5621ce7b22a71d158d3b84e54e" in anydoc_requirements
 
 
 def test_gateway_image_bundles_verified_cl100k_base_cache():
@@ -233,11 +241,13 @@ def test_ppt_master_runner_is_an_independent_failure_domain():
     runner_service = next(document for document in documents if document.get("kind") == "Service" and document.get("metadata", {}).get("name") == "ppt-master-runner")
     assert gateway_service["spec"]["ports"] == [{"name": "http", "port": 8001, "targetPort": 8001}]
     assert runner_service["spec"]["selector"] == {"app": "ppt-master-runner"}
-    assert runner_service["spec"]["ports"] == [{
-        "name": "http",
-        "port": 8003,
-        "targetPort": 8003,
-    }]
+    assert runner_service["spec"]["ports"] == [
+        {
+            "name": "http",
+            "port": 8003,
+            "targetPort": 8003,
+        }
+    ]
 
     nginx = _read("k8s/local-pvc/nginx.conf")
     assert "location /api/ppt-master-runtime/" in nginx
@@ -322,7 +332,7 @@ def test_enterprise_runtime_images_are_immutable():
         "deer-flow-frontend": "20260914-enterprise-arm64-rc15-digitalemployee-ui2-r1",
         "deer-flow-provisioner": "20260817-enterprise-arm64-rc15-sandboxstorage1",
         "deer-flow-skills": "20260901-enterprise-arm64-rc15-researchfund1",
-        "deer-flow-mineru-adapter": "20260904-enterprise-arm64-rc15-uploadstability1",
+        "deer-flow-mineru-adapter": "20260915-enterprise-arm64-rc15-uploadstability2",
         "paradedb/paradedb": "pg16-search-arm64-20260722-1",
         "wechatopenai/weknora-app": "0.8.0-enterprise-proxy1-anydoc1-arm64-20260912",
         "wechatopenai/weknora-ui": "0.8.0-enterprise-sso2-r5-arm64-20260913",
@@ -581,6 +591,10 @@ def test_enterprise_mineru_adapter_uses_secret_and_internal_service_only():
         for document in _yaml_documents(path)
     )
     assert env["REQUESTS_CA_BUNDLE"] == "/etc/deerflow-ca/ca-bundle.crt"
+    assert env["DEERFLOW_ANYDOC_WORD_ENABLED"] == "true"
+    assert env["DEERFLOW_ANYDOC_WORD_EXTENSIONS"] == "docx"
+    assert env["DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS"] == "120"
+    assert env["DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS"] == "32"
     assert container["volumeMounts"] == [{"name": "enterprise-ca", "mountPath": "/etc/deerflow-ca", "readOnly": True}]
     assert disruption_budget["metadata"]["name"] == "deer-flow-mineru-adapter"
     assert disruption_budget["spec"] == {
@@ -602,10 +616,11 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert gateway_env["WEKNORA_MINERU_SCANNED_PDF_FALLBACK"] == "true"
     assert gateway_env["WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK"] == "true"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED"] == "true"
-    assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS"] == "1860"
+    assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS"] == "570"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS"] == "16"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS"] == "8"
     assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED"] == "true"
+    assert gateway_env["DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED"] == "false"
     assert gateway_env["DEERFLOW_UPLOAD_PDF_SECURITY_MODE"] == "sanitize"
     assert gateway_env["DEERFLOW_UPLOAD_PDF_SANITIZE_DPI"] == "120"
     assert gateway_env["DEERFLOW_UPLOAD_PDF_SANITIZE_MAX_PAGES"] == "200"
@@ -639,6 +654,10 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
         "readOnly": True,
     } in weknora_container["volumeMounts"]
 
+    dispatcher = next(document for document in _yaml_documents("k8s/enterprise/mineru-adapter.yaml") if document.get("kind") == "Deployment")
+    dispatcher_env = {item["name"]: item["value"] for item in dispatcher["spec"]["template"]["spec"]["containers"][0]["env"] if "value" in item}
+    assert dispatcher_env["MINERU_DISPATCH_INTERACTIVE_REQUEST_TIMEOUT_SECONDS"] == "550"
+
     adapter = _yaml_documents("k8s/enterprise/mineru-adapter-patch.yaml")[0]
     adapter_env = {item["name"]: item["value"] for item in adapter["spec"]["template"]["spec"]["containers"][0]["env"] if "name" in item}
     assert adapter_env["PDF_SCAN_IMAGE_RATIO"] == "0.5"
@@ -663,6 +682,12 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
     assert adapter_env["MINERU_SYNC_RETRY_MAX_ELAPSED_SECONDS"] == "600"
     assert adapter_env["MINERU_TRUST_ENV"] == "false"
     assert adapter_env["MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED"] == "false"
+    assert adapter_env["DEERFLOW_ANYDOC_WORD_ENABLED"] == "true"
+    assert adapter_env["DEERFLOW_ANYDOC_WORD_EXTENSIONS"] == "docx"
+    assert adapter_env["DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS"] == "120"
+    assert adapter_env["DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS"] == "120"
+    assert adapter_env["DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS"] == "120"
+    assert adapter_env["DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS"] == "120"
 
 
 def test_enterprise_routes_internal_retrieval_models_through_gateway():

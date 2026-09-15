@@ -14,6 +14,7 @@ import re
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -48,6 +49,8 @@ _MARKDOWN_IMAGE_REF_RE = re.compile(
     r"""!\[(?P<alt>[^\]]*)]\(\s*(?P<path>images/[^)\s]+)\s*\)""",
     re.IGNORECASE,
 )
+_MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
 _NATIVE_IMAGE_DATA_RE = re.compile(
     r"^data:(?P<mime>image/[a-z0-9.+-]+);base64,(?P<data>.*)$",
     re.IGNORECASE | re.DOTALL,
@@ -213,6 +216,7 @@ class ParseDispatcher:
         minimum_backends: int,
         wait_timeout_seconds: float,
         request_timeout_seconds: float,
+        interactive_request_timeout_seconds: float | None = None,
         failure_cooldown_seconds: float = 60.0,
         probe_timeout_seconds: float = 0.25,
         busy_retry_limit: int = 3,
@@ -232,6 +236,7 @@ class ParseDispatcher:
         self.minimum_backends = minimum_backends
         self.wait_timeout_seconds = wait_timeout_seconds
         self.request_timeout_seconds = request_timeout_seconds
+        self.interactive_request_timeout_seconds = request_timeout_seconds if interactive_request_timeout_seconds is None else interactive_request_timeout_seconds
         self.failure_cooldown_seconds = max(1.0, failure_cooldown_seconds)
         self.probe_timeout_seconds = max(0.05, probe_timeout_seconds)
         self.busy_retry_limit = max(0, busy_retry_limit)
@@ -420,8 +425,11 @@ class ParseDispatcher:
         content_type: str,
         priority: str,
     ) -> tuple[int, str, bytes, str]:
+        normalized_priority = priority.strip().lower()
+        request_timeout_seconds = self.interactive_request_timeout_seconds if normalized_priority == "interactive" else self.request_timeout_seconds
+        parse_profile = "conversation" if normalized_priority == "interactive" else "knowledge"
         for busy_attempt in range(self.busy_retry_limit + 1):
-            backend, request_id, wait_seconds = self._acquire_backend(priority)
+            backend, request_id, wait_seconds = self._acquire_backend(normalized_priority)
             backend_url = f"http://{backend}:{self.backend_port}/file_parse"
             logger.info(
                 "Dispatch started request_id=%s priority=%s backend=%s wait_seconds=%.3f bytes=%d busy_attempt=%d",
@@ -437,9 +445,12 @@ class ParseDispatcher:
             try:
                 response = self._session.post(
                     backend_url,
-                    headers={"Content-Type": content_type},
+                    headers={
+                        "Content-Type": content_type,
+                        "X-DeerFlow-Parse-Profile": parse_profile,
+                    },
                     data=body,
-                    timeout=(5.0, self.request_timeout_seconds),
+                    timeout=(5.0, request_timeout_seconds),
                 )
                 status_code = int(response.status_code)
                 if status_code == HTTPStatus.TOO_MANY_REQUESTS:
@@ -527,6 +538,10 @@ def parse_dispatcher() -> ParseDispatcher:
                 request_timeout_seconds=_float_env(
                     "MINERU_DISPATCH_REQUEST_TIMEOUT_SECONDS",
                     1800.0,
+                ),
+                interactive_request_timeout_seconds=_float_env(
+                    "MINERU_DISPATCH_INTERACTIVE_REQUEST_TIMEOUT_SECONDS",
+                    550.0,
                 ),
                 failure_cooldown_seconds=_float_env(
                     "MINERU_DISPATCH_FAILURE_COOLDOWN_SECONDS",
@@ -897,7 +912,7 @@ def merge_document_visuals(
     return merged_markdown, merged_images
 
 
-def parse_word_with_builtin(
+def _parse_word_with_builtin_in_process(
     content: bytes,
     filename: str,
     suffix: str,
@@ -924,6 +939,169 @@ def parse_word_with_builtin(
         file_type=suffix.lstrip("."),
         parser_factory=parser_factory,
     )
+
+
+def parse_word_with_builtin(
+    content: bytes,
+    filename: str,
+    suffix: str,
+    *,
+    parser_factory: Callable[[], Any] | None = None,
+) -> tuple[str, dict[str, str]]:
+    """Run DocReader in a bounded child unless a test supplies its parser."""
+
+    if parser_factory is not None:
+        return _parse_word_with_builtin_in_process(
+            content,
+            filename,
+            suffix,
+            parser_factory=parser_factory,
+        )
+
+    timeout = _float_env("DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS", 120.0)
+    maximum_output_bytes = _int_env("DEERFLOW_DOCREADER_WORD_MAX_OUTPUT_BYTES", 104_857_600)
+    worker = Path(
+        os.getenv(
+            "DEERFLOW_DOCREADER_WORKER_PATH",
+            str(Path(__file__).with_name("docreader_worker.py")),
+        )
+    )
+    if not worker.is_file():
+        raise RuntimeError(f"DocReader worker is missing: {worker}")
+
+    with tempfile.TemporaryDirectory(prefix="deerflow-docreader-") as temp_dir:
+        workspace = Path(temp_dir)
+        source = workspace / f"input{suffix.lower()}"
+        output = workspace / "result.json"
+        source.write_bytes(content)
+        source.chmod(0o600)
+        command = [sys.executable, str(worker), str(source), str(output)]
+        try:
+            completed = _run_converter_command(
+                command,
+                timeout=timeout,
+                env=_isolated_local_parser_environment(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"DocReader timed out after {timeout:g}s while parsing {filename}") from exc
+        if completed.returncode != 0:
+            detail = (completed.stderr or "<empty>").strip().replace("\n", " ")[:500]
+            raise RuntimeError(f"DocReader could not parse {filename}: returncode={completed.returncode}; stderr={detail}")
+        if not output.is_file():
+            raise RuntimeError(f"DocReader did not produce a result for {filename}")
+        output_size = output.stat().st_size
+        if output_size <= 0 or output_size > maximum_output_bytes:
+            raise RuntimeError(f"DocReader produced an invalid result size for {filename}: bytes={output_size}")
+        try:
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            markdown = payload["markdown"]
+            images = payload["images"]
+        except (KeyError, TypeError, ValueError, UnicodeError) as exc:
+            raise RuntimeError(f"DocReader produced an invalid result for {filename}") from exc
+        if not isinstance(markdown, str) or not isinstance(images, dict):
+            raise RuntimeError(f"DocReader produced an invalid result for {filename}")
+        if not all(isinstance(key, str) and isinstance(value, str) for key, value in images.items()):
+            raise RuntimeError(f"DocReader produced invalid image data for {filename}")
+        return markdown, images
+
+
+def _anydoc_word_extensions() -> set[str]:
+    configured = os.getenv("DEERFLOW_ANYDOC_WORD_EXTENSIONS", "docx")
+    return {f".{item.strip().lower().lstrip('.')}" for item in configured.split(",") if item.strip()}
+
+
+def _anydoc_word_enabled(suffix: str, parse_profile: str) -> bool:
+    return parse_profile == "conversation" and _bool_env("DEERFLOW_ANYDOC_WORD_ENABLED", False) and suffix.lower() in _anydoc_word_extensions()
+
+
+def _isolated_local_parser_environment() -> dict[str, str]:
+    """Pass only runtime essentials to a local parser subprocess."""
+
+    allowed = (
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "LD_LIBRARY_PATH",
+        "PATH",
+        "TMPDIR",
+        "TZ",
+    )
+    environment = {name: os.environ[name] for name in allowed if os.environ.get(name)}
+    environment["PYTHONNOUSERSITE"] = "1"
+    environment["PYTHONUNBUFFERED"] = "1"
+    return environment
+
+
+def _isolated_anydoc_environment() -> dict[str, str]:
+    return _isolated_local_parser_environment()
+
+
+def _visible_markdown_character_count(markdown: str) -> int:
+    without_images = _MARKDOWN_IMAGE_RE.sub("", markdown)
+    without_html = _HTML_TAG_RE.sub("", without_images)
+    without_markup = re.sub(r"[`*_#>|~\[\](){}\-+]", "", without_html)
+    return sum(1 for character in without_markup if not character.isspace())
+
+
+def parse_word_with_anydoc(
+    content: bytes,
+    filename: str,
+    suffix: str,
+) -> tuple[str, dict[str, str]]:
+    """Parse DOCX through a bounded, credential-isolated AnyDoc process."""
+
+    normalized_suffix = suffix.lower()
+    if normalized_suffix not in _anydoc_word_extensions():
+        raise ValueError(f"AnyDoc Word parsing is not enabled for {normalized_suffix}")
+
+    timeout = _float_env("DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS", 120.0)
+    minimum_text_characters = _int_env("DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS", 32)
+    maximum_output_bytes = _int_env("DEERFLOW_ANYDOC_WORD_MAX_OUTPUT_BYTES", 104_857_600)
+    worker = Path(
+        os.getenv(
+            "DEERFLOW_ANYDOC_WORKER_PATH",
+            str(Path(__file__).with_name("anydoc_worker.py")),
+        )
+    )
+    if not worker.is_file():
+        raise RuntimeError(f"AnyDoc worker is missing: {worker}")
+
+    with tempfile.TemporaryDirectory(prefix="deerflow-anydoc-") as temp_dir:
+        workspace = Path(temp_dir)
+        source = workspace / f"input{normalized_suffix}"
+        output = workspace / "result.md"
+        source.write_bytes(content)
+        source.chmod(0o600)
+        command = [sys.executable, str(worker), str(source), str(output)]
+        try:
+            completed = _run_converter_command(
+                command,
+                timeout=timeout,
+                env=_isolated_anydoc_environment(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"AnyDoc timed out after {timeout:g}s while parsing {filename}") from exc
+
+        if completed.returncode != 0:
+            detail = (completed.stderr or "<empty>").strip().replace("\n", " ")[:500]
+            raise RuntimeError(f"AnyDoc could not parse {filename}: returncode={completed.returncode}; stderr={detail}")
+        if not output.is_file():
+            raise RuntimeError(f"AnyDoc did not produce Markdown for {filename}")
+        output_size = output.stat().st_size
+        if output_size <= 0 or output_size > maximum_output_bytes:
+            raise RuntimeError(f"AnyDoc produced an invalid Markdown size for {filename}: bytes={output_size}")
+        markdown = output.read_text(encoding="utf-8")
+        visible_characters = _visible_markdown_character_count(markdown)
+        if visible_characters < minimum_text_characters:
+            raise ValueError(f"AnyDoc output did not meet the readable text threshold for {filename}: visible_characters={visible_characters} minimum={minimum_text_characters}")
+        logger.info(
+            "AnyDoc Word parse succeeded filename=%s input_bytes=%d output_bytes=%d visible_characters=%d",
+            filename,
+            len(content),
+            output_size,
+            visible_characters,
+        )
+        return markdown, {}
 
 
 _CFB_FREE_SECTOR = 0xFFFFFFFF
@@ -1192,6 +1370,7 @@ def _run_converter_command(
     *,
     timeout: float,
     termination_grace_seconds: float = 5.0,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a converter in a killable process group and bound its whole lifetime."""
 
@@ -1205,6 +1384,8 @@ def _run_converter_command(
         popen_kwargs["start_new_session"] = True
     elif os.name == "nt":
         popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    if env is not None:
+        popen_kwargs["env"] = env
 
     process = subprocess.Popen(command, **popen_kwargs)
     try:
@@ -1235,7 +1416,15 @@ def convert_to_pdf(content: bytes, filename: str) -> bytes:
     if suffix == ".pdf":
         return content
 
-    timeout = int(os.getenv("LIBREOFFICE_TIMEOUT_SECONDS", "180"))
+    if suffix in {".doc", ".docx"}:
+        timeout = int(
+            os.getenv(
+                "DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS",
+                os.getenv("LIBREOFFICE_TIMEOUT_SECONDS", "180"),
+            )
+        )
+    else:
+        timeout = int(os.getenv("LIBREOFFICE_TIMEOUT_SECONDS", "180"))
     with tempfile.TemporaryDirectory(prefix="deerflow-mineru-") as temp_dir:
         workspace = Path(temp_dir)
         source = workspace / f"input{suffix}"
@@ -2115,15 +2304,32 @@ def weknora_response(markdown: str, images: dict[str, str] | None = None) -> dic
     }
 
 
-def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
+def parse_upload(
+    content: bytes,
+    filename: str,
+    *,
+    parse_profile: str = "knowledge",
+) -> dict[str, Any]:
     """Preserve searchable documents locally and OCR image-dominated input."""
     suffix = detect_input_suffix(content, filename)
     decision: PDFRoutingDecision | None = None
     searchable_document = suffix in {".pdf", ".doc", ".docx"}
     native_word: tuple[str, dict[str, str]] | None = None
+    word_route = "native-first-success"
     if suffix in {".doc", ".docx"}:
+        if _anydoc_word_enabled(suffix, parse_profile):
+            try:
+                native_word = parse_word_with_anydoc(content, filename, suffix)
+                word_route = "anydoc-first-success"
+            except Exception:
+                logger.warning(
+                    "AnyDoc Word parsing failed for %s; continuing through the existing native parser chain.",
+                    filename,
+                    exc_info=True,
+                )
         try:
-            native_word = parse_word_with_builtin(content, filename, suffix)
+            if native_word is None:
+                native_word = parse_word_with_builtin(content, filename, suffix)
             if not native_word[0].strip():
                 logger.warning(
                     "Native Word parser returned no readable text for %s; continuing through PDF visual fallback.",
@@ -2141,8 +2347,9 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
             False,
         ):
             logger.info(
-                "Word routing filename=%s route=native-first-success",
+                "Word routing filename=%s route=%s",
                 filename,
+                word_route,
             )
             return weknora_response(native_word[0], native_word[1])
     if suffix == ".pdf":
@@ -2222,10 +2429,18 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
                     )
 
     try:
+        mineru_timeout_seconds = int(os.getenv("MINERU_TIMEOUT_SECONDS", "600"))
+        if suffix in {".doc", ".docx"}:
+            mineru_timeout_seconds = int(
+                os.getenv(
+                    "DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS",
+                    str(mineru_timeout_seconds),
+                )
+            )
         parsed = EnterpriseMinerUClient(
             api_url=os.environ["MINERU_API_URL"],
             api_token=os.environ["MINERU_API_TOKEN"],
-            timeout_seconds=int(os.getenv("MINERU_TIMEOUT_SECONDS", "600")),
+            timeout_seconds=mineru_timeout_seconds,
         ).parse_pdf(pdf, pdf_filename)
         markdown, images = mineru_pages_to_markdown(parsed, filename=pdf_filename)
     except Exception:
@@ -2376,7 +2591,11 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
                 body,
             )
             parsed = _PARSE_COORDINATOR.run(
-                lambda: parse_upload(content, filename),
+                lambda: parse_upload(
+                    content,
+                    filename,
+                    parse_profile=("conversation" if self.headers.get("X-DeerFlow-Parse-Profile", "").strip().lower() == "conversation" else "knowledge"),
+                ),
                 filename=filename,
                 content_bytes=len(content),
             )
