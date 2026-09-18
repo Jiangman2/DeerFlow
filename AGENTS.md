@@ -59,6 +59,9 @@ the event loop. LibreOffice's direct first-page destination
 `OpenAction` is inert only when it matches the strict page-reference array;
 indirect or executable actions remain download-only. Do not rely on filename
 MIME guessing or frontend validation alone.
+Treat all base XML and structured `+xml` MIME types as active content for both
+ordinary artifacts and members read from `.skill` packages; they must be
+attachments, never authenticated-origin inline responses.
 After artifact read authorization succeeds, resolve the storage bucket from the
 trusted `threads_meta.user_id` owner record rather than the current viewer. This
 keeps owner and administrator read-only views on the same thread files while
@@ -581,6 +584,11 @@ Skill quality review note:
   keeps deterministic SkillScan plus fail-closed LLM moderation in front of
   every write. Normalize moderation output through the shared LLM text helper:
   Responses reasoning/tool blocks are not trusted decision text.
+- SkillScan and Skill Review share one code/executable-file classifier. Review
+  snapshots retain binary bytes as base64, scan every non-symlink file except
+  deliberately unsafe eval-fixture `SKILL.md` samples, analyze undecodable code
+  through a lossy decode with an explicit finding, and fail closed on missing or
+  colliding snapshot content.
 
 Durable-memory boundary note:
 - Long-term memory is descriptive background, not task authority. One-turn

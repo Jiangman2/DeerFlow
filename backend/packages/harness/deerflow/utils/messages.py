@@ -9,6 +9,12 @@ from langchain_core.messages import HumanMessage
 ORIGINAL_USER_CONTENT_KEY = "original_user_content"
 SUMMARY_MESSAGE_NAME = "summary"
 
+# Server-owned mark added at the Gateway trust boundary when an external human
+# message carries presentation/framework markers that would otherwise make the
+# input guardrail skip it. The caller-provided marker remains intact, but the
+# content is still treated as untrusted model input.
+UNTRUSTED_INPUT_KEY = "untrusted_input"
+
 
 def message_content_to_text(content: Any) -> str:
     """Extract text from LangChain message content shapes."""

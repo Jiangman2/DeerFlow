@@ -801,6 +801,8 @@ def test_full_chain_order(mock_create_agent):
         "DanglingToolCallMiddleware",
         "MyGuardrail",
         "ToolErrorHandlingMiddleware",
+        "DurableContextMiddleware",
+        "SystemMessageCoalescingMiddleware",
         "MySummarization",
         "TodoMiddleware",
         "TitleMiddleware",
@@ -926,3 +928,17 @@ def test_extra_circular_dependency():
             features=RuntimeFeatures(sandbox=False),
             extra_middleware=[MW_A(), MW_B()],
         )
+
+
+@patch("deerflow.agents.factory.create_agent")
+def test_token_budget_boolean_feature_builds_enabled_middleware(mock_create_agent):
+    mock_create_agent.return_value = MagicMock()
+
+    create_deerflow_agent(
+        _make_mock_model(),
+        features=RuntimeFeatures(sandbox=False, token_budget=True),
+    )
+
+    middleware = mock_create_agent.call_args.kwargs["middleware"]
+    token_budget = next(item for item in middleware if type(item).__name__ == "TokenBudgetMiddleware")
+    assert token_budget._config.enabled is True

