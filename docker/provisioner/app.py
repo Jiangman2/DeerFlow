@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import logging
 import os
+import posixpath
 import re
 import secrets
 import time
@@ -67,16 +68,12 @@ USERDATA_PVC_NAME = os.environ.get("USERDATA_PVC_NAME", "")
 SKILLS_PVC_SUBPATH_TEMPLATE = os.environ.get("SKILLS_PVC_SUBPATH_TEMPLATE", "")
 SANDBOX_ENV_SECRET_NAME = os.environ.get("SANDBOX_ENV_SECRET_NAME", "")
 SANDBOX_CA_SECRET_NAME = os.environ.get("SANDBOX_CA_SECRET_NAME", "")
-SANDBOX_CA_SECRET_KEY = os.environ.get(
-    "SANDBOX_CA_SECRET_KEY", "ca-bundle.crt"
-)
+SANDBOX_CA_SECRET_KEY = os.environ.get("SANDBOX_CA_SECRET_KEY", "ca-bundle.crt")
 SANDBOX_CA_MOUNT_PATH = os.environ.get(
     "SANDBOX_CA_MOUNT_PATH", "/etc/deerflow-ca"
 ).rstrip("/")
 SANDBOX_CA_FILE = f"{SANDBOX_CA_MOUNT_PATH}/ca-bundle.crt"
-SANDBOX_OPENSSL_CONFIGMAP_NAME = os.environ.get(
-    "SANDBOX_OPENSSL_CONFIGMAP_NAME", ""
-)
+SANDBOX_OPENSSL_CONFIGMAP_NAME = os.environ.get("SANDBOX_OPENSSL_CONFIGMAP_NAME", "")
 SANDBOX_OPENSSL_CONFIGMAP_KEY = os.environ.get(
     "SANDBOX_OPENSSL_CONFIGMAP_KEY", "openssl.cnf"
 )
@@ -120,10 +117,13 @@ SANDBOX_CONTAINER_PORT_RAW = os.environ.get("SANDBOX_CONTAINER_PORT", "8080")
 SANDBOX_SERVICE_TYPE = os.environ.get("SANDBOX_SERVICE_TYPE", "NodePort")
 PPT_MASTER_AGENT_HOST_ENABLED = os.environ.get(
     "PPT_MASTER_AGENT_HOST_ENABLED", "false"
-).strip().lower() in {"1", "true", "yes", "on"}
-PPT_MASTER_AGENT_HOST_PORT_RAW = os.environ.get(
-    "PPT_MASTER_AGENT_HOST_PORT", "8788"
-)
+).strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+PPT_MASTER_AGENT_HOST_PORT_RAW = os.environ.get("PPT_MASTER_AGENT_HOST_PORT", "8788")
 try:
     SANDBOX_CONTAINER_PORT = int(SANDBOX_CONTAINER_PORT_RAW)
 except ValueError as exc:
@@ -145,7 +145,9 @@ if not (1 <= PPT_MASTER_AGENT_HOST_PORT <= 65535):
         f"Invalid PPT_MASTER_AGENT_HOST_PORT={PPT_MASTER_AGENT_HOST_PORT}; expected a value in [1, 65535]"
     )
 if PPT_MASTER_AGENT_HOST_PORT == SANDBOX_CONTAINER_PORT:
-    raise RuntimeError("PPT_MASTER_AGENT_HOST_PORT must differ from SANDBOX_CONTAINER_PORT")
+    raise RuntimeError(
+        "PPT_MASTER_AGENT_HOST_PORT must differ from SANDBOX_CONTAINER_PORT"
+    )
 if SANDBOX_SERVICE_TYPE not in {"NodePort", "ClusterIP"}:
     raise RuntimeError(
         f"Invalid SANDBOX_SERVICE_TYPE={SANDBOX_SERVICE_TYPE!r}; expected 'NodePort' or 'ClusterIP'"
@@ -157,6 +159,9 @@ if PPT_MASTER_AGENT_HOST_ENABLED and SANDBOX_SERVICE_TYPE != "ClusterIP":
 SAFE_THREAD_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
 SAFE_USER_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
 DEFAULT_USER_ID = "default"
+SANDBOX_USER_ANNOTATION = "deerflow.io/user-id"
+SANDBOX_THREAD_ANNOTATION = "deerflow.io/thread-id"
+SANDBOX_LEGACY_SKILLS_ANNOTATION = "deerflow.io/include-legacy-skills"
 
 # Path to the kubeconfig *inside* the provisioner container.
 # Typically the host's ~/.kube/config is mounted here.
@@ -180,6 +185,7 @@ except ValueError as exc:
 # Desktop for macOS this is ``host.docker.internal``; on Linux it may be the
 # host's LAN IP. Ignored when SANDBOX_SERVICE_TYPE=ClusterIP.
 NODE_HOST = os.environ.get("NODE_HOST", "host.docker.internal")
+
 
 def _sandbox_healthcheck_exec() -> k8s_client.V1ExecAction:
     """Probe AIO without placing its Secret value in the Pod specification."""
@@ -449,6 +455,31 @@ def _sandbox_url(sandbox_id: str, node_port: int | None = None) -> str:
     return f"http://{NODE_HOST}:{node_port}"
 
 
+def _skills_pvc_subpath(
+    category: str,
+    *,
+    user_id: str,
+    thread_id: str,
+) -> str:
+    """Return the category path inside the shared skills PVC.
+
+    ``SKILLS_PVC_SUBPATH_TEMPLATE`` remains an optional base path for
+    installations that place the skills tree below the PVC root.  The
+    category is always appended so the container sees the same
+    ``/mnt/skills/{public,legacy}`` layout in PVC and hostPath modes.
+    """
+    base = SKILLS_PVC_SUBPATH_TEMPLATE.format(
+        user_id=user_id,
+        thread_id=thread_id,
+    ).strip("/")
+    return posixpath.join(base, category) if base else category
+
+
+def _user_pvc_subpath(user_id: str, *parts: str) -> str:
+    """Return a path below the Gateway's ``DEER_FLOW_HOME`` PVC tree."""
+    return posixpath.join("deer-flow", "users", user_id, *parts)
+
+
 def _build_volumes(
     thread_id: str,
     user_id: str = DEFAULT_USER_ID,
@@ -457,24 +488,18 @@ def _build_volumes(
 ) -> list[k8s_client.V1Volume]:
     """Build volume list: PVC when configured, otherwise hostPath.
 
-    Skills are split into public, per-user custom, and legacy (global-custom)
-    volumes so that ``/mnt/skills/{public,custom,legacy}/`` paths resolve
-    correctly inside the sandbox — matching the hostPath layout produced by
-    ``LocalSandboxProvider`` and ``AioSandboxProvider``.
+    Skills are exposed through public, per-user custom, and legacy
+    (global-custom) mount paths. PVC mode reuses the user-data volume for the
+    custom subPath, while hostPath mode needs a distinct custom volume.
     """
     volumes: list[k8s_client.V1Volume] = []
 
     # ── Skills volumes ────────────────────────────────────────────────
 
     if SKILLS_PVC_NAME:
-        # PVC mode: three-way subPath not yet supported; fall back to
-        # single-volume mount for backward compatibility.
-        logger.warning(
-            "SKILLS_PVC_NAME is set — three-way skills layout is not supported in PVC mode yet; falling back to single /mnt/skills mount"
-        )
         volumes.append(
             k8s_client.V1Volume(
-                name="skills",
+                name="skills-public",
                 persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
                     claim_name=SKILLS_PVC_NAME,
                     read_only=True,
@@ -482,7 +507,6 @@ def _build_volumes(
             )
         )
     else:
-        # hostPath mode: three-way layout
         public_path = join_host_path(SKILLS_HOST_PATH, "public")
         volumes.append(
             k8s_client.V1Volume(
@@ -494,6 +518,7 @@ def _build_volumes(
             )
         )
 
+    if not USERDATA_PVC_NAME:
         user_custom_path = join_host_path(
             DEER_FLOW_HOST_BASE_DIR,
             "users",
@@ -511,7 +536,18 @@ def _build_volumes(
             )
         )
 
-        if include_legacy_skills:
+    if include_legacy_skills:
+        if SKILLS_PVC_NAME:
+            volumes.append(
+                k8s_client.V1Volume(
+                    name="skills-legacy",
+                    persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
+                        claim_name=SKILLS_PVC_NAME,
+                        read_only=True,
+                    ),
+                )
+            )
+        else:
             legacy_path = join_host_path(SKILLS_HOST_PATH, "custom")
             volumes.append(
                 k8s_client.V1Volume(
@@ -585,46 +621,68 @@ def _build_volume_mounts(
 
     Skills are mounted to ``/mnt/skills/{public,custom,legacy}/`` so that
     category-aware ``Skill.get_container_path()`` paths resolve correctly.
-    PVC mode falls back to a single ``/mnt/skills`` mount and can optionally
-    scope that mount with ``SKILLS_PVC_SUBPATH_TEMPLATE``.
+    In PVC mode, public and legacy skills come from the shared skills claim,
+    while the current user's custom tree comes from the same user-data claim
+    used by Gateway.  This makes SkillHub installs visible at their canonical
+    ``/mnt/skills/custom/<skill>`` runtime path.
     """
     mounts: list[k8s_client.V1VolumeMount] = []
 
     if SKILLS_PVC_NAME:
-        skills_mount = k8s_client.V1VolumeMount(
-            name="skills",
-            mount_path="/mnt/skills",
+        mounts.append(
+            k8s_client.V1VolumeMount(
+                name="skills-public",
+                mount_path="/mnt/skills/public",
+                read_only=True,
+                sub_path=_skills_pvc_subpath(
+                    "public",
+                    user_id=user_id,
+                    thread_id=thread_id,
+                ),
+            )
+        )
+    else:
+        mounts.append(
+            k8s_client.V1VolumeMount(
+                name="skills-public",
+                mount_path="/mnt/skills/public",
+                read_only=True,
+            )
+        )
+
+    if USERDATA_PVC_NAME:
+        mounts.append(
+            k8s_client.V1VolumeMount(
+                name="user-data",
+                mount_path="/mnt/skills/custom",
+                read_only=True,
+                sub_path=_user_pvc_subpath(user_id, "skills", "custom"),
+            )
+        )
+    else:
+        mounts.append(
+            k8s_client.V1VolumeMount(
+                name="skills-custom",
+                mount_path="/mnt/skills/custom",
+                read_only=True,
+            )
+        )
+
+    if include_legacy_skills:
+        legacy_mount = k8s_client.V1VolumeMount(
+            name="skills-legacy",
+            mount_path="/mnt/skills/legacy",
             read_only=True,
         )
         if SKILLS_PVC_SUBPATH_TEMPLATE:
-            skills_mount.sub_path = SKILLS_PVC_SUBPATH_TEMPLATE.format(
+            legacy_mount.sub_path = _skills_pvc_subpath(
+                "custom",
                 user_id=user_id,
                 thread_id=thread_id,
             )
-        mounts.append(skills_mount)
-    else:
-        mounts.extend(
-            [
-                k8s_client.V1VolumeMount(
-                    name="skills-public",
-                    mount_path="/mnt/skills/public",
-                    read_only=True,
-                ),
-                k8s_client.V1VolumeMount(
-                    name="skills-custom",
-                    mount_path="/mnt/skills/custom",
-                    read_only=True,
-                ),
-            ]
-        )
-        if include_legacy_skills:
-            mounts.append(
-                k8s_client.V1VolumeMount(
-                    name="skills-legacy",
-                    mount_path="/mnt/skills/legacy",
-                    read_only=True,
-                )
-            )
+        elif SKILLS_PVC_NAME:
+            legacy_mount.sub_path = "custom"
+        mounts.append(legacy_mount)
 
     userdata_mount = k8s_client.V1VolumeMount(
         name="user-data",
@@ -632,8 +690,11 @@ def _build_volume_mounts(
         read_only=False,
     )
     if USERDATA_PVC_NAME:
-        userdata_mount.sub_path = (
-            f"deer-flow/users/{user_id}/threads/{thread_id}/user-data"
+        userdata_mount.sub_path = _user_pvc_subpath(
+            user_id,
+            "threads",
+            thread_id,
+            "user-data",
         )
     mounts.append(userdata_mount)
     if SANDBOX_CA_SECRET_NAME:
@@ -671,8 +732,38 @@ def _build_pod(
     )
     sandbox_env = _build_sandbox_env(include_agent_only_secrets=False)
     user_data_mount = next(
-        mount for mount in volume_mounts if mount.name == "user-data"
+        mount for mount in volume_mounts if mount.mount_path == "/mnt/user-data"
     )
+    if USERDATA_PVC_NAME:
+        initializer_mount = k8s_client.V1VolumeMount(
+            name="user-data",
+            mount_path="/mnt/deer-flow-home",
+            read_only=False,
+        )
+        user_data_root = _user_pvc_subpath(
+            user_id,
+            "threads",
+            thread_id,
+            "user-data",
+        )
+        user_data_root = f"/mnt/deer-flow-home/{user_data_root}"
+        custom_skills_root = (
+            f"/mnt/deer-flow-home/{_user_pvc_subpath(user_id, 'skills', 'custom')}"
+        )
+    else:
+        initializer_mount = user_data_mount
+        user_data_root = "/mnt/user-data"
+        custom_skills_root = None
+
+    initializer_roots = [
+        f"{user_data_root}/workspace",
+        f"{user_data_root}/uploads",
+        f"{user_data_root}/outputs",
+    ]
+    if custom_skills_root:
+        initializer_roots.append(custom_skills_root)
+    roots_expression = ",".join(f"Path({path!r})" for path in initializer_roots)
+    temp_path = f"{user_data_root}/workspace/.ppt-master-agent/tmp"
     user_data_initializer = k8s_client.V1Container(
         name="prepare-user-data",
         image=SANDBOX_IMAGE,
@@ -681,18 +772,46 @@ def _build_pod(
             "python3",
             "-c",
             (
-                "from pathlib import Path; "
-                "roots=[Path('/mnt/user-data/workspace'),Path('/mnt/user-data/uploads'),Path('/mnt/user-data/outputs')]; "
-                "[(path.mkdir(parents=True,exist_ok=True),path.chmod(0o777)) for path in roots]; "
-                "temp=Path('/mnt/user-data/workspace/.ppt-master-agent/tmp'); "
-                "temp.mkdir(parents=True,exist_ok=True); temp.chmod(0o700)"
+                f"from pathlib import Path; roots=[{roots_expression}]; [(path.mkdir(parents=True,exist_ok=True),path.chmod(0o777)) for path in roots]; temp=Path({temp_path!r}); temp.mkdir(parents=True,exist_ok=True); temp.chmod(0o700)"
             ),
         ],
         resources=k8s_client.V1ResourceRequirements(
             requests={"cpu": "10m", "memory": "32Mi"},
             limits={"cpu": "100m", "memory": "128Mi"},
         ),
-        volume_mounts=[user_data_mount],
+        volume_mounts=[initializer_mount],
+        security_context=k8s_client.V1SecurityContext(
+            privileged=False,
+            allow_privilege_escalation=False,
+        ),
+    )
+    skill_mounts = [
+        mount for mount in volume_mounts if mount.mount_path.startswith("/mnt/skills/")
+    ]
+    skill_roots_expression = ",".join(
+        f"Path({mount.mount_path!r})" for mount in skill_mounts
+    )
+    skill_mount_verifier = k8s_client.V1Container(
+        name="verify-skill-mounts",
+        image=SANDBOX_IMAGE,
+        image_pull_policy="IfNotPresent",
+        command=[
+            "python3",
+            "-c",
+            (
+                "import sys; from pathlib import Path; "
+                f"roots=[{skill_roots_expression}]; "
+                "missing=[str(root) for root in roots if not root.is_dir()]; "
+                "sys.exit(f'Skill mount directories are missing: {missing}') if missing else None; "
+                "files=[path for root in roots for path in root.rglob('*') if path.is_file()]; "
+                "[path.open('rb').read(1) for path in files]"
+            ),
+        ],
+        resources=k8s_client.V1ResourceRequirements(
+            requests={"cpu": "10m", "memory": "32Mi"},
+            limits={"cpu": "100m", "memory": "128Mi"},
+        ),
+        volume_mounts=skill_mounts,
         security_context=k8s_client.V1SecurityContext(
             privileged=False,
             allow_privilege_escalation=False,
@@ -837,6 +956,13 @@ def _build_pod(
                 "app.kubernetes.io/name": "deer-flow",
                 "app.kubernetes.io/component": "sandbox",
             },
+            annotations={
+                SANDBOX_USER_ANNOTATION: user_id,
+                SANDBOX_THREAD_ANNOTATION: thread_id,
+                SANDBOX_LEGACY_SKILLS_ANNOTATION: str(
+                    include_legacy_skills
+                ).lower(),
+            },
         ),
         spec=k8s_client.V1PodSpec(
             # Conversational sandboxes do not need Kubernetes API access.
@@ -844,7 +970,7 @@ def _build_pod(
             # and prevents arbitrary code from turning the sandbox into a
             # cluster/database discovery console.
             automount_service_account_token=False,
-            init_containers=[user_data_initializer],
+            init_containers=[user_data_initializer, skill_mount_verifier],
             containers=containers,
             volumes=_build_volumes(
                 thread_id,
@@ -856,7 +982,9 @@ def _build_pod(
     )
 
 
-def _build_sandbox_env(*, include_agent_only_secrets: bool = False) -> list[k8s_client.V1EnvVar]:
+def _build_sandbox_env(
+    *, include_agent_only_secrets: bool = False
+) -> list[k8s_client.V1EnvVar]:
     """Build explicit Sandbox env entries without embedding secret values.
 
     Secret-backed entries use ``secretKeyRef`` so credentials remain in the
@@ -866,7 +994,10 @@ def _build_sandbox_env(*, include_agent_only_secrets: bool = False) -> list[k8s_
     env: list[k8s_client.V1EnvVar] = []
     if SANDBOX_ENV_SECRET_NAME:
         for key in SANDBOX_SECRET_ENV_KEYS:
-            if key in PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS and not include_agent_only_secrets:
+            if (
+                key in PPT_MASTER_AGENT_ONLY_SECRET_ENV_KEYS
+                and not include_agent_only_secrets
+            ):
                 continue
             env.append(
                 k8s_client.V1EnvVar(
@@ -984,6 +1115,98 @@ def _get_pod_phase(sandbox_id: str) -> str:
         return "NotFound"
 
 
+def _assert_existing_sandbox_identity(
+    sandbox_id: str,
+    *,
+    thread_id: str,
+    user_id: str,
+    include_legacy_skills: bool,
+) -> None:
+    """Reject idempotent reuse when a Pod belongs to another storage scope.
+
+    A sandbox ID is only reusable when both its recorded identity and its live
+    mounts match the requested user/thread. Mount checks also make legacy Pods
+    (created before annotations were introduced) safely reusable when their
+    actual PVC/hostPath contract is exact.
+    """
+    try:
+        pod = core_v1.read_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
+    except ApiException as exc:
+        if exc.status == 404:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Sandbox '{sandbox_id}' has a Service but no matching Pod; "
+                    "remove the stale Service before reuse"
+                ),
+            ) from exc
+        raise
+
+    annotations = pod.metadata.annotations or {}
+    expected_annotations = {
+        SANDBOX_USER_ANNOTATION: user_id,
+        SANDBOX_THREAD_ANNOTATION: thread_id,
+        SANDBOX_LEGACY_SKILLS_ANNOTATION: str(include_legacy_skills).lower(),
+    }
+    present_identity = {
+        key: annotations.get(key)
+        for key in expected_annotations
+        if key in annotations
+    }
+    annotation_match = not present_identity or present_identity == expected_annotations
+
+    expected_mounts = {
+        mount.mount_path: (mount.name, mount.sub_path, bool(mount.read_only))
+        for mount in _build_volume_mounts(
+            thread_id,
+            user_id=user_id,
+            include_legacy_skills=include_legacy_skills,
+        )
+        if mount.mount_path
+        in {
+            "/mnt/skills/public",
+            "/mnt/skills/custom",
+            "/mnt/skills/legacy",
+            "/mnt/user-data",
+        }
+    }
+    sandbox_container = next(
+        (container for container in pod.spec.containers or [] if container.name == "sandbox"),
+        None,
+    )
+    identity_mount_paths = {
+        "/mnt/skills/public",
+        "/mnt/skills/custom",
+        "/mnt/skills/legacy",
+        "/mnt/user-data",
+    }
+    actual_mounts = {}
+    if sandbox_container is not None:
+        actual_mounts = {
+            mount.mount_path: (mount.name, mount.sub_path, bool(mount.read_only))
+            for mount in sandbox_container.volume_mounts or []
+            if mount.mount_path in identity_mount_paths
+        }
+
+    if not annotation_match or actual_mounts != expected_mounts:
+        logger.error(
+            "Refusing sandbox identity reuse id=%s requested_user=%s requested_thread=%s annotations=%s expected_mounts=%s actual_mounts=%s",
+            sandbox_id,
+            user_id,
+            thread_id,
+            present_identity,
+            expected_mounts,
+            actual_mounts,
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Sandbox '{sandbox_id}' already exists with a different "
+                "user/thread or skill mount identity; destroy it before reuse"
+            ),
+        )
+
+
 # ── API endpoints ────────────────────────────────────────────────────────
 
 
@@ -1016,6 +1239,12 @@ def create_sandbox(req: CreateSandboxRequest):
     # ── Fast path: sandbox already exists ────────────────────────────
     existing_url = _sandbox_access_url(sandbox_id, tolerate_read_errors=True)
     if existing_url:
+        _assert_existing_sandbox_identity(
+            sandbox_id,
+            thread_id=thread_id,
+            user_id=user_id,
+            include_legacy_skills=include_legacy_skills,
+        )
         return SandboxResponse(
             sandbox_id=sandbox_id,
             sandbox_url=existing_url,
@@ -1039,6 +1268,12 @@ def create_sandbox(req: CreateSandboxRequest):
             raise HTTPException(
                 status_code=500, detail=f"Pod creation failed: {exc.reason}"
             )
+        _assert_existing_sandbox_identity(
+            sandbox_id,
+            thread_id=thread_id,
+            user_id=user_id,
+            include_legacy_skills=include_legacy_skills,
+        )
 
     # ── Create Service ───────────────────────────────────────────────
     try:

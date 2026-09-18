@@ -14,7 +14,7 @@ const agents: Agent[] = [
     model: null,
     tool_groups: [],
     skills: ["documents"],
-    category_id: "research",
+    category_id: "science-technology-innovation",
     tags: ["报告", "勘探"],
   },
   {
@@ -24,7 +24,7 @@ const agents: Agent[] = [
     model: null,
     tool_groups: ["risk"],
     skills: [],
-    category_id: "safety",
+    category_id: "safety-environment",
     tags: ["安全", "审查"],
   },
 ];
@@ -38,8 +38,11 @@ test("fuzzy search covers name, display name, description, tags, and capabilitie
   ]);
   expect(
     filterDigitalEmployees(agents, {
-      query: "研究与报告",
-      categoryNames: { research: "研究与报告", safety: "安全环保" },
+      query: "科技创新",
+      categoryNames: {
+        "science-technology-innovation": "科技创新",
+        "safety-environment": "安全环保",
+      },
     }),
   ).toEqual([agents[0]]);
 });
@@ -47,7 +50,7 @@ test("fuzzy search covers name, display name, description, tags, and capabilitie
 test("category and tag filters intersect and tags are counted", () => {
   expect(
     filterDigitalEmployees(agents, {
-      categoryId: "research",
+      categoryId: "science-technology-innovation",
       tags: ["报告"],
     }),
   ).toEqual([agents[0]]);

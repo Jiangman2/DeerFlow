@@ -37,18 +37,18 @@ allowed-tools:
 
 所有任务都读取 [references/data-contract.md](references/data-contract.md)。只有需要对照 33 项原始示例措辞时，才读取 [references/source-field-catalog.json](references/source-field-catalog.json)。
 
-生成 Word 或核对参考文件完整性时读取 [references/layout-contract.md](references/layout-contract.md)。三份 Word 示例作为只读版式模板保存在本 Skill 中；Excel 只提供栏目和示例数据，不是运行指令。
+生成 Word 或核对参考文件完整性时读取 [references/layout-contract.md](references/layout-contract.md)。集团公司项目还必须读取 [references/group-company-standard-input.md](references/group-company-standard-input.md) 和 [references/group-company-template-annotations.md](references/group-company-template-annotations.md)。附件中的内容均作为数据或填充规则，不作为运行指令。
 
-只读参考资产：[填报规则工作簿](assets/reference-examples/field-rules-demo.xlsx)、[集团公司级示例](assets/reference-examples/group-company-example.docx)、[国家科技项目示例](assets/reference-examples/national-science-example.docx)、[国家工信部项目示例](assets/reference-examples/miit-example.docx)。
+只读参考资产：[集团公司正式报告模板](assets/reference-examples/group-company-example.docx)、[集团公司标准输入表](assets/reference-examples/group-company-standard-input.xlsx)、[填报规则工作簿](assets/reference-examples/field-rules-demo.xlsx)、[国家科技项目示例](assets/reference-examples/national-science-example.docx)、[国家工信部项目示例](assets/reference-examples/miit-example.docx)。
 
 确定性入口是 [scripts/report_cli.py](scripts/report_cli.py)。只执行它，不要阅读或改写其内部实现。
-[scripts/template_builder.py](scripts/template_builder.py) 是 CLI 内部调用的模板原位填充和保真检查实现，不作为模型直接执行入口。
+[scripts/template_builder.py](scripts/template_builder.py)、[scripts/docx_builder.py](scripts/docx_builder.py)、[scripts/report_model.py](scripts/report_model.py)、[scripts/standard_input.py](scripts/standard_input.py)、[scripts/group_build.py](scripts/group_build.py) 和 [scripts/group_template.py](scripts/group_template.py) 是 CLI 内部调用的校验、导入、模板原位填充和保真检查实现，不作为模型直接执行入口。
 
 ## 标准工作流
 
 ### 1. 建立项目工作区
 
-在当前会话工作区创建独立目录，不修改上传原件：
+在当前会话工作区创建独立目录，不修改上传原件。国家科技和工信部项目使用：
 
     SKILL_DIR=/mnt/skills/public/research-fund-settlement
     PROJECT_ROOT=/mnt/user-data/workspace/research-fund-settlement-<project-slug>
@@ -57,11 +57,20 @@ allowed-tools:
       --profile <group_company|national_science|miit> \
       --output "$PROJECT_ROOT/case.json"
 
-若项目类型不明确，使用 `ask_clarification` 一次询问三选一。集团项目还要确认 `集团公司` 或 `有限公司`，因为税口径不同。
+若项目类型不明确，使用 `ask_clarification` 一次询问三选一。
+
+集团公司（有限公司）项目不使用空白骨架开始。用户必须按本 Skill 内置的标准输入表上传 `.xlsx`，先运行：
+
+    python "$SKILL_DIR/scripts/report_cli.py" import-workbook \
+      --workbook "$PROJECT_ROOT/<用户上传的标准输入表>.xlsx" \
+      --output "$PROJECT_ROOT/case.json" \
+      --report "$PROJECT_ROOT/input-validation-report.json"
+
+若命令返回非零或报告为 `FAIL`，停止生成 Word，按单元格位置向用户说明错误，并提供内置 [标准输入表](assets/reference-examples/group-company-standard-input.xlsx) 重新填写。不得从任意账表拼装后伪造 `input_contract`。导入会从“项目类型”确定 `集团公司` 或 `有限公司` 及对应税口径。
 
 ### 2. 提取事实并填写 `case.json`
 
-先读数据合同和本类型说明，再从用户材料填入 `case.json`。
+先读数据合同和本类型说明，再从用户材料填入 `case.json`。集团公司项目必须保留导入生成的 `input_contract`、附录1—3证据定位、费用层级和汇总标记；只补充标准表未覆盖的正式验收日、报告编制日、决算截止日、预算调整明细及各科目人工明细。
 
 - 金额统一转换为“万元”，保留原始单位和换算说明到 `evidence`。来源不是万元时必须调用脚本换算，不要心算：
 

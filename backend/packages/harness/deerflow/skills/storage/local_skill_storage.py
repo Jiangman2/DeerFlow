@@ -265,11 +265,15 @@ class LocalSkillStorage(SkillStorage):
 
     def _commit_skill_install(self, skill_dir: Path, skill_name: str, custom_dir: Path, target: Path) -> None:
         """Stage and move the validated skill into place (blocking; runs off the event loop)."""
-        from deerflow.skills.installer import _move_staged_skill_into_reserved_target
+        from deerflow.skills.installer import (
+            _move_staged_skill_into_reserved_target,
+            verify_skill_tree_copy,
+        )
 
         with tempfile.TemporaryDirectory(prefix=f".installing-{skill_name}-", dir=custom_dir) as staging_root:
             staging_target = Path(staging_root) / skill_name
             shutil.copytree(skill_dir, staging_target)
+            verify_skill_tree_copy(skill_dir, staging_target)
             _move_staged_skill_into_reserved_target(staging_target, target)
         make_skill_written_path_sandbox_readable(custom_dir, target)
 
@@ -281,6 +285,8 @@ class LocalSkillStorage(SkillStorage):
         target: Path,
     ) -> str:
         """Swap a scanned tree into place and restore the old tree on error."""
+        from deerflow.skills.installer import verify_skill_tree_copy
+
         custom_dir.mkdir(parents=True, exist_ok=True)
         transaction_root = custom_dir / ".registry-transactions" / f"{skill_name}-{uuid.uuid4().hex}"
         staging_target = transaction_root / "next"
@@ -290,6 +296,7 @@ class LocalSkillStorage(SkillStorage):
         committed = False
         try:
             shutil.copytree(skill_dir, staging_target)
+            verify_skill_tree_copy(skill_dir, staging_target)
             make_skill_tree_sandbox_readable(staging_target)
             if had_previous:
                 target.replace(previous_target)

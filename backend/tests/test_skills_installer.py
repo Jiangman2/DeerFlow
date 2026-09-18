@@ -11,11 +11,13 @@ import pytest
 
 from deerflow.skills.installer import (
     SkillSecurityScanError,
+    build_skill_tree_manifest,
     is_symlink_member,
     is_unsafe_zip_member,
     resolve_skill_dir_from_archive,
     safe_extract_skill_archive,
     should_ignore_archive_entry,
+    verify_skill_tree_copy,
 )
 from deerflow.skills.security_scanner import ScanResult
 from deerflow.skills.security_static_scanner import StaticScannerError
@@ -139,7 +141,7 @@ class TestSafeExtract:
             with pytest.raises(ValueError, match="unsafe"):
                 safe_extract_skill_archive(zf, dest)
 
-    def test_skips_symlinks(self, tmp_path):
+    def test_rejects_symlinks_instead_of_silently_dropping_files(self, tmp_path):
         zip_path = tmp_path / "sym.zip"
         with zipfile.ZipFile(zip_path, "w") as zf:
             info = zipfile.ZipInfo("link.txt")
@@ -149,8 +151,8 @@ class TestSafeExtract:
         dest = tmp_path / "out"
         dest.mkdir()
         with zipfile.ZipFile(zip_path) as zf:
-            safe_extract_skill_archive(zf, dest)
-        assert (dest / "normal.txt").exists()
+            with pytest.raises(ValueError, match="symlink"):
+                safe_extract_skill_archive(zf, dest)
         assert not (dest / "link.txt").exists()
 
     def test_normal_archive(self, tmp_path):
@@ -167,6 +169,22 @@ class TestSafeExtract:
             safe_extract_skill_archive(zf, dest)
         assert (dest / "my-skill" / "SKILL.md").exists()
         assert (dest / "my-skill" / "README.md").exists()
+
+    def test_tree_integrity_check_detects_omitted_support_file(self, tmp_path):
+        source = tmp_path / "source"
+        copied = tmp_path / "copied"
+        (source / "scripts").mkdir(parents=True)
+        (source / "references").mkdir()
+        (copied / "scripts").mkdir(parents=True)
+        (source / "SKILL.md").write_text("skill", encoding="utf-8")
+        (source / "scripts" / "run.py").write_text("print('ok')", encoding="utf-8")
+        (source / "references" / "input.txt").write_text("reference", encoding="utf-8")
+        (copied / "SKILL.md").write_text("skill", encoding="utf-8")
+        (copied / "scripts" / "run.py").write_text("print('ok')", encoding="utf-8")
+
+        assert len(build_skill_tree_manifest(source)) == 3
+        with pytest.raises(OSError, match="integrity check failed"):
+            verify_skill_tree_copy(source, copied)
 
     @pytest.mark.parametrize(
         "magic",

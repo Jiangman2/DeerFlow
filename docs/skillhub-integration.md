@@ -72,9 +72,12 @@ Browser with native SkillHub session
   -> authenticated SkillHub version download
   -> multipart POST /api/skillhub/runtime/skills
   -> DeerFlow archive limits + safe extraction + static scan + LLM scan
+  -> regular-file path/size/SHA-256 manifest verification
   -> atomic install under users/<user_id>/skills/custom/<slug>/
   -> per-user provenance registry + enabled state
   -> invalidate only that user's skill prompt cache
+  -> sandbox mounts the same tree at /mnt/skills/custom/<slug>/
+  -> sandbox init opens every mounted file before runtime startup
   -> next Agent run discovers the enabled skill
 ```
 
@@ -133,6 +136,27 @@ deployment-specific limit. Installation refuses to overwrite an existing
 custom skill unless the per-user provenance registry proves that the same
 SkillHub namespace owns it. Upgrades are staged and scanned before the live tree
 is swapped, and the previous tree is restored if the swap fails.
+
+Accepted archives are never partially installed. Symbolic links are rejected
+instead of skipped, and DeerFlow compares the relative path, byte size, and
+SHA-256 of every regular file before the staged tree can replace the live tree.
+In Kubernetes PVC deployments, the Provisioner mounts shared public skills from
+`SKILLS_PVC_NAME/public`, the current user's registry/custom skills from
+`USERDATA_PVC_NAME/deer-flow/users/<user_id>/skills/custom`, and optional legacy
+skills from `SKILLS_PVC_NAME/custom`. It creates a new user's custom and thread
+subpaths before mounting them, then opens every regular file through the final
+`/mnt/skills/public`, `/mnt/skills/custom`, and optional
+`/mnt/skills/legacy` paths. A missing or unreadable mount therefore prevents
+the sandbox Pod from becoming ready instead of failing later inside a Skill.
+
+This is a file-delivery and platform-runtime guarantee, not a promise that an
+arbitrary uploaded program is self-sufficient. Skill authors must still declare
+`required-secrets`, use tools permitted by the selected Agent, and target
+interpreters/libraries/services present in the released sandbox image. Native
+binaries remain rejected. Before publishing, run the Skill in the release
+sandbox image with its production tool policy, network policy, and declared
+secrets; a Skill that needs an undeclared package or unreachable external
+service is not DeerFlow-compatible even when its files are mounted correctly.
 
 These checks reduce supply-chain risk but do not make arbitrary third-party code
 trustworthy. Enterprise operators should keep SkillHub review/publishing policy,
@@ -270,6 +294,15 @@ required native SkillHub role.
 - Installing an approved detail-page version creates only
   `users/<user_id>/skills/custom/<slug>/`, records namespace/version/SHA-256,
   and never overwrites an unmanaged custom skill.
+- The installed tree contains every accepted regular archive file; a package
+  containing a symbolic link is rejected rather than reported as a partial
+  success.
+- In PVC mode, a newly created Sandbox mounts that exact user's tree at
+  `/mnt/skills/custom/<slug>/`; its init checks can open `SKILL.md`, scripts,
+  references, templates, and assets before the runtime becomes ready.
+- A canary Skill script executed through
+  `/mnt/skills/custom/<slug>/scripts/...` can read a bundled reference and
+  exits successfully in the released sandbox image.
 - The installed skill appears in `GET /api/skills` for the same user, its
   enable/disable switch changes prompt discovery on the next run, and another
   user cannot see or mutate it.
@@ -278,3 +311,8 @@ required native SkillHub role.
 - A SkillHub outage returns an isolated error for the embedded workbench and
   does not prevent DeerFlow Nginx, chat, knowledge, or digital employees from
   starting.
+
+After deploying a Provisioner image containing this mount contract, delete or
+expire existing Sandbox Pods so subsequent turns recreate them with the new
+volume mounts. Existing Pods retain the Pod specification with which they were
+created; updating the Provisioner does not mutate them in place.

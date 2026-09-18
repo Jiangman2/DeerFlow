@@ -89,6 +89,10 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   unknown future hosted tool types still fail closed instead of being silently
   discarded.
 - Scheduled-task executions must reuse that same Gateway run lifecycle. The scheduler may decide _when_ work runs, but it must dispatch through the existing run path rather than introducing a parallel execution stack. Scheduled and manual occurrences share one global concurrency budget; durable queue admission, per-task active-run uniqueness, leases, and atomic terminal bookkeeping remain repository-owned so optional multi-instance scheduling is race-safe.
+- The enterprise single-replica Gateway reserves 2 CPU / 4Gi and is limited to
+  4 CPU / 16Gi. Preserve this production saturation baseline in
+  `k8s/enterprise/runtime-patches.yaml`; a scheduler or parser hotfix that
+  deep-copies the live Pod template must prove those resources remain unchanged.
 - Group OA policy-flow work is a durable orchestration layer over that same run
   lifecycle, not a second Agent runtime. The public machine API is limited to
   `/api/v1/integrations/oa/policy-flow/jobs`; it authenticates a scoped Bearer
@@ -475,6 +479,26 @@ and invalidate only the affected user's prompt cache after successful install,
 upgrade, state change, or uninstall. Never let Harness import SkillHub/App code,
 never fetch an arbitrary client URL from Gateway, and never bypass fail-closed
 static plus LLM package review.
+
+Registry installation is also a runtime file-availability contract. Accepted
+archives may contain only regular files/directories; reject symbolic links
+rather than silently omitting them, and compare deterministic path/size/SHA-256
+manifests before the staged tree is committed. In Provisioner PVC mode, mount
+shared `public` (and optional legacy `custom`) subpaths from `SKILLS_PVC_NAME`,
+but mount `deer-flow/users/<user_id>/skills/custom` from
+`USERDATA_PVC_NAME` at `/mnt/skills/custom`. The first init container must
+create both the thread user-data and current-user custom-skill subpaths; a
+second init container must open every regular file through the final
+`/mnt/skills/{public,custom,legacy}` paths before the sandbox runtime starts.
+Do not restore a single `/mnt/skills` PVC fallback: Gateway writes SkillHub
+installs to the user-data PVC, so that fallback makes prompt-visible skills
+unreadable to execution tools.
+Treat a Sandbox ID as a storage identity, not merely a network handle. Before
+reusing an existing Service/Pod, Provisioner must verify its user ID, thread ID,
+legacy-skill mode, and the exact public/custom/legacy/user-data mounts. Legacy
+unannotated Pods are reusable only when those live mounts match exactly. Runtime
+acceptance must execute an installed script through the Sandbox command API;
+`kubectl exec cat` proves PVC visibility but not Skill discovery or execution.
 
 **Import conventions**:
 
@@ -1704,6 +1728,14 @@ as both the default and hard Gateway ceiling while retaining WeKnora's 2+1
 document worker limits. Gateway retries transient business code `10020` with bounded backoff
 to absorb brief shared-capacity races while rerank requests retain their
 independent path.
+Gateway and Nginx readiness must remain process-local. Gateway startup may use
+the database-backed setup-status route, but steady-state readiness uses
+`/health` with enough consecutive-failure tolerance to avoid removing the only
+endpoint during a brief event-loop stall. Nginx startup/readiness also use its
+own `/health`; never make the proxy Pod readiness transitively depend on
+Gateway or PostgreSQL. Until scheduler multi-instance safety permits at least
+two Gateway replicas, this separation is the production 502 containment
+boundary and must be preserved by hotfix renderers.
 The workspace knowledge-base adapter refreshes `/auth/me` memberships before
 listing, queries each membership with `X-Tenant-ID`, classifies ownership using
 WeKnora's `creator_id`, and keeps an `access_tenant_id` distinct from the
@@ -1750,8 +1782,17 @@ For models with `supports_vision: true`:
 `agent_storage.backend` selects file or SQL persistence for personal Digital
 Employee configuration and SOUL. SQL records are always scoped by effective
 `user_id`; migration from files is explicit, idempotent, and non-destructive.
-Team publication, administrator category definitions, and avatar binaries keep
-their existing shared-volume protocols. Per-employee model settings form an
+Digital Employee categories are the fixed corporate “统/分” business-domain
+taxonomy returned by `GET /api/digital-employee-categories`; never restore the
+administrator mutation endpoint or runtime `digital_employee_categories.yaml`
+loading. Gateway startup idempotently maps legacy personal SQL/file records and
+team/legacy shared files into the taxonomy. Read responses must still normalize
+legacy values so one failed record migration cannot expose retired categories.
+Category migration must patch the raw persisted `category_id` field. Never
+round-trip a whole SQL JSON or YAML record through `AgentConfig` for this narrow
+migration, because fields unknown to the running model must survive unchanged.
+Team publication and avatar binaries keep their existing shared-volume
+protocols. Per-employee model settings form an
 explicit allowlist (`temperature` and `max_tokens`) and layer below
 request-supplied model/thinking/reasoning values.
 Async Agent router handlers must resolve the configured store and perform its

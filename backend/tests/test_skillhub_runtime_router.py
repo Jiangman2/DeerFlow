@@ -17,6 +17,7 @@ from app.gateway.routers import skills as skills_router
 from deerflow.agents.lead_agent.prompt import get_skills_prompt_section, invalidate_user_skill_cache
 from deerflow.config.extensions_config import reset_extensions_config
 from deerflow.config.paths import Paths
+from deerflow.sandbox.local.local_sandbox import LocalSandbox, PathMapping
 from deerflow.skills.storage import reset_user_skill_storage
 from deerflow.skills.storage.user_scoped_skill_storage import UserScopedSkillStorage
 
@@ -41,6 +42,21 @@ def _skill_zip(name: str, *, marker: str = "v1") -> bytes:
             f"---\nname: {name}\ndescription: Registry skill {marker}\n---\n\n# {name}\n",
         )
         archive.writestr("references/version.txt", marker)
+    return buffer.getvalue()
+
+
+def _executable_skill_zip(name: str) -> bytes:
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(
+            "SKILL.md",
+            f"---\nname: {name}\ndescription: Runtime-readable registry skill\n---\n\n# {name}\n",
+        )
+        archive.writestr("references/message.txt", "skillhub-runtime-ok")
+        archive.writestr(
+            "scripts/check.py",
+            "from pathlib import Path\nprint((Path(__file__).parents[1] / 'references' / 'message.txt').read_text(encoding='utf-8'))\n",
+        )
     return buffer.getvalue()
 
 
@@ -166,6 +182,52 @@ def test_registry_upgrade_replaces_complete_tree_and_preserves_disabled_state(mo
     assert upgraded.json()["enabled"] is False
     assert (storage.get_custom_skill_dir("weather") / "references" / "version.txt").read_text(encoding="utf-8") == "v2"
     assert "Registry skill v2" in storage.read_custom_skill("weather")
+
+
+def test_registry_install_preserves_complete_tree_and_runs_from_sandbox_path(monkeypatch, tmp_path):
+    """A successful install must include scripts/resources at the path agents use."""
+    app, storage = _make_app(monkeypatch, tmp_path)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/skillhub/runtime/skills",
+            data={"namespace": "global", "slug": "runtime-check", "version": "1.0.0"},
+            files={
+                "file": (
+                    "runtime-check-1.0.0.zip",
+                    _executable_skill_zip("runtime-check"),
+                    "application/zip",
+                )
+            },
+        )
+
+    assert response.status_code == 200
+    installed_root = storage.get_custom_skill_dir("runtime-check")
+    installed_files = sorted(path.relative_to(installed_root).as_posix() for path in installed_root.rglob("*") if path.is_file())
+    assert installed_files == [
+        "SKILL.md",
+        "references/message.txt",
+        "scripts/check.py",
+    ]
+
+    discovered = {skill.name: skill for skill in storage.load_skills(enabled_only=True)}
+    assert "runtime-check" in discovered
+    assert discovered["runtime-check"].get_container_file_path("/mnt/skills") == (
+        "/mnt/skills/custom/runtime-check/SKILL.md"
+    )
+
+    sandbox = LocalSandbox(
+        "skillhub-runtime-check",
+        [
+            PathMapping(
+                container_path="/mnt/skills/custom",
+                local_path=str(installed_root.parent),
+                read_only=True,
+            )
+        ],
+    )
+    output = sandbox.execute_command("python /mnt/skills/custom/runtime-check/scripts/check.py")
+    assert output.strip() == "skillhub-runtime-ok"
 
 
 def test_same_registry_version_is_idempotent(monkeypatch, tmp_path):

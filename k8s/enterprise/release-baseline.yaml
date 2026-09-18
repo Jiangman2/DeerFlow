@@ -54,7 +54,7 @@ controls:
     source:
       - k8s/enterprise/runtime-patches.yaml
     enforcement: offline+live
-    acceptance: Gateway keeps its 4Gi request and has a 16Gi limit, with post-rollout OOM counters monitored independently from PPT Runner health.
+    acceptance: Gateway keeps its production requests at 2 CPU and 4Gi and its limits at 4 CPU and 16Gi, with post-rollout saturation/OOM counters monitored independently from PPT Runner health.
 
   - id: model.deepseek-only
     layer: runtime-config

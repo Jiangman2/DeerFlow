@@ -10,6 +10,7 @@ from typing import Any, Iterable
 from xml.etree import ElementTree as ET
 
 from report_model import get_path, load_rules, selected_sections
+from group_build import build_group_docx, inspect_group_fidelity
 from template_builder import build_template_docx, inspect_template_fidelity
 
 
@@ -1138,13 +1139,19 @@ APP_XML = xml_literal(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?
 def build_docx(
     case: dict[str, Any], output_path: str | Path, mode: str = "final"
 ) -> Path:
+    if case.get("profile") == "group_company":
+        return build_group_docx(case, output_path, mode=mode)
     return build_template_docx(case, output_path, mode=mode)
 
 
 def inspect_docx(docx_path: str | Path, case: dict[str, Any]) -> dict[str, Any]:
     path = Path(docx_path)
     findings: list[dict[str, str]] = []
-    fidelity = inspect_template_fidelity(path, str(case.get("profile") or ""))
+    fidelity = (
+        inspect_group_fidelity(path)
+        if case.get("profile") == "group_company"
+        else inspect_template_fidelity(path, str(case.get("profile") or ""))
+    )
     findings.extend(fidelity["findings"])
     if not path.exists() or path.stat().st_size == 0:
         return {

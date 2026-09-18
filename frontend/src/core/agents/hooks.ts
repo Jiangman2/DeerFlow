@@ -11,7 +11,6 @@ import {
   listDigitalEmployeeCategories,
   listTeamAgents,
   publishAgent,
-  replaceDigitalEmployeeCategories,
   unpublishTeamAgent,
   uploadAgentAvatar,
   updateAgent,
@@ -149,18 +148,6 @@ export function useUnpublishTeamAgent() {
     mutationFn: (name: string) => unpublishTeamAgent(name),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
-    },
-  });
-}
-
-export function useReplaceDigitalEmployeeCategories() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: replaceDigitalEmployeeCategories,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ["digital-employee-categories"],
-      });
     },
   });
 }

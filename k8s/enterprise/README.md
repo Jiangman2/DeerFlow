@@ -527,6 +527,17 @@ into Sandbox Pods through `deer-flow-env`. The RC2 Sandbox image also replaces
 the broken upstream ARM64 `websocat` with checksum-pinned 1.14.1 and installs
 CairoSVG for the PPT raster fallback.
 
+The enterprise ARM64 overlay also passes `DISABLE_BROWSER=true` and
+`DISABLE_MCP_BROWSER=true` into every Provisioner-created AIO Sandbox. The
+pinned AIO image's embedded Chromium GPU process is not compatible with the
+production kernel and otherwise enters a one-second supervisor restart loop.
+This policy does not disable DeerFlow's `browser_*` tools or Browser Live: those
+use the Gateway's process-local Playwright Chromium and must remain configured
+without an external `cdp_url`. Retire browser-enabled Sandbox Pods only in a
+zero-active-run maintenance window while respecting their cross-process
+execution leases; PVC-backed user data remains intact and replacement Sandboxes
+are created lazily.
+
 ## Release baseline gates
 
 `k8s/enterprise/release-baseline.yaml` is the machine-readable inventory of
@@ -554,6 +565,13 @@ Gateway does not repeat another unbounded local parse after the Adapter has
 already exhausted AnyDoc, DocReader, LibreOffice, and MinerU. The upstream-
 compatible code default still permits local conversion where the complete
 enterprise Adapter is not deployed.
+
+The production Gateway resource baseline is requests `2 CPU / 4Gi` and limits
+`4 CPU / 16Gi`. This reserves CPU for the single Gateway endpoint during
+WeKnora parser traffic and bounded PostgreSQL maintenance. Treat an ad-hoc
+resource patch as incident recovery only: update `runtime-patches.yaml` and its
+release test before the next declarative rollout, or the next apply can silently
+restore the lower pre-incident CPU settings.
 
 ```yaml
 sandbox:

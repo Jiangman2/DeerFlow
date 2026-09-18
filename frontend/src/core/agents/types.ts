@@ -62,4 +62,5 @@ export interface DigitalEmployeeCategory {
   name: string;
   description: string;
   sort_order: number;
+  domain_group: "unified" | "distributed";
 }

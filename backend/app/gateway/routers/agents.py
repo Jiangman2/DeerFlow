@@ -18,7 +18,6 @@ from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field, field_validator
 
-from app.gateway.deps import require_admin_user
 from app.gateway.external_agent_analytics import (
     EXTERNAL_PLATFORM_AGENT_NAMES,
     EXTERNAL_PLATFORM_CLICK_ACTION,
@@ -56,6 +55,7 @@ MAX_AVATAR_BYTES = 5 * 1024 * 1024
 MAX_AVATAR_DIMENSION = 8192
 MAX_DIGITAL_EMPLOYEE_TAGS = 8
 MAX_DIGITAL_EMPLOYEE_TAG_LENGTH = 20
+DEFAULT_DIGITAL_EMPLOYEE_CATEGORY_ID = "comprehensive-management"
 DIGITAL_EMPLOYEE_AVATAR_IDS = {
     "exploration-geologist",
     "seismic-processing",
@@ -83,7 +83,6 @@ DIGITAL_EMPLOYEE_AVATAR_IDS = {
     "renewables-engineer",
 }
 _CATEGORY_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
-_categories_write_lock = asyncio.Lock()
 ReasoningEffort = Literal["low", "medium", "high"]
 _MODEL_BEHAVIOR_FIELDS = (
     "model",
@@ -140,7 +139,10 @@ class AgentResponse(BaseModel):
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all, []=none)")
-    category_id: str | None = Field(default=None, description="Admin-defined digital employee category")
+    category_id: str | None = Field(
+        default=None,
+        description="Fixed corporate business-domain category identifier",
+    )
     tags: list[str] = Field(default_factory=list, description="Search and discovery tags")
     avatar_id: str | None = Field(default=None, description="Bundled cartoon avatar identifier")
     avatar_url: str | None = Field(default=None, description="Same-origin custom avatar URL")
@@ -176,7 +178,11 @@ class AgentCreateRequest(BaseModel):
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all enabled, []=none)")
-    category_id: str | None = Field(default=None, max_length=64, description="Digital employee category id")
+    category_id: str | None = Field(
+        default=DEFAULT_DIGITAL_EMPLOYEE_CATEGORY_ID,
+        max_length=64,
+        description="Corporate business-domain category id",
+    )
     tags: list[str] = Field(default_factory=list, description="Search and discovery tags")
     avatar_id: str | None = Field(default=None, description="Bundled cartoon avatar identifier")
     model_settings: AgentModelSettings | None = Field(default=None, description="Per-employee sampling overrides")
@@ -217,6 +223,7 @@ class DigitalEmployeeCategory(BaseModel):
     name: str = Field(..., min_length=1, max_length=32)
     description: str = Field(default="", max_length=160)
     sort_order: int = Field(default=0, ge=0, le=10_000)
+    domain_group: Literal["unified", "distributed"]
 
     @field_validator("id")
     @classmethod
@@ -236,16 +243,236 @@ class DigitalEmployeeCategoriesResponse(BaseModel):
     items: list[DigitalEmployeeCategory]
 
 
-DEFAULT_DIGITAL_EMPLOYEE_CATEGORIES = DigitalEmployeeCategoriesResponse(
+CORPORATE_DIGITAL_EMPLOYEE_CATEGORIES = DigitalEmployeeCategoriesResponse(
     items=[
-        DigitalEmployeeCategory(id="general", name="通用协作", description="跨业务的通用数字员工", sort_order=0),
-        DigitalEmployeeCategory(id="exploration", name="勘探研究", description="地质、物探与勘探研究", sort_order=10),
-        DigitalEmployeeCategory(id="development", name="开发生产", description="油藏、钻完井与生产运行", sort_order=20),
-        DigitalEmployeeCategory(id="engineering", name="工程建设", description="海洋工程与设备设施", sort_order=30),
-        DigitalEmployeeCategory(id="safety", name="安全环保", description="HSE、风险与应急管理", sort_order=40),
-        DigitalEmployeeCategory(id="digital", name="数智技术", description="数据、算法与智能油田", sort_order=50),
-        DigitalEmployeeCategory(id="research", name="研究与报告", description="研究分析、文档和报告编制", sort_order=60),
+        DigitalEmployeeCategory(
+            id="comprehensive-management",
+            name="综合管理",
+            description="总部归口管理的综合协调与行政管理业务域",
+            sort_order=10,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="human-resources",
+            name="人力资源",
+            description="总部归口管理的人才、组织与人力资源业务域",
+            sort_order=20,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="party-building",
+            name="党建",
+            description="总部归口管理的党建与党务工作业务域",
+            sort_order=30,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="strategic-development",
+            name="战略发展",
+            description="总部归口管理的战略、规划与发展业务域",
+            sort_order=40,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="production-operations",
+            name="生产经营",
+            description="总部归口管理的生产与经营统筹业务域",
+            sort_order=50,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="finance-capital",
+            name="财务资本",
+            description="总部归口管理的财务、资金与资本业务域",
+            sort_order=60,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="exploration-development",
+            name="勘探开发",
+            description="总部归口管理的勘探开发业务域",
+            sort_order=70,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="engineering-technology",
+            name="工程技术",
+            description="总部归口管理的工程技术业务域",
+            sort_order=80,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="science-technology-innovation",
+            name="科技创新",
+            description="总部归口管理的科技、科研与创新业务域",
+            sort_order=90,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="safety-environment",
+            name="安全环保",
+            description="总部归口管理的安全、环保与应急业务域",
+            sort_order=100,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="digitalization",
+            name="数智化",
+            description="总部归口管理的数据、信息化与人工智能业务域",
+            sort_order=110,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="international-business",
+            name="国际业务",
+            description="总部归口管理的国际与海外业务域",
+            sort_order=120,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="enterprise-management",
+            name="企业管理",
+            description="总部归口管理的企业治理与管理提升业务域",
+            sort_order=130,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="legal-affairs",
+            name="法务",
+            description="总部归口管理的法律、合规与合同业务域",
+            sort_order=140,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="materials-supply-chain",
+            name="物资供应链",
+            description="总部归口管理的物资、采购与供应链业务域",
+            sort_order=150,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="sales-trading",
+            name="销售贸易",
+            description="总部归口管理的销售、营销与贸易业务域",
+            sort_order=160,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="audit-inspection",
+            name="审计巡视",
+            description="总部归口管理的审计、巡视与巡察业务域",
+            sort_order=170,
+            domain_group="unified",
+        ),
+        DigitalEmployeeCategory(
+            id="oil-gas-resource-development",
+            name="油气资源开发",
+            description="由所属单位具体落地实施的油气资源开发业务域",
+            sort_order=210,
+            domain_group="distributed",
+        ),
+        DigitalEmployeeCategory(
+            id="new-energy",
+            name="新能源",
+            description="由所属单位具体落地实施的新能源业务域",
+            sort_order=220,
+            domain_group="distributed",
+        ),
+        DigitalEmployeeCategory(
+            id="oilfield-services",
+            name="油田服务",
+            description="由所属单位具体落地实施的油田服务业务域",
+            sort_order=230,
+            domain_group="distributed",
+        ),
+        DigitalEmployeeCategory(
+            id="offshore-engineering-construction",
+            name="海洋工程建设",
+            description="由所属单位具体落地实施的海洋工程建设业务域",
+            sort_order=240,
+            domain_group="distributed",
+        ),
+        DigitalEmployeeCategory(
+            id="energy-technology-services",
+            name="能源技术服务",
+            description="由所属单位具体落地实施的能源技术服务业务域",
+            sort_order=250,
+            domain_group="distributed",
+        ),
+        DigitalEmployeeCategory(
+            id="natural-gas-power",
+            name="天然气与发电",
+            description="由所属单位具体落地实施的天然气与发电业务域",
+            sort_order=260,
+            domain_group="distributed",
+        ),
+        DigitalEmployeeCategory(
+            id="refining-petrochemical",
+            name="炼油化工",
+            description="由所属单位具体落地实施的炼油化工业务域",
+            sort_order=270,
+            domain_group="distributed",
+        ),
+        DigitalEmployeeCategory(
+            id="chemicals",
+            name="化学",
+            description="由所属单位具体落地实施的化学业务域",
+            sort_order=280,
+            domain_group="distributed",
+        ),
+        DigitalEmployeeCategory(
+            id="financial-services",
+            name="金融服务",
+            description="由所属单位具体落地实施的金融服务业务域",
+            sort_order=290,
+            domain_group="distributed",
+        ),
     ]
+)
+
+_CORPORATE_CATEGORY_IDS = {item.id for item in CORPORATE_DIGITAL_EMPLOYEE_CATEGORIES.items}
+_LEGACY_CATEGORY_MAP = {
+    "general": DEFAULT_DIGITAL_EMPLOYEE_CATEGORY_ID,
+    "exploration": "exploration-development",
+    "development": "oil-gas-resource-development",
+    "engineering": "offshore-engineering-construction",
+    "safety": "safety-environment",
+    "digital": "digitalization",
+    "research": "science-technology-innovation",
+}
+_CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("human-resources", ("人力", "人才", "招聘", "薪酬", "human resource")),
+    ("party-building", ("党建", "党务", "党员", "party building")),
+    ("audit-inspection", ("审计", "巡视", "巡察", "audit")),
+    ("legal-affairs", ("法务", "法律", "合规", "合同", "legal")),
+    ("materials-supply-chain", ("物资", "采购", "供应链", "物流", "procurement", "supply chain")),
+    ("sales-trading", ("销售", "贸易", "营销", "sales", "trading")),
+    ("international-business", ("国际", "海外", "international", "overseas")),
+    ("financial-services", ("金融服务", "银行", "保险", "证券", "信托", "financial service")),
+    ("finance-capital", ("财务", "资本", "资金", "融资", "finance", "capital")),
+    ("new-energy", ("新能源", "风电", "光伏", "氢能", "renewable", "new energy")),
+    ("oilfield-services", ("油田服务", "井下作业", "钻完井", "oilfield service")),
+    (
+        "offshore-engineering-construction",
+        ("海洋工程", "海工", "平台建设", "offshore engineering"),
+    ),
+    ("energy-technology-services", ("能源技术服务", "energy technology service")),
+    ("natural-gas-power", ("天然气", "发电", "电力", "lng", "natural gas", "power generation")),
+    ("refining-petrochemical", ("炼油", "石化", "refining", "petrochemical")),
+    ("chemicals", ("化学", "化工", "chemical")),
+    (
+        "oil-gas-resource-development",
+        ("油气资源", "油藏", "采油", "生产运行", "开发生产", "reservoir", "production operation"),
+    ),
+    ("safety-environment", ("安全", "环保", "应急", "hse", "environment")),
+    ("digitalization", ("数智", "数据", "算法", "人工智能", "信息化", "智能", "digital", "data", " ai ")),
+    ("science-technology-innovation", ("科技", "科研", "创新", "研究", "报告", "research", "innovation")),
+    ("engineering-technology", ("工程技术", "工程", "engineering technology")),
+    ("exploration-development", ("勘探", "地质", "物探", "地震", "exploration", "seismic")),
+    ("strategic-development", ("战略", "规划", "strategy", "planning")),
+    ("production-operations", ("生产经营", "经营", "operations management")),
+    ("enterprise-management", ("企业管理", "公司治理", "管理提升", "enterprise management")),
+    ("comprehensive-management", ("综合", "行政", "办公", "文秘", "general administration")),
 )
 
 
@@ -446,18 +673,15 @@ def _apply_model_behavior(
         config_data[field] = value.model_dump(exclude_none=True) if isinstance(value, BaseModel) else value
 
 
-def _category_config_path() -> Path:
-    return get_paths().base_dir / "digital_employee_categories.yaml"
-
-
 def _load_digital_employee_categories() -> DigitalEmployeeCategoriesResponse:
-    path = _category_config_path()
-    if not path.exists():
-        return DEFAULT_DIGITAL_EMPLOYEE_CATEGORIES.model_copy(deep=True)
-    payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    categories = DigitalEmployeeCategoriesResponse.model_validate(payload)
-    categories.items.sort(key=lambda item: (item.sort_order, item.name.casefold()))
-    return categories
+    """Return the fixed corporate business-domain directory.
+
+    Older releases loaded an administrator-authored YAML file here. That file
+    is deliberately ignored now: the group taxonomy is governed centrally and
+    cannot drift per server.
+    """
+
+    return CORPORATE_DIGITAL_EMPLOYEE_CATEGORIES.model_copy(deep=True)
 
 
 def _ensure_category_exists(category_id: str | None) -> None:
@@ -471,39 +695,94 @@ def _ensure_category_exists(category_id: str | None) -> None:
         )
 
 
+def resolve_digital_employee_category(config: AgentConfig | dict) -> str:
+    """Map current and legacy employee metadata into a corporate business domain."""
+
+    def value(field: str):
+        return config.get(field) if isinstance(config, dict) else getattr(config, field, None)
+
+    current = value("category_id")
+    if isinstance(current, str):
+        current = current.strip().lower()
+    else:
+        current = None
+    if current in _CORPORATE_CATEGORY_IDS:
+        return current
+    if current in _LEGACY_CATEGORY_MAP and current != "general":
+        return _LEGACY_CATEGORY_MAP[current]
+
+    searchable: list[str] = []
+    if current:
+        searchable.append(current)
+    for field in ("name", "display_name", "description", "tags", "tool_groups", "skills", "avatar_id"):
+        field_value = value(field)
+        if isinstance(field_value, str):
+            searchable.append(field_value)
+        elif isinstance(field_value, list):
+            searchable.extend(str(item) for item in field_value)
+    haystack = f" {' '.join(searchable).casefold()} "
+    for category_id, keywords in _CATEGORY_KEYWORDS:
+        if any(keyword.casefold() in haystack for keyword in keywords):
+            return category_id
+    return _LEGACY_CATEGORY_MAP.get(current, DEFAULT_DIGITAL_EMPLOYEE_CATEGORY_ID)
+
+
+def _write_category_to_config_file(config_file: Path) -> bool:
+    """Persist one inferred category without disturbing unrelated YAML fields."""
+
+    payload = yaml.safe_load(config_file.read_text(encoding="utf-8")) or {}
+    if not isinstance(payload, dict):
+        raise ValueError(f"Agent config must be a mapping: {config_file}")
+    classification_input = dict(payload)
+    classification_input.setdefault("name", config_file.parent.name)
+    category_id = resolve_digital_employee_category(classification_input)
+    if payload.get("category_id") == category_id:
+        return False
+    payload["category_id"] = category_id
+    temporary = config_file.with_name(f".{config_file.name}.{secrets.token_hex(8)}.tmp")
+    try:
+        temporary.write_text(
+            yaml.safe_dump(payload, allow_unicode=True, sort_keys=False),
+            encoding="utf-8",
+        )
+        os.replace(temporary, config_file)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return True
+
+
+def migrate_digital_employee_categories() -> int:
+    """Idempotently migrate personal and square employees off legacy categories."""
+
+    migrated = 0
+    if get_app_config().agent_storage.backend == "db":
+        store = get_agent_store()
+        for owner_id, config in store.list_all():
+            category_id = resolve_digital_employee_category(config)
+            if config.category_id == category_id:
+                continue
+            store.patch_config(
+                config.name,
+                {"category_id": category_id},
+                user_id=owner_id,
+            )
+            migrated += 1
+
+    paths = get_paths()
+    config_files = set((paths.base_dir / "users").glob("*/agents/*/config.yaml"))
+    config_files.update(paths.team_agents_dir.glob("*/config.yaml"))
+    config_files.update(paths.agents_dir.glob("*/config.yaml"))
+    for config_file in sorted(config_files):
+        try:
+            migrated += int(_write_category_to_config_file(config_file))
+        except Exception:
+            logger.warning("Skipping digital employee category migration for %s", config_file, exc_info=True)
+    return migrated
+
+
 def _agent_exists(name: str, user_id: str | None) -> bool:
     """Resolve the configured store and check ownership in one worker call."""
     return get_agent_store().exists(name, user_id=user_id)
-
-
-def _write_digital_employee_categories(categories: DigitalEmployeeCategoriesResponse) -> None:
-    path = _category_config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{secrets.token_hex(8)}.tmp")
-    try:
-        temporary.write_text(
-            yaml.safe_dump(
-                categories.model_dump(mode="json"),
-                allow_unicode=True,
-                sort_keys=False,
-            ),
-            encoding="utf-8",
-        )
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
-
-
-def _find_category_usage(category_ids: set[str]) -> dict[str, list[str]]:
-    """Return bounded owner/name references for categories that are still used."""
-    usage: dict[str, list[str]] = {category_id: [] for category_id in category_ids}
-    for owner_id, config in get_agent_store().list_all():
-        if config.category_id in usage and len(usage[config.category_id]) < 10:
-            usage[config.category_id].append(f"{owner_id}/{config.name}")
-    for config in list_team_agents():
-        if config.category_id in usage and len(usage[config.category_id]) < 10:
-            usage[config.category_id].append(f"team/{config.name}")
-    return {category_id: refs for category_id, refs in usage.items() if refs}
 
 
 def _avatar_path(agent_dir: Path) -> Path:
@@ -552,50 +831,7 @@ def _encode_custom_avatar(payload: bytes, destination: Path) -> None:
 )
 async def list_digital_employee_categories() -> DigitalEmployeeCategoriesResponse:
     _require_agents_api_enabled()
-    try:
-        return await asyncio.to_thread(_load_digital_employee_categories)
-    except Exception as exc:
-        logger.error("Failed to load digital employee categories", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to load digital employee categories: {exc}",
-        ) from exc
-
-
-@router.put(
-    "/admin/digital-employee-categories",
-    response_model=DigitalEmployeeCategoriesResponse,
-    summary="Replace Digital Employee Categories",
-)
-async def replace_digital_employee_categories(
-    request: Request,
-    body: DigitalEmployeeCategoriesResponse,
-) -> DigitalEmployeeCategoriesResponse:
-    _require_agents_api_enabled()
-    await require_admin_user(
-        request,
-        detail="Admin privileges are required to manage digital employee categories",
-    )
-    ids = [item.id for item in body.items]
-    if len(ids) != len(set(ids)):
-        raise HTTPException(status_code=422, detail="Category ids must be unique")
-    names = [item.name.casefold() for item in body.items]
-    if len(names) != len(set(names)):
-        raise HTTPException(status_code=422, detail="Category names must be unique")
-    body.items.sort(key=lambda item: (item.sort_order, item.name.casefold()))
-    async with _categories_write_lock:
-        current = await asyncio.to_thread(_load_digital_employee_categories)
-        removed_ids = {item.id for item in current.items} - set(ids)
-        if removed_ids:
-            usage = await asyncio.to_thread(_find_category_usage, removed_ids)
-            if usage:
-                references = "; ".join(f"{category_id}: {', '.join(agent_refs)}" for category_id, agent_refs in sorted(usage.items()))
-                raise HTTPException(
-                    status_code=409,
-                    detail=(f"Cannot remove categories that are assigned to digital employees. Reassign them first ({references})."),
-                )
-        await asyncio.to_thread(_write_digital_employee_categories, body)
-    return body
+    return _load_digital_employee_categories()
 
 
 def _agent_config_to_response(
@@ -618,7 +854,7 @@ def _agent_config_to_response(
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         skills=agent_cfg.skills,
-        category_id=agent_cfg.category_id,
+        category_id=resolve_digital_employee_category(agent_cfg),
         tags=agent_cfg.tags,
         avatar_id=agent_cfg.avatar_id,
         avatar_url=_avatar_url(agent_cfg.name, source or "personal", agent_dir),
@@ -662,7 +898,7 @@ def _shared_agent_response(
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         skills=agent_cfg.skills,
-        category_id=agent_cfg.category_id,
+        category_id=resolve_digital_employee_category(agent_cfg),
         tags=agent_cfg.tags,
         avatar_id=agent_cfg.avatar_id,
         avatar_url=_avatar_url(agent_cfg.name, source, agent_dir),
@@ -942,7 +1178,8 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
     _require_agents_api_enabled()
     _validate_agent_name(request.name)
     await asyncio.to_thread(_validate_model_exists, request.model)
-    await asyncio.to_thread(_ensure_category_exists, request.category_id)
+    category_id = request.category_id or DEFAULT_DIGITAL_EMPLOYEE_CATEGORY_ID
+    await asyncio.to_thread(_ensure_category_exists, category_id)
     normalized_name = _normalize_agent_name(request.name)
     user_id = get_effective_user_id()
     config_data: dict = {"name": normalized_name}
@@ -954,8 +1191,7 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
         config_data["tool_groups"] = request.tool_groups
     if request.skills is not None:
         config_data["skills"] = request.skills
-    if request.category_id:
-        config_data["category_id"] = request.category_id
+    config_data["category_id"] = category_id
     if request.tags:
         config_data["tags"] = request.tags
     if request.avatar_id:
@@ -1019,6 +1255,7 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
         personal = load_agent_config(name, user_id=user_id)
         config_data = personal.model_dump(exclude_none=True)
         config_data["name"] = name
+        config_data["category_id"] = resolve_digital_employee_category(personal)
         config_data["published_by_user_id"] = user_id
         with open(team_dir / "config.yaml", "w", encoding="utf-8") as file:
             yaml.safe_dump(config_data, file, default_flow_style=False, allow_unicode=True)
@@ -1147,7 +1384,10 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
     if "model" in request.model_fields_set:
         await asyncio.to_thread(_validate_model_exists, request.model)
     if "category_id" in request.model_fields_set:
-        await asyncio.to_thread(_ensure_category_exists, request.category_id)
+        await asyncio.to_thread(
+            _ensure_category_exists,
+            request.category_id or DEFAULT_DIGITAL_EMPLOYEE_CATEGORY_ID,
+        )
 
     try:
         # Update config if any config fields changed
@@ -1174,6 +1414,8 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
             updated = {"name": agent_cfg.name}
             for field_name in managed_fields - set(_MODEL_BEHAVIOR_FIELDS):
                 value = getattr(request, field_name) if field_name in fields_set else getattr(agent_cfg, field_name)
+                if field_name == "category_id":
+                    value = value or resolve_digital_employee_category(agent_cfg)
                 if value is not None:
                     updated[field_name] = value
             _apply_model_behavior(updated, request, existing=agent_cfg)

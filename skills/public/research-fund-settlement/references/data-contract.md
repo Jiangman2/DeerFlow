@@ -8,6 +8,7 @@
 |---|---|
 | `schema_version` | 固定为 `1.0` |
 | `profile` | `group_company`、`national_science` 或 `miit` |
+| `input_contract` | 集团公司标准输入表的版本、文件哈希、工作表和校验状态；其他类型可省略 |
 | `report` | 报告日期、截止日、编制/复核信息和状态 |
 | `project` | 项目名称、编号、批复、周期、研究内容与完成情况 |
 | `organizations` | 牵头/承担单位和参研单位 |
@@ -49,6 +50,9 @@
 {
   "code": "equipment",
   "name": "设备费",
+  "scope": "direct",
+  "parent_code": null,
+  "include_in_total": true,
   "budget": 100,
   "adjusted_budget": 95,
   "reported": 92,
@@ -60,11 +64,13 @@
 }
 ```
 
+`scope` 为 `direct` 或 `indirect`。`include_in_total = false` 只用于父科目的拆分明细，避免父子项目重复汇总；`parent_code` 指向父科目。`input_row` 和 `input_balance` 可保存标准表行号及原表结余，用于审计追踪。
+
 脚本统一计算：
 
 - `approved_total = Σ funding.sources[].approved`；
 - `received_total = Σ funding.sources[].received`；
-- `reported_total = Σ expenses[].reported`，缺失时回退到 `actual`；
+- `reported_total = Σ expenses[].reported`，缺失时回退到 `actual`，且只累计 `include_in_total != false` 的项目；
 - `audited_total = Σ expenses[].audited`；
 - `audit_reduction = reported_total - audited_total`；
 - `balance = adjusted_budget - audited/actual`；
@@ -94,6 +100,8 @@
 - 任务书预算、正式下达预算、财务账实际支出、审计认定支出是不同概念，分别保存。
 - 冲突对象至少包含 `field`、`values`、`sources` 和 `resolution`。`resolution` 为空时正式稿失败。
 - 初稿允许 `[待补充：字段名]`；正式稿禁止任何占位符。
+- 集团公司项目缺少通过校验的 `input_contract` 时，初稿给出警告、正式稿直接失败。
+- 集团公司项目使用 `project.acceptance_date` 记录正式验收日；正式稿的 `report.prepared_date` 必须晚于该日期。
 
 ## 受控说明文字
 

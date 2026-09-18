@@ -275,13 +275,51 @@ def test_enterprise_ppt_runner_retains_proxy_and_ca_boundary():
     gateway_patch = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "gateway")
     gateway = next(container for container in gateway_patch["spec"]["template"]["spec"]["containers"] if container["name"] == "gateway")
     assert gateway["resources"] == {
-        "requests": {"cpu": "500m", "memory": "4Gi"},
-        "limits": {"cpu": "2", "memory": "16Gi"},
+        "requests": {"cpu": "2", "memory": "4Gi"},
+        "limits": {"cpu": "4", "memory": "16Gi"},
     }
     assert gateway_patch["spec"]["strategy"]["rollingUpdate"] == {
         "maxUnavailable": 0,
         "maxSurge": 1,
     }
+
+
+def test_gateway_and_nginx_readiness_do_not_form_a_transitive_failure_chain():
+    documents = _yaml_documents("k8s/local-pvc/deer-flow-pvc-stack.yaml")
+    deployments = {
+        document["metadata"]["name"]: document
+        for document in documents
+        if document.get("kind") == "Deployment"
+    }
+    gateway = next(
+        container
+        for container in deployments["gateway"]["spec"]["template"]["spec"]["containers"]
+        if container["name"] == "gateway"
+    )
+    nginx = next(
+        container
+        for container in deployments["nginx"]["spec"]["template"]["spec"]["containers"]
+        if container["name"] == "nginx"
+    )
+
+    assert gateway["startupProbe"]["httpGet"]["path"] == "/api/v1/auth/setup-status"
+    assert gateway["readinessProbe"] == {
+        "httpGet": {"path": "/health", "port": 8001},
+        "initialDelaySeconds": 5,
+        "periodSeconds": 5,
+        "timeoutSeconds": 5,
+        "failureThreshold": 12,
+    }
+    assert gateway["livenessProbe"]["httpGet"]["path"] == "/health"
+    assert nginx["readinessProbe"] == {
+        "httpGet": {"path": "/health", "port": 2026},
+        "initialDelaySeconds": 5,
+        "periodSeconds": 5,
+        "timeoutSeconds": 3,
+        "failureThreshold": 6,
+    }
+    assert nginx["startupProbe"]["httpGet"]["path"] == "/health"
+    assert nginx["livenessProbe"]["httpGet"]["path"] == "/health"
 
 
 def test_enterprise_ppt_agent_disables_provider_hosted_web_search():
@@ -975,6 +1013,9 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
     assert {"NO_PROXY", "no_proxy"}.isdisjoint(sandbox_secret_keys)
     sandbox_passthrough_keys = set(provisioner_values["SANDBOX_PASSTHROUGH_ENV_KEYS"].split(","))
     assert {"NO_PROXY", "no_proxy"} <= sandbox_passthrough_keys
+    assert {"DISABLE_BROWSER", "DISABLE_MCP_BROWSER"} <= sandbox_passthrough_keys
+    assert provisioner_values["DISABLE_BROWSER"] == "true"
+    assert provisioner_values["DISABLE_MCP_BROWSER"] == "true"
     assert provisioner_values["NO_PROXY"] == provisioner_values["no_proxy"]
     sandbox_no_proxy = set(provisioner_values["NO_PROXY"].split(","))
     assert {

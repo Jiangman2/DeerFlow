@@ -140,6 +140,42 @@ test.describe("Agent chat", () => {
     expect(dialogBounds!.y).toBeGreaterThanOrEqual(0);
     expect(dialogBounds!.y + dialogBounds!.height).toBeLessThanOrEqual(900);
 
+    const domainTrigger = page.getByTestId("business-domain-picker-trigger");
+    await expect(domainTrigger).toContainText("综合管理");
+    await domainTrigger.click();
+    const domainPicker = page.getByTestId("business-domain-picker-content");
+    await expect(domainPicker).toBeVisible();
+    const domainOptions = domainPicker.getByTestId("business-domain-option");
+    await expect(domainOptions).toHaveCount(26);
+    const unifiedOption = domainOptions.filter({ hasText: "综合管理" });
+    const distributedOption = domainOptions.filter({ hasText: "新能源" });
+    await expect(unifiedOption.getByTestId("business-domain-badge")).toHaveText(
+      "统",
+    );
+    await expect(
+      distributedOption.getByTestId("business-domain-badge"),
+    ).toHaveText("分");
+    const [pickerBounds, firstOptionBounds, secondOptionBounds] =
+      await Promise.all([
+        domainPicker.boundingBox(),
+        domainOptions.nth(0).boundingBox(),
+        domainOptions.nth(1).boundingBox(),
+      ]);
+    expect(pickerBounds).not.toBeNull();
+    expect(pickerBounds!.width).toBeLessThanOrEqual(400);
+    expect(pickerBounds!.height).toBeLessThanOrEqual(320);
+    expect(firstOptionBounds).not.toBeNull();
+    expect(secondOptionBounds).not.toBeNull();
+    expect(
+      Math.abs(firstOptionBounds!.x - secondOptionBounds!.x),
+    ).toBeLessThanOrEqual(1);
+    expect(firstOptionBounds!.y).toBeLessThan(secondOptionBounds!.y);
+    await domainPicker.getByRole("menuitemradio", { name: /新能源/ }).click();
+    await expect(domainTrigger).toContainText("新能源");
+    await expect(domainTrigger.getByTestId("business-domain-badge")).toHaveText(
+      "分",
+    );
+
     const avatarOptions = page.getByTestId("expert-avatar-option");
     await expect(avatarOptions).toHaveCount(6);
     const avatarToggle = page.getByRole("button", {

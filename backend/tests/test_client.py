@@ -2972,8 +2972,8 @@ class TestInstallSkillSecurity:
                 with pytest.raises(ValueError, match="unsafe"):
                     client.install_skill(archive)
 
-    def test_symlinks_skipped_during_extraction(self, client, allow_skill_security_scan):
-        """Symlink entries in the archive are skipped (never written to disk)."""
+    def test_symlinks_rejected_during_extraction(self, client, allow_skill_security_scan):
+        """Reject packages that would otherwise install an incomplete tree."""
         import stat as stat_mod
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -2996,13 +2996,11 @@ class TestInstallSkillSecurity:
             with (
                 patch("deerflow.skills.storage._default_skill_storage", local_storage),
                 patch("deerflow.client.get_or_new_user_skill_storage", lambda user_id, **kwargs: local_storage),
+                pytest.raises(ValueError, match="symlink"),
             ):
-                result = client.install_skill(archive)
+                client.install_skill(archive)
 
-            assert result["success"] is True
-            installed = skills_root / "custom" / "sym-skill"
-            assert (installed / "SKILL.md").exists()
-            assert not (installed / "sneaky_link").exists()
+            assert not (skills_root / "custom" / "sym-skill").exists()
 
     def test_invalid_skill_name_rejected(self, client):
         """Skill names containing special characters are rejected."""

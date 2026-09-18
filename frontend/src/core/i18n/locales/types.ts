@@ -507,7 +507,6 @@ export interface Translations {
     descriptionPlaceholder: string;
     category: string;
     tags: string;
-    uncategorized: string;
     tagsPlaceholder: string;
     tagTooLong: string;
     tagDuplicate: string;
@@ -538,6 +537,13 @@ export interface Translations {
     uploadAvatar: string;
     avatarTooLarge: string;
     allCategories: string;
+    businessDomainCount: string;
+    expandCategories: string;
+    collapseCategories: string;
+    unifiedDomains: string;
+    unifiedDomainsHint: string;
+    distributedDomains: string;
+    distributedDomainsHint: string;
     popularTags: string;
     expandTags: string;
     collapseTags: string;
@@ -556,16 +562,6 @@ export interface Translations {
     nextPage: string;
     pageNumber: string;
     pageSummary: string;
-    manageCategories: string;
-    manageCategoriesHint: string;
-    categoryName: string;
-    categoryDescription: string;
-    categoryRequired: string;
-    categoriesSaved: string;
-    newCategoryName: string;
-    addCategory: string;
-    moveUp: string;
-    moveDown: string;
   };
 
   // Breadcrumb

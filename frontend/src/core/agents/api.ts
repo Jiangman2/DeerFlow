@@ -152,25 +152,6 @@ export async function listDigitalEmployeeCategories(): Promise<
   return data.items;
 }
 
-export async function replaceDigitalEmployeeCategories(
-  items: DigitalEmployeeCategory[],
-): Promise<DigitalEmployeeCategory[]> {
-  const res = await fetch(
-    `${getBackendBaseURL()}/api/admin/digital-employee-categories`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    },
-  );
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { detail?: string };
-    throw new Error(err.detail ?? "Failed to save digital employee categories");
-  }
-  const data = (await res.json()) as { items: DigitalEmployeeCategory[] };
-  return data.items;
-}
-
 export async function uploadAgentAvatar(name: string, file: File) {
   const form = new FormData();
   form.append("file", file);

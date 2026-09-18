@@ -83,6 +83,33 @@ def test_update_is_upsert_and_partial(store):
     assert store.get_soul("a", user_id="u1") == "soul2"
 
 
+def test_patch_config_preserves_unknown_raw_fields(store):
+    store.create(
+        "future-agent",
+        {
+            "name": "future-agent",
+            "description": "kept",
+            "future_extension": {"owner": "newer-release", "enabled": True},
+        },
+        "soul",
+        user_id="u1",
+    )
+
+    store.patch_config(
+        "future-agent",
+        {"category_id": "finance-capital"},
+        user_id="u1",
+    )
+
+    with store._Session() as session:
+        row = session.query(AgentRow).filter_by(user_id="u1", name="future-agent").one()
+        document = dict(row.config)
+    assert document["category_id"] == "finance-capital"
+    assert document["future_extension"] == {
+        "owner": "newer-release",
+        "enabled": True,
+    }
+
 def test_update_insert_race_recovers_via_upsert(store):
     """update()'s insert-on-missing branch is a true upsert under a write race.
 

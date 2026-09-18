@@ -204,6 +204,20 @@ class SqlAgentStore(AgentStore):
                 self._apply_update(existing, config, soul)
                 session.commit()
 
+    def patch_config(self, name: str, updates: dict, *, user_id: str | None = None) -> None:
+        """Merge into the stored JSON document without a model round trip."""
+        effective_user = user_id or get_effective_user_id()
+        with self._Session() as session:
+            row = self._row(session, name, effective_user)
+            if row is None:
+                raise FileNotFoundError(
+                    f"Agent config not found: {name} (user {effective_user})"
+                )
+            document = dict(row.config or {})
+            document.update(_config_document(updates))
+            row.config = document
+            session.commit()
+
     @staticmethod
     def _apply_update(row: AgentRow, config: dict | None, soul: str | None) -> None:
         if config is not None:

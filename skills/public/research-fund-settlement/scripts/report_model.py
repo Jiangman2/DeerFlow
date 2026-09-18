@@ -50,11 +50,15 @@ EXPENSE_CATALOGS = {
         ("equipment_software", "设备与软件费"),
         ("materials_energy", "材料/燃料动力费"),
         ("external_testing", "外协实验/试验费"),
+        ("testing_processing", "测试化验加工费"),
+        ("testing_trials", "试验费"),
         ("commissioned_research", "外委研究费"),
         ("publication_ip", "出版/文献/信息传播/知识产权事务费"),
         ("travel_meeting_cooperation", "会议/差旅/国际合作交流费"),
         ("consulting_labor", "专家咨询评审/劳务费"),
         ("other", "其他费用"),
+        ("research_staff", "研发人员费"),
+        ("engineering_support", "依托工程费"),
     ],
     "national_science": [
         ("equipment", "设备费"),
@@ -82,6 +86,30 @@ EXPENSE_CATALOGS = {
 }
 
 
+GROUP_EXPENSE_ATTRIBUTES = {
+    "equipment_software": {"scope": "direct", "include_in_total": True},
+    "materials_energy": {"scope": "direct", "include_in_total": True},
+    "external_testing": {"scope": "direct", "include_in_total": True},
+    "testing_processing": {
+        "scope": "direct",
+        "parent_code": "external_testing",
+        "include_in_total": False,
+    },
+    "testing_trials": {
+        "scope": "direct",
+        "parent_code": "external_testing",
+        "include_in_total": False,
+    },
+    "commissioned_research": {"scope": "direct", "include_in_total": True},
+    "publication_ip": {"scope": "direct", "include_in_total": True},
+    "travel_meeting_cooperation": {"scope": "direct", "include_in_total": True},
+    "consulting_labor": {"scope": "direct", "include_in_total": True},
+    "other": {"scope": "direct", "include_in_total": True},
+    "research_staff": {"scope": "indirect", "include_in_total": True},
+    "engineering_support": {"scope": "indirect", "include_in_total": True},
+}
+
+
 SECTION_FACT_REQUIREMENTS: dict[str, list[list[str]]] = {
     "group.budget_approval": [["funding.approved_total"], ["funding.sources"]],
     "group.budget_changes": [
@@ -91,13 +119,9 @@ SECTION_FACT_REQUIREMENTS: dict[str, list[list[str]]] = {
     "group.overall_settlement": [["report.cutoff_date"], ["expenses"]],
     "group.expense_breakdown": [["expenses"]],
     "group.balance_reasons": [["expenses"]],
-    "group.management_basis": [["management.policies"]],
-    "group.management_status": [
-        ["management.management_summary", "narratives.group.management_status"]
-    ],
-    "group.finance_opinion": [
-        ["management.finance_department_opinion", "narratives.group.finance_opinion"]
-    ],
+    "group.management_basis": [["organizations.lead.name"]],
+    "group.management_status": [["organizations.lead.name"]],
+    "group.finance_opinion": [["organizations.lead.name"]],
     "national.entity_overview": [
         ["organizations.lead.name"],
         ["organizations.lead.registered_address"],
@@ -262,8 +286,9 @@ def selected_sections(case: dict[str, Any]) -> list[dict[str, Any]]:
 
 def initial_case(profile: str) -> dict[str, Any]:
     profile = normalize_profile(profile)
-    expenses = [
-        {
+    expenses = []
+    for code, name in EXPENSE_CATALOGS[profile]:
+        item = {
             "code": code,
             "name": name,
             "budget": None,
@@ -275,8 +300,9 @@ def initial_case(profile: str) -> dict[str, Any]:
             "variance_reason": None,
             "evidence_refs": [],
         }
-        for code, name in EXPENSE_CATALOGS[profile]
-    ]
+        if profile == "group_company":
+            item.update(GROUP_EXPENSE_ATTRIBUTES.get(code, {}))
+        expenses.append(item)
     entity_mode = None
     tax_basis = "not_applicable"
     if profile == "group_company":
@@ -303,6 +329,7 @@ def initial_case(profile: str) -> dict[str, Any]:
             "end_date": None,
             "actual_start_date": None,
             "actual_end_date": None,
+            "acceptance_date": None,
             "research_content": [],
             "governance_summary": None,
             "completion_summary": None,
@@ -423,6 +450,11 @@ def derive(case: dict[str, Any]) -> dict[str, Any]:
                 "description": item.get("description"),
                 "variance_reason": item.get("variance_reason"),
                 "evidence_refs": item.get("evidence_refs") or [],
+                "scope": item.get("scope"),
+                "parent_code": item.get("parent_code"),
+                "include_in_total": item.get("include_in_total", True),
+                "input_row": item.get("input_row"),
+                "input_balance": item.get("input_balance"),
             }
         )
 
@@ -432,16 +464,21 @@ def derive(case: dict[str, Any]) -> dict[str, Any]:
     transfers = normalized.get("funding", {}).get("transfers") or []
     transferred_total = sum_present(item.get("amount") for item in transfers)
 
-    adjusted_total = sum_present(row.get("adjusted_budget") for row in expense_rows)
-    reported_total = sum_present(row.get("reported") for row in expense_rows)
-    actual_total = sum_present(row.get("actual") for row in expense_rows)
-    audited_values = [row.get("audited") for row in expense_rows]
+    included_expenses = [
+        row for row in expense_rows if row.get("include_in_total", True)
+    ]
+    adjusted_total = sum_present(
+        row.get("adjusted_budget") for row in included_expenses
+    )
+    reported_total = sum_present(row.get("reported") for row in included_expenses)
+    actual_total = sum_present(row.get("actual") for row in included_expenses)
+    audited_values = [row.get("audited") for row in included_expenses]
     audited_total = (
         sum_present(audited_values)
         if any(value is not None for value in audited_values)
         else None
     )
-    recognized_total = sum_present(row.get("recognized") for row in expense_rows)
+    recognized_total = sum_present(row.get("recognized") for row in included_expenses)
     audit_reduction = (
         reported_total - audited_total if audited_total is not None else None
     )
@@ -591,6 +628,25 @@ def validate(
         )
 
     if profile == "group_company":
+        input_contract = normalized.get("input_contract") or {}
+        if (
+            input_contract.get("kind") != "group_company_standard_workbook"
+            or input_contract.get("version") != "2026-09"
+            or input_contract.get("sheet") != "Sheet2"
+            or input_contract.get("status") != "PASS"
+            or not has_value(input_contract.get("source_file"))
+            or not re.fullmatch(
+                r"[0-9a-fA-F]{64}", str(input_contract.get("source_sha256") or "")
+            )
+        ):
+            issues.append(
+                _issue(
+                    _severity(mode),
+                    "STANDARD_INPUT_REQUIRED",
+                    "input_contract",
+                    "集团公司/有限公司报告必须由标准输入工作簿导入，且输入校验状态为 PASS",
+                )
+            )
         entity_mode = get_path(normalized, "project.entity_mode")
         expected_tax = {"group": "tax_included", "limited_company": "tax_excluded"}.get(
             entity_mode
@@ -615,6 +671,104 @@ def validate(
                     actual=funding.get("tax_basis"),
                 )
             )
+        acceptance_date = get_path(normalized, "project.acceptance_date")
+        prepared_date = get_path(normalized, "report.prepared_date")
+        if not has_value(acceptance_date):
+            issues.append(
+                _issue(
+                    _severity(mode),
+                    "ACCEPTANCE_DATE_REQUIRED",
+                    "project.acceptance_date",
+                    "集团公司/有限公司正式决算报告必须填写项目正式验收日期",
+                )
+            )
+        elif has_value(prepared_date):
+            try:
+                accepted_on = date.fromisoformat(str(acceptance_date))
+            except ValueError:
+                issues.append(
+                    _issue(
+                        "ERROR",
+                        "INVALID_DATE",
+                        "project.acceptance_date",
+                        "正式验收日期必须使用 YYYY-MM-DD",
+                    )
+                )
+            else:
+                try:
+                    prepared_on = date.fromisoformat(str(prepared_date))
+                except ValueError:
+                    issues.append(
+                        _issue(
+                            "ERROR",
+                            "INVALID_DATE",
+                            "report.prepared_date",
+                            "报告编制日期必须使用 YYYY-MM-DD",
+                        )
+                    )
+                else:
+                    if prepared_on <= accepted_on:
+                        issues.append(
+                            _issue(
+                                "ERROR",
+                                "REPORT_DATE_NOT_AFTER_ACCEPTANCE",
+                                "report.prepared_date",
+                                "决算报告编制日期必须晚于项目正式验收日期",
+                                acceptance_date=acceptance_date,
+                                prepared_date=prepared_date,
+                            )
+                        )
+        adjustments = funding.get("adjustments") or {}
+        none_declared = adjustments.get("none_declared")
+        adjustment_items = adjustments.get("items") or []
+        if none_declared is True and adjustment_items:
+            issues.append(
+                _issue(
+                    "ERROR",
+                    "ADJUSTMENT_DECLARATION_CONFLICT",
+                    "funding.adjustments",
+                    "已声明无概预算变更，但同时填写了变更事项",
+                )
+            )
+        if none_declared is False and not adjustment_items:
+            issues.append(
+                _issue(
+                    _severity(mode),
+                    "ADJUSTMENT_DETAILS_REQUIRED",
+                    "funding.adjustments.items",
+                    "已声明发生概预算变更，必须填写变更内容、理由和批复情况",
+                )
+            )
+        for index, item in enumerate(adjustment_items):
+            if str(item.get("level") or "").strip() not in {
+                "major",
+                "general",
+                "重大变更",
+                "一般变更",
+                "预算调剂",
+            }:
+                issues.append(
+                    _issue(
+                        _severity(mode),
+                        "ADJUSTMENT_LEVEL_REQUIRED",
+                        f"funding.adjustments.items[{index}].level",
+                        "概预算变更必须标明重大变更或一般变更/预算调剂",
+                    )
+                )
+            for field, label in [
+                ("content", "调整内容"),
+                ("reason", "调整理由"),
+                ("approval", "调整批复情况"),
+            ]:
+                if not has_value(item.get(field)):
+                    issues.append(
+                        _issue(
+                            _severity(mode),
+                            "ADJUSTMENT_FIELD_REQUIRED",
+                            f"funding.adjustments.items[{index}].{field}",
+                            f"概预算变更缺少{label}",
+                        )
+                    )
 
     approved_total = decimal_or_none(funding.get("approved_total"))
     source_total = decimal_or_none(
@@ -766,17 +920,28 @@ def validate(
                     )
                 )
         variance_rate = decimal_or_none(item.get("variance_rate"))
-        if (
-            variance_rate is not None
+        balance = decimal_or_none(item.get("balance"))
+        reason_required = (
+            profile == "group_company"
+            and balance is not None
+            and abs(balance) > TOLERANCE
+        ) or (
+            profile != "group_company"
+            and variance_rate is not None
             and abs(variance_rate) >= Decimal("10")
-            and not has_value(item.get("variance_reason"))
-        ):
+        )
+        if reason_required and not has_value(item.get("variance_reason")):
+            threshold = (
+                "存在结余或超支"
+                if profile == "group_company"
+                else f"差异达到 {abs(variance_rate or Decimal('0'))}%"
+            )
             issues.append(
                 _issue(
                     _severity(mode),
                     "VARIANCE_REASON_REQUIRED",
                     f"expenses[{index}].variance_reason",
-                    f"费用“{item.get('name')}”差异达到 {abs(variance_rate)}%，必须说明原因",
+                    f"费用“{item.get('name')}”{threshold}，必须说明原因",
                 )
             )
         if (

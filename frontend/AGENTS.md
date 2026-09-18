@@ -83,12 +83,20 @@ across name, description, model, category, tags, tools, and skills. Personal
 employees persist category, tags, bundled/custom avatar selection, model,
 temperature, output limit, thinking default, and reasoning effort through the
 Agent API; never restore the former localStorage-only portrait contract.
-Categories are globally readable but only administrators may replace their
-definitions or order. Per-employee tags support manual add/edit/delete and
+Categories are the server-owned corporate business-domain taxonomy and are not
+mutable from the UI. Preserve the `domain_group` distinction between the
+headquarters-governed “统” domains and business-unit-implemented “分” domains
+with a compact badge on every domain row in gallery, create, and edit surfaces;
+keep both groups in one ordered list rather than separate columns. The gallery directory is collapsed by default,
+shows the selected domain in its trigger, and exposes an independently bounded
+scroll area when expanded. Per-employee tags support manual add/edit/delete and
 deterministic local suggestions. Browser Live is feature-gated and only appears
 for a custom employee when its tool-group allowlist is unset or includes
 `browser`; on mobile it is a bottom sheet, while desktop uses the side panel.
 Do not fork the conversational builder or weaken its existing save workflow.
+The UI must submit only the fixed category identifier and must not attempt to
+rewrite or migrate complete Agent configuration objects; persistence migration
+is a raw-field operation owned by Gateway.
 The directory paginates both the shared square and personal list at the UI
 boundary; filtering returns to page one. Popular tags and the new-agent avatar
 picker show compact previews with explicit expand/collapse controls. The

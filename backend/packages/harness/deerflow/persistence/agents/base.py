@@ -132,6 +132,20 @@ class AgentStore(abc.ABC):
         record if it does not exist (the ``setup_agent`` / first-write path).
         """
 
+    def patch_config(self, name: str, updates: dict, *, user_id: str | None = None) -> None:
+        """Merge selected fields into an existing raw config document.
+
+        Storage migrations use this narrower operation so fields introduced by
+        a newer producer are not lost when the current :class:`AgentConfig`
+        model intentionally ignores unknown keys while reading. Backends should
+        override this method when they can access the raw document directly;
+        the compatibility fallback is retained for lightweight test stores.
+        """
+        config = self.get(name, user_id=user_id)
+        document = config.model_dump(mode="json", exclude_unset=True)
+        document.update(updates)
+        self.update(name, document, None, user_id=user_id)
+
     @abc.abstractmethod
     def delete(self, name: str, *, user_id: str | None = None) -> AgentDeleteOutcome:
         """Delete an agent and its co-located memory, returning the outcome."""

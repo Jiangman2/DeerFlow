@@ -186,6 +186,35 @@ def test_file_create_race_maps_file_exists_to_agent_exists(tmp_path, monkeypatch
         fs.create("racy", {"name": "racy"}, "soul", user_id="u1")
 
 
+def test_file_patch_config_preserves_unknown_yaml_fields(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_HOME", str(tmp_path))
+    from deerflow.config import paths as paths_module
+
+    monkeypatch.setattr(paths_module, "_paths", None)
+    fs = FileAgentStore()
+    fs.create(
+        "future-agent",
+        {
+            "name": "future-agent",
+            "description": "kept",
+            "future_extension": {"enabled": True},
+        },
+        "soul",
+        user_id="u1",
+    )
+
+    fs.patch_config(
+        "future-agent",
+        {"category_id": "finance-capital"},
+        user_id="u1",
+    )
+
+    config_file = tmp_path / "users" / "u1" / "agents" / "future-agent" / "config.yaml"
+    document = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+    assert document["category_id"] == "finance-capital"
+    assert document["future_extension"] == {"enabled": True}
+
+
 # -- graph-subprocess config resolution (db backend's core cross-process invariant) --
 
 

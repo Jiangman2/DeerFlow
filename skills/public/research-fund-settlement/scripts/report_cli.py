@@ -17,6 +17,7 @@ from report_model import (
     validate,
     validation_report,
 )
+from standard_input import import_group_company_workbook
 
 
 def read_json(path: str | Path) -> dict[str, Any]:
@@ -57,6 +58,15 @@ def cmd_convert_money(args: argparse.Namespace) -> int:
     }
     print_report(result)
     return 0
+
+
+def cmd_import_workbook(args: argparse.Namespace) -> int:
+    case, report = import_group_company_workbook(args.workbook)
+    write_json(args.output, case)
+    if args.report:
+        write_json(args.report, report)
+    print_report(report)
+    return 0 if report["status"] == "PASS" else 2
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -144,6 +154,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--to-unit", default="万元", choices=["元", "千元", "万元", "亿元"]
     )
     convert_parser.set_defaults(func=cmd_convert_money)
+
+    import_parser = subparsers.add_parser(
+        "import-workbook",
+        help="校验集团公司标准输入工作簿并生成 case.json",
+    )
+    import_parser.add_argument("--workbook", required=True)
+    import_parser.add_argument("--output", required=True)
+    import_parser.add_argument("--report")
+    import_parser.set_defaults(func=cmd_import_workbook)
 
     check_parser = subparsers.add_parser("check", help="校验 case.json 并计算派生值")
     check_parser.add_argument("--case", required=True)

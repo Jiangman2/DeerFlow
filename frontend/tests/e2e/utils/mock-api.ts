@@ -1240,13 +1240,42 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
       contentType: "application/json",
       body: JSON.stringify({
         items: [
-          {
-            id: "general",
-            name: "General",
-            description: "General purpose",
-            sort_order: 0,
-          },
-        ],
+          ["comprehensive-management", "综合管理", "unified"],
+          ["human-resources", "人力资源", "unified"],
+          ["party-building", "党建", "unified"],
+          ["strategic-development", "战略发展", "unified"],
+          ["production-operations", "生产经营", "unified"],
+          ["finance-capital", "财务资本", "unified"],
+          ["exploration-development", "勘探开发", "unified"],
+          ["engineering-technology", "工程技术", "unified"],
+          ["science-technology-innovation", "科技创新", "unified"],
+          ["safety-environment", "安全环保", "unified"],
+          ["digitalization", "数智化", "unified"],
+          ["international-business", "国际业务", "unified"],
+          ["enterprise-management", "企业管理", "unified"],
+          ["legal-affairs", "法务", "unified"],
+          ["materials-supply-chain", "物资供应链", "unified"],
+          ["sales-trading", "销售贸易", "unified"],
+          ["audit-inspection", "审计巡视", "unified"],
+          ["oil-gas-resource-development", "油气资源开发", "distributed"],
+          ["new-energy", "新能源", "distributed"],
+          ["oilfield-services", "油田服务", "distributed"],
+          ["offshore-engineering-construction", "海洋工程建设", "distributed"],
+          ["energy-technology-services", "能源技术服务", "distributed"],
+          ["natural-gas-power", "天然气与发电", "distributed"],
+          ["refining-petrochemical", "炼油化工", "distributed"],
+          ["chemicals", "化学", "distributed"],
+          ["financial-services", "金融服务", "distributed"],
+        ].map(([id, name, domain_group], index) => ({
+          id,
+          name,
+          description:
+            domain_group === "unified"
+              ? "Governed centrally by headquarters departments"
+              : "Implemented by the respective business units",
+          sort_order: (index + 1) * 10,
+          domain_group,
+        })),
       }),
     });
   });

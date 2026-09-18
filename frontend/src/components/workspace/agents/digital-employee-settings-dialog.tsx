@@ -15,13 +15,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   EXPERT_AVATAR_OPTIONS,
@@ -35,6 +28,7 @@ import type { Agent, DigitalEmployeeCategory } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
+import { BusinessDomainPicker } from "./business-domain-picker";
 import { TagEditor } from "./tag-editor";
 
 interface DigitalEmployeeSettingsDialogProps {
@@ -44,7 +38,7 @@ interface DigitalEmployeeSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const UNCATEGORIZED_VALUE = "__uncategorized__";
+const DEFAULT_CATEGORY_ID = "comprehensive-management";
 
 export function DigitalEmployeeSettingsDialog({
   agent,
@@ -59,7 +53,7 @@ export function DigitalEmployeeSettingsDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState("");
   const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState(UNCATEGORIZED_VALUE);
+  const [categoryId, setCategoryId] = useState(DEFAULT_CATEGORY_ID);
   const [tags, setTags] = useState<string[]>([]);
   const [avatarId, setAvatarId] = useState(EXPERT_AVATAR_OPTIONS[0]!.id);
   const [customFile, setCustomFile] = useState<File | null>(null);
@@ -69,7 +63,7 @@ export function DigitalEmployeeSettingsDialog({
     if (!agent || !open) return;
     setDisplayName(agent.display_name ?? agent.name);
     setDescription(agent.description ?? "");
-    setCategoryId(agent.category_id ?? UNCATEGORIZED_VALUE);
+    setCategoryId(agent.category_id ?? DEFAULT_CATEGORY_ID);
     setTags(agent.tags ?? []);
     setAvatarId(agent.avatar_id ?? getDefaultExpertAvatar(agent).id);
     setCustomFile(null);
@@ -105,7 +99,7 @@ export function DigitalEmployeeSettingsDialog({
         request: {
           display_name: displayName.trim() || agent.name,
           description: description.trim(),
-          category_id: categoryId === UNCATEGORIZED_VALUE ? null : categoryId,
+          category_id: categoryId,
           tags,
           avatar_id: avatarId,
         },
@@ -258,21 +252,11 @@ export function DigitalEmployeeSettingsDialog({
 
           <div className="grid gap-2">
             <label className="text-sm font-medium">{t.agents.category}</label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t.agents.uncategorized} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={UNCATEGORIZED_VALUE}>
-                  {t.agents.uncategorized}
-                </SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <BusinessDomainPicker
+              categories={categories}
+              value={categoryId}
+              onValueChange={setCategoryId}
+            />
           </div>
 
           <div className="grid gap-2">
@@ -284,8 +268,7 @@ export function DigitalEmployeeSettingsDialog({
                 name: agent.name,
                 displayName,
                 description,
-                categoryId:
-                  categoryId === UNCATEGORIZED_VALUE ? null : categoryId,
+                categoryId,
               }}
             />
           </div>

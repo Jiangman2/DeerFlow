@@ -41,15 +41,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AgentNameIcon } from "@/components/workspace/agents/agent-name-icon";
+import { BusinessDomainPicker } from "@/components/workspace/agents/business-domain-picker";
 import { TagEditor } from "@/components/workspace/agents/tag-editor";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { MessageList } from "@/components/workspace/messages";
@@ -116,7 +110,7 @@ export default function NewAgentPage() {
   const [step, setStep] = useState<Step>("name");
   const [nameInput, setNameInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
-  const [categoryId, setCategoryId] = useState("general");
+  const [categoryId, setCategoryId] = useState("comprehensive-management");
   const [tags, setTags] = useState<string[]>([]);
   const [selectedAvatarId, setSelectedAvatarId] = useState(
     EXPERT_AVATAR_OPTIONS[0]!.id,
@@ -619,18 +613,11 @@ export default function NewAgentPage() {
                       <label className="text-left text-sm font-medium">
                         {t.agents.category}
                       </label>
-                      <Select value={categoryId} onValueChange={setCategoryId}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder={t.agents.uncategorized} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <BusinessDomainPicker
+                        categories={categories}
+                        value={categoryId}
+                        onValueChange={setCategoryId}
+                      />
                     </div>
                     <div className="grid gap-1.5 sm:col-span-2">
                       <label className="text-left text-sm font-medium">

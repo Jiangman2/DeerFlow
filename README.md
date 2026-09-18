@@ -837,10 +837,16 @@ Use it as-is. Or tear it apart and make it yours.
 
 The enterprise workspace presents custom Agents as **Digital Employees**. It
 includes 24 CNOOC-themed cartoon portraits plus validated custom uploads,
-administrator-governed categories, per-employee tag CRUD and deterministic tag
-suggestions, and fuzzy discovery across names, categories, tags, descriptions,
-tools, and skills. Compact directory rows and a collapsible filter drawer are
-responsive across desktop and mobile layouts.
+the fixed corporate “统/分” business-domain taxonomy, per-employee tag CRUD and
+deterministic tag suggestions, and fuzzy discovery across names, business
+domains, tags, descriptions, tools, and skills. Existing personal and
+team-square employees are migrated from legacy categories at Gateway startup.
+Database-backed migrations patch only the raw `category_id` field so future or
+enterprise-only agent settings are not discarded by an older typed model during
+the one-time normalization.
+Compact directory rows, a collapsible business-domain directory, and a mobile
+filter drawer keep all 26 currently enumerated domains usable without crowding
+the page.
 
 Personal employee definitions can be isolated by user in SQL. Each employee can
 select a model and override temperature, maximum output tokens, thinking mode,
@@ -883,6 +889,17 @@ install bar can deploy or upgrade that exact version into the authenticated
 user's isolated `skills/custom` tree after archive validation, deterministic
 SkillScan, and fail-closed LLM security review. Enable/disable and uninstall are
 also per-user, and prompt discovery is refreshed for the next Agent run. The
+accepted package is installed as one complete regular-file tree: symbolic-link
+packages fail instead of being partially installed, staging verifies every
+file's size and SHA-256, and Kubernetes sandboxes mount the same per-user tree
+at `/mnt/skills/custom`. A sandbox init check opens every mounted Skill file
+before the runtime starts, so an unreadable PVC mount fails visibly instead of
+leaving a skill in the prompt that cannot access its scripts or references. The
+Provisioner also binds every reusable Sandbox ID to its exact user, thread, and
+skill-mount identity; a stale or cross-user Pod is rejected instead of being
+silently reused. Runtime acceptance executes an installed Skill script through
+the Sandbox API rather than treating a successful host-side file read as proof
+that the Skill is usable. The
 Skill Center's **My Skills** tab combines that installation registry with the
 existing custom-skill inventory, so a user can see created and installed skills,
 their enabled state, SkillHub origin/version, and the available management
@@ -897,7 +914,10 @@ The bundled `/research-fund-settlement` public skill generates validated Chinese
 research-fund settlement reports for group-company, National Natural Science
 Foundation, and MIIT projects. It uses profile-specific source-field and layout
 contracts, preserves the corresponding reference template, and publishes an
-editable DOCX with the platform-generated PDF preview.
+editable DOCX with the platform-generated PDF preview. Group-company standard
+XLSX intake also requires the exact worksheet name, used range, merged-cell
+layout, formulas, and labels, and rejects encrypted, duplicate, traversal, or
+oversized ZIP/XML payloads before importing values.
 
 Users can explicitly activate an enabled skill for a single turn by starting the request with `/skill-name`, for example `/data-analysis analyze uploads/foo.csv`. DeerFlow loads that skill's complete `SKILL.md` as hidden context on the first model call, then restores a compact validated continuation contract after each tool call. This retains exact reference paths and mandatory phase gates without multiplying a large skill body by every tool iteration. The skill is read from disk and audited once; the per-run contract is never written to chat history or persisted run configuration. Slash activation respects disabled skills, custom-agent skill whitelists, and existing channel commands such as `/new` and `/help`.
 

@@ -31,8 +31,8 @@ NS = {"w": W_NS}
 TEMPLATES = {
     "group_company": {
         "file": "group-company-example.docx",
-        "sha256": "7cfb7931d0562ea91d645322c82b62811f8a6830c3b4172c3d5a0fe52670cc1a",
-        "paragraphs": 250,
+        "sha256": "85dc59c86546a68da6d2173de7662ced2769593e5db88d621a0fd7779b846a51",
+        "paragraphs": 220,
         "tables": 18,
         "sections": 3,
     },
@@ -221,7 +221,7 @@ def _source_summary(case: dict[str, Any], field: str = "approved") -> str:
     return "、".join(values)
 
 
-def _fill_group(
+def _fill_group_legacy(
     case: dict[str, Any], p: list[etree._Element], t: list[etree._Element]
 ) -> None:
     project = case.get("project", {})
@@ -984,7 +984,7 @@ def build_template_docx(
             raise ValueError("模板分节结构与版式合同不一致")
 
         if profile == "group_company":
-            _fill_group(case, paragraphs, tables)
+            raise ValueError("集团公司模板必须通过 docx_builder.build_docx 生成")
         elif profile == "national_science":
             _fill_national(case, paragraphs, tables)
         elif profile == "miit":

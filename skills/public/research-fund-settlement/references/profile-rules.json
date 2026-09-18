@@ -8,8 +8,8 @@
       "sections": [
         {"id": "group.budget_approval", "heading": "概预算批准情况", "source_row": 2},
         {"id": "group.budget_changes", "heading": "概预算变更情况", "source_row": 3},
-        {"id": "group.annual_approvals", "heading": "科技项目实际批复情况", "source_row": 4},
-        {"id": "group.overall_settlement", "heading": "支出（预）决算总体情况", "source_row": 5},
+        {"id": "group.annual_approvals", "heading": "科技项目（课题）实际批复情况分析", "source_row": 4},
+        {"id": "group.overall_settlement", "heading": "科技项目（课题）经费支出情况", "source_row": 5},
         {"id": "group.expense_breakdown", "heading": "支出明细项及结构总体说明", "source_row": 6},
         {"id": "group.balance_reasons", "heading": "资金结余及原因", "source_row": 7},
         {"id": "group.management_basis", "heading": "经费管理依据的制度情况", "source_row": 8},

@@ -157,6 +157,23 @@ class FileAgentStore(AgentStore):
                 shutil.rmtree(agent_dir, ignore_errors=True)
             raise
 
+    def patch_config(self, name: str, updates: dict, *, user_id: str | None = None) -> None:
+        """Atomically merge fields without normalizing away unknown YAML keys."""
+        name = validate_agent_name(name)
+        effective_user = user_id or _ac.get_effective_user_id()
+        config_file = _ac.get_paths().user_agent_dir(effective_user, name) / "config.yaml"
+        if not config_file.is_file():
+            raise FileNotFoundError(f"Agent config not found: {config_file}")
+        try:
+            with config_file.open(encoding="utf-8") as file:
+                document = yaml.safe_load(file) or {}
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Failed to parse agent config {config_file}: {exc}") from exc
+        if not isinstance(document, dict):
+            raise ValueError(f"Agent config must be a mapping: {config_file}")
+        document.update(updates)
+        self._write(config_file.parent, document, None)
+
     def delete(self, name: str, *, user_id: str | None = None) -> AgentDeleteOutcome:
         name = validate_agent_name(name)
         paths = _ac.get_paths()

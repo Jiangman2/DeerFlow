@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from deerflow.config.agents_api_config import AgentsApiConfig, get_agents_api_config, set_agents_api_config
@@ -708,7 +707,7 @@ class TestAgentsAPI:
                 "name": "monthly-report",
                 "display_name": "月报数字员工",
                 "description": "编写月报",
-                "category_id": "research",
+                "category_id": "science-technology-innovation",
                 "tags": ["月报", "研究"],
                 "avatar_id": "report-research",
                 "soul": "Write concise reports.",
@@ -718,95 +717,157 @@ class TestAgentsAPI:
         assert response.status_code == 201
         created = response.json()
         assert created["display_name"] == "月报数字员工"
-        assert created["category_id"] == "research"
+        assert created["category_id"] == "science-technology-innovation"
         assert created["tags"] == ["月报", "研究"]
         assert created["avatar_id"] == "report-research"
 
         updated = agent_client.put(
             "/api/agents/monthly-report",
-            json={"category_id": "development", "tags": ["日报", "自动化"]},
+            json={"category_id": "oil-gas-resource-development", "tags": ["日报", "自动化"]},
         )
         assert updated.status_code == 200
-        assert updated.json()["category_id"] == "development"
+        assert updated.json()["category_id"] == "oil-gas-resource-development"
         assert updated.json()["tags"] == ["日报", "自动化"]
 
         config_file = tmp_path / "users" / "test-user-autouse" / "agents" / "monthly-report" / "config.yaml"
         config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
         assert config["avatar_id"] == "report-research"
 
-    def test_digital_employee_categories_have_defaults_and_are_admin_managed(self, agent_client, tmp_path):
-        defaults = agent_client.get("/api/digital-employee-categories")
-        assert defaults.status_code == 200
-        assert any(item["id"] == "general" for item in defaults.json()["items"])
+    def test_digital_employee_categories_use_fixed_corporate_domains(self, agent_client):
+        response = agent_client.get("/api/digital-employee-categories")
+        assert response.status_code == 200
+        categories = response.json()["items"]
+        assert len(categories) == 26
+        assert [item["name"] for item in categories if item["domain_group"] == "unified"] == [
+            "综合管理",
+            "人力资源",
+            "党建",
+            "战略发展",
+            "生产经营",
+            "财务资本",
+            "勘探开发",
+            "工程技术",
+            "科技创新",
+            "安全环保",
+            "数智化",
+            "国际业务",
+            "企业管理",
+            "法务",
+            "物资供应链",
+            "销售贸易",
+            "审计巡视",
+        ]
+        assert [item["name"] for item in categories if item["domain_group"] == "distributed"] == [
+            "油气资源开发",
+            "新能源",
+            "油田服务",
+            "海洋工程建设",
+            "能源技术服务",
+            "天然气与发电",
+            "炼油化工",
+            "化学",
+            "金融服务",
+        ]
 
-        import app.gateway.routers.agents as agents_router
+    def test_digital_employee_category_admin_mutation_route_is_removed(self, agent_client):
+        response = agent_client.put(
+            "/api/admin/digital-employee-categories",
+            json={"items": []},
+        )
+        assert response.status_code == 404
 
-        payload = {
-            "items": [
+    def test_legacy_category_is_inferred_in_agent_response(self, agent_client, tmp_path):
+        agent_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "hse-reviewer"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "config.yaml").write_text(
+            yaml.safe_dump(
                 {
-                    "id": "custom-research",
-                    "name": "研究与报告",
-                    "description": "研究、分析和报告编制",
-                    "sort_order": 10,
-                }
-            ]
-        }
-        with patch.object(agents_router, "require_admin_user", new=AsyncMock()):
-            replaced = agent_client.put("/api/admin/digital-employee-categories", json=payload)
-
-        assert replaced.status_code == 200
-        assert replaced.json() == payload
-        category_file = tmp_path / "digital_employee_categories.yaml"
-        assert category_file.exists()
-
-    def test_digital_employee_category_management_rejects_non_admin(self, agent_client):
-        import app.gateway.routers.agents as agents_router
-
-        denied = AsyncMock(
-            side_effect=HTTPException(
-                status_code=403,
-                detail="Admin privileges are required",
-            )
-        )
-        with patch.object(agents_router, "require_admin_user", new=denied):
-            response = agent_client.put(
-                "/api/admin/digital-employee-categories",
-                json={"items": []},
-            )
-
-        assert response.status_code == 403
-        denied.assert_awaited_once()
-
-    def test_admin_cannot_remove_category_still_assigned_to_employee(self, agent_client):
-        created = agent_client.post(
-            "/api/agents",
-            json={
-                "name": "category-in-use",
-                "category_id": "research",
-                "soul": "Helpful.",
-            },
-        )
-        assert created.status_code == 201
-
-        import app.gateway.routers.agents as agents_router
-
-        with patch.object(agents_router, "require_admin_user", new=AsyncMock()):
-            replaced = agent_client.put(
-                "/api/admin/digital-employee-categories",
-                json={
-                    "items": [
-                        {
-                            "id": "general",
-                            "name": "通用协作",
-                            "description": "",
-                            "sort_order": 0,
-                        }
-                    ]
+                    "name": "hse-reviewer",
+                    "display_name": "HSE 安全审查员",
+                    "category_id": "general",
                 },
-            )
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
 
-        assert replaced.status_code == 409
-        assert "category-in-use" in replaced.json()["detail"]
+        response = agent_client.get("/api/agents")
+
+        assert response.status_code == 200
+        assert response.json()["agents"][0]["category_id"] == "safety-environment"
+
+    def test_file_category_migration_updates_personal_and_square_agents(self, agent_client, tmp_path):
+        import app.gateway.routers.agents as agents_router
+
+        personal_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "hse-reviewer"
+        personal_dir.mkdir(parents=True)
+        (personal_dir / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "hse-reviewer",
+                    "display_name": "HSE 安全审查员",
+                    "category_id": "general",
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        team_dir = tmp_path / "team_agents" / "research-writer"
+        team_dir.mkdir(parents=True)
+        (team_dir / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "research-writer",
+                    "description": "科研报告编写",
+                    "category_id": "research",
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        app_config = MagicMock()
+        app_config.agent_storage.backend = "file"
+
+        with patch.object(agents_router, "get_app_config", return_value=app_config):
+            migrated = agents_router.migrate_digital_employee_categories()
+
+        assert migrated == 2
+        personal = yaml.safe_load((personal_dir / "config.yaml").read_text(encoding="utf-8"))
+        team = yaml.safe_load((team_dir / "config.yaml").read_text(encoding="utf-8"))
+        assert personal["category_id"] == "safety-environment"
+        assert team["category_id"] == "science-technology-innovation"
+
+    def test_db_category_migration_uses_raw_field_patch(self, agent_client):
+        import app.gateway.routers.agents as agents_router
+        from deerflow.config.agents_config import AgentConfig
+
+        app_config = MagicMock()
+        app_config.agent_storage.backend = "db"
+        store = MagicMock()
+        store.list_all.return_value = [
+            (
+                "finance-user",
+                AgentConfig(
+                    name="settlement-reviewer",
+                    display_name="财务决算报告复核员工",
+                    category_id="general",
+                ),
+            )
+        ]
+
+        with (
+            patch.object(agents_router, "get_app_config", return_value=app_config),
+            patch.object(agents_router, "get_agent_store", return_value=store),
+        ):
+            migrated = agents_router.migrate_digital_employee_categories()
+
+        assert migrated == 1
+        store.patch_config.assert_called_once_with(
+            "settlement-reviewer",
+            {"category_id": "finance-capital"},
+            user_id="finance-user",
+        )
+        store.update.assert_not_called()
 
     def test_custom_avatar_is_reencoded_and_served(self, agent_client):
         created = agent_client.post("/api/agents", json={"name": "avatar-agent", "soul": "Helpful."})

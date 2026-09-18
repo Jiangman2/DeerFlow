@@ -10,7 +10,7 @@ const EMPLOYEES = [
     model: "builder-flash",
     tool_groups: ["documents"],
     skills: ["research"],
-    category_id: "general",
+    category_id: "science-technology-innovation",
     tags: ["Reports", "Exploration"],
     avatar_id: "report-research",
     source: "personal" as const,
@@ -22,7 +22,7 @@ const EMPLOYEES = [
     model: null,
     tool_groups: ["risk"],
     skills: [],
-    category_id: "general",
+    category_id: "safety-environment",
     tags: ["Safety", "Review"],
     avatar_id: "hse",
     source: "personal" as const,
@@ -34,7 +34,7 @@ const EMPLOYEES = [
     model: null,
     tool_groups: ["SEGY"],
     skills: [],
-    category_id: "general",
+    category_id: "exploration-development",
     tags: ["Seismic"],
     avatar_id: "seismic-processing",
     source: "personal" as const,
@@ -46,7 +46,7 @@ const EMPLOYEES = [
     model: null,
     tool_groups: ["documents"],
     skills: [],
-    category_id: "general",
+    category_id: "comprehensive-management",
     tags: [`Tag ${index + 4}`],
     avatar_id: "platform-management",
     source: "personal" as const,
@@ -74,6 +74,39 @@ test("digital employee directory filters compact rows on desktop and mobile", as
   const pagination = page.getByTestId("digital-employee-pagination");
   await expect(cards).toHaveCount(6);
   await expect(pagination).toBeVisible();
+  const categoryToggle = page.getByTestId("business-domain-toggle").first();
+  const categoryDirectory = page
+    .getByTestId("business-domain-directory")
+    .first();
+  await expect(categoryDirectory).toBeHidden();
+  await categoryToggle.click();
+  await expect(categoryDirectory).toBeVisible();
+  const categoryOptions = categoryDirectory.getByTestId(
+    "business-domain-option",
+  );
+  await expect(categoryOptions).toHaveCount(26);
+  await expect(
+    categoryOptions
+      .filter({ hasText: "综合管理" })
+      .getByTestId("business-domain-badge"),
+  ).toHaveText("统");
+  await expect(
+    categoryOptions
+      .filter({ hasText: "新能源" })
+      .getByTestId("business-domain-badge"),
+  ).toHaveText("分");
+  const [firstCategoryBounds, secondCategoryBounds] = await Promise.all([
+    categoryOptions.nth(0).boundingBox(),
+    categoryOptions.nth(1).boundingBox(),
+  ]);
+  expect(firstCategoryBounds).not.toBeNull();
+  expect(secondCategoryBounds).not.toBeNull();
+  expect(
+    Math.abs(firstCategoryBounds!.x - secondCategoryBounds!.x),
+  ).toBeLessThanOrEqual(1);
+  expect(firstCategoryBounds!.y).toBeLessThan(secondCategoryBounds!.y);
+  await categoryToggle.click();
+  await expect(categoryDirectory).toBeHidden();
   await pagination.getByRole("button", { name: /Next|下一页/i }).click();
   await expect(cards).toHaveCount(6);
 
@@ -92,7 +125,7 @@ test("digital employee directory filters compact rows on desktop and mobile", as
   );
 
   const search = page.getByPlaceholder(
-    /Search name, tag, category, or capability|搜索名称、标签、分类或能力/i,
+    /Search name, tag, business domain, or capability|搜索名称、标签、业务域分类或能力/i,
   );
   await search.fill("HSE Safety");
   await expect(cards).toHaveCount(1);
@@ -105,8 +138,27 @@ test("digital employee directory filters compact rows on desktop and mobile", as
   await expect(popularTags.getByTestId("popular-tag-option")).toHaveCount(8);
   await popularTags.getByTestId("popular-tag-toggle").click();
   await expect(popularTags.getByTestId("popular-tag-option")).toHaveCount(12);
-  await popularTags.getByTestId("popular-tag-toggle").click();
-  await expect(popularTags.getByTestId("popular-tag-option")).toHaveCount(8);
+
+  await categoryToggle.click();
+  const desktopFilterPanel = page.getByTestId("desktop-filter-panel");
+  const desktopFilterMetrics = await desktopFilterPanel.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    const bounds = element.getBoundingClientRect();
+    return {
+      bottom: bounds.bottom,
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(desktopFilterMetrics.bottom).toBeLessThanOrEqual(
+    desktopFilterMetrics.viewportHeight + 1,
+  );
+  expect(desktopFilterMetrics.scrollHeight).toBeGreaterThan(
+    desktopFilterMetrics.clientHeight,
+  );
+  expect(desktopFilterMetrics.scrollTop).toBeGreaterThan(0);
 
   await page.screenshot({
     path: testInfo.outputPath("digital-employee-directory-desktop.png"),
@@ -123,6 +175,50 @@ test("digital employee directory filters compact rows on desktop and mobile", as
     filterDialog.getByRole("heading", { name: /Filters|筛选/i }),
   ).toBeVisible();
   await expect(filterDialog.getByText(/Popular tags|常用标签/i)).toBeVisible();
+  await expect(
+    filterDialog.getByTestId("business-domain-directory"),
+  ).toBeHidden();
+  await filterDialog.getByTestId("business-domain-toggle").click();
+  await expect(
+    filterDialog.getByTestId("business-domain-directory"),
+  ).toBeVisible();
+  const mobileCategoryOptions = filterDialog.getByTestId(
+    "business-domain-option",
+  );
+  await expect(
+    mobileCategoryOptions
+      .filter({ hasText: "综合管理" })
+      .getByTestId("business-domain-badge"),
+  ).toHaveText("统");
+  await expect(
+    mobileCategoryOptions
+      .filter({ hasText: "新能源" })
+      .getByTestId("business-domain-badge"),
+  ).toHaveText("分");
+  const [mobileFirstBounds, mobileSecondBounds] = await Promise.all([
+    mobileCategoryOptions.nth(0).boundingBox(),
+    mobileCategoryOptions.nth(1).boundingBox(),
+  ]);
+  expect(mobileFirstBounds).not.toBeNull();
+  expect(mobileSecondBounds).not.toBeNull();
+  expect(
+    Math.abs(mobileFirstBounds!.x - mobileSecondBounds!.x),
+  ).toBeLessThanOrEqual(1);
+  expect(mobileFirstBounds!.y).toBeLessThan(mobileSecondBounds!.y);
+  await filterDialog.getByTestId("popular-tag-toggle").click();
+  const mobileFilterScroll = filterDialog.getByTestId("mobile-filter-scroll");
+  const mobileFilterMetrics = await mobileFilterScroll.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    return {
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+    };
+  });
+  expect(mobileFilterMetrics.scrollHeight).toBeGreaterThan(
+    mobileFilterMetrics.clientHeight,
+  );
+  expect(mobileFilterMetrics.scrollTop).toBeGreaterThan(0);
   await page.keyboard.press("Escape");
   await expect(filterDialog).toBeHidden();
   await expect(cards.first()).toBeVisible();

@@ -31,6 +31,7 @@ class _RecordingCoreV1:
         self.service_read_counts: dict[str, int] = {}
         self.created_pods: list[str] = []
         self.created_pod_specs: dict[str, object] = {}
+        self.existing_pod_specs: dict[str, object] = {}
         self.created_services: list[str] = []
 
     def _record_k8s_call(self) -> None:
@@ -59,6 +60,15 @@ class _RecordingCoreV1:
 
     def read_namespaced_pod(self, _name: str, _namespace: str):
         self._record_k8s_call()
+        sandbox_id = _name.removeprefix("sandbox-")
+        if sandbox_id in self.created_pod_specs:
+            pod = self.created_pod_specs[sandbox_id]
+            pod.status = SimpleNamespace(phase="Running")
+            return pod
+        if sandbox_id in self.existing_pod_specs:
+            pod = self.existing_pod_specs[sandbox_id]
+            pod.status = SimpleNamespace(phase="Running")
+            return pod
         return SimpleNamespace(status=SimpleNamespace(phase="Running"))
 
     def create_namespaced_pod(self, _namespace: str, pod) -> None:
@@ -149,6 +159,11 @@ async def test_sandbox_business_routes_run_k8s_client_off_event_loop_thread(
     fake_core_v1 = _RecordingCoreV1(
         event_loop_thread_id=threading.get_ident(),
         ready_after_service_reads={"sandbox-new": 3},
+    )
+    fake_core_v1.existing_pod_specs["sandbox-existing"] = provisioner_module._build_pod(
+        "sandbox-existing",
+        "thread-1",
+        user_id="user-1",
     )
     monkeypatch.setattr(provisioner_module, "core_v1", fake_core_v1)
     monkeypatch.setattr(provisioner_module, "PROVISIONER_API_KEY", "test-secret")

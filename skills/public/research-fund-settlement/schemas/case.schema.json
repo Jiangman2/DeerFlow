@@ -7,6 +7,7 @@
   "properties": {
     "schema_version": {"const": "1.0"},
     "profile": {"enum": ["group_company", "national_science", "miit"]},
+    "input_contract": {"$ref": "#/$defs/inputContract"},
     "report": {"type": "object"},
     "project": {"type": "object"},
     "organizations": {"type": "object"},
@@ -58,6 +59,9 @@
       "properties": {
         "code": {"type": "string", "minLength": 1},
         "name": {"type": "string", "minLength": 1},
+        "scope": {"enum": ["direct", "indirect", null]},
+        "parent_code": {"type": ["string", "null"]},
+        "include_in_total": {"type": "boolean"},
         "budget": {"type": ["number", "null"]},
         "adjusted_budget": {"type": ["number", "null"]},
         "reported": {"type": ["number", "null"]},
@@ -65,7 +69,21 @@
         "audited": {"type": ["number", "null"]},
         "description": {"type": ["string", "null"]},
         "variance_reason": {"type": ["string", "null"]},
+        "input_row": {"type": ["integer", "null"]},
+        "input_balance": {"type": ["number", "null"]},
         "evidence_refs": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "inputContract": {
+      "type": "object",
+      "required": ["kind", "version", "source_file", "source_sha256", "sheet", "status"],
+      "properties": {
+        "kind": {"const": "group_company_standard_workbook"},
+        "version": {"const": "2026-09"},
+        "source_file": {"type": "string", "minLength": 1},
+        "source_sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+        "sheet": {"const": "Sheet2"},
+        "status": {"enum": ["PASS", "FAIL"]}
       }
     },
     "evidence": {

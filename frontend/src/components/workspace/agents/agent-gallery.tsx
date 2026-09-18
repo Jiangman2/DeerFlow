@@ -10,7 +10,6 @@ import {
   PlusIcon,
   RotateCcwIcon,
   SearchIcon,
-  Settings2Icon,
   StoreIcon,
   UserIcon,
 } from "lucide-react";
@@ -19,6 +18,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -41,12 +45,11 @@ import {
   useTeamAgents,
 } from "@/core/agents";
 import type { Agent, DigitalEmployeeCategory } from "@/core/agents";
-import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
 import { AgentCard } from "./agent-card";
-import { CategoryManagerDialog } from "./category-manager-dialog";
+import { BusinessDomainBadge } from "./business-domain-badge";
 import { DigitalEmployeeSettingsDialog } from "./digital-employee-settings-dialog";
 
 type GalleryTab = "square" | "mine";
@@ -80,8 +83,6 @@ function FilterPanel({
   onCategoryChange,
   onTagToggle,
   onReset,
-  isAdmin,
-  onManageCategories,
 }: {
   agents: Agent[];
   categories: DigitalEmployeeCategory[];
@@ -90,10 +91,9 @@ function FilterPanel({
   onCategoryChange: (category: string) => void;
   onTagToggle: (tag: string) => void;
   onReset: () => void;
-  isAdmin: boolean;
-  onManageCategories: () => void;
 }) {
   const { t } = useI18n();
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
   const tags = collectDigitalEmployeeTags(agents).slice(0, MAX_POPULAR_TAGS);
   const previewTags = tags.slice(0, POPULAR_TAG_PREVIEW_COUNT);
@@ -114,6 +114,37 @@ function FilterPanel({
     }
     return counts;
   }, [agents]);
+  const selectedCategoryName =
+    selectedCategory === "all"
+      ? t.agents.allCategories
+      : (categories.find((category) => category.id === selectedCategory)
+          ?.name ?? t.agents.allCategories);
+
+  function categoryButton(category: DigitalEmployeeCategory) {
+    return (
+      <button
+        key={category.id}
+        type="button"
+        title={category.description}
+        data-testid="business-domain-option"
+        className={cn(
+          "flex min-h-9 min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors",
+          selectedCategory === category.id
+            ? "bg-accent text-accent-foreground font-medium"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+        )}
+        onClick={() => onCategoryChange(category.id)}
+      >
+        <span className="truncate">{category.name}</span>
+        <span className="flex shrink-0 items-center gap-1.5">
+          <BusinessDomainBadge domainGroup={category.domain_group} />
+          <span className="min-w-4 text-right text-xs tabular-nums">
+            {categoryCounts.get(category.id) ?? 0}
+          </span>
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -134,40 +165,59 @@ function FilterPanel({
             </Button>
           ) : null}
         </div>
-        <div className="grid gap-1">
-          <button
-            type="button"
-            className={cn(
-              "flex h-8 items-center justify-between rounded-lg px-2.5 text-left text-sm transition-colors",
-              selectedCategory === "all"
-                ? "bg-primary/10 text-primary font-medium"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-            onClick={() => onCategoryChange("all")}
-          >
-            <span>{t.agents.allCategories}</span>
-            <span className="text-xs tabular-nums">{agents.length}</span>
-          </button>
-          {categories.map((category) => (
-            <button
-              key={category.id}
+        <Collapsible open={categoriesOpen} onOpenChange={setCategoriesOpen}>
+          <CollapsibleTrigger asChild>
+            <Button
               type="button"
-              title={category.description}
-              className={cn(
-                "flex h-8 items-center justify-between rounded-lg px-2.5 text-left text-sm transition-colors",
-                selectedCategory === category.id
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-              onClick={() => onCategoryChange(category.id)}
+              variant="outline"
+              data-testid="business-domain-toggle"
+              aria-label={
+                categoriesOpen
+                  ? t.agents.collapseCategories
+                  : t.agents.expandCategories
+              }
+              className="h-auto min-h-10 w-full justify-between gap-2 px-2.5 py-2 text-left"
             >
-              <span className="truncate">{category.name}</span>
-              <span className="ml-2 text-xs tabular-nums">
-                {categoryCounts.get(category.id) ?? 0}
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-medium">
+                  {selectedCategoryName}
+                </span>
+                <span className="text-muted-foreground block text-[11px] font-normal">
+                  {t.agents.businessDomainCount.replace(
+                    "{count}",
+                    String(categories.length),
+                  )}
+                </span>
               </span>
-            </button>
-          ))}
-        </div>
+              {categoriesOpen ? (
+                <ChevronUpIcon aria-hidden="true" />
+              ) : (
+                <ChevronDownIcon aria-hidden="true" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div
+              data-testid="business-domain-directory"
+              className="mt-2 grid gap-0.5 pr-1"
+            >
+              <button
+                type="button"
+                className={cn(
+                  "flex min-h-9 items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors",
+                  selectedCategory === "all"
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+                onClick={() => onCategoryChange("all")}
+              >
+                <span>{t.agents.allCategories}</span>
+                <span className="text-xs tabular-nums">{agents.length}</span>
+              </button>
+              {categories.map(categoryButton)}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </section>
 
       <Separator />
@@ -225,28 +275,12 @@ function FilterPanel({
           <p className="text-muted-foreground text-xs">{t.agents.noTags}</p>
         )}
       </section>
-
-      {isAdmin ? (
-        <>
-          <Separator />
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start"
-            onClick={onManageCategories}
-          >
-            <Settings2Icon />
-            {t.agents.manageCategories}
-          </Button>
-        </>
-      ) : null}
     </div>
   );
 }
 
 export function AgentGallery() {
   const { t } = useI18n();
-  const { user } = useAuth();
   const router = useRouter();
   const { agents, isLoading, error } = useAgents();
   const {
@@ -260,7 +294,6 @@ export function AgentGallery() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [page, setPage] = useState(1);
   const contentRef = useRef<HTMLElement>(null);
@@ -329,8 +362,6 @@ export function AgentGallery() {
       onCategoryChange={setSelectedCategory}
       onTagToggle={toggleTag}
       onReset={resetFilters}
-      isAdmin={user?.system_role === "admin"}
-      onManageCategories={() => setCategoryManagerOpen(true)}
     />
   );
 
@@ -410,8 +441,11 @@ export function AgentGallery() {
         ref={contentRef}
         className="cnooc-page-content app-scroll-region min-h-0 flex-1 overflow-y-auto bg-slate-50/55 px-3 py-4 sm:px-6 sm:py-5 dark:bg-slate-950/30"
       >
-        <div className="mx-auto grid w-full max-w-6xl min-w-0 gap-5 lg:grid-cols-[13.5rem_minmax(0,1fr)]">
-          <aside className="bg-card sticky top-0 hidden self-start rounded-xl border p-3.5 shadow-sm lg:block">
+        <div className="mx-auto grid w-full max-w-6xl min-w-0 gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+          <aside
+            data-testid="desktop-filter-panel"
+            className="app-scroll-region bg-card sticky top-0 hidden max-h-[calc(100dvh-11rem)] self-start overflow-y-auto rounded-xl border p-3.5 shadow-sm [scrollbar-gutter:stable] lg:block"
+          >
             {filterPanel}
           </aside>
 
@@ -560,12 +594,15 @@ export function AgentGallery() {
       </main>
 
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="left" className="w-[88vw] max-w-sm">
+        <SheetContent side="left" className="w-[88vw] max-w-sm overflow-hidden">
           <SheetHeader>
             <SheetTitle>{t.agents.filters}</SheetTitle>
             <SheetDescription>{t.agents.filtersHint}</SheetDescription>
           </SheetHeader>
-          <div className="app-scroll-region overflow-y-auto px-4 pb-6">
+          <div
+            data-testid="mobile-filter-scroll"
+            className="app-scroll-region min-h-0 flex-1 overflow-y-auto px-4 pb-6 [scrollbar-gutter:stable]"
+          >
             {filterPanel}
           </div>
         </SheetContent>
@@ -578,11 +615,6 @@ export function AgentGallery() {
         onOpenChange={(open) => {
           if (!open) setEditingAgent(null);
         }}
-      />
-      <CategoryManagerDialog
-        categories={categories}
-        open={categoryManagerOpen}
-        onOpenChange={setCategoryManagerOpen}
       />
     </div>
   );

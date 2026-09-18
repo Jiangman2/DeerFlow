@@ -1,6 +1,7 @@
 {
   "schema_version": "1.0",
   "profile": "group_company",
+  "input_contract": {"kind": "group_company_standard_workbook", "version": "2026-09", "source_file": "group-company-standard-input.xlsx", "source_sha256": "6f2d1341c7bf304bc4b7bbf44c960a542a441d53947e36bbde3269a15b488b7f", "sheet": "Sheet2", "status": "PASS"},
   "report": {"cutoff_date": "2025-12-31", "prepared_date": "2026-02-18", "prepared_by": "财务管理部", "reviewed_by": "科研财务主管", "status": "final"},
   "project": {
     "name": "海上设施数字化运维技术研究项目",
@@ -14,6 +15,7 @@
     "end_date": "2025-12-31",
     "actual_start_date": "2023-01-01",
     "actual_end_date": "2025-12-31",
+    "acceptance_date": "2026-01-20",
     "research_content": ["设备健康监测", "数字化运维平台", "现场示范应用"],
     "governance_summary": "项目组按任务书组织实施。",
     "completion_summary": "项目已完成任务书约定内容。",
@@ -34,25 +36,25 @@
     "sources": [
       {"name": "有限公司资金", "kind": "company", "approved": 500, "received": 500, "spent": 475, "audited": null, "evidence_refs": ["E1", "E3"]},
       {"name": "承担单位自筹资金", "kind": "self_funded", "approved": 200, "received": 200, "spent": 190, "audited": null, "evidence_refs": ["E1", "E3"]},
-      {"name": "依托工程资金", "kind": "engineering", "approved": 100, "received": 100, "spent": 90, "audited": null, "evidence_refs": ["E1", "E3"]}
+      {"name": "其他资金", "kind": "other", "approved": 100, "received": 100, "spent": 90, "audited": null, "evidence_refs": ["E1", "E3"]}
     ],
     "annual_appropriations": [
-      {"year": 2023, "amount": 300, "document": "2023年度科技计划"},
-      {"year": 2024, "amount": 300, "document": "2024年度科技计划"},
-      {"year": 2025, "amount": 200, "document": "2025年度科技计划"}
+      {"year": 2023, "amount": 300, "actual_spent": 275, "sources": {"company": 190, "self_funded": 75, "other": 35}, "document": "2023年度科技计划"},
+      {"year": 2024, "amount": 300, "actual_spent": 285, "sources": {"company": 185, "self_funded": 75, "other": 40}, "document": "2024年度科技计划"},
+      {"year": 2025, "amount": 200, "actual_spent": 195, "sources": {"company": 125, "self_funded": 50, "other": 25}, "document": "2025年度科技计划"}
     ],
     "adjustments": {"none_declared": true, "items": []},
     "transfers": []
   },
   "expenses": [
-    {"code": "equipment_software", "name": "设备与软件费", "budget": 180, "adjusted_budget": 180, "reported": 170, "actual": 170, "audited": null, "description": "用于监测终端和平台软件购置。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
-    {"code": "materials_energy", "name": "材料/燃料动力费", "budget": 140, "adjusted_budget": 140, "reported": 135, "actual": 135, "audited": null, "description": "用于传感器辅材和现场试验能源消耗。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
-    {"code": "external_testing", "name": "外协实验/试验费", "budget": 120, "adjusted_budget": 120, "reported": 110, "actual": 110, "audited": null, "description": "用于第三方可靠性测试。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
-    {"code": "commissioned_research", "name": "外委研究费", "budget": 100, "adjusted_budget": 100, "reported": 96, "actual": 96, "audited": null, "description": "委托专业单位开展故障诊断模型研究。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
-    {"code": "publication_ip", "name": "出版/文献/信息传播/知识产权事务费", "budget": 70, "adjusted_budget": 70, "reported": 66, "actual": 66, "audited": null, "description": "用于论文、专利和资料印制。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
-    {"code": "travel_meeting_cooperation", "name": "会议/差旅/国际合作交流费", "budget": 70, "adjusted_budget": 70, "reported": 65, "actual": 65, "audited": null, "description": "用于现场调研、试验和项目研讨。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
-    {"code": "consulting_labor", "name": "专家咨询评审/劳务费", "budget": 60, "adjusted_budget": 60, "reported": 58, "actual": 58, "audited": null, "description": "用于专家评审和临时辅助人员劳务。", "variance_reason": "", "evidence_refs": ["E1", "E2"]},
-    {"code": "other", "name": "其他费用", "budget": 60, "adjusted_budget": 60, "reported": 55, "actual": 55, "audited": null, "description": "用于运输、租赁、维修和其他合规支出。", "variance_reason": "", "evidence_refs": ["E1", "E2"]}
+    {"code": "equipment_software", "name": "设备与软件费", "scope": "direct", "include_in_total": true, "budget": 180, "adjusted_budget": 180, "reported": 170, "actual": 170, "audited": null, "description": "用于监测终端和平台软件购置。", "variance_reason": "设备采购形成结余。", "evidence_refs": ["E1", "E2"]},
+    {"code": "materials_energy", "name": "材料/燃料动力费", "scope": "direct", "include_in_total": true, "budget": 140, "adjusted_budget": 140, "reported": 135, "actual": 135, "audited": null, "description": "用于传感器辅材和现场试验能源消耗。", "variance_reason": "材料询价形成结余。", "evidence_refs": ["E1", "E2"]},
+    {"code": "external_testing", "name": "外协实验/试验费", "scope": "direct", "include_in_total": true, "budget": 120, "adjusted_budget": 120, "reported": 110, "actual": 110, "audited": null, "description": "用于第三方可靠性测试。", "variance_reason": "测试方案优化形成结余。", "evidence_refs": ["E1", "E2"]},
+    {"code": "commissioned_research", "name": "外委研究费", "scope": "direct", "include_in_total": true, "budget": 100, "adjusted_budget": 100, "reported": 96, "actual": 96, "audited": null, "description": "委托专业单位开展故障诊断模型研究。", "variance_reason": "委托工作量优化形成结余。", "evidence_refs": ["E1", "E2"]},
+    {"code": "publication_ip", "name": "出版/文献/信息传播/知识产权事务费", "scope": "direct", "include_in_total": true, "budget": 70, "adjusted_budget": 70, "reported": 66, "actual": 66, "audited": null, "description": "用于论文、专利和资料印制。", "variance_reason": "出版与知识产权支出形成结余。", "evidence_refs": ["E1", "E2"]},
+    {"code": "travel_meeting_cooperation", "name": "会议/差旅/国际合作交流费", "scope": "direct", "include_in_total": true, "budget": 70, "adjusted_budget": 70, "reported": 65, "actual": 65, "audited": null, "description": "用于现场调研、试验和项目研讨。", "variance_reason": "会议差旅统筹形成结余。", "evidence_refs": ["E1", "E2"]},
+    {"code": "consulting_labor", "name": "专家咨询评审/劳务费", "scope": "direct", "include_in_total": true, "budget": 60, "adjusted_budget": 60, "reported": 58, "actual": 58, "audited": null, "description": "用于专家评审和临时辅助人员劳务。", "variance_reason": "咨询劳务支出形成结余。", "evidence_refs": ["E1", "E2"]},
+    {"code": "other", "name": "其他费用", "scope": "direct", "include_in_total": true, "budget": 60, "adjusted_budget": 60, "reported": 55, "actual": 55, "audited": null, "description": "用于运输、租赁、维修和其他合规支出。", "variance_reason": "其他费用形成结余。", "evidence_refs": ["E1", "E2"]}
   ],
   "management": {
     "accounting_standard": "《企业会计准则》",
