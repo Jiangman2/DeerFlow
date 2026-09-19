@@ -306,11 +306,18 @@ class ScheduledTaskRunRepository:
     ) -> dict[str, Any] | None:
         """Atomically move one waiting row into the lease-fenced launch phase."""
         async with self._sf() as session:
-            if session.get_bind().dialect.name == "postgresql":
+            dialect = session.get_bind().dialect.name
+            if dialect == "postgresql":
                 await session.execute(
                     text("SELECT pg_advisory_xact_lock(:lock_key)"),
                     {"lock_key": _SCHEDULER_BUDGET_LOCK_KEY},
                 )
+            elif dialect == "sqlite":
+                # Counting and promoting must share one writer reservation.
+                # A deferred SQLite transaction does not reserve the writer
+                # until the UPDATE, so concurrent claims for distinct rows can
+                # all observe the same stale count and exceed the global cap.
+                await session.execute(text("BEGIN IMMEDIATE"))
             executing = await session.scalar(select(func.count()).select_from(ScheduledTaskRunRow).where(ScheduledTaskRunRow.status.in_(EXECUTING_RUN_STATUSES)))
             if int(executing or 0) >= global_max_concurrent_runs:
                 await session.rollback()

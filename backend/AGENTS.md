@@ -102,7 +102,7 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   Ordinary function/custom tools and namespace children remain available, and
   unknown future hosted tool types still fail closed instead of being silently
   discarded.
-- Scheduled-task executions must reuse that same Gateway run lifecycle. The scheduler may decide _when_ work runs, but it must dispatch through the existing run path rather than introducing a parallel execution stack. Scheduled and manual occurrences share one global concurrency budget; durable queue admission, per-task active-run uniqueness, leases, and atomic terminal bookkeeping remain repository-owned so optional multi-instance scheduling is race-safe.
+- Scheduled-task executions must reuse that same Gateway run lifecycle. The scheduler may decide _when_ work runs, but it must dispatch through the existing run path rather than introducing a parallel execution stack. Scheduled and manual occurrences share one global concurrency budget; durable queue admission, per-task active-run uniqueness, leases, and atomic terminal bookkeeping remain repository-owned so optional multi-instance scheduling is race-safe. PostgreSQL serializes launch-budget claims with an advisory transaction lock; SQLite must reserve its database-wide writer with `BEGIN IMMEDIATE` before counting and promoting a queued occurrence, or claims for distinct rows can exceed that shared budget.
 - The enterprise single-replica Gateway reserves 2 CPU / 4Gi and is limited to
   4 CPU / 16Gi. Preserve this production saturation baseline in
   `k8s/enterprise/runtime-patches.yaml`; a scheduler or parser hotfix that

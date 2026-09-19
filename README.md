@@ -1765,7 +1765,7 @@ Current MVP capabilities:
 - Select or edit the execution model per task; when configured, enterprise task creation defaults to `deepseek-v4-flash`
 - Run background scheduled executions as non-interactive DeerFlow runs (`ask_clarification` is not exposed there)
 - Persist overlapping occurrences in a durable queue, enforce one active occurrence per task, and expire entries that exceed `scheduler.queue_timeout_seconds`
-- Apply the same global `scheduler.max_concurrent_runs` budget to scheduled and manual triggers
+- Apply the same global `scheduler.max_concurrent_runs` budget to scheduled and manual triggers, including concurrent claims in SQLite development and validation environments
 - Pause, resume, trigger, duplicate, inspect paginated history, and delete tasks
 - Optionally run multiple scheduler instances safely with database-backed leases and atomic completion bookkeeping
 - Execute scheduled work through the normal DeerFlow run lifecycle

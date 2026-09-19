@@ -713,7 +713,7 @@ DeerFlow 在 workspace 中内置了一等的定时任务能力；当前分支进
 - 每个任务可固定使用默认主智能体或一个指定的自定义智能体
 - 后台定时执行以非交互式 DeerFlow run 运行（那里不会暴露 `ask_clarification`）
 - 重叠的到期执行会进入持久化队列；每个任务同时只允许一个活跃执行，排队超过 `scheduler.queue_timeout_seconds` 的记录会失败退出
-- 自动执行和手动触发共同受 `scheduler.max_concurrent_runs` 全局并发预算约束
+- 自动执行和手动触发共同受 `scheduler.max_concurrent_runs` 全局并发预算约束，SQLite 开发与验证环境中的并发领取同样严格遵守该上限
 - 支持暂停、恢复、手动触发、复制、分页查看历史和删除任务
 - 可选择启用基于数据库租约和原子完成记账的多调度器实例模式
 - 定时任务通过正常的 DeerFlow run 生命周期执行
