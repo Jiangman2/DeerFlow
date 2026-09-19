@@ -34,7 +34,12 @@ export function isSafeHref(href: string | undefined): boolean {
   }
 }
 
-/** Inert stand-in for a link whose href failed `isSafeHref`. */
+/**
+ * Inert stand-in for a link whose href failed `isSafeHref`. It keeps the
+ * visible label and marks the omission on hover and for assistive tech, so
+ * every surface that applies the allowlist degrades the same way. Extra props
+ * pass through for wrappers such as Radix `asChild` triggers.
+ */
 export function UnsafeLink({
   href,
   className,
@@ -118,9 +123,7 @@ export function createMarkdownLinkComponent(
         );
       }
     }
-    const artifactPath = threadId
-      ? artifactPathFromHref(href, threadId)
-      : null;
+    const artifactPath = threadId ? artifactPathFromHref(href, threadId) : null;
     if (threadId && artifactPath) {
       const artifactURL = resolveArtifactURL(artifactPath, threadId);
       return (
