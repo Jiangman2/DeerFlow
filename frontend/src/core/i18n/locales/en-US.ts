@@ -408,6 +408,8 @@ export const enUS: Translations = {
       cronHint:
         "Use 5 fields: minute hour day month weekday. Every minute is * * * * * or */1 * * * *; 1 * * * * means the 1st minute of every hour.",
       runAt: "Run at",
+      invalidRunAt:
+        "This local time does not exist in the selected timezone. Choose another time.",
       timezone: "Timezone",
       timezoneShanghai: "Beijing time (Asia/Shanghai)",
       intervalAmount: "Repeat every",

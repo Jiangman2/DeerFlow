@@ -379,6 +379,7 @@ export const zhCN: Translations = {
       cronHint:
         "使用 5 段 cron：分钟 小时 日期 月份 星期。每分钟执行请填 * * * * * 或 */1 * * * *；1 * * * * 表示每小时第 1 分钟执行。",
       runAt: "运行时间",
+      invalidRunAt: "所选时区中不存在这个本地时间，请选择其他时间。",
       timezone: "时区",
       timezoneShanghai: "北京时间 (Asia/Shanghai)",
       intervalAmount: "重复间隔",

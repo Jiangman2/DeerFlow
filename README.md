@@ -1754,6 +1754,8 @@ switching tasks loads the selected task's own draft and schedule.
 Current MVP capabilities:
 
 - Manage tasks at `/workspace/scheduled-tasks`
+- Reject one-time local times skipped by daylight-saving transitions before a
+  task can be created or saved.
 - Choose whether each scheduled task reuses a thread or creates a fresh thread per run
 - Support `once`, `cron`, and fixed `interval` schedules (minimum 60 seconds), with server-side cron occurrence previews
 - Preserve the selected model, mode, reasoning, subagent, and knowledge-base scope for every scheduled execution

@@ -480,6 +480,11 @@ wall time and timezone remain unchanged. Keep that snapshot stable across parent
 feedback, and reset the parent draft before a task-keyed remount so DST folds and
 sub-minute timestamp precision cannot be changed by title-only edits or task
 switches.
+One-time schedule input uses `validZonedLocalToUtcIso` to reject wall times that
+do not round-trip in the selected timezone. Invalid input emits an empty spec and
+localized inline feedback; both create and edit must block submission. Keep this
+validation separate from the API payload, and restore the exact original instant
+when a changed wall time is reverted.
 
 ### Workspace announcements
 

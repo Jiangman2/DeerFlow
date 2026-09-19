@@ -1259,7 +1259,9 @@ export default function ScheduledTasksPage() {
                       {st.actions.cancelEdit}
                     </Button>
                     <Button
-                      onClick={() =>
+                      onClick={() => {
+                        if (!hasScheduleSpec(editSchedule.schedule_spec))
+                          return;
                         updateTask.mutate(
                           {
                             title: editTitle,
@@ -1273,9 +1275,12 @@ export default function ScheduledTasksPage() {
                             timezone: editSchedule.timezone || "UTC",
                           },
                           { onSuccess: () => setEditing(false) },
-                        )
+                        );
+                      }}
+                      disabled={
+                        updateTask.isPending ||
+                        !hasScheduleSpec(editSchedule.schedule_spec)
                       }
-                      disabled={updateTask.isPending}
                     >
                       {st.edit.submit}
                     </Button>

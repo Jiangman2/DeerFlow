@@ -288,6 +288,7 @@ export interface Translations {
       cronPlaceholder: string;
       cronHint: string;
       runAt: string;
+      invalidRunAt: string;
       timezone: string;
       timezoneShanghai: string;
       intervalAmount: string;
