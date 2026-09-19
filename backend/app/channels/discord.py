@@ -58,6 +58,11 @@ class DiscordChannel(Channel):
         # Lock protecting _active_threads and the JSON file from concurrent access.
         # _run_client (Discord loop thread) and the main thread both read/write.
         self._thread_store_lock = threading.Lock()
+        # Only flush the in-memory map after the persisted state has been
+        # loaded successfully. A channel whose start() exits early still gets
+        # stopped by ChannelService; writing its empty map would otherwise
+        # clobber valid mappings from the previous process lifetime.
+        self._thread_store_loaded = False
         store = config.get("channel_store")
         if store is not None:
             self._thread_store_path = store._path.parent / "discord_threads.json"
@@ -118,17 +123,19 @@ class DiscordChannel(Channel):
             try:
                 if not self._thread_store_path.exists():
                     logger.debug("[Discord] no thread mappings file at %s", self._thread_store_path)
-                    return
-                data = json.loads(self._thread_store_path.read_text())
-                self._active_threads.clear()
-                self._active_thread_ids.clear()
-                for channel_id, thread_id in data.items():
-                    self._active_threads[channel_id] = thread_id
-                    self._active_thread_ids.add(thread_id)
-                if self._active_threads:
-                    logger.info("[Discord] restored %d thread mappings from %s", len(self._active_threads), self._thread_store_path)
+                else:
+                    data = json.loads(self._thread_store_path.read_text())
+                    self._active_threads.clear()
+                    self._active_thread_ids.clear()
+                    for channel_id, thread_id in data.items():
+                        self._active_threads[channel_id] = thread_id
+                        self._active_thread_ids.add(thread_id)
+                    if self._active_threads:
+                        logger.info("[Discord] restored %d thread mappings from %s", len(self._active_threads), self._thread_store_path)
             except Exception:
                 logger.exception("[Discord] failed to load thread mappings")
+                return
+            self._thread_store_loaded = True
 
     def _record_thread_mapping(self, channel_id: str, thread_id: str) -> None:
         """Synchronously update the in-memory channel->thread mapping and its reverse-lookup set.
@@ -173,6 +180,15 @@ class DiscordChannel(Channel):
     async def stop(self) -> None:
         self._running = False
         self.bus.unsubscribe_outbound(self._on_outbound)
+
+        # The normal create path persists every new mapping. This final
+        # best-effort flush closes the shutdown window between the synchronous
+        # in-memory update and its offloaded filesystem write.
+        if self._thread_store_loaded:
+            try:
+                await asyncio.to_thread(self._persist_thread_mappings)
+            except Exception:
+                logger.warning("[Discord] failed to flush thread mappings during shutdown")
 
         # Cancel all active typing indicator tasks
         for target_id, task in list(self._typing_tasks.items()):
