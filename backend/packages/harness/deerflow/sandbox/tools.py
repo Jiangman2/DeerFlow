@@ -25,7 +25,7 @@ from deerflow.sandbox.exceptions import (
     SandboxRuntimeError,
 )
 from deerflow.sandbox.file_operation_lock import get_file_operation_lock
-from deerflow.sandbox.path_patterns import build_output_mask_pattern
+from deerflow.sandbox.path_patterns import build_output_mask_pattern, normalize_mask_tail
 from deerflow.sandbox.sandbox import Sandbox
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 from deerflow.sandbox.search import GrepMatch
@@ -561,11 +561,7 @@ def _resolve_local_read_path(path: str, thread_data: ThreadDataState) -> str:
 def _format_glob_results(root_path: str, matches: list[str], truncated: bool) -> str:
     if not matches:
         if truncated:
-            return (
-                f"Search under {root_path} stopped at its result limit with no "
-                "files matched in the part it covered; results are incomplete. "
-                "Narrow the path or pattern."
-            )
+            return f"Search under {root_path} stopped at its result limit with no files matched in the part it covered; results are incomplete. Narrow the path or pattern."
         return f"No files matched under {root_path}"
 
     lines = [f"Found {len(matches)} paths under {root_path}"]
@@ -580,11 +576,7 @@ def _format_glob_results(root_path: str, matches: list[str], truncated: bool) ->
 def _format_grep_results(root_path: str, matches: list[GrepMatch], truncated: bool) -> str:
     if not matches:
         if truncated:
-            return (
-                f"Search under {root_path} stopped at its result limit with no "
-                "matches in the part it covered; results are incomplete. Narrow "
-                "the path or add a glob filter."
-            )
+            return f"Search under {root_path} stopped at its result limit with no matches in the part it covered; results are incomplete. Narrow the path or add a glob filter."
         return f"No matches found under {root_path}"
 
     lines = [f"Found {len(matches)} matches under {root_path}"]
@@ -742,11 +734,9 @@ def _compiled_mask_patterns(sources: tuple[tuple[str, str], ...]) -> tuple[tuple
     glob/grep match, so without this the same patterns are recompiled per
     match.
     """
-    # The segment boundary and path tail are shared with
-    # ``LocalSandbox._reverse_output_patterns`` — see
-    # ``deerflow.sandbox.path_patterns``, which owns that rule so the two copies
-    # cannot drift again (#4035 fixed one and missed the other; #4053 fixed the
-    # other).
+    # The segment boundary and path tail are shared with LocalSandbox's direct
+    # scanner. ``deerflow.sandbox.path_patterns`` owns that rule so the two
+    # call sites cannot drift again.
     #
     # ``separator_agnostic=True`` is the one thing this site does differently:
     # its bases come from ``_path_variants``, which yields Windows-style
@@ -821,7 +811,7 @@ def mask_local_paths_in_output(output: str, thread_data: ThreadDataState | None)
             matched_path = match.group(0)
             if matched_path == _base:
                 return _virtual
-            relative = matched_path[len(_base) :].lstrip("/\\")
+            relative = normalize_mask_tail(matched_path[len(_base) :])
             return f"{_virtual}/{relative}" if relative else _virtual
 
         result = pattern.sub(replace_match, result)

@@ -1,10 +1,11 @@
-"""Issue #3647 — LocalSandbox must compile its path-rewrite regexes once per
-sandbox (cached), not on every bash/read_file/write_file call, while keeping
-the exact same rewriting behavior.
+"""LocalSandbox caches stable forward-path data while dynamic host-path
+masking avoids process-global regex retention.
 """
 
 from __future__ import annotations
 
+import os
+import re
 from pathlib import Path
 
 import pytest
@@ -32,16 +33,34 @@ def test_patterns_are_compiled_once_and_cached(tmp_path):
     # Each cached_property returns the identical object across accesses.
     assert sb._command_pattern is sb._command_pattern
     assert sb._content_pattern is sb._content_pattern
-    assert sb._reverse_output_patterns is sb._reverse_output_patterns
-    # Two mappings -> two reverse-output patterns.
-    assert len(sb._reverse_output_patterns) == 2
+    assert sb._resolved_local_paths is sb._resolved_local_paths
+
+
+def test_reverse_output_does_not_compile_regexes_for_unique_sandbox_paths(tmp_path):
+    resolved_tmp_path = str(tmp_path.resolve())
+    for index in range(32):
+        workspace = tmp_path / f"thread-{index}" / "workspace"
+        workspace.mkdir(parents=True)
+        sandbox = LocalSandbox(
+            id=f"thread-{index}",
+            path_mappings=[
+                PathMapping(
+                    container_path="/mnt/user-data/workspace",
+                    local_path=str(workspace),
+                )
+            ],
+        )
+
+        assert sandbox._reverse_resolve_paths_in_output(f"wrote {workspace}/result.txt") == "wrote /mnt/user-data/workspace/result.txt"
+
+    assert all(resolved_tmp_path not in str(cache_key) for cache_key in re._cache)
 
 
 def test_empty_mappings_yield_no_pattern(tmp_path):
     sb = LocalSandbox(id="empty", path_mappings=[])
     assert sb._command_pattern is None
     assert sb._content_pattern is None
-    assert sb._reverse_output_patterns == []
+    assert sb._resolved_local_paths == {}
     # No mappings -> command/content pass through unchanged.
     assert sb._resolve_paths_in_command("echo hello") == "echo hello"
     assert sb._resolve_paths_in_content("plain text") == "plain text"
@@ -49,7 +68,7 @@ def test_empty_mappings_yield_no_pattern(tmp_path):
 
 def test_command_paths_resolved_to_local(tmp_path):
     sb = _make_sandbox(tmp_path)
-    ws_local = str((tmp_path / "workspace").resolve())
+    ws_local = str((tmp_path / "workspace").resolve()).replace("\\", "/")
     out = sb._resolve_paths_in_command("cat /mnt/user-data/workspace/foo.txt")
     assert out == f"cat {ws_local}/foo.txt"
     # Calling again uses the cached pattern and produces the same result.
@@ -103,7 +122,7 @@ def test_reverse_resolve_does_not_match_inside_longer_sibling(tmp_path, suffix):
 def test_reverse_resolve_still_matches_root_before_non_slash_boundaries(tmp_path, trailer, expected_trailer):
     """The narrowing must not drop boundaries the old pattern accepted.
 
-    ``_reverse_output_patterns`` runs over arbitrary command output, so the mount
+    Reverse masking runs over arbitrary command output, so the mount
     root can legitimately be followed by ``,``, ``:`` or ``\\``. Copying
     ``_command_pattern``'s shell-oriented boundary class here would silently stop
     translating all three; this pins the ``_content_pattern`` class that does not.
@@ -210,7 +229,7 @@ def test_forward_resolution_behavior_unchanged(tmp_path):
     sb = _make_sandbox(tmp_path)
     ws_local = str((tmp_path / "workspace").resolve())
     # Container path resolves to the mapped local path.
-    assert sb._resolve_path("/mnt/user-data/workspace/sub/foo.txt") == f"{ws_local}/sub/foo.txt"
+    assert sb._resolve_path("/mnt/user-data/workspace/sub/foo.txt") == os.path.join(ws_local, "sub", "foo.txt")
     # An unmapped path is returned unchanged.
     assert sb._resolve_path("/etc/hosts") == "/etc/hosts"
 

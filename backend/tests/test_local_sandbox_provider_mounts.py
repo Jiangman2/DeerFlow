@@ -575,6 +575,76 @@ class TestMultipleMounts:
         assert "/mnt/data/file.txt" in masked
         assert str(mount_dir) not in masked
 
+    @pytest.mark.parametrize("suffix", ["", ":3:needle", " 3 needle"])
+    def test_reverse_resolve_keeps_mount_spelling_for_symlink_resolving_outside(
+        self,
+        tmp_path,
+        suffix,
+    ):
+        workspace = (tmp_path / "workspace").resolve()
+        workspace.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "secret.py").write_text("needle\n", encoding="utf-8")
+        _symlink_to(outside / "secret.py", workspace / "link.py")
+        sandbox = LocalSandbox(
+            "test",
+            [
+                PathMapping(
+                    container_path="/mnt/user-data/workspace",
+                    local_path=str(workspace),
+                )
+            ],
+        )
+
+        masked = sandbox._reverse_resolve_paths_in_output(f"{workspace}/link.py{suffix}")
+
+        assert masked == f"/mnt/user-data/workspace/link.py{suffix}"
+        assert sandbox.glob("/mnt/user-data/workspace", "*.py") == (
+            ["/mnt/user-data/workspace/link.py"],
+            False,
+        )
+
+    def test_reverse_resolve_prefers_mount_containing_symlink_target(self, tmp_path):
+        workspace = (tmp_path / "workspace").resolve()
+        uploads = (tmp_path / "uploads").resolve()
+        workspace.mkdir()
+        uploads.mkdir()
+        (uploads / "doc.md").write_text("x\n", encoding="utf-8")
+        _symlink_to(uploads / "doc.md", workspace / "doc.md")
+        sandbox = LocalSandbox(
+            "test",
+            [
+                PathMapping(
+                    container_path="/mnt/user-data/workspace",
+                    local_path=str(workspace),
+                ),
+                PathMapping(
+                    container_path="/mnt/user-data/uploads",
+                    local_path=str(uploads),
+                ),
+            ],
+        )
+
+        assert sandbox._reverse_resolve_path(str(workspace / "doc.md")) == "/mnt/user-data/uploads/doc.md"
+
+    def test_reverse_resolve_spelling_fallback_rejects_dot_dot_escape(self, tmp_path):
+        workspace = (tmp_path / "workspace").resolve()
+        workspace.mkdir()
+        sandbox = LocalSandbox(
+            "test",
+            [
+                PathMapping(
+                    container_path="/mnt/user-data/workspace",
+                    local_path=str(workspace),
+                )
+            ],
+        )
+
+        resolved = sandbox._reverse_resolve_path(f"{workspace}/../outside/secret.py")
+
+        assert not resolved.startswith("/mnt/user-data/workspace")
+
 
 class TestLocalSandboxProviderMounts:
     def test_setup_path_mappings_uses_configured_skills_container_path_as_reserved_prefix(self, tmp_path):

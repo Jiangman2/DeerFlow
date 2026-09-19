@@ -15,7 +15,7 @@ from typing import NamedTuple
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.sandbox.env_policy import build_sandbox_env
 from deerflow.sandbox.local.list_dir import list_dir
-from deerflow.sandbox.path_patterns import build_output_mask_pattern
+from deerflow.sandbox.path_patterns import replace_output_path_matches
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, find_glob_matches, find_grep_matches
 
@@ -194,9 +194,9 @@ class LocalSandbox(Sandbox):
         self._agent_written_paths: set[str] = set()
 
     # ``path_mappings`` is set once in ``__init__`` and never mutated, so the
-    # sorted views and compiled path-rewrite patterns below are stable for the
-    # sandbox's lifetime. Caching them avoids re-sorting and re-compiling these
-    # regexes on every bash/read_file/write_file call (the agent's hot path).
+    # sorted views and resolved roots below are stable for the sandbox's
+    # lifetime. Caching them avoids repeated filesystem resolution and sorting
+    # on every bash/read_file/write_file call (the agent's hot path).
 
     @cached_property
     def _command_pattern(self) -> re.Pattern[str] | None:
@@ -217,26 +217,6 @@ class LocalSandbox(Sandbox):
             return None
         patterns = [re.escape(m.container_path) + r"(?=/|$|[^\w./-])(?:/[^\s\"';&|<>()]*)?" for m in mappings]
         return re.compile("|".join(f"({p})" for p in patterns))
-
-    @cached_property
-    def _reverse_output_patterns(self) -> list[re.Pattern[str]]:
-        """Compiled matchers for local paths in command output (longest local path first)."""
-        # The rule — segment boundary plus path tail — is owned by
-        # ``deerflow.sandbox.path_patterns`` and shared with
-        # ``sandbox.tools._compiled_mask_patterns``, the other site that rewrites host
-        # paths back to virtual ones. Its rationale (why the boundary class is
-        # text-oriented rather than shell-oriented like ``_command_pattern``, why ``$``
-        # is load-bearing) lives with the owner rather than in a second copy here, which
-        # is what let the two drift before (#4035 added the boundary here and missed
-        # that site; #4053 added it there).
-        #
-        # What is specific to this site: without the boundary the regex yields the bare
-        # root, which then *equals* the mount root and so satisfies
-        # ``_reverse_resolve_path``'s own ``+ "/"`` guard — the sibling is rewritten to a
-        # container path that forward resolution refuses to map back. And bases stay
-        # separator-*sensitive*: they come from ``Path.resolve()`` and already carry the
-        # platform's separator, so relaxing them would widen what this masks.
-        return [build_output_mask_pattern(self._resolved_local_paths[m]) for m in self._mappings_by_local_specificity]
 
     @cached_property
     def _resolved_local_paths(self) -> dict[PathMapping, str]:
@@ -341,6 +321,20 @@ class LocalSandbox(Sandbox):
         normalized_path = path.replace("\\", "/")
         path_str = str(Path(normalized_path).resolve())
 
+        container_path = self._container_path_for_local(path_str)
+        if container_path is None:
+            # A symlink inside a mount can resolve outside every mount. Keep
+            # the link's normalized spelling virtual instead of exposing its
+            # target's host path. normpath also rejects mount/../ escapes.
+            container_path = self._container_path_for_local(os.path.normpath(normalized_path))
+        if container_path is not None:
+            return container_path
+
+        # No mapping found, return the filesystem-resolved original path.
+        return path_str
+
+    def _container_path_for_local(self, local_path: str) -> str | None:
+        """Translate a native-separated host path under a mount."""
         # Try each mapping (longest local path first for more specific matches)
         for mapping in self._mappings_by_local_specificity:
             local_path_resolved = self._resolved_local_paths[mapping]
@@ -352,17 +346,14 @@ class LocalSandbox(Sandbox):
             # backslash-joined nested path on Windows, so every nested path
             # silently fell through to the "no mapping found" branch below and
             # leaked the raw host path (real username, full directory tree).
-            if path_str == local_path_resolved or path_str.startswith(local_path_resolved + os.sep):
+            if local_path == local_path_resolved or local_path.startswith(local_path_resolved + os.sep):
                 # Replace the local path prefix with container path. Container
                 # paths are always POSIX-style, so the extracted relative
                 # portion (native-separated on Windows) is normalized to
                 # forward slashes before being spliced in.
-                relative = path_str[len(local_path_resolved) :].lstrip(os.sep).replace(os.sep, "/")
-                resolved = f"{mapping.container_path}/{relative}" if relative else mapping.container_path
-                return resolved
-
-        # No mapping found, return original path
-        return path_str
+                relative = local_path[len(local_path_resolved) :].lstrip(os.sep).replace(os.sep, "/")
+                return f"{mapping.container_path}/{relative}" if relative else mapping.container_path
+        return None
 
     def _reverse_resolve_paths_in_output(self, output: str) -> str:
         """
@@ -374,16 +365,18 @@ class LocalSandbox(Sandbox):
         Returns:
             Output with local paths resolved to container paths
         """
-        # Patterns are compiled once per sandbox (longest local path first for
-        # correct prefix matching) and reused across calls.
+        # Scan directly instead of compiling one regex per thread root. Python's
+        # global regex cache otherwise retains high-cardinality paths after an
+        # evicted LocalSandbox is gone. Matching is separator-agnostic because
+        # forward resolution emits forward slashes on Windows.
         result = output
-        for pattern in self._reverse_output_patterns:
-
-            def replace_match(match: re.Match) -> str:
-                matched_path = match.group(0)
-                return self._reverse_resolve_path(matched_path)
-
-            result = pattern.sub(replace_match, result)
+        for mapping in self._mappings_by_local_specificity:
+            result = replace_output_path_matches(
+                result,
+                self._resolved_local_paths[mapping],
+                self._reverse_resolve_path,
+                separator_agnostic=True,
+            )
 
         return result
 
