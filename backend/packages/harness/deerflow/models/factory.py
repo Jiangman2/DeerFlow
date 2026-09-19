@@ -227,6 +227,7 @@ def create_chat_model(
             # display) — must never reach the provider client, which would
             # forward unknown kwargs into the completion request payload.
             "pricing",
+            "request_admission",
         },
     )
     if model_overrides:
@@ -302,6 +303,18 @@ def create_chat_model(
     if "stream_usage" not in model_settings_from_config and "stream_usage" not in kwargs:
         if "stream_usage" in getattr(model_class, "model_fields", {}):
             model_settings_from_config["stream_usage"] = True
+
+    if model_config.request_admission is not None:
+        from deerflow.models.request_admission import get_request_admission
+
+        if "rate_limiter" in kwargs or "rate_limiter" in model_settings_from_config:
+            raise ValueError("request_admission cannot be combined with a custom rate_limiter")
+        model_settings_from_config["rate_limiter"] = get_request_admission(name, model_config.request_admission)
+        # SDK-internal retries do not re-enter BaseChatModel's admission hook.
+        # Keep retries at the middleware layer where each attempt is paced.
+        if "max_retries" in model_class.model_fields:
+            kwargs.pop("max_retries", None)
+            model_settings_from_config["max_retries"] = 0
 
     _warn_unknown_model_settings(model_class, name, model_settings_from_config)
 

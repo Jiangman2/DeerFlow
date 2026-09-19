@@ -2,6 +2,41 @@
 
 This guide explains how to configure DeerFlow for your environment.
 
+## Model request admission
+
+For provider request-per-minute limits, opt into pacing on each relevant
+`models[]` entry:
+
+```yaml
+request_admission:
+  requests_per_minute: 60
+  group: shared-provider-account
+  max_wait_seconds: 300
+  max_queue_size: 256
+```
+
+Calls wait in a bounded FIFO before dispatch. At 60 RPM, admissions are spaced
+at least one second apart even after idle periods. The first call can proceed
+immediately. Async waiting is cancellable; cancellation, queue overflow, and
+wait expiry do not spend an admission permit.
+
+An explicit `group` shares one budget across model profiles that use the same
+provider quota. Omit it for a separate budget per configured model name. Every
+profile in a group must use identical settings, and the Gateway must be
+restarted after changing, disabling, or regrouping an active policy.
+
+When enabled, provider SDK retries are set to zero because they would bypass
+the LangChain admission hook. DeerFlow's model-call middleware retries remain
+available, and each attempt re-enters admission. A caller-supplied
+`rate_limiter` cannot be combined with `request_admission`.
+
+This is process-local RPM pacing, not token accounting or a cluster-wide quota
+service. In a multi-replica Gateway deployment, divide the provider allowance
+across replicas and keep headroom for other consumers. The existing
+`llm_call.max_concurrent_calls` remains independent; its slot is held while the
+model waits for admission. The feature is disabled unless explicitly
+configured.
+
 ## Config Versioning
 
 `config.example.yaml` contains a `config_version` field that tracks schema changes. When the example version is higher than your local `config.yaml`, the application emits a startup warning:

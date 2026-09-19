@@ -105,6 +105,10 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
 
 ### Configuration
 
+Optional per-model [`request_admission`](backend/docs/CONFIGURATION.md#model-request-admission)
+paces calls against provider request-per-minute limits. It is disabled unless
+explicitly configured.
+
 1. **Clone the DeerFlow repository**
 
    ```bash
