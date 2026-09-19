@@ -275,6 +275,42 @@ def test_list_dir_rejects_incomplete_remote_traversal() -> None:
         box.list_dir("/mnt/user-data")
 
 
+def test_glob_rejects_missing_status_marker() -> None:
+    box = BoxliteBox("box-id", box=_FakeBox(name="box-id"), run=_fake_run)
+    box._sh = lambda script: types.SimpleNamespace(
+        stdout="/mnt/user-data/a.py\n",
+        stderr="",
+        exit_code=0,
+    )
+
+    with pytest.raises(OSError, match="status marker missing"):
+        box.glob("/mnt/user-data", "*.py")
+
+
+def test_glob_propagates_raw_output_truncation_after_filtering() -> None:
+    box = BoxliteBox("box-id", box=_FakeBox(name="box-id"), run=_fake_run)
+    lines = "\n".join(f"/mnt/user-data/node_modules/f{index}.py" for index in range(52))
+    box._sh = lambda script: types.SimpleNamespace(
+        stdout=f"{lines}\n\n__DF_SEARCH_STATUS__:141\n",
+        stderr="",
+        exit_code=0,
+    )
+
+    assert box.glob("/mnt/user-data", "*.py", max_results=1) == ([], True)
+
+
+def test_grep_rejects_partial_remote_failure() -> None:
+    box = BoxliteBox("box-id", box=_FakeBox(name="box-id"), run=_fake_run)
+    box._sh = lambda script: types.SimpleNamespace(
+        stdout=("/mnt/user-data/a.py:1:needle\n\n__DF_SEARCH_STATUS__:2\n"),
+        stderr="",
+        exit_code=0,
+    )
+
+    with pytest.raises(OSError, match="results would be incomplete"):
+        box.grep("/mnt/user-data", "needle")
+
+
 def test_sandbox_id_deterministic(monkeypatch):
     """_sandbox_id produces the same id for the same inputs."""
     monkeypatch.setattr(

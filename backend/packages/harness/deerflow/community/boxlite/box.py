@@ -29,6 +29,10 @@ from deerflow.sandbox.remote_list_dir import (
     parse_remote_list_dir_output,
     remote_list_dir_command,
 )
+from deerflow.sandbox.remote_search import (
+    parse_remote_search_output,
+    remote_search_command,
+)
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
 
@@ -296,13 +300,19 @@ class BoxliteBox(Sandbox):
         types = ("f", "d") if include_dirs else ("f",)
         type_expr = " -o ".join(f"-type {t}" for t in types)
         hard_limit = max(max_results * 4, max_results + 50)
-        r = self._sh(f"find {shlex.quote(resolved)} \\( {type_expr} \\) -print 2>/dev/null | head -{hard_limit}")
+        search = f"find -H {shlex.quote(resolved)} \\( {type_expr} \\) -print 2>/dev/null"
+        result = self._sh(remote_search_command(search, resolved, limit=hard_limit))
+        output = parse_remote_search_output(
+            result.stdout,
+            resolved,
+            tool="find",
+            limit=hard_limit,
+        )
 
         matches: list[str] = []
         root = resolved.rstrip("/") or "/"
         root_prefix = root if root == "/" else f"{root}/"
-        for entry in (r.stdout or "").splitlines():
-            entry = entry.strip()
+        for entry in output.text.splitlines():
             if not entry or (entry != root and not entry.startswith(root_prefix)):
                 continue
             if should_ignore_path(entry):
@@ -314,7 +324,7 @@ class BoxliteBox(Sandbox):
                 matches.append(entry)
                 if len(matches) >= max_results:
                     return matches, True
-        return matches, False
+        return matches, output.truncated
 
     def grep(
         self,
@@ -342,13 +352,19 @@ class BoxliteBox(Sandbox):
             flags.append("-i")
         flags.append("-F" if literal else "-E")
         total_cap = max(max_results * 4, max_results + 50)
-        cmd = "grep " + " ".join(flags) + f" -e {shlex.quote(pattern)} {shlex.quote(resolved)} 2>/dev/null | head -{total_cap}"
-        r = self._sh(cmd)
+        search = "grep " + " ".join(flags) + f" -e {shlex.quote(pattern)} {shlex.quote(resolved)} 2>/dev/null"
+        result = self._sh(remote_search_command(search, resolved, limit=total_cap))
+        output = parse_remote_search_output(
+            result.stdout,
+            resolved,
+            tool="grep",
+            limit=total_cap,
+        )
 
         include = glob.split("/")[-1] if glob else None
         matches: list[GrepMatch] = []
-        truncated = False
-        for raw in (r.stdout or "").splitlines():
+        truncated = output.truncated
+        for raw in output.text.splitlines():
             try:
                 file_path, line_no_str, line_text = raw.split(":", 2)
             except ValueError:

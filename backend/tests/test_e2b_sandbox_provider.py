@@ -338,6 +338,50 @@ def test_list_dir_closed_client_fails_loudly():
         sandbox.list_dir("/mnt/user-data")
 
 
+def test_glob_rejects_missing_status_marker():
+    commands = FakeCommandsAPI([SimpleNamespace(stdout="/home/user/a.py\n", stderr="", exit_code=0)])
+    sandbox = _make_sandbox(FakeClient(commands=commands))
+
+    with pytest.raises(OSError, match="status marker missing"):
+        sandbox.glob("/mnt/user-data", "*.py")
+
+
+def test_glob_propagates_raw_output_truncation_after_filtering():
+    lines = "\n".join(f"/home/user/node_modules/f{index}.py" for index in range(52))
+    commands = FakeCommandsAPI(
+        [
+            SimpleNamespace(
+                stdout=f"{lines}\n\n__DF_SEARCH_STATUS__:141\n",
+                stderr="",
+                exit_code=0,
+            )
+        ]
+    )
+    sandbox = _make_sandbox(FakeClient(commands=commands))
+
+    matches, truncated = sandbox.glob("/mnt/user-data", "*.py", max_results=1)
+
+    assert matches == []
+    assert truncated is True
+    assert "head -n 52" in commands.calls[0]
+
+
+def test_grep_rejects_partial_remote_failure():
+    commands = FakeCommandsAPI(
+        [
+            SimpleNamespace(
+                stdout=("/home/user/a.py:1:needle\n\n__DF_SEARCH_STATUS__:2\n"),
+                stderr="",
+                exit_code=0,
+            )
+        ]
+    )
+    sandbox = _make_sandbox(FakeClient(commands=commands))
+
+    with pytest.raises(OSError, match="results would be incomplete"):
+        sandbox.grep("/mnt/user-data", "needle")
+
+
 def test_execute_command_forwards_env_as_envs():
     """Per-call ``env`` reaches the e2b SDK as ``envs`` so secrets like
     ``GITHUB_TOKEN`` are scoped to a single command without mutating shared

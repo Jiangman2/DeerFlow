@@ -2,6 +2,8 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from deerflow.community.aio_sandbox.aio_sandbox import AioSandbox
 from deerflow.config.paths import Paths
 from deerflow.sandbox.local.local_sandbox import LocalSandbox, PathMapping
@@ -225,6 +227,43 @@ def test_aio_sandbox_glob_include_dirs_filters_nested_ignored(monkeypatch) -> No
     assert "/mnt/workspace/node_modules" not in matches
     assert "/mnt/workspace/node_modules/lib" not in matches
     assert truncated is False
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments", "expected_fragment"),
+    [
+        (glob_tool, {"pattern": "*.py"}, "no files matched in the part it covered"),
+        (grep_tool, {"pattern": "needle"}, "no matches in the part it covered"),
+    ],
+)
+def test_search_tools_report_empty_truncated_results_as_incomplete(
+    monkeypatch,
+    tool,
+    arguments,
+    expected_fragment,
+) -> None:
+    sandbox = SimpleNamespace(
+        glob=lambda *args, **kwargs: ([], True),
+        grep=lambda *args, **kwargs: ([], True),
+    )
+    monkeypatch.setattr(
+        "deerflow.sandbox.tools.ensure_sandbox_initialized",
+        lambda runtime: sandbox,
+    )
+    runtime = SimpleNamespace(
+        state={"sandbox": {"sandbox_id": "remote"}},
+        context={"thread_id": "thread"},
+    )
+
+    result = tool.func(
+        runtime=runtime,
+        description="bounded remote search",
+        path="/mnt/user-data/workspace",
+        **arguments,
+    )
+
+    assert expected_fragment in result
+    assert "results are incomplete" in result
 
 
 def test_aio_sandbox_glob_include_dirs_exactly_full_is_complete(monkeypatch) -> None:
