@@ -93,8 +93,19 @@ async def scan_skill_content(
     location: str = SKILL_MD_FILE,
     app_config: AppConfig | None = None,
     static_findings: list[dict[str, Any]] | None = None,
+    attach_tracing: bool = True,
 ) -> ScanResult:
-    """Screen skill content before it is written to disk."""
+    """Screen skill content before it is written to disk.
+
+    ``attach_tracing`` follows the tracing INVARIANT in
+    ``agents/lead_agent/agent.py``: in-graph callers must pass ``False`` because
+    the graph root already attached the callbacks, and attaching again at the
+    model emits duplicate spans *and* blocks the Langfuse handler's
+    ``propagate_attributes`` path. This function is dual-use, so the flag is the
+    caller's to set — the in-graph choke point is ``_scan_or_raise`` in
+    ``tools/skill_manage_tool.py``. Standalone callers (Gateway skill routes,
+    ``skills/installer.py``) have no root to inherit from and keep the default.
+    """
     rubric = (
         "You are a security reviewer for AI agent skills. "
         "Classify the content as allow, warn, or block. "
@@ -126,7 +137,7 @@ async def scan_skill_content(
         try:
             model_kwargs = {
                 "thinking_enabled": False,
-                "attach_tracing": False,
+                "attach_tracing": attach_tracing,
                 "app_config": config,
             }
             if model_name:
