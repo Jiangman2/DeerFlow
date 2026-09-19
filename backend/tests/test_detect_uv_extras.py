@@ -125,6 +125,25 @@ def test_section_value_does_not_descend_into_grandchildren():
     assert detect.section_value(yaml_lines, "database", "backend") == "sqlite"
 
 
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+@pytest.mark.parametrize(
+    ("config_text", "expected"),
+    [
+        ("database:\n  backend: postgres\n", ["postgres"]),
+        ("tools:\n  - name: browser_navigate\n", ["browser"]),
+        ("models:\n  - use: langchain_ollama:ChatOllama\n", ["ollama"]),
+        ("database:\n  backend: sqlite\n", []),
+        ("# database:\n#   backend: postgres\n", []),
+    ],
+    ids=["postgres", "browser", "ollama", "sqlite", "commented"],
+)
+def test_detect_from_config_utf8_with_optional_bom(tmp_path, encoding, config_text, expected):
+    """A UTF-8 BOM must not hide the first section or enable inactive extras."""
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(config_text, encoding=encoding)
+    assert detect.detect_from_config(cfg) == expected
+
+
 def test_detect_from_config_postgres_via_database(tmp_path):
     cfg = tmp_path / "config.yaml"
     cfg.write_text("database:\n  backend: postgres\n  postgres_url: $DATABASE_URL\n")
@@ -153,6 +172,91 @@ def test_detect_from_config_memory_stream_bridge_returns_no_extras(tmp_path):
     cfg = tmp_path / "config.yaml"
     cfg.write_text("stream_bridge:\n  type: memory\n  queue_maxsize: 256\n")
     assert detect.detect_from_config(cfg) == []
+
+
+def test_detect_from_config_ollama_via_model_use(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "models:\n  - name: qwen3-local\n    use: langchain_ollama:ChatOllama\n    model: qwen3:32b\n    base_url: http://localhost:11434\n",
+    )
+    assert detect.detect_from_config(cfg) == ["ollama"]
+
+
+def test_detect_from_config_ollama_when_use_is_the_first_key(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("models:\n  - use: langchain_ollama:ChatOllama\n    name: qwen3-local\n")
+    assert detect.detect_from_config(cfg) == ["ollama"]
+
+
+def test_detect_from_config_ignores_commented_ollama_block(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "models:\n  # - name: qwen3-local\n  #   use: langchain_ollama:ChatOllama\n  #   base_url: http://localhost:11434\n",
+    )
+    assert detect.detect_from_config(cfg) == []
+
+
+def test_detect_from_config_ignores_use_in_nested_model_mapping(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "models:\n  - name: doubao\n    use: deerflow.models.patched_deepseek:PatchedChatDeepSeek\n    when_thinking_enabled:\n      use: langchain_ollama:ChatOllama\n",
+    )
+    assert detect.detect_from_config(cfg) == []
+
+
+def test_detect_from_config_ollama_in_setup_wizard_output(tmp_path):
+    from wizard.writer import build_minimal_config
+
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        build_minimal_config(
+            provider_use="langchain_ollama:ChatOllama",
+            model_name="qwen3:32b",
+            display_name="Qwen3 32B (Ollama)",
+            api_key_field="api_key",
+            env_var=None,
+            base_url="http://localhost:11434",
+        ),
+        encoding="utf-8",
+    )
+    assert "\nmodels:\n- " in cfg.read_text(encoding="utf-8")
+    assert "ollama" in detect.detect_from_config(cfg)
+
+
+def test_detect_from_config_ollama_via_indentless_models_list(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("models:\n- name: qwen3-local\n  use: langchain_ollama:ChatOllama\n  model: qwen3:32b\n")
+    assert detect.detect_from_config(cfg) == ["ollama"]
+
+
+def test_detect_from_config_ollama_when_use_follows_a_nested_list(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "models:\n  - name: local\n    model: qwen3:32b\n    stop:\n      - END\n    use: langchain_ollama:ChatOllama\n",
+    )
+    assert detect.detect_from_config(cfg) == ["ollama"]
+
+
+def test_detect_from_config_ignores_use_in_nested_indentless_sequence(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "models:\n- name: x\n  use: deerflow.models.patched_deepseek:PatchedChatDeepSeek\n  fallbacks:\n  - use: langchain_ollama:ChatOllama\n",
+    )
+    assert detect.detect_from_config(cfg) == []
+
+
+def test_detect_from_config_non_ollama_model_returns_no_extras(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("models:\n  - name: gpt\n    use: langchain_openai:ChatOpenAI\n    model: gpt-4o\n")
+    assert detect.detect_from_config(cfg) == []
+
+
+def test_detect_from_config_combines_ollama_and_postgres(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        "database:\n  backend: postgres\nmodels:\n  - name: qwen3-local\n    use: langchain_ollama:ChatOllama\n",
+    )
+    assert detect.detect_from_config(cfg) == ["ollama", "postgres"]
 
 
 def test_detect_from_config_combines_postgres_and_redis(tmp_path):

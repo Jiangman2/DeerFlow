@@ -12,6 +12,7 @@ Order of resolution:
    - checkpointer.type == postgres       -> postgres
    - stream_bridge.type == redis         -> redis
    - tools[].name == browser_navigate    -> browser
+   - models[].use == langchain_ollama:*  -> ollama
 3. Runtime environment toggles that enable optional backends:
    - DEER_FLOW_STREAM_BRIDGE_REDIS_URL   -> redis
 
@@ -76,6 +77,10 @@ _SECTION_RE = re.compile(r"^([A-Za-z_][\w-]*)\s*:\s*$")
 _INDENTED_SECTION_RE = re.compile(r"^\s+([A-Za-z_][\w-]*)\s*:\s*$")
 _KEY_RE = re.compile(r"^\s+([A-Za-z_][\w-]*)\s*:\s*(\S.*?)\s*$")
 _LIST_ITEM_KEY_RE = re.compile(r"^(\s*)-\s+([A-Za-z_][\w-]*)\s*:\s*(.*?)\s*$")
+_MODEL_USE_RE = re.compile(r"^\s*(?:-\s+)?use\s*:\s*(\S.*?)\s*$")
+_LIST_ITEM_RE = re.compile(r"^(\s*)(-\s+)\S")
+
+_PROVIDER_EXTRAS = {"langchain_ollama": "ollama"}
 
 
 def _strip_comment(line: str) -> str:
@@ -270,9 +275,53 @@ def tools_include_name(lines: list[str], tool_name: str) -> bool:
     return False
 
 
+def models_use_providers(lines: list[str]) -> set[str]:
+    """Return provider modules referenced by direct ``models[].use`` fields.
+
+    The parser supports both indented lists and the indentless list emitted by
+    ``yaml.safe_dump``. Nested mappings and nested sequences are ignored so an
+    Ollama fallback cannot accidentally install the Ollama extra for a model
+    whose primary provider is different.
+    """
+    inside = False
+    item_indent: int | None = None
+    key_indent: int | None = None
+    providers: set[str] = set()
+    for raw in lines:
+        line = _strip_comment(raw)
+        if not line.strip():
+            continue
+        sect_match = _SECTION_RE.match(line)
+        if sect_match:
+            inside = sect_match.group(1) == "models"
+            item_indent = key_indent = None
+            continue
+        if not inside:
+            continue
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+        item_match = _LIST_ITEM_RE.match(line)
+        if item_match and (
+            item_indent is None or len(item_match.group(1)) == item_indent
+        ):
+            item_indent = len(item_match.group(1))
+            key_indent = item_indent + len(item_match.group(2))
+        elif indent == 0 or (item_indent is not None and indent <= item_indent):
+            inside = False
+            item_indent = key_indent = None
+            continue
+        elif item_match or indent != key_indent:
+            continue
+        use_match = _MODEL_USE_RE.match(line)
+        if use_match:
+            target = _unquote(use_match.group(1).strip())
+            providers.add(target.split(":", 1)[0].split(".", 1)[0])
+    return providers
+
+
 def detect_from_config(path: Path) -> list[str]:
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        text = path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return []
     lines = text.splitlines()
@@ -283,10 +332,16 @@ def detect_from_config(path: Path) -> list[str]:
         extras.add("postgres")
     if (section_value(lines, "stream_bridge", "type") or "").lower() == "redis":
         extras.add("redis")
-    if (nested_section_value(lines, "channels.discord", "enabled") or "").lower() == "true":
+    if (
+        nested_section_value(lines, "channels.discord", "enabled") or ""
+    ).lower() == "true":
         extras.add("discord")
     if tools_include_name(lines, "browser_navigate"):
         extras.add("browser")
+    for provider in models_use_providers(lines):
+        extra = _PROVIDER_EXTRAS.get(provider)
+        if extra is not None:
+            extras.add(extra)
     return sorted(extras)
 
 

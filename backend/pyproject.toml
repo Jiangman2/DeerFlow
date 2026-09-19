@@ -31,6 +31,7 @@ postgres = ["deerflow-harness[postgres]"]
 redis = ["deerflow-harness[redis]"]
 discord = ["discord.py>=2.7.0"]
 monocle = ["deerflow-harness[monocle]"]
+ollama = ["deerflow-harness[ollama]"]
 browser = ["deerflow-harness[browser]"]
 
 [dependency-groups]
