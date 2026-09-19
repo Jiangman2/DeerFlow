@@ -756,8 +756,10 @@ Enterprise Kubernetes storage note:
   far more often than ordinary tools. Keep the enterprise runtime's per-tool
   loop-detection overrides bounded (currently warn at 120 and stop at 240)
   while retaining the global 30/50 limits for all other tools and the
-  identical-call loop guard. Repetition history is scoped to the current run,
-  and a successful `write_file`/`str_replace` that changes durable content
+  identical-call loop guard. Repetition history is scoped to the current run.
+  `read_file` identity includes its exact normalized line window, so
+  sequential continuation pages are progress rather than repetition. A
+  successful `write_file`/`str_replace` that changes durable content
   resets its repetition window. This keeps required read-before-write repair
   cycles from being mistaken for a loop while unchanged writes remain bounded
   by the 3/5 identical-call guard. A successful recovery must not be mistaken

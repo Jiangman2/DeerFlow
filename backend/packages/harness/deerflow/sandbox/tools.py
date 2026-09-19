@@ -1559,11 +1559,78 @@ def _truncate_bash_output(output: str, max_chars: int) -> str:
     return f"{output[:head_len]}{marker}{output[-tail_len:] if tail_len > 0 else ''}"
 
 
-def _truncate_read_file_output(output: str, max_chars: int) -> str:
+# Prefer a complete-line cut near the output budget.  If the unfinished line
+# itself consumes more than this slack (for example minified JSON), keep the
+# character cut instead and provide a continuation that cannot loop.
+_READ_FILE_LINE_CUT_SLACK = 4096
+_READ_FILE_PESSIMISTIC_COUNT = 999_999_999
+_READ_FILE_TINY_BUDGET_MARKER = "... [truncated: {total} chars exceed the {max_chars}-char read limit; use start_line/end_line to read a smaller range] ..."
+
+
+def _read_file_truncation_marker(
+    *,
+    line_offset: int,
+    shown_lines: int,
+    total_lines: int,
+    kept: int,
+    total: int,
+    inside_line: int | None,
+    continuation: str,
+    ends_at_eof: bool = True,
+) -> str:
+    """Build a bounded marker whose line numbers are absolute file lines."""
+    first = line_offset + 1
+    span = f"of {total_lines}" if line_offset == 0 else f"of {first}-{line_offset + total_lines}"
+    if inside_line is None:
+        shown = f"first {shown_lines}" if line_offset == 0 else f"lines {first}-{line_offset + shown_lines}"
+        return f"... [truncated: showing {shown} {span} lines ({kept} of {total} chars). Continue with start_line={line_offset + shown_lines + 1}, or use start_line/end_line to read a specific range] ..."
+
+    line = line_offset + inside_line
+    head = f"\n... [truncated: showing first {kept} of {total} chars, cut inside line {line} {span} lines"
+    if continuation == "next":
+        return f"{head}. Continue with start_line={line}, or use start_line/end_line to read a specific range] ..."
+    if continuation == "whole_line":
+        after = f", then continue with start_line={line + 1}" if inside_line < total_lines or not ends_at_eof else ""
+        return f"{head}. Read that line whole with start_line={line}, end_line={line}{after}] ..."
+    return f"{head}; that line is longer than a read can return. Use bash (for example cut -c) to read the rest of that line, or start_line/end_line for other lines] ..."
+
+
+def _read_file_marker_reserve(*, line_offset: int, total_lines: int, total: int) -> int:
+    """Return the longest marker possible for the supplied read bounds."""
+    forms = [
+        dict(shown_lines=total_lines, inside_line=None, continuation="next"),
+        dict(shown_lines=0, inside_line=total_lines, continuation="next"),
+        dict(shown_lines=0, inside_line=total_lines, continuation="whole_line"),
+        dict(shown_lines=0, inside_line=total_lines, continuation="bash"),
+    ]
+    return max(
+        len(
+            _read_file_truncation_marker(
+                line_offset=line_offset,
+                total_lines=total_lines,
+                kept=total,
+                total=total,
+                **form,
+            )
+        )
+        for form in forms
+    )
+
+
+def _truncate_read_file_output(
+    output: str,
+    max_chars: int,
+    *,
+    line_offset: int = 0,
+    joined_lines: bool = False,
+    ends_at_eof: bool = True,
+) -> str:
     """Head-truncate read_file output, preserving the beginning of the file.
 
-    Source code and documents are read top-to-bottom; the head contains the
-    most context (imports, class definitions, function signatures).
+    A normal cut lands on the last complete line that fits and names the exact
+    next ``start_line``.  A very long line keeps a character cut and names a
+    safe single-line or bash continuation instead. ``line_offset`` converts a
+    ranged read's relative lines back to absolute file lines.
 
     The returned string (including the truncation marker) is guaranteed to be
     no longer than max_chars characters. Pass max_chars=0 to disable truncation
@@ -1574,13 +1641,63 @@ def _truncate_read_file_output(output: str, max_chars: int) -> str:
     if len(output) <= max_chars:
         return output
     total = len(output)
-    # Compute the exact worst-case marker length: both numeric fields are at
-    # their maximum (total chars), so this is a tight upper bound.
-    marker_max_len = len(f"\n... [truncated: showing first {total} of {total} chars. Use start_line/end_line to read a specific range] ...")
-    kept = max(0, max_chars - marker_max_len)
+    total_lines = output.count("\n") + (1 if joined_lines or not output.endswith("\n") else 0)
+    kept = max(
+        0,
+        max_chars
+        - _read_file_marker_reserve(
+            line_offset=line_offset,
+            total_lines=total_lines,
+            total=total,
+        )
+        - 1,
+    )
     if kept == 0:
-        return output[:max_chars]
-    marker = f"\n... [truncated: showing first {kept} of {total} chars. Use start_line/end_line to read a specific range] ..."
+        return _READ_FILE_TINY_BUDGET_MARKER.format(total=total, max_chars=max_chars)[:max_chars]
+
+    boundary = output.rfind("\n", 0, kept + 1)
+    if boundary != -1 and kept - (boundary + 1) <= _READ_FILE_LINE_CUT_SLACK:
+        kept = boundary + 1
+        marker = _read_file_truncation_marker(
+            line_offset=line_offset,
+            shown_lines=output[:kept].count("\n"),
+            total_lines=total_lines,
+            kept=kept,
+            total=total,
+            inside_line=None,
+            continuation="next",
+        )
+        return f"{output[:kept]}{marker}"
+
+    line_start = boundary + 1
+    line_end = output.find("\n", kept)
+    line_len = (total if line_end == -1 else line_end) - line_start
+    inside_line = output[:kept].count("\n") + 1
+    next_kept = (
+        max_chars
+        - _read_file_marker_reserve(
+            line_offset=line_offset + inside_line - 1,
+            total_lines=_READ_FILE_PESSIMISTIC_COUNT,
+            total=_READ_FILE_PESSIMISTIC_COUNT,
+        )
+        - 1
+    )
+    if line_len <= next_kept:
+        continuation = "next"
+    elif line_len <= max_chars:
+        continuation = "whole_line"
+    else:
+        continuation = "bash"
+    marker = _read_file_truncation_marker(
+        line_offset=line_offset,
+        shown_lines=0,
+        total_lines=total_lines,
+        kept=kept,
+        total=total,
+        inside_line=inside_line,
+        continuation=continuation,
+        ends_at_eof=ends_at_eof,
+    )
     return f"{output[:kept]}{marker}"
 
 
@@ -2118,10 +2235,15 @@ def read_file_tool(
         requested_path = path
         content = read_current_file_content(runtime, path)
         if not content:
+            if start_line is not None and start_line > 1:
+                return "(start_line exceeds file length)"
             return "(empty)"
-        if start_line is not None or end_line is not None:
+        use_line_range = start_line is not None or end_line is not None
+        effective_start = max(start_line, 1) if start_line is not None else 1
+        ends_at_eof = True
+        if use_line_range:
             lines = content.splitlines()
-            s = max(start_line, 1) if start_line is not None else 1
+            s = effective_start
             e = end_line if end_line is not None else len(lines)
             if e < 1:
                 return "(end_line must be >= 1)"
@@ -2130,6 +2252,9 @@ def read_file_tool(
             if s > e:
                 return "(start_line > end_line — no lines in range)"
             content = "\n".join(lines[s - 1 : e])
+            ends_at_eof = e >= len(lines)
+            if not content:
+                return "(empty)"
         try:
             from deerflow.config.app_config import get_app_config
 
@@ -2137,7 +2262,13 @@ def read_file_tool(
             max_chars = _read_file_output_max_chars(requested_path, sandbox_cfg)
         except Exception:
             max_chars = 50000
-        return _truncate_read_file_output(content, max_chars)
+        return _truncate_read_file_output(
+            content,
+            max_chars,
+            line_offset=effective_start - 1,
+            joined_lines=use_line_range,
+            ends_at_eof=ends_at_eof,
+        )
     except SandboxError as e:
         return f"Error: {e}"
     except FileNotFoundError:

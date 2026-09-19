@@ -86,6 +86,7 @@ _MAX_PENDING_WARNINGS_PER_RUN = 4
 _DEFAULT_NO_PROGRESS_WARN = 3
 _DEFAULT_NO_PROGRESS_HARD_LIMIT = 5
 _MAX_NO_PROGRESS_KEYS = 200
+_OPEN_ENDED_READ = "end"
 
 
 def _normalize_tool_call_args(raw_args: object) -> tuple[dict, str | None]:
@@ -114,29 +115,38 @@ def _normalize_tool_call_args(raw_args: object) -> tuple[dict, str | None]:
     return {}, json.dumps(raw_args, sort_keys=True, default=str)
 
 
+def _coerce_line_number(value: object) -> int | None:
+    """Parse one ``read_file`` line bound, clamping usable values to line 1."""
+    try:
+        line = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return max(line, 1)
+
+
+def _normalized_read_range(args: dict) -> tuple[int, int | None]:
+    """Normalize a read into its exact line window.
+
+    Exact windows keep adjacent pages distinct.  An omitted ``end_line`` is
+    open-ended, while reversed explicit bounds describe the same window in
+    either order.  Per-tool frequency limits still catch calls that jitter
+    their ranges without making progress.
+    """
+    start_line = _coerce_line_number(args.get("start_line"))
+    end_line = _coerce_line_number(args.get("end_line"))
+    if start_line is None:
+        start_line = 1
+    if end_line is not None and end_line < start_line:
+        start_line, end_line = end_line, start_line
+    return start_line, end_line
+
+
 def _stable_tool_key(name: str, args: dict, fallback_key: str | None) -> str:
     """Derive a stable key from salient args without overfitting to noise."""
     if name == "read_file" and fallback_key is None:
         path = args.get("path") or ""
-        start_line = args.get("start_line")
-        end_line = args.get("end_line")
-
-        bucket_size = 200
-        try:
-            start_line = int(start_line) if start_line is not None else 1
-        except (TypeError, ValueError):
-            start_line = 1
-        try:
-            end_line = int(end_line) if end_line is not None else start_line
-        except (TypeError, ValueError):
-            end_line = start_line
-
-        start_line, end_line = sorted((start_line, end_line))
-        bucket_start = max(start_line, 1)
-        bucket_end = max(end_line, 1)
-        bucket_start = (bucket_start - 1) // bucket_size
-        bucket_end = (bucket_end - 1) // bucket_size
-        return f"{path}:{bucket_start}-{bucket_end}"
+        start_line, end_line = _normalized_read_range(args)
+        return f"{path}:{start_line}-{end_line if end_line is not None else _OPEN_ENDED_READ}"
 
     # write_file / str_replace are content-sensitive: same path may be updated
     # with different payloads during iteration. Using only salient fields (path)
@@ -298,7 +308,6 @@ def _successful_changed_file_mutation(messages: list, result: object) -> tuple[s
     if not isinstance(old_str, str) or not isinstance(new_str, str) or old_str == new_str:
         return None
     return name, path
-
 _TOOL_FREQ_WARNING_MSG = (
     "[LOOP DETECTED] You have called {tool_name} {count} times without producing a final answer. Stop calling tools and produce your final answer now. If you cannot complete the task, summarize what you accomplished so far."
 )
