@@ -181,8 +181,14 @@ class TestErrorObservationRetry:
         # ...and the retry targets exactly that created session, never an
         # uncreated/fabricated id (which would 404).
         assert exec_calls[1].get("id") == created_ids[0]
-        # ...and that one-shot recovery session is released afterwards so a
-        # sandbox that keeps hitting corruption doesn't accumulate sessions.
+        # ...and the healthy replacement is retained for later unscoped calls
+        # rather than returning to the already-corrupted implicit session.
+        assert cleaned_ids == []
+
+        assert sandbox.execute_command("second") == "ok"
+        assert exec_calls[2].get("id") == created_ids[0]
+
+        sandbox.close()
         assert cleaned_ids == [created_ids[0]]
 
     def test_cleanup_failure_does_not_mask_successful_retry(self, sandbox):
@@ -200,9 +206,10 @@ class TestErrorObservationRetry:
         sandbox._client.shell.create_session = lambda id, **kwargs: SimpleNamespace(data=SimpleNamespace(session_id=id))
         sandbox._client.shell.cleanup_session = mock_cleanup_session
 
-        # The retry succeeded; the swallowed cleanup error must not turn this
-        # into an "Error: ..." result.
+        # The retry succeeded; a later best-effort close failure must not turn
+        # this command into an "Error: ..." result.
         assert sandbox.execute_command("test") == "recovered"
+        sandbox.close()
 
     def test_no_retry_on_clean_output(self, sandbox):
         """Normal output should not trigger a retry."""
@@ -218,6 +225,45 @@ class TestErrorObservationRetry:
         result = sandbox.execute_command("echo hello")
         assert result == "all good"
         assert call_count == 1
+
+    def test_missing_retained_session_is_recreated_once(self, sandbox):
+        """A server-side eviction of the retained replacement is recoverable."""
+        from agent_sandbox.core.api_error import ApiError
+
+        exec_ids = []
+        created_ids = []
+
+        def mock_exec(command, **kwargs):
+            exec_ids.append(kwargs.get("id"))
+            if len(exec_ids) == 1:
+                return SimpleNamespace(data=SimpleNamespace(output="'ErrorObservation' object has no attribute 'exit_code'"))
+            if len(exec_ids) == 3:
+                raise ApiError(status_code=404, body={"message": "Session not found"})
+            return SimpleNamespace(data=SimpleNamespace(output="ok"))
+
+        def mock_create_session(id, **kwargs):
+            created_ids.append(id)
+            return SimpleNamespace(data=SimpleNamespace(session_id=id))
+
+        sandbox._client.shell.exec_command = mock_exec
+        sandbox._client.shell.create_session = mock_create_session
+
+        assert sandbox.execute_command("first") == "ok"
+        first_recovery = created_ids[0]
+        assert sandbox.execute_command("second") == "ok"
+        assert len(created_ids) == 2
+        assert exec_ids == [None, first_recovery, first_recovery, created_ids[1]]
+
+    def test_unrelated_shell_404_is_not_treated_as_missing_session(self, sandbox):
+        """Only the structured session-not-found response rotates a session."""
+        from agent_sandbox.core.api_error import ApiError
+
+        sandbox._client.shell.exec_command = MagicMock(
+            side_effect=ApiError(status_code=404, body={"message": "Not Found"})
+        )
+
+        assert sandbox.execute_command("test").startswith("Error:")
+        sandbox._client.shell.create_session.assert_not_called()
 
 
 class TestBashExecUnsupportedFailFast:
@@ -301,6 +347,55 @@ class TestBashExecUnsupportedFailFast:
 
         assert first == "ok"
         assert second == "ok"
+        assert sandbox._client.bash.exec.call_count == 2
+
+    def test_bash_exec_uses_and_releases_explicit_transient_session(self, sandbox):
+        """Env-bearing commands must not consume a server session forever."""
+        sandbox._client.bash.exec = MagicMock(
+            return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None))
+        )
+
+        assert sandbox.execute_command("cmd", env={"TOK": "v"}) == "ok"
+
+        session_id = sandbox._client.bash.create_session.call_args.kwargs["session_id"]
+        assert sandbox._client.bash.exec.call_args.kwargs["session_id"] == session_id
+        sandbox._client.bash.close_session.assert_called_once_with(session_id)
+
+    def test_bash_exec_cleanup_failure_does_not_mask_success(self, sandbox):
+        sandbox._client.bash.exec = MagicMock(
+            return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None))
+        )
+        sandbox._client.bash.close_session = MagicMock(side_effect=RuntimeError("cleanup failed"))
+
+        assert sandbox.execute_command("cmd", env={"TOK": "v"}) == "ok"
+
+    def test_bash_exec_missing_session_retries_once_without_latching_unsupported(self, sandbox):
+        from agent_sandbox.core.api_error import ApiError
+
+        missing = ApiError(status_code=404, body={"message": "Session not found: transient"})
+        sandbox._client.bash.exec = MagicMock(
+            side_effect=[
+                missing,
+                SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None)),
+            ]
+        )
+
+        assert sandbox.execute_command("cmd", env={"TOK": "v"}) == "ok"
+        assert sandbox._bash_exec_unsupported is False
+        assert sandbox._client.bash.exec.call_count == 2
+        assert sandbox._client.bash.create_session.call_count == 2
+        assert sandbox._client.bash.close_session.call_count == 2
+
+    def test_bash_exec_repeated_missing_session_is_bounded(self, sandbox):
+        from agent_sandbox.core.api_error import ApiError
+
+        missing = ApiError(status_code=404, body={"message": "Session not found"})
+        sandbox._client.bash.exec = MagicMock(side_effect=missing)
+
+        out = sandbox.execute_command("cmd", env={"TOK": "v"})
+
+        assert out == "Error: bash.exec session disappeared after retry"
+        assert sandbox._bash_exec_unsupported is False
         assert sandbox._client.bash.exec.call_count == 2
 
 
