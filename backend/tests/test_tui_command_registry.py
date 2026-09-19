@@ -1,5 +1,6 @@
 """Tests for the slash-command registry (pure)."""
 
+from deerflow.skills.slash import RESERVED_SLASH_SKILL_NAMES
 from deerflow.tui.command_registry import (
     BUILTIN_COMMANDS,
     build_registry,
@@ -107,3 +108,23 @@ def test_goal_builtin_takes_precedence_over_skill():
 
     assert [command.name for command in registry].count("goal") == 1
     assert resolve("/goal finish", skills=["goal"]).kind == "builtin"
+
+
+def test_registry_excludes_reserved_skill_names_except_context():
+    registry = build_registry([{"name": name, "description": "reserved", "enabled": True} for name in RESERVED_SLASH_SKILL_NAMES])
+
+    skill_names = {command.name for command in registry if command.category == "skill"}
+    assert skill_names == {"context"}
+
+
+def test_resolve_rejects_reserved_skill_commands_but_keeps_context_tasks():
+    reserved_names = sorted(RESERVED_SLASH_SKILL_NAMES)
+
+    for name in reserved_names:
+        resolved = resolve(f"/{name} task", skills=reserved_names)
+        if name == "context":
+            assert resolved.kind == "skill"
+        else:
+            assert resolved.kind != "skill", name
+
+    assert resolve("/context compact", skills=["context"]).kind == "unknown"
