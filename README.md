@@ -514,7 +514,7 @@ DeerFlow runs the agent runtime inside the Gateway API. Development mode enables
 | **Stop**    | `./scripts/serve.sh --stop`<br/>`make stop` | `./scripts/docker.sh stop`<br/>`make docker-stop` | `./scripts/deploy.sh down`<br/>`make down` |
 | **Restart** | `./scripts/serve.sh --restart [flags]`      | `./scripts/docker.sh restart`                     | —                                          |
 
-Gateway owns `/api/langgraph/*` and translates those public LangGraph-compatible paths to its native `/api/*` routers behind nginx.
+Gateway owns `/api/langgraph/*` and translates those public LangGraph-compatible paths to its native `/api/*` routers behind nginx. The maintained proxies accept bounded long JSON prompts on this route and disable request-body buffering, avoiding raw nginx failures caused by temporary-file spooling.
 
 #### Docker Production Deployment
 
@@ -986,7 +986,7 @@ When you install `.skill` archives through the Gateway, DeerFlow accepts standar
 
 If a trusted operator manages the configured skills directory through an external mount such as MinIO, NFS, or CSI, an administrator can call `POST /api/skills/reload` after changing files. This invalidates skill prompt caches for the current Gateway process and waits up to the bounded refresh timeout so subsequent runs rescan the latest files; running tasks are unchanged. A loader-level filesystem failure returns a generic server error and preserves the last successfully loaded process cache rather than publishing an empty catalog. Uvicorn workers and Kubernetes Pods must each be targeted separately. Direct mount writes bypass the validation, SkillScan, and history applied by DeerFlow's install/edit APIs, so only operator-controlled systems should have write access.
 
-Skill installs and agent-managed skill edits run through **SkillScan**, a native deterministic safety scanner before the LLM-based skill scanner. Phase 1 runs offline with no Semgrep/OpenGrep dependency, blocks high-confidence `CRITICAL` findings such as private keys or shell execution, and passes warning findings to the LLM scanner for contextual review. Package review is byte-faithful: binary files are scanned, non-UTF-8/NUL-bearing scripts cannot hide behind binary classification, and missing or colliding snapshot content fails closed. Set `skill_scan.enabled: false` in `config.yaml` to disable only the deterministic analyzers; safe archive extraction and the LLM scanner still run.
+Skill installs and agent-managed skill edits run through **SkillScan**, a native deterministic safety scanner before the LLM-based skill scanner. Phase 1 runs offline with no Semgrep/OpenGrep dependency, blocks high-confidence `CRITICAL` findings such as private keys or shell execution, and passes warning findings to the LLM scanner for contextual review. Package review is byte-faithful: binary files are scanned, non-UTF-8/NUL-bearing scripts cannot hide behind binary classification, archive names cannot smuggle NTFS alternate data streams, and missing or colliding snapshot content fails closed. Set `skill_scan.enabled: false` in `config.yaml` to disable only the deterministic analyzers; safe archive extraction and the LLM scanner still run.
 
 Set `skill_evolution.enabled: true` to let the bundled `skill-creator` persist
 agent-authored skills through `skill_manage`. Each authenticated user's skills
