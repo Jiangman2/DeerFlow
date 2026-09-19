@@ -147,7 +147,14 @@ class Sandbox(ABC):
 
     @abstractmethod
     def glob(self, path: str, pattern: str, *, include_dirs: bool = False, max_results: int = 200) -> tuple[list[str], bool]:
-        """Find paths that match a glob pattern under a root directory."""
+        """Find paths that match a glob pattern under a root directory.
+
+        Returns the matches and ``truncated``. A true flag means the result
+        may be incomplete because an eligible match beyond ``max_results``
+        was dropped or the provider stopped at an earlier output cap.
+        Providers that hold the complete listing can report an exactly-full
+        result as complete.
+        """
         pass
 
     @abstractmethod

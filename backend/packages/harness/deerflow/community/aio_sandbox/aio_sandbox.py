@@ -578,10 +578,9 @@ class AioSandbox(Sandbox):
                         no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
                     )
                 if append:
-                    existing = self.read_file(path)
-                    if not existing.startswith("Error:"):
-                        content = existing + content
-                self._client.file.write_file(file=path, content=content)
+                    self._client.file.write_file(file=path, content=content, append=True)
+                else:
+                    self._client.file.write_file(file=path, content=content)
             except Exception as e:
                 logger.error(f"Failed to write file in sandbox: {e}")
                 raise
@@ -607,8 +606,11 @@ class AioSandbox(Sandbox):
             rel_path = entry.path[len(root_path) :].lstrip("/")
             if path_matches(pattern, rel_path):
                 matches.append(entry.path)
-                if len(matches) >= max_results:
-                    return matches, True
+                # Scan one eligible match past the cap. Returning on the
+                # max-th match misclassifies an exactly-full result as
+                # truncated and returns one match when max_results is zero.
+                if len(matches) > max_results:
+                    return matches[:max_results], True
         return matches, False
 
     def grep(

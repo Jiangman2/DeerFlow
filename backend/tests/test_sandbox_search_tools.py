@@ -227,6 +227,114 @@ def test_aio_sandbox_glob_include_dirs_filters_nested_ignored(monkeypatch) -> No
     assert truncated is False
 
 
+def test_aio_sandbox_glob_include_dirs_exactly_full_is_complete(monkeypatch) -> None:
+    with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient"):
+        sandbox = AioSandbox(id="test-sandbox", base_url="http://localhost:8080")
+    monkeypatch.setattr(
+        sandbox._client.file,
+        "list_path",
+        lambda **kwargs: SimpleNamespace(
+            data=SimpleNamespace(
+                files=[
+                    SimpleNamespace(name="a", path="/mnt/workspace/a"),
+                    SimpleNamespace(name="b", path="/mnt/workspace/b"),
+                ]
+            )
+        ),
+    )
+
+    matches, truncated = sandbox.glob("/mnt/workspace", "**", include_dirs=True, max_results=2)
+
+    assert matches == ["/mnt/workspace/a", "/mnt/workspace/b"]
+    assert truncated is False
+
+
+def test_aio_sandbox_glob_include_dirs_reports_dropped_match(monkeypatch) -> None:
+    with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient"):
+        sandbox = AioSandbox(id="test-sandbox", base_url="http://localhost:8080")
+    monkeypatch.setattr(
+        sandbox._client.file,
+        "list_path",
+        lambda **kwargs: SimpleNamespace(
+            data=SimpleNamespace(
+                files=[
+                    SimpleNamespace(name="a", path="/mnt/workspace/a"),
+                    SimpleNamespace(name="b", path="/mnt/workspace/b"),
+                    SimpleNamespace(name="c", path="/mnt/workspace/c"),
+                ]
+            )
+        ),
+    )
+
+    matches, truncated = sandbox.glob("/mnt/workspace", "**", include_dirs=True, max_results=2)
+
+    assert matches == ["/mnt/workspace/a", "/mnt/workspace/b"]
+    assert truncated is True
+
+
+def test_aio_sandbox_glob_include_dirs_zero_cap_returns_no_match(monkeypatch) -> None:
+    with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient"):
+        sandbox = AioSandbox(id="test-sandbox", base_url="http://localhost:8080")
+    monkeypatch.setattr(
+        sandbox._client.file,
+        "list_path",
+        lambda **kwargs: SimpleNamespace(data=SimpleNamespace(files=[SimpleNamespace(name="a", path="/mnt/workspace/a")])),
+    )
+
+    matches, truncated = sandbox.glob("/mnt/workspace", "**", include_dirs=True, max_results=0)
+
+    assert matches == []
+    assert truncated is True
+
+
+def _aio_glob_entries_with_filtered_tail(*, extra_eligible_match: bool):
+    entries = [
+        SimpleNamespace(name="a.py", path="/mnt/workspace/a.py"),
+        SimpleNamespace(name="b.py", path="/mnt/workspace/b.py"),
+        SimpleNamespace(name="lib.py", path="/mnt/workspace/node_modules/lib.py"),
+        SimpleNamespace(name="outside.py", path="/mnt/elsewhere/outside.py"),
+        SimpleNamespace(name="notes.txt", path="/mnt/workspace/notes.txt"),
+    ]
+    if extra_eligible_match:
+        entries.append(SimpleNamespace(name="c.py", path="/mnt/workspace/c.py"))
+    return entries
+
+
+def _aio_sandbox_with_glob_entries(monkeypatch, entries):
+    with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient"):
+        sandbox = AioSandbox(id="test-sandbox", base_url="http://localhost:8080")
+    monkeypatch.setattr(
+        sandbox._client.file,
+        "list_path",
+        lambda **kwargs: SimpleNamespace(data=SimpleNamespace(files=entries)),
+    )
+    return sandbox
+
+
+def test_aio_sandbox_glob_exactly_full_ignores_filtered_tail(monkeypatch) -> None:
+    sandbox = _aio_sandbox_with_glob_entries(
+        monkeypatch,
+        _aio_glob_entries_with_filtered_tail(extra_eligible_match=False),
+    )
+
+    matches, truncated = sandbox.glob("/mnt/workspace", "**/*.py", include_dirs=True, max_results=2)
+
+    assert matches == ["/mnt/workspace/a.py", "/mnt/workspace/b.py"]
+    assert truncated is False
+
+
+def test_aio_sandbox_glob_finds_match_after_filtered_tail(monkeypatch) -> None:
+    sandbox = _aio_sandbox_with_glob_entries(
+        monkeypatch,
+        _aio_glob_entries_with_filtered_tail(extra_eligible_match=True),
+    )
+
+    matches, truncated = sandbox.glob("/mnt/workspace", "**/*.py", include_dirs=True, max_results=2)
+
+    assert matches == ["/mnt/workspace/a.py", "/mnt/workspace/b.py"]
+    assert truncated is True
+
+
 def test_aio_sandbox_grep_invalid_regex_raises() -> None:
     with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient"):
         sandbox = AioSandbox(id="test-sandbox", base_url="http://localhost:8080")
