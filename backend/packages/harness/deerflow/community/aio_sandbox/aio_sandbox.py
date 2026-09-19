@@ -11,6 +11,10 @@ from agent_sandbox import Sandbox as AioSandboxClient
 from agent_sandbox.core.api_error import ApiError
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
+from deerflow.sandbox.remote_list_dir import (
+    parse_remote_list_dir_output,
+    remote_list_dir_command,
+)
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
 
@@ -548,16 +552,27 @@ class AioSandbox(Sandbox):
         Returns:
             The contents of the directory.
         """
+        resolved = path
         with self._lock:
             try:
-                result = self._client.shell.exec_command(command=f"find {shlex.quote(path)} -maxdepth {max_depth} -type f -o -type d 2>/dev/null | head -500", no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
-                output = result.data.output if result.data else ""
-                if output:
-                    return [line.strip() for line in output.strip().split("\n") if line.strip()]
-                return []
+                result = self._client.shell.exec_command(
+                    command=remote_list_dir_command(resolved, max_depth),
+                    no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
+                )
             except Exception as e:
                 logger.error(f"Failed to list directory in sandbox: {e}")
-                return []
+                raise OSError(
+                    f"Failed to list directory '{resolved}' in sandbox: {e}"
+                ) from e
+            if result.data is None:
+                raise OSError(
+                    f"Failed to list directory '{resolved}' in sandbox: empty response"
+                )
+            return parse_remote_list_dir_output(
+                result.data.output or "",
+                resolved,
+                pipeline_exit_code=getattr(result.data, "exit_code", None),
+            )
 
     def write_file(self, path: str, content: str, append: bool = False) -> None:
         """Write content to a file in the sandbox.

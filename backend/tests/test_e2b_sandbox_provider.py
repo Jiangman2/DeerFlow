@@ -298,6 +298,46 @@ def test_execute_command_env_none_passes_no_envs_kwarg():
     assert "timeout" not in kwargs
 
 
+def test_list_dir_uses_status_marker_and_preserves_trailing_space():
+    commands = FakeCommandsAPI(
+        [
+            SimpleNamespace(
+                stdout="/home/user/notes.txt \n\n__DF_FIND_STATUS__:0\n",
+                stderr="",
+                exit_code=0,
+            )
+        ]
+    )
+    sandbox = _make_sandbox(FakeClient(commands=commands))
+
+    assert sandbox.list_dir("/mnt/user-data") == ["/home/user/notes.txt "]
+    assert "__DF_FIND_STATUS__" in commands.calls[0]
+
+
+def test_list_dir_rejects_incomplete_remote_traversal():
+    commands = FakeCommandsAPI(
+        [
+            SimpleNamespace(
+                stdout="/home/user/visible\n\n__DF_FIND_STATUS__:1\n",
+                stderr="",
+                exit_code=1,
+            )
+        ]
+    )
+    sandbox = _make_sandbox(FakeClient(commands=commands))
+
+    with pytest.raises(OSError, match="results would be incomplete"):
+        sandbox.list_dir("/mnt/user-data")
+
+
+def test_list_dir_closed_client_fails_loudly():
+    sandbox = _make_sandbox(FakeClient())
+    sandbox.close()
+
+    with pytest.raises(RuntimeError, match="closed"):
+        sandbox.list_dir("/mnt/user-data")
+
+
 def test_execute_command_forwards_env_as_envs():
     """Per-call ``env`` reaches the e2b SDK as ``envs`` so secrets like
     ``GITHUB_TOKEN`` are scoped to a single command without mutating shared

@@ -252,6 +252,29 @@ def test_execute_command_closed_box_returns_without_error_log(caplog) -> None:
     assert "Failed to execute command in BoxLite box" not in caplog.text
 
 
+def test_list_dir_uses_status_marker_and_preserves_trailing_space() -> None:
+    box = BoxliteBox("box-id", box=_FakeBox(name="box-id"), run=_fake_run)
+    box._sh = lambda script: types.SimpleNamespace(
+        stdout="/mnt/user-data/notes.txt \n\n__DF_FIND_STATUS__:0\n",
+        stderr="",
+        exit_code=0,
+    )
+
+    assert box.list_dir("/mnt/user-data") == ["/mnt/user-data/notes.txt "]
+
+
+def test_list_dir_rejects_incomplete_remote_traversal() -> None:
+    box = BoxliteBox("box-id", box=_FakeBox(name="box-id"), run=_fake_run)
+    box._sh = lambda script: types.SimpleNamespace(
+        stdout="/mnt/user-data/visible\n\n__DF_FIND_STATUS__:1\n",
+        stderr="",
+        exit_code=1,
+    )
+
+    with pytest.raises(OSError, match="results would be incomplete"):
+        box.list_dir("/mnt/user-data")
+
+
 def test_sandbox_id_deterministic(monkeypatch):
     """_sandbox_id produces the same id for the same inputs."""
     monkeypatch.setattr(

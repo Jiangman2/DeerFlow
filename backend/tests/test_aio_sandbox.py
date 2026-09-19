@@ -435,7 +435,14 @@ class TestListDirSerialization:
         """list_dir should hold the lock during execution."""
         lock_was_held = []
 
-        original_exec = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(output="/a\n/b")))
+        original_exec = MagicMock(
+            return_value=SimpleNamespace(
+                data=SimpleNamespace(
+                    output="/a\n/b\n\n__DF_FIND_STATUS__:0\n",
+                    exit_code=0,
+                )
+            )
+        )
 
         def tracking_exec(command, **kwargs):
             lock_was_held.append(sandbox._lock.locked())
@@ -490,7 +497,12 @@ class TestNoChangeTimeout:
 
         def mock_exec(command, **kwargs):
             calls.append(kwargs)
-            return SimpleNamespace(data=SimpleNamespace(output="/a\n/b"))
+            return SimpleNamespace(
+                data=SimpleNamespace(
+                    output="/a\n/b\n\n__DF_FIND_STATUS__:0\n",
+                    exit_code=0,
+                )
+            )
 
         sandbox._client.shell.exec_command = mock_exec
 
@@ -498,6 +510,40 @@ class TestNoChangeTimeout:
 
         assert len(calls) == 1
         assert calls[0].get("no_change_timeout") == sandbox._DEFAULT_NO_CHANGE_TIMEOUT
+
+    def test_list_dir_surfaces_missing_root(self, sandbox):
+        sandbox._client.shell.exec_command = MagicMock(
+            return_value=SimpleNamespace(
+                data=SimpleNamespace(
+                    output="__DF_FIND_STATUS__:missing\n",
+                    exit_code=1,
+                )
+            )
+        )
+
+        with pytest.raises(FileNotFoundError):
+            sandbox.list_dir("/missing")
+
+    def test_list_dir_rejects_partial_traversal(self, sandbox):
+        sandbox._client.shell.exec_command = MagicMock(
+            return_value=SimpleNamespace(
+                data=SimpleNamespace(
+                    output="/visible\n\n__DF_FIND_STATUS__:1\n",
+                    exit_code=1,
+                )
+            )
+        )
+
+        with pytest.raises(OSError, match="results would be incomplete"):
+            sandbox.list_dir("/test")
+
+    def test_list_dir_rejects_empty_client_response(self, sandbox):
+        sandbox._client.shell.exec_command = MagicMock(
+            return_value=SimpleNamespace(data=None)
+        )
+
+        with pytest.raises(OSError, match="empty response"):
+            sandbox.list_dir("/test")
 
 
 class TestConcurrentFileWrites:
