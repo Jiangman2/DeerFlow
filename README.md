@@ -483,6 +483,9 @@ On Windows, run the local development flow from Git Bash. Native `cmd.exe` and P
    make setup-sandbox
    ```
 
+   The helper reads the configured sandbox image from UTF-8 `config.yaml`
+   with or without a leading BOM and with LF or CRLF line endings.
+
 4. **(Optional) Load sample memory data for local review**:
 
    ```bash
