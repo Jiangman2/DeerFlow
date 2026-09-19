@@ -18,6 +18,7 @@ from deerflow.config.app_config import AppConfig, CircuitBreakerConfig
 from deerflow.config.guardrails_config import GuardrailsConfig
 from deerflow.config.model_config import ModelConfig
 from deerflow.config.sandbox_config import SandboxConfig
+from deerflow.llm_timing_context import reset_current_llm_timing_context, set_current_llm_timing_context
 from deerflow.subagents.status_contract import SUBAGENT_ERROR_KEY, SUBAGENT_STATUS_KEY
 
 
@@ -337,6 +338,27 @@ def test_wrap_tool_call_passthrough_on_success():
     result = middleware.wrap_tool_call(req, lambda _req: expected)
 
     assert result is expected
+
+
+def test_wrap_tool_call_emits_content_free_timing_records(monkeypatch, caplog):
+    monkeypatch.setenv("DEERFLOW_RUN_TIMING_LOGS", "true")
+    caplog.set_level("INFO", logger="deerflow.agents.middlewares.tool_error_handling_middleware")
+    middleware = ToolErrorHandlingMiddleware()
+    req = _request(name="bash", tool_call_id="tc-1")
+    req.tool_call["args"] = {"command": "echo must-not-be-logged"}
+    token = set_current_llm_timing_context(thread_id="thread-tool", run_id="run-tool")
+    try:
+        middleware.wrap_tool_call(req, lambda _req: ToolMessage(content="ok", tool_call_id="tc-1", name="bash"))
+    finally:
+        reset_current_llm_timing_context(token)
+
+    rendered = "\n".join(record.getMessage() for record in caplog.records)
+    assert "RUN_TIMING event=tool_start" in rendered
+    assert "RUN_TIMING event=tool_end" in rendered
+    assert "deerflow_thread_id=thread-tool" in rendered
+    assert "deerflow_run_id=run-tool" in rendered
+    assert "tool_name=bash" in rendered
+    assert "echo must-not-be-logged" not in rendered
 
 
 def test_read_file_skill_read_stamps_compact_skill_metadata():

@@ -38,6 +38,11 @@ from deerflow.community.warm_pool_lifecycle import (
 )
 from deerflow.config import get_app_config
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths, join_host_path
+from deerflow.run_timing import (
+    log_run_timing,
+    record_sandbox_acquire_timing,
+    run_timing_logs_enabled,
+)
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.sandbox.sandbox import Sandbox
 from deerflow.sandbox.sandbox_provider import SandboxProvider
@@ -867,13 +872,37 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         Returns:
             The ID of the acquired sandbox environment.
         """
-        effective_user_id = self._effective_acquire_user_id(user_id)
-        if thread_id:
-            thread_lock = self._get_thread_lock(thread_id, effective_user_id)
-            with thread_lock:
-                return self._acquire_internal(thread_id, user_id=effective_user_id)
-        else:
-            return self._acquire_internal(thread_id, user_id=effective_user_id)
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_acquire_start")
+        try:
+            effective_user_id = self._effective_acquire_user_id(user_id)
+            if thread_id:
+                thread_lock = self._get_thread_lock(thread_id, effective_user_id)
+                with thread_lock:
+                    sandbox_id = self._acquire_internal(thread_id, user_id=effective_user_id)
+            else:
+                sandbox_id = self._acquire_internal(thread_id, user_id=effective_user_id)
+        except Exception as exc:
+            if timing_enabled:
+                log_run_timing(
+                    logger,
+                    "sandbox_acquire_error",
+                    elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                    error_type=type(exc).__name__,
+                )
+            raise
+        if timing_enabled:
+            ended_at = time.monotonic()
+            log_run_timing(
+                logger,
+                "sandbox_acquire_end",
+                elapsed_ms=round((ended_at - started_at) * 1000),
+                sandbox_id=sandbox_id,
+            )
+            record_sandbox_acquire_timing(started_at=started_at, ended_at=ended_at)
+        return sandbox_id
 
     async def acquire_async(self, thread_id: str | None = None, *, user_id: str | None = None) -> str:
         """Acquire a sandbox environment without blocking the event loop.
@@ -882,16 +911,40 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         event loop and using async-native readiness polling for newly created
         sandboxes.
         """
-        effective_user_id = self._effective_acquire_user_id(user_id)
-        if thread_id:
-            thread_lock = self._get_thread_lock(thread_id, effective_user_id)
-            await _acquire_thread_lock_async(thread_lock)
-            try:
-                return await self._acquire_internal_async(thread_id, user_id=effective_user_id)
-            finally:
-                thread_lock.release()
-
-        return await self._acquire_internal_async(thread_id, user_id=effective_user_id)
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_acquire_start")
+        try:
+            effective_user_id = self._effective_acquire_user_id(user_id)
+            if thread_id:
+                thread_lock = self._get_thread_lock(thread_id, effective_user_id)
+                await _acquire_thread_lock_async(thread_lock)
+                try:
+                    sandbox_id = await self._acquire_internal_async(thread_id, user_id=effective_user_id)
+                finally:
+                    thread_lock.release()
+            else:
+                sandbox_id = await self._acquire_internal_async(thread_id, user_id=effective_user_id)
+        except Exception as exc:
+            if timing_enabled:
+                log_run_timing(
+                    logger,
+                    "sandbox_acquire_error",
+                    elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                    error_type=type(exc).__name__,
+                )
+            raise
+        if timing_enabled:
+            ended_at = time.monotonic()
+            log_run_timing(
+                logger,
+                "sandbox_acquire_end",
+                elapsed_ms=round((ended_at - started_at) * 1000),
+                sandbox_id=sandbox_id,
+            )
+            record_sandbox_acquire_timing(started_at=started_at, ended_at=ended_at)
+        return sandbox_id
 
     def _acquire_internal(self, thread_id: str | None, *, user_id: str) -> str:
         """Internal sandbox acquisition with two-layer consistency.
@@ -1017,54 +1070,94 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         Raises:
             RuntimeError: If sandbox creation or readiness check fails.
         """
-        effective_user_id = self._effective_acquire_user_id(user_id)
-        extra_mounts = self._get_extra_mounts(thread_id, user_id=effective_user_id)
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_create_start", sandbox_id=sandbox_id)
+        try:
+            effective_user_id = self._effective_acquire_user_id(user_id)
+            extra_mounts = self._get_extra_mounts(thread_id, user_id=effective_user_id)
 
-        # Make room for the new sandbox. A restart may have adopted many stale
-        # Pods, so evict repeatedly rather than removing only one per creation.
-        replicas, _ = self._replica_count()
-        evicted = self._evict_warm_until_capacity(reserve=1)
-        _, total = self._replica_count()
-        if total >= replicas:
-            self._log_replicas_soft_cap(replicas, sandbox_id, evicted[-1] if evicted else None)
+            # Make room for the new sandbox. A restart may have adopted many stale
+            # Pods, so evict repeatedly rather than removing only one per creation.
+            replicas, _ = self._replica_count()
+            evicted = self._evict_warm_until_capacity(reserve=1)
+            _, total = self._replica_count()
+            if total >= replicas:
+                self._log_replicas_soft_cap(replicas, sandbox_id, evicted[-1] if evicted else None)
 
-        info = self._backend.create(thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
+            info = self._backend.create(thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
+            if timing_enabled:
+                log_run_timing(logger, "sandbox_create_submitted", elapsed_ms=round((time.monotonic() - started_at) * 1000), sandbox_id=sandbox_id)
 
-        # Wait for sandbox to be ready
-        startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
-        readiness_kwargs = {"timeout": startup_timeout}
-        if self._config.get("sandbox_api_key"):
-            readiness_kwargs["api_key"] = self._config["sandbox_api_key"]
-        if not wait_for_sandbox_ready(info.sandbox_url, **readiness_kwargs):
-            self._backend.destroy(info)
-            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
+            # Wait for sandbox to be ready
+            startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
+            readiness_kwargs = {"timeout": startup_timeout}
+            if self._config.get("sandbox_api_key"):
+                readiness_kwargs["api_key"] = self._config["sandbox_api_key"]
+            if not wait_for_sandbox_ready(info.sandbox_url, **readiness_kwargs):
+                self._backend.destroy(info)
+                raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
 
-        return self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
+            created_id = self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
+        except Exception as exc:
+            if timing_enabled:
+                log_run_timing(
+                    logger,
+                    "sandbox_create_error",
+                    elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                    sandbox_id=sandbox_id,
+                    error_type=type(exc).__name__,
+                )
+            raise
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_ready", elapsed_ms=round((time.monotonic() - started_at) * 1000), sandbox_id=sandbox_id)
+        return created_id
 
     async def _create_sandbox_async(self, thread_id: str | None, sandbox_id: str, *, user_id: str | None = None) -> str:
         """Async counterpart to ``_create_sandbox``."""
-        effective_user_id = self._effective_acquire_user_id(user_id)
-        extra_mounts = await asyncio.to_thread(self._get_extra_mounts, thread_id, user_id=effective_user_id)
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_create_start", sandbox_id=sandbox_id)
+        try:
+            effective_user_id = self._effective_acquire_user_id(user_id)
+            extra_mounts = await asyncio.to_thread(self._get_extra_mounts, thread_id, user_id=effective_user_id)
 
-        # Async counterpart of the repeated warm-pool capacity reconciliation.
-        replicas, _ = self._replica_count()
-        evicted = await asyncio.to_thread(self._evict_warm_until_capacity, reserve=1)
-        _, total = self._replica_count()
-        if total >= replicas:
-            self._log_replicas_soft_cap(replicas, sandbox_id, evicted[-1] if evicted else None)
+            # Async counterpart of the repeated warm-pool capacity reconciliation.
+            replicas, _ = self._replica_count()
+            evicted = await asyncio.to_thread(self._evict_warm_until_capacity, reserve=1)
+            _, total = self._replica_count()
+            if total >= replicas:
+                self._log_replicas_soft_cap(replicas, sandbox_id, evicted[-1] if evicted else None)
 
-        info = await asyncio.to_thread(self._backend.create, thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
+            info = await asyncio.to_thread(self._backend.create, thread_id, sandbox_id, extra_mounts=extra_mounts or None, user_id=effective_user_id)
+            if timing_enabled:
+                log_run_timing(logger, "sandbox_create_submitted", elapsed_ms=round((time.monotonic() - started_at) * 1000), sandbox_id=sandbox_id)
 
-        # Wait for sandbox to be ready without blocking the event loop.
-        startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
-        readiness_kwargs = {"timeout": startup_timeout}
-        if self._config.get("sandbox_api_key"):
-            readiness_kwargs["api_key"] = self._config["sandbox_api_key"]
-        if not await wait_for_sandbox_ready_async(info.sandbox_url, **readiness_kwargs):
-            await asyncio.to_thread(self._backend.destroy, info)
-            raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
+            # Wait for sandbox to be ready without blocking the event loop.
+            startup_timeout = max(1, float(self._config.get("startup_timeout", DEFAULT_STARTUP_TIMEOUT)))
+            readiness_kwargs = {"timeout": startup_timeout}
+            if self._config.get("sandbox_api_key"):
+                readiness_kwargs["api_key"] = self._config["sandbox_api_key"]
+            if not await wait_for_sandbox_ready_async(info.sandbox_url, **readiness_kwargs):
+                await asyncio.to_thread(self._backend.destroy, info)
+                raise RuntimeError(f"Sandbox {sandbox_id} failed to become ready within {startup_timeout:g}s at {info.sandbox_url}")
 
-        return self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
+            created_id = self._register_created_sandbox(thread_id, sandbox_id, info, user_id=effective_user_id)
+        except Exception as exc:
+            if timing_enabled:
+                log_run_timing(
+                    logger,
+                    "sandbox_create_error",
+                    elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                    sandbox_id=sandbox_id,
+                    error_type=type(exc).__name__,
+                )
+            raise
+        if timing_enabled:
+            log_run_timing(logger, "sandbox_ready", elapsed_ms=round((time.monotonic() - started_at) * 1000), sandbox_id=sandbox_id)
+        return created_id
 
     def get(self, sandbox_id: str) -> Sandbox | None:
         """Get a sandbox by ID. Updates last activity timestamp.

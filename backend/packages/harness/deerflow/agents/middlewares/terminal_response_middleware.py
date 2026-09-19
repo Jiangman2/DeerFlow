@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 from collections.abc import Awaitable, Callable
@@ -14,6 +15,11 @@ from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, Tool
 from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
+from deerflow.run_timing import atime_middleware_after_agent, log_run_timing, time_middleware_after_agent
+from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
+
+
+logger = logging.getLogger(__name__)
 
 _RECOVERY_PROMPT = "<system_reminder>\n你在工具执行后的上一条回复为空。请检查对话中已有的工具结果，并给出简洁、用户可见的简体中文最终回复。除非确有必要，否则不要再次调用工具。\n</system_reminder>"
 
@@ -72,8 +78,44 @@ def _has_tool_call_intent_or_error(message: AIMessage) -> bool:
     return response_metadata.get("finish_reason") in _TOOL_CALL_FINISH_REASONS
 
 
-def _tool_result_in_current_turn(messages: list[Any]) -> bool:
+def _runtime_pre_existing_message_ids(runtime: Runtime | None) -> frozenset[str]:
+    """Return message IDs that existed before the current Gateway run."""
+
+    context = getattr(runtime, "context", None)
+    if not isinstance(context, dict):
+        return frozenset()
+    raw_ids = context.get(CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY)
+    if not isinstance(raw_ids, (frozenset, set, list, tuple)):
+        return frozenset()
+    return frozenset(str(message_id) for message_id in raw_ids if message_id)
+
+
+def _message_id(message: Any) -> str | None:
+    message_id = getattr(message, "id", None)
+    return str(message_id) if message_id else None
+
+
+def _current_run_messages(messages: list[Any], runtime: Runtime | None) -> list[Any]:
+    """Exclude durable history when the worker supplied a run boundary.
+
+    Context compaction can leave a historical ``ToolMessage`` after the latest
+    visible user message.  The terminal retry must never treat that old receipt
+    as evidence that the current model response followed an executed tool.
+    """
+
+    pre_existing_ids = _runtime_pre_existing_message_ids(runtime)
+    if not pre_existing_ids:
+        return messages
+    return [
+        message
+        for message in messages
+        if _message_id(message) not in pre_existing_ids and _message_id(message) is not None
+    ]
+
+
+def _tool_result_in_current_turn(messages: list[Any], runtime: Runtime | None = None) -> bool:
     """Return whether a tool result follows the latest real user message."""
+    messages = _current_run_messages(messages, runtime)
     latest_user_index = -1
     for index, message in enumerate(messages):
         if not isinstance(message, HumanMessage):
@@ -89,8 +131,11 @@ def _tool_result_in_current_turn(messages: list[Any]) -> bool:
     return any(isinstance(message, ToolMessage) for message in messages[latest_user_index + 1 :])
 
 
-def _latest_tool_result_in_current_turn(messages: list[Any]) -> ToolMessage | None:
+def _latest_tool_result_in_current_turn(
+    messages: list[Any], runtime: Runtime | None = None
+) -> ToolMessage | None:
     """Return the latest tool receipt after the current visible user turn."""
+    messages = _current_run_messages(messages, runtime)
     latest_user_index = -1
     for index, message in enumerate(messages):
         if isinstance(message, HumanMessage) and not (message.additional_kwargs or {}).get("hide_from_ui"):
@@ -117,7 +162,11 @@ def _tool_call_for_result(messages: list[Any], result: ToolMessage) -> dict[str,
     return None
 
 
-def _ppt_master_confirmation_recommendation_ready(state: AgentState, messages: list[Any]) -> str:
+def _ppt_master_confirmation_recommendation_ready(
+    state: AgentState,
+    messages: list[Any],
+    runtime: Runtime | None = None,
+) -> str:
     """Return the active Confirm UI URL when a recommendation write is the last durable action.
 
     The official ``ppt-master`` page becomes user-ready as soon as a valid
@@ -130,13 +179,18 @@ def _ppt_master_confirmation_recommendation_ready(state: AgentState, messages: l
         return ""
     skill_path = str(workflow.get("skill_path") or "").replace("\\", "/")
     confirmation_url = str(workflow.get("confirmation_url") or "")
-    if not skill_path.endswith(_PPT_MASTER_SKILL_SUFFIX) or not workflow.get("confirmation_ui_active") or not confirmation_url:
+    if (
+        not skill_path.endswith(_PPT_MASTER_SKILL_SUFFIX)
+        or not workflow.get("confirmation_ui_active")
+        or not confirmation_url
+    ):
         return ""
 
-    result = _latest_tool_result_in_current_turn(messages)
+    current_messages = _current_run_messages(messages, runtime)
+    result = _latest_tool_result_in_current_turn(current_messages)
     if result is None or str(getattr(result, "status", "success") or "success").casefold() == "error":
         return ""
-    call = _tool_call_for_result(messages, result)
+    call = _tool_call_for_result(current_messages, result)
     if not call or str(call.get("name") or "") != "write_file":
         return ""
     args = call.get("args")
@@ -148,7 +202,7 @@ def _ppt_master_confirmation_recommendation_ready(state: AgentState, messages: l
     return confirmation_url
 
 
-def _is_unfinished_plan_response(message: AIMessage, messages: list[Any]) -> bool:
+def _is_unfinished_plan_response(message: AIMessage, messages: list[Any], runtime: Runtime | None = None) -> bool:
     """Detect a future-tense plan incorrectly ending a tool-using turn."""
     if not _has_visible_content(message) or _has_tool_call_intent_or_error(message):
         return False
@@ -161,7 +215,7 @@ def _is_unfinished_plan_response(message: AIMessage, messages: list[Any]) -> boo
         return False
     if not _UNFINISHED_PLAN_RE.search(content) or _PLAN_COMPLETION_RE.search(content):
         return False
-    return _tool_result_in_current_turn(messages)
+    return _tool_result_in_current_turn(messages, runtime)
 
 
 class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
@@ -207,7 +261,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
             return None
 
         last = messages[-1]
-        confirmation_url = _ppt_master_confirmation_recommendation_ready(state, messages)
+        confirmation_url = _ppt_master_confirmation_recommendation_ready(state, messages, runtime)
         if confirmation_url and not _has_tool_call_intent_or_error(last):
             self._clear(runtime)
             additional_kwargs = dict(last.additional_kwargs or {})
@@ -230,7 +284,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
                     )
                 ]
             }
-        if _is_unfinished_plan_response(last, messages):
+        if _is_unfinished_plan_response(last, messages, runtime):
             key = self._key(runtime)
             with self._lock:
                 retry_count = self._plan_retry_counts.get(key, 0)
@@ -238,6 +292,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
                     self._plan_retry_counts[key] = 1
                     self._pending_prompts[key] = True
             if retry_count == 0:
+                log_run_timing(logger, "terminal_plan_retry_queued")
                 return {"jump_to": "model"}
 
             additional_kwargs = dict(last.additional_kwargs or {})
@@ -260,7 +315,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
 
         if _has_visible_content(last) or _has_tool_call_intent_or_error(last):
             return None
-        if not _tool_result_in_current_turn(messages):
+        if not _tool_result_in_current_turn(messages, runtime):
             return None
 
         key = self._key(runtime)
@@ -278,6 +333,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
             # terminal message now so a successful recovery does not leave it
             # in checkpoint history or future model context.
             message_updates = [RemoveMessage(id=last.id)] if last.id else []
+            log_run_timing(logger, "terminal_empty_retry_queued")
             return {"messages": message_updates, "jump_to": "model"}
 
         additional_kwargs = dict(last.additional_kwargs or {})
@@ -308,6 +364,11 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
             content=_UNFINISHED_PLAN_PROMPT if is_plan_retry else _RECOVERY_PROMPT,
             name="unfinished_plan_recovery" if is_plan_retry else "terminal_response_recovery",
             additional_kwargs={"hide_from_ui": True},
+        )
+        log_run_timing(
+            logger,
+            "terminal_retry_injected",
+            retry_kind="plan" if is_plan_retry else "empty",
         )
         return request.override(messages=[*request.messages, reminder])
 
@@ -354,10 +415,12 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
 
     @override
     def after_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        self._clear(runtime)
-        return None
+        with time_middleware_after_agent(logger, middleware="terminal_response"):
+            self._clear(runtime)
+            return None
 
     @override
     async def aafter_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        self._clear(runtime)
-        return None
+        async with atime_middleware_after_agent(logger, middleware="terminal_response"):
+            self._clear(runtime)
+            return None

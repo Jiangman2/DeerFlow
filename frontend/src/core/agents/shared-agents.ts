@@ -18,7 +18,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tool_groups: ["图文检索", "以图查图"],
     skills: null,
     source: "team",
-    external_url: "https://datalake.cnooc/zywdjxzj",
+    external_url: "https://cnoocclawtest.cnooc.com.cn/zywdjxzj/",
   },
   {
     name: "地震数据提频专家",
@@ -27,7 +27,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tool_groups: ["地震资料", "SEGY"],
     skills: null,
     source: "team",
-    external_url: "https://datalake.cnooc/dzsjtpzj",
+    external_url: "https://cnoocclawtest.cnooc.com.cn/dzsjtpzj/",
   },
   {
     name: "专业报告校审专家",
@@ -36,7 +36,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tool_groups: ["文档审查", "油气专业"],
     skills: null,
     source: "team",
-    external_url: "https://datalake.cnooc/zjbgjszj/",
+    external_url: "https://cnoocclawtest.cnooc.com.cn/zjbgjszj/",
   },
   {
     name: "自动数采专家",
@@ -45,7 +45,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tool_groups: ["表格抽取", "数据采集"],
     skills: null,
     source: "team",
-    external_url: "https://datalake.cnooc/zdsczj",
+    external_url: "https://cnoocclawtest.cnooc.com.cn/zdsczj/",
   },
   {
     name: "前期研究报告编写专家",
@@ -54,6 +54,6 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tool_groups: ["报告生成", "PPT to Word"],
     skills: null,
     source: "team",
-    external_url: "https://datalake.cnooc/qqyjbgbxzj",
+    external_url: "https://cnoocclawtest.cnooc.com.cn/qqyjbgbxzj/",
   },
 ];

@@ -193,7 +193,11 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
    usage on every streamed chunk, set `cumulative_stream_usage: true` on the
    model so DeerFlow converts each completion's snapshots to deltas before
    LangChain aggregates them. Leave the option disabled for providers that
-   already emit per-chunk usage.
+   already emit per-chunk usage. DeepSeek-V4-Flash endpoints that emit
+   `delta.reasoning_content` can use the same adapter; it retains that field
+   for the UI and replays it for later tool-call turns. Configure its thinking
+   switch explicitly as `when_thinking_enabled.extra_body.enable_thinking:
+   true` and `when_thinking_disabled.extra_body.enable_thinking: false`.
 
    If an older deployment already persisted impossible cumulative-stream
    totals, use the audited and reversible maintenance procedure in
@@ -387,6 +391,14 @@ For persistent deployments, configure `database.backend` as `sqlite` or
 `postgres`. The selected backend is shared by the LangGraph checkpointer,
 LangGraph Store, and DeerFlow application data. The deprecated `checkpointer`
 section, when present, overrides the first two for backward compatibility.
+
+For a PostgreSQL-backed checkpointer, the Gateway process pool defaults to four
+connections. Set `DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE` and
+`DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE` at process start to tune it;
+both must be positive and `max` must not be below `min`. For the enterprise
+100-concurrent-run load profile, `8` and `32` are a conservative starting
+point after confirming PostgreSQL connection headroom. A Gateway rollout is
+required for either setting to take effect.
 
 The unified nginx endpoint is same-origin by default and does not emit browser CORS headers. If you run a split-origin or port-forwarded browser client, set `GATEWAY_CORS_ORIGINS` to comma-separated exact origins such as `http://localhost:3000`; the Gateway then applies the CORS allowlist and matching CSRF origin checks.
 
@@ -715,6 +727,79 @@ logging:
 
 When enabled, every Gateway HTTP response includes `X-Trace-Id`, logs include `trace_id`, and Langfuse traces created by that request include `metadata.deerflow_trace_id` with the same value.
 
+#### Run-stage timing diagnostics
+
+For a bounded performance investigation, set `DEERFLOW_RUN_TIMING_LOGS=true`
+and `DEERFLOW_LLM_TIMING_LOGS=true` on Gateway. They add content-free,
+run-correlated records for run admission, Sandbox acquisition/creation/readiness,
+tool execution, and model request timing. Every model request has a stable
+`llm_call_id` across its start/first-chunk/end records; group by that ID within
+each run when calculating model latency. The `run_end` record also splits
+cumulative tool time into Sandbox API execution
+(`sandbox_tool_execution_total_ms` / `sandbox_tool_count`, including shell and
+file operations) and Gateway/external tools (`non_sandbox_tool_total_ms` /
+`non_sandbox_tool_count`). Any Sandbox acquisition nested in a first tool call
+is excluded from the execution total and recorded separately as
+`sandbox_tool_acquire_overlap_ms`; neither path records tool arguments or
+command text. See
+[docs/run-timing-logs.md](docs/run-timing-logs.md); remove the flags after the
+test to avoid high-volume logs. For a captured `kubectl logs --timestamps`
+file, `python3 scripts/deerflow_timing_report.py gateway-timing.log` produces
+one content-free load-test timing row per finished run.
+For a suspected silent graph tail, the same flag emits a 30-second idle-wait
+watchdog and the eventual `anext()` completion after all observed graph tasks
+have ended; it also reports only slow browser-bridge publishes. Tune the
+diagnostic-only thresholds with `DEERFLOW_RUN_TIMING_IDLE_WAIT_SECONDS` and
+`DEERFLOW_RUN_TIMING_SLOW_BRIDGE_PUBLISH_MS` (both must be positive). Neither
+setting times out or cancels the graph.
+For PostgreSQL checkpoint diagnostics, the same bounded flag adds per-run
+`checkpoint_aput_*`, `checkpoint_aput_writes_*`,
+`checkpoint_pool_acquire_*`, `checkpoint_pool_hold_*`, and
+`checkpoint_sql_execute_*` totals to `run_end`. They distinguish checkpoint
+API time, pool-borrow wait, checked-out connection hold, and SQL round-trip
+time without logging SQL, parameters, checkpoint state, or user content. Each
+group also exposes `inflight_max`, the peak same-Run concurrent operation count;
+it is not an exact LangGraph predecessor-chain queue length. Slow checkpoint
+records include their `inflight_at_start`.
+Set `DEERFLOW_CHECKPOINTER_TIMING_SLOW_MS` only when needed (default `1000`)
+to emit slow checkpoint operations before the Run ends; normal checkpoint
+operations remain aggregate-only.
+For a temporary PostgreSQL-side correlation view, additionally set
+`DEERFLOW_CHECKPOINTER_DB_SESSION_LABELS=true`. Each pooled checkpointer
+borrow then labels its database session as `dfcp:<run-id>`; inspect only
+`pg_stat_activity` state and wait-event aggregates as documented in
+[docs/run-timing-logs.md](docs/run-timing-logs.md). The label is disabled by
+default, excludes user/thread/content data, and adds one small SQL call per
+borrow.
+Non-stream calls (including active-goal evaluation) emit the same LLM triplet
+with `mode=async_nonstream`, where `first_chunk_ms` means response-completion
+latency. `goal_evaluate_*` and `goal_checkpoint_read_*` isolate active-goal
+evaluation and its checkpoint reads. `run_finalize_*` encloses separately timed
+journal flush, run-completion persistence, title sync, duration persistence,
+thread-status update, and optional completion-hook stages, so post-graph work
+does not appear only as unattributed wall time.
+`agent_stream_*` brackets the complete worker stream turn; its nested
+`checkpoint_lock_wait_*` isolates per-thread checkpoint-lock contention and
+`agent_graph_stream_*` measures the actual `agent.astream()` lifetime once the
+lock is held. `agent_graph_stream_tail.elapsed_ms` is the silent time from the
+last published graph update to graph exit, which exposes a post-answer hang.
+With this diagnostic flag on, Gateway privately consumes LangGraph `tasks`
+events and emits content-free `graph_task_start` / `graph_task_end` pairs, so
+the internal graph node responsible for that wait can be identified without
+forwarding task state to the browser.
+Every DeerFlow-owned `after_agent` / `aafter_agent` hook also emits a paired
+`middleware_after_agent_*` span with only a fixed middleware name and outcome;
+this isolates cleanup and Sandbox-release waits inside a graph `after_agent`
+node without exposing state or conversation data.
+Hidden middleware re-entry markers (`todo_*`,
+`artifact_delivery_*`, `terminal_*`, and `skill_workflow_*`) identify retries or
+injected reminders. `context_summarize_*`, `title_generation_*`, and
+`memory_enqueue_*` additionally expose hidden summary/title calls and the
+non-blocking memory queue handoff. Together they separate a real post-response
+graph gap from a non-stream final answer without logging conversation content.
+The report distinguishes unmatched model-end records with `LLM_ORPHAN#`; they
+remain in cumulative model time but cannot inflate the matched-call `COV%`.
+
 #### LangSmith Tracing
 
 DeerFlow has built-in [LangSmith](https://smith.langchain.com) integration for observability. When enabled, all LLM calls, agent runs, and tool executions are traced and visible in the LangSmith dashboard.
@@ -815,6 +900,8 @@ details under `skills/third_party/` and do not appear as separate platform skill
 
 Users can explicitly activate an enabled skill for a single turn by starting the request with `/skill-name`, for example `/data-analysis analyze uploads/foo.csv`. DeerFlow loads that skill's complete `SKILL.md` as hidden context on the first model call, then restores a compact validated continuation contract after each tool call. This retains exact reference paths and mandatory phase gates without multiplying a large skill body by every tool iteration. The skill is read from disk and audited once; the per-run contract is never written to chat history or persisted run configuration. Slash activation respects disabled skills, custom-agent skill whitelists, and existing channel commands such as `/new` and `/help`.
 
+For a Kubernetes PVC deployment, see [Public Skill incremental deployment](docs/public-skill-update-deployment.zh-CN.md) before updating one bundled public Skill. It uses a target-scoped sync Job rather than reapplying the entire environment.
+
 When an activated skill declares a mandatory `read_file` reference or names a
 schema skeleton for a generated control file, DeerFlow blocks `write_file` and
 `str_replace` until that exact supporting resource has been read successfully.
@@ -882,6 +969,17 @@ identity and `APPFORGE_API_KEY` through the runtime Secret, keep the reviewed
 Metrics/Detail workflow IDs explicit (`app-n9ahac7g` and `app-5md031ia`), and
 keep `trust_env: false` for both reviewed internal direct routes. Credentials
 and workflow identity values are never model-visible.
+
+An independent AppForge workflow, `datalake_md_search`, is available for
+exploration-and-production master data only: companies, branches/operating
+organizations, oil and gas fields, blocks, wells, and their ownership, lists,
+or counts. It must not be used for production, KPIs, trends, reports,
+calculations, document QA, arbitrary SQL, or inferred business relationships.
+Add its separate `config.example.yaml` entry and inject
+`APPFORGE_MD_SEARCH_API_KEY` through the Gateway runtime Secret. It is
+intentionally outside the user's **Use Data Lake** toggle and outside
+`DATALAKE_TOOL_NAMES`; do not reuse the browser's platform Token or expose the
+AppForge credential to the model.
 
 When Retrieve evidence includes an image from the reviewed internal preview
 service, Gateway converts it to an authenticated same-origin
@@ -1266,6 +1364,9 @@ startup window of at least five minutes and a liveness failure window of about
 one minute so browser/PPT workloads are not restarted during a transient CPU
 stall. Readiness failures only remove the Pod from service; liveness failures
 restart it, so avoid an aggressively short liveness window for long tasks.
+For fixed-name Sandbox replacement, `SANDBOX_POD_DELETE_WAIT_SECONDS` defaults
+to 30 seconds: the Provisioner waits for a terminating Pod name to disappear
+before recreating it and never reports a Service-only Sandbox as ready.
 
 This is the difference between a chatbot with tool access and an agent with an actual execution environment.
 
@@ -1510,14 +1611,11 @@ CA-validated legacy RSA certificate, set `TAVILY_TLS_COMPAT=true` only on the
 Gateway. DeerFlow then uses a Tavily-scoped `DEFAULT:@SECLEVEL=1` HTTPS session
 while preserving CA-chain and hostname verification.
 
-The five fixed enterprise agent cards open through same-origin server launch
-routes. For users who entered through CNOOC data-lake SSO, the launch route
-reads the validated platform Token from its HttpOnly cookie and redirects only
-to the corresponding allowlisted HTTPS path on `datalake.cnooc`, adding the
-current Token at redirect time. Launch responses disable caching and referrer
-forwarding. The Token is never hardcoded in source, returned to frontend
-JavaScript, or stored in browser-readable storage, and logout clears both the
-DeerFlow session and platform-Token cookies.
+The five fixed enterprise agent cards open same-origin paths below
+`cnoocclaw.cnooc.com.cn`. In the Kubernetes local-PVC deployment, Nginx checks
+the authenticated DeerFlow session before proxying each path to its private
+tool service. No Data Lake Token or private service address is embedded in card
+data or exposed to browser JavaScript.
 
 ## Recommended Models
 

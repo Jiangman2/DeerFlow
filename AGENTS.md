@@ -96,6 +96,12 @@ Sandbox containers start. The Agent host revalidates those roots immediately
 before every fresh or repair process launch and rebuilds its writable Skill and
 Codex runtime if the workspace had to be restored; a missing directory must not
 abort the task and leave the browser polling a state that was never persisted.
+Provisioner Sandbox names remain stable per thread so the persistent workspace,
+execution lease, and cleanup identity agree. A Kubernetes Pod DELETE is
+asynchronous: on a same-name create conflict, reuse only a non-terminating Pod;
+otherwise wait for the old Pod name to disappear (bounded by
+`SANDBOX_POD_DELETE_WAIT_SECONDS`) before recreating it. Never expose a
+Service-only Sandbox URL.
 After the Sandbox command API is ready, the PPT Bridge must independently wait
 for the Agent host `/health` endpoint because the two containers do not become
 ready atomically. Treat bounded DNS/connect/read failures during startup and
@@ -372,15 +378,14 @@ When `TAVILY_API_KEY` is present, Gateway SSO also idempotently provisions a
 native default `DeerFlow Tavily` provider in every workspace the user owns or
 administers. The key must remain a runtime secret and must never be exposed in
 the browser or committed to Kubernetes manifests.
-The five built-in external-agent cards use same-origin server launch routes
-under `/api/cnooc/external-agents/<agent>/launch`. The route reads the validated
-HttpOnly `cnooc.platform_token` cookie and redirects only to the five canonical
-HTTPS paths on `datalake.cnooc`, adding the current Token at redirect time.
-Keep the strict allowlist, `no-store`/`no-referrer` response headers, and
-server-only cookie access. The shared Nginx entry must route this exact API
-prefix to the Frontend before its general `/api/` Gateway catch-all. Never
-hardcode a Token, expose it to frontend
-JavaScript, or restore the legacy `/agent-tools/*` reverse proxies.
+The five built-in CNOOC external-agent cards open fixed same-origin paths below
+`cnoocclaw.cnooc.com.cn`: `/zywdjxzj/`, `/dzsjtpzj/`, `/zjbgjszj/`,
+`/zdsczj/`, and `/qqyjbgbxzj/`. In the `k8s/local-pvc` stack, Nginx validates
+the DeerFlow session with Gateway before proxying these paths to their private
+tool services. Preserve the exact path-to-upstream mapping, root-path rewrite,
+WebSocket headers, and login redirect; do not hardcode a Data Lake Token,
+expose private service addresses to browser JavaScript, or restore legacy
+`/agent-tools/*` browser proxies.
 
 The mobile H5 sub-application is the same workspace frontend opened by a
 trusted Android WebView or iOS WKWebView at `/workspace/chats/new`; it is not a
@@ -434,7 +439,7 @@ deer-flow/
 ├── docker/                         # docker-compose files, nginx config, provisioner
 ├── skills/                         # Agent skills: public/ (committed), custom/ (gitignored)
 ├── contracts/                      # Cross-component JSON contracts (e.g. subagent status, skill review)
-├── scripts/                        # Root orchestration scripts invoked by the Makefile (check, configure, doctor, support_bundle, serve, nginx, docker, deploy, setup_wizard)
+├── scripts/                        # Root orchestration scripts plus `deerflow_timing_report.py` for content-free per-Run load-test summaries
 ├── tests/                          # Root-level tests (currently tests/skills/ — public skill tests)
 └── docs/                           # Cross-cutting docs, plans, and design notes
 ```
@@ -568,6 +573,48 @@ Enterprise Kubernetes storage note:
   tiktoken cache and sets `TIKTOKEN_CACHE_DIR`; keep this cache in release
   source packages so Gateway startup and memory token budgeting never depend
   on downloading BPE data through the enterprise proxy.
+- For a bounded performance investigation, Gateway can emit content-free,
+  run-correlated `RUN_TIMING` records when `DEERFLOW_RUN_TIMING_LOGS=true`.
+  Idle graph waits include bounded coroutine-label counts, while PostgreSQL
+  checkpointers add aggregate checkpoint API, pool-borrow, and SQL-round-trip
+  timing with no SQL, parameters, checkpoint state, or user content.
+  They cover run start/end, complete worker streams, checkpoint-lock waits,
+  in-lock graph streaming, content-free graph-task lifecycle, Sandbox
+  acquire/create/ready, tool start/end,
+  active-goal evaluation/checkpoint reads, hidden middleware retry/injection
+  markers, hidden summary/title calls, memory queue handoff, and post-graph
+  finalization. DeerFlow-owned `after_agent` / `aafter_agent` hooks additionally
+  emit uniform `middleware_after_agent_*` spans with a fixed middleware name,
+  so cleanup or Sandbox-release time inside a graph `after_agent` node is not
+  hidden. The nested `checkpoint_lock_wait_*` and
+  `agent_graph_stream_*` stages distinguish a queued thread lock from time
+  actually inside `agent.astream()`; `agent_graph_stream_tail.elapsed_ms`
+  measures the silent period after its final published graph update and before
+  exit. While enabled, Gateway privately consumes LangGraph `tasks` events and
+  emits node name/local task-index lifecycle pairs without logging or sending
+  graph state to the browser. `stream_kind=initial` is the user turn and
+  `stream_kind=goal` is a goal continuation. The
+  finalization boundary also exposes journal flush, run-completion persistence,
+  title sync, duration persistence, thread-status update, and optional
+  completion-hook sub-stages;
+  pair them with `DEERFLOW_LLM_TIMING_LOGS=true` for model request timing. Each
+  model request's start/first/end records share `llm_call_id`; non-stream goal
+  evaluation uses `mode=async_nonstream`, where `first_chunk_ms` is response
+  completion latency. Attribution first
+  uses task-local state and falls back to inherited LangChain metadata so child
+  tasks do not lose the DeerFlow run IDs. `run_end` additionally splits true
+  Sandbox API execution duration/count (including shell and file operations)
+  from Gateway/external tools. An acquisition interval nested inside a first
+  Sandbox tool is excluded from execution and reported separately as
+  `sandbox_tool_acquire_overlap_ms`, never their text or arguments. Do
+  not add prompts, tool arguments, command text, paths, URLs, headers, or
+  secrets to either stream, and disable both flags after the test. Run
+  `python3 scripts/deerflow_timing_report.py <captured-gateway-log>` to render
+  per-Run totals, cumulative model, Sandbox/external tool, coverage, and
+  uncovered wall time. Its `COV%` is based only on matching `llm_call_id`
+  start/end pairs; unmatched end records are surfaced separately as
+  `LLM_ORPHAN#`.
+  See `docs/run-timing-logs.md`.
 - Apply `k8s/enterprise/weknora-mineru-defaults.sql` after creating a new WeKnora database. Its trigger routes missing PDF/PPT/PPTX rules to the in-cluster adapter for knowledge bases created through the native WeKnora UI while preserving every explicit file-type parser choice.
 - Keep `k8s/weknora/enterprise-model-feature-defaults-job.yaml` and its versioned Job name aligned with `enterprise-model-feature-defaults.sql`. The Job waits for the built-in model rows, applies the SQL once, and remains completed so routine re-applies do not overwrite later user choices. Bump the Job name only when a revised initializer must run. It makes internal `DeepSeek-V4-Flash` the enterprise KnowledgeQA default, switches empty and future knowledge bases to the dedicated internal embedding model, normalizes database-backed agent overrides to the internal rerank plus enterprise VLM/ASR built-ins, and installs insert/model-write guards so later objects start ready without per-user setup. Populated knowledge bases must be re-parsed successfully before their embedding model is switched and old external embedding rows are hidden. Keep the mounted `k8s/weknora/builtin_agents.yaml` aligned with those defaults so runtime-generated built-in agents are also ready in every existing and future personal workspace.
 - The enterprise Gateway uses the runtime proxy for external model providers, but its `NO_PROXY` and `no_proxy` values must retain the bare Kubernetes Service names (especially `weknora-app`) as well as `.svc` and `.cluster.local`. Otherwise Gateway-to-WeKnora calls are sent through the enterprise proxy and surface as HTTP 302/502 failures. Keep proxy URLs and credentials in the runtime-created `deer-flow-env` Secret; do not commit them.
@@ -632,7 +679,11 @@ Enterprise Kubernetes storage note:
   `public` and `third_party` trees after archive extraction. Source archives can
   preserve `0640 root:root`, which Gateway can read but the sandbox file API
   cannot. Keep generated Sandbox mounts read-only and do not broaden permissions
-  on user-owned `custom` Skills.
+  on user-owned `custom` Skills. For a one-Skill public release, do not reapply
+  the entire local-PVC Kustomize environment: build and import a versioned
+  `deer-flow-skills` seed image, then use a target-scoped one-off sync Job that
+  validates and copies only that public Skill. The operational procedure is in
+  `docs/public-skill-update-deployment.zh-CN.md`.
 - Gateway's effective `extensions_config.json` must be the writable runtime copy
   under the existing user-data PVC. Keep the ConfigMap-mounted file as a
   read-only release seed; the init container adds missing shipped MCP/Skill
@@ -663,7 +714,11 @@ Enterprise Kubernetes storage note:
   gateway rejects non-streaming OpenAI tool-call completions with business code
   `20009`, while the equivalent streamed tool call succeeds. The adapter
   normalizes JSON-encoded streamed chunks before LangChain consumes them so a
-  scalar compatibility response cannot regress to `str.model_dump()`. The
+  scalar compatibility response cannot regress to `str.model_dump()`. For the
+  updated DeepSeek-V4-Flash API, it also preserves streamed
+  `delta.reasoning_content` and replays it in later tool-call turns. Configure
+  the reasoning switch with explicit `when_thinking_enabled` and
+  `when_thinking_disabled` `extra_body.enable_thinking` booleans. The
   enterprise DeepSeek model also sets `cumulative_stream_usage: true` because
   its stream repeats cumulative token snapshots; the adapter converts those
   snapshots to completion-scoped deltas before LangChain aggregation. Never
@@ -689,6 +744,12 @@ Enterprise Kubernetes storage note:
   arguments or return raw upstream errors. A single document store is referenced
   from `config.yaml` as `$DATALAKE_RETRIEVE_DOCUMENT_STORE_ID`; the code also
   accepts comma-separated `DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS`.
+- `datalake_md_search` is a separate Gateway-only AppForge tool for registered
+  exploration-and-production master data (companies, branches/operating
+  organizations, fields, blocks, wells) and their ownership, lists, and counts.
+  Configure its distinct `APPFORGE_MD_SEARCH_API_KEY` in `deer-flow-env`; never
+  use a browser platform Token, return the credential, or add this tool to
+  `DATALAKE_TOOL_NAMES`. It remains available when `datalake_enabled=false`.
 - AppForge knowledge results may contain image URLs served from the reviewed
   internal image-preview address. Gateway rewrites only that exact HTTP origin
   to the authenticated same-origin `/api/datalake/image-preview` route, which

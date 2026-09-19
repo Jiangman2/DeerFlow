@@ -319,9 +319,12 @@ CNOOC SSO stores the validated upstream platform Token in the HttpOnly
 `cnooc.platform_token` cookie and stores only its SHA-256 digest in the nullable,
 unique `users.cnooc_platform_token_hash` binding. Token login must commit that
 binding before issuing either login cookie. The frontend's same-origin server
-launch routes read the cookie only for the five allowlisted data-lake external
-agents and add the current Token to the final redirect URL. Before any launch,
-file-list, or download route consumes the Token, it calls the authenticated
+launch routes read the cookie only for four allowlisted data-lake external
+agents and add the current Token to the final redirect URL. The **专业文档解析专家**
+card is an explicit direct-link exception and opens
+`https://cnoocclaw.cnooc.com.cn/zywdjxzj/`, whose destination owns its data-lake
+session handling. Before any launch, file-list, or download route consumes the
+Token, it calls the authenticated
 `GET /api/v1/data-lake/auth/session` endpoint, which compares the Cookie digest
 with the current user's binding in constant time. A mismatch clears the stale
 Cookie; temporary validation failure remains fail-closed without deleting a
@@ -539,7 +542,7 @@ Lead-agent middlewares are assembled in strict order across three functions: the
 30. **TokenBudgetMiddleware** - _(optional, if `token_budget.enabled`)_ Enforces per-run token limits
 31. **Custom middlewares** - _(optional)_ Any `custom_middlewares` passed to `build_middlewares` are injected here, before the artifact-delivery/terminal-response/safety/clarification tail
 32. **ArtifactDeliveryMiddleware** - Rejects final responses that reference `/mnt/user-data/outputs/...` or the corresponding `/api/threads/.../artifacts/mnt/user-data/outputs/...` URL unless every referenced file exists in the current thread outputs directory and is present in `ThreadState.artifacts` after a successful `present_files` call. It removes the invalid answer and retries once with hidden instructions requiring real shell execution, file validation, and publication; a repeated invalid claim becomes a visible error fallback with no fabricated link. The run worker applies the same validator when an in-flight provider response is interrupted before normal middleware/checkpoint finalization, then journals a same-ID fallback so paginated history cannot resurrect the uncommitted link.
-33. **TerminalResponseMiddleware** - When a provider returns an empty terminal `AIMessage` after tool execution, injects a hidden recovery prompt and retries the model once; a second empty response is replaced in checkpoint state by a visible error fallback marked for the run worker, so the run finishes as an error instead of a silent success. The scoped `ppt-master` exception recognizes a successful `recommendations.stage1/2/3.json` write while its Confirm UI is active as a durable user-wait boundary and returns a resumable page handoff instead of applying the generic unfinished-plan failure.
+33. **TerminalResponseMiddleware** - When a provider returns an empty terminal `AIMessage` after tool execution, injects a hidden recovery prompt and retries the model once; a second empty response is replaced in checkpoint state by a visible error fallback marked for the run worker, so the run finishes as an error instead of a silent success. Tool receipts are scoped to the worker-supplied pre-run message-ID boundary, so compacted historical tools cannot make a plan-only current response eligible for automatic retry. The scoped `ppt-master` exception recognizes a successful `recommendations.stage1/2/3.json` write while its Confirm UI is active as a durable user-wait boundary and returns a resumable page handoff instead of applying the generic unfinished-plan failure.
 34. **WeKnoraCitationMiddleware** - Canonicalizes WeKnora 0.7 native `<kb>` tags and repairs model-truncated bare citation labels only from unique, same-origin references in the current user turn. The subagent runtime installs the same middleware before returning delegated knowledge results; the lead may recover only already-canonical `/platform/knowledge-bases/...` links from the current `task` result. Ambiguous same-named documents, historical references, arbitrary links, and code examples are never rewritten.
 35. **SafetyFinishReasonMiddleware** - _(optional, if `safety_finish_reason.enabled`)_ Suppresses tool execution when the provider safety-terminated the response (e.g. `finish_reason=content_filter`); registered after terminal-response/custom middlewares so LangChain's reverse-order `after_model` dispatch runs it first
 36. **ClarificationMiddleware** - Intercepts `ask_clarification` tool calls, writes a readable `ToolMessage.content` fallback plus structured `ToolMessage.artifact.human_input` request payload, and interrupts via `Command(goto=END)` (must be last). Because this middleware can short-circuit tool execution before LangChain emits `on_tool_end`, `RunJournal` performs a root-run final reconciliation for allowlisted clarification `ToolMessage`s whose `tool_call_id` was produced by the current run, so human-input request cards remain recoverable from `run_events` after checkpoint compaction. Human Input Card replies are submitted as `hide_from_ui` `HumanMessage`s with `additional_kwargs.human_input_response`; `RunJournal` persists only allowlisted hidden response sources (currently `ask_clarification`) as `llm.human.input`, which preserves answered-card state after compaction without exposing generic internal hidden context.
@@ -702,6 +705,16 @@ The deprecated `checkpointer` section remains backward compatible and, when
 present, overrides `database` for the LangGraph checkpointer and Store only;
 application repositories continue to use `database`.
 
+**PostgreSQL checkpointer capacity**: the process-wide asynchronous
+checkpointer pool is independent of the SQLAlchemy application pool. It keeps
+the historical `min_size=4` / `max_size=4` unless
+`DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE` and
+`DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE` are set before startup. Values
+must be positive and `max >= min`; log the resolved values without logging the
+DSN. For the enterprise 100-concurrent-run profile, start at `8/32` only after
+checking PostgreSQL connection headroom, then use graph idle-wait timing events
+and database connection statistics to validate the change.
+
 Configuration priority:
 
 1. Explicit `config_path` argument
@@ -853,7 +866,7 @@ Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runti
   these settings runtime-injected so CA rotation and proxy credential changes
   do not require rebuilding the large Sandbox image. Never disable CA or
   hostname verification.
-- **Provisioner-generated Pod health/resources**: `docker/provisioner/app.py` reads startup/readiness/liveness timing from `SANDBOX_*_PROBE_*` environment variables, the inner AIO HTTP timeout from `SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS`, and CPU/memory requests/limits from `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}`. Keep the startup window at least five minutes for cold AIO images, and keep the kubelet exec timeout longer than the inner HTTP timeout. Liveness must tolerate roughly one minute of transient unresponsiveness for browser/PPT workloads; readiness may remain faster because it does not restart the container. The local/enterprise K8S overlays use a 5-second inner timeout, 10-second probe timeout, 10-minute startup window, and 1 CPU/1Gi requests with 2 CPU/4Gi limits; tune those values only with measured node capacity.
+- **Provisioner-generated Pod health/resources**: `docker/provisioner/app.py` reads startup/readiness/liveness timing from `SANDBOX_*_PROBE_*` environment variables, the inner AIO HTTP timeout from `SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS`, and CPU/memory requests/limits from `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}`. Keep the startup window at least five minutes for cold AIO images, and keep the kubelet exec timeout longer than the inner HTTP timeout. Liveness must tolerate roughly one minute of transient unresponsiveness for browser/PPT workloads; readiness may remain faster because it does not restart the container. The local/enterprise K8S overlays use a 5-second inner timeout, 10-second probe timeout, 10-minute startup window, and 1 CPU/1Gi requests with 2 CPU/4Gi limits; tune those values only with measured node capacity. Stable per-thread Sandbox names are intentional: on Pod-create `409`, reuse only a non-terminating Pod; wait up to `SANDBOX_POD_DELETE_WAIT_SECONDS` (default 30) for a terminating predecessor to disappear, then recreate. Never return a Service URL without a usable Pod.
 - `BoxliteProvider` (`packages/harness/deerflow/community/boxlite/`) - BoxLite micro-VM isolation. The `boxlite` runtime is optional (`deerflow-harness[boxlite]`) and lazy-imported only when this provider is selected. The provider owns one private asyncio event loop on a daemon thread because BoxLite handles are loop-affine; sync `Sandbox` calls marshal onto that loop with `run_coroutine_threadsafe`.
   Boxes are named deterministically from `user_id:thread_id`, released into an in-process warm pool after each agent turn, and reclaimed only by the same user/thread. Warm-pool health checks use a short explicit timeout and forward that timeout through both BoxLite `exec(timeout=...)` and the private-loop `.result(timeout)` bridge so a hung VM cannot pin the per-thread acquire lock indefinitely.
   `sandbox.replicas` caps active + warm VMs per gateway process; if capacity is exhausted, only warm-pool VMs are evicted. `sandbox.idle_timeout` stops idle warm VMs after the configured seconds. `reset()` is intentionally a lightweight registry clear for `reset_sandbox_provider()` and does not close boxes, stop the idle reaper, or close the private loop; full teardown remains `shutdown()`.
@@ -958,6 +971,14 @@ disabled run filters all three DataLake tools before deferred assembly. The
 contexts and apply the same filter defensively. The DataLake boundaries still
 returns a bounded `datalake_disabled` result for stale direct references before
 configuration, credentials, or network access.
+
+`datalake_md_search` is a distinct AppForge master-data workflow. It is limited
+to companies, branches/operating organizations, fields, blocks, wells, and
+their registered ownership/list/count relationships; it must not be used for
+metrics, production, reports, document QA, arbitrary SQL, or inferred complex
+relationships. Its `APPFORGE_MD_SEARCH_API_KEY` is Gateway Secret-only. It is
+intentionally absent from `DATALAKE_TOOL_NAMES`, so the Data Lake toggle does
+not hide it or block its direct invocation.
 
 **ACP agent tools**:
 
@@ -1331,7 +1352,12 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
   audited enterprise endpoint: its safety gateway returns business code
   `20009` for non-streaming tool-call completions but accepts the equivalent
   streamed protocol. The adapter normalizes JSON-encoded streamed chunks before
-  LangChain conversion. It may quarantine an isolated malformed scalar frame
+  LangChain conversion. DeepSeek-V4-Flash's separate
+  `delta.reasoning_content` is retained in `additional_kwargs` and replayed
+  for subsequent tool-call requests; pair
+  `when_thinking_enabled.extra_body.enable_thinking: true` with the explicit
+  false counterpart under `when_thinking_disabled`. It may quarantine an
+  isolated malformed scalar frame
   only when a later normal chunk contains a terminal `finish_reason`; otherwise
   the incomplete stream remains a typed `MALFORMED_RESPONSE` failure. That exact
   transport defect may use up to three fresh request attempts, bounded by the
@@ -1350,6 +1376,7 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
   original run aggregates, and `run_events` always remains immutable. Never
   replace this with an unbacked bulk reset or an arbitrary estimated divisor.
 - `logging.enhance` - Optional request trace correlation (`enabled`, `format`) for Gateway `X-Trace-Id`, log `trace_id`, and Langfuse `deerflow_trace_id`
+- `DEERFLOW_RUN_TIMING_LOGS=true` - Temporary, content-free performance diagnostics. Emits `RUN_TIMING` records for run start/end, complete worker streams, per-thread checkpoint-lock waits, in-lock graph streaming, content-free graph-task lifecycle, DeerFlow-owned `after_agent`/`aafter_agent` spans, Sandbox acquire/create/ready, tool start/end, active-goal evaluation/checkpoint reads, hidden middleware retry/injection markers, hidden summary/title calls, memory queue handoff, and post-graph finalization. `agent_stream_*` brackets the whole worker turn; its nested `checkpoint_lock_wait_*` and `agent_graph_stream_*` distinguish lock contention from time actually inside `agent.astream()`. `agent_graph_stream_tail.elapsed_ms` measures the silent interval after the final published graph update and before graph exit. When all observed graph tasks have ended but the next `agent.astream()` item still has not arrived after 30 seconds, `agent_graph_stream_idle_wait_watchdog` records only the number, bounded coroutine implementation labels, and bounded per-label task counts; `agent_graph_stream_idle_wait_end` gives the eventual wait outcome. The positive `DEERFLOW_RUN_TIMING_IDLE_WAIT_SECONDS` override changes that diagnostic threshold without cancelling the graph. Browser bridge publication logs only error/cancelled calls and successful calls slower than one second (`agent_stream_bridge_publish_slow`); `DEERFLOW_RUN_TIMING_SLOW_BRIDGE_PUBLISH_MS` is its positive override. Do not add a publish log per token: it would alter load-test behavior. While enabled, Gateway privately consumes LangGraph `tasks` mode and emits `graph_task_start` / `graph_task_end` pairs with a fixed node name and local task index only; task state, inputs, outputs, and task ids are never forwarded to the browser or log. `middleware_after_agent_*` uses a fixed DeerFlow middleware name and outcome only, exposing cleanup or Sandbox-release delay inside a graph `after_agent` node without recording hook state. `stream_kind=initial` denotes the user turn and `stream_kind=goal` a goal continuation. Todo, artifact-delivery, terminal-response, and Skill workflow markers record only a retry/injection decision, not content. Finalization separately brackets journal flush, run-completion persistence, title sync, duration persistence, thread-status update, and the optional completion hook; an optional pair appears only when its dependency and code path run. PostgreSQL checkpointers additionally aggregate checkpoint API calls, connection-pool borrow waits, checked-out connection holds, and awaited SQL execution at `run_end`; each group reports the peak same-Run in-flight operation count, and slow records identify the in-flight count present when they began. This is not an exact LangGraph predecessor-chain queue length. `DEERFLOW_CHECKPOINTER_DB_SESSION_LABELS=true` additionally labels each borrowed PostgreSQL checkpointer session with only `dfcp:<run-id>` so a bounded `pg_stat_activity` sample can separate active database work from upstream application waiting; it is disabled by default and adds one diagnostic SQL command per borrow. Never log SQL, parameters, checkpoint state, user/thread data, or a connection identity. It is independent of `DEERFLOW_LLM_TIMING_LOGS`, which adds the model request/first-chunk/end records. Non-stream goal-evaluator requests use `mode=async_nonstream`; their `first_chunk_ms` is response-completion latency because the provider exposes no chunks. Each model request's three records share an `llm_call_id`; model attribution first uses the current task context and falls back to reserved inheritable LangChain metadata (`deerflow_timing_thread_id` / `deerflow_timing_run_id`) so callback child tasks retain the parent DeerFlow IDs. `run_end` separates true execution time/count of built-in Sandbox API tools (`sandbox_tool_execution_total_ms` / `sandbox_tool_count`: `bash`, `ls`, `glob`, `grep`, `read_file`, `write_file`, `str_replace`) from Gateway/external tools (`non_sandbox_tool_*`). Any acquisition nested inside a first Sandbox tool is removed from the execution total and reported as `sandbox_tool_acquire_overlap_ms`; individual `tool_end` records retain every tool's full duration. Neither path records tool arguments, command text, or paths. Enable both only for a bounded investigation and remove them afterwards. See `docs/run-timing-logs.md`.
 - vLLM reasoning models should use `deerflow.models.vllm_provider:VllmChatModel`; for Qwen-style parsers prefer `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`, and DeerFlow will also normalize the older `thinking` alias
 - `tools[]` - Tool configs with `use` variable path and `group`
 - `tool_groups[]` - Logical groupings for tools
@@ -1672,3 +1699,4 @@ See `docs/` directory for detailed documentation:
 - [PATH_EXAMPLES.md](docs/PATH_EXAMPLES.md) - Path types and usage
 - [summarization.md](docs/summarization.md) - Context summarization
 - [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
+- [run-timing-logs.md](../docs/run-timing-logs.md) - Content-free run-stage performance diagnostics

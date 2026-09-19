@@ -19,14 +19,17 @@ import asyncio
 import copy
 import inspect
 import logging
+import math
 import os
 import threading
+import time
 import weakref
+from collections import Counter
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from functools import lru_cache
+from functools import lru_cache, partial
 from typing import Any, Literal, cast
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -36,6 +39,12 @@ from langgraph.errors import GraphRecursionError
 from deerflow.agents.goal_state import GoalEvaluation, GoalState
 from deerflow.agents.human_input import read_human_input_response
 from deerflow.config.app_config import AppConfig
+from deerflow.llm_timing_context import (
+    reset_current_llm_timing_context,
+    set_current_llm_timing_context,
+)
+from deerflow.models.robust_openai import _TIMING_RUN_METADATA_KEY, _TIMING_THREAD_METADATA_KEY
+from deerflow.run_timing import consume_checkpoint_timing, consume_tool_timing, log_run_timing, run_timing_logs_enabled
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
 from deerflow.runtime.goal import (
     DEFAULT_MAX_GOAL_CONTINUATIONS,
@@ -81,6 +90,48 @@ _checkpoint_locks_guard = threading.Lock()
 _checkpoint_locks_by_loop: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[str, asyncio.Lock]] = weakref.WeakKeyDictionary()
 
 
+def _positive_timing_env(name: str, default: float) -> float:
+    """Read one positive diagnostic threshold without making startup fragile."""
+
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if math.isfinite(value) and value > 0 else default
+
+
+def _pending_async_task_summary(*, limit: int = 8) -> tuple[int, str, str]:
+    """Return bounded coroutine labels for an event-loop snapshot.
+
+    Task names can be supplied by callers and coroutine frames can contain
+    request data, so diagnostics deliberately retain neither.  A coroutine
+    code object's name is a stable implementation label and is enough to
+    distinguish an idle graph wait from a busy model/tool task.
+    """
+
+    current_task = asyncio.current_task()
+    label_counts: Counter[str] = Counter()
+    pending_count = 0
+    for task in asyncio.all_tasks():
+        if task is current_task or task.done():
+            continue
+        pending_count += 1
+        coroutine = task.get_coro()
+        code = getattr(coroutine, "cr_code", None) or getattr(coroutine, "gi_code", None)
+        label = getattr(code, "co_name", type(coroutine).__name__)
+        safe_label = "".join(char if char.isalnum() or char in "_.:-" else "_" for char in str(label))[:48]
+        label_counts[safe_label or "unknown"] += 1
+
+    summary = ".".join(sorted(label_counts)[:limit])[:120]
+    top_counts = ".".join(
+        f"{count}:{label}" for label, count in sorted(label_counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+    )[:120]
+    return pending_count, summary or "none", top_counts or "none"
+
+
 @asynccontextmanager
 async def _checkpoint_thread_lock(thread_id: str) -> AsyncIterator[None]:
     """Serialize checkpoint mutations for one thread without blocking goal commands."""
@@ -99,8 +150,85 @@ async def _checkpoint_thread_lock(thread_id: str) -> AsyncIterator[None]:
         yield
 
 
+async def _time_run_stage(event_name: str, operation: Any) -> Any:
+    """Run one bounded worker stage and emit content-free timing boundaries."""
+    started_at = time.monotonic()
+    log_run_timing(logger, f"{event_name}_start")
+    try:
+        result = await operation()
+    except asyncio.CancelledError as exc:
+        log_run_timing(
+            logger,
+            f"{event_name}_end",
+            elapsed_ms=round((time.monotonic() - started_at) * 1000),
+            outcome="cancelled",
+            error_type=type(exc).__name__,
+        )
+        raise
+    except Exception as exc:
+        log_run_timing(
+            logger,
+            f"{event_name}_end",
+            elapsed_ms=round((time.monotonic() - started_at) * 1000),
+            outcome="error",
+            error_type=type(exc).__name__,
+        )
+        raise
+    log_run_timing(
+        logger,
+        f"{event_name}_end",
+        elapsed_ms=round((time.monotonic() - started_at) * 1000),
+        outcome="completed",
+    )
+    return result
+
+
 # Valid stream_mode values for LangGraph's graph.astream()
 _VALID_LG_MODES = {"values", "updates", "checkpoints", "tasks", "debug", "messages", "custom"}
+_GRAPH_TASK_TERMINAL_EVENTS = frozenset({"end", "error", "cancelled", "completed", "finished"})
+
+
+@dataclass(frozen=True, slots=True)
+class _GraphTaskEvent:
+    """One content-free task lifecycle item from LangGraph ``tasks`` mode."""
+
+    task_id: str
+    node_name: str
+    terminal: bool
+    outcome: str
+
+
+def _iter_graph_task_events(chunk: Any) -> list[_GraphTaskEvent]:
+    """Extract task lifecycle metadata without retaining graph input or output.
+
+    LangGraph emits a task mapping at task start and another at terminal state.
+    Versions differ slightly in the optional status field, so terminal detection
+    accepts both the documented ``result``/``error`` keys and known statuses.
+    Only the internal task id and node name are retained in process memory; the
+    run log receives the bounded node name and a local counter, never payload.
+    """
+
+    candidates = [chunk] if isinstance(chunk, dict) else chunk if isinstance(chunk, (list, tuple)) else []
+    events: list[_GraphTaskEvent] = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        task_id = candidate.get("id")
+        node_name = candidate.get("name")
+        if not isinstance(task_id, str) or not task_id or len(task_id) > 256:
+            continue
+        if not isinstance(node_name, str) or not node_name or len(node_name) > 128:
+            continue
+        state = str(candidate.get("event") or candidate.get("status") or "").lower()
+        terminal = "result" in candidate or "error" in candidate or state in _GRAPH_TASK_TERMINAL_EVENTS
+        if state == "cancelled":
+            outcome = "cancelled"
+        elif candidate.get("error") is not None or state == "error":
+            outcome = "error"
+        else:
+            outcome = "completed"
+        events.append(_GraphTaskEvent(task_id, node_name, terminal, outcome))
+    return events
 
 
 def _has_open_clarification(messages: list[Any]) -> bool:
@@ -262,6 +390,21 @@ def _install_runtime_context(config: dict, runtime_context: dict[str, Any]) -> N
     config["context"] = dict(runtime_context)
 
 
+def _install_llm_timing_metadata(config: dict[str, Any], *, thread_id: str, run_id: str) -> None:
+    """Persist run attribution through LangChain callback/task boundaries.
+
+    ``ContextVar`` remains the lowest-overhead fast path.  These reserved
+    metadata keys provide the same non-sensitive IDs to model callbacks which
+    are created by LangGraph in a context where task-local state was not copied.
+    """
+
+    existing_metadata = config.get("metadata")
+    metadata = dict(existing_metadata) if isinstance(existing_metadata, dict) else {}
+    metadata[_TIMING_THREAD_METADATA_KEY] = thread_id
+    metadata[_TIMING_RUN_METADATA_KEY] = run_id
+    config["metadata"] = metadata
+
+
 def _compute_agent_factory_supports_app_config(agent_factory: Any) -> bool:
     try:
         return "app_config" in inspect.signature(agent_factory).parameters
@@ -369,6 +512,9 @@ async def run_agent(
 
     run_id = record.run_id
     thread_id = record.thread_id
+    run_started_at = time.monotonic()
+    llm_timing_context_token = set_current_llm_timing_context(thread_id=thread_id, run_id=run_id)
+    log_run_timing(logger, "run_start", worker_pid=os.getpid())
     requested_modes: set[str] = set(stream_modes or ["values"])
     pre_run_checkpoint_id: str | None = None
     pre_run_snapshot: dict[str, Any] | None = None
@@ -498,6 +644,7 @@ async def run_agent(
         if journal is not None:
             runtime_ctx["__run_journal"] = journal
         _install_runtime_context(config, runtime_ctx)
+        _install_llm_timing_metadata(config, thread_id=thread_id, run_id=run_id)
         runtime = Runtime(context=cast(Any, runtime_ctx), store=store)
         config.setdefault("configurable", {})["__pregel_runtime"] = runtime
 
@@ -576,6 +723,14 @@ async def run_agent(
         if not lg_modes:
             lg_modes = ["values"]
 
+        # ``tasks`` exposes LangGraph node lifecycle metadata.  It is added only
+        # during the bounded content-free timing investigation and is consumed
+        # locally below, never forwarded to the browser SSE stream.
+        graph_task_timing_enabled = run_timing_logs_enabled()
+        graph_task_mode_added = graph_task_timing_enabled and "tasks" not in lg_modes
+        if graph_task_mode_added:
+            lg_modes.append("tasks")
+
         # Deduplicate while preserving order
         seen: set[str] = set()
         deduped: list[str] = []
@@ -592,6 +747,195 @@ async def run_agent(
         # the finally block so buffered steps survive abort/exception paths too.
         subagent_events = _SubagentEventBuffer(event_store, thread_id, run_id)
 
+        graph_task_started_at: dict[str, tuple[float, int, str]] = {}
+        graph_task_sequence = 0
+        idle_wait_watchdog_seconds = _positive_timing_env(
+            "DEERFLOW_RUN_TIMING_IDLE_WAIT_SECONDS",
+            30.0,
+        )
+        slow_bridge_publish_ms = _positive_timing_env(
+            "DEERFLOW_RUN_TIMING_SLOW_BRIDGE_PUBLISH_MS",
+            1000.0,
+        )
+
+        def _active_graph_task_fields() -> dict[str, int | str]:
+            active_nodes = {node_name for _, _, node_name in graph_task_started_at.values()}
+            return {
+                "active_task_count": len(graph_task_started_at),
+                "active_node": next(iter(active_nodes)) if len(active_nodes) == 1 else "multiple",
+            }
+
+        def _observe_graph_tasks(chunk: Any, *, stream_kind: str) -> None:
+            """Emit node timing from the private ``tasks`` stream mode."""
+
+            nonlocal graph_task_sequence
+            observed_at = time.monotonic()
+            for task in _iter_graph_task_events(chunk):
+                if task.terminal:
+                    started = graph_task_started_at.pop(task.task_id, None)
+                    if started is None:
+                        log_run_timing(
+                            logger,
+                            "graph_task_end",
+                            outcome=task.outcome,
+                            node_name=task.node_name,
+                            observed_without_start="true",
+                            stream_kind=stream_kind,
+                        )
+                        continue
+                    started_at, task_index, node_name = started
+                    log_run_timing(
+                        logger,
+                        "graph_task_end",
+                        elapsed_ms=round((observed_at - started_at) * 1000),
+                        outcome=task.outcome,
+                        node_name=node_name,
+                        task_index=task_index,
+                        stream_kind=stream_kind,
+                    )
+                    continue
+
+                if task.task_id in graph_task_started_at:
+                    continue
+                graph_task_sequence += 1
+                graph_task_started_at[task.task_id] = (observed_at, graph_task_sequence, task.node_name)
+                log_run_timing(
+                    logger,
+                    "graph_task_start",
+                    node_name=task.node_name,
+                    task_index=graph_task_sequence,
+                    stream_kind=stream_kind,
+                )
+
+        def _emit_idle_graph_wait_watchdog(*, started_at: float, stream_kind: str) -> None:
+            """Snapshot a graph stream that is idle after all observed tasks ended."""
+
+            # A model/tool node already has a graph-task span and is not the
+            # silent-tail condition being investigated.  Snapshot only when
+            # LangGraph has no active observed node but has not yielded again.
+            if graph_task_started_at:
+                return
+            pending_task_count, pending_task_kinds, pending_task_top_counts = _pending_async_task_summary()
+            log_run_timing(
+                logger,
+                "agent_graph_stream_idle_wait_watchdog",
+                elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                stream_kind=stream_kind,
+                pending_task_count=pending_task_count,
+                pending_task_kinds=pending_task_kinds,
+                pending_task_top_counts=pending_task_top_counts,
+                **_active_graph_task_fields(),
+            )
+
+        async def _next_graph_stream_item(
+            iterator: AsyncIterator[Any],
+            *,
+            stream_kind: str,
+        ) -> tuple[bool, Any | None]:
+            """Await one graph item and expose an otherwise invisible idle wait.
+
+            LangGraph can spend time after the last task receipt while its
+            async generator waits for internal cleanup.  Do not use
+            ``asyncio.wait_for`` here: timing out would cancel the live graph.
+            A separate watchdog observes the wait without changing it.
+            """
+
+            started_at = time.monotonic() if graph_task_timing_enabled else 0.0
+            watchdog: asyncio.TimerHandle | None = None
+            if graph_task_timing_enabled and graph_task_sequence and not graph_task_started_at:
+                watchdog = asyncio.get_running_loop().call_later(
+                    idle_wait_watchdog_seconds,
+                    partial(
+                        _emit_idle_graph_wait_watchdog,
+                        started_at=started_at,
+                        stream_kind=stream_kind,
+                    ),
+                )
+            outcome = "completed"
+            error_type: str | None = None
+            try:
+                return True, await anext(iterator)
+            except StopAsyncIteration:
+                outcome = "stream_exhausted"
+                return False, None
+            except asyncio.CancelledError as exc:
+                outcome = "cancelled"
+                error_type = type(exc).__name__
+                raise
+            except Exception as exc:
+                outcome = "error"
+                error_type = type(exc).__name__
+                raise
+            finally:
+                if watchdog is not None:
+                    watchdog.cancel()
+                elapsed_ms = round((time.monotonic() - started_at) * 1000) if graph_task_timing_enabled else 0
+                if (
+                    graph_task_timing_enabled
+                    and elapsed_ms >= idle_wait_watchdog_seconds * 1000
+                    and not graph_task_started_at
+                ):
+                    fields: dict[str, int | str] = {
+                        "outcome": outcome,
+                        "stream_kind": stream_kind,
+                        **_active_graph_task_fields(),
+                    }
+                    if error_type is not None:
+                        fields["error_type"] = error_type
+                    log_run_timing(logger, "agent_graph_stream_idle_wait_end", elapsed_ms=elapsed_ms, **fields)
+
+        async def _publish_graph_item(
+            sse_event: str,
+            payload: Any,
+            *,
+            mode: str,
+            stream_kind: str,
+        ) -> None:
+            """Publish a graph item while surfacing only slow bridge backpressure.
+
+            A start/end pair for every streamed token would materially distort
+            a 100-concurrency load test.  The timer therefore emits only a
+            bounded slow/error event while preserving normal publish behavior.
+            """
+
+            started_at = time.monotonic() if graph_task_timing_enabled else 0.0
+            try:
+                await bridge.publish(run_id, sse_event, payload)
+            except asyncio.CancelledError as exc:
+                if graph_task_timing_enabled:
+                    log_run_timing(
+                        logger,
+                        "agent_stream_bridge_publish_end",
+                        elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                        outcome="cancelled",
+                        error_type=type(exc).__name__,
+                        event_mode=mode,
+                        stream_kind=stream_kind,
+                    )
+                raise
+            except Exception as exc:
+                if graph_task_timing_enabled:
+                    log_run_timing(
+                        logger,
+                        "agent_stream_bridge_publish_end",
+                        elapsed_ms=round((time.monotonic() - started_at) * 1000),
+                        outcome="error",
+                        error_type=type(exc).__name__,
+                        event_mode=mode,
+                        stream_kind=stream_kind,
+                    )
+                raise
+            else:
+                elapsed_ms = round((time.monotonic() - started_at) * 1000) if graph_task_timing_enabled else 0
+                if graph_task_timing_enabled and elapsed_ms >= slow_bridge_publish_ms:
+                    log_run_timing(
+                        logger,
+                        "agent_stream_bridge_publish_slow",
+                        elapsed_ms=elapsed_ms,
+                        event_mode=mode,
+                        stream_kind=stream_kind,
+                    )
+
         goal_evaluator_model: Any | None = None
 
         def _get_goal_evaluator_model() -> Any:
@@ -603,48 +947,222 @@ async def run_agent(
                 )
             return goal_evaluator_model
 
-        async def _consume_stream(input_payload: Any, stream_config: RunnableConfig) -> None:
+        async def _consume_stream(
+            input_payload: Any,
+            stream_config: RunnableConfig,
+            *,
+            stream_kind: str,
+        ) -> None:
             nonlocal llm_error_fallback_message, stream_clarification_seen
-            async with _checkpoint_thread_lock(thread_id):
-                if len(lg_modes) == 1 and not stream_subgraphs:
-                    # Single mode, no subgraphs: astream yields raw chunks
-                    single_mode = lg_modes[0]
-                    async for chunk in agent.astream(input_payload, config=stream_config, stream_mode=single_mode):
-                        if record.abort_event.is_set():
-                            logger.info("Run %s abort requested — stopping", run_id)
-                            break
-                        llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
-                        stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
-                        sse_event = _lg_mode_to_sse_event(single_mode)
-                        await bridge.publish(run_id, sse_event, serialize(chunk, mode=single_mode))
-                        if single_mode == "custom":
-                            await subagent_events.add(chunk)
-                    return
-                # Multiple modes or subgraphs: astream yields tuples
-                async for item in agent.astream(
-                    input_payload,
-                    config=stream_config,
-                    stream_mode=lg_modes,
-                    subgraphs=stream_subgraphs,
-                ):
+            lock_wait_started_at = time.monotonic()
+            lock_acquired = False
+            log_run_timing(logger, "checkpoint_lock_wait_start", stream_kind=stream_kind)
+            try:
+                async with _checkpoint_thread_lock(thread_id):
+                    lock_acquired = True
+                    log_run_timing(
+                        logger,
+                        "checkpoint_lock_wait_end",
+                        elapsed_ms=round((time.monotonic() - lock_wait_started_at) * 1000),
+                        outcome="completed",
+                        stream_kind=stream_kind,
+                    )
+                    graph_stream_started_at = time.monotonic()
+                    log_run_timing(logger, "agent_graph_stream_start", stream_kind=stream_kind)
+                    try:
+                        last_graph_event_at = await _consume_locked_stream(
+                            input_payload,
+                            stream_config,
+                            stream_kind=stream_kind,
+                        )
+                    except asyncio.CancelledError as exc:
+                        log_run_timing(
+                            logger,
+                            "agent_graph_stream_end",
+                            elapsed_ms=round((time.monotonic() - graph_stream_started_at) * 1000),
+                            outcome="cancelled",
+                            error_type=type(exc).__name__,
+                            stream_kind=stream_kind,
+                        )
+                        raise
+                    except Exception as exc:
+                        log_run_timing(
+                            logger,
+                            "agent_graph_stream_end",
+                            elapsed_ms=round((time.monotonic() - graph_stream_started_at) * 1000),
+                            outcome="error",
+                            error_type=type(exc).__name__,
+                            stream_kind=stream_kind,
+                        )
+                        raise
+                    else:
+                        log_run_timing(
+                            logger,
+                            "agent_graph_stream_tail",
+                            elapsed_ms=round(
+                                (time.monotonic() - (last_graph_event_at or graph_stream_started_at)) * 1000
+                            ),
+                            stream_kind=stream_kind,
+                            **_active_graph_task_fields(),
+                        )
+                        graph_task_started_at.clear()
+                        log_run_timing(
+                            logger,
+                            "agent_graph_stream_end",
+                            elapsed_ms=round((time.monotonic() - graph_stream_started_at) * 1000),
+                            outcome="completed",
+                            stream_kind=stream_kind,
+                        )
+            except asyncio.CancelledError as exc:
+                if not lock_acquired:
+                    log_run_timing(
+                        logger,
+                        "checkpoint_lock_wait_end",
+                        elapsed_ms=round((time.monotonic() - lock_wait_started_at) * 1000),
+                        outcome="cancelled",
+                        error_type=type(exc).__name__,
+                        stream_kind=stream_kind,
+                    )
+                raise
+            except Exception as exc:
+                if not lock_acquired:
+                    log_run_timing(
+                        logger,
+                        "checkpoint_lock_wait_end",
+                        elapsed_ms=round((time.monotonic() - lock_wait_started_at) * 1000),
+                        outcome="error",
+                        error_type=type(exc).__name__,
+                        stream_kind=stream_kind,
+                    )
+                raise
+
+        async def _consume_locked_stream(
+            input_payload: Any,
+            stream_config: RunnableConfig,
+            *,
+            stream_kind: str,
+        ) -> float | None:
+            """Publish one graph stream while the thread checkpoint lock is held.
+
+            Return the monotonic timestamp of the final published graph item so
+            the caller can expose a silent tail after the final client-visible
+            update without logging the update itself.
+            """
+            nonlocal llm_error_fallback_message, stream_clarification_seen
+            last_graph_event_at: float | None = None
+            if len(lg_modes) == 1 and not stream_subgraphs:
+                # Single mode, no subgraphs: astream yields raw chunks
+                single_mode = lg_modes[0]
+                graph_stream = agent.astream(input_payload, config=stream_config, stream_mode=single_mode)
+                graph_iterator = aiter(graph_stream)
+                while True:
+                    has_item, chunk = await _next_graph_stream_item(graph_iterator, stream_kind=stream_kind)
+                    if not has_item:
+                        break
                     if record.abort_event.is_set():
                         logger.info("Run %s abort requested — stopping", run_id)
                         break
-
-                    mode, chunk = _unpack_stream_item(item, lg_modes, stream_subgraphs)
-                    if mode is None:
-                        continue
-
+                    if single_mode == "tasks" and graph_task_timing_enabled:
+                        _observe_graph_tasks(chunk, stream_kind=stream_kind)
                     llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
                     stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
-                    sse_event = _lg_mode_to_sse_event(mode)
-                    await bridge.publish(run_id, sse_event, serialize(chunk, mode=mode))
-                    if mode == "custom":
+                    sse_event = _lg_mode_to_sse_event(single_mode)
+                    await _publish_graph_item(
+                        sse_event,
+                        serialize(chunk, mode=single_mode),
+                        mode=single_mode,
+                        stream_kind=stream_kind,
+                    )
+                    last_graph_event_at = time.monotonic()
+                    if single_mode == "custom":
                         await subagent_events.add(chunk)
+                return last_graph_event_at
+            # Multiple modes or subgraphs: astream yields tuples
+            graph_stream = agent.astream(
+                input_payload,
+                config=stream_config,
+                stream_mode=lg_modes,
+                subgraphs=stream_subgraphs,
+            )
+            graph_iterator = aiter(graph_stream)
+            while True:
+                has_item, item = await _next_graph_stream_item(graph_iterator, stream_kind=stream_kind)
+                if not has_item:
+                    break
+                if record.abort_event.is_set():
+                    logger.info("Run %s abort requested — stopping", run_id)
+                    break
 
-        async def _stream_once(input_payload: Any, stream_config: RunnableConfig) -> None:
+                mode, chunk = _unpack_stream_item(item, lg_modes, stream_subgraphs)
+                if mode is None:
+                    continue
+                if mode == "tasks" and graph_task_timing_enabled:
+                    _observe_graph_tasks(chunk, stream_kind=stream_kind)
+                    if graph_task_mode_added:
+                        continue
+
+                llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
+                stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
+                sse_event = _lg_mode_to_sse_event(mode)
+                await _publish_graph_item(
+                    sse_event,
+                    serialize(chunk, mode=mode),
+                    mode=mode,
+                    stream_kind=stream_kind,
+                )
+                last_graph_event_at = time.monotonic()
+                if mode == "custom":
+                    await subagent_events.add(chunk)
+            return last_graph_event_at
+
+        async def _stream_once(
+            input_payload: Any,
+            stream_config: RunnableConfig,
+            *,
+            stream_kind: str,
+        ) -> None:
             nonlocal stream_clarification_seen
-            stream_task = asyncio.create_task(_consume_stream(input_payload, stream_config))
+            stream_started_at = time.monotonic()
+            log_run_timing(logger, "agent_stream_start", stream_kind=stream_kind)
+            try:
+                await _stream_once_inner(input_payload, stream_config, stream_kind=stream_kind)
+            except asyncio.CancelledError as exc:
+                log_run_timing(
+                    logger,
+                    "agent_stream_end",
+                    elapsed_ms=round((time.monotonic() - stream_started_at) * 1000),
+                    outcome="cancelled",
+                    error_type=type(exc).__name__,
+                    stream_kind=stream_kind,
+                )
+                raise
+            except Exception as exc:
+                log_run_timing(
+                    logger,
+                    "agent_stream_end",
+                    elapsed_ms=round((time.monotonic() - stream_started_at) * 1000),
+                    outcome="error",
+                    error_type=type(exc).__name__,
+                    stream_kind=stream_kind,
+                )
+                raise
+            else:
+                log_run_timing(
+                    logger,
+                    "agent_stream_end",
+                    elapsed_ms=round((time.monotonic() - stream_started_at) * 1000),
+                    outcome="completed",
+                    stream_kind=stream_kind,
+                )
+
+        async def _stream_once_inner(
+            input_payload: Any,
+            stream_config: RunnableConfig,
+            *,
+            stream_kind: str,
+        ) -> None:
+            nonlocal stream_clarification_seen
+            stream_task = asyncio.create_task(_consume_stream(input_payload, stream_config, stream_kind=stream_kind))
             event_task = asyncio.create_task(clarification_event.wait())
             try:
                 done, _ = await asyncio.wait(
@@ -682,7 +1200,7 @@ async def run_agent(
         # turns complete cleanly afterward (#4176 review).
         if isinstance(runtime.context, dict):
             runtime.context.pop("stop_reason", None)
-        await _stream_once(graph_input, initial_runnable_config)
+        await _stream_once(graph_input, initial_runnable_config, stream_kind="initial")
         pending_clarification = await _resolve_pending_clarification(
             checkpointer=checkpointer,
             thread_id=thread_id,
@@ -708,7 +1226,7 @@ async def run_agent(
             )
             if continuation_input is None or record.abort_event.is_set():
                 break
-            await _stream_once(continuation_input, _continuation_runnable_config())
+            await _stream_once(continuation_input, _continuation_runnable_config(), stream_kind="goal")
             pending_clarification = await _resolve_pending_clarification(
                 checkpointer=checkpointer,
                 thread_id=thread_id,
@@ -824,6 +1342,8 @@ async def run_agent(
         )
 
     finally:
+        finalization_started_at = time.monotonic()
+        log_run_timing(logger, "run_finalize_start")
         if weknora_token_context is not None:
             reset_current_weknora_access_token(weknora_token_context)
         if weknora_scope_context is not None:
@@ -859,14 +1379,17 @@ async def run_agent(
         # Flush any buffered journal events and persist completion data
         if journal is not None:
             try:
-                await journal.flush()
+                await _time_run_stage("journal_flush", journal.flush)
             except Exception:
                 logger.warning("Failed to flush journal for run %s", run_id, exc_info=True)
 
             try:
                 # Persist token usage + convenience fields to RunStore
-                completion = journal.get_completion_data()
-                await run_manager.update_run_completion(run_id, status=record.status.value, **completion)
+                async def _persist_completion() -> None:
+                    completion = journal.get_completion_data()
+                    await run_manager.update_run_completion(run_id, status=record.status.value, **completion)
+
+                await _time_run_stage("run_completion_persist", _persist_completion)
             except Exception:
                 logger.warning("Failed to persist run completion for %s (non-fatal)", run_id, exc_info=True)
 
@@ -881,13 +1404,16 @@ async def run_agent(
         # Sync title from checkpoint to threads_meta.display_name
         if checkpointer is not None and thread_store is not None:
             try:
-                ckpt_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-                ckpt_tuple = await checkpointer.aget_tuple(ckpt_config)
-                if ckpt_tuple is not None:
-                    ckpt = getattr(ckpt_tuple, "checkpoint", {}) or {}
-                    title = ckpt.get("channel_values", {}).get("title")
-                    if title:
-                        await thread_store.update_display_name(thread_id, title)
+                async def _sync_title() -> None:
+                    ckpt_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+                    ckpt_tuple = await checkpointer.aget_tuple(ckpt_config)
+                    if ckpt_tuple is not None:
+                        ckpt = getattr(ckpt_tuple, "checkpoint", {}) or {}
+                        title = ckpt.get("channel_values", {}).get("title")
+                        if title:
+                            await thread_store.update_display_name(thread_id, title)
+
+                await _time_run_stage("title_sync", _sync_title)
             except Exception:
                 logger.debug("Failed to sync title for thread %s (non-fatal)", thread_id)
 
@@ -901,11 +1427,14 @@ async def run_agent(
                 # RunRecord lifetime in integer seconds, including admission
                 # delay. Persist zero for sub-second successful turns.
                 duration = max(0, int((updated - created).total_seconds()))
-                await _persist_run_duration(
-                    checkpointer=checkpointer,
-                    thread_id=thread_id,
-                    run_id=run_id,
-                    duration_seconds=duration,
+                await _time_run_stage(
+                    "duration_persist",
+                    lambda: _persist_run_duration(
+                        checkpointer=checkpointer,
+                        thread_id=thread_id,
+                        run_id=run_id,
+                        duration_seconds=duration,
+                    ),
                 )
             except Exception:
                 logger.debug("Failed to persist run duration for thread %s run %s (non-fatal)", thread_id, run_id)
@@ -914,20 +1443,68 @@ async def run_agent(
         if thread_store is not None:
             try:
                 final_status = "idle" if record.status == RunStatus.success else record.status.value
-                await thread_store.update_status(thread_id, final_status)
+                await _time_run_stage("thread_status_update", lambda: thread_store.update_status(thread_id, final_status))
             except Exception:
                 logger.debug("Failed to update thread_meta status for %s (non-fatal)", thread_id)
 
         if ctx.on_run_completed is not None:
             try:
-                await ctx.on_run_completed(record)
+                await _time_run_stage("on_run_completed", lambda: ctx.on_run_completed(record))
             except Exception:
                 logger.warning("Run completion hook failed for %s (non-fatal)", run_id, exc_info=True)
         if record.finalizing:
             await run_manager.set_finalizing(run_id, False)
 
         await _publish_stream_end()
+        log_run_timing(
+            logger,
+            "run_finalize_end",
+            elapsed_ms=round((time.monotonic() - finalization_started_at) * 1000),
+            outcome="completed",
+        )
         asyncio.create_task(bridge.cleanup(run_id, delay=60))
+        tool_timing = consume_tool_timing(thread_id=thread_id, run_id=run_id)
+        checkpoint_timing = consume_checkpoint_timing(thread_id=thread_id, run_id=run_id)
+        log_run_timing(
+            logger,
+            "run_end",
+            elapsed_ms=round((time.monotonic() - run_started_at) * 1000),
+            status=record.status.value,
+            worker_pid=os.getpid(),
+            sandbox_tool_execution_total_ms=tool_timing.sandbox_tool_execution_total_ms,
+            sandbox_tool_acquire_overlap_ms=tool_timing.sandbox_tool_acquire_overlap_ms,
+            sandbox_tool_count=tool_timing.sandbox_tool_count,
+            sandbox_tool_noncompleted_count=tool_timing.sandbox_tool_noncompleted_count,
+            non_sandbox_tool_total_ms=tool_timing.non_sandbox_tool_total_ms,
+            non_sandbox_tool_count=tool_timing.non_sandbox_tool_count,
+            non_sandbox_tool_noncompleted_count=tool_timing.non_sandbox_tool_noncompleted_count,
+            checkpoint_aput_count=checkpoint_timing.checkpoint_aput_count,
+            checkpoint_aput_total_ms=checkpoint_timing.checkpoint_aput_total_ms,
+            checkpoint_aput_max_ms=checkpoint_timing.checkpoint_aput_max_ms,
+            checkpoint_aput_noncompleted_count=checkpoint_timing.checkpoint_aput_noncompleted_count,
+            checkpoint_aput_inflight_max=checkpoint_timing.checkpoint_aput_inflight_max,
+            checkpoint_aput_writes_count=checkpoint_timing.checkpoint_aput_writes_count,
+            checkpoint_aput_writes_total_ms=checkpoint_timing.checkpoint_aput_writes_total_ms,
+            checkpoint_aput_writes_max_ms=checkpoint_timing.checkpoint_aput_writes_max_ms,
+            checkpoint_aput_writes_noncompleted_count=checkpoint_timing.checkpoint_aput_writes_noncompleted_count,
+            checkpoint_aput_writes_inflight_max=checkpoint_timing.checkpoint_aput_writes_inflight_max,
+            checkpoint_pool_acquire_count=checkpoint_timing.checkpoint_pool_acquire_count,
+            checkpoint_pool_acquire_total_ms=checkpoint_timing.checkpoint_pool_acquire_total_ms,
+            checkpoint_pool_acquire_max_ms=checkpoint_timing.checkpoint_pool_acquire_max_ms,
+            checkpoint_pool_acquire_noncompleted_count=checkpoint_timing.checkpoint_pool_acquire_noncompleted_count,
+            checkpoint_pool_acquire_inflight_max=checkpoint_timing.checkpoint_pool_acquire_inflight_max,
+            checkpoint_pool_hold_count=checkpoint_timing.checkpoint_pool_hold_count,
+            checkpoint_pool_hold_total_ms=checkpoint_timing.checkpoint_pool_hold_total_ms,
+            checkpoint_pool_hold_max_ms=checkpoint_timing.checkpoint_pool_hold_max_ms,
+            checkpoint_pool_hold_noncompleted_count=checkpoint_timing.checkpoint_pool_hold_noncompleted_count,
+            checkpoint_pool_hold_inflight_max=checkpoint_timing.checkpoint_pool_hold_inflight_max,
+            checkpoint_sql_execute_count=checkpoint_timing.checkpoint_sql_execute_count,
+            checkpoint_sql_execute_total_ms=checkpoint_timing.checkpoint_sql_execute_total_ms,
+            checkpoint_sql_execute_max_ms=checkpoint_timing.checkpoint_sql_execute_max_ms,
+            checkpoint_sql_execute_noncompleted_count=checkpoint_timing.checkpoint_sql_execute_noncompleted_count,
+            checkpoint_sql_execute_inflight_max=checkpoint_timing.checkpoint_sql_execute_inflight_max,
+        )
+        reset_current_llm_timing_context(llm_timing_context_token)
 
 
 # ---------------------------------------------------------------------------
@@ -1083,11 +1660,14 @@ async def _persist_goal_evaluation(
 async def _reread_goal_and_checkpoint(checkpointer: Any, thread_id: str) -> tuple[GoalState | None, Any]:
     """Re-read the goal and latest checkpoint together for a concurrency re-check."""
     goal = await read_thread_goal(checkpointer, thread_id)
-    checkpoint_tuple = await _call_checkpointer_method(
-        checkpointer,
-        "aget_tuple",
-        "get_tuple",
-        {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}},
+    checkpoint_tuple = await _time_run_stage(
+        "goal_checkpoint_read",
+        lambda: _call_checkpointer_method(
+            checkpointer,
+            "aget_tuple",
+            "get_tuple",
+            {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}},
+        ),
     )
     return goal, checkpoint_tuple
 
@@ -1148,11 +1728,14 @@ async def _prepare_goal_continuation_input(
         )
 
     try:
-        checkpoint_tuple = await _call_checkpointer_method(
-            checkpointer,
-            "aget_tuple",
-            "get_tuple",
-            {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}},
+        checkpoint_tuple = await _time_run_stage(
+            "goal_checkpoint_read",
+            lambda: _call_checkpointer_method(
+                checkpointer,
+                "aget_tuple",
+                "get_tuple",
+                {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}},
+            ),
         )
         if checkpoint_tuple is None:
             return None
@@ -1175,15 +1758,42 @@ async def _prepare_goal_continuation_input(
         if abort_event is not None and abort_event.is_set():
             return None
         evaluator_model = evaluator_model_factory() if evaluator_model_factory is not None else None
-        evaluation = await evaluate_goal_completion(
-            goal,
-            messages,
-            model=evaluator_model,
-            model_name=model_name,
-            app_config=app_config,
-            thread_id=thread_id,
-            user_id=user_id,
-            deerflow_trace_id=deerflow_trace_id,
+        goal_evaluation_started_at = time.monotonic()
+        log_run_timing(logger, "goal_evaluate_start")
+        try:
+            evaluation = await evaluate_goal_completion(
+                goal,
+                messages,
+                model=evaluator_model,
+                model_name=model_name,
+                app_config=app_config,
+                thread_id=thread_id,
+                user_id=user_id,
+                deerflow_trace_id=deerflow_trace_id,
+            )
+        except asyncio.CancelledError as exc:
+            log_run_timing(
+                logger,
+                "goal_evaluate_end",
+                elapsed_ms=round((time.monotonic() - goal_evaluation_started_at) * 1000),
+                outcome="cancelled",
+                error_type=type(exc).__name__,
+            )
+            raise
+        except Exception as exc:
+            log_run_timing(
+                logger,
+                "goal_evaluate_end",
+                elapsed_ms=round((time.monotonic() - goal_evaluation_started_at) * 1000),
+                outcome="error",
+                error_type=type(exc).__name__,
+            )
+            raise
+        log_run_timing(
+            logger,
+            "goal_evaluate_end",
+            elapsed_ms=round((time.monotonic() - goal_evaluation_started_at) * 1000),
+            outcome="completed",
         )
         if abort_event is not None and abort_event.is_set():
             return None

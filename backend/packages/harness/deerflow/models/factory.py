@@ -248,6 +248,13 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
                 model_settings_from_config.get("extra_body"),
                 {"chat_template_kwargs": disable_chat_template_kwargs},
             )
+        elif has_thinking_settings and "enable_thinking" in (effective_wte.get("extra_body") or {}):
+            # DeepSeek-V4-Flash's OpenAI-compatible API uses this direct
+            # extra_body boolean rather than the nested OpenAI/vLLM shapes.
+            model_settings_from_config["extra_body"] = _deep_merge_dicts(
+                model_settings_from_config.get("extra_body"),
+                {"enable_thinking": False},
+            )
         elif has_thinking_settings and effective_wte.get("thinking", {}).get("type"):
             # Native langchain_anthropic: thinking is a direct constructor parameter
             model_settings_from_config["thinking"] = {"type": "disabled"}

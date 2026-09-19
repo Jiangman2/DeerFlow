@@ -15,28 +15,35 @@ fields in a typed exception before delegating valid responses to the standard
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
+import os
 import threading
 import time
+import uuid
 import warnings
 from collections import OrderedDict
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
+from dataclasses import dataclass, field
 from typing import Any, Literal
+from urllib.parse import urlsplit, urlunsplit
 
 import openai
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
 )
+from langchain_core.language_models import LanguageModelInput
 from langchain_core.messages import (
+    AIMessage,
     AIMessageChunk,
     BaseMessage,
     BaseMessageChunk,
 )
 from langchain_core.messages.ai import UsageMetadata, subtract_usage
-from langchain_core.outputs import ChatGenerationChunk, ChatResult
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_openai import ChatOpenAI
 from langchain_openai.chat_models.base import (
     _astream_with_chunk_timeout,
@@ -45,12 +52,246 @@ from langchain_openai.chat_models.base import (
 )
 from pydantic import Field, PrivateAttr
 
+from deerflow.llm_timing_context import get_current_llm_timing_context
+from deerflow.models.assistant_payload_replay import (
+    restore_assistant_payloads,
+    restore_reasoning_content,
+)
+
 _MAX_PROVIDER_MESSAGE_CHARS = 1000
 _MAX_JSON_STRING_UNWRAP_DEPTH = 3
 _CUMULATIVE_USAGE_TRACKER_CAPACITY = 1024
 _CUMULATIVE_USAGE_TRACKER_IDLE_SECONDS = 60 * 60
+_LLM_TIMING_LOGS_ENV = "DEERFLOW_LLM_TIMING_LOGS"
+_TIMING_THREAD_METADATA_KEY = "deerflow_timing_thread_id"
+_TIMING_RUN_METADATA_KEY = "deerflow_timing_run_id"
 
 logger = logging.getLogger(__name__)
+
+_MISSING = object()
+
+
+def _extract_reasoning_content(value: Any) -> str | object:
+    """Return DeepSeek-style reasoning content from a mapping or SDK object."""
+
+    if isinstance(value, Mapping):
+        reasoning = value.get("reasoning_content", _MISSING)
+        return reasoning if isinstance(reasoning, str) else _MISSING
+
+    reasoning = getattr(value, "reasoning_content", _MISSING)
+    if isinstance(reasoning, str):
+        return reasoning
+
+    model_extra = getattr(value, "model_extra", None)
+    if isinstance(model_extra, Mapping):
+        reasoning = model_extra.get("reasoning_content", _MISSING)
+        if isinstance(reasoning, str):
+            return reasoning
+
+    return _MISSING
+
+
+def _with_reasoning_content(
+    message: AIMessage | AIMessageChunk,
+    reasoning_content: str,
+) -> AIMessage | AIMessageChunk:
+    """Attach a provider reasoning delta in DeerFlow's standard message field."""
+
+    additional_kwargs = dict(message.additional_kwargs)
+    additional_kwargs["reasoning_content"] = reasoning_content
+    return message.model_copy(update={"additional_kwargs": additional_kwargs})
+
+
+def _llm_timing_logs_enabled() -> bool:
+    """Return whether opt-in, content-free model timing logs are enabled."""
+
+    return os.getenv(_LLM_TIMING_LOGS_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _safe_timing_identifier(value: Any) -> str:
+    """Return a bounded, single-token identifier safe for operational logs."""
+
+    if not isinstance(value, str):
+        return "-"
+    identifier = value.strip()
+    if not identifier or len(identifier) > 128 or any(ch.isspace() or ord(ch) < 32 or ord(ch) > 126 for ch in identifier):
+        return "-"
+    return identifier
+
+
+def _timing_context_from_run_manager(
+    run_manager: CallbackManagerForLLMRun | AsyncCallbackManagerForLLMRun | None,
+) -> tuple[str, str]:
+    """Resolve DeerFlow IDs from task-local state, then LangChain metadata.
+
+    LangGraph may execute a model callback in a child task or callback context
+    that does not retain the worker's ``ContextVar``.  The worker also writes
+    these IDs to inheritable LangChain metadata, which survives that boundary.
+    """
+
+    timing_context = get_current_llm_timing_context()
+    if timing_context is not None:
+        return timing_context.thread_id, timing_context.run_id
+
+    for metadata_name in ("metadata", "inheritable_metadata"):
+        metadata = getattr(run_manager, metadata_name, None)
+        if isinstance(metadata, Mapping):
+            thread_id = _safe_timing_identifier(metadata.get(_TIMING_THREAD_METADATA_KEY))
+            run_id = _safe_timing_identifier(metadata.get(_TIMING_RUN_METADATA_KEY))
+            if thread_id != "-" or run_id != "-":
+                return thread_id, run_id
+    return "-", "-"
+
+
+def _safe_endpoint_for_log(value: Any) -> str:
+    """Format a provider endpoint without query parameters or user credentials."""
+
+    raw = str(value or "").strip()
+    if not raw:
+        return "-"
+    try:
+        parsed = urlsplit(raw)
+    except ValueError:
+        return "<invalid-endpoint>"
+    if not parsed.scheme or not parsed.netloc:
+        return "<configured-endpoint>"
+    host = parsed.hostname or ""
+    if parsed.port is not None:
+        host = f"{host}:{parsed.port}"
+    return urlunsplit((parsed.scheme, host, parsed.path, "", ""))
+
+
+@dataclass(slots=True)
+class _ModelStreamTiming:
+    """Emit opt-in timing records without retaining prompt or response content."""
+
+    enabled: bool
+    model: str
+    endpoint: str
+    langchain_run_id: str
+    mode: str
+    deerflow_thread_id: str = "-"
+    deerflow_run_id: str = "-"
+    llm_call_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    started_at: float = field(default_factory=time.monotonic)
+    first_chunk_at: float | None = None
+    chunk_count: int = 0
+    token_usage: dict[str, int | float] = field(default_factory=dict)
+    finished: bool = False
+
+    @classmethod
+    def for_invocation(
+        cls,
+        model: Any,
+        run_manager: CallbackManagerForLLMRun | AsyncCallbackManagerForLLMRun | None,
+        *,
+        mode: str,
+    ) -> "_ModelStreamTiming":
+        deerflow_thread_id, deerflow_run_id = _timing_context_from_run_manager(run_manager)
+        return cls(
+            enabled=_llm_timing_logs_enabled(),
+            model=str(getattr(model, "model_name", None) or getattr(model, "model", None) or "unknown"),
+            endpoint=_safe_endpoint_for_log(getattr(model, "openai_api_base", None)),
+            langchain_run_id=str(getattr(run_manager, "run_id", None) or "-"),
+            mode=mode,
+            deerflow_thread_id=deerflow_thread_id,
+            deerflow_run_id=deerflow_run_id,
+        )
+
+    def start(self) -> None:
+        if self.enabled:
+            logger.info(
+                "LLM_TIMING start llm_call_id=%s mode=%s model=%s endpoint=%s langchain_run_id=%s deerflow_thread_id=%s deerflow_run_id=%s",
+                self.llm_call_id,
+                self.mode,
+                self.model,
+                self.endpoint,
+                self.langchain_run_id,
+                self.deerflow_thread_id,
+                self.deerflow_run_id,
+            )
+
+    def observe_chunk(self, generation_chunk: ChatGenerationChunk) -> None:
+        self.chunk_count += 1
+        self._mark_first_chunk()
+
+        usage = getattr(generation_chunk.message, "usage_metadata", None)
+        if not isinstance(usage, Mapping):
+            return
+        self.token_usage = {
+            key: value
+            for key in ("input_tokens", "output_tokens", "total_tokens")
+            if isinstance((value := usage.get(key)), (int, float))
+        }
+
+    def observe_result(self, result: ChatResult) -> None:
+        """Record one non-stream result using the same content-free fields.
+
+        ``ChatOpenAI.ainvoke`` bypasses ``_astream`` when ``streaming`` is
+        false.  Goal evaluation intentionally uses that path, so without this
+        method its model wait was indistinguishable from unattributed run time.
+        A completed non-stream response has no real first chunk; the existing
+        ``first_chunk`` field therefore records response completion latency.
+        """
+
+        self.chunk_count += 1
+        self._mark_first_chunk()
+        for generation in reversed(result.generations):
+            usage = getattr(getattr(generation, "message", None), "usage_metadata", None)
+            if not isinstance(usage, Mapping):
+                continue
+            self.token_usage = {
+                key: value
+                for key in ("input_tokens", "output_tokens", "total_tokens")
+                if isinstance((value := usage.get(key)), (int, float))
+            }
+            return
+
+    def _mark_first_chunk(self) -> None:
+        """Record the first observable response unit exactly once."""
+
+        if self.first_chunk_at is not None:
+            return
+        self.first_chunk_at = time.monotonic()
+        if self.enabled:
+            logger.info(
+                "LLM_TIMING first_chunk llm_call_id=%s mode=%s model=%s langchain_run_id=%s deerflow_thread_id=%s deerflow_run_id=%s wait_ms=%d",
+                self.llm_call_id,
+                self.mode,
+                self.model,
+                self.langchain_run_id,
+                self.deerflow_thread_id,
+                self.deerflow_run_id,
+                round((self.first_chunk_at - self.started_at) * 1000),
+            )
+
+    def finish(self, *, outcome: str, error: BaseException | None = None) -> None:
+        if self.finished:
+            return
+        self.finished = True
+        if not self.enabled:
+            return
+
+        elapsed_ms = round((time.monotonic() - self.started_at) * 1000)
+        first_chunk_ms = "-" if self.first_chunk_at is None else round((self.first_chunk_at - self.started_at) * 1000)
+        error_type = "-" if error is None else type(error).__name__
+        status_code = getattr(error, "status_code", "-") if error is not None else "-"
+        logger.info(
+            "LLM_TIMING end llm_call_id=%s mode=%s model=%s langchain_run_id=%s deerflow_thread_id=%s deerflow_run_id=%s outcome=%s total_ms=%s first_chunk_ms=%s chunks=%d status_code=%s error=%s usage=%s",
+            self.llm_call_id,
+            self.mode,
+            self.model,
+            self.langchain_run_id,
+            self.deerflow_thread_id,
+            self.deerflow_run_id,
+            outcome,
+            elapsed_ms,
+            first_chunk_ms,
+            self.chunk_count,
+            status_code,
+            error_type,
+            self.token_usage or "-",
+        )
 
 
 def _bounded_field(value: Any, *, limit: int = _MAX_PROVIDER_MESSAGE_CHARS) -> str:
@@ -267,6 +508,31 @@ class RobustChatOpenAI(ChatOpenAI):
     _cumulative_usage_by_completion: OrderedDict[str, tuple[UsageMetadata, float]] = PrivateAttr(default_factory=OrderedDict)
     _cumulative_usage_lock: Any = PrivateAttr(default_factory=threading.Lock)
 
+    def _get_request_payload(
+        self,
+        input_: LanguageModelInput,
+        *,
+        stop: list[str] | None = None,
+        **kwargs: Any,
+    ) -> dict:
+        """Replay DeepSeek reasoning content for a following tool-call request.
+
+        The updated DeepSeek endpoint emits ``reasoning_content`` separately from
+        normal assistant content. LangChain retains it on ``AIMessage`` but does
+        not serialize that provider extension back into the next request. Tool
+        calling is multi-turn, so preserve it when the provider requires the
+        complete preceding assistant turn.
+        """
+
+        original_messages = self._convert_input(input_).to_messages()
+        payload = super()._get_request_payload(input_, stop=stop, **kwargs)
+        restore_assistant_payloads(
+            payload.get("messages", []),
+            original_messages,
+            restore_reasoning_content,
+        )
+        return payload
+
     def _usage_delta(self, completion_id: str, usage: UsageMetadata, *, terminal: bool) -> UsageMetadata:
         """Convert a completion's cumulative usage snapshot into a delta."""
 
@@ -306,25 +572,95 @@ class RobustChatOpenAI(ChatOpenAI):
             default_chunk_class,
             base_generation_info,
         )
-        if generation_chunk is None or not self.cumulative_stream_usage:
+        if generation_chunk is None:
             return generation_chunk
 
-        completion_id = _get_completion_id(chunk)
-        if completion_id is None:
-            return generation_chunk
+        if self.cumulative_stream_usage:
+            completion_id = _get_completion_id(chunk)
+            if completion_id is not None:
+                choices = chunk.get("choices", []) or chunk.get("chunk", {}).get("choices", [])
+                terminal = len(choices) == 0
+                usage_metadata = getattr(generation_chunk.message, "usage_metadata", None)
+                if usage_metadata is not None and isinstance(generation_chunk.message, AIMessageChunk):
+                    generation_chunk.message.usage_metadata = self._usage_delta(
+                        completion_id,
+                        usage_metadata,
+                        terminal=terminal,
+                    )
+                elif terminal:
+                    self._clear_usage_snapshot(completion_id)
 
         choices = chunk.get("choices", []) or chunk.get("chunk", {}).get("choices", [])
-        terminal = len(choices) == 0
-        usage_metadata = getattr(generation_chunk.message, "usage_metadata", None)
-        if usage_metadata is not None and isinstance(generation_chunk.message, AIMessageChunk):
-            generation_chunk.message.usage_metadata = self._usage_delta(
-                completion_id,
-                usage_metadata,
-                terminal=terminal,
-            )
-        elif terminal:
-            self._clear_usage_snapshot(completion_id)
+        if choices and isinstance(generation_chunk.message, AIMessageChunk):
+            first_choice = choices[0] if isinstance(choices[0], Mapping) else {}
+            delta = first_choice.get("delta") if isinstance(first_choice, Mapping) else None
+            reasoning_content = _extract_reasoning_content(delta)
+            if reasoning_content is not _MISSING:
+                generation_chunk = ChatGenerationChunk(
+                    message=_with_reasoning_content(generation_chunk.message, reasoning_content),
+                    generation_info=generation_chunk.generation_info,
+                )
         return generation_chunk
+
+    def _time_non_stream_invocation(self, kwargs: Mapping[str, Any]) -> bool:
+        """Return whether this call bypasses this adapter's stream methods.
+
+        The normal agent graph streams through ``_stream``/``_astream`` and is
+        already timed there.  Explicit or configured non-stream requests use
+        ``_generate``/``_agenerate`` instead and need their own wrapper.
+        """
+
+        return not bool(kwargs.get("stream")) and not bool(self.streaming)
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        """Time synchronous non-stream model invocations without content logs."""
+
+        if not self._time_non_stream_invocation(kwargs):
+            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        timing = _ModelStreamTiming.for_invocation(self, run_manager, mode="sync_nonstream")
+        timing.start()
+        try:
+            result = super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        except asyncio.CancelledError as exc:
+            timing.finish(outcome="cancelled", error=exc)
+            raise
+        except BaseException as exc:
+            timing.finish(outcome="error", error=exc)
+            raise
+        timing.observe_result(result)
+        timing.finish(outcome="completed")
+        return result
+
+    async def _agenerate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        """Time asynchronous non-stream model invocations without content logs."""
+
+        if not self._time_non_stream_invocation(kwargs):
+            return await super()._agenerate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        timing = _ModelStreamTiming.for_invocation(self, run_manager, mode="async_nonstream")
+        timing.start()
+        try:
+            result = await super()._agenerate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        except asyncio.CancelledError as exc:
+            timing.finish(outcome="cancelled", error=exc)
+            raise
+        except BaseException as exc:
+            timing.finish(outcome="error", error=exc)
+            raise
+        timing.observe_result(result)
+        timing.finish(outcome="completed")
+        return result
 
     @staticmethod
     def _normalize_stream_chunk(chunk: Any) -> dict[str, Any]:
@@ -358,6 +694,8 @@ class RobustChatOpenAI(ChatOpenAI):
         base_generation_info: dict[str, Any] = {}
         response: Any = None
         frame_guard = _StreamFrameGuard(self._normalize_stream_chunk)
+        timing = _ModelStreamTiming.for_invocation(self, run_manager, mode="sync")
+        timing.start()
 
         try:
             if "response_format" in payload:
@@ -390,6 +728,7 @@ class RobustChatOpenAI(ChatOpenAI):
                     if generation_chunk is None:
                         continue
                     default_chunk_class = generation_chunk.message.__class__
+                    timing.observe_chunk(generation_chunk)
                     logprobs = (generation_chunk.generation_info or {}).get("logprobs")
                     if run_manager:
                         run_manager.on_llm_new_token(
@@ -400,17 +739,36 @@ class RobustChatOpenAI(ChatOpenAI):
                     is_first_chunk = False
                     yield generation_chunk
         except openai.BadRequestError as exc:
+            timing.finish(outcome="error", error=exc)
             _handle_openai_bad_request(exc)
         except openai.APIError as exc:
+            timing.finish(outcome="error", error=exc)
             _handle_openai_api_error(exc)
-        if hasattr(response, "get_final_completion") and "response_format" in payload:
-            final_completion = response.get_final_completion()
-            frame_guard.mark_terminal()
-            generation_chunk = self._get_generation_chunk_from_completion(final_completion)
-            if run_manager:
-                run_manager.on_llm_new_token(generation_chunk.text, chunk=generation_chunk)
-            yield generation_chunk
-        frame_guard.raise_if_incomplete()
+        except asyncio.CancelledError as exc:
+            timing.finish(outcome="cancelled", error=exc)
+            raise
+        except BaseException as exc:
+            timing.finish(outcome="error", error=exc)
+            raise
+
+        try:
+            if hasattr(response, "get_final_completion") and "response_format" in payload:
+                final_completion = response.get_final_completion()
+                frame_guard.mark_terminal()
+                generation_chunk = self._get_generation_chunk_from_completion(final_completion)
+                timing.observe_chunk(generation_chunk)
+                if run_manager:
+                    run_manager.on_llm_new_token(generation_chunk.text, chunk=generation_chunk)
+                yield generation_chunk
+            frame_guard.raise_if_incomplete()
+        except asyncio.CancelledError as exc:
+            timing.finish(outcome="cancelled", error=exc)
+            raise
+        except BaseException as exc:
+            timing.finish(outcome="error", error=exc)
+            raise
+        else:
+            timing.finish(outcome="completed")
 
     async def _astream(
         self,
@@ -432,6 +790,8 @@ class RobustChatOpenAI(ChatOpenAI):
         base_generation_info: dict[str, Any] = {}
         response: Any = None
         frame_guard = _StreamFrameGuard(self._normalize_stream_chunk)
+        timing = _ModelStreamTiming.for_invocation(self, run_manager, mode="async")
+        timing.start()
 
         try:
             if "response_format" in payload:
@@ -468,6 +828,7 @@ class RobustChatOpenAI(ChatOpenAI):
                     if generation_chunk is None:
                         continue
                     default_chunk_class = generation_chunk.message.__class__
+                    timing.observe_chunk(generation_chunk)
                     logprobs = (generation_chunk.generation_info or {}).get("logprobs")
                     if run_manager:
                         await run_manager.on_llm_new_token(
@@ -478,17 +839,36 @@ class RobustChatOpenAI(ChatOpenAI):
                     is_first_chunk = False
                     yield generation_chunk
         except openai.BadRequestError as exc:
+            timing.finish(outcome="error", error=exc)
             _handle_openai_bad_request(exc)
         except openai.APIError as exc:
+            timing.finish(outcome="error", error=exc)
             _handle_openai_api_error(exc)
-        if hasattr(response, "get_final_completion") and "response_format" in payload:
-            final_completion = await response.get_final_completion()
-            frame_guard.mark_terminal()
-            generation_chunk = self._get_generation_chunk_from_completion(final_completion)
-            if run_manager:
-                await run_manager.on_llm_new_token(generation_chunk.text, chunk=generation_chunk)
-            yield generation_chunk
-        frame_guard.raise_if_incomplete()
+        except asyncio.CancelledError as exc:
+            timing.finish(outcome="cancelled", error=exc)
+            raise
+        except BaseException as exc:
+            timing.finish(outcome="error", error=exc)
+            raise
+
+        try:
+            if hasattr(response, "get_final_completion") and "response_format" in payload:
+                final_completion = await response.get_final_completion()
+                frame_guard.mark_terminal()
+                generation_chunk = self._get_generation_chunk_from_completion(final_completion)
+                timing.observe_chunk(generation_chunk)
+                if run_manager:
+                    await run_manager.on_llm_new_token(generation_chunk.text, chunk=generation_chunk)
+                yield generation_chunk
+            frame_guard.raise_if_incomplete()
+        except asyncio.CancelledError as exc:
+            timing.finish(outcome="cancelled", error=exc)
+            raise
+        except BaseException as exc:
+            timing.finish(outcome="error", error=exc)
+            raise
+        else:
+            timing.finish(outcome="completed")
 
     def _create_chat_result(
         self,
@@ -502,4 +882,26 @@ class RobustChatOpenAI(ChatOpenAI):
                 message=response_dict.get("msg"),
                 success=response_dict.get("success"),
             )
-        return super()._create_chat_result(normalized_response, generation_info)
+        result = super()._create_chat_result(normalized_response, generation_info)
+        choices = response_dict.get("choices", [])
+        if not isinstance(choices, list):
+            return result
+
+        patched_generations: list[ChatGeneration] | None = None
+        for index, generation in enumerate(result.generations):
+            choice = choices[index] if index < len(choices) else {}
+            message_payload = choice.get("message") if isinstance(choice, Mapping) else None
+            reasoning_content = _extract_reasoning_content(message_payload)
+            if reasoning_content is _MISSING or not isinstance(generation.message, AIMessage):
+                continue
+            if patched_generations is None:
+                patched_generations = list(result.generations)
+            patched_generations[index] = ChatGeneration(
+                message=_with_reasoning_content(generation.message, reasoning_content),
+                generation_info=generation.generation_info,
+            )
+
+        return ChatResult(
+            generations=patched_generations or result.generations,
+            llm_output=result.llm_output,
+        )

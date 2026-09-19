@@ -228,6 +228,34 @@ def test_thinking_disabled_openai_gateway_format(monkeypatch):
     assert "thinking" not in captured  # must NOT set the direct thinking param
 
 
+def test_thinking_disabled_deepseek_enable_thinking_format(monkeypatch):
+    """DeepSeek-V4-Flash disables reasoning with extra_body.enable_thinking."""
+    wte = {"extra_body": {"enable_thinking": True, "thinking_budget": 4096}}
+    cfg = _make_app_config(
+        [
+            _make_model(
+                "deepseek-v4-flash",
+                supports_thinking=True,
+                when_thinking_enabled=wte,
+            )
+        ]
+    )
+    _patch_factory(monkeypatch, cfg)
+
+    captured: dict = {}
+
+    class CapturingModel(FakeChatModel):
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+            BaseChatModel.__init__(self, **kwargs)
+
+    monkeypatch.setattr(factory_module, "resolve_class", lambda path, base: CapturingModel)
+
+    factory_module.create_chat_model(name="deepseek-v4-flash", thinking_enabled=False)
+
+    assert captured.get("extra_body") == {"enable_thinking": False}
+
+
 def test_thinking_disabled_langchain_anthropic_format(monkeypatch):
     """When thinking is configured as a direct param (langchain_anthropic),
     disabling must inject thinking.type=disabled WITHOUT touching extra_body or reasoning_effort."""

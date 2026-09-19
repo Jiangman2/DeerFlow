@@ -69,6 +69,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
+from deerflow.run_timing import atime_middleware_after_agent, time_middleware_after_agent
 
 if TYPE_CHECKING:
     from deerflow.config.loop_detection_config import LoopDetectionConfig
@@ -925,15 +926,17 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
 
     @override
     def after_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        self._clear_current_run_pending_warnings(runtime)
-        self._clear_current_run_progress(runtime)
-        return None
+        with time_middleware_after_agent(logger, middleware="loop_detection"):
+            self._clear_current_run_pending_warnings(runtime)
+            self._clear_current_run_progress(runtime)
+            return None
 
     @override
     async def aafter_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        self._clear_current_run_pending_warnings(runtime)
-        self._clear_current_run_progress(runtime)
-        return None
+        async with atime_middleware_after_agent(logger, middleware="loop_detection"):
+            self._clear_current_run_pending_warnings(runtime)
+            self._clear_current_run_progress(runtime)
+            return None
 
     def _drain_pending_warnings(self, runtime: Runtime) -> list[str]:
         """Pop and return all queued warnings for *runtime*'s thread/run."""

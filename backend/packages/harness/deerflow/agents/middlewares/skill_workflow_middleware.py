@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import posixpath
 import re
 import threading
@@ -27,6 +28,9 @@ from langgraph.types import Command
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
 from deerflow.agents.thread_state import SkillWorkflowEvidence, SkillWorkflowState, ThreadState
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
+from deerflow.run_timing import log_run_timing, time_middleware_after_agent
+
+logger = logging.getLogger(__name__)
 
 _PROJECT_PATH_RE = re.compile(r"(/mnt/user-data/workspace/projects/[^/\s'\";|&]+)")
 _PROJECTS_ROOT = "/mnt/user-data/workspace/projects"
@@ -3264,12 +3268,16 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
                     )
         if not reminders:
             return request
+        log_run_timing(logger, "skill_workflow_reminders_injected", reminder_count=len(reminders))
         return request.override(messages=[*request.messages, *reminders])
 
     @hook_config(can_jump_to=["model"])
     @override
     def after_model(self, state: ThreadState, runtime: Runtime) -> dict[str, Any] | None:
-        return self._apply_sequence_guard(state, runtime) or self._apply_completion_guard(state, runtime)
+        result = self._apply_sequence_guard(state, runtime) or self._apply_completion_guard(state, runtime)
+        if result and result.get("jump_to") == "model":
+            log_run_timing(logger, "skill_workflow_retry_queued")
+        return result
 
     @hook_config(can_jump_to=["model"])
     @override
@@ -3755,11 +3763,12 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
 
     @override
     def after_agent(self, state: ThreadState, runtime: Runtime) -> dict | None:
-        key = self._key(runtime)
-        with self._lock:
-            self._pending_recovery.pop(key, None)
-            self._retry_counts.pop(key, None)
-        return None
+        with time_middleware_after_agent(logger, middleware="skill_workflow"):
+            key = self._key(runtime)
+            with self._lock:
+                self._pending_recovery.pop(key, None)
+                self._retry_counts.pop(key, None)
+            return None
 
     @override
     async def aafter_agent(self, state: ThreadState, runtime: Runtime) -> dict | None:

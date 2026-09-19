@@ -737,6 +737,17 @@ tools:
   #   api_key: $APPFORGE_API_KEY
   #   app_id: $APPFORGE_DETAIL_QA_APP_ID
   #   trust_env: false
+  # Master-data search is an independent AppForge workflow. It is intentionally
+  # not controlled by the user's Data Lake toggle. Keep its API key in the
+  # runtime Secret; never put a literal credential in config.yaml.
+  # - name: datalake_md_search
+  #   group: knowledge
+  #   use: deerflow.community.appforge.tools:datalake_md_search_tool
+  #   api_url: $APPFORGE_API_URL
+  #   api_key: $APPFORGE_MD_SEARCH_API_KEY
+  #   app_id: app-1qdkpgka
+  #   conversation_prefix: SquareWorkflow_
+  #   trust_env: false
 
   # Web search tool (uses DuckDuckGo, no API key required)
   - name: web_search
@@ -1742,6 +1753,21 @@ skill_evolution:
 # checkpointer:
 #   type: postgres
 #   connection_string: postgresql://user:password@localhost:5432/deerflow
+#
+# PostgreSQL checkpointer connection-pool sizing is controlled at process start
+# through environment variables. Both default to 4, preserving historic behavior.
+# Set MAX_SIZE greater than or equal to MIN_SIZE; load-tested production may use
+# 8 and 32 respectively when PostgreSQL has sufficient connection capacity.
+# DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE=8
+# DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE=32
+#
+# Experimental, restart-required concurrency optimization. It is disabled by
+# default. When true, only an AsyncPostgresSaver backed by AsyncConnectionPool
+# (and no pipeline) may borrow concurrent cursors; single-connection and
+# pipeline savers retain LangGraph's original instance lock. Enable only after
+# a representative checkpoint durability/load test, and roll back by setting
+# it to false and restarting Gateway.
+# DEERFLOW_CHECKPOINTER_POSTGRES_POOL_CONCURRENT_CURSOR=true
 
 # ============================================================================
 # Database
