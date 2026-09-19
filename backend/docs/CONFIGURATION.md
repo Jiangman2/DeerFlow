@@ -264,8 +264,19 @@ tools:
     group: web
     use: deerflow.community.tavily.tools:web_search_tool
     max_results: 5
+    include_domains:             # Optional: restrict Tavily results to these domains
+      - docs.python.org
+      - developer.mozilla.org
+    exclude_domains: []         # Optional: domains Tavily must exclude
     # api_key: $TAVILY_API_KEY  # Optional
 ```
+
+Tavily reads `include_domains` and `exclude_domains` only from the operator's
+`web_search` entry; they are not exposed as model arguments. A non-empty
+`include_domains` list uses Tavily's filtering mode. Omitted options are not
+sent, while explicit empty lists are forwarded as no restriction of that kind.
+`web_search` and `web_fetch` each read their own `api_key`, falling back to
+`TAVILY_API_KEY` when omitted, so deployments may configure different keys.
 
 **Built-in Tools**:
 - `web_search` - Search the web (DuckDuckGo, Tavily, Brave, Exa, InfoQuest, Firecrawl, fastCRW, GroundRoute)

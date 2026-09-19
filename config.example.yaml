@@ -817,6 +817,11 @@ tools:
   #   group: web
   #   use: deerflow.community.tavily.tools:web_search_tool
   #   max_results: 5
+  #   # Optional deployment-side source filters. Omit or use [] for no restriction.
+  #   # include_domains:
+  #   #   - docs.python.org
+  #   #   - developer.mozilla.org
+  #   # exclude_domains: []
   #   # api_key: $TAVILY_API_KEY  # Set if needed
 
   # Web search tool (uses InfoQuest, requires InfoQuest API key)

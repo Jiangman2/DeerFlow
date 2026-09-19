@@ -44,16 +44,11 @@ def _build_tavily_session() -> requests.Session | None:
                 "SSL_CERT_FILE",
                 "CURL_CA_BUNDLE",
             )
-            if (value := os.getenv(name, "").strip())
-            and os.path.isfile(value)
+            if (value := os.getenv(name, "").strip()) and os.path.isfile(value)
         ),
         None,
     )
-    context = (
-        ssl.create_default_context(cafile=ca_file)
-        if ca_file
-        else ssl.create_default_context()
-    )
+    context = ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
     context.set_ciphers("DEFAULT:@SECLEVEL=1")
 
     session = requests.Session()
@@ -61,8 +56,10 @@ def _build_tavily_session() -> requests.Session | None:
     return session
 
 
-def _get_tavily_client() -> TavilyClient:
-    config = get_app_config().get_tool_config("web_search")
+def _get_tavily_client(tool_name: str = "web_search") -> TavilyClient:
+    """Build a Tavily client from the configuration of the calling tool."""
+
+    config = get_app_config().get_tool_config(tool_name)
     api_key = None
     if config is not None and "api_key" in config.model_extra:
         api_key = config.model_extra.get("api_key")
@@ -85,7 +82,14 @@ def web_search_tool(query: str) -> str:
         max_results = config.model_extra.get("max_results")
 
     client = _get_tavily_client()
-    res = client.search(query, max_results=max_results)
+    search_kwargs: dict[str, object] = {"max_results": max_results}
+    if config is not None:
+        for key in ("include_domains", "exclude_domains"):
+            if key in config.model_extra:
+                search_kwargs[key] = config.model_extra[key]
+    if search_kwargs.get("include_domains"):
+        search_kwargs["include_domains_mode"] = "filter"
+    res = client.search(query, **search_kwargs)
     normalized_results = [
         {
             "title": result["title"],
@@ -109,12 +113,13 @@ def web_fetch_tool(url: str) -> str:
     Args:
         url: The URL to fetch the contents of.
     """
-    client = _get_tavily_client()
+    client = _get_tavily_client("web_fetch")
     res = client.extract([url])
     if "failed_results" in res and len(res["failed_results"]) > 0:
         return f"Error: {res['failed_results'][0]['error']}"
     elif "results" in res and len(res["results"]) > 0:
         result = res["results"][0]
-        return f"# {result['title']}\n\n{result['raw_content'][:4096]}"
+        title = result.get("title") or result.get("url") or url
+        return f"# {title}\n\n{result['raw_content'][:4096]}"
     else:
         return "Error: No results found"

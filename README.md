@@ -1012,6 +1012,11 @@ uv run python -m deerflow.skills.review.cli ../skills/public/data-analysis --for
 
 Tools follow the same philosophy. DeerFlow comes with a core toolset — web search, web fetch, rendered web capture, file operations, bash execution — and supports custom tools via MCP servers and Python functions. Swap anything. Add anything.
 
+Tavily search accepts operator-configured `include_domains` and
+`exclude_domains` source filters without exposing them to the model. Tavily
+search and fetch also resolve credentials from their own tool entries, with
+`TAVILY_API_KEY` as the fallback for either tool.
+
 Enterprise deployments can also enable three CNOOC DataLake tools:
 `datalake_smart_qa` calls the internal Retrieve API and returns ranked narrative
 source chunks, while `datalake_metrics_qa` and `datalake_detail_qa` continue to
