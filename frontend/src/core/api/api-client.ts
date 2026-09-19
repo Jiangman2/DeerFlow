@@ -74,6 +74,97 @@ const TERMINAL_RUN_STATUSES = new Set([
   "interrupted",
 ]);
 
+type ReconnectInputSnapshot = Record<string, unknown> & {
+  messages: unknown[];
+};
+
+function streamOptionSignal(options: unknown): AbortSignal | undefined {
+  if (typeof AbortSignal === "undefined") {
+    return undefined;
+  }
+  if (options instanceof AbortSignal) {
+    return options;
+  }
+  if (typeof options !== "object" || options === null) {
+    return undefined;
+  }
+  const signal = Reflect.get(options, "signal");
+  return signal instanceof AbortSignal ? signal : undefined;
+}
+
+/**
+ * Restore the submitted human input before replaying an active run.
+ * Incremental reconnect streams can deliver AI/tool chunks before the input
+ * has reached durable thread history. The run record retains that input in
+ * ``kwargs.input``; merge it into one synthetic values snapshot and de-dupe
+ * messages that the checkpoint already contains.
+ *
+ * Read failures intentionally fall back to the original reconnect behavior.
+ * Abort errors are rethrown so callers can still cancel reconnect hydration.
+ */
+async function loadReconnectInputSnapshot(
+  client: LangGraphClient,
+  threadId: string,
+  run: Awaited<ReturnType<LangGraphClient["runs"]["get"]>>,
+  signal?: AbortSignal,
+): Promise<ReconnectInputSnapshot | undefined> {
+  try {
+    const runKwargs = Reflect.get(run, "kwargs");
+    const input =
+      typeof runKwargs === "object" && runKwargs !== null
+        ? Reflect.get(runKwargs, "input")
+        : undefined;
+    const inputMessages =
+      typeof input === "object" && input !== null
+        ? Reflect.get(input, "messages")
+        : undefined;
+    if (!Array.isArray(inputMessages) || inputMessages.length === 0) {
+      return undefined;
+    }
+
+    const durableValues = (
+      await client.threads.getState(threadId, undefined, { signal })
+    ).values;
+    const normalizedDurableValues =
+      typeof durableValues === "object" && durableValues !== null
+        ? durableValues
+        : {};
+    const durableMessages = Array.isArray(
+      Reflect.get(normalizedDurableValues, "messages"),
+    )
+      ? (Reflect.get(normalizedDurableValues, "messages") as unknown[])
+      : [];
+    const seenIds = new Set(
+      durableMessages.flatMap((message) => {
+        const id =
+          typeof message === "object" && message !== null
+            ? Reflect.get(message, "id")
+            : undefined;
+        return typeof id === "string" && id.length > 0 ? [id] : [];
+      }),
+    );
+    const messages = [
+      ...durableMessages,
+      ...inputMessages.filter((message) => {
+        const id =
+          typeof message === "object" && message !== null
+            ? Reflect.get(message, "id")
+            : undefined;
+        if (typeof id !== "string" || id.length === 0) return true;
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      }),
+    ];
+    return { ...normalizedDurableValues, messages } as ReconnectInputSnapshot;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw error;
+    }
+    return undefined;
+  }
+}
+
 /**
  * Shared matcher for the gateway's 409 conflict responses. The SDK surfaces
  * non-2xx responses as ``HTTPError { status, message }`` where ``message`` is
@@ -134,26 +225,24 @@ export function isRunNotCancellableError(error: unknown): boolean {
 }
 
 /**
- * Preflight a reconnect: if the run already reached a terminal state, there is
- * nothing to rejoin. Returns ``true`` when the caller should skip the
- * underlying ``joinStream`` so the SDK's ``onSuccess`` path runs and
- * ``isLoading`` flips back to false — instead of blocking forever on a drained
- * stream bridge.
+ * Preflight a reconnect and return the run record when it can be read. A
+ * missing record or failed request returns ``undefined`` so a legitimately
+ * active reconnect falls back to the original join.
  *
  * Any error (404 for an evicted record, network blip, auth hiccup, …) falls
  * back to the original join so a legitimately active reconnect is never
  * silently suppressed.
  */
-async function shouldSkipReconnect(
+async function getReconnectRun(
   client: LangGraphClient,
   threadId: string,
   runId: string,
-): Promise<boolean> {
+  signal?: AbortSignal,
+): Promise<Awaited<ReturnType<LangGraphClient["runs"]["get"]>> | undefined> {
   try {
-    const run = await client.runs.get(threadId, runId);
-    return TERMINAL_RUN_STATUSES.has(run.status);
+    return await client.runs.get(threadId, runId, { signal });
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -218,15 +307,15 @@ function createCompatibleClient(
   }) as typeof client.threads.get;
 
   const originalGetState = client.threads.getState.bind(client.threads);
-  client.threads.getState = (async (threadId, options) => {
+  client.threads.getState = (async (threadId, checkpoint, options) => {
     const usePptMaster = Boolean(
       pptMasterClient &&
       threadId &&
       (await shouldUsePptMasterRuntime(client, threadId)),
     );
     return usePptMaster && pptMasterClient
-      ? pptMasterClient.threads.getState(threadId, options)
-      : originalGetState(threadId, options);
+      ? pptMasterClient.threads.getState(threadId, checkpoint, options)
+      : originalGetState(threadId, checkpoint, options);
   }) as typeof client.threads.getState;
 
   const originalGetHistory = client.threads.getHistory.bind(client.threads);
@@ -308,16 +397,31 @@ function createCompatibleClient(
     const joinStream = usePptMaster
       ? pptMasterClient!.runs.joinStream.bind(pptMasterClient!.runs)
       : originalJoinStream;
+    const reconnectSignal = streamOptionSignal(options);
+    const reconnectRun = threadId
+      ? await getReconnectRun(streamClient, threadId, runId, reconnectSignal)
+      : undefined;
     // Short-circuit reconnects to runs that have already finished: otherwise a
     // reload after the backend's stream bridge is reaped blocks forever on a
     // drained condition variable, pinning ``isLoading`` true so the first
     // post-reload message is routed to ``stop`` instead of ``submit``.
-    if (
-      threadId &&
-      (await shouldSkipReconnect(streamClient, threadId, runId))
-    ) {
+    if (reconnectRun && TERMINAL_RUN_STATUSES.has(reconnectRun.status)) {
       clearReconnectRun(threadId, runId);
       return;
+    }
+    if (threadId && reconnectRun) {
+      const reconnectSnapshot = await loadReconnectInputSnapshot(
+        streamClient,
+        threadId,
+        reconnectRun,
+        reconnectSignal,
+      );
+      if (reconnectSnapshot) {
+        // Internal hydration frame: show the submitted human message before
+        // incremental AI/tool chunks arrive. Later copies are de-duplicated by
+        // message id by the normal thread state pipeline.
+        yield { event: "values", data: reconnectSnapshot };
+      }
     }
     try {
       yield* joinStream(threadId, runId, sanitizeRunStreamOptions(options));
