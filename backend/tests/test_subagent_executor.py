@@ -776,6 +776,58 @@ class TestAsyncExecutionPath:
         assert result.completed_at is not None
 
     @pytest.mark.anyio
+    async def test_aexecute_preserves_stream_error_when_close_also_fails(self, classes, base_config, mock_agent):
+        SubagentExecutor = classes["SubagentExecutor"]
+        SubagentStatus = classes["SubagentStatus"]
+        close_attempted = False
+
+        class Stream:
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise ValueError("stream failed")
+
+            async def aclose(self):
+                nonlocal close_attempted
+                close_attempted = True
+                raise RuntimeError("close failed")
+
+        mock_agent.astream.return_value = Stream()
+        executor = SubagentExecutor(config=base_config, tools=[], thread_id="test-thread")
+
+        with patch.object(executor, "_create_agent", return_value=mock_agent):
+            result = await executor._aexecute("Do something")
+
+        assert result.status == SubagentStatus.FAILED
+        assert result.error == "stream failed"
+        assert close_attempted is True
+
+    @pytest.mark.anyio
+    async def test_aexecute_close_failure_marks_otherwise_successful_execution_failed(self, classes, base_config, mock_agent):
+        SubagentExecutor = classes["SubagentExecutor"]
+        SubagentStatus = classes["SubagentStatus"]
+
+        class Stream:
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+            async def aclose(self):
+                raise RuntimeError("close failed")
+
+        mock_agent.astream.return_value = Stream()
+        executor = SubagentExecutor(config=base_config, tools=[], thread_id="test-thread")
+
+        with patch.object(executor, "_create_agent", return_value=mock_agent):
+            result = await executor._aexecute("Do something")
+
+        assert result.status == SubagentStatus.FAILED
+        assert result.error == "close failed"
+
+    @pytest.mark.anyio
     async def test_aexecute_marks_structured_llm_error_fallback_as_failed(self, classes, base_config, mock_agent, msg):
         """A handled provider error is still a failed delegated task.
 
@@ -2292,14 +2344,30 @@ class TestCooperativeCancellation:
 
         cancel_event = threading.Event()
 
-        async def mock_astream(*args, **kwargs):
-            yield {"messages": [msg.human("Task"), msg.ai("Partial", "msg-1")]}
-            # Simulate cancellation during streaming
-            cancel_event.set()
-            yield {"messages": [msg.human("Task"), msg.ai("Should not appear", "msg-2")]}
+        class Stream:
+            def __init__(self):
+                self.yielded = 0
+                self.closed = False
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                self.yielded += 1
+                if self.yielded == 1:
+                    return {"messages": [msg.human("Task"), msg.ai("Partial", "msg-1")]}
+                if self.yielded == 2:
+                    cancel_event.set()
+                    return {"messages": [msg.human("Task"), msg.ai("Should not appear", "msg-2")]}
+                raise StopAsyncIteration
+
+            async def aclose(self):
+                self.closed = True
+
+        stream = Stream()
 
         mock_agent = MagicMock()
-        mock_agent.astream = mock_astream
+        mock_agent.astream.return_value = stream
 
         result_holder = SubagentResult(
             task_id="cancel-mid",
@@ -2321,6 +2389,7 @@ class TestCooperativeCancellation:
         assert result.status == SubagentStatus.CANCELLED
         assert result.error == "Cancelled by user"
         assert result.completed_at is not None
+        assert stream.closed is True
 
     def test_request_cancel_sets_event(self, executor_module, classes):
         """Test that request_cancel_background_task sets the cancel_event."""
