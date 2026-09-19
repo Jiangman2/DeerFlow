@@ -38,6 +38,7 @@ from app.gateway.internal_auth import create_internal_auth_headers
 from deerflow.config.agents_config import load_agent_config
 from deerflow.config.paths import make_safe_user_id
 from deerflow.runtime.goal import parse_goal_command
+from deerflow.runtime.keyed_lock import AsyncKeyedLockTable
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.skills.slash import parse_slash_skill_reference
 from deerflow.skills.storage import get_or_new_skill_storage
@@ -829,9 +830,11 @@ class ChannelManager:
         self._require_bound_identity = require_bound_identity
         self._client = None  # lazy init — langgraph_sdk async client
         self._channel_metadata_synced: set[str] = set()
-        # Per-conversation locks so concurrent inbound messages for the same
-        # chat don't race to create duplicate threads (see _get_or_create_thread).
-        self._thread_create_locks: dict[tuple[str, str, str | None], asyncio.Lock] = {}
+        # Waiter-aware per-conversation locks prevent concurrent inbound
+        # messages from creating duplicate threads. Participants check out
+        # before waiting, so an aborting creator cannot let a late caller
+        # bypass a creator already queued on the live lock generation.
+        self._thread_create_locks = AsyncKeyedLockTable[tuple[str, str, str | None]]()
         # Per-thread run locks for channels that want in-manager serialization
         # instead of surfacing the runtime's generic busy reply.
         self._serialized_thread_runs: dict[tuple[str, str], _SerializedThreadRunState] = {}
@@ -1454,20 +1457,13 @@ class ChannelManager:
             return thread_id, False
 
         key = (msg.channel_name, msg.chat_id, msg.topic_id)
-        lock = self._thread_create_locks.setdefault(key, asyncio.Lock())
-        try:
-            async with lock:
-                # A concurrent message for the same chat may have created the
-                # thread while we were waiting on the lock.
-                thread_id = await self._lookup_thread_id(msg)
-                if thread_id:
-                    return thread_id, False
-                return await self._create_thread(client, msg), True
-        finally:
-            # Once the thread is stored, later messages short-circuit on the
-            # lookup above and never reach this lock, so it's safe to drop the
-            # entry and keep the registry bounded to in-flight conversations.
-            self._thread_create_locks.pop(key, None)
+        async with self._thread_create_locks.hold(key):
+            # A concurrent message for the same chat may have created the
+            # thread while we were waiting on the lock.
+            thread_id = await self._lookup_thread_id(msg)
+            if thread_id:
+                return thread_id, False
+            return await self._create_thread(client, msg), True
 
     async def _update_thread_channel_metadata(self, client, msg: InboundMessage, thread_id: str) -> None:
         """Best-effort source metadata backfill for existing IM-created threads."""
