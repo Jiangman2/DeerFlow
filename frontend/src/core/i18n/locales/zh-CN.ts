@@ -519,6 +519,8 @@ export const zhCN: Translations = {
     },
     history: {
       navigation: "运行历史分页",
+      statusFilter: "按状态筛选运行历史",
+      allStatuses: "全部状态",
       newer: "较新",
       older: "较早",
       latest: "回到最新",

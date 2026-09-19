@@ -2,7 +2,11 @@ import { throwGatewayApiError } from "@/core/api/errors";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
-import type { ScheduledTask, ScheduledTaskRun } from "./types";
+import type {
+  ScheduledTask,
+  ScheduledTaskRun,
+  ScheduledTaskRunStatus,
+} from "./types";
 
 function scheduledTasksUrl(path: string): string {
   return `${getBackendBaseURL()}/api/scheduled-tasks${path}`;
@@ -36,17 +40,25 @@ export async function fetchThreadScheduledTasks(
 
 export async function fetchScheduledTaskRuns(
   taskId: string,
-  page?: { limit: number; offset: number; signal?: AbortSignal },
+  page?: {
+    limit: number;
+    offset: number;
+    status?: ScheduledTaskRunStatus;
+    signal?: AbortSignal;
+  },
 ): Promise<ScheduledTaskRun[]> {
   const url = scheduledTasksUrl(`/${encodeURIComponent(taskId)}/runs`);
+  const params = page
+    ? new URLSearchParams({
+        limit: String(page.limit),
+        offset: String(page.offset),
+      })
+    : null;
+  if (params && page?.status) {
+    params.set("status", page.status);
+  }
   const response = page
-    ? await fetch(
-        `${url}?${new URLSearchParams({
-          limit: String(page.limit),
-          offset: String(page.offset),
-        })}`,
-        { signal: page.signal },
-      )
+    ? await fetch(`${url}?${params}`, { signal: page.signal })
     : await fetch(url);
   if (!response.ok) {
     await throwGatewayApiError(

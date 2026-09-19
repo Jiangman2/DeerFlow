@@ -73,7 +73,10 @@ class JsonlRunEventStore(RunEventStore):
         thread_dir = self._thread_dir(thread_id)
         if thread_dir.exists():
             for f in thread_dir.glob("*.jsonl"):
-                for line in f.read_text(encoding="utf-8").strip().splitlines():
+                # JSONL is delimited by the physical LF byte. ``splitlines``
+                # also treats Unicode separators inside JSON strings as record
+                # boundaries, corrupting otherwise valid event payloads.
+                for line in f.read_text(encoding="utf-8").strip().split("\n"):
                     try:
                         record = json.loads(line)
                         max_seq = max(max_seq, record.get("seq", 0))
@@ -101,7 +104,7 @@ class JsonlRunEventStore(RunEventStore):
         if not thread_dir.exists():
             return events
         for f in sorted(thread_dir.glob("*.jsonl")):
-            for line in f.read_text(encoding="utf-8").strip().splitlines():
+            for line in f.read_text(encoding="utf-8").strip().split("\n"):
                 if not line:
                     continue
                 try:
@@ -117,7 +120,7 @@ class JsonlRunEventStore(RunEventStore):
         if not path.exists():
             return []
         events = []
-        for line in path.read_text(encoding="utf-8").strip().splitlines():
+        for line in path.read_text(encoding="utf-8").strip().split("\n"):
             if not line:
                 continue
             try:

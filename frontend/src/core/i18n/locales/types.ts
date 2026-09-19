@@ -415,6 +415,8 @@ export interface Translations {
     };
     history: {
       navigation: string;
+      statusFilter: string;
+      allStatuses: string;
       newer: string;
       older: string;
       latest: string;

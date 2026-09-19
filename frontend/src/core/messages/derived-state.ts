@@ -2,6 +2,7 @@ import type { Message } from "@langchain/langgraph-sdk";
 
 import { getMessageRunId } from "./run-duration";
 import {
+  findCurrentTurnStartIndex,
   getMessageGroups,
   isHiddenFromUIMessage,
   type MessageGroup,
@@ -92,18 +93,13 @@ export function deriveStableMessageGroups(
   previousIsLoading: boolean,
 ): MessageGroup[] {
   if (isLoading && previousGroups.length > 0) {
-    let turnStartIndex = -1;
-    for (let index = messages.length - 1; index >= 0; index--) {
-      const candidate = messages[index];
-      if (candidate?.type === "human" && !isHiddenFromUIMessage(candidate)) {
-        turnStartIndex = index;
-        break;
-      }
-    }
+    const turnStartIndex = findCurrentTurnStartIndex(messages);
 
     const turnStartMessage = messages[turnStartIndex];
     let previousTurnStartGroupIndex = -1;
-    if (turnStartMessage) {
+    // A clarification result also belongs to its preceding processing group
+    // for tool association, so only human boundaries use the prefix shortcut.
+    if (turnStartMessage?.type === "human") {
       for (let index = previousGroups.length - 1; index >= 0; index -= 1) {
         const group = previousGroups[index];
         if (

@@ -47,3 +47,5 @@ export type ScheduledTaskRun = {
   finished_at: string | null;
   created_at: string;
 };
+
+export type ScheduledTaskRunStatus = ScheduledTaskRun["status"];

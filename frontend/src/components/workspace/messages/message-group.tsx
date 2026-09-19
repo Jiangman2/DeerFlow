@@ -71,7 +71,24 @@ export function MessageGroup({
   const [showLastThinking, setShowLastThinking] = useState(
     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
   );
-  const steps = useMemo(() => convertToSteps(messages), [messages]);
+  const allSteps = useMemo(() => convertToSteps(messages), [messages]);
+  // Keep message and tool associations intact. Only clarification context is
+  // rendered outside the execution disclosure so it remains normal dialogue.
+  const clarificationTextSteps = useMemo(
+    () =>
+      allSteps.filter(
+        (step): step is CoTAssistantTextStep =>
+          step.type === "assistantText" && step.isClarificationContext === true,
+      ),
+    [allSteps],
+  );
+  const steps = useMemo(
+    () =>
+      allSteps.filter(
+        (step) => step.type !== "assistantText" || !step.isClarificationContext,
+      ),
+    [allSteps],
+  );
   const debugStepByMessageId = useMemo(
     () =>
       new Map(
@@ -295,7 +312,7 @@ export function MessageGroup({
       ? debugStepByMessageId.get(lastReasoningStep.messageId)
       : undefined;
 
-  return (
+  const processingPanel = (
     <ChainOfThought
       className={cn("w-full gap-2 rounded-lg border p-0.5", className)}
       open={true}
@@ -414,6 +431,22 @@ export function MessageGroup({
         </>
       )}
     </ChainOfThought>
+  );
+
+  return (
+    <>
+      {processingPanel}
+      {clarificationTextSteps.map((step) => (
+        <div key={step.id} className="w-full">
+          <MarkdownContent
+            content={step.content}
+            isLoading={isLoading}
+            rehypePlugins={rehypePlugins}
+            components={threadMarkdownComponents}
+          />
+        </div>
+      ))}
+    </>
   );
 }
 
@@ -769,6 +802,7 @@ interface CoTToolCallStep extends GenericCoTStep<"toolCall"> {
 }
 
 interface CoTAssistantTextStep extends GenericCoTStep<"assistantText"> {
+  isClarificationContext?: boolean;
   content: string;
 }
 
@@ -805,6 +839,9 @@ function convertToSteps(messages: Message[]): CoTStep[] {
           messageId: message.id,
           type: "assistantText",
           content,
+          isClarificationContext: message.tool_calls?.some(
+            (toolCall) => toolCall.name === "ask_clarification",
+          ),
         });
       }
       const reasoning = extractReasoningContentFromMessage(message);

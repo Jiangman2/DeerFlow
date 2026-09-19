@@ -72,12 +72,22 @@ import { matchesScheduledTaskQuery } from "@/core/scheduled-tasks/search";
 import type {
   ScheduledTask,
   ScheduledTaskRun,
+  ScheduledTaskRunStatus,
 } from "@/core/scheduled-tasks/types";
 import { getLocalSettings } from "@/core/settings/local";
 import { cn } from "@/lib/utils";
 
 const NONE = "—";
 const DEFAULT_ASSISTANT_ID = "lead_agent";
+const RUN_STATUS_FILTERS: readonly ScheduledTaskRunStatus[] = [
+  "queued",
+  "launching",
+  "running",
+  "success",
+  "failed",
+  "skipped",
+  "interrupted",
+];
 
 function agentDisplayName(
   assistantId: string | null | undefined,
@@ -167,6 +177,9 @@ export default function ScheduledTasksPage() {
   const [typeFilter, setTypeFilter] = useState<
     "all" | "once" | "cron" | "interval"
   >("all");
+  const [runStatusFilter, setRunStatusFilter] = useState<
+    "all" | ScheduledTaskRunStatus
+  >("all");
   const [taskSearch, setTaskSearch] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -220,7 +233,10 @@ export default function ScheduledTasksPage() {
     typeof selectedTask?.run_context?.model_name === "string"
       ? selectedTask.run_context.model_name
       : undefined;
-  const taskRunsQuery = useScheduledTaskRunHistory(selectedTask?.id);
+  const taskRunsQuery = useScheduledTaskRunHistory(
+    selectedTask?.id,
+    runStatusFilter === "all" ? undefined : runStatusFilter,
+  );
   const createTask = useCreateScheduledTask();
   const updateTask = useUpdateScheduledTask(selectedTask?.id ?? "");
   const pauseTask = usePauseScheduledTask();
@@ -1374,6 +1390,31 @@ export default function ScheduledTasksPage() {
                   aria-label={st.history.navigation}
                   className="flex flex-wrap items-center gap-2"
                 >
+                  <Select
+                    value={runStatusFilter}
+                    onValueChange={(value) =>
+                      setRunStatusFilter(
+                        value as "all" | ScheduledTaskRunStatus,
+                      )
+                    }
+                  >
+                    <SelectTrigger
+                      aria-label={st.history.statusFilter}
+                      className="h-8 w-[170px]"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        {st.history.allStatuses}
+                      </SelectItem>
+                      {RUN_STATUS_FILTERS.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {st.runStatus[status]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="outline"
                     size="sm"

@@ -553,6 +553,8 @@ export const enUS: Translations = {
     },
     history: {
       navigation: "Run history pagination",
+      statusFilter: "Filter run history by status",
+      allStatuses: "All statuses",
       newer: "Newer",
       older: "Older",
       latest: "Latest",

@@ -2,22 +2,28 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { fetchScheduledTaskRuns } from "./api";
+import type { ScheduledTaskRunStatus } from "./types";
 
 export const RUN_HISTORY_PAGE_SIZE = 50;
 
-export function useScheduledTaskRunHistory(taskId: string | undefined) {
+export function useScheduledTaskRunHistory(
+  taskId: string | undefined,
+  status?: ScheduledTaskRunStatus,
+) {
   const client = useQueryClient();
-  const [position, setPosition] = useState({ taskId, page: 0 });
-  const page = position.taskId === taskId ? position.page : 0;
-  if (position.taskId !== taskId) {
-    setPosition({ taskId, page: 0 });
+  const [position, setPosition] = useState({ taskId, status, page: 0 });
+  const sameScope = position.taskId === taskId && position.status === status;
+  const page = sameScope ? position.page : 0;
+  if (!sameScope) {
+    setPosition({ taskId, status, page: 0 });
   }
   const query = useQuery({
-    queryKey: ["scheduled-tasks", "runs", taskId, page],
+    queryKey: ["scheduled-tasks", "runs", taskId, status ?? "all", page],
     queryFn: ({ signal }) =>
       fetchScheduledTaskRuns(taskId ?? "", {
         limit: RUN_HISTORY_PAGE_SIZE + 1,
         offset: page * RUN_HISTORY_PAGE_SIZE,
+        ...(status ? { status } : {}),
         signal,
       }),
     enabled: Boolean(taskId),
@@ -32,12 +38,12 @@ export function useScheduledTaskRunHistory(taskId: string | undefined) {
     data: query.data?.slice(0, RUN_HISTORY_PAGE_SIZE),
     page,
     hasOlder: (query.data?.length ?? 0) > RUN_HISTORY_PAGE_SIZE,
-    older: () => setPosition({ taskId, page: page + 1 }),
-    newer: () => setPosition({ taskId, page: Math.max(0, page - 1) }),
+    older: () => setPosition({ taskId, status, page: page + 1 }),
+    newer: () => setPosition({ taskId, status, page: Math.max(0, page - 1) }),
     latest: () => {
-      setPosition({ taskId, page: 0 });
+      setPosition({ taskId, status, page: 0 });
       void client.invalidateQueries({
-        queryKey: ["scheduled-tasks", "runs", taskId, 0],
+        queryKey: ["scheduled-tasks", "runs", taskId, status ?? "all", 0],
         exact: true,
       });
     },
