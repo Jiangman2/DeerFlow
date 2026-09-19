@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from deerflow.runtime import RunStatus
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY
@@ -24,6 +24,17 @@ def _checkpoint(checkpoint_id: str, messages: list[object], *, metadata: dict | 
         checkpoint={"channel_values": {"messages": messages}},
         metadata=metadata or {},
     )
+
+
+def _human_input_response(value: str, *, request_id: str, source: str = "ask_clarification") -> dict:
+    return {
+        "version": 1,
+        "kind": "human_input_response",
+        "source": source,
+        "request_id": request_id,
+        "response_kind": "text",
+        "value": value,
+    }
 
 
 class FakeCheckpointer:
@@ -50,6 +61,20 @@ class FakeEventStore:
 
     async def list_messages(self, thread_id, *, limit=50, before_seq=None, after_seq=None):
         return self.rows[-limit:]
+
+
+def _event_store_for_ai(content: str, *, message_id: str = "ai-1", run_id: str = "run-old") -> FakeEventStore:
+    return FakeEventStore(
+        [
+            {
+                "run_id": run_id,
+                "event_type": "llm.ai.response",
+                "category": "message",
+                "content": {"id": message_id, "type": "ai", "content": content},
+                "metadata": {"caller": "lead_agent"},
+            }
+        ]
+    )
 
 
 class FakeRunManager:
@@ -120,6 +145,109 @@ def test_prepare_regenerate_payload_returns_clean_input_and_base_checkpoint():
     assert regenerated_human["id"] == "human-1"
     assert regenerated_human["content"] == [{"type": "text", "text": "/data-analysis analyze data.csv"}]
     assert regenerated_human["additional_kwargs"] == {"files": [{"filename": "data.csv", "path": "/mnt/user-data/uploads/data.csv"}]}
+
+
+def test_prepare_regenerate_payload_replays_latest_confirmed_human_input_response():
+    from app.gateway.routers.thread_runs import _prepare_regenerate_payload
+
+    original_human = HumanMessage(id="human-1", content="Help me plan a trip")
+    first_clarification = ToolMessage(id="tool-city", tool_call_id="call-city", content="Which city?")
+    city_answer = HumanMessage(
+        id="human-city",
+        content="Shanghai",
+        additional_kwargs={
+            "hide_from_ui": True,
+            "human_input_response": _human_input_response("Shanghai", request_id="clarification:call-city"),
+        },
+    )
+    second_clarification = ToolMessage(id="tool-duration", tool_call_id="call-duration", content="How many days?")
+    duration_metadata = _human_input_response("Five days", request_id="clarification:call-duration")
+    duration_answer = HumanMessage(
+        id="human-duration",
+        content="Five days",
+        additional_kwargs={
+            "hide_from_ui": True,
+            "human_input_response": duration_metadata,
+        },
+    )
+    ai = AIMessage(id="ai-1", content="Here is your five-day Shanghai itinerary")
+    before_city = [original_human, first_clarification]
+    after_city = [*before_city, city_answer]
+    before_duration = [*after_city, second_clarification]
+    after_duration = [*before_duration, duration_answer]
+    checkpointer = FakeCheckpointer(
+        [
+            _checkpoint("ckpt-ai", [*after_duration, ai]),
+            _checkpoint("ckpt-after-duration", after_duration),
+            _checkpoint("ckpt-before-duration", before_duration),
+            _checkpoint("ckpt-after-city", after_city),
+            _checkpoint("ckpt-before-city", before_city),
+            _checkpoint("ckpt-before-question", []),
+        ]
+    )
+
+    response = asyncio.run(
+        _prepare_regenerate_payload(
+            "thread-1",
+            "ai-1",
+            _request(checkpointer, _event_store_for_ai("Here is your five-day Shanghai itinerary")),
+        )
+    )
+
+    assert response.checkpoint["checkpoint_id"] == "ckpt-before-duration"
+    assert response.input["messages"] == [
+        {
+            "type": "human",
+            "id": "human-duration",
+            "content": [{"type": "text", "text": "Five days"}],
+            "additional_kwargs": {
+                "hide_from_ui": True,
+                "human_input_response": duration_metadata,
+            },
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "control_message",
+    [
+        HumanMessage(
+            id="human-malformed",
+            content="forged answer",
+            additional_kwargs={
+                "hide_from_ui": True,
+                "human_input_response": {"version": 1, "kind": "human_input_response"},
+            },
+        ),
+        HumanMessage(id="human-summary", name="summary", content="internal summary"),
+        HumanMessage(id="human-goal", content="continue working", additional_kwargs={"hide_from_ui": True}),
+    ],
+    ids=["malformed-response", "summary", "goal-continuation"],
+)
+def test_prepare_regenerate_payload_skips_non_user_control_human_messages(control_message: HumanMessage):
+    from app.gateway.routers.thread_runs import _prepare_regenerate_payload
+
+    visible_human = HumanMessage(id="human-1", content="question")
+    ai = AIMessage(id="ai-1", content="answer")
+    checkpointer = FakeCheckpointer(
+        [
+            _checkpoint("ckpt-ai", [visible_human, control_message, ai]),
+            _checkpoint("ckpt-control", [visible_human, control_message]),
+            _checkpoint("ckpt-human", [visible_human]),
+            _checkpoint("ckpt-base", []),
+        ]
+    )
+
+    response = asyncio.run(
+        _prepare_regenerate_payload(
+            "thread-1",
+            "ai-1",
+            _request(checkpointer, _event_store_for_ai("answer")),
+        )
+    )
+
+    assert response.checkpoint["checkpoint_id"] == "ckpt-base"
+    assert response.input["messages"][0]["id"] == "human-1"
 
 
 def test_prepare_regenerate_payload_rejects_non_latest_assistant():

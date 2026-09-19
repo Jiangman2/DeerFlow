@@ -1056,6 +1056,11 @@ contacted for each run. Existing attachments remain part of their
 conversations, and the choice is carried into normal, regenerated,
 custom-agent, and branched runs.
 
+Regenerating an answer after a Human Input clarification now replays the latest
+protocol-validated card response instead of falling back to an earlier visible
+question. The response stays hidden in the transcript and retains its request
+correlation metadata; unrelated hidden or control messages are never replayed.
+
 Gateway-generated follow-up suggestions now normalize both plain-string model output and block/list-style rich content before parsing the JSON array response, so provider-specific content wrappers do not silently drop suggestions.
 
 The Web UI composer can polish draft input before sending. The rewrite runs as a short Gateway LLM request using the `input_polish` model configuration, keeps slash skill prefixes such as `/data-analysis`, and only replaces the local draft after the user clicks the polish button; it does not create a thread run or persist a message.

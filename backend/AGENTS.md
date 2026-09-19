@@ -897,6 +897,7 @@ metadata only.
 **RunManager / RunStore contract**:
 
 - `RunManager.get()` is async; direct callers must `await` it.
+- Regenerate preparation treats a protocol-valid hidden `human_input_response` as confirmed user replay input and preserves its hidden/correlation metadata. Summaries, malformed responses, goal continuations, and every other hidden/control human remain excluded.
 - The history batch helpers `list_successful_regenerate_sources()` and `get_many_by_thread()` default to `user_id=AUTO`: they resolve the request user and fail closed when no user context exists. Migration/admin callers that intentionally need an unscoped read must pass `user_id=None` explicitly.
 - Thread run/message read filters use the persistence data identity after route authorization, not blindly the synthetic authorization identity. Ordinary users remain owner-scoped and enterprise administrators retain read-only unscoped review. Trusted internal callers become unscoped only when `threads_meta` has a concrete owner; missing or NULL-owner legacy rows stay scoped to the raw acting owner. Run-id subresources (cancel/join/stream/messages/events/workspace changes) and token aggregation enforce the same fallback boundary.
 - When a persistent `RunStore` is configured, `get()` and `list_by_thread()` hydrate historical runs from the store. In-memory records win for the same `run_id` so task, abort, and stream-control state stays attached to active local runs.

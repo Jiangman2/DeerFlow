@@ -35,6 +35,7 @@ from app.gateway.deps import (
 from app.gateway.internal_auth import INTERNAL_SYSTEM_ROLE, get_trusted_internal_owner_user_id
 from app.gateway.pagination import trim_run_message_page
 from app.gateway.services import sse_consumer, start_run, wait_for_run_completion
+from deerflow.agents.human_input import read_human_input_response
 from deerflow.runtime import CancelOutcome, RunRecord, RunStatus, serialize_channel_values_for_api
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, get_original_user_content_text, message_to_text
 from deerflow.workspace_changes import get_workspace_changes_response
@@ -305,8 +306,20 @@ def _is_internal_compaction_transcript(message: Any) -> bool:
     return text.startswith("<analysis>") and "</analysis>" in text and "<summary>" in text and text.endswith("</summary>")
 
 
-def _is_visible_human_message(message: Any) -> bool:
-    return _message_type(message) == "human" and not _is_hidden_or_control_message(message)
+def _is_regenerate_human_message(message: Any) -> bool:
+    """Return whether a human message is valid input for regenerate replay.
+
+    Human-input card replies are intentionally hidden from the transcript, but
+    they are still confirmed user input. Only the structured response protocol
+    distinguishes them from summaries, goal continuations, and other hidden
+    control messages.
+    """
+    if _message_type(message) != "human" or _message_name(message) == "summary":
+        return False
+    additional_kwargs = _message_additional_kwargs(message)
+    if additional_kwargs.get("hide_from_ui") is True:
+        return read_human_input_response(additional_kwargs) is not None
+    return True
 
 
 def _is_visible_ai_message(message: Any) -> bool:
@@ -350,7 +363,12 @@ def _clean_human_message_for_regenerate(message: Any) -> dict[str, Any]:
     additional_kwargs = _message_additional_kwargs(message)
     content = get_original_user_content_text(_message_content(message), additional_kwargs)
     additional_kwargs.pop(ORIGINAL_USER_CONTENT_KEY, None)
-    additional_kwargs.pop("hide_from_ui", None)
+    # A validated card answer must remain hidden and keep its request
+    # correlation when it re-enters the graph. Other replayed user inputs are
+    # made visible just as before.
+    is_hidden_human_input_response = additional_kwargs.get("hide_from_ui") is True and read_human_input_response(additional_kwargs) is not None
+    if not is_hidden_human_input_response:
+        additional_kwargs.pop("hide_from_ui", None)
 
     clean_message: dict[str, Any] = {
         "type": "human",
@@ -521,7 +539,7 @@ async def _prepare_regenerate_payload(thread_id: str, message_id: str, request: 
     if _message_id(latest_visible_ai) != message_id:
         raise HTTPException(status_code=409, detail="Only the latest assistant message can be regenerated")
 
-    previous_human = next((message for message in reversed(messages[:target_index]) if _is_visible_human_message(message)), None)
+    previous_human = next((message for message in reversed(messages[:target_index]) if _is_regenerate_human_message(message)), None)
     if previous_human is None:
         raise HTTPException(status_code=409, detail="Could not find the user message for this assistant response")
     previous_human_id = _message_id(previous_human)
