@@ -560,6 +560,8 @@ DeerFlow supports receiving tasks from messaging apps. Channels auto-start when 
 
 DeerFlow can also expose user-owned IM channel connections in the workspace UI. When `channel_connections` is enabled, logged-in users can bind Telegram, Slack, Discord, Feishu/Lark, DingTalk, WeChat, or WeCom from the sidebar / Settings > Channels. It reuses the existing outbound `channels.*` transports, so no public IP or provider callback URL is required. Incoming IM messages then run under the connected DeerFlow user account. See [IM Channel Connections](backend/docs/IM_CHANNEL_CONNECTIONS.md) for setup and security notes.
 
+If Gateway shutdown or startup cancellation interrupts IM-channel activation, DeerFlow now drains the partial `ChannelService` rollback before propagating the cancellation. This prevents an interrupted startup from leaving orphaned channel workers or a half-initialized global service.
+
 Administrators can create, schedule, publish, and archive workspace announcements from Settings > Announcement Management. The active announcement is shown to signed-in users as a prominent animated workspace card; severity, display window, and whether users may dismiss it are configurable.
 
 The settings dialog uses a bounded desktop viewport inset and an independent
