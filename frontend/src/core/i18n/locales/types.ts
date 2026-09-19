@@ -338,6 +338,7 @@ export interface Translations {
       reuseNoticeTitle: string;
       reuseNoticeDescription: string;
     };
+    search: { placeholder: string; clear: string; noResults: string };
     filters: {
       label: string;
       allStatuses: string;

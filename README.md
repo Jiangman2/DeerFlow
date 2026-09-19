@@ -1754,6 +1754,8 @@ switching tasks loads the selected task's own draft and schedule.
 Current MVP capabilities:
 
 - Manage tasks at `/workspace/scheduled-tasks`
+- Search the currently authorized task list by title or prompt, composed with
+  thread, status, and schedule-type filters.
 - Reject one-time local times skipped by daylight-saving transitions before a
   task can be created or saved.
 - Choose whether each scheduled task reuses a thread or creates a fresh thread per run

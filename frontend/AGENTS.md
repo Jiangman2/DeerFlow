@@ -485,6 +485,14 @@ do not round-trip in the selected timezone. Invalid input emits an empty spec an
 localized inline feedback; both create and edit must block submission. Keep this
 validation separate from the API payload, and restore the exact original instant
 when a changed wall time is reverted.
+Scheduled-task search is a literal, case-insensitive title/prompt filter over the
+already authorized and thread-scoped client result. Compose it with status and
+schedule-type filters; never use search text to broaden server scope or trigger a
+write, and do not leave stale detail actions mounted when no task matches.
+The scheduled-task page's enterprise card grid and modal detail/edit workflow are
+an owned customization, not an upstream mirror. Adapt useful official behavior to
+those surfaces and their tests; do not replace the page wholesale or assume the
+official side-by-side detail layout.
 
 ### Workspace announcements
 

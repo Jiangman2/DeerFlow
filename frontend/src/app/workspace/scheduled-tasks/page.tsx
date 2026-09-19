@@ -68,6 +68,7 @@ import {
 } from "@/core/scheduled-tasks/model-selection";
 import { RECIPES, type Recipe } from "@/core/scheduled-tasks/recipes";
 import { useScheduledTaskRunHistory } from "@/core/scheduled-tasks/run-history";
+import { matchesScheduledTaskQuery } from "@/core/scheduled-tasks/search";
 import type {
   ScheduledTask,
   ScheduledTaskRun,
@@ -166,6 +167,7 @@ export default function ScheduledTasksPage() {
   const [typeFilter, setTypeFilter] = useState<
     "all" | "once" | "cron" | "interval"
   >("all");
+  const [taskSearch, setTaskSearch] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [adviceOpen, setAdviceOpen] = useState(false);
@@ -208,7 +210,9 @@ export default function ScheduledTasksPage() {
   const filteredData = (data ?? []).filter((task) => {
     const statusPass = statusFilter === "all" || task.status === statusFilter;
     const typePass = typeFilter === "all" || task.schedule_type === typeFilter;
-    return statusPass && typePass;
+    return (
+      statusPass && typePass && matchesScheduledTaskQuery(task, taskSearch)
+    );
   });
   const selectedTask =
     filteredData.find((task) => task.id === selectedTaskId) ?? filteredData[0];
@@ -731,6 +735,20 @@ export default function ScheduledTasksPage() {
                   {st.detail.loadFailed}: {queryError.message}
                 </div>
               ) : null}
+              <div className="flex gap-2">
+                <Input
+                  type="search"
+                  aria-label={st.search.placeholder}
+                  placeholder={st.search.placeholder}
+                  value={taskSearch}
+                  onChange={(event) => setTaskSearch(event.target.value)}
+                />
+                {taskSearch && (
+                  <Button variant="outline" onClick={() => setTaskSearch("")}>
+                    {st.search.clear}
+                  </Button>
+                )}
+              </div>
               <div className="flex flex-wrap items-center gap-2 rounded-md border bg-white p-3 shadow-sm">
                 <div className="text-muted-foreground mr-2 flex items-center gap-2 text-sm font-medium">
                   <ListFilterIcon className="size-4" />
@@ -805,24 +823,34 @@ export default function ScheduledTasksPage() {
                   data-testid="scheduled-task-list"
                   className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-dashed bg-white/75 p-10 text-center shadow-sm"
                 >
-                  <div className="max-w-md">
-                    <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-blue-50 text-blue-700">
-                      <CalendarClockIcon className="size-6" />
-                    </div>
-                    <div className="mt-4 text-lg font-semibold">
-                      {st.detail.emptyTitle}
-                    </div>
-                    <div className="text-muted-foreground mt-2 text-sm leading-6">
-                      {st.detail.emptyDescription}
-                    </div>
-                    <Button
-                      className="mt-5"
-                      onClick={() => setCreateOpen(true)}
+                  {data && !queryError && taskSearch.trim() ? (
+                    <p
+                      role="status"
+                      data-testid="scheduled-task-search-empty"
+                      className="text-muted-foreground text-sm"
                     >
-                      <PlusIcon className="size-4" />
-                      {st.create.title}
-                    </Button>
-                  </div>
+                      {st.search.noResults}
+                    </p>
+                  ) : (
+                    <div className="max-w-md">
+                      <div className="mx-auto flex size-12 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+                        <CalendarClockIcon className="size-6" />
+                      </div>
+                      <div className="mt-4 text-lg font-semibold">
+                        {st.detail.emptyTitle}
+                      </div>
+                      <div className="text-muted-foreground mt-2 text-sm leading-6">
+                        {st.detail.emptyDescription}
+                      </div>
+                      <Button
+                        className="mt-5"
+                        onClick={() => setCreateOpen(true)}
+                      >
+                        <PlusIcon className="size-4" />
+                        {st.create.title}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div
