@@ -34,6 +34,11 @@ import {
   rewriteArtifactLinksForPreview,
 } from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
+import {
+  deriveAssistantTurnUsageState,
+  deriveStableMessageGroups,
+  type AssistantTurnUsageState,
+} from "@/core/messages/derived-state";
 import { findAssistantTurnFeedbackTarget } from "@/core/messages/feedback";
 import {
   deriveHumanInputThreadState,
@@ -51,14 +56,13 @@ import {
   extractSuccessfullyPresentedFiles,
   extractTextFromMessage,
   getAssistantTurnCopyData,
-  getAssistantTurnUsageMessages,
   getBranchableAssistantGroupIds,
-  getMessageGroups,
   getStreamingMessageLookup,
   hasContent,
   hasReasoning,
   isAssistantMessageGroupStreaming,
   isHiddenFromUIMessage,
+  type MessageGroup as ThreadMessageGroup,
 } from "@/core/messages/utils";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import {
@@ -95,6 +99,7 @@ import {
 } from "./message-token-usage";
 import { MessageListSkeleton } from "./skeleton";
 import { SubtaskCard } from "./subtask-card";
+import { VirtualMessageList } from "./virtual-message-list";
 
 export const MESSAGE_LIST_DEFAULT_PADDING_BOTTOM = 24;
 
@@ -105,6 +110,25 @@ const SELECTION_TOOLBAR_MARGIN = 8;
 // to decide whether the toolbar fits above the selection; exact height isn't
 // needed because we flip below when space is tight.
 const SELECTION_TOOLBAR_ESTIMATED_HEIGHT = 48;
+
+function useStableMessageGroups(
+  messages: Message[],
+  isLoading: boolean,
+): ThreadMessageGroup[] {
+  const previousGroupsRef = useRef<ThreadMessageGroup[]>([]);
+  const previousIsLoadingRef = useRef(false);
+  return useMemo(() => {
+    const stableGroups = deriveStableMessageGroups(
+      messages,
+      isLoading,
+      previousGroupsRef.current,
+      previousIsLoadingRef.current,
+    );
+    previousGroupsRef.current = stableGroups;
+    previousIsLoadingRef.current = isLoading;
+    return stableGroups;
+  }, [messages, isLoading]);
+}
 
 type SelectionToolbarState = {
   context: SidecarContext;
@@ -334,7 +358,7 @@ export function MessageList({
     prevIsLoading.current = thread.isLoading;
   }, [thread.isLoading]);
   const messages = thread.messages;
-  const groupedMessages = getMessageGroups(messages);
+  const groupedMessages = useStableMessageGroups(messages, thread.isLoading);
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<
     string | null
   >(null);
@@ -394,8 +418,17 @@ export function MessageList({
       break;
     }
   }
-  const turnUsageMessagesByGroupIndex =
-    getAssistantTurnUsageMessages(groupedMessages);
+  const previousTurnUsageStateRef = useRef<AssistantTurnUsageState | undefined>(
+    undefined,
+  );
+  const turnUsageMessagesByGroupIndex = useMemo(() => {
+    const state = deriveAssistantTurnUsageState(
+      groupedMessages,
+      previousTurnUsageStateRef.current,
+    );
+    previousTurnUsageStateRef.current = state;
+    return state.byGroupIndex;
+  }, [groupedMessages]);
   const tokenDebugSteps = useMemo(
     () => buildTokenDebugSteps(messages, t),
     [messages, t],
@@ -833,7 +866,10 @@ export function MessageList({
             hasMore={hasMoreHistory}
             loadMore={loadMoreHistory}
           />
-          {groupedMessages.map((group, groupIndex) => {
+          <VirtualMessageList
+            groups={groupedMessages}
+            isLoading={thread.isLoading}
+            renderGroup={(group, groupIndex) => {
             const turnUsageMessages = turnUsageMessagesByGroupIndex[groupIndex];
             const groupIsLoading =
               thread.isLoading && groupIndex === lastGroupIndex;
@@ -1138,7 +1174,8 @@ export function MessageList({
                 })}
               </div>
             );
-          })}
+            }}
+          />
           {standalonePptMasterTasks.map((task) => (
             <div
               key={`standalone-ppt-master-${task.id}`}

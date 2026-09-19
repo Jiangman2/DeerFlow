@@ -2,8 +2,11 @@
 
 import {
   ArrowLeftIcon,
+  BotIcon,
   CheckIcon,
   CheckCircleIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
   ChevronsUpDownIcon,
   InfoIcon,
   MoreHorizontalIcon,
@@ -29,6 +32,7 @@ import {
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -37,16 +41,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { AgentNameIcon } from "@/components/workspace/agents/agent-name-icon";
+import { BusinessDomainPicker } from "@/components/workspace/agents/business-domain-picker";
+import { TagEditor } from "@/components/workspace/agents/tag-editor";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { MessageList } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
-import type { Agent } from "@/core/agents";
+import {
+  EXPERT_AVATAR_OPTIONS,
+  saveExpertAvatarSelection,
+  type Agent,
+  useDigitalEmployeeCategories,
+} from "@/core/agents";
 import {
   AgentNameCheckError,
   AgentsApiDisabledError,
   checkAgentName,
   getAgent,
+  updateAgent,
 } from "@/core/agents/api";
 import { useI18n } from "@/core/i18n/hooks";
 import {
@@ -68,6 +81,7 @@ type SetupAgentStatus = "idle" | "requested" | "completed";
 const NAME_RE = /^[\p{L}\p{N}-]+$/u;
 const SAVE_HINT_STORAGE_KEY = "platform.agent-create.save-hint-seen";
 const AGENT_READ_RETRY_DELAYS_MS = [200, 500, 1_000, 2_000];
+const AVATAR_PREVIEW_COUNT = 6;
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -95,6 +109,13 @@ export default function NewAgentPage() {
 
   const [step, setStep] = useState<Step>("name");
   const [nameInput, setNameInput] = useState("");
+  const [descriptionInput, setDescriptionInput] = useState("");
+  const [categoryId, setCategoryId] = useState("comprehensive-management");
+  const [tags, setTags] = useState<string[]>([]);
+  const [selectedAvatarId, setSelectedAvatarId] = useState(
+    EXPERT_AVATAR_OPTIONS[0]!.id,
+  );
+  const [showAllAvatars, setShowAllAvatars] = useState(false);
   const [nameError, setNameError] = useState("");
   const [isCheckingName, setIsCheckingName] = useState(false);
   const [agentName, setAgentName] = useState("");
@@ -103,6 +124,7 @@ export default function NewAgentPage() {
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const [selectedModelName, setSelectedModelName] = useState<string>();
   const { models } = useModels();
+  const { categories } = useDigitalEmployeeCategories();
   const [setupAgentStatus, setSetupAgentStatus] =
     useState<SetupAgentStatus>("idle");
 
@@ -123,9 +145,22 @@ export default function NewAgentPage() {
     onToolEnd({ name }) {
       if (name !== "setup_agent" || !agentName) return;
       setSetupAgentStatus("completed");
-      void getAgentWithRetry(agentName).then((fetched) => {
+      void getAgentWithRetry(agentName).then(async (fetched) => {
         if (fetched) {
-          setAgent(fetched);
+          try {
+            setAgent(
+              await updateAgent(agentName, {
+                avatar_id: selectedAvatarId,
+                display_name: nameInput.trim(),
+                description: descriptionInput.trim() || fetched.description,
+                category_id: categoryId || null,
+                tags,
+                model: selectedModel?.name ?? null,
+              }),
+            );
+          } catch {
+            setAgent(fetched);
+          }
           return;
         }
 
@@ -171,7 +206,7 @@ export default function NewAgentPage() {
   const handleConfirmName = useCallback(async () => {
     const trimmed = nameInput.trim();
     if (!trimmed) return;
-    if (!NAME_RE.test(trimmed)) {
+    if (trimmed.length > 64 || !NAME_RE.test(trimmed)) {
       setNameError(t.agents.nameStepInvalidError);
       return;
     }
@@ -221,20 +256,44 @@ export default function NewAgentPage() {
       setIsCheckingName(false);
     }
 
+    saveExpertAvatarSelection(trimmed, selectedAvatarId);
     setAgentName(trimmed);
     setStep("chat");
+    const selectedCategory = categories.find(
+      (category) => category.id === categoryId,
+    );
+    const initialProfile = [
+      descriptionInput.trim()
+        ? t.agents.initialDescription.replace(
+            "{value}",
+            descriptionInput.trim(),
+          )
+        : null,
+      selectedCategory
+        ? t.agents.initialCategory.replace("{value}", selectedCategory.name)
+        : null,
+      tags.length
+        ? t.agents.initialTags.replace("{value}", tags.join("、"))
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
     await sendMessage(
       threadId,
       {
-        text: t.agents.nameStepBootstrapMessage.replace("{name}", trimmed),
+        text: `${t.agents.nameStepBootstrapMessage.replace("{name}", trimmed)}${initialProfile ? `\n\n${initialProfile}` : ""}`,
         files: [],
       },
       { agent_name: trimmed, model_name: selectedModel?.name },
     );
   }, [
+    categories,
+    categoryId,
+    descriptionInput,
     nameInput,
     sendMessage,
     selectedModel?.name,
+    selectedAvatarId,
     t.agents.nameStepAlreadyExistsError,
     t.agents.nameStepApiDisabledError,
     t.agents.nameStepNetworkError,
@@ -242,6 +301,10 @@ export default function NewAgentPage() {
     t.agents.nameStepCheckError,
     t.agents.nameStepCheckErrorWithDetail,
     t.agents.nameStepInvalidError,
+    t.agents.initialCategory,
+    t.agents.initialDescription,
+    t.agents.initialTags,
+    tags,
     threadId,
   ]);
 
@@ -342,7 +405,7 @@ export default function NewAgentPage() {
       <ModelSelectorTrigger asChild>
         <Button variant="outline" size="sm" disabled={thread.isLoading}>
           {t.agents.changeBuilderModel}
-          <ChevronsUpDownIcon className="ml-2 h-4 w-4 opacity-60" />
+          <ChevronsUpDownIcon data-icon="inline-end" className="opacity-60" />
         </Button>
       </ModelSelectorTrigger>
       <ModelSelectorContent title={t.agents.builderModelDialogTitle}>
@@ -376,7 +439,7 @@ export default function NewAgentPage() {
           size="icon-sm"
           onClick={() => router.push("/workspace/agents")}
         >
-          <ArrowLeftIcon className="h-4 w-4" />
+          <ArrowLeftIcon aria-hidden="true" />
         </Button>
         <h1 className="text-sm font-semibold">{t.agents.createPageTitle}</h1>
       </div>
@@ -409,14 +472,28 @@ export default function NewAgentPage() {
   );
 
   if (step === "name") {
+    const previewAvatars = EXPERT_AVATAR_OPTIONS.slice(0, AVATAR_PREVIEW_COUNT);
+    const selectedAvatar = EXPERT_AVATAR_OPTIONS.find(
+      (option) => option.id === selectedAvatarId,
+    );
+    const visibleAvatars = showAllAvatars
+      ? EXPERT_AVATAR_OPTIONS
+      : selectedAvatar &&
+          !previewAvatars.some((option) => option.id === selectedAvatar.id)
+        ? [...previewAvatars.slice(0, -1), selectedAvatar]
+        : previewAvatars;
+
     return (
       <div className="cnooc-agent-builder-page flex size-full flex-col">
         {header}
-        <main className="cnooc-agent-builder-name-stage app-scroll-region flex min-h-0 flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-6">
-          <div className="cnooc-agent-builder-name-card w-full max-w-sm space-y-6 sm:space-y-8">
-            <div className="space-y-3 text-center">
+        <main className="cnooc-agent-builder-name-stage flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden px-3 py-3 sm:px-4 sm:py-5">
+          <div
+            data-testid="agent-create-dialog"
+            className="cnooc-agent-builder-name-card bg-card flex h-full max-h-[48rem] min-h-0 w-full max-w-3xl flex-col overflow-hidden rounded-2xl border shadow-sm"
+          >
+            <div className="flex shrink-0 flex-col gap-3 px-4 pt-4 pb-3 text-center sm:px-8 sm:pt-6 sm:pb-4">
               <AgentNameIcon />
-              <div className="space-y-1">
+              <div className="flex flex-col gap-1">
                 <h2 className="text-xl font-semibold">
                   {t.agents.nameStepTitle}
                 </h2>
@@ -426,34 +503,172 @@ export default function NewAgentPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <Input
-                autoFocus
-                placeholder={t.agents.nameStepPlaceholder}
-                value={nameInput}
-                onChange={(e) => {
-                  setNameInput(e.target.value);
-                  setNameError("");
-                }}
-                onKeyDown={handleNameKeyDown}
-                className={cn(nameError && "border-destructive")}
-              />
-              {nameError ? (
-                <p className="text-destructive text-sm">{nameError}</p>
-              ) : null}
-              {selectedModel ? (
-                <div className="bg-muted/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-muted-foreground text-xs">
-                      {t.agents.builderModelLabel}
-                    </p>
-                    <p className="truncate text-sm font-medium">
-                      {selectedModel.display_name}
-                    </p>
+            <div
+              data-testid="agent-create-scroll-region"
+              className="app-scroll-region min-h-0 flex-1 overflow-y-auto border-y px-4 py-4 sm:px-8"
+            >
+              <div className="flex flex-col gap-6">
+                <section
+                  className="flex flex-col gap-3"
+                  aria-labelledby="expert-avatar-label"
+                  data-testid="expert-avatar-picker"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3
+                        id="expert-avatar-label"
+                        className="text-sm font-medium"
+                      >
+                        {t.agents.avatarPickerLabel}
+                      </h3>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        {t.agents.avatarPickerHint}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-expanded={showAllAvatars}
+                      aria-controls="expert-avatar-options"
+                      className="text-primary shrink-0 px-2 text-xs"
+                      onClick={() => setShowAllAvatars((current) => !current)}
+                    >
+                      {showAllAvatars
+                        ? t.agents.collapseAvatars
+                        : t.agents.expandAvatars.replace(
+                            "{count}",
+                            String(EXPERT_AVATAR_OPTIONS.length),
+                          )}
+                      {showAllAvatars ? (
+                        <ChevronUpIcon aria-hidden="true" />
+                      ) : (
+                        <ChevronDownIcon aria-hidden="true" />
+                      )}
+                    </Button>
                   </div>
-                  {modelSelector}
+                  <div
+                    id="expert-avatar-options"
+                    className="grid grid-cols-3 gap-2 sm:grid-cols-6"
+                  >
+                    {visibleAvatars.map((option) => {
+                      const selected = option.id === selectedAvatarId;
+                      return (
+                        <Button
+                          key={option.id}
+                          type="button"
+                          variant="outline"
+                          aria-label={option.label}
+                          aria-pressed={selected}
+                          data-testid="expert-avatar-option"
+                          className={cn(
+                            "relative h-auto min-w-0 flex-col gap-1 overflow-hidden rounded-xl px-1 py-2",
+                            selected && "border-primary ring-primary ring-2",
+                          )}
+                          onClick={() => setSelectedAvatarId(option.id)}
+                        >
+                          <Avatar className="bg-muted size-14 rounded-full border-2 border-white shadow-sm ring-1 ring-blue-100 sm:size-16">
+                            <AvatarImage
+                              src={option.src}
+                              alt=""
+                              className="rounded-full object-cover"
+                            />
+                            <AvatarFallback className="rounded-full">
+                              <BotIcon aria-hidden="true" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="w-full truncate text-[11px] font-normal">
+                            {option.label}
+                          </span>
+                          {selected ? (
+                            <CheckCircleIcon className="text-primary-foreground fill-primary absolute top-1 right-1" />
+                          ) : null}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </section>
+
+                <div className="flex flex-col gap-3">
+                  <Input
+                    autoFocus
+                    maxLength={64}
+                    placeholder={t.agents.nameStepPlaceholder}
+                    value={nameInput}
+                    onChange={(e) => {
+                      setNameInput(e.target.value);
+                      setNameError("");
+                    }}
+                    onKeyDown={handleNameKeyDown}
+                    className={cn(nameError && "border-destructive")}
+                  />
+                  <p className="text-muted-foreground text-right text-xs">
+                    {nameInput.length}/64
+                  </p>
+                  {nameError ? (
+                    <p className="text-destructive text-sm">{nameError}</p>
+                  ) : null}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-1.5 sm:col-span-2">
+                      <label className="text-left text-sm font-medium">
+                        {t.agents.category}
+                      </label>
+                      <BusinessDomainPicker
+                        categories={categories}
+                        value={categoryId}
+                        onValueChange={setCategoryId}
+                      />
+                    </div>
+                    <div className="grid gap-1.5 sm:col-span-2">
+                      <label className="text-left text-sm font-medium">
+                        {t.agents.descriptionLabel}
+                      </label>
+                      <Textarea
+                        maxLength={500}
+                        placeholder={t.agents.descriptionPlaceholder}
+                        rows={2}
+                        value={descriptionInput}
+                        onChange={(event) =>
+                          setDescriptionInput(event.target.value)
+                        }
+                      />
+                      <p className="text-muted-foreground text-right text-xs">
+                        {descriptionInput.length}/500
+                      </p>
+                    </div>
+                    <div className="grid gap-1.5 sm:col-span-2">
+                      <label className="text-left text-sm font-medium">
+                        {t.agents.tags}
+                      </label>
+                      <TagEditor
+                        value={tags}
+                        onChange={setTags}
+                        suggestionContext={{
+                          name: nameInput,
+                          description: descriptionInput,
+                          categoryId,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {selectedModel ? (
+                    <div className="bg-muted/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-muted-foreground text-xs">
+                          {t.agents.builderModelLabel}
+                        </p>
+                        <p className="truncate text-sm font-medium">
+                          {selectedModel.display_name}
+                        </p>
+                      </div>
+                      {modelSelector}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
+              </div>
+            </div>
+
+            <div className="bg-card shrink-0 px-4 py-3 sm:px-8 sm:py-4">
               <Button
                 className="w-full"
                 onClick={() => void handleConfirmName()}

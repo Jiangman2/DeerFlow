@@ -154,16 +154,25 @@ class CodexChatModel(BaseChatModel):
                 if msg.content:
                     content = self._normalize_content(msg.content)
                     input_items.append({"role": "assistant", "content": content})
-                if msg.tool_calls:
-                    for tc in msg.tool_calls:
-                        input_items.append(
-                            {
-                                "type": "function_call",
-                                "name": tc["name"],
-                                "arguments": json.dumps(tc["args"]) if isinstance(tc["args"], dict) else tc["args"],
-                                "call_id": tc["id"],
-                            }
-                        )
+                # DanglingToolCallMiddleware answers malformed calls with a
+                # placeholder ToolMessage. Responses rejects that output unless
+                # the matching invalid function_call is serialized as well.
+                for tc in [*msg.tool_calls, *(msg.invalid_tool_calls or [])]:
+                    name = tc.get("name")
+                    call_id = tc.get("id")
+                    if not (isinstance(name, str) and name):
+                        continue
+                    if not (isinstance(call_id, str) and call_id):
+                        continue
+                    args = tc.get("args")
+                    input_items.append(
+                        {
+                            "type": "function_call",
+                            "name": name,
+                            "arguments": json.dumps(args) if isinstance(args, dict) else (args or "{}"),
+                            "call_id": call_id,
+                        }
+                    )
             elif isinstance(msg, ToolMessage):
                 input_items.append(
                     {

@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { mockLangGraphAPI } from "./utils/mock-api";
 
 const THREAD_ID = "00000000-0000-0000-0000-000000000321";
-const RUN_ID = "run-workspace-changes";
+const RUN_ID = `run-${THREAD_ID}`;
 
 test.describe("Workspace changes", () => {
   test("shows changed files badge and opens the diff panel", async ({
@@ -47,9 +47,9 @@ test.describe("Workspace changes", () => {
             version: 1,
             summary: {
               created: 1,
-              modified: 1,
+              modified: 7,
               deleted: 0,
-              additions: 8,
+              additions: 14,
               deletions: 2,
               truncated: false,
             },
@@ -87,6 +87,22 @@ test.describe("Workspace changes", () => {
                     additions: 1,
                     deletions: 0,
                   },
+                  ...Array.from({ length: 6 }, (_, index) => ({
+                    path: `/mnt/user-data/workspace/file-${index + 3}.txt`,
+                    root: "workspace",
+                    status: "modified",
+                    binary: false,
+                    sensitive: false,
+                    size_before: 4,
+                    size_after: 5,
+                    sha256_before: `before-${index}`,
+                    sha256_after: `after-${index}`,
+                    diff: `--- a/file-${index + 3}.txt\n+++ b/file-${index + 3}.txt\n@@ -1 +1 @@\n-old\n+new`,
+                    diff_truncated: false,
+                    diff_unavailable_reason: null,
+                    additions: 1,
+                    deletions: 0,
+                  })),
                 ]
               : [],
             limits: {},
@@ -97,14 +113,26 @@ test.describe("Workspace changes", () => {
 
     await page.goto(`/workspace/chats/${THREAD_ID}`);
 
-    await expect(page.getByText("Edited 2 files")).toBeVisible({
+    await expect(page.getByText("Edited 8 files")).toBeVisible({
       timeout: 15_000,
     });
     // The human prompt carries the same run_id, but the badge must only render
     // under the assistant turn — never under the user's message.
-    await expect(page.getByText("Edited 2 files")).toHaveCount(1);
+    await expect(page.getByText("Edited 8 files")).toHaveCount(1);
     await expect(page.getByText("outputs/report.md")).toBeVisible();
     await expect(page.getByText("notes.txt")).toBeVisible();
+    const summaryRows = page.getByTestId("workspace-change-summary-row");
+    await expect(summaryRows).toHaveCount(3);
+    const fileToggle = page.getByTestId("workspace-change-file-toggle");
+    await expect(fileToggle).toContainText(
+      /Show 5 more files|再显示 5 个文件/i,
+    );
+    await fileToggle.click();
+    await expect(summaryRows).toHaveCount(8);
+    await expect(fileToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(fileToggle).toContainText(/Show fewer files|收起文件/i);
+    await fileToggle.click();
+    await expect(summaryRows).toHaveCount(3);
     expect(includeDiffValues).toContain("false");
 
     await page.getByRole("button", { name: "View changes" }).click();

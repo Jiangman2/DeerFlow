@@ -16,6 +16,7 @@ export interface Translations {
     share: string;
     openInNewWindow: string;
     close: string;
+    showBrowser: string;
     more: string;
     search: string;
     loadMore: string;
@@ -47,6 +48,24 @@ export interface Translations {
     likeResponse: string;
     dislikeResponse: string;
     showArtifacts: string;
+  };
+
+  browser: {
+    title: string;
+    back: string;
+    forward: string;
+    addressPlaceholder: string;
+    stopLive: string;
+    startLive: string;
+    live: string;
+    viewAlt: string;
+    connecting: string;
+    noActivity: string;
+    waitingForFrame: string;
+    emptyDescription: string;
+    cannotOpen: string;
+    noScreenshot: string;
+    sidePanelDescription: string;
   };
 
   home: {
@@ -92,6 +111,8 @@ export interface Translations {
     editedTitle: (count: number) => string;
     badge: (count: number, additions: number, deletions: number) => string;
     viewChanges: string;
+    showMoreFiles: (count: number) => string;
+    showFewerFiles: string;
     created: string;
     modified: string;
     deleted: string;
@@ -104,6 +125,7 @@ export interface Translations {
     sensitiveUnavailable: string;
     truncatedUnavailable: string;
     truncatedSummary: string;
+    symlinkUnavailable: string;
   };
 
   // Input Box
@@ -239,6 +261,8 @@ export interface Translations {
     demoChats: string;
     agents: string;
     knowledge: string;
+    skillCenter: string;
+    openSkillCenter: string;
     scheduledTasks: string;
     agentsDisabledTooltip: string;
     channels: string;
@@ -246,7 +270,7 @@ export interface Translations {
 
   // Scheduled tasks
   scheduledTasks: {
-    scheduleType: { cron: string; once: string };
+    scheduleType: { cron: string; once: string; interval: string };
     preset: {
       label: string;
       hourly: string;
@@ -266,6 +290,11 @@ export interface Translations {
       runAt: string;
       timezone: string;
       timezoneShanghai: string;
+      intervalAmount: string;
+      intervalUnitSeconds: string;
+      intervalUnitMinutes: string;
+      intervalUnitHours: string;
+      intervalMinHint: string;
     };
     weekdays: {
       mon: string;
@@ -289,6 +318,8 @@ export interface Translations {
       description: string;
       taskTitle: string;
       prompt: string;
+      agent: string;
+      leadAgent: string;
       submit: string;
       fillRequired: string;
       adviceTitle: string;
@@ -303,6 +334,8 @@ export interface Translations {
       fresh: string;
       reuse: string;
       threadIdPlaceholder: string;
+      reuseNoticeTitle: string;
+      reuseNoticeDescription: string;
     };
     filters: {
       label: string;
@@ -314,9 +347,11 @@ export interface Translations {
       allTypes: string;
       cron: string;
       once: string;
+      interval: string;
     };
     detail: {
       contextMode: string;
+      agent: string;
       thread: string;
       lastThread: string;
       schedule: string;
@@ -340,6 +375,8 @@ export interface Translations {
       pause: string;
       resume: string;
       trigger: string;
+      duplicate: string;
+      duplicateTitleSuffix: string;
       delete: string;
     };
     deleteConfirm: string;
@@ -367,11 +404,23 @@ export interface Translations {
     runTrigger: { scheduled: string; manual: string };
     runStatus: {
       queued: string;
+      launching: string;
       running: string;
       success: string;
       failed: string;
       skipped: string;
       interrupted: string;
+    };
+    history: {
+      navigation: string;
+      newer: string;
+      older: string;
+      latest: string;
+      page: string;
+      paused: string;
+      loading: string;
+      loadFailed: string;
+      retry: string;
     };
     recipes: {
       label: string;
@@ -402,6 +451,11 @@ export interface Translations {
     publishSuccess: string;
     unpublishSuccess: string;
     chat: string;
+    viewProfile: string;
+    profileTitle: string;
+    profileDescription: string;
+    toolGroups: string;
+    skills: string;
     delete: string;
     deleteConfirm: string;
     deleteSuccess: string;
@@ -411,6 +465,10 @@ export interface Translations {
     nameStepTitle: string;
     nameStepHint: string;
     nameStepPlaceholder: string;
+    avatarPickerLabel: string;
+    avatarPickerHint: string;
+    expandAvatars: string;
+    collapseAvatars: string;
     nameStepContinue: string;
     nameStepInvalidError: string;
     nameStepAlreadyExistsError: string;
@@ -423,6 +481,9 @@ export interface Translations {
     changeBuilderModel: string;
     builderModelDialogTitle: string;
     nameStepBootstrapMessage: string;
+    initialDescription: string;
+    initialCategory: string;
+    initialTags: string;
     save: string;
     saving: string;
     saveRequested: string;
@@ -433,6 +494,74 @@ export interface Translations {
     agentCreated: string;
     startChatting: string;
     backToGallery: string;
+    personal: string;
+    enterprise: string;
+    noDescription: string;
+    capabilities: string;
+    edit: string;
+    settingsTitle: string;
+    settingsDescription: string;
+    displayName: string;
+    stableName: string;
+    descriptionLabel: string;
+    descriptionPlaceholder: string;
+    category: string;
+    tags: string;
+    tagsPlaceholder: string;
+    tagTooLong: string;
+    tagDuplicate: string;
+    editTag: string;
+    deleteTag: string;
+    tagInputLabel: string;
+    tagLimitReached: string;
+    addTag: string;
+    confirmTagEdit: string;
+    tagCount: string;
+    autoTag: string;
+    inferenceSettings: string;
+    settingsModel: string;
+    settingsModelDefault: string;
+    settingsTemperature: string;
+    settingsTemperatureHint: string;
+    settingsMaxTokens: string;
+    settingsMaxTokensPlaceholder: string;
+    settingsThinking: string;
+    settingsThinkingOn: string;
+    settingsThinkingOff: string;
+    settingsReasoningEffort: string;
+    settingsInherit: string;
+    settingsInvalidTemperature: string;
+    settingsInvalidMaxTokens: string;
+    updateSuccess: string;
+    avatarUploadHint: string;
+    uploadAvatar: string;
+    avatarTooLarge: string;
+    allCategories: string;
+    businessDomainCount: string;
+    expandCategories: string;
+    collapseCategories: string;
+    unifiedDomains: string;
+    unifiedDomainsHint: string;
+    distributedDomains: string;
+    distributedDomainsHint: string;
+    popularTags: string;
+    expandTags: string;
+    collapseTags: string;
+    resetFilters: string;
+    clearAll: string;
+    noTags: string;
+    searchPlaceholder: string;
+    filters: string;
+    filtersHint: string;
+    resultCount: string;
+    noResults: string;
+    noResultsHint: string;
+    loadMore: string;
+    paginationNavigation: string;
+    previousPage: string;
+    nextPage: string;
+    pageNumber: string;
+    pageSummary: string;
   };
 
   // Breadcrumb
@@ -441,6 +570,7 @@ export interface Translations {
     chats: string;
     agents: string;
     knowledge: string;
+    skillCenter: string;
     scheduledTasks: string;
   };
 
@@ -463,10 +593,30 @@ export interface Translations {
 
   // Chats
   chats: {
+    deleteChat: string;
+    deleteConfirm: (title: string) => string;
+    deleteFailed: string;
+    noActiveChats: string;
+    activeChats: string;
+    archivedChats: string;
+    archiveChat: string;
+    restoreChat: string;
+    archiveSuccess: string;
+    restoreSuccess: string;
+    archiveFailed: string;
+    archiveDescription: string;
+    undoArchive: string;
+    noArchivedChats: string;
+    noMatchingChats: string;
+    loadChatsFailed: string;
+    retryLoadChats: string;
     searchChats: string;
     loadMoreToSearch: string;
     loadingMore: string;
     loadOlderChats: string;
+    pinChat: string;
+    unpinChat: string;
+    pinChatFailed: string;
   };
 
   // Sidecar

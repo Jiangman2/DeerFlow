@@ -11,6 +11,7 @@ resources:
   - mineru-adapter.yaml
   - weknora-mineru-defaults-job.yaml
   - gateway-openssl-compat.yaml
+  - dashboard-postgres-replica.yaml
 
 configMapGenerator:
   - name: weknora-config
@@ -25,6 +26,7 @@ patches:
   - path: storage-patches.yaml
   - path: runtime-patches.yaml
   - path: mineru-adapter-patch.yaml
+  - path: weknora-v08-runtime-patches.yaml
 
 # Third-party images are the ARM64 manifests verified on datax-01 on
 # 2026-07-21. Custom images use immutable deployment tags and are imported
@@ -53,25 +55,28 @@ images:
     newTag: pg16-search-arm64-20260722-1
   - name: wechatopenai/weknora-app
     newName: deerflow.local/weknora-app
-    newTag: 0.7.0-enterprise-proxy1-arm64-20260723
+    newTag: 0.8.0-enterprise-proxy1-anydoc1-arm64-20260912
   - name: wechatopenai/weknora-docreader
     newName: m.daocloud.io/docker.io/wechatopenai/weknora-docreader
-    digest: sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b
+    digest: sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b
   - name: wechatopenai/weknora-ui
-    newName: m.daocloud.io/docker.io/wechatopenai/weknora-ui
-    digest: sha256:401604e79a5717dd966a13383d775f15d3125481d3e080eba329e4a0fbcf9523
+    newName: deerflow.local/weknora-ui
+    newTag: 0.8.0-enterprise-sso2-r5-arm64-20260913
   - name: deer-flow-gateway
     newName: deerflow.local/deer-flow-gateway
-    newTag: 20260811-enterprise-arm64-rc15-consolidated2
+    newTag: 20260914-enterprise-arm64-rc15-digitalemployee-promptfix1
+  - name: deer-flow-ppt-master-runner
+    newName: deerflow.local/deer-flow-gateway
+    newTag: 20260907-enterprise-arm64-rc15-skillhubux-dashboard1-r2
   - name: deer-flow-frontend
     newName: deerflow.local/deer-flow-frontend
-    newTag: 20260811-enterprise-arm64-rc15-consolidated2
+    newTag: 20260914-enterprise-arm64-rc15-digitalemployee-ui2-r1
   - name: deer-flow-provisioner
     newName: deerflow.local/deer-flow-provisioner
-    newTag: 20260811-enterprise-arm64-rc15-consolidated2
+    newTag: 20260817-enterprise-arm64-rc15-sandboxstorage1
   - name: deer-flow-skills
     newName: deerflow.local/deer-flow-skills
-    newTag: 20260811-enterprise-arm64-rc15-consolidated2
+    newTag: 20260901-enterprise-arm64-rc15-researchfund1
   - name: deer-flow-mineru-adapter
     newName: deerflow.local/deer-flow-mineru-adapter
-    newTag: 20260811-enterprise-arm64-rc15-consolidated2
+    newTag: 20260915-enterprise-arm64-rc15-docxstability1

@@ -403,3 +403,35 @@ def test_flush_sync_skips_inter_item_delay_on_drain_path() -> None:
     # No inter-item rate-limit sleep on the drain path.
     mock_sleep.assert_not_called()
     assert mock_updater.update_memory.call_count == 3
+
+
+def test_cancel_by_agent_drops_only_matching_pending_scope() -> None:
+    queue = _queue()
+    queue._queue = [
+        ConversationContext(thread_id="t1", messages=["drop"], agent_name="employee", user_id="u1"),
+        ConversationContext(thread_id="t2", messages=["keep-user"], agent_name="employee", user_id="u2"),
+        ConversationContext(thread_id="t3", messages=["keep-agent"], agent_name="other", user_id="u1"),
+    ]
+
+    removed = queue.cancel_by_agent("employee", user_id="u1")
+
+    assert removed == 1
+    assert {(item.agent_name, item.user_id) for item in queue._queue} == {
+        ("employee", "u2"),
+        ("other", "u1"),
+    }
+
+
+def test_cancel_all_agents_is_still_limited_to_one_user() -> None:
+    queue = _queue()
+    queue._queue = [
+        ConversationContext(thread_id="t1", messages=["a"], agent_name="one", user_id="u1"),
+        ConversationContext(thread_id="t2", messages=["b"], agent_name="two", user_id="u1"),
+        ConversationContext(thread_id="t3", messages=["c"], agent_name="one", user_id="u2"),
+    ]
+
+    removed = queue.cancel_by_agent(user_id="u1", all_agents=True)
+
+    assert removed == 2
+    assert queue.pending_count == 1
+    assert queue._queue[0].user_id == "u2"

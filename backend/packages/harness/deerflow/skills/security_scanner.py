@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -15,6 +16,10 @@ from deerflow.skills.types import SKILL_MD_FILE
 from deerflow.utils.llm_text import extract_response_text
 
 logger = logging.getLogger(__name__)
+
+_MODEL_CALL_TIMEOUT_SECONDS = 45
+_MODEL_CALL_ATTEMPTS = 3
+_MODEL_RETRY_DELAYS_SECONDS = (0.0, 0.35, 0.9)
 
 
 @dataclass(slots=True)
@@ -104,24 +109,58 @@ async def scan_skill_content(
     try:
         config = app_config or get_app_config()
         model_name = config.skill_evolution.moderation_model_name
-        model = create_chat_model(name=model_name, thinking_enabled=False, app_config=config) if model_name else create_chat_model(thinking_enabled=False, app_config=config)
-        response = await model.ainvoke(
-            [
-                {"role": "system", "content": rubric},
-                {"role": "user", "content": prompt},
-            ],
-            config={"run_name": "security_agent"},
-        )
-        model_responded = True
-        raw = extract_response_text(getattr(response, "content", ""))
-        parsed = _extract_json_object(raw)
-        if parsed:
-            decision = str(parsed.get("decision", "")).lower()
-            if decision in {"allow", "warn", "block"}:
-                return ScanResult(decision, str(parsed.get("reason") or "No reason provided."))
-        logger.warning("Security scan produced unparseable output: %s", raw[:200])
     except Exception:
-        logger.warning("Skill security scan model call failed; using conservative fallback", exc_info=True)
+        logger.warning("Skill security scan configuration is unavailable", exc_info=True)
+        unavailable_target = "executable content" if executable else "skill content"
+        return ScanResult(
+            "block",
+            f"Security scan unavailable for {unavailable_target}; manual review required.",
+        )
+    messages = [
+        {"role": "system", "content": rubric},
+        {"role": "user", "content": prompt},
+    ]
+    for attempt in range(_MODEL_CALL_ATTEMPTS):
+        if _MODEL_RETRY_DELAYS_SECONDS[attempt]:
+            await asyncio.sleep(_MODEL_RETRY_DELAYS_SECONDS[attempt])
+        try:
+            model_kwargs = {
+                "thinking_enabled": False,
+                "attach_tracing": False,
+                "app_config": config,
+            }
+            if model_name:
+                model_kwargs["name"] = model_name
+            model = create_chat_model(**model_kwargs)
+            async with asyncio.timeout(_MODEL_CALL_TIMEOUT_SECONDS):
+                response = await model.ainvoke(
+                    messages,
+                    config={"run_name": "security_agent"},
+                )
+            model_responded = True
+            raw = extract_response_text(getattr(response, "content", ""))
+            parsed = _extract_json_object(raw)
+            if parsed:
+                decision = str(parsed.get("decision", "")).lower()
+                if decision in {"allow", "warn", "block"}:
+                    return ScanResult(
+                        decision,
+                        str(parsed.get("reason") or "No reason provided."),
+                    )
+            logger.warning("Security scan produced unparseable output: %s", raw[:200])
+            # Internal providers can occasionally return a truncated or
+            # prose-wrapped response while under load. Treat that as a
+            # transient scanner failure and retry with a fresh model client;
+            # the final outcome still fails closed if no valid decision is
+            # produced.
+            continue
+        except Exception:
+            logger.warning(
+                "Skill security scan model call failed (attempt %d/%d)",
+                attempt + 1,
+                _MODEL_CALL_ATTEMPTS,
+                exc_info=True,
+            )
 
     if model_responded:
         return ScanResult("block", "Security scan produced unparseable output; manual review required.")

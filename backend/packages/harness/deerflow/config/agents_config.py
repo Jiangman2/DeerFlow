@@ -7,17 +7,18 @@ installations that pre-date user isolation continue to work until they run the
 per-user layout.
 
 Enterprise team agents are stored separately under ``{base_dir}/team_agents``.
-They are readable by every user but remain distinct from personal agents.
+They are readable by every user but remain distinct from personal agents and
+are never writable through a viewer's agent chat.
 """
 
 import logging
 import re
 import unicodedata
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from deerflow.config.paths import get_paths
 from deerflow.runtime.user_context import get_effective_user_id
@@ -26,6 +27,30 @@ logger = logging.getLogger(__name__)
 
 SOUL_FILENAME = "SOUL.md"
 AGENT_NAME_PATTERN = re.compile(r"^[\w\-\u3400-\u9fff]+$", re.UNICODE)
+MAX_AGENT_NAME_LENGTH = 64
+MAX_AGENT_DISPLAY_NAME_LENGTH = 80
+MAX_AGENT_OUTPUT_TOKENS = 200_000
+MAX_AGENT_DESCRIPTION_LENGTH = 500
+MAX_DIGITAL_EMPLOYEE_TAGS = 8
+MAX_DIGITAL_EMPLOYEE_TAG_LENGTH = 20
+AGENT_CATEGORY_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+
+
+def validate_agent_display_name(value: str | None) -> str | None:
+    """Validate a human-facing Unicode label without changing the stable id."""
+    if value is None:
+        return None
+    if re.search(
+        r"[\x00-\x1f\x7f-\x9f\u00ad\u061c\u200b\u200e-\u200f\u2028-\u202e\u2060-\u2069\ufeff]",
+        value,
+    ):
+        raise ValueError("Display name must not contain control characters or invisible formatting controls")
+    normalized = value.strip()
+    if len(normalized) > MAX_AGENT_DISPLAY_NAME_LENGTH:
+        raise ValueError(f"Display name must be {MAX_AGENT_DISPLAY_NAME_LENGTH} characters or fewer")
+    if normalized and all(unicodedata.category(character)[0] in {"C", "M", "Z"} for character in normalized):
+        raise ValueError("Display name must contain visible text")
+    return normalized or None
 
 
 def _blank_to_none(value: str | None) -> str | None:
@@ -155,19 +180,63 @@ def validate_agent_name(name: str | None) -> str | None:
         return None
     if not isinstance(name, str):
         raise ValueError("Invalid agent name. Expected a string or None.")
-    is_safe = bool(name) and AGENT_NAME_PATTERN.fullmatch(name) and all(
-        char == "-" or unicodedata.category(char)[0] in {"L", "N"} for char in name
-    )
+    if len(name) > MAX_AGENT_NAME_LENGTH:
+        raise ValueError(f"Invalid agent name '{name}'. Must be {MAX_AGENT_NAME_LENGTH} characters or fewer")
+    is_safe = bool(name) and AGENT_NAME_PATTERN.fullmatch(name) and all(char == "-" or unicodedata.category(char)[0] in {"L", "N"} for char in name)
     if not is_safe:
         raise ValueError(f"Invalid agent name '{name}'. Must match pattern: {AGENT_NAME_PATTERN.pattern}")
     return name
+
+
+def _normalize_category_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not AGENT_CATEGORY_ID_PATTERN.fullmatch(normalized):
+        raise ValueError("Category id must use lowercase letters, digits, and hyphens")
+    return normalized
+
+
+def _normalize_agent_tags(value: list[str]) -> list[str]:
+    tags: list[str] = []
+    seen: set[str] = set()
+    for raw_tag in value:
+        tag = raw_tag.strip()
+        if not tag:
+            continue
+        if len(tag) > MAX_DIGITAL_EMPLOYEE_TAG_LENGTH:
+            raise ValueError(f"Each tag must be {MAX_DIGITAL_EMPLOYEE_TAG_LENGTH} characters or fewer")
+        folded = tag.casefold()
+        if folded not in seen:
+            seen.add(folded)
+            tags.append(tag)
+    if len(tags) > MAX_DIGITAL_EMPLOYEE_TAGS:
+        raise ValueError(f"A digital employee can have at most {MAX_DIGITAL_EMPLOYEE_TAGS} tags")
+    return tags
+
+
+class AgentModelSettings(BaseModel):
+    """Per-digital-employee sampling overrides layered over a model profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    max_tokens: int | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_AGENT_OUTPUT_TOKENS,
+    )
 
 
 class AgentConfig(BaseModel):
     """Configuration for a custom agent."""
 
     name: str
-    description: str = ""
+    # ``name`` remains the stable filesystem/runtime identifier.  The
+    # separately editable display name mirrors upstream DeerFlow's Unicode
+    # display-name support without renaming an existing agent directory.
+    display_name: str | None = None
+    description: str = Field(default="", max_length=MAX_AGENT_DESCRIPTION_LENGTH)
     model: str | None = None
     tool_groups: list[str] | None = None
     # skills controls which skills are loaded into the agent's prompt:
@@ -175,10 +244,21 @@ class AgentConfig(BaseModel):
     # - [] (explicit empty list): disable all skills
     # - ["skill1", "skill2"]: load only the specified skills
     skills: list[str] | None = None
+    # Presentation metadata for the enterprise Digital Employee directory.
+    category_id: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    avatar_id: str | None = None
+    model_settings: AgentModelSettings | None = None
+    thinking_enabled: bool | None = None
+    reasoning_effort: Literal["low", "medium", "high"] | None = None
     # Optional binding to GitHub repositories so this agent can respond to
     # webhook events from the gateway dispatcher. None means "no GitHub
     # integration", which is the case for every existing agent.
     github: GitHubAgentConfig | None = None
+
+    _validate_display_name = field_validator("display_name")(validate_agent_display_name)
+    _validate_category_id = field_validator("category_id")(_normalize_category_id)
+    _validate_tags = field_validator("tags")(_normalize_agent_tags)
 
 
 # Fields explicitly managed by the agent-update surfaces (the
@@ -189,7 +269,22 @@ class AgentConfig(BaseModel):
 # drop hand-authored configuration. ``name`` is included because the
 # updaters always re-emit it from the directory name (it must never come
 # from the request body).
-MANAGED_AGENT_CONFIG_FIELDS: frozenset[str] = frozenset({"name", "description", "model", "tool_groups", "skills"})
+MANAGED_AGENT_CONFIG_FIELDS: frozenset[str] = frozenset(
+    {
+        "name",
+        "display_name",
+        "description",
+        "model",
+        "tool_groups",
+        "skills",
+        "category_id",
+        "tags",
+        "avatar_id",
+        "model_settings",
+        "thinking_enabled",
+        "reasoning_effort",
+    }
+)
 
 
 def preserve_non_managed_fields(existing_cfg: AgentConfig) -> dict[str, object]:
@@ -245,6 +340,31 @@ def resolve_agent_dir(name: str, *, user_id: str | None = None) -> Path:
     return user_path
 
 
+def is_personal_agent(name: str, *, user_id: str | None = None) -> bool:
+    """Return whether ``name`` has a real config owned by the current user.
+
+    Directory existence is insufficient because per-agent conversation memory
+    may create a user directory while the executable agent still resolves from
+    the shared team or legacy layout. Mutation gates must require the personal
+    ``config.yaml`` so a shared chat cannot silently create a same-name shadow.
+    """
+    validated_name = validate_agent_name(name)
+    if not validated_name:
+        return False
+    from deerflow.config.app_config import get_app_config
+    from deerflow.persistence.agents import get_agent_store
+
+    try:
+        database_backed = get_app_config().agent_storage.backend == "db"
+    except Exception:
+        database_backed = False
+    if database_backed:
+        return get_agent_store().exists(validated_name, user_id=user_id)
+    paths = get_paths()
+    effective_user = user_id or get_effective_user_id()
+    return (paths.user_agent_dir(effective_user, validated_name) / "config.yaml").is_file()
+
+
 def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentConfig | None:
     """Load the custom or default agent's config from its directory.
 
@@ -268,30 +388,9 @@ def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentC
         return None
 
     name = validate_agent_name(name)
-    agent_dir = resolve_agent_dir(name, user_id=user_id)
-    config_file = agent_dir / "config.yaml"
+    from deerflow.persistence.agents import get_agent_store
 
-    if not agent_dir.exists():
-        raise FileNotFoundError(f"Agent directory not found: {agent_dir}")
-
-    if not config_file.exists():
-        raise FileNotFoundError(f"Agent config not found: {config_file}")
-
-    try:
-        with open(config_file, encoding="utf-8") as f:
-            data: dict[str, Any] = yaml.safe_load(f) or {}
-    except yaml.YAMLError as e:
-        raise ValueError(f"Failed to parse agent config {config_file}: {e}") from e
-
-    # Ensure name is set from directory name if not in file
-    if "name" not in data:
-        data["name"] = name
-
-    # Strip unknown fields before passing to Pydantic (e.g. legacy prompt_file)
-    known_fields = set(AgentConfig.model_fields.keys())
-    data = {k: v for k, v in data.items() if k in known_fields}
-
-    return AgentConfig(**data)
+    return get_agent_store().get(name, user_id=user_id)
 
 
 def load_agent_soul(agent_name: str | None, *, user_id: str | None = None) -> str | None:
@@ -308,38 +407,17 @@ def load_agent_soul(agent_name: str | None, *, user_id: str | None = None) -> st
     Returns:
         The SOUL.md content as a string, or None if the file does not exist.
     """
-    if agent_name:
-        agent_dir = resolve_agent_dir(agent_name, user_id=user_id)
-        soul_path = agent_dir / SOUL_FILENAME
-        # Fallback: resolve_agent_dir requires config.yaml to be present
-        # (see #3390), but SOUL.md loading does not depend on config.yaml.
-        # If the resolved dir doesn't have config.yaml (meaning the resolver
-        # returned its default path because no agent dir qualified) and also
-        # lacks SOUL.md, check the per-user and legacy directories directly
-        # so that agents configured via DEER_FLOW_CONFIG_PATH (or any setup
-        # where the agent dir has SOUL.md but no config.yaml) can still load
-        # their soul (#4135). The config.yaml guard ensures this fallback
-        # only fires for dirs the resolver couldn't resolve, not for a
-        # properly-resolved per-user agent that simply lacks SOUL.md -
-        # preserving the "per-user entries fully shadow legacy entries"
-        # invariant (agents_config.py:3-7, list_custom_agents).
-        if not soul_path.exists() and not (agent_dir / "config.yaml").exists():
-            paths = get_paths()
-            effective_user = user_id or get_effective_user_id()
-            for candidate in (
-                paths.user_agent_dir(effective_user, agent_name),
-                paths.agent_dir(agent_name),
-            ):
-                if (candidate / SOUL_FILENAME).exists():
-                    soul_path = candidate / SOUL_FILENAME
-                    break
-    else:
+    if not agent_name:
         agent_dir = get_paths().base_dir
         soul_path = agent_dir / SOUL_FILENAME
-    if not soul_path.exists():
-        return None
-    content = soul_path.read_text(encoding="utf-8").strip()
-    return content or None
+        if not soul_path.exists():
+            return None
+        content = soul_path.read_text(encoding="utf-8").strip()
+        return content or None
+
+    from deerflow.persistence.agents import get_agent_store
+
+    return get_agent_store().get_soul(agent_name, user_id=user_id)
 
 
 def list_custom_agents(*, user_id: str | None = None) -> list[AgentConfig]:
@@ -356,39 +434,9 @@ def list_custom_agents(*, user_id: str | None = None) -> list[AgentConfig]:
     Returns:
         List of AgentConfig for each valid agent directory found.
     """
-    paths = get_paths()
-    effective_user = user_id or get_effective_user_id()
+    from deerflow.persistence.agents import get_agent_store
 
-    seen: set[str] = set()
-    agents: list[AgentConfig] = []
-
-    user_root = paths.user_agents_dir(effective_user)
-    legacy_root = paths.agents_dir
-
-    for root in (user_root, legacy_root):
-        if not root.exists():
-            continue
-        for entry in sorted(root.iterdir()):
-            if not entry.is_dir():
-                continue
-            if entry.name in seen:
-                continue
-            config_file = entry / "config.yaml"
-            if not config_file.exists():
-                logger.debug(f"Skipping {entry.name}: no config.yaml")
-                continue
-
-            try:
-                agent_cfg = load_agent_config(entry.name, user_id=effective_user)
-                if agent_cfg is None:
-                    continue
-                agents.append(agent_cfg)
-                seen.add(entry.name)
-            except Exception as e:
-                logger.warning(f"Skipping agent '{entry.name}': {e}")
-
-    agents.sort(key=lambda a: a.name)
-    return agents
+    return get_agent_store().list(user_id=user_id)
 
 
 def list_team_agents() -> list[AgentConfig]:
@@ -416,15 +464,7 @@ def list_team_agents() -> list[AgentConfig]:
                     data: dict[str, Any] = yaml.safe_load(file) or {}
                 data.setdefault("name", entry.name)
                 known_fields = set(AgentConfig.model_fields.keys())
-                agents.append(
-                    AgentConfig(
-                        **{
-                            key: value
-                            for key, value in data.items()
-                            if key in known_fields
-                        }
-                    )
-                )
+                agents.append(AgentConfig(**{key: value for key, value in data.items() if key in known_fields}))
                 seen.add(entry.name)
             except Exception as exc:
                 logger.warning("Skipping team agent '%s': %s", entry.name, exc)

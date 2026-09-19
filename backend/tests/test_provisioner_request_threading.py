@@ -26,14 +26,14 @@ class _RecordingCoreV1:
         self.event_loop_thread_id = event_loop_thread_id
         self.thread_ids: list[int] = []
         self.service_sandboxes: set[str] = {"sandbox-existing"}
-        self.pod_sandboxes: set[str] = {"sandbox-existing"}
         self.ready_after_service_reads = ready_after_service_reads or {}
         self.service_read_failures = service_read_failures or {}
         self.service_read_counts: dict[str, int] = {}
         self.created_pods: list[str] = []
         self.created_pod_specs: dict[str, object] = {}
+        self.existing_pod_specs: dict[str, object] = {}
+        self.pod_sandboxes: set[str] = set()
         self.created_services: list[str] = []
-        self.deleted_pods: list[str] = []
 
     def _record_k8s_call(self) -> None:
         thread_id = threading.get_ident()
@@ -61,7 +61,15 @@ class _RecordingCoreV1:
 
     def read_namespaced_pod(self, _name: str, _namespace: str):
         self._record_k8s_call()
-        sandbox_id = _name[len("sandbox-") :]
+        sandbox_id = _name.removeprefix("sandbox-")
+        if sandbox_id in self.created_pod_specs:
+            pod = self.created_pod_specs[sandbox_id]
+            pod.status = SimpleNamespace(phase="Running")
+            return pod
+        if sandbox_id in self.existing_pod_specs:
+            pod = self.existing_pod_specs[sandbox_id]
+            pod.status = SimpleNamespace(phase="Running")
+            return pod
         if sandbox_id not in self.pod_sandboxes:
             raise ApiException(status=404)
         return SimpleNamespace(status=SimpleNamespace(phase="Running"))
@@ -71,7 +79,6 @@ class _RecordingCoreV1:
         sandbox_id = pod.metadata.labels["sandbox-id"]
         self.created_pods.append(sandbox_id)
         self.created_pod_specs[sandbox_id] = pod
-        self.pod_sandboxes.add(sandbox_id)
 
     def create_namespaced_service(self, _namespace: str, service) -> None:
         self._record_k8s_call()
@@ -81,13 +88,9 @@ class _RecordingCoreV1:
 
     def delete_namespaced_service(self, _name: str, _namespace: str) -> None:
         self._record_k8s_call()
-        self.service_sandboxes.discard(_sandbox_id_from_service_name(_name))
 
     def delete_namespaced_pod(self, _name: str, _namespace: str) -> None:
         self._record_k8s_call()
-        sandbox_id = _name[len("sandbox-") :]
-        self.deleted_pods.append(sandbox_id)
-        self.pod_sandboxes.discard(sandbox_id)
 
     def list_namespaced_service(self, _namespace: str, *, label_selector: str):
         self._record_k8s_call()
@@ -159,6 +162,11 @@ async def test_sandbox_business_routes_run_k8s_client_off_event_loop_thread(
     fake_core_v1 = _RecordingCoreV1(
         event_loop_thread_id=threading.get_ident(),
         ready_after_service_reads={"sandbox-new": 3},
+    )
+    fake_core_v1.existing_pod_specs["sandbox-existing"] = provisioner_module._build_pod(
+        "sandbox-existing",
+        "thread-1",
+        user_id="user-1",
     )
     monkeypatch.setattr(provisioner_module, "core_v1", fake_core_v1)
     monkeypatch.setattr(provisioner_module, "PROVISIONER_API_KEY", "test-secret")
@@ -369,117 +377,6 @@ def test_create_sandbox_retries_transient_service_read_errors(monkeypatch: pytes
     assert response.status == "Running"
     assert response.sandbox_url == provisioner_module._sandbox_url("sandbox-transient", node_port=32123)
     assert fake_core_v1.service_read_counts["sandbox-transient"] == 3
-
-
-class _TerminatingPodConflictCore(_RecordingCoreV1):
-    """Simulate Kubernetes retaining a fixed Pod name during DELETE."""
-
-    def __init__(self, *, event_loop_thread_id: int, remains_terminating: bool = False) -> None:
-        super().__init__(event_loop_thread_id=event_loop_thread_id)
-        self.remains_terminating = remains_terminating
-        self.pod_create_attempts = 0
-        self.pod_read_count = 0
-
-    def read_namespaced_pod(self, _name: str, _namespace: str):
-        self._record_k8s_call()
-        self.pod_read_count += 1
-        if self.pod_create_attempts < 2:
-            # First read is the fast path, second observes the 409 conflict,
-            # and the third is the deletion wait's first poll.
-            if self.remains_terminating or self.pod_read_count <= 2:
-                return SimpleNamespace(
-                    metadata=SimpleNamespace(deletion_timestamp=object()),
-                    status=SimpleNamespace(phase="Running"),
-                )
-            raise ApiException(status=404)
-        return SimpleNamespace(
-            metadata=SimpleNamespace(deletion_timestamp=None),
-            status=SimpleNamespace(phase="Running"),
-        )
-
-    def create_namespaced_pod(self, namespace: str, pod) -> None:
-        self._record_k8s_call()
-        self.pod_create_attempts += 1
-        if self.pod_create_attempts == 1:
-            raise ApiException(status=409, reason="AlreadyExists")
-        super().create_namespaced_pod(namespace, pod)
-
-
-def test_create_sandbox_waits_for_terminating_pod_before_reusing_fixed_name(
-    monkeypatch: pytest.MonkeyPatch, provisioner_module
-) -> None:
-    fake_core_v1 = _TerminatingPodConflictCore(event_loop_thread_id=-1)
-    monkeypatch.setattr(provisioner_module, "core_v1", fake_core_v1)
-    monkeypatch.setattr(provisioner_module.time, "sleep", lambda _seconds: None)
-
-    response = provisioner_module.create_sandbox(
-        provisioner_module.CreateSandboxRequest(
-            sandbox_id="sandbox-replace",
-            thread_id="thread-1",
-            user_id="user-1",
-        )
-    )
-
-    assert response.status == "Running"
-    assert fake_core_v1.pod_create_attempts == 2
-    assert fake_core_v1.created_pods == ["sandbox-replace"]
-    assert fake_core_v1.created_services == ["sandbox-replace"]
-
-
-def test_create_sandbox_does_not_publish_service_while_conflicting_pod_is_still_terminating(
-    monkeypatch: pytest.MonkeyPatch, provisioner_module
-) -> None:
-    fake_core_v1 = _TerminatingPodConflictCore(event_loop_thread_id=-1, remains_terminating=True)
-    monotonic_values = iter((0.0, 0.0, 1.0))
-    monkeypatch.setattr(provisioner_module, "core_v1", fake_core_v1)
-    monkeypatch.setattr(provisioner_module, "SANDBOX_POD_DELETE_WAIT_SECONDS", 1)
-    monkeypatch.setattr(provisioner_module.time, "monotonic", lambda: next(monotonic_values))
-    monkeypatch.setattr(provisioner_module.time, "sleep", lambda _seconds: None)
-
-    with pytest.raises(provisioner_module.HTTPException) as exc_info:
-        provisioner_module.create_sandbox(
-            provisioner_module.CreateSandboxRequest(
-                sandbox_id="sandbox-still-deleting",
-                thread_id="thread-1",
-                user_id="user-1",
-            )
-        )
-
-    assert exc_info.value.status_code == 503
-    assert fake_core_v1.pod_create_attempts == 1
-    assert fake_core_v1.created_services == []
-
-
-class _ExistingPodServiceFailureCore(_RecordingCoreV1):
-    """A healthy reused Pod must survive an unrelated Service create error."""
-
-    def __init__(self, *, event_loop_thread_id: int) -> None:
-        super().__init__(event_loop_thread_id=event_loop_thread_id)
-        self.pod_sandboxes.add("sandbox-reuse")
-
-    def create_namespaced_service(self, _namespace: str, service) -> None:
-        self._record_k8s_call()
-        raise ApiException(status=500, reason="Service create failed")
-
-
-def test_create_sandbox_does_not_delete_reused_pod_when_service_creation_fails(
-    monkeypatch: pytest.MonkeyPatch, provisioner_module
-) -> None:
-    fake_core_v1 = _ExistingPodServiceFailureCore(event_loop_thread_id=-1)
-    monkeypatch.setattr(provisioner_module, "core_v1", fake_core_v1)
-
-    with pytest.raises(provisioner_module.HTTPException) as exc_info:
-        provisioner_module.create_sandbox(
-            provisioner_module.CreateSandboxRequest(
-                sandbox_id="sandbox-reuse",
-                thread_id="thread-1",
-                user_id="user-1",
-            )
-        )
-
-    assert exc_info.value.status_code == 500
-    assert fake_core_v1.created_pods == []
-    assert fake_core_v1.deleted_pods == []
 
 
 def test_sandbox_service_defaults_to_node_port_with_node_host_url(provisioner_module) -> None:

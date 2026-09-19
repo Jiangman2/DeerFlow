@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "validate_enterprise_release.py"
 SPEC = spec_from_file_location("validate_enterprise_release", SCRIPT)
@@ -23,6 +22,7 @@ def _valid_config() -> dict:
             }
         ],
         "sandbox": {
+            "shared_thread_data_mounts": True,
             "environment": {
                 **MODULE.SANDBOX_PROXY_REFERENCES,
                 **MODULE.SANDBOX_CA_REFERENCES,
@@ -30,7 +30,7 @@ def _valid_config() -> dict:
                 "IMAGE_GENERATION_PROVIDER": "dashscope",
                 "QWEN_BASE_URL": "https://dashscope.aliyuncs.com",
                 "QWEN_MODEL": "qwen-image-2.0-pro",
-            }
+            },
         },
         "scheduler": {
             "enabled": True,
@@ -49,9 +49,7 @@ def _valid_config() -> dict:
 
 
 def test_enterprise_runtime_patch_satisfies_release_guard() -> None:
-    checks = MODULE.validate_manifest(
-        ROOT / "k8s" / "enterprise" / "runtime-patches.yaml"
-    )
+    checks = MODULE.validate_manifest(ROOT / "k8s" / "enterprise" / "runtime-patches.yaml")
     assert "Provisioner Sandbox proxy/CA injection" in checks
     assert "audited direct/proxy routing policy" in checks
 
@@ -78,6 +76,23 @@ def test_release_config_accepts_runtime_proxy_references(tmp_path: Path) -> None
         encoding="utf-8",
     )
     assert "sandbox command proxy and CA references" in MODULE.validate_config(path)
+
+
+@pytest.mark.parametrize("bad_value", [False, None])
+def test_release_config_rejects_disabled_shared_thread_data_mounts(
+    tmp_path: Path,
+    bad_value: bool | None,
+) -> None:
+    config = _valid_config()
+    if bad_value is None:
+        config["sandbox"].pop("shared_thread_data_mounts")
+    else:
+        config["sandbox"]["shared_thread_data_mounts"] = bad_value
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(MODULE.ValidationError, match="shared_thread_data_mounts"):
+        MODULE.validate_config(path)
 
 
 @pytest.mark.parametrize(

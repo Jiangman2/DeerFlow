@@ -1,3 +1,4 @@
+import { throwGatewayApiError } from "@/core/api/errors";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
@@ -16,8 +17,10 @@ import type {
 
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed with ${response.status}`);
+    await throwGatewayApiError(
+      response,
+      `服务暂时不可用（HTTP ${response.status}），请稍后重试`,
+    );
   }
   return (await response.json()) as T;
 }

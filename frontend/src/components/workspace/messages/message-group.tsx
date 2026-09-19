@@ -31,7 +31,7 @@ import type { TokenDebugStep } from "@/core/messages/usage-model";
 import {
   extractContentFromMessage,
   extractReasoningContentFromMessage,
-  findToolCallResult,
+  extractTextFromMessage,
 } from "@/core/messages/utils";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { extractTitleFromMarkdown } from "@/core/utils/markdown";
@@ -101,6 +101,15 @@ export function MessageGroup({
     }
     return [];
   }, [lastToolCallStep, steps]);
+  const afterLastToolCallAssistantTextSteps = useMemo(() => {
+    if (!lastToolCallStep) {
+      return [];
+    }
+    const index = steps.indexOf(lastToolCallStep);
+    return steps
+      .slice(index + 1)
+      .filter((step) => step.type === "assistantText");
+  }, [lastToolCallStep, steps]);
   const collapsibleAboveLastToolCallSteps = useMemo(
     () =>
       aboveLastToolCallSteps.filter((step) => step.type !== "assistantText"),
@@ -118,11 +127,7 @@ export function MessageGroup({
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const threadMarkdownComponents = useMemo(
     () => ({
-      a: createMarkdownLinkComponent(
-        threadId,
-        undefined,
-        t.common.preview,
-      ),
+      a: createMarkdownLinkComponent(threadId, undefined, t.common.preview),
     }),
     [t.common.preview, threadId],
   );
@@ -319,22 +324,28 @@ export function MessageGroup({
           ></ChainOfThoughtStep>
         </Button>
       )}
-      {lastToolCallStep && (
+      {(lastToolCallStep ??
+        steps.some((step) => step.type === "assistantText")) && (
         <ChainOfThoughtContent className="px-4 pb-2">
-          {(showAbove
-            ? aboveLastToolCallSteps
-            : aboveLastToolCallSteps.filter(
-                (step) => step.type === "assistantText",
-              )
+          {(lastToolCallStep
+            ? showAbove
+              ? aboveLastToolCallSteps
+              : aboveLastToolCallSteps.filter(
+                  (step) => step.type === "assistantText",
+                )
+            : steps.filter((step) => step.type === "assistantText")
           ).flatMap(renderStep)}
-          {renderDebugSummary(
-            lastToolCallStep.messageId,
-            steps.indexOf(lastToolCallStep),
-          )}
           {lastToolCallStep && (
-            <FlipDisplay uniqueKey={lastToolCallStep.id ?? ""}>
-              {renderToolCall(lastToolCallStep)}
-            </FlipDisplay>
+            <>
+              {renderDebugSummary(
+                lastToolCallStep.messageId,
+                steps.indexOf(lastToolCallStep),
+              )}
+              <FlipDisplay uniqueKey={lastToolCallStep.id ?? ""}>
+                {renderToolCall(lastToolCallStep)}
+              </FlipDisplay>
+              {afterLastToolCallAssistantTextSteps.flatMap(renderStep)}
+            </>
           )}
         </ChainOfThoughtContent>
       )}
@@ -733,12 +744,32 @@ interface CoTAssistantTextStep extends GenericCoTStep<"assistantText"> {
 
 type CoTStep = CoTAssistantTextStep | CoTReasoningStep | CoTToolCallStep;
 
+function indexToolCallResults(messages: Message[]) {
+  const toolCallResults = new Map<string, string>();
+
+  for (const message of messages) {
+    if (message.type !== "tool" || !message.tool_call_id) {
+      continue;
+    }
+
+    const toolCallId = message.tool_call_id;
+    if (!toolCallResults.has(toolCallId)) {
+      const result = extractTextFromMessage(message);
+      if (result) {
+        toolCallResults.set(toolCallId, result);
+      }
+    }
+  }
+
+  return toolCallResults;
+}
 function convertToSteps(messages: Message[]): CoTStep[] {
   const steps: CoTStep[] = [];
+  const toolCallResults = indexToolCallResults(messages);
   for (const [messageIndex, message] of messages.entries()) {
     if (message.type === "ai") {
       const content = extractContentFromMessage(message);
-      if (content && message.tool_calls?.length) {
+      if (content) {
         steps.push({
           id: `${message.id ?? `ai-${messageIndex}`}-content`,
           messageId: message.id,
@@ -769,7 +800,7 @@ function convertToSteps(messages: Message[]): CoTStep[] {
         };
         const toolCallId = tool_call.id;
         if (toolCallId) {
-          const toolCallResult = findToolCallResult(toolCallId, messages);
+          const toolCallResult = toolCallResults.get(toolCallId);
           if (toolCallResult) {
             try {
               const json = JSON.parse(toolCallResult);

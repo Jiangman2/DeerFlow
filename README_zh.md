@@ -246,6 +246,9 @@ make down   # 停止并移除容器
 
 更完整的 Docker 开发说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+企业 ARM64 生产能力的镜像锁、无密钥配置边界、部署顺序和测试环境等价复刻
+步骤见 [生产能力等价复刻指南](docs/production-capability-reproduction-2026-09-15.md)。
+
 #### 方式二：本地开发
 
 如果你更希望直接在本地启动各个服务：
@@ -534,6 +537,12 @@ DeerFlow 2.0 不再是一个需要你自己拼装的 framework。它是一个开
 
 ## 核心特性
 
+### 数字员工
+
+企业工作台将自定义 Agent 呈现为“数字员工”：支持 24 款海油主题卡通头像和安全的自定义头像、管理员统一治理的分类、每员工可增删改及智能推荐的标签，以及按名称、分类、标签、简介和能力的模糊筛选。紧凑列表和筛选抽屉同时适配桌面端与移动端。
+
+个人数字员工可按用户隔离存储到 SQL，并为每个员工独立设置模型、温度、最大输出 Token、思考开关和推理强度。含 `browser` 工具组的员工还可使用同源鉴权的 Browser Live 查看实时浏览器画面。部署、迁移、限制和回滚说明见 [`docs/digital-employee-upgrade-operations.md`](docs/digital-employee-upgrade-operations.md)。
+
 ### Skills 与 Tools
 
 Skills 是 DeerFlow 能做“几乎任何事”的关键。
@@ -692,17 +701,20 @@ client.clear_goal("thread-1")
 
 ## 定时任务 (Scheduled Tasks)
 
-DeerFlow 现在在 workspace 里内置了一个一等的定时任务（scheduled-task）MVP。
+DeerFlow 在 workspace 中内置了一等的定时任务能力；当前分支进一步吸收了官方调度器的可靠性与间隔调度升级。
 
 当前 MVP 能力：
 
 - 在 `/workspace/scheduled-tasks` 管理任务
 - 每个定时任务可以选择复用同一个 thread，也可以选择每次运行新建一个 thread
-- 支持 `once` 和 `cron` 两种调度方式
+- 支持 `once`、`cron` 和固定 `interval` 三种调度方式（最短 60 秒），并提供服务端 cron 运行时间预览
 - 每个任务可独立选择或修改执行模型，并保存模型、模式、推理、子智能体和知识库范围；企业环境存在 `deepseek-v4-flash` 时，新任务默认选择该模型
+- 每个任务可固定使用默认主智能体或一个指定的自定义智能体
 - 后台定时执行以非交互式 DeerFlow run 运行（那里不会暴露 `ask_clarification`）
-- 当到期的 cron 执行与同一复用 thread 上的活跃 run 冲突时，采用 `skip` 的重叠处理策略
-- 支持暂停、恢复、手动触发、查看历史和删除任务
+- 重叠的到期执行会进入持久化队列；每个任务同时只允许一个活跃执行，排队超过 `scheduler.queue_timeout_seconds` 的记录会失败退出
+- 自动执行和手动触发共同受 `scheduler.max_concurrent_runs` 全局并发预算约束
+- 支持暂停、恢复、手动触发、复制、分页查看历史和删除任务
+- 可选择启用基于数据库租约和原子完成记账的多调度器实例模式
 - 定时任务通过正常的 DeerFlow run 生命周期执行
 
 定时执行是有意设计成**非交互式后台运行**的：任务开始后不能暂停下来询问用户、等待确认或收集临时输入。因此，它适合输入和输出都能预先写清的周期性汇总、固定数据分析、监控检查和报告生成；不适合需要验证码、运行时上传文件、临时授权、人工审批、风险确认、动态选项或多轮评审的任务。对于后者，应先把所需信息和授权前置准备好，或继续使用普通交互式对话。
@@ -712,9 +724,8 @@ DeerFlow 现在在 workspace 里内置了一个一等的定时任务（scheduled
 - 暂时还没有可在对话中创建任务的 `schedule_task` 工具
 - 没有纯文本通知任务
 - 没有渠道或 GitHub 分发目标
-- 第一版没有 `interval` 调度类型
 
-通过 `config.yaml -> scheduler.enabled` 开启后台轮询并重启 Gateway。页面会展示当前进程中自动调度器的真实运行状态；关闭时仍可保存任务和手动触发，但不会按设定时间自动执行。手动触发使用同样的非交互式 scheduled-task 执行路径。
+通过 `config.yaml -> scheduler.enabled` 开启后台轮询并重启 Gateway。页面会展示当前进程中自动调度器的真实运行状态；关闭时仍可保存任务和手动触发，但不会按设定时间自动执行。手动触发使用同样的非交互式 scheduled-task 执行路径和并发预算。`scheduler.multi_instance` 默认关闭；开启它需要 PostgreSQL 持久化、数据库运行事件和运行所有权心跳。
 
 ## 终端工作台 (TUI)
 

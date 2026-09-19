@@ -1,8 +1,98 @@
 import json
+import re
 
 import pytest
 
 from app.gateway import weknora_identity
+
+
+def test_weknora_v08_password_is_policy_compatible_and_legacy_is_preserved(monkeypatch):
+    monkeypatch.setattr(weknora_identity, "_sso_secret", lambda: "test-sso-secret")
+
+    current = weknora_identity._password("user-id", "user@example.com")
+    legacy = weknora_identity._legacy_password("user-id", "user@example.com")
+
+    assert len(current) == 32
+    assert re.search(r"[A-Z]", current)
+    assert re.search(r"[a-z]", current)
+    assert re.search(r"[0-9]", current)
+    assert re.search(r"[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]", current)
+    assert len(legacy) == 46
+    assert weknora_identity._password_candidates("user-id", "user@example.com") == (current, legacy)
+
+
+@pytest.mark.asyncio
+async def test_weknora_session_falls_back_to_legacy_password(monkeypatch):
+    monkeypatch.setattr(weknora_identity, "_sso_secret", lambda: "test-sso-secret")
+    monkeypatch.setattr(weknora_identity, "weknora_timeout", lambda: 10.0)
+    monkeypatch.setattr(weknora_identity, "weknora_api_url", lambda: "http://weknora")
+
+    calls = []
+
+    class _Response:
+        def __init__(self, status_code, payload):
+            self.status_code = status_code
+            self._payload = payload
+
+        def json(self):
+            return self._payload
+
+    class _Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def post(self, url, json=None, **kwargs):
+            calls.append((url, json))
+            if url.endswith("/auth/register"):
+                return _Response(400, {"message": "user with this email already exists"})
+            current = weknora_identity._password("user-id", "user@example.com")
+            if json["password"] == current:
+                return _Response(401, {"success": False, "message": "Invalid email or password"})
+            assert json["password"] == weknora_identity._legacy_password("user-id", "user@example.com")
+            return _Response(
+                200,
+                {
+                    "success": True,
+                    "token": "token",
+                    "refresh_token": "refresh",
+                    "user": {"id": "wk-user", "email": "user@example.com"},
+                    "active_tenant": {"id": 1, "name": "Workspace"},
+                    "memberships": [{"tenant_id": 1, "role": "owner"}],
+                },
+            )
+
+    async def _identity_session(_user, session):
+        return session
+
+    async def _noop(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(weknora_identity.httpx, "AsyncClient", lambda **kwargs: _Client())
+    monkeypatch.setattr(weknora_identity, "sync_weknora_role", _identity_session)
+    monkeypatch.setattr(weknora_identity, "ensure_weknora_default_models", _noop)
+    monkeypatch.setattr(weknora_identity, "ensure_weknora_default_mineru", _noop)
+    monkeypatch.setattr(weknora_identity, "ensure_weknora_default_web_search", _noop)
+
+    user = type("DeerFlowUser", (), {"id": "user-id", "email": "user@example.com", "system_role": "user"})()
+    session = await weknora_identity._create_weknora_session(user)
+
+    assert session.token == "token"
+    assert calls[0] == (
+        "http://weknora/api/v1/auth/register",
+        {
+            "username": weknora_identity._username("user@example.com", "user-id"),
+            "email": "user@example.com",
+            "password": weknora_identity._password("user-id", "user@example.com"),
+        },
+    )
+    login_passwords = [payload["password"] for url, payload in calls if url.endswith("/auth/login")]
+    assert login_passwords == [
+        weknora_identity._password("user-id", "user@example.com"),
+        weknora_identity._legacy_password("user-id", "user@example.com"),
+    ]
 
 
 class _FakeTransaction:

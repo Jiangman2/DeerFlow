@@ -6,6 +6,8 @@ import os
 from codecs import BOM_UTF16_BE, BOM_UTF16_LE, getincrementaldecoder
 from pathlib import Path
 
+from deerflow.constants import BROWSER_FRAMES_DIRNAME
+
 from .types import (
     DiffUnavailableReason,
     FileSnapshot,
@@ -21,6 +23,7 @@ EXCLUDED_DIR_NAMES = {
     ".cache",
     ".next",
     ".venv",
+    BROWSER_FRAMES_DIRNAME,
     "__pycache__",
     "build",
     "dist",

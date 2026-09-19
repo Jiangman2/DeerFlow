@@ -211,6 +211,46 @@ def test_convert_messages_tool_message():
     assert items[0]["output"] == "result data"
 
 
+def test_convert_messages_keeps_placeholder_result_paired_with_invalid_tool_call():
+    from deerflow.agents.middlewares.dangling_tool_call_middleware import DanglingToolCallMiddleware
+
+    model = _make_model()
+    response = {
+        "output": [
+            {
+                "type": "function_call",
+                "name": "write_file",
+                "arguments": '{"path": "report.md", "content": "unterminated',
+                "call_id": "call_bad",
+            }
+        ],
+        "usage": {},
+    }
+    ai_msg = model._parse_response(response).generations[0].message
+    patched = DanglingToolCallMiddleware()._build_patched_messages([HumanMessage(content="write it"), ai_msg])
+
+    _, items = model._convert_messages(patched)
+    call_ids = {item["call_id"] for item in items if item.get("type") == "function_call"}
+    output_ids = {item["call_id"] for item in items if item.get("type") == "function_call_output"}
+    assert output_ids == {"call_bad"}
+    assert output_ids <= call_ids
+
+
+def test_convert_messages_drops_invalid_calls_missing_a_name_or_call_id():
+    model = _make_model()
+
+    for output_item in (
+        {"type": "function_call", "name": "write_file", "arguments": '{"a":'},
+        {"type": "function_call", "call_id": "call_x", "arguments": '{"a":'},
+        {"type": "function_call", "arguments": '{"a":'},
+    ):
+        ai_msg = model._parse_response({"output": [output_item], "usage": {}}).generations[0].message
+        assert ai_msg.invalid_tool_calls, output_item
+
+        _, items = model._convert_messages([HumanMessage(content="hi"), ai_msg])
+        assert [item for item in items if item.get("type") == "function_call"] == []
+
+
 # ---------------------------------------------------------------------------
 # _parse_sse_data_line
 # ---------------------------------------------------------------------------

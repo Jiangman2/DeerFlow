@@ -200,10 +200,33 @@ def _username(email: str, user_id: str) -> str:
     return f"{prefix}-{suffix}"[:50]
 
 
-def _password(user_id: str, email: str) -> str:
+def _legacy_password(user_id: str, email: str) -> str:
+    """Return the credential used before WeKnora enforced its 32-char limit."""
+
     digest = hmac.new(_sso_secret().encode(), f"{user_id}:{email}".encode(), hashlib.sha256).digest()
-    # WeKnora requires at least 6 chars; keep this long, URL-safe, and stable.
     return "Df!" + base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+
+
+def _password(user_id: str, email: str) -> str:
+    """Return a deterministic credential accepted by WeKnora 0.7 and 0.8.
+
+    WeKnora 0.8 validates new registrations against an 8-32 character
+    password policy.  The fixed prefix guarantees every required character
+    class while the scoped HMAC keeps credentials stable and user-specific.
+    """
+
+    digest = hmac.new(
+        _sso_secret().encode(),
+        f"weknora-password-v2:{user_id}:{email}".encode(),
+        hashlib.sha256,
+    ).digest()
+    return "Df9!" + base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")[:28]
+
+
+def _password_candidates(user_id: str, email: str) -> tuple[str, ...]:
+    current = _password(user_id, email)
+    legacy = _legacy_password(user_id, email)
+    return (current,) if current == legacy else (current, legacy)
 
 
 def _normalise_login_response(data: dict[str, Any]) -> WeKnoraSession:
@@ -276,10 +299,7 @@ def _weknora_default_models() -> list[_BuiltinModel]:
     asr_api_key = _model_env("ASR_API_KEY", "", "LLM_API_KEY", "DASHSCOPE_API_KEY")
     internal_relay_key = _model_env("WEKNORA_INTERNAL_MODEL_RELAY_KEY")
     if internal_only and (not cnooc_deepseek_api_key or not internal_relay_key or not vision_api_key or not asr_api_key):
-        logger.warning(
-            "Skipping WeKnora enterprise model seed because an internal DeepSeek, "
-            "internal relay, VLM, or ASR credential is missing."
-        )
+        logger.warning("Skipping WeKnora enterprise model seed because an internal DeepSeek, internal relay, VLM, or ASR credential is missing.")
         return []
     if not internal_only and (not llm_api_key or not embedding_api_key):
         logger.warning("Skipping WeKnora default model seed because LLM_API_KEY or EMBEDDING_API_KEY is missing.")
@@ -748,7 +768,6 @@ async def _create_weknora_session(user: Any) -> WeKnoraSession:
     username = _username(email, user_id)
     password = _password(user_id, email)
     register_payload = {"username": username, "email": email, "password": password}
-    login_payload = {"email": email, "password": password}
 
     async with httpx.AsyncClient(timeout=weknora_timeout()) as client:
         # Registration is idempotent for DeerFlow-provisioned users. WeKnora
@@ -762,11 +781,21 @@ async def _create_weknora_session(user: Any) -> WeKnoraSession:
             logger.warning("WeKnora registration request failed for user %s", user_id, exc_info=True)
             raise HTTPException(status_code=502, detail=f"WeKnora is unavailable: {exc}") from exc
 
+        response: httpx.Response | None = None
         try:
-            response = await client.post(weknora_endpoint("/auth/login"), json=login_payload)
+            for candidate in _password_candidates(user_id, email):
+                response = await client.post(
+                    weknora_endpoint("/auth/login"),
+                    json={"email": email, "password": candidate},
+                )
+                if response.status_code != 401:
+                    break
         except httpx.RequestError as exc:
             logger.warning("WeKnora login request failed for user %s", user_id, exc_info=True)
             raise HTTPException(status_code=502, detail=f"WeKnora is unavailable: {exc}") from exc
+
+    if response is None:
+        raise HTTPException(status_code=502, detail="WeKnora login produced no response.")
 
     try:
         data = response.json()

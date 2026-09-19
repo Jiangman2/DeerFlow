@@ -166,6 +166,11 @@ export function MessageListItem({
   turnStartTime?: number | null;
 }) {
   const isHuman = message.type === "human";
+  const copyData = useMemo(
+    () =>
+      !isLoading && showCopyButton ? (getMessageCopyData(message) ?? "") : "",
+    [isLoading, message, showCopyButton],
+  );
   return (
     <AIElementMessage
       className={cn("group/conversation-message relative w-full", className)}
@@ -190,7 +195,7 @@ export function MessageListItem({
           )}
         >
           <div className="pointer-events-auto flex gap-1">
-            <CopyButton clipboardData={getMessageCopyData(message)} />
+            <CopyButton clipboardData={copyData} />
             {feedback !== undefined && runId && threadId && (
               <FeedbackButtons
                 threadId={threadId}

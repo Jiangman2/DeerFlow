@@ -1,0 +1,3 @@
+firecrawl-anydoc==0.1.9 \
+    --hash=sha256:ba1c19bdaa97f4850daf3fb4ca2855cefa146b5621ce7b22a71d158d3b84e54e \
+    --hash=sha256:deea7a270fccda9be29c73235e938ca32e0f703e1ae120f08bf0fdb39301c6b4

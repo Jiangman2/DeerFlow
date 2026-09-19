@@ -60,6 +60,7 @@ class UserRow(Base):
     token_version: Mapped[int] = mapped_column(nullable=False, default=0)
 
     __table_args__ = (
+        Index("ix_users_created_at", "created_at"),
         Index(
             "idx_users_oauth_identity",
             "oauth_provider",

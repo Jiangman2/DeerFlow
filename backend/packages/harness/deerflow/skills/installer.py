@@ -6,6 +6,7 @@ Both Gateway and Client delegate to these functions.
 
 import asyncio
 import concurrent.futures
+import hashlib
 import logging
 import posixpath
 import shutil
@@ -13,6 +14,7 @@ import stat
 import zipfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
+from deerflow.skills.package_files import is_code_path, is_executable_binary_prefix
 from deerflow.skills.permissions import make_skill_tree_sandbox_readable
 from deerflow.skills.security_scanner import scan_skill_content
 from deerflow.skills.security_static_scanner import (
@@ -28,21 +30,6 @@ logger = logging.getLogger(__name__)
 
 _PROMPT_INPUT_DIRS = {"references", "templates"}
 _PROMPT_INPUT_SUFFIXES = frozenset({".json", ".markdown", ".md", ".rst", ".txt", ".yaml", ".yml"})
-_CODE_SUFFIXES = frozenset({".bash", ".cjs", ".js", ".mjs", ".php", ".pl", ".ps1", ".py", ".rb", ".sh", ".ts", ".zsh"})
-# Full magics per variant — a shorter shared prefix would also match
-# non-executable data files.
-_EXECUTABLE_MAGIC_PREFIXES = (
-    b"\x7fELF",  # ELF
-    b"MZ",  # PE/DOS
-    b"\xfe\xed\xfa\xce",  # Mach-O 32-bit big-endian
-    b"\xfe\xed\xfa\xcf",  # Mach-O 64-bit big-endian
-    b"\xce\xfa\xed\xfe",  # Mach-O 32-bit little-endian
-    b"\xcf\xfa\xed\xfe",  # Mach-O 64-bit little-endian
-    b"\xca\xfe\xba\xbe",  # Mach-O fat binary big-endian
-    b"\xbe\xba\xfe\xca",  # Mach-O fat binary little-endian
-    b"\xca\xfe\xba\xbf",  # Mach-O fat64 binary big-endian
-    b"\xbf\xba\xfe\xca",  # Mach-O fat64 binary little-endian
-)
 
 
 class SkillAlreadyExistsError(ValueError):
@@ -85,14 +72,36 @@ def is_symlink_member(info: zipfile.ZipInfo) -> bool:
     return stat.S_ISLNK(mode)
 
 
-def is_executable_binary_prefix(prefix: bytes) -> bool:
-    """Detect ELF, PE, and Mach-O executables by magic bytes."""
-    return prefix.startswith(_EXECUTABLE_MAGIC_PREFIXES)
-
-
 def should_ignore_archive_entry(path: Path) -> bool:
     """Return True for macOS metadata dirs and dotfiles."""
     return path.name.startswith(".") or path.name == "__MACOSX"
+
+
+def build_skill_tree_manifest(root: Path) -> tuple[tuple[str, int, str], ...]:
+    """Build a deterministic content manifest for every regular skill file."""
+    entries: list[tuple[str, int, str]] = []
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
+        relative_path = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            raise ValueError(f"Skill tree contains unsupported symlink: {relative_path}")
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            raise ValueError(f"Skill tree contains unsupported filesystem entry: {relative_path}")
+        digest = hashlib.sha256()
+        size = 0
+        with path.open("rb") as stream:
+            while chunk := stream.read(65536):
+                digest.update(chunk)
+                size += len(chunk)
+        entries.append((relative_path, size, digest.hexdigest()))
+    return tuple(entries)
+
+
+def verify_skill_tree_copy(source: Path, copied: Path) -> None:
+    """Fail the install when staging omitted or changed a packaged file."""
+    if build_skill_tree_manifest(source) != build_skill_tree_manifest(copied):
+        raise OSError("Skill staging integrity check failed: packaged files were omitted or changed")
 
 
 def resolve_skill_dir_from_archive(temp_path: Path) -> Path:
@@ -123,7 +132,8 @@ def safe_extract_skill_archive(
 
     Protections:
     - Reject absolute paths and directory traversal (..).
-    - Skip symlink entries instead of materialising them.
+    - Reject symlink entries so accepted archives are never installed with
+      silently missing scripts or reference files.
     - Enforce a hard limit on total uncompressed size (zip bomb defence).
     - Reject executable binaries (ELF/PE/Mach-O) by magic bytes.
 
@@ -138,8 +148,7 @@ def safe_extract_skill_archive(
             raise ValueError(f"Archive contains unsafe member path: {info.filename!r}")
 
         if is_symlink_member(info):
-            logger.warning("Skipping symlink entry in skill archive: %s", info.filename)
-            continue
+            raise ValueError(f"Archive contains unsupported symlink member: {info.filename!r}")
 
         normalized_name = posixpath.normpath(info.filename.replace("\\", "/"))
         member_path = dest_root.joinpath(*PurePosixPath(normalized_name).parts)
@@ -181,20 +190,13 @@ def _has_shebang(path: Path) -> bool:
         return False
 
 
-def _is_code_file_by_name(rel_path: Path) -> bool:
-    """Pure name-based code classification: scripts/ members and code suffixes."""
-    if _is_script_support_file(rel_path):
-        return True
-    return rel_path.suffix.lower() in _CODE_SUFFIXES
-
-
 async def _is_code_file(path: Path, rel_path: Path) -> bool:
     """Classify code files anywhere in the tree for the executable scan policy.
 
-    Name checks are pure and stay on the event loop; only the shebang
-    sniff for extensionless files reads the file and is offloaded.
+    Applies the shared rule lazily: name checks are pure and stay on the event
+    loop; only the shebang sniff for extensionless files reads the file.
     """
-    if _is_code_file_by_name(rel_path):
+    if is_code_path(rel_path):
         return True
     return not rel_path.suffix and await asyncio.to_thread(_has_shebang, path)
 

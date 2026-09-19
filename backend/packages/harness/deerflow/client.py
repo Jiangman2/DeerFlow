@@ -24,7 +24,7 @@ import os
 import shutil
 import tempfile
 import uuid
-from collections.abc import Generator, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -235,9 +235,20 @@ class DeerFlowClient:
             recursion_limit=overrides.get("recursion_limit", 100),
         )
 
-    def _ensure_agent(self, config: RunnableConfig):
+    def _ensure_agent(
+        self,
+        config: RunnableConfig,
+        *,
+        context: Mapping[str, Any] | None = None,
+    ):
         """Create (or recreate) the agent when config-dependent params change."""
-        cfg = config.get("configurable", {})
+        cfg = dict(config.get("configurable", {}) or {})
+        if context is not None:
+            cfg.update(context)
+        # SOUL, skills, storage, and memory are user-scoped even when the
+        # authorization policy itself is disabled. User identity therefore
+        # belongs in the graph cache key as well as in middleware construction.
+        effective_user_id = cfg.get("user_id") or get_effective_user_id()
         key = (
             cfg.get("model_name"),
             cfg.get("thinking_enabled"),
@@ -247,6 +258,7 @@ class DeerFlowClient:
             cfg.get("max_total_subagents"),
             self._agent_name,
             frozenset(self._available_skills) if self._available_skills is not None else None,
+            effective_user_id,
         )
 
         if self._agent is not None and self._agent_config_key == key:
@@ -295,7 +307,7 @@ class DeerFlowClient:
                 app_config=self._app_config,
                 deferred_setup=deferred_setup,
                 mcp_routing_middleware=mcp_routing_middleware,
-                user_id=get_effective_user_id(),
+                user_id=effective_user_id,
             ),
             "system_prompt": apply_prompt_template(
                 subagent_enabled=subagent_enabled,
@@ -306,7 +318,7 @@ class DeerFlowClient:
                 app_config=self._app_config,
                 deferred_names=deferred_setup.deferred_names,
                 mcp_routing_hints_section=mcp_routing_hints_section,
-                user_id=get_effective_user_id(),
+                user_id=effective_user_id,
                 skill_names=skill_setup.skill_names or None,
             ),
             "state_schema": ThreadState,
@@ -748,23 +760,28 @@ class DeerFlowClient:
             existing_callbacks = list(config.get("callbacks") or [])
             config["callbacks"] = [*existing_callbacks, *tracing_callbacks]
 
+        run_id = str(uuid.uuid4())
+        effective_user_id = kwargs.get("user_id") or get_effective_user_id()
+        context = {
+            "thread_id": thread_id,
+            "run_id": run_id,
+            "user_id": effective_user_id,
+        }
         configurable = config.get("configurable") or {}
         deerflow_trace_id = get_current_trace_id()
         inject_langfuse_metadata(
             config,
             thread_id=thread_id,
-            user_id=get_effective_user_id(),
+            user_id=effective_user_id,
             assistant_id=self._agent_name or "lead-agent",
             model_name=configurable.get("model_name") or self._model_name,
             environment=self._environment or os.environ.get("DEER_FLOW_ENV") or os.environ.get("ENVIRONMENT"),
             deerflow_trace_id=deerflow_trace_id,
         )
 
-        self._ensure_agent(config)
+        self._ensure_agent(config, context=context)
 
-        run_id = str(uuid.uuid4())
         state: dict[str, Any] = {"messages": [HumanMessage(content=message, additional_kwargs={"run_id": run_id})]}
-        context = {"thread_id": thread_id, "run_id": run_id}
         if deerflow_trace_id:
             context[DEERFLOW_TRACE_METADATA_KEY] = deerflow_trace_id
         if self._agent_name:
@@ -1412,8 +1429,8 @@ class DeerFlowClient:
                 # creating a new ThreadPoolExecutor per converted file.
                 conversion_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
-        def _convert_in_thread(path: Path):
-            return asyncio.run(convert_file_to_markdown(path))
+        def _convert_in_thread(path: Path, output_path: Path):
+            return asyncio.run(convert_file_to_markdown(path, output_path=output_path))
 
         try:
             for src_path, dest_name in resolved_files:
@@ -1431,11 +1448,29 @@ class DeerFlowClient:
                     info["original_filename"] = src_path.name
 
                 if src_path.suffix.lower() in CONVERTIBLE_EXTENSIONS:
+                    # Official #4288 invariant: reserve the derived companion
+                    # before conversion so it cannot overwrite another source
+                    # or companion in this request.
+                    provisional_md_name = Path(dest_name).with_suffix(".md").name
+                    unique_md_name = claim_unique_filename(
+                        provisional_md_name,
+                        seen_names,
+                    )
+                    md_output = dest.with_name(unique_md_name)
                     try:
                         if conversion_pool is not None:
-                            md_path = conversion_pool.submit(_convert_in_thread, dest).result()
+                            md_path = conversion_pool.submit(
+                                _convert_in_thread,
+                                dest,
+                                md_output,
+                            ).result()
                         else:
-                            md_path = asyncio.run(convert_file_to_markdown(dest))
+                            md_path = asyncio.run(
+                                convert_file_to_markdown(
+                                    dest,
+                                    output_path=md_output,
+                                )
+                            )
                     except Exception:
                         logger.warning(
                             "Failed to convert %s to markdown",
@@ -1449,6 +1484,10 @@ class DeerFlowClient:
                         info["markdown_path"] = str(uploads_dir / md_path.name)
                         info["markdown_virtual_path"] = upload_virtual_path(md_path.name)
                         info["markdown_artifact_url"] = upload_artifact_url(thread_id, md_path.name)
+                    else:
+                        # Match upstream: a failed conversion must not reserve
+                        # a path that was never written.
+                        seen_names.discard(unique_md_name)
 
                 uploaded_files.append(info)
         finally:

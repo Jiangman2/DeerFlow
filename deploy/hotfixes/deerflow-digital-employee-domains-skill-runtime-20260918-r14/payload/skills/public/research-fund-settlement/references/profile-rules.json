@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "profiles": {
+    "group_company": {
+      "display_name": "集团公司（有限公司）项目",
+      "report_title": "科研项目（课题）财务决算报告",
+      "aliases": ["集团公司项目", "有限公司项目", "集团级项目", "公司级项目"],
+      "sections": [
+        {"id": "group.budget_approval", "heading": "概预算批准情况", "source_row": 2},
+        {"id": "group.budget_changes", "heading": "概预算变更情况", "source_row": 3},
+        {"id": "group.annual_approvals", "heading": "科技项目（课题）实际批复情况分析", "source_row": 4},
+        {"id": "group.overall_settlement", "heading": "科技项目（课题）经费支出情况", "source_row": 5},
+        {"id": "group.expense_breakdown", "heading": "支出明细项及结构总体说明", "source_row": 6},
+        {"id": "group.balance_reasons", "heading": "资金结余及原因", "source_row": 7},
+        {"id": "group.management_basis", "heading": "经费管理依据的制度情况", "source_row": 8},
+        {"id": "group.management_status", "heading": "经费管理情况及存在问题", "source_row": 9},
+        {"id": "group.finance_opinion", "heading": "承担单位财务部门意见", "source_row": 10}
+      ]
+    },
+    "national_science": {
+      "display_name": "国家科技项目",
+      "report_title": "国家科技项目课题财务决算报告",
+      "aliases": ["国家科技项目", "国家重点研发计划", "中央财政科技项目", "国家科研课题"],
+      "sections": [
+        {"id": "national.entity_overview", "heading": "课题承担单位基本情况", "source_row": 11},
+        {"id": "national.project_implementation", "heading": "课题立项及实施情况", "source_row": 12},
+        {"id": "national.accounting", "heading": "课题资金核算情况", "source_row": 13},
+        {"id": "national.internal_controls", "heading": "单位与课题资金管理相关的内部管理制度建设及执行情况", "source_row": 14},
+        {"id": "national.budget_adjustments", "heading": "中央财政资金预算安排及调剂情况", "source_row": 15},
+        {"id": "national.funds_received", "heading": "中央财政资金到位情况", "source_row": 16},
+        {"id": "national.funds_transferred", "heading": "中央财政资金拨付情况", "source_row": 17},
+        {"id": "national.fund_usage", "heading": "中央财政资金使用情况", "source_row": 18},
+        {"id": "national.payables_forecast", "heading": "中央财政资金应付未付及预计后续情况", "source_row": 19}
+      ]
+    },
+    "miit": {
+      "display_name": "国家工信部项目",
+      "report_title": "国家工信部项目财务决算报告",
+      "aliases": ["工信部项目", "国家工信部项目", "工业和信息化部项目"],
+      "sections": [
+        {"id": "miit.lead_overview", "heading": "项目牵头单位基本情况", "source_row": 20},
+        {"id": "miit.participants_overview", "heading": "项目参研单位基本情况", "source_row": 21},
+        {"id": "miit.governance", "heading": "项目管理组织实施方式", "source_row": 22},
+        {"id": "miit.completion", "heading": "项目完成情况", "source_row": 23},
+        {"id": "miit.approval", "heading": "项目批复情况", "source_row": 24},
+        {"id": "miit.internal_controls", "heading": "项目单位内控制度情况", "source_row": 25},
+        {"id": "miit.procurement_contracts", "heading": "项目采购及合同管理情况", "source_row": 26},
+        {"id": "miit.tendering", "heading": "项目招投标情况", "source_row": 27},
+        {"id": "miit.accounting_policy", "heading": "项目单位的主要会计政策", "source_row": 28},
+        {"id": "miit.cost_accounting", "heading": "项目单位成本核算情况", "source_row": 29},
+        {"id": "miit.funding_arrival", "heading": "科研计划下达和资金到位情况", "source_row": 30},
+        {"id": "miit.fund_management", "heading": "资金管理情况", "source_row": 31},
+        {"id": "miit.audit_confirmation", "heading": "决算审计确认资金情况", "source_row": 32},
+        {"id": "miit.variance", "heading": "项目单项经费超支（结余）情况", "source_row": 33},
+        {"id": "miit.period_outcomes", "heading": "项目研究周期及成果情况", "source_row": 34}
+      ]
+    }
+  }
+}

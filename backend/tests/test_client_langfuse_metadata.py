@@ -49,8 +49,9 @@ def _stub_agent_creation(monkeypatch, fake_agent: _FakeAgent) -> dict[str, Any]:
     """
     captured: dict[str, Any] = {}
 
-    def _stub_ensure_agent(self, config):
+    def _stub_ensure_agent(self, config, *, context=None):
         captured["config"] = config
+        captured["context"] = context
         self._agent = fake_agent
         self._agent_config_key = ("stub",)
 

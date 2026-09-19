@@ -14,17 +14,58 @@ NodePort `32026`. WeKnora remains behind the same-origin
 `/platform/knowledge-bases` route and is addressed by the stable
 `weknora-frontend` Service DNS name.
 
+## Dashboard database isolation
+
+The enterprise dashboard fails closed onto a physical PostgreSQL standby.
+The DeerFlow primary remains on `datax-02`; `postgres-dashboard-replica` uses
+the dedicated retained local PV
+`/opt/deerflow-storage/dashboard-postgresql` on `datax-03`. Create that path and
+the untracked `deer-flow-dashboard-postgres` Secret from
+`dashboard-postgres.secret.example.yaml` before applying this overlay. Use
+independent generated replication and dashboard passwords.
+
+Gateway receives only the replica URL for dashboard routes and starts with
+`DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA=true`. It verifies both
+`transaction_read_only=on` and `pg_is_in_recovery()=true` through a one-
+connection pool. A missing, writable, primary, or unavailable target makes
+only the admin dashboard return 503; the application database is never used as
+a fallback, and chats, scheduled work, and digital employees continue on the normal
+primary pool. The maintenance CronJob scans raw source rows on the standby and
+uses its short-lived primary `NullPool` connection only for small daily/hourly
+fact and cursor upserts. It is shipped suspended.
+
+Do not enable the CronJob until migration `0017_dashboard_hourly_rollups`, the
+daily backfill, the latest 72-hour backfill, replica readiness, and replay-lag
+checks pass. The primary limits replication-slot WAL retention to 4 GiB so a
+failed standby cannot exhaust its disk. See
+[`docs/dashboard-rollup-operations.md`](../../docs/dashboard-rollup-operations.md)
+for creation, verification, backfill, enablement, and rebuild commands.
+
+The optional phase-1 iFLYTEK SkillHub workbench uses the same exposure model at
+`/platform/skillhub/` and the stable `skillhub-web` Service name. Deploy the
+reviewed upstream chart into the `deer-flow` namespace with
+`k8s/skillhub/values-deer-flow.example.yaml` as the non-secret base, and keep
+its public/web/API base paths aligned. SkillHub remains separately managed and
+is not added to this Kustomize overlay, so its passwords, passive-session bridge
+secret, database, Redis, scanner, and release lifecycle stay under the native
+chart. The offline ARM64 release must import the customized server, upstream
+web/scanner, PostgreSQL and exporter, Redis and exporter, and BusyBox waiter on
+every eligible node before Helm install.
+See `docs/skillhub-integration.md` before exposing the sidebar entry.
+
 The Frontend deployment must override `WEKNORA_FRONTEND_URL` with the relative
 same-origin path `/platform/knowledge-bases`. Do not use a loopback URL or pin a
 node address: `127.0.0.1` resolves to the browser user's computer, while the
 relative path continues to work when the public IP, DNS name, or TLS endpoint
 changes.
 
-The patched WeKnora UI must likewise exchange the DeerFlow session through the
-same-origin `/api/weknora/sso-session` endpoint. Both `config.js` and the
-`index.html` fallback use that relative URL. Because those files are mounted
-from a ConfigMap with `subPath`, restart the `weknora-frontend` Deployment after
-changing them; updating the ConfigMap alone does not refresh the mounted files.
+The production WeKnora v0.8 UI must likewise exchange the DeerFlow session
+through the same-origin `/api/weknora/sso-session` endpoint. Its SSO2 and
+DOM-guard assets are built into the immutable image. The enterprise overlay
+therefore removes the base v0.7 ConfigMap asset mounts; restoring those mounts
+would overwrite the v0.8 entrypoint and can produce a blank or mixed-version
+workspace. Restart `weknora-frontend` after changing the UI image or its runtime
+configuration.
 
 The base WeKnora deployment creates one personal workspace for each newly
 provisioned DeerFlow user and disables ordinary self-service creation of
@@ -59,18 +100,26 @@ through this bridge. Unit tests or a simple HTTP 200 are necessary but not
 sufficient evidence for the enterprise provider path.
 
 Third-party images remain pinned to the ARM64 manifest digests verified on
-`datax-01`. The six DeerFlow-owned runtime images use the consolidated immutable
-`20260811-enterprise-arm64-rc15-consolidated1` release tag. This release folds
-the current source tree and all previously accepted production hotfix outcomes
-into one auditable baseline; rollout does not replay historical patch scripts or
-replace live Secrets, runtime ConfigMaps, databases, or PVC contents:
+`datax-01`. DeerFlow- and WeKnora-owned images use the immutable tags in
+`release-baseline.yaml -> production_snapshot`; that inventory is the source of
+truth for reproducing the accepted 2026-09-15 production capability baseline.
+It deliberately keeps the main Gateway and the `ppt-master-runner` in separate
+Deployments, Services, Pod failure domains, and image keys: the main Gateway
+contains the digital-employee, Browser Live, UI2, and prompt-ABI fixes, while the
+runner retains its separately accepted image. The runner requires three
+consecutive PostgreSQL readiness samples before startup. Gateway uses a 4 GiB
+request and 16 GiB limit in this overlay to preserve scheduling behavior while
+adding headroom above the previously observed 10 GiB OOM boundary.
+The same snapshot locks the WeKnora v0.8 App with AnyDoc, the v0.8 SSO UI,
+Provisioner, Skills, MinerU Adapter, AIO Sandbox runtime, and the separately
+managed SkillHub server/web images.
 
-- `deer-flow-gateway`
-- `deer-flow-frontend`
-- `deer-flow-provisioner`
-- `deer-flow-skills`
-- `deer-flow-aio-sandbox`
-- `deer-flow-mineru-adapter`
+The snapshot represents production capability, not production state. It does
+not contain Secret values, user data, database rows, PVC contents, or generated
+OCI archives. See
+[`docs/production-capability-reproduction-2026-09-15.md`](../../docs/production-capability-reproduction-2026-09-15.md)
+for the exact checkout, image-supply, configuration, deployment, migration, and
+acceptance sequence.
 
 Custom images must be imported into containerd's `k8s.io` namespace on all
 three nodes before applying this overlay. Workloads use `imagePullPolicy:
@@ -92,7 +141,7 @@ with this exact command so the image contains
 
 ```bash
 docker build -f docker/k8s-skills/Dockerfile \
-  -t deerflow.local/deer-flow-skills:20260811-enterprise-arm64-rc15-consolidated1 .
+  -t deerflow.local/deer-flow-skills:20260901-enterprise-arm64-rc15-researchfund1 .
 ```
 
 The skills-sync Job validates that layout before replacing the PVC contents.
@@ -106,22 +155,32 @@ contains LibreOffice. Build it on an ARM64 server with
 
 ```bash
 docker build -f docker/mineru_adapter/Dockerfile \
-  --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:65d9a4a4fb7b2d3c065eb8eabe033d1f001cedfd039be7f2355540ecad7da57b \
-  -t deerflow.local/deer-flow-mineru-adapter:20260811-enterprise-arm64-rc15-consolidated1 \
+  --build-arg DOCREADER_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-docreader@sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b \
+  -t deerflow.local/deer-flow-mineru-adapter:20260915-enterprise-arm64-rc15-docxstability1 \
   docker/mineru_adapter
 ```
 
 Import the resulting image into the `k8s.io` containerd namespace on every
 node where the adapter may run. The adapter is stateless, receives only an
 internal ClusterIP Service, and translates WeKnora's `/file_parse` contract.
-DOC/DOCX/PPT/PPTX input is converted to PDF with LibreOffice for its visual
-supplement. Word keeps the native parser's text, tables, and ordinary inline
-images; the PDF copy recovers charts, SmartArt, grouped shapes, and other
-render-only evidence. The PDF copy is mandatory for enterprise visual
-completeness: LibreOffice conversion, MinerU enhancement, and required
-source-page evidence must all succeed before DOC/DOCX is published. Native Word
-content is retained and merged for quality, but never used to hide a failed
-visual pass. Presentation conversion remains strict as well. PDF input is inspected locally before parsing: documents
+The dispatcher labels interactive DeerFlow uploads with a `conversation` parse
+profile while WeKnora knowledge-base work retains the `knowledge` profile.
+Conversation DOCX first uses pinned `firecrawl-anydoc==0.1.9`; structurally
+large knowledge-base DOCX may use the same bounded fast path without changing
+ordinary knowledge-base parser rules. The Adapter inspects compressed,
+expanded, and `word/document.xml` sizes before parsing. Large DOCX bypasses
+DocReader's `StdMarkitdownParser`, uses the official v0.8 native `DocxParser`,
+and retains an isolated low-memory XML text recovery after richer native
+parsing fails. This handles documents that correctly trip AnyDoc's fixed XML
+node safety limit without weakening that limit. Thin, failed, or timed-out
+output continues through the existing LibreOffice and MinerU fallbacks. Legacy
+DOC and ordinary knowledge-base DOCX keep the existing native-first route. A
+non-empty result is published immediately. Operators may enable
+`MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED=true` for a best-effort supplement,
+but its failure cannot invalidate already recovered native text, tables, and
+images. AnyDoc and DocReader run in bounded child processes so a malformed Word
+file cannot fail the worker's liveness endpoint. Presentation conversion
+remains strict. PDF input is inspected locally before parsing: documents
 whose pages all contain usable text stay on the WeKnora builtin text parser,
 while a scanned/image-dominated page routes the whole PDF to the enterprise
 MinerU API. For searchable PDF/Word pages, multilingual `Figure N`/`图 N`
@@ -135,15 +194,24 @@ JPEGs. Both branches therefore return the same Markdown plus `images` contract
 for VLM processing and question answering.
 
 The adapter's HTTP server remains threaded for probes and request intake, but
-`ParseCoordinator` serializes the complete PDFium/DocReader parsing pipeline.
-This prevents allocator corruption in the native parser libraries when
-multiple documents arrive together. `/health` stays responsive during a long
-parse and reports `parser.active` and `parser.waiting`; queued uploads are
-expected and must not be interpreted as a hung Pod. Do not bypass the
-coordinator or enable concurrent parsing inside one adapter process.
-The readiness and liveness probes intentionally tolerate several short health
-response delays during native-library cleanup while retaining a bounded failure
-window for a genuinely wedged process.
+`ParseCoordinator` admits exactly one PDFium/DocReader parse per worker. A busy
+worker returns retryable HTTP 429 instead of accumulating a hidden in-process
+queue; durable waiting belongs to WeKnora Redis/Asynq and the dispatcher. This
+prevents allocator corruption and one Pod retaining many simultaneous request
+bodies. `/health` remains an observability endpoint, `/live` proves that the
+HTTP process responds and owns Kubernetes readiness/liveness, and `/ready`
+returns 503 while the worker is parsing. The dispatcher probes `/ready` before
+assignment and skips busy workers while they remain healthy members of the
+headless discovery Service. It quarantines ambiguous timeout/5xx workers until
+they prove idle again. Do not bypass this admission boundary or enable
+concurrent parsing inside one adapter process.
+
+LibreOffice is launched in a dedicated process group. On timeout, the adapter
+terminates the complete group, escalates to SIGKILL after a short grace period,
+and reaps adopted descendants through Linux child-subreaper mode. It also
+cleans up a daemonized descendant after an apparently successful launcher exit.
+This prevents orphaned `soffice.bin` processes and zombies from consuming the
+4 GiB worker cgroup until the Pod is OOM-killed.
 
 The audited three-node cluster runs exactly six serialized adapter workers,
 spread two per node. A separate dispatcher owns the bounded cross-Pod queue,
@@ -155,8 +223,10 @@ the dispatcher, and additional uploads remain durable in the Redis/Asynq
 `default` queue. Do not raise those values without adding reviewed serialized
 worker capacity and passing the 3/10/30-document acceptance matrix. Worker
 topology uses `maxSkew: 1`; its disruption budget keeps four workers available,
-and the dispatcher has its own `minAvailable: 1` budget.
-WeKnora 0.7.0 drains downstream `summary`, `multimodal`, `graph`, and `question`
+and the dispatcher has its own `minAvailable: 1` budget. The single dispatcher
+uses `Recreate` updates because its busy/quarantine state is process-local; two
+overlapping dispatcher replicas could otherwise assign the same worker.
+WeKnora 0.8.0 drains downstream `summary`, `multimodal`, `graph`, and `question`
 queues through an independent enrichment pool. Enterprise deployments keep
 `WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY=2`,
 `WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY=12`, and
@@ -218,6 +288,13 @@ the upload API write each file once instead of cold-starting a sandbox merely
 to copy the bytes through its HTTP API. The current node-pinned local PV layout
 can use the optimization only while Gateway and sandboxes remain co-located;
 an actually horizontally scheduled deployment requires RWX storage.
+
+For this audited node-pinned enterprise overlay, the setting is mandatory and
+is enforced by `scripts/validate_enterprise_release.py` and
+`scripts/verify_enterprise_runtime.sh`. A hotfix that replaces
+`deer-flow-config` must preserve it and must restart Gateway because the ConfigMap
+is mounted with `subPath`; otherwise uploads silently fall back to Sandbox API
+copying and can block for the full Sandbox startup timeout.
 
 The bundled Nginx gives thread upload routes a 600-second send/read timeout for
 large files and slow storage. Any external Ingress, load balancer, WAF, or
@@ -450,6 +527,17 @@ into Sandbox Pods through `deer-flow-env`. The RC2 Sandbox image also replaces
 the broken upstream ARM64 `websocat` with checksum-pinned 1.14.1 and installs
 CairoSVG for the PPT raster fallback.
 
+The enterprise ARM64 overlay also passes `DISABLE_BROWSER=true` and
+`DISABLE_MCP_BROWSER=true` into every Provisioner-created AIO Sandbox. The
+pinned AIO image's embedded Chromium GPU process is not compatible with the
+production kernel and otherwise enters a one-second supervisor restart loop.
+This policy does not disable DeerFlow's `browser_*` tools or Browser Live: those
+use the Gateway's process-local Playwright Chromium and must remain configured
+without an external `cdp_url`. Retire browser-enabled Sandbox Pods only in a
+zero-active-run maintenance window while respecting their cross-process
+execution leases; PVC-backed user data remains intact and replacement Sandboxes
+are created lazily.
+
 ## Release baseline gates
 
 `k8s/enterprise/release-baseline.yaml` is the machine-readable inventory of
@@ -465,16 +553,25 @@ literal empty strings override the correct proxy environment already present in
 the Sandbox Pod and force authenticated DashScope POSTs onto the blocked direct
 route:
 
-The enterprise Gateway manifest also sets
-`DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860` and
-`DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`. The Gateway wait therefore
-extends 60 seconds beyond the Adapter's bounded 1800-second upstream wait so a
-completed response can still be transferred and persisted. Conversation PDF,
-DOC/DOCX, and PPT/PPTX uploads try the in-cluster MinerU Adapter first and use
-DeerFlow's local Markdown conversion only when that request fails. The upload is
-reported as partially unreadable only when both paths fail. Legacy binary
-`.doc` uses the current task sandbox's LibreOffice to make a temporary DOCX
-before the local Markdown step; those temporary files are deleted immediately.
+The enterprise Gateway manifest sets
+`DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=570`, while the dispatcher uses
+a 45-second admission wait and a 550-second interactive request timeout. All
+three remain below Nginx's 600-second upload timeout. Conversation Word fallback
+stages are independently bounded at 120 seconds. The Adapter therefore returns
+success or a controlled parser failure before Nginx can emit 504. Enterprise
+also sets
+`DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED=false` so
+Gateway does not repeat another unbounded local parse after the Adapter has
+already exhausted AnyDoc, DocReader, LibreOffice, and MinerU. The upstream-
+compatible code default still permits local conversion where the complete
+enterprise Adapter is not deployed.
+
+The production Gateway resource baseline is requests `2 CPU / 4Gi` and limits
+`4 CPU / 16Gi`. This reserves CPU for the single Gateway endpoint during
+WeKnora parser traffic and bounded PostgreSQL maintenance. Treat an ad-hoc
+resource patch as incident recovery only: update `runtime-patches.yaml` and its
+release test before the next declarative rollout, or the next apply can silently
+restore the lower pre-incident CPU settings.
 
 ```yaml
 sandbox:

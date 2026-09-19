@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowUpRightIcon, FileDiffIcon } from "lucide-react";
+import {
+  ArrowUpRightIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  FileDiffIcon,
+} from "lucide-react";
 import { useState } from "react";
 
 import { Sheet } from "@/components/ui/sheet";
@@ -15,6 +20,8 @@ import { cn } from "@/lib/utils";
 
 import { WorkspaceChangePanel } from "./workspace-change-panel";
 
+const COLLAPSED_FILE_COUNT = 3;
+
 export function WorkspaceChangeBadge({
   threadId,
   runId,
@@ -26,6 +33,7 @@ export function WorkspaceChangeBadge({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  const [expandedRunId, setExpandedRunId] = useState<string>();
   const { data, isLoading } = useWorkspaceChanges({
     threadId,
     runId,
@@ -44,6 +52,9 @@ export function WorkspaceChangeBadge({
   }
 
   const files = sortWorkspaceChanges(data.files);
+  const expanded = expandedRunId === runId;
+  const visibleFiles = expanded ? files : files.slice(0, COLLAPSED_FILE_COUNT);
+  const hiddenFileCount = Math.max(0, files.length - COLLAPSED_FILE_COUNT);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -81,12 +92,34 @@ export function WorkspaceChangeBadge({
             </div>
           )}
           {!isLoading &&
-            files.map((file) => (
+            visibleFiles.map((file) => (
               <WorkspaceChangeSummaryRow
                 key={`${file.status}:${file.path}`}
                 file={file}
               />
             ))}
+          {!isLoading && hiddenFileCount > 0 ? (
+            <button
+              type="button"
+              aria-expanded={expanded}
+              data-testid="workspace-change-file-toggle"
+              className="border-border/70 text-foreground hover:bg-muted/40 flex w-full items-center gap-1 border-t px-3 py-2.5 text-left text-sm font-medium transition-colors"
+              onClick={() =>
+                setExpandedRunId((current) =>
+                  current === runId ? undefined : runId,
+                )
+              }
+            >
+              {expanded
+                ? t.workspaceChanges.showFewerFiles
+                : t.workspaceChanges.showMoreFiles(hiddenFileCount)}
+              {expanded ? (
+                <ChevronUpIcon aria-hidden="true" className="size-4" />
+              ) : (
+                <ChevronDownIcon aria-hidden="true" className="size-4" />
+              )}
+            </button>
+          ) : null}
         </div>
       </div>
       <WorkspaceChangePanel
@@ -103,7 +136,10 @@ function WorkspaceChangeSummaryRow({ file }: { file: WorkspaceFileChange }) {
   const pathParts = formatWorkspacePath(file.path);
 
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+    <div
+      data-testid="workspace-change-summary-row"
+      className="flex items-center justify-between gap-3 px-3 py-2.5"
+    >
       <div className="min-w-0 truncate text-sm" title={file.path}>
         {pathParts.dirname && (
           <span className="text-muted-foreground">{pathParts.dirname}/</span>

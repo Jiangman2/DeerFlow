@@ -14,6 +14,7 @@ import {
 
 import { WorkspaceChannelsList } from "./channels/workspace-channels-list";
 import { RecentChatList } from "./recent-chat-list";
+import { ThreadDeleteDialogProvider } from "./thread-delete-dialog";
 import { WorkspaceHeader } from "./workspace-header";
 import { WorkspaceNavChatList } from "./workspace-nav-chat-list";
 import { WorkspaceNavMenu } from "./workspace-nav-menu";
@@ -38,7 +39,7 @@ export function WorkspaceSidebar({
     previousPathnameRef.current = pathname;
   }, [isMobile, pathname, setOpenMobile]);
   return (
-    <>
+    <ThreadDeleteDialogProvider>
       <Sidebar
         variant="sidebar"
         collapsible="icon"
@@ -58,6 +59,6 @@ export function WorkspaceSidebar({
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-    </>
+    </ThreadDeleteDialogProvider>
   );
 }

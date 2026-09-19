@@ -27,10 +27,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["artifacts"])
 
+# Exact matches only; ``_is_active_content_mime_type`` also treats every
+# ``+xml`` subtype as active content.
 ACTIVE_CONTENT_MIME_TYPES = {
     "text/html",
     "application/xhtml+xml",
     "image/svg+xml",
+    "text/xml",
+    "application/xml",
+    "text/xsl",
 }
 
 TEXT_CONTENT_MIME_TYPES = {
@@ -54,6 +59,21 @@ MAX_PDF_PREVIEW_BYTES = 64 * 1024 * 1024
 MAX_PDF_PREVIEW_PAGES = 100
 _PDF_PREVIEW_RENDER_SCALE = 1.5
 _PDF_PREVIEW_LOCK = threading.Lock()
+
+
+def _is_active_content_mime_type(mime_type: str | None) -> bool:
+    """Return whether a browser can execute content rendered for *mime_type*.
+
+    Browsers treat HTML plus every XML document type as active content.  XML
+    includes the two base MIME types, XSL, and any structured ``+xml`` subtype;
+    those documents can carry XHTML-namespaced scripts when served from the
+    application origin.
+    """
+    if mime_type is None:
+        return False
+    normalized = mime_type.lower()
+    return normalized in ACTIVE_CONTENT_MIME_TYPES or normalized.endswith("+xml")
+
 
 # ``server.py --live`` currently listens on 5050 inside the AIO Sandbox.  Do
 # not turn this into an arbitrary localhost proxy: the port is an explicit
@@ -192,8 +212,8 @@ async def _proxy_live_preview(
         runtime_profile == PPT_MASTER_RUNTIME_PROFILE
         and os.environ.get("DEER_FLOW_RUNTIME_PROFILE") != PPT_MASTER_RUNTIME_PROFILE
     ):
-        # The isolated Runner owns the Sandbox lifecycle.  Forward the browser
-        # request to the co-located Sidecar instead of discovering that Sandbox
+        # The isolated Runner owns the Sandbox lifecycle. Forward the browser
+        # request to its internal Service instead of discovering that Sandbox
         # through the main Gateway's provider: discovery would make the main
         # process eligible to release/destroy a Sandbox that is still executing
         # in the Runner process.
@@ -254,7 +274,7 @@ async def _forward_live_preview_to_runner(
     request: Request,
     thread_id: str,
 ) -> Response:
-    """Forward a Runner-owned preview to the Sidecar in the same K8S Pod."""
+    """Forward a Runner-owned preview to the isolated internal Service."""
     target_url = f"{PPT_MASTER_RUNNER_INTERNAL_URL}{request.url.path}"
     forward_headers: dict[str, str] = {}
     for header_name in (
@@ -513,7 +533,7 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
     # Active content / explicit download is streamed by FileResponse — no read here.
     normalized_virtual_path = "/" + path.replace("\\", "/").lstrip("/")
     is_user_upload = normalized_virtual_path.startswith("/mnt/user-data/uploads/")
-    if download or (is_user_upload and not _is_safe_inline_upload_mime(mime_type)) or mime_type in ACTIVE_CONTENT_MIME_TYPES:
+    if download or (is_user_upload and not _is_safe_inline_upload_mime(mime_type)) or _is_active_content_mime_type(mime_type):
         return ("attachment", mime_type, None)
     if mime_type == "application/pdf" and pdf_file_requires_attachment(actual_path):
         return ("attachment", mime_type, None)
@@ -712,7 +732,7 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
         cache_headers = {"Cache-Control": "private, max-age=300"}
         download_name = Path(internal_path).name or actual_skill_path.stem
         normalized_skill_path = "/" + skill_file_path.replace("\\", "/").lstrip("/")
-        if download or normalized_skill_path.startswith("/mnt/user-data/uploads/") or mime_type in ACTIVE_CONTENT_MIME_TYPES:
+        if download or normalized_skill_path.startswith("/mnt/user-data/uploads/") or _is_active_content_mime_type(mime_type):
             return Response(
                 content=content,
                 media_type="application/octet-stream",

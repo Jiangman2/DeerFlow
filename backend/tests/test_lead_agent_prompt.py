@@ -34,6 +34,10 @@ def test_build_self_update_section_present_for_custom_agent():
     assert '"null"' in section
 
 
+def test_build_self_update_section_omitted_when_update_tool_is_not_bound():
+    assert prompt_module._build_self_update_section("team-agent", enabled=False) == ""
+
+
 def test_build_custom_mounts_section_returns_empty_when_no_mounts(monkeypatch):
     config = SimpleNamespace(sandbox=SimpleNamespace(mounts=[]))
     monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)

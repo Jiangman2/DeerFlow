@@ -66,8 +66,8 @@ async def test_scheduled_task_run_repository_records_history(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_mark_stale_active_runs_fails_orphaned_runs(tmp_path):
-    """Runs stuck in queued/running after a process crash are swept to interrupted."""
+async def test_mark_stale_active_runs_preserves_queue_and_interrupts_live_run(tmp_path):
+    """Durable queued work survives restart while a process-owned live run does not."""
     await init_engine_from_config(DatabaseConfig(backend="sqlite", sqlite_dir=str(tmp_path)))
     sf = get_session_factory()
     assert sf is not None
@@ -83,8 +83,8 @@ async def test_mark_stale_active_runs_fails_orphaned_runs(tmp_path):
     )
     await repo.create(
         run_record_id="task-run-running",
-        task_id="task-1",
-        thread_id="thread-1",
+        task_id="task-2",
+        thread_id="thread-2",
         scheduled_for=datetime(2026, 7, 2, 1, 0, tzinfo=UTC),
         trigger="scheduled",
         status="running",
@@ -99,12 +99,14 @@ async def test_mark_stale_active_runs_fails_orphaned_runs(tmp_path):
     )
 
     swept = await repo.mark_stale_active_runs(error="interrupted: gateway restarted")
-    assert swept == 2
+    assert swept == 1
 
     history = await repo.list_by_task("task-1")
     by_id = {entry["id"]: entry for entry in history}
-    assert by_id["task-run-queued"]["status"] == "interrupted"
-    assert by_id["task-run-running"]["status"] == "interrupted"
+    running_history = await repo.list_by_task("task-2")
+    running_by_id = {entry["id"]: entry for entry in running_history}
+    assert by_id["task-run-queued"]["status"] == "queued"
+    assert running_by_id["task-run-running"]["status"] == "interrupted"
     assert by_id["task-run-success"]["status"] == "success"
 
     await close_engine()

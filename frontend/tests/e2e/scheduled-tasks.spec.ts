@@ -129,6 +129,113 @@ test("user can create a scheduled task from the page", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("user can create a fixed-interval task", async ({ page }) => {
+  let createBody: Record<string, unknown> | null = null;
+  mockLangGraphAPI(page, { threads: [], scheduledTasks: [] });
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname.endsWith("/api/scheduled-tasks")
+    ) {
+      createBody = request.postDataJSON() as Record<string, unknown>;
+    }
+  });
+
+  await page.goto("/workspace/scheduled-tasks");
+  await page
+    .locator("header")
+    .getByRole("button", { name: "Create scheduled task" })
+    .click();
+  const createForm = page.getByTestId("scheduled-task-create-form");
+  await createForm.getByRole("button", { name: "Interval" }).click();
+  await createForm.getByLabel("Repeat every").fill("90");
+  await createForm.getByPlaceholder("Task title").fill("Interval health check");
+  await createForm.getByPlaceholder("Prompt").fill("Check system health");
+  if (process.env.SCHEDULED_TASK_QA_SCREENSHOT_INTERVAL) {
+    await page.screenshot({
+      path: process.env.SCHEDULED_TASK_QA_SCREENSHOT_INTERVAL,
+      fullPage: false,
+    });
+  }
+  await createForm.getByRole("button", { name: "Create" }).click();
+
+  await expect(
+    page.getByRole("button", { name: /Interval health check/i }),
+  ).toBeVisible();
+  expect(createBody).toMatchObject({
+    assistant_id: "lead_agent",
+    schedule_type: "interval",
+    schedule_spec: { every_seconds: 5400 },
+  });
+});
+
+test("duplicate pre-fills a new task without creating it", async ({ page }) => {
+  let createRequests = 0;
+  mockLangGraphAPI(page, {
+    threads: [],
+    scheduledTasks: [
+      {
+        id: "task-copy-source",
+        thread_id: "thread-copy-source",
+        context_mode: "reuse_thread",
+        assistant_id: "research-bot",
+        title: "Daily summary",
+        prompt: "Summarize this conversation",
+        schedule_type: "cron",
+        schedule_spec: { cron: "0 18 * * *" },
+        timezone: "UTC",
+        status: "enabled",
+        next_run_at: "2026-08-28T18:00:00Z",
+        last_run_at: null,
+        last_run_id: null,
+        last_error: null,
+        run_count: 0,
+        created_at: "2026-08-01T00:00:00Z",
+        updated_at: "2026-08-01T00:00:00Z",
+      },
+    ],
+  });
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname.endsWith("/api/scheduled-tasks")
+    ) {
+      createRequests += 1;
+    }
+  });
+
+  await page.goto("/workspace/scheduled-tasks");
+  await page.getByRole("button", { name: /Daily summary/i }).click();
+  await page
+    .getByTestId("scheduled-task-detail")
+    .getByRole("button", { name: "Duplicate" })
+    .click();
+
+  const createForm = page.getByTestId("scheduled-task-create-form");
+  await expect(createForm.getByPlaceholder("Task title")).toHaveValue(
+    "Daily summary (Copy)",
+  );
+  await expect(createForm.getByPlaceholder("Prompt")).toHaveValue(
+    "Summarize this conversation",
+  );
+  await expect(createForm.getByPlaceholder("Thread ID")).toHaveValue(
+    "thread-copy-source",
+  );
+  await expect(
+    createForm.getByTestId("scheduled-task-create-agent"),
+  ).toContainText("research-bot");
+  await expect(createForm.getByTestId("schedule-preview")).toHaveText(
+    "Every day at 18:00 (UTC)",
+  );
+  if (process.env.SCHEDULED_TASK_QA_SCREENSHOT_DUPLICATE) {
+    await page.screenshot({
+      path: process.env.SCHEDULED_TASK_QA_SCREENSHOT_DUPLICATE,
+      fullPage: false,
+    });
+  }
+  expect(createRequests).toBe(0);
+});
+
 test("create form keeps the schedule preview above its action bar", async ({
   page,
 }) => {

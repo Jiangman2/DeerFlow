@@ -219,6 +219,11 @@ FastAPI application providing REST endpoints for frontend integration:
 | `GET /api/threads/{id}/artifacts/{path}`     | Serve generated artifacts                                                                                                                             |
 | `GET /api/threads/{id}/artifact-previews/pdf/{path}` | Render a validated generated output PDF as a scriptless server-rasterized page gallery; uploads and unsafe PDFs are rejected                         |
 
+Personal Digital Employee CRUD supports file or SQL persistence through
+`agent_storage.backend`. Async Gateway routes offload both backend selection and
+the store operation so configuration, filesystem, and synchronous SQL work do
+not block unrelated requests on the event loop.
+
 ### IM Channels
 
 The IM bridge supports Feishu, Slack, and Telegram. Slack and Telegram still use the final `runs.wait()` response path, while Feishu now streams through `runs.stream(["messages-tuple", "values"])`, serializes rapid same-thread turns inside the channel manager, and updates a single in-thread card per source message in place.

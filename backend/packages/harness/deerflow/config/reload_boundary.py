@@ -44,6 +44,7 @@ STARTUP_ONLY_PREFIX = "startup-only:"
 #: which subsystem to restart.
 STARTUP_ONLY_FIELDS: dict[str, str] = {
     "database": ("init_engine_from_config() runs once during langgraph_runtime() startup; the SQLAlchemy engine holds the connection pool and is not rebuilt on config.yaml edits."),
+    "agent_storage": ("custom-agent graph workers and Gateway routes select their definition store from the startup configuration; changing file/db mode requires every process to restart together."),
     "checkpointer": ("make_checkpointer() binds the persistent checkpointer once at startup, including SQLite WAL / busy_timeout settings."),
     "run_events": ("make_run_event_store() picks the memory- vs SQL-backed implementation at startup and is frozen onto app.state.run_events_config to stay paired with the underlying event store."),
     "stream_bridge": ("make_stream_bridge() constructs the stream-bridge singleton once during startup."),

@@ -2,14 +2,34 @@
 
 from __future__ import annotations
 
+import base64
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
 
 from deerflow.config.agents_api_config import AgentsApiConfig, get_agents_api_config, set_agents_api_config
+
+
+@pytest.fixture(autouse=True)
+def _use_isolated_file_agent_store(monkeypatch):
+    """Keep legacy file-layout tests independent of a developer config.yaml."""
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    store = FileAgentStore()
+    monkeypatch.setattr(
+        "deerflow.persistence.agents.get_agent_store",
+        lambda: store,
+    )
+    # The router imports the symbol directly and may already be loaded during
+    # test collection, so patch that binding as well.
+    monkeypatch.setattr(
+        "app.gateway.routers.agents.get_agent_store",
+        lambda: store,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -116,6 +136,43 @@ class TestAgentConfig:
         assert cfg.name == "code-reviewer"
         assert cfg.model == "deepseek-v3"
         assert cfg.tool_groups == ["file:read", "bash"]
+
+    def test_digital_employee_metadata(self):
+        from deerflow.config.agents_config import AgentConfig
+
+        cfg = AgentConfig(
+            name="monthly-report",
+            display_name="月报数字员工",
+            category_id="research",
+            tags=["月报", "研究"],
+            avatar_id="report-research",
+        )
+
+        assert cfg.display_name == "月报数字员工"
+        assert cfg.category_id == "research"
+        assert cfg.tags == ["月报", "研究"]
+        assert cfg.avatar_id == "report-research"
+
+    def test_display_name_rejects_invisible_format_controls(self):
+        from deerflow.config.agents_config import AgentConfig
+
+        with pytest.raises(ValueError, match="invisible formatting controls"):
+            AgentConfig(name="safe-id", display_name="安全\u202e名称")
+
+    def test_invalid_legacy_display_name_is_ignored_without_hiding_employee(self):
+        from deerflow.persistence.agents.base import parse_agent_config
+
+        cfg = parse_agent_config(
+            {
+                "name": "safe-id",
+                "display_name": "安全\u202e名称",
+                "description": "仍应可访问",
+            },
+            "safe-id",
+        )
+
+        assert cfg.display_name is None
+        assert cfg.description == "仍应可访问"
 
     def test_config_from_dict(self):
         from deerflow.config.agents_config import AgentConfig
@@ -603,6 +660,232 @@ def disabled_agent_client(tmp_path):
 
 
 class TestAgentsAPI:
+    @pytest.mark.parametrize(
+        ("payload", "field"),
+        [
+            ({"name": "n" * 65}, "name"),
+            ({"name": "description-limit", "description": "x" * 501}, "description"),
+            ({"name": "tag-count-limit", "tags": [f"tag-{i}" for i in range(9)]}, "tags"),
+            ({"name": "tag-length-limit", "tags": ["x" * 21]}, "tags"),
+            ({"name": "unknown-category", "category_id": "not-configured"}, "category_id"),
+        ],
+    )
+    def test_create_enforces_digital_employee_field_limits(self, agent_client, payload, field):
+        response = agent_client.post(
+            "/api/agents",
+            json={**payload, "soul": "Helpful."},
+        )
+        assert response.status_code == 422, (field, response.text)
+
+    def test_create_accepts_last_bundled_avatar(self, agent_client):
+        response = agent_client.post(
+            "/api/agents",
+            json={
+                "name": "renewables-specialist",
+                "avatar_id": "renewables-engineer",
+                "soul": "Helpful.",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["avatar_id"] == "renewables-engineer"
+
+    def test_create_rejects_invisible_display_name(self, agent_client):
+        response = agent_client.post(
+            "/api/agents",
+            json={
+                "name": "safe-id",
+                "display_name": "安全\u202e名称",
+                "soul": "Helpful.",
+            },
+        )
+        assert response.status_code == 422
+
+    def test_create_and_update_digital_employee_metadata(self, agent_client, tmp_path):
+        response = agent_client.post(
+            "/api/agents",
+            json={
+                "name": "monthly-report",
+                "display_name": "月报数字员工",
+                "description": "编写月报",
+                "category_id": "science-technology-innovation",
+                "tags": ["月报", "研究"],
+                "avatar_id": "report-research",
+                "soul": "Write concise reports.",
+            },
+        )
+
+        assert response.status_code == 201
+        created = response.json()
+        assert created["display_name"] == "月报数字员工"
+        assert created["category_id"] == "science-technology-innovation"
+        assert created["tags"] == ["月报", "研究"]
+        assert created["avatar_id"] == "report-research"
+
+        updated = agent_client.put(
+            "/api/agents/monthly-report",
+            json={"category_id": "oil-gas-resource-development", "tags": ["日报", "自动化"]},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["category_id"] == "oil-gas-resource-development"
+        assert updated.json()["tags"] == ["日报", "自动化"]
+
+        config_file = tmp_path / "users" / "test-user-autouse" / "agents" / "monthly-report" / "config.yaml"
+        config = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+        assert config["avatar_id"] == "report-research"
+
+    def test_digital_employee_categories_use_fixed_corporate_domains(self, agent_client):
+        response = agent_client.get("/api/digital-employee-categories")
+        assert response.status_code == 200
+        categories = response.json()["items"]
+        assert len(categories) == 26
+        assert [item["name"] for item in categories if item["domain_group"] == "unified"] == [
+            "综合管理",
+            "人力资源",
+            "党建",
+            "战略发展",
+            "生产经营",
+            "财务资本",
+            "勘探开发",
+            "工程技术",
+            "科技创新",
+            "安全环保",
+            "数智化",
+            "国际业务",
+            "企业管理",
+            "法务",
+            "物资供应链",
+            "销售贸易",
+            "审计巡视",
+        ]
+        assert [item["name"] for item in categories if item["domain_group"] == "distributed"] == [
+            "油气资源开发",
+            "新能源",
+            "油田服务",
+            "海洋工程建设",
+            "能源技术服务",
+            "天然气与发电",
+            "炼油化工",
+            "化学",
+            "金融服务",
+        ]
+
+    def test_digital_employee_category_admin_mutation_route_is_removed(self, agent_client):
+        response = agent_client.put(
+            "/api/admin/digital-employee-categories",
+            json={"items": []},
+        )
+        assert response.status_code == 404
+
+    def test_legacy_category_is_inferred_in_agent_response(self, agent_client, tmp_path):
+        agent_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "hse-reviewer"
+        agent_dir.mkdir(parents=True)
+        (agent_dir / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "hse-reviewer",
+                    "display_name": "HSE 安全审查员",
+                    "category_id": "general",
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+
+        response = agent_client.get("/api/agents")
+
+        assert response.status_code == 200
+        assert response.json()["agents"][0]["category_id"] == "safety-environment"
+
+    def test_file_category_migration_updates_personal_and_square_agents(self, agent_client, tmp_path):
+        import app.gateway.routers.agents as agents_router
+
+        personal_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "hse-reviewer"
+        personal_dir.mkdir(parents=True)
+        (personal_dir / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "hse-reviewer",
+                    "display_name": "HSE 安全审查员",
+                    "category_id": "general",
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        team_dir = tmp_path / "team_agents" / "research-writer"
+        team_dir.mkdir(parents=True)
+        (team_dir / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "research-writer",
+                    "description": "科研报告编写",
+                    "category_id": "research",
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        app_config = MagicMock()
+        app_config.agent_storage.backend = "file"
+
+        with patch.object(agents_router, "get_app_config", return_value=app_config):
+            migrated = agents_router.migrate_digital_employee_categories()
+
+        assert migrated == 2
+        personal = yaml.safe_load((personal_dir / "config.yaml").read_text(encoding="utf-8"))
+        team = yaml.safe_load((team_dir / "config.yaml").read_text(encoding="utf-8"))
+        assert personal["category_id"] == "safety-environment"
+        assert team["category_id"] == "science-technology-innovation"
+
+    def test_db_category_migration_uses_raw_field_patch(self, agent_client):
+        import app.gateway.routers.agents as agents_router
+        from deerflow.config.agents_config import AgentConfig
+
+        app_config = MagicMock()
+        app_config.agent_storage.backend = "db"
+        store = MagicMock()
+        store.list_all.return_value = [
+            (
+                "finance-user",
+                AgentConfig(
+                    name="settlement-reviewer",
+                    display_name="财务决算报告复核员工",
+                    category_id="general",
+                ),
+            )
+        ]
+
+        with (
+            patch.object(agents_router, "get_app_config", return_value=app_config),
+            patch.object(agents_router, "get_agent_store", return_value=store),
+        ):
+            migrated = agents_router.migrate_digital_employee_categories()
+
+        assert migrated == 1
+        store.patch_config.assert_called_once_with(
+            "settlement-reviewer",
+            {"category_id": "finance-capital"},
+            user_id="finance-user",
+        )
+        store.update.assert_not_called()
+
+    def test_custom_avatar_is_reencoded_and_served(self, agent_client):
+        created = agent_client.post("/api/agents", json={"name": "avatar-agent", "soul": "Helpful."})
+        assert created.status_code == 201
+
+        png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+        uploaded = agent_client.post(
+            "/api/agents/avatar-agent/avatar",
+            files={"file": ("avatar.png", png, "image/png")},
+        )
+
+        assert uploaded.status_code == 200
+        assert uploaded.json()["avatar_url"].endswith("/api/agents/avatar-agent/avatar")
+        served = agent_client.get("/api/agents/avatar-agent/avatar")
+        assert served.status_code == 200
+        assert served.headers["content-type"].startswith("image/webp")
+        assert served.content.startswith(b"RIFF")
+
     def test_external_agent_click_accepts_builtin_agent(self, agent_client):
         response = agent_client.post(
             "/api/agent-analytics/external-click",
@@ -861,8 +1144,15 @@ class TestAgentsAPI:
     def test_delete_agent(self, agent_client):
         agent_client.post("/api/agents", json={"name": "del-me", "soul": "bye"})
 
-        response = agent_client.delete("/api/agents/del-me")
+        import app.gateway.routers.agents as agents_router
+
+        memory_manager = MagicMock()
+        memory_manager.cancel_by_agent.return_value = 1
+        with patch.object(agents_router, "get_memory_manager", return_value=memory_manager):
+            response = agent_client.delete("/api/agents/del-me")
         assert response.status_code == 204
+        assert memory_manager.cancel_by_agent.call_count == 2
+        memory_manager.cancel_by_agent.assert_called_with("del-me", user_id="test-user-autouse")
 
         # Verify it's gone
         response = agent_client.get("/api/agents/del-me")
@@ -876,14 +1166,14 @@ class TestAgentsAPI:
         payload = {
             "name": "specialized",
             "description": "Specialized agent",
-            "model": "deepseek-v3",
+            "model": "test-model",
             "tool_groups": ["file:read", "bash"],
             "soul": "You are specialized.",
         }
         response = agent_client.post("/api/agents", json=payload)
         assert response.status_code == 201
         data = response.json()
-        assert data["model"] == "deepseek-v3"
+        assert data["model"] == "test-model"
         assert data["tool_groups"] == ["file:read", "bash"]
 
     def test_create_persists_files_on_disk(self, agent_client, tmp_path):

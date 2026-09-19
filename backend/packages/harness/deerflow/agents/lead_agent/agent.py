@@ -43,7 +43,7 @@ from deerflow.agents.middlewares.view_image_middleware import ViewImageMiddlewar
 from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
 from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware
 from deerflow.agents.thread_state import ThreadState
-from deerflow.config.agents_config import load_agent_config, validate_agent_name
+from deerflow.config.agents_config import is_personal_agent, load_agent_config, validate_agent_name
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.memory_config import should_use_memory_tools
 from deerflow.config.subagents_config import DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN
@@ -86,6 +86,15 @@ def _with_non_interactive_guidance(prompt: str, *, enabled: bool) -> str:
 def _default_max_total_subagents(app_config: object) -> int:
     subagents_config = getattr(app_config, "subagents", None)
     return getattr(subagents_config, "max_total_per_run", DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN)
+
+
+def _resolve_runtime_option(cfg: dict, key: str, agent_value, default):
+    """Resolve request > digital employee > runtime-default precedence."""
+    if key in cfg:
+        return cfg[key]
+    if agent_value is not None:
+        return agent_value
+    return default
 
 
 def _append_memory_tools_without_name_conflicts(tools: list) -> None:
@@ -516,11 +525,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
 
     cfg = _get_runtime_config(config)
     runtime_context = config.get("context")
-    datalake_enabled = (
-        runtime_context.get("datalake_enabled", True)
-        if isinstance(runtime_context, dict)
-        else True
-    )
+    datalake_enabled = runtime_context.get("datalake_enabled", True) if isinstance(runtime_context, dict) else True
     resolved_app_config = app_config
 
     # Extract user_id for user-scoped skill loading.
@@ -531,8 +536,6 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     runtime_user_id = cfg.get("user_id")
     resolved_user_id = str(runtime_user_id) if runtime_user_id else get_effective_user_id()
 
-    thinking_enabled = cfg.get("thinking_enabled", True)
-    reasoning_effort = cfg.get("reasoning_effort", None)
     requested_model_name: str | None = cfg.get("model_name") or cfg.get("model")
     is_plan_mode = cfg.get("is_plan_mode", False)
     subagent_enabled = cfg.get("subagent_enabled", False)
@@ -546,6 +549,18 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     available_skills = _available_skill_names(agent_config, is_bootstrap)
     # Custom agent model from agent config (if any), or None to let _resolve_model_name pick the default
     agent_model_name = agent_config.model if agent_config and agent_config.model else None
+
+    agent_thinking = getattr(agent_config, "thinking_enabled", None) if agent_config else None
+    agent_reasoning = getattr(agent_config, "reasoning_effort", None) if agent_config else None
+    thinking_enabled = bool(_resolve_runtime_option(cfg, "thinking_enabled", agent_thinking, True))
+    reasoning_effort = _resolve_runtime_option(
+        cfg,
+        "reasoning_effort",
+        agent_reasoning,
+        None,
+    )
+    agent_model_settings = getattr(agent_config, "model_settings", None) if agent_config else None
+    agent_model_overrides = agent_model_settings.model_dump(exclude_none=True) if agent_model_settings else None
 
     # Final model name resolution: request → agent config → global default, with fallback for unknown names
     model_name = _resolve_model_name(requested_model_name or agent_model_name, app_config=resolved_app_config)
@@ -667,8 +682,10 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             state_schema=ThreadState,
         )
 
-    # Custom agents can update their own SOUL.md / config via update_agent.
-    # The default agent (no agent_name) does not see this tool.
+    # Personal custom agents can update their own SOUL.md / config via
+    # update_agent. Team/legacy shared agents and the default agent do not see
+    # this tool: shared agents are immutable published snapshots, and exposing
+    # the tool would let a viewer create a same-name personal shadow.
     # Build skill search setup from policy-filtered skills (same list used for
     # tool-policy filtering), so describe_skill only exposes allowed skills.
     skill_setup = build_skill_search_setup(
@@ -688,10 +705,11 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     #
     # The channel name is plumbed into ``run_context`` by
     # ``ChannelManager._resolve_run_params``; bootstrap and direct invocations
-    # leave it unset, so ``update_agent`` remains available there.
+    # leave it unset, so personal agents keep ``update_agent`` there.
     channel_name = cfg.get("channel_name")
     is_webhook_channel = channel_name in _WEBHOOK_CHANNELS
-    extra_tools = [update_agent] if agent_name and not is_webhook_channel else []
+    can_update_agent = bool(agent_name and not is_webhook_channel and is_personal_agent(agent_name, user_id=resolved_user_id))
+    extra_tools = [update_agent] if can_update_agent else []
     # Default lead agent (unchanged behavior)
     raw_tools = get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled, app_config=resolved_app_config)
     filtered = filter_tools_by_skill_allowed_tools(raw_tools + extra_tools, skills_for_tool_policy, always_allowed_tool_names=ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES)
@@ -716,7 +734,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     if should_use_memory_tools(resolved_app_config.memory):
         _append_memory_tools_without_name_conflicts(final_tools)
     return create_agent(
-        model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, reasoning_effort=reasoning_effort, app_config=resolved_app_config, attach_tracing=False),
+        model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, reasoning_effort=reasoning_effort, app_config=resolved_app_config, attach_tracing=False, model_overrides=agent_model_overrides),
         tools=final_tools,
         middleware=build_middlewares(
             config,
@@ -734,6 +752,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
                 max_concurrent_subagents=max_concurrent_subagents,
                 max_total_subagents=max_total_subagents,
                 agent_name=agent_name,
+                self_update_enabled=can_update_agent,
                 available_skills=available_skills,
                 app_config=resolved_app_config,
                 deferred_names=setup.deferred_names,

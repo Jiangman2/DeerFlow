@@ -412,6 +412,7 @@ def test_make_lead_agent_all_legacy_skills_preserve_all_tools(monkeypatch):
     monkeypatch.setattr(lead_agent_module, "apply_prompt_template", lambda **kwargs: "mock_prompt")
     monkeypatch.setattr(lead_agent_module, "create_agent", lambda **kwargs: kwargs)
     monkeypatch.setattr(lead_agent_module, "load_agent_config", lambda x: AgentConfig(name="test", skills=None))
+    monkeypatch.setattr(lead_agent_module, "is_personal_agent", lambda name, *, user_id=None: True, raising=False)
     monkeypatch.setattr(lead_agent_module, "_load_enabled_skills_for_tool_policy", lambda available_skills, *, app_config, user_id=None: [_make_skill("legacy", None)])
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [NamedTool("bash"), NamedTool("read_file")])
 
@@ -530,6 +531,40 @@ def test_make_lead_agent_drops_update_agent_on_github_channel(monkeypatch):
     assert "read_file" in tool_names
 
 
+def test_make_lead_agent_drops_update_agent_for_team_agent(monkeypatch):
+    """Shared team agents are executable by viewers but immutable from chat."""
+    from unittest.mock import MagicMock
+
+    from deerflow.agents.lead_agent import agent as lead_agent_module
+
+    monkeypatch.setattr(lead_agent_module, "_resolve_model_name", lambda x=None, **kwargs: "default-model")
+    monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: "model")
+    monkeypatch.setattr(lead_agent_module, "build_middlewares", lambda *args, **kwargs: [])
+    prompt_kwargs = {}
+
+    def capture_prompt_kwargs(**kwargs):
+        prompt_kwargs.update(kwargs)
+        return "mock_prompt"
+
+    monkeypatch.setattr(lead_agent_module, "apply_prompt_template", capture_prompt_kwargs)
+    monkeypatch.setattr(lead_agent_module, "create_agent", lambda **kwargs: kwargs)
+    monkeypatch.setattr(lead_agent_module, "load_agent_config", lambda x: AgentConfig(name="shared", skills=None))
+    monkeypatch.setattr(lead_agent_module, "is_personal_agent", lambda name, *, user_id=None: False, raising=False)
+    monkeypatch.setattr(lead_agent_module, "_load_enabled_skills_for_tool_policy", lambda available_skills, *, app_config, user_id=None: [_make_skill("legacy", None)])
+    monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [NamedTool("bash")])
+
+    mock_app_config = MagicMock()
+    mock_app_config.get_model_config.return_value = SimpleNamespace(supports_thinking=False, supports_vision=False)
+    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: mock_app_config)
+
+    agent_kwargs = lead_agent_module.make_lead_agent({"configurable": {"agent_name": "shared", "user_id": "viewer"}})
+
+    tool_names = [tool.name for tool in agent_kwargs["tools"]]
+    assert "bash" in tool_names
+    assert "update_agent" not in tool_names
+    assert prompt_kwargs["self_update_enabled"] is False
+
+
 def test_make_lead_agent_keeps_update_agent_on_non_webhook_channels(monkeypatch):
     """Direct invocation and non-webhook channels still get ``update_agent``.
 
@@ -549,6 +584,7 @@ def test_make_lead_agent_keeps_update_agent_on_non_webhook_channels(monkeypatch)
     monkeypatch.setattr(lead_agent_module, "apply_prompt_template", lambda **kwargs: "mock_prompt")
     monkeypatch.setattr(lead_agent_module, "create_agent", lambda **kwargs: kwargs)
     monkeypatch.setattr(lead_agent_module, "load_agent_config", lambda x: AgentConfig(name="test", skills=None))
+    monkeypatch.setattr(lead_agent_module, "is_personal_agent", lambda name, *, user_id=None: True, raising=False)
     monkeypatch.setattr(lead_agent_module, "_load_enabled_skills_for_tool_policy", lambda available_skills, *, app_config, user_id=None: [_make_skill("legacy", None)])
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [NamedTool("bash")])
 

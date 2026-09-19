@@ -37,7 +37,7 @@ spec:
           imagePullPolicy: Never
           env:
             - name: SANDBOX_IMAGE
-              value: deerflow.local/deer-flow-aio-sandbox:20260811-enterprise-arm64-rc15-consolidated2
+              value: deerflow.local/deer-flow-aio-sandbox:20260817-enterprise-arm64-rc15-sandboxstorage1
             - name: SANDBOX_SERVICE_TYPE
               value: ClusterIP
             - name: PPT_MASTER_AGENT_HOST_ENABLED
@@ -119,12 +119,21 @@ spec:
               value: 12Gi
             - name: SANDBOX_SECRET_ENV_KEYS
               value: DASHSCOPE_API_KEY,PEXELS_API_KEY,PIXABAY_API_KEY,SANDBOX_API_KEY,CODEX_API_KEY,ARK_API_KEY,OPENAI_API_KEY,PPT_MASTER_RESPONSES_RELAY_KEY,HTTP_PROXY,HTTPS_PROXY,http_proxy,https_proxy
+            # The pinned ARM64 AIO image's embedded Chromium GPU child crashes
+            # on the production kernel and its supervisor otherwise restarts it
+            # every second. DeerFlow Browser Live is Gateway-local Playwright,
+            # so disabling this separate AIO browser does not remove browser_*
+            # chat tools.
+            - name: DISABLE_BROWSER
+              value: "true"
+            - name: DISABLE_MCP_BROWSER
+              value: "true"
             - name: SANDBOX_PASSTHROUGH_ENV_KEYS
-              value: CODEX_CONFIG_TOML,CODEX_MODEL_CATALOG_JSON,IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy
+              value: CODEX_CONFIG_TOML,CODEX_MODEL_CATALOG_JSON,IMAGE_BACKEND,IMAGE_GENERATION_PROVIDER,QWEN_BASE_URL,QWEN_MODEL,DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,NO_PROXY,no_proxy,DISABLE_BROWSER,DISABLE_MCP_BROWSER
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: SANDBOX_CA_SECRET_NAME
               value: deer-flow-enterprise-ca
             - name: SANDBOX_CA_SECRET_KEY
@@ -182,6 +191,11 @@ metadata:
   name: gateway
   namespace: deer-flow
 spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   template:
     spec:
       containers:
@@ -189,6 +203,32 @@ spec:
           imagePullPolicy: Never
           env:
             - name: DEER_FLOW_SSO_ONLY
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: deer-flow-dashboard-postgres
+                  key: DATABASE_URL
+                  optional: true
+            - name: DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_MAX_CONCURRENT_QUERIES
+              value: "1"
+            - name: DEER_FLOW_DASHBOARD_QUERY_QUEUE_TIMEOUT_MS
+              value: "250"
+            - name: DEER_FLOW_DASHBOARD_STATEMENT_TIMEOUT_MS
+              value: "5000"
+            - name: DEER_FLOW_DASHBOARD_ROLLUPS_ENABLED
+              value: "true"
+            - name: DEER_FLOW_DASHBOARD_ROLLUP_MIN_DAYS
+              value: "2"
+            - name: DEER_FLOW_DASHBOARD_HOURLY_ROLLUP_MIN_HOURS
+              value: "6"
+            - name: DEER_FLOW_DASHBOARD_HOURLY_RETENTION_HOURS
+              value: "72"
+            - name: DEER_FLOW_DASHBOARD_REQUIRE_HOURLY_ROLLUPS
               value: "true"
             - name: SSL_CERT_FILE
               value: /etc/deerflow-ca/ca-bundle.crt
@@ -199,9 +239,9 @@ spec:
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/deerflow-ca/ca-bundle.crt
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: OPENSSL_CONF
               value: /etc/deerflow-openssl/openssl.cnf
             - name: WEKNORA_BAILIAN_TLS_COMPAT
@@ -305,9 +345,37 @@ spec:
             - name: DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED
               value: "true"
             - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS
-              value: "1860"
+              # Must remain below Nginx's 600-second upload timeout. DOCX owns
+              # a four-stage bounded Adapter chain plus dispatcher queueing;
+              # Gateway returns a controlled 503 before Nginx emits a 504.
+              value: "570"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS
+              # Six serialized parser workers are the real active capacity.
+              # Keep a small bounded waiting margin without allowing every
+              # upload request to create a fresh connection/client.
+              value: "16"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS
+              value: "8"
             - name: DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED
               value: "true"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED
+              # The Adapter already exhausts AnyDoc, DocReader,
+              # LibreOffice, and MinerU. Repeating an unbounded local parse in
+              # Gateway can outlive Nginx and surface a misleading 504.
+              value: "false"
+            - name: DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT
+              # Enterprise chat tasks must not start with an unreadable source
+              # or a missing/empty Markdown companion. The code default stays
+              # false to preserve upstream DeerFlow behavior elsewhere.
+              value: "true"
+            - name: DEERFLOW_UPLOAD_PDF_SECURITY_MODE
+              # Keep the security boundary enabled while flattening ordinary
+              # active-content PDFs into inert image-only copies automatically.
+              value: sanitize
+            - name: DEERFLOW_UPLOAD_PDF_SANITIZE_DPI
+              value: "120"
+            - name: DEERFLOW_UPLOAD_PDF_SANITIZE_MAX_PAGES
+              value: "200"
           volumeMounts:
             - name: enterprise-ca
               mountPath: /etc/deerflow-ca
@@ -315,6 +383,47 @@ spec:
             - name: openssl-compat
               mountPath: /etc/deerflow-openssl
               readOnly: true
+          resources:
+            requests:
+              # Production baseline after the 2026-09-16 saturation incident.
+              # Keep enough reserved CPU for the single Gateway endpoint while
+              # WeKnora parser traffic and PostgreSQL maintenance are active.
+              cpu: "2"
+              memory: 4Gi
+            limits:
+              cpu: "4"
+              memory: 16Gi
+      volumes:
+        - name: enterprise-ca
+          secret:
+            secretName: deer-flow-enterprise-ca
+            items:
+              - key: ca-bundle.crt
+                path: ca-bundle.crt
+        - name: openssl-compat
+          configMap:
+            name: deer-flow-gateway-openssl-compat
+            items:
+              - key: openssl.cnf
+                path: openssl.cnf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ppt-master-runner
+  namespace: deer-flow
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          imagePullPolicy: Never
+      containers:
         - name: ppt-master-runner
           imagePullPolicy: Never
           env:
@@ -329,9 +438,9 @@ spec:
             - name: NODE_EXTRA_CA_CERTS
               value: /etc/deerflow-ca/ca-bundle.crt
             - name: NO_PROXY
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: no_proxy
-              value: "localhost,127.0.0.1,::1,gateway,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
+              value: "localhost,127.0.0.1,::1,gateway,ppt-master-runner,provisioner,nginx,weknora-app,weknora-frontend,weknora-docreader,weknora-postgres,weknora-redis,deer-flow-mineru-adapter,model.ai.cnooc,datalake.cnooc,10.77.78.223,10.77.124.142,host.docker.internal,.svc,.cluster.local,10.96.0.0/12,10.244.0.0/16,192.168.111.0/24,github.com,.github.com,githubusercontent.com,.githubusercontent.com"
             - name: OPENSSL_CONF
               value: /etc/deerflow-openssl/openssl.cnf
             - name: TAVILY_TLS_COMPAT
@@ -456,7 +565,7 @@ spec:
               value: "4"
             # Keep document parsing capped independently while allowing the
             # model-heavy image/summary/graph/question fan-out to drain on its
-            # dedicated WeKnora 0.7.0 enrichment pool.
+            # dedicated WeKnora v0.8 enrichment pool.
             - name: WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY
               value: "2"
             - name: WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY
@@ -545,3 +654,54 @@ spec:
           env:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: dashboard-rollup-maintenance
+  namespace: deer-flow
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: dashboard-rollup-maintenance
+              imagePullPolicy: Never
+              env:
+                - name: DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA
+                  value: "true"
+                - name: DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA
+                  value: "true"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: postgres
+          args:
+            - -c
+            - wal_level=replica
+            - -c
+            - max_wal_senders=4
+            - -c
+            - max_replication_slots=4
+            - -c
+            - wal_keep_size=512MB
+            - -c
+            - max_slot_wal_keep_size=4GB
+            - -c
+            - hba_file=/etc/postgresql/replication/pg_hba.conf
+          volumeMounts:
+            - name: replication-config
+              mountPath: /etc/postgresql/replication
+              readOnly: true
+      volumes:
+        - name: replication-config
+          configMap:
+            name: deer-flow-postgres-replication

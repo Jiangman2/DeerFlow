@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from deerflow.persistence.base import Base
@@ -13,7 +13,11 @@ from deerflow.persistence.base import Base
 class FeedbackRow(Base):
     __tablename__ = "feedback"
 
-    __table_args__ = (UniqueConstraint("thread_id", "run_id", "user_id", name="uq_feedback_thread_run_user"),)
+    __table_args__ = (
+        UniqueConstraint("thread_id", "run_id", "user_id", name="uq_feedback_thread_run_user"),
+        Index("ix_feedback_created_at", "created_at"),
+        Index("ix_feedback_run_created_at", "run_id", "created_at"),
+    )
 
     feedback_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     run_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)

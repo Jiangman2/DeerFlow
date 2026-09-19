@@ -1,14 +1,25 @@
 import asyncio
+import hashlib
 import json
 import logging
+import os
 import tempfile
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from app.gateway.deps import get_config, require_admin_user
+from app.gateway.deps import get_config, get_current_user_from_request, require_admin_user
 from app.gateway.path_utils import resolve_thread_virtual_path
+from app.gateway.skillhub_runtime import (
+    RegistrySkillConflictError,
+    RegistrySkillNotFoundError,
+    install_registry_skill,
+    list_registry_skills,
+    set_registry_skill_enabled,
+    uninstall_registry_skill,
+)
 from deerflow.agents.lead_agent.prompt import clear_skills_system_prompt_cache, refresh_user_skills_system_prompt_cache_async
 from deerflow.config.app_config import AppConfig
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
@@ -23,6 +34,7 @@ from deerflow.skills.security_static_scanner import (
     enforce_static_scan,
 )
 from deerflow.skills.storage import SkillStorage, get_or_new_user_skill_storage
+from deerflow.skills.storage.user_scoped_skill_storage import UserScopedSkillStorage
 from deerflow.skills.types import SKILL_MD_FILE, SkillCategory
 
 logger = logging.getLogger(__name__)
@@ -30,6 +42,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["skills"])
 
 _ADMIN_REQUIRED_DETAIL = "Admin privileges required to manage skills."
+_SKILLHUB_PACKAGE_MAX_BYTES = 64 * 1024 * 1024
+
+
+def _require_skillhub_enabled() -> None:
+    if os.getenv("DEER_FLOW_SKILLHUB_ENABLED", "").strip().lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        raise HTTPException(status_code=503, detail="SkillHub integration is disabled")
 
 
 class SkillResponse(BaseModel):
@@ -86,6 +109,30 @@ class SkillRollbackRequest(BaseModel):
     history_index: int = Field(default=-1, description="History entry index to restore from, defaulting to the latest change.")
 
 
+class SkillHubRuntimeSkillResponse(BaseModel):
+    namespace: str
+    slug: str
+    version: str
+    skill_name: str
+    enabled: bool
+    installed: bool
+    sha256: str
+    installed_at: str
+    updated_at: str
+
+
+class SkillHubRuntimeInstallResponse(SkillHubRuntimeSkillResponse):
+    action: str
+
+
+class SkillHubRuntimeSkillsResponse(BaseModel):
+    skills: list[SkillHubRuntimeSkillResponse]
+
+
+class SkillHubRuntimeStateRequest(BaseModel):
+    enabled: bool
+
+
 def _skill_to_response(skill: Skill) -> SkillResponse:
     """Convert a Skill object to a SkillResponse."""
     return SkillResponse(
@@ -129,6 +176,106 @@ def _get_user_skill_storage(config: AppConfig) -> SkillStorage:
     For public skill reads, the global singleton storage is still used.
     """
     return get_or_new_user_skill_storage(get_effective_user_id(), app_config=config)
+
+
+def _get_user_skill_storage_for_user(config: AppConfig, user_id: str) -> UserScopedSkillStorage:
+    storage = get_or_new_user_skill_storage(user_id, app_config=config)
+    if not isinstance(storage, UserScopedSkillStorage):
+        raise RuntimeError("SkillHub runtime installation requires user-scoped skill storage.")
+    return storage
+
+
+def _skillhub_package_size_limit() -> int:
+    raw = os.getenv("DEERFLOW_SKILLHUB_PACKAGE_MAX_BYTES", "").strip()
+    if not raw:
+        return _SKILLHUB_PACKAGE_MAX_BYTES
+    try:
+        configured = int(raw)
+    except ValueError:
+        logger.warning("Ignoring invalid DEERFLOW_SKILLHUB_PACKAGE_MAX_BYTES=%r", raw)
+        return _SKILLHUB_PACKAGE_MAX_BYTES
+    return min(max(configured, 1024 * 1024), 512 * 1024 * 1024)
+
+
+class _SkillHubPackageTooLargeError(ValueError):
+    pass
+
+
+def _copy_skillhub_package(source, limit: int) -> tuple[Path, str, int]:
+    fd, temp_name = tempfile.mkstemp(prefix="deerflow-skillhub-", suffix=".skill")
+    path = Path(temp_name)
+    digest = hashlib.sha256()
+    total = 0
+    try:
+        source.seek(0)
+        with os.fdopen(fd, "wb") as handle:
+            while chunk := source.read(64 * 1024):
+                total += len(chunk)
+                if total > limit:
+                    raise _SkillHubPackageTooLargeError
+                digest.update(chunk)
+                handle.write(chunk)
+        return path, digest.hexdigest(), total
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        path.unlink(missing_ok=True)
+        raise
+
+
+async def _stage_skillhub_package(file: UploadFile) -> tuple[Path, str]:
+    filename = (file.filename or "").strip()
+    if not filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="SkillHub package filename must end with .zip.")
+    limit = _skillhub_package_size_limit()
+    try:
+        path, digest, total = await asyncio.to_thread(
+            _copy_skillhub_package,
+            file.file,
+            limit,
+        )
+        if total == 0:
+            await asyncio.to_thread(path.unlink, missing_ok=True)
+            raise HTTPException(status_code=400, detail="SkillHub package is empty.")
+        return path, digest
+    except _SkillHubPackageTooLargeError as exc:
+        raise HTTPException(
+            status_code=413,
+            detail=f"SkillHub package exceeds the {limit}-byte limit.",
+        ) from exc
+    finally:
+        await file.close()
+
+
+def _raise_skillhub_install_error(error: Exception) -> None:
+    if isinstance(error, HTTPException):
+        raise error
+    if isinstance(error, RegistrySkillNotFoundError):
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    if isinstance(error, (RegistrySkillConflictError, SkillAlreadyExistsError)):
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    if isinstance(error, SkillSecurityScanError):
+        if "Security scan unavailable" in str(error):
+            raise HTTPException(
+                status_code=503,
+                detail=("技能安全复核服务暂时不可用，系统未安装该技能。请稍后重试；若持续失败，请联系管理员检查安全复核模型。"),
+            ) from error
+        if error.findings:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": str(error),
+                    "skill_name": error.skill_name,
+                    "findings": error.findings,
+                },
+            ) from error
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    if isinstance(error, (ValueError, TimeoutError)):
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    logger.error("Unexpected SkillHub runtime adapter failure: %s", error, exc_info=error)
+    raise HTTPException(status_code=500, detail="SkillHub runtime operation failed.") from error
 
 
 @router.get(
@@ -182,6 +329,119 @@ async def install_skill(request: Request, body: SkillInstallRequest, config: App
     except Exception as e:
         logger.error(f"Failed to install skill: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to install skill: {str(e)}")
+
+
+@router.get(
+    "/skillhub/runtime/skills",
+    response_model=SkillHubRuntimeSkillsResponse,
+    summary="List SkillHub Runtime Installations",
+)
+async def list_skillhub_runtime_skills(
+    _skillhub_enabled: None = Depends(_require_skillhub_enabled),
+    user=Depends(get_current_user_from_request),
+    config: AppConfig = Depends(get_config),
+) -> SkillHubRuntimeSkillsResponse:
+    storage = _get_user_skill_storage_for_user(config, str(user.id))
+    try:
+        return SkillHubRuntimeSkillsResponse(skills=await list_registry_skills(storage))
+    except Exception as e:
+        logger.error("Failed to list SkillHub runtime skills: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to list SkillHub runtime skills: {e}") from e
+
+
+@router.post(
+    "/skillhub/runtime/skills",
+    response_model=SkillHubRuntimeInstallResponse,
+    summary="Install or Upgrade a SkillHub Skill in DeerFlow",
+)
+async def install_skillhub_runtime_skill(
+    file: Annotated[UploadFile, File(...)],
+    namespace: Annotated[str, Form(min_length=1, max_length=65)],
+    slug: Annotated[str, Form(min_length=1, max_length=64)],
+    version: Annotated[str, Form(min_length=1, max_length=64)],
+    _skillhub_enabled: None = Depends(_require_skillhub_enabled),
+    user=Depends(get_current_user_from_request),
+    config: AppConfig = Depends(get_config),
+) -> SkillHubRuntimeInstallResponse:
+    storage = _get_user_skill_storage_for_user(config, str(user.id))
+    package_path, digest = await _stage_skillhub_package(file)
+    try:
+        result = await install_registry_skill(
+            storage,
+            namespace=namespace,
+            slug=slug,
+            version=version,
+            archive_path=package_path,
+            sha256=digest,
+        )
+        await refresh_user_skills_system_prompt_cache_async(str(user.id))
+        return SkillHubRuntimeInstallResponse(**result)
+    except Exception as e:
+        try:
+            _raise_skillhub_install_error(e)
+        except HTTPException:
+            raise
+        logger.error("Failed to install SkillHub runtime skill: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to install SkillHub runtime skill: {e}") from e
+    finally:
+        await asyncio.to_thread(package_path.unlink, missing_ok=True)
+
+
+@router.patch(
+    "/skillhub/runtime/skills/{namespace}/{slug}",
+    response_model=SkillHubRuntimeSkillResponse,
+    summary="Enable or Disable a SkillHub Runtime Skill",
+)
+async def update_skillhub_runtime_skill(
+    namespace: str,
+    slug: str,
+    body: SkillHubRuntimeStateRequest,
+    _skillhub_enabled: None = Depends(_require_skillhub_enabled),
+    user=Depends(get_current_user_from_request),
+    config: AppConfig = Depends(get_config),
+) -> SkillHubRuntimeSkillResponse:
+    storage = _get_user_skill_storage_for_user(config, str(user.id))
+    try:
+        result = await set_registry_skill_enabled(
+            storage,
+            namespace=namespace,
+            slug=slug,
+            enabled=body.enabled,
+        )
+        await refresh_user_skills_system_prompt_cache_async(str(user.id))
+        return SkillHubRuntimeSkillResponse(**result)
+    except Exception as e:
+        try:
+            _raise_skillhub_install_error(e)
+        except HTTPException:
+            raise
+        logger.error("Failed to update SkillHub runtime skill: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to update SkillHub runtime skill: {e}") from e
+
+
+@router.delete(
+    "/skillhub/runtime/skills/{namespace}/{slug}",
+    summary="Uninstall a SkillHub Runtime Skill",
+)
+async def delete_skillhub_runtime_skill(
+    namespace: str,
+    slug: str,
+    _skillhub_enabled: None = Depends(_require_skillhub_enabled),
+    user=Depends(get_current_user_from_request),
+    config: AppConfig = Depends(get_config),
+) -> dict[str, bool]:
+    storage = _get_user_skill_storage_for_user(config, str(user.id))
+    try:
+        await uninstall_registry_skill(storage, namespace=namespace, slug=slug)
+        await refresh_user_skills_system_prompt_cache_async(str(user.id))
+        return {"success": True}
+    except Exception as e:
+        try:
+            _raise_skillhub_install_error(e)
+        except HTTPException:
+            raise
+        logger.error("Failed to uninstall SkillHub runtime skill: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to uninstall SkillHub runtime skill: {e}") from e
 
 
 @router.get("/skills/custom", response_model=SkillsListResponse, summary="List Custom Skills")

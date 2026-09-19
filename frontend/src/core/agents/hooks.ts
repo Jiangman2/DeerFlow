@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import {
   createAgent,
   deleteAgent,
+  deleteAgentAvatar,
   fetchAgentsApiEnabled,
   getAgent,
   listAgents,
+  listDigitalEmployeeCategories,
   listTeamAgents,
   publishAgent,
   unpublishTeamAgent,
+  uploadAgentAvatar,
   updateAgent,
 } from "./api";
 import {
@@ -83,6 +86,15 @@ export function useTeamAgents() {
   return { agents: data ?? [], isLoading, error };
 }
 
+export function useDigitalEmployeeCategories() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["digital-employee-categories"],
+    queryFn: () => listDigitalEmployeeCategories(),
+    staleTime: 60_000,
+  });
+  return { categories: data ?? [], isLoading, error };
+}
+
 export function useCreateAgent() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -136,6 +148,29 @@ export function useUnpublishTeamAgent() {
     mutationFn: (name: string) => unpublishTeamAgent(name),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
+    },
+  });
+}
+
+export function useUploadAgentAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, file }: { name: string; file: File }) =>
+      uploadAgentAvatar(name, file),
+    onSuccess: (_data, { name }) => {
+      void queryClient.invalidateQueries({ queryKey: ["agents"] });
+      void queryClient.invalidateQueries({ queryKey: ["agents", name] });
+    },
+  });
+}
+
+export function useDeleteAgentAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteAgentAvatar,
+    onSuccess: (_data, name) => {
+      void queryClient.invalidateQueries({ queryKey: ["agents"] });
+      void queryClient.invalidateQueries({ queryKey: ["agents", name] });
     },
   });
 }

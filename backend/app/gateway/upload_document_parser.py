@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import mimetypes
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,11 @@ import httpx
 _MARKDOWN_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\([^)]+\)")
 _DEFAULT_TIMEOUT_SECONDS = 320.0
 _DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024
+_DEFAULT_MAX_CONNECTIONS = 32
+_DEFAULT_MAX_KEEPALIVE_CONNECTIONS = 16
+_PARSER_CLIENT: httpx.AsyncClient | None = None
+_PARSER_CLIENT_LOCK = threading.Lock()
+_MAX_ERROR_DETAIL_CHARS = 300
 
 
 class UploadDocumentParseError(RuntimeError):
@@ -51,6 +58,62 @@ def _int_env(name: str, default: int) -> int:
     except ValueError:
         return default
     return value if value > 0 else default
+
+
+def _get_parser_client() -> httpx.AsyncClient:
+    """Return the process-wide parser client and its bounded connection pool."""
+    global _PARSER_CLIENT
+    with _PARSER_CLIENT_LOCK:
+        if _PARSER_CLIENT is None or _PARSER_CLIENT.is_closed:
+            _PARSER_CLIENT = httpx.AsyncClient(
+                trust_env=False,
+                limits=httpx.Limits(
+                    max_connections=_int_env(
+                        "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_CONNECTIONS",
+                        _DEFAULT_MAX_CONNECTIONS,
+                    ),
+                    max_keepalive_connections=_int_env(
+                        "DEERFLOW_UPLOAD_DOCUMENT_PARSE_MAX_KEEPALIVE_CONNECTIONS",
+                        _DEFAULT_MAX_KEEPALIVE_CONNECTIONS,
+                    ),
+                    keepalive_expiry=30.0,
+                ),
+            )
+        return _PARSER_CLIENT
+
+
+async def close_conversation_document_parser_client() -> None:
+    """Close the shared parser client during Gateway lifespan shutdown."""
+    global _PARSER_CLIENT
+    with _PARSER_CLIENT_LOCK:
+        client = _PARSER_CLIENT
+        _PARSER_CLIENT = None
+    if client is not None and not client.is_closed:
+        await client.aclose()
+
+
+def _parser_error_detail(response: httpx.Response) -> str | None:
+    """Return a bounded, single-line diagnostic from the trusted adapter."""
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    for key in ("detail", "error", "message"):
+        value = payload.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            try:
+                value = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+            except (TypeError, ValueError):
+                continue
+        normalized = re.sub(r"\s+", " ", value).strip()
+        if normalized:
+            return normalized[:_MAX_ERROR_DETAIL_CHARS]
+    return None
 
 
 def extract_parser_markdown(payload: Any) -> str:
@@ -95,28 +158,27 @@ async def parse_conversation_document(
     )
     timeout = httpx.Timeout(timeout_seconds)
     try:
-        async with httpx.AsyncClient(
+        response = await _get_parser_client().post(
+            endpoint,
+            headers={"X-DeerFlow-Parse-Priority": "interactive"},
+            files={
+                "file": (
+                    Path(filename).name,
+                    content,
+                    mimetypes.guess_type(filename)[0] or "application/octet-stream",
+                )
+            },
             timeout=timeout,
-            trust_env=False,
-        ) as client:
-            response = await client.post(
-                endpoint,
-                headers={"X-DeerFlow-Parse-Priority": "interactive"},
-                files={
-                    "file": (
-                        Path(filename).name,
-                        content,
-                        mimetypes.guess_type(filename)[0] or "application/octet-stream",
-                    )
-                },
-            )
+        )
     except httpx.HTTPError as exc:
         raise UploadDocumentParseError(f"Document parser request failed: {exc.__class__.__name__}") from exc
 
     if len(response.content) > max_response_bytes:
         raise UploadDocumentParseError("Document parser response is too large")
     if response.status_code != 200:
-        raise UploadDocumentParseError(f"Document parser returned HTTP {response.status_code}")
+        detail = _parser_error_detail(response)
+        suffix = f": {detail}" if detail else ""
+        raise UploadDocumentParseError(f"Document parser returned HTTP {response.status_code}{suffix}")
     try:
         payload = response.json()
     except ValueError as exc:

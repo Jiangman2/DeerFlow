@@ -16,7 +16,9 @@ No FastAPI or HTTP dependencies — pure utility functions.
 
 import asyncio
 import logging
+import os
 import re
+import tempfile
 from pathlib import Path
 
 from deerflow.config.app_config import get_app_config
@@ -135,7 +137,11 @@ def _do_convert(file_path: Path, pdf_converter: str) -> str:
     return _convert_with_markitdown(file_path)
 
 
-async def convert_file_to_markdown(file_path: Path) -> Path | None:
+async def convert_file_to_markdown(
+    file_path: Path,
+    *,
+    output_path: Path | None = None,
+) -> Path | None:
     """Convert a supported document file to Markdown.
 
     PDF files are handled with a two-converter strategy (see module docstring).
@@ -144,6 +150,8 @@ async def convert_file_to_markdown(file_path: Path) -> Path | None:
 
     Args:
         file_path: Path to the file to convert.
+        output_path: Optional pre-claimed Markdown destination. When omitted,
+            the historical same-stem destination is preserved.
 
     Returns:
         Path to the generated .md file, or None if conversion failed.
@@ -157,8 +165,37 @@ async def convert_file_to_markdown(file_path: Path) -> Path | None:
         else:
             text = _do_convert(file_path, pdf_converter)
 
-        md_path = file_path.with_suffix(".md")
-        md_path.write_text(text, encoding="utf-8")
+        md_path = output_path or file_path.with_suffix(".md")
+        if not isinstance(text, str) or not text.strip():
+            # Never leave a zero-byte companion behind. Upload middleware
+            # treats the companion as authoritative, so an empty file would
+            # falsely mark parsing as successful and encourage the agent to
+            # install ad-hoc OCR tools in its Sandbox.
+            md_path.unlink(missing_ok=True)
+            logger.error(
+                "Document conversion returned no readable text for %s",
+                file_path.name,
+            )
+            return None
+
+        temp_fd, temp_path_str = tempfile.mkstemp(
+            prefix=f".{md_path.name}.convert-",
+            suffix=".tmp",
+            dir=md_path.parent,
+        )
+        temp_path = Path(temp_path_str)
+        try:
+            with os.fdopen(temp_fd, "w", encoding="utf-8", newline="\n") as handle:
+                # Preserve converter output byte-for-byte (apart from UTF-8
+                # encoding) so existing Markdown consumers do not observe a
+                # formatting change. The strip above is validation only.
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_path, md_path)
+        except Exception:
+            temp_path.unlink(missing_ok=True)
+            raise
 
         logger.info("Converted %s to markdown: %s (%d chars)", file_path.name, md_path.name, len(text))
         return md_path

@@ -15,7 +15,7 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 28
+config_version: 30
 
 # ============================================================================
 # Logging
@@ -645,6 +645,7 @@ tool_groups:
   - name: file:read
   - name: file:write
   - name: bash
+  - name: browser
 
 # ============================================================================
 # Tools Configuration
@@ -652,6 +653,40 @@ tool_groups:
 # Configure available tools for the agent to use
 
 tools:
+  # Stateful browser control for digital employees. Install once with:
+  #   cd backend && uv sync --extra browser && uv run playwright install chromium
+  # Keep GATEWAY_WORKERS=1 while enabled because sessions are process-local.
+  # - name: browser_navigate
+  #   group: browser
+  #   use: deerflow.community.browser_automation.tools:browser_navigate_tool
+  #   headless: true
+  #   timeout_ms: 30000
+  #   viewport_width: 1280
+  #   viewport_height: 720
+  #   # allow_private_addresses: false
+  # - name: browser_snapshot
+  #   group: browser
+  #   use: deerflow.community.browser_automation.tools:browser_snapshot_tool
+  # - name: browser_click
+  #   group: browser
+  #   use: deerflow.community.browser_automation.tools:browser_click_tool
+  # - name: browser_type
+  #   group: browser
+  #   use: deerflow.community.browser_automation.tools:browser_type_tool
+  # - name: browser_get_text
+  #   group: browser
+  #   use: deerflow.community.browser_automation.tools:browser_get_text_tool
+  #   max_chars: 8000
+  # - name: browser_back
+  #   group: browser
+  #   use: deerflow.community.browser_automation.tools:browser_back_tool
+  # - name: browser_screenshot
+  #   group: browser
+  #   use: deerflow.community.browser_automation.tools:browser_screenshot_tool
+  # - name: browser_close
+  #   group: browser
+  #   use: deerflow.community.browser_automation.tools:browser_close_tool
+
   # WeKnora's permission-scoped read/agent surface. Browser runs use a
   # server-derived per-user bearer token; WEKNORA_API_KEY is only a fallback
   # for trusted background runs. Every tool remains hidden unless the current
@@ -1727,6 +1762,15 @@ memory:
 agents_api:
   enabled: false
 
+# Personal digital-employee definitions (metadata, model settings and SOUL)
+# are stored in the same durable SQL database as the application.  Existing
+# file-backed agents can be imported once with:
+#   cd backend && uv run python scripts/migrate_agents_to_db.py
+# Custom avatar binaries and team-published snapshots remain on the existing
+# shared data volume so the browser can serve them through the authenticated API.
+agent_storage:
+  backend: db
+
 # ============================================================================
 # Skill Self-Evolution Configuration
 # ============================================================================
@@ -1865,7 +1909,9 @@ scheduler:
   lease_seconds: 120
   max_concurrent_runs: 3
   min_once_delay_seconds: 60
-  recursion_limit: 300
+  recursion_limit: 1000
+  queue_timeout_seconds: 3600  # Fail queued occurrences that cannot launch within this window.
+  multi_instance: false       # Requires PostgreSQL, DB run events, and run-ownership heartbeats.
 
 # ============================================================================
 # Run Ownership Configuration

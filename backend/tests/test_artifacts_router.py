@@ -15,10 +15,15 @@ import app.gateway.routers.artifacts as artifacts_router
 from app.gateway.internal_auth import INTERNAL_OWNER_USER_ID_HEADER_NAME, INTERNAL_SYSTEM_ROLE
 from deerflow.config.paths import make_safe_user_id
 
+XHTML_SCRIPT_XML = '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><script>alert("xss")</script></html>'
+
 ACTIVE_ARTIFACT_CASES = [
     ("poc.html", "<html><body><script>alert('xss')</script></body></html>"),
     ("page.xhtml", '<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><body>hello</body></html>'),
     ("image.svg", '<svg xmlns="http://www.w3.org/2000/svg"><script>alert("xss")</script></svg>'),
+    ("report.xml", XHTML_SCRIPT_XML),
+    ("transform.xsl", XHTML_SCRIPT_XML),
+    ("graph.rdf", XHTML_SCRIPT_XML),
 ]
 
 
@@ -438,6 +443,53 @@ def test_get_artifact_forces_download_for_active_content_in_skill_archive(tmp_pa
 
     assert response.headers.get("content-disposition", "").startswith("attachment;")
     assert bytes(response.body) == content.encode("utf-8")
+
+
+@pytest.mark.parametrize("in_skill_archive", [False, True])
+def test_get_artifact_forces_download_for_any_xml_subtype(tmp_path, monkeypatch, in_skill_archive: bool) -> None:
+    content = '<?xml version="1.0"?><rss><x:script xmlns:x="http://www.w3.org/1999/xhtml">alert("xss")</x:script></rss>'
+    monkeypatch.setattr(artifacts_router.mimetypes, "guess_type", lambda *_args, **_kwargs: ("application/rss+xml", None))
+    if in_skill_archive:
+        artifact_path = tmp_path / "sample.skill"
+        with zipfile.ZipFile(artifact_path, "w") as zip_ref:
+            zip_ref.writestr("feed.rss", content)
+        path = "mnt/user-data/outputs/sample.skill/feed.rss"
+    else:
+        artifact_path = tmp_path / "feed.rss"
+        artifact_path.write_text(content, encoding="utf-8")
+        path = "mnt/user-data/outputs/feed.rss"
+    monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path, user_id=None: artifact_path)
+
+    response = asyncio.run(call_unwrapped(artifacts_router.get_artifact, "thread-1", path, _make_request()))
+
+    assert response.headers.get("content-disposition", "").startswith("attachment;")
+
+
+@pytest.mark.parametrize(
+    "mime_type",
+    [
+        "text/html",
+        "application/xhtml+xml",
+        "image/svg+xml",
+        "text/xml",
+        "application/xml",
+        "text/xsl",
+        "application/rss+xml",
+        "application/atom+xml",
+        "application/xslt+xml",
+        "TEXT/XML",
+    ],
+)
+def test_is_active_content_mime_type_covers_html_and_xml_documents(mime_type: str) -> None:
+    assert artifacts_router._is_active_content_mime_type(mime_type)
+
+
+@pytest.mark.parametrize(
+    "mime_type",
+    [None, "text/plain", "text/markdown", "text/csv", "application/json", "application/pdf", "image/png", "application/xml-dtd"],
+)
+def test_is_active_content_mime_type_keeps_passive_types_inline(mime_type: str | None) -> None:
+    assert not artifacts_router._is_active_content_mime_type(mime_type)
 
 
 def test_get_artifact_download_false_does_not_force_attachment(tmp_path, monkeypatch) -> None:

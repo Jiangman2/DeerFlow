@@ -387,6 +387,21 @@ class TestRunRepository:
         await _cleanup()
 
     @pytest.mark.anyio
+    async def test_aggregate_tokens_by_thread_scopes_to_user(self, tmp_path):
+        repo = await _make_repo(tmp_path)
+        await repo.put("owner-run", thread_id="t1", status="running", user_id="owner-a")
+        await repo.update_run_completion("owner-run", status="success", total_tokens=10)
+        await repo.put("other-run", thread_id="t1", status="running", user_id="owner-b")
+        await repo.update_run_completion("other-run", status="success", total_tokens=90)
+
+        scoped = await repo.aggregate_tokens_by_thread("t1", user_id="owner-a")
+        unscoped = await repo.aggregate_tokens_by_thread("t1", user_id=None)
+
+        assert (scoped["total_runs"], scoped["total_tokens"]) == (1, 10)
+        assert (unscoped["total_runs"], unscoped["total_tokens"]) == (2, 100)
+        await _cleanup()
+
+    @pytest.mark.anyio
     async def test_aggregate_tokens_by_thread_can_include_active_runs(self, tmp_path):
         repo = await _make_repo(tmp_path)
         await repo.put("success-run", thread_id="t1", status="running")

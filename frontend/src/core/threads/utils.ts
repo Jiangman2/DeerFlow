@@ -2,6 +2,9 @@ import type { Message } from "@langchain/langgraph-sdk";
 
 import type { AgentThread, AgentThreadContext } from "./types";
 
+export const THREAD_PINNED_METADATA_KEY = "deerflow_pinned";
+export const THREAD_ARCHIVED_METADATA_KEY = "deerflow_archived";
+
 export type ChannelThreadSource = {
   type: "im_channel";
   provider: string;
@@ -57,6 +60,28 @@ export function textOfMessage(message: Message) {
 
 export function titleOfThread(thread: AgentThread) {
   return thread.values?.title ?? "Untitled";
+}
+
+export function isThreadPinned(thread: Pick<AgentThread, "metadata">) {
+  return thread.metadata?.[THREAD_PINNED_METADATA_KEY] === true;
+}
+
+export function isThreadArchived(thread: Pick<AgentThread, "metadata">) {
+  return thread.metadata?.[THREAD_ARCHIVED_METADATA_KEY] === true;
+}
+
+export function sortPinnedThreads<T extends Pick<AgentThread, "metadata">>(
+  threads: readonly T[],
+) {
+  return threads
+    .map((thread, index) => ({ thread, index }))
+    .sort((left, right) => {
+      const pinnedDifference =
+        Number(isThreadPinned(right.thread)) -
+        Number(isThreadPinned(left.thread));
+      return pinnedDifference || left.index - right.index;
+    })
+    .map(({ thread }) => thread);
 }
 
 const CHANNEL_PROVIDER_LABELS: Record<string, string> = {

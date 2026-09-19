@@ -1,0 +1,7 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+COPY web-overlay/patch-subpath-assets.sh /usr/local/bin/skillhub-patch-subpath-assets
+RUN chmod 0755 /usr/local/bin/skillhub-patch-subpath-assets \
+    && /usr/local/bin/skillhub-patch-subpath-assets /usr/share/nginx/html \
+    && rm -f /usr/local/bin/skillhub-patch-subpath-assets

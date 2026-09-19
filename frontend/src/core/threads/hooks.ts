@@ -41,7 +41,13 @@ import {
   readReconnectRun,
   rememberReconnectRun,
 } from "./active-run-recovery";
-import { branchThreadFromTurn, fetchThreadTokenUsage } from "./api";
+import {
+  branchThreadFromTurn,
+  fetchThreadTokenUsage,
+  patchThreadMetadata,
+  searchThreadsByArchive,
+  type ThreadMetadataPatch,
+} from "./api";
 import { isCustomEventForThread } from "./custom-event-scope";
 import { LEAD_AGENT_RECURSION_LIMIT } from "./run-config";
 import { isStaticDemoThreadId, loadStaticDemoThread } from "./static-demo";
@@ -58,6 +64,7 @@ import type {
   RunMessage,
   ThreadTokenUsageResponse,
 } from "./types";
+import { THREAD_PINNED_METADATA_KEY } from "./utils";
 
 export type ToolEndEvent = {
   name: string;
@@ -175,6 +182,10 @@ export function buildThreadRunContext(
     thread_id: threadId,
   };
 }
+
+// Stable identity for "no optimistic messages" so the merged-messages memo
+// below is not invalidated by a fresh empty array on every render.
+const EMPTY_MESSAGES: Message[] = [];
 
 const EMPTY_THREAD_VALUES: AgentThreadState = {
   title: "",
@@ -697,19 +708,22 @@ export function mergeTransientHistoryBridge(
 export function mergeTransientHistoryBridgeOrder(
   currentOrder: readonly string[],
   capturedMessages: Message[],
-): string[] {
+): readonly string[] {
   const capturedOrder = dedupeMessagesByIdentity(capturedMessages)
     .map(messageIdentity)
     .filter(isNonEmptyString);
-  const merged = [...currentOrder];
+  // Clone lazily and return the input when nothing is appended: this runs per
+  // render while the bridge is active, and a fresh array would invalidate the
+  // coalesced render memo on every chunk (#4409 Phase 1).
+  let merged: string[] | null = null;
   const seen = new Set(currentOrder);
   for (const identity of capturedOrder) {
     if (!seen.has(identity)) {
       seen.add(identity);
-      merged.push(identity);
+      (merged ??= [...currentOrder]).push(identity);
     }
   }
-  return merged;
+  return merged ?? currentOrder;
 }
 
 export function resolveThreadTransientHistoryBridge(
@@ -776,6 +790,28 @@ export function getVisibleOptimisticMessages(
   return optimisticMessages;
 }
 
+export function settleOptimisticUploadMessages(
+  messages: Message[],
+  humanMessageId: string | null,
+  uploadPlaceholderId: string | null,
+  uploadedFiles: FileInMessage[],
+): Message[] {
+  return messages
+    .filter((message) => message.id !== uploadPlaceholderId)
+    .map((message) => {
+      if (message.id !== humanMessageId) {
+        return message;
+      }
+      return {
+        ...message,
+        additional_kwargs: {
+          ...message.additional_kwargs,
+          files: uploadedFiles,
+        },
+      };
+    });
+}
+
 export function getSummarizationMiddlewareMessages(
   data: unknown,
 ): Message[] | undefined {
@@ -798,6 +834,136 @@ export function getSummarizationMiddlewareMessages(
   }
 
   return undefined;
+}
+
+export const STREAM_RENDER_COALESCE_MS = 80;
+
+export type CoalesceDecision =
+  | { action: "flush-now" }
+  | { action: "schedule"; delayMs: number }
+  | { action: "wait" };
+
+/**
+ * Decide how an incoming stream update reaches the rendered snapshot: flush
+ * immediately once a full interval has elapsed (leading edge), otherwise
+ * schedule exactly one trailing flush for the interval remainder. Unlike a
+ * debounce, the delay never extends past the interval, so a dense stream can
+ * never starve rendering.
+ */
+export function decideCoalesce(
+  nowMs: number,
+  lastFlushMs: number,
+  intervalMs: number,
+  hasPendingTimer: boolean,
+): CoalesceDecision {
+  if (nowMs - lastFlushMs >= intervalMs) {
+    return { action: "flush-now" };
+  }
+  if (hasPendingTimer) {
+    return { action: "wait" };
+  }
+  return { action: "schedule", delayMs: intervalMs - (nowMs - lastFlushMs) };
+}
+
+/**
+ * While a run is streaming, expose the messages array as a snapshot that
+ * updates at most once per interval instead of once per SSE chunk, so the
+ * merge/group/render pipeline runs per frame budget rather than per token
+ * (#4409 Phase 1). When the stream is idle the latest array passes straight
+ * through, keeping non-stream updates immediate.
+ */
+function sameMessageArray(a: Message[], b: Message[]): boolean {
+  return (
+    a === b ||
+    (a.length === b.length && a.every((message, index) => message === b[index]))
+  );
+}
+
+export function useCoalescedStreamMessages(
+  messages: Message[],
+  isStreaming: boolean,
+  intervalMs: number = STREAM_RENDER_COALESCE_MS,
+): Message[] {
+  // `null` means "no snapshot belongs to the current stream": the live array is
+  // returned until the leading-edge flush lands, so a snapshot left over from an
+  // earlier stream can never be painted. This hook outlives thread switches (the
+  // chat page deliberately avoids re-mounting, see its `onStart` comment), so a
+  // retained snapshot would otherwise be another thread's messages.
+  const [snapshot, setSnapshot] = useState<Message[] | null>(null);
+  const latestRef = useRef(messages);
+  latestRef.current = messages;
+  // Monotonic clock: a wall-clock step (NTP, sleep/wake) between two reads
+  // would otherwise be added to the remaining interval and stall the flush for
+  // the length of the jump. -Infinity means "never flushed", so the first
+  // update of a stream always takes the leading edge.
+  const lastFlushRef = useRef(Number.NEGATIVE_INFINITY);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Every publication goes through the shallow-equality guard: inputs whose
+  // identity churns without content change (the SDK getter mints fresh arrays)
+  // must not re-trigger renders, or this effect would setState-loop.
+  const publish = useCallback(() => {
+    setSnapshot((previous) =>
+      previous !== null && sameMessageArray(previous, latestRef.current)
+        ? previous
+        : latestRef.current,
+    );
+  }, []);
+
+  const clearPendingFlush = useCallback(() => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isStreaming) {
+      clearPendingFlush();
+      // Drop the flush baseline so the leading edge is per stream rather than
+      // per hook instance: a run starting within one interval of the previous
+      // one must not have its first frame deferred. Dropping the snapshot with
+      // it costs one render per stream end, versus one per idle message change
+      // if the snapshot were instead kept in sync while nothing reads it.
+      lastFlushRef.current = Number.NEGATIVE_INFINITY;
+      setSnapshot((previous) => (previous === null ? previous : null));
+      return;
+    }
+    const now = performance.now();
+    const decision = decideCoalesce(
+      now,
+      lastFlushRef.current,
+      intervalMs,
+      timerRef.current !== null,
+    );
+    if (decision.action === "flush-now") {
+      // A trailing timer can still be armed here: timers fire late under
+      // main-thread load, which is exactly when a chunk overtakes one. Leaving
+      // it would publish a second time and slip the next interval forward.
+      clearPendingFlush();
+      lastFlushRef.current = now;
+      publish();
+    } else if (decision.action === "schedule") {
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        // Read the clock again: timers fire late under load, and the next
+        // interval must start from the real flush.
+        lastFlushRef.current = performance.now();
+        publish();
+      }, decision.delayMs);
+    }
+  }, [messages, isStreaming, intervalMs, publish, clearPendingFlush]);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+      }
+    },
+    [],
+  );
+
+  return isStreaming && snapshot !== null ? snapshot : messages;
 }
 
 export function upsertThreadInSearchCache(
@@ -846,10 +1012,18 @@ export function upsertThreadInInfiniteCache(
   queryClient: QueryClient,
   thread: AgentThread,
 ) {
+  const hasArchiveFilter = ({ queryKey }: { queryKey: readonly unknown[] }) =>
+    typeof (queryKey[2] as InfiniteThreadsParams | undefined)?.archived ===
+    "boolean";
+  void queryClient.invalidateQueries({
+    queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+    predicate: hasArchiveFilter,
+  });
   queryClient.setQueriesData(
     {
       queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
       exact: false,
+      predicate: (query) => !hasArchiveFilter(query),
     },
     (oldData: InfiniteData<AgentThread[]> | undefined) => {
       if (!oldData) {
@@ -1155,10 +1329,7 @@ export function useThreadStream({
     // Preserve isolated-runtime ownership when the run creation response uses
     // an authoritative id different from the welcome page's client id. Do
     // this before changing refs or enabling state/history hydration.
-    inheritPptMasterRuntimeThread(
-      currentViewThreadIdRef.current,
-      _threadId,
-    );
+    inheritPptMasterRuntimeThread(currentViewThreadIdRef.current, _threadId);
     inheritPptMasterRuntimeThread(threadIdRef.current, _threadId);
     acceptedCustomEventThreadIdsRef.current.add(_threadId);
     threadIdRef.current = _threadId;
@@ -1211,6 +1382,13 @@ export function useThreadStream({
     threadId: onStreamThreadId,
     reconnectOnMount: true,
     fetchStateHistory: { limit: 1 },
+    // Batch stream updates received in the same macrotask without adding a
+    // fixed debounce interval that could delay a continuously active stream.
+    // Coalesce same-tick stream events into one React notification. Only the
+    // boolean tier is safe: the SDK's numeric tier is a trailing debounce that
+    // starves UI updates while chunks keep arriving faster than the window.
+    // Keep explicit: SDK types claim @default true, but runtime uses throttle ?? false.
+    throttle: true,
     onCreated(meta) {
       handleStreamStart(meta.thread_id, meta.run_id);
       const now = new Date().toISOString();
@@ -1425,16 +1603,18 @@ export function useThreadStream({
   const hasVisibleStreamState =
     liveMessagesThreadId === currentViewThreadId ||
     (!isNewThread && Boolean(threadId));
-  const persistedMessages = useMemo(
-    () =>
-      hasVisibleStreamState
-        ? thread.messages.filter(
-            (message) =>
-              !message.id || !pendingSupersededMessageIds.has(message.id),
-          )
-        : [],
-    [hasVisibleStreamState, pendingSupersededMessageIds, thread.messages],
-  );
+  const persistedMessages = useMemo(() => {
+    if (!hasVisibleStreamState) {
+      return EMPTY_MESSAGES;
+    }
+    const filtered = thread.messages.filter(
+      (message) => !message.id || !pendingSupersededMessageIds.has(message.id),
+    );
+    // The SDK getter mints a fresh [] on every read while the stream has no
+    // values; normalize to a stable identity so downstream effects keyed on
+    // this array cannot re-fire (and setState-loop) on idle renders.
+    return filtered.length === 0 ? EMPTY_MESSAGES : filtered;
+  }, [hasVisibleStreamState, pendingSupersededMessageIds, thread.messages]);
   const visibleHistory = useMemo(
     () => (!isNewThread && threadId ? history : []),
     [history, isNewThread, threadId],
@@ -1452,7 +1632,7 @@ export function useThreadStream({
   // Full identity order of each captured checkpoint. Confirmed bridge entries
   // are pruned from the message buffer, but remain here as non-rendering
   // anchors so an older rescue can be placed before a newest-first page.
-  const transientHistoryOrderRef = useRef<string[]>([]);
+  const transientHistoryOrderRef = useRef<readonly string[]>([]);
   const transientHistoryThreadIdRef = useRef<string | null>(null);
   const summarizedRef = useRef<Set<string>>(null);
   // Track human message count before sending to prevent clearing optimistic
@@ -1683,11 +1863,19 @@ export function useThreadStream({
         ...(optimisticFiles.length > 0 ? { files: optimisticFiles } : {}),
       };
 
+      const optimisticTimestamp = Date.now();
+      const optimisticHumanMessageId = hideFromUI
+        ? null
+        : `opt-human-${optimisticTimestamp}`;
+      const uploadPlaceholderId =
+        optimisticFiles.length > 0 && !hideFromUI
+          ? `opt-ai-${optimisticTimestamp}`
+          : null;
       const newOptimistic: Message[] = [];
       if (!hideFromUI) {
         newOptimistic.push({
           type: "human",
-          id: `opt-human-${Date.now()}`,
+          id: optimisticHumanMessageId!,
           content: text ? [{ type: "text", text }] : "",
           additional_kwargs: optimisticAdditionalKwargs,
         });
@@ -1697,7 +1885,7 @@ export function useThreadStream({
         // Mock AI message while files are being uploaded
         newOptimistic.push({
           type: "ai",
-          id: `opt-ai-${Date.now()}`,
+          id: uploadPlaceholderId!,
           content: t.uploads.uploadingFiles,
           additional_kwargs: { element: "task" },
         });
@@ -1761,19 +1949,18 @@ export function useThreadStream({
                   status: "uploaded" as const,
                 }),
               );
-              setOptimisticMessages((messages) => {
-                if (messages.length > 1 && messages[0]) {
-                  const humanMessage: Message = messages[0];
-                  return [
-                    {
-                      ...humanMessage,
-                      additional_kwargs: { files: uploadedFiles },
-                    },
-                    ...messages.slice(1),
-                  ];
-                }
-                return messages;
-              });
+              // The upload endpoint returns only after synchronous parsing and
+              // atomic persistence complete. Remove the upload-only placeholder
+              // before starting the run so later thread/session startup latency
+              // is never presented as file-upload latency.
+              setOptimisticMessages((messages) =>
+                settleOptimisticUploadMessages(
+                  messages,
+                  optimisticHumanMessageId,
+                  uploadPlaceholderId,
+                  uploadedFiles,
+                ),
+              );
             }
           } catch (error) {
             const errorMessage =
@@ -1816,7 +2003,8 @@ export function useThreadStream({
 
         await thread.submit(submitInput, {
           threadId: threadId,
-          streamSubgraphs: true,
+          // No streamSubgraphs: subtask progress arrives through root custom
+          // events; subgraph frames would duplicate delegated values/messages.
           streamResumable: true,
           config: {
             recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
@@ -1915,7 +2103,7 @@ export function useThreadStream({
           threadId,
           checkpoint: prepared.checkpoint,
           metadata: prepared.metadata,
-          streamSubgraphs: true,
+          // No streamSubgraphs — keep the resume path aligned with submit.
           streamResumable: true,
           config: {
             recursion_limit: LEAD_AGENT_RECURSION_LIMIT,
@@ -1962,11 +2150,23 @@ export function useThreadStream({
     messagesRef.current = persistedMessages;
   }
 
-  const visibleOptimisticMessages = getVisibleOptimisticMessages(
+  // Render-facing coalesced snapshot. Refs, counters and usage tracking keep
+  // consuming the per-chunk array above so lifecycle semantics (optimistic
+  // clearing, summarization capture, token-usage baselines) are unchanged.
+  const renderMessages = useCoalescedStreamMessages(
+    persistedMessages,
+    thread.isLoading,
+  );
+
+  const rawVisibleOptimisticMessages = getVisibleOptimisticMessages(
     optimisticThreadId === currentViewThreadId ? optimisticMessages : [],
     prevHumanMsgCountRef.current,
     humanMessageCount,
   );
+  const visibleOptimisticMessages =
+    rawVisibleOptimisticMessages.length === 0
+      ? EMPTY_MESSAGES
+      : rawVisibleOptimisticMessages;
 
   const transientHistoryOrder =
     transientHistoryBridgeRef.current.length > 0 &&
@@ -1992,18 +2192,30 @@ export function useThreadStream({
     }
   }, [persistedMessages, threadId]);
 
-  const effectiveHistory = resolveThreadTransientHistoryBridge(
-    visibleHistory,
-    transientHistoryBridgeRef.current,
-    transientHistoryThreadIdRef.current,
+  // The transient-bridge refs mutate in lockstep with stream/history updates
+  // already captured by these deps, and resolveTransientHistoryBridge is
+  // idempotent for entries canonical history has absorbed, so memoizing on the
+  // coalesced snapshot cannot pin a stale bridge.
+  const mergedMessages = useMemo(() => {
+    const effectiveHistory = resolveThreadTransientHistoryBridge(
+      visibleHistory,
+      transientHistoryBridgeRef.current,
+      transientHistoryThreadIdRef.current,
+      threadId,
+      transientHistoryOrder,
+    );
+    return mergeMessages(
+      effectiveHistory,
+      renderMessages,
+      visibleOptimisticMessages,
+    );
+  }, [
+    renderMessages,
     threadId,
     transientHistoryOrder,
-  );
-  const mergedMessages = mergeMessages(
-    effectiveHistory,
-    persistedMessages,
+    visibleHistory,
     visibleOptimisticMessages,
-  );
+  ]);
   const pendingUsageMessages = thread.isLoading
     ? getMessagesAfterBaseline(
         persistedMessages,
@@ -2039,6 +2251,11 @@ type ThreadHistoryOptions = {
   isStaticDemo?: boolean;
 };
 
+export const THREAD_HISTORY_QUERY_POLICY = {
+  refetchOnWindowFocus: false,
+  staleTime: 5 * 60 * 1_000,
+} as const;
+
 export function useThreadHistory(
   threadId: string,
   {
@@ -2054,6 +2271,7 @@ export function useThreadHistory(
     ReturnType<typeof threadHistoryQueryKey>,
     number | null
   >({
+    ...THREAD_HISTORY_QUERY_POLICY,
     queryKey: threadHistoryQueryKey(threadId),
     enabled: enabled && Boolean(threadId),
     initialPageParam: null,
@@ -2145,9 +2363,9 @@ const INFINITE_THREADS_NEXT_PAGE_PARAM = Symbol(
 );
 
 type InfiniteThreadsParams = Omit<
-  Parameters<ThreadsClient["search"]>[0],
+  NonNullable<Parameters<ThreadsClient["search"]>[0]>,
   "limit" | "offset"
->;
+> & { archived?: boolean };
 
 type InfiniteThreadsSearchClient = {
   threads: {
@@ -2181,11 +2399,20 @@ export async function fetchInfiniteThreadsPage(
 
   while (threads.length < pageSize) {
     const currentLimit = pageSize - threads.length;
-    const response = (await apiClient.threads.search<AgentThreadState>({
-      ...params,
-      limit: currentLimit,
-      offset,
-    })) as AgentThread[];
+    const response =
+      params.archived === undefined
+        ? ((await apiClient.threads.search<AgentThreadState>({
+            ...params,
+            limit: currentLimit,
+            offset,
+          })) as AgentThread[])
+        : await searchThreadsByArchive({
+            ...params,
+            archived: params.archived,
+            metadata: params.metadata ?? undefined,
+            limit: currentLimit,
+            offset,
+          });
 
     threads.push(...filterThreadSearchResults(response, params));
     offset += response.length;
@@ -2244,6 +2471,49 @@ export function filterInfiniteThreadsCache(
     ...oldData,
     pages: oldData.pages.map((page) => page.filter(predicate)),
   };
+}
+
+function mergeThreadMetadata(
+  thread: AgentThread,
+  metadata: ThreadMetadataPatch,
+): AgentThread {
+  return {
+    ...thread,
+    metadata: {
+      ...(thread.metadata ?? {}),
+      ...metadata,
+    },
+  };
+}
+
+export function setThreadMetadataInCaches(
+  queryClient: QueryClient,
+  threadId: string,
+  metadata: ThreadMetadataPatch,
+) {
+  queryClient.setQueriesData(
+    { queryKey: ["threads", "search"], exact: false },
+    (oldData: Array<AgentThread> | undefined) =>
+      oldData?.map((thread) =>
+        thread.thread_id === threadId
+          ? mergeThreadMetadata(thread, metadata)
+          : thread,
+      ),
+  );
+  queryClient.setQueriesData(
+    { queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX, exact: false },
+    (oldData: InfiniteData<AgentThread[]> | undefined) =>
+      mapInfiniteThreadsCache(oldData, (thread) =>
+        thread.thread_id === threadId
+          ? mergeThreadMetadata(thread, metadata)
+          : thread,
+      ),
+  );
+  queryClient.setQueriesData(
+    { queryKey: ["thread", "metadata", threadId], exact: false },
+    (oldData: AgentThread | null | undefined) =>
+      oldData ? mergeThreadMetadata(oldData, metadata) : oldData,
+  );
 }
 
 export function useInfiniteThreads(
@@ -2376,6 +2646,33 @@ export function useBranchThread() {
   });
 }
 
+export function usePinThread() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      threadId,
+      pinned,
+    }: {
+      threadId: string;
+      pinned: boolean;
+    }) =>
+      patchThreadMetadata(threadId, {
+        [THREAD_PINNED_METADATA_KEY]: pinned,
+      }),
+    onSuccess(_response, { threadId, pinned }) {
+      setThreadMetadataInCaches(queryClient, threadId, {
+        [THREAD_PINNED_METADATA_KEY]: pinned,
+      });
+    },
+    onSettled() {
+      void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+      void queryClient.invalidateQueries({
+        queryKey: INFINITE_THREADS_QUERY_KEY_PREFIX,
+      });
+    },
+  });
+}
+
 export function useRunDetail(threadId: string, runId: string) {
   const apiClient = getAPIClient();
   return useQuery<Run>({
@@ -2413,7 +2710,12 @@ async function deleteThreadEverywhere(
   apiClient: ThreadDeleteClient,
   threadId: string,
 ) {
-  await apiClient.threads.delete(threadId);
+  try {
+    await apiClient.threads.delete(threadId);
+  } catch (error) {
+    // A retry can observe the remote deletion from the previous attempt.
+    if (getHttpStatus(error) !== 404) throw error;
+  }
   await deleteLocalThreadData(threadId);
 }
 
@@ -2510,18 +2812,17 @@ export function useDeleteThread() {
   return useMutation({
     mutationFn: async ({
       threadId,
-      onRemoteDeleted,
+      onDeleted,
     }: {
       threadId: string;
-      onRemoteDeleted?: () => void;
+      onDeleted?: () => void;
     }) => {
       const deletedSidecarThreadIds = await deleteSidecarThreadsForParent(
         apiClient,
         threadId,
       );
-      await apiClient.threads.delete(threadId);
-      onRemoteDeleted?.();
-      await deleteLocalThreadData(threadId);
+      await deleteThreadEverywhere(apiClient, threadId);
+      onDeleted?.();
       return deletedSidecarThreadIds;
     },
     onSuccess(deletedSidecarThreadIds, { threadId }) {

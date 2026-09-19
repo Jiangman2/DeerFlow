@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.gateway.auth_disabled import warn_if_auth_disabled_enabled
 from app.gateway.auth_middleware import AuthMiddleware
+from app.gateway.browser_capability import ensure_browser_runtime_available
 from app.gateway.codex_responses_adapter import router as codex_responses_router
 from app.gateway.config import get_gateway_config
 from app.gateway.csrf_middleware import CSRFMiddleware, get_configured_cors_origins
@@ -20,13 +21,14 @@ from app.gateway.routers import (
     artifacts,
     assistants_compat,
     auth,
+    browser,
     channel_connections,
     channels,
     console,
     convert,
     dashboard,
-    datalake,
     data_lake_auth,
+    datalake,
     features,
     feedback,
     github_webhooks,
@@ -35,9 +37,11 @@ from app.gateway.routers import (
     mcp,
     memory,
     models,
+    oa_policy_flow,
     observability,
     runs,
     scheduled_tasks,
+    skillhub_session,
     skills,
     suggestions,
     thread_runs,
@@ -47,6 +51,7 @@ from app.gateway.routers import (
     weknora,
 )
 from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
+from app.gateway.upload_document_parser import close_conversation_document_parser_client
 from deerflow.config import app_config as deerflow_app_config
 from deerflow.logging_config import DEFAULT_LOG_DATE_FORMAT, DEFAULT_LOG_FORMAT, configure_logging
 from deerflow.tracing.monocle import setup_monocle_tracing_if_enabled
@@ -199,7 +204,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # snapshot on `app.state` to keep that contract enforceable.
     try:
         startup_config = get_app_config()
+        from app.gateway.oa_policy_flow_config import load_oa_policy_flow_config
+
+        oa_policy_flow_config = load_oa_policy_flow_config()
+        app.state.oa_policy_flow_config = oa_policy_flow_config
         configure_logging(startup_config)
+        ensure_browser_runtime_available(startup_config)
         logger.info("Configuration loaded successfully")
         warn_if_auth_disabled_enabled()
     except Exception as e:
@@ -274,6 +284,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if not isolated_ppt_runner:
             await _ensure_admin_user(app)
 
+        if not isolated_ppt_runner:
+            try:
+                migrated_categories = await asyncio.to_thread(agents.migrate_digital_employee_categories)
+                if migrated_categories:
+                    logger.info(
+                        "Migrated %d digital employee(s) to the corporate business-domain taxonomy",
+                        migrated_categories,
+                    )
+            except Exception:
+                logger.exception("Digital employee category migration failed (non-fatal)")
+
         # Start IM channel service if any channels are configured
         if not isolated_ppt_runner:
             try:
@@ -297,6 +318,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         poll_interval_seconds=startup_config.scheduler.poll_interval_seconds,
                         lease_seconds=startup_config.scheduler.lease_seconds,
                         max_concurrent_runs=startup_config.scheduler.max_concurrent_runs,
+                        queue_timeout_seconds=startup_config.scheduler.queue_timeout_seconds,
+                        multi_instance=startup_config.scheduler.multi_instance,
+                        run_lease_grace_seconds=startup_config.run_ownership.grace_seconds,
                     )
                     app.state.scheduled_task_service = scheduled_task_service
                     if startup_config.scheduler.enabled:
@@ -304,12 +328,39 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception:
                 logger.exception("Failed to initialize scheduled task service")
 
+        if not isolated_ppt_runner and oa_policy_flow_config.enabled:
+            from app.gateway.oa_policy_flow_service import OAPolicyFlowService
+
+            repository = getattr(app.state, "oa_policy_flow_job_repo", None)
+            if repository is None:
+                raise RuntimeError("OA policy-flow integration requires SQL persistence")
+            oa_service = OAPolicyFlowService(
+                app=app,
+                repository=repository,
+                config=oa_policy_flow_config,
+            )
+            app.state.oa_policy_flow_service = oa_service
+            await oa_service.start()
+
         yield
 
         try:
             await auth.close_oidc_service()
         except Exception:
             logger.exception("Failed to close OIDC service")
+
+        try:
+            await asyncio.wait_for(
+                close_conversation_document_parser_client(),
+                timeout=_SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+            )
+        except TimeoutError:
+            logger.warning(
+                "Document parser HTTP client shutdown exceeded %.1fs; proceeding with worker exit.",
+                _SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            logger.exception("Failed to close document parser HTTP client")
 
         # Stop channel service on shutdown (bounded to prevent worker hang)
         if not isolated_ppt_runner:
@@ -333,6 +384,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 await app.state.scheduled_task_service.stop()
             except Exception:
                 logger.exception("Failed to stop scheduled task service")
+
+        if not isolated_ppt_runner and getattr(app.state, "oa_policy_flow_service", None) is not None:
+            try:
+                await app.state.oa_policy_flow_service.stop()
+            except Exception:
+                logger.exception("Failed to stop OA policy-flow service")
+
+        try:
+            from deerflow.community.browser_automation import get_browser_session_manager
+
+            closed = await asyncio.wait_for(
+                get_browser_session_manager().close_all_sessions(),
+                timeout=_SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+            )
+            if closed:
+                logger.info("Closed %d browser session(s)", closed)
+        except TimeoutError:
+            logger.warning(
+                "Browser session shutdown exceeded %.1fs; proceeding with worker exit.",
+                _SHUTDOWN_HOOK_TIMEOUT_SECONDS,
+            )
+        except Exception:
+            logger.exception("Failed to close browser sessions")
 
         # Drain the memory backend's pending-update buffer before the worker
         # exits (best-effort, bounded). IM channels and the scheduler are
@@ -518,8 +592,15 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # Skills API is mounted at /api/skills
     app.include_router(skills.router)
 
+    # Cluster-internal, short-lived identity assertion consumed only by the
+    # Nginx auth_request bridge for SkillHub passive session bootstrap.
+    app.include_router(skillhub_session.router)
+
     # Artifacts API is mounted at /api/threads/{thread_id}/artifacts
     app.include_router(artifacts.router)
+
+    # Browser API is mounted at /api/threads/{thread_id}/browser
+    app.include_router(browser.router)
 
     # Uploads API is mounted at /api/threads/{thread_id}/uploads
     app.include_router(uploads.router)
@@ -576,6 +657,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # The router is an enterprise extension and remains isolated from the
     # official thread, memory, and run lifecycle routers above.
     app.include_router(weknora.router)
+
+    # Machine-authenticated Group OA policy document integration.
+    app.include_router(oa_policy_flow.router)
 
     # Cluster-internal OpenAI Responses compatibility endpoint used only by
     # the sandboxed ppt-master Codex Agent in enterprise deployments.

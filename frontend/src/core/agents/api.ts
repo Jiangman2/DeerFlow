@@ -1,7 +1,12 @@
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
 
-import type { Agent, CreateAgentRequest, UpdateAgentRequest } from "./types";
+import type {
+  Agent,
+  CreateAgentRequest,
+  DigitalEmployeeCategory,
+  UpdateAgentRequest,
+} from "./types";
 
 const BACKEND_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
 
@@ -134,6 +139,44 @@ export async function unpublishTeamAgent(name: string): Promise<void> {
   }
 }
 
+export async function listDigitalEmployeeCategories(): Promise<
+  DigitalEmployeeCategory[]
+> {
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/digital-employee-categories`,
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to load digital employee categories`);
+  }
+  const data = (await res.json()) as { items: DigitalEmployeeCategory[] };
+  return data.items;
+}
+
+export async function uploadAgentAvatar(name: string, file: File) {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}/avatar`,
+    { method: "POST", body: form },
+  );
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? "Failed to upload avatar");
+  }
+  return res.json() as Promise<Agent>;
+}
+
+export async function deleteAgentAvatar(name: string) {
+  const res = await fetch(
+    `${getBackendBaseURL()}/api/agents/${encodeURIComponent(name)}/avatar`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { detail?: string };
+    throw new Error(err.detail ?? "Failed to remove avatar");
+  }
+}
+
 interface FeaturesResponse {
   agents_api: { enabled: boolean };
 }
@@ -147,7 +190,9 @@ export async function fetchAgentsApiEnabled(): Promise<boolean> {
   return data.agents_api.enabled;
 }
 
-export async function recordExternalAgentClick(agentName: string): Promise<void> {
+export async function recordExternalAgentClick(
+  agentName: string,
+): Promise<void> {
   const res = await fetch(
     `${getBackendBaseURL()}/api/agent-analytics/external-click`,
     {

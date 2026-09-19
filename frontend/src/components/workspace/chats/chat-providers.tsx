@@ -2,6 +2,7 @@
 
 import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
+import { BrowserViewProvider } from "@/components/workspace/browser-view";
 import { useThreadChat } from "@/components/workspace/chats";
 import { SubtasksProvider } from "@/core/tasks/context";
 
@@ -12,7 +13,9 @@ export function ChatProviders({ children }: { children: React.ReactNode }) {
   return (
     <SubtasksProvider scopeKey={scopeKey}>
       <ArtifactsProvider scopeKey={scopeKey}>
-        <PromptInputProvider>{children}</PromptInputProvider>
+        <BrowserViewProvider>
+          <PromptInputProvider>{children}</PromptInputProvider>
+        </BrowserViewProvider>
       </ArtifactsProvider>
     </SubtasksProvider>
   );

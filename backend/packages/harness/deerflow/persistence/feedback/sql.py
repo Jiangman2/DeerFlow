@@ -193,11 +193,17 @@ class FeedbackRepository:
         *,
         user_id: str | None | _AutoSentinel = AUTO,
     ) -> dict[str, dict]:
-        """Return feedback grouped by run_id for a thread: {run_id: feedback_dict}."""
+        """Return feedback grouped by run_id for a thread.
+
+        An explicit ``None`` user scope can include several users' feedback on
+        one run. Stable ascending ordering makes the dict collapse keep the
+        newest row, with ``feedback_id`` breaking timestamp ties.
+        """
         resolved_user_id = resolve_user_id(user_id, method_name="FeedbackRepository.list_by_thread_grouped")
         stmt = select(FeedbackRow).where(FeedbackRow.thread_id == thread_id)
         if resolved_user_id is not None:
             stmt = stmt.where(FeedbackRow.user_id == resolved_user_id)
+        stmt = stmt.order_by(FeedbackRow.created_at.asc(), FeedbackRow.feedback_id.asc())
         async with self._sf() as session:
             result = await session.execute(stmt)
             return {row.run_id: self._row_to_dict(row) for row in result.scalars()}
@@ -219,6 +225,7 @@ class FeedbackRepository:
         )
         if resolved_user_id is not None:
             stmt = stmt.where(FeedbackRow.user_id == resolved_user_id)
+        stmt = stmt.order_by(FeedbackRow.created_at.asc(), FeedbackRow.feedback_id.asc())
         async with self._sf() as session:
             result = await session.execute(stmt)
             return {row.run_id: self._row_to_dict(row) for row in result.scalars()}

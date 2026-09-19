@@ -13,11 +13,28 @@ class DummyTaskRepo:
         self.rows = rows
         self.claimed = False
         self.updated = None
+        self.completions = []
+        self.release_calls = []
         self.cancelled_stuck_once = None
+        self.reconciled_stuck_once = None
 
     async def cancel_stuck_once_tasks(self, *, error):
         self.cancelled_stuck_once = error
         return 0
+
+    async def reconcile_stuck_once_tasks(self, **kwargs):
+        self.reconciled_stuck_once = kwargs
+        return 0
+
+    async def claim_dispatch_lease(self, task_id, **_kwargs):
+        return next((dict(row) for row in self.rows if row["id"] == task_id), None)
+
+    async def release_queued_admission_lease(self, task_id):
+        return False
+
+    async def release_dispatch_lease(self, task_id, **kwargs):
+        self.release_calls.append((task_id, kwargs))
+        return True
 
     async def claim_due_tasks(self, **_kwargs):
         if self.claimed:
@@ -28,8 +45,28 @@ class DummyTaskRepo:
     async def update_after_launch(self, *args, **kwargs):
         self.updated = (args, kwargs)
 
+    async def complete_run(self, task_id, **kwargs):
+        self.completions.append((task_id, kwargs))
+        row = next((item for item in self.rows if item["id"] == task_id), None)
+        if row is not None:
+            status = kwargs["status"]
+            if row.get("schedule_type") == "once":
+                row["status"] = {
+                    "success": "completed",
+                    "failed": "failed",
+                    "interrupted": "cancelled",
+                }[status]
+            elif row.get("status") == "running":
+                row["status"] = "enabled"
+            row["last_error"] = kwargs.get("error")
+        return True
+
     async def get(self, task_id: str, *, user_id: str):
         row = next((item for item in self.rows if item["id"] == task_id and item["user_id"] == user_id), None)
+        return dict(row) if row is not None else None
+
+    async def get_internal(self, task_id: str):
+        row = next((item for item in self.rows if item["id"] == task_id), None)
         return dict(row) if row is not None else None
 
     async def update(self, task_id: str, *, user_id: str, updates):
@@ -47,9 +84,39 @@ class DummyRunRepo:
         self.active = active
         self.active_count = active_count
         self.stale_marked = None
+        self.reconciled = None
+        self.reconcile_count = 0
 
     async def count_active_runs(self):
         return self.active_count
+
+    async def list_queued_runs(self, *, limit):
+        return []
+
+    async def expire_queued_runs(self, **_kwargs):
+        return []
+
+    async def recover_expired_launch_claims(self, **_kwargs):
+        return 0
+
+    async def get_active_run(self, task_id):
+        if not self.active:
+            return None
+        return {
+            "id": "task-run-active",
+            "task_id": task_id,
+            "thread_id": "thread-active",
+            "status": "running",
+        }
+
+    async def claim_queued_run(self, run_record_id, *, global_max_concurrent_runs, **_kwargs):
+        if self.active_count >= global_max_concurrent_runs:
+            return None
+        return {"id": run_record_id, "status": "launching"}
+
+    async def requeue_claimed_run(self, run_record_id, **kwargs):
+        self.updated.append((run_record_id, {"status": "queued", **kwargs}))
+        return True
 
     async def create(self, **kwargs):
         self.created = kwargs
@@ -57,12 +124,26 @@ class DummyRunRepo:
 
     async def update_status(self, run_record_id, **kwargs):
         self.updated.append((run_record_id, kwargs))
+        return True
+
+    async def reconcile_launched_run(self, run_record_id, **kwargs):
+        self.updated.append((run_record_id, {"reconciled": True, **kwargs}))
+        return True
+
+    async def fail_launching_run(self, run_record_id, **kwargs):
+        self.updated.append((run_record_id, {"status": "failed", **kwargs}))
+        return True
 
     async def has_active_runs(self, task_id):
         return self.active
 
     async def mark_stale_active_runs(self, *, error):
         self.stale_marked = error
+        return 0
+
+    async def reconcile_active_runs(self, **kwargs):
+        self.reconcile_count += 1
+        self.reconciled = kwargs
         return 0
 
 
@@ -199,7 +280,7 @@ async def test_fresh_thread_per_run_creates_new_execution_thread():
 
 
 @pytest.mark.asyncio
-async def test_scheduled_overlap_conflict_is_recorded_as_skip():
+async def test_scheduled_overlap_conflict_is_kept_in_queue():
     async def fake_launch(**_kwargs):
         raise ConflictError("Thread thread-1 already has an active run")
 
@@ -216,7 +297,7 @@ async def test_scheduled_overlap_conflict_is_recorded_as_skip():
                 "schedule_spec": {"cron": "0 9 * * *"},
                 "timezone": "UTC",
                 "status": "running",
-                "overlap_policy": "skip",
+                "overlap_policy": "enqueue",
                 "last_run_id": "run-old",
                 "last_thread_id": "thread-1",
                 "last_run_at": "2026-07-01T00:00:00+00:00",
@@ -239,13 +320,13 @@ async def test_scheduled_overlap_conflict_is_recorded_as_skip():
         trigger="scheduled",
     )
 
-    assert result["outcome"] == "skipped"
-    assert run_repo.updated[-1][1]["status"] == "skipped"
-    assert task_repo.updated[1]["status"] == "enabled"
+    assert result["outcome"] == "queued"
+    assert run_repo.updated[-1][1]["status"] == "queued"
+    assert task_repo.updated is None
 
 
 @pytest.mark.asyncio
-async def test_manual_overlap_conflict_returns_conflict():
+async def test_manual_overlap_conflict_is_kept_in_queue():
     async def fake_launch(**_kwargs):
         raise ConflictError("Thread thread-1 already has an active run")
 
@@ -262,7 +343,7 @@ async def test_manual_overlap_conflict_returns_conflict():
                 "schedule_spec": {"cron": "0 9 * * *"},
                 "timezone": "UTC",
                 "status": "enabled",
-                "overlap_policy": "skip",
+                "overlap_policy": "enqueue",
             }
         ]
     )
@@ -282,8 +363,8 @@ async def test_manual_overlap_conflict_returns_conflict():
         trigger="manual",
     )
 
-    assert result["outcome"] == "conflict"
-    assert run_repo.updated[-1][1]["status"] == "failed"
+    assert result["outcome"] == "queued"
+    assert run_repo.updated[-1][1]["status"] == "queued"
 
 
 @pytest.mark.asyncio
@@ -329,8 +410,9 @@ async def test_handle_run_completion_persists_success():
 
     await service.handle_run_completion(record)
 
-    assert run_repo.updated[-1][0] == "task-run-6"
-    assert run_repo.updated[-1][1]["status"] == "success"
+    assert task_repo.completions[-1][0] == "task-6"
+    assert task_repo.completions[-1][1]["task_run_id"] == "task-run-6"
+    assert task_repo.completions[-1][1]["status"] == "success"
     assert task_repo.rows[0]["last_error"] is None
 
 
@@ -384,7 +466,7 @@ async def test_once_task_completes_only_via_completion_hook():
 
     await service.handle_run_completion(_completion_record(RunStatus.success))
 
-    assert run_repo.updated[-1][1]["status"] == "success"
+    assert task_repo.completions[-1][1]["status"] == "success"
     assert task_repo.rows[0]["status"] == "completed"
 
 
@@ -396,8 +478,8 @@ async def test_once_task_failed_run_marks_task_failed():
 
     await service.handle_run_completion(_completion_record(RunStatus.error, error="boom"))
 
-    assert run_repo.updated[-1][1]["status"] == "failed"
-    assert run_repo.updated[-1][1]["error"] == "boom"
+    assert task_repo.completions[-1][1]["status"] == "failed"
+    assert task_repo.completions[-1][1]["error"] == "boom"
     assert task_repo.rows[0]["status"] == "failed"
     assert task_repo.rows[0]["last_error"] == "boom"
 
@@ -410,9 +492,9 @@ async def test_interrupted_run_is_distinct_and_cancels_once_task():
 
     await service.handle_run_completion(_completion_record(RunStatus.interrupted))
 
-    run_update = run_repo.updated[-1][1]
-    assert run_update["status"] == "interrupted"
-    assert run_update["error"] == "run was interrupted before completion"
+    completion = task_repo.completions[-1][1]
+    assert completion["status"] == "interrupted"
+    assert completion["error"] == "run was interrupted before completion"
     assert task_repo.rows[0]["status"] == "cancelled"
 
 
@@ -426,12 +508,12 @@ async def test_interrupted_cron_run_keeps_task_enabled():
 
     await service.handle_run_completion(_completion_record(RunStatus.interrupted, task_id="task-cron"))
 
-    assert run_repo.updated[-1][1]["status"] == "interrupted"
+    assert task_repo.completions[-1][1]["status"] == "interrupted"
     assert task_repo.rows[0]["status"] == "enabled"
 
 
 @pytest.mark.asyncio
-async def test_skip_policy_applies_to_fresh_thread_runs():
+async def test_existing_running_occurrence_blocks_duplicate_fresh_thread_run():
     launched = []
 
     async def fake_launch(**kwargs):
@@ -439,7 +521,7 @@ async def test_skip_policy_applies_to_fresh_thread_runs():
         return {"run_id": "run-9", "thread_id": kwargs["thread_id"]}
 
     row = _once_task_row(task_id="task-9")
-    row.update({"schedule_type": "cron", "schedule_spec": {"cron": "* * * * *"}, "status": "running", "overlap_policy": "skip"})
+    row.update({"schedule_type": "cron", "schedule_spec": {"cron": "* * * * *"}, "status": "running", "overlap_policy": "enqueue"})
     task_repo = DummyTaskRepo([row])
     run_repo = DummyRunRepo(active=True)
     service = ScheduledTaskService(
@@ -453,12 +535,9 @@ async def test_skip_policy_applies_to_fresh_thread_runs():
 
     result = await service.dispatch_task(row, now=datetime.now(UTC), trigger="scheduled")
 
-    assert result["outcome"] == "skipped"
+    assert result["outcome"] == "conflict"
     assert launched == []
-    assert run_repo.created["status"] == "queued"
-    assert run_repo.updated[-1][1]["status"] == "skipped"
-    assert task_repo.updated[1]["status"] == "enabled"
-    assert task_repo.updated[1]["increment_run_count"] is False
+    assert run_repo.created is None
 
 
 @pytest.mark.asyncio
@@ -483,7 +562,7 @@ async def test_manual_trigger_with_active_run_returns_conflict_without_launching
         return {"run_id": "run-x", "thread_id": kwargs["thread_id"]}
 
     row = _once_task_row(task_id="task-manual-busy")
-    row.update({"schedule_type": "cron", "schedule_spec": {"cron": "* * * * *"}, "status": "enabled", "overlap_policy": "skip"})
+    row.update({"schedule_type": "cron", "schedule_spec": {"cron": "* * * * *"}, "status": "enabled", "overlap_policy": "enqueue"})
     task_repo = DummyTaskRepo([row])
     run_repo = DummyRunRepo(active=True)
     service = ScheduledTaskService(
@@ -505,7 +584,7 @@ async def test_manual_trigger_with_active_run_returns_conflict_without_launching
 
 
 @pytest.mark.asyncio
-async def test_run_once_claims_only_into_remaining_global_budget():
+async def test_run_once_admits_due_occurrences_independently_of_execution_budget():
     claim_limits = []
 
     class BudgetTaskRepo(DummyTaskRepo):
@@ -518,12 +597,11 @@ async def test_run_once_claims_only_into_remaining_global_budget():
     service = _make_service(task_repo, run_repo)
 
     await service.run_once(now=datetime.now(UTC))
-    assert claim_limits == [1]
+    assert claim_limits == [3]
 
     run_repo.active_count = 3
     await service.run_once(now=datetime.now(UTC))
-    # Budget exhausted: no claim at all this cycle.
-    assert claim_limits == [1]
+    assert claim_limits == [3, 3]
 
 
 @pytest.mark.asyncio

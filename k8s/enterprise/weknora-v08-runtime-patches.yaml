@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weknora-frontend
+  namespace: deer-flow
+spec:
+  template:
+    spec:
+      containers:
+        - name: frontend
+          imagePullPolicy: Never
+          # The enterprise v0.8 image already contains the SSO/bootstrap and
+          # DOM-guard assets. Mounting the legacy v0.7 ConfigMap here would
+          # overwrite its entrypoint and produce a blank or mismatched UI.
+          volumeMounts: null
+      volumes: null

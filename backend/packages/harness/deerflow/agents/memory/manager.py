@@ -169,6 +169,20 @@ class MemoryManager(ABC):
     ) -> dict[str, Any]:
         """Clear the bucket's memory; return the cleared (now-empty) document."""
 
+    def cancel_by_agent(
+        self,
+        agent_name: str | None = None,
+        *,
+        user_id: str | None = None,
+    ) -> int:
+        """Cancel pending memory extraction for one digital employee scope.
+
+        Backends without an in-memory debounce queue inherit the safe no-op.
+        ``user_id=None`` means the legacy no-user bucket, not every user.
+        ``agent_name=None`` means every employee bucket for that user.
+        """
+        return 0
+
     @abstractmethod
     def import_memory(
         self,

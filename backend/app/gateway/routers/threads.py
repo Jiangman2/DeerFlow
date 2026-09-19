@@ -27,9 +27,11 @@ from sqlalchemy.exc import IntegrityError
 from app.gateway.authz import require_permission
 from app.gateway.deps import get_authorized_read_scope_user_id, get_checkpointer, get_run_manager
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
+from app.gateway.services import strip_server_owned_state_metadata
 from app.gateway.utils import sanitize_log_param
 from deerflow.config.paths import Paths, get_paths
 from deerflow.config.summarization_config import ContextSize
+from deerflow.persistence.thread_meta import THREAD_ARCHIVED_METADATA_KEY, THREAD_PINNED_METADATA_KEY
 from deerflow.runtime import serialize_channel_values_for_api
 from deerflow.runtime.context_compaction import (
     ContextCompactionDisabled,
@@ -71,6 +73,11 @@ def _strip_reserved_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     if not metadata:
         return metadata or {}
     return {k: v for k, v in metadata.items() if k not in _SERVER_RESERVED_METADATA_KEYS}
+
+
+def _is_organization_metadata_patch(metadata: dict[str, Any]) -> bool:
+    """Recognize pin/archive writes that must preserve activity time."""
+    return bool(metadata) and set(metadata) <= {THREAD_PINNED_METADATA_KEY, THREAD_ARCHIVED_METADATA_KEY} and all(isinstance(value, bool) for value in metadata.values())
 
 
 def _message_id(message: Any) -> str | None:
@@ -259,6 +266,11 @@ class ThreadCreateRequest(BaseModel):
 class ThreadSearchRequest(BaseModel):
     """Request body for searching threads."""
 
+    archived: bool | None = Field(
+        default=None,
+        strict=True,
+        description="Archive filter; false also includes legacy unarchived threads",
+    )
     metadata: dict[str, Any] = Field(default_factory=dict, description="Metadata filter (exact match)")
     limit: int = Field(default=100, ge=1, le=1000, description="Maximum results")
     offset: int = Field(default=0, ge=0, description="Pagination offset")
@@ -306,6 +318,13 @@ class ThreadPatchRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="Metadata to merge")
 
     _strip_reserved = field_validator("metadata")(classmethod(lambda cls, v: _strip_reserved_metadata(v)))
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_archive_flag(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if THREAD_ARCHIVED_METADATA_KEY in value and not isinstance(value[THREAD_ARCHIVED_METADATA_KEY], bool):
+            raise ValueError("deerflow_archived must be a boolean")
+        return value
 
 
 class ThreadStateUpdateRequest(BaseModel):
@@ -500,6 +519,17 @@ async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteRe
         await thread_store.delete(thread_id)
     except Exception:
         logger.debug("Could not delete thread_meta for %s (not critical)", sanitize_log_param(thread_id))
+
+    # Browser sessions retain page state and cookies. Tear them down when the
+    # owning thread is deleted so a recycled/guessed id cannot reuse them.
+    try:
+        from deerflow.community.browser_automation import get_browser_session_manager
+
+        await get_browser_session_manager().close_session(thread_id)
+    except ImportError:
+        pass
+    except Exception:
+        logger.debug("Could not close browser session for %s (not critical)", sanitize_log_param(thread_id))
 
     return response
 
@@ -721,6 +751,7 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
         rows = await repo.search(
             metadata=body.metadata or None,
             status=body.status,
+            archived=body.archived,
             limit=body.limit,
             offset=body.offset,
         )
@@ -756,7 +787,11 @@ async def patch_thread(thread_id: str, body: ThreadPatchRequest, request: Reques
 
     # ``body.metadata`` already stripped by ``ThreadPatchRequest._strip_reserved``.
     try:
-        await thread_store.update_metadata(thread_id, body.metadata)
+        await thread_store.update_metadata(
+            thread_id,
+            body.metadata,
+            touch=not _is_organization_metadata_patch(body.metadata),
+        )
     except Exception:
         logger.exception("Failed to patch thread %s", sanitize_log_param(thread_id))
         raise HTTPException(status_code=500, detail="Failed to update thread")
@@ -1022,7 +1057,7 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
     channel_values: dict[str, Any] = dict(checkpoint.get("channel_values", {}))
 
     if body.values:
-        channel_values.update(body.values)
+        channel_values.update(strip_server_owned_state_metadata(body.values))
 
     checkpoint["channel_values"] = channel_values
     metadata["updated_at"] = now_iso()

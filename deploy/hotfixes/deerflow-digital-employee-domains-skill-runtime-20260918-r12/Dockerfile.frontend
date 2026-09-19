@@ -1,0 +1,20 @@
+FROM digital-domains-frontend-base
+
+WORKDIR /app/frontend
+
+COPY payload/frontend/src/app/workspace/agents/new/page.tsx src/app/workspace/agents/new/page.tsx
+COPY payload/frontend/src/components/workspace/agents/agent-gallery.tsx src/components/workspace/agents/agent-gallery.tsx
+COPY payload/frontend/src/components/workspace/agents/digital-employee-settings-dialog.tsx src/components/workspace/agents/digital-employee-settings-dialog.tsx
+COPY payload/frontend/src/components/workspace/agents/business-domain-badge.tsx src/components/workspace/agents/business-domain-badge.tsx
+COPY payload/frontend/src/components/workspace/agents/business-domain-picker.tsx src/components/workspace/agents/business-domain-picker.tsx
+COPY payload/frontend/src/core/agents/api.ts src/core/agents/api.ts
+COPY payload/frontend/src/core/agents/hooks.ts src/core/agents/hooks.ts
+COPY payload/frontend/src/core/agents/shared-agents.ts src/core/agents/shared-agents.ts
+COPY payload/frontend/src/core/agents/types.ts src/core/agents/types.ts
+COPY payload/frontend/src/core/i18n/locales/en-US.ts src/core/i18n/locales/en-US.ts
+COPY payload/frontend/src/core/i18n/locales/types.ts src/core/i18n/locales/types.ts
+COPY payload/frontend/src/core/i18n/locales/zh-CN.ts src/core/i18n/locales/zh-CN.ts
+
+RUN --network=none rm -f src/components/workspace/agents/category-manager-dialog.tsx \
+    && rm -rf .next \
+    && SKIP_ENV_VALIDATION=1 NEXT_CONFIG_BUILD_OUTPUT=standalone pnpm build

@@ -11,13 +11,12 @@ import asyncio
 import json
 import logging
 import os
-import re
 from collections.abc import Mapping
 from types import SimpleNamespace
 from typing import Any
 
 from fastapi import HTTPException, Request
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.messages.utils import convert_to_messages
 from langgraph.types import Command
 
@@ -31,6 +30,7 @@ from app.gateway.internal_auth import (
 )
 from app.gateway.utils import sanitize_log_param
 from app.gateway.weknora_identity import ensure_weknora_session_for_deerflow_user
+from deerflow.agents.human_input import read_human_input_response
 from deerflow.agents.middlewares.dynamic_context_middleware import _DYNAMIC_CONTEXT_REMINDER_KEY, _REMINDER_DATE_KEY
 from deerflow.config.app_config import get_app_config
 from deerflow.runtime import (
@@ -49,7 +49,7 @@ from deerflow.runtime.goal import goal_thread_lock
 from deerflow.runtime.runs.naming import resolve_root_run_name
 from deerflow.runtime.secret_context import redact_config_secrets
 from deerflow.runtime.user_context import reset_current_user, set_current_user
-from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY
+from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, SUMMARY_MESSAGE_NAME, UNTRUSTED_INPUT_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,8 @@ _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS = frozenset(
         _REMINDER_DATE_KEY,
     }
 )
+
+_SERVER_OWNED_MESSAGE_METADATA_KEYS = _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS | frozenset({UNTRUSTED_INPUT_KEY})
 
 
 # ---------------------------------------------------------------------------
@@ -128,17 +130,68 @@ def normalize_stream_modes(raw: list[str] | str | None) -> list[str]:
     return raw if raw else ["values"]
 
 
+def _skips_input_guardrail(additional_kwargs: dict[str, Any], name: Any) -> bool:
+    """Return whether caller markers would make the input guardrail skip."""
+    if name == SUMMARY_MESSAGE_NAME:
+        return True
+    return bool(additional_kwargs.get("hide_from_ui")) and read_human_input_response(additional_kwargs) is None
+
+
+def _mark_untrusted_framework_markers(additional_kwargs: dict[str, Any], name: Any) -> dict[str, Any]:
+    """Keep caller presentation markers while preserving the trust boundary."""
+    if not _skips_input_guardrail(additional_kwargs, name):
+        return additional_kwargs
+    return {**additional_kwargs, UNTRUSTED_INPUT_KEY: True}
+
+
+def _is_human_message_like(message: Any) -> bool:
+    if isinstance(message, BaseMessage):
+        return isinstance(message, HumanMessage)
+    if isinstance(message, dict):
+        return (message.get("type") or message.get("role")) in {"human", "user"}
+    return False
+
+
 def _strip_external_message_metadata(message: Any) -> Any:
-    """Remove server-owned metadata from an untrusted input message."""
+    """Remove server-owned metadata and mark guardrail-skipping human input."""
     if not isinstance(message, BaseMessage):
         return message
     additional_kwargs = dict(message.additional_kwargs)
     additional_kwargs.pop(ORIGINAL_USER_CONTENT_KEY, None)
-    for key in _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS:
+    for key in _SERVER_OWNED_MESSAGE_METADATA_KEYS:
         additional_kwargs.pop(key, None)
+    if _is_human_message_like(message):
+        additional_kwargs = _mark_untrusted_framework_markers(additional_kwargs, message.name)
     if additional_kwargs == message.additional_kwargs:
         return message
     return message.model_copy(update={"additional_kwargs": additional_kwargs})
+
+
+def _strip_external_metadata_from_message_like(item: Any) -> Any:
+    """Apply the same boundary to BaseMessage and raw checkpoint values."""
+    if isinstance(item, BaseMessage):
+        return _strip_external_message_metadata(item)
+    if not isinstance(item, dict):
+        return item
+    source_kwargs = item.get("additional_kwargs")
+    source_kwargs = source_kwargs if isinstance(source_kwargs, dict) else {}
+    additional_kwargs = {key: value for key, value in source_kwargs.items() if key not in _SERVER_OWNED_MESSAGE_METADATA_KEYS and key != ORIGINAL_USER_CONTENT_KEY}
+    if _is_human_message_like(item):
+        additional_kwargs = _mark_untrusted_framework_markers(additional_kwargs, item.get("name"))
+    if additional_kwargs == source_kwargs:
+        return item
+    return {**item, "additional_kwargs": additional_kwargs}
+
+
+def strip_server_owned_state_metadata(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Protect direct thread-state writes with the run-input trust boundary."""
+    stripped: dict[str, Any] = {}
+    for channel, value in values.items():
+        if isinstance(value, list):
+            stripped[channel] = [_strip_external_metadata_from_message_like(item) for item in value]
+        else:
+            stripped[channel] = _strip_external_metadata_from_message_like(value)
+    return stripped
 
 
 def normalize_input(raw_input: dict[str, Any] | None, *, trusted_internal: bool = False) -> dict[str, Any]:
@@ -155,9 +208,11 @@ def normalize_input(raw_input: dict[str, Any] | None, *, trusted_internal: bool 
     of bubbling up as a 500.  The gateway is a system boundary, so per-entry
     validation errors are the right shape for clients to retry against.
 
-    ``original_user_content`` and dynamic-context reminder markers are
-    server-owned. External callers cannot supply them; trusted internal channel
-    calls may preserve metadata they added before invoking this boundary.
+    ``original_user_content``, dynamic-context reminder markers, and
+    ``untrusted_input`` are server-owned. External callers cannot supply them.
+    Caller-owned ``hide_from_ui`` and human ``name=summary`` markers are kept
+    for presentation compatibility but stamped as untrusted so they cannot
+    bypass input sanitization.
     """
     if raw_input is None:
         return {}
@@ -615,9 +670,14 @@ def build_run_config(
     # Inject custom agent name when the caller specified a non-default assistant.
     # Honour an explicit agent_name in either runtime options container.
     if assistant_id and assistant_id != _DEFAULT_ASSISTANT_ID:
-        normalized = assistant_id.strip().lower().replace("_", "-")
-        if not normalized or not re.fullmatch(r"[a-z0-9-]+", normalized):
-            raise ValueError(f"Invalid assistant_id {assistant_id!r}: must contain only letters, digits, and hyphens after normalization.")
+        from deerflow.config.agents_config import validate_agent_name
+
+        # Preserve the existing API-to-storage normalization (lowercase and
+        # underscore-to-hyphen), then use the custom-agent path authority. The
+        # old inline ASCII regex rejected valid Chinese agent directories.
+        normalized = validate_agent_name(assistant_id.strip().lower().replace("_", "-"))
+        if normalized is None:  # defensive: assistant_id is truthy above
+            raise ValueError("assistant_id must not be empty")
         configurable = config.setdefault("configurable", {})
         runtime_context = config.setdefault("context", {})
         explicit_agent_name: str | None = None

@@ -1033,13 +1033,44 @@ class TestEnsureAgent:
         """_ensure_agent does not recreate if config key unchanged."""
         mock_agent = MagicMock()
         client._agent = mock_agent
-        client._agent_config_key = (None, True, False, False, None, None, None, None)
+        client._agent_config_key = (
+            None,
+            True,
+            False,
+            False,
+            None,
+            None,
+            None,
+            None,
+            "test-user-autouse",
+        )
 
         config = client._get_runnable_config("t1")
         client._ensure_agent(config)
 
         # Should still be the same mock — no recreation
         assert client._agent is mock_agent
+
+    def test_agent_cache_and_prompt_are_isolated_by_effective_user(self, client):
+        with (
+            patch("deerflow.client.create_chat_model"),
+            patch(
+                "deerflow.client.create_agent",
+                side_effect=[MagicMock(), MagicMock()],
+            ) as mock_create_agent,
+            patch("deerflow.client.build_middlewares", return_value=[]) as mock_build_middlewares,
+            patch("deerflow.client.apply_prompt_template", return_value="prompt") as mock_apply_prompt,
+            patch("deerflow.client.get_enabled_skills_for_config", return_value=[]),
+            patch.object(client, "_get_tools", return_value=[]),
+            patch("deerflow.runtime.checkpointer.get_checkpointer", return_value=None),
+        ):
+            config = client._get_runnable_config("t1")
+            client._ensure_agent(config, context={"user_id": "alice"})
+            client._ensure_agent(config, context={"user_id": "bob"})
+
+        assert mock_create_agent.call_count == 2
+        assert [call.kwargs["user_id"] for call in mock_build_middlewares.call_args_list] == ["alice", "bob"]
+        assert [call.kwargs["user_id"] for call in mock_apply_prompt.call_args_list] == ["alice", "bob"]
 
     def test_recreates_agent_when_subagent_limits_change(self, client):
         """Subagent limit changes alter prompt/middleware and must invalidate the cached agent."""
@@ -1760,8 +1791,12 @@ class TestUploads:
             created_executors = []
             real_executor_cls = concurrent.futures.ThreadPoolExecutor
 
-            async def fake_convert(path: Path) -> Path:
-                md_path = path.with_suffix(".md")
+            async def fake_convert(
+                path: Path,
+                *,
+                output_path: Path | None = None,
+            ) -> Path:
+                md_path = output_path or path.with_suffix(".md")
                 md_path.write_text(f"converted {path.name}")
                 return md_path
 
@@ -1798,6 +1833,72 @@ class TestUploads:
             assert created_executors[0].shutdown_calls == [True]
             assert result["files"][0]["markdown_file"] == "first.md"
             assert result["files"][1]["markdown_file"] == "second.md"
+
+    def test_upload_files_reserves_unique_converted_markdown_names(self, client):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            uploads_dir = tmp_path / "uploads"
+            uploads_dir.mkdir()
+            docx = tmp_path / "report.docx"
+            markdown = tmp_path / "report.md"
+            docx.write_bytes(b"DOCX")
+            markdown.write_text("USER_MARKDOWN", encoding="utf-8")
+
+            async def fake_convert(
+                path: Path,
+                *,
+                output_path: Path | None = None,
+            ) -> Path:
+                md_path = output_path or path.with_suffix(".md")
+                md_path.write_text("CONVERTED_DOCX", encoding="utf-8")
+                return md_path
+
+            with (
+                patch("deerflow.client.get_uploads_dir", return_value=uploads_dir),
+                patch("deerflow.client.ensure_uploads_dir", return_value=uploads_dir),
+                patch(
+                    "deerflow.utils.file_conversion.CONVERTIBLE_EXTENSIONS",
+                    {".docx"},
+                ),
+                patch(
+                    "deerflow.utils.file_conversion.convert_file_to_markdown",
+                    side_effect=fake_convert,
+                ),
+            ):
+                result = client.upload_files("thread-1", [docx, markdown])
+
+            assert result["files"][0]["markdown_file"] == "report_1.md"
+            assert result["files"][1]["filename"] == "report.md"
+            assert (uploads_dir / "report_1.md").read_text(encoding="utf-8") == "CONVERTED_DOCX"
+            assert (uploads_dir / "report.md").read_text(encoding="utf-8") == "USER_MARKDOWN"
+
+    def test_upload_files_releases_unused_markdown_claim(self, client):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            uploads_dir = tmp_path / "uploads"
+            uploads_dir.mkdir()
+            docx = tmp_path / "report.docx"
+            markdown = tmp_path / "report.md"
+            docx.write_bytes(b"DOCX")
+            markdown.write_text("USER_MARKDOWN", encoding="utf-8")
+
+            with (
+                patch("deerflow.client.get_uploads_dir", return_value=uploads_dir),
+                patch("deerflow.client.ensure_uploads_dir", return_value=uploads_dir),
+                patch(
+                    "deerflow.utils.file_conversion.CONVERTIBLE_EXTENSIONS",
+                    {".docx"},
+                ),
+                patch(
+                    "deerflow.utils.file_conversion.convert_file_to_markdown",
+                    return_value=None,
+                ),
+            ):
+                result = client.upload_files("thread-1", [docx, markdown])
+
+            assert result["files"][0].get("markdown_file") is None
+            assert result["files"][1]["filename"] == "report.md"
+            assert (uploads_dir / "report.md").read_text(encoding="utf-8") == "USER_MARKDOWN"
 
     def test_list_uploads(self, client):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2291,7 +2392,7 @@ class TestScenarioAgentRecreation:
 
         agents_created = []
 
-        def fake_ensure(config):
+        def fake_ensure(config, *, context=None):
             key = tuple(config.get("configurable", {}).get(k) for k in ["model_name", "thinking_enabled", "is_plan_mode", "subagent_enabled"])
             agents_created.append(key)
             client._agent = agent
@@ -2871,8 +2972,8 @@ class TestInstallSkillSecurity:
                 with pytest.raises(ValueError, match="unsafe"):
                     client.install_skill(archive)
 
-    def test_symlinks_skipped_during_extraction(self, client, allow_skill_security_scan):
-        """Symlink entries in the archive are skipped (never written to disk)."""
+    def test_symlinks_rejected_during_extraction(self, client, allow_skill_security_scan):
+        """Reject packages that would otherwise install an incomplete tree."""
         import stat as stat_mod
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -2895,13 +2996,11 @@ class TestInstallSkillSecurity:
             with (
                 patch("deerflow.skills.storage._default_skill_storage", local_storage),
                 patch("deerflow.client.get_or_new_user_skill_storage", lambda user_id, **kwargs: local_storage),
+                pytest.raises(ValueError, match="symlink"),
             ):
-                result = client.install_skill(archive)
+                client.install_skill(archive)
 
-            assert result["success"] is True
-            installed = skills_root / "custom" / "sym-skill"
-            assert (installed / "SKILL.md").exists()
-            assert not (installed / "sneaky_link").exists()
+            assert not (skills_root / "custom" / "sym-skill").exists()
 
     def test_invalid_skill_name_rejected(self, client):
         """Skill names containing special characters are rejected."""

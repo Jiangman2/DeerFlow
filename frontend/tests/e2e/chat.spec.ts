@@ -10,7 +10,7 @@ test.describe("Chat workspace", () => {
   test("new chat page loads with input box", async ({ page }) => {
     await page.goto("/workspace/chats/new");
 
-    const textarea = page.getByPlaceholder(/how can i assist you/i);
+    const textarea = page.locator('textarea[name="message"]');
     await expect(textarea).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: /load more/i })).toBeHidden();
   });
@@ -666,7 +666,7 @@ test.describe("Chat workspace", () => {
 
     await page.goto("/workspace/chats/new");
 
-    const textarea = page.getByPlaceholder(/how can i assist you/i);
+    const textarea = page.locator('textarea[name="message"]');
     await expect(textarea).toBeVisible({ timeout: 15_000 });
 
     await page.getByLabel("Upload files").setInputFiles({
@@ -703,7 +703,9 @@ test.describe("Chat workspace", () => {
   }) => {
     await page.goto("/workspace/chats/new");
 
-    const addAttachments = page.getByTestId("add-attachments-button");
+    const addAttachments = page.getByRole("button", {
+      name: "Add attachments",
+    });
     await expect(addAttachments).toBeVisible({ timeout: 15_000 });
     await addAttachments.hover();
 
@@ -772,7 +774,9 @@ test.describe("Chat workspace", () => {
     );
 
     await page.goto("/workspace/chats/new");
-    const addAttachments = page.getByTestId("add-attachments-button");
+    const addAttachments = page.getByRole("button", {
+      name: "Add attachments",
+    });
     await addAttachments.hover();
     await expect(page.getByRole("tooltip")).toContainText("5 B");
 
@@ -842,7 +846,7 @@ test.describe("Chat workspace", () => {
 
     await page.goto("/workspace/chats/new");
 
-    const textarea = page.getByPlaceholder(/how can i assist you/i);
+    const textarea = page.locator('textarea[name="message"]');
     await expect(textarea).toBeVisible({ timeout: 15_000 });
     const promptForm = page.locator("form").filter({ has: textarea });
 
@@ -865,6 +869,110 @@ test.describe("Chat workspace", () => {
       timeout: 10_000,
     });
     await expect(promptForm.getByText("report.docx")).toBeHidden();
+  });
+
+  test("stops showing upload progress before a delayed run starts", async ({
+    page,
+  }) => {
+    let releaseRun!: () => void;
+    const runCanFinish = new Promise<void>((resolve) => {
+      releaseRun = resolve;
+    });
+    let runStarted!: () => void;
+    const runStartedPromise = new Promise<void>((resolve) => {
+      runStarted = resolve;
+    });
+
+    await page.route("**/api/threads/*/uploads", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          message: "Uploaded and parsed",
+          files: [
+            {
+              filename: "report.docx",
+              size: 12,
+              path: "report.docx",
+              virtual_path: "/mnt/user-data/uploads/report.docx",
+              artifact_url: "/api/threads/test/uploads/report.docx",
+              extension: ".docx",
+              markdown_virtual_path: "/mnt/user-data/uploads/report.md",
+            },
+          ],
+        }),
+      }),
+    );
+    await page.route("**/runs/stream", async (route) => {
+      runStarted();
+      await runCanFinish;
+      return handleRunStream(route);
+    });
+
+    await page.goto("/workspace/chats/new");
+    const textarea = page.locator('textarea[name="message"]');
+    await expect(textarea).toBeVisible({ timeout: 15_000 });
+
+    await page.getByLabel("Upload files").setInputFiles({
+      name: "report.docx",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from("fake docx"),
+    });
+    await textarea.fill("Summarize this document");
+    await textarea.press("Enter");
+
+    await runStartedPromise;
+    await expect(
+      page.getByText("Uploading files...", { exact: true }),
+    ).toBeHidden();
+    await expect(page.getByText("report.docx", { exact: true })).toBeVisible();
+
+    releaseRun();
+    await expect(page.getByText("Hello from DeerFlow!")).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
+  test("does not start a run when document parsing fails", async ({ page }) => {
+    let runCalled = false;
+    await page.route("**/api/threads/*/uploads", (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail:
+            "Document parsing failed. The task was not started and no empty Markdown was submitted.",
+        }),
+      }),
+    );
+    await page.route("**/runs/stream", (route) => {
+      runCalled = true;
+      return handleRunStream(route);
+    });
+
+    await page.goto("/workspace/chats/new");
+    const textarea = page.locator('textarea[name="message"]');
+    await expect(textarea).toBeVisible({ timeout: 15_000 });
+
+    await page.getByLabel("Upload files").setInputFiles({
+      name: "unreadable.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF fake"),
+    });
+    await textarea.fill("Summarize this document");
+    await textarea.press("Enter");
+
+    await expect(
+      page
+        .locator("[data-sonner-toast]")
+        .filter({ hasText: "Document parsing failed" }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByText("Uploading files...", { exact: true }),
+    ).toBeHidden();
+    expect(runCalled).toBe(false);
   });
 
   test("does not fetch follow-up suggestions when disabled in config", async ({

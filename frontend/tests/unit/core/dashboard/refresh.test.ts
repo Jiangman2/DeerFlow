@@ -8,12 +8,21 @@ describe("refreshDashboardQueries", () => {
 
     await refreshDashboardQueries({ refetchQueries });
 
-    expect(refetchQueries).toHaveBeenCalledTimes(2);
+    expect(refetchQueries).toHaveBeenCalledTimes(4);
     expect(refetchQueries).toHaveBeenNthCalledWith(1, {
-      queryKey: ["dashboard"],
+      queryKey: ["dashboard", "summary"],
       type: "active",
     });
     expect(refetchQueries).toHaveBeenNthCalledWith(2, {
+      queryKey: ["dashboard", "run-rankings"],
+      type: "active",
+    });
+    expect(refetchQueries).toHaveBeenNthCalledWith(3, {
+      queryKey: ["dashboard"],
+      type: "active",
+      predicate: expect.any(Function),
+    });
+    expect(refetchQueries).toHaveBeenNthCalledWith(4, {
       queryKey: ["observability"],
       type: "active",
     });

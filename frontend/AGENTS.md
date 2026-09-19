@@ -76,6 +76,50 @@ mode state to this workflow. Its existing model selector, `agent_name`,
 `is_bootstrap`, hidden human-input responses, and save interaction must remain
 intact.
 
+The Agent gallery presents custom Agents as **数字员工 / Digital Employees**.
+Keep its compact horizontal portrait-and-details rows, circular CNOOC cartoon
+portraits, desktop sidebar filters, mobile filter drawer, and fuzzy discovery
+across name, description, model, category, tags, tools, and skills. Personal
+employees persist category, tags, bundled/custom avatar selection, model,
+temperature, output limit, thinking default, and reasoning effort through the
+Agent API; never restore the former localStorage-only portrait contract.
+Categories are the server-owned corporate business-domain taxonomy and are not
+mutable from the UI. Preserve the `domain_group` distinction between the
+headquarters-governed “统” domains and business-unit-implemented “分” domains
+with a compact badge on every domain row in gallery, create, and edit surfaces;
+keep both groups in one ordered list rather than separate columns. The gallery directory is collapsed by default,
+shows the selected domain in its trigger, and exposes an independently bounded
+scroll area when expanded. Per-employee tags support manual add/edit/delete and
+deterministic local suggestions. Browser Live is feature-gated and only appears
+for a custom employee when its tool-group allowlist is unset or includes
+`browser`; on mobile it is a bottom sheet, while desktop uses the side panel.
+Do not fork the conversational builder or weaken its existing save workflow.
+The UI must submit only the fixed category identifier and must not attempt to
+rewrite or migrate complete Agent configuration objects; persistence migration
+is a raw-field operation owned by Gateway.
+The directory paginates both the shared square and personal list at the UI
+boundary; filtering returns to page one. Popular tags and the new-agent avatar
+picker show compact previews with explicit expand/collapse controls. The
+new-agent name step is a viewport-bounded card with a fixed header/footer and
+an independently scrolling form body, so the primary action never falls below
+the browser viewport. The personal edit dialog intentionally omits dedicated
+model and inference controls; updates must leave any existing model,
+temperature, output-token, thinking, and reasoning configuration unchanged.
+
+Ordinary and Digital Employee chat layouts reuse the single
+`components/workspace/chats/chat-providers.tsx` provider stack. Keep thread-keyed
+subtasks/artifacts, Browser Live state, and prompt-input state in that shared
+stack so the two routes cannot drift or leave one chat mode without a provider.
+
+Recent-chat organization follows upstream DeerFlow's namespaced metadata
+contracts. `deerflow_pinned` sorts pinned chats first without touching their
+activity timestamp, and `deerflow_archived` removes archived chats from the
+sidebar while keeping them restorable from the Chats page. Keep archive and
+delete mutations hosted above rows that may unmount, and retain the upstream
+confirmation dialog before destructive chat deletion. Workspace change badges
+show at most three file rows by default and expose a reversible remainder
+toggle; the full diff panel remains unchanged.
+
 The main workspace composer's knowledge control mirrors WeKnora New Chat's
 mention scope without copying WeKnora conversation state. It supports complete
 knowledge bases, individual files, and tags. Preserve each file/tag's parent
@@ -162,6 +206,42 @@ remains hidden. Deployment defaults supply the other hidden model, parser,
 chunking, VLM, ASR, and storage values. System
 administrators retain the complete native editor.
 
+`/workspace/skills` is the phase-1 DeerFlow shell for native iFLYTEK SkillHub
+content. It owns the visible Skill Center header, discovery/personal tabs,
+role-aware management menu, loading state, and embedded DeerFlow theme. Keep the
+iframe on the authenticated same-origin `/platform/skillhub/` mount, start it
+on native search, and hide SkillHub's standalone header/footer and
+dashboard-return control. Do not recreate SkillHub marketplace, publishing,
+review, governance, or administrator content in DeerFlow. The shell reads
+native `/api/v1/auth/me` roles only to present the matching navigation; native
+SkillHub API authorization remains the security boundary. The Skill Center
+sidebar item stays immediately below Knowledge, its new-window action preserves
+the DeerFlow shell, entering the route collapses the DeerFlow sidebar once per
+mount, and mobile retains the sidebar escape hatch. The native session is
+established only through the exact same-origin passive-bootstrap route backed by
+Gateway's short-lived role-free HMAC assertion. The feature gate must hide the
+entry and keep the page inert until that server path is ready. SkillHub sessions
+and RBAC remain native and independent from DeerFlow authorization.
+The first-party **My Skills** tab is the one exception to the embedded native
+content: it is a DeerFlow-owned view of the authenticated user's complete
+`custom` skill library. Build it from the existing `/api/skills` inventory and
+`/api/skillhub/runtime/skills` installation registry rather than introducing a
+second skill store. It must include both user-created and SkillHub-installed
+skills, show registry provenance/version where available, retain the existing
+create-skill route, and preserve the existing authorization boundary for
+user-created skill switches. SkillHub-installed entries use their per-user
+runtime enable/disable and uninstall APIs. Keep the detail-page action labelled
+**Add to My Skills** (localized in the UI) so installation is not presented as
+binding the skill to one Digital Employee.
+On native skill detail routes, the DeerFlow-owned runtime bar may fetch the
+published version with the browser's SkillHub session and upload its bytes to
+the authenticated Gateway runtime endpoint. Keep registry coordinates parsed
+from the same-origin detail route/API, never accept an arbitrary download URL,
+and do not present a client-side success state until the Gateway confirms the
+per-user install. Enable/disable and uninstall use only the matching
+namespace/slug installation record. SkillHub still owns publication and review;
+DeerFlow owns runtime installation and its security result.
+
 ### Data Flow
 
 1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission. `core/voice-input` records microphone input only in a secure browser context, converts it to 16 kHz mono PCM16, and streams it over the same-origin authenticated `/api/voice-input/stream` WebSocket; Gateway returns partial/final text into that same local draft. Do not restore browser-vendor `SpeechRecognition` as an implicit fallback. Confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming. When that draft explicitly starts with `/ppt-master`, `core/api/ppt-master-runtime.ts` marks the thread with `runtime_profile=ppt-master-runner` **before** `useStream.submit()` can start state hydration, then routes stream, reconnect, cancel, and LangGraph checkpoint state/history through `/api/ppt-master-runtime`; paged conversation history, uploads, metadata, and artifact APIs remain on the main Gateway. Delaying the marker until the wrapped `runs.stream()` call creates a first-submit race in which `useStream` can query the ordinary checkpoint namespace and log misleading 404s. If the same request includes a PPT/PPTX attachment, the pre-submit upload uses `upload_purpose=presentation_template` so Gateway preserves the original template instead of routing it through the document parser.
@@ -171,7 +251,7 @@ administrators retain the complete native editor.
    an item fills its `/ppt-master` example without submitting it. Keep these
    labels and prompts locale-owned, and do not replace them with implicit
    non-Skill prose.
-2. Stream events update thread state (messages, artifacts, todos, goal)
+2. Stream events update thread state (messages, artifacts, todos, goal). The main thread stream uses the LangGraph SDK's `throttle: true` mode so updates received in the same macrotask coalesce before React is notified; do not replace it with a numeric delay without validating the SDK's trailing-debounce behavior on a continuous stream. Browser submit and regenerate paths intentionally omit `streamSubgraphs`: delegated progress already arrives through root custom events, and subgraph value frames must not duplicate another agent's messages in the root conversation. File-tool artifact auto-open work must run in an effect with timer cleanup; never schedule timers while rendering streamed `write_file` or `str_replace` updates.
    When an existing chat page mounts without the SDK's tab-local reconnect key,
    `core/threads/hooks.ts` must query the Gateway run store for the newest
    `pending`/`running` run and join that run's stream. Keep the composer busy
@@ -181,7 +261,7 @@ administrators retain the complete native editor.
 3. `useThreadHistory` loads persisted conversation pages from `GET /api/threads/{id}/messages/page`, preserving the backend's thread-global event `seq`; rendering overlays checkpoint/live copies at their matching canonical identities (a summarized checkpoint may contain a protected early input plus a recent tail), suppresses checkpoint/transient prefixes whose canonical position is still behind an unloaded cursor page instead of collapsing that unknown gap before a recent anchor, then adds optimistic messages without timestamp re-sorting. History invalidation preserves already-loaded pages so their established ordering positions are not discarded.
 4. Stop actions call the LangGraph SDK stream stop path; `core/threads/hooks.ts` invalidates current-thread, thread-history, token-usage, and sidebar/search caches immediately and schedules one follow-up refetch because SDK stop may finish via abort + fire-and-forget cancel before backend title finalization commits
 5. TanStack Query manages server state; localStorage stores user settings
-6. Components subscribe to thread state and render updates
+6. Components subscribe to thread state and render updates. Completed message groups and turn-usage derivations retain stable references while only the active tail changes; histories with at least 60 groups use measured row virtualization while keeping the live tail mounted. Streaming Markdown uses a deferred, bounded 50 ms reveal cadence so provider token frequency cannot force a complete Markdown parse and React commit for every chunk.
 
 The composer labels the legacy shop-cart attachment flow as **Data Lake** while
 keeping its internal routes and modules unchanged. The control stores
@@ -238,6 +318,8 @@ Sidecar threads use `metadata.platform_sidecar` for newly created records. Threa
 lookup, primary-list filtering, and parent-thread cascade deletion must also recognize
 the legacy `metadata.deerflow_sidecar` marker so enterprise-branded deployments retain
 access to sidecars created before the metadata rename.
+
+`MessageGroup` builds its tool-result lookup once per processing group before converting messages to steps. The lookup preserves the first non-empty result for each tool-call ID, matching the streamed-message display semantics without repeatedly scanning the full group for every tool call. The browser-preview half of the upstream lookup remains out of scope until the enterprise branch carries that upstream browser surface.
 
 ### Key Patterns
 
@@ -330,20 +412,27 @@ launch bars, use explicit solid `backgroundColor` values instead of gradients
 or alpha-color syntax so the audited enterprise browser renders them reliably.
 The backend remains the authoritative enforcement boundary. The panel must not mix runs from deleted
 conversations into that current-session view.
-The five built-in external-agent cards navigate through same-origin server
-launch routes under `/api/cnooc/external-agents/<agent>/launch`. Those routes
+The five built-in external-agent cards navigate directly to their fixed
+same-origin HTTPS aliases under `cnoocclaw.cnooc.com.cn`; do not rewrite those
+current aliases through the legacy launch API. Legacy `datalake.cnooc` card
+records may still use `/api/cnooc/external-agents/<agent>/launch`. Those routes
 read the HttpOnly `cnooc.platform_token` cookie, validate its current-user
 binding through Gateway's Data Lake session endpoint, and redirect only to the
-fixed canonical HTTPS paths on `datalake.cnooc`, adding the current Token at
-redirect time. Keep the strict target allowlist plus `no-store` and `no-referrer`
-headers, and keep the shared Nginx entry's exact launch-prefix location ahead
-of its general `/api/` Gateway catch-all. The Token must never be hardcoded,
-returned to client JavaScript, or
-stored in card data; do not restore the legacy `/agent-tools/*` proxies.
+fixed canonical Data Lake paths, adding the current Token at redirect time.
+Keep the strict target allowlist plus `no-store` and `no-referrer` headers, and
+keep the shared Nginx entry's exact launch-prefix location ahead of its general
+`/api/` Gateway catch-all. The Token must never be hardcoded, returned to client
+JavaScript, or stored in card data; do not restore the legacy `/agent-tools/*`
+proxies.
 Slow-run, high-token, and recent-failure cards share five-row pagination plus a
 bounded vertical scroll area.
-Headline summaries poll every 15 seconds while heavier observability rankings
-poll every 60 seconds. External-agent click telemetry must use the shared
+The visible dashboard requests a compact summary with native WeKnora and unused
+business-event detail excluded; the WeKnora panel has its own parallel query.
+Short rolling summaries poll every 60 seconds and knowledge data every five
+minutes. Fixed custom windows and windows longer than seven days do not poll.
+Editing a custom date/time input must not change the active query until the user
+clicks Apply. Heavier observability rankings poll every 60 seconds.
+External-agent click telemetry must use the shared
 authenticated fetch wrapper so the CSRF token is sent; telemetry failure must
 not block navigation.
 
@@ -382,7 +471,10 @@ Scheduled tasks own their execution-model choice independently of chat settings.
 The create form prefers `deepseek-v4-flash` when that configured enterprise model
 is available, falls back to the first available model elsewhere, and persists the
 selection in `run_context`. Editing a task may change that saved model; switching
-models in a chat must not mutate scheduled tasks.
+models in a chat must not mutate scheduled tasks. Keep create/edit/duplicate flows
+aligned for `once`, `cron`, and minimum-60-second `interval` schedules and for the
+pinned custom-agent selection. Run history uses server pagination; older pages pause
+live refresh and must not be merged with the latest-page cache.
 
 ### Workspace announcements
 
@@ -462,3 +554,13 @@ When adding features:
 3. Write unit tests under `tests/unit/` (`pnpm test`) and E2E tests under `tests/e2e/` (`pnpm test:e2e`)
 4. Run `pnpm check` before committing
 5. Update this `AGENTS.md` when architecture, commands, or conventions change
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

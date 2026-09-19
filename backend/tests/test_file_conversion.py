@@ -299,6 +299,21 @@ class TestConvertFileToMarkdown:
 
         assert result is None
 
+    def test_empty_conversion_removes_stale_markdown_and_returns_none(self, tmp_path):
+        pdf = tmp_path / "empty.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake")
+        stale = pdf.with_suffix(".md")
+        stale.write_text("stale content", encoding="utf-8")
+
+        with (
+            patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
+            patch("deerflow.utils.file_conversion._do_convert", return_value="  \n\t"),
+        ):
+            result = _run(convert_file_to_markdown(pdf))
+
+        assert result is None
+        assert not stale.exists()
+
     def test_writes_utf8_markdown_file(self, tmp_path):
         """Generated .md file is written with UTF-8 encoding."""
         pdf = tmp_path / "report.pdf"
@@ -316,6 +331,24 @@ class TestConvertFileToMarkdown:
 
         assert md_path is not None
         assert md_path.read_text(encoding="utf-8") == chinese_content
+
+    def test_writes_to_preclaimed_output_path(self, tmp_path):
+        pdf = tmp_path / "report.pdf"
+        pdf.write_bytes(b"%PDF-1.4 fake")
+        preclaimed = tmp_path / "report_1.md"
+
+        with (
+            patch("deerflow.utils.file_conversion._get_pdf_converter", return_value="auto"),
+            patch(
+                "deerflow.utils.file_conversion._do_convert",
+                return_value="# Parsed report",
+            ),
+        ):
+            md_path = _run(convert_file_to_markdown(pdf, output_path=preclaimed))
+
+        assert md_path == preclaimed
+        assert preclaimed.read_text(encoding="utf-8") == "# Parsed report"
+        assert not pdf.with_suffix(".md").exists()
 
 
 # ---------------------------------------------------------------------------

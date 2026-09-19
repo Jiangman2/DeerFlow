@@ -45,6 +45,7 @@ done
 
 echo "===== CORE WORKLOAD READINESS ====="
 kubectl_df rollout status deployment/gateway --timeout=180s
+kubectl_df rollout status deployment/ppt-master-runner --timeout=180s
 kubectl_df rollout status deployment/provisioner --timeout=180s
 kubectl_df rollout status deployment/frontend --timeout=180s
 kubectl_df rollout status deployment/weknora-app --timeout=180s
@@ -52,10 +53,120 @@ kubectl_df rollout status deployment/weknora-frontend --timeout=180s
 kubectl_df rollout status deployment/deer-flow-mineru-adapter --timeout=180s
 kubectl_df rollout status deployment/deer-flow-mineru-dispatcher --timeout=180s
 kubectl_df rollout status statefulset/postgres --timeout=180s
+kubectl_df rollout status statefulset/postgres-dashboard-replica --timeout=600s
 kubectl_df rollout status statefulset/weknora-postgres --timeout=180s
 kubectl_df rollout status statefulset/weknora-neo4j --timeout=180s
 kubectl_df get configmap "$CONFIGMAP" -o name
 kubectl_df get secret deer-flow-enterprise-ca -o name
+kubectl_df get secret deer-flow-dashboard-postgres -o name
+
+echo "===== PPT RUNNER FAILURE-DOMAIN ISOLATION ====="
+GATEWAY_CONTAINERS="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\n"}{end}'
+)"
+RUNNER_CONTAINERS="$(
+    kubectl_df get deployment ppt-master-runner \
+      -o jsonpath='{range .spec.template.spec.containers[*]}{.name}{"\n"}{end}'
+)"
+GATEWAY_RUNNER_URL="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="gateway")].env[?(@.name=="PPT_MASTER_RUNNER_INTERNAL_URL")].value}'
+)"
+GATEWAY_MEMORY_REQUEST="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="gateway")].resources.requests.memory}'
+)"
+GATEWAY_MEMORY_LIMIT="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="gateway")].resources.limits.memory}'
+)"
+RUNNER_SERVICE_SELECTOR="$(
+    kubectl_df get service ppt-master-runner \
+      -o jsonpath='{.spec.selector.app}'
+)"
+RUNNER_SERVICE_PORT="$(
+    kubectl_df get service ppt-master-runner \
+      -o jsonpath='{.spec.ports[?(@.name=="http")].port}'
+)"
+RUNNER_ENDPOINTS="$(
+    kubectl_df get endpointslice \
+      -l kubernetes.io/service-name=ppt-master-runner -o json |
+    python3 -c '
+import json, sys
+count = 0
+for item in json.load(sys.stdin).get("items") or []:
+    for endpoint in item.get("endpoints") or []:
+        if (endpoint.get("conditions") or {}).get("ready") is not False:
+            count += len(endpoint.get("addresses") or [])
+print(count)
+'
+)"
+echo "gateway_containers=$(tr '\n' ',' <<<"$GATEWAY_CONTAINERS" | sed 's/,$//')"
+echo "runner_containers=$(tr '\n' ',' <<<"$RUNNER_CONTAINERS" | sed 's/,$//')"
+echo "gateway_runner_url=$GATEWAY_RUNNER_URL"
+echo "gateway_memory_request=$GATEWAY_MEMORY_REQUEST"
+echo "gateway_memory_limit=$GATEWAY_MEMORY_LIMIT"
+echo "runner_service_selector=$RUNNER_SERVICE_SELECTOR"
+echo "runner_service_port=$RUNNER_SERVICE_PORT"
+echo "runner_ready_endpoints=$RUNNER_ENDPOINTS"
+grep -Fxq gateway <<<"$GATEWAY_CONTAINERS"
+if grep -Fxq ppt-master-runner <<<"$GATEWAY_CONTAINERS"; then
+    echo "FAILED: PPT Runner still shares the Gateway Pod"
+    exit 1
+fi
+grep -Fxq ppt-master-runner <<<"$RUNNER_CONTAINERS"
+test "$GATEWAY_RUNNER_URL" = "http://ppt-master-runner:8003"
+test "$GATEWAY_MEMORY_REQUEST" = "4Gi"
+test "$GATEWAY_MEMORY_LIMIT" = "16Gi"
+test "$RUNNER_SERVICE_SELECTOR" = "ppt-master-runner"
+test "$RUNNER_SERVICE_PORT" = "8003"
+test "$RUNNER_ENDPOINTS" -ge 1
+echo "ppt_master_runner_failure_isolation=PASS"
+
+echo "===== DASHBOARD READ-REPLICA ISOLATION ====="
+DASHBOARD_REPLICA_NODE="$(
+    kubectl_df get pod postgres-dashboard-replica-0 -o jsonpath='{.spec.nodeName}'
+)"
+echo "dashboard_replica_node=$DASHBOARD_REPLICA_NODE"
+test "$DASHBOARD_REPLICA_NODE" = "datax-03"
+
+gateway_python '
+import asyncio
+import os
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+async def main():
+    assert os.environ.get("DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA") == "true"
+    assert os.environ.get("DEER_FLOW_DASHBOARD_VERIFY_READ_REPLICA") == "true"
+    url = os.environ.get("DEER_FLOW_DASHBOARD_DATABASE_URL", "")
+    if not url:
+        raise SystemExit("FAILED: dashboard replica URL is missing")
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    engine = create_async_engine(
+        url,
+        pool_size=1,
+        max_overflow=0,
+        connect_args={"server_settings": {"default_transaction_read_only": "on"}},
+    )
+    try:
+        async with engine.connect() as connection:
+            recovery = bool(await connection.scalar(text("SELECT pg_is_in_recovery()")))
+            read_only = str(await connection.scalar(text("SHOW transaction_read_only")))
+            lag = await connection.scalar(text("SELECT now() - pg_last_xact_replay_timestamp()"))
+        print(f"dashboard_replica_recovery={str(recovery).lower()}")
+        print(f"dashboard_replica_read_only={read_only}")
+        print(f"dashboard_replica_lag={lag}")
+        if not recovery or read_only != "on":
+            raise SystemExit("FAILED: dashboard target is not a read-only physical standby")
+    finally:
+        await engine.dispose()
+
+asyncio.run(main())
+print("dashboard_replica_isolation=PASS")
+'
 
 echo "===== CONFIG REFERENCES AND RESOLUTION ====="
 gateway_python '
@@ -89,6 +200,61 @@ for forbidden in ("dashscope.aliyuncs.com", "aliyuncs.com", "tavily.com"):
 
 print("sandbox_command_proxy_resolution=PASS")
 '
+
+echo "===== SHARED THREAD-DATA UPLOAD CONTRACT ====="
+gateway_python '
+from pathlib import Path
+import yaml
+
+config = yaml.safe_load(Path("/app/backend/config.yaml").read_text()) or {}
+sandbox = config.get("sandbox") or {}
+assert sandbox.get("shared_thread_data_mounts") is True, sandbox
+print("sandbox_shared_thread_data_config=PASS")
+'
+
+GATEWAY_USERDATA_CLAIM="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.volumes[?(@.name=="userdata")].persistentVolumeClaim.claimName}'
+)"
+GATEWAY_USERDATA_MOUNT="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="gateway")].volumeMounts[?(@.name=="userdata")].mountPath}'
+)"
+GATEWAY_USERDATA_SUBPATH="$(
+    kubectl_df get deployment gateway \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="gateway")].volumeMounts[?(@.name=="userdata")].subPath}'
+)"
+PROVISIONER_USERDATA_CLAIM="$(
+    kubectl_df get deployment provisioner \
+      -o jsonpath='{.spec.template.spec.containers[?(@.name=="provisioner")].env[?(@.name=="USERDATA_PVC_NAME")].value}'
+)"
+echo "gateway_userdata_claim=$GATEWAY_USERDATA_CLAIM"
+echo "gateway_userdata_mount=$GATEWAY_USERDATA_MOUNT"
+echo "gateway_userdata_subpath=$GATEWAY_USERDATA_SUBPATH"
+echo "provisioner_userdata_claim=$PROVISIONER_USERDATA_CLAIM"
+test "$GATEWAY_USERDATA_CLAIM" = "deer-flow-userdata-pvc"
+test "$GATEWAY_USERDATA_MOUNT" = "/app/backend/.deer-flow"
+test "$GATEWAY_USERDATA_SUBPATH" = "deer-flow"
+test "$PROVISIONER_USERDATA_CLAIM" = "$GATEWAY_USERDATA_CLAIM"
+
+kubectl_df get pods -l app=deer-flow-sandbox -o json |
+python3 -c '
+import json
+import sys
+
+payload = json.load(sys.stdin)
+items = payload.get("items", [])
+for pod in items:
+    volumes = {item["name"]: item for item in pod["spec"].get("volumes", [])}
+    claim = volumes.get("user-data", {}).get("persistentVolumeClaim", {}).get("claimName")
+    assert claim == "deer-flow-userdata-pvc", (pod["metadata"]["name"], claim)
+    sandbox = next(item for item in pod["spec"]["containers"] if item["name"] == "sandbox")
+    mount = next(item for item in sandbox.get("volumeMounts", []) if item["name"] == "user-data")
+    assert mount["mountPath"] == "/mnt/user-data", (pod["metadata"]["name"], mount)
+    assert mount.get("subPath", "").startswith("deer-flow/users/"), (pod["metadata"]["name"], mount)
+print(f"active_sandbox_shared_mount_probe=PASS pods={len(items)}")
+'
+echo "shared_thread_data_upload_contract=PASS"
 
 echo "===== PROVISIONER CONTRACT ====="
 PROVISIONER_ENV="$(
@@ -304,5 +470,5 @@ kubectl_df get deployment \
   gateway frontend provisioner weknora-app weknora-frontend \
   deer-flow-mineru-adapter deer-flow-mineru-dispatcher \
   -o wide
-kubectl_df get statefulset postgres weknora-postgres weknora-neo4j -o wide
+kubectl_df get statefulset postgres postgres-dashboard-replica weknora-postgres weknora-neo4j -o wide
 echo "enterprise_runtime_baseline=PASS"

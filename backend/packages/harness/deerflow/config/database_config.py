@@ -98,5 +98,29 @@ class DatabaseConfig(BaseModel):
             url = self.postgres_url
             if url.startswith("postgresql://"):
                 url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
             return url
         raise ValueError(f"No SQLAlchemy URL for backend={self.backend!r}")
+
+    @property
+    def app_sync_sqlalchemy_url(self) -> str:
+        """Synchronous URL used by the custom-agent definition store.
+
+        Agent construction and the setup/update tools are synchronous and can
+        execute in graph worker processes, so they cannot reuse the gateway's
+        async SQLAlchemy engine.  This URL points at the same durable database
+        with the synchronous driver that already ships with the application.
+        """
+        if self.backend == "sqlite":
+            return f"sqlite:///{self.sqlite_path}"
+        if self.backend == "postgres":
+            url = self.postgres_url
+            if url.startswith("postgresql+asyncpg://"):
+                return url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
+            if url.startswith("postgresql://"):
+                return url.replace("postgresql://", "postgresql+psycopg://", 1)
+            if url.startswith("postgres://"):
+                return url.replace("postgres://", "postgresql+psycopg://", 1)
+            return url
+        raise ValueError(f"No synchronous SQLAlchemy URL for backend={self.backend!r}")

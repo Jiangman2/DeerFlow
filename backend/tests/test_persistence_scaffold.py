@@ -179,6 +179,19 @@ class TestMemoryRunStore:
         assert "m-b" not in agg["by_model"]
 
     @pytest.mark.anyio
+    async def test_aggregate_tokens_by_thread_scopes_to_user(self, store):
+        await store.put("owner-run", thread_id="t1", user_id="owner-a")
+        await store.update_run_completion("owner-run", status="success", total_tokens=10)
+        await store.put("other-run", thread_id="t1", user_id="owner-b")
+        await store.update_run_completion("other-run", status="success", total_tokens=90)
+
+        scoped = await store.aggregate_tokens_by_thread("t1", user_id="owner-a")
+        unscoped = await store.aggregate_tokens_by_thread("t1", user_id=None)
+
+        assert (scoped["total_runs"], scoped["total_tokens"]) == (1, 10)
+        assert (unscoped["total_runs"], unscoped["total_tokens"]) == (2, 100)
+
+    @pytest.mark.anyio
     async def test_aggregate_tokens_by_thread_excludes_active_unless_requested(self, store):
         await store.put("r1", thread_id="t1")
         await store.update_run_completion("r1", status="success", total_tokens=10)

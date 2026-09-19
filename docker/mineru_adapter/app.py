@@ -4,19 +4,23 @@ from __future__ import annotations
 
 import base64
 import binascii
+import ctypes
 import hashlib
 import io
 import json
 import logging
 import os
 import re
+import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import uuid
 import zipfile
+import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from email.parser import BytesParser
@@ -29,6 +33,10 @@ from typing import Any
 import requests
 
 logger = logging.getLogger("deerflow.mineru_adapter")
+_POSIX_PROCESS_GROUPS = os.name == "posix"
+_SIGKILL = getattr(signal, "SIGKILL", signal.SIGTERM)
+_CHILD_SUBREAPER_ENABLED = False
+_PR_SET_CHILD_SUBREAPER = 36
 
 _HTML_DATA_IMAGE_RE = re.compile(
     r"""<img\b(?P<before>[^>]*?)\bsrc\s*=\s*(?P<quote>["'])data:(?P<mime>image/[a-z0-9.+-]+);base64,(?P<data>[^"']*)(?P=quote)(?P<after>[^>]*)>""",
@@ -42,6 +50,8 @@ _MARKDOWN_IMAGE_REF_RE = re.compile(
     r"""!\[(?P<alt>[^\]]*)]\(\s*(?P<path>images/[^)\s]+)\s*\)""",
     re.IGNORECASE,
 )
+_MARKDOWN_IMAGE_RE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
 _NATIVE_IMAGE_DATA_RE = re.compile(
     r"^data:(?P<mime>image/[a-z0-9.+-]+);base64,(?P<data>.*)$",
     re.IGNORECASE | re.DOTALL,
@@ -96,26 +106,42 @@ class VisualPageEvidence:
     context: str
 
 
+@dataclass(frozen=True)
+class DOCXWorkload:
+    """Central-directory workload facts used before entering a DOCX parser."""
+
+    compressed_bytes: int
+    uncompressed_bytes: int
+    document_xml_bytes: int
+    entry_count: int
+
+    @property
+    def expansion_ratio(self) -> float:
+        return self.uncompressed_bytes / max(self.compressed_bytes, 1)
+
+
 class ParseCoordinator:
-    """Serialize native document parsing while leaving HTTP probes responsive.
+    """Admit at most one native parse while leaving probes responsive.
 
     PDFium and the bundled DocReader stack load native libraries that are not
     safe to enter concurrently in one process. The HTTP server remains threaded
-    so health probes and upload-body reads do not block, but every call into the
-    parsing pipeline passes through this single coordinator.
+    so health probes and upload-body reads do not block. Queuing belongs to the
+    dispatcher/Redis layer; a worker that is already parsing rejects another
+    request instead of accumulating an invisible in-process queue.
     """
 
     def __init__(self) -> None:
         self._parse_lock = threading.Lock()
         self._state_lock = threading.Lock()
         self._active = 0
-        self._waiting = 0
+        self._rejected = 0
 
     def snapshot(self) -> dict[str, int]:
         with self._state_lock:
             return {
                 "active": self._active,
-                "waiting": self._waiting,
+                "waiting": 0,
+                "rejected": self._rejected,
             }
 
     def run(
@@ -126,32 +152,28 @@ class ParseCoordinator:
         content_bytes: int,
     ) -> dict[str, Any]:
         request_id = uuid.uuid4().hex[:12]
-        queued_at = time.monotonic()
-        with self._state_lock:
-            self._waiting += 1
-            queue_depth = self._active + self._waiting
+        if not self._parse_lock.acquire(blocking=False):
+            with self._state_lock:
+                self._rejected += 1
+                rejected = self._rejected
+            logger.warning(
+                "Parse rejected because worker is busy request_id=%s filename=%r bytes=%d rejected_total=%d",
+                request_id,
+                filename,
+                content_bytes,
+                rejected,
+            )
+            raise ParseWorkerBusy("Document parser worker is already processing a file")
 
-        logger.info(
-            "Parse queued request_id=%s filename=%r bytes=%d queue_depth=%d",
-            request_id,
-            filename,
-            content_bytes,
-            queue_depth,
-        )
-
-        self._parse_lock.acquire()
         with self._state_lock:
-            self._waiting -= 1
             self._active = 1
-            waiting = self._waiting
 
         started_at = time.monotonic()
         logger.info(
-            "Parse started request_id=%s filename=%r wait_seconds=%.3f waiting=%d",
+            "Parse started request_id=%s filename=%r bytes=%d",
             request_id,
             filename,
-            started_at - queued_at,
-            waiting,
+            content_bytes,
         )
 
         status = "failed"
@@ -163,15 +185,13 @@ class ParseCoordinator:
             elapsed = time.monotonic() - started_at
             with self._state_lock:
                 self._active = 0
-                waiting = self._waiting
             self._parse_lock.release()
             logger.info(
-                "Parse finished request_id=%s filename=%r status=%s elapsed_seconds=%.3f waiting=%d",
+                "Parse finished request_id=%s filename=%r status=%s elapsed_seconds=%.3f",
                 request_id,
                 filename,
                 status,
                 elapsed,
-                waiting,
             )
 
 
@@ -184,6 +204,10 @@ class DispatchQueueFull(RuntimeError):
 
 class DispatchUnavailable(RuntimeError):
     """Raised when no healthy serialized parser worker becomes available."""
+
+
+class ParseWorkerBusy(RuntimeError):
+    """Raised when a direct request reaches a worker that is already parsing."""
 
 
 class ParseDispatcher:
@@ -207,8 +231,13 @@ class ParseDispatcher:
         minimum_backends: int,
         wait_timeout_seconds: float,
         request_timeout_seconds: float,
+        interactive_request_timeout_seconds: float | None = None,
+        failure_cooldown_seconds: float = 60.0,
+        probe_timeout_seconds: float = 0.25,
+        busy_retry_limit: int = 3,
         session: Any | None = None,
         resolver: Callable[[str], list[str]] | None = None,
+        prober: Callable[[str, str], bool] | None = None,
     ) -> None:
         if backend_port <= 0:
             raise ValueError("Dispatcher backend port must be greater than zero")
@@ -222,13 +251,22 @@ class ParseDispatcher:
         self.minimum_backends = minimum_backends
         self.wait_timeout_seconds = wait_timeout_seconds
         self.request_timeout_seconds = request_timeout_seconds
+        self.interactive_request_timeout_seconds = request_timeout_seconds if interactive_request_timeout_seconds is None else interactive_request_timeout_seconds
+        self.failure_cooldown_seconds = max(1.0, failure_cooldown_seconds)
+        self.probe_timeout_seconds = max(0.05, probe_timeout_seconds)
+        self.busy_retry_limit = max(0, busy_retry_limit)
         self._condition = threading.Condition()
         self._pending: list[tuple[int, int, str]] = []
         self._busy: set[str] = set()
+        # A failed/ambiguous request remains quarantined until the worker's
+        # /ready endpoint proves that its parser is idle. The timestamp is the
+        # earliest next probe, not an automatic quarantine expiry.
+        self._quarantined: dict[str, float] = {}
         self._known: tuple[str, ...] = ()
         self._sequence = 0
         self._cursor = 0
         self._resolver = resolver or self._resolve_ipv4
+        self._prober = prober
         if session is None:
             session = requests.Session()
             session.trust_env = False
@@ -259,17 +297,87 @@ class ParseDispatcher:
             addresses = ()
         with self._condition:
             self._known = addresses
+            known = set(addresses)
+            self._quarantined = {address: deadline for address, deadline in self._quarantined.items() if address in known}
         return addresses
+
+    def _probe_backend(self, backend: str, path: str) -> bool:
+        if self._prober is not None:
+            return bool(self._prober(backend, path))
+        try:
+            response = self._session.get(
+                f"http://{backend}:{self.backend_port}{path}",
+                timeout=(self.probe_timeout_seconds, self.probe_timeout_seconds),
+            )
+        except requests.RequestException:
+            return False
+        if int(response.status_code) != HTTPStatus.OK:
+            return False
+        if path != "/ready":
+            return True
+        try:
+            payload = response.json()
+        except (TypeError, ValueError):
+            return False
+        parser = payload.get("parser") if isinstance(payload, dict) else None
+        return bool(payload.get("role") == "worker" and isinstance(parser, dict) and int(parser.get("active", 1)) == 0 and int(parser.get("waiting", 1)) == 0)
+
+    def _ready_backends(self, candidates: tuple[str, ...]) -> tuple[str, ...]:
+        ready: list[str] = []
+        now = time.monotonic()
+        for backend in candidates:
+            with self._condition:
+                retry_at = self._quarantined.get(backend)
+            if retry_at is not None and retry_at > now:
+                continue
+            if self._probe_backend(backend, "/ready"):
+                with self._condition:
+                    self._quarantined.pop(backend, None)
+                ready.append(backend)
+            elif retry_at is not None:
+                with self._condition:
+                    self._quarantined[backend] = time.monotonic() + self.failure_cooldown_seconds
+        return tuple(ready)
+
+    def _mark_backend_unhealthy(self, backend: str, *, reason: str) -> None:
+        with self._condition:
+            deadline = time.monotonic() + self.failure_cooldown_seconds
+            self._quarantined[backend] = deadline
+            self._condition.notify_all()
+        logger.warning(
+            "MinerU dispatcher quarantined backend=%s cooldown_seconds=%.1f reason=%s",
+            backend,
+            self.failure_cooldown_seconds,
+            reason,
+        )
 
     def snapshot(self) -> dict[str, Any]:
         discovered = self._discover()
+        # A quarantined worker must be able to recover even while the
+        # dispatcher is not receiving parse requests.  Otherwise Kubernetes
+        # could remove the dispatcher from Service endpoints after the last
+        # usable worker is quarantined, leaving no request path that calls
+        # _ready_backends() and clears the quarantine.
+        now = time.monotonic()
         with self._condition:
+            due_for_reprobe = tuple(address for address, retry_at in self._quarantined.items() if address in discovered and retry_at <= now)
+        if due_for_reprobe:
+            self._ready_backends(due_for_reprobe)
+        live = tuple(address for address in discovered if self._probe_backend(address, "/live"))
+        with self._condition:
+            usable_live = tuple(address for address in live if address not in self._quarantined)
             return {
                 "discovered": len(discovered),
                 "minimum": self.minimum_backends,
                 "busy": len(self._busy),
                 "waiting": len(self._pending),
-                "ready": len(discovered) >= self.minimum_backends,
+                "live": len(live),
+                "quarantined": len(self._quarantined),
+                # Continue serving in degraded mode while at least one worker
+                # is usable. Requiring the full target capacity here turned a
+                # single worker restart into an outage of the dispatcher Pod.
+                "ready": bool(usable_live),
+                "capacity_target_met": len(usable_live) >= self.minimum_backends,
             }
 
     def _acquire_backend(self, priority: str) -> tuple[str, str, float]:
@@ -280,9 +388,7 @@ class ParseDispatcher:
         deadline = queued_at + self.wait_timeout_seconds
         with self._condition:
             if len(self._pending) >= self.maximum_waiting:
-                raise DispatchQueueFull(
-                    "Document parser dispatcher queue is full; retry later"
-                )
+                raise DispatchQueueFull("Document parser dispatcher queue is full; retry later")
             self._sequence += 1
             ticket = (rank, self._sequence, ticket_id)
             self._pending.append(ticket)
@@ -295,18 +401,32 @@ class ParseDispatcher:
                     if ticket in self._pending:
                         self._pending.remove(ticket)
                     self._condition.notify_all()
-                    raise DispatchUnavailable(
-                        "Timed out waiting for an available document parser worker"
-                    )
+                    raise DispatchUnavailable("Timed out waiting for an available document parser worker")
                 head = min(self._pending) if self._pending else None
-                free = [address for address in self._known if address not in self._busy]
-                if head == ticket and free:
-                    backend = free[self._cursor % len(free)]
-                    self._cursor += 1
-                    self._pending.remove(ticket)
-                    self._busy.add(backend)
-                    return backend, ticket_id, time.monotonic() - queued_at
-                self._condition.wait(timeout=min(0.5, remaining))
+                candidates = tuple(address for address in self._known if address not in self._busy)
+            if head == ticket and candidates:
+                start = self._cursor % len(candidates)
+                ordered = candidates[start:] + candidates[:start]
+                for backend in ordered:
+                    # Stop at the first ready worker. In the healthy case this
+                    # adds one small same-node readiness request rather than
+                    # probing all six workers before every parse assignment.
+                    if not self._ready_backends((backend,)):
+                        continue
+                    with self._condition:
+                        # Revalidate the ticket and busy state after the
+                        # network probe because another dispatcher thread may
+                        # have assigned this worker in the meantime.
+                        head = min(self._pending) if self._pending else None
+                        if head == ticket and backend in self._known and backend not in self._busy:
+                            self._cursor += 1
+                            self._pending.remove(ticket)
+                            self._busy.add(backend)
+                            return backend, ticket_id, time.monotonic() - queued_at
+            with self._condition:
+                remaining = deadline - time.monotonic()
+                if remaining > 0:
+                    self._condition.wait(timeout=min(0.5, remaining))
 
     def _release_backend(self, backend: str) -> None:
         with self._condition:
@@ -320,51 +440,87 @@ class ParseDispatcher:
         content_type: str,
         priority: str,
     ) -> tuple[int, str, bytes, str]:
-        backend, request_id, wait_seconds = self._acquire_backend(priority)
-        backend_url = f"http://{backend}:{self.backend_port}/file_parse"
-        logger.info(
-            "Dispatch started request_id=%s priority=%s backend=%s "
-            "wait_seconds=%.3f bytes=%d",
-            request_id,
-            priority,
-            backend,
-            wait_seconds,
-            len(body),
-        )
-        started_at = time.monotonic()
-        try:
-            response = self._session.post(
-                backend_url,
-                headers={"Content-Type": content_type},
-                data=body,
-                timeout=(5.0, self.request_timeout_seconds),
-            )
-            return (
-                int(response.status_code),
-                response.headers.get("Content-Type", "application/json; charset=utf-8"),
-                bytes(response.content),
-                backend,
-            )
-        except requests.RequestException as exc:
-            logger.warning(
-                "Dispatch transport failure request_id=%s backend=%s error=%s",
-                request_id,
-                backend,
-                type(exc).__name__,
-            )
-            # A transport failure after request delivery is ambiguous.  Do not
-            # resubmit automatically because that could duplicate a MinerU job.
-            raise DispatchUnavailable(
-                f"Document parser worker transport failed: {type(exc).__name__}"
-            ) from exc
-        finally:
-            self._release_backend(backend)
+        normalized_priority = priority.strip().lower()
+        request_timeout_seconds = self.interactive_request_timeout_seconds if normalized_priority == "interactive" else self.request_timeout_seconds
+        parse_profile = "conversation" if normalized_priority == "interactive" else "knowledge"
+        for busy_attempt in range(self.busy_retry_limit + 1):
+            backend, request_id, wait_seconds = self._acquire_backend(normalized_priority)
+            backend_url = f"http://{backend}:{self.backend_port}/file_parse"
             logger.info(
-                "Dispatch finished request_id=%s backend=%s elapsed_seconds=%.3f",
+                "Dispatch started request_id=%s priority=%s backend=%s wait_seconds=%.3f bytes=%d busy_attempt=%d",
                 request_id,
+                priority,
                 backend,
-                time.monotonic() - started_at,
+                wait_seconds,
+                len(body),
+                busy_attempt,
             )
+            started_at = time.monotonic()
+            retry_busy = False
+            try:
+                response = self._session.post(
+                    backend_url,
+                    headers={
+                        "Content-Type": content_type,
+                        "X-DeerFlow-Parse-Profile": parse_profile,
+                    },
+                    data=body,
+                    timeout=(5.0, request_timeout_seconds),
+                )
+                status_code = int(response.status_code)
+                if status_code == HTTPStatus.TOO_MANY_REQUESTS:
+                    # The worker returns 429 only when its non-blocking parse
+                    # lock rejected the request before any work began. This is
+                    # the only response that can be retried safely elsewhere.
+                    self._mark_backend_unhealthy(
+                        backend,
+                        reason="HTTP 429 busy admission race",
+                    )
+                    retry_busy = busy_attempt < self.busy_retry_limit
+                elif status_code >= 500:
+                    self._mark_backend_unhealthy(
+                        backend,
+                        reason=f"HTTP {status_code}",
+                    )
+                if not retry_busy:
+                    return (
+                        status_code,
+                        response.headers.get(
+                            "Content-Type",
+                            "application/json; charset=utf-8",
+                        ),
+                        bytes(response.content),
+                        backend,
+                    )
+            except requests.RequestException as exc:
+                self._mark_backend_unhealthy(
+                    backend,
+                    reason=type(exc).__name__,
+                )
+                logger.warning(
+                    "Dispatch transport failure request_id=%s backend=%s error=%s",
+                    request_id,
+                    backend,
+                    type(exc).__name__,
+                )
+                # A transport failure after delivery is ambiguous. Never
+                # resubmit it because that could duplicate a provider job.
+                raise DispatchUnavailable(f"Document parser worker transport failed: {type(exc).__name__}") from exc
+            finally:
+                self._release_backend(backend)
+                logger.info(
+                    "Dispatch finished request_id=%s backend=%s elapsed_seconds=%.3f",
+                    request_id,
+                    backend,
+                    time.monotonic() - started_at,
+                )
+            if retry_busy:
+                logger.info(
+                    "Dispatch retrying request_id=%s after worker busy response",
+                    request_id,
+                )
+
+        raise DispatchUnavailable("No parser worker accepted the document")
 
 
 _PARSE_DISPATCHER: ParseDispatcher | None = None
@@ -397,6 +553,22 @@ def parse_dispatcher() -> ParseDispatcher:
                 request_timeout_seconds=_float_env(
                     "MINERU_DISPATCH_REQUEST_TIMEOUT_SECONDS",
                     1800.0,
+                ),
+                interactive_request_timeout_seconds=_float_env(
+                    "MINERU_DISPATCH_INTERACTIVE_REQUEST_TIMEOUT_SECONDS",
+                    550.0,
+                ),
+                failure_cooldown_seconds=_float_env(
+                    "MINERU_DISPATCH_FAILURE_COOLDOWN_SECONDS",
+                    60.0,
+                ),
+                probe_timeout_seconds=_float_env(
+                    "MINERU_DISPATCH_PROBE_TIMEOUT_SECONDS",
+                    0.25,
+                ),
+                busy_retry_limit=_int_env(
+                    "MINERU_DISPATCH_BUSY_RETRY_LIMIT",
+                    3,
                 ),
             )
         return _PARSE_DISPATCHER
@@ -755,56 +927,359 @@ def merge_document_visuals(
     return merged_markdown, merged_images
 
 
+def _parse_word_with_builtin_in_process(
+    content: bytes,
+    filename: str,
+    suffix: str,
+    *,
+    parser_factory: Callable[[], Any] | None = None,
+    bypass_markitdown: bool = False,
+) -> tuple[str, dict[str, str]]:
+    """Parse Word with DocReader's native first-success parser chain.
+
+    DocReader already routes DOCX through its ``FirstParser`` implementation:
+    MarkItDown is authoritative when it returns readable content and the
+    image-aware DOCX parser is only a fallback for an empty/failed primary
+    result. Running ``DocxParser`` a second time here defeated that contract,
+    doubled work, and exposed successful text parses to its process-pool
+    failure mode.
+    """
+    if bypass_markitdown:
+        if suffix.lower() != ".docx":
+            raise ValueError("MarkItDown bypass is only valid for DOCX")
+        if parser_factory is None:
+            from docreader.parser.docx_parser import DocxParser
+
+            parser = DocxParser(file_name=filename, file_type="docx")
+        else:
+            parser = parser_factory()
+        document = parser.parse(content)
+        markdown = str(getattr(document, "content", "") or "").strip()
+        images = getattr(document, "images", None)
+        return markdown, dict(images) if isinstance(images, dict) else {}
+
+    if parser_factory is None:
+        from docreader.parser import Parser
+
+        parser_factory = Parser
+
+    return _document_from_parser(
+        content=content,
+        filename=filename,
+        file_type=suffix.lstrip("."),
+        parser_factory=parser_factory,
+    )
+
+
 def parse_word_with_builtin(
     content: bytes,
     filename: str,
     suffix: str,
     *,
     parser_factory: Callable[[], Any] | None = None,
-    docx_parser_factory: Callable[..., Any] | None = None,
+    bypass_markitdown: bool = False,
 ) -> tuple[str, dict[str, str]]:
-    """Keep native Word structure and explicitly recover DOCX inline images."""
-    if parser_factory is None:
-        from docreader.parser import Parser
+    """Run DocReader in a bounded child unless a test supplies its parser."""
 
-        parser_factory = Parser
-
-    markdown, images = _document_from_parser(
-        content=content,
-        filename=filename,
-        file_type=suffix.lstrip("."),
-        parser_factory=parser_factory,
-    )
-    if suffix != ".docx":
-        return markdown, images
-
-    # The bundled DOCX chain tries MarkItDown first. It is excellent for text
-    # but may finish before the image-aware parser runs, so execute that parser
-    # once as a visual supplement while retaining the primary text.
-    if docx_parser_factory is None:
-        from docreader.parser.docx_parser import DocxParser
-
-        docx_parser_factory = DocxParser
-    try:
-        visual_document = docx_parser_factory(
-            file_name=filename,
-            file_type="docx",
-        ).parse(content)
-        visual_markdown = str(getattr(visual_document, "content", "") or "").strip()
-        visual_images = getattr(visual_document, "images", None)
-        return merge_document_visuals(
-            markdown,
-            images,
-            visual_markdown,
-            dict(visual_images) if isinstance(visual_images, dict) else {},
-        )
-    except Exception:
-        logger.warning(
-            "Image-aware DOCX parsing failed for %s; continuing with primary Word text.",
+    if parser_factory is not None:
+        return _parse_word_with_builtin_in_process(
+            content,
             filename,
-            exc_info=True,
+            suffix,
+            parser_factory=parser_factory,
+            bypass_markitdown=bypass_markitdown,
         )
+
+    timeout = _float_env("DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS", 120.0)
+    maximum_output_bytes = _int_env("DEERFLOW_DOCREADER_WORD_MAX_OUTPUT_BYTES", 104_857_600)
+    worker = Path(
+        os.getenv(
+            "DEERFLOW_DOCREADER_WORKER_PATH",
+            str(Path(__file__).with_name("docreader_worker.py")),
+        )
+    )
+    if not worker.is_file():
+        raise RuntimeError(f"DocReader worker is missing: {worker}")
+
+    with tempfile.TemporaryDirectory(prefix="deerflow-docreader-") as temp_dir:
+        workspace = Path(temp_dir)
+        source = workspace / f"input{suffix.lower()}"
+        output = workspace / "result.json"
+        source.write_bytes(content)
+        source.chmod(0o600)
+        mode = "native-docx" if bypass_markitdown else "first-success"
+        command = [sys.executable, str(worker), mode, str(source), str(output)]
+        try:
+            completed = _run_converter_command(
+                command,
+                timeout=timeout,
+                env=_isolated_local_parser_environment(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"DocReader timed out after {timeout:g}s while parsing {filename}") from exc
+        if completed.returncode != 0:
+            detail = (completed.stderr or "<empty>").strip().replace("\n", " ")[:500]
+            raise RuntimeError(f"DocReader could not parse {filename}: returncode={completed.returncode}; stderr={detail}")
+        if not output.is_file():
+            raise RuntimeError(f"DocReader did not produce a result for {filename}")
+        output_size = output.stat().st_size
+        if output_size <= 0 or output_size > maximum_output_bytes:
+            raise RuntimeError(f"DocReader produced an invalid result size for {filename}: bytes={output_size}")
+        try:
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            markdown = payload["markdown"]
+            images = payload["images"]
+        except (KeyError, TypeError, ValueError, UnicodeError) as exc:
+            raise RuntimeError(f"DocReader produced an invalid result for {filename}") from exc
+        if not isinstance(markdown, str) or not isinstance(images, dict):
+            raise RuntimeError(f"DocReader produced an invalid result for {filename}")
+        if not all(isinstance(key, str) and isinstance(value, str) for key, value in images.items()):
+            raise RuntimeError(f"DocReader produced invalid image data for {filename}")
         return markdown, images
+
+
+def inspect_docx_workload(content: bytes) -> DOCXWorkload:
+    """Inspect OOXML sizes without expanding document parts into memory."""
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            entries = archive.infolist()
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise ValueError("Invalid DOCX container") from exc
+
+    document_parts = [entry for entry in entries if entry.filename == "word/document.xml"]
+    if len(document_parts) != 1:
+        raise ValueError("DOCX must contain exactly one word/document.xml part")
+    if any(entry.flag_bits & 0x1 for entry in entries):
+        raise ValueError("Encrypted DOCX containers are not supported")
+
+    return DOCXWorkload(
+        compressed_bytes=len(content),
+        uncompressed_bytes=sum(entry.file_size for entry in entries),
+        document_xml_bytes=document_parts[0].file_size,
+        entry_count=len(entries),
+    )
+
+
+def docx_requires_large_document_route(workload: DOCXWorkload) -> bool:
+    """Keep structurally large OOXML away from unbounded MarkItDown parsing."""
+
+    return (
+        workload.compressed_bytes > _int_env("DEERFLOW_DOCX_MARKITDOWN_MAX_INPUT_BYTES", 16 * 1024 * 1024)
+        or workload.uncompressed_bytes
+        > _int_env("DEERFLOW_DOCX_MARKITDOWN_MAX_UNCOMPRESSED_BYTES", 64 * 1024 * 1024)
+        or workload.document_xml_bytes
+        > _int_env("DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES", 32 * 1024 * 1024)
+    )
+
+
+def _parse_docx_streaming_in_process(content: bytes) -> tuple[str, dict[str, str]]:
+    """Recover readable DOCX text with bounded-memory XML streaming.
+
+    This is deliberately a last-resort text recovery path. Rich parsing stays
+    owned by official DocReader/AnyDoc; this path prevents one pathological
+    OOXML tree from turning a retained upload into a permanent parse failure.
+    """
+
+    maximum_xml_bytes = _int_env("DEERFLOW_DOCX_STREAM_MAX_DOCUMENT_XML_BYTES", 512 * 1024 * 1024)
+    maximum_text_characters = _int_env("DEERFLOW_DOCX_STREAM_MAX_TEXT_CHARACTERS", 20_000_000)
+    workload = inspect_docx_workload(content)
+    if workload.document_xml_bytes > maximum_xml_bytes:
+        raise ValueError(
+            "DOCX document.xml exceeds the emergency streaming safety limit: "
+            f"bytes={workload.document_xml_bytes}"
+        )
+
+    paragraphs: list[str] = []
+    current: list[str] = []
+    character_count = 0
+    word_namespace = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+    text_tag = f"{word_namespace}t"
+    paragraph_tag = f"{word_namespace}p"
+    tab_tag = f"{word_namespace}tab"
+    break_tags = {f"{word_namespace}br", f"{word_namespace}cr"}
+
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        with archive.open("word/document.xml") as source:
+            for _event, element in ET.iterparse(source, events=("end",)):
+                if element.tag == text_tag:
+                    value = element.text or ""
+                    character_count += len(value)
+                    if character_count > maximum_text_characters:
+                        raise ValueError("DOCX emergency text output exceeds its safety limit")
+                    current.append(value)
+                elif element.tag == tab_tag:
+                    current.append("\t")
+                elif element.tag in break_tags:
+                    current.append("\n")
+                elif element.tag == paragraph_tag:
+                    paragraph = "".join(current).strip()
+                    if paragraph:
+                        paragraphs.append(paragraph)
+                    current.clear()
+                element.clear()
+
+    markdown = "\n\n".join(paragraphs).strip()
+    if not markdown:
+        raise ValueError("DOCX emergency streaming recovery returned no readable text")
+    return markdown, {}
+
+
+def parse_docx_with_streaming_recovery(content: bytes, filename: str) -> tuple[str, dict[str, str]]:
+    """Run last-resort DOCX text recovery in a separately killable child."""
+
+    timeout = _float_env("DEERFLOW_DOCX_STREAM_TIMEOUT_SECONDS", 60.0)
+    maximum_output_bytes = _int_env("DEERFLOW_DOCREADER_WORD_MAX_OUTPUT_BYTES", 104_857_600)
+    worker = Path(
+        os.getenv(
+            "DEERFLOW_DOCREADER_WORKER_PATH",
+            str(Path(__file__).with_name("docreader_worker.py")),
+        )
+    )
+    if not worker.is_file():
+        raise RuntimeError(f"DocReader worker is missing: {worker}")
+
+    with tempfile.TemporaryDirectory(prefix="deerflow-docx-stream-") as temp_dir:
+        workspace = Path(temp_dir)
+        source = workspace / "input.docx"
+        output = workspace / "result.json"
+        source.write_bytes(content)
+        source.chmod(0o600)
+        command = [sys.executable, str(worker), "streaming-docx", str(source), str(output)]
+        try:
+            completed = _run_converter_command(
+                command,
+                timeout=timeout,
+                env=_isolated_local_parser_environment(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"DOCX streaming recovery timed out after {timeout:g}s for {filename}") from exc
+        if completed.returncode != 0 or not output.is_file():
+            detail = (completed.stderr or "<empty>").strip().replace("\n", " ")[:500]
+            raise RuntimeError(
+                f"DOCX streaming recovery failed for {filename}: "
+                f"returncode={completed.returncode}; stderr={detail}"
+            )
+        if output.stat().st_size <= 0 or output.stat().st_size > maximum_output_bytes:
+            raise RuntimeError(f"DOCX streaming recovery produced an invalid result size for {filename}")
+        payload = json.loads(output.read_text(encoding="utf-8"))
+        markdown = payload.get("markdown")
+        images = payload.get("images")
+        if not isinstance(markdown, str) or not markdown.strip() or not isinstance(images, dict):
+            raise RuntimeError(f"DOCX streaming recovery produced an invalid result for {filename}")
+        return markdown, images
+
+
+def _anydoc_word_extensions() -> set[str]:
+    configured = os.getenv("DEERFLOW_ANYDOC_WORD_EXTENSIONS", "docx")
+    return {f".{item.strip().lower().lstrip('.')}" for item in configured.split(",") if item.strip()}
+
+
+def _anydoc_word_enabled(
+    suffix: str,
+    parse_profile: str,
+    *,
+    structurally_large_docx: bool = False,
+) -> bool:
+    if not _bool_env("DEERFLOW_ANYDOC_WORD_ENABLED", False) or suffix.lower() not in _anydoc_word_extensions():
+        return False
+    if parse_profile == "conversation":
+        return True
+    return (
+        parse_profile == "knowledge"
+        and structurally_large_docx
+        and _bool_env("DEERFLOW_ANYDOC_KNOWLEDGE_WORD_ENABLED", False)
+    )
+
+
+def _isolated_local_parser_environment() -> dict[str, str]:
+    """Pass only runtime essentials to a local parser subprocess."""
+
+    allowed = (
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "LD_LIBRARY_PATH",
+        "PATH",
+        "TMPDIR",
+        "TZ",
+    )
+    environment = {name: os.environ[name] for name in allowed if os.environ.get(name)}
+    environment["PYTHONNOUSERSITE"] = "1"
+    environment["PYTHONUNBUFFERED"] = "1"
+    return environment
+
+
+def _isolated_anydoc_environment() -> dict[str, str]:
+    return _isolated_local_parser_environment()
+
+
+def _visible_markdown_character_count(markdown: str) -> int:
+    without_images = _MARKDOWN_IMAGE_RE.sub("", markdown)
+    without_html = _HTML_TAG_RE.sub("", without_images)
+    without_markup = re.sub(r"[`*_#>|~\[\](){}\-+]", "", without_html)
+    return sum(1 for character in without_markup if not character.isspace())
+
+
+def parse_word_with_anydoc(
+    content: bytes,
+    filename: str,
+    suffix: str,
+) -> tuple[str, dict[str, str]]:
+    """Parse DOCX through a bounded, credential-isolated AnyDoc process."""
+
+    normalized_suffix = suffix.lower()
+    if normalized_suffix not in _anydoc_word_extensions():
+        raise ValueError(f"AnyDoc Word parsing is not enabled for {normalized_suffix}")
+
+    timeout = _float_env("DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS", 120.0)
+    minimum_text_characters = _int_env("DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS", 32)
+    maximum_output_bytes = _int_env("DEERFLOW_ANYDOC_WORD_MAX_OUTPUT_BYTES", 104_857_600)
+    worker = Path(
+        os.getenv(
+            "DEERFLOW_ANYDOC_WORKER_PATH",
+            str(Path(__file__).with_name("anydoc_worker.py")),
+        )
+    )
+    if not worker.is_file():
+        raise RuntimeError(f"AnyDoc worker is missing: {worker}")
+
+    with tempfile.TemporaryDirectory(prefix="deerflow-anydoc-") as temp_dir:
+        workspace = Path(temp_dir)
+        source = workspace / f"input{normalized_suffix}"
+        output = workspace / "result.md"
+        source.write_bytes(content)
+        source.chmod(0o600)
+        command = [sys.executable, str(worker), str(source), str(output)]
+        try:
+            completed = _run_converter_command(
+                command,
+                timeout=timeout,
+                env=_isolated_anydoc_environment(),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"AnyDoc timed out after {timeout:g}s while parsing {filename}") from exc
+
+        if completed.returncode != 0:
+            detail = (completed.stderr or "<empty>").strip().replace("\n", " ")[:500]
+            raise RuntimeError(f"AnyDoc could not parse {filename}: returncode={completed.returncode}; stderr={detail}")
+        if not output.is_file():
+            raise RuntimeError(f"AnyDoc did not produce Markdown for {filename}")
+        output_size = output.stat().st_size
+        if output_size <= 0 or output_size > maximum_output_bytes:
+            raise RuntimeError(f"AnyDoc produced an invalid Markdown size for {filename}: bytes={output_size}")
+        markdown = output.read_text(encoding="utf-8")
+        visible_characters = _visible_markdown_character_count(markdown)
+        if visible_characters < minimum_text_characters:
+            raise ValueError(f"AnyDoc output did not meet the readable text threshold for {filename}: visible_characters={visible_characters} minimum={minimum_text_characters}")
+        logger.info(
+            "AnyDoc Word parse succeeded filename=%s input_bytes=%d output_bytes=%d visible_characters=%d",
+            filename,
+            len(content),
+            output_size,
+            visible_characters,
+        )
+        return markdown, {}
 
 
 _CFB_FREE_SECTOR = 0xFFFFFFFF
@@ -847,10 +1322,7 @@ def _compound_document_root_streams(content: bytes) -> set[str]:
     if fat_sector_count <= 0 or fat_sector_count > sector_count:
         raise ValueError("Invalid compound document FAT size")
 
-    fat_sector_ids = [
-        int.from_bytes(content[offset : offset + 4], "little")
-        for offset in range(76, 512, 4)
-    ]
+    fat_sector_ids = [int.from_bytes(content[offset : offset + 4], "little") for offset in range(76, 512, 4)]
     fat_sector_ids = [sector_id for sector_id in fat_sector_ids if sector_id != _CFB_FREE_SECTOR]
 
     difat_sector_id = int.from_bytes(content[68:72], "little")
@@ -863,11 +1335,7 @@ def _compound_document_root_streams(content: bytes) -> set[str]:
             raise ValueError("Compound document DIFAT contains a cycle")
         seen_difat.add(difat_sector_id)
         difat_sector = read_sector(difat_sector_id)
-        fat_sector_ids.extend(
-            int.from_bytes(difat_sector[offset : offset + 4], "little")
-            for offset in range(0, sector_size - 4, 4)
-            if int.from_bytes(difat_sector[offset : offset + 4], "little") != _CFB_FREE_SECTOR
-        )
+        fat_sector_ids.extend(int.from_bytes(difat_sector[offset : offset + 4], "little") for offset in range(0, sector_size - 4, 4) if int.from_bytes(difat_sector[offset : offset + 4], "little") != _CFB_FREE_SECTOR)
         difat_sector_id = int.from_bytes(difat_sector[-4:], "little")
     if difat_sector_count > len(seen_difat) and difat_sector_id not in {
         _CFB_END_OF_CHAIN,
@@ -880,10 +1348,7 @@ def _compound_document_root_streams(content: bytes) -> set[str]:
     fat: list[int] = []
     for sector_id in fat_sector_ids[:fat_sector_count]:
         sector = read_sector(sector_id)
-        fat.extend(
-            int.from_bytes(sector[offset : offset + 4], "little")
-            for offset in range(0, sector_size, 4)
-        )
+        fat.extend(int.from_bytes(sector[offset : offset + 4], "little") for offset in range(0, sector_size, 4))
 
     directory_sector_id = int.from_bytes(content[48:52], "little")
     directory_data = bytearray()
@@ -991,54 +1456,179 @@ def detect_input_suffix(content: bytes, filename: str | None = None) -> str:
     raise ValueError("Only PDF, DOC, DOCX, PPT, and PPTX files are supported")
 
 
+def _terminate_process_group(
+    process: subprocess.Popen[str],
+    *,
+    grace_seconds: float = 5.0,
+) -> tuple[str, str]:
+    """Terminate and reap a converter plus every descendant in its process group."""
+
+    def signal_group(sig: int) -> None:
+        if _POSIX_PROCESS_GROUPS:
+            try:
+                # start_new_session=True makes the child PID its process-group
+                # ID. Keep using that stable ID even if the direct launcher
+                # exits while LibreOffice descendants are still alive.
+                os.killpg(process.pid, sig)
+            except ProcessLookupError:
+                return
+        elif sig == signal.SIGTERM:
+            process.terminate()
+        else:
+            process.kill()
+
+    signal_group(signal.SIGTERM)
+    try:
+        output = process.communicate(timeout=max(0.1, grace_seconds))
+    except subprocess.TimeoutExpired:
+        signal_group(_SIGKILL)
+        output = process.communicate()
+    _reap_process_group(process.pid, timeout_seconds=grace_seconds)
+    return output
+
+
+def _enable_child_subreaper() -> None:
+    """Adopt and reap daemonized converter descendants when Linux permits it."""
+
+    global _CHILD_SUBREAPER_ENABLED
+    if not _POSIX_PROCESS_GROUPS or _CHILD_SUBREAPER_ENABLED:
+        return
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        result = libc.prctl(_PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0)
+        if result != 0:
+            raise OSError(ctypes.get_errno(), "prctl(PR_SET_CHILD_SUBREAPER) failed")
+    except (AttributeError, OSError) as exc:
+        logger.warning("Unable to enable child subreaper: %s", exc)
+        return
+    _CHILD_SUBREAPER_ENABLED = True
+    logger.info("LibreOffice child subreaper enabled")
+
+
+def _reap_process_group(process_group_id: int, *, timeout_seconds: float) -> None:
+    if not (_POSIX_PROCESS_GROUPS and _CHILD_SUBREAPER_ENABLED):
+        return
+    deadline = time.monotonic() + max(0.0, timeout_seconds)
+    while True:
+        try:
+            waited_pid, _status = os.waitpid(-process_group_id, os.WNOHANG)
+        except ChildProcessError:
+            return
+        if waited_pid > 0:
+            continue
+        if time.monotonic() >= deadline:
+            return
+        time.sleep(0.05)
+
+
+def _cleanup_lingering_process_group(process_group_id: int) -> None:
+    """Remove a daemonized converter that outlived a successful launcher."""
+
+    if not _POSIX_PROCESS_GROUPS:
+        return
+    try:
+        os.killpg(process_group_id, signal.SIGTERM)
+    except ProcessLookupError:
+        _reap_process_group(process_group_id, timeout_seconds=0)
+        return
+    _reap_process_group(process_group_id, timeout_seconds=0.5)
+    try:
+        os.killpg(process_group_id, 0)
+    except ProcessLookupError:
+        return
+    try:
+        os.killpg(process_group_id, _SIGKILL)
+    except ProcessLookupError:
+        return
+    _reap_process_group(process_group_id, timeout_seconds=0.5)
+
+
+def _run_converter_command(
+    command: list[str],
+    *,
+    timeout: float,
+    termination_grace_seconds: float = 5.0,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run a converter in a killable process group and bound its whole lifetime."""
+
+    popen_kwargs: dict[str, Any] = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.PIPE,
+        "text": True,
+    }
+    if _POSIX_PROCESS_GROUPS:
+        popen_kwargs["start_new_session"] = True
+    elif os.name == "nt":
+        popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    if env is not None:
+        popen_kwargs["env"] = env
+
+    process = subprocess.Popen(command, **popen_kwargs)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        stdout, stderr = _terminate_process_group(
+            process,
+            grace_seconds=termination_grace_seconds,
+        )
+        raise subprocess.TimeoutExpired(
+            command,
+            timeout,
+            output=stdout,
+            stderr=stderr,
+        ) from exc
+    _cleanup_lingering_process_group(process.pid)
+    return subprocess.CompletedProcess(
+        args=command,
+        returncode=process.returncode,
+        stdout=stdout,
+        stderr=stderr,
+    )
+
+
 def convert_to_pdf(content: bytes, filename: str) -> bytes:
     """Convert an Office document to PDF; pass validated PDF input through."""
     suffix = detect_input_suffix(content, filename)
     if suffix == ".pdf":
         return content
 
-    timeout = int(os.getenv("LIBREOFFICE_TIMEOUT_SECONDS", "180"))
+    if suffix in {".doc", ".docx"}:
+        timeout = int(
+            os.getenv(
+                "DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS",
+                os.getenv("LIBREOFFICE_TIMEOUT_SECONDS", "180"),
+            )
+        )
+    else:
+        timeout = int(os.getenv("LIBREOFFICE_TIMEOUT_SECONDS", "180"))
     with tempfile.TemporaryDirectory(prefix="deerflow-mineru-") as temp_dir:
         workspace = Path(temp_dir)
         source = workspace / f"input{suffix}"
         source.write_bytes(content)
         profile = (workspace / "libreoffice-profile").as_uri()
+        command = [
+            "libreoffice",
+            "--headless",
+            f"-env:UserInstallation={profile}",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            str(workspace),
+            str(source),
+        ]
         try:
-            completed = subprocess.run(
-                [
-                    "libreoffice",
-                    "--headless",
-                    f"-env:UserInstallation={profile}",
-                    "--convert-to",
-                    "pdf",
-                    "--outdir",
-                    str(workspace),
-                    str(source),
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
+            completed = _run_converter_command(command, timeout=timeout)
         except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(
-                f"LibreOffice timed out after {timeout}s while converting {filename}"
-            ) from exc
+            raise RuntimeError(f"LibreOffice timed out after {timeout}s while converting {filename}") from exc
         output = source.with_suffix(".pdf")
         if completed.returncode != 0 or not output.is_file():
-            generated_files = ", ".join(
-                f"{item.name}:{item.stat().st_size}"
-                for item in sorted(workspace.iterdir(), key=lambda item: item.name)
-                if item.is_file()
-            )
+            generated_files = ", ".join(f"{item.name}:{item.stat().st_size}" for item in sorted(workspace.iterdir(), key=lambda item: item.name) if item.is_file())
             stderr = completed.stderr.strip() or "<empty>"
             stdout = completed.stdout.strip() or "<empty>"
             raise RuntimeError(
-                "LibreOffice could not convert "
-                f"{filename}: returncode={completed.returncode}; "
-                f"output_exists={str(output.is_file()).lower()}; "
-                f"generated_files={generated_files[:300] or '<none>'}; "
-                f"stderr={stderr[:500]}; stdout={stdout[:500]}"
+                f"LibreOffice could not convert {filename}: returncode={completed.returncode}; output_exists={str(output.is_file()).lower()}; generated_files={generated_files[:300] or '<none>'}; stderr={stderr[:500]}; stdout={stdout[:500]}"
             )
         pdf = output.read_bytes()
         if not pdf.startswith(b"%PDF-"):
@@ -1079,9 +1669,7 @@ def split_pdf_for_sync(
             finally:
                 _close_resource(batch_document)
             if not batch_pdf.startswith(b"%PDF-"):
-                raise RuntimeError(
-                    "PDFium produced an invalid MinerU synchronous page batch"
-                )
+                raise RuntimeError("PDFium produced an invalid MinerU synchronous page batch")
             batches.append((batch_pdf, start_index + 1, end_index))
         return tuple(batches)
     finally:
@@ -1095,10 +1683,7 @@ class MinerUBusinessError(RuntimeError):
         self.operation = operation
         self.code = code
         self.message = message
-        super().__init__(
-            f"Enterprise MinerU business error during {operation}; "
-            f"code={code}; msg={message}"
-        )
+        super().__init__(f"Enterprise MinerU business error during {operation}; code={code}; msg={message}")
 
 
 class MinerUHTTPError(requests.HTTPError, RuntimeError):
@@ -1110,8 +1695,7 @@ class MinerUHTTPError(requests.HTTPError, RuntimeError):
         body = re.sub(r"\s+", " ", str(getattr(response, "text", ""))).strip()
         self.detail = body[:300] or "empty response"
         super().__init__(
-            f"Enterprise MinerU HTTP {self.status_code} during {operation}: "
-            f"{self.detail}",
+            f"Enterprise MinerU HTTP {self.status_code} during {operation}: {self.detail}",
             response=response,
         )
 
@@ -1149,66 +1733,43 @@ class EnterpriseMinerUClient:
         if timeout_seconds <= 0:
             raise ValueError("MinerU timeout must be greater than zero")
         self.timeout_seconds = timeout_seconds
-        self.request_mode = (
-            request_mode or os.getenv("MINERU_REQUEST_MODE", "sync")
-        ).strip().lower()
+        self.request_mode = (request_mode or os.getenv("MINERU_REQUEST_MODE", "sync")).strip().lower()
         if self.request_mode not in {"sync", "async"}:
-            raise ValueError(
-                "MINERU_REQUEST_MODE must be either 'sync' or 'async'"
-            )
+            raise ValueError("MINERU_REQUEST_MODE must be either 'sync' or 'async'")
         if poll_interval_seconds is None:
-            poll_interval_seconds = _float_env(
-                "MINERU_POLL_INTERVAL_SECONDS", 3.0
-            )
+            poll_interval_seconds = _float_env("MINERU_POLL_INTERVAL_SECONDS", 3.0)
         if poll_interval_seconds <= 0:
             raise ValueError("MinerU poll interval must be greater than zero")
         self.poll_interval_seconds = poll_interval_seconds
         if transient_poll_retries is None:
-            transient_poll_retries = _int_env(
-                "MINERU_TRANSIENT_POLL_RETRIES", 20
-            )
+            transient_poll_retries = _int_env("MINERU_TRANSIENT_POLL_RETRIES", 20)
         if transient_poll_retries < 0:
             raise ValueError("MinerU transient poll retries cannot be negative")
         self.transient_poll_retries = transient_poll_retries
         if sync_transient_retries is None:
-            sync_transient_retries = _int_env(
-                "MINERU_SYNC_TRANSIENT_RETRIES", 2
-            )
+            sync_transient_retries = _int_env("MINERU_SYNC_TRANSIENT_RETRIES", 2)
         if sync_transient_retries < 0:
             raise ValueError("MinerU synchronous retries cannot be negative")
         self.sync_transient_retries = sync_transient_retries
         if sync_retry_delay_seconds is None:
-            sync_retry_delay_seconds = _float_env(
-                "MINERU_SYNC_RETRY_DELAY_SECONDS", 2.0
-            )
+            sync_retry_delay_seconds = _float_env("MINERU_SYNC_RETRY_DELAY_SECONDS", 2.0)
         if sync_retry_delay_seconds < 0:
             raise ValueError("MinerU synchronous retry delay cannot be negative")
         self.sync_retry_delay_seconds = sync_retry_delay_seconds
         if sync_retry_max_elapsed_seconds is None:
-            sync_retry_max_elapsed_seconds = _float_env(
-                "MINERU_SYNC_RETRY_MAX_ELAPSED_SECONDS", 600.0
-            )
+            sync_retry_max_elapsed_seconds = _float_env("MINERU_SYNC_RETRY_MAX_ELAPSED_SECONDS", 600.0)
         if sync_retry_max_elapsed_seconds <= 0:
-            raise ValueError(
-                "MinerU synchronous retry elapsed limit must be greater than zero"
-            )
+            raise ValueError("MinerU synchronous retry elapsed limit must be greater than zero")
         self.sync_retry_max_elapsed_seconds = sync_retry_max_elapsed_seconds
         if session is None:
             session = requests.Session()
             trust_env = _bool_env("MINERU_TRUST_ENV", False)
             session.trust_env = trust_env
             if not trust_env:
-                ca_bundle = (
-                    os.getenv("MINERU_CA_BUNDLE", "").strip()
-                    or os.getenv("REQUESTS_CA_BUNDLE", "").strip()
-                    or os.getenv("SSL_CERT_FILE", "").strip()
-                )
+                ca_bundle = os.getenv("MINERU_CA_BUNDLE", "").strip() or os.getenv("REQUESTS_CA_BUNDLE", "").strip() or os.getenv("SSL_CERT_FILE", "").strip()
                 if ca_bundle:
                     if not Path(ca_bundle).is_file():
-                        raise RuntimeError(
-                            "Configured MinerU CA bundle does not exist: "
-                            f"{ca_bundle}"
-                        )
+                        raise RuntimeError(f"Configured MinerU CA bundle does not exist: {ca_bundle}")
                     # requests ignores REQUESTS_CA_BUNDLE when trust_env is
                     # disabled. Bind the reviewed enterprise CA explicitly so
                     # the direct internal route keeps certificate and hostname
@@ -1248,20 +1809,12 @@ class EnterpriseMinerUClient:
         try:
             payload = response.json()
         except (TypeError, ValueError) as exc:
-            raise RuntimeError(
-                f"Enterprise MinerU returned a non-JSON response during {operation}"
-            ) from exc
+            raise RuntimeError(f"Enterprise MinerU returned a non-JSON response during {operation}") from exc
         if not isinstance(payload, dict):
-            raise RuntimeError(
-                f"Enterprise MinerU returned an invalid response during {operation}"
-            )
+            raise RuntimeError(f"Enterprise MinerU returned an invalid response during {operation}")
         if payload.get("success") is False:
             code = str(payload.get("code", "unknown"))[:32]
-            message = str(
-                payload.get("msg")
-                or payload.get("message")
-                or "business request failed"
-            )[:300]
+            message = str(payload.get("msg") or payload.get("message") or "business request failed")[:300]
             raise MinerUBusinessError(
                 operation=operation,
                 code=code,
@@ -1274,14 +1827,11 @@ class EnterpriseMinerUClient:
         *,
         task_id: str,
         operation: str,
-        error: "MinerUBusinessError",
+        error: MinerUBusinessError,
         consecutive_errors: int,
         remaining: float,
     ) -> float:
-        if (
-            error.code not in self._TRANSIENT_POLL_BUSINESS_CODES
-            or consecutive_errors > self.transient_poll_retries
-        ):
+        if error.code not in self._TRANSIENT_POLL_BUSINESS_CODES or consecutive_errors > self.transient_poll_retries:
             raise error
         delay = min(
             self.poll_interval_seconds * (2 ** min(consecutive_errors - 1, 3)),
@@ -1289,13 +1839,9 @@ class EnterpriseMinerUClient:
             max(0.0, remaining),
         )
         if delay <= 0:
-            raise TimeoutError(
-                f"Enterprise MinerU {operation} for task {task_id} exceeded "
-                f"{self.timeout_seconds} seconds"
-            ) from error
+            raise TimeoutError(f"Enterprise MinerU {operation} for task {task_id} exceeded {self.timeout_seconds} seconds") from error
         logger.warning(
-            "Transient MinerU poll failure task_id=%s operation=%s code=%s "
-            "attempt=%d/%d retry_in_seconds=%.3f",
+            "Transient MinerU poll failure task_id=%s operation=%s code=%s attempt=%d/%d retry_in_seconds=%.3f",
             task_id,
             operation,
             error.code,
@@ -1314,10 +1860,7 @@ class EnterpriseMinerUClient:
         consecutive_errors: int,
         remaining: float,
     ) -> float | None:
-        if (
-            status_code not in self._TRANSIENT_POLL_HTTP_STATUSES
-            or consecutive_errors > self.transient_poll_retries
-        ):
+        if status_code not in self._TRANSIENT_POLL_HTTP_STATUSES or consecutive_errors > self.transient_poll_retries:
             return None
         delay = min(
             self.poll_interval_seconds * (2 ** min(consecutive_errors - 1, 3)),
@@ -1325,13 +1868,9 @@ class EnterpriseMinerUClient:
             max(0.0, remaining),
         )
         if delay <= 0:
-            raise TimeoutError(
-                f"Enterprise MinerU {operation} for task {task_id} exceeded "
-                f"{self.timeout_seconds} seconds"
-            )
+            raise TimeoutError(f"Enterprise MinerU {operation} for task {task_id} exceeded {self.timeout_seconds} seconds")
         logger.warning(
-            "Transient MinerU poll HTTP failure task_id=%s operation=%s "
-            "status_code=%d attempt=%d/%d retry_in_seconds=%.3f",
+            "Transient MinerU poll HTTP failure task_id=%s operation=%s status_code=%d attempt=%d/%d retry_in_seconds=%.3f",
             task_id,
             operation,
             status_code,
@@ -1351,10 +1890,7 @@ class EnterpriseMinerUClient:
         remaining: float,
     ) -> float:
         """Retry a status/result transport failure without resubmitting the task."""
-        if (
-            not isinstance(error, (requests.ConnectionError, requests.Timeout))
-            or consecutive_errors > self.transient_poll_retries
-        ):
+        if not isinstance(error, (requests.ConnectionError, requests.Timeout)) or consecutive_errors > self.transient_poll_retries:
             raise error
         delay = min(
             self.poll_interval_seconds * (2 ** min(consecutive_errors - 1, 3)),
@@ -1362,13 +1898,9 @@ class EnterpriseMinerUClient:
             max(0.0, remaining),
         )
         if delay <= 0:
-            raise TimeoutError(
-                f"Enterprise MinerU {operation} for task {task_id} exceeded "
-                f"{self.timeout_seconds} seconds"
-            ) from error
+            raise TimeoutError(f"Enterprise MinerU {operation} for task {task_id} exceeded {self.timeout_seconds} seconds") from error
         logger.warning(
-            "Transient MinerU poll transport failure task_id=%s operation=%s "
-            "error_type=%s attempt=%d/%d retry_in_seconds=%.3f",
+            "Transient MinerU poll transport failure task_id=%s operation=%s error_type=%s attempt=%d/%d retry_in_seconds=%.3f",
             task_id,
             operation,
             type(error).__name__,
@@ -1385,9 +1917,7 @@ class EnterpriseMinerUClient:
 
     @staticmethod
     def _validate_result(payload: dict[str, Any]) -> dict[str, Any]:
-        if not isinstance(payload.get("results"), dict) and not isinstance(
-            payload.get("pages"), list
-        ):
+        if not isinstance(payload.get("results"), dict) and not isinstance(payload.get("pages"), list):
             raise RuntimeError("Enterprise MinerU returned an invalid parse result")
         return payload
 
@@ -1420,23 +1950,16 @@ class EnterpriseMinerUClient:
                     timeout=self.timeout_seconds,
                 )
                 self._raise_for_status(response, "synchronous parse")
-                payload = self._task_fields(
-                    self._decode_json_response(response, "synchronous parse")
-                )
+                payload = self._task_fields(self._decode_json_response(response, "synchronous parse"))
                 return self._validate_result(payload)
             except requests.RequestException as exc:
                 elapsed = time.monotonic() - started
-                should_retry = (
-                    self._retryable_sync_error(exc)
-                    and attempt < self.sync_transient_retries
-                    and elapsed <= self.sync_retry_max_elapsed_seconds
-                )
+                should_retry = self._retryable_sync_error(exc) and attempt < self.sync_transient_retries and elapsed <= self.sync_retry_max_elapsed_seconds
                 if not should_retry:
                     raise
                 delay = self.sync_retry_delay_seconds * (2**attempt)
                 logger.warning(
-                    "Transient MinerU synchronous request failure filename=%s "
-                    "attempt=%d/%d elapsed_seconds=%.3f retry_in_seconds=%.3f: %s",
+                    "Transient MinerU synchronous request failure filename=%s attempt=%d/%d elapsed_seconds=%.3f retry_in_seconds=%.3f: %s",
                     filename,
                     attempt + 1,
                     self.sync_transient_retries,
@@ -1454,8 +1977,7 @@ class EnterpriseMinerUClient:
             batches = split_pdf_for_sync(pdf, maximum_pages)
         except Exception:
             logger.warning(
-                "Could not split %s for bounded MinerU synchronous parsing; "
-                "submitting the original PDF once.",
+                "Could not split %s for bounded MinerU synchronous parsing; submitting the original PDF once.",
                 filename,
                 exc_info=True,
             )
@@ -1467,24 +1989,19 @@ class EnterpriseMinerUClient:
         combined_markdown: list[str] = []
         combined_images: dict[str, str] = {}
         logger.info(
-            "Splitting MinerU synchronous parse filename=%s batches=%d "
-            "maximum_pages_per_request=%d",
+            "Splitting MinerU synchronous parse filename=%s batches=%d maximum_pages_per_request=%d",
             filename,
             len(batches),
             maximum_pages,
         )
         for batch_pdf, first_page, last_page in batches:
-            batch_filename = (
-                f"{stem}.pages-{first_page:04d}-{last_page:04d}.pdf"
-            )
+            batch_filename = f"{stem}.pages-{first_page:04d}-{last_page:04d}.pdf"
             payload = self._parse_pdf_sync_single(batch_pdf, batch_filename)
             markdown, images = mineru_pages_to_markdown(
                 payload,
                 filename=batch_filename,
             )
-            combined_markdown.append(
-                f"## 原始第 {first_page}-{last_page} 页\n\n{markdown}"
-            )
+            combined_markdown.append(f"## 原始第 {first_page}-{last_page} 页\n\n{markdown}")
             combined_images.update(images)
         return {
             "results": {
@@ -1506,9 +2023,7 @@ class EnterpriseMinerUClient:
         )
         if submission.status_code not in {HTTPStatus.OK, HTTPStatus.ACCEPTED}:
             self._raise_for_status(submission, "asynchronous submission")
-        submission_payload = self._task_fields(
-            self._decode_json_response(submission, "asynchronous submission")
-        )
+        submission_payload = self._task_fields(self._decode_json_response(submission, "asynchronous submission"))
         task_id = str(submission_payload.get("task_id", "")).strip()
         if not self._TASK_ID_RE.fullmatch(task_id):
             raise RuntimeError("Enterprise MinerU returned an invalid task identifier")
@@ -1519,10 +2034,7 @@ class EnterpriseMinerUClient:
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise TimeoutError(
-                    f"Enterprise MinerU task {task_id} exceeded "
-                    f"{self.timeout_seconds} seconds"
-                )
+                raise TimeoutError(f"Enterprise MinerU task {task_id} exceeded {self.timeout_seconds} seconds")
             try:
                 status_response = self.session.get(
                     status_url,
@@ -1554,9 +2066,7 @@ class EnterpriseMinerUClient:
                     continue
             self._raise_for_status(status_response, "task status")
             try:
-                decoded_status = self._decode_json_response(
-                    status_response, "task status"
-                )
+                decoded_status = self._decode_json_response(status_response, "task status")
             except MinerUBusinessError as exc:
                 consecutive_status_errors += 1
                 delay = self._transient_poll_delay(
@@ -1574,29 +2084,17 @@ class EnterpriseMinerUClient:
             if status == "completed":
                 break
             if status == "failed":
-                error = str(
-                    status_payload.get("error")
-                    or status_payload.get("message")
-                    or "unknown failure"
-                )[:300]
-                raise RuntimeError(
-                    f"Enterprise MinerU asynchronous task failed: {error}"
-                )
+                error = str(status_payload.get("error") or status_payload.get("message") or "unknown failure")[:300]
+                raise RuntimeError(f"Enterprise MinerU asynchronous task failed: {error}")
             if status not in {"pending", "queued", "processing"}:
-                raise RuntimeError(
-                    f"Enterprise MinerU returned unexpected task status: "
-                    f"{status or '<empty>'}"
-                )
+                raise RuntimeError(f"Enterprise MinerU returned unexpected task status: {status or '<empty>'}")
             time.sleep(min(self.poll_interval_seconds, remaining))
 
         consecutive_result_errors = 0
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise TimeoutError(
-                    f"Enterprise MinerU result for task {task_id} was not ready "
-                    f"within {self.timeout_seconds} seconds"
-                )
+                raise TimeoutError(f"Enterprise MinerU result for task {task_id} was not ready within {self.timeout_seconds} seconds")
             try:
                 result_response = self.session.get(
                     result_url,
@@ -1637,9 +2135,7 @@ class EnterpriseMinerUClient:
                     continue
             self._raise_for_status(result_response, "task result")
             try:
-                decoded_result = self._decode_json_response(
-                    result_response, "task result"
-                )
+                decoded_result = self._decode_json_response(result_response, "task result")
             except MinerUBusinessError as exc:
                 consecutive_result_errors += 1
                 delay = self._transient_poll_delay(
@@ -1793,10 +2289,7 @@ def preserve_searchable_pdf_visuals(
     for item in evidence:
         path = f"images/source-page-{item.page_number:04d}.jpg"
         if path not in page_images:
-            raise RuntimeError(
-                "Visual evidence rendering omitted required source page "
-                f"{item.page_number}"
-            )
+            raise RuntimeError(f"Visual evidence rendering omitted required source page {item.page_number}")
         safe_context = item.context.replace("[", " ").replace("]", " ").strip()
         blocks.append(
             "\n\n".join(
@@ -1831,11 +2324,7 @@ def _native_mineru_document(
         return results[requested_name]
 
     if requested_name:
-        casefolded = {
-            str(name).casefold(): document
-            for name, document in results.items()
-            if isinstance(document, dict)
-        }
+        casefolded = {str(name).casefold(): document for name, document in results.items() if isinstance(document, dict)}
         matched = casefolded.get(requested_name.casefold())
         if matched is not None:
             return matched
@@ -1963,9 +2452,7 @@ def normalize_markdown_for_weknora(markdown: str) -> str:
                 body = heading_match.group("body")
                 body_bytes = len(body.encode("utf-8"))
                 if len(body) > 512 or body_bytes > 2048:
-                    normalized.append(
-                        f"{heading_match.group('indent')}{body}{ending}"
-                    )
+                    normalized.append(f"{heading_match.group('indent')}{body}{ending}")
                     demoted += 1
                     largest_heading_bytes = max(largest_heading_bytes, body_bytes)
                     continue
@@ -1973,8 +2460,7 @@ def normalize_markdown_for_weknora(markdown: str) -> str:
 
     if demoted:
         logger.warning(
-            "Demoted malformed MinerU headings before WeKnora chunking "
-            "count=%d largest_heading_bytes=%d",
+            "Demoted malformed MinerU headings before WeKnora chunking count=%d largest_heading_bytes=%d",
             demoted,
             largest_heading_bytes,
         )
@@ -1983,40 +2469,128 @@ def normalize_markdown_for_weknora(markdown: str) -> str:
 
 def weknora_response(markdown: str, images: dict[str, str] | None = None) -> dict[str, Any]:
     """Wrap markdown in WeKnora's self-hosted MinerU response schema."""
+    normalized_markdown = normalize_markdown_for_weknora(markdown).strip()
+    if not normalized_markdown:
+        raise ValueError("Document parser returned no readable text")
     return {
         "results": {
             "document": {
-                "md_content": normalize_markdown_for_weknora(markdown),
+                "md_content": normalized_markdown,
                 "images": images or {},
             }
         }
     }
 
 
-def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
+def parse_upload(
+    content: bytes,
+    filename: str,
+    *,
+    parse_profile: str = "knowledge",
+) -> dict[str, Any]:
     """Preserve searchable documents locally and OCR image-dominated input."""
     suffix = detect_input_suffix(content, filename)
     decision: PDFRoutingDecision | None = None
     searchable_document = suffix in {".pdf", ".doc", ".docx"}
     native_word: tuple[str, dict[str, str]] | None = None
+    word_route = "native-first-success"
+    structurally_large_docx = False
+    docx_workload: DOCXWorkload | None = None
     if suffix in {".doc", ".docx"}:
+        if suffix == ".docx":
+            docx_workload = inspect_docx_workload(content)
+            structurally_large_docx = docx_requires_large_document_route(docx_workload)
+            logger.info(
+                "DOCX workload filename=%s profile=%s compressed_bytes=%d "
+                "uncompressed_bytes=%d document_xml_bytes=%d entries=%d "
+                "expansion_ratio=%.2f large_document_route=%s",
+                filename,
+                parse_profile,
+                docx_workload.compressed_bytes,
+                docx_workload.uncompressed_bytes,
+                docx_workload.document_xml_bytes,
+                docx_workload.entry_count,
+                docx_workload.expansion_ratio,
+                structurally_large_docx,
+            )
+        if _anydoc_word_enabled(
+            suffix,
+            parse_profile,
+            structurally_large_docx=structurally_large_docx,
+        ):
+            try:
+                native_word = parse_word_with_anydoc(content, filename, suffix)
+                word_route = "anydoc-first-success"
+            except Exception:
+                logger.warning(
+                    "AnyDoc Word parsing failed for %s; continuing through the existing native parser chain.",
+                    filename,
+                    exc_info=True,
+                )
         try:
-            native_word = parse_word_with_builtin(content, filename, suffix)
+            if native_word is None:
+                if structurally_large_docx:
+                    native_word = parse_word_with_builtin(
+                        content,
+                        filename,
+                        suffix,
+                        bypass_markitdown=True,
+                    )
+                    word_route = "docreader-native-large-docx"
+                else:
+                    native_word = parse_word_with_builtin(content, filename, suffix)
+            if not native_word[0].strip():
+                logger.warning(
+                    "Native Word parser returned no readable text for %s; continuing through PDF visual fallback.",
+                    filename,
+                )
+                native_word = None
+                if structurally_large_docx:
+                    raise RuntimeError("Large DOCX native parser returned no readable text")
         except Exception:
             logger.warning(
                 "Native Word parsing failed for %s; continuing through PDF visual fallback.",
                 filename,
                 exc_info=True,
             )
+            if structurally_large_docx:
+                try:
+                    native_word = parse_docx_with_streaming_recovery(content, filename)
+                    word_route = "emergency-streaming-large-docx"
+                except Exception:
+                    logger.warning(
+                        "Emergency DOCX text recovery failed for %s; continuing through visual fallback.",
+                        filename,
+                        exc_info=True,
+                    )
+        if native_word is not None and not _bool_env(
+            "MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED",
+            False,
+        ):
+            logger.info(
+                "Word routing filename=%s route=%s",
+                filename,
+                word_route,
+            )
+            return weknora_response(native_word[0], native_word[1])
     if suffix == ".pdf":
         pdf = content
         pdf_filename = filename
     else:
-        # Word's native parser protects text/table quality, but enterprise
-        # indexing also requires render-only charts, SmartArt, and page
-        # evidence. Never publish an incomplete Word parse when its visual
-        # conversion fails.
-        pdf = convert_to_pdf(content, filename)
+        # Presentation parsing remains visual and strict. Word reaches this
+        # branch only when native parsing was empty/failed, or when an operator
+        # explicitly opts into the best-effort visual supplement.
+        try:
+            pdf = convert_to_pdf(content, filename)
+        except Exception:
+            if native_word is None:
+                raise
+            logger.warning(
+                "Optional Word PDF visual supplement failed for %s; returning the successful native parse.",
+                filename,
+                exc_info=True,
+            )
+            return weknora_response(native_word[0], native_word[1])
         pdf_filename = f"{Path(filename).stem}.pdf"
 
     def finalize_searchable(
@@ -2075,12 +2649,30 @@ def parse_upload(content: bytes, filename: str) -> dict[str, Any]:
                         exc,
                     )
 
-    parsed = EnterpriseMinerUClient(
-        api_url=os.environ["MINERU_API_URL"],
-        api_token=os.environ["MINERU_API_TOKEN"],
-        timeout_seconds=int(os.getenv("MINERU_TIMEOUT_SECONDS", "600")),
-    ).parse_pdf(pdf, pdf_filename)
-    markdown, images = mineru_pages_to_markdown(parsed, filename=pdf_filename)
+    try:
+        mineru_timeout_seconds = int(os.getenv("MINERU_TIMEOUT_SECONDS", "600"))
+        if suffix in {".doc", ".docx"}:
+            mineru_timeout_seconds = int(
+                os.getenv(
+                    "DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS",
+                    str(mineru_timeout_seconds),
+                )
+            )
+        parsed = EnterpriseMinerUClient(
+            api_url=os.environ["MINERU_API_URL"],
+            api_token=os.environ["MINERU_API_TOKEN"],
+            timeout_seconds=mineru_timeout_seconds,
+        ).parse_pdf(pdf, pdf_filename)
+        markdown, images = mineru_pages_to_markdown(parsed, filename=pdf_filename)
+    except Exception:
+        if native_word is None:
+            raise
+        logger.warning(
+            "Optional Word MinerU visual supplement failed for %s; returning the successful native parse.",
+            filename,
+            exc_info=True,
+        )
+        return weknora_response(native_word[0], native_word[1])
 
     page_numbers = decision.scanned_pages if searchable_document and decision is not None and decision.use_mineru else None
     source_page_markdown, source_page_images = render_pdf_page_images(
@@ -2137,19 +2729,28 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
-        self.wfile.write(content)
+        try:
+            self.wfile.write(content)
+        except (BrokenPipeError, ConnectionResetError):
+            # Parsing already completed. A browser or proxy timeout can close
+            # the socket before delivery; keep this out of parser error counts.
+            logger.info("Parser response client disconnected before body delivery")
 
     def do_GET(self) -> None:  # noqa: N802
         # WeKnora's built-in MinerU availability check calls /docs, while the
         # Kubernetes probes use /health. Both are intentionally side-effect free.
         normalized_path = self.path.rstrip("/")
-        if normalized_path == "/health":
+        if normalized_path == "/live":
+            self._json(
+                HTTPStatus.OK,
+                {"status": "ok", "role": adapter_mode()},
+            )
+            return
+        if normalized_path in {"/health", "/ready"}:
             if adapter_mode() == "dispatcher":
                 dispatcher = parse_dispatcher().snapshot()
                 self._json(
-                    HTTPStatus.OK
-                    if dispatcher["ready"]
-                    else HTTPStatus.SERVICE_UNAVAILABLE,
+                    HTTPStatus.OK if dispatcher["ready"] else HTTPStatus.SERVICE_UNAVAILABLE,
                     {
                         "status": "ok" if dispatcher["ready"] else "unavailable",
                         "role": "dispatcher",
@@ -2157,12 +2758,19 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
                     },
                 )
                 return
+            parser = _PARSE_COORDINATOR.snapshot()
+            ready = parser["active"] == 0 and parser["waiting"] == 0
+            status = HTTPStatus.OK
+            payload_status = "ok"
+            if normalized_path == "/ready" and not ready:
+                status = HTTPStatus.SERVICE_UNAVAILABLE
+                payload_status = "busy"
             self._json(
-                HTTPStatus.OK,
+                status,
                 {
-                    "status": "ok",
+                    "status": payload_status,
                     "role": "worker",
-                    "parser": _PARSE_COORDINATOR.snapshot(),
+                    "parser": parser,
                 },
             )
             return
@@ -2204,7 +2812,11 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
                 body,
             )
             parsed = _PARSE_COORDINATOR.run(
-                lambda: parse_upload(content, filename),
+                lambda: parse_upload(
+                    content,
+                    filename,
+                    parse_profile=("conversation" if self.headers.get("X-DeerFlow-Parse-Profile", "").strip().lower() == "conversation" else "knowledge"),
+                ),
                 filename=filename,
                 content_bytes=len(content),
             )
@@ -2212,6 +2824,15 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
         except (KeyError, ValueError) as exc:
             logger.warning("Rejected MinerU adapter request: %s", exc)
             self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+        except ParseWorkerBusy as exc:
+            logger.warning("MinerU adapter worker busy: %s", exc)
+            self._json(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                {
+                    "error": str(exc),
+                    "retryable": True,
+                },
+            )
         except DispatchQueueFull as exc:
             logger.warning("MinerU dispatcher queue full: %s", exc)
             self._json(HTTPStatus.TOO_MANY_REQUESTS, {"error": str(exc)})
@@ -2247,13 +2868,13 @@ class MinerUAdapterHandler(BaseHTTPRequestHandler):
 def main() -> None:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
     mode = adapter_mode()
-    if mode == "worker" and (
-        not os.getenv("MINERU_API_URL") or not os.getenv("MINERU_API_TOKEN")
-    ):
+    if mode == "worker" and (not os.getenv("MINERU_API_URL") or not os.getenv("MINERU_API_TOKEN")):
         raise SystemExit("MINERU_API_URL and MINERU_API_TOKEN are required")
     if mode == "dispatcher":
         snapshot = parse_dispatcher().snapshot()
         logger.info("MinerU dispatcher initial state: %s", snapshot)
+    else:
+        _enable_child_subreaper()
     port = int(os.getenv("MINERU_LISTEN_PORT", "50052"))
     server = ThreadingHTTPServer(("0.0.0.0", port), MinerUAdapterHandler)
     logger.info("MinerU compatibility adapter role=%s listening on port %d", mode, port)

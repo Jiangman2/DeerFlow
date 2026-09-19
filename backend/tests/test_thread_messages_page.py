@@ -80,7 +80,7 @@ def test_thread_page_orders_across_runs_and_paginates_without_gaps():
     assert older.json()["next_before_seq"] is None
 
 
-def test_admin_thread_page_uses_authorized_unscoped_read_for_another_users_thread(monkeypatch):
+def test_admin_thread_page_uses_authorized_unscoped_read_for_another_users_thread():
     store = MemoryRunEventStore()
 
     async def seed():
@@ -90,11 +90,6 @@ def test_admin_thread_page_uses_authorized_unscoped_read_for_another_users_threa
     asyncio.run(seed())
     original_list_messages = store.list_messages
     store.list_messages = AsyncMock(wraps=original_list_messages)
-    monkeypatch.setattr(
-        thread_runs,
-        "get_current_user",
-        AsyncMock(return_value="11111111-2222-3333-4444-555555555555"),
-    )
     app = _make_app(store, user_factory=_admin_user)
     with TestClient(app) as client:
         response = client.get("/api/threads/thread-1/messages/page?limit=10")

@@ -91,6 +91,47 @@ spec:
             # while its threaded HTTP server keeps health probes responsive.
             - name: LIBREOFFICE_TIMEOUT_SECONDS
               value: "180"
+            - name: MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED
+              # Native DOC/DOCX extraction is the normal success path. Only
+              # empty/failed native parses fall back to LibreOffice + MinerU,
+              # so visual conversion cannot turn readable Word files into
+              # 180-second failures or occupy every worker slot.
+              value: "false"
+            - name: DEERFLOW_ANYDOC_WORD_ENABLED
+              # Conversation DOCX attachments use local AnyDoc first. Large
+              # knowledge-base DOCX files may use the same bounded fast path.
+              value: "true"
+            - name: DEERFLOW_ANYDOC_KNOWLEDGE_WORD_ENABLED
+              # Preserve the configured knowledge route for ordinary files;
+              # only structurally large DOCX enters the AnyDoc fast path.
+              value: "true"
+            - name: DEERFLOW_ANYDOC_WORD_EXTENSIONS
+              # Legacy binary DOC remains on the proven DocReader route.
+              value: docx
+            - name: DEERFLOW_ANYDOC_WORD_TIMEOUT_SECONDS
+              value: "120"
+            - name: DEERFLOW_ANYDOC_WORD_MIN_TEXT_CHARACTERS
+              value: "32"
+            - name: DEERFLOW_DOCREADER_WORD_TIMEOUT_SECONDS
+              # DocReader 0.8 stays outside the HTTP worker process. Large
+              # DOCX bypasses its unbounded StdMarkitdownParser first stage.
+              value: "120"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_INPUT_BYTES
+              value: "16777216"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_UNCOMPRESSED_BYTES
+              value: "67108864"
+            - name: DEERFLOW_DOCX_MARKITDOWN_MAX_DOCUMENT_XML_BYTES
+              value: "33554432"
+            - name: DEERFLOW_DOCX_STREAM_TIMEOUT_SECONDS
+              value: "60"
+            - name: DEERFLOW_DOCX_STREAM_MAX_DOCUMENT_XML_BYTES
+              value: "536870912"
+            - name: DEERFLOW_DOCX_STREAM_MAX_TEXT_CHARACTERS
+              value: "20000000"
+            - name: DEERFLOW_WORD_LIBREOFFICE_TIMEOUT_SECONDS
+              value: "120"
+            - name: DEERFLOW_WORD_MINERU_FALLBACK_TIMEOUT_SECONDS
+              value: "120"
             - name: MINERU_MAX_UPLOAD_BYTES
               value: "104857600"
             - name: MINERU_MAX_INLINE_IMAGE_BYTES
@@ -125,7 +166,10 @@ spec:
               value: /etc/deerflow-ca/ca-bundle.crt
           readinessProbe:
             httpGet:
-              path: /health
+              # Keep a parsing Pod in discovery. The dispatcher separately
+              # calls /ready before assignment, so a busy worker is skipped
+              # without making the Deployment 0/6 Ready or stalling rollout.
+              path: /live
               port: http
             initialDelaySeconds: 3
             periodSeconds: 5
@@ -133,11 +177,13 @@ spec:
             failureThreshold: 12
           livenessProbe:
             httpGet:
-              path: /health
+              path: /live
               port: http
             initialDelaySeconds: 15
             periodSeconds: 15
             timeoutSeconds: 10
+            # /live does not acquire the parser lock. Six consecutive failures
+            # therefore indicate a wedged process rather than normal parsing.
             failureThreshold: 6
           resources:
             requests:
