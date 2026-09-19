@@ -87,7 +87,14 @@ class LocalSkillStorage(SkillStorage):
                     continue
                 skill_file = Path(current_root) / SKILL_MD_FILE
                 if is_eval_fixture_skill_md(skill_file.relative_to(category_path)):
+                    dir_names.clear()
                     continue
+                # A directory containing SKILL.md is a package boundary. Any
+                # nested SKILL.md files belong to that package's supporting
+                # resources (for example eval fixtures), not to the runtime
+                # skill registry. Namespace directories without SKILL.md still
+                # recurse, preserving layouts such as public/team/helper.
+                dir_names.clear()
                 yield category, category_path, skill_file
 
     def read_custom_skill(self, name: str) -> str:

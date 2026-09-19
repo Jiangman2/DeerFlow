@@ -271,7 +271,9 @@ class UserScopedSkillStorage(LocalSkillStorage):
                     continue
                 skill_file = Path(current_root) / SKILL_MD_FILE
                 if is_eval_fixture_skill_md(skill_file.relative_to(public_path)):
+                    dir_names.clear()
                     continue
+                dir_names.clear()
                 yield SkillCategory.PUBLIC, public_path, skill_file
 
         # 2. Custom skills: prefer user-level directory
@@ -284,7 +286,9 @@ class UserScopedSkillStorage(LocalSkillStorage):
                     continue
                 skill_file = Path(current_root) / SKILL_MD_FILE
                 if is_eval_fixture_skill_md(skill_file.relative_to(user_custom_path)):
+                    dir_names.clear()
                     continue
+                dir_names.clear()
                 user_custom_exists = True
                 yield SkillCategory.CUSTOM, user_custom_path, skill_file
 
@@ -302,7 +306,9 @@ class UserScopedSkillStorage(LocalSkillStorage):
                         continue
                     skill_file = Path(current_root) / SKILL_MD_FILE
                     if is_eval_fixture_skill_md(skill_file.relative_to(global_custom_path)):
+                        dir_names.clear()
                         continue
+                    dir_names.clear()
                     yield SkillCategory.LEGACY, global_custom_path, skill_file
 
     # ------------------------------------------------------------------

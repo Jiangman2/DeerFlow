@@ -5,7 +5,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
@@ -20,7 +20,7 @@ from app.gateway.skillhub_runtime import (
     set_registry_skill_enabled,
     uninstall_registry_skill,
 )
-from deerflow.agents.lead_agent.prompt import clear_skills_system_prompt_cache, refresh_user_skills_system_prompt_cache_async
+from deerflow.agents.lead_agent.prompt import clear_skills_system_prompt_cache, refresh_skills_system_prompt_cache_async, refresh_user_skills_system_prompt_cache_async
 from deerflow.config.app_config import AppConfig
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
 from deerflow.runtime.user_context import get_effective_user_id
@@ -91,6 +91,14 @@ class SkillInstallResponse(BaseModel):
     success: bool = Field(..., description="Whether the installation was successful")
     skill_name: str = Field(..., description="Name of the installed skill")
     message: str = Field(..., description="Installation result message")
+
+
+class SkillReloadResponse(BaseModel):
+    """Response model for process-local skill cache invalidation."""
+
+    success: bool = Field(..., description="Whether the skill caches were invalidated")
+    scope: Literal["process"] = Field(..., description="Reload scope; only the current Gateway process is affected")
+    message: str = Field(..., description="Human-readable reload status")
 
 
 class CustomSkillContentResponse(SkillResponse):
@@ -442,6 +450,28 @@ async def delete_skillhub_runtime_skill(
             raise
         logger.error("Failed to uninstall SkillHub runtime skill: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to uninstall SkillHub runtime skill: {e}") from e
+
+
+@router.post(
+    "/skills/reload",
+    response_model=SkillReloadResponse,
+    summary="Reload Skills",
+    description=("Invalidate skill prompt caches for all users in the current Gateway process. Subsequent runs rescan the configured skill directories; running tasks and other Gateway processes are unaffected."),
+)
+async def reload_skills(request: Request) -> SkillReloadResponse:
+    """Invalidate process-local skill prompt caches after external file changes."""
+    await require_admin_user(request, detail=_ADMIN_REQUIRED_DETAIL)
+    try:
+        await refresh_skills_system_prompt_cache_async()
+    except Exception as exc:
+        logger.exception("Failed to invalidate skills cache")
+        raise HTTPException(status_code=500, detail="Failed to invalidate skills cache.") from exc
+
+    return SkillReloadResponse(
+        success=True,
+        scope="process",
+        message="Skill caches invalidated; subsequent runs in this Gateway process will rescan the latest skills.",
+    )
 
 
 @router.get("/skills/custom", response_model=SkillsListResponse, summary="List Custom Skills")
