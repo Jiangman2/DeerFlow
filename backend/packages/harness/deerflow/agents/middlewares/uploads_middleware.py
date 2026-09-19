@@ -91,7 +91,7 @@ def _extract_outline_for_file(file_path: Path) -> tuple[list[dict], list[str]]:
     # outline is empty — read the first few non-empty lines as a content preview
     preview: list[str] = []
     try:
-        with md_path.open(encoding="utf-8") as f:
+        with md_path.open(encoding="utf-8-sig") as f:
             for line in f:
                 stripped = line.strip()
                 if stripped:

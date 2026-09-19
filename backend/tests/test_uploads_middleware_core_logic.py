@@ -12,9 +12,13 @@ import re
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from deerflow.agents.middlewares.uploads_middleware import UploadsMiddleware
+from deerflow.agents.middlewares.uploads_middleware import (
+    UploadsMiddleware,
+    _extract_outline_for_file,
+)
 from deerflow.config.paths import Paths
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, message_content_to_text
 
@@ -664,6 +668,24 @@ class TestBeforeAgent:
         assert "No structural headings detected" in content
         # grep hint must appear
         assert "grep" in content
+
+    @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+    def test_fallback_preview_ignores_only_leading_bom(self, tmp_path, encoding):
+        """BOM decoding must preserve physical lines and embedded U+FEFF."""
+        source = tmp_path / "notes.pdf"
+        source.write_bytes(b"%PDF fake")
+        markdown = tmp_path / "notes.md"
+        markdown.write_text(
+            "\nFirst paragraph\nSecond\ufeffparagraph\n",
+            encoding=encoding,
+        )
+        original = markdown.read_bytes()
+
+        assert _extract_outline_for_file(source) == (
+            [],
+            ["First paragraph", "Second\ufeffparagraph"],
+        )
+        assert markdown.read_bytes() == original
 
     def test_fallback_grep_hint_shown_when_no_md_file(self, tmp_path):
         """Files with no sibling .md still get the grep hint (outline is empty)."""

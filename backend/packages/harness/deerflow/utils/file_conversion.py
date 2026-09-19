@@ -291,7 +291,7 @@ def extract_outline(md_path: Path) -> list[dict]:
     """
     outline: list[dict] = []
     try:
-        with md_path.open(encoding="utf-8") as f:
+        with md_path.open(encoding="utf-8-sig") as f:
             for lineno, line in enumerate(f, 1):
                 stripped = line.strip()
                 if not stripped:

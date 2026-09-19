@@ -1215,7 +1215,10 @@ and PPTX uploads reuse that same enterprise parser without creating a
 knowledge-base record. The Gateway keeps the original document and writes a
 same-stem Markdown companion for the current task. Searchable PDFs retain their
 native route, scanned PDFs use enterprise OCR, and presentations use the strict
-presentation route. Interactive DeerFlow DOCX attachments use pinned local
+presentation route. Markdown companions with or without a leading UTF-8 BOM
+produce identical outlines and fallback previews; the original file bytes,
+physical heading line numbers, and embedded U+FEFF characters remain unchanged.
+Interactive DeerFlow DOCX attachments use pinned local
 AnyDoc first. Ordinary WeKnora knowledge-base documents retain their explicit
 parser rules, while only structurally large knowledge-base DOCX may use the
 same bounded AnyDoc fast path. Large DOCX bypasses `StdMarkitdownParser` for
