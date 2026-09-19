@@ -171,6 +171,7 @@ export default function ScheduledTasksPage() {
   const [adviceOpen, setAdviceOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [editTaskId, setEditTaskId] = useState<string | undefined>(undefined);
   const [editTitle, setEditTitle] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
   const [editAssistantId, setEditAssistantId] = useState(DEFAULT_ASSISTANT_ID);
@@ -373,35 +374,35 @@ export default function ScheduledTasksPage() {
     }
   }, [filteredData, selectedTaskId]);
 
-  useEffect(() => {
+  // Reset before children commit so the keyed input captures this task.
+  // Same-id refetches retain the in-progress draft.
+  if (editTaskId !== selectedTask?.id) {
+    setEditTaskId(selectedTask?.id);
     if (!selectedTask) {
       setEditing(false);
-      return;
+    } else {
+      setEditTitle(selectedTask.title);
+      setEditPrompt(selectedTask.prompt);
+      setEditAssistantId(selectedTask.assistant_id ?? DEFAULT_ASSISTANT_ID);
+      const spec = selectedTask.schedule_spec as {
+        cron?: string;
+        run_at?: string;
+        every_seconds?: number;
+      };
+      setEditSchedule({
+        schedule_type: selectedTask.schedule_type,
+        schedule_spec: {
+          cron: typeof spec.cron === "string" ? spec.cron : undefined,
+          run_at: typeof spec.run_at === "string" ? spec.run_at : undefined,
+          every_seconds:
+            typeof spec.every_seconds === "number"
+              ? spec.every_seconds
+              : undefined,
+        },
+        timezone: selectedTask.timezone || "UTC",
+      });
     }
-    setEditTitle(selectedTask.title);
-    setEditPrompt(selectedTask.prompt);
-    setEditAssistantId(selectedTask.assistant_id ?? DEFAULT_ASSISTANT_ID);
-    const spec = selectedTask.schedule_spec as {
-      cron?: string;
-      run_at?: string;
-      every_seconds?: number;
-    };
-    setEditSchedule({
-      schedule_type: selectedTask.schedule_type,
-      schedule_spec: {
-        cron: typeof spec.cron === "string" ? spec.cron : undefined,
-        run_at: typeof spec.run_at === "string" ? spec.run_at : undefined,
-        every_seconds:
-          typeof spec.every_seconds === "number"
-            ? spec.every_seconds
-            : undefined,
-      },
-      timezone: selectedTask.timezone || "UTC",
-    });
-    // Depend on id only so a background refetch (same task, new object reference)
-    // does not wipe edits in progress.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTask?.id]);
+  }
 
   useEffect(() => {
     if (!selectedTask?.id || models.length === 0) {

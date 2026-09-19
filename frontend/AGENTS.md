@@ -475,6 +475,11 @@ models in a chat must not mutate scheduled tasks. Keep create/edit/duplicate flo
 aligned for `once`, `cron`, and minimum-60-second `interval` schedules and for the
 pinned custom-agent selection. Run history uses server pagination; older pages pause
 live refresh and must not be merged with the latest-page cache.
+Single-run edits retain the mounted task's original `run_at` while its displayed
+wall time and timezone remain unchanged. Keep that snapshot stable across parent
+feedback, and reset the parent draft before a task-keyed remount so DST folds and
+sub-minute timestamp precision cannot be changed by title-only edits or task
+switches.
 
 ### Workspace announcements
 

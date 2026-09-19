@@ -1746,6 +1746,11 @@ All dict-returning methods are validated against Gateway Pydantic response model
 DeerFlow includes first-class scheduled tasks in the workspace, extended here with the
 upstream scheduler reliability and interval-scheduling improvements.
 
+Editing a one-time task's title or prompt preserves its original execution time,
+including seconds and the selected occurrence during a daylight-saving clock
+rollback. Changing its date, time, or timezone recalculates the execution time;
+switching tasks loads the selected task's own draft and schedule.
+
 Current MVP capabilities:
 
 - Manage tasks at `/workspace/scheduled-tasks`
