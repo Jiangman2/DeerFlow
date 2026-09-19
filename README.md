@@ -562,6 +562,8 @@ DeerFlow can also expose user-owned IM channel connections in the workspace UI. 
 
 If Gateway shutdown or startup cancellation interrupts IM-channel activation, DeerFlow now drains the partial `ChannelService` rollback before propagating the cancellation. This prevents an interrupted startup from leaving orphaned channel workers or a half-initialized global service.
 
+Gateway shutdown also keeps the bounded in-flight RunManager drain alive across repeated cancellation. The checkpointer and database engines therefore cannot close underneath runs that are still writing their terminal state; the first cancellation is propagated after the drain reaches a safe terminal boundary.
+
 Administrators can create, schedule, publish, and archive workspace announcements from Settings > Announcement Management. The active announcement is shown to signed-in users as a prominent animated workspace card; severity, display window, and whether users may dismiss it are configurable.
 
 The settings dialog uses a bounded desktop viewport inset and an independent
