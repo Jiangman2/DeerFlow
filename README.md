@@ -1478,6 +1478,13 @@ language are normalized on the next eligible background memory update without
 changing their identity or provenance. Memory updates are debounced, so the
 Settings page may update shortly after a conversation rather than immediately.
 
+During graceful Gateway shutdown, configuration lookup, memory-backend lookup,
+and the bounded pending-update flush run off the event loop as one owned drain.
+Repeated lifespan cancellation waits for that drain before propagating, so a
+rolling restart cannot detach a still-running memory worker from process
+teardown. Keep the configured flush budget plus surrounding shutdown work
+inside Kubernetes `terminationGracePeriodSeconds`.
+
 ### Knowledge Base SSO
 
 The workspace knowledge-base integration uses the current DeerFlow identity to

@@ -14,6 +14,7 @@ from app.gateway.codex_responses_adapter import router as codex_responses_router
 from app.gateway.config import get_gateway_config
 from app.gateway.csrf_middleware import CSRFMiddleware, get_configured_cors_origins
 from app.gateway.deps import langgraph_runtime
+from app.gateway.memory_shutdown import shutdown_memory_backend
 from app.gateway.routers import (
     admin_users,
     agents,
@@ -424,27 +425,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # would (review #6 on the original PR).
         #
         # K8s caveat: ``shutdown_flush_timeout_seconds`` must fit inside the
-        # pod's ``terminationGracePeriodSeconds`` (channel stop + this drain +
-        # buffer), set on the gateway Helm deployment -- or K8s SIGKILLs the
-        # drain mid-flight and the loss this is fixing is silently re-introduced.
+        # pod's ``terminationGracePeriodSeconds`` (channel stop + config and
+        # backend resolution + this drain + buffer), set on the gateway Helm
+        # deployment -- or K8s SIGKILLs the drain mid-flight and the loss this
+        # is fixing is silently re-introduced.
         if not isolated_ppt_runner:
-            try:
-                app_cfg = get_app_config()
-                if app_cfg.memory.enabled:
-                    from deerflow.agents.memory import get_memory_manager
-
-                    manager = get_memory_manager()
-                    flush_timeout = app_cfg.memory.shutdown_flush_timeout_seconds
-                    completed = await asyncio.to_thread(manager.shutdown_flush, flush_timeout)
-                    if completed:
-                        logger.info("Memory queue flush completed within %.1fs", flush_timeout)
-                    else:
-                        logger.warning(
-                            "Memory queue flush did not finish within %.1fs; remaining updates may be lost",
-                            flush_timeout,
-                        )
-            except Exception:
-                logger.exception("Failed to flush memory queue on shutdown")
+            await shutdown_memory_backend()
 
     logger.info("Shutting down API Gateway")
 
