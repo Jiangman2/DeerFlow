@@ -32,6 +32,7 @@ from deerflow.skills.types import Skill
 # Module names that need to be mocked to break circular imports
 _MOCKED_MODULE_NAMES = [
     "deerflow.agents",
+    "deerflow.agents.language_policy",
     "deerflow.agents.thread_state",
     "deerflow.agents.middlewares",
     "deerflow.agents.middlewares.thread_data_middleware",
@@ -70,6 +71,15 @@ def _setup_executor_classes():
     # Save original modules
     original_modules = {name: sys.modules.get(name) for name in _MOCKED_MODULE_NAMES}
     original_executor = sys.modules.get("deerflow.subagents.executor")
+    original_tool_search = sys.modules.get("deerflow.tools.builtins.tool_search")
+    original_sandbox_provider = sys.modules.get("deerflow.sandbox.sandbox_provider")
+
+    # Preload real leaf dependencies before replacing their parent packages
+    # with cycle-breaking test doubles. This keeps the module runnable alone
+    # instead of relying on collection order to have cached those leaves.
+    language_policy_module = importlib.import_module("deerflow.agents.language_policy")
+    tool_search_module = importlib.import_module("deerflow.tools.builtins.tool_search")
+    sandbox_provider_module = importlib.import_module("deerflow.sandbox.sandbox_provider")
 
     # Remove mocked executor if exists (from conftest.py)
     if "deerflow.subagents.executor" in sys.modules:
@@ -79,10 +89,13 @@ def _setup_executor_classes():
     # Set up mocks
     for name in _MOCKED_MODULE_NAMES:
         sys.modules[name] = MagicMock()
+    sys.modules["deerflow.agents.language_policy"] = language_policy_module
     storage_module = ModuleType("deerflow.skills.storage")
     storage_module.get_or_new_skill_storage = lambda **kwargs: SimpleNamespace(load_skills=lambda *, enabled_only: [])
     storage_module.get_or_new_user_skill_storage = lambda user_id=None, **kwargs: SimpleNamespace(load_skills=lambda *, enabled_only: [])
     sys.modules["deerflow.skills.storage"] = storage_module
+    sys.modules["deerflow.tools.builtins.tool_search"] = tool_search_module
+    sys.modules["deerflow.sandbox.sandbox_provider"] = sandbox_provider_module
 
     # Import real classes inside fixture
     from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -127,6 +140,14 @@ def _setup_executor_classes():
         sys.modules["deerflow.subagents.executor"] = original_executor
     elif "deerflow.subagents.executor" in sys.modules:
         del sys.modules["deerflow.subagents.executor"]
+    if original_tool_search is not None:
+        sys.modules["deerflow.tools.builtins.tool_search"] = original_tool_search
+    else:
+        sys.modules.pop("deerflow.tools.builtins.tool_search", None)
+    if original_sandbox_provider is not None:
+        sys.modules["deerflow.sandbox.sandbox_provider"] = original_sandbox_provider
+    else:
+        sys.modules.pop("deerflow.sandbox.sandbox_provider", None)
 
 
 # Helper classes that wrap real classes for testing
@@ -789,6 +810,39 @@ class TestAsyncExecutionPath:
         assert result.stop_reason is None
 
     @pytest.mark.anyio
+    async def test_aexecute_llm_error_fallback_with_none_content_falls_back_to_detail(self, classes, base_config, mock_agent, msg):
+        """A content-less error fallback still reports its structured detail.
+
+        ``_extract_llm_error_fallback`` reads ``message_content_to_text(content)``
+        first; ``None`` stringified to the truthy ``"None"``, so that literal
+        reached the user instead of the ``error_detail`` the empty-content branch
+        was written for.
+        """
+        AIMessage = classes["AIMessage"]
+        SubagentExecutor = classes["SubagentExecutor"]
+        SubagentStatus = classes["SubagentStatus"]
+
+        fallback_message = AIMessage(content="placeholder").model_copy(
+            update={
+                "content": None,
+                "additional_kwargs": {
+                    "deerflow_error_fallback": True,
+                    "error_type": "APIConnectionError",
+                    "error_detail": "Connection error.",
+                },
+            }
+        )
+        final_state = {"messages": [msg.human("Do something"), fallback_message]}
+        mock_agent.astream = lambda *args, **kwargs: async_iterator([final_state])
+
+        executor = SubagentExecutor(config=base_config, tools=[], thread_id="test-thread")
+        with patch.object(executor, "_create_agent", return_value=mock_agent):
+            result = await executor._aexecute("Do something")
+
+        assert result.status == SubagentStatus.FAILED
+        assert result.error == "Connection error."
+
+    @pytest.mark.anyio
     async def test_aexecute_does_not_infer_llm_failure_from_message_text(self, classes, base_config, mock_agent, msg):
         """Error-looking prose without the middleware marker is valid output."""
         SubagentExecutor = classes["SubagentExecutor"]
@@ -1111,6 +1165,34 @@ class TestAsyncExecutionPath:
         assert result.status == SubagentStatus.COMPLETED
         assert "Part 1" in result.result
         assert "Part 2" in result.result
+
+    @pytest.mark.anyio
+    async def test_aexecute_contentless_final_message_uses_no_response_sentinel(self, classes, base_config, mock_agent, msg):
+        """A content-less terminal turn must not surface as the literal "None".
+
+        ``AIMessage.content`` can be ``None`` after a rewrite path that skips
+        validation, and the shared text extractor then yielded the truthy string
+        ``"None"``, so ``text if text else "No response generated"`` reported the
+        sentinel's literal name as the subagent's answer.
+        """
+        SubagentExecutor = classes["SubagentExecutor"]
+        SubagentStatus = classes["SubagentStatus"]
+
+        contentless = classes["AIMessage"](content="").model_copy(update={"content": None})
+        final_state = {"messages": [msg.human("Task"), contentless]}
+        mock_agent.astream = lambda *args, **kwargs: async_iterator([final_state])
+
+        executor = SubagentExecutor(
+            config=base_config,
+            tools=[],
+            thread_id="test-thread",
+        )
+
+        with patch.object(executor, "_create_agent", return_value=mock_agent):
+            result = await executor._aexecute("Task")
+
+        assert result.status == SubagentStatus.COMPLETED
+        assert result.result == "No response generated"
 
     @pytest.mark.anyio
     async def test_aexecute_handles_agent_exception(self, classes, base_config, mock_agent):

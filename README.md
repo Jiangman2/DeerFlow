@@ -1177,6 +1177,8 @@ The lead agent can spawn sub-agents on the fly — each with its own scoped cont
 
 This is how DeerFlow handles tasks that take minutes to hours: a research task might fan out into a dozen sub-agents, each exploring a different angle, then converge into a single report — or a website — or a slide deck with generated visuals. One harness, many hands.
 
+Content-less sub-agent final messages report `No response generated` instead of the literal text `None`. A content-less provider-error fallback reports its structured error detail when available.
+
 ### Sandbox & File System
 
 DeerFlow doesn't just _talk_ about doing things. It has its own computer.
