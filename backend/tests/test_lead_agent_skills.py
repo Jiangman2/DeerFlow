@@ -179,6 +179,9 @@ def test_get_skills_prompt_section_includes_self_evolution_rules(monkeypatch):
 
     result = get_skills_prompt_section(available_skills=None)
     assert "Skill Self-Evolution" in result
+    assert "skill_write_file" in result
+    assert "`content` is mandatory" in result
+    assert "skill_manage(action=" not in result
 
 
 def test_get_skills_prompt_section_includes_self_evolution_rules_without_skills(monkeypatch):

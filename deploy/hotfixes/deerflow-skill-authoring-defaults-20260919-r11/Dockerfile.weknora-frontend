@@ -1,0 +1,15 @@
+FROM weknora-frontend-base
+
+COPY weknora-sidebar-labels.js /usr/share/nginx/html/assets/deerflow-sidebar-labels-20260918-r1.js
+
+RUN set -eu; \
+    index=/usr/share/nginx/html/index.html; \
+    test -s "${index}"; \
+    grep -q '</body>' "${index}"; \
+    if ! grep -q '/assets/deerflow-sidebar-labels-20260918-r1.js' "${index}"; then \
+      sed -i 's#</body>#<script src="/assets/deerflow-sidebar-labels-20260918-r1.js"></script></body>#' "${index}"; \
+    fi; \
+    test "$(grep -c '/assets/deerflow-sidebar-labels-20260918-r1.js' "${index}")" = 1; \
+    grep -q 'nav-creatChat' /usr/share/nginx/html/assets/deerflow-sidebar-labels-20260918-r1.js; \
+    grep -q 'nav-agents' /usr/share/nginx/html/assets/deerflow-sidebar-labels-20260918-r1.js; \
+    chmod 0644 /usr/share/nginx/html/assets/deerflow-sidebar-labels-20260918-r1.js

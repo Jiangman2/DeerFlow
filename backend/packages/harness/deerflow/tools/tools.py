@@ -29,6 +29,7 @@ def filter_tools_by_datalake_scope(tools: Iterable[BaseTool], *, enabled: bool |
         return tool_list
     return [tool for tool in tool_list if tool.name not in DATALAKE_TOOL_NAMES]
 
+
 BUILTIN_TOOLS = [
     present_file_tool,
     ask_clarification_tool,
@@ -107,11 +108,24 @@ def get_available_tools(
 
     # Conditionally add tools based on config
     builtin_tools = BUILTIN_TOOLS.copy()
+    try:
+        from deerflow.community.media_generation import get_configured_media_generation_tools
+
+        media_tools = get_configured_media_generation_tools()
+        builtin_tools.extend(media_tools)
+        if media_tools:
+            logger.info("Including platform-managed media generation tools: %s", [tool.name for tool in media_tools])
+    except Exception:
+        logger.exception("Failed to configure platform-managed media generation tools")
     skill_evolution_config = getattr(config, "skill_evolution", None)
     if getattr(skill_evolution_config, "enabled", False):
-        from deerflow.tools.skill_manage_tool import skill_manage_tool
+        from deerflow.tools.skill_manage_tool import SKILL_AUTHORING_TOOLS
 
-        builtin_tools.append(skill_manage_tool)
+        # Bind action-specific schemas instead of the legacy multi-action
+        # ``skill_manage`` schema.  The latter necessarily marks action-only
+        # parameters such as ``content`` and ``path`` optional, which lets a
+        # model emit structurally valid but unusable write_file calls.
+        builtin_tools.extend(SKILL_AUTHORING_TOOLS)
 
     # Add subagent tools only if enabled via runtime parameter
     if subagent_enabled:

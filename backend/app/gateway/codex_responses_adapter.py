@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/codex/deepseek/v1", tags=["codex-responses"])
 
 _DEFAULT_MODEL = "DeepSeek-V4-Flash"
-_DEFAULT_UPSTREAM_URL = "http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1/chat/completions"
+_DEFAULT_UPSTREAM_URL = "https://aiapi.cnooc.com.cn/DeepSeek-V4-Flash/FEAT-511-001/v1/chat/completions"
 _DEFAULT_MAX_REQUEST_BYTES = 32 * 1024 * 1024
 _DEFAULT_MAX_OUTPUT_TOKENS = 65536
 _RETRYABLE_HTTP_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})

@@ -24,6 +24,17 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   A bounded init gate requires three consecutive PostgreSQL connection samples;
   transient cluster-DNS or database startup failures therefore block only the
   Runner Pod and never remove the ordinary Gateway endpoint.
+  The Runner must ship the entire Alembic chain already present in the shared
+  database. Gateway-only migration ConfigMap overlays are not evidence that
+  its bare image contains those revisions.
+  Metadata-only migration validators must accept both `ast.Assign` and
+  `ast.AnnAssign`, since the deployed revisions use typed declarations; validate
+  their literal values without importing or executing a migration module.
+  The Runner skips global startup
+  orphan reconciliation: its empty local registry and a peer run's NULL lease
+  cannot establish that the ordinary Gateway died. This narrow startup guard
+  is not a substitute for ownership heartbeats in multi-instance Gateway
+  deployments, and intentionally does not reclaim stale PPT rows on restart.
   `agents/ppt_master_runner/` compiles one `StateGraph` relay node and must not
   call `create_agent`, create a chat model, or install Agent middleware. It
   acquires the thread Sandbox and talks to the authenticated
@@ -48,7 +59,10 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   separate Pods with separate warm-pool maps, the runner must also hold a
   shared filesystem execution lease for the whole Agent turn. Every AIO Sandbox
   destruction path requires a non-blocking exclusive lease and defers deletion
-  without dropping tracking when another process is executing. Exact owning
+  without dropping tracking when another process is executing. Open the lease
+  read-write without truncation: Linux `LOCK_SH` rejects a write-only
+  descriptor, while destruction still uses `LOCK_EX` through the same helper.
+  Exact owning
   validator/export commands may not use terminal truncation pipelines or shell
   fallbacks that hide their exit status. Completion runs the upstream delivery
   checker plus an independent OOXML capability reconciliation against the
@@ -940,6 +954,20 @@ unavailable/preparing state; never fall back to all-history scanning in enabled
 mode.
 
 Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runtime, all other `/api/*` → Gateway REST APIs.
+
+**Platform media generation:** `deerflow.community.media_generation` exposes
+Gateway-local `generate_image` and `generate_video` tools only when their
+operator-owned endpoint environment variables are configured. Both clients use
+`trust_env=false`, reject redirects, cap response sizes, and write atomically to
+the current thread outputs. The image response must contain exactly one
+format-matching `b64_json` payload. Video submission stores an idempotent
+thread-scoped job record, resumes by job ID, accepts only current-thread local
+reference images or SSRF-screened public URLs, and downloads only from the API
+host or an explicit hostname allowlist. Unknown or lost jobs must fail visibly
+instead of being silently resubmitted. Media tools publish their own artifacts;
+their Skills must not use Bash/provider SDKs or call `present_files` for the same
+result. Artifact routes stream inline audio/video via `FileResponse` instead of
+reading large files into Gateway memory.
 
 ### Sandbox System (`packages/harness/deerflow/sandbox/`)
 

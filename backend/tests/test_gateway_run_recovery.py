@@ -96,8 +96,10 @@ async def test_recovered_run_stream_end_skips_expired_stream():
 
 
 @pytest.mark.anyio
-async def test_sqlite_runtime_reconciles_orphaned_runs_on_startup(monkeypatch):
-    """SQLite startup should recover stale active runs before serving requests."""
+@pytest.mark.parametrize("profile", ["", "gateway", "ppt-master-runner", " PPT-MASTER-RUNNER "])
+async def test_runtime_scopes_startup_recovery_to_ordinary_gateway(monkeypatch, profile):
+    """A bridge restart must not fail a peer Gateway's NULL-lease runs."""
+    monkeypatch.setenv("DEER_FLOW_RUNTIME_PROFILE", profile)
     app = FastAPI()
     config = SimpleNamespace(
         database=SimpleNamespace(backend="sqlite"),
@@ -131,6 +133,14 @@ async def test_sqlite_runtime_reconciles_orphaned_runs_on_startup(monkeypatch):
     await anyio.sleep(0)
 
     assert len(_FakeRunManager.instances) == 1
+    if profile.strip().lower() == "ppt-master-runner":
+        assert _FakeRunManager.instances[0].reconcile_calls == []
+        assert _FakeRunManager.instances[0].list_by_thread_calls == []
+        assert thread_store.status_updates == []
+        assert stream_bridge.publish_end_calls == []
+        assert stream_bridge.cleanup_calls == []
+        assert _FakeRunManager.instances[0].shutdown_calls == 1
+        return
     assert _FakeRunManager.instances[0].reconcile_calls
     assert _FakeRunManager.instances[0].reconcile_calls[0]["error"]
     assert _FakeRunManager.instances[0].list_by_thread_calls == [{"thread_id": "thread-1", "user_id": None, "limit": 1}]

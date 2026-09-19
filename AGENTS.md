@@ -66,6 +66,18 @@ After artifact read authorization succeeds, resolve the storage bucket from the
 trusted `threads_meta.user_id` owner record rather than the current viewer. This
 keeps owner and administrator read-only views on the same thread files while
 preventing a browser from selecting an arbitrary user bucket.
+Platform-managed `generate_image` and `generate_video` tools run in Gateway,
+not in the Sandbox. Register each tool only when its operator-owned endpoint is
+configured. Keep those clients direct (`trust_env=false`), redirect-disabled,
+bounded by response/download limits, and restricted to the current thread's
+outputs. Image generation accepts exactly one validated `b64_json` result.
+Video generation persists an idempotent asynchronous job ID, permits only
+current-thread local reference images or SSRF-screened public URLs, and trusts
+download URLs only from the configured API host or an explicit allowlist. Never
+silently resubmit an uncertain video job. Publish validated outputs atomically;
+serve audio/video artifacts with `FileResponse` so Gateway never buffers a
+large media file in memory. The public image/video Skills call these tools and
+must not bypass them with provider SDKs, shell commands, or direct HTTP.
 Conversation PDF/DOC/DOCX/PPT/PPTX uploads reuse the configured WeKnora/MinerU
 adapter to write a same-stem Markdown companion without creating
 knowledge-base records. The dispatcher marks only interactive DeerFlow uploads
@@ -128,6 +140,9 @@ lease for the entire external
 Agent turn; every idle, capacity, unhealthy, explicit, and shutdown destruction
 path must obtain the corresponding non-blocking exclusive lease first. A busy
 Sandbox is deferred and remains tracked, never deleted from another process.
+Open that lease read-write without truncation: Linux `LOCK_SH` rejects a
+write-only descriptor, while destruction still needs `LOCK_EX` through the
+same helper.
 Replay the original Slash request and require current upstream authority reads
 on every Agent turn. Owning upstream commands must keep their real exit status:
 do not allow terminal output-truncation pipes or shell fallbacks to mask a
@@ -373,8 +388,8 @@ In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 service DNS name; never pin a ClusterIP, because recreating the cluster changes it.
 The DeerFlow knowledge page embeds that same-origin native workspace. Its SSO
 response assigns either the full `system_admin` presentation or the simplified
-`personal_workspace_owner` presentation (New Chat, Knowledge Bases, Shared
-Spaces, and Agents). New SSO-provisioned accounts must use the deterministic
+`personal_workspace_owner` presentation (Knowledge Q&A, Knowledge Bases, Shared
+Spaces, and Custom Q&A). New SSO-provisioned accounts must use the deterministic
 32-character credential accepted by WeKnora 0.8; login must retain the exact
 pre-0.8 deterministic credential as a fallback so existing account hashes and
 workspaces remain usable without reset. Keep WeKnora configured to create the first personal workspace while
@@ -383,8 +398,8 @@ native RBAC, not UI hiding, remains the authorization boundary. The embedded
 page has no extra DeerFlow header. Entering it collapses DeerFlow's sidebar and
 expands WeKnora's sidebar once for both ordinary users and administrators; the
 native WeKnora toggle remains available afterwards so chat history stays
-reachable. Ordinary users see New Chat, Knowledge Bases, Shared Spaces, and
-Agents in the native sidebar; the global Publish Integrations navigation and
+reachable. Ordinary users see Knowledge Q&A, Knowledge Bases, Shared Spaces,
+and Custom Q&A in the native sidebar; the global Publish Integrations navigation and
 system settings remain hidden and the embedded
 user menu also hides logout. Their New Knowledge Base dialog exposes only Basic
 Information, while preserving all native knowledge-base type and indexing choices
@@ -443,12 +458,12 @@ When `TAVILY_API_KEY` is present, Gateway SSO also idempotently provisions a
 native default `DeerFlow Tavily` provider in every workspace the user owns or
 administers. The key must remain a runtime secret and must never be exposed in
 the browser or committed to Kubernetes manifests.
-The five built-in external-agent cards use their fixed same-origin HTTPS entry
-points under `cnoocclaw.cnooc.com.cn` directly. Keep those five aliases on a
+The six built-in external-agent cards use their fixed same-origin HTTPS entry
+points under `cnoocclaw.cnooc.com.cn` directly. Keep those six aliases on a
 strict allowlist and do not rewrite them through the legacy launch API. Legacy
 `datalake.cnooc` card records may still use the server launch route under
 `/api/cnooc/external-agents/<agent>/launch`; that route reads the validated
-HttpOnly `cnooc.platform_token` cookie and redirects only to the five canonical
+HttpOnly `cnooc.platform_token` cookie and redirects only to the five legacy canonical
 Data Lake paths, adding the current Token at redirect time. Keep `no-store` and
 `no-referrer` headers, server-only cookie access, and the exact Nginx launch
 prefix ahead of the general `/api/` Gateway catch-all. Never hardcode a Token,

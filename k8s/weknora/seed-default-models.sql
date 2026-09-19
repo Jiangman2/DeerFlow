@@ -68,7 +68,7 @@ VALUES
     'remote',
     'DeerFlow WeKnora CNOOC DeepSeek chat model',
     jsonb_build_object(
-        'base_url', 'http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1',
+        'base_url', 'https://aiapi.cnooc.com.cn/DeepSeek-V4-Flash/FEAT-511-001/v1',
         'api_key', :'cnooc_deepseek_api_key',
         'provider', 'generic'
     ),

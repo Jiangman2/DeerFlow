@@ -325,6 +325,34 @@ class TestRewriteLocalPathsInText:
         assert result == text
 
 
+class TestRewriteUniqueBareFilenames:
+    """Correlated virtual paths must be inserted literally, not as regex templates."""
+
+    def test_backslash_in_replacement_is_inserted_literally(self):
+        virtual_path = "/mnt/user-data/workspace/screenshots\\raw.png"
+        with patch("deerflow.mcp.tools._local_uri_to_virtual_path", return_value=virtual_path):
+            result = mcp_tools._rewrite_unique_bare_filenames(
+                "Saved as raw.png",
+                changed_files=[Path("raw.png")],
+                thread_id="t1",
+                user_id="u1",
+            )
+
+        assert result == f"Saved as {virtual_path}"
+
+    def test_unknown_regex_escape_in_replacement_does_not_raise(self):
+        virtual_path = "/mnt/user-data/workspace/screenshots\\q3.png"
+        with patch("deerflow.mcp.tools._local_uri_to_virtual_path", return_value=virtual_path):
+            result = mcp_tools._rewrite_unique_bare_filenames(
+                "Saved as q3.png",
+                changed_files=[Path("q3.png")],
+                thread_id="t1",
+                user_id="u1",
+            )
+
+        assert result == f"Saved as {virtual_path}"
+
+
 class TestWorkspaceSnapshots:
     def test_changed_workspace_files_detects_created_and_modified_files(self, paths: Paths):
         import time

@@ -1,4 +1,4 @@
-import type { AnchorHTMLAttributes } from "react";
+import type { AnchorHTMLAttributes, ComponentProps } from "react";
 
 import {
   artifactPathFromHref,
@@ -8,6 +8,50 @@ import { getBackendBaseURL } from "@/core/config";
 import { cn } from "@/lib/utils";
 
 import { CitationLink } from "../citations/citation-link";
+
+const SAFE_HREF_PROTOCOLS = ["http:", "https:", "mailto:", "tel:"] as const;
+
+/** Return whether an href is safe to place in a navigable anchor. */
+export function isSafeHref(href: string | undefined): boolean {
+  if (typeof href !== "string" || href.length === 0) {
+    return false;
+  }
+  if (href.startsWith("#")) {
+    return true;
+  }
+  // Protocol-relative URLs and their backslash-normalized variants can leave
+  // the current origin and must not bypass the explicit scheme allowlist.
+  if (/^(\/\/|\\\\)/.test(href)) {
+    return false;
+  }
+  try {
+    const parsed = new URL(href, "https://dummy.example/");
+    return (SAFE_HREF_PROTOCOLS as ReadonlyArray<string>).includes(
+      parsed.protocol,
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Inert stand-in for a link whose href failed `isSafeHref`. */
+export function UnsafeLink({
+  href,
+  className,
+  ...props
+}: ComponentProps<"span"> & { href: string }) {
+  return (
+    <span
+      {...props}
+      className={cn(
+        "text-muted-foreground cursor-not-allowed underline decoration-dotted underline-offset-2",
+        className,
+      )}
+      aria-label="Unsafe link omitted"
+      title={`Unsafe link scheme in ${href}`}
+    />
+  );
+}
 
 function isExternalUrl(href: string | undefined): boolean {
   return !!href && /^https?:\/\//.test(href);
@@ -55,6 +99,14 @@ export function createMarkdownLinkComponent(
     href,
     ...props
   }: AnchorHTMLAttributes<HTMLAnchorElement>) {
+    if (href !== undefined && !isSafeHref(href)) {
+      const { className, children } = props;
+      return (
+        <UnsafeLink href={href} className={className}>
+          {children}
+        </UnsafeLink>
+      );
+    }
     if (typeof props.children === "string") {
       const match = /^citation:(.+)$/.exec(props.children);
       if (match) {

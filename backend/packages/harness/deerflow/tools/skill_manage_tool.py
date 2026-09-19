@@ -296,3 +296,103 @@ async def skill_manage_tool(
 
 
 skill_manage_tool.func = make_sync_tool_wrapper(_skill_manage_impl, "skill_manage")
+
+
+@tool("skill_create", parse_docstring=True)
+async def skill_create_tool(runtime: Runtime, name: str, content: str) -> str:
+    """Create a persistent custom skill with a complete SKILL.md document.
+
+    Args:
+        name: Skill name in hyphen-case.
+        content: Complete UTF-8 content for the new SKILL.md, including frontmatter.
+    """
+    return await _skill_manage_impl(runtime=runtime, action="create", name=name, content=content)
+
+
+@tool("skill_edit", parse_docstring=True)
+async def skill_edit_tool(runtime: Runtime, name: str, content: str) -> str:
+    """Replace the complete SKILL.md document of a persistent custom skill.
+
+    Args:
+        name: Existing custom skill name in hyphen-case.
+        content: Complete replacement UTF-8 content for SKILL.md, including frontmatter.
+    """
+    return await _skill_manage_impl(runtime=runtime, action="edit", name=name, content=content)
+
+
+@tool("skill_patch", parse_docstring=True)
+async def skill_patch_tool(
+    runtime: Runtime,
+    name: str,
+    find: str,
+    replace: str,
+    expected_count: int | None = None,
+) -> str:
+    """Patch matching text in the SKILL.md document of a custom skill.
+
+    Args:
+        name: Existing custom skill name in hyphen-case.
+        find: Exact existing text to replace in SKILL.md.
+        replace: Exact replacement text to write into SKILL.md.
+        expected_count: Optional exact number of matches required before applying the patch.
+    """
+    return await _skill_manage_impl(
+        runtime=runtime,
+        action="patch",
+        name=name,
+        find=find,
+        replace=replace,
+        expected_count=expected_count,
+    )
+
+
+@tool("skill_delete", parse_docstring=True)
+async def skill_delete_tool(runtime: Runtime, name: str) -> str:
+    """Delete one persistent custom skill.
+
+    Args:
+        name: Existing custom skill name in hyphen-case.
+    """
+    return await _skill_manage_impl(runtime=runtime, action="delete", name=name)
+
+
+@tool("skill_write_file", parse_docstring=True)
+async def skill_write_file_tool(runtime: Runtime, name: str, path: str, content: str) -> str:
+    """Create or replace one complete supporting file in a custom skill.
+
+    Args:
+        name: Existing custom skill name in hyphen-case.
+        path: Safe relative path under the skill, such as scripts/run.py or references/guide.md.
+        content: Complete UTF-8 content for the supporting file; never omit or use a placeholder.
+    """
+    return await _skill_manage_impl(
+        runtime=runtime,
+        action="write_file",
+        name=name,
+        path=path,
+        content=content,
+    )
+
+
+@tool("skill_remove_file", parse_docstring=True)
+async def skill_remove_file_tool(runtime: Runtime, name: str, path: str) -> str:
+    """Remove one supporting file from a persistent custom skill.
+
+    Args:
+        name: Existing custom skill name in hyphen-case.
+        path: Safe relative path of the supporting file to remove.
+    """
+    return await _skill_manage_impl(runtime=runtime, action="remove_file", name=name, path=path)
+
+
+SKILL_AUTHORING_TOOLS = (
+    skill_create_tool,
+    skill_edit_tool,
+    skill_patch_tool,
+    skill_delete_tool,
+    skill_write_file_tool,
+    skill_remove_file_tool,
+)
+
+for _tool in SKILL_AUTHORING_TOOLS:
+    _tool.func = make_sync_tool_wrapper(_tool.coroutine, _tool.name)

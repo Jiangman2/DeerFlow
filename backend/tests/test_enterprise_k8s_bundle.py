@@ -20,6 +20,18 @@ def _yaml_documents(path: str) -> list[dict]:
     return [document for document in yaml.safe_load_all(_read(path)) if isinstance(document, dict)]
 
 
+def test_enterprise_gateway_configures_internal_media_generation_endpoints():
+    patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
+    gateway = next(document for document in patches if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "gateway")
+    container = next(item for item in gateway["spec"]["template"]["spec"]["containers"] if item["name"] == "gateway")
+    env = {item["name"]: item.get("value") for item in container["env"]}
+
+    assert env["DEERFLOW_IMAGE_GENERATION_API_URL"] == "http://10.57.2.43:30008/v1/images/generations"
+    assert env["DEERFLOW_VIDEO_GENERATION_API_URL"] == "http://10.57.2.43:30009/v1/videos"
+    assert env["DEERFLOW_IMAGE_GENERATION_TIMEOUT_SECONDS"] == "600"
+    assert env["DEERFLOW_VIDEO_GENERATION_POLL_SECONDS"] == "3"
+
+
 def test_dashboard_rollup_job_is_suspended_and_resource_bounded_by_default():
     job = yaml.safe_load(_read("k8s/local-pvc/dashboard-rollup-cronjob.yaml"))
     assert job["kind"] == "CronJob"
@@ -286,21 +298,9 @@ def test_enterprise_ppt_runner_retains_proxy_and_ca_boundary():
 
 def test_gateway_and_nginx_readiness_do_not_form_a_transitive_failure_chain():
     documents = _yaml_documents("k8s/local-pvc/deer-flow-pvc-stack.yaml")
-    deployments = {
-        document["metadata"]["name"]: document
-        for document in documents
-        if document.get("kind") == "Deployment"
-    }
-    gateway = next(
-        container
-        for container in deployments["gateway"]["spec"]["template"]["spec"]["containers"]
-        if container["name"] == "gateway"
-    )
-    nginx = next(
-        container
-        for container in deployments["nginx"]["spec"]["template"]["spec"]["containers"]
-        if container["name"] == "nginx"
-    )
+    deployments = {document["metadata"]["name"]: document for document in documents if document.get("kind") == "Deployment"}
+    gateway = next(container for container in deployments["gateway"]["spec"]["template"]["spec"]["containers"] if container["name"] == "gateway")
+    nginx = next(container for container in deployments["nginx"]["spec"]["template"]["spec"]["containers"] if container["name"] == "nginx")
 
     assert gateway["startupProbe"]["httpGet"]["path"] == "/api/v1/auth/setup-status"
     assert gateway["readinessProbe"] == {
@@ -378,10 +378,7 @@ def test_enterprise_runtime_images_are_immutable():
     assert {image["name"]: image.get("newTag") for image in custom} == expected_tags
     docreader = next(image for image in images if image["name"] == "wechatopenai/weknora-docreader")
     assert docreader["digest"] == "sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b"
-    assert (
-        "ARG DOCREADER_IMAGE="
-        "wechatopenai/weknora-docreader@sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b"
-    ) in _read("docker/mineru_adapter/Dockerfile")
+    assert ("ARG DOCREADER_IMAGE=wechatopenai/weknora-docreader@sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b") in _read("docker/mineru_adapter/Dockerfile")
     assert "latest" not in _read("k8s/enterprise/kustomization.yaml")
 
 

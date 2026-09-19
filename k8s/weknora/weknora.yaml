@@ -571,6 +571,10 @@ spec:
               subPath: favicon-bEsoBimf.ico
               readOnly: true
             - name: ui-patch
+              mountPath: /usr/share/nginx/html/assets/deerflow-sidebar-labels-20260918-r1.js
+              subPath: deerflow-sidebar-labels-20260918-r1.js
+              readOnly: true
+            - name: ui-patch
               mountPath: /usr/share/nginx/html/index.html
               subPath: index.html
               readOnly: true

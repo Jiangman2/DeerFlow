@@ -188,8 +188,8 @@ than reimplementing its knowledge-management UI. Keep the iframe entry at
 `/platform/knowledge-bases` and let the iframe fill the whole page without a
 second DeerFlow title/action bar. The mounted WeKnora bootstrap persists the
 Gateway-provided `ui_policy`: system administrators retain the complete native
-navigation, while ordinary personal-workspace Owners see New Chat, Knowledge
-Bases, Shared Spaces, and Agents but do not see Publish Integrations, system
+navigation, while ordinary personal-workspace Owners see Knowledge Q&A,
+Knowledge Bases, Shared Spaces, and Custom Q&A but do not see Publish Integrations, system
 settings, or tenant-creation controls. Entering the
 embedded workspace collapses DeerFlow's sidebar and expands WeKnora's sidebar
 once for both ordinary users and administrators. The automatic collapse must
@@ -407,12 +407,12 @@ dialog with the error stack, failed node, tool calls, and terminal events; it mu
 not add retry or mutation actions. The dashboard also reports
 current and historically-created scheduled tasks plus run outcomes. Do not
 substitute DeerFlow `weknora_search`/`weknora_ask` tool-call counts for native
-WeKnora usage. Dashboard progress bars, including the five external-agent
+WeKnora usage. Dashboard progress bars, including the six external-agent
 launch bars, use explicit solid `backgroundColor` values instead of gradients
 or alpha-color syntax so the audited enterprise browser renders them reliably.
 The backend remains the authoritative enforcement boundary. The panel must not mix runs from deleted
 conversations into that current-session view.
-The five built-in external-agent cards navigate directly to their fixed
+The six built-in external-agent cards navigate directly to their fixed
 same-origin HTTPS aliases under `cnoocclaw.cnooc.com.cn`; do not rewrite those
 current aliases through the legacy launch API. Legacy `datalake.cnooc` card
 records may still use `/api/cnooc/external-agents/<agent>/launch`. Those routes
@@ -524,6 +524,9 @@ and task backdrop classes as the ordinary new-chat route. Keep the agent name
 and description in the independent welcome stage rather than placing them in
 `InputBox.extraHeader`; the custom `agent_name` send context and native task
 header actions remain unchanged.
+The shared chat settings default a missing mode preference to `flash`. Preserve
+an explicitly saved `thinking`, `pro`, or `ultra` choice; do not reset existing
+user intent during settings hydration or login.
 The native App integration and release checklist live in
 `docs/mobile-webview-integration.md`.
 

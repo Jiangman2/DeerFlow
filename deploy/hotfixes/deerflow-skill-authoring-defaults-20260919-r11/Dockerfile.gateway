@@ -1,0 +1,16 @@
+FROM skill-authoring-gateway-base
+
+COPY patch_gateway_skill_authoring.py /tmp/patch_gateway_skill_authoring.py
+
+RUN --network=none python3 /tmp/patch_gateway_skill_authoring.py --backend-root /app/backend \
+    && cd /app/backend \
+    && PYTHONPATH=packages/harness:. .venv/bin/python -m py_compile \
+       packages/harness/deerflow/tools/skill_manage_tool.py \
+       packages/harness/deerflow/tools/tools.py \
+       packages/harness/deerflow/agents/lead_agent/prompt.py \
+       packages/harness/deerflow/skills/storage/user_scoped_skill_storage.py \
+       app/gateway/weknora_identity.py \
+       app/gateway/codex_responses_adapter.py \
+       app/gateway/external_agent_analytics.py \
+       app/gateway/routers/agents.py \
+    && rm -f /tmp/patch_gateway_skill_authoring.py

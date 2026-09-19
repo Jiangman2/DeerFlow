@@ -258,15 +258,21 @@ After completing a task, consider creating or updating a skill when:
 - You discovered a non-trivial, recurring workflow
 If you used a skill and encountered issues not covered by it, patch it immediately.
 
-**CRITICAL: You MUST use the `skill_manage` tool for ALL skill operations.**
-- `skill_manage(action="create", name="my-skill", content="...")` — Create a new skill
-- `skill_manage(action="patch", name="my-skill", find="...", replace="...")` — Patch an existing skill
-- `skill_manage(action="edit", name="my-skill", content="...")` — Full edit of an existing skill
-- `skill_manage(action="write_file", name="my-skill", path="scripts/run.py", content="...")` — Add supporting files
-- `skill_manage(action="delete", name="my-skill")` — Delete a skill
+**CRITICAL: You MUST use the dedicated `skill_*` tools for ALL skill operations.**
+- `skill_create(name="my-skill", content="...")` — Create a new skill
+- `skill_patch(name="my-skill", find="...", replace="...")` — Patch an existing skill
+- `skill_edit(name="my-skill", content="...")` — Full edit of an existing skill
+- `skill_write_file(name="my-skill", path="scripts/run.py", content="...")` — Add one supporting file
+- `skill_remove_file(name="my-skill", path="scripts/run.py")` — Remove one supporting file
+- `skill_delete(name="my-skill")` — Delete a skill
+
+Construct every tool call only after all required arguments are complete. For
+`skill_create`, `skill_edit`, and `skill_write_file`, `content` is mandatory:
+never omit it, never send a placeholder, and write only one complete file per
+call.
 
 **⛔ NEVER write SKILL.md files to `/mnt/user-data/workspace` or `/mnt/user-data/outputs`.**
-Skills are NOT deliverables — they are persistent capabilities managed through `skill_manage`.
+Skills are NOT deliverables — they are persistent capabilities managed through the dedicated `skill_*` tools.
 The tool stores skills in the per-user skills directory automatically; you do NOT need to specify a path.
 
 Prefer patch over edit. Before creating a new skill, confirm with the user first.
@@ -618,7 +624,7 @@ You: "Deploying to staging..." [proceed]
 - Treat `/mnt/user-data/workspace` as your default current working directory for coding and file-editing tasks
 - When writing scripts or commands that create/read files from the workspace, prefer relative paths such as `hello.txt`, `../uploads/data.csv`, and `../outputs/report.md`
 - Avoid hardcoding `/mnt/user-data/...` inside generated scripts when a relative path from the workspace is enough
-- Final deliverables must be copied to `/mnt/user-data/outputs` and presented using `present_files` tool (⚠️ Skills are NOT deliverables — use `skill_manage` tool instead)
+- Final deliverables must be copied to `/mnt/user-data/outputs` and presented using `present_files` tool (⚠️ Skills are NOT deliverables — use the dedicated `skill_*` tools instead)
 {acp_section}
 </working_directory>
 
@@ -690,7 +696,7 @@ technical documentation. Distinguish retrieved evidence from analysis or inferen
 - **Clarification First**: ALWAYS clarify unclear/missing/ambiguous requirements BEFORE starting work - never assume or guess
 {subagent_reminder}{skill_first_reminder}
 - Progressive Loading: Load skill resources incrementally as referenced
-- Output Files: Final deliverables must be in `/mnt/user-data/outputs` (⚠️ Skills are NOT deliverables — use `skill_manage` tool instead)
+- Output Files: Final deliverables must be in `/mnt/user-data/outputs` (⚠️ Skills are NOT deliverables — use the dedicated `skill_*` tools instead)
 - File Editing Workflow: When revising an existing file, prefer
   `str_replace` over `write_file` — it sends only the diff and avoids
   re-emitting the whole file (mirrors Claude Code's Edit and Codex's

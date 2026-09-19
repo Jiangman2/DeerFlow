@@ -2,6 +2,8 @@ import type { AnchorHTMLAttributes } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { isSafeHref, UnsafeLink } from "../messages/markdown-link";
+
 import { CitationLink } from "./citation-link";
 
 function isExternalUrl(href: string | undefined): boolean {
@@ -10,6 +12,14 @@ function isExternalUrl(href: string | undefined): boolean {
 
 /** Link renderer for artifact markdown: citation: prefix → CitationLink, otherwise underlined text. */
 export function ArtifactLink(props: AnchorHTMLAttributes<HTMLAnchorElement>) {
+  if (props.href !== undefined && !isSafeHref(props.href)) {
+    const { className, children } = props;
+    return (
+      <UnsafeLink href={props.href} className={className}>
+        {children}
+      </UnsafeLink>
+    );
+  }
   if (typeof props.children === "string") {
     const match = /^citation:(.+)$/.exec(props.children);
     if (match) {

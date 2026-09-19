@@ -32,7 +32,18 @@ from deerflow.tools.builtins.setup_agent_tool import setup_agent
 from deerflow.tools.builtins.task_tool import task_tool
 from deerflow.tools.builtins.update_agent_tool import update_agent
 from deerflow.tools.builtins.view_image_tool import view_image_tool
-from deerflow.tools.skill_manage_tool import skill_manage_tool
+from deerflow.tools.skill_manage_tool import SKILL_AUTHORING_TOOLS, skill_manage_tool
+
+
+def _skill_authoring_tool_args(tool_name: str) -> dict[str, object]:
+    return {
+        "skill_create": {"name": "demo", "content": "---\nname: demo\n---\n"},
+        "skill_edit": {"name": "demo", "content": "---\nname: demo\n---\n"},
+        "skill_patch": {"name": "demo", "find": "old", "replace": "new"},
+        "skill_delete": {"name": "demo"},
+        "skill_write_file": {"name": "demo", "path": "scripts/run.py", "content": "print('ok')\n"},
+        "skill_remove_file": {"name": "demo", "path": "scripts/run.py"},
+    }[tool_name]
 
 
 def _make_runtime(context: dict) -> ToolRuntime:
@@ -59,6 +70,7 @@ _TOOL_CASES = [
     (view_image_tool, {"image_path": "/tmp/img.png", "tool_call_id": "call-1"}),
     (task_tool, {"description": "do", "prompt": "go", "subagent_type": "general-purpose", "tool_call_id": "call-1"}),
     (skill_manage_tool, {"action": "list", "name": "demo"}),
+    *[(tool_obj, _skill_authoring_tool_args(tool_obj.name)) for tool_obj in SKILL_AUTHORING_TOOLS],
     (setup_agent, {"soul": "s", "description": "d"}),
     (update_agent, {}),
 ]
@@ -99,6 +111,23 @@ def test_write_file_append_is_discoverable_in_tool_schema() -> None:
     assert append_field.default is False
     assert append_field.description
     assert "append" in append_field.description
+
+
+def test_skill_authoring_tools_expose_action_specific_required_parameters() -> None:
+    """The model must see every argument required by the selected skill action."""
+    expected_required = {
+        "skill_create": {"name", "content"},
+        "skill_edit": {"name", "content"},
+        "skill_patch": {"name", "find", "replace"},
+        "skill_delete": {"name"},
+        "skill_write_file": {"name", "path", "content"},
+        "skill_remove_file": {"name", "path"},
+    }
+
+    for tool_obj in SKILL_AUTHORING_TOOLS:
+        fields = tool_obj.tool_call_schema.model_fields
+        assert "action" not in fields
+        assert {name for name, field in fields.items() if field.is_required()} == expected_required[tool_obj.name]
 
 
 @pytest.mark.parametrize(

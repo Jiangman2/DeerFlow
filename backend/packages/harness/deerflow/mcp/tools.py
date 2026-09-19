@@ -243,7 +243,9 @@ def _rewrite_unique_bare_filenames(
         # Do not rewrite inside longer paths/words. A final sentence period is
         # allowed, but ".bak" or another path segment is not.
         pattern = re.compile(rf"(?<![\w./-]){re.escape(name)}(?!(?:[\w/-]|\.[\w]))")
-        rewritten_text, count = pattern.subn(unique[name], rewritten)
+        # Use a callable replacement, not a regex template: virtual paths are
+        # built from real relative paths where backslashes are literal bytes.
+        rewritten_text, count = pattern.subn(lambda _match: unique[name], rewritten)
         if count:
             logger.debug("MCP bare filename rewrite: %s -> %s", name, unique[name])
         rewritten = rewritten_text

@@ -105,7 +105,10 @@ def _unlock_file(lock_file) -> None:
 
 
 def _open_lock_file(lock_path):
-    return open(lock_path, "a", encoding="utf-8")
+    # ``LOCK_SH`` requires a readable descriptor on Linux. The execution side
+    # takes a shared lock while destruction paths take an exclusive lock, so
+    # this opener must support both without truncating an existing lease file.
+    return open(lock_path, "a+", encoding="utf-8")
 
 
 async def _acquire_thread_lock_async(lock: threading.Lock) -> None:

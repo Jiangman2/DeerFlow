@@ -71,4 +71,17 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     source: "team",
     external_url: "https://cnoocclaw.cnooc.com.cn/qqyjbgbxzj/",
   },
+  {
+    name: "邮件智能整理助手",
+    description:
+      "邮件智能整理助手，支持会议与待办一键写入海能work日历和待办，并进行智能提醒。",
+    model: null,
+    tool_groups: ["邮件整理", "日历与待办"],
+    skills: null,
+    category_id: "comprehensive-management",
+    tags: ["邮件", "会议", "待办", "智能提醒"],
+    avatar_id: "knowledge-service",
+    source: "team",
+    external_url: "https://cnoocclaw.cnooc.com.cn/yjzs/",
+  },
 ];

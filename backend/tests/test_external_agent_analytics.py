@@ -24,6 +24,7 @@ def test_external_platform_aliases_are_normalized() -> None:
     assert normalize_external_agent_name("勘探开发图文智能检索工具") == "专业文档解析专家"
     assert normalize_external_agent_name("地震数据分辨率提升工具") == "地震数据提频专家"
     assert normalize_external_agent_name("专业报告校审专家") == "专业报告校审专家"
+    assert normalize_external_agent_name("邮件智能整理助手") == "邮件智能整理助手"
     assert normalize_external_agent_name("unknown") is None
     assert normalize_external_agent_source("海能") == "海能平台"
     assert normalize_external_agent_source("协同平台") == "协同平台"

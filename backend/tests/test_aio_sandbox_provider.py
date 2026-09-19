@@ -531,6 +531,27 @@ def test_cross_process_execution_lease_blocks_warm_pool_eviction(tmp_path, monke
     gateway._backend.destroy.assert_called_once_with(info)
 
 
+def test_execution_lease_file_is_readable_writable_and_non_truncating(tmp_path):
+    """The shared side of the POSIX flock lease needs a readable descriptor."""
+
+    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
+    lock_path = tmp_path / "sandbox.lock"
+    lock_path.write_text("existing", encoding="utf-8")
+
+    lock_file = aio_mod._open_lock_file(lock_path)
+    try:
+        assert lock_file.readable() is True
+        assert lock_file.writable() is True
+        lock_file.seek(0)
+        assert lock_file.read() == "existing"
+        aio_mod._lock_file_shared(lock_file)
+        aio_mod._unlock_file(lock_file)
+    finally:
+        lock_file.close()
+
+    assert lock_path.read_text(encoding="utf-8") == "existing"
+
+
 def test_execution_lease_blocks_explicit_destroy_without_losing_tracking(tmp_path, monkeypatch):
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
     monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))

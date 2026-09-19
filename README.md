@@ -259,6 +259,14 @@ Use the table below as a practical starting point when choosing how to run DeerF
 
 #### Option 1: Docker (Recommended)
 
+For the separate Kubernetes PPT Bridge, keep its Alembic migration chain
+compatible with the shared database, including revisions supplied to Gateway
+by code overlays. The `ppt-master-runner` runtime profile skips global startup
+run recovery so restarting the bridge does not mark a live ordinary Gateway
+run with a NULL lease as failed. Stale PPT records are not automatically
+reclaimed by that guard; full multi-instance recovery still requires safe run
+ownership configuration.
+
 **Development** (hot-reload, source mounts):
 
 ```bash
@@ -270,15 +278,25 @@ make docker-start   # Start services (auto-detects sandbox mode from config.yaml
 
 In provisioner mode, values declared under `config.yaml -> sandbox.environment`
 are forwarded to sandbox commands through the sandbox API. This is the supported
-way to make configured media-provider variables available to PPT/image-generation
+way to make configured provider variables available to PPT, podcast, and music
 scripts; use an all-in-one-sandbox image with `/v1/bash/exec` support (1.9.3+).
-The bundled media skills use one `DASHSCOPE_API_KEY` by default: Qwen Image
-(`qwen-image-2.0-pro`), Wan video (`wan2.7-t2v`), Qwen-TTS
-(`qwen3-tts-flash`), and Fun-Music (`fun-music-v1`). Image generation does not
-fall back to Gemini; MiniMax is available only when explicitly selected for
-compatibility. Video, podcast, and music keep their documented provider-specific
-compatibility paths. The Fun-Music model requires separate Model Gallery access
-in China (Beijing).
+
+Image and video generation can instead be exposed as Gateway-local tools by
+setting `DEERFLOW_IMAGE_GENERATION_API_URL` and/or
+`DEERFLOW_VIDEO_GENERATION_API_URL`. The image endpoint uses the documented
+OpenAI-style `b64_json` response. The video endpoint uses a durable asynchronous
+job ID, bounded polling, and `/content` MP4 download. Generated files are
+validated, written atomically into the current thread's outputs, and published
+without a Sandbox shell command. The clients use `trust_env=false`, reject
+unsafe reference URLs, and never make an arbitrary download host trusted; add a
+known result host explicitly with `DEERFLOW_VIDEO_GENERATION_DOWNLOAD_HOSTS`.
+The optional `DEERFLOW_MEDIA_GENERATION_API_KEY` is sent only as a Bearer token
+to those operator-configured endpoints.
+
+The remaining bundled provider scripts use `DASHSCOPE_API_KEY` by default for
+Qwen-TTS (`qwen3-tts-flash`) and Fun-Music (`fun-music-v1`). The vendored PPT
+workflow retains its own image-provider contract. The Fun-Music model requires
+separate Model Gallery access in China (Beijing).
 
 Shared or production AIO deployments should also set
 `sandbox.sandbox_api_key: $SANDBOX_API_KEY` and inject the same secret into each
@@ -1812,6 +1830,9 @@ While an Agent turn is active, the runner also holds a cross-process filesystem
 execution lease. Gateway warm-pool and explicit-destroy paths must obtain the
 exclusive side of that lease before deleting the Sandbox, so an idle/capacity
 decision in another Gateway process cannot terminate a live PPT task.
+The shared and exclusive sides open the lease file read-write with append
+semantics: Linux rejects `LOCK_SH` on a write-only descriptor, while opening an
+existing lease must never truncate it.
 Agent progress is normalized to the same plain message-dictionary contract used
 by durable `task_*` events before it reaches the stream and event store; live
 LangChain message objects never cross that transport boundary. The isolated

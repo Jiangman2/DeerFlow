@@ -208,10 +208,7 @@ async def _proxy_live_preview(
         raise HTTPException(status_code=404, detail="Unsupported Live Preview port")
     owner_user_id = await _resolve_artifact_owner_user_id(request, thread_id)
     runtime_profile = await _resolve_thread_runtime_profile(request, thread_id)
-    if (
-        runtime_profile == PPT_MASTER_RUNTIME_PROFILE
-        and os.environ.get("DEER_FLOW_RUNTIME_PROFILE") != PPT_MASTER_RUNTIME_PROFILE
-    ):
+    if runtime_profile == PPT_MASTER_RUNTIME_PROFILE and os.environ.get("DEER_FLOW_RUNTIME_PROFILE") != PPT_MASTER_RUNTIME_PROFILE:
         # The isolated Runner owns the Sandbox lifecycle. Forward the browser
         # request to its internal Service instead of discovering that Sandbox
         # through the main Gateway's provider: discovery would make the main
@@ -521,9 +518,9 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
     Stat probes, MIME sniffing (``mimetypes`` lazily stats the system MIME
     database on first use), and full-file reads are all blocking filesystem IO.
     Returns a ``(kind, mime_type, payload)`` plan the handler turns into a
-    response on the loop: ``("attachment", mime, None)`` (let
-    ``FileResponse`` stream it), ``("text", mime, str)``, or
-    ``("bytes", mime, bytes)``.
+    response on the loop: ``("attachment", mime, None)`` or
+    ``("inline_file", mime, None)`` (let ``FileResponse`` stream it),
+    ``("text", mime, str)``, or ``("bytes", mime, bytes)``.
     """
     if not actual_path.exists():
         raise HTTPException(status_code=404, detail=f"Artifact not found: {path}")
@@ -537,6 +534,10 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
         return ("attachment", mime_type, None)
     if mime_type == "application/pdf" and pdf_file_requires_attachment(actual_path):
         return ("attachment", mime_type, None)
+    # Audio and video artifacts can be hundreds of MiB.  Stream them from disk
+    # instead of materializing the whole payload in the Gateway process.
+    if mime_type and mime_type.startswith(("audio/", "video/")):
+        return ("inline_file", mime_type, None)
     if mime_type and (mime_type.startswith("text/") or mime_type in TEXT_CONTENT_MIME_TYPES or mime_type.endswith("+json") or mime_type.endswith("+xml")):
         return ("text", mime_type, actual_path.read_text(encoding="utf-8"))
     # A known non-text MIME type is authoritative. Content heuristics such as
@@ -794,6 +795,16 @@ async def get_artifact(thread_id: str, path: str, request: Request, download: bo
             filename=actual_path.name,
             media_type="application/octet-stream",
             headers=_build_attachment_headers(actual_path.name),
+        )
+
+    if kind == "inline_file":
+        return FileResponse(
+            path=actual_path,
+            media_type=mime_type,
+            headers={
+                **PASSIVE_FILE_HEADERS,
+                "Content-Disposition": _build_content_disposition("inline", actual_path.name),
+            },
         )
 
     if kind == "text":

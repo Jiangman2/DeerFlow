@@ -395,6 +395,31 @@ def test_get_artifact_keeps_safe_uploaded_raster_image_inline(tmp_path, monkeypa
     assert response.headers["x-content-type-options"] == "nosniff"
 
 
+def test_get_artifact_streams_generated_video_inline(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "generated.mp4"
+    artifact_path.write_bytes(b"\x00\x00\x00\x18ftypisomgenerated-video")
+
+    monkeypatch.setattr(
+        artifacts_router,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path, user_id=None: artifact_path,
+    )
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/outputs/generated.mp4",
+            _make_request(),
+        )
+    )
+
+    assert isinstance(response, FileResponse)
+    assert response.media_type == "video/mp4"
+    assert response.headers["content-disposition"].startswith("inline;")
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
 def test_get_artifact_forces_active_pdf_output_to_download(tmp_path, monkeypatch) -> None:
     artifact_path = tmp_path / "active.pdf"
     artifact_path.write_bytes(b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /OpenAction 2 0 R >>\nendobj\n2 0 obj\n<< /S /JavaScript /JS (app.alert('probe')) >>\nendobj\n%%EOF\n")

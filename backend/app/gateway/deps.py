@@ -384,10 +384,18 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
         # owned by another live worker are skipped.
         from deerflow.utils.time import now_iso
 
-        recovered_runs = await app.state.run_manager.reconcile_orphaned_inflight_runs(
-            error="Gateway restarted before this run reached a durable final state.",
-            before=now_iso(),
-        )
+        if os.environ.get("DEER_FLOW_RUNTIME_PROFILE", "").strip().lower() == "ppt-master-runner":
+            # The bridge shares SQL storage with the ordinary Gateway, but not
+            # its in-memory registry. NULL leases cannot prove peer death.
+            # Leave global orphan recovery to Gateway rather than failing live
+            # ordinary runs merely because the separate bridge starts.
+            recovered_runs = []
+            logger.info("PPT runner startup: shared run reconciliation skipped")
+        else:
+            recovered_runs = await app.state.run_manager.reconcile_orphaned_inflight_runs(
+                error="Gateway restarted before this run reached a durable final state.",
+                before=now_iso(),
+            )
         sb_config = getattr(config, "stream_bridge", None)
         cleanup_delay = getattr(sb_config, "recovered_stream_cleanup_delay_seconds", 60.0) if sb_config else 60.0
         await _publish_recovered_run_stream_end(app.state.stream_bridge, recovered_runs, cleanup_delay=cleanup_delay)
