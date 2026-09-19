@@ -1182,6 +1182,12 @@ are needed.
 
 Complex tasks rarely fit in a single pass. DeerFlow decomposes them.
 
+If Stop interrupts a delegated task before it can return a reply, the next
+user turn marks that earlier task as cancelled in durable context so the lead
+agent can delegate it again. Existing replies are preserved. Legacy replies
+without structured status metadata may remain `in_progress`; DeerFlow does not
+guess their outcome from reply text.
+
 The lead agent can spawn sub-agents on the fly — each with its own scoped context, tools, and termination conditions. Sub-agents run in parallel when possible, report back structured results, and the lead agent synthesizes everything into a coherent output. Their internal AI and tool messages stay scoped to the delegated graph instead of entering the parent chat stream. Long-running sub-agents compact older history when summarization is enabled and re-inject the summary as guarded, hidden durable context before continuing, so recent assistant/tool activity remains grounded in the task. Provider/model request failures are reported as failed sub-agent tasks rather than successful results, so the lead agent and Web UI can react to them correctly. Collapsed sub-agent cards show the effective model and, when the provider returns usage metadata, a cumulative token total that updates after each completed sub-agent LLM call and persists after a reload. When token usage tracking is enabled, completed sub-agent usage is also attributed back to the dispatching step.
 
 This is how DeerFlow handles tasks that take minutes to hours: a research task might fan out into a dozen sub-agents, each exploring a different angle, then converge into a single report — or a website — or a slide deck with generated visuals. One harness, many hands.
