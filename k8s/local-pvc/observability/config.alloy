@@ -1,0 +1,51 @@
+// Node-local file discovery also sees surviving files from deleted Pods.
+// No Kubernetes API access, service-account token or cluster-wide RBAC needed.
+local.file_match "pods" {
+  path_targets = [{
+    "__path__" = "/var/log/pods/deer-flow_*/*/*.log",
+    "namespace" = "deer-flow",
+    "node" = sys.env("NODE_NAME"),
+  }]
+  sync_period = "5s"
+}
+loki.source.file "pods" {
+  targets = local.file_match.pods.targets
+  forward_to = [loki.process.pods.receiver]
+}
+loki.process "pods" {
+  stage.cri {}
+  stage.regex {
+    source = "filename"
+    expression = `^/var/log/pods/deer-flow_(?P<pod>[^/]+)_(?P<pod_uid>[^/]+)/(?P<container>[^/]+)/[^/]+$`
+  }
+  stage.labels {
+    values = { pod = "", container = "", app = "container" }
+  }
+  stage.structured_metadata {
+    values = { pod_uid = "" }
+  }
+  // Only group Python service logs, never all containers under one regex.
+  stage.match {
+    selector = "{container=~\"gateway|ppt-master-runner\"}"
+    stage.multiline {
+      firstline = `^(\d{4}-\d{2}-\d{2}[ T]|INFO:|WARNING:|ERROR:|DEBUG:|CRITICAL:|\{)`
+      max_wait_time = "3s"
+      max_lines = 256
+    }
+  }
+  stage.label_drop { values = ["filename"] }
+  forward_to = [loki.write.local.receiver]
+}
+loki.write "local" {
+  endpoint {
+    url = "http://loki.observability.svc.cluster.local:3100/loki/api/v1/push"
+    min_backoff_period = "1s"
+    max_backoff_period = "30s"
+    max_backoff_retries = 120
+  }
+  // Experimental in the pinned Alloy version; enable the matching CLI flag.
+  wal {
+    enabled = true
+    max_segment_age = "6h"
+  }
+}

@@ -1,0 +1,83 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: deerflow-logs-local
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-logs-loki
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-logs-local
+  local:
+    path: /opt/deerflow-observability/loki
+  claimRef:
+    namespace: observability
+    name: loki-data
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: deerflow-log-storage
+              operator: In
+              values:
+                - "true"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-data
+  namespace: observability
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: deerflow-logs-local
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: deerflow-logs-grafana
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: deerflow-logs-local
+  local:
+    path: /opt/deerflow-observability/grafana
+  claimRef:
+    namespace: observability
+    name: grafana-data
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: deerflow-log-storage
+              operator: In
+              values:
+                - "true"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: observability
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: deerflow-logs-local
+  resources:
+    requests:
+      storage: 5Gi

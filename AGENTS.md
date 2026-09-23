@@ -896,6 +896,10 @@ volume. Browser Live sessions are Gateway-process-local, so keep one Gateway
 replica and one uvicorn worker while Browser Live is enabled unless sticky
 thread routing or a distributed session broker is added.
 
+## Optional Kubernetes logging
+
+`k8s/local-pvc/observability` owns the standalone Alloy/Loki/Grafana filesystem transition stack. Keep it separate from application releases, retain local PVs, scope file collection to the DeerFlow namespace, and preserve node-local Alloy positions/WAL. Do not expose unauthenticated Loki publicly or claim local disks provide high availability. Installation, credential creation, runtime validation, and retention verification are documented in `k8s/local-pvc/observability/README.md`.
+
 ## Where to Go Next
 
 - Backend work → **[backend/AGENTS.md](backend/AGENTS.md)**

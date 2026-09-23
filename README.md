@@ -1872,6 +1872,10 @@ double-submit CSRF contract.
 Writing or publishing a generated file no longer opens the artifact panel automatically. Deliverables remain available in the conversation and Files list; the chat column narrows only after the user explicitly opens a write step, artifact link, file card, or the Files control. Artifact reads use the authorized thread owner's storage bucket, so administrator read-only review and ordinary owner views resolve the same PPT preview companion.
 Final assistant responses cannot claim a `/mnt/user-data/outputs/...` deliverable unless that file both exists in the current thread outputs directory and was successfully published with `present_files`. DeerFlow retries one invalid delivery claim with hidden execution guidance, then returns a visible delivery error instead of persisting a fabricated download link.
 
+## Kubernetes log retention
+
+An optional [local logging stack](k8s/local-pvc/observability/README.md) deploys node-local Alloy collectors, a single Loki with retained local PVs, and Grafana. It is installed independently of the application and keeps collected logs across business Pod replacement. See the guide for offline images, node storage preparation, 30-day retention, and limitations before deployment.
+
 ## License
 
 This project is open source and available under the [MIT License](./LICENSE).

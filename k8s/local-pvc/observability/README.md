@@ -1,0 +1,162 @@
+# DeerFlow 本地日志过渡部署
+
+独立部署 Alloy（每节点采集）→ Loki（单实例 filesystem）→ Grafana。
+目录位于 `k8s/local-pvc/observability`，独立执行 `kubectl apply -k`。
+不加入父目录 `k8s/local-pvc/kustomization.yaml` 的 resources，避免父级 namespace 转换和业务发布连带更新日志系统。
+不修改业务 Deployment、Nginx 路由、数据库或现有 Helm release。
+
+## 默认值与边界
+
+- 命名空间 `observability`；只采集节点 `/var/log/pods/deer-flow_*/*/*.log`。
+- Loki：100Gi local PV；Grafana：5Gi local PV；二者 `Retain`，各一副本，Recreate 更新。
+- Loki 保留 720h（30 天），Compactor 延迟删除；不是磁盘容量保证。
+- Alloy：每个 Linux 节点一个 Pod，包含有 NoSchedule 污点的节点。若有不允许采集的专用节点，收窄 `alloy.yaml` 的 nodeSelector/tolerations。
+- Alloy 以 root 只读访问日志，不使用 privileged，也不申请 Kubernetes API RBAC。元数据由 CRI 与路径解析；`app` 是容器名，不是 Kubernetes app 标签。
+- 读取位置和 WAL 保存在每节点 `/var/lib/deerflow-alloy`。WAL 在固定 Alloy 版本中为实验功能，显式设置 experimental；最长段年龄 6h，发送有界重试。它不是无限缓存或绝对不丢日志保证。监控磁盘和 dropped 指标。
+- 仅追踪当前 `.log` 文件，正常运行时跟随轮转；不自动导入历史 `.gz` 或时间后缀文件。首次采集读现有文件，Loki 默认拒绝超过 7 天的历史写入。旧日志补录应另行评估时间顺序与重复问题。
+- 单节点磁盘故障会影响历史日志。PV 容量声明不会给普通目录设置磁盘配额；应使用容量足够的独立磁盘/分区。文件系统满时 Loki 不能写入。
+- Loki/Grafana 均为 ClusterIP，不创建 Ingress/NodePort。Loki 无内置认证；附带 NetworkPolicy 只在 CNI 实际支持策略时生效。纯 Flannel 集群不能把此策略视为访问隔离，集群内非可信租户需要额外认证代理或支持策略的网络方案。
+- 镜像固定为 Alloy v1.11.0、Loki 3.6.0、Grafana 12.2.0，部署前按企业镜像扫描策略审核并镜像到内网。版本固定用于可重复部署，不表示已完成线上安全认证。
+
+## 1. 选择存储节点、准备目录
+
+以下是 Linux 运维终端命令。先检查节点磁盘，选择一个有充足空间、长期在线的节点；不要默认把日志放进系统盘。
+
+```bash
+kubectl get nodes -o wide
+kubectl get nodes -l deerflow-log-storage=true
+```
+
+只给一个选定节点标记（将 `NODE_NAME` 替换为实际节点名）：
+
+```bash
+kubectl label node NODE_NAME deerflow-log-storage=true
+```
+
+在该节点准备目录。若使用新磁盘，先由运维完成挂载，再创建目录：
+
+```bash
+df -h /opt
+sudo install -d -m 0750 -o 10001 -g 10001 /opt/deerflow-observability/loki
+sudo install -d -m 0750 -o 472 -g 472 /opt/deerflow-observability/grafana
+```
+
+`storage.yaml` 的两个 PV 通过此标签绑定节点，claimRef 防止被其他 PVC 抢占。
+本地 PV 不支持透明跨节点漂移：不要在运行中把标签移到另一节点。
+如果修改目录或容量，同步修改 PV 清单和节点实际存储。
+
+## 2. 内网镜像准备
+
+需在所有 Alloy 目标节点准备 `grafana/alloy:v1.11.0`；在存储节点准备 Loki/Grafana 镜像。
+确认镜像包含节点架构（你们的 ARM64 节点需要 linux/arm64）。优先镜像到企业仓库并设置 Kustomize images，私有仓库按企业方式注入 imagePullSecrets。
+
+如果采用离线 containerd 导入，在联网机器按目标架构拉取并打包：
+
+```bash
+docker pull --platform linux/arm64 grafana/alloy:v1.11.0
+docker pull --platform linux/arm64 grafana/loki:3.6.0
+docker pull --platform linux/arm64 grafana/grafana:12.2.0
+docker save -o observability-arm64.tar grafana/alloy:v1.11.0 grafana/loki:3.6.0 grafana/grafana:12.2.0
+```
+
+传到目标节点后：
+
+```bash
+sudo ctr -n k8s.io images import observability-arm64.tar
+```
+
+混合架构集群分别准备镜像；不能把仅含 ARM64 的包用于 AMD64 节点。
+
+## 3. 渲染、验证、创建密码
+
+在仓库根目录执行。以下 validate 命令只解析配置，不启动服务：
+
+```bash
+kubectl kustomize k8s/local-pvc/observability > /tmp/deerflow-observability.yaml
+docker run --rm -v "$PWD/k8s/local-pvc/observability:/config:ro" grafana/loki:3.6.0 -config.file=/config/loki-config.yaml -verify-config=true
+docker run --rm -v "$PWD/k8s/local-pvc/observability:/config:ro" -e NODE_NAME=validation grafana/alloy:v1.11.0 validate --stability.level=experimental /config/config.alloy
+```
+
+镜像无法联网拉取时，在已导入镜像且具有对应容器运行工具的主机验证。containerd 节点可使用配套 nerdctl 的 `--namespace k8s.io run`；不要把 `ctr` 当成 Docker 参数的直接替代。
+
+创建命名空间和 Grafana 密码 Secret。密码交互输入，不写仓库，也不写进命令历史：
+
+```bash
+kubectl apply -f k8s/local-pvc/observability/namespace.yaml
+read -r -s -p 'Grafana admin password: ' GRAFANA_PASSWORD
+printf '\n'
+printf '%s' "$GRAFANA_PASSWORD" | kubectl -n observability create secret generic grafana-admin --from-file=password=/dev/stdin
+unset GRAFANA_PASSWORD
+kubectl apply --dry-run=server -k k8s/local-pvc/observability
+kubectl apply -k k8s/local-pvc/observability
+kubectl -n observability rollout status deployment/loki --timeout=300s
+kubectl -n observability rollout status deployment/grafana --timeout=300s
+kubectl -n observability rollout status daemonset/alloy --timeout=300s
+kubectl -n observability get pods,pvc -o wide
+```
+
+Secret 已存在时不要重复创建。Grafana 首次初始化后，修改该 Secret 不会自动修改数据库中已有管理员密码，需要走 Grafana 的密码管理流程。
+首次安装 Loki 就绪前的 Alloy 重试属于预期行为，但必须确认之后恢复发送。
+
+## 4. 查询日志
+
+在自己的管理电脑执行：
+
+```bash
+kubectl -n observability port-forward service/grafana 3001:3000
+```
+
+访问 `http://127.0.0.1:3001`，用户 `admin`，使用创建 Secret 时设置的密码。
+若 kubectl 只能在服务器执行，另用 SSH 本地端口转发；不要把 port-forward 绑定到 0.0.0.0。
+Grafana Explore 中选择自动配置的 **DeerFlow Logs**，设置时间范围并查询：
+
+```logql
+{namespace="deer-flow", app="gateway"}
+{namespace="deer-flow", app="gateway"} |~ "ERROR|Traceback|Timeout"
+{namespace="deer-flow", app="nginx"} |~ "upstream|connect\\(\\) failed"
+{namespace="deer-flow", pod="gateway-旧Pod名称"}
+```
+
+保留 `node`、`pod`、`container`、`stream` 标签和 `pod_uid` 结构化元数据；thread_id/run_id/trace_id 在原文中查询，不新增高基数索引标签。
+Gateway 和 PPT Runner Python 堆栈合并上限 256 行/3 秒；其他容器保留逐行日志。
+
+## 5. 必须完成的上线验收
+
+不要删除业务 Gateway 做测试。使用预先导入的现有轻量镜像创建临时 Pod（替换 IMAGE）：
+
+```bash
+kubectl -n deer-flow run log-retention-smoke --image=IMAGE --restart=Never -- sh -c 'echo deerflow-retention-smoke-001; sleep 120'
+```
+
+1. 在 Grafana 查 `{namespace="deer-flow"} |= "deerflow-retention-smoke-001"`，确认找到并记下时间。
+2. 删除测试 Pod：`kubectl -n deer-flow delete pod log-retention-smoke`，同一查询应仍能查到记录。
+3. 执行 `kubectl -n observability rollout restart daemonset/alloy`，确认恢复采集且已有日志仍可查。
+4. 执行 `kubectl -n observability rollout restart deployment/loki`，等待就绪，确认历史仍可查询；原始日志、WAL、索引与 Compactor 标记均在同一持久卷。
+5. 维护窗口内将 Loki 临时缩为 0，创建另一个持续输出日志的测试 Pod，短暂等待后恢复 Loki 为 1；确认补发且无持续 dropped 错误。此测试暂停日志查询，不停止业务服务。
+
+清理仅限测试 Pod，不删除日志 PVC/PV。
+
+## 6. 运维、升级与退出
+
+```bash
+kubectl -n observability logs -l app=alloy --all-containers=true --since=15m --tail=-1 --prefix=true
+kubectl -n observability logs deployment/loki --since=15m
+kubectl -n observability get pods,pvc -o wide
+```
+
+节点检查：`df -h /opt/deerflow-observability`、`sudo du -sh /var/lib/deerflow-alloy`。
+Alloy `/metrics` 暴露 `loki_write_dropped_entries_total`、`loki_write_batch_retries_total` 等指标；本套过渡清单不部署 Prometheus/告警平台，必须由运维检查或接入现有监控，不能把 Pod Ready 当作日志已成功送达。
+30 天保留不按剩余磁盘自动缩短；建议磁盘达到 70% 时处理容量，85% 时紧急处理。按实测每日新增量估算 30 天容量并留出 WAL/索引余量。
+
+配置修改后重新 `kubectl apply -k k8s/local-pvc/observability`，带哈希的 ConfigMap 引用会触发更新。旧 ConfigMap 可在确认无人引用后单独清理。
+临时停止采集可删除 Alloy DaemonSet，停止 Loki/Grafana 可缩为 0；不要执行整个目录的 `kubectl delete -k` 或删除命名空间来“重启”。
+`Retain` 保护 PV 数据，但误删 PVC 后需要管理员重新绑定，不能期待自动恢复。
+本地盘故障无法自动恢复：定期在停写/停服务窗口做一致性备份，并将备份放到另一故障域。不要仅复制运行中的 Grafana SQLite 文件作为可靠备份。
+
+迁移 S3 时保留 filesystem 的旧 schema 时间段，为未来日期新增 S3 schema，并验证旧时间段仍可查询；不能只改存储类型后删除旧 PV。实际迁移单独实施。
+
+官方参考：
+- https://grafana.com/docs/alloy/latest/reference/components/loki/loki.source.file/
+- https://grafana.com/docs/alloy/latest/reference/components/loki/loki.write/
+- https://grafana.com/docs/loki/latest/operations/storage/retention/
+- https://grafana.com/docs/loki/latest/operations/storage/filesystem/
