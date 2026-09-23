@@ -13,6 +13,12 @@ test("maps known external experts to their role portrait", () => {
       external_url: "https://datalake.cnooc/dzsjtpzj",
     }).id,
   ).toBe("seismic-processing");
+  expect(
+    getDefaultExpertAvatar({
+      name: "钻采技术查重智能体",
+      external_url: "https://cnoocclaw.cnooc.com.cn/zwjkylxcczs/",
+    }).id,
+  ).toBe("drilling-completion");
 });
 
 test("maps role keywords when an external URL is absent", () => {
