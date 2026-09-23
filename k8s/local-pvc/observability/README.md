@@ -45,6 +45,22 @@ sudo install -d -m 0750 -o 472 -g 472 /opt/deerflow-observability/grafana
 本地 PV 不支持透明跨节点漂移：不要在运行中把标签移到另一节点。
 如果修改目录或容量，同步修改 PV 清单和节点实际存储。
 
+### 1.1 实机验证补充（麒麟 V10 ARM64 单节点，2026-09）
+
+**PV 的容量声明不是磁盘配额保证，务必放在数据盘。** Loki 的 PV 声明 100Gi，但 `local` 类型 PV **不会**创建目录、也**不会**施加任何配额——文件系统写满时 Loki 直接写不进去，并连带影响同一文件系统上的其它服务（包括 kubelet 与 etcd）。本次实测节点系统盘 48G / 可用 29G，而数据盘 `/mnt/data` 有 993G，因此改了 PV 路径：
+
+```bash
+# 改 storage.yaml 里两个 PV 的 spec.local.path
+#   /opt/deerflow-observability/loki    -> /mnt/data/deerflow-observability/loki
+#   /opt/deerflow-observability/grafana -> /mnt/data/deerflow-observability/grafana
+
+# local PV 不建目录，必须手工预建并设好属主（Loki=10001，Grafana=472）
+sudo install -d -m 0750 -o 10001 -g 10001 /mnt/data/deerflow-observability/loki
+sudo install -d -m 0750 -o 472   -g 472   /mnt/data/deerflow-observability/grafana
+```
+
+**首次启动会刷一批 400 错误，属预期，不是故障。** Alloy 首次从文件开头读（日志里可见 `Seeked ... Offset:0`），而 Loki 的 `reject_old_samples_max_age: 168h` 会拒掉 7 天前的历史，于是出现 `entry for stream ... has timestamp too old`。这是一次性的（读取位置持久化在 `/var/lib/deerflow-alloy`，读过不会重读），对节点上已运行数周的容器尤其明显。验收时应查询 `{namespace="deer-flow"}` 里**新产生**的日志，而不是纠结这条 400。
+
 ## 2. 内网镜像准备
 
 需在所有 Alloy 目标节点准备 `grafana/alloy:v1.11.0`；在存储节点准备 Loki/Grafana 镜像。
@@ -66,6 +82,25 @@ sudo ctr -n k8s.io images import observability-arm64.tar
 ```
 
 混合架构集群分别准备镜像；不能把仅含 ARM64 的包用于 AMD64 节点。
+
+### 2.1 实机验证补充：Docker Hub 不可达时走镜像源，并且必须重打标签
+
+本次实测环境的企业代理**未放行 `registry-1.docker.io`**（表现为 `curl: (56) Proxy CONNECT aborted`），但放行了 `docker.m.daocloud.io`。关键点是：从镜像源拉下来之后**必须重打成 Docker Hub 规范名**。清单里写的是 `grafana/loki:3.6.0`，会被解析为 `docker.io/grafana/loki:3.6.0`；若本地只有 `docker.m.daocloud.io/...` 这一个名字，`imagePullPolicy: IfNotPresent` 会认为本地没有、转而去连 Docker Hub，然后失败（`ImagePullBackOff`）。
+
+```bash
+sudo ctr -n k8s.io images pull --platform linux/arm64 docker.m.daocloud.io/grafana/alloy:v1.11.0
+sudo ctr -n k8s.io images pull --platform linux/arm64 docker.m.daocloud.io/grafana/loki:3.6.0
+sudo ctr -n k8s.io images pull --platform linux/arm64 docker.m.daocloud.io/grafana/grafana:12.2.0
+
+# 关键：重打标签，使清单里的 grafana/* 能命中本地镜像
+sudo ctr -n k8s.io images tag docker.m.daocloud.io/grafana/alloy:v1.11.0   docker.io/grafana/alloy:v1.11.0
+sudo ctr -n k8s.io images tag docker.m.daocloud.io/grafana/loki:3.6.0     docker.io/grafana/loki:3.6.0
+sudo ctr -n k8s.io images tag docker.m.daocloud.io/grafana/grafana:12.2.0 docker.io/grafana/grafana:12.2.0
+
+sudo ctr -n k8s.io images list | grep -Ei 'alloy|loki|grafana'   # 应同时看到两个名字
+```
+
+代理放行清单因企业网络而异；若 `docker.m.daocloud.io` 也不可达，改用企业内网镜像仓库并通过 Kustomize `images` 改写引用（`imagePullSecrets` 按企业方式注入）。
 
 ## 3. 渲染、验证、创建密码
 
