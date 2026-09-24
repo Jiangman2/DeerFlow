@@ -221,10 +221,12 @@ ps -ef | grep '[p]ort-forward' | wc -l      # 必须为 0，否则后面所有�
 
 kubectl -n observability port-forward service/loki 3100:3100 >/tmp/loki-pf.log 2>&1 &
 sleep 4
-curl -s --noproxy '*' http://127.0.0.1:3100/ready; echo
-curl -s --noproxy '*' -G http://127.0.0.1:3100/loki/api/v1/query_range \
-  --data-urlencode 'query={namespace="deer-flow"}' --data-urlencode 'limit=2' | head -c 800; echo
+curl -sS --noproxy '*' -w '\nHTTP=%{http_code}\n' http://127.0.0.1:3100/ready
+curl -sS --noproxy '*' -w '\nHTTP=%{http_code}\n' -G http://127.0.0.1:3100/loki/api/v1/query_range \
+  --data-urlencode 'query={namespace="deer-flow"}' --data-urlencode 'limit=2' | head -c 800
 ```
+
+> **一律用 `curl -sS -w 'HTTP=%{http_code}'`，不要只用 `-s`。** `-s` 会**连错误信息一起静默**：forward 已死时连接被拒，stdout/stderr 都是空的，看起来就像"查询返回空结果"，会被误判成数据问题。
 
 Grafana 侧（`/api/health` 不需要认证，`/api/datasources` 需要）：
 
@@ -233,8 +235,8 @@ kubectl -n observability port-forward service/grafana 3000:3000 >/tmp/gf-pf.log 
 sleep 4
 GPW=$(kubectl -n observability get secret grafana-admin -o jsonpath='{.data.password}' | base64 -d)
 echo "pw_len=${#GPW}"                                            # 先确认不是空串
-curl -s http://127.0.0.1:3000/api/health; echo
-curl -s -u "admin:$GPW" http://127.0.0.1:3000/api/datasources; echo
+curl -sS -w '\nHTTP=%{http_code}\n' http://127.0.0.1:3000/api/health
+curl -sS -w '\nHTTP=%{http_code}\n' -u "admin:$GPW" http://127.0.0.1:3000/api/datasources
 ```
 
 **Secret 的 key 是 `password`，不是 `admin-password`。** 取错 key 时 `-o jsonpath='{.data.admin-password}'` 返回**空串**，`base64 -d` 得到空密码，Grafana 返回 `401 {"message":"Invalid username or password","messageId":"password-auth.failed"}` —— 这不是密码错、更不是 Grafana 故障，而是**取值取错了**。先用下面这条确认 key 名：
