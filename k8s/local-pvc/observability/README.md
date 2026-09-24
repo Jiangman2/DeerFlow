@@ -244,6 +244,17 @@ kubectl -n observability get secret grafana-admin \
   -o go-template='{{range $k,$v := .data}}{{$k}}{{"\n"}}{{end}}'
 ```
 
+**Grafana 数据源的 uid 是 `deerflow-loki`（不是 `loki`）。** 用 Grafana 的 `/api/ds/query` 做端到端校验时要用清单里 `datasources.yaml` 的真实 uid：
+
+```bash
+GPW=$(kubectl -n observability get secret grafana-admin -o jsonpath='{.data.password}' | base64 -d)
+curl -s -u "admin:$GPW" -H 'Content-Type: application/json' \
+  http://127.0.0.1:3000/api/ds/query \
+  -d '{"queries":[{"refId":"A","datasource":{"type":"loki","uid":"deerflow-loki"},"expr":"{namespace=\"deer-flow\"}","maxLines":3}],"from":"now-15m","to":"now"}'
+```
+
+`/api/datasources` 应返回 `{"uid":"deerflow-loki","name":"DeerFlow Logs","type":"loki","url":"http://loki:3100","isDefault":true}`。
+
 ## 5. 必须完成的上线验收
 
 不要删除业务 Gateway 做测试。使用预先导入的现有轻量镜像创建临时 Pod（替换 IMAGE）：
@@ -286,6 +297,8 @@ sudo sh -c 'ls -la /var/log/pods/observability_loki-*/loki/'   # ✓ 同理
 sudo sh -c 'ls -la /var/log/pods/observability_loki-*/loki/'          # 先看有没有 .log.1、当前文件多大
 sudo sh -c 'wc -l /var/log/pods/observability_loki-*/loki/0.log; head -5 /var/log/pods/observability_loki-*/loki/0.log'
 ```
+
+实测参考值：Loki 自身输出约 **20 行/分钟**（350 行 / 85 KB 覆盖 17 分钟），单文件、无 `.log.1`，**根本不会触发 10Mi 轮转**；`0.log` 第 1 行就是 `msg="Starting Loki" version="(version=3.6.0..."`。**所以"`kubectl logs` 里看不到启动行"不等于"日志被轮转掉了"**——先量文件大小和行数再下结论（本次就误判过一次，成本是白查了半小时）。
 
 Alloy `/metrics` 暴露 `loki_write_dropped_entries_total`、`loki_write_batch_retries_total` 等指标；本套过渡清单不部署 Prometheus/告警平台，必须由运维检查或接入现有监控，不能把 Pod Ready 当作日志已成功送达。
 30 天保留不按剩余磁盘自动缩短；建议磁盘达到 70% 时处理容量，85% 时紧急处理。按实测每日新增量估算 30 天容量并留出 WAL/索引余量。

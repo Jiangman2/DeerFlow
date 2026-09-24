@@ -707,13 +707,55 @@ curl -s --noproxy '*' -G http://127.0.0.1:3100/loki/api/v1/query \
 
 > §9 的"Loki 缩 0 期间日志补发"这一项在 `dmdb` 上已验证（30 条全部补发），**在 datax 上未做**，如需该项正式通过需另开维护窗口。
 
-### 12.6 本次新增的三个操作坑
+### 12.6 本次新增的四个操作坑
 
 1. **`sudo` 不展开通配符。** `sudo du -sh /opt/.../loki/*` 里的 `*` 由**普通用户**的 shell 展开，而该目录属主 `10001`、权限 `drwxrws---`，展开失败后字面量被传给 `sudo`，报出误导性的 `No such file or directory`。用 `sudo sh -c '...'` 让 root 的 shell 展开。本次在同一件事上踩了两次（另一个是 `sudo ls /var/log/pods/observability_loki-*/loki/`）。
 
 2. **残留 `kubectl port-forward` 会制造假阴性。** 旧进程继续占着本地端口并指向**已删除的旧 Pod**，新的 forward 启动后立即 `Exit 1`，而 `curl` 仍然连上那个死目标 —— 于是"验收第 4 项"被误判为 FAIL，实际数据完好。**每次 forward 前 `pkill -f 'port-forward'` 并确认 `ps -ef | grep '[p]ort-forward' | wc -l` 为 0。**
 
 3. **Grafana Secret 的 key 是 `password`（不是 `admin-password`）。** 取错 key 时 `jsonpath` 返回空串，`base64 -d` 得到空密码，Grafana 回 `401 {"message":"Invalid username or password","messageId":"password-auth.failed"}` —— 这是取值错，不是密码错、不是 Grafana 故障。先 `echo "pw_len=${#GPW}"` 确认非空。
+
+4. **Grafana 数据源的 uid 是 `deerflow-loki`，不是 `loki`。** 用 `/api/ds/query` 校验时 uid 写错会得到"数据源不存在"类错误；uid 以清单 `datasources.yaml` 为准。
+
+5. **`kubectl logs` 看不到启动行 ≠ 日志被轮转掉了。** 本次一度据此推断"Loki 自身 stdout 被 kubelet 轮转掉"，实际量一下就知道是错的：`0.log` 共 **350 行 / 85 KB / 覆盖 17 分钟 ≈ 20 行/分钟**，单文件、无 `.log.1`，**远不及 10Mi 轮转阈值**，且第 1 行就是 `msg="Starting Loki" version="(version=3.6.0..."`。**先量文件大小与行数，再下结论。**
+
+### 12.7 Grafana 数据源校验（不开 UI，纯 API）
+
+§9 只要求"日志查得到"，但**"能查到"和"Grafana 里也能查到"是两件事**（后者多一条 `Grafana proxy → http://loki:3100` 的链路）。用 API 收掉：
+
+```sh
+pkill -f 'port-forward service/grafana'
+kubectl -n observability port-forward service/grafana 3000:3000 >/tmp/gf-pf.log 2>&1 &
+sleep 4
+
+GPW=$(kubectl -n observability get secret grafana-admin -o jsonpath='{.data.password}' | base64 -d)
+echo "pw_len=${#GPW}"                                    # 必须非空（本次 20）
+
+echo "--- 1) Grafana 自身健康（无需认证）---"
+curl -s http://127.0.0.1:3000/api/health; echo
+
+echo "--- 2) 数据源是否已自动配置 ---"
+curl -s -u "admin:$GPW" http://127.0.0.1:3000/api/datasources; echo
+
+echo "--- 3) 经 Grafana 代理真的查一次 Loki（端到端）---"
+curl -s -u "admin:$GPW" -H 'Content-Type: application/json' \
+  http://127.0.0.1:3000/api/ds/query \
+  -d '{"queries":[{"refId":"A","datasource":{"type":"loki","uid":"deerflow-loki"},"expr":"{namespace=\"deer-flow\"}","maxLines":3}],"from":"now-15m","to":"now"}' \
+  | head -c 1200; echo
+
+pkill -f 'port-forward service/grafana'; sleep 1
+echo -n "残留 port-forward 数: "; ps -ef | grep '[p]ort-forward' | wc -l   # 必须为 0
+```
+
+**本次实测结果**：
+
+| 步骤 | 结果 |
+| --- | --- |
+| `/api/health` | `{"database":"ok","version":"12.2.0"}` |
+| `/api/datasources` | `[{"uid":"deerflow-loki","name":"DeerFlow Logs","type":"loki","url":"http://loki:3100","isDefault":true,"readOnly":true}]` |
+| 管理员账号 | `GF_SECURITY_ADMIN_USER` = 字面量 `admin`；`GF_SECURITY_ADMIN_PASSWORD` 来自 `grafana-admin/password` |
+
+> 这**不等于**已经给用户开通了 UI 访问：浏览器访问方式仍见 §10（本次因 SSH `PermitOpen` 白名单限制，UI 访问按用户要求暂缓）。
 
 ## 附录 A：本次实测环境与关键数字
 
@@ -749,6 +791,7 @@ curl -s --noproxy '*' -G http://127.0.0.1:3100/loki/api/v1/query \
 | 查询"查不到"，但 Loki 里其实有数据 | 残留 `kubectl port-forward` 占着本地端口并指向已删除的旧 Pod | `pkill -f 'port-forward'`，确认计数为 0 后再 forward，见 §12.6 |
 | `sudo du -sh <目录>/*` 报 `No such file or directory`，但目录确实存在 | `*` 由普通用户 shell 展开，目录无列权限 → 字面量传给 `sudo` | `sudo sh -c 'du -sh <目录>/*'`，见 §12.6 |
 | Grafana API 返回 `401 Invalid username or password`，但密码是对的 | Secret key 取错（是 `password`，不是 `admin-password`），`jsonpath` 返回空串 | 先 `echo "pw_len=${#GPW}"` 验非空，见 §12.6 |
+| `kubectl logs` 里看不到 Loki 的启动行，疑似日志被轮转 | 先看错了地方：文件其实完整（350 行/17 分钟，远不及 10Mi 轮转阈值） | 直接读 `/var/log/pods/observability_loki-*/loki/0.log` 并量行数/体积，见 §12.6 |
 | `ctr pull` 报 `x509: certificate signed by unknown authority`，签发者不是企业 CA | 企业代理返回降级/兜底证书（瞬时） | **先重试一次**；`registry.aliyuncs.com` 在该环境始终可验，见 §12.3 |
 
 ## 附录 C：多节点集群（datax）实测数字
@@ -764,6 +807,8 @@ curl -s --noproxy '*' -G http://127.0.0.1:3100/loki/api/v1/query \
 | WAL 循环 | 153M → 172M → **82M** → **53M**；`checkpoint` 005→008→009 |
 | 镜像分发 | `observability-arm64.tar` 368,080,384 字节；4 个节点各导入成功（三个镜像名） |
 | 验收 | 第 1–4 项通过（12 / 18 / 新 11+老 18 / 重启前后均命中）；第 5 项按存储与 WAL 收口 |
+| Grafana | `/api/health` OK（12.2.0）；数据源自动配置为 `uid=deerflow-loki` / `DeerFlow Logs` / `http://loki:3100` / 默认；UI 访问按用户要求暂缓 |
+| Loki 自身日志 | `/var/log/pods/observability_loki-*/loki/0.log`：350 行 / 85 KB / 17 分钟（≈20 行/分钟），无轮转 |
 
 ## 相关文档
 
