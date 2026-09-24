@@ -1,6 +1,12 @@
+# 看门狗：探活每个集群的 port-forward，失败就重启对应服务。
+#
+# 专治 kubectl port-forward 的"假活"：进程还在、转发已断——这种情况下
+# 主服务的 Restart=always 不会触发，只有探活才能发现。
+#
+# 再接入第三个集群时，只需在下面的列表里加一项： <本地端口>:<服务名>
 [Unit]
-Description=Watchdog for loki-portforward (restart when /ready fails)
+Description=Watchdog for loki port-forwards (restart the one whose /ready fails)
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c '/usr/bin/curl -sS -m 5 -o /dev/null http://127.0.0.1:3100/ready || { echo "loki /ready failed -> restarting loki-portforward"; systemctl restart loki-portforward; }'
+ExecStart=/bin/sh -c 'for p in 3100:loki-portforward 3101:loki-portforward-dmdb; do port=${p%%:*}; unit=${p##*:}; if ! /usr/bin/curl -sS -m 5 -o /dev/null http://127.0.0.1:$port/ready; then echo "$(date -Is) port $port /ready failed -> restarting $unit"; systemctl restart $unit; fi; done'

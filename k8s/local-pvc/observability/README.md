@@ -121,7 +121,14 @@ kubectl -n observability delete pod <不在白名单节点上的 alloy pod>
 
 如果要用的 Grafana 在集群外（另一台机器），**不要**把 Loki 改成 NodePort/LoadBalancer —— Loki 是 `auth_enabled: false`（无认证），暴露端口等于把全部业务日志摊在网上。
 
-推荐做法：在外部 Grafana 那台机器上跑一个 systemd 常驻的 `kubectl port-forward`，把 Loki 引到它自己的回环，数据源填 `http://127.0.0.1:3100`。集群侧只需在 `observability` 命名空间加一份命名空间级最小权限（`get/list services,pods,endpoints` + `create pods/portforward`），本栈本体零改动。
+推荐做法：在外部 Grafana 那台机器上跑 systemd 常驻的 `kubectl port-forward`，把每个集群的 Loki 各引到它自己的一个回环端口，Grafana 里每个集群配一个数据源。**每个集群**只需在 `observability` 命名空间加一份命名空间级最小权限（`get/list services,pods,endpoints` + `create pods/portforward`），本栈本体零改动。
+
+本次落地（同一台外部 Grafana 同时接两个集群）：
+
+| 集群 | 外部主机回环端口 | 数据源 URL | 备注 |
+| --- | --- | --- | --- |
+| datax | `3100` | `http://127.0.0.1:3100` | apiserver 节点直连 |
+| dmdb | `3101` | `http://127.0.0.1:3101` | 只能经办公网映射地址，kubeconfig 需 `tls-server-name` |
 
 完整步骤、清单与排查记录见 [`docs/observability-external-grafana-loki-access.md`](../../../docs/observability-external-grafana-loki-access.md)，清单在 [`external-access/`](external-access/)。
 

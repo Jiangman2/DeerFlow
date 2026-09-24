@@ -1,0 +1,23 @@
+# dmdb 集群的 Loki port-forward（与 datax 那份并存，端口 3101）
+#
+# 与 loki-portforward.service 的唯一差别：
+#   - kubeconfig 指向 dmdb，且该 kubeconfig 里写了 tls-server-name
+#     （dmdb 只能经办公网映射地址 10.77.78.224:6443 访问，而它的 apiserver
+#      证书只签了 192.168.110.14，必须用 tls-server-name 才能通过校验）
+#   - 本地端口 3101（datax 用 3100）
+[Unit]
+Description=Loki port-forward for external Grafana (dmdb observability/loki -> 127.0.0.1:3101)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cnooc
+Group=cnooc
+ExecStart=/usr/local/bin/kubectl --kubeconfig=/home/cnooc/.kube/loki-pf-dmdb.kubeconfig -n observability port-forward --address 127.0.0.1 service/loki 3101:3100
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

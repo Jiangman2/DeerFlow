@@ -8,28 +8,37 @@
 
 ## 1. 结论先行
 
-采用的方案：**在外部 Grafana 所在主机上跑一个 `kubectl port-forward`，把 Loki 引到该主机的回环 `127.0.0.1:3100`，数据源填 `http://127.0.0.1:3100`。**
+采用的方案：**在外部 Grafana 所在主机上跑 `kubectl port-forward`，把每个集群的 Loki 各引到一个本机回环端口；Grafana 里每个集群一个数据源。**
 
-**本次交付状态：11 项验收全部通过，链路已打通并跑在 systemd 常驻服务上（见第 8 节）。**
+**本次交付：两个集群（datax 与 dmdb）都已打通，跑在 systemd 常驻服务 + 探活看门狗上（见第 8 节）。**
+
+| 集群 | kube-apiserver 地址 | 外部主机回环端口 | Grafana 数据源 URL |
+| --- | --- | --- | --- |
+| **datax**（17 节点 ARM64） | `https://192.168.111.2:6443`（节点直连） | `127.0.0.1:3100` | `http://127.0.0.1:3100` |
+| **dmdb**（单节点 ARM64） | `https://10.77.78.224:6443` **+ `tls-server-name: 192.168.110.14`**（办公网映射） | `127.0.0.1:3101` | `http://127.0.0.1:3101` |
 
 | 维度 | 情况 |
 | --- | --- |
-| 监听端口 | **只有 `127.0.0.1:3100`**（`kubectl` 进程持有），同网段任何其它机器都连不上 |
-| 集群改动 | `observability` 命名空间新增 4 个小对象（SA / Role / RoleBinding / token Secret） |
+| 监听端口 | **每个集群只有本机回环一个端口**（`kubectl` 进程持有），同网段任何其它机器都连不上 |
+| 集群改动 | 每个集群的 `observability` 命名空间各新增 4 个小对象（SA / Role / RoleBinding / token Secret） |
 | 日志栈本体 | **零改动**（不改清单、不改 Loki/Grafana/Alloy、不加 Service 类型） |
-| 传输 | `kubectl` → `https://192.168.111.2:6443`（TLS + Bearer token），不由明文 HTTP 承载 |
+| 传输 | `kubectl` → kube-apiserver（TLS + Bearer token），不由明文 HTTP 承载 |
 | 凭证 | 命名空间级最小权限：只能 `get/list services,pods,endpoints,endpointslices` + `create pods/portforward` |
+| 区分两个集群 | 两边命名空间与应用名**完全一样**，只能靠日志里的 `node` 标签：`node="dmdb"` vs `node=~"datax-.*"` |
 
 ```
 浏览器 ──> Prometheus-01:3000 (Grafana, 原生 systemd 服务)
-                │  数据源 URL = http://127.0.0.1:3100
-                ▼
-        127.0.0.1:3100   ← kubectl port-forward（systemd 常驻 + 看门狗）
-                │  Kubernetes API over TLS（不是 SSH、不是 ClusterIP）
-                ▼
-        192.168.111.2:6443  kube-apiserver
-                ▼
-        kubelet@datax-03:10250 ──> Loki pod (10.244.2.90:3100)
+                │
+                ├─ 数据源 "DeerFlow Logs (datax)" ──> http://127.0.0.1:3100 ─┐
+                └─ 数据源 "DeerFlow Logs (dmdb)"  ──> http://127.0.0.1:3101 ─┤
+                                                                          │  kubectl port-forward
+                        ┌─────────────────────────────────────────────────┘  （Kubernetes API over TLS，不是 SSH、不是 ClusterIP）
+                        ▼                                        ▼
+        https://192.168.111.2:6443                     https://10.77.78.224:6443
+        datax kube-apiserver                            dmdb kube-apiserver
+        （节点直连，证书 SAN 含该 IP）                    （办公网映射，tls-server-name=192.168.110.14）
+                        ▼                                        ▼
+        kubelet@datax-03:10250 ──> Loki pod             kubelet@dmdb:10250 ──> Loki pod
 ```
 
 ## 2. 为什么不用"直连 ClusterIP"（含排查结论）
@@ -211,6 +220,49 @@ kubectl --kubeconfig ~/.kube/loki-pf.kubeconfig -n observability get pods -l app
 
 **这一步的意义**：它与最终方案走**完全相同**的地址与凭证，唯一变量是"从哪台机器发起"。
 
+### 5.4 第二个集群（dmdb）：`server` 用映射地址 + `tls-server-name`
+
+dmdb 是**另一个集群**（单节点，业务网 `192.168.110.14`），从外部 Grafana 那台机器看过去的情况与 datax 完全不同：
+
+| 探测（从 `Prometheus-01`） | 结果 |
+| --- | --- |
+| `192.168.110.14`（dmdb 业务网 IP）ping / `:22` / `:6443` | **全部 FAIL** —— 两个网段不互通 |
+| `10.77.78.224`（dmdb 的办公网映射） | ping OK（1ms）、**`:22` OK、`:6443` OK** |
+
+所以 dmdb 必须走**映射地址**。但它的 apiserver 证书只签了业务网 IP：
+
+```
+X509v3 Subject Alternative Name:
+    DNS:dmdb, DNS:kubernetes, DNS:kubernetes.default,
+    DNS:kubernetes.default.svc, DNS:kubernetes.default.svc.cluster.local,
+    IP Address:10.96.0.1, IP Address:192.168.110.14
+```
+
+直接连 `10.77.78.224` 会得到 `x509: certificate is valid for ..., not 10.77.78.224`。
+
+**解法是 `tls-server-name`** —— 告诉客户端"我连的是映射地址，但请按真实 IP 校验证书"。**CA 校验与主机名校验都完整保留**，不是跳过校验：
+
+```yaml
+clusters:
+- name: dmdb
+  cluster:
+    server: https://10.77.78.224:6443
+    certificate-authority-data: <dmdb 的 /etc/kubernetes/pki/ca.crt，base64>
+    tls-server-name: 192.168.110.14        # ← 关键
+```
+
+其余步骤（RBAC、token、scp、systemd、Grafana 数据源）与 datax **完全同构**，只是：
+
+| 项 | datax | dmdb |
+| --- | --- | --- |
+| 服务名 | `loki-portforward` | `loki-portforward-dmdb` |
+| kubeconfig | `~/.kube/loki-pf.kubeconfig` | `~/.kube/loki-pf-dmdb.kubeconfig` |
+| 本机端口 | `3100` | `3101` |
+| ClusterIP（核对用） | `10.101.111.97` | `10.103.180.172` |
+| 日志 `node` 标签 | `datax-01`/`02`/`03`/… | `dmdb` |
+
+> **两个映射地址的行为不一样，不要假设。** datax 的 `10.77.79.131` **只真转发了 22**（`80/2379/6443/10250` 都能完成 TCP 握手但没有任何响应）；dmdb 的 `10.77.78.224` **把 6443 也转了**。部署新集群前必须先 `nc -z <映射地址> 6443` 实测，并同时测业务网 IP —— 谁通用谁。
+
 ## 6. systemd 常驻 + 看门狗
 
 `kubectl port-forward` 有两个必须处理的问题：
@@ -218,15 +270,17 @@ kubectl --kubeconfig ~/.kube/loki-pf.kubeconfig -n observability get pods -l app
 - 它**不是**长期隧道：网络抖动、apiserver 升级、pod 重建都可能让它退出；
 - 更麻烦的是**"假活"**：进程还在、转发已断。只靠 `Restart=always` 救不了这种情况，所以再加一个探活看门狗。
 
-三个 unit 见 [`external-access/`](../k8s/local-pvc/observability/external-access/)：
+四个 unit 见 [`external-access/`](../k8s/local-pvc/observability/external-access/)（**每个集群一个主服务**，看门狗共用一个）：
 
 ```sh
 sudo cp k8s/local-pvc/observability/external-access/loki-portforward.service \
+        k8s/local-pvc/observability/external-access/loki-portforward-dmdb.service \
         k8s/local-pvc/observability/external-access/loki-portforward-watchdog.service \
         k8s/local-pvc/observability/external-access/loki-portforward-watchdog.timer \
         /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now loki-portforward.service
+sudo systemctl enable --now loki-portforward-dmdb.service
 sudo systemctl enable --now loki-portforward-watchdog.timer
 ```
 
@@ -234,26 +288,32 @@ sudo systemctl enable --now loki-portforward-watchdog.timer
 
 | 项 | 说明 |
 | --- | --- |
-| `User=cnooc` | 不用 root 跑 kubectl；`127.0.0.1:3100` 是高端口，无需特权 |
+| `User=cnooc` | 不用 root 跑 kubectl；`3100`/`3101` 都是高端口，无需特权 |
 | `Restart=always` + `RestartSec=5` | 进程退出后 5 秒内自动拉起 |
-| 看门狗 timer（60s） | `curl /ready` 失败就 `systemctl restart`，专治"假活" |
+| **看门狗一个 timer 探所有端口** | 形如 `for p in 3100:loki-portforward 3101:loki-portforward-dmdb`，`curl /ready` 失败就 `systemctl restart` 对应服务。**再接入第三个集群时只需在这个列表里加一项。** |
 | `--address 127.0.0.1` | **必须显式**，确保只绑回环 |
 
-**自愈验证（必做）**：
+**自愈验证（每个集群都要做一遍）**：
 
 ```sh
-PID=$(systemctl show -p MainPID --value loki-portforward.service)
-sudo kill -9 "$PID"
-sleep 15
-systemctl is-active loki-portforward.service            # active
-systemctl show -p MainPID --value loki-portforward.service   # 新 PID，与原来不同
-curl -sS -m 5 -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3100/ready   # 200
-journalctl -u loki-portforward.service -n 12 --no-pager  # 能看到 "Scheduled restart job, restart counter is at 1"
+for u in loki-portforward loki-portforward-dmdb; do
+  echo "--- $u ---"
+  PID=$(systemctl show -p MainPID --value $u)
+  sudo kill -9 "$PID"
+  sleep 15
+  systemctl is-active $u                       # active
+  systemctl show -p MainPID --value $u         # 新 PID，与原来不同
+done
+curl -sS -m 5 -o /dev/null -w '3100 %{http_code}\n' http://127.0.0.1:3100/ready   # 200
+curl -sS -m 5 -o /dev/null -w '3101 %{http_code}\n' http://127.0.0.1:3101/ready   # 200
+journalctl -u loki-portforward-dmdb.service -n 12 --no-pager  # 可见 "Scheduled restart job, restart counter is at 1"
 ```
 
 ## 7. Grafana 数据源
 
-在外部 Grafana（`http://10.77.76.207:3000`，12.0.1）里 **Configuration → Data sources → Add data source**：
+在外部 Grafana（`http://10.77.76.207:3000`，12.0.1）里 **Configuration → Data sources → Add data source → Loki**，**每个集群加一个**：
+
+**数据源 1（datax）**
 
 | 字段 | 值 |
 | --- | --- |
@@ -263,7 +323,24 @@ journalctl -u loki-portforward.service -n 12 --no-pager  # 能看到 "Scheduled 
 | Access | **Server (default)** —— 不要选 Browser |
 | Auth / TLS | 全部留空（Loki 无认证，且只走本机回环） |
 
-`Save & test` 显示 ***Data source connected and labels found***（本次已实测通过）。然后在 Explore 里查：
+**数据源 2（dmdb）**
+
+| 字段 | 值 |
+| --- | --- |
+| Name | `DeerFlow Logs (dmdb)` |
+| Type | **Loki** |
+| URL | **`http://127.0.0.1:3101`** |
+| Access | **Server (default)** |
+| Auth / TLS | 全部留空 |
+
+两个都应显示 ***Data source connected and labels found***（本次已实测通过）。然后在 Explore 里查：
+
+> **两个集群的命名空间、应用名、标签完全一样**，只能靠 `node` 区分：
+>
+> ```logql
+> {namespace="deer-flow", node="dmdb"}          # 只看 dmdb
+> {namespace="deer-flow", node=~"datax-.*"}     # 只看 datax
+> ```
 
 ```logql
 {namespace="deer-flow"}
@@ -274,6 +351,8 @@ journalctl -u loki-portforward.service -n 12 --no-pager  # 能看到 "Scheduled 
 > `127.0.0.1` 是**从 Grafana 服务端进程**解析的。本次外部 Grafana 是原生 systemd 服务，所以宿主回环就是它自己；容器化部署请看第 3 节的注意事项。
 
 ## 8. 验收清单（本次实测）
+
+### datax
 
 | # | 检查 | 结果 |
 | --- | --- | --- |
@@ -286,8 +365,22 @@ journalctl -u loki-portforward.service -n 12 --no-pager  # 能看到 "Scheduled 
 | 7 | 真实业务日志 | ✅ `{"app":"adapter", ..., "pod":"deer-flow-mineru-adapter-7f59bc8879-7l8jb","node":"datax-02"}` |
 | 8 | 开机自启 | `loki-portforward.service` `enabled` |
 | 9 | 进程被杀自愈 | `kill -9` 后 5 秒重启（PID 变化），`/ready` 恢复 200 |
-| 10 | 看门狗 | `loki-portforward-watchdog.timer` 已启用，`NEXT` 有值 |
-| 11 | **Grafana 数据源端到端** | ✅ `Save & test` 通过（*Data source connected and labels found*），Explore 查 `{namespace="deer-flow"}` 能出日志 —— **整条链路打通** |
+| 10 | 看门狗 | timer 已启用，`NEXT` 有值 |
+| 11 | **Grafana 数据源端到端** | ✅ `Save & test` 通过（*Data source connected and labels found*），Explore 查 `{namespace="deer-flow"}` 能出日志 |
+
+### dmdb
+
+| # | 检查 | 结果 |
+| --- | --- | --- |
+| 1 | 到 dmdb 的可达性 | 业务网 `192.168.110.14` **全 FAIL**；办公网映射 `10.77.78.224` 的 `:22`/`:6443` **OK** |
+| 2 | 集群侧 RBAC + token | 创建成功，token base64 1260 → 解码 944；ClusterIP `10.103.180.172` |
+| 3 | **`tls-server-name` 生效** | `server=https://10.77.78.224:6443` + `tls-server-name=192.168.110.14` → `get svc loki` 正常，**无 x509 报错** |
+| 4 | 监听范围 | `127.0.0.1:3101`（与 datax 的 `3100` 并存，互不干扰） |
+| 5 | Loki API | `/ready` = 200、`/labels` = 200 |
+| 6 | **数据归属鉴别** | ✅ `{"app":"web", ..., "pod":"skillhub-web-69c48f845d-6pvl5","node":"dmdb"}` —— 确认是 dmdb 而非 datax |
+| 7 | 开机自启 | `loki-portforward-dmdb.service` `enabled` |
+| 8 | 进程被杀自愈 | `kill -9` 后 `RestartSec=5s expired` → 新 PID → `/ready` 恢复 200 |
+| 9 | 看门狗 | 双端点版本手工触发一轮 `Succeeded`，**无误重启**；timer `NEXT` 有值 |
 
 ## 9. 运维与排障
 
@@ -302,11 +395,32 @@ curl -sS -m 5 -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3100/ready
 | 现象 | 根因 | 处置 |
 | --- | --- | --- |
 | Grafana 面板突然无数据，但 `systemctl is-active` 仍是 `active` | port-forward **"假活"** | 看门狗应在 60s 内重启；可手工 `systemctl restart loki-portforward` |
-| `x509: certificate signed by unknown authority` | kubeconfig 里用了被 nginx 改写过的 CA | 改用 `/etc/kubernetes/pki/ca.crt`（第 5.1 节） |
+| `x509: certificate signed by unknown authority` | kubeconfig 里用了被 nginx 改写过的 CA（datax 的 `127.0.0.1:7443` 那套） | 改用 `/etc/kubernetes/pki/ca.crt`（第 5.1 节） |
+| `x509: certificate is valid for ..., not <映射地址>` | 只能经映射地址访问，但 apiserver 证书只签了业务网 IP | 加 `tls-server-name: <证书里的真实 IP>`（第 5.4 节），**不要**用 `insecure-skip-tls-verify` |
+| 服务 `status=203/EXEC` 且无限重启 | `ExecStart` 里的 `kubectl` 路径或 kubeconfig 在本机不存在 —— 通常是**命令块跑到了错误的机器上** | 先 `hostname` 确认；清理误装单元见下 |
 | `connect: connection refused` / 超时到 `127.0.0.1:7443` | kubeconfig 的 `server` 还是回环地址 | 改成 `https://<节点IP>:6443` |
-| `error: unable to listen on port 3100` | 端口被占（常见于残留的手工 `port-forward`） | `pkill -f 'port-forward.*service/loki'` 后再 `systemctl restart` |
-| `curl` 返回空、看着像"查不到数据" | 用了 `curl -s`，把连接错误也静默了 | 一律 `curl -sS -w 'HTTP=%{http_code}'` |
-| apiserver 地址变了（节点换 IP / 重建集群） | `server` 是写死的节点 IP | 更新 kubeconfig 后 `systemctl restart loki-portforward` |
+| 在 Grafana 里查到"错误的集群" | 两个集群的 `namespace`/`app` 标签完全一样 | 用 `node` 标签区分（第 7 节） |
+| apiserver 地址变了（节点换 IP / 重建集群） | `server` 是写死的节点 IP | 更新 kubeconfig 后 `systemctl restart <对应服务>` |
+
+**跨主机操作时，给每个命令块加主机守卫。** 本次就因为一段本该在外部主机执行、却粘到了被采集集群的机器上，导致那里装了一个 `203/EXEC` 无限重启的单元（未影响业务，但纯属多余）：
+
+```sh
+if [ "$(hostname)" = "Prometheus-01" ]; then
+  ... 该主机上才该执行的命令 ...
+else
+  echo "!!! 当前主机是 $(hostname)，不是 Prometheus-01 —— 本段已跳过"
+fi
+```
+
+误装后的清理（**在被误装的机器上**执行，注意只删单元、不动任何集群对象）：
+
+```sh
+sudo systemctl disable --now loki-portforward-dmdb.service
+sudo systemctl reset-failed loki-portforward-dmdb.service
+sudo rm -f /etc/systemd/system/loki-portforward-dmdb.service /etc/systemd/system/loki-portforward-watchdog.service
+sudo systemctl daemon-reload
+ls -l /etc/systemd/system/loki-portforward*    # 应无输出
+```
 
 ## 10. 安全与撤销
 
