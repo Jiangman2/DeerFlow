@@ -1,0 +1,6 @@
+[Unit]
+Description=Watchdog for loki-portforward (restart when /ready fails)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/bin/curl -sS -m 5 -o /dev/null http://127.0.0.1:3100/ready || { echo "loki /ready failed -> restarting loki-portforward"; systemctl restart loki-portforward; }'

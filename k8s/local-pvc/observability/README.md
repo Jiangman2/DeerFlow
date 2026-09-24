@@ -117,6 +117,16 @@ kubectl -n observability delete pod <不在白名单节点上的 alloy pod>
 
 只看前两次采样（153M → 172M）会得出"WAL 单调上涨、无法回收"的错误结论。**至少跨一个 checkpoint 周期（默认 5 分钟）再采样，并同时看 `checkpoint.*` 目录编号是否推进。** 判据是：总量在 50~200M 区间震荡 + 旧段被删 + checkpoint 编号递增 = 健康。
 
+### 1.3 把日志接到**集群外**的 Grafana
+
+如果要用的 Grafana 在集群外（另一台机器），**不要**把 Loki 改成 NodePort/LoadBalancer —— Loki 是 `auth_enabled: false`（无认证），暴露端口等于把全部业务日志摊在网上。
+
+推荐做法：在外部 Grafana 那台机器上跑一个 systemd 常驻的 `kubectl port-forward`，把 Loki 引到它自己的回环，数据源填 `http://127.0.0.1:3100`。集群侧只需在 `observability` 命名空间加一份命名空间级最小权限（`get/list services,pods,endpoints` + `create pods/portforward`），本栈本体零改动。
+
+完整步骤、清单与排查记录见 [`docs/observability-external-grafana-loki-access.md`](../../../docs/observability-external-grafana-loki-access.md)，清单在 [`external-access/`](external-access/)。
+
+> 实测提醒：**直连 ClusterIP（加 `/32` 路由指向节点）在本环境走不通**，且所有节点与外部主机都禁用了 SSH 转发（`AllowTcpForwarding no`，同一份基线），所以这两条路都不用再试。
+
 ## 2. 内网镜像准备
 
 需在所有 Alloy 目标节点准备 `grafana/alloy:v1.11.0`；在存储节点准备 Loki/Grafana 镜像。

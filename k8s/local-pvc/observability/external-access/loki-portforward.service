@@ -1,0 +1,16 @@
+[Unit]
+Description=Loki port-forward for external Grafana (observability/loki -> 127.0.0.1:3100)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cnooc
+Group=cnooc
+ExecStart=/usr/local/bin/kubectl --kubeconfig=/home/cnooc/.kube/loki-pf.kubeconfig -n observability port-forward --address 127.0.0.1 service/loki 3100:3100
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -821,6 +821,8 @@ curl -sS -w '\nHTTP=%{http_code} bytes=%{size_download}\n' \
 
 ## 相关文档
 
+- **把日志接到集群外的 Grafana**（`kubectl port-forward` + 最小权限 RBAC + systemd 常驻）：[observability-external-grafana-loki-access.md](./observability-external-grafana-loki-access.md)
+  —— 含"为什么不能直连 ClusterIP"和"为什么 SSH 隧道也不可用"的完整排查结论。
 - 组件清单与边界：[`k8s/local-pvc/observability/README.md`](../k8s/local-pvc/observability/README.md)
 - 麒麟 V10 单节点集群搭建（本栈的运行底座）：`docs/kingbase-arm64-single-node-cluster-setup.md`
   —— 该文档在 `codex/feature-kingbase-upstream-integration` 分支上，本分支不包含，故不作相对链接；其中 §7 的 firewalld 前置条件与本栈同样相关。
