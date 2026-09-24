@@ -10,6 +10,8 @@
 
 采用的方案：**在外部 Grafana 所在主机上跑一个 `kubectl port-forward`，把 Loki 引到该主机的回环 `127.0.0.1:3100`，数据源填 `http://127.0.0.1:3100`。**
 
+**本次交付状态：11 项验收全部通过，链路已打通并跑在 systemd 常驻服务上（见第 8 节）。**
+
 | 维度 | 情况 |
 | --- | --- |
 | 监听端口 | **只有 `127.0.0.1:3100`**（`kubectl` 进程持有），同网段任何其它机器都连不上 |
@@ -261,7 +263,7 @@ journalctl -u loki-portforward.service -n 12 --no-pager  # 能看到 "Scheduled 
 | Access | **Server (default)** —— 不要选 Browser |
 | Auth / TLS | 全部留空（Loki 无认证，且只走本机回环） |
 
-`Save & test` 应显示 *Data source connected and labels found*。然后在 Explore 里查：
+`Save & test` 显示 ***Data source connected and labels found***（本次已实测通过）。然后在 Explore 里查：
 
 ```logql
 {namespace="deer-flow"}
@@ -285,6 +287,7 @@ journalctl -u loki-portforward.service -n 12 --no-pager  # 能看到 "Scheduled 
 | 8 | 开机自启 | `loki-portforward.service` `enabled` |
 | 9 | 进程被杀自愈 | `kill -9` 后 5 秒重启（PID 变化），`/ready` 恢复 200 |
 | 10 | 看门狗 | `loki-portforward-watchdog.timer` 已启用，`NEXT` 有值 |
+| 11 | **Grafana 数据源端到端** | ✅ `Save & test` 通过（*Data source connected and labels found*），Explore 查 `{namespace="deer-flow"}` 能出日志 —— **整条链路打通** |
 
 ## 9. 运维与排障
 
