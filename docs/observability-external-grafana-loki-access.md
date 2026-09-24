@@ -433,7 +433,10 @@ ls -l /etc/systemd/system/loki-portforward*    # 应无输出
 ## 11. 遗留事项
 
 1. **直连 ClusterIP 失败的真实拦截点未查明**：已排除 kube-proxy 侧（防火墙链为空、无 DROP、内核无丢包计数、外部源会被 masquerade）；`datax-01` 的 tcpdump 因时序问题未捕获到包。若后续要把它查清，建议在**网络设备的会话日志**上按 `192.168.111.40 → 10.101.111.97:3100` 查，而不是继续在节点上翻 iptables。
-2. **Grafana UI 访问**：外部 Grafana 由使用者自行访问；集群内那个 Grafana 的访问方式见 [observability-logging-stack-deployment.md §10](./observability-logging-stack-deployment.md)。
+2. **集群内 Grafana 的 UI（datax 与 dmdb）暂不开放** —— 决定日期 2026-09。两个集群的日志都通过**集群外这台统一 Grafana** 消费，集群内那套 Grafana 只作为回退手段保留（ClusterIP、无外部入口、无风险）。因此：
+   - **dmdb 的回环 80 保持空闲**，`PermitOpen 127.0.0.1:80` 那条路（见 [observability-logging-stack-deployment.md §10.2](./observability-logging-stack-deployment.md)）**未实施**，以后需要时再按该节操作即可；
+   - **datax 集群内的 Grafana 未缩容**，仍是 `1/1 Running`（缩为 0 只省一个 pod 的内存，收益很小，不值得动一个已验证通过的栈）；
+   - 如果以后要直接看集群内的 Grafana，两条可用路径：dmdb 走 `PermitOpen` + `ssh -L`；datax 只能在外部主机上再起一个绑非回环地址的 `port-forward`（Grafana 有登录认证，比暴露 Loki 安全得多）。
 3. **本方案不替代**集群内 Grafana 的自愈能力：外部 Grafana 一旦长时间不可用，日志仍在 Loki 里，恢复后可直接查（`port-forward` 只是读取通道，不参与写入）。
 
 ## 相关文档

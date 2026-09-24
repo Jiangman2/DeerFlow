@@ -497,6 +497,11 @@ kubectl -n deer-flow get pods --no-headers | awk '{print $3}' | sort | uniq -c  
 
 ## 10. Grafana 访问
 
+> **现状（2026-09）：集群内这套 Grafana 的 UI 暂不需要开放。**
+> datax 与 dmdb 的日志目前都通过**集群外那台统一 Grafana**消费（`kubectl port-forward` 方案，见
+> [observability-external-grafana-loki-access.md](./observability-external-grafana-loki-access.md)），
+> 集群内的 Grafana 只作为回退手段保留。本节两小节的做法**仍然有效**，需要在集群内直接看 Grafana 时再按它操作。
+
 ### 10.1 标准方式（SSH 本地端口转发）
 
 ```bash
