@@ -61,6 +61,62 @@ sudo install -d -m 0750 -o 472   -g 472   /mnt/data/deerflow-observability/grafa
 
 **首次启动会刷一批 400 错误，属预期，不是故障。** Alloy 首次从文件开头读（日志里可见 `Seeked ... Offset:0`），而 Loki 的 `reject_old_samples_max_age: 168h` 会拒掉 7 天前的历史，于是出现 `entry for stream ... has timestamp too old`。这是一次性的（读取位置持久化在 `/var/lib/deerflow-alloy`，读过不会重读），对节点上已运行数周的容器尤其明显。验收时应查询 `{namespace="deer-flow"}` 里**新产生**的日志，而不是纠结这条 400。
 
+### 1.2 实机验证补充：多节点真实业务集群（17 节点 ARM64，2026-09）
+
+在**多节点、有真实业务**的集群上复测时，有三点和单节点不同。
+
+**1）收窄采集范围只能用 `nodeSelector`，用 tolerations 无效。**
+
+**DaemonSet 控制器会无条件给 Pod 追加一批容忍**，其中包含 `node.kubernetes.io/unschedulable:NoSchedule`（还有 `not-ready` / `unreachable` / `disk-pressure` / `memory-pressure` / `pid-pressure`）。因此**已经被 cordon 的节点照样会起 Alloy Pod，无论你写什么 tolerations**——即使只保留自己的专用污点容忍，控制器也会把 `unschedulable` 加回去。现象是 rollout 永远卡在 `N of 18 updated pods available`。
+
+本次 17 个节点里 13 个是 `Ready,SchedulingDisabled`，可调度节点只有 4 个。正确做法是节点白名单：
+
+```bash
+for n in datax-01 datax-02 datax-03 ecs-zdz-pro-0022; do
+  kubectl label node "$n" deerflow-log-agent=true --overwrite
+done
+kubectl get nodes -l deerflow-log-agent=true
+```
+
+```yaml
+# alloy.yaml
+spec:
+  template:
+    spec:
+      nodeSelector:
+        deerflow-log-agent: "true"
+```
+
+**判断是否生效看 `desiredNumberScheduled`，不要看 Pod 是否 Running：**
+
+```bash
+kubectl -n observability get ds alloy -o jsonpath='{.status.desiredNumberScheduled}{"\n"}'   # 本次 18 -> 4
+```
+
+cordon 节点上的旧 Pod **不会被自动驱逐或删除**，会一直留在那里让 rollout 差几格，需要手工删掉：
+
+```bash
+kubectl -n observability get pods -l app=alloy -o wide
+kubectl -n observability delete pod <不在白名单节点上的 alloy pod>
+```
+
+被 cordon 的节点上若仍有业务 Pod 输出日志，这些日志将不再采集——收窄前先确认这些节点上的业务是否也需要日志。
+
+**2）镜像要逐节点分发。** `imagePullPolicy: IfNotPresent` 按**每个节点本地**的 containerd 缓存判断，不跨节点共享。单节点只导一次即可，多节点上每个 Alloy 目标节点都必须有镜像（无内网仓库时用 `ctr images import` + `ctr images tag` 重打成 `docker.io/grafana/*`，否则照样 `ImagePullBackOff`）。
+
+**3）容量按实测日增量算，不按 PV 声明算。** 本次存储节点数据盘 `/dev/vdb1` 3.0T（可用 2.7T），实测摄取 **244 KB/s ≈ 21 GB/天**，30 天约 **632 GB**，`retention_period: 720h` 可以原样保留。
+
+**WAL 是循环回收的，但采样必须跨 checkpoint 周期，否则会把正常回收误判成"泄漏"。**
+
+| 时刻 | `wal/` 总量 | 段文件 | `checkpoint.*` |
+| --- | --- | --- | --- |
+| T | 153M | `06`, `07`, `08` | `000005` |
+| T+2m | 172M | `06`, `07`, `08`, `09` | `000005` |
+| T+5m | **82M** | `09`, `10`（06/07/08 已删） | `000008` + `000009.tmp` |
+| T+8m | **53M** | `10` | `000009`（tmp 转正） |
+
+只看前两次采样（153M → 172M）会得出"WAL 单调上涨、无法回收"的错误结论。**至少跨一个 checkpoint 周期（默认 5 分钟）再采样，并同时看 `checkpoint.*` 目录编号是否推进。** 判据是：总量在 50~200M 区间震荡 + 旧段被删 + checkpoint 编号递增 = 健康。
+
 ## 2. 内网镜像准备
 
 需在所有 Alloy 目标节点准备 `grafana/alloy:v1.11.0`；在存储节点准备 Loki/Grafana 镜像。
@@ -155,6 +211,39 @@ Grafana Explore 中选择自动配置的 **DeerFlow Logs**，设置时间范围�
 保留 `node`、`pod`、`container`、`stream` 标签和 `pod_uid` 结构化元数据；thread_id/run_id/trace_id 在原文中查询，不新增高基数索引标签。
 Gateway 和 PPT Runner Python 堆栈合并上限 256 行/3 秒；其他容器保留逐行日志。
 
+### 4.1 命令行自检（不需要浏览器）
+
+**每条 `port-forward` 之前先清残留。** 旧的 `kubectl port-forward` 进程会继续占着本地端口、并且指向**已被删除的旧 Pod**：新的一次启动后立即退出，而 `curl` 仍然连上那个死目标，表现为"数据查不到"——这是**假阴性**，不是数据丢失。
+
+```bash
+pkill -f 'port-forward service/loki'
+ps -ef | grep '[p]ort-forward' | wc -l      # 必须为 0，否则后面所有结论都不可信
+
+kubectl -n observability port-forward service/loki 3100:3100 >/tmp/loki-pf.log 2>&1 &
+sleep 4
+curl -s --noproxy '*' http://127.0.0.1:3100/ready; echo
+curl -s --noproxy '*' -G http://127.0.0.1:3100/loki/api/v1/query_range \
+  --data-urlencode 'query={namespace="deer-flow"}' --data-urlencode 'limit=2' | head -c 800; echo
+```
+
+Grafana 侧（`/api/health` 不需要认证，`/api/datasources` 需要）：
+
+```bash
+kubectl -n observability port-forward service/grafana 3000:3000 >/tmp/gf-pf.log 2>&1 &
+sleep 4
+GPW=$(kubectl -n observability get secret grafana-admin -o jsonpath='{.data.password}' | base64 -d)
+echo "pw_len=${#GPW}"                                            # 先确认不是空串
+curl -s http://127.0.0.1:3000/api/health; echo
+curl -s -u "admin:$GPW" http://127.0.0.1:3000/api/datasources; echo
+```
+
+**Secret 的 key 是 `password`，不是 `admin-password`。** 取错 key 时 `-o jsonpath='{.data.admin-password}'` 返回**空串**，`base64 -d` 得到空密码，Grafana 返回 `401 {"message":"Invalid username or password","messageId":"password-auth.failed"}` —— 这不是密码错、更不是 Grafana 故障，而是**取值取错了**。先用下面这条确认 key 名：
+
+```bash
+kubectl -n observability get secret grafana-admin \
+  -o go-template='{{range $k,$v := .data}}{{$k}}{{"\n"}}{{end}}'
+```
+
 ## 5. 必须完成的上线验收
 
 不要删除业务 Gateway 做测试。使用预先导入的现有轻量镜像创建临时 Pod（替换 IMAGE）：
@@ -180,6 +269,24 @@ kubectl -n observability get pods,pvc -o wide
 ```
 
 节点检查：`df -h /opt/deerflow-observability`、`sudo du -sh /var/lib/deerflow-alloy`。
+
+**`sudo` 不会替你展开通配符 —— `*` 是调用者（普通用户）的 shell 展开的。**
+
+Loki 数据目录属主是 `10001`、权限 `drwxrws---`，普通用户无权列出；`/var/log/pods` 下的 Pod 目录同理。此时 glob 展开失败，**字面量**被原样传给 `sudo`，报出误导性的"目录不存在"：
+
+```bash
+sudo du -sh /opt/deerflow-observability/loki/*          # ✗ No such file or directory（目录其实存在，只是没权限列出）
+sudo sh -c 'du -sh /opt/deerflow-observability/loki/*'  # ✓ 交给 root 的 shell 展开
+sudo sh -c 'ls -la /var/log/pods/observability_loki-*/loki/'   # ✓ 同理
+```
+
+**Loki 自身 stdout 不要只看 `kubectl logs`。** 容器日志文件是 `/var/log/pods/observability_loki-*/loki/0.log`，kubelet 默认按 10Mi × 5 轮转，`kubectl logs` 只返回**当前文件**的内容，更早的部分可能已切到 `.log.1` 或不在当前文件里。要确认启动、WAL 回放等启动阶段行为，直接读文件：
+
+```bash
+sudo sh -c 'ls -la /var/log/pods/observability_loki-*/loki/'          # 先看有没有 .log.1、当前文件多大
+sudo sh -c 'wc -l /var/log/pods/observability_loki-*/loki/0.log; head -5 /var/log/pods/observability_loki-*/loki/0.log'
+```
+
 Alloy `/metrics` 暴露 `loki_write_dropped_entries_total`、`loki_write_batch_retries_total` 等指标；本套过渡清单不部署 Prometheus/告警平台，必须由运维检查或接入现有监控，不能把 Pod Ready 当作日志已成功送达。
 30 天保留不按剩余磁盘自动缩短；建议磁盘达到 70% 时处理容量，85% 时紧急处理。按实测每日新增量估算 30 天容量并留出 WAL/索引余量。
 

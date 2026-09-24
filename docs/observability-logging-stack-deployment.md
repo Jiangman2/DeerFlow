@@ -1,7 +1,9 @@
 # K8s 可观测性栈部署手册（Alloy + Loki + Grafana）
 
 > 面向**已有业务在跑**的 Kubernetes 集群，部署 `k8s/local-pvc/observability` 这套日志栈。
-> 本手册来自一次完整的实机部署与验收（麒麟 V10 ARM64 单节点，节点 `dmdb`），命令与数字均为实测，不是推导。
+> 本手册来自实机部署与验收，命令与数字均为实测，不是推导：
+> - §1–§11 来自**单节点**集群（麒麟 V10 ARM64，节点 `dmdb`，控制面与业务同机）；
+> - **§12 来自 17 节点 ARM64 真实业务集群（`datax`）**，补充多节点放置、镜像分发、日志量归因与新增操作坑。
 
 ## 1. 组件与定位
 
@@ -580,6 +582,139 @@ sudo ss -tlnp | awk '$4 ~ /:80$/ {print}' || echo "(已无监听)"
 | **镜像版本** | 固定为 Alloy v1.11.0 / Loki 3.6.0 / Grafana 12.2.0。部署前按企业镜像扫描策略审核并镜像到内网 |
 | **迁移 S3** | 保留 filesystem 的旧 schema 时间段，为未来日期新增 S3 schema，并验证旧时间段仍可查询；不能只改存储类型后删旧 PV |
 
+## 12. 多节点真实业务集群实测补充（17 节点 ARM64，2026-09）
+
+§1–§11 来自**单节点**集群（`dmdb`，控制面与业务同机）。之后用同一套清单在一个**17 节点、有真实业务在跑**的集群（`datax`）上又做了一遍，本节记录新增结论。清单本身没有改动，改的只有节点标签与 `nodeSelector`。
+
+### 12.1 集群形态与放置决策
+
+| 项 | 实测值 |
+| --- | --- |
+| 节点 | 17 个，全部 arm64，k8s **v1.36.2** |
+| **可调度节点** | **只有 4 个**：`datax-01` / `datax-02` / `datax-03` / `ecs-zdz-pro-0022` |
+| 其余 13 个 | `Ready,SchedulingDisabled`（已 cordon，但**仍在跑业务 Pod**） |
+| `ecs-zdz-pro-0022` | 带 `dedicated=gateway:NoSchedule` 污点 |
+| 业务 | `deer-flow` 约 60–63 个 Pod（30–34 Running / 27 Completed / 2 Error，全程不变） |
+| 存储节点 | `datax-03`，数据盘 `/dev/vdb1` **3.0T（可用 2.7T）** |
+| 网络 | firewalld `inactive` + `disabled`，`FORWARD icmp-host-prohibited` = 0，coredns `1/1` |
+
+最终放置：**Alloy 恰好 4 个 Pod**（4 个可调度节点各一个）；**Loki + Grafana 都在 `datax-03`**。
+
+### 12.2 ⚠️ 用 tolerations 收窄 DaemonSet 是**无效**的，必须用 `nodeSelector`
+
+**DaemonSet 控制器会无条件给 Pod 追加一批容忍**，其中包含 `node.kubernetes.io/unschedulable:NoSchedule`（还有 `not-ready` / `unreachable` / `disk-pressure` / `memory-pressure` / `pid-pressure`）。后果是：**已 cordon 的节点照样会起 Alloy Pod，无论你写什么 tolerations**；即使只保留自己的专用污点容忍，控制器也会把 `unschedulable` 加回去。
+
+本次踩坑经过：Alloy 按全部节点部署（`desired=18`，cordon 不影响 DS 期望副本计算），为了让日志只来自 4 个节点先尝试删除自定义污点容忍——**无效**，rollout 一直停在：
+
+```
+4 of 18 updated pods available
+```
+
+正确做法是节点白名单（`nodeSelector`）：
+
+```sh
+for n in datax-01 datax-02 datax-03 ecs-zdz-pro-0022; do
+  kubectl label node "$n" deerflow-log-agent=true --overwrite
+done
+kubectl get nodes -l deerflow-log-agent=true
+
+kubectl apply -k .                                   # alloy.yaml 增加 spec.template.spec.nodeSelector
+kubectl -n observability get ds alloy -o jsonpath='{.status.desiredNumberScheduled}{"\n"}'   # 18 -> 4
+kubectl -n observability get pods -l app=alloy -o wide
+```
+
+> **判断是否生效看 `desiredNumberScheduled`，不要看 Pod 是否 Running。** cordon 节点上的旧 Pod 不会被驱逐也不会被 DS 缩容删除，会一直留在那里让 rollout 永远差几格，需要手工删：
+>
+> ```sh
+> kubectl -n observability get pods -l app=alloy -o wide          # 找出不在白名单节点上的
+> kubectl -n observability delete pod <那个 pod>
+> ```
+
+**先确认被排除的节点上没有需要采集的业务**。本次 13 个 cordon 节点上跑的是已完成/低优先业务，`deer-flow` 的 Pod 只在 4 个可调度节点上（分布 25/20/14/1），所以收窄不丢业务日志。
+
+### 12.3 镜像要逐节点分发
+
+`imagePullPolicy: IfNotPresent` 按**每个节点本地**的 containerd 缓存判断，**不跨节点共享**。单节点只导一次即可；多节点上每个 Alloy 目标节点都必须有镜像。
+
+```sh
+# 1) 在一个能出网的节点上按 §4.4 拉取并重打成 docker.io/grafana/*
+sudo ctr -n k8s.io images list | grep -E 'docker.io/grafana/(alloy|loki|grafana)'
+
+# 2) 导出（本次实测 tar 368,080,384 字节）
+sudo ctr -n k8s.io images export /tmp/observability-arm64.tar \
+  docker.io/grafana/alloy:v1.11.0 docker.io/grafana/loki:3.6.0 docker.io/grafana/grafana:12.2.0
+sha256sum /tmp/observability-arm64.tar
+
+# 3) 分发 + 导入 + 逐节点核对（应各为 3）
+for h in datax-01 datax-02 datax-03 ecs-zdz-pro-0022; do
+  scp /tmp/observability-arm64.tar "$h":/tmp/
+  ssh "$h" 'sudo ctr -n k8s.io images import /tmp/observability-arm64.tar >/dev/null && \
+            sudo ctr -n k8s.io images list -q | grep -c "^docker.io/grafana/"'
+done
+```
+
+**datax 上出现过一个瞬时证书错误**，值得记录以免误判：
+
+```
+ctr: ... x509: certificate signed by unknown authority
+```
+
+证书签发者是陌生的中间 CA（不是企业 MITM CA `CN=cnooc`），**重试即成功**——判定为企业代理的降级/兜底证书，不是仓库不可信，也不是镜像源故障。对照：`registry.aliyuncs.com` 在该环境**始终**校验通过，`docker.m.daocloud.io` 偶发。遇到时**先重试一次**再下结论。
+
+### 12.4 容量：先量日增量，再动手脚
+
+```sh
+# 5 分钟窗口量摄取速率（用 distributor 的累计字节）
+A=$(curl -s --noproxy '*' http://127.0.0.1:3100/metrics | awk '/^loki_distributor_bytes_received_total/ {s+=$2} END{print s}')
+sleep 300
+B=$(curl -s --noproxy '*' http://127.0.0.1:3100/metrics | awk '/^loki_distributor_bytes_received_total/ {s+=$2} END{print s}')
+awk -v a="$A" -v b="$B" 'BEGIN{printf "%.0f B/s  ≈ %.1f GB/day\n",(b-a)/300,(b-a)/300*86400/1024/1024/1024}'
+```
+
+本次实测：**243,802 B/s ≈ 21.1 GB/天** → 30 天约 **632 GB**，落在 2.7T 可用空间里余量充足，**`retention_period: 720h` 不需要调整**。
+
+**但必须做归因，否则容量结论不可移交。** 用 `bytes_over_time` 按 `app` 分组：
+
+```bash
+curl -s --noproxy '*' -G http://127.0.0.1:3100/loki/api/v1/query \
+  --data-urlencode 'query=sum by (app) (bytes_over_time({namespace="deer-flow"}[1h]))' | head -c 2000
+```
+
+本次结果：**`app="app"`（`weknora-app`）约 295.3 MiB，占总量 ~305 MiB 的 97%**；在存储侧也一致——单条 stream `chunks/fake/5f3cffd46f87bf10`（即 `weknora-app`）占 **119M / 134M ≈ 89%** 的 chunk 体积。
+
+> **结论与建议：把 `weknora-app` 的日志量反馈给业务方。** 排除它之后，30 天需求从约 632 GB 降到约 **7.5 GB**，容量问题立刻从"要规划"变成"不用管"。这也是唯一能在不牺牲可观测性的前提下真正省下容量的动作——本文档记录的是事实与量级，是否降噪由业务方决定。
+
+### 12.5 验收结果（多节点）
+
+§9 的第 1–4 项全部通过，证据：
+
+| # | 做法 | 结果 |
+| --- | --- | --- |
+| 1 | 造标记日志 Pod，查 `{namespace="deer-flow"} \|= "<marker>"` | 命中 **12** 条 |
+| 2 | 删除该 Pod 后再查同一标记 | 仍命中 **18** 条（删 Pod 前新写入的也算） |
+| 3 | `rollout restart daemonset/alloy` 后：新标记 + 老标记 | 新 **11** 条 + 老 **18** 条；Alloy 仍为 **4** 个 Pod |
+| 4 | 删除 Loki Pod 后重建，查重启**前**写入的标记 | 仍命中（`tick=20…16`，`returned_lines=5`）；同时能查到重启后新产生的业务日志 |
+| 5 | — | 见下 |
+
+**第 5 项在 datax 上按"落盘 + 容量 + WAL 循环"收口**（未做 §9 原定义的"Loki 缩 0 补发"）：
+
+| 判据 | 结果 |
+| --- | --- |
+| 落盘位置 | `/opt/deerflow-observability/loki` → `/dev/vdb1` 3.0T，**不是系统盘** |
+| 容量 | 剩 2.7T vs 30 天约 632 GB → 通过 |
+| WAL 循环 | **172M → 82M → 53M**，段 06/07/08/09 依次删除，`checkpoint` 005→008→009 推进 → 通过 |
+| 持久性旁证 | Loki 目录 mtime（10:13）早于当前 Pod 启动时间（10:48），删 Pod 后数据在文件系统层保留 |
+
+> §9 的"Loki 缩 0 期间日志补发"这一项在 `dmdb` 上已验证（30 条全部补发），**在 datax 上未做**，如需该项正式通过需另开维护窗口。
+
+### 12.6 本次新增的三个操作坑
+
+1. **`sudo` 不展开通配符。** `sudo du -sh /opt/.../loki/*` 里的 `*` 由**普通用户**的 shell 展开，而该目录属主 `10001`、权限 `drwxrws---`，展开失败后字面量被传给 `sudo`，报出误导性的 `No such file or directory`。用 `sudo sh -c '...'` 让 root 的 shell 展开。本次在同一件事上踩了两次（另一个是 `sudo ls /var/log/pods/observability_loki-*/loki/`）。
+
+2. **残留 `kubectl port-forward` 会制造假阴性。** 旧进程继续占着本地端口并指向**已删除的旧 Pod**，新的 forward 启动后立即 `Exit 1`，而 `curl` 仍然连上那个死目标 —— 于是"验收第 4 项"被误判为 FAIL，实际数据完好。**每次 forward 前 `pkill -f 'port-forward'` 并确认 `ps -ef | grep '[p]ort-forward' | wc -l` 为 0。**
+
+3. **Grafana Secret 的 key 是 `password`（不是 `admin-password`）。** 取错 key 时 `jsonpath` 返回空串，`base64 -d` 得到空密码，Grafana 回 `401 {"message":"Invalid username or password","messageId":"password-auth.failed"}` —— 这是取值错，不是密码错、不是 Grafana 故障。先 `echo "pw_len=${#GPW}"` 确认非空。
+
 ## 附录 A：本次实测环境与关键数字
 
 | 项 | 值 |
@@ -610,6 +745,25 @@ sudo ss -tlnp | awk '$4 ~ /:80$/ {print}' || echo "(已无监听)"
 | Alloy 重试期间出现 `connection refused` | Loki 尚在启动或已缩容 | **正确的重试行为**，非故障；恢复后应自动补发 |
 | `ssh -L` 报 `administratively prohibited` | sshd 的 `PermitOpen` 白名单不含该目标 | 改用白名单内目标，见 §10.2 |
 | CoreDNS 永远 `0/1`、集群 DNS 全废 | firewalld 的兜底 REJECT 排在 CNI 规则之前 | 关闭 firewalld，或把 `cni0`/`flannel.1` 加入 trusted 域 |
+| Alloy rollout 卡在 `N of 18 updated pods available`，cordon 节点上仍有 Alloy Pod | DS 控制器**无条件**追加 `unschedulable:NoSchedule`，tolerations 收窄无效 | 改用 `nodeSelector` 白名单 + 手工删旧 Pod，见 §12.2 |
+| 查询"查不到"，但 Loki 里其实有数据 | 残留 `kubectl port-forward` 占着本地端口并指向已删除的旧 Pod | `pkill -f 'port-forward'`，确认计数为 0 后再 forward，见 §12.6 |
+| `sudo du -sh <目录>/*` 报 `No such file or directory`，但目录确实存在 | `*` 由普通用户 shell 展开，目录无列权限 → 字面量传给 `sudo` | `sudo sh -c 'du -sh <目录>/*'`，见 §12.6 |
+| Grafana API 返回 `401 Invalid username or password`，但密码是对的 | Secret key 取错（是 `password`，不是 `admin-password`），`jsonpath` 返回空串 | 先 `echo "pw_len=${#GPW}"` 验非空，见 §12.6 |
+| `ctr pull` 报 `x509: certificate signed by unknown authority`，签发者不是企业 CA | 企业代理返回降级/兜底证书（瞬时） | **先重试一次**；`registry.aliyuncs.com` 在该环境始终可验，见 §12.3 |
+
+## 附录 C：多节点集群（datax）实测数字
+
+| 项 | 值 |
+| --- | --- |
+| 节点 | 17 个 arm64 / k8s v1.36.2；可调度 4 个，13 个 `Ready,SchedulingDisabled` |
+| 业务 | `deer-flow` 约 60–63 Pod（30–34 Running / 27 Completed / 2 Error，全程未变） |
+| 放置 | Alloy 4 个 Pod；Loki + Grafana 在 `datax-03` |
+| 存储 | `/dev/vdb1` 3.0T / 可用 2.7T；目录 `/opt/deerflow-observability/{loki,grafana}`（属主 10001 / 472） |
+| 摄取速率 | **243,802 B/s ≈ 21.1 GB/天**（30 天约 632 GB） |
+| 日志量归因 | `app="app"`（weknora-app）占 `bytes_over_time` 的 **97%**；存储侧该 stream 占 chunk 的 **89%**（119M/134M） |
+| WAL 循环 | 153M → 172M → **82M** → **53M**；`checkpoint` 005→008→009 |
+| 镜像分发 | `observability-arm64.tar` 368,080,384 字节；4 个节点各导入成功（三个镜像名） |
+| 验收 | 第 1–4 项通过（12 / 18 / 新 11+老 18 / 重启前后均命中）；第 5 项按存储与 WAL 收口 |
 
 ## 相关文档
 
