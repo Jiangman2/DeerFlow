@@ -190,6 +190,9 @@ Alloy `/metrics` 暴露 `loki_write_dropped_entries_total`、`loki_write_batch_r
 
 迁移 S3 时保留 filesystem 的旧 schema 时间段，为未来日期新增 S3 schema，并验证旧时间段仍可查询；不能只改存储类型后删除旧 PV。实际迁移单独实施。
 
+**完整部署与验收步骤**（含环境侦察、镜像获取、`tail_from_end`、五项上线验收、Grafana 访问）见
+[`docs/observability-logging-stack-deployment.md`](../../../docs/observability-logging-stack-deployment.md)。
+
 官方参考：
 - https://grafana.com/docs/alloy/latest/reference/components/loki/loki.source.file/
 - https://grafana.com/docs/alloy/latest/reference/components/loki/loki.write/
