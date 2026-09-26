@@ -271,6 +271,27 @@ def test_app_config_warns_when_no_models_configured(tmp_path, monkeypatch, caplo
     assert "No models are configured" in caplog.text
 
 
+def test_receipts_reload_affects_next_config_not_inflight_snapshot(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.yaml"
+    extensions_path = tmp_path / "extensions_config.json"
+    _write_extensions_config(extensions_path)
+    _write_config_with_sections(config_path, {"verification": {"receipts_enabled": True}})
+    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
+    _reset_config_singletons()
+    try:
+        initial = get_app_config()
+        _write_config_with_sections(config_path, {"verification": {"receipts_enabled": False}})
+        next_mtime = config_path.stat().st_mtime + 5
+        os.utime(config_path, (next_mtime, next_mtime))
+        reloaded = get_app_config()
+        assert reloaded.verification.receipts_enabled is False
+        assert initial.verification.receipts_enabled is True
+        assert reloaded is not initial
+    finally:
+        _reset_config_singletons()
+
+
 def test_get_app_config_reloads_when_file_changes(tmp_path, monkeypatch):
     config_path = tmp_path / "config.yaml"
     extensions_path = tmp_path / "extensions_config.json"
@@ -448,7 +469,8 @@ def test_get_app_config_resets_persistence_runtime_singletons_when_checkpointer_
     config_path = tmp_path / "config.yaml"
     extensions_path = tmp_path / "extensions_config.json"
     _write_extensions_config(extensions_path)
-    _write_config_with_sections(config_path, {"checkpointer": {"type": "memory"}})
+    database = {"backend": "sqlite", "sqlite_dir": str(tmp_path / "data")}
+    _write_config_with_sections(config_path, {"checkpointer": {"type": "memory"}, "database": database})
 
     monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
     monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
@@ -461,7 +483,7 @@ def test_get_app_config_resets_persistence_runtime_singletons_when_checkpointer_
         initial_checkpointer = get_checkpointer()
         initial_store = get_store()
 
-        _write_config_with_sections(config_path)
+        _write_config_with_sections(config_path, {"database": database})
         next_mtime = config_path.stat().st_mtime + 5
         os.utime(config_path, (next_mtime, next_mtime))
 

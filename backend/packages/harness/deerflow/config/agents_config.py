@@ -20,6 +20,7 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from deerflow.config.agent_knowledge_config import AgentKnowledgeScope
 from deerflow.config.paths import get_paths
 from deerflow.runtime.user_context import get_effective_user_id
 
@@ -245,6 +246,8 @@ class AgentConfig(BaseModel):
     # - [] (explicit empty list): disable all skills
     # - ["skill1", "skill2"]: load only the specified skills
     skills: list[str] | None = None
+    # Creator-owned selection, not authorization to publish knowledge to others.
+    knowledge_scope: AgentKnowledgeScope | None = None
     # Presentation metadata for the enterprise Digital Employee directory.
     category_id: str | None = None
     tags: list[str] = Field(default_factory=list)
@@ -330,9 +333,11 @@ def resolve_agent_dir(name: str, *, user_id: str | None = None) -> Path:
     if user_path.exists() and (user_path / "config.yaml").exists():
         return user_path
 
-    team_path = paths.team_agent_dir(name)
-    if team_path.exists() and (team_path / "config.yaml").exists():
-        return team_path
+    from deerflow.persistence.agents.publications import TeamPublicationStore
+
+    publications = TeamPublicationStore(paths)
+    if publications.has_record(name):
+        return publications.read(name).directory
 
     legacy_path = paths.agent_dir(name)
     if legacy_path.exists() and (legacy_path / "config.yaml").exists():
@@ -366,7 +371,35 @@ def is_personal_agent(name: str, *, user_id: str | None = None) -> bool:
     return (paths.user_agent_dir(effective_user, validated_name) / "config.yaml").is_file()
 
 
-def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentConfig | None:
+AgentSource = Literal["personal", "team", "legacy"]
+
+
+def validate_agent_source(source: Any) -> AgentSource | None:
+    if source is None:
+        return None
+    if not isinstance(source, str) or source not in ("personal", "team", "legacy"):
+        raise ValueError("Invalid agent source")
+    return source
+
+
+def shared_agent_source_dir(name: str, source: AgentSource) -> Path:
+    """Resolve ONE shared namespace. Explicit selection never falls back."""
+    name = validate_agent_name(name)
+    source = validate_agent_source(source)
+    if not name or source not in ("team", "legacy"):
+        raise ValueError("Expected a named shared agent source")
+    paths = get_paths()
+    if source == "team":
+        from deerflow.persistence.agents.publications import TeamPublicationStore
+
+        return TeamPublicationStore(paths).read(name).directory
+    directory = paths.agent_dir(name)
+    if not (directory / "config.yaml").is_file():
+        raise FileNotFoundError("Selected shared agent is no longer available")
+    return directory
+
+
+def load_agent_config(name: str | None, *, user_id: str | None = None, source: AgentSource | None = None) -> AgentConfig | None:
     """Load the custom or default agent's config from its directory.
 
     Reads from the per-user layout first; falls back to the legacy shared layout
@@ -385,16 +418,24 @@ def load_agent_config(name: str | None, *, user_id: str | None = None) -> AgentC
         ValueError: If config.yaml cannot be parsed.
     """
 
+    source = validate_agent_source(source)
     if name is None:
         return None
 
     name = validate_agent_name(name)
-    from deerflow.persistence.agents import get_agent_store
+    from deerflow.persistence.agents import get_agent_store, parse_agent_config
 
+    if source in ("team", "legacy"):
+        directory = shared_agent_source_dir(name, source)
+        with (directory / "config.yaml").open(encoding="utf-8") as stream:
+            document = yaml.safe_load(stream) or {}
+        return parse_agent_config({**document, "name": name}, name)
+    if source == "personal":
+        return get_agent_store().get(name, user_id=user_id, allow_shared=False)
     return get_agent_store().get(name, user_id=user_id)
 
 
-def load_agent_soul(agent_name: str | None, *, user_id: str | None = None) -> str | None:
+def load_agent_soul(agent_name: str | None, *, user_id: str | None = None, source: AgentSource | None = None) -> str | None:
     """Read the SOUL.md file for a custom agent, if it exists.
 
     SOUL.md defines the agent's personality, values, and behavioral guardrails.
@@ -408,6 +449,8 @@ def load_agent_soul(agent_name: str | None, *, user_id: str | None = None) -> st
     Returns:
         The SOUL.md content as a string, or None if the file does not exist.
     """
+    source = validate_agent_source(source)
+    agent_name = validate_agent_name(agent_name)
     if not agent_name:
         agent_dir = get_paths().base_dir
         soul_path = agent_dir / SOUL_FILENAME
@@ -418,6 +461,11 @@ def load_agent_soul(agent_name: str | None, *, user_id: str | None = None) -> st
 
     from deerflow.persistence.agents import get_agent_store
 
+    if source in ("team", "legacy"):
+        soul = shared_agent_source_dir(agent_name, source) / SOUL_FILENAME
+        return (soul.read_text(encoding="utf-8").strip() or None) if soul.is_file() else None
+    if source == "personal":
+        return get_agent_store().get_soul(agent_name, user_id=user_id, allow_shared=False)
     return get_agent_store().get_soul(agent_name, user_id=user_id)
 
 
@@ -456,6 +504,22 @@ def list_team_agents() -> list[AgentConfig]:
             continue
         for entry in sorted(root.iterdir()):
             if not entry.is_dir() or entry.name in seen:
+                continue
+            if root == paths.team_agents_dir:
+                from deerflow.persistence.agents.publications import TeamPublicationStore
+
+                publications = TeamPublicationStore(paths)
+                try:
+                    if not publications.has_record(entry.name):
+                        continue
+                    # A withdrawn/corrupt team record must not reveal a legacy
+                    # namesake. Keep it shadowed even if this read fails.
+                    seen.add(entry.name)
+                    data = publications.read(entry.name).config
+                    known_fields = set(AgentConfig.model_fields.keys())
+                    agents.append(AgentConfig(**{key: value for key, value in data.items() if key in known_fields}))
+                except Exception as exc:
+                    logger.warning("Skipping team agent '%s': %s", entry.name, exc)
                 continue
             config_file = entry / "config.yaml"
             if not config_file.exists():

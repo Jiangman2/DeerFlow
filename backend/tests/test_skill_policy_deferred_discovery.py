@@ -1,6 +1,8 @@
 import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from langchain.agents import create_agent
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
@@ -11,6 +13,7 @@ from pydantic import Field
 from deerflow.agents.middlewares.deferred_tool_filter_middleware import DeferredToolFilterMiddleware
 from deerflow.agents.middlewares.mcp_routing_middleware import McpRoutingMiddleware
 from deerflow.agents.middlewares.skill_tool_policy_middleware import SkillToolPolicyMiddleware
+from deerflow.agents.middlewares.tool_promotion_audit_middleware import DeferredToolPromotionAuditMiddleware
 from deerflow.agents.thread_state import ThreadState
 from deerflow.runtime.secret_context import SKILL_TOOL_POLICY_DECISION_CONTEXT_KEY, write_slash_skill_source_path
 from deerflow.runtime.serialization import serialize
@@ -158,6 +161,8 @@ def test_passive_empty_skill_policy_preserves_deferred_mcp_discovery_and_calling
 def test_active_skill_can_search_promote_and_call_allowed_deferred_tool():
     restricted = _skill("restricted", ["calc"])
     policy, context = _active_policy(restricted)
+    audit = SimpleNamespace(record_middleware=MagicMock())
+    context["__run_journal"] = audit
     setup = _deferred_setup()
     model = _RecordingModel(
         [
@@ -191,6 +196,7 @@ def test_active_skill_can_search_promote_and_call_allowed_deferred_tool():
         model=model,
         tools=[calc, denied_lookup, setup.tool_search_tool],
         middleware=[
+            DeferredToolPromotionAuditMiddleware(setup.deferred_names, setup.catalog_hash),
             policy,
             DeferredToolFilterMiddleware(setup.deferred_names, setup.catalog_hash),
         ],
@@ -213,11 +219,16 @@ def test_active_skill_can_search_promote_and_call_allowed_deferred_tool():
     assert len(search_result) == 1
     assert '"name": "calc"' in search_result[0].content
     assert "denied_lookup" not in search_result[0].content
+    audit.record_middleware.assert_called_once()
+    assert audit.record_middleware.call_args.kwargs["changes"]["tool_names"] == ["calc"]
+    assert "denied_lookup" not in repr(audit.record_middleware.call_args)
 
 
 def test_tool_search_promotion_cannot_expose_or_execute_denied_deferred_tool():
     restricted = _skill("restricted", ["calc"])
     policy, context = _active_policy(restricted)
+    audit = SimpleNamespace(record_middleware=MagicMock())
+    context["__run_journal"] = audit
     setup = _deferred_setup()
     model = _RecordingModel(
         [
@@ -251,6 +262,7 @@ def test_tool_search_promotion_cannot_expose_or_execute_denied_deferred_tool():
         model=model,
         tools=[calc, denied_lookup, setup.tool_search_tool],
         middleware=[
+            DeferredToolPromotionAuditMiddleware(setup.deferred_names, setup.catalog_hash),
             policy,
             DeferredToolFilterMiddleware(setup.deferred_names, setup.catalog_hash),
         ],
@@ -275,6 +287,7 @@ def test_tool_search_promotion_cannot_expose_or_execute_denied_deferred_tool():
     assert len(blocked) == 1
     assert blocked[0].status == "error"
     assert "not allowed by the active skill policy" in blocked[0].content
+    audit.record_middleware.assert_not_called()
 
 
 def test_auto_promotion_cannot_expose_or_execute_denied_deferred_tool():

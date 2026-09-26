@@ -33,6 +33,7 @@ cross-user create, write, cancel, or delete authority.
 
 from __future__ import annotations
 
+import asyncio
 import functools
 import inspect
 from collections.abc import Callable
@@ -144,8 +145,16 @@ async def _authenticate(request: Request) -> AuthContext:
     if user is None:
         return AuthContext(user=None, permissions=[])
 
-    # In future, permissions could be stored in user record
-    return AuthContext(user=user, permissions=_ALL_PERMISSIONS)
+    return AuthContext(user=user, permissions=await resolve_route_permissions_for_request(request, user))
+
+
+async def resolve_route_permissions_for_request(request: Request, user: Any) -> list[str]:
+    """Resolve registered route permissions without weakening owner checks."""
+    from app.gateway.request_authorization import resolve_request_authorization
+
+    authorization = await resolve_request_authorization(request, user)
+    decisions = await asyncio.gather(*(authorization.allowed("route", permission.split(":", 1)[1], permission) for permission in _ALL_PERMISSIONS))
+    return [permission for permission, allowed in zip(_ALL_PERMISSIONS, decisions) if allowed]
 
 
 def require_auth[**P, T](func: Callable[P, T]) -> Callable[P, T]:

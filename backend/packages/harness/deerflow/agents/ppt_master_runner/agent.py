@@ -19,6 +19,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
+from langchain_core.callbacks import BaseCallbackManager
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.config import get_stream_writer
@@ -310,6 +311,71 @@ def _transport_failure_kind(exc: Exception) -> str:
     return type(exc).__name__
 
 
+def _find_usage_recorder(config: RunnableConfig, runtime: Runtime) -> Any | None:
+    """Find the run journal callback without coupling the runner to its class."""
+
+    callbacks = config.get("callbacks")
+    runtime_config = getattr(runtime, "config", None)
+    if not callbacks and isinstance(runtime_config, dict):
+        callbacks = runtime_config.get("callbacks")
+    if isinstance(callbacks, BaseCallbackManager):
+        callbacks = callbacks.handlers
+    if not isinstance(callbacks, list):
+        return None
+    for callback in callbacks:
+        if hasattr(callback, "record_external_llm_usage_records"):
+            return callback
+    return None
+
+
+def _report_agent_usage(
+    config: RunnableConfig,
+    runtime: Runtime,
+    result: dict[str, Any],
+) -> dict[str, int] | None:
+    """Persist external Codex usage through DeerFlow's existing run journal."""
+
+    raw_records = result.get("usage_records")
+    if not isinstance(raw_records, list):
+        return None
+    records = [record for record in raw_records if isinstance(record, dict)]
+    if not records:
+        return None
+    recorder = _find_usage_recorder(config, runtime)
+    if recorder is None:
+        raise RuntimeError("PPT Agent token usage recorder is unavailable")
+    recorder.record_external_llm_usage_records(records)
+    return {
+        "input_tokens": sum(int(record.get("input_tokens") or 0) for record in records),
+        "cached_input_tokens": sum(int(record.get("cache_read_tokens") or 0) for record in records),
+        "output_tokens": sum(int(record.get("output_tokens") or 0) for record in records),
+        "total_tokens": sum(int(record.get("total_tokens") or 0) for record in records),
+        "llm_call_count": sum(max(int(record.get("llm_call_count") or 1), 1) for record in records),
+    }
+
+
+def _report_agent_delivery(config: RunnableConfig, runtime: Runtime, result: dict[str, Any]) -> list[str]:
+    """Record only the current authenticated host's completed handoff.
+
+    Agent host validates the changed PPTX with upstream's delivery checker and
+    publishes its fresh PDF companion before returning this task result. Neither
+    model text nor previous graph-state artifacts can establish this receipt.
+    """
+    if result.get("status") != "completed":
+        return []
+    context = runtime.context or {}
+    if not result.get("task_id") or result.get("task_id") != context.get("run_id") or result.get("thread_id") != context.get("thread_id"):
+        raise RuntimeError("PPT Agent delivery identity does not match the current task")
+    artifacts = result.get("artifacts", [])
+    if artifacts == []:
+        return []
+    recorder = _find_usage_recorder(config, runtime)
+    if recorder is None or not callable(getattr(recorder, "record_external_artifact_delivery", None)):
+        raise RuntimeError("PPT Agent delivery recorder is unavailable")
+    recorder.record_external_artifact_delivery(artifacts, run_id=context["run_id"], thread_id=context["thread_id"])
+    return list(artifacts)
+
+
 async def _wait_for_agent_host(
     *,
     client: httpx.AsyncClient,
@@ -563,8 +629,9 @@ async def _run_external_ppt_master(
 
     status = result.get("status")
     final_message = str(result.get("final_message") or "").strip()
-    artifacts = [str(path) for path in result.get("artifacts", []) if isinstance(path, str)]
+    usage = _report_agent_usage(config, runtime, result)
     if status == "completed":
+        artifacts = _report_agent_delivery(config, runtime, result)
         writer(
             {
                 "type": "task_completed",
@@ -572,6 +639,7 @@ async def _run_external_ppt_master(
                 "thread_id": thread_id,
                 "result": final_message,
                 "model_name": "ppt-master-agent-host",
+                **({"usage": usage} if usage else {}),
             }
         )
         state_update = {
@@ -583,7 +651,15 @@ async def _run_external_ppt_master(
 
     error = str(result.get("error") or final_message or f"external Agent ended with status={status}")
     event_type = "task_cancelled" if status == "cancelled" else "task_failed"
-    writer({"type": event_type, "task_id": run_id, "thread_id": thread_id, "error": error})
+    writer(
+        {
+            "type": event_type,
+            "task_id": run_id,
+            "thread_id": thread_id,
+            "error": error,
+            **({"usage": usage} if usage else {}),
+        }
+    )
     raise RuntimeError(f"PPT Agent host failed: {error}")
 
 

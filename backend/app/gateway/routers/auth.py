@@ -40,6 +40,7 @@ from app.gateway.auth.platform_token_cookie import (
     set_cnooc_platform_token_cookie,
 )
 from app.gateway.auth.user_provisioning import get_or_provision_oidc_user
+from app.gateway.authz import get_auth_context, resolve_route_permissions_for_request
 from app.gateway.csrf_middleware import CSRF_COOKIE_NAME, _request_origin, generate_csrf_token, is_secure_request
 from app.gateway.deps import get_current_user_from_request, get_local_provider
 from deerflow.config.auth_config import OIDCProviderConfig
@@ -457,6 +458,8 @@ async def change_password(request: Request, response: Response, body: ChangePass
 async def get_me(request: Request):
     """Get current authenticated user info."""
     user = await get_current_user_from_request(request)
+    auth = get_auth_context(request)
+    permissions = list(auth.permissions) if auth is not None and auth.user is not None and str(auth.user.id) == str(user.id) else await resolve_route_permissions_for_request(request, user)
     return UserResponse(
         id=str(user.id),
         email=user.email,
@@ -466,6 +469,7 @@ async def get_me(request: Request):
         oauth_provider=user.oauth_provider,
         display_name=user.display_name,
         organization_name=user.organization_name,
+        permissions=permissions,
     )
 
 

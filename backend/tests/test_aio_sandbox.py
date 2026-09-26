@@ -258,9 +258,7 @@ class TestErrorObservationRetry:
         """Only the structured session-not-found response rotates a session."""
         from agent_sandbox.core.api_error import ApiError
 
-        sandbox._client.shell.exec_command = MagicMock(
-            side_effect=ApiError(status_code=404, body={"message": "Not Found"})
-        )
+        sandbox._client.shell.exec_command = MagicMock(side_effect=ApiError(status_code=404, body={"message": "Not Found"}))
 
         assert sandbox.execute_command("test").startswith("Error:")
         sandbox._client.shell.create_session.assert_not_called()
@@ -351,9 +349,7 @@ class TestBashExecUnsupportedFailFast:
 
     def test_bash_exec_uses_and_releases_explicit_transient_session(self, sandbox):
         """Env-bearing commands must not consume a server session forever."""
-        sandbox._client.bash.exec = MagicMock(
-            return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None))
-        )
+        sandbox._client.bash.exec = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None)))
 
         assert sandbox.execute_command("cmd", env={"TOK": "v"}) == "ok"
 
@@ -362,9 +358,7 @@ class TestBashExecUnsupportedFailFast:
         sandbox._client.bash.close_session.assert_called_once_with(session_id)
 
     def test_bash_exec_cleanup_failure_does_not_mask_success(self, sandbox):
-        sandbox._client.bash.exec = MagicMock(
-            return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None))
-        )
+        sandbox._client.bash.exec = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None)))
         sandbox._client.bash.close_session = MagicMock(side_effect=RuntimeError("cleanup failed"))
 
         assert sandbox.execute_command("cmd", env={"TOK": "v"}) == "ok"
@@ -538,9 +532,7 @@ class TestNoChangeTimeout:
             sandbox.list_dir("/test")
 
     def test_list_dir_rejects_empty_client_response(self, sandbox):
-        sandbox._client.shell.exec_command = MagicMock(
-            return_value=SimpleNamespace(data=None)
-        )
+        sandbox._client.shell.exec_command = MagicMock(return_value=SimpleNamespace(data=None))
 
         with pytest.raises(OSError, match="empty response"):
             sandbox.list_dir("/test")
@@ -625,13 +617,7 @@ class TestReadFileFallback:
     def test_file_api_parse_error_falls_back_to_shell(self, sandbox):
         """A malformed remote error response must not hide a readable file."""
         sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
-        sandbox._client.shell.exec_command = MagicMock(
-            return_value=SimpleNamespace(
-                data=SimpleNamespace(
-                    output=f"<svg>content</svg>\n{_BASH_EXIT_SENTINEL}0\n"
-                )
-            )
-        )
+        sandbox._client.shell.exec_command = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(output=f"<svg>content</svg>\n{_BASH_EXIT_SENTINEL}0\n")))
 
         result = sandbox.read_file("/mnt/user-data/workspace/svg_output/01.svg")
 
@@ -641,13 +627,7 @@ class TestReadFileFallback:
     def test_file_api_parse_error_returns_normalized_shell_failure(self, sandbox):
         """A missing file should become an actionable Error string."""
         sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
-        sandbox._client.shell.exec_command = MagicMock(
-            return_value=SimpleNamespace(
-                data=SimpleNamespace(
-                    output=f"cat: /mnt/user-data/workspace/missing.svg: No such file\n{_BASH_EXIT_SENTINEL}1\n"
-                )
-            )
-        )
+        sandbox._client.shell.exec_command = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(output=f"cat: /mnt/user-data/workspace/missing.svg: No such file\n{_BASH_EXIT_SENTINEL}1\n")))
 
         result = sandbox.read_file("/mnt/user-data/workspace/missing.svg")
 

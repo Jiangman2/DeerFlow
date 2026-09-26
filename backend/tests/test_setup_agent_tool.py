@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from deerflow.tools.builtins.setup_agent_tool import setup_agent
 
@@ -128,7 +129,7 @@ class TestSetupAgentNoDataLoss:
         assert not agent_dir.exists()
 
         with _use_file_agent_store(tmp_path):
-            with patch("yaml.dump", side_effect=OSError("write error")):
+            with patch("deerflow.persistence.agents.drafts._replace_bytes", side_effect=OSError("write error")):
                 setup_agent.func(
                     soul="new soul",
                     description="desc",
@@ -146,6 +147,33 @@ class TestSetupAgentNoDataLoss:
         assert agent_dir.exists()
         assert (agent_dir / "SOUL.md").read_text() == "# My Agent"
         assert (agent_dir / "config.yaml").exists()
+
+    def test_bootstrap_preserves_existing_creator_configuration(self, tmp_path):
+        agent_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "test-agent"
+        agent_dir.mkdir(parents=True)
+        existing = {
+            "name": "test-agent",
+            "display_name": "地质分析员",
+            "skills": [],
+            "model": "selected-model",
+            "category_id": "oil-gas-resource-development",
+            "tags": ["地质"],
+            "thinking_enabled": False,
+        }
+        (agent_dir / "config.yaml").write_text(yaml.safe_dump(existing, allow_unicode=True), encoding="utf-8")
+        result = _call_setup_agent(tmp_path, soul="new soul", description="new description")
+        assert result.update.get("created_agent_name") == "test-agent"
+        saved = yaml.safe_load((agent_dir / "config.yaml").read_text(encoding="utf-8"))
+        for key, value in existing.items():
+            assert saved[key] == value
+
+    def test_bootstrap_rejects_other_users_skill_before_writing(self, tmp_path):
+        with _use_file_agent_store(tmp_path), patch("deerflow.skills.agent_selection.get_or_new_user_skill_storage") as storage:
+            storage.return_value.load_skills.return_value = []
+            result = setup_agent.func(soul="new soul", description="desc", skills=["someone-elses-skill"], runtime=_make_runtime())
+        assert result.update["messages"][0].status == "error"
+        assert "created_agent_name" not in result.update
+        assert not (tmp_path / "users" / "test-user-autouse" / "agents" / "test-agent").exists()
 
     @pytest.mark.no_auto_user
     def test_runtime_user_id_used_when_contextvar_missing(self, tmp_path: Path):
@@ -169,6 +197,37 @@ class TestSetupAgentNoDataLoss:
 
 
 # --- Empty soul guard tests  ---
+
+
+@pytest.mark.parametrize("selection", [[], None])
+def test_builder_form_selection_takes_precedence_over_model_suggestion(tmp_path, selection):
+    runtime = _make_runtime()
+    runtime.context.update({"is_bootstrap": True, "agent_skill_selection": selection})
+    with _use_file_agent_store(tmp_path):
+        result = setup_agent.func(soul="new soul", description="desc", skills=["model-invented"], runtime=runtime)
+    assert result.update.get("created_agent_name") == "test-agent"
+    config_file = tmp_path / "users" / "test-user-autouse" / "agents" / "test-agent" / "config.yaml"
+    assert yaml.safe_load(config_file.read_text())["skills"] == selection
+
+
+def test_builder_form_selection_still_requires_current_user_access(tmp_path):
+    runtime = _make_runtime()
+    runtime.context.update({"is_bootstrap": True, "agent_skill_selection": ["another-user-private"]})
+    with _use_file_agent_store(tmp_path), patch("deerflow.skills.agent_selection.get_or_new_user_skill_storage") as storage:
+        storage.return_value.load_skills.return_value = []
+        result = setup_agent.func(soul="new soul", description="desc", runtime=runtime)
+    assert result.update["messages"][0].status == "error"
+    assert "created_agent_name" not in result.update
+
+
+@pytest.mark.parametrize("selection", ["analysis", {"name": "analysis"}, [None], [" analysis"]])
+def test_builder_rejects_malformed_form_selection(tmp_path, selection):
+    runtime = _make_runtime()
+    runtime.context.update({"is_bootstrap": True, "agent_skill_selection": selection})
+    with _use_file_agent_store(tmp_path):
+        result = setup_agent.func(soul="new soul", description="desc", runtime=runtime)
+    assert result.update["messages"][0].status == "error"
+    assert "created_agent_name" not in result.update
 
 
 class TestSetupAgentEmptySoulGuard:

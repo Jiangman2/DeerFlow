@@ -2,6 +2,8 @@
 
 DeerFlow supports user-owned IM channel bindings for Telegram, Slack, Discord, Feishu/Lark, DingTalk, WeChat, and WeCom. The feature reuses the existing `channels.*` runtime configuration, so it works in local and private deployments with the same outbound transports already supported by DeerFlow.
 
+In the CNOOC enterprise UI, the `feishu` provider is labeled **海能 Work** and uses the supplied 海能 Work mark; the API/provider key, credentials, and channel transport remain `feishu`. Channel connection instructions and bot acknowledgements use the public product name **中国海油通用智能体** rather than the internal DeerFlow name.
+
 No public IP, OAuth callback URL, or provider webhook is required in this implementation.
 
 This document covers both **architecture** (how the bind / dispatch / file pipeline fits together) and **configuration / operations** (the existing `config.yaml` knobs and security notes). For the high-level orientation, see [AGENTS.md](../AGENTS.md) → "IM Channels System".

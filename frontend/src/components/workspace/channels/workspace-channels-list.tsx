@@ -24,6 +24,7 @@ import {
   prepareConnectWindow,
 } from "@/core/channels/open-connect-url";
 import {
+  getChannelDisplayName,
   providerCanConnect,
   providerCanEditRuntimeConfig,
   providerNeedsRuntimeConfig,
@@ -136,14 +137,14 @@ export function WorkspaceChannelsList() {
                   className="size-5 shrink-0"
                 />
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                  {provider.display_name}
+                  {getChannelDisplayName(provider)}
                 </span>
                 <Button
                   type="button"
                   size="sm"
                   variant={isConnected ? "outline" : "secondary"}
                   className={cn(
-                    "h-8 w-24 px-2 text-xs",
+                    "h-8 w-auto min-w-16 px-2 text-xs",
                     isConnected && "gap-1",
                   )}
                   disabled={isPending}

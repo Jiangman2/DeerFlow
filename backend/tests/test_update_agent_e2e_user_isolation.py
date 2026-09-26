@@ -27,6 +27,7 @@ from unittest.mock import MagicMock, patch
 from uuid import UUID
 
 import pytest
+import json
 import yaml
 from _agent_e2e_helpers import build_single_tool_call_model
 from langchain_core.messages import HumanMessage
@@ -77,8 +78,10 @@ def _patch_update_agent_dependencies(tmp_path: Path):
     fake_model_cfg = SimpleNamespace(name="fake-model")
     fake_app_cfg = MagicMock()
     fake_app_cfg.get_model_config = lambda name: fake_model_cfg if name == "fake-model" else None
+    from deerflow.persistence.agents.file import FileAgentStore
 
     return [
+        patch("deerflow.tools.builtins.update_agent_tool.get_agent_store", return_value=FileAgentStore()),
         patch(
             "deerflow.tools.builtins.update_agent_tool.get_paths",
             return_value=_make_paths_mock(tmp_path),
@@ -147,7 +150,10 @@ def test_update_agent_falls_back_to_default_when_no_inject_and_no_contextvar(tmp
         )
 
     soul = (tmp_path / "users" / "default" / "agents" / "fallback-target" / "SOUL.md").read_text()
-    assert soul == "# Fallback Updated", "Sanity: tool should have written under default/"
+    assert soul == "# Original", "Model proposals must not edit the definition"
+    files = list((tmp_path / "users/default/agents/fallback-target/.change-proposals").glob("*.json"))
+    assert len(files) == 1
+    assert json.loads(files[0].read_text())["soul"] == "# Fallback Updated"
 
 
 # ---------------------------------------------------------------------------
@@ -198,7 +204,11 @@ def test_update_agent_should_use_runtime_context_user_id_when_contextvar_missing
     auth_soul = (auth_dir / "SOUL.md").read_text()
     default_soul = (default_dir / "SOUL.md").read_text()
 
-    assert auth_soul == "# Auth Updated", f"REGRESSION: update_agent ignored runtime.context['user_id']={auth_uid!r} and routed the write to users/default/ instead. auth_soul={auth_soul!r}, default_soul={default_soul!r}"
+    assert auth_soul == "# Auth Original", "Proposal is not a committed edit"
+    proposals = list((auth_dir / ".change-proposals").glob("*.json"))
+    assert len(proposals) == 1
+    assert json.loads(proposals[0].read_text())["soul"] == "# Auth Updated"
+    assert not (default_dir / ".change-proposals").exists()
     assert default_soul == "# Default Original", "REGRESSION: update_agent corrupted the shared default-user agent. It should have written under the authenticated user's path."
 
 
@@ -250,4 +260,7 @@ def test_update_agent_uses_contextvar_when_present(tmp_path: Path, monkeypatch):
     # surface the tool's reply for debug if it errored
     tool_replies = [m.content for m in final["messages"] if getattr(m, "type", "") == "tool"]
     soul = (tmp_path / "users" / auth_uid / "agents" / "ctxvar-agent" / "SOUL.md").read_text()
-    assert soul == "# CtxVar Updated", f"tool replies: {tool_replies}"
+    assert soul == "# Original", f"tool replies: {tool_replies}"
+    proposals = list((tmp_path / "users" / auth_uid / "agents/ctxvar-agent/.change-proposals").glob("*.json"))
+    assert len(proposals) == 1, f"tool replies: {tool_replies}"
+    assert json.loads(proposals[0].read_text())["soul"] == "# CtxVar Updated"

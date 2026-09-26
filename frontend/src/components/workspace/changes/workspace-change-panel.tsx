@@ -6,6 +6,7 @@ import {
   FileMinusIcon,
   FilePenLineIcon,
   FilePlusIcon,
+  LinkIcon,
 } from "lucide-react";
 
 import {
@@ -117,7 +118,12 @@ function WorkspaceChangeFile({
   const { t } = useI18n();
   const hasDiff = file.diff.length > 0;
   const openUrl = resolveArtifactURL(file.path, threadId);
-  const canOpenFile = file.status !== "deleted" && !file.sensitive;
+  const canOpenFile =
+    file.status !== "deleted" &&
+    file.status !== "symlink_created" &&
+    !file.symlink &&
+    file.diff_unavailable_reason !== "symlink" &&
+    !file.sensitive;
 
   return (
     <Collapsible defaultOpen={hasDiff}>
@@ -187,6 +193,9 @@ function WorkspaceDiff({ diff }: { diff: string }) {
 
 function StatusIcon({ status }: { status: WorkspaceChangeStatus }) {
   const className = "mt-0.5 size-4 shrink-0";
+  if (status === "symlink_created") {
+    return <LinkIcon className={cn(className, "text-muted-foreground")} />;
+  }
   if (status === "created") {
     return <FilePlusIcon className={cn(className, "text-emerald-500")} />;
   }
@@ -200,6 +209,9 @@ function statusLabel(
   status: WorkspaceChangeStatus,
   t: ReturnType<typeof useI18n>["t"],
 ) {
+  if (status === "symlink_created") {
+    return t.workspaceChanges.symlinkCreated;
+  }
   if (status === "created") {
     return t.workspaceChanges.created;
   }
@@ -224,6 +236,9 @@ function unavailableLabel(
   }
   if (reason === "truncated") {
     return t.workspaceChanges.truncatedUnavailable;
+  }
+  if (reason === "symlink") {
+    return t.workspaceChanges.symlinkUnavailable;
   }
   return t.workspaceChanges.diffUnavailable;
 }

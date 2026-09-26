@@ -45,17 +45,28 @@ if str(_SCRIPTS_DIR) not in sys.path:
 from console_encoding import configure_utf8_stdio  # noqa: E402
 from _batch import run_path_batch  # noqa: E402
 from _conversion_profile import write_conversion_profile_best_effort  # noqa: E402
-from template_fill_pptx.diagram_read import (  # noqa: E402
+from pptx_ooxml.diagram_read import (  # noqa: E402
     read_smartart_diagrams,
     smartart_to_markdown,
 )
 
-from pptx import Presentation
-from pptx.enum.action import PP_ACTION
-from pptx.enum.shapes import MSO_SHAPE_TYPE
-from pptx.oxml.ns import qn
-
 configure_utf8_stdio()
+
+# Help must not depend on the optional conversion packages: a stdlib-only
+# interpreter still gets the argparse usage (docs/rules/code-style.md §4).
+_HELP_REQUESTED = __name__ == "__main__" and any(
+    arg in {"-h", "--help"} for arg in sys.argv[1:]
+)
+if not _HELP_REQUESTED:
+    try:
+        from pptx import Presentation
+        from pptx.enum.action import PP_ACTION
+        from pptx.enum.shapes import MSO_SHAPE_TYPE
+        from pptx.oxml.ns import qn
+        from pptx.text.text import _Run
+    except ImportError:
+        print("[ERROR] python-pptx not installed. Run: pip install python-pptx", file=sys.stderr)
+        sys.exit(1)
 
 
 EMU_PER_INCH = 914400
@@ -217,8 +228,11 @@ def _encode_md_url(url: str) -> str:
     return quote(url, safe="/:?=&%#@!$'*+,;")
 
 
-def _resolve_internal_jump(run: object, shape: object) -> str | None:
-    """Return ``#slide-N`` for a run carrying a slide-internal jump, else None.
+def _resolve_internal_jump(
+    run: object,
+    shape: object,
+) -> tuple[bool, str | None]:
+    """Return whether a run is an internal jump and its resolved target.
 
     Reads ``run._r`` (private python-pptx API) because the public
     ``run.hyperlink.address`` cannot tell an internal jump apart from an
@@ -228,26 +242,26 @@ def _resolve_internal_jump(run: object, shape: object) -> str | None:
     try:
         rpr = run._r.find(qn("a:rPr"))
         if rpr is None:
-            return None
+            return False, None
         hlink = rpr.find(qn("a:hlinkClick"))
         if hlink is None or "hlinksldjump" not in (hlink.get("action", "") or ""):
-            return None
+            return False, None
         r_id = hlink.get(qn("r:id"), "")
         if not r_id:
-            return None
+            return True, None
         target_slide = shape.part.related_part(r_id).slide
         prs = shape.part.slide.part.package.presentation_part.presentation
-        return f"#slide-{list(prs.slides).index(target_slide) + 1}"
+        return True, f"#slide-{list(prs.slides).index(target_slide) + 1}"
     except (KeyError, ValueError, AttributeError):
         print(f"[WARN] ppt_to_md: could not resolve slide jump rId={r_id}", file=sys.stderr)
-        return None
+        return True, None
 
 
 def _run_url(run: object, shape: object) -> str | None:
     """Resolve a run's hyperlink target to a markdown-ready URL, or None."""
     if shape is not None:
-        internal = _resolve_internal_jump(run, shape)
-        if internal:
+        is_internal, internal = _resolve_internal_jump(run, shape)
+        if is_internal:
             return internal
     try:
         addr = run.hyperlink.address
@@ -258,7 +272,12 @@ def _run_url(run: object, shape: object) -> str | None:
     return None
 
 
-def _paragraph_to_markdown(paragraph: object, shape: object) -> str:
+def _paragraph_to_markdown(
+    paragraph: object,
+    shape: object,
+    *,
+    use_shape_click_action: bool = True,
+) -> str:
     """Render one paragraph, merging consecutive runs that share a URL.
 
     Run text is concatenated verbatim — including the spaces between runs — and
@@ -284,7 +303,15 @@ def _paragraph_to_markdown(paragraph: object, shape: object) -> str:
         parts.append(f"{lead}[{display}]({current_url}){trail}")
 
     has_run_hyperlink = False
-    for run in paragraph.runs:
+    for child in paragraph._p:
+        tag = child.tag.rsplit("}", 1)[-1] if isinstance(child.tag, str) else ""
+        if tag == "br":
+            # A soft line break inside the paragraph; python-pptx's runs skip it.
+            current_text += "\n"
+            continue
+        if tag != "r":
+            continue
+        run = _Run(child, paragraph)
         url = _run_url(run, shape)
         if url:
             has_run_hyperlink = True
@@ -298,28 +325,40 @@ def _paragraph_to_markdown(paragraph: object, shape: object) -> str:
     text = normalize_text("".join(parts))
 
     # Shape-level click_action only matters when no run carried its own link.
-    if not has_run_hyperlink and shape is not None:
+    if (
+        use_shape_click_action
+        and not has_run_hyperlink
+        and shape is not None
+    ):
         text = _apply_shape_click_action(text, shape)
     return text
 
 
 def _apply_shape_click_action(text: str, shape: object) -> str:
     """Wrap paragraph text in a link from the shape's click_action, if any."""
+    target = _shape_click_target(shape)
+    if target is None:
+        return text
+    return f"[{_escape_md_link_text(text)}]({target})"
+
+
+def _shape_click_target(shape: object) -> str | None:
+    """Return one Markdown-ready whole-shape click target, if supported."""
     try:
         action = shape.click_action
         if action.action == PP_ACTION.HYPERLINK:
             url = action.hyperlink.address or ""
             if _is_supported_url(url):
-                return f"[{_escape_md_link_text(text)}]({_encode_md_url(url)})"
+                return _encode_md_url(url)
         elif action.action == PP_ACTION.NAMED_SLIDE:
             target = action.target_slide
             if target is not None:
                 prs = shape.part.slide.part.package.presentation_part.presentation
                 idx = list(prs.slides).index(target) + 1
-                return f"[{_escape_md_link_text(text)}](#slide-{idx})"
+                return f"#slide-{idx}"
     except (AttributeError, ValueError):
         print("[WARN] ppt_to_md: could not process shape click_action", file=sys.stderr)
-    return text
+    return None
 
 
 def _paragraph_has_hyperlink(paragraph: object) -> bool:
@@ -339,7 +378,12 @@ def _paragraph_has_hyperlink(paragraph: object) -> bool:
     return False
 
 
-def text_frame_to_markdown(text_frame: object, shape: object = None) -> str:
+def text_frame_to_markdown(
+    text_frame: object,
+    shape: object = None,
+    *,
+    use_shape_click_action: bool = True,
+) -> str:
     """Convert a PowerPoint text frame into Markdown, preserving hyperlinks.
 
     Run-level external URLs and slide-internal jumps are emitted as
@@ -362,7 +406,11 @@ def text_frame_to_markdown(text_frame: object, shape: object = None) -> str:
     paragraphs = []
     for paragraph in visible_paragraphs:
         text = _escape_readback_control_lines(
-            _paragraph_to_markdown(paragraph, shape)
+            _paragraph_to_markdown(
+                paragraph,
+                shape,
+                use_shape_click_action=use_shape_click_action,
+            )
         )
         if not text:
             continue
@@ -377,11 +425,20 @@ def text_frame_to_markdown(text_frame: object, shape: object = None) -> str:
     return "\n\n".join(paragraphs)
 
 
-def table_to_markdown(table: object) -> str:
+def table_to_markdown(table: object, shape: object = None) -> str:
     """Convert a PowerPoint table to a Markdown table."""
     rows = []
     for row in table.rows:
-        cells = [escape_table_cell(cell.text) for cell in row.cells]
+        cells = [
+            escape_table_cell(
+                text_frame_to_markdown(
+                    cell.text_frame,
+                    shape,
+                    use_shape_click_action=False,
+                )
+            )
+            for cell in row.cells
+        ]
         rows.append(cells)
 
     if not rows:
@@ -751,27 +808,33 @@ def _unexposed_chartex_markdown(
     return blocks
 
 
-def _image_part_for_shape(shape: object) -> object | None:
-    """Return the first embedded image part referenced by a shape."""
+def _image_part_for_shape(shape: object) -> tuple[object | None, str | None]:
+    """Return the first referenced image part plus any resolution failure."""
     element = getattr(shape, "element", None)
-    part = getattr(shape, "part", None)
-    if element is None or part is None:
-        return None
+    if element is None:
+        return None, "shape XML is unavailable while inspecting image references"
 
     try:
         blips = element.xpath(".//a:blip")
-    except Exception:
-        return None
+    except Exception as exc:
+        return None, (
+            "image reference scan failed "
+            f"({type(exc).__name__}: {exc})"
+        )
 
+    part = getattr(shape, "part", None)
+    failures: list[str] = []
     for blip in blips:
         rel_id = blip.get(qn("r:embed")) or blip.get(qn("r:link"))
         if not rel_id:
             continue
         try:
-            return part.related_part(rel_id)
-        except Exception:
-            continue
-    return None
+            return part.related_part(rel_id), None
+        except Exception as exc:
+            failures.append(f"{rel_id} ({type(exc).__name__}: {exc})")
+    if failures:
+        return None, "image relationship resolution failed: " + "; ".join(failures)
+    return None, None
 
 
 def _image_size_from_bytes(blob: bytes) -> tuple[int | None, int | None]:
@@ -921,6 +984,7 @@ def _asset_filename(
 
 def save_picture(
     shape: object,
+    image_part: object,
     asset_dir: Path,
     slide_index: int,
     asset_index: int,
@@ -928,10 +992,6 @@ def save_picture(
     used_filenames: set[str],
 ) -> SavedPicture | None:
     """Persist a shape image to the output asset directory."""
-    image_part = _image_part_for_shape(shape)
-    if image_part is None:
-        return None
-
     content_type = getattr(image_part, "content_type", None)
     part_ext = getattr(getattr(image_part, "partname", None), "ext", None)
     ext = normalize_ext(part_ext, content_type)
@@ -984,12 +1044,12 @@ def _reset_generated_asset_dir(asset_dir: Path) -> None:
     shutil.rmtree(asset_dir)
 
 
-def extract_notes(slide: object) -> str:
-    """Extract speaker notes text from a slide, if available."""
+def extract_notes(slide: object) -> tuple[str, str | None]:
+    """Extract speaker notes text plus any notes-slide access failure."""
     try:
         notes_slide = slide.notes_slide
-    except Exception:
-        return ""
+    except Exception as exc:
+        return "", f"speaker notes read failed ({type(exc).__name__}: {exc})"
 
     blocks = []
     for item in iter_leaf_shapes(notes_slide.shapes):
@@ -1000,7 +1060,7 @@ def extract_notes(slide: object) -> str:
         if text:
             blocks.append(text)
 
-    return "\n\n".join(blocks).strip()
+    return "\n\n".join(blocks).strip(), None
 
 
 def convert_presentation_to_markdown(
@@ -1098,7 +1158,7 @@ def convert_presentation_to_markdown(
             shape = item.shape
 
             if getattr(shape, "has_table", False):
-                table_md = table_to_markdown(shape.table)
+                table_md = table_to_markdown(shape.table, shape)
                 if table_md:
                     blocks.append(table_md)
                 continue
@@ -1114,18 +1174,29 @@ def convert_presentation_to_markdown(
                 MSO_SHAPE_TYPE.PICTURE,
                 MSO_SHAPE_TYPE.LINKED_PICTURE,
             }
-            has_shape_image = is_picture_shape or _image_part_for_shape(shape) is not None
+            image_part, image_error = _image_part_for_shape(shape)
+            if image_error is not None:
+                shape_name = getattr(shape, "name", "") or "unnamed shape"
+                warning = f"Slide {slide_index}, {shape_name}: {image_error}"
+                conversion_warnings.append(warning)
+                print(f"[WARN] ppt_to_md: {warning}", file=sys.stderr)
+            has_shape_image = is_picture_shape or image_part is not None
             if has_shape_image:
                 image_ref_count += 1
                 next_image_index = image_count + 1
                 asset_dir.mkdir(parents=True, exist_ok=True)
-                saved_picture = save_picture(
-                    shape,
-                    asset_dir,
-                    slide_index,
-                    next_image_index,
-                    asset_cache,
-                    used_filenames,
+                saved_picture = (
+                    save_picture(
+                        shape,
+                        image_part,
+                        asset_dir,
+                        slide_index,
+                        next_image_index,
+                        asset_cache,
+                        used_filenames,
+                    )
+                    if image_part is not None
+                    else None
                 )
                 if saved_picture is None:
                     if is_picture_shape:
@@ -1136,10 +1207,14 @@ def convert_presentation_to_markdown(
                         image_count = next_image_index
                         image_manifest.append(saved_picture.manifest_entry)
                     asset_dir_used = True
-                    blocks.append(
+                    image_markdown = (
                         f"![Slide {slide_index} Image {image_ref_count}]"
                         f"({asset_dir.name}/{saved_picture.filename})"
                     )
+                    image_link = _shape_click_target(shape)
+                    if image_link is not None:
+                        image_markdown = f"[{image_markdown}]({image_link})"
+                    blocks.append(image_markdown)
                     if is_picture_shape:
                         continue
 
@@ -1192,7 +1267,11 @@ def convert_presentation_to_markdown(
             lines.append("_No extractable text content._")
             lines.append("")
 
-        notes_md = extract_notes(slide)
+        notes_md, notes_error = extract_notes(slide)
+        if notes_error is not None:
+            warning = f"Slide {slide_index}: {notes_error}"
+            conversion_warnings.append(warning)
+            print(f"[WARN] ppt_to_md: {warning}", file=sys.stderr)
         if notes_md:
             lines.append("### Speaker Notes")
             lines.append("")
@@ -1234,7 +1313,7 @@ def convert_presentation_to_markdown(
     return markdown_content
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     """Run the CLI entry point."""
     parser = argparse.ArgumentParser(
         description="Convert PowerPoint files to Markdown",
@@ -1260,7 +1339,7 @@ Legacy .ppt is not parsed directly. Resave it as .pptx or export it to PDF first
         help="Output Markdown file for one input, or output directory for multiple inputs/directories",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     return run_path_batch(
         args.inputs,

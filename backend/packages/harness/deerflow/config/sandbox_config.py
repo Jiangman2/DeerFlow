@@ -1,4 +1,132 @@
-from pydantic import BaseModel, ConfigDict, Field
+import ipaddress
+import math
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+SandboxOwnershipType = Literal["memory", "redis"]
+SandboxOverflowPolicy = Literal["wait", "reject", "burst"]
+SandboxNetworkMode = Literal["open", "isolated", "allowlist"]
+SandboxNetworkApproval = Literal["deny", "prompt"]
+
+# Redis stores relative PX values as absolute signed-millisecond timestamps.
+_REDIS_MAX_SAFE_TTL_MILLISECONDS = (2**63 - 1) // 2
+
+
+class SandboxNetworkConfig(BaseModel):
+    """Outbound network policy for locally managed AIO sandboxes."""
+
+    mode: SandboxNetworkMode = Field(
+        default="open",
+        description="open keeps the current Docker networking behavior; isolated denies all egress; allowlist permits configured domains and optional runtime approval.",
+    )
+    allow_domains: list[str] = Field(
+        default_factory=list,
+        description="Exact domains or leading-wildcard domains (for example *.pythonhosted.org) allowed in allowlist mode.",
+    )
+    approval: SandboxNetworkApproval = Field(
+        default="prompt",
+        description="Whether a denied public HTTP(S) destination may ask an interactive user for a temporary or sandbox-lifetime grant.",
+    )
+    temporary_grant_ttl: int = Field(
+        default=300,
+        ge=30,
+        le=3600,
+        description="Lifetime in seconds for the temporary approval choice.",
+    )
+    proxy_image: str = Field(
+        default="ghcr.io/bytedance/deer-flow-sandbox-network-proxy:latest",
+        min_length=1,
+        description="Managed Python runtime image used for the trusted network-policy sidecar.",
+    )
+
+    @field_validator("allow_domains")
+    @classmethod
+    def _normalize_allow_domains(cls, values: list[str]) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in values:
+            value = raw.strip().lower().rstrip(".")
+            suffix = value[2:] if value.startswith("*.") else value
+            if not value or value == "*" or not suffix or "://" in value or "/" in value or ":" in value or "*" in suffix or suffix.startswith(".") or suffix.endswith("."):
+                raise ValueError(f"invalid sandbox network allowlist domain: {raw!r}")
+            try:
+                suffix.encode("idna")
+            except UnicodeError as exc:
+                raise ValueError(f"invalid sandbox network allowlist domain: {raw!r}") from exc
+            try:
+                ipaddress.ip_address(suffix)
+            except ValueError:
+                pass
+            else:
+                raise ValueError(f"invalid sandbox network allowlist domain: {raw!r}")
+            ascii_suffix = suffix.encode("idna").decode("ascii")
+            labels = ascii_suffix.split(".")
+            if (
+                len(labels) < 2
+                or len(ascii_suffix) > 253
+                or any(not label or len(label) > 63 or label.startswith("-") or label.endswith("-") or any(not (char.isascii() and (char.isalnum() or char == "-")) for char in label) for label in labels)
+            ):
+                raise ValueError(f"invalid sandbox network allowlist domain: {raw!r}")
+            canonical = ("*." if value.startswith("*.") else "") + ascii_suffix
+            if canonical not in seen:
+                seen.add(canonical)
+                normalized.append(canonical)
+        return normalized
+
+
+class SandboxOwnershipConfig(BaseModel):
+    """Configuration for cross-instance sandbox container ownership (#4206).
+
+    Gateway instances share sandbox containers but each keeps its own in-memory
+    warm pool. Without shared ownership state, one instance's reconciliation
+    adopts another's live container and later idle-destroys it. This selects
+    where that ownership state lives.
+    """
+
+    type: SandboxOwnershipType = Field(
+        default="memory",
+        description=(
+            "Sandbox ownership store backend. 'memory' keeps ownership in-process (single-instance deployments only, where cross-instance adoption cannot occur). "
+            "'redis' shares ownership across gateway instances and is required for load-balanced / multi-worker deployments that share a container backend."
+        ),
+    )
+    redis_url: str | None = Field(
+        default=None,
+        description="Redis URL for the redis ownership type. If omitted, DEER_FLOW_SANDBOX_OWNERSHIP_REDIS_URL, DEER_FLOW_STREAM_BRIDGE_REDIS_URL, REDIS_URL, or redis://localhost:6379/0 is used.",
+    )
+    renewal_interval_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        allow_inf_nan=False,
+        description=(
+            "How often an owning instance refreshes its leases. The lease TTL is derived from this (interval x ttl_multiplier), so ownership liveness is independent of sandbox.idle_timeout: "
+            "renewal keeps running even when idle cleanup is disabled (idle_timeout: 0)."
+        ),
+    )
+    ttl_multiplier: float = Field(
+        default=4.0,
+        ge=2,
+        allow_inf_nan=False,
+        description="Lease TTL as a multiple of renewal_interval_seconds. At least 2, so a single missed renewal (slow host, brief Redis blip) cannot expire a live owner's lease. Default 4 tolerates three consecutive misses.",
+    )
+    key_prefix: str = Field(
+        default="deerflow:sandbox:owner",
+        description="Redis key prefix for ownership leases. Only applies to the redis ownership type.",
+    )
+
+    @model_validator(mode="after")
+    def validate_lease_ttl(self) -> "SandboxOwnershipConfig":
+        lease_ttl_seconds = self.renewal_interval_seconds * self.ttl_multiplier
+        if not math.isfinite(lease_ttl_seconds):
+            raise ValueError("sandbox.ownership lease TTL must be finite")
+        if self.type == "redis":
+            lease_ttl_milliseconds = lease_ttl_seconds * 1000
+            if lease_ttl_milliseconds < 1:
+                raise ValueError("sandbox.ownership Redis lease TTL must be at least 1 millisecond")
+            if lease_ttl_milliseconds > _REDIS_MAX_SAFE_TTL_MILLISECONDS:
+                raise ValueError("sandbox.ownership Redis lease TTL must fit the signed 64-bit millisecond range with absolute-expiry headroom")
+        return self
 
 
 class VolumeMountConfig(BaseModel):
@@ -30,9 +158,11 @@ class SandboxConfig(BaseModel):
         allow_host_bash: Enable host-side bash execution for LocalSandboxProvider.
             Dangerous and intended only for fully trusted local workflows.
 
-    AioSandboxProvider and BoxliteProvider shared options:
-        image: Sandbox image to use (Docker/AIO image or BoxLite OCI image)
-        replicas: Maximum active + warm sandboxes/VMs per gateway process (default: 3). When the limit is reached, warm/least-recently-used sandboxes are evicted to make room; active sandboxes are not forcibly stopped.
+    AioSandboxProvider, BoxliteProvider, E2BSandboxProvider, and OpenSandboxProvider shared options:
+        image: Sandbox image to use (Docker/AIO, BoxLite OCI, or OpenSandbox image)
+        replicas: Positive provider capacity. E2B shares it across Gateway
+            workers when ownership uses Redis; other modes/providers keep
+            process-local accounting.
         idle_timeout: Idle timeout in seconds before released warm sandboxes/VMs are stopped (default: 600 = 10 minutes). Set to 0 to disable.
         environment: Environment variables to inject into the sandbox (values starting with $ are resolved from host env)
 
@@ -44,6 +174,19 @@ class SandboxConfig(BaseModel):
         startup_timeout: Cold-start readiness timeout in seconds (default: 180)
         container_prefix: Prefix for container names (default: deer-flow-sandbox)
         mounts: List of volume mounts to share directories with the container
+        thread_data_mounts: Override whether thread data is already visible to
+            the sandbox through shared mounts. Omit to auto-detect from the backend.
+
+    AioSandboxProvider and E2BSandboxProvider shared options:
+        ownership: Cross-instance sandbox ownership store (memory | redis). Multi-instance
+            deployments sharing a sandbox backend need redis; see SandboxOwnershipConfig.
+
+    OpenSandboxProvider specific options:
+        api_key, domain, protocol, request_timeout, use_server_proxy: OpenSandbox
+            management and execd connection settings.
+        ready_timeout: Create/readiness deadline in seconds (default: 30).
+        sandbox_timeout: Remote lifetime in seconds (default: 14400); 0 requires
+            explicit provider cleanup.
     """
 
     use: str = Field(
@@ -56,7 +199,7 @@ class SandboxConfig(BaseModel):
     )
     image: str | None = Field(
         default=None,
-        description="Sandbox image to use (Docker/AIO image or BoxLite OCI image)",
+        description="Sandbox image to use (Docker/AIO, BoxLite OCI, or OpenSandbox image)",
     )
     port: int | None = Field(
         default=None,
@@ -79,7 +222,22 @@ class SandboxConfig(BaseModel):
     )
     replicas: int | None = Field(
         default=None,
-        description="Maximum active + warm sandboxes/VMs per gateway process (default: 3). Warm/least-recently-used entries are evicted to make room; active sandboxes are not forcibly stopped.",
+        gt=0,
+        description=("Positive provider capacity. E2B enforces it deployment-wide when sandbox ownership uses Redis; otherwise accounting is per Gateway process. Each provider defines which lifecycle states count."),
+    )
+    overflow_policy: SandboxOverflowPolicy = Field(
+        default="wait",
+        description="E2B capacity policy. Use wait, reject, or burst.",
+    )
+    acquire_timeout: int = Field(
+        default=30,
+        gt=0,
+        description="Seconds that E2B wait policy waits for capacity.",
+    )
+    burst_limit: int = Field(
+        default=0,
+        ge=0,
+        description="Extra E2B capacity slots when overflow_policy is burst.",
     )
     container_prefix: str | None = Field(
         default=None,
@@ -94,13 +252,28 @@ class SandboxConfig(BaseModel):
         ge=0,
         description="BoxLite-only reclaim skip window in seconds for boxes recently released by this provider instance. Set to 0 to always validate before warm reuse.",
     )
+    ownership: SandboxOwnershipConfig | None = Field(
+        default=None,
+        description=(
+            "AioSandboxProvider/E2BSandboxProvider: where cross-instance sandbox ownership is tracked (#4206, #4341). Omitted = memory (single-instance). "
+            "Multi-worker / load-balanced gateways sharing one sandbox backend must set type: redis, or peers can adopt and destroy each other's live sandboxes."
+        ),
+    )
     mounts: list[VolumeMountConfig] = Field(
         default_factory=list,
         description="List of volume mounts to share directories between host and container",
     )
+    thread_data_mounts: bool | None = Field(
+        default=None,
+        description=("AioSandboxProvider: override whether /mnt/user-data is already visible through shared mounts. Omitted uses backend auto-detection; true skips explicit upload synchronization; false forces it."),
+    )
     environment: dict[str, str] = Field(
         default_factory=dict,
         description="Environment variables to inject into the sandbox container. Values starting with $ will be resolved from host environment variables.",
+    )
+    network: SandboxNetworkConfig = Field(
+        default_factory=SandboxNetworkConfig,
+        description="AioSandboxProvider outbound network isolation and approval policy.",
     )
 
     bash_output_max_chars: int = Field(
@@ -140,8 +313,9 @@ class SandboxConfig(BaseModel):
         default=600,
         gt=0,
         description=(
-            "Maximum wall-clock seconds a host bash command may run before it is terminated, process group and all (LocalSandboxProvider). "
-            "Keeps a blocking foreground command (e.g. an un-backgrounded server) from hanging the turn; background `&` processes return immediately."
+            "Maximum wall-clock seconds a bash command may run before it is terminated. LocalSandboxProvider applies it to the host process group; "
+            "OpenSandboxProvider forwards it to the remote exec service when a call has no explicit timeout. Keeps a blocking foreground command "
+            "(e.g. an un-backgrounded server) from hanging the turn; background `&` processes return immediately."
         ),
     )
 
@@ -156,11 +330,7 @@ class SandboxConfig(BaseModel):
     )
     sandbox_api_key: str | None = Field(
         default=None,
-        description=(
-            "API key used to authenticate requests to the AIO sandbox API. "
-            "The AIO runtime must receive the same value as SANDBOX_API_KEY; "
-            "DeerFlow sends it as an Authorization: Bearer header."
-        ),
+        description=("API key used to authenticate requests to the AIO sandbox API. The AIO runtime must receive the same value as SANDBOX_API_KEY; DeerFlow sends it as an Authorization: Bearer header."),
     )
 
     model_config = ConfigDict(extra="allow")

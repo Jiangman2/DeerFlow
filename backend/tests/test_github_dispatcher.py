@@ -31,6 +31,11 @@ def base_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     from deerflow.config import paths as paths_module
 
     monkeypatch.setattr(paths_module, "_paths", None)
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    store = FileAgentStore()
+    monkeypatch.setattr("deerflow.persistence.agents.get_agent_store", lambda: store)
+    monkeypatch.setattr("app.gateway.github.registry.get_agent_store", lambda: store)
     # Each test uses a fresh tmp_path, so the registry's mtime cache from
     # a prior test would short-circuit the scan and return [] — drop it.
     from app.gateway.github.registry import _invalidate_cache

@@ -40,6 +40,46 @@ DeerFlow is a LangGraph-based AI super agent with sandbox execution, persistent 
 
 ## Core Components
 
+PostgreSQL storage can opt into a validated `database.postgres_schema`; the empty
+default preserves the existing search path and never moves existing data. ORM,
+migrations, employee-definition storage and LangGraph persistence carry that
+choice consistently. The legacy checkpointer section can still override only
+LangGraph checkpoint/Store configuration. Changing storage settings requires a
+restart and any data relocation requires a separately verified migration.
+ORM PostgreSQL connections recycle after 300 seconds by default and use a
+30-second command timeout (`database.pool_recycle` / `command_timeout`). An
+explicit null command timeout disables that limit; audit long-query requirements
+before deployment. This is not an Agent-turn deadline or a timeout for every
+database client.
+
+Local v2.1 alignment adds enterprise migration `0021_thread_operation_kind`
+and durable checkpoint-write reservations. Goal set/clear, compaction and state
+read/merge/write now share admission with runs, returning HTTP 409 on contention.
+Existing rows and old inserts default to ordinary runs. Internal reservations
+are excluded from history, tokens, Console and enterprise dashboard statistics,
+but retained for lease recovery. Rename errors keep the dialog/input visible.
+This local validation is not mixed-runtime rollout certification: do not enable
+multi-worker production or treat the worktree as a release package.
+
+Recovered orphan runs now terminate retained streams; a durable orphan marker
+provides a heartbeat fallback when publishing END fails, without cutting off
+ordinary final events. Lease renewal failures beyond the last confirmed deadline
+fence local execution and finalization. Peer grace delays reclamation, not the
+owner's right to continue. Cancellation after replacement admission also drains
+owner-scoped cleanup. These local checks do not certify production failover or
+undo remote tool side effects that already committed.
+
+Orphan recovery rechecks the lease in its atomic takeover write. A run that was
+renewed, completed or deleted after an expired-lease scan is not overwritten or
+recreated, and competing recovery workers report only the successful claimant.
+
+The async Checkpointer and Store providers complete database connection cleanup even when a request or Gateway shutdown is cancelled. This upstream-derived runtime fix does not change deployment configuration or database schema.
+Synchronous checkpoint updates used by goal and rollback recovery also finish before cancellation unwinds the caller, avoiding a delayed write after the task has appeared to stop.
+Custom Skill reads and rollback validation no longer perform those filesystem operations on the Gateway event loop.
+The AIO sandbox also quarantines a remote session whose creation result is uncertain, then recycles that sandbox instead of returning it to the warm pool. This prevents a later turn from reusing an unverified session.
+External run inputs and direct thread-state writes cannot select the server-owned `sandbox` channel. This is only the Gateway ingress portion of upstream's restored-reference fix; provider-level user/thread scoping remains required before multi-worker rollout.
+The enterprise SSE disconnect cleanup must not reference an undefined stream-gap flag; its cancellation decision still distinguishes an owned run from a cross-worker `store_only` observation handle.
+
 ### Lead Agent
 
 The single LangGraph agent (`lead_agent`) is the runtime entry point, created via `make_lead_agent(config)`. It combines:

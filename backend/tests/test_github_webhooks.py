@@ -43,6 +43,23 @@ def client() -> TestClient:
 
 
 @pytest.fixture(autouse=True)
+def _isolated_agent_registry(tmp_path, monkeypatch):
+    """Use a real empty file registry, never the operator's configured store."""
+    from app.gateway.github.registry import _invalidate_cache
+    from deerflow.config import paths
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    monkeypatch.setenv("DEER_FLOW_HOME", str(tmp_path))
+    monkeypatch.setattr(paths, "_paths", None)
+    store = FileAgentStore()
+    monkeypatch.setattr("deerflow.persistence.agents.get_agent_store", lambda: store)
+    monkeypatch.setattr("app.gateway.github.registry.get_agent_store", lambda: store)
+    _invalidate_cache()
+    yield
+    _invalidate_cache()
+
+
+@pytest.fixture(autouse=True)
 def _set_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     """Default every test to: secret configured, dev opt-in cleared.
 

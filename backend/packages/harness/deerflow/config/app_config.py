@@ -36,6 +36,7 @@ from deerflow.config.skill_evolution_config import SkillEvolutionConfig
 from deerflow.config.skill_scan_config import SkillScanConfig
 from deerflow.config.skills_config import SkillsConfig
 from deerflow.config.stream_bridge_config import StreamBridgeConfig, load_stream_bridge_config_from_dict
+from deerflow.config.subagent_runtime_config import SubagentRuntimeConfig
 from deerflow.config.subagents_config import SubagentsAppConfig, load_subagents_config_from_dict
 from deerflow.config.suggestions_config import SuggestionsConfig
 from deerflow.config.summarization_config import SummarizationConfig, load_summarization_config_from_dict
@@ -46,6 +47,7 @@ from deerflow.config.tool_config import ToolConfig, ToolGroupConfig
 from deerflow.config.tool_output_config import ToolOutputConfig
 from deerflow.config.tool_progress_config import ToolProgressConfig
 from deerflow.config.tool_search_config import ToolSearchConfig, load_tool_search_config_from_dict
+from deerflow.config.verification_config import VerificationConfig
 
 load_dotenv()
 
@@ -68,7 +70,7 @@ class CircuitBreakerConfig(BaseModel):
 class LoggingEnhanceConfig(BaseModel):
     """Request trace logging enhancement settings."""
 
-    enabled: bool = Field(default=False, description="Enable request-level trace ids in Gateway response headers and log records.")
+    enabled: bool = Field(default=False, description="Print request trace ids in log records. Gateway HTTP and embedded-turn correlation are unconditional.")
     format: Literal["text", "json"] = Field(default="text", description="Enhanced log output format.")
 
 
@@ -81,11 +83,9 @@ class LoggingConfig(BaseModel):
 def is_trace_correlation_enabled(config: Any) -> bool:
     """Return ``True`` when ``logging.enhance.enabled`` is set on *config*.
 
-    Single source of truth for the request-trace-correlation gate, shared by
-    the Gateway ``TraceMiddleware`` and the embedded ``DeerFlowClient`` so
-    the two entry points cannot drift on when ``deerflow_trace_id`` is
-    emitted (Langfuse metadata) and when a request-level trace id is bound
-    at all. Accepts any object exposing ``logging.enhance.enabled`` via
+    Compatibility reader for the old enhancement flag. Neither Gateway HTTP
+    nor embedded turns use it to gate trace correlation. Other background
+    entry-point alignment is tracked in the v2.1 ledger. Accepts objects exposing ``logging.enhance.enabled`` via
     ``getattr`` chains (``AppConfig``, ``SimpleNamespace`` fixtures, etc.);
     missing intermediate attributes silently degrade to ``False``.
     """
@@ -177,6 +177,13 @@ class AppConfig(BaseModel):
     )
     acp_agents: dict[str, ACPAgentConfig] = Field(default_factory=dict, description="ACP-compatible agent configuration")
     subagents: SubagentsAppConfig = Field(default_factory=SubagentsAppConfig, description="Subagent runtime configuration")
+    subagent_runtime: SubagentRuntimeConfig = Field(
+        default_factory=SubagentRuntimeConfig,
+        description=format_field_description(
+            "subagent_runtime",
+            field_doc="Process-local native subagent admission, execution slots and bounded queue.",
+        ),
+    )
     guardrails: GuardrailsConfig = Field(default_factory=GuardrailsConfig, description="Guardrail middleware configuration")
     authorization: AuthorizationConfig = Field(default_factory=AuthorizationConfig, description="Fine-grained resource authorization configuration (RBAC and beyond)")
     input_polish: InputPolishConfig = Field(default_factory=InputPolishConfig, description="Pre-send input polishing configuration.")
@@ -191,6 +198,7 @@ class AppConfig(BaseModel):
     )
     loop_detection: LoopDetectionConfig = Field(default_factory=LoopDetectionConfig, description="Loop detection middleware configuration")
     tool_progress: ToolProgressConfig = Field(default_factory=ToolProgressConfig, description="Tool progress state machine middleware configuration")
+    verification: VerificationConfig = Field(default_factory=VerificationConfig, description="Tool receipt and subagent verification settings")
     read_before_write: ReadBeforeWriteConfig = Field(default_factory=ReadBeforeWriteConfig, description="Read-before-write file gate middleware configuration")
     safety_finish_reason: SafetyFinishReasonConfig = Field(default_factory=SafetyFinishReasonConfig, description="Provider safety-filter finish_reason interception middleware configuration")
     auth: AuthAppConfig = Field(default_factory=AuthAppConfig, description="Authentication configuration (local + OIDC SSO)")
@@ -371,6 +379,9 @@ class AppConfig(BaseModel):
         if previous_checkpointer_config != config.checkpointer:
             # These runtime singletons derive their backend from checkpointer config.
             # Keep imports local to avoid cycles: both providers import get_app_config.
+            # Unified database (including postgres_schema) is restart-required.
+            # Do not reset only checkpoint/Store on a database edit: the app ORM
+            # pool is built once at startup and would retain the old schema.
             from deerflow.runtime.checkpointer import reset_checkpointer
             from deerflow.runtime.store import reset_store
 

@@ -25,6 +25,8 @@ from collections.abc import AsyncIterator
 from langgraph.types import Checkpointer
 
 from deerflow.config.app_config import AppConfig, get_app_config
+from deerflow.persistence.postgres_schema import create_schema_sql, dsn_with_search_path, normalize_libpq_dsn
+from deerflow.runtime.cancellation import drained_async_context
 from deerflow.runtime.checkpointer.provider import (
     POSTGRES_CONN_REQUIRED,
     POSTGRES_INSTALL,
@@ -47,13 +49,13 @@ def _prepare_database_sqlite_checkpointer_path(db_config) -> str:
     return conn_str
 
 
-def _build_postgres_pool(conn_string: str):
+def _build_postgres_pool(conn_string: str, schema: str = ""):
     """Build an AsyncConnectionPool with TCP keepalive and connection checking."""
     from psycopg.rows import dict_row
     from psycopg_pool import AsyncConnectionPool
 
     return AsyncConnectionPool(
-        conn_string,
+        dsn_with_search_path(normalize_libpq_dsn(conn_string), schema),
         kwargs={
             "autocommit": True,
             "prepare_threshold": 0,
@@ -65,6 +67,13 @@ def _build_postgres_pool(conn_string: str):
         },
         check=AsyncConnectionPool.check_connection,
     )
+
+
+async def _ensure_postgres_schema_with_pool(pool, schema: str) -> None:
+    statement = create_schema_sql(schema)
+    if statement is not None:
+        async with pool.connection() as conn:
+            await conn.execute(statement)
 
 
 def _ensure_postgres_imports():
@@ -103,7 +112,7 @@ async def _async_checkpointer(config) -> AsyncIterator[Checkpointer]:
             raise ImportError(SQLITE_INSTALL) from exc
 
         conn_str = await asyncio.to_thread(_prepare_sqlite_checkpointer_path, config.connection_string or "store.db")
-        async with AsyncSqliteSaver.from_conn_string(conn_str) as saver:
+        async with drained_async_context(AsyncSqliteSaver.from_conn_string(conn_str)) as saver:
             await saver.setup()
             yield saver
         return
@@ -113,8 +122,9 @@ async def _async_checkpointer(config) -> AsyncIterator[Checkpointer]:
             raise ValueError(POSTGRES_CONN_REQUIRED)
 
         AsyncPostgresSaver, _ = _ensure_postgres_imports()
-        pool = _build_postgres_pool(config.connection_string)
-        async with pool:
+        pool = _build_postgres_pool(config.connection_string, config.postgres_schema)
+        async with drained_async_context(pool):
+            await _ensure_postgres_schema_with_pool(pool, config.postgres_schema)
             saver = AsyncPostgresSaver(conn=pool)
             await saver.setup()
             yield saver
@@ -144,7 +154,7 @@ async def _async_checkpointer_from_database(db_config) -> AsyncIterator[Checkpoi
             raise ImportError(SQLITE_INSTALL) from exc
 
         conn_str = await asyncio.to_thread(_prepare_database_sqlite_checkpointer_path, db_config)
-        async with AsyncSqliteSaver.from_conn_string(conn_str) as saver:
+        async with drained_async_context(AsyncSqliteSaver.from_conn_string(conn_str)) as saver:
             await saver.setup()
             yield saver
         return
@@ -154,8 +164,9 @@ async def _async_checkpointer_from_database(db_config) -> AsyncIterator[Checkpoi
             raise ValueError("database.postgres_url is required for the postgres backend")
 
         AsyncPostgresSaver, _ = _ensure_postgres_imports()
-        pool = _build_postgres_pool(db_config.postgres_url)
-        async with pool:
+        pool = _build_postgres_pool(db_config.postgres_url, db_config.postgres_schema)
+        async with drained_async_context(pool):
+            await _ensure_postgres_schema_with_pool(pool, db_config.postgres_schema)
             saver = AsyncPostgresSaver(conn=pool)
             await saver.setup()
             yield saver

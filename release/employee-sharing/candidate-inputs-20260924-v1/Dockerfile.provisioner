@@ -1,0 +1,12 @@
+# BUILD INPUT ONLY. Bind employee-provisioner-base to an audited local OCI context.
+FROM employee-provisioner-base AS source-check
+COPY apply_image_delta.py provisioner-delta.json smoke_image_imports.py /tmp/employee-sharing/
+RUN --network=none python3 /tmp/employee-sharing/apply_image_delta.py /app \
+    /tmp/employee-sharing/provisioner-delta.json --check-only
+
+FROM source-check AS candidate
+RUN --network=none python3 /tmp/employee-sharing/apply_image_delta.py /app \
+      /tmp/employee-sharing/provisioner-delta.json --image-build-stage \
+    && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/app python3 \
+       /tmp/employee-sharing/smoke_image_imports.py /app \
+       /tmp/employee-sharing/provisioner-delta.json

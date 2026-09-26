@@ -142,7 +142,7 @@ async def _load_counts(session, user_ids: list[str]) -> tuple[dict[str, int], di
         return {}, {}
 
     thread_rows = await session.execute(select(ThreadMetaRow.user_id, func.count()).where(ThreadMetaRow.user_id.in_(user_ids)).group_by(ThreadMetaRow.user_id))
-    run_rows = await session.execute(select(RunRow.user_id, func.count()).where(RunRow.user_id.in_(user_ids)).group_by(RunRow.user_id))
+    run_rows = await session.execute(select(RunRow.user_id, func.count()).where(RunRow.operation_kind == "run", RunRow.user_id.in_(user_ids)).group_by(RunRow.user_id))
     return (
         {str(user_id): count for user_id, count in thread_rows.all() if user_id is not None},
         {str(user_id): count for user_id, count in run_rows.all() if user_id is not None},

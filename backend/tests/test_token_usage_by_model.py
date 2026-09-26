@@ -224,6 +224,7 @@ class TestJournalByModel:
         assert data["token_usage_by_model"] == {
             "subagent-model": {"input_tokens": 15, "output_tokens": 10, "total_tokens": 25},
         }
+        assert data["llm_call_count"] == 1
 
     def test_track_tokens_disabled_keeps_by_model_empty(self) -> None:
         store = MemoryRunEventStore()

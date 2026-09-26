@@ -546,10 +546,7 @@ test.describe("Artifact preview stability", () => {
       .locator("#artifacts")
       .locator('iframe[title="Artifact preview"]');
     await expect(previewFrame).toBeVisible();
-    await expect(previewFrame).toHaveAttribute(
-      "src",
-      /中国海油勘探开发智能体平台研究报告_20260805_111535\.preview\.pdf$/,
-    );
+    await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
     await expect(
       page.locator(`[data-artifact-filepath="${PRESENTED_PPTX_PREVIEW_PATH}"]`),
     ).toHaveCount(0);
@@ -636,10 +633,7 @@ test.describe("Artifact preview stability", () => {
     );
     await expect(artifactsPanel).toBeVisible();
     await expect(previewFrame).toBeVisible();
-    await expect(previewFrame).toHaveAttribute(
-      "src",
-      `/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf${PRESENTED_PDF_PATH}`,
-    );
+    await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
     await expect(previewFrame).toHaveAttribute("sandbox", "");
   });
 
@@ -714,16 +708,13 @@ test.describe("Artifact preview stability", () => {
     const previewFrame = artifactsPanel.locator(
       'iframe[title="Artifact preview"]',
     );
-    await expect(previewFrame).toHaveClass(/invisible/);
+    await expect(previewFrame).toHaveCount(0);
     await expect(previewFrame).toBeVisible({ timeout: 10_000 });
     await expect(previewFrame).toHaveClass(/visible/);
     await expect(
       artifactsPanel.getByText("Loading preview pages...", { exact: true }),
     ).toHaveCount(0);
-    await expect(previewFrame).toHaveAttribute(
-      "src",
-      `/api/threads/${PRESENTED_DOCX_THREAD_ID}/artifact-previews/pdf${PRESENTED_DOCX_PREVIEW_PATH}`,
-    );
+    await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
     await expect(
       page.locator(`[data-artifact-filepath="${PRESENTED_DOCX_PREVIEW_PATH}"]`),
     ).toHaveCount(0);
@@ -813,6 +804,15 @@ test.describe("Artifact preview stability", () => {
 
     let previewProbeAttempts = 0;
     await page.route(
+      `**/api/threads/${transientThreadId}/artifact-previews/pdf/**`,
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "text/html",
+          body: '<!doctype html><html><body><img alt="PDF page"></body></html>',
+        }),
+    );
+    await page.route(
       `**/api/threads/${transientThreadId}/artifacts${transientPreview}`,
       (route) => {
         previewProbeAttempts += 1;
@@ -834,11 +834,76 @@ test.describe("Artifact preview stability", () => {
       .locator("#artifacts")
       .locator('iframe[title="Artifact preview"]');
     await expect(previewFrame).toBeVisible({ timeout: 10_000 });
-    await expect(previewFrame).toHaveAttribute(
-      "src",
-      /transient-report\.preview\.pdf$/,
-    );
+    await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
     expect(previewProbeAttempts).toBeGreaterThanOrEqual(2);
+  });
+
+  test("shows a readable PDF error and retries without displaying API JSON", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page, {
+      threads: [
+        {
+          thread_id: PRESENTED_PDF_THREAD_ID,
+          title: "PDF preview recovery",
+          messages: [
+            {
+              type: "ai",
+              id: "pdf-recovery-message",
+              content: `[quote.pdf](/api/threads/${PRESENTED_PDF_THREAD_ID}/artifacts/mnt/user-data/outputs/quote.pdf)`,
+            },
+          ],
+          artifacts: ["/mnt/user-data/outputs/quote.pdf"],
+        },
+      ],
+    });
+    let requests = 0;
+    let failPreview = true;
+    await page.route(
+      `**/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf/**`,
+      (route) => {
+        requests += 1;
+        return route.fulfill(
+          failPreview
+            ? {
+                status: 400,
+                contentType: "application/json",
+                body: JSON.stringify({
+                  detail:
+                    "PDF preview contains unsupported active or encrypted content",
+                }),
+              }
+            : {
+                status: 200,
+                contentType: "text/html",
+                body: "<!doctype html><html><body><p>Recovered PDF page</p></body></html>",
+              },
+        );
+      },
+    );
+    await page.goto(`/workspace/chats/${PRESENTED_PDF_THREAD_ID}`);
+    await page.getByRole("link", { name: "quote.pdf" }).click();
+    const panel = page.locator("#artifacts");
+    await expect(panel.getByRole("alert")).toContainText(
+      "The preview could not be loaded.",
+    );
+    await expect(panel.locator("iframe")).toHaveCount(0);
+    await expect(
+      panel.getByText(
+        "PDF preview contains unsupported active or encrypted content",
+      ),
+    ).toHaveCount(0);
+    const failedRequests = requests;
+    failPreview = false;
+    await panel.getByRole("button", { name: "Try again" }).click();
+    await expect(
+      panel
+        .frameLocator('iframe[title="Artifact preview"]')
+        .getByText("Recovered PDF page"),
+    ).toBeVisible();
+    await expect(panel.locator("iframe")).toHaveAttribute("sandbox", "");
+    await expect(panel.getByRole("alert")).toHaveCount(0);
+    expect(requests).toBe(failedRequests + 1);
   });
 
   test("does not render or open artifacts from a failed present_files call", async ({

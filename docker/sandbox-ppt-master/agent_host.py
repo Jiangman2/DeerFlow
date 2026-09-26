@@ -28,8 +28,15 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 production Sandbox compatibility.
+    import tomli as tomllib
+
 AGENT_HOST_PORT = int(os.environ.get("PPT_MASTER_AGENT_HOST_PORT", "8788"))
-SOURCE_SKILL_ROOT = Path(os.environ.get("PPT_MASTER_SOURCE_ROOT", "/mnt/skills/public/ppt-master"))
+SOURCE_SKILL_ROOT = Path(
+    os.environ.get("PPT_MASTER_SOURCE_ROOT", "/opt/ppt-master-release-skill")
+)
 WORKSPACE_ROOT = Path(os.environ.get("PPT_MASTER_WORKSPACE_ROOT", "/mnt/user-data/workspace"))
 UPLOADS_ROOT = Path(os.environ.get("PPT_MASTER_UPLOADS_ROOT", "/mnt/user-data/uploads"))
 OUTPUTS_ROOT = Path(os.environ.get("PPT_MASTER_OUTPUTS_ROOT", "/mnt/user-data/outputs"))
@@ -44,6 +51,22 @@ _TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 _SECRET_NAME_RE = re.compile(r"(?:KEY|SECRET|TOKEN|PASS|CREDENTIAL)", re.IGNORECASE)
 _MODEL_PROVIDER_RE = re.compile(r'^\s*model_provider\s*=\s*["\']([^"\']+)["\']\s*$', re.MULTILINE)
 _ENV_KEY_RE = re.compile(r'^\s*env_key\s*=\s*["\']([^"\']+)["\']\s*$', re.MULTILINE)
+_ENTERPRISE_RELAY_REQUIRED_VALUES = frozenset({"1", "true", "yes", "on"})
+_ENTERPRISE_RELAY_PROVIDER = "cnooc_deepseek"
+_ENTERPRISE_RELAY_BASE_URL = "http://gateway:8001/api/codex/deepseek/v1"
+_ENTERPRISE_RELAY_ENV_KEY = "PPT_MASTER_RESPONSES_RELAY_KEY"
+_EXPECTED_PPT_MASTER_VERSION = "6.6.0"
+_V66_REQUIRED_PATHS = (
+    "workflows/edit-native-pptx.md",
+    "workflows/profiles/image-to-pptx.md",
+    "scripts/authoring_roundtrip.py",
+    "scripts/pptx_workspace.py",
+    "templates/decks/cnooc/templates/design_spec.md",
+)
+_RETIRED_V45_PATHS = (
+    "workflows/native-enhance-pptx.md",
+    "workflows/template-fill-pptx.md",
+)
 _DELIVERY_CAPABILITIES = frozenset(
     {
         "speaker_notes",
@@ -116,6 +139,37 @@ def _tree_sha256(root: Path) -> str:
     return digest.hexdigest()
 
 
+def validate_ppt_master_source_contract(source: Path) -> dict[str, str]:
+    """Fail closed unless the immutable source is the adapted v6.6.0 release."""
+
+    skill_path = source / "SKILL.md"
+    if not skill_path.is_file():
+        raise RuntimeError(f"ppt-master source package is incomplete: {source}")
+    skill_text = skill_path.read_text(encoding="utf-8")
+    frontmatter_end = skill_text.find("\n---\n", 4)
+    frontmatter = skill_text[4:frontmatter_end] if skill_text.startswith("---\n") and frontmatter_end >= 0 else ""
+    version_match = re.search(r'^\s{2}version:\s*["\']([^"\']+)["\']\s*$', frontmatter, re.MULTILINE)
+    version = version_match.group(1) if version_match else ""
+    if version != _EXPECTED_PPT_MASTER_VERSION:
+        raise RuntimeError(
+            "ppt-master mounted Skill version mismatch: "
+            f"version={version!r} expected={_EXPECTED_PPT_MASTER_VERSION!r}"
+        )
+    missing = [relative for relative in _V66_REQUIRED_PATHS if not (source / relative).is_file()]
+    if missing:
+        raise RuntimeError("ppt-master v6.6 mounted Skill is missing required paths: " + ", ".join(missing))
+    retired = [relative for relative in _RETIRED_V45_PATHS if (source / relative).exists()]
+    if retired:
+        raise RuntimeError("ppt-master mounted Skill still contains retired v4.5 routes: " + ", ".join(retired))
+    try:
+        deck_index = json.loads((source / "templates" / "decks" / "decks_index.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("ppt-master Deck registry is unreadable") from exc
+    if not isinstance(deck_index, dict) or "cnooc" not in deck_index:
+        raise RuntimeError("ppt-master enterprise CNOOC Deck registration is missing")
+    return {"ppt_master_version": version}
+
+
 def prepare_writable_skill_snapshot(source: Path, target: Path) -> str:
     """Atomically refresh an exact writable copy of the mounted upstream Skill."""
 
@@ -168,6 +222,65 @@ def _configured_provider_env_key(config_text: str) -> str | None:
     section_end = section_start + next_section.start() if next_section else len(config_text)
     env_key_match = _ENV_KEY_RE.search(config_text[section_start:section_end])
     return env_key_match.group(1) if env_key_match else None
+
+
+def _enterprise_relay_required(env: dict[str, str]) -> bool:
+    return env.get("PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", "").strip().lower() in _ENTERPRISE_RELAY_REQUIRED_VALUES
+
+
+def _codex_provider_metadata(config_text: str) -> dict[str, str]:
+    """Return the selected provider contract without exposing credentials."""
+
+    try:
+        config = tomllib.loads(config_text)
+    except tomllib.TOMLDecodeError as exc:
+        raise RuntimeError("CODEX_CONFIG_TOML is not valid TOML") from exc
+    provider_name = config.get("model_provider")
+    model_name = config.get("model")
+    providers = config.get("model_providers")
+    provider = providers.get(provider_name) if isinstance(providers, dict) and isinstance(provider_name, str) else None
+    if not isinstance(provider_name, str) or not provider_name or not isinstance(provider, dict):
+        raise RuntimeError("CODEX_CONFIG_TOML does not define its selected model provider")
+    metadata = {
+        "model": model_name if isinstance(model_name, str) else "",
+        "provider": provider_name,
+        "base_url": str(provider.get("base_url") or "").rstrip("/"),
+        "env_key": str(provider.get("env_key") or ""),
+        "wire_api": str(provider.get("wire_api") or ""),
+    }
+    return metadata
+
+
+def validate_codex_provider_contract(env: dict[str, str], codex_home: Path) -> dict[str, str]:
+    """Fail closed when enterprise PPT traffic could bypass the Gateway relay."""
+
+    config_text = env.get("CODEX_CONFIG_TOML")
+    if _enterprise_relay_required(env) and not config_text:
+        raise RuntimeError("enterprise PPT Agent requires operator-supplied CODEX_CONFIG_TOML")
+    config_path = codex_home / "config.toml"
+    if not config_text and config_path.is_file():
+        config_text = config_path.read_text(encoding="utf-8")
+    if not config_text:
+        return {}
+    metadata = _codex_provider_metadata(config_text)
+    if not _enterprise_relay_required(env):
+        return metadata
+    expected = {
+        "provider": _ENTERPRISE_RELAY_PROVIDER,
+        "base_url": _ENTERPRISE_RELAY_BASE_URL,
+        "env_key": _ENTERPRISE_RELAY_ENV_KEY,
+        "wire_api": "responses",
+    }
+    mismatches = [
+        f"{name}={metadata.get(name)!r} expected={value!r}"
+        for name, value in expected.items()
+        if metadata.get(name) != value
+    ]
+    if mismatches:
+        raise RuntimeError("enterprise PPT Agent provider contract mismatch: " + "; ".join(mismatches))
+    if not env.get(_ENTERPRISE_RELAY_ENV_KEY):
+        raise RuntimeError("enterprise PPT Agent relay credential is missing")
+    return metadata
 
 
 def has_codex_credentials(env: dict[str, str], codex_home: Path) -> bool:
@@ -268,8 +381,89 @@ def _sanitize_payload(value: object, secret_values: list[str]) -> object:
     return str(value)
 
 
+def codex_turn_usage_record(
+    event: dict[str, Any],
+    *,
+    task_id: str,
+    turn_index: int,
+    model_name: str,
+) -> dict[str, int | str] | None:
+    """Normalize one official ``codex exec --json`` turn usage event.
+
+    Codex reports cached input as a subset of ``input_tokens``.  It is retained
+    as a separate diagnostic dimension and must not be added to the total a
+    second time.
+    """
+
+    if event.get("type") != "turn.completed":
+        return None
+    usage = event.get("usage")
+    if not isinstance(usage, dict):
+        return None
+
+    def nonnegative_int(name: str) -> int:
+        value = usage.get(name, 0)
+        if isinstance(value, bool):
+            return 0
+        try:
+            return max(int(value or 0), 0)
+        except (TypeError, ValueError):
+            return 0
+
+    input_tokens = nonnegative_int("input_tokens")
+    output_tokens = nonnegative_int("output_tokens")
+    total_tokens = input_tokens + output_tokens
+    if total_tokens <= 0:
+        return None
+    return {
+        "source_run_id": f"ppt-master:{task_id}:codex-turn:{turn_index}",
+        "caller": "lead_agent:ppt-master",
+        "model_name": model_name or "ppt-master-agent-host",
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "cache_read_tokens": nonnegative_int("cached_input_tokens"),
+        "reasoning_output_tokens": nonnegative_int("reasoning_output_tokens"),
+        "llm_call_count": 1,
+    }
+
+
+def codex_failure_detail(event: dict[str, Any]) -> str:
+    """Extract a bounded operator-safe diagnostic from a Codex error event."""
+
+    if event.get("type") not in {"error", "turn.failed"}:
+        return ""
+
+    def collect(value: object) -> list[str]:
+        if isinstance(value, str):
+            return [value.strip()] if value.strip() else []
+        if isinstance(value, dict):
+            parts: list[str] = []
+            for key in ("code", "type", "message", "detail"):
+                if key in value:
+                    parts.extend(collect(value[key]))
+            return parts
+        if isinstance(value, list):
+            parts: list[str] = []
+            for item in value[:8]:
+                parts.extend(collect(item))
+            return parts
+        return []
+
+    parts: list[str] = []
+    for key in ("error", "message", "detail"):
+        if key in event:
+            parts.extend(collect(event[key]))
+    unique: list[str] = []
+    for part in parts:
+        if part and part not in unique:
+            unique.append(part)
+    return " | ".join(unique)[:8_000]
+
+
 def _prepare_codex_home(env: dict[str, str]) -> None:
     env = _agent_subprocess_env(env)
+    validate_codex_provider_contract(env, CODEX_HOME)
     CODEX_HOME.mkdir(parents=True, exist_ok=True)
     os.chmod(CODEX_HOME, 0o700)
     skills_dir = CODEX_HOME / "skills"
@@ -484,6 +678,8 @@ class AgentTask:
         self.lock = threading.RLock()
         self.process: subprocess.Popen[str] | None = None
         self.cancel_requested = False
+        self.recent_stderr: list[str] = []
+        self.recent_codex_errors: list[str] = []
         self.state: dict[str, Any] = {
             "task_id": task_id,
             "thread_id": thread_id,
@@ -492,6 +688,15 @@ class AgentTask:
             "final_message": "",
             "artifacts": [],
             "error": "",
+            "usage": {
+                "input_tokens": 0,
+                "cached_input_tokens": 0,
+                "output_tokens": 0,
+                "reasoning_output_tokens": 0,
+                "total_tokens": 0,
+                "llm_call_count": 0,
+            },
+            "usage_records": [],
             "last_seq": 0,
             "created_at": time.time(),
             "updated_at": time.time(),
@@ -521,6 +726,39 @@ class AgentTask:
                 handle.flush()
                 os.fsync(handle.fileno())
             self.persist()
+
+    def record_codex_usage(self, event: dict[str, Any], *, model_name: str) -> None:
+        with self.lock:
+            records = self.state.get("usage_records")
+            if not isinstance(records, list):
+                records = []
+                self.state["usage_records"] = records
+            record = codex_turn_usage_record(
+                event,
+                task_id=self.task_id,
+                turn_index=len(records) + 1,
+                model_name=model_name,
+            )
+            if record is None:
+                return
+            records.append(record)
+            summary = self.state["usage"]
+            summary["input_tokens"] += int(record["input_tokens"])
+            summary["cached_input_tokens"] += int(record["cache_read_tokens"])
+            summary["output_tokens"] += int(record["output_tokens"])
+            summary["reasoning_output_tokens"] += int(record["reasoning_output_tokens"])
+            summary["total_tokens"] += int(record["total_tokens"])
+            summary["llm_call_count"] += 1
+            self.persist()
+
+    def record_codex_failure(self, event: dict[str, Any]) -> None:
+        detail = codex_failure_detail(event)
+        if not detail:
+            return
+        detail = _redact_text(detail, self.secret_values)
+        with self.lock:
+            self.recent_codex_errors.append(detail)
+            del self.recent_codex_errors[:-20]
 
     def snapshot(self, after_seq: int = 0) -> dict[str, Any]:
         with self.lock:
@@ -625,14 +863,19 @@ class CodexTaskManager:
         for line in stream:
             text = _redact_text(line.rstrip(), task.secret_values)
             if text:
+                with task.lock:
+                    task.recent_stderr.append(text)
+                    del task.recent_stderr[:-20]
                 task.append_event("stderr", {"text": text})
 
     def _run(self, task: AgentTask) -> None:
         try:
             task.set_state(status="preparing")
             ensure_user_data_directories()
+            validate_ppt_master_source_contract(SOURCE_SKILL_ROOT)
             prepare_writable_skill_snapshot(SOURCE_SKILL_ROOT, RUNTIME_ROOT)
             _prepare_codex_home(task.env)
+            provider_metadata = validate_codex_provider_contract(task.env, CODEX_HOME)
             if not has_codex_credentials(task.env, CODEX_HOME):
                 raise RuntimeError("Codex Agent credentials/configuration are missing; configure a Responses-capable provider or mount Codex auth")
             guard = subprocess.run(
@@ -668,7 +911,15 @@ class CodexTaskManager:
                 command = build_codex_command(session_id=session_id)
                 task.append_event(
                     "host",
-                    {"message": "Agent host ready", "resumed": bool(session_id), "delivery_repair_attempt": repair_attempt},
+                    {
+                        "message": "Agent host ready",
+                        "resumed": bool(session_id),
+                        "delivery_repair_attempt": repair_attempt,
+                        "model": provider_metadata.get("model", ""),
+                        "provider": provider_metadata.get("provider", ""),
+                        "base_url": provider_metadata.get("base_url", ""),
+                        "wire_api": provider_metadata.get("wire_api", ""),
+                    },
                 )
                 task.set_state(status="running", session_id=session_id)
                 process = subprocess.Popen(
@@ -715,6 +966,11 @@ class CodexTaskManager:
                         if isinstance(new_session_id, str) and new_session_id:
                             self._persist_session(task, new_session_id)
                             session_id = new_session_id
+                    task.record_codex_usage(
+                        event,
+                        model_name=provider_metadata.get("model", ""),
+                    )
+                    task.record_codex_failure(event)
                     if event.get("type") == "item.completed" and isinstance(item, dict) and item.get("type") == "agent_message":
                         text = item.get("text")
                         if isinstance(text, str) and text.strip():
@@ -727,7 +983,29 @@ class CodexTaskManager:
                     task.set_state(status="cancelled", final_message=final_message, error="cancelled by user")
                     return
                 if return_code != 0:
-                    raise RuntimeError(f"Codex Agent process exited with code {return_code}")
+                    with task.lock:
+                        stderr_detail = "\n".join(task.recent_stderr[-6:]).strip()
+                        event_detail = "\n".join(task.recent_codex_errors[-4:]).strip()
+                    details = [
+                        value
+                        for value in (
+                            f"stderr: {stderr_detail}" if stderr_detail else "",
+                            f"codex: {event_detail}" if event_detail else "",
+                        )
+                        if value
+                    ]
+                    detail = "\n".join(details) or "Codex emitted no diagnostic text before exit"
+                    task.append_event(
+                        "host",
+                        {
+                            "message": "Codex Agent process failed",
+                            "return_code": return_code,
+                            "detail": detail,
+                        },
+                    )
+                    raise RuntimeError(
+                        f"Codex Agent process exited with code {return_code}: {detail}"
+                    )
 
                 candidates = _candidate_pptx_files(task.output_baseline)
                 if not candidates:
@@ -773,6 +1051,7 @@ class CodexTaskManager:
 class AgentHostHandler(BaseHTTPRequestHandler):
     manager: CodexTaskManager
     api_key: str
+    provider_metadata: dict[str, str] = {}
 
     server_version = "ppt-master-agent-host/1"
 
@@ -820,7 +1099,7 @@ class AgentHostHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlsplit(self.path)
         if parsed.path == "/health":
-            self._json(HTTPStatus.OK, {"status": "ok"})
+            self._json(HTTPStatus.OK, {"status": "ok", "provider": self.provider_metadata})
             return
         match = re.fullmatch(r"/v1/tasks/([A-Za-z0-9_-]{1,128})", parsed.path)
         if not match:
@@ -874,8 +1153,13 @@ def main() -> None:
     api_key = os.environ.get("PPT_MASTER_AGENT_HOST_KEY") or os.environ.get("SANDBOX_API_KEY", "")
     if not api_key:
         raise SystemExit("PPT_MASTER_AGENT_HOST_KEY or SANDBOX_API_KEY is required")
+    provider_metadata = {
+        **validate_codex_provider_contract(dict(os.environ), CODEX_HOME),
+        **validate_ppt_master_source_contract(SOURCE_SKILL_ROOT),
+    }
     AgentHostHandler.manager = CodexTaskManager()
     AgentHostHandler.api_key = api_key
+    AgentHostHandler.provider_metadata = provider_metadata
     server = ThreadingHTTPServer(("0.0.0.0", AGENT_HOST_PORT), AgentHostHandler)
     print(f"ppt-master-agent-host listening on 0.0.0.0:{AGENT_HOST_PORT}", flush=True)
     server.serve_forever(poll_interval=0.5)

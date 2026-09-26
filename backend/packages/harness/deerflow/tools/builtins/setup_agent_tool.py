@@ -7,11 +7,13 @@ from langgraph.types import Command
 from deerflow.config.agents_config import (
     MAX_AGENT_DESCRIPTION_LENGTH,
     SOUL_FILENAME,
+    is_personal_agent,
     validate_agent_name,
 )
 from deerflow.config.paths import get_paths
 from deerflow.persistence.agents import get_agent_store
 from deerflow.runtime.user_context import resolve_runtime_user_id
+from deerflow.skills.agent_selection import validate_agent_skills
 from deerflow.tools.types import Runtime
 
 logger = logging.getLogger(__name__)
@@ -66,21 +68,34 @@ def setup_agent(
 
     agent_name: str | None = runtime.context.get("agent_name") if runtime.context else None
     try:
+        if runtime.context and runtime.context.get("agent_source") not in (None, "personal"):
+            raise ValueError("Shared agent selection cannot be changed through setup_agent")
         agent_name = validate_agent_name(agent_name)
         if agent_name:
             user_id = resolve_runtime_user_id(runtime)
+            form_selection = bool(runtime.context and runtime.context.get("is_bootstrap") is True and "agent_skill_selection" in runtime.context)
+            if form_selection:
+                # A form selection is user intent, not an authorization grant.
+                # Validate against this creator's live catalog at the write.
+                skills = runtime.context["agent_skill_selection"]
+            skills = validate_agent_skills(skills, user_id=user_id)
+            store = get_agent_store()
             config_data: dict = {"name": agent_name}
+            # Upstream #5324/#5579 preserve creation-form configuration during
+            # conversational bootstrap. Never inherit a shared fallback as if
+            # it were owned by this creator.
+            before = store.read_definition(agent_name, user_id=user_id) if is_personal_agent(agent_name, user_id=user_id) else None
             if description:
                 config_data["description"] = description
-            if skills is not None:
+            if skills is not None or form_selection:
                 config_data["skills"] = skills
 
-            get_agent_store().update(
-                agent_name,
-                config_data,
-                soul,
-                user_id=user_id,
-            )
+            if before is not None:
+                store.patch_definition(agent_name, config_data, soul, user_id=user_id, expected_revision=before.revision)
+            else:
+                # Creation races fail instead of replacing another creator
+                # request's already-committed definition.
+                store.create(agent_name, config_data, soul, user_id=user_id)
         else:
             paths = get_paths()
             paths.base_dir.mkdir(parents=True, exist_ok=True)
@@ -96,4 +111,4 @@ def setup_agent(
 
     except Exception as e:
         logger.error(f"[agent_creator] Failed to create agent '{agent_name}': {e}", exc_info=True)
-        return Command(update={"messages": [ToolMessage(content=f"Error: {e}", tool_call_id=runtime.tool_call_id)]})
+        return Command(update={"messages": [ToolMessage(content=f"Error: {e}", tool_call_id=runtime.tool_call_id, status="error")]})

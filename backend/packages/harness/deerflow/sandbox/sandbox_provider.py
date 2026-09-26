@@ -13,6 +13,10 @@ class SandboxProvider(ABC):
     uses_thread_data_mounts: bool = False
     needs_upload_permission_adjustment: bool = True
 
+    def validate_employee_skills(self, sandbox_id: str, thread_id: str, *, user_id: str) -> None:
+        """Published packages require a provider that verifies its actual mounts."""
+        raise RuntimeError("Sandbox provider cannot verify employee Skill mounts")
+
     @abstractmethod
     def acquire(self, thread_id: str | None = None, *, user_id: str | None = None) -> str:
         """Acquire a sandbox environment and return its ID.
@@ -40,6 +44,15 @@ class SandboxProvider(ABC):
             sandbox_id: The ID of the sandbox environment to retain.
         """
         pass
+
+    def get_scoped(self, sandbox_id: str, *, thread_id: str, user_id: str) -> Sandbox | None:
+        """Return a cached client only if it belongs to this user and thread.
+
+        Custom providers fail closed until they implement identity-aware lookup.
+        This hook must not perform blocking I/O on async tool paths.
+        """
+        del sandbox_id, thread_id, user_id
+        return None
 
     def get_for_thread(self, thread_id: str, *, user_id: str | None = None) -> Sandbox | None:
         """Return an already-existing sandbox for a thread, if one is known.
@@ -146,6 +159,9 @@ def reset_sandbox_provider() -> None:
         _default_sandbox_provider = None
     if provider is not None:
         provider.reset()
+        from deerflow.sandbox.lease import discard_sandbox_lease_manager
+
+        discard_sandbox_lease_manager(provider)
 
 
 def shutdown_sandbox_provider() -> None:
@@ -163,6 +179,10 @@ def shutdown_sandbox_provider() -> None:
         _default_sandbox_provider = None
     if provider is not None and hasattr(provider, "shutdown"):
         provider.shutdown()
+    if provider is not None:
+        from deerflow.sandbox.lease import discard_sandbox_lease_manager
+
+        discard_sandbox_lease_manager(provider)
 
 
 def set_sandbox_provider(provider: SandboxProvider) -> None:

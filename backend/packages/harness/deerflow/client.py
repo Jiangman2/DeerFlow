@@ -25,6 +25,7 @@ import shutil
 import tempfile
 import uuid
 from collections.abc import Generator, Mapping, Sequence
+from contextvars import copy_context
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -38,14 +39,17 @@ from deerflow.agents.lead_agent.agent import build_middlewares
 from deerflow.agents.lead_agent.prompt import apply_prompt_template, get_enabled_skills_for_config
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.agents_config import AGENT_NAME_PATTERN
-from deerflow.config.app_config import get_app_config, is_trace_correlation_enabled, reload_app_config
+from deerflow.config.app_config import get_app_config, reload_app_config
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
 from deerflow.config.paths import get_paths
+from deerflow.config.subagent_runtime_config import SubagentRuntimeConfig
+from deerflow.config.subagents_config import effective_subagent_concurrency
 from deerflow.models import create_chat_model
 from deerflow.runtime.goal import DEFAULT_MAX_GOAL_CONTINUATIONS, build_goal_state, goal_thread_lock, read_thread_goal, write_thread_goal
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.skills.describe import build_skill_search_setup
 from deerflow.skills.storage import get_or_new_user_skill_storage
+from deerflow.subagents.capacity import configure_subagent_execution_capacity
 from deerflow.tools.builtins.tool_search import assemble_deferred_tools, build_mcp_routing_middleware, get_mcp_routing_hints_prompt_section
 from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, generate_trace_id, get_current_trace_id, reset_current_trace_id, set_current_trace_id
 from deerflow.tracing import build_tracing_callbacks, inject_langfuse_metadata
@@ -71,8 +75,11 @@ def _run_async_from_sync(coro):
         loop = None
 
     if loop is not None and loop.is_running():
+        # The helper runs on a fresh thread. Carry request identity and trace
+        # into it without allowing worker-local changes to leak back out.
+        context = copy_context()
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            return executor.submit(asyncio.run, coro).result()
+            return executor.submit(context.run, asyncio.run, coro).result()
     return asyncio.run(coro)
 
 
@@ -171,6 +178,11 @@ class DeerFlowClient:
         if config_path is not None:
             reload_app_config(config_path)
         self._app_config = get_app_config()
+        runtime_config = getattr(self._app_config, "subagent_runtime", None)
+        if not isinstance(runtime_config, SubagentRuntimeConfig):
+            runtime_config = SubagentRuntimeConfig()
+        configure_subagent_execution_capacity(runtime_config)
+        self._subagent_execution_capacity = runtime_config.max_running
 
         if agent_name is not None and not AGENT_NAME_PATTERN.match(agent_name):
             raise ValueError(f"Invalid agent name '{agent_name}'. Must match pattern: {AGENT_NAME_PATTERN.pattern}")
@@ -243,12 +255,16 @@ class DeerFlowClient:
     ):
         """Create (or recreate) the agent when config-dependent params change."""
         cfg = dict(config.get("configurable", {}) or {})
+        if isinstance(config.get("context"), Mapping):
+            cfg.update(config["context"])
         if context is not None:
             cfg.update(context)
         # SOUL, skills, storage, and memory are user-scoped even when the
         # authorization policy itself is disabled. User identity therefore
         # belongs in the graph cache key as well as in middleware construction.
         effective_user_id = cfg.get("user_id") or get_effective_user_id()
+        cfg["user_id"] = effective_user_id
+        authorization_enabled = self._app_config.authorization.enabled is True
         key = (
             cfg.get("model_name"),
             cfg.get("thinking_enabled"),
@@ -259,26 +275,33 @@ class DeerFlowClient:
             self._agent_name,
             frozenset(self._available_skills) if self._available_skills is not None else None,
             effective_user_id,
+            authorization_enabled,
         )
 
-        if self._agent is not None and self._agent_config_key == key:
+        # Never reuse an authorization-enabled graph across runs: external
+        # policy, attributes, or role may have changed without a config edit.
+        if not authorization_enabled and self._agent is not None and self._agent_config_key == key:
             return
 
         thinking_enabled = cfg.get("thinking_enabled", True)
         model_name = cfg.get("model_name")
+        from deerflow.authz.model_authorization import authorize_model_name
+
+        model_name = authorize_model_name(model_name, context=cfg, app_config=self._app_config)
         subagent_enabled = cfg.get("subagent_enabled", False)
-        max_concurrent_subagents = cfg.get("max_concurrent_subagents", 3)
+        # Normal clients freeze this at startup. Preserve lightweight legacy
+        # clients constructed with __new__ without reading process-global state.
+        subagent_execution_capacity = getattr(self, "_subagent_execution_capacity", None)
+        if subagent_execution_capacity is None:
+            subagent_execution_capacity = int(getattr(getattr(self._app_config, "subagent_runtime", None), "max_running", 3))
+        max_concurrent_subagents = effective_subagent_concurrency(
+            cfg.get("max_concurrent_subagents"),
+            self._app_config,
+            execution_capacity=subagent_execution_capacity,
+        )
         max_total_subagents = cfg.get("max_total_subagents", self._app_config.subagents.max_total_per_run)
 
         tools = self._get_tools(model_name=model_name, subagent_enabled=subagent_enabled)
-        final_tools, deferred_setup = assemble_deferred_tools(tools, enabled=self._app_config.tool_search.enabled)
-        mcp_routing_middleware = build_mcp_routing_middleware(
-            final_tools,
-            deferred_setup,
-            top_k=self._app_config.tool_search.auto_promote_top_k,
-        )
-        mcp_routing_hints_section = get_mcp_routing_hints_prompt_section(tools, deferred_names=deferred_setup.deferred_names)
-
         # Wire deferred skill discovery — mirrors agent.py so config flag works on both paths.
         skills_list = get_enabled_skills_for_config(self._app_config)
         if self._available_skills is not None:
@@ -289,17 +312,23 @@ class DeerFlowClient:
             container_base_path=self._app_config.skills.container_path,
         )
         if skill_setup.describe_skill_tool:
-            final_tools.append(skill_setup.describe_skill_tool)
+            tools = [*tools, skill_setup.describe_skill_tool]
+        from deerflow.authz.tool_filter import apply_tool_authorization
+
+        tools, authorization_provider = apply_tool_authorization(tools, context=cfg, app_config=self._app_config)
+        final_tools, deferred_setup = assemble_deferred_tools(tools, enabled=self._app_config.tool_search.enabled)
+        mcp_routing_middleware = build_mcp_routing_middleware(final_tools, deferred_setup, top_k=self._app_config.tool_search.auto_promote_top_k)
+        mcp_routing_hints_section = get_mcp_routing_hints_prompt_section(tools, deferred_names=deferred_setup.deferred_names)
 
         kwargs: dict[str, Any] = {
             # attach_tracing=False because ``stream()`` injects tracing
             # callbacks at the graph invocation root so a single embedded run
             # produces one trace with correct session_id / user_id propagation.
             # Attaching them again on the model would emit duplicate spans.
-            "model": create_chat_model(name=model_name, thinking_enabled=thinking_enabled, attach_tracing=False),
+            "model": create_chat_model(name=model_name, thinking_enabled=thinking_enabled, app_config=self._app_config, attach_tracing=False),
             "tools": final_tools,
             "middleware": build_middlewares(
-                config,
+                {**config, "configurable": cfg, "context": cfg},
                 model_name=model_name,
                 agent_name=self._agent_name,
                 available_skills=self._available_skills,
@@ -308,6 +337,8 @@ class DeerFlowClient:
                 deferred_setup=deferred_setup,
                 mcp_routing_middleware=mcp_routing_middleware,
                 user_id=effective_user_id,
+                authorization_provider=authorization_provider,
+                subagent_execution_capacity=subagent_execution_capacity,
             ),
             "system_prompt": apply_prompt_template(
                 subagent_enabled=subagent_enabled,
@@ -320,6 +351,7 @@ class DeerFlowClient:
                 mcp_routing_hints_section=mcp_routing_hints_section,
                 user_id=effective_user_id,
                 skill_names=skill_setup.skill_names or None,
+                subagent_execution_capacity=subagent_execution_capacity,
             ),
             "state_schema": ThreadState,
         }
@@ -617,20 +649,11 @@ class DeerFlowClient:
     ) -> Generator[StreamEvent, None, None]:
         """Stream a conversation turn with a DeerFlow request trace context.
 
-        Mirrors the Gateway ``TraceMiddleware`` gate: when
-        ``logging.enhance.enabled`` is off the embedded client does **not**
-        create a fresh request-level trace id, so Langfuse traces from
-        embedded / TUI / CLI callers keep their pre-enhancement schema and
-        do not gain a ``metadata.deerflow_trace_id`` key by default. A
-        caller that explicitly binds its own trace via
-        :func:`deerflow.trace_context.request_trace_context` still opts in:
-        the inner ``get_current_trace_id()`` read propagates that value
-        into Langfuse metadata regardless of the flag.
+        Each turn inherits an existing caller scope or creates its own id,
+        independently of log formatting and optional tracing exporters.
+        Steps and abandoned-generator cleanup retain the same id without
+        leaking it into the caller's context between yields.
         """
-        if not is_trace_correlation_enabled(self._app_config):
-            yield from self._stream_without_trace_context(message, thread_id=thread_id, **kwargs)
-            return
-
         # Resolve the trace id once, without mutating the caller's context.
         # Inherits an ambient id if the caller opted in via
         # ``request_trace_context``; otherwise mints a fresh one.
@@ -661,7 +684,14 @@ class DeerFlowClient:
                     break
                 yield event
         finally:
-            inner.close()
+            # GeneratorExit cleanup still belongs to this turn, even when a
+            # different caller context closes the abandoned stream. Never
+            # carry a ContextVar token across a yield boundary.
+            token = set_current_trace_id(trace_id)
+            try:
+                inner.close()
+            finally:
+                reset_current_trace_id(token)
 
     def _stream_without_trace_context(
         self,
@@ -771,8 +801,22 @@ class DeerFlowClient:
             "run_id": run_id,
             "user_id": effective_user_id,
         }
+        # Embedded callers are trusted in-process callers, not HTTP request
+        # bodies. Forward their explicit identity to BOTH policy layers.
+        for name in ("user_role", "oauth_provider", "oauth_id", "channel_user_id", "is_internal", "authz_attributes"):
+            if name in kwargs:
+                context[name] = kwargs[name]
+        if "authz_attributes" in context:
+            from deerflow.authz.principal import normalize_authz_attributes
+
+            context["authz_attributes"] = normalize_authz_attributes(context["authz_attributes"])
         configurable = config.get("configurable") or {}
         deerflow_trace_id = get_current_trace_id()
+        if deerflow_trace_id:
+            # Reserved correlation metadata is server-owned, even when no
+            # external tracing provider is enabled. Copy caller metadata.
+            config["metadata"] = {**(config.get("metadata") or {}), DEERFLOW_TRACE_METADATA_KEY: deerflow_trace_id}
+            context[DEERFLOW_TRACE_METADATA_KEY] = deerflow_trace_id
         inject_langfuse_metadata(
             config,
             thread_id=thread_id,
@@ -786,8 +830,6 @@ class DeerFlowClient:
         self._ensure_agent(config, context=context)
 
         state: dict[str, Any] = {"messages": [HumanMessage(content=message, additional_kwargs={"run_id": run_id})]}
-        if deerflow_trace_id:
-            context[DEERFLOW_TRACE_METADATA_KEY] = deerflow_trace_id
         if self._agent_name:
             context["agent_name"] = self._agent_name
 

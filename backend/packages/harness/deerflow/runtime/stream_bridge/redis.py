@@ -10,6 +10,8 @@ import re
 from collections.abc import AsyncIterator, Mapping
 from typing import Any
 
+from deerflow.runtime.redis_endpoint import make_async_redis_client
+
 try:
     from redis.asyncio import Redis
     from redis.exceptions import RedisError, ResponseError
@@ -78,7 +80,7 @@ class RedisStreamBridge(StreamBridge):
         # Each live SSE subscriber holds one pooled connection blocked in
         # ``XREAD ... BLOCK`` for up to ``heartbeat_interval``. ``max_connections``
         # caps that pool; ``None`` keeps redis-py's effectively-unbounded default.
-        self._redis = client if client is not None else Redis.from_url(redis_url, decode_responses=True, max_connections=max_connections)
+        self._redis = client if client is not None else make_async_redis_client(redis_url, max_connections=max_connections)
         self._owns_client = client is None
 
     def _stream_key(self, run_id: str) -> str:

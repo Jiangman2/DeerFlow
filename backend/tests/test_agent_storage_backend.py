@@ -241,6 +241,9 @@ def test_get_agent_store_resolves_db_backend_from_on_disk_config(tmp_path, monke
     cfg_path = tmp_path / "config.yaml"
     _write_min_config(cfg_path, {"agent_storage": {"backend": "db"}, "database": {"backend": "sqlite", "sqlite_dir": str(tmp_path / "db")}})
     monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(cfg_path))
+    extensions_path = tmp_path / "extensions_config.json"
+    extensions_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("DEER_FLOW_EXTENSIONS_CONFIG_PATH", str(extensions_path))
     try:
         reset_app_config()  # force a fresh read from the on-disk file
         assert isinstance(get_agent_store(), SqlAgentStore)

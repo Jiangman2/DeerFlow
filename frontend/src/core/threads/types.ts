@@ -47,6 +47,8 @@ export interface AgentThreadContext extends Record<string, unknown> {
   subagent_enabled: boolean;
   reasoning_effort?: "minimal" | "low" | "medium" | "high";
   agent_name?: string;
+  agent_source?: "personal" | "team" | "legacy";
+  employee_knowledge_scope_locked?: boolean;
   datalake_enabled?: boolean;
   weknora_knowledge_base_ids?: string[];
   weknora_knowledge_bases?: { id: string; name: string }[];

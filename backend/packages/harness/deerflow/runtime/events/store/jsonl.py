@@ -197,13 +197,13 @@ class JsonlRunEventStore(RunEventStore):
         return await self._run_mutation(thread_id, mutate)
 
     async def put_batch(self, events):
-        """Persist a batch of events atomically per-thread.
+        """Persist a batch of events under a per-thread write lock.
 
         All seq numbers for the batch are reserved under a single per-thread
-        write lock and every record is appended in one file write so a
-        mid-batch failure cannot leave a partial set of records on disk that
-        a retry would then duplicate. Callers (e.g. worker.py's flush-retry
-        path) may safely re-buffer the entire batch on failure.
+        write lock. Each run retains its own file. On a write failure, restore
+        the current thread's already-appended groups before retry, if rollback
+        succeeds. Earlier thread groups are not rolled back by a later thread's
+        failure. Multi-file batches are not process-crash atomic.
         """
         if not events:
             return []
@@ -218,6 +218,30 @@ class JsonlRunEventStore(RunEventStore):
             records = await self._write_batch_async(thread_id, batch)
             results.extend(records)
         return results
+
+    async def put_if_absent(self, *, thread_id, run_id, event_type, category, content="", metadata=None, created_at=None):
+        async def mutate():
+            existing = await asyncio.to_thread(self._read_run_events, thread_id, run_id)
+            for event in existing:
+                if event.get("event_type") == event_type:
+                    return event, False
+            await self._ensure_seq_loaded(thread_id)
+            record = {
+                "thread_id": thread_id,
+                "run_id": run_id,
+                "event_type": event_type,
+                "category": category,
+                "content": content,
+                "metadata": metadata or {},
+                "seq": self._next_seq(thread_id),
+                "created_at": created_at or datetime.now(UTC).isoformat(),
+            }
+            await asyncio.to_thread(self._write_record, record)
+            return record, True
+
+        # Preserve the final v2.1 cancellation-drain / lock-generation fixes:
+        # to_thread I/O continues even when its original awaiter is cancelled.
+        return await self._run_mutation(thread_id, mutate)
 
     async def _write_batch_async(self, thread_id: str, batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
         async def mutate():
@@ -236,10 +260,11 @@ class JsonlRunEventStore(RunEventStore):
                     "created_at": ev.get("created_at") or datetime.now(UTC).isoformat(),
                 }
                 records.append(record)
-            path = self._run_file(thread_id, batch[0]["run_id"])
-            # Single append/write per thread. If this raises, no records were
-            # persisted; the caller's re-buffer reproduces no duplicates.
-            await asyncio.to_thread(self._append_records, path, records)
+            records_by_run: dict[str, list[dict[str, Any]]] = {}
+            for record in records:
+                records_by_run.setdefault(record["run_id"], []).append(record)
+            run_batches = [(self._run_file(thread_id, run_id), run_records) for run_id, run_records in records_by_run.items()]
+            await asyncio.to_thread(self._append_record_groups, run_batches)
             return records
 
         return await self._run_mutation(thread_id, mutate)
@@ -249,6 +274,26 @@ class JsonlRunEventStore(RunEventStore):
         lines = "".join(json.dumps(r, default=str, ensure_ascii=False) + "\n" for r in records)
         with open(path, "a", encoding="utf-8") as f:
             f.write(lines)
+
+    def _append_record_groups(self, groups: list[tuple[Path, list[dict[str, Any]]]]) -> None:
+        """Append run groups and restore their original sizes if one fails."""
+        original_sizes: dict[Path, int | None] = {}
+        try:
+            for path, records in groups:
+                original_sizes[path] = path.stat().st_size if path.exists() else None
+                self._append_records(path, records)
+        except Exception:
+            for path, original_size in original_sizes.items():
+                try:
+                    if original_size is None:
+                        if path.exists():
+                            path.unlink()
+                    else:
+                        with open(path, "r+b") as f:
+                            f.truncate(original_size)
+                except OSError:
+                    logger.error("Failed to roll back JSONL batch append for %s; retrying the batch may create duplicate records", path, exc_info=True)
+            raise
 
     async def list_messages(self, thread_id, *, limit=50, before_seq=None, after_seq=None, user_id: str | None | _AutoSentinel = AUTO):
         all_events = await asyncio.to_thread(self._read_thread_events, thread_id)
@@ -302,7 +347,9 @@ class JsonlRunEventStore(RunEventStore):
         all_events = await asyncio.to_thread(self._read_thread_events, thread_id)
         return sum(1 for e in all_events if e.get("category") == "message")
 
-    async def delete_by_thread(self, thread_id):
+    async def delete_by_thread(self, thread_id, *, user_id: str | None | _AutoSentinel = AUTO):
+        """Delete thread-keyed files; owner is accepted for parity only."""
+
         async def mutate():
             all_events = await asyncio.to_thread(self._read_thread_events, thread_id)
             count = len(all_events)
@@ -314,7 +361,9 @@ class JsonlRunEventStore(RunEventStore):
 
         return await self._run_mutation(thread_id, mutate)
 
-    async def delete_by_run(self, thread_id, run_id):
+    async def delete_by_run(self, thread_id, run_id, *, user_id: str | None | _AutoSentinel = AUTO):
+        """Delete one run; this development store is not owner-scoped."""
+
         async def mutate():
             events = await asyncio.to_thread(self._read_run_events, thread_id, run_id)
             count = len(events)

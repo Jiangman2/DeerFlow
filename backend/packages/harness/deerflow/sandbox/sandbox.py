@@ -44,6 +44,10 @@ def _validate_extra_env(extra_env: dict[str, str] | None) -> None:
 class Sandbox(ABC):
     """Abstract base class for sandbox environments"""
 
+    # None is unknown, not evidence of a fresh process. Custom providers must
+    # declare this capability before their recorded test output is trusted.
+    persistent_shell_sessions: bool | None = None
+
     _id: str
 
     def __init__(self, id: str):

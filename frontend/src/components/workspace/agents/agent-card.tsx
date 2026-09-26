@@ -43,18 +43,21 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  agentChatPath,
   getDefaultExpertAvatar,
   getExpertAvatarById,
   getStoredExpertAvatarId,
   recordExternalAgentClick,
   resolveExternalAgentLaunchHref,
-  useDeleteAgent,
-  usePublishAgent,
   useUnpublishTeamAgent,
 } from "@/core/agents";
 import type { Agent } from "@/core/agents";
+import { AgentPublicationError } from "@/core/agents/api";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
+
+import { EmployeeDeleteDialog } from "./employee-delete-dialog";
+import { PublicationReviewDialog } from "./publication-review-dialog";
 
 interface AgentCardProps {
   agent: Agent;
@@ -108,13 +111,15 @@ export function AgentCard({
   showUnpublish = false,
   onEdit,
 }: AgentCardProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
-  const deleteAgent = useDeleteAgent();
-  const publishAgent = usePublishAgent();
+  const [publishOpen, setPublishOpen] = useState(false);
   const unpublishTeamAgent = useUnpublishTeamAgent();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [unpublishOpen, setUnpublishOpen] = useState(false);
+  const [unpublishRevision, setUnpublishRevision] = useState<string | null>(
+    null,
+  );
   const [profileOpen, setProfileOpen] = useState(false);
   const externalUrl = agent.external_url?.trim();
   const externalHref = resolveExternalAgentLaunchHref(externalUrl);
@@ -137,37 +142,26 @@ export function AgentCard({
   }
 
   function handleChat() {
-    router.push(
-      `/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`,
-    );
-  }
-
-  async function handleDelete() {
-    try {
-      await deleteAgent.mutateAsync(agent.name);
-      toast.success(t.agents.deleteSuccess);
-      setDeleteOpen(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  async function handlePublish() {
-    try {
-      await publishAgent.mutateAsync(agent.name);
-      toast.success(t.agents.publishSuccess);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
-    }
+    router.push(agentChatPath(agent.name, "new", agent.source));
   }
 
   async function handleUnpublish() {
     try {
-      await unpublishTeamAgent.mutateAsync(agent.name);
+      await unpublishTeamAgent.mutateAsync({
+        name: agent.name,
+        expectedRevision: unpublishRevision,
+      });
       toast.success(t.agents.unpublishSuccess);
       setUnpublishOpen(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(
+        error instanceof AgentPublicationError && error.status === 409
+          ? t.agents.publicationConflict
+          : error instanceof Error
+            ? error.message
+            : String(error),
+      );
+      setUnpublishOpen(false);
     }
   }
 
@@ -279,15 +273,20 @@ export function AgentCard({
               ) : null}
               {showPublish ? (
                 <DropdownMenuItem
-                  disabled={publishAgent.isPending}
-                  onSelect={() => void handlePublish()}
+                  onSelect={() => setPublishOpen(true)}
                 >
                   <Share2Icon />
                   {t.agents.publishToSquare}
                 </DropdownMenuItem>
               ) : null}
+              {agent.source === "personal" && <DropdownMenuItem onSelect={() => router.push(`/workspace/agents/manage/${encodeURIComponent(agent.name)}`)}><Undo2Icon />{locale === "zh-CN" ? "版本与维护" : "Versions and maintenance"}</DropdownMenuItem>}
               {showUnpublish ? (
-                <DropdownMenuItem onSelect={() => setUnpublishOpen(true)}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setUnpublishRevision(agent.publication_revision ?? null);
+                    setUnpublishOpen(true);
+                  }}
+                >
                   <Undo2Icon />
                   {t.agents.unpublishFromSquare}
                 </DropdownMenuItem>
@@ -309,6 +308,7 @@ export function AgentCard({
         </div>
       </article>
 
+      {publishOpen && <PublicationReviewDialog name={agent.name} onClose={() => setPublishOpen(false)} />}
       <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
         <SheetContent className="w-full gap-0 sm:max-w-md">
           <SheetHeader>
@@ -353,26 +353,7 @@ export function AgentCard({
         </SheetContent>
       </Sheet>
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t.agents.delete}</DialogTitle>
-            <DialogDescription>{t.agents.deleteConfirm}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-              {t.common.cancel}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleteAgent.isPending}
-            >
-              {deleteAgent.isPending ? t.common.loading : t.common.delete}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {deleteOpen && <EmployeeDeleteDialog key={agent.name} name={agent.name} onClose={() => setDeleteOpen(false)} />}
 
       <Dialog open={unpublishOpen} onOpenChange={setUnpublishOpen}>
         <DialogContent>

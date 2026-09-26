@@ -101,7 +101,7 @@ describe("channels api", () => {
         mode: "deep_link",
         url: "https://t.me/deerflow_bot?start=state",
         code: "state",
-        instruction: "Send /start state to the DeerFlow Telegram bot.",
+        instruction: "请向中国海油通用智能体的Telegram机器人发送 /start state。",
         expires_in: 600,
       }),
     );
@@ -109,7 +109,7 @@ describe("channels api", () => {
     await expect(connectChannelProvider("telegram")).resolves.toMatchObject({
       provider: "telegram",
       url: "https://t.me/deerflow_bot?start=state",
-      instruction: "Send /start state to the DeerFlow Telegram bot.",
+      instruction: "请向中国海油通用智能体的Telegram机器人发送 /start state。",
     });
     expect(mockedFetch).toHaveBeenCalledWith(
       "/backend/api/channels/telegram/connect",
@@ -124,7 +124,7 @@ describe("channels api", () => {
         mode: "binding_code",
         url: null,
         code: "abc123",
-        instruction: "Send /connect abc123 to the DeerFlow Slack bot.",
+        instruction: "请向中国海油通用智能体的Slack机器人发送 /connect abc123。",
         expires_in: 600,
       }),
     );
@@ -133,7 +133,7 @@ describe("channels api", () => {
       provider: "slack",
       url: null,
       code: "abc123",
-      instruction: "Send /connect abc123 to the DeerFlow Slack bot.",
+      instruction: "请向中国海油通用智能体的Slack机器人发送 /connect abc123。",
     });
   });
 

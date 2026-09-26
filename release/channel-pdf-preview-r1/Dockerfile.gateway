@@ -1,0 +1,7 @@
+FROM channel-pdf-gateway-base
+COPY apply-delta.py gateway-delta.json smoke-gateway.py compressed-fixtures.json /tmp/channel-pdf-r1/
+RUN --network=none cd /app/backend \
+    && .venv/bin/python /tmp/channel-pdf-r1/apply-delta.py /app/backend \
+       /tmp/channel-pdf-r1/gateway-delta.json /opt/deerflow-release/channel-pdf-r1-gateway.json \
+    && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=packages/harness:. .venv/bin/python \
+       /tmp/channel-pdf-r1/smoke-gateway.py

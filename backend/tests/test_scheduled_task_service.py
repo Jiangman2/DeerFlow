@@ -1,3 +1,5 @@
+import asyncio
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -6,6 +8,62 @@ from app.scheduler.service import ScheduledTaskService
 from deerflow.runtime import ConflictError, RunStatus
 from deerflow.runtime.runs.manager import RunRecord
 from deerflow.runtime.runs.schemas import DisconnectMode
+from deerflow.trace_context import get_current_trace_id, request_trace_context
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parent_trace", [None, "manual-http-request"])
+@pytest.mark.parametrize("outcome", ["success", "busy", "error", "cancel"])
+async def test_scheduler_scopes_each_launch_attempt_and_restores_caller(parent_trace, outcome):
+    seen = []
+
+    async def launch(**kwargs):
+        seen.append(get_current_trace_id())
+        assert kwargs["owner_user_id"] == "owner-1"
+        assert kwargs["run_context"] == {"model_name": "enterprise-model"}
+        if outcome == "busy":
+            raise ConflictError("busy")
+        if outcome == "error":
+            raise RuntimeError("launch failure")
+        if outcome == "cancel":
+            raise asyncio.CancelledError
+        return {"run_id": "run-1", "thread_id": kwargs["thread_id"]}
+
+    task = {
+        "id": "task-1",
+        "user_id": "owner-1",
+        "thread_id": "thread-1",
+        "assistant_id": "lead_agent",
+        "prompt": "test",
+        "status": "enabled",
+        "schedule_type": "cron",
+        "schedule_spec": {"cron": "0 9 * * *"},
+        "timezone": "UTC",
+        "run_context": {"model_name": "enterprise-model"},
+    }
+    service = ScheduledTaskService(
+        task_repo=DummyTaskRepo([task]),
+        task_run_repo=DummyRunRepo(),
+        launch_run=launch,
+        poll_interval_seconds=5,
+        lease_seconds=120,
+        max_concurrent_runs=3,
+    )
+    queued = {"id": "occurrence-1", "thread_id": "thread-1", "trigger": "manual" if parent_trace else "scheduled"}
+    # Re-attempting one queued occurrence has a fresh attempt scope without
+    # rewriting the trace of a previously admitted run (idempotency is separate).
+    for _ in range(2):
+        with request_trace_context(parent_trace) if parent_trace else nullcontext():
+            if outcome == "cancel":
+                with pytest.raises(asyncio.CancelledError):
+                    await service._attempt_queued_run(task, queued, now=datetime.now(UTC))
+            else:
+                result = await service._attempt_queued_run(task, queued, now=datetime.now(UTC))
+                assert result["outcome"] == {"success": "launched", "busy": "queued", "error": "failed"}[outcome]
+            assert get_current_trace_id() == parent_trace
+        assert get_current_trace_id() is None
+    assert all(seen)
+    assert (seen[0] == seen[1]) is (parent_trace is not None)
 
 
 class DummyTaskRepo:

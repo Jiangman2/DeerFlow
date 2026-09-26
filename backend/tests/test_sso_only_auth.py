@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.gateway.auth.config import AuthConfig
 from app.gateway.routers.auth import router
+from deerflow.config.app_config import AppConfig
 
 
 @pytest.fixture
@@ -82,7 +83,12 @@ def test_sso_only_mode_rejects_generic_oidc_login(
 def test_sso_only_mode_hides_generic_oidc_providers(
     client: TestClient,
     sso_only_config: AuthConfig,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # This login contract must not depend on the operator's local YAML or Redis
+    # environment. IAM is deliberately disabled in this SSO-only test.
+    app_config = AppConfig.model_validate({"models": [], "sandbox": {"use": "test"}})
+    monkeypatch.setattr("deerflow.config.app_config.get_app_config", lambda: app_config)
     with patch(
         "app.gateway.routers.auth.get_auth_config",
         return_value=sso_only_config,

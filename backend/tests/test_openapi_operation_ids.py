@@ -77,3 +77,32 @@ def test_stream_existing_run_exposes_distinct_get_and_post(openapi_spec: dict) -
     post_op_id = path_item["post"].get("operationId")
     assert get_op_id and post_op_id, "Both GET and POST must have operationIds"
     assert get_op_id != post_op_id, f"GET and POST share operationId {get_op_id!r}, which breaks OpenAPI codegen"
+
+
+@pytest.mark.parametrize(
+    ("path", "methods"),
+    [
+        ("/api/threads/{thread_id}/live-preview/{port}/{path}", {"get", "head", "options", "post", "put", "patch", "delete"}),
+        ("/api/threads/{thread_id}/artifacts/{path}", {"get", "head"}),
+    ],
+)
+def test_enterprise_artifact_methods_remain_independent_operations(openapi_spec, path, methods):
+    operations = openapi_spec["paths"][path]
+    assert methods <= operations.keys()
+    assert len({operations[method]["operationId"] for method in methods}) == len(methods)
+
+
+def test_enterprise_method_routes_share_the_original_authorization_wrapper():
+    from app.gateway.routers.artifacts import get_artifact, get_live_preview, mutate_live_preview, router
+
+    for endpoint, methods in (
+        (get_artifact, {"GET", "HEAD"}),
+        (get_live_preview, {"GET", "HEAD", "OPTIONS"}),
+        (mutate_live_preview, {"POST", "PUT", "PATCH", "DELETE"}),
+    ):
+        # Every method registers the same permission-decorated callable, never
+        # its unwrapped implementation. Splitting schema IDs cannot drop RBAC.
+        assert hasattr(endpoint, "__wrapped__")
+        routes = [route for route in router.routes if route.endpoint is endpoint]
+        assert {method for route in routes for method in route.methods} == methods
+        assert all(len(route.methods) == 1 for route in routes)

@@ -23,6 +23,7 @@ export const zhCN: Translations = {
     delete: "删除",
     edit: "编辑",
     rename: "重命名",
+    renameFailed: "重命名会话失败。",
     share: "分享",
     openInNewWindow: "在新窗口打开",
     close: "关闭",
@@ -89,7 +90,7 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用中海油勘探开发智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
+      "欢迎使用中国海油通用智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
     mobileDescription: "面向油气业务的智能研究与协作助手",
 
     createYourOwnSkill: "创建您的专属技能",
@@ -142,10 +143,13 @@ export const zhCN: Translations = {
     truncatedUnavailable: "变更集过大，已省略 diff。",
     truncatedSummary: "部分变更已被截断。",
     symlinkUnavailable: "符号链接变更，无法展示 diff。",
+    symlinkCreated: "已替换为符号链接",
   },
 
   // Input Box
   inputBox: {
+    employeeSkillsLoading: "正在读取此员工有权调用的技能…",
+    employeeSkillsUnavailable: "暂时无法读取此员工的技能，请刷新后重试；不会改用个人技能。",
     placeholder: "今天我能为你做些什么？",
     createSkillPrompt:
       "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
@@ -569,6 +573,8 @@ export const zhCN: Translations = {
     unpublishFromSquare: "从数字员工广场移除",
     unpublishConfirm: "确定要将这位数字员工从广场移除吗？",
     publishSuccess: "数字员工已发布到广场",
+    publicationConflict:
+      "发布版本已发生变化。请核对刷新后的版本，再重新确认发布或下架。",
     unpublishSuccess: "数字员工已从广场移除",
     chat: "开始工作",
     viewProfile: "查看档案",
@@ -577,8 +583,10 @@ export const zhCN: Translations = {
     toolGroups: "工具组",
     skills: "技能",
     delete: "删除",
-    deleteConfirm: "确定要删除这位数字员工吗？此操作不可撤销。",
+    deleteConfirm: "确认从个人列表删除以下数字员工？已发布的广场版本不会自动下架。页面不提供撤销，恢复需管理员核对保留记录。",
     deleteSuccess: "数字员工已删除",
+    deleteConflict: "打开确认框后，该员工已被修改，本次删除已拒绝。请关闭并重新打开，核对最新草稿后再决定。",
+    deleteUnconfirmed: "尚无法确认是否删除成功。请勿重复提交；关闭并重新打开，核对员工当前状态。",
     newChat: "新对话",
     createPageTitle: "新建数字员工",
     createPageSubtitle: "描述岗位职责和工作方式，我来帮你完成数字员工配置。",
@@ -605,6 +613,31 @@ export const zhCN: Translations = {
     initialDescription: "初始简介：{value}",
     initialCategory: "初始业务域分类：{value}",
     initialTags: "初始标签：{value}",
+    initialSkills:
+      "创建表单选择的技能：{value}。只能在我的当前权限内绑定这些技能，不要自行增加。",
+    profileSaveError:
+      "数字员工初稿已保存，但创建表单配置保存失败。请重试保存，暂勿发布。",
+    skillSelectionTitle: "员工可用技能",
+    knowledgeSelectionTitle: "员工知识范围",
+    knowledgeSelectionHint:
+      "选择你有权访问的知识库或文件，保存时会重新验证权限。发布绑定知识还需所有者批准仅问答授权，不开放知识库浏览或下载。",
+    knowledgeInherit: "在对话中选择",
+    knowledgeDisabled: "不使用知识库",
+    knowledgeSelected: "绑定固定范围",
+    knowledgeSelectionRequired:
+      "请选择 1–20 个知识库或文件，或切换为不使用知识库。",
+    selectedSourceUnavailable:
+      "所选来源的数字员工已不可用或暂时无法确认。请返回目录重试，不会自动切换到其他同名员工。",
+    skillSelectionHint:
+      "仅列出当前账号已启用的技能。选择不代表获得向广场转授权的权限；发布仍需单独检查。不会共享创建者的 API 密钥。",
+    skillsInherit: "跟随当前用户",
+    skillsExplicit: "明确选择",
+    skillsSearch: "搜索技能名称或说明",
+    skillsLoadError: "技能目录加载失败，原选择已保留。请刷新后重试。",
+    skillsEmpty: "没有匹配的可用技能",
+    skillsUnavailable: "已停用或当前不可用；请移除或恢复权限后再保存",
+    skillsEmptyMeansNone: "不选表示不使用技能",
+    skillsClear: "清空选择",
     save: "保存数字员工",
     saving: "正在保存数字员工...",
     saveRequested:
@@ -626,6 +659,10 @@ export const zhCN: Translations = {
     edit: "编辑信息",
     settingsTitle: "编辑数字员工",
     settingsDescription: "修改展示名称、简介、业务域分类、标签和头像。",
+    draftConflict: "此员工已在其他会话中修改。当前输入已保留，请先复制内容，再关闭并重新打开以核对最新版本；发生冲突的请求已被拒绝。",
+    avatarPartialSave: "员工正文信息已保存，但头像更新尚未确认成功。已保留您选择的图片和输入，请重新打开草稿核对当前头像后再重试。",
+    draftLoadFailed: "无法核验当前私有草稿，暂时不能编辑。请重试或关闭窗口。",
+    draftRetry: "重新读取草稿",
     displayName: "展示名称",
     stableName: "内部名称",
     descriptionLabel: "简介",
@@ -800,7 +837,7 @@ export const zhCN: Translations = {
       telegram: "通过本平台 Bot 接收 Telegram 私聊消息。",
       slack: "接收 Slack 工作区消息和提及。",
       discord: "通过本平台 Bot 接收 Discord 服务器消息。",
-      feishu: "通过本平台应用接收飞书和 Lark 消息。",
+      feishu: "通过海能 Work 应用接收消息。",
       dingtalk: "通过本平台 Bot 接收钉钉 Stream Push 消息。",
       wechat: "通过本平台 Bot 接收微信 iLink 消息。",
       wecom: "通过本平台 AI Bot 接收企业微信消息。",
@@ -810,7 +847,7 @@ export const zhCN: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中海油勘探开发智能体",
+    appName: "中国海油通用智能体",
     chats: "对话",
     newChat: "新对话",
     untitled: "未命名",

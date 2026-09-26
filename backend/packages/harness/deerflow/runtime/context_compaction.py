@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -67,6 +68,13 @@ async def compact_thread_context(
 ) -> ThreadCompactionResult:
     """Summarize old messages in a thread and write a compacted checkpoint."""
     resolved_app_config = app_config or get_app_config()
+    # Manual compaction does not construct the lead Agent, so it must resolve
+    # the same server-owned binding before registering any memory-flush hook.
+    # Never rely on a client-selected agent name or change the global config.
+    from deerflow.runtime.employee_resources import read_employee_publication, scope_employee_config
+
+    publication = await asyncio.to_thread(read_employee_publication, thread_id, user_id)
+    resolved_app_config = scope_employee_config(resolved_app_config, publication)
     middleware = _create_compaction_middleware(app_config=resolved_app_config, keep=keep)
 
     read_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}

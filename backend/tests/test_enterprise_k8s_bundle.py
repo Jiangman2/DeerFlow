@@ -189,23 +189,42 @@ def test_environment_template_documents_both_kubernetes_sandbox_auth_keys():
 
 def test_enterprise_sandbox_image_pins_arm64_websocat_and_cairosvg():
     dockerfile = _read("docker/sandbox-ppt-master/Dockerfile")
+    provenance = dict(line.split("=", 1) for line in _read("docker/sandbox-ppt-master/PPT_MASTER_UPSTREAM.env").splitlines() if line and not line.startswith("#"))
 
     assert "WEBSOCAT_VERSION=1.14.1" in dockerfile
     assert "711a69576a2ff473fb01a90ffafb571c2ed019e55479d7ae71b12c2eadeb7011" in dockerfile
     assert "websocat --version" in dockerfile
     assert '"CairoSVG==2.7.1"' in dockerfile
     assert "cairosvg.svg2png" in dockerfile
+    assert '"urllib3==2.5.0"' in dockerfile
     assert '--upgrade --force-reinstall "pydantic' not in dockerfile
     assert "Version(pydantic.__version__) >= Version('2.12.5')" in dockerfile
+    assert "COPY docker/sandbox-ppt-master/PPT_MASTER_UPSTREAM.env" in dockerfile
+    assert "COPY --from=ppt-master-skill . /opt/ppt-master-release-skill" in dockerfile
+    assert ("COPY docker/sandbox-ppt-master/runtime_capability_probe.py /opt/ppt-master-agent-host/runtime_capability_probe.py") in dockerfile
+    assert "python3 -m py_compile" in dockerfile
+    assert "/opt/ppt-master-agent-host/runtime_capability_probe.py" in dockerfile
+    assert 'tomli==2.2.1; python_version < "3.11"' in _read("docker/sandbox-ppt-master/document-runtime-requirements.txt")
+    agent_host = _read("docker/sandbox-ppt-master/agent_host.py")
+    runtime_probe = _read("docker/sandbox-ppt-master/runtime_capability_probe.py")
+    for source in (agent_host, runtime_probe):
+        assert "except ModuleNotFoundError" in source
+        assert "import tomli as tomllib" in source
+    assert '"/opt/ppt-master-release-skill"' in agent_host
+    assert provenance == {
+        "PPT_MASTER_UPSTREAM_REPOSITORY": "https://github.com/hugohe3/ppt-master.git",
+        "PPT_MASTER_UPSTREAM_TAG": "v6.6.0",
+        "PPT_MASTER_UPSTREAM_COMMIT": "a50758ac29ec027e85966db33e2ae80031446756",
+        "PPT_MASTER_UPSTREAM_SKILL_TREE": "e2d34480203f71c44b5465e194a8d232c6e5c8be",
+    }
 
 
 def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands():
     dockerfile = _read("docker/sandbox-ppt-master/Dockerfile")
 
     assert "nginx-server-with-auth.conf" in dockerfile
-    assert "grep -cF 'proxy_pass http://127.0.0.1:${AUTH_BACKEND_PORT};'" in dockerfile
-    assert "proxy_read_timeout 86400s;" in dockerfile
-    assert "proxy_send_timeout 86400s;" in dockerfile
+    assert "patch_nginx_timeouts.py" in dockerfile
+    assert "grep -cF 'proxy_pass http://127.0.0.1:${AUTH_BACKEND_PORT};'" not in dockerfile
 
 
 def test_ppt_master_runner_is_an_independent_failure_domain():
@@ -327,11 +346,25 @@ def test_enterprise_ppt_agent_disables_provider_hosted_web_search():
     provisioner = next(patch for patch in patches if patch.get("kind") == "Deployment" and patch.get("metadata", {}).get("name") == "provisioner")
     env = {entry["name"]: entry.get("value") for entry in provisioner["spec"]["template"]["spec"]["containers"][0]["env"] if "value" in entry}
 
-    codex_config = tomllib.loads(env["CODEX_CONFIG_TOML"])
+    codex_config = tomllib.loads(env["PPT_MASTER_AGENT_CODEX_CONFIG_TOML"])
 
     assert codex_config["web_search"] == "disabled"
     assert codex_config["model_provider"] == "cnooc_deepseek"
-    assert codex_config["model_providers"]["cnooc_deepseek"]["wire_api"] == "responses"
+    provider = codex_config["model_providers"]["cnooc_deepseek"]
+    assert provider["base_url"] == "http://gateway:8001/api/codex/deepseek/v1"
+    assert provider["env_key"] == "PPT_MASTER_RESPONSES_RELAY_KEY"
+    assert provider["wire_api"] == "responses"
+    assert "DeepSeek-V4-Flash" in env["PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON"]
+    assert "CODEX_CONFIG_TOML" not in env
+    assert "CODEX_MODEL_CATALOG_JSON" not in env
+    assert env["PPT_MASTER_ENTERPRISE_RELAY_REQUIRED"] == "true"
+    passthrough = env["SANDBOX_PASSTHROUGH_ENV_KEYS"].split(",")
+    assert "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED" in passthrough
+    assert "QWEN_TTS_BASE_URL" in passthrough
+    assert env["QWEN_TTS_BASE_URL"] == "https://dashscope.aliyuncs.com"
+    assert env["DASHSCOPE_TTS_MODEL"] == "qwen3-tts-flash"
+    assert env["DASHSCOPE_TTS_VOICE_MALE"] == "Ethan"
+    assert env["DASHSCOPE_TTS_VOICE_FEMALE"] == "Cherry"
 
 
 def test_networked_enterprise_builds_use_optional_buildkit_secrets():
@@ -402,8 +435,54 @@ def test_enterprise_weknora_ui_replaces_the_official_v070_base_image():
     pod_spec = v08_frontend["spec"]["template"]["spec"]
     container = next(item for item in pod_spec["containers"] if item["name"] == "frontend")
     assert container["imagePullPolicy"] == "Never"
-    assert container["volumeMounts"] is None
-    assert pod_spec["volumes"] is None
+    assert container["volumeMounts"] == [
+        {"$patch": "replace"},
+        {"name": "weknora-ui-runtime", "mountPath": "/usr/share/nginx/html"},
+    ]
+
+    preview_init = next(item for item in pod_spec["initContainers"] if item["name"] == "patch-legacy-office-preview")
+    assert preview_init["image"] == f"wechatopenai/weknora-ui@{expected_digest}"
+    assert preview_init["imagePullPolicy"] == "Never"
+    assert preview_init["command"] == [
+        "/bin/sh",
+        "/opt/deerflow-weknora-patches/patch-legacy-office-preview.sh",
+        "/usr/share/nginx/html",
+        "/patched-ui",
+    ]
+    assert pod_spec["volumes"][0] == {"$patch": "replace"}
+    volumes = {item["name"]: item for item in pod_spec["volumes"][1:]}
+    assert volumes["weknora-ui-runtime"] == {
+        "name": "weknora-ui-runtime",
+        "emptyDir": {},
+    }
+    assert volumes["weknora-v08-preview-patch"] == {
+        "name": "weknora-v08-preview-patch",
+        "configMap": {
+            "name": "weknora-v08-preview-patch",
+            "defaultMode": 365,
+        },
+    }
+
+    enterprise = yaml.safe_load(_read("k8s/enterprise/kustomization.yaml"))
+    preview_patch = next(generator for generator in enterprise["configMapGenerator"] if generator["name"] == "weknora-v08-preview-patch")
+    assert preview_patch["files"] == ["patch-legacy-office-preview.sh=weknora-v08-preview-patches/patch-legacy-office-preview.sh"]
+
+    preview_script = _read("k8s/enterprise/weknora-v08-preview-patches/patch-legacy-office-preview.sh")
+    assert "DOC_OLD_DOUBLE=" in preview_script
+    assert '"docx",["docx","doc"]' in preview_script
+    assert '"pptx",["pptx","ppt"]' in preview_script
+    assert 'test "${doc_old_after}" -eq 0' in preview_script
+    assert 'test "${ppt_old_after}" -eq 0' in preview_script
+    assert 'test "${doc_new}" -ge 1' in preview_script
+    assert 'test "${ppt_new}" -ge 1' in preview_script
+    assert "CACHE_SUFFIX='.legacy-office-r5'" in preview_script
+    assert "cache_bust_javascript_graph" in preview_script
+    assert 'test "${versioned_doc_old}" -eq 0' in preview_script
+    assert 'test "${versioned_ppt_old}" -eq 0' in preview_script
+    assert 'test "${versioned_doc_new}" -ge 1' in preview_script
+    assert 'test "${versioned_ppt_new}" -ge 1' in preview_script
+    assert "cache_bust=versioned-js-graph" in preview_script
+    assert "weknora_legacy_office_preview_patch=PASS" in preview_script
 
     patched_index = _read("k8s/weknora/ui-patches/index.html")
     for asset in (
@@ -675,11 +754,14 @@ def test_enterprise_routes_presentations_and_scanned_pdf_fallback_through_mineru
         "deer-flow-mineru-adapter",
         "model.ai.cnooc",
         "gateway",
+        "aiapi.cnooc.com.cn",
     ]
     assert "deer-flow-mineru-adapter" in weknora_env["NO_PROXY"].split(",")
     assert "deer-flow-mineru-adapter" in weknora_env["no_proxy"].split(",")
     assert "model.ai.cnooc" in weknora_env["NO_PROXY"].split(",")
     assert "model.ai.cnooc" in weknora_env["no_proxy"].split(",")
+    assert "aiapi.cnooc.com.cn" in weknora_env["NO_PROXY"].split(",")
+    assert "aiapi.cnooc.com.cn" in weknora_env["no_proxy"].split(",")
     assert weknora_env["WEKNORA_PREFER_CNOOC_DEEPSEEK"] == "true"
     assert weknora_env["WEKNORA_ASYNQ_CORE_CONCURRENCY"] == "4"
     assert weknora_env["WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY"] == "2"
@@ -1011,6 +1093,8 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
     sandbox_passthrough_keys = set(provisioner_values["SANDBOX_PASSTHROUGH_ENV_KEYS"].split(","))
     assert {"NO_PROXY", "no_proxy"} <= sandbox_passthrough_keys
     assert {"DISABLE_BROWSER", "DISABLE_MCP_BROWSER"} <= sandbox_passthrough_keys
+    assert "QWEN_TTS_BASE_URL" in sandbox_passthrough_keys
+    assert provisioner_values["QWEN_TTS_BASE_URL"] == "https://dashscope.aliyuncs.com"
     assert provisioner_values["DISABLE_BROWSER"] == "true"
     assert provisioner_values["DISABLE_MCP_BROWSER"] == "true"
     assert provisioner_values["NO_PROXY"] == provisioner_values["no_proxy"]

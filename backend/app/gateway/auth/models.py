@@ -55,3 +55,4 @@ class UserResponse(BaseModel):
     oauth_provider: str | None = Field(None, description="OAuth/SSO provider ID if the user logged in via SSO (e.g. 'keycloak')")
     display_name: str | None = None
     organization_name: str | None = None
+    permissions: list[str] | None = Field(None, description="Effective registered route permissions; null on public credential-creation responses")

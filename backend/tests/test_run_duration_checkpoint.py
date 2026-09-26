@@ -360,14 +360,13 @@ async def test_successful_subsecond_run_persists_zero_duration(monkeypatch: pyte
     )
     persist_duration = AsyncMock()
 
-    async def set_status(run_id, status, **kwargs):
-        record.status = status
-
     class DummyAgent:
         async def astream(self, graph_input, config=None, stream_mode=None, subgraphs=False):
             yield {"messages": []}
 
-    monkeypatch.setattr(run_manager, "set_status", set_status)
+    # Freeze the clock, not the lifecycle method: both the new startup barrier
+    # and successful finalization legitimately update the record timestamp.
+    monkeypatch.setattr("deerflow.runtime.runs.manager._now_iso", lambda: "2026-01-01T00:00:00.500000+00:00")
     monkeypatch.setattr(worker, "_persist_run_duration", persist_duration)
 
     await run_agent(

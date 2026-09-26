@@ -165,6 +165,53 @@ class TestFilesFromKwargs:
         msg = _human("hi", files=[{"filename": ".upload-active.part", "size": 5, "path": "/mnt/user-data/uploads/.upload-active.part"}])
         assert mw._files_from_kwargs(msg) is None
 
+    def test_accepts_server_companion_for_uploaded_image(self, tmp_path):
+        mw = _middleware(tmp_path)
+        uploads_dir = _uploads_dir(tmp_path)
+        (uploads_dir / "photo.png").write_bytes(b"image")
+        (uploads_dir / "photo_1.md").write_text("# OCR\n\n设备编号 A-1024", encoding="utf-8")
+        msg = _human(
+            "识别图片",
+            files=[
+                {
+                    "filename": "photo.png",
+                    "size": 5,
+                    "markdown_file": "photo_1.md",
+                }
+            ],
+        )
+
+        result = mw._files_from_kwargs(msg, uploads_dir)
+
+        assert result is not None
+        assert result[0]["parsed_text_path"] == "/mnt/user-data/uploads/photo_1.md"
+
+    @pytest.mark.parametrize(
+        "declared",
+        ("../other.md", "other.md", "photo.txt", ".upload-photo.part"),
+    )
+    def test_rejects_unbound_or_unsafe_parsed_text_metadata(self, tmp_path, declared):
+        mw = _middleware(tmp_path)
+        uploads_dir = _uploads_dir(tmp_path)
+        (uploads_dir / "photo.png").write_bytes(b"image")
+        (uploads_dir / "other.md").write_text("unrelated", encoding="utf-8")
+        (uploads_dir / "photo.md").write_text("legacy sibling", encoding="utf-8")
+        msg = _human(
+            "识别图片",
+            files=[
+                {
+                    "filename": "photo.png",
+                    "size": 5,
+                    "markdown_file": declared,
+                }
+            ],
+        )
+
+        result = mw._files_from_kwargs(msg, uploads_dir)
+
+        assert result is not None
+        assert "parsed_text_path" not in result[0]
+
 
 # ---------------------------------------------------------------------------
 # _create_files_message
@@ -209,6 +256,16 @@ class TestCreateFilesMessage:
         mw = _middleware(tmp_path)
         msg = mw._create_files_message([self._new_file()], [])
         assert "read_file" in msg
+
+    def test_parsed_text_companion_is_explicitly_presented(self, tmp_path):
+        mw = _middleware(tmp_path)
+        file = self._new_file("photo.png")
+        file["parsed_text_path"] = "/mnt/user-data/uploads/photo.md"
+
+        msg = mw._create_files_message([file], [])
+
+        assert "Parsed text: /mnt/user-data/uploads/photo.md" in msg
+        assert "server-generated OCR/document companion" in msg
 
     def test_empty_new_files_produces_empty_marker(self, tmp_path):
         mw = _middleware(tmp_path)

@@ -41,6 +41,17 @@ from app.gateway.services import (
 )
 from deerflow.runtime.runs.worker import _build_runtime_context, _install_runtime_context
 
+
+@pytest.fixture(autouse=True)
+def isolated_agent_store(monkeypatch):
+    """Use real file writes without consulting the operator's backend config."""
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    store = FileAgentStore()
+    monkeypatch.setattr("deerflow.persistence.agents.get_agent_store", lambda: store)
+    monkeypatch.setattr("deerflow.tools.builtins.setup_agent_tool.get_agent_store", lambda: store)
+
+
 # ---------------------------------------------------------------------------
 # Helpers — real production code paths
 # ---------------------------------------------------------------------------

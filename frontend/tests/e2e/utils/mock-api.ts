@@ -237,6 +237,29 @@ function runStreamThreadId(route: Route) {
  * for a real backend.
  */
 export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
+  // Workspace chrome and the knowledge picker load these independently of
+  // the chat transport. Keep the no-backend fixture self-contained; individual
+  // announcement/knowledge tests can override these exact routes afterwards.
+  void page.route("**/api/announcements/active", (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return route.fulfill({ json: { announcement: null } });
+  });
+  void page.route("**/api/weknora/knowledge-bases", (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return route.fulfill({ json: { items: [], total: 0 } });
+  });
+  void page.route("**/api/threads/*/runs/*/workspace-changes?*", (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    return route.fulfill({
+      json: {
+        available: false,
+        version: 1,
+        summary: { created: 0, modified: 0, deleted: 0, additions: 0, deletions: 0, truncated: false },
+        files: [],
+        limits: {},
+      },
+    });
+  });
   let threads = [...(options?.threads ?? [])];
   const agents = options?.agents ?? [];
   const teamAgents = options?.teamAgents ?? [];
@@ -1000,6 +1023,7 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
     return route.fallback();
   });
 
+  void page.route("**/api/threads/*/employee-publication", (route) => route.fulfill({ json: { bound: false } }));
   void page.route("**/api/threads/*/uploads/limits", (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({
@@ -1310,7 +1334,7 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(agent),
+          body: JSON.stringify({ draft_revision: "draft-test-fixture", ...agent }),
         });
       }
     }
@@ -1358,6 +1382,9 @@ export function handleRunStream(
   return route.fulfill({
     status: 200,
     contentType: "text/event-stream",
+    headers: {
+      "Content-Location": `/api/threads/${threadId}/runs/${MOCK_RUN_ID}`,
+    },
     body,
   });
 }

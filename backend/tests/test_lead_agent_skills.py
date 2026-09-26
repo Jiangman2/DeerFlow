@@ -1,8 +1,11 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from deerflow.agents.lead_agent.prompt import get_skills_prompt_section
 from deerflow.config.agents_config import AgentConfig
+from deerflow.config.authorization_config import AuthorizationConfig
 from deerflow.skills.types import Skill
 
 
@@ -318,6 +321,7 @@ def test_make_lead_agent_empty_skills_passed_correctly(monkeypatch):
         supports_thinking = False
 
     mock_app_config = MagicMock()
+    mock_app_config.authorization = AuthorizationConfig()
     mock_app_config.get_model_config.return_value = MockModelConfig()
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: mock_app_config)
 
@@ -360,6 +364,7 @@ def test_make_lead_agent_custom_skill_allowlist_does_not_activate_tool_policy(mo
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [NamedTool("task"), NamedTool("bash"), NamedTool("read_file"), NamedTool("web_search")])
 
     mock_app_config = MagicMock()
+    mock_app_config.authorization = AuthorizationConfig()
     mock_app_config.get_model_config.return_value = SimpleNamespace(supports_thinking=False, supports_vision=False)
     mock_app_config.tool_search.enabled = True
     mock_app_config.skills.container_path = "/mnt/skills"
@@ -420,10 +425,11 @@ def test_make_lead_agent_all_legacy_skills_preserve_all_tools(monkeypatch):
     monkeypatch.setattr(lead_agent_module, "create_agent", lambda **kwargs: kwargs)
     monkeypatch.setattr(lead_agent_module, "load_agent_config", lambda x: AgentConfig(name="test", skills=None))
     monkeypatch.setattr(lead_agent_module, "is_personal_agent", lambda name, *, user_id=None: True, raising=False)
-    monkeypatch.setattr(lead_agent_module, "_load_enabled_available_skills", lambda available_skills, *, app_config, user_id=None: [_make_skill("legacy", None)])
+    monkeypatch.setattr(lead_agent_module, "_load_enabled_available_skills", lambda available_skills, *, app_config, user_id=None, thread_id=None: [_make_skill("legacy", None)])
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [NamedTool("bash"), NamedTool("read_file")])
 
     mock_app_config = MagicMock()
+    mock_app_config.authorization = AuthorizationConfig()
     mock_app_config.get_model_config.return_value = SimpleNamespace(supports_thinking=False, supports_vision=False)
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: mock_app_config)
 
@@ -477,6 +483,7 @@ def test_make_lead_agent_passive_empty_skill_policy_preserves_mcp_and_other_tool
     )
 
     mock_app_config = MagicMock()
+    mock_app_config.authorization = AuthorizationConfig()
     mock_app_config.get_model_config.return_value = SimpleNamespace(supports_thinking=False, supports_vision=False)
     mock_app_config.tool_search.enabled = True
     mock_app_config.tool_search.auto_promote_top_k = 3
@@ -511,6 +518,7 @@ def test_make_lead_agent_fails_closed_when_skill_policy_load_fails(monkeypatch):
     monkeypatch.setattr(lead_agent_module, "load_agent_config", lambda x: AgentConfig(name="test", skills=["restricted"]))
 
     mock_app_config = MagicMock()
+    mock_app_config.authorization = AuthorizationConfig()
     mock_app_config.get_model_config.return_value = SimpleNamespace(supports_thinking=False, supports_vision=False)
 
     def fail_storage(*args, **kwargs):
@@ -556,6 +564,7 @@ def test_make_lead_agent_drops_update_agent_on_github_channel(monkeypatch):
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [NamedTool("bash"), NamedTool("read_file")])
 
     mock_app_config = MagicMock()
+    mock_app_config.authorization = AuthorizationConfig()
     mock_app_config.get_model_config.return_value = SimpleNamespace(supports_thinking=False, supports_vision=False)
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: mock_app_config)
 
@@ -569,11 +578,14 @@ def test_make_lead_agent_drops_update_agent_on_github_channel(monkeypatch):
     assert "read_file" in tool_names
 
 
-def test_make_lead_agent_drops_update_agent_for_team_agent(monkeypatch):
+@pytest.mark.parametrize("explicit_source", [None, "team", "legacy"])
+def test_make_lead_agent_drops_update_agent_for_team_agent(monkeypatch, tmp_path, explicit_source):
     """Shared team agents are executable by viewers but immutable from chat."""
     from unittest.mock import MagicMock
 
     from deerflow.agents.lead_agent import agent as lead_agent_module
+    from deerflow.config.paths import Paths
+    from deerflow.persistence.agents.publications import TeamPublicationStore
 
     monkeypatch.setattr(lead_agent_module, "_resolve_model_name", lambda x=None, **kwargs: "default-model")
     monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: "model")
@@ -586,21 +598,55 @@ def test_make_lead_agent_drops_update_agent_for_team_agent(monkeypatch):
 
     monkeypatch.setattr(lead_agent_module, "apply_prompt_template", capture_prompt_kwargs)
     monkeypatch.setattr(lead_agent_module, "create_agent", lambda **kwargs: kwargs)
-    monkeypatch.setattr(lead_agent_module, "load_agent_config", lambda x: AgentConfig(name="shared", skills=None))
-    monkeypatch.setattr(lead_agent_module, "is_personal_agent", lambda name, *, user_id=None: False, raising=False)
-    monkeypatch.setattr(lead_agent_module, "_load_enabled_available_skills", lambda available_skills, *, app_config, user_id=None: [_make_skill("legacy", None)])
+
+    def load_source(name, **kwargs):
+        assert explicit_source != "team", "Admitted config must not reload the mutable head"
+        if explicit_source:
+            assert kwargs == {"source": explicit_source, "user_id": "viewer"}
+        return AgentConfig(name="shared", skills=None)
+
+    monkeypatch.setattr(lead_agent_module, "load_agent_config", load_source)
+    # Even if the viewer owns a same-name personal employee, choosing Square
+    # must not expose a mutation tool for that other definition.
+    monkeypatch.setattr(lead_agent_module, "is_personal_agent", lambda name, *, user_id=None: bool(explicit_source), raising=False)
+    monkeypatch.setattr(lead_agent_module, "_load_enabled_available_skills", lambda available_skills, *, app_config, user_id=None, thread_id=None: [_make_skill("legacy", None)])
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [NamedTool("bash")])
 
     mock_app_config = MagicMock()
+    mock_app_config.authorization = AuthorizationConfig()
     mock_app_config.get_model_config.return_value = SimpleNamespace(supports_thinking=False, supports_vision=False)
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: mock_app_config)
 
-    agent_kwargs = lead_agent_module.make_lead_agent({"configurable": {"agent_name": "shared", "user_id": "viewer"}})
+    config = {"configurable": {"agent_name": "shared", "user_id": "viewer", "agent_source": explicit_source}}
+    if explicit_source == "team":
+        # Publication scoping clones AppConfig to disable personal memory.
+        # Its policy remains explicitly disabled in this legacy tool test.
+        mock_app_config.model_copy.return_value.authorization = AuthorizationConfig()
+        paths = Paths(base_dir=tmp_path)
+        monkeypatch.setattr("deerflow.config.paths.get_paths", lambda: paths)
+        TeamPublicationStore(paths).publish("shared", owner="publisher", config={"skills": None}, soul="published soul", avatar=None, expected_revision=None)
+        config["configurable"]["thread_id"] = "employee-test"
+    agent_kwargs = lead_agent_module.make_lead_agent(config)
 
     tool_names = [tool.name for tool in agent_kwargs["tools"]]
     assert "bash" in tool_names
     assert "update_agent" not in tool_names
     assert prompt_kwargs["self_update_enabled"] is False
+    assert prompt_kwargs["agent_source"] == explicit_source
+    if explicit_source == "team":
+        assert prompt_kwargs["agent_soul"] == "published soul"
+        assert config["configurable"]["agent_publication_revision"]
+
+
+def test_team_employee_requires_thread_identity_before_graph_assembly(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from deerflow.agents.lead_agent import agent as lead_agent_module
+
+    monkeypatch.setattr(lead_agent_module, "get_app_config", MagicMock())
+    monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: pytest.fail("must not create model"))
+    with pytest.raises(ValueError, match="conversation identity"):
+        lead_agent_module.make_lead_agent({"configurable": {"agent_name": "shared", "agent_source": "team", "user_id": "viewer"}})
 
 
 def test_make_lead_agent_keeps_update_agent_on_non_webhook_channels(monkeypatch):
@@ -627,6 +673,7 @@ def test_make_lead_agent_keeps_update_agent_on_non_webhook_channels(monkeypatch)
     monkeypatch.setattr("deerflow.tools.get_available_tools", lambda **kwargs: [NamedTool("bash")])
 
     mock_app_config = MagicMock()
+    mock_app_config.authorization = AuthorizationConfig()
     mock_app_config.get_model_config.return_value = SimpleNamespace(supports_thinking=False, supports_vision=False)
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: mock_app_config)
 

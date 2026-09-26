@@ -40,10 +40,14 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   acquires the thread Sandbox and talks to the authenticated
   `ppt-master-agent-host` container on that Pod's ClusterIP Service port 8788.
   The host container uses the PPT-capable Sandbox image, runs the real Codex
-  Agent CLI, installs the exact vendored v4.5.0 Skill into its normal Skill
+  Agent CLI, installs the exact vendored v6.6.0 Skill into its normal Skill
   directory, persists the Codex session/events on user-data, and returns final
   output paths. Each turn replays the original Slash request and requires fresh
   reads of the applicable upstream authorities before mutation.
+  Preserve v6.5's direct runtime authorities: Quick, Beautify, and Image-to-PPTX
+  profiles may be selected directly after `routing.md`; Image-to-PPTX may then
+  load its required Quick child without changing the checkpointed authority.
+  Do not restore the removed v4.5 native-enhance/template-fill workflows.
   The Provisioner must initialize `/mnt/user-data/{workspace,uploads,outputs}`
   before either Sandbox container starts. The Agent host must also revalidate
   and restore those writable roots immediately before every fresh or repair
@@ -55,7 +59,12 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   Sandbox acquisition; readiness of the command API on port 8080 does not prove
   readiness of the host sidecar on port 8788. Bounded transient DNS/connect/read
   failures are retried during startup and task polling, while a missed deadline
-  remains a visible host-startup failure. Because Gateway and the runner are
+  remains a visible host-startup failure.
+  The PPT Sandbox outer Nginx timeout patch accepts either the literal
+  `${AUTH_BACKEND_PORT}` or a rendered numeric loopback port, normalizes the
+  three command timeout directives idempotently in exactly two locations, and
+  fails closed if the base-image configuration shape changes. Because Gateway
+  and the runner are
   separate Pods with separate warm-pool maps, the runner must also hold a
   shared filesystem execution lease for the whole Agent turn. Every AIO Sandbox
   destruction path requires a non-blocking exclusive lease and defers deletion
@@ -87,7 +96,11 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   existing `DASHSCOPE_API_KEY`. Enterprise Kubernetes gives the Agent host only
   `PPT_MASTER_RESPONSES_RELAY_KEY`; Gateway retains `DeepSeek_V4_API_KEY` and
   translates Codex Responses turns to the internal DeepSeek streamed Chat
-  Completions contract at `/api/codex/deepseek/v1/responses`. Keep that exact
+  Completions contract at `/api/codex/deepseek/v1/responses`. Keep this provider
+  profile in Provisioner's `PPT_MASTER_AGENT_CODEX_CONFIG_TOML` and
+  `PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON`, mapped only into the Agent Host
+  container; ordinary Sandbox `CODEX_*` values must remain unchanged. Require
+  both Agent-only values when the enterprise relay flag is enabled. Keep the
   endpoint self-authenticated, CSRF-exempt only by exact path, direct to
   `model.ai.cnooc` with `trust_env=false`, and fully CA/hostname verified.
   Codex CLI may group function or custom tools inside Responses `namespace`
@@ -570,7 +583,7 @@ Lead-agent middlewares are assembled in strict order across three functions: the
 
 **Shared runtime base** (`build_lead_runtime_middlewares`; subagents reuse most of this via `build_subagent_runtime_middlewares`):
 
-1. **InputSanitizationMiddleware** - First, so it is the outermost `wrap_model_call` wrapper; every inner middleware (including LLM retries) sees sanitized messages. It sanitizes every untrusted historical HumanMessage on every model call because the transformation is request-only; sanitizing only the newest turn lets an older payload reappear verbatim on the next turn. `additional_kwargs.original_user_content` and the untrusted marker are server-owned provenance: Gateway strips caller-supplied values from external run and direct thread-state writes. Caller `hide_from_ui` / `name=summary` presentation markers that would bypass the guardrail are retained only with the server-owned untrusted stamp. Trusted IM calls may carry the validated original string they captured before adding transport/file context, and the middleware replaces any non-string value before wrapping.
+1. **InputSanitizationMiddleware** - First, so it is the outermost `wrap_model_call` wrapper; every inner middleware (including LLM retries) sees sanitized messages. It sanitizes every untrusted historical HumanMessage on every model call because the transformation is request-only; sanitizing only the newest turn lets an older payload reappear verbatim on the next turn. `additional_kwargs.original_user_content` and the untrusted marker are server-owned provenance: Gateway strips caller-supplied values from external run and direct thread-state writes. External run inputs and direct thread-state writes also reject the server-owned `sandbox` channel; only trusted internal checkpoint restoration may carry it. This ingress guard does not replace provider-level thread/user scoping of restored sandbox references. Caller `hide_from_ui` / `name=summary` presentation markers that would bypass the guardrail are retained only with the server-owned untrusted stamp. Trusted IM calls may carry the validated original string they captured before adding transport/file context, and the middleware replaces any non-string value before wrapping.
    1a. **PlatformConfidentialityMiddleware** - Runs immediately inside input sanitization as an advisory-only disclosure policy. It never keyword-classifies or pre-emptively refuses a request; platform diagnostics, deployment guidance, logs, configuration, network checks, code work, and user-provided data all reach the model. The policy narrowly prohibits disclosure of actual system prompts or credential values and assistance bypassing access controls. Concrete enforcement belongs to `SandboxAuditMiddleware`, sandbox environment filtering, bash-output masking, and observable/persisted-context redaction.
 2. **ToolOutputBudgetMiddleware** - Caps tool output size (per app config) before it re-enters the model context
 3. **ToolResultSanitizationMiddleware** - Neutralizes framework/injection tags (e.g. `<system-reminder>`) and boundary markers in _remote-content_ tool results (`web_fetch`/`web_search`/`image_search`/`web_capture`) so attacker-controlled fetched pages cannot forge trusted framework context. Mirrors `InputSanitizationMiddleware`'s user-input guardrail for the other untrusted-content entry point; sits inner of `ToolOutputBudgetMiddleware` (neutralizes the raw output, then the budget truncates). Local tool output (bash/read_file) is left untouched. Scope is a name-based allowlist, so MCP remote-content tools registered under other names (e.g. `fetch_url`) are not yet covered — a metadata-tagging follow-up is tracked in the middleware source
@@ -587,11 +600,88 @@ Lead-agent middlewares are assembled in strict order across three functions: the
     configuration or build error is recoverable because it does not mean the shared
     Bash transport is unavailable. Infrastructure exceptions remain authoritative
     and may still stop Bash.
+    Inspect matching `ToolMessage` receipts inside `Command.update.messages`
+    (single/list/tuple) as well as bare messages. Error normalization receives the
+    current tool-call ID and preserves unrelated messages and Command control fields.
+    Structured subagent failed/cancelled/timed_out/polling_timed_out status takes
+    precedence over text heuristics, but never overwrites producer-stamped metadata.
+    Do not remove task's configured progress exemption or turn a subprocess project
+    failure into a permanent block of the shared Bash transport.
 13. **ToolErrorHandlingMiddleware** - Receives `AppConfig`, converts tool exceptions into error `ToolMessage`s so the run can continue instead of aborting, stamps every result with `deerflow_tool_meta` (status / error_type / recoverable_by_model / recommended_next_action / source) via `tool_result_meta.normalize_tool_result`, stamps structured metadata for task exception wrappers, and stamps skill-read metadata for downstream durable-context capture. Task tool result text is generated from the same status/result/error inputs as the structured metadata so callers do not hand-write a second protocol string.
 
-Authorization identity plumbing is independent of whether authorization enforcement is enabled. Gateway removes client-supplied `is_internal` / `authz_attributes` / `channel_user_id`, derives `is_internal` only from the server-owned `request.state.auth_source`, and accepts `channel_user_id` only from an internally authenticated IM caller's top-level `body.context`; free-form `body.config` can never supply it. `build_principal_from_context` is the shared Principal builder for assembly-time authorization and `GuardrailAuthorizationAdapter`; it applies `default_role`, strict-boolean internal provenance, and copy-on-read `authz_attributes`. Task delegation carries `is_internal` plus copied attributes through `SubagentExecutor`, while `GuardrailMiddleware` maps the same runtime fields into `GuardrailRequest`. Phase 1A provides this trusted identity chain only; automatic Layer 1 filtering and Layer 2 authorization middleware wiring remain separate enforcement work.
+Authorization identity plumbing is independent of whether authorization enforcement is enabled. Gateway removes client-supplied `is_internal` / `authz_attributes` / `channel_user_id`, derives `is_internal` only from the server-owned `request.state.auth_source`, and accepts `channel_user_id` only from an internally authenticated IM caller's top-level `body.context`; free-form `body.config` can never supply it. `build_principal_from_context` is the shared Principal builder for assembly-time authorization and `GuardrailAuthorizationAdapter`; it applies `default_role`, strict-boolean internal provenance, and copy-on-read `authz_attributes`. Task delegation carries `is_internal` plus copied attributes through `SubagentExecutor`, while `GuardrailMiddleware` maps the same runtime fields into `GuardrailRequest`. Phase 1A supplies this trusted identity chain; the subsequent tool-enforcement integration is described below and stays disabled by default.
 
 Before changing a later authorization phase, read the [authorization RFC](../docs/plans/2026-07-10-pluggable-authorization-rfc.md) and its [implementation notes](../docs/plans/2026-07-10-pluggable-authorization-implementation-notes.md). The notes are the cumulative handoff record for merged PR behavior, reviewer feedback, trust-boundary decisions, deferred scope, and required regression coverage.
+
+The v2.1 alignment adds the official `authz/rbac.py`, two-phase `runtime.py`,
+`enforcement.py` and `tool_filter.py` foundations. Provider discovery/import may
+be offloaded, but loop-affine construction belongs on the caller's loop. Tool
+filtering preserves the original objects and order and cannot introduce names
+outside the candidate set; malformed results follow explicit fail-closed policy.
+RBAC deny wins; a known role without a resource policy is unrestricted for that
+resource, so do not invent permissive enterprise role mappings. Defaults stay
+disabled. Lead/bootstrap, subagent and embedded assembly now filter all candidate
+tools (including late describe/memory helpers) before deferred catalog creation
+and pass that same provider to the execution guard. Only a concrete tool_search
+helper created from that filtered catalog is exempt, not an arbitrary namesake.
+Authorization and explicit guardrails are independent AND gates. Use the distinct
+AuthorizationGuardrailMiddleware instance name for the authorization adapter:
+LangChain rejects two middleware instances with the same name. Keep ordinary
+guardrail names unchanged. Embedded authorization-enabled graphs rebuild each
+run to avoid caching stale role/attribute/provider decisions. This does not
+replace employee publication, knowledge, thread or route authorization.
+
+Sandbox tools and eager acquisition enforce sandbox:execute before both cold
+allocation and cached reuse. The legacy runtime lookup must also use scoped
+ownership and validate published Skill mounts. Only a valid AuthorizationConfig
+with enabled=false skips policy: unavailable/corrupt configuration must deny,
+not silently disable authorization. Use the existing scoped AppConfig override
+for embedded callers. Config loading and provider discovery run off-loop; async
+providers are constructed and called on the execution loop. Composed file gates,
+tool bodies and read-mark stamps share a private invocation-scoped permit bound
+to the runtime, thread and principal snapshot; never trust a context boolean or
+cache permission across tool calls. Always retain employee withdrawal and mount
+validation even inside an authorized scope. Deny if identity changes while
+awaiting policy: bind the pre-check Principal snapshot, then verify it still
+matches before entering the permit.
+Do not deepcopy the whole runtime context (it can contain loop-bound objects).
+Explicit deny is never converted to fail-open by read-before-write inspection.
+Eager denial skips allocation so
+non-sandbox chat can continue; actual tools return a visible denial. Auxiliary
+Gateway uploads (including the separate legacy DOC LibreOffice fallback) now
+check the request actor before sandbox side effects. The request helper accepts
+only explicit disabled policy as a no-op and uses authenticated request identity,
+not storage ownership or client role/owner fields. Internal provenance comes from
+auth_source; attributed internal owners must resolve to an active real user.
+Denial skips sync/fallback, not the host upload; required parsed text still fails
+if no permitted parser produced it. Preview mutations gate before both discovery
+and isolated Runner forwarding. Read-only preview/artifact review is unchanged.
+Uploads use SandboxRequestSession and the existing SandboxClientLease manager,
+acquiring lazily with release_on_last=false. Keep the holder until conversion,
+upload sync and remote temporary-workspace cleanup have drained. Use lease.run_sync
+for blocking client calls, not run_file_io/to_thread that lets cancellation unwind
+early. Host filesystem work retains its existing I/O pool. A borrowed request does
+not park a warm client, but the manager preserves an earlier agent release until
+all borrowers finish. Recheck execution policy before legacy fallback reuse;
+never reuse a closed request session. Preserve the first conversion cancellation
+if a second cancellation arrives while draining remote cleanup. Provider-backed
+route permissions still need integration.
+
+Read-before-write cancellation must drain a queued threading.Lock.acquire before
+propagating the first cancellation and release exactly the lock it acquired.
+Keep the lock while a synchronous write precheck or read-mark probe is in flight;
+repeated cancellation cannot abandon the worker or unlock early. Preserve the
+first cancellation over a late policy/worker error. Async sandbox tool bodies use
+run_sync_lifecycle_operation, not naked to_thread, so the file gate, authorization
+scope and outer execution/client lease outlive the real worker operation.
+
+Guardrail decisions now write the neutral `authz/outcome.py` contract before
+execution/denial, keyed by tool_call_id in private run context and capped at 500
+entries. Pop consumes a decision; GraphBubbleUp is not a policy verdict. Policy
+identity lookup must not construct full policy parameters on the tool hot path.
+The final rejecting guard wins over an earlier allow. Keep private context
+forgery stripping and normal operator guardrail audit behavior; observer/receipt
+consumption and cross-loop subagent audit attribution are still pending.
 
 **Lead-only middlewares** (`build_middlewares`, appended after the base):
 
@@ -780,6 +870,156 @@ The deprecated `checkpointer` section remains backward compatible and, when
 present, overrides `database` for the LangGraph checkpointer and Store only;
 application repositories continue to use `database`.
 
+`database.postgres_schema` is opt-in and restart-required. Empty preserves the
+server's existing search_path (normally `public`); never populate it as an
+automatic upgrade. A configured plain lowercase schema must be used by the ORM,
+Alembic's separate connections, sync employee-definition pool and both LangGraph
+providers. Legacy `checkpointer.postgres_schema` retains its documented override
+for checkpoint/Store only. This selects storage, not tenant authorization, and
+does not move data. Any later public-to-custom migration needs a full table/data
+inventory including enterprise employees, `alembic_version` and LangGraph tables,
+plus verified backup/restore; do not suggest changing only the config as migration.
+
+The ORM asyncpg engine uses `database.pool_recycle` (positive, default 300s)
+and `database.command_timeout` (positive, default 30s; null disables). Merge
+these with schema connect args on both initial creation and database-create
+retry. Do not accidentally apply them to employee sync or LangGraph psycopg
+clients, or interpret them as model/run deadlines.
+
+The v2.1 checkpoint-reservation storage prerequisite follows the enterprise
+migration chain as `0021_thread_operation_kind`, not upstream revision 0008.
+The existing active-thread partial unique index covers both ordinary runs and
+internal checkpoint writes. Hide internal rows from history, regeneration,
+token totals and pending-run scheduling; retain them in lease reconciliation.
+Captured-owner reservation release must not delete normal runs or rely on
+ambient request identity. Downgrade refuses while internal records remain;
+never remove orphan evidence to make an old-image downgrade appear safe.
+Goal set/clear, compact and state update use `reserve_checkpoint_write` around
+their whole read/merge/write operation; thread authorization still runs first.
+Keep title synchronization inside the reservation. A conflict returns 409 rather
+than dropping the user's edit or replacing the enterprise checkpoint adapter.
+Late failed renewals must recheck the local record before cancelling its task.
+Filter internal operations from Console, enterprise dashboard/rollup sources,
+user run counts and diagnostics; never delete their recovery evidence to hide
+it. Mixed-runtime rollout validation is still required before production use.
+
+Thread-history cleanup primitives preserve internal operation rows: bulk run
+deletion removes only `operation_kind=run` under the captured owner. DB event
+deletion takes the same local thread lock and PostgreSQL transaction advisory
+lock as event writes; release the pinned lock only after successful deletion.
+Cancellation/failure must not split the lock generation. This serializes admitted
+mutations, not a permanent deletion tombstone; feedback cleanup likewise does not
+fence future writes. Keep AUTO/explicit owner/explicit None scope semantics.
+The delete HTTP route authorizes first, then holds a durable `delete` reservation
+and the goal lock across cleanup. Capture one owner for every store and preserve
+enterprise browser-session teardown. Invalid legacy IDs may clean metadata but
+must never reach filesystem path construction. Drain offloaded filesystem
+deletion before cancellation releases admission. Historical cleanup is
+best-effort, not a distributed transaction; inspect legacy event-delete
+signatures before calling, never retry backend TypeErrors without owner scope.
+
+Orphan recovery atomically stores `orphan_recovered` and terminalizes retained
+streams. Periodic scans/callbacks run single-flight outside lease renewal. A
+cross-worker SSE/wait heartbeat may synthesize END only for that explicit durable
+orphan terminal marker, not for an ordinary terminal row whose tail events may
+still be pending. Periodic recovery must not project thread status without a
+latest-run CAS. Preserve the separate PPT runner's startup recovery exclusion.
+
+The last durably confirmed lease expiry is the owner's execution boundary, not
+expiry plus peer `grace_seconds`. Unknown/expired/late renewal sets local
+`ownership_lost`; do not persist subsequent status/progress/completion, rollback,
+thread projection or completion hooks. Always release enterprise sandbox leases.
+Keep durable cancellation arbitration and its renewal cancel action; do not
+replace them with the older boolean-only renewal API. Remote side effects that
+already committed are not undone by this local execution fence.
+
+`RunJournal` callbacks run inline on the async event-loop thread; store I/O stays
+asynchronous. One LangChain LLM run ID has one canonical response generation set;
+re-fired `on_llm_end` must not append duplicate history or change caller/tool/error
+attribution. A pending no-usage response may accept immediate usage enrichment
+only; the next event or flush seals its order and immutable summary. Later usage
+still counts once without rewriting sealed history. Preserve enterprise start-time
+caller resolution and snapshot the lead AI message used by interrupted-delivery
+validation. Explicit host reconciliation is a separate same-message-ID replacement,
+not a provider replay. Discard pending responses/caller caches on ownership loss.
+Route cross-thread `record_middleware` calls through the journal's captured owner
+loop; drop them once that loop stops or the journal closes. Suppress automatic
+threshold writes throughout explicit flush, resetting the suppression in finally.
+This does not make arbitrary Journal callbacks thread-safe or serialize multiple
+explicit flush callers; retain the run owner's lifecycle and close discipline.
+Only tool-returned `Command.update.artifacts` contributes to the
+run delivery fact; attribute using the actual tool-start callback, falling back
+to the current lead-agent call map. Do not derive facts from assistant prose or
+retained graph artifacts. The worker writes `run.delivery` with `put_if_absent`
+before durable terminal status; goal continuations dedupe (path, tool) pairs.
+Keep the durable run active through the last duration checkpoint and use
+`update_finalizing_progress` without changing that status. The process-local
+`terminal_status_pending` flag retains lease renewal, cancellation and admission
+fences during staged terminal intent. Clear it only after confirmed persistence;
+lease expiry still stops final writes. Preserve enterprise cancellation arbitration,
+human-input pause state, external-Agent token accounting, and sandbox lease cleanup.
+Close journals after finalization, discarding scheduled writes on ownership loss.
+Recovery writes a zero fact only after the lease-aware takeover CAS succeeds,
+only for ordinary runs, and in an isolated context stamped with the captured
+owner (legacy NULL stays NULL). It never overwrites a real receipt or attributes
+another user's recovery to the current requester. Receipt outages do not undo
+the takeover. A delivery fact alone is not output validation or publication.
+
+Completion-hook BaseException/cancellation must not strand the finalizing barrier
+or skip END: defer the first interruption, finish terminal signaling, and re-raise.
+The sandbox lease helper drains its release before raising cancellation; still
+reset WeKnora tokens in the same Context that created them and keep the ownership
+fence on all subsequent writes. Run Journal close from an outer finally even when
+durable finalization/END fails; interrupted close discards without new writes.
+Delayed bridge eviction uses a blank Context, never inherited user credentials.
+The enterprise clarification-event race uses `asyncio.wait`, which does not
+cancel child tasks when the parent is cancelled. Its finally must cancel and
+drain both stream/event tasks before outer sandbox-lease release. Shield the
+drain against repeated host cancellation without cancelling an already-closing
+generator twice. Preserve the human-wait outcome and real stream errors.
+Once those children and Journal are closed, detach only worker-owned references
+from all initial/continuation RunnableConfigs: `__pregel_runtime`, Journal callback,
+pre-run message IDs and `__clarification_event`. Preserve caller fields, enterprise
+agent metadata and unrelated callbacks. Clear frame-local graph/payload references
+even on END/hook failure so exception tracebacks do not keep that graph alive.
+Schedule RunManager eviction after 300 seconds in a blank Context. Before and
+after the unlocked store read, require the same terminal record, no live task,
+no finalizing barrier and no `terminal_status_pending`. Read using the captured
+owner (including explicit legacy NULL) and validate the durable run/thread/owner/
+operation kind plus terminal status. Retain memory on lookup failure or mismatch;
+do not overwrite a peer terminal outcome or delete durable history. A manager
+without a backing store must not evict its only copy of history.
+Terminal cyclic GC follows the official 10s process-wide coalescing interval.
+Use blank Contexts for both timer and task, weak loop tracking and executor GC;
+log >=100ms passes and release single-flight tracking even on failure. This is
+not a guarantee of zero GIL pauses. The output masking layer separates static
+patterns (LRU 16) from dynamic user/thread/ACP roots (direct scanner, no regex
+compilation). Bound resolved-root spelling reuse to 256 entries; use lexical
+POSIX/Windows parent operations instead of interning thread path components.
+Never weaken mounted-path containment or output masking to reduce cache use.
+LocalSandbox uses `os.path.realpath` with normalized `commonpath` containment
+for virtual-to-host resolution. Compare resolved roots, not lexical prefixes;
+keep the original matched read-only mapping even if a symlink targets a writable
+nested mount. Reverse output resolution retains the safe virtual link spelling.
+The browser's Windows-only private loop uses Proactor so Playwright can launch
+its driver even when the main Gateway requires Selector for its database driver.
+Do not change the process-wide event-loop policy or Linux loop selection for this.
+Full local offline regression must set `CI=1` (as CI does), keeping the documented
+real-model `test_client_live` suite out of an unconfigured/local-only run. Do not
+invent production credentials to satisfy live-test initialization; record live
+integration as pending separately from local regression results.
+
+If replacement admission is cancelled after registration while persisting its
+predecessor, drain a shielded cleanup even through repeated cancellation. Verify
+the new row using its captured owner; retry active-to-interrupted with CAS when
+best-effort persistence fails. A peer terminal result wins and must remain intact.
+
+Orphan candidate scans are advisory only. Reconciliation must use the store's
+lease-aware `claim_for_takeover` CAS before reporting recovery; never use an
+ordinary status update or missing-row recreation fallback after a stale scan.
+A concurrent owner renewal/completion/deletion wins. Claim errors leave the
+record unreported and retain the bounded persistence retry policy.
+
 Configuration priority:
 
 1. Explicit `config_path` argument
@@ -894,8 +1134,37 @@ captures a pre-run and post-run snapshot of the thread-owned `workspace` and
 are size-limited; binary, large, and sensitive-looking paths are persisted as
 metadata only.
 
+Workspace snapshots use `lstat`/`readlink` for symlinks and never read their targets.
+Exclude `.browser-frames`, `.tool-results`, `.mcp` and the configured single-segment
+`tool_output.storage_subdir` consistently before/after runs and in review events.
+Do not delete a text cache until its offloaded scan finishes, including repeated
+cancellation; metadata-only scans can detach while consuming late failures.
+`get_changed_output_paths` returns only new/modified non-symlink output files.
+The worker reconciles those with trusted Journal publications before success.
+`present_files` allows directory publication; platform image/video/browser tools
+and authenticated current-run PPT Agent-host handoffs require exact file matches.
+PPT uses `by_publisher`, not fabricated LangChain tool callbacks. Retain its own
+content acceptance and preview checks. The generic official minimum is one
+matching output, not proof that every output meets all requirements. Model prose,
+arbitrary tools, prior state and other run/thread handoffs cannot satisfy it.
+Persist the same verdict once before terminalization; receipt failure is an error
+for successful artifact runs, but never replaces cancellation, owner loss or a
+human-input wait. Snapshot failure remains degraded observation, not verified
+absence of outputs. Do not advertise it as complete artifact acceptance.
+
+Artifact download policy has a deterministic active-content suffix floor for
+HTML/XHTML/SVG/XML-family files, including `.skill` archive members. A missing or
+incorrect system MIME database must not make these inline; preserve the broader
+`+xml`, uploaded-document and active-PDF checks and `nosniff` headers.
+
 **RunManager / RunStore contract**:
 
+- Persisted event producers use `runtime/events/catalog.py`; payload conformance is in `contracts/run_event_stream_contract.json` and `docs/RUN_EVENT_STREAM.md`. Keep existing 32/16 column widths, validate middleware tags before scheduling writes, preserve legacy/extension rows on reads, and retain enterprise `run.delivery` plus PPT plain-dictionary `task_*` progress. Catalog entries for future middleware integrations are not proof that their producers or cross-loop attribution are wired.
+
+- SQL-backed async Checkpointer/Store provider contexts drain backend `__aexit__` across repeated caller cancellation before releasing their connection or pool. A teardown failure remains visible instead of being replaced by cancellation. This adapts upstream f6269fb to the enterprise providers without changing schema or Gateway topology; regression tests cover all six provider paths.
+- Synchronous checkpoint mutations (`put`, `put_writes`, `delete_thread`) used by goal and rollback recovery stay owned until their offloaded worker finishes before cancellation propagates. Reads remain normally cancellable. This adapts upstream e88599bb2 to the shared enterprise checkpointer helper; test the three mutation names independently.
+- Custom Skill content reads and the rollback path's Markdown validation/previous-file read are offloaded from the Gateway event loop, adapting upstream 736b5a421. Preserve the route's authorization and scanner order; use `test_skills_rollback_offload.py` plus existing Skill router tests when changing it.
+- AIO remote shell/bash session creation uses bounded no-retry requests. An ambiguous create (for example a lost response) leaves a tombstone, prevents further creates in that plane, and makes Provider release recycle the container through the existing execution/ownership fences. Best-effort cleanup never clears the tombstone because the remote create could still commit later. This adapts upstream 8f08df9b4 to the enterprise Provider; keep `test_aio_session_creation_quarantine.py` and the existing AIO tests green.
 - `RunManager.get()` is async; direct callers must `await` it.
 - Gateway shutdown remembers the first cancellation request and continues draining `RunManager.shutdown()` through repeated cancellation before the checkpointer and database engines close. Drain failure remains best-effort without cancellation; after cancellation it is logged and the original cancellation is propagated only at the safe terminal boundary.
 - Regenerate preparation treats a protocol-valid hidden `human_input_response` as confirmed user replay input and preserves its hidden/correlation metadata. Summaries, malformed responses, goal continuations, and every other hidden/control human remain excluded.
@@ -904,7 +1173,7 @@ metadata only.
 - When a persistent `RunStore` is configured, `get()` and `list_by_thread()` hydrate historical runs from the store. In-memory records win for the same `run_id` so task, abort, and stream-control state stays attached to active local runs.
 - `cancel()` returns a :class:`~deerflow.runtime.CancelOutcome` enum: `cancelled` (local cancel), `taken_over` (non-owning worker claimed the run because the owner's lease expired — marks it as `error`), `lease_valid_elsewhere` (owner's lease is still alive — caller should return 409 + `Retry-After`), `not_active_locally` (heartbeat disabled, preserving the old 409 path), `not_cancellable` (terminal state), or `unknown` (not found in memory or store). `create_or_reject(..., multitask_strategy="interrupt"|"rollback")` persists interrupted status through `RunStore.update_status()`, matching normal `set_status()` transitions.
 - Store-only hydrated runs are readable history. In multi-worker mode with heartbeat enabled, cancel on a store-only run can take over (mark `error`) when the owner's lease has expired past the grace window; otherwise it fails with 409 + `Retry-After`. In single-worker mode (heartbeat off), store-only runs still return 409.
-- `POST /wait` (both thread-scoped and `/api/runs/wait`) drains the stream bridge via `wait_for_run_completion()` instead of bare `await record.task`, so it honours the run's `on_disconnect` setting and cancels the background run on real client disconnect rather than returning a stale checkpoint (issue #3265).
+- `POST /wait` (both thread-scoped and `/api/runs/wait`) drains the stream bridge via `wait_for_run_completion()` instead of bare `await record.task`, so it honours the run's `on_disconnect` setting and cancels the background run on real client disconnect rather than returning a stale checkpoint (issue #3265). SSE cleanup likewise evaluates only recorded ownership/status and `on_disconnect`; a cross-worker `store_only` observation must not request a second cancel, and no undefined stream-gap flag may be referenced in `finally`.
 - Redis `StreamBridge` keys use a rolling retained-buffer TTL (`stream_bridge.stream_ttl_seconds`, refreshed on `publish()` / `publish_end()`) as a leak safety net, not as a run timeout. Startup orphan recovery publishes `END_SENTINEL` and schedules stream cleanup for recovered runs; malformed `Last-Event-ID` reconnect values live-tail new Redis events rather than replaying the retained buffer. Do not broaden this into a shared-database multi-pod reaper without adding worker ownership/liveness first.
 - Thread-scoped run creation accepts `checkpoint` / `checkpoint_id`; Gateway validates the checkpoint belongs to the request thread before writing `checkpoint_id` / `checkpoint_ns` into `config.configurable` for LangGraph branching.
 - Thread-scoped Gateway runs evaluate an active `ThreadState.goal` after the visible turn completes. `runtime/goal.py` asks a non-thinking evaluator model to judge only visible conversation evidence and return a typed blocker; the evaluator model is created once per run and reused across hidden continuation checks. The evaluator runs after the graph root's tracing scope has already closed, so `create_goal_evaluator_model`/`evaluate_goal_completion` attach their own model-level tracing callbacks (`attach_tracing=True`) and inject Langfuse trace metadata (`thread_id`/`user_id`/`deerflow_trace_id`) directly onto the `ainvoke` call — the same standalone-caller pattern as `oneshot_llm.run_oneshot_llm` and `MemoryUpdater` (see Tracing System below). Satisfied goals are cleared; every non-satisfied evaluation — continuable or stand-down — is persisted with `last_evaluation` (the blocker, reason, and evidence summary; outcomes that stop the loop additionally record a `stand_down_reason` for observability), but only `goal_not_met_yet` evaluations are streamed as hidden `HumanMessage` continuations, and only when a durable assistant end-of-turn checkpoint exists, the run has not been aborted, the thread did not change during evaluation, and the no-progress breaker has not fired. The continuation cap is 8 — a hard maximum in the `0`–`8` range; callers requesting more are clamped (`set_goal`/TUI) or rejected with 422 (`PUT /goal`). The no-progress breaker keys on the latest visible assistant evidence (not the evaluator's free-text reason, which an LLM rewords every turn), so two consecutive continuations that add no new visible assistant output stop the loop after 2 attempts. Model-response cleanup helpers such as think-block stripping and code-fence stripping live in `deerflow.utils.llm_text` so `runtime/goal.py` and Gateway suggestion parsing share the same JSON-prep behavior.
@@ -981,6 +1250,8 @@ reading large files into Gateway memory.
 **Interface**: Abstract `Sandbox` with `execute_command(command, env=None)`, `read_file`, `write_file`, `list_dir`. The optional `env` injects per-call environment variables (request-scoped secrets — see Request-Scoped Secrets below); `LocalSandbox` merges it via `subprocess.run(env=...)` and `AioSandbox` routes env-bearing commands through the `bash.exec(env=...)` API on a fresh session.
 **AIO long-command transport**: the PPT-capable AIO image patches both upstream locations in `/opt/gem/nginx-server-active.conf`; otherwise the outer authentication proxy returns its stock 60-second 504 while the inner command process continues. Keep the outer read/send timeout above `AioSandbox`'s bounded command hard timeout and preserve the per-command client limit as the actual stop boundary.
 **Provider Pattern**: `SandboxProvider` with `acquire`, `acquire_async`, `get`, `release` lifecycle. Async agent/tool paths call async sandbox lifecycle hooks so Docker sandbox creation, discovery, cross-process locking, readiness polling, and release stay off the event loop.
+**Execution-scoped leases**: `sandbox/lease.py` adapts upstream `SandboxLeaseManager`. Middleware assigns one server-owned holder per lead/subagent execution; tools bind a user/thread-scoped client, and only the final holder requests provider release. The run worker and subagent executor also release idempotently at outer `finally` fences because graph middleware may be bypassed on cancellation. This in-process reference count is separate from Redis cross-Pod Sandbox Ownership. The enterprise Sandbox interface does not expose command scopes, so command-scope cleanup is conditional; keep that delta explicit in tests and release notes. These unit tests do not certify multi-Gateway readiness.
+**Redis failover candidate**: `runtime/redis_endpoint.py` adds an enterprise-only `sentinel://` endpoint parser used by the sync Sandbox Ownership and async Redis StreamBridge clients; plain `redis://` behavior is retained. Require three distinct Sentinel endpoints, a dedicated DB, and an encoded secret. This local candidate has unit coverage only. Actual Sentinel failover, old-primary isolation, acknowledged-write loss, and sandbox lease fencing are production release gates; do not treat client discovery as a distributed consistency guarantee.
 **Environment policy** (`sandbox/env_policy.py`): `execute_command` no longer inherits the full `os.environ`. `build_sandbox_env()` scrubs secret-looking names (`*KEY*`/`*SECRET*`/`*TOKEN*`/`*PASS*`/`*CREDENTIAL*`) from the inherited environment before layering injected request secrets on top, so platform credentials (e.g. `OPENAI_API_KEY`) never leak into skill subprocesses. Benign vars (`PATH`, `HOME`, `LANG`, `VIRTUAL_ENV`, ...) are preserved.
 **Implementations**:
 
@@ -1023,6 +1294,18 @@ reading large files into Gateway memory.
 
 ### Subagent System (`packages/harness/deerflow/subagents/`)
 
+**Optional parent snapshot (v2.1 alignment)**: Ordinary `task` defaults to
+`context_mode="isolated"`. Explicit `snapshot` captures retained visible history
+and summary only after delegation validation and before async tool assembly.
+`ParentContextSnapshot` stores immutable JSON and renders a fresh hidden
+HumanMessage before the delegated task. Parent System/private state/metadata,
+pending calls, framework injections and provider reasoning are excluded.
+Historical tool protocol is inert text, not child steps/receipts/acceptance
+evidence. Current enterprise identity, publication Skill allowlists, knowledge
+scope and tool authorization remain separate. Later parent turns are not synced;
+input-token cost is opt-in. Tests cover actual dispatch, Executor assembly and
+publication-bound Skill resolution, not production deployment readiness.
+
 **Built-in Agents**: `general-purpose` (all tools except `task`) and `bash` (command specialist)
 **Execution**: Dual thread pool - `_scheduler_pool` (3 workers) + `_execution_pool` (3 workers)
 **Concurrency and total delegation cap**: `MAX_CONCURRENT_SUBAGENTS = 3` is enforced by `SubagentLimitMiddleware` (truncates excess tool calls in `after_model`; runtime `max_concurrent_subagents` is clamped to 1-4). The same middleware also enforces `subagents.max_total_per_run` (default 6, config schema 1-50, runtime override `max_total_subagents` clamped to the same range) against current-run entries in the durable delegation ledger, so a long lead-agent run cannot bypass concurrency limits by launching repeated legal-sized batches at each planning checkpoint, but historical delegations from previous runs in the same thread do not consume the new run's budget. The lead-agent prompt uses the same clamped values, so model-visible limits match enforcement. Gateway `run_agent()` and embedded `DeerFlowClient.stream()` both provide a per-invocation `run_id` in runtime context; `DeerFlowClient.stream()` also tags its input `HumanMessage` with that same id so durable-context capture can identify the current request boundary. Gateway resume paths may not append a new `HumanMessage`, so the worker also exposes the pre-run checkpoint's message ids in runtime context; durable-context capture uses that as the current-run boundary and never re-tags older task calls as the resumed run. When no delegation slots remain, task calls are stripped, provider raw tool-call metadata is synced, `finish_reason` is forced to `stop`, and a visible "subagent delegation limit" note is appended so the agent can synthesize already-collected results. Default subagent timeout `subagents.timeout_seconds=1800` (30 min) and built-in `general-purpose` `max_turns=150` (raised from 100/15-min so deep-research subtasks stop hitting `GraphRecursionError` out of the box)
@@ -1034,6 +1317,28 @@ reading large files into Gateway memory.
 **Step capture & persistence (#3779)**: `executor.py` captures both assistant turns (`AIMessage`) **and** tool outputs (`ToolMessage`) via `subagents/step_events.py::capture_new_step_messages`, which walks the _newly-appended tail_ of each `stream_mode="values"` chunk (not just `messages[-1]`) so a multi-tool-call turn — where LangGraph's `ToolNode` appends several `ToolMessage`s in one super-step — keeps every tool output instead of dropping all but the last. `runtime/runs/worker.py::_SubagentEventBuffer` additionally persists these `task_*` custom events to the `RunEventStore` as `subagent.start`/`subagent.step`/`subagent.end` (`category="subagent"`, `task_id` in `metadata`). It **batches** writes via `put_batch` (flushing on a terminal `subagent.end`, at `FLUSH_THRESHOLD` events, and in the worker's `finally`) rather than one `put()` per step, since `put()` is a documented low-frequency path (per-thread advisory lock per call) and a deep subagent (`max_turns=150`) emits hundreds of steps on the hot stream loop. `build_subagent_step` caps both the per-step `text` and each tool call's serialized `args` at `SUBAGENT_STEP_MAX_CHARS` (flagged `truncated` / `args_truncated`) so a large `write_file`/`bash` payload can't produce an unbounded row. The dedicated category keeps them out of `list_messages` (the thread feed) while `list_events` returns them for the frontend's fetch-on-expand backfill. `list_events` accepts `task_id` (filters on `metadata["task_id"]` — SQL-side in `DbRunEventStore` via `event_metadata["task_id"].as_string()`, in-memory in the JSONL/memory stores) plus an `after_seq` forward cursor, so the card pages through one subagent's steps without the run-wide `limit` truncating the tail (no schema migration: the filter rides the existing run-scoped index). `step_events.py` is a pure, unit-tested layer (`build_subagent_step` / `subagent_run_event`). **History contraction (#3875 Phase 3)**: `capture_new_step_messages` assumes append-only growth, but `DeerFlowSummarizationMiddleware` rewrites the messages channel via `RemoveMessage(id=REMOVE_ALL_MESSAGES)`, shrinking `len(messages)` below the cursor mid-run. On contraction (`total < processed_count`) the cursor resets to the new tail; `capture_step_message`'s id/content dedup prevents re-emitting pre-compaction steps, so steps appended after the compaction point are still captured instead of being dropped until `total` overtakes the stale cursor.
 **Deferred MCP tools** (if `tool_search.enabled`): `SubagentExecutor._build_initial_state` assembles deferral after policy filtering via the shared `assemble_deferred_tools` (fail-closed), appends the `tool_search` tool, injects the `<available-deferred-tools>` section into the subagent's `SystemMessage`, and threads the setup to `_create_agent`, which attaches `McpRoutingMiddleware` (when PR1 routing metadata matches deferred tools) before `DeferredToolFilterMiddleware` through `build_subagent_runtime_middlewares(...)`. Subagents thus withhold full MCP schemas until promotion, same as the lead agent; each task run gets a fresh `ThreadState` so promotion is isolated per run
 **Checkpointer isolation**: Subagent graphs are compiled with `checkpointer=False` to avoid inheriting the parent run's checkpointer, since subagents are one-shot and never resume.
+**Lazy Skill discovery**: `_load_skills` keeps the enterprise publication-first
+lookup and config allowlist. Only metadata (or `skills.deferred_discovery`'s
+name index and `describe_skill`) enters the initial single SystemMessage. Pass
+the exact enabled names, caller identity and business parent thread to both
+`SkillActivationMiddleware` and `SkillToolPolicyMiddleware`, with a fresh shared
+slash-source owner token per chain. Empty catalogs are deny-all; a pinned
+publication never falls back to the viewer's same-name private Skill. Keep
+legacy no-user storage resolution consistent across discovery and activation.
+Do not apply all passive Skill allowed-tools declarations as a global union.
+Config/employee/data-lake restrictions still precede MCP discovery; active
+Skill policy gates both promoted schemas and execution. Tool authorization
+Layer 1/2 is a separate, now-wired AND boundary; Skill scoping never grants
+permission denied by that provider or by enterprise resource checks.
+**Callback loop boundary**: `RunJournal.deerflow_loop_bound` marks a parent-loop
+callback that must not be inherited by the isolated subagent event loop. Copy
+the inherited RunnableConfig and callback manager (both handler lists) before
+filtering marked handlers; preserve framework streaming, identity/knowledge
+ContextVars and checkpoint lineage. An explicit child collector is not enough,
+because LangGraph merges inherited callbacks. Copy before registering a pending
+background task. Resolve the loop before creating its coroutine and close a
+coroutine rejected during submission, including cancellation. This is not the
+process-capacity rewrite or the child audit-recorder proxy integration.
 **Checkpoint lineage / stream isolation**: `_aexecute` deliberately omits checkpoint-coordinate keys (`thread_id`, `checkpoint_ns`, `checkpoint_id`, `checkpoint_map`) from the child `RunnableConfig`. LangGraph must inherit those coordinates from the copied parent ContextVar so the delegated graph retains a non-root subgraph namespace; explicitly re-supplying even the same parent `thread_id` starts a new root lineage on LangGraph 1.2.6+ and can route child AI/tool frames into the parent `messages` stream. DeerFlow business components still receive the parent `thread_id` through `runtime.context`, which is the preferred lookup path for sandbox, middleware, and attribution code. Regression coverage in `tests/test_subagent_executor.py::TestSubagentCheckpointLineage` keeps the invocation-contract assertion active on every supported version and version-gates the production-shaped parent-stream test to LangGraph 1.2.6+, where the leak exists.
 
 ### Tool System (`packages/harness/deerflow/tools/`)
@@ -1143,7 +1448,7 @@ configuration, credentials, or network access.
 - **Progressive-read budget**: `read_file` applies `sandbox.skill_file_output_max_chars` and `sandbox.skill_reference_output_max_chars` (both default 150,000) to canonical entry files and supporting resources under `skills.container_path`; ordinary files keep `read_file_output_max_chars`. This prevents long workflows and references from silently losing mandatory later phases, schemas, or examples while avoiding a global context-budget increase.
 - **Vendored runtime packages**: Third-party packages containing nested `SKILL.md` files must live outside the scanned `public`, `custom`, and `legacy` category roots. For example, `skills/third_party/academic-research-skills/` is runtime content reached through the single public `academic-research` adapter; its internal components are not independently registered platform skills.
 - **External reload**: `POST /api/skills/reload` is an admin-only, process-local invalidation hook for trusted MinIO/NFS/CSI writes. `SkillStorage` instances do not cache a catalog — `load_skills()` scans on every call — so the route clears all `(app_config, user_id)` entries and the rendered prompt-section LRU, then waits up to the shared refresh timeout for the existing off-loop single-flight refresh. Each invalidation receives a generation-bound result handle; a successful scan atomically replaces the global enabled-skills cache, while a loader-level failure propagates to the HTTP waiter and preserves the last-known-good global cache. Per-user/config scans capture the refresh version and cannot repopulate shared caches if invalidation occurs while they are loading. A timed-out HTTP wait fails generically while the daemon refresh worker continues. Subsequent runs rescan after a successful reload; active runs keep their existing snapshot. Each Uvicorn worker/Kubernetes Pod must be targeted separately. Direct mount writes bypass install/edit validation, SkillScan, and history, so mounted roots are an operator-controlled trust boundary.
-- **Tool policy**: Lead-agent `allowed-tools` declarations apply dynamically only to slash-activated skills and skills captured in `ThreadState.skill_context` through configured `read_file` loads; passive enabled skills and custom-agent skill allowlists remain discoverable without clamping the global toolset. Slash policy is dominant for its run, preventing subsequently read skills from widening explicit authority; autonomous captured skills use the existing union only when no slash source exists. `tool_search` and `describe_skill` stay available as framework discovery infrastructure, while every discovered or promoted business tool still requires active-policy permission for schema visibility and execution; `task` likewise requires an explicit declaration. Each active model call intentionally reloads the full live registry so enable/disable changes, frontmatter edits, and custom/public name-shadow winners take effect without a stale TTL or unsafe direct-path cache; all tool calls produced by that model step reuse the resulting source-and-path-signed decision. Registry failures and all-invalid active sets fail closed, while stale individual paths are skipped when another valid skill remains. This is best-effort behavioral scoping, not a hard security boundary: alternate loading paths are not captured and bounded autonomous context may evict entries. Subagents still filter statically because their configured skills are all loaded into the session at startup.
+- **Tool policy**: Lead and subagent `allowed-tools` declarations apply dynamically only to slash-activated skills and skills captured in `ThreadState.skill_context` through configured `read_file` loads; passive enabled skills and custom-agent skill allowlists remain discoverable without clamping the global toolset. Slash policy is dominant for its run, preventing subsequently read skills from widening explicit authority; autonomous captured skills use the existing union only when no slash source exists. `tool_search` and `describe_skill` stay available as framework discovery infrastructure, while every discovered or promoted business tool still requires active-policy permission for schema visibility and execution; `task` likewise requires an explicit declaration. Each active model call intentionally reloads the full live registry so enable/disable changes, frontmatter edits, and custom/public name-shadow winners take effect without a stale TTL or unsafe direct-path cache; all tool calls produced by that model step reuse the resulting source-and-path-signed decision. Registry failures and all-invalid active sets fail closed, while stale individual paths are skipped when another valid skill remains. This is best-effort behavioral scoping, not a hard security boundary: alternate loading paths are not captured and bounded autonomous context may evict entries. Subagent discovery, activation and policy share the same enabled catalog, identity and business thread publication binding.
 - **Injection (legacy / default)**: Enabled skills are listed in the agent system prompt with full metadata and container paths (`<available_skills>` block). Controlled by `skills.deferred_discovery: false` (default).
 - **Deferred discovery** (`skills.deferred_discovery: true`): Skills are listed by name only in a compact `<skill_index>` block, keeping the system prompt prefix-cache friendly. The agent calls the `describe_skill` tool at runtime to fetch full metadata for skills it wants to use, then loads the SKILL.md via `read_file`. Two new modules support this path:
   - `skills/catalog.py` — `SkillCatalog` (immutable, searchable; query forms: `select:a,b`, `+prefix`, free-text regex); `select:` returns all requested skills without a result cap; other modes cap at `MAX_RESULTS=5`.
@@ -1245,6 +1550,7 @@ Bridges external messaging platforms (Feishu, Slack, Telegram, Discord, DingTalk
 - Disabled by default. It is a user-binding layer on top of the existing `channels.*` runtime config, not a replacement for provider bot credentials.
 - No public IP, OAuth callback URL, or provider webhook route is required by the current implementation.
 - Telegram uses a deep-link `/start <code>` flow over the existing long-polling worker. Slack, Discord, Feishu/Lark, DingTalk, WeChat, and WeCom use `/connect <code>` over their existing outbound channel workers.
+- In the CNOOC enterprise presentation, retain the internal `feishu` provider key and transport, but show **海能 Work** in user-facing provider names and use **中国海油通用智能体** in channel connection instructions and bot acknowledgements; do not expose the internal DeerFlow product name in those messages.
 - Frontend APIs: `GET /api/channels/providers`, `GET /api/channels/connections`, `POST /api/channels/{provider}/connect`, and `DELETE /api/channels/connections/{connection_id}`.
 - Browser APIs remain protected by normal Gateway auth/CSRF. Provider messages arrive through the already-configured channel workers.
 - Provider-level `connection_status` reflects the user's newest connection row. With no binding it is `not_connected`, except in auth-disabled local mode where a configured running channel reports `connected` because all channel messages already route to the default user.
@@ -1416,28 +1722,52 @@ A terminal-native UI over the embedded harness, exposed as the `deerflow` consol
 
 **Tests**: `tests/test_tui_*.py` — pure layers via plain pytest, the app/palette/overlays via Textual's pilot harness with a fake in-process session, and `test_tui_persistence.py` for the `threads_meta` round-trip.
 
+### Pending Run Startup Barrier
+
+After durable admission, Gateway attaches the worker before its next await.
+Thread metadata setup runs inside that task with a bounded wait, not between
+admission and task attachment. A pending cancellation must reach the worker even
+when metadata storage is stalled. `RunManager.try_start` serializes local starts
+and requires the store's atomic pending-to-running update before Agent creation
+or checkpoint access; never replace it with an unconditional status update.
+Cancelled-before-start workers still close their streams and invoke completion,
+but do not overwrite thread status, title or duration. Keep persistence writes
+short and fail closed on unresolved startup. Regressions are in
+`tests/test_pending_run_startup.py`; PostgreSQL multi-instance tests require their
+real database fixture and cannot be inferred from SQLite results.
+
+Run creation captures an omitted owner from the authenticated user context
+before building the local RunRecord, matching SQL persistence. Preserve an
+explicit trusted owner; without user context do not invent the filesystem
+`default` user. This capture is not authorization or permission to reuse another
+user's run. Owner-scoped history must agree between the local registry, Memory
+and SQL stores; see `tests/test_run_owner_consistency.py`.
+
 ### Request Trace Context (`packages/harness/deerflow/trace_context.py`)
 
-Request trace correlation is controlled by `logging.enhance.enabled` at **both** entry points, gated through the shared helper `deerflow.config.app_config.is_trace_correlation_enabled` so the Gateway and embedded paths cannot drift:
+The enterprise v2.1/#5119 adaptation makes Gateway HTTP, `start_run` admission, embedded turns, channel messages, workers and delegated trace carriers unconditional. Other entry points are not yet fully aligned with upstream; do not mark #5119 complete:
 
 - **Gateway HTTP**: `app.gateway.trace_middleware.TraceMiddleware` binds one request-level trace id per HTTP request, inheriting inbound `X-Trace-Id` when present or generating a new id otherwise. The middleware writes the final value to every HTTP response at `http.response.start`, which covers SSE / streaming responses without consuming the body.
-- **Embedded / TUI / CLI**: `DeerFlowClient.stream()` mints (or inherits) a request-level trace id per turn only when the flag is on. When it is off, no fresh id is minted — a caller that explicitly wraps `stream()` in `request_trace_context(...)` still opts in, because the downstream `get_current_trace_id()` read propagates that value into Langfuse metadata regardless of the flag. Because `stream()` is a sync generator (which shares the caller's context), the id binding is set/reset around each `next()` step rather than around `yield from`: this keeps LangGraph node execution and its log records inside the binding, while returning control to the caller with the ContextVar restored — avoids cross-request leak between yields and `ValueError: <Token> was created in a different Context` on GC-driven close of an abandoned generator (regression pinned by `tests/test_client_langfuse_metadata.py::test_stream_does_not_leak_trace_id_to_caller_context_between_yields` and `::test_stream_abandoned_generator_close_does_not_raise_cross_context`).
+- **Embedded / TUI / CLI**: `DeerFlowClient.stream()` mints (or inherits) one trace id per turn regardless of log formatting or exporter settings. Stamp a copy of runnable metadata and runtime context before agent creation; caller metadata cannot override the bound id. Because this is a sync generator, bind/reset around each `next()` and around `inner.close()`, never across a yield. Early close, including cleanup failure from another Context, must preserve the turn id and restore the closer's own context. Interleaved streams remain independent. Regressions live in `test_client_trace_lifecycle.py` and `test_client_langfuse_metadata.py`.
+- **IM channels**: `ChannelManager._handle_message()` scopes each independently dispatched message with `ensure_trace_context`, preserving an explicit caller trace and restoring the dispatch task after handling. `runs.wait`, `runs.create`, and `runs.stream` pass that id in `X-Trace-Id` together with the existing internal owner credentials so Gateway run admission can persist the same correlation id. The channel keeps its per-message auth, dedupe and semaphore rules. Regressions live in `test_channel_trace_context.py` and `test_channels.py`.
+- **Worker / delegated work**: `run_agent()` scopes initialization through finalization; `_bind_trace_id()` copies the ambient id onto runtime/checkpoint metadata without reading caller metadata as authority. Subagents capture the trusted parent runtime id and restore it around execution and sandbox lease cleanup, including reused threads. Memory middleware queues that same trusted carrier, never a runnable-metadata fallback; the factory injects `ensure_trace_context` for the portable updater's existing thread hook. Preserve user/employee/knowledge isolation independently of trace ids.
+- **Thread hops / exporters**: the embedded synchronous API copies ContextVars into its async-helper executor without worker-to-caller writeback. `resolve_trace_id` validates host-owned carriers, otherwise inherits or mints an ambient id; public entry points must bound its lifetime. Enabled Langfuse metadata always carries a correlation id, but this never enables an exporter or transmits data by itself.
 
 The same ContextVar value is injected into enhanced log records as `trace_id` and into Langfuse metadata as `deerflow_trace_id`.
 
-`logging` is registered as a **restart-required** field
-(`STARTUP_ONLY_FIELDS["logging"]`): `configure_logging()` installs the trace-context
-filter and enhanced formatter on root handlers only during app.py lifespan startup,
-and `TraceMiddleware` captures `logging.enhance.enabled` once when the FastAPI app
-is constructed (via `resolve_trace_enabled(get_app_config())` in `create_app()`,
-itself a thin alias for `is_trace_correlation_enabled`). This keeps the response
-`X-Trace-Id` header, log `trace_id` fields, and Langfuse `deerflow_trace_id`
-coherent — a runtime `config.yaml` edit to `logging.enhance.*` needs a Gateway
-restart to take effect. The `deerflow_trace_id` chain inherits this guarantee
-transitively because every injection point ultimately reads the same
-`trace_context` ContextVar that the middleware alone populates. `DeerFlowClient`
-reads its own `self._app_config` snapshot (captured at `__init__`) through the
-same helper for the embedded gate.
+`logging` remains restart-required for log formatting, but HTTP middleware no
+longer loads AppConfig or gates correlation on it. Its deprecated `enabled`
+argument is accepted without effect. It wraps auth/CSRF and emits a plain 500
+before re-raising an unhandled pre-response error; mid-stream failures never
+send a second response start. That fallback remains CORS-opaque. Normal CORS
+responses expose X-Trace-Id through the existing origin allowlist.
+`start_run` scopes one admission with `ensure_trace_context`, including synthetic
+background requests, and stamps both live config and durable run metadata from
+that context. It preserves other metadata without mutating the caller body or
+pinning a run's trace on thread metadata. Request echoes strip caller trace
+fields from context/metadata. The worker uses only the ambient trace (minting
+within its bounded scope when absent) and replaces forged metadata/context values. None of this grants
+authorization: principal, employee and knowledge checks remain independent.
 
 `deerflow_trace_id` is a DeerFlow correlation metadata key, not Langfuse's native
 trace id and not a DeerFlow `run_id`. Keep the existing subagent `trace_id` field
@@ -1458,7 +1788,7 @@ LangSmith and Langfuse are both supported. The wiring lives in two layers:
 | `langfuse_user_id`    | `get_effective_user_id()` (`default` in no-auth); for subagents, captured from `runtime.context` at `task_tool` time via `resolve_runtime_user_id()`                                                                                                                                                                                                |
 | `langfuse_trace_name` | `RunRecord.assistant_id` / client `agent_name` (defaults to `lead-agent`); for subagents, `subagent:<name>` (lowercased, `_` → `-`)                                                                                                                                                                                                                 |
 | `langfuse_tags`       | `env:<DEER_FLOW_ENV>` + `model:<model_name>`                                                                                                                                                                                                                                                                                                        |
-| `deerflow_trace_id`   | Current request/entry trace id from `deerflow.trace_context`; matches `X-Trace-Id` for enhanced Gateway HTTP requests. Gated by `logging.enhance.enabled` in both gateway and embedded paths via `is_trace_correlation_enabled` — off by default; embedded callers can still opt in per-turn by wrapping `stream()` in `request_trace_context(...)` |
+| `deerflow_trace_id` | Host-owned correlation id for Gateway and embedded turns, independent of enhanced logging. Populated when Langfuse metadata is enabled; never enables an exporter by itself. |
 
 Returns `{}` when Langfuse is not in the enabled providers — LangSmith-only deployments are unaffected. Set `DEER_FLOW_ENV` (or `ENVIRONMENT`) to tag traces by deployment environment. Tests live in `tests/test_tracing_factory.py`, `tests/test_tracing_metadata.py`, `tests/test_worker_langfuse_metadata.py`, `tests/test_client_langfuse_metadata.py`, and `tests/test_subagent_executor.py::TestSubagentTracingWiring`.
 
@@ -1501,7 +1831,7 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
   contributions after writing an atomic backup, rollback restores the exact
   original run aggregates, and `run_events` always remains immutable. Never
   replace this with an unbacked bulk reset or an arbitrary estimated divisor.
-- `logging.enhance` - Optional request trace correlation (`enabled`, `format`) for Gateway `X-Trace-Id`, log `trace_id`, and Langfuse `deerflow_trace_id`
+- `logging.enhance` - Enhanced log output (`enabled`, `format`); Gateway HTTP and embedded-turn correlation are unconditional. Remaining background-entry alignment is tracked in the v2.1 integration ledger.
 - vLLM reasoning models should use `deerflow.models.vllm_provider:VllmChatModel`; for Qwen-style parsers prefer `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`, and DeerFlow will also normalize the older `thinking` alias
 - `tools[]` - Tool configs with `use` variable path and `group`
 - `tool_groups[]` - Logical groupings for tools
@@ -1642,7 +1972,8 @@ Multi-file upload with automatic document conversion:
 - Endpoint: `POST /api/threads/{thread_id}/uploads`
 - Supports: PDF, PPT, Excel, Word documents; automatic conversion uses
   `markitdown` when enabled, while PDF/DOC/DOCX/PPT/PPTX can use the enterprise
-  parser bridge independently
+  parser bridge independently. Enterprise conversation uploads additionally
+  route BMP/GIF/JP2/JPEG/PNG/TIFF/WEBP through MinerU OCR.
 - Rejects directory inputs before copying so uploads stay all-or-nothing
 - Reuses one conversion worker per request when called from an active event loop
 - Files stored in thread-isolated directories under the resolving user's bucket (`users/{user_id}/threads/{thread_id}/user-data/uploads`). For IM channels the owner is threaded explicitly via the `user_id=` kwarg (see IM Channels → Owner-scoped file storage); HTTP/embedded callers resolve it from `get_effective_user_id()`
@@ -1650,7 +1981,7 @@ Multi-file upload with automatic document conversion:
 - Gateway HTTP uploads stage bytes as `.upload-*.part` files and atomically replace the destination only after size validation. These staging files are hidden from upload listings, agent upload context, and sandbox listing/search tools, and swept on Gateway startup if a hard crash leaves one behind.
 - Before the atomic replacement, the Gateway rejects browser-active/server-executable extensions and validates PDF identity plus active-content indicators. This check runs on the staged file so a rejected replacement cannot destroy an existing upload.
 - Direct artifact access never renders original uploaded PDFs or active web content in the authenticated origin. Generated inert PDFs keep inline preview with CSP; this includes LibreOffice's tightly validated direct first-page destination `OpenAction` but excludes indirect or executable actions. Suspicious PDFs and explicit downloads use hardened attachment responses.
-- When `WEKNORA_MINERU_ENDPOINT` (or `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`) is available and `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED` is not false, PDF/DOC/DOCX/PPT/PPTX conversation uploads call the in-cluster `/file_parse` adapter and atomically write a same-stem Markdown companion. This reuses WeKnora's searchable/scanned PDF routing, enterprise OCR, and presentation conversion without creating a knowledge-base record. The dispatcher assigns a trusted `conversation` profile only to interactive DeerFlow uploads; ordinary WeKnora knowledge ingestion retains the `knowledge` profile and explicit parser rules. A conversation DOCX tries pinned local AnyDoc first; structurally large knowledge-base DOCX may use the same bounded fast path. Inspect compressed, expanded, and `word/document.xml` sizes before parsing. Large DOCX must bypass `StdMarkitdownParser`, enter official DocReader v0.8's native `DocxParser`, and retain a separately killable low-memory XML text recovery after rich parsing fails; never raise AnyDoc's fixed XML-node safety limit to accept such input. Legacy DOC remains native-first. AnyDoc or DocReader hangs must terminate only their child process/process group and must not fail worker liveness. A non-empty result returns immediately, with Word-specific LibreOffice and MinerU fallback retained. The optional `MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED=true` supplement remains best-effort for native success and cannot invalidate recovered text/tables/images. PPT/PPTX visual processing remains strict. The enterprise manifest explicitly enables this bridge with a 45-second dispatcher wait, 550-second interactive Adapter timeout, and `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=570`, all below Nginx's 600-second upload timeout; the local Docker/PVC overlay keeps the bridge disabled because it cannot reach the enterprise MinerU service. The legacy `DEERFLOW_UPLOAD_PDF_*` variables remain accepted. Enterprise sets `DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED=false` because the Adapter already owns the complete bounded fallback chain; repeating Gateway's local `convert_file_to_markdown()` after it fails can outlive the proxy timeout. The code default remains true for upstream-compatible deployments without this complete Adapter. Whitespace-only Markdown is always a parse failure and is never persisted as a successful companion. The original document is retained or transactionally restored on failure, and the client and agent must not silently claim parsing succeeded.
+- When `WEKNORA_MINERU_ENDPOINT` (or `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`) is available and `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED` is not false, PDF/DOC/DOCX/PPT/PPTX plus BMP/GIF/JP2/JPEG/PNG/TIFF/WEBP conversation uploads call the in-cluster `/file_parse` adapter and atomically write a same-stem Markdown companion. This reuses WeKnora's searchable/scanned PDF routing, enterprise OCR, and presentation conversion without creating a knowledge-base record. Raster images are admitted by magic-byte detection, submitted directly to MinerU with the detected MIME type, and never wrapped or mislabeled as PDF. The upload response's companion basename is carried into the HumanMessage; UploadsMiddleware accepts it only when it is an existing same-stem or `_N` collision companion under the current thread, then explicitly directs the Agent to read that parsed-text path. This makes OCR available even when the active chat model is text-only while preventing a browser from selecting an arbitrary Markdown file. The dispatcher assigns a trusted `conversation` profile only to interactive DeerFlow uploads; ordinary WeKnora knowledge ingestion retains the `knowledge` profile and explicit parser rules. A conversation DOCX tries pinned local AnyDoc first; structurally large knowledge-base DOCX may use the same bounded fast path. Inspect compressed, expanded, and `word/document.xml` sizes before parsing. Large DOCX must bypass `StdMarkitdownParser`, enter official DocReader v0.8's native `DocxParser`, and retain a separately killable low-memory XML text recovery after rich parsing fails; never raise AnyDoc's fixed XML-node safety limit to accept such input. Legacy DOC remains native-first. AnyDoc or DocReader hangs must terminate only their child process/process group and must not fail worker liveness. A non-empty result returns immediately, with Word-specific LibreOffice and MinerU fallback retained. The optional `MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED=true` supplement remains best-effort for native success and cannot invalidate recovered text/tables/images. PPT/PPTX visual processing remains strict. The enterprise manifest explicitly enables this bridge with a 45-second dispatcher wait, 550-second interactive Adapter timeout, and `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=570`, all below Nginx's 600-second upload timeout; the local Docker/PVC overlay keeps the bridge disabled because it cannot reach the enterprise MinerU service. The legacy `DEERFLOW_UPLOAD_PDF_*` variables remain accepted. Enterprise sets `DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED=false` because the Adapter already owns the complete bounded fallback chain; repeating Gateway's local `convert_file_to_markdown()` after it fails can outlive the proxy timeout. The code default remains true for upstream-compatible deployments without this complete Adapter. Whitespace-only Markdown is always a parse failure and is never persisted as a successful companion. The original file is retained or transactionally restored on failure, and the client and agent must not silently claim parsing succeeded.
 - `/ppt-master` submissions with an attached PPT/PPTX send the validated multipart purpose `presentation_template`. Gateway skips MinerU and local Markdown conversion only for those presentation files, while retaining all upload extension, staged-write, ownership, and size checks. Unmarked PPT/PPTX uploads continue through the configured enterprise parser.
 - Gateway HTTP upload/list/delete handlers offload filesystem work through `deerflow.utils.file_io.run_file_io`, a dedicated ContextVar-preserving file IO executor. Non-mounted sandbox uploads acquire sandboxes with `SandboxProvider.acquire_async()` and offload `read_bytes()` plus `sandbox.update_file()` together.
 - Agent receives uploaded file list via `UploadsMiddleware`
@@ -1818,7 +2149,108 @@ For models with `supports_vision: true`:
 - `view_image_tool` added to agent's toolset
 - Images automatically converted to base64 and injected into state
 
+### Document Runtime and Chinese PDF Output
+
+- `read_file` is a model-facing Sandbox tool; it is not a command to execute
+  through Bash. Keep that boundary explicit in the lead prompt.
+- Persistent document dependencies belong in the immutable AIO Sandbox image.
+  Conversation runs must not call an external package index to install
+  `python-docx`, PDF libraries, or analysis dependencies.
+- Gateway Markdown-to-PDF output containing CJK text must use an embeddable
+  TrueType/OpenType font. Production hotfix images pin Noto Sans SC at
+  `/usr/share/fonts/truetype/deerflow/NotoSansSC-VF.ttf`; canonical images also
+  carry a WenQuanYi fallback. If no compatible embedded font can be registered,
+  fail closed instead of emitting tofu or garbled Chinese.
+- The AIO Sandbox warm pool is the upstream provider's released-instance cache
+  keyed by deterministic user/thread identity and scoped to a Gateway process.
+  Capacity is bounded by `sandbox.replicas` and retention by
+  `sandbox.idle_timeout`; do not implement identity-free proactive prewarming.
+
 ### Digital Employee persistence and Browser Live
+
+Custom-Agent Skill selections must be validated against the authenticated
+creator's live enabled catalog at API/tool write time. In bootstrap only,
+`agent_skill_selection` records explicit form intent (`null` and `[]` remain
+distinct) and takes precedence over the model's proposed list, but never skips
+the permission check. Bootstrap preserves existing personal form configuration.
+An explicit `agent_source` selects exactly one of personal, team or legacy for
+both config and SOUL. Reject an invalid or unavailable explicit source; never
+fall back to a namesake. Shared runtime contexts cannot update/bootstrap a
+same-name personal Agent. Source selection is not a resource-sharing grant or
+an immutable publication revision. Omitted-source legacy callers retain their
+initial priority, but once admitted to a team publication they must honor the
+server-owned thread binding instead of resolving a later personal namesake.
+`knowledge_scope` is a versioned creator selection, not a delegation grant.
+Keep inherit/disabled/explicit scope distinct and never expand a selected
+document to its parent KB. HTTP saves and Gateway admission verify live
+WeKnora identity, tenant membership and per-resource access as the caller,
+with bounded requests and no cached-identity fallback. Reject before creating
+a run when authorization fails. Preserve an omitted field during updates;
+explicit null clears the binding. Disabled knowledge removes credentials and
+native/shared knowledge tools, including delegated subagents. Shared selected
+knowledge uses only the bounded Gateway employee broker with fresh owner grants;
+never inject publisher credentials into caller runtime or Sandbox. Read-only
+knowledge access does not permit onward sharing. Explicit platform approval is
+required for the exact frozen Skill digest; a public directory is not approval.
+Resource grants, immutable publication and thread admission must all agree.
+Main/subagent catalogs and RO mounts resolve the same server-owned receipt;
+use the business parent thread, not a subgraph checkpoint ID. Runtime guards
+recheck withdrawal and grants before model/tool boundaries and after retrieval.
+Restore never revives a revoked grant. Every admitted Square publication,
+including legacy publications without resource_policy_version, disables
+cross-chat memory injection, capture and tools. Main/subagent catalogs use the
+same policy. Manual compaction resolves the server-owned thread receipt off the
+event loop before registering memory-flush hooks; automatic compaction uses the
+scoped config. Never change global/personal settings or erase old memory/history.
+Old checkpoints may already contain injected facts; disabling new injection is
+not retrospective erasure and compatibility review remains a release gate.
+Form edits use the draft CAS boundary: an absent/empty reviewed revision is
+HTTP 428, not permission to perform a blind write; a stale revision is HTTP 409.
+Creation, detail and save return config/SOUL and their revision from one read.
+Avatar upload/removal uses the same reviewed draft revision (428/409), and
+returns the updated AgentResponse (removal is now 200, not 204). Stage re-encoded
+immutable assets before CAS; never overwrite or unlink legacy/superseded images.
+Publish the avatar selected by the reviewed definition, not the latest file.
+An explicit null reference never falls back to avatar.webp. Persist the avatar
+format marker before committing either a hash or null pointer; inventory blocks
+unadapted old-image rollback even after a clear. A marker is conservative, not a
+rollback adapter. Asset retention/quota still needs review.
+Personal DELETE requires the reviewed draft revision, checked under the write
+lock before memory cancellation. File locks live in the parent .draft-locks
+directory so deletion cannot split waiting writers across lock inodes. Retain
+the definition/SQL row and move ancillary bytes to a private .deleted-* recovery
+directory. A prepared record does not prove SQL commit. On an uncertain commit,
+surface failure and retain evidence; never restore over a new namesake. Mixed
+old/new writers, memory workers and recovery reconciliation remain release gates
+requiring management quiescence. Do not claim image-only rollback is safe.
+Conversational updates create a bounded
+owner-only proposal, requiring explicit browser confirmation before applying.
+Publication remains separate from saving/restoring a draft. No publisher secrets
+enter a snapshot or viewer context. See the audit document for release gates.
+Definition-file backup helpers preserve raw config/SOUL/ancillary bytes and
+authorization history. Concurrent changes leave backups unsealed. Rehearsal
+restore refuses an existing destination, so it cannot overwrite employees
+created or edited after the backup. These helpers exclude SQL and thread
+bindings and do not make an old image safe to run against new publications.
+Release candidates must compose explicitly reviewed changes on hash-verified
+production source, test the composed modules themselves, and retain unrelated
+channel/PDF/PPT/streaming behavior. Local-dependency tests are not a complete
+image, shared-volume or real-identity acceptance gate.
+For the audited pre-tool-policy production baseline, use the release composer's
+named runtime blocks instead of replacing mixed lead/subagent factories or the
+AIO provider class wholesale. Preserve the existing slash-secret protocol,
+stream closure/cancellation behavior, thread/file/execution locks, teardown and
+read_file output formatting. Published Skill resolution must be thread-bound
+in lead, subagent, slash activation and mount validation. Tests of the checkout's
+new tool-policy helper names do not prove compatibility with this baseline;
+execute the actual composed modules and keep the import-coverage gate strict.
+Slash coverage means `/skill-name` within the employee conversation, not a new
+slash-based employee switching API.
+The confirmed source-protection boundary is the Digital Employee Square, not
+SkillHub: runtime models may read the authorized read-only Skill package, while
+Square viewers gain no source-browse/download/install entry points. Do not
+claim DRM or absolute protection against model quotation; do not silently
+expand this into a separate confidential-execution service.
 
 `agent_storage.backend` selects file or SQL persistence for personal Digital
 Employee configuration and SOUL. SQL records are always scoped by effective
@@ -1832,8 +2264,34 @@ legacy values so one failed record migration cannot expose retired categories.
 Category migration must patch the raw persisted `category_id` field. Never
 round-trip a whole SQL JSON or YAML record through `AgentConfig` for this narrow
 migration, because fields unknown to the running model must survive unchanged.
-Team publication and avatar binaries keep their existing shared-volume
-protocols. Per-employee model settings form an
+Team publication uses immutable shared-volume `.revisions` and an atomic
+`current.json` head. Require publisher identity and the observed revision for
+replacement/withdrawal; withdrawal retains history and must not reveal a
+legacy namesake. Preserve the original legacy files byte-for-byte on adoption,
+including unknown fields, avatars and memory. Optional publication metadata
+failure must not hide intact private employees. Gateway and the lead factory
+pin a coherent definition using a server-owned employee-publication.json
+outside downloadable user-data. Ignore client revision claims, validate scopes
+before committing a new receipt, compare that preview at commit, and reject
+identity switches or withdrawn employees without deleting history. The read-only
+thread-version API resolves the bucket from trusted thread ownership, including
+admin read views, and exposes no SOUL, grant IDs or Skill content.
+Slash invocation discovery separately requires the actual thread owner (no
+cross-owner admin invocation), verifies the pinned bundle and live grants, and
+returns only enabled names/descriptions with private no-store caching. It must
+not create bindings, install Skills, project files or fall back to viewer Skills
+when a published employee is revoked or unavailable. New-format
+resource grants are checked independently from the receipt. Do not release new-format
+writes until shared-filesystem locking and old-image rollback/read compatibility
+have passed the release canary; no automatic historical-data cleanup.
+The additive read_definition/patch_definition draft boundary preserves raw
+unknown fields and requires an expected content revision without upsert. SQL
+updates keep the original row identity; file edits use a bounded durable undo
+journal for config/SOUL. HTTP editing and owner-confirmed tool proposals use this
+boundary. Rollback must include pending-journal recovery and preserve definitions
+created after rollout; old images do not understand the new publication index.
+Never treat an image-only downgrade as a safe data/permission rollback.
+Per-employee model settings form an
 explicit allowlist (`temperature` and `max_tokens`) and layer below
 request-supplied model/thinking/reasoning values.
 Async Agent router handlers must resolve the configured store and perform its

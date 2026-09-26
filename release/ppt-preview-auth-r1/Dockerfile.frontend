@@ -1,0 +1,8 @@
+FROM preview-frontend-base AS source-check
+COPY apply_frontend.mjs /tmp/preview-fix/apply_frontend.mjs
+RUN --network=none node /tmp/preview-fix/apply_frontend.mjs /app/frontend --check-only
+
+FROM source-check AS candidate
+WORKDIR /app/frontend
+RUN --network=none node /tmp/preview-fix/apply_frontend.mjs /app/frontend \
+    && SKIP_ENV_VALIDATION=1 NEXT_TELEMETRY_DISABLED=1 NEXT_CONFIG_BUILD_OUTPUT=standalone pnpm build

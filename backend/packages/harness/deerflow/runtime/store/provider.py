@@ -30,6 +30,7 @@ from langgraph.store.base import BaseStore
 
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.checkpointer_config import CheckpointerConfig, ensure_config_loaded, get_checkpointer_config
+from deerflow.persistence.postgres_schema import dsn_with_search_path, ensure_postgres_schema, normalize_libpq_dsn
 from deerflow.runtime.store._sqlite_utils import ensure_sqlite_parent_dir, resolve_sqlite_conn_str
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ def _resolve_store_config(app_config: AppConfig) -> CheckpointerConfig:
     if database.backend == "postgres":
         if not database.postgres_url:
             raise ValueError("database.postgres_url is required for the postgres backend")
-        return CheckpointerConfig(type="postgres", connection_string=database.postgres_url)
+        return CheckpointerConfig(type="postgres", connection_string=database.postgres_url, postgres_schema=database.postgres_schema)
     raise ValueError(f"Unknown database backend: {database.backend!r}")
 
 
@@ -126,7 +127,9 @@ def _sync_store_cm(config) -> Iterator[BaseStore]:
         if not config.connection_string:
             raise ValueError(POSTGRES_CONN_REQUIRED)
 
-        with PostgresStore.from_conn_string(config.connection_string) as store:
+        ensure_postgres_schema(config.connection_string, config.postgres_schema, install_hint=POSTGRES_STORE_INSTALL)
+        conn_string = dsn_with_search_path(normalize_libpq_dsn(config.connection_string), config.postgres_schema)
+        with PostgresStore.from_conn_string(conn_string) as store:
             store.setup()
             logger.info("Store: using PostgresStore")
             yield store

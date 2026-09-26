@@ -82,6 +82,8 @@ with TemporaryDirectory(prefix="ppt-master-multilingual-smoke-") as tmp:
     confirm.mkdir(parents=True)
     recommendation = {
         "stage": "stage1",
+        "template_options": {"schema_version": 1, "phase": "template",
+                             "default_mode": "free_design", "explicit_workspace_roots": []},
         "lang": "en",
         "primary_language": "AR_sa",
         "audience": {"value": "Team"},
@@ -103,10 +105,16 @@ with TemporaryDirectory(prefix="ppt-master-multilingual-smoke-") as tmp:
     response = client.get("/api/recommendations")
     assert response.status_code == 200
     assert response.get_json()["primary_language"] == "ar-SA"
+    options_sha256 = response.get_json()["template_options"]["options_sha256"]
     response = client.post(
         "/api/confirm",
         json={
             "stage": "stage1",
+            "options_sha256": options_sha256,
+            "template_selection": {
+                "mode": "free_design",
+                "selection_keys": [],
+            },
             "primary_language": "ar-SA",
             "canvas": "ppt169",
             "audience": "Team",
@@ -190,6 +198,7 @@ with TemporaryDirectory(prefix="ppt-master-multilingual-smoke-") as tmp:
             marker,
             context,
             {
+                "schema": "ppt-master.semantic-table.v2",
                 "x": 10,
                 "y": 10,
                 "width": 600,

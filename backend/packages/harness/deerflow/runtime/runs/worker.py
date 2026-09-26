@@ -17,14 +17,17 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import gc
 import inspect
 import logging
 import os
 import sys
 import threading
+import time
 import weakref
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from contextvars import Context
 from dataclasses import dataclass, field
 from datetime import datetime
 from functools import lru_cache
@@ -37,7 +40,9 @@ from langgraph.errors import GraphRecursionError
 from deerflow.agents.goal_state import GoalEvaluation, GoalState
 from deerflow.agents.human_input import read_human_input_response
 from deerflow.config.app_config import AppConfig
+from deerflow.constants import TOOL_RESULTS_DIRNAME
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
+from deerflow.runtime.events.catalog import RUN_DELIVERY_EVENT
 from deerflow.runtime.goal import (
     DEFAULT_MAX_GOAL_CONTINUATIONS,
     DEFAULT_MAX_NO_PROGRESS_CONTINUATIONS,
@@ -67,13 +72,16 @@ from deerflow.runtime.weknora_context import (
     set_current_weknora_access_token,
     set_current_weknora_scope,
 )
-from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
+from deerflow.sandbox.lease import SANDBOX_SERVER_OWNED_CONTEXT_KEYS, release_sandbox_execution_lease_async
+from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, ensure_trace_context, ensure_trace_id
 from deerflow.tracing import inject_langfuse_metadata
+from deerflow.utils.assembly_io import run_assembly
 from deerflow.utils.messages import message_to_text
-from deerflow.workspace_changes import capture_workspace_snapshot, record_workspace_changes
+from deerflow.workspace_changes import capture_workspace_snapshot, get_changed_output_paths, record_workspace_changes
 from deerflow.workspace_changes.types import WorkspaceSnapshot
 
-from .manager import RunManager, RunRecord
+from .delivery import DELIVERY_RECEIPT_FAILED_ERROR, delivery_content_with_outputs, delivery_error, empty_delivery_content
+from .manager import RunManager, RunRecord, RunStartOutcome
 from .naming import resolve_root_run_name
 from .schemas import RunStatus
 
@@ -81,6 +89,56 @@ logger = logging.getLogger(__name__)
 
 _checkpoint_locks_guard = threading.Lock()
 _checkpoint_locks_by_loop: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[str, asyncio.Lock]] = weakref.WeakKeyDictionary()
+
+
+# Official #5112: completed graph/callback cycles may otherwise survive until
+# older GC generations run. Coalesce passes rather than collecting on every run.
+_TERMINAL_CYCLE_COLLECTION_INTERVAL_SECONDS = 10.0
+_TERMINAL_CYCLE_COLLECTION_INFO_THRESHOLD_SECONDS = 0.1
+_terminal_cycle_collection_guard = threading.Lock()
+_terminal_cycle_collection_last_at = time.monotonic()
+_terminal_cycle_collection_scheduled_loops: weakref.WeakSet[asyncio.AbstractEventLoop] = weakref.WeakSet()
+
+
+def _schedule_terminal_cycle_collection() -> None:
+    """Coalesce full cyclic-GC passes without retaining a request context."""
+    loop = asyncio.get_running_loop()
+    with _terminal_cycle_collection_guard:
+        if loop in _terminal_cycle_collection_scheduled_loops:
+            return
+        elapsed = time.monotonic() - _terminal_cycle_collection_last_at
+        delay = max(0.0, _TERMINAL_CYCLE_COLLECTION_INTERVAL_SECONDS - elapsed)
+        _terminal_cycle_collection_scheduled_loops.add(loop)
+
+    async def _collect() -> None:
+        global _terminal_cycle_collection_last_at
+
+        try:
+            with _terminal_cycle_collection_guard:
+                now = time.monotonic()
+                if now - _terminal_cycle_collection_last_at < _TERMINAL_CYCLE_COLLECTION_INTERVAL_SECONDS:
+                    return
+                _terminal_cycle_collection_last_at = now
+
+            started_at = time.perf_counter()
+            # Not a synchronous event-loop heap walk. CPython can still contend
+            # for the GIL; expose slow passes instead of promising zero pauses.
+            collected = await loop.run_in_executor(None, gc.collect)
+            duration = time.perf_counter() - started_at
+            log = logger.info if duration >= _TERMINAL_CYCLE_COLLECTION_INFO_THRESHOLD_SECONDS else logger.debug
+            log("Terminal cyclic GC collected %d object(s) in %.3f seconds", collected, duration)
+        except Exception:
+            logger.warning("Terminal cyclic GC failed", exc_info=True)
+        finally:
+            with _terminal_cycle_collection_guard:
+                _terminal_cycle_collection_scheduled_loops.discard(loop)
+
+    def _start_collection() -> None:
+        asyncio.create_task(_collect(), context=Context())
+
+    # The loop owns its timer; the registry must not keep a closed embedded/test
+    # loop alive. Neither timer nor task captures request ContextVars.
+    loop.call_later(delay, _start_collection, context=Context())
 
 
 @asynccontextmanager
@@ -99,6 +157,49 @@ async def _checkpoint_thread_lock(thread_id: str) -> AsyncIterator[None]:
 
     async with lock:
         yield
+
+
+_DELIVERY_RECEIPT_RETRY_DELAYS_SECONDS = (0.1, 0.5)
+
+
+async def _produced_output_paths(before: WorkspaceSnapshot | None, *, thread_id: str, user_id: str | None, extra_excluded_dir_names: frozenset[str]) -> list[str]:
+    if before is None:
+        return []
+    try:
+        after = await capture_workspace_snapshot(thread_id, user_id=user_id, include_text=False, extra_excluded_dir_names=extra_excluded_dir_names)
+        return get_changed_output_paths(before, after)
+    except Exception:
+        # Official behavior: unavailable snapshots cannot infer production. Do
+        # not label this degraded observation a complete content verification.
+        logger.warning("Could not detect produced output artifacts for run thread %s", thread_id, exc_info=True)
+        return []
+
+
+async def _persist_delivery_receipt(event_store: Any, *, record: RunRecord, content: dict[str, Any]) -> bool:
+    """Write the run singleton with bounded retries, never after ownership loss."""
+    attempts = len(_DELIVERY_RECEIPT_RETRY_DELAYS_SECONDS) + 1
+    for attempt in range(attempts):
+        if record.ownership_lost:
+            return False
+        try:
+            await event_store.put_if_absent(
+                thread_id=record.thread_id,
+                run_id=record.run_id,
+                event_type=RUN_DELIVERY_EVENT.event_type,
+                category=RUN_DELIVERY_EVENT.category,
+                content=content,
+            )
+            return True
+        except asyncio.CancelledError:
+            if record.ownership_lost:
+                return False
+            raise
+        except Exception:
+            if attempt == attempts - 1:
+                logger.warning("Failed to persist delivery receipt for run %s after %d attempts", record.run_id, attempts, exc_info=True)
+                return False
+            await asyncio.sleep(_DELIVERY_RECEIPT_RETRY_DELAYS_SECONDS[attempt])
+    return False  # pragma: no cover
 
 
 # Valid stream_mode values for LangGraph's graph.astream()
@@ -219,10 +320,12 @@ def _build_runtime_context(
     under ``config['configurable']['__pregel_runtime']`` — see
     ``langgraph.pregel.main`` where ``parent_runtime.merge(...)`` is invoked.
     """
+    from deerflow.agents.middlewares.audit_context import SERVER_OWNED_AUDIT_CONTEXT_KEYS
+
     runtime_ctx: dict[str, Any] = {"thread_id": thread_id, "run_id": run_id}
     if isinstance(caller_context, dict):
         for key, value in caller_context.items():
-            if key == CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY:
+            if key in {CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY, DEERFLOW_TRACE_METADATA_KEY} or key in SANDBOX_SERVER_OWNED_CONTEXT_KEYS or key in SERVER_OWNED_AUDIT_CONTEXT_KEYS:
                 continue
             runtime_ctx.setdefault(key, value)
     if app_config is not None:
@@ -249,12 +352,19 @@ class RunContext:
 
 
 def _install_runtime_context(config: dict, runtime_context: dict[str, Any]) -> None:
+    from deerflow.agents.middlewares.audit_context import SERVER_OWNED_AUDIT_CONTEXT_KEYS
+
+    if isinstance(config.get("configurable"), dict):
+        for key in SERVER_OWNED_AUDIT_CONTEXT_KEYS:
+            config["configurable"].pop(key, None)
     existing_context = config.get("context")
     if isinstance(existing_context, dict):
+        for key in SANDBOX_SERVER_OWNED_CONTEXT_KEYS | SERVER_OWNED_AUDIT_CONTEXT_KEYS:
+            existing_context.pop(key, None)
         existing_context.setdefault("thread_id", runtime_context["thread_id"])
         existing_context.setdefault("run_id", runtime_context["run_id"])
         if DEERFLOW_TRACE_METADATA_KEY in runtime_context:
-            existing_context.setdefault(DEERFLOW_TRACE_METADATA_KEY, runtime_context[DEERFLOW_TRACE_METADATA_KEY])
+            existing_context[DEERFLOW_TRACE_METADATA_KEY] = runtime_context[DEERFLOW_TRACE_METADATA_KEY]
         if "app_config" in runtime_context:
             existing_context["app_config"] = runtime_context["app_config"]
         if CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY in runtime_context:
@@ -346,6 +456,88 @@ class _SubagentEventBuffer:
             logger.warning("Run %s: failed to persist %d subagent step event(s)", self._run_id, len(batch), exc_info=True)
 
 
+def _bind_trace_id(config: dict[str, Any], runtime_ctx: dict[str, Any]) -> str:
+    """Project the host trace onto runtime and checkpoint metadata copies.
+
+    Caller metadata is an output echo, never a trace authority. The runtime
+    carrier is used when subagent or memory work crosses a thread boundary.
+    """
+    trace_id = ensure_trace_id()
+    runtime_ctx[DEERFLOW_TRACE_METADATA_KEY] = trace_id
+    incoming_metadata = config.get("metadata")
+    metadata = dict(incoming_metadata) if isinstance(incoming_metadata, dict) else {}
+    metadata[DEERFLOW_TRACE_METADATA_KEY] = trace_id
+    config["metadata"] = metadata
+    return trace_id
+
+
+def _remove_callback(config: dict[str, Any], handler: Any) -> None:
+    callbacks = config.get("callbacks")
+    if isinstance(callbacks, list):
+        callbacks[:] = [callback for callback in callbacks if callback is not handler]
+        return
+    remove_handler = getattr(callbacks, "remove_handler", None)
+    if callable(remove_handler):
+        try:
+            remove_handler(handler)
+        except Exception:
+            logger.debug("Could not detach terminal callback", exc_info=True)
+
+
+def _release_run_scoped_references(configs: list[dict[str, Any]], runtime_context: dict[str, Any] | None, journal: Any | None) -> None:
+    """Detach worker-created objects, never clear the caller's whole config."""
+    internal_keys = {"__run_journal", "__clarification_event", CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY}
+    seen_configs: set[int] = set()
+    for config in configs:
+        if not isinstance(config, dict) or id(config) in seen_configs:
+            continue
+        seen_configs.add(id(config))
+        configurable = config.get("configurable")
+        if isinstance(configurable, dict):
+            configurable.pop("__pregel_runtime", None)
+        context = config.get("context")
+        if isinstance(context, dict):
+            for key in internal_keys:
+                context.pop(key, None)
+        if journal is not None:
+            _remove_callback(config, journal)
+    if isinstance(runtime_context, dict):
+        for key in internal_keys:
+            runtime_context.pop(key, None)
+
+
+def _defer_finalization_interrupt(deferred: BaseException | None, interrupt: BaseException) -> BaseException:
+    """Keep the first interrupt, finishing terminal signaling before re-raising."""
+    if isinstance(interrupt, asyncio.CancelledError):
+        task = asyncio.current_task()
+        if task is not None:
+            while task.cancelling():
+                task.uncancel()
+    return deferred if deferred is not None else interrupt
+
+
+async def _cancel_and_drain_stream_tasks(*tasks: asyncio.Task[Any]) -> None:
+    """Keep child execution owned until shutdown, including repeated host cancels.
+
+    asyncio.wait does not propagate cancellation to its input tasks. Cancel
+    each child once, then shield its teardown so a second host cancellation
+    cannot interrupt the generator's finally or release the sandbox early.
+    """
+    for task in tasks:
+        if not task.done() and not task.cancelling():
+            task.cancel()
+    drained = asyncio.gather(*tasks, return_exceptions=True)
+    cancellation: asyncio.CancelledError | None = None
+    while not drained.done():
+        try:
+            await asyncio.shield(drained)
+        except asyncio.CancelledError as exc:
+            cancellation = cancellation or exc
+    drained.result()
+    if cancellation is not None:
+        raise cancellation
+
+
 async def run_agent(
     bridge: StreamBridge,
     run_manager: RunManager,
@@ -361,6 +553,39 @@ async def run_agent(
     interrupt_after: list[str] | Literal["*"] | None = None,
 ) -> None:
     """Execute an agent in the background, publishing events to *bridge*."""
+    # Gateway admission normally supplies the scope. Direct harness callers
+    # need the same bounded lifecycle, including pre-stream work and cleanup.
+    with ensure_trace_context():
+        await _run_agent_in_trace(
+            bridge,
+            run_manager,
+            record,
+            ctx=ctx,
+            agent_factory=agent_factory,
+            graph_input=graph_input,
+            config=config,
+            stream_modes=stream_modes,
+            stream_subgraphs=stream_subgraphs,
+            interrupt_before=interrupt_before,
+            interrupt_after=interrupt_after,
+        )
+
+
+async def _run_agent_in_trace(
+    bridge: StreamBridge,
+    run_manager: RunManager,
+    record: RunRecord,
+    *,
+    ctx: RunContext,
+    agent_factory: Any,
+    graph_input: dict,
+    config: dict,
+    stream_modes: list[str] | None = None,
+    stream_subgraphs: bool = False,
+    interrupt_before: list[str] | Literal["*"] | None = None,
+    interrupt_after: list[str] | Literal["*"] | None = None,
+) -> None:
+    """Run the existing enterprise lifecycle inside its owning trace scope."""
 
     # Unpack infrastructure dependencies from RunContext.
     checkpointer = ctx.checkpointer
@@ -368,6 +593,7 @@ async def run_agent(
     event_store = ctx.event_store
     run_events_config = ctx.run_events_config
     thread_store = ctx.thread_store
+    terminal_status_kwargs = {"persist": False} if event_store is not None else {}
 
     run_id = record.run_id
     thread_id = record.thread_id
@@ -376,6 +602,9 @@ async def run_agent(
     pre_run_snapshot: dict[str, Any] | None = None
     pre_run_workspace_snapshot: WorkspaceSnapshot | None = None
     workspace_changes_user_id: str | None = None
+    workspace_excluded_dir_names = frozenset({getattr(getattr(ctx.app_config, "tool_output", None), "storage_subdir", TOOL_RESULTS_DIRNAME)})
+    delivery_content: dict[str, Any] | None = None
+    produced_output_paths: list[str] | None = None
     snapshot_capture_failed = False
     llm_error_fallback_message: str | None = None
     stream_clarification_seen = False
@@ -397,12 +626,65 @@ async def run_agent(
     pre_existing_message_ids: set[str] = set()
 
     journal = None
+    persist_completion = False
     weknora_token_context = None
     weknora_scope_context = None
+    runtime_ctx: dict[str, Any] | None = None
+    runtime: Any | None = None
+    agent: Any | None = None
+    goal_evaluator_model: Any | None = None
+    runnable_configs: list[dict[str, Any]] = [config]
     # Buffers subagent step events for batched persistence (#3779); assigned once
     # streaming starts and flushed in the finally block. Pre-bound to None so the
     # finally is safe even if an exception fires before streaming begins.
     subagent_events: _SubagentEventBuffer | None = None
+    started = False
+    cancellation_finished = False
+    deferred_finalization_interrupt: BaseException | None = None
+
+    async def _finish_cancellation(
+        action: str,
+        *,
+        restore_checkpoint: bool = True,
+    ) -> None:
+        """Finish a local or cross-worker cancellation through one path."""
+        nonlocal cancellation_finished
+        if record.ownership_lost or cancellation_finished:
+            return
+        cancellation_finished = True
+        await run_manager.set_finalizing(run_id, True)
+        if action == "rollback":
+            await run_manager.set_status(
+                run_id,
+                RunStatus.error,
+                error="Rolled back by user",
+                **terminal_status_kwargs,
+            )
+            if not restore_checkpoint or record.ownership_lost:
+                return
+            try:
+                await _rollback_to_pre_run_checkpoint(
+                    checkpointer=checkpointer,
+                    thread_id=thread_id,
+                    run_id=run_id,
+                    pre_run_checkpoint_id=pre_run_checkpoint_id,
+                    pre_run_snapshot=pre_run_snapshot,
+                    snapshot_capture_failed=snapshot_capture_failed,
+                )
+                logger.info(
+                    "Run %s rolled back to pre-run checkpoint %s",
+                    run_id,
+                    pre_run_checkpoint_id,
+                )
+            except Exception:
+                logger.warning(
+                    "Run %s cancellation rollback failed",
+                    run_id,
+                    exc_info=True,
+                )
+        else:
+            await run_manager.set_status(run_id, RunStatus.interrupted, **terminal_status_kwargs)
+            logger.info("Run %s was cancelled", run_id)
 
     # Track whether "events" was requested but skipped
     if "events" in requested_modes:
@@ -412,14 +694,8 @@ async def run_agent(
         )
 
     try:
-        await run_manager.wait_for_prior_finalizing(thread_id, run_id)
-
-        # Initialize RunJournal + write human_message event.
-        # These are inside the try block so any exception (e.g. a DB
-        # error writing the event) flows through the except/finally
-        # path that publishes an "end" event to the SSE bridge —
-        # otherwise a failure here would leave the stream hanging
-        # with no terminator.
+        # Capture early startup failure/cancellation without writing an empty
+        # completion snapshot over the enterprise run history.
         if event_store is not None:
             from deerflow.runtime.journal import RunJournal
 
@@ -430,9 +706,18 @@ async def run_agent(
                 track_token_usage=getattr(run_events_config, "track_token_usage", True),
                 progress_reporter=lambda snapshot: run_manager.update_run_progress(run_id, **snapshot),
             )
+        await run_manager.wait_for_prior_finalizing(thread_id, run_id, abort_event=record.abort_event)
+        start_outcome = await run_manager.try_start(run_id)
+        if start_outcome is not RunStartOutcome.started:
+            return
+        started = True
+        if not record.ownership_lost and thread_store is not None:
+            try:
+                await thread_store.update_status(thread_id, "running")
+            except Exception:
+                logger.debug("Failed to update thread_meta status for %s (non-fatal)", thread_id)
 
-        # 1. Mark running
-        await run_manager.set_status(run_id, RunStatus.running)
+        persist_completion = True
 
         if event_store is not None:
             workspace_changes_user_id = get_effective_user_id()
@@ -440,6 +725,7 @@ async def run_agent(
                 pre_run_workspace_snapshot = await capture_workspace_snapshot(
                     thread_id,
                     user_id=workspace_changes_user_id,
+                    extra_excluded_dir_names=workspace_excluded_dir_names,
                 )
             except Exception:
                 logger.warning("Could not capture pre-run workspace snapshot for run %s", run_id, exc_info=True)
@@ -489,10 +775,7 @@ async def run_agent(
         clarification_event = asyncio.Event()
         runtime_ctx["__clarification_event"] = clarification_event
         runtime_ctx[CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY] = frozenset(pre_existing_message_ids)
-        incoming_metadata = config.get("metadata") if isinstance(config.get("metadata"), dict) else {}
-        deerflow_trace_id = normalize_trace_id(incoming_metadata.get(DEERFLOW_TRACE_METADATA_KEY)) or get_current_trace_id()
-        if deerflow_trace_id:
-            runtime_ctx[DEERFLOW_TRACE_METADATA_KEY] = deerflow_trace_id
+        deerflow_trace_id = _bind_trace_id(config, runtime_ctx)
         # Expose the run-scoped journal under a sentinel key so middleware can
         # write audit events (e.g. SafetyFinishReasonMiddleware recording
         # suppressed tool calls). Double-underscore prefix marks it as a
@@ -526,6 +809,7 @@ async def run_agent(
         # the agent name that this run will actually execute.
         config.setdefault("run_name", resolve_root_run_name(config, record.assistant_id))
         initial_runnable_config = RunnableConfig(**config)
+        runnable_configs.append(initial_runnable_config)
 
         def _continuation_runnable_config() -> RunnableConfig:
             continuation_config = dict(config)
@@ -534,12 +818,14 @@ async def run_agent(
             configurable.pop("checkpoint_id", None)
             configurable.pop("checkpoint_map", None)
             continuation_config["configurable"] = configurable
-            return RunnableConfig(**continuation_config)
+            continuation = RunnableConfig(**continuation_config)
+            runnable_configs.append(continuation)
+            return continuation
 
         if ctx.app_config is not None and _agent_factory_supports_app_config(agent_factory):
-            agent = agent_factory(config=initial_runnable_config, app_config=ctx.app_config)
+            agent = await run_assembly(agent_factory, config=initial_runnable_config, app_config=ctx.app_config)
         else:
-            agent = agent_factory(config=initial_runnable_config)
+            agent = await run_assembly(agent_factory, config=initial_runnable_config)
 
         # Capture the effective (resolved) model name from the agent's metadata.
         # _resolve_model_name in agent.py may return the default model if the
@@ -593,8 +879,6 @@ async def run_agent(
         # of one low-frequency put() per step on the hot stream loop. Flushed in
         # the finally block so buffered steps survive abort/exception paths too.
         subagent_events = _SubagentEventBuffer(event_store, thread_id, run_id)
-
-        goal_evaluator_model: Any | None = None
 
         def _get_goal_evaluator_model() -> Any:
             nonlocal goal_evaluator_model
@@ -683,19 +967,10 @@ async def run_agent(
                             run_id,
                         )
                         stream_task.cancel()
-                        try:
-                            await stream_task
-                        except asyncio.CancelledError:
-                            pass
                 else:
                     await stream_task
             finally:
-                if not event_task.done():
-                    event_task.cancel()
-                    try:
-                        await event_task
-                    except asyncio.CancelledError:
-                        pass
+                await _cancel_and_drain_stream_tasks(stream_task, event_task)
 
         # 7. Stream the requested turn, then optionally continue hidden goal turns.
         # Clear any stale stop_reason before the first (user-visible) turn only.
@@ -712,8 +987,7 @@ async def run_agent(
         )
         if pending_clarification:
             logger.info("Run %s paused goal continuation for pending clarification", run_id)
-            await run_manager.set_status(run_id, RunStatus.success, stop_reason="awaiting_human_input")
-            await _publish_stream_end()
+            await run_manager.set_status(run_id, RunStatus.success, stop_reason="awaiting_human_input", **terminal_status_kwargs)
 
         while not pending_clarification and not record.abort_event.is_set() and not llm_error_fallback_message and (journal is None or not journal.had_llm_error_fallback):
             continuation_input = await _prepare_goal_continuation_input(
@@ -738,37 +1012,26 @@ async def run_agent(
             )
             if pending_clarification:
                 logger.info("Run %s paused goal continuation for pending clarification", run_id)
-                await run_manager.set_status(run_id, RunStatus.success, stop_reason="awaiting_human_input")
-                await _publish_stream_end()
+                await run_manager.set_status(run_id, RunStatus.success, stop_reason="awaiting_human_input", **terminal_status_kwargs)
 
         # 8. Final status
         if record.abort_event.is_set():
-            await run_manager.set_finalizing(run_id, True)
-            action = record.abort_action
-            if action == "rollback":
-                await run_manager.set_status(run_id, RunStatus.error, error="Rolled back by user")
-                try:
-                    await _rollback_to_pre_run_checkpoint(
-                        checkpointer=checkpointer,
-                        thread_id=thread_id,
-                        run_id=run_id,
-                        pre_run_checkpoint_id=pre_run_checkpoint_id,
-                        pre_run_snapshot=pre_run_snapshot,
-                        snapshot_capture_failed=snapshot_capture_failed,
-                    )
-                    logger.info("Run %s rolled back to pre-run checkpoint %s", run_id, pre_run_checkpoint_id)
-                except Exception:
-                    logger.warning("Failed to rollback checkpoint for run %s", run_id, exc_info=True)
-            else:
-                await run_manager.set_status(run_id, RunStatus.interrupted)
+            await _finish_cancellation(record.abort_action)
         elif llm_error_fallback_message or (journal is not None and journal.had_llm_error_fallback):
             error_msg = llm_error_fallback_message
             if error_msg is None and journal is not None:
                 error_msg = journal.llm_error_fallback_message
             error_msg = error_msg or "LLM provider failed after retries"
-            await run_manager.set_status(run_id, RunStatus.error, error=error_msg)
+            cancel_action = await run_manager.set_status_if_not_cancelled(
+                run_id,
+                RunStatus.error,
+                error=error_msg,
+                **terminal_status_kwargs,
+            )
+            if cancel_action is not None:
+                await _finish_cancellation(cancel_action)
         elif pending_clarification:
-            # Status and stream end were published when the open request was detected.
+            # Preserve the user-wait outcome; END follows durable finalization.
             pass
         else:
             runtime_context = runtime.context if isinstance(runtime.context, dict) else None
@@ -786,28 +1049,21 @@ async def run_agent(
             # collects the most severe / first / all reasons) instead of each
             # guard writing directly to the same key.
             stop_reason = runtime_context.get("stop_reason") if runtime_context is not None else None
-            await run_manager.set_status(run_id, RunStatus.success, stop_reason=stop_reason)
+            produced_output_paths = await _produced_output_paths(pre_run_workspace_snapshot, thread_id=thread_id, user_id=workspace_changes_user_id, extra_excluded_dir_names=workspace_excluded_dir_names)
+            delivery_content = delivery_content_with_outputs(journal.get_delivery_content() if journal is not None else empty_delivery_content(), produced_output_paths)
+            artifact_error = delivery_error(delivery_content)
+            cancel_action = await run_manager.set_status_if_not_cancelled(
+                run_id,
+                RunStatus.error if artifact_error else RunStatus.success,
+                error=artifact_error,
+                stop_reason=stop_reason,
+                **terminal_status_kwargs,
+            )
+            if cancel_action is not None:
+                await _finish_cancellation(cancel_action)
 
     except asyncio.CancelledError:
-        await run_manager.set_finalizing(run_id, True)
-        action = record.abort_action
-        if action == "rollback":
-            await run_manager.set_status(run_id, RunStatus.error, error="Rolled back by user")
-            try:
-                await _rollback_to_pre_run_checkpoint(
-                    checkpointer=checkpointer,
-                    thread_id=thread_id,
-                    run_id=run_id,
-                    pre_run_checkpoint_id=pre_run_checkpoint_id,
-                    pre_run_snapshot=pre_run_snapshot,
-                    snapshot_capture_failed=snapshot_capture_failed,
-                )
-                logger.info("Run %s was cancelled and rolled back", run_id)
-            except Exception:
-                logger.warning("Run %s cancellation rollback failed", run_id, exc_info=True)
-        else:
-            await run_manager.set_status(run_id, RunStatus.interrupted)
-            logger.info("Run %s was cancelled", run_id)
+        await _finish_cancellation(record.abort_action)
 
     except GraphRecursionError as exc:
         checkpoint_tuple = None
@@ -819,135 +1075,235 @@ async def run_agent(
         recursion_limit = config.get("recursion_limit")
         error_msg = _recursion_limit_diagnostic(checkpoint_tuple, recursion_limit, exc)
         logger.exception("Run %s reached the LangGraph recursion cap: %s", run_id, error_msg)
-        await run_manager.set_status(run_id, RunStatus.error, error=error_msg, stop_reason="recursion_capped")
-        await bridge.publish(
+        cancel_action = await run_manager.set_status_if_not_cancelled(
             run_id,
-            "error",
-            {
-                "message": error_msg,
-                "name": type(exc).__name__,
-                "stop_reason": "recursion_capped",
-            },
+            RunStatus.error,
+            error=error_msg,
+            stop_reason="recursion_capped",
+            **terminal_status_kwargs,
         )
+        if cancel_action is not None:
+            await _finish_cancellation(cancel_action)
+        else:
+            await bridge.publish(
+                run_id,
+                "error",
+                {
+                    "message": error_msg,
+                    "name": type(exc).__name__,
+                    "stop_reason": "recursion_capped",
+                },
+            )
 
     except Exception as exc:
         error_msg = f"{exc}"
         logger.exception("Run %s failed: %s", run_id, error_msg)
-        await run_manager.set_status(run_id, RunStatus.error, error=error_msg)
-        await bridge.publish(
+        cancel_action = await run_manager.set_status_if_not_cancelled(
             run_id,
-            "error",
-            {
-                "message": error_msg,
-                "name": type(exc).__name__,
-            },
+            RunStatus.error,
+            error=error_msg,
+            **terminal_status_kwargs,
         )
-
-    finally:
-        if weknora_token_context is not None:
-            reset_current_weknora_access_token(weknora_token_context)
-        if weknora_scope_context is not None:
-            reset_current_weknora_scope(weknora_scope_context)
-
-        # Persist any subagent step events still buffered (#3779) — including on
-        # abort/exception paths, where the stream loop broke before its own flush.
-        if subagent_events is not None:
-            await subagent_events.flush()
-
-        if event_store is not None and pre_run_workspace_snapshot is not None:
-            try:
-                await record_workspace_changes(
-                    event_store,
-                    thread_id,
-                    run_id,
-                    pre_run_workspace_snapshot,
-                    user_id=workspace_changes_user_id,
-                )
-            except Exception:
-                logger.warning("Failed to record workspace changes for run %s", run_id, exc_info=True)
-
-        # Provider callbacks can outpace checkpoint/middleware finalization. On
-        # interruption, reconcile any uncommitted artifact claim before flushing
-        # journal rows so history cannot preserve a fabricated download link.
-        if journal is not None and record.status == RunStatus.interrupted:
-            await _reconcile_interrupted_artifact_claim(
-                journal=journal,
-                checkpointer=checkpointer,
-                thread_id=thread_id,
+        if cancel_action is not None:
+            await _finish_cancellation(cancel_action)
+        else:
+            await bridge.publish(
+                run_id,
+                "error",
+                {
+                    "message": error_msg,
+                    "name": type(exc).__name__,
+                },
             )
 
-        # Flush any buffered journal events and persist completion data
-        if journal is not None:
-            try:
-                await journal.flush()
-            except Exception:
-                logger.warning("Failed to flush journal for run %s", run_id, exc_info=True)
+    finally:
+        try:
+            if record.terminal_status_pending and not record.ownership_lost:
+                await run_manager.set_finalizing(run_id, True)
+            if runtime_ctx is not None:
+                try:
+                    await release_sandbox_execution_lease_async(runtime_ctx)
+                except Exception:
+                    logger.warning("Failed to release execution sandbox lease for run %s", run_id, exc_info=True)
+                except BaseException as exc:
+                    # The lease helper drains its release before propagating host
+                    # cancellation. Reset enterprise contexts in this same task,
+                    # then finish signaling before re-raising the first interrupt.
+                    deferred_finalization_interrupt = _defer_finalization_interrupt(deferred_finalization_interrupt, exc)
+                    logger.warning("Sandbox lease cleanup interrupted for run %s; completing terminal cleanup first", run_id)
+            if weknora_token_context is not None:
+                reset_current_weknora_access_token(weknora_token_context)
+            if weknora_scope_context is not None:
+                reset_current_weknora_scope(weknora_scope_context)
 
-            try:
-                # Persist token usage + convenience fields to RunStore
-                completion = journal.get_completion_data()
-                await run_manager.update_run_completion(run_id, status=record.status.value, **completion)
-            except Exception:
-                logger.warning("Failed to persist run completion for %s (non-fatal)", run_id, exc_info=True)
+            # Persist any subagent step events still buffered (#3779) — including on
+            # abort/exception paths, where the stream loop broke before its own flush.
+            if not record.ownership_lost and subagent_events is not None:
+                await subagent_events.flush()
 
-        if checkpointer is not None and record.status == RunStatus.interrupted:
-            try:
-                await run_manager.wait_for_prior_finalizing(thread_id, run_id)
-                if not await run_manager.has_later_started_run(thread_id, run_id):
-                    await _ensure_interrupted_title(checkpointer=checkpointer, thread_id=thread_id, app_config=ctx.app_config, graph_input=graph_input)
-            except Exception:
-                logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
+            if not record.ownership_lost and event_store is not None and pre_run_workspace_snapshot is not None:
+                try:
+                    await record_workspace_changes(
+                        event_store,
+                        thread_id,
+                        run_id,
+                        pre_run_workspace_snapshot,
+                        user_id=workspace_changes_user_id,
+                        extra_excluded_dir_names=workspace_excluded_dir_names,
+                    )
+                except Exception:
+                    logger.warning("Failed to record workspace changes for run %s", run_id, exc_info=True)
 
-        # Sync title from checkpoint to threads_meta.display_name
-        if checkpointer is not None and thread_store is not None:
-            try:
-                ckpt_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-                ckpt_tuple = await checkpointer.aget_tuple(ckpt_config)
-                if ckpt_tuple is not None:
-                    ckpt = getattr(ckpt_tuple, "checkpoint", {}) or {}
-                    title = ckpt.get("channel_values", {}).get("title")
-                    if title:
-                        await thread_store.update_display_name(thread_id, title)
-            except Exception:
-                logger.debug("Failed to sync title for thread %s (non-fatal)", thread_id)
-
-        # Persist run duration to checkpoint metadata so history reads
-        # don't need to correlate runs and events.
-        if checkpointer is not None and record.status == RunStatus.success:
-            try:
-                created = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
-                updated = datetime.fromisoformat(record.updated_at.replace("Z", "+00:00"))
-                # Match legacy history semantics: turn_duration is the whole
-                # RunRecord lifetime in integer seconds, including admission
-                # delay. Persist zero for sub-second successful turns.
-                duration = max(0, int((updated - created).total_seconds()))
-                await _persist_run_duration(
+            # Provider callbacks can outpace checkpoint/middleware finalization. On
+            # interruption, reconcile any uncommitted artifact claim before flushing
+            # journal rows so history cannot preserve a fabricated download link.
+            if not record.ownership_lost and journal is not None and record.status == RunStatus.interrupted:
+                await _reconcile_interrupted_artifact_claim(
+                    journal=journal,
                     checkpointer=checkpointer,
                     thread_id=thread_id,
-                    run_id=run_id,
-                    duration_seconds=duration,
                 )
-            except Exception:
-                logger.debug("Failed to persist run duration for thread %s run %s (non-fatal)", thread_id, run_id)
 
-        # Update threads_meta status based on run outcome
-        if thread_store is not None:
+            # The singleton fact precedes durable terminal status. Recheck lease
+            # ownership after every await; a slow flush may outlive the lease.
+            if not record.ownership_lost and journal is not None:
+                try:
+                    await journal.flush()
+                except asyncio.CancelledError:
+                    if not record.ownership_lost:
+                        raise
+                except Exception:
+                    logger.warning("Failed to flush journal for run %s", run_id, exc_info=True)
+
+            if not record.ownership_lost and journal is not None:
+                if delivery_content is None:
+                    produced_output_paths = await _produced_output_paths(pre_run_workspace_snapshot, thread_id=thread_id, user_id=workspace_changes_user_id, extra_excluded_dir_names=workspace_excluded_dir_names)
+                    delivery_content = delivery_content_with_outputs(journal.get_delivery_content(), produced_output_paths)
+                receipt_persisted = await _persist_delivery_receipt(event_store, record=record, content=delivery_content)
+                if not record.ownership_lost and produced_output_paths and record.status == RunStatus.success and record.stop_reason != "awaiting_human_input" and not receipt_persisted:
+                    await run_manager.set_status(run_id, RunStatus.error, error=DELIVERY_RECEIPT_FAILED_ERROR, persist=False)
+
+            if not record.ownership_lost and journal is not None and persist_completion:
+                await run_manager.update_finalizing_progress(run_id, **journal.get_completion_data())
+
+            # Keep the durable row active through the last checkpoint write so a
+            # peer cannot admit a history migration over an unfinished lifetime.
+            # Persist run duration to checkpoint metadata so history reads
+            # don't need to correlate runs and events.
+            if started and not record.ownership_lost and checkpointer is not None and record.status == RunStatus.success:
+                try:
+                    created = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
+                    updated = datetime.fromisoformat(record.updated_at.replace("Z", "+00:00"))
+                    # Match legacy history semantics: turn_duration is the whole
+                    # RunRecord lifetime in integer seconds, including admission
+                    # delay. Persist zero for sub-second successful turns.
+                    duration = max(0, int((updated - created).total_seconds()))
+                    await _persist_run_duration(
+                        checkpointer=checkpointer,
+                        thread_id=thread_id,
+                        run_id=run_id,
+                        duration_seconds=duration,
+                    )
+                except Exception:
+                    logger.debug("Failed to persist run duration for thread %s run %s (non-fatal)", thread_id, run_id)
+
+            if not record.ownership_lost and event_store is not None:
+                try:
+                    if record.abort_event.is_set():
+                        await _finish_cancellation(record.abort_action)
+                        await run_manager.persist_current_status(run_id)
+                    else:
+                        # A durable cancel arriving while the receipt was written
+                        # still wins over success, including across Gateway workers.
+                        cancel_action = await run_manager.set_status_if_not_cancelled(run_id, record.status, error=record.error, stop_reason=record.stop_reason)
+                        if cancel_action is not None:
+                            await _finish_cancellation(cancel_action)
+                            await run_manager.persist_current_status(run_id)
+                except Exception:
+                    logger.warning("Failed to persist terminal status after delivery receipt for run %s", run_id, exc_info=True)
+
+            if not record.ownership_lost and journal is not None and persist_completion:
+                try:
+                    # Persist token usage + convenience fields to RunStore
+                    completion = journal.get_completion_data()
+                    await run_manager.update_run_completion(run_id, status=record.status.value, **completion)
+                except Exception:
+                    logger.warning("Failed to persist run completion for %s (non-fatal)", run_id, exc_info=True)
+
+            if started and not record.ownership_lost and checkpointer is not None and record.status == RunStatus.interrupted:
+                try:
+                    await run_manager.wait_for_prior_finalizing(thread_id, run_id)
+                    if not await run_manager.has_later_started_run(thread_id, run_id):
+                        await _ensure_interrupted_title(checkpointer=checkpointer, thread_id=thread_id, app_config=ctx.app_config, graph_input=graph_input)
+                except Exception:
+                    logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
+
+            # Sync title from checkpoint to threads_meta.display_name
+            if started and not record.ownership_lost and checkpointer is not None and thread_store is not None:
+                try:
+                    ckpt_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+                    ckpt_tuple = await checkpointer.aget_tuple(ckpt_config)
+                    if ckpt_tuple is not None:
+                        ckpt = getattr(ckpt_tuple, "checkpoint", {}) or {}
+                        title = ckpt.get("channel_values", {}).get("title")
+                        if title:
+                            await thread_store.update_display_name(thread_id, title)
+                except Exception:
+                    logger.debug("Failed to sync title for thread %s (non-fatal)", thread_id)
+
+            # Update threads_meta status based on run outcome
+            if started and not record.ownership_lost and thread_store is not None:
+                try:
+                    final_status = "idle" if record.status == RunStatus.success else record.status.value
+                    await thread_store.update_status(thread_id, final_status)
+                except Exception:
+                    logger.debug("Failed to update thread_meta status for %s (non-fatal)", thread_id)
+
+            if not record.ownership_lost and ctx.on_run_completed is not None:
+                try:
+                    await ctx.on_run_completed(record)
+                except Exception:
+                    logger.warning("Run completion hook failed for %s (non-fatal)", run_id, exc_info=True)
+                except BaseException as exc:
+                    deferred_finalization_interrupt = _defer_finalization_interrupt(deferred_finalization_interrupt, exc)
+                    logger.warning("Run completion hook interrupted for %s; completing finalization first", run_id)
+            if record.finalizing:
+                await run_manager.set_finalizing(run_id, False)
+
+            await _publish_stream_end()
+            if deferred_finalization_interrupt is not None:
+                raise deferred_finalization_interrupt
+        finally:
             try:
-                final_status = "idle" if record.status == RunStatus.success else record.status.value
-                await thread_store.update_status(thread_id, final_status)
-            except Exception:
-                logger.debug("Failed to update thread_meta status for %s (non-fatal)", thread_id)
-
-        if ctx.on_run_completed is not None:
-            try:
-                await ctx.on_run_completed(record)
-            except Exception:
-                logger.warning("Run completion hook failed for %s (non-fatal)", run_id, exc_info=True)
-        if record.finalizing:
-            await run_manager.set_finalizing(run_id, False)
-
-        await _publish_stream_end()
-        asyncio.create_task(bridge.cleanup(run_id, delay=60))
+                if journal is not None:
+                    try:
+                        await journal.close(flush=not record.ownership_lost)
+                    except Exception:
+                        logger.warning("Failed to close journal for run %s; discarding retained callbacks", run_id, exc_info=True)
+                        await journal.close(flush=False)
+                    except BaseException:
+                        # Do not restart durable writes after interrupted close.
+                        await journal.close(flush=False)
+                        raise
+            finally:
+                _release_run_scoped_references(runnable_configs, runtime_ctx, journal)
+                journal = None
+                # Error tracebacks and graph closures can retain the frame;
+                # drop its worker-owned runtime graph/payload references too.
+                agent = None
+                runtime = None
+                runtime_ctx = None
+                subagent_events = None
+                goal_evaluator_model = None
+                pre_run_workspace_snapshot = None
+                delivery_content = None
+                produced_output_paths = None
+                pre_run_snapshot = None
+                graph_input = {}
+                # Delayed eviction needs run_id, not request credentials/context.
+                asyncio.create_task(bridge.cleanup(run_id, delay=60), context=Context())
+                asyncio.create_task(run_manager.cleanup(run_id, delay=300), context=Context())
+                _schedule_terminal_cycle_collection()
 
 
 # ---------------------------------------------------------------------------

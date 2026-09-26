@@ -1,0 +1,7 @@
+FROM channel-pdf-frontend-base
+WORKDIR /app/frontend
+COPY apply-delta.mjs frontend-delta.json /tmp/channel-pdf-r1/
+COPY cnooc-haineng-mark.png public/images/cnooc-haineng-mark.png
+RUN --network=none node /tmp/channel-pdf-r1/apply-delta.mjs /app/frontend \
+      /tmp/channel-pdf-r1/frontend-delta.json /opt/deerflow-release/channel-pdf-r1-frontend.json \
+    && SKIP_ENV_VALIDATION=1 NEXT_TELEMETRY_DISABLED=1 NEXT_CONFIG_BUILD_OUTPUT=standalone pnpm build

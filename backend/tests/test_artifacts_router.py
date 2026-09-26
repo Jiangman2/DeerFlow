@@ -47,6 +47,8 @@ class _FakeLivePreviewStream:
 
 
 class _FakeLivePreviewClient:
+    last_request_args = None
+
     def __init__(self, *args, **kwargs):
         self.request_args = None
 
@@ -58,6 +60,7 @@ class _FakeLivePreviewClient:
 
     def stream(self, *args, **kwargs):
         self.request_args = (args, kwargs)
+        type(self).last_request_args = self.request_args
         return _FakeLivePreviewStream()
 
 
@@ -71,6 +74,11 @@ def test_live_preview_proxy_rewrites_sandbox_root_urls(monkeypatch) -> None:
     monkeypatch.setattr(artifacts_router, "_resolve_artifact_owner_user_id", AsyncMock(return_value="owner-1"))
     monkeypatch.setattr(artifacts_router, "_resolve_thread_runtime_profile", AsyncMock(return_value=None))
     monkeypatch.setattr(artifacts_router.httpx, "AsyncClient", _FakeLivePreviewClient)
+    monkeypatch.setattr(
+        artifacts_router,
+        "get_app_config",
+        lambda: SimpleNamespace(sandbox=SimpleNamespace(sandbox_api_key="sandbox-secret")),
+    )
 
     response = asyncio.run(
         call_unwrapped(
@@ -87,6 +95,76 @@ def test_live_preview_proxy_rewrites_sandbox_root_urls(monkeypatch) -> None:
     assert "/api/threads/thread-1/live-preview/5050/static/app.js" in body
     assert "/api/threads/thread-1/live-preview/5050/api/slides" in body
     assert response.headers["cache-control"] == "no-store"
+    headers = _FakeLivePreviewClient.last_request_args[1]["headers"]
+    assert headers["authorization"] == "Bearer sandbox-secret"
+    assert headers["x-aio-proxy-port"] == "5050"
+
+
+def test_live_preview_never_forwards_browser_authorization_to_sandbox(monkeypatch) -> None:
+    fake_sandbox = SimpleNamespace(id="sandbox-abc12345", base_url="http://sandbox:8080")
+    monkeypatch.setattr(
+        artifacts_router,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get_for_thread=lambda _thread_id, user_id=None: fake_sandbox),
+    )
+    monkeypatch.setattr(artifacts_router, "_resolve_artifact_owner_user_id", AsyncMock(return_value="owner-1"))
+    monkeypatch.setattr(artifacts_router, "_resolve_thread_runtime_profile", AsyncMock(return_value=None))
+    monkeypatch.setattr(artifacts_router.httpx, "AsyncClient", _FakeLivePreviewClient)
+    monkeypatch.setattr(
+        artifacts_router,
+        "get_app_config",
+        lambda: SimpleNamespace(sandbox=SimpleNamespace(sandbox_api_key="sandbox-secret")),
+    )
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/threads/thread-1/live-preview/5050/",
+            "headers": [(b"authorization", b"Bearer browser-token")],
+            "query_string": b"",
+        }
+    )
+
+    response = asyncio.run(call_unwrapped(artifacts_router.get_live_preview, "thread-1", 5050, "", request))
+
+    assert response.status_code == 200
+    assert _FakeLivePreviewClient.last_request_args[1]["headers"]["authorization"] == "Bearer sandbox-secret"
+
+
+def test_live_preview_fails_closed_when_sandbox_key_is_missing(monkeypatch) -> None:
+    fake_sandbox = SimpleNamespace(id="sandbox-abc12345", base_url="http://sandbox:8080")
+    monkeypatch.setattr(
+        artifacts_router,
+        "get_sandbox_provider",
+        lambda: SimpleNamespace(get_for_thread=lambda _thread_id, user_id=None: fake_sandbox),
+    )
+    monkeypatch.setattr(artifacts_router, "_resolve_artifact_owner_user_id", AsyncMock(return_value="owner-1"))
+    monkeypatch.setattr(artifacts_router, "_resolve_thread_runtime_profile", AsyncMock(return_value=None))
+    monkeypatch.setattr(
+        artifacts_router,
+        "get_app_config",
+        lambda: SimpleNamespace(sandbox=SimpleNamespace(sandbox_api_key="")),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(call_unwrapped(artifacts_router.get_live_preview, "thread-1", 5050, "", _make_request()))
+
+    assert exc_info.value.status_code == 503
+
+
+def test_live_preview_denies_unowned_thread_before_contacting_sandbox(monkeypatch) -> None:
+    app = make_authed_test_app(owner_check_passes=False)
+    app.include_router(artifacts_router.router)
+    monkeypatch.setattr(
+        artifacts_router,
+        "get_sandbox_provider",
+        lambda: pytest.fail("unowned thread must never reach the Sandbox"),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/api/threads/other-user-thread/live-preview/5050/")
+
+    assert response.status_code == 404
 
 
 def test_live_preview_uses_aio_trusted_header_port_routing() -> None:
@@ -468,6 +546,29 @@ def test_get_artifact_forces_download_for_active_content_in_skill_archive(tmp_pa
 
     assert response.headers.get("content-disposition", "").startswith("attachment;")
     assert bytes(response.body) == content.encode("utf-8")
+
+
+@pytest.mark.parametrize("in_skill_archive", [False, True])
+@pytest.mark.parametrize("system_mime", [None, "text/plain"])
+@pytest.mark.parametrize(("filename", "content"), ACTIVE_ARTIFACT_CASES)
+def test_active_artifact_download_does_not_depend_on_system_mime_database(tmp_path, monkeypatch, in_skill_archive, system_mime, filename, content):
+    monkeypatch.setattr(artifacts_router.mimetypes, "guess_type", lambda *_args, **_kwargs: (system_mime, None))
+    if in_skill_archive:
+        artifact_path = tmp_path / "sample.skill"
+        with zipfile.ZipFile(artifact_path, "w") as archive:
+            archive.writestr(filename, content)
+        path = "mnt/user-data/outputs/sample.skill/" + filename
+    else:
+        artifact_path = tmp_path / filename
+        artifact_path.write_text(content, encoding="utf-8")
+        path = "mnt/user-data/outputs/" + filename
+    monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path, user_id=None: artifact_path)
+
+    response = asyncio.run(call_unwrapped(artifacts_router.get_artifact, "thread-1", path, _make_request()))
+
+    assert response.headers.get("content-disposition", "").startswith("attachment;")
+    assert response.media_type == "application/octet-stream"
+    assert response.headers["x-content-type-options"] == "nosniff"
 
 
 @pytest.mark.parametrize("in_skill_archive", [False, True])

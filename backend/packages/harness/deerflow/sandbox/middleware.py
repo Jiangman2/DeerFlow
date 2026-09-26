@@ -9,11 +9,14 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.runtime import Runtime
-from langgraph.types import Command
+from langgraph.types import Command, Overwrite
 
 from deerflow.agents.thread_state import SandboxStateField, ThreadDataState
+from deerflow.authz.sandbox_authz import authorize_sandbox_execution, authorize_sandbox_execution_async, safe_app_config, safe_app_config_async
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox import get_sandbox_provider
+from deerflow.sandbox.exceptions import SandboxAuthorizationError
+from deerflow.sandbox.lease import ensure_sandbox_lease_owner, get_sandbox_lease_manager, sandbox_lease_owner
 
 logger = logging.getLogger(__name__)
 
@@ -49,66 +52,124 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
         super().__init__()
         self._lazy_init = lazy_init
 
-    def _acquire_sandbox(self, thread_id: str, *, user_id: str) -> str:
+    def _acquire_sandbox(self, thread_id: str, *, user_id: str, owner_id: str | None) -> str:
         provider = get_sandbox_provider()
-        sandbox_id = provider.acquire(thread_id, user_id=user_id)
+        sandbox_id = get_sandbox_lease_manager(provider).acquire(owner_id, thread_id, user_id=user_id) if owner_id is not None else provider.acquire(thread_id, user_id=user_id)
         logger.info(f"Acquiring sandbox {sandbox_id}")
         return sandbox_id
 
-    async def _acquire_sandbox_async(self, thread_id: str, *, user_id: str) -> str:
+    async def _acquire_sandbox_async(self, thread_id: str, *, user_id: str, owner_id: str | None) -> str:
         provider = get_sandbox_provider()
-        sandbox_id = await provider.acquire_async(thread_id, user_id=user_id)
+        sandbox_id = await get_sandbox_lease_manager(provider).acquire_async(owner_id, thread_id, user_id=user_id) if owner_id is not None else await provider.acquire_async(thread_id, user_id=user_id)
         logger.info(f"Acquiring sandbox {sandbox_id}")
         return sandbox_id
 
     async def _release_sandbox_async(self, sandbox_id: str) -> None:
         await asyncio.to_thread(get_sandbox_provider().release, sandbox_id)
 
+    @staticmethod
+    def _runtime_scope(runtime: Runtime) -> tuple[str, str] | None:
+        context = runtime.context or {}
+        thread_id = context.get("thread_id") or (getattr(runtime, "config", None) or {}).get("configurable", {}).get("thread_id")
+        if not isinstance(thread_id, str) or not thread_id:
+            return None
+        return thread_id, resolve_runtime_user_id(runtime)
+
+    @classmethod
+    def _scoped_sandbox_id(cls, state: SandboxMiddlewareState, runtime: Runtime) -> str | None:
+        scope = cls._runtime_scope(runtime)
+        if scope is None:
+            return None
+        thread_id, user_id = scope
+        context_id = (runtime.context or {}).get("sandbox_id")
+        state_id = cls._read_sandbox_id_from_state(state)
+        provider = get_sandbox_provider()
+        for sandbox_id in (context_id, state_id):
+            if isinstance(sandbox_id, str) and provider.get_scoped(sandbox_id, thread_id=thread_id, user_id=user_id) is not None:
+                return sandbox_id
+        return None
+
+    @classmethod
+    def _state_sandbox_is_scoped(cls, state: SandboxMiddlewareState, scope: tuple[str, str]) -> bool:
+        sandbox_id = cls._read_sandbox_id_from_state(state)
+        if sandbox_id is None:
+            return False
+        thread_id, user_id = scope
+        return get_sandbox_provider().get_scoped(sandbox_id, thread_id=thread_id, user_id=user_id) is not None
+
     @override
     def before_agent(self, state: SandboxMiddlewareState, runtime: Runtime) -> dict | None:
+        owner_id = ensure_sandbox_lease_owner(runtime.context)
         # Skip acquisition if lazy_init is enabled
         if self._lazy_init:
             return super().before_agent(state, runtime)
 
-        # Eager initialization (original behavior)
-        if "sandbox" not in state or state["sandbox"] is None:
-            thread_id = (runtime.context or {}).get("thread_id")
-            if thread_id is None:
-                return super().before_agent(state, runtime)
-            sandbox_id = self._acquire_sandbox(thread_id, user_id=resolve_runtime_user_id(runtime))
-            logger.info(f"Assigned sandbox {sandbox_id} to thread {thread_id}")
-            return {"sandbox": {"sandbox_id": sandbox_id}}
-        return super().before_agent(state, runtime)
+        try:
+            authorize_sandbox_execution(context=runtime.context or {}, app_config=safe_app_config())
+        except SandboxAuthorizationError:
+            # Ordinary non-sandbox chat remains usable; every tool entry checks
+            # again and returns its own visible denial, including reused ids.
+            return None
+
+        scope = self._runtime_scope(runtime)
+        if scope is None:
+            return super().before_agent(state, runtime)
+        thread_id, user_id = scope
+        previous_id = self._read_sandbox_id_from_state(state)
+        if previous_id is not None and owner_id is not None:
+            sandbox_id = get_sandbox_lease_manager(get_sandbox_provider()).reuse_or_acquire(owner_id, previous_id, thread_id=thread_id, user_id=user_id)
+        elif self._state_sandbox_is_scoped(state, scope):
+            sandbox_id = previous_id
+        else:
+            sandbox_id = self._acquire_sandbox(thread_id, user_id=user_id, owner_id=owner_id)
+        if runtime.context is not None:
+            runtime.context["sandbox_id"] = sandbox_id
+        if sandbox_id == previous_id:
+            return super().before_agent(state, runtime)
+        logger.info(f"Assigned sandbox {sandbox_id} to thread {thread_id}")
+        value = {"sandbox_id": sandbox_id}
+        return {"sandbox": Overwrite(value) if previous_id is not None else value}
 
     @override
     async def abefore_agent(self, state: SandboxMiddlewareState, runtime: Runtime) -> dict | None:
+        owner_id = ensure_sandbox_lease_owner(runtime.context)
         # Skip acquisition if lazy_init is enabled
         if self._lazy_init:
             return await super().abefore_agent(state, runtime)
 
-        # Eager initialization (original behavior), but use the async provider
-        # hook so blocking sandbox startup/polling runs outside the event loop.
-        if "sandbox" not in state or state["sandbox"] is None:
-            thread_id = (runtime.context or {}).get("thread_id")
-            if thread_id is None:
-                return await super().abefore_agent(state, runtime)
-            sandbox_id = await self._acquire_sandbox_async(thread_id, user_id=resolve_runtime_user_id(runtime))
-            logger.info(f"Assigned sandbox {sandbox_id} to thread {thread_id}")
-            return {"sandbox": {"sandbox_id": sandbox_id}}
-        return await super().abefore_agent(state, runtime)
+        try:
+            await authorize_sandbox_execution_async(context=runtime.context or {}, app_config=await safe_app_config_async())
+        except SandboxAuthorizationError:
+            return None
+
+        scope = self._runtime_scope(runtime)
+        if scope is None:
+            return await super().abefore_agent(state, runtime)
+        thread_id, user_id = scope
+        previous_id = self._read_sandbox_id_from_state(state)
+        if previous_id is not None and owner_id is not None:
+            sandbox_id = await get_sandbox_lease_manager(get_sandbox_provider()).reuse_or_acquire_async(owner_id, previous_id, thread_id=thread_id, user_id=user_id)
+        elif self._state_sandbox_is_scoped(state, scope):
+            sandbox_id = previous_id
+        else:
+            sandbox_id = await self._acquire_sandbox_async(thread_id, user_id=user_id, owner_id=owner_id)
+        if runtime.context is not None:
+            runtime.context["sandbox_id"] = sandbox_id
+        if sandbox_id == previous_id:
+            return await super().abefore_agent(state, runtime)
+        logger.info(f"Assigned sandbox {sandbox_id} to thread {thread_id}")
+        value = {"sandbox_id": sandbox_id}
+        return {"sandbox": Overwrite(value) if previous_id is not None else value}
 
     @override
     def after_agent(self, state: SandboxMiddlewareState, runtime: Runtime) -> dict | None:
-        sandbox = state.get("sandbox")
-        if sandbox is not None:
-            sandbox_id = sandbox["sandbox_id"]
-            logger.info(f"Releasing sandbox {sandbox_id}")
-            get_sandbox_provider().release(sandbox_id)
+        owner_id = sandbox_lease_owner(runtime.context)
+        if owner_id is not None:
+            get_sandbox_lease_manager(get_sandbox_provider()).release(owner_id)
             return None
-
-        if (runtime.context or {}).get("sandbox_id") is not None:
-            sandbox_id = runtime.context.get("sandbox_id")
-            logger.info(f"Releasing sandbox {sandbox_id} from context")
+        sandbox_id = self._scoped_sandbox_id(state, runtime)
+        if sandbox_id is not None:
+            logger.info(f"Releasing sandbox {sandbox_id}")
             get_sandbox_provider().release(sandbox_id)
             return None
 
@@ -117,16 +178,13 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
 
     @override
     async def aafter_agent(self, state: SandboxMiddlewareState, runtime: Runtime) -> dict | None:
-        sandbox = state.get("sandbox")
-        if sandbox is not None:
-            sandbox_id = sandbox["sandbox_id"]
-            logger.info(f"Releasing sandbox {sandbox_id}")
-            await self._release_sandbox_async(sandbox_id)
+        owner_id = sandbox_lease_owner(runtime.context)
+        if owner_id is not None:
+            await get_sandbox_lease_manager(get_sandbox_provider()).release_async(owner_id)
             return None
-
-        if (runtime.context or {}).get("sandbox_id") is not None:
-            sandbox_id = runtime.context.get("sandbox_id")
-            logger.info(f"Releasing sandbox {sandbox_id} from context")
+        sandbox_id = self._scoped_sandbox_id(state, runtime)
+        if sandbox_id is not None:
+            logger.info(f"Releasing sandbox {sandbox_id}")
             await self._release_sandbox_async(sandbox_id)
             return None
 
@@ -159,7 +217,7 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
         return sandbox_id if isinstance(sandbox_id, str) else None
 
     @staticmethod
-    def _attach_sandbox_update(result: ToolMessage | Command, sandbox_id: str) -> ToolMessage | Command:
+    def _attach_sandbox_update(result: ToolMessage | Command, sandbox_id: str, *, overwrite: bool = False) -> ToolMessage | Command:
         """Wrap or merge ``result`` so that ``sandbox.sandbox_id`` is persisted.
 
         - ``ToolMessage`` -> ``Command(update={"sandbox": ..., "messages": [msg]})``
@@ -168,7 +226,8 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
         - ``Command`` with non-dict / None update -> leave it untouched to
           avoid silent data loss on unknown update shapes.
         """
-        sandbox_update = {"sandbox": {"sandbox_id": sandbox_id}}
+        sandbox_value = {"sandbox_id": sandbox_id}
+        sandbox_update = {"sandbox": Overwrite(sandbox_value) if overwrite else sandbox_value}
 
         if isinstance(result, ToolMessage):
             return Command(update={**sandbox_update, "messages": [result]})
@@ -195,12 +254,10 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
     ) -> ToolMessage | Command:
         prev_sandbox_id = self._read_sandbox_id_from_request(request)
         result = handler(request)
-        if prev_sandbox_id is not None:
-            return result
         curr_sandbox_id = self._read_sandbox_id_from_request(request)
-        if curr_sandbox_id is None:
+        if curr_sandbox_id is None or curr_sandbox_id == prev_sandbox_id:
             return result
-        return self._attach_sandbox_update(result, curr_sandbox_id)
+        return self._attach_sandbox_update(result, curr_sandbox_id, overwrite=prev_sandbox_id is not None)
 
     @override
     async def awrap_tool_call(
@@ -210,9 +267,7 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
     ) -> ToolMessage | Command:
         prev_sandbox_id = self._read_sandbox_id_from_request(request)
         result = await handler(request)
-        if prev_sandbox_id is not None:
-            return result
         curr_sandbox_id = self._read_sandbox_id_from_request(request)
-        if curr_sandbox_id is None:
+        if curr_sandbox_id is None or curr_sandbox_id == prev_sandbox_id:
             return result
-        return self._attach_sandbox_update(result, curr_sandbox_id)
+        return self._attach_sandbox_update(result, curr_sandbox_id, overwrite=prev_sandbox_id is not None)

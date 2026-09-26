@@ -30,8 +30,8 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
-import webbrowser
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Iterable, Optional
@@ -60,13 +60,14 @@ if str(_ROOT_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_ROOT_SCRIPTS_DIR))
 
 from console_encoding import configure_utf8_stdio  # noqa: E402
-from resource_paths import icon_search_dirs_for_project  # noqa: E402
+from resource_paths import icon_dir_for_project  # noqa: E402
 from slide_roster import discover_slide_svgs  # noqa: E402
 from server_common import (  # noqa: E402
     claim_lock as _claim_lock,
     clear_lock as _clear_lock,
     find_free_port as _find_free_port,
     lock_pid as _lock_pid,
+    open_preview_browser,
     popen_detached as _popen_detached,
     process_alive as _process_alive,
     read_lock as _read_lock,
@@ -108,9 +109,11 @@ _SLIDE_CACHE_LOCK = threading.Lock()
 _SLIDE_CACHE: dict = {}  # path -> (mtime, (content, warnings))
 
 _LIST_CACHE_LOCK = threading.Lock()
-_LIST_CACHE: dict = {}  # path -> (mtime, annotation_count_on_disk)
+_LIST_CACHE: dict = {}  # path -> (mtime, (annotation_count_on_disk, ok, error))
 
-DEFAULT_PORT = 5050
+# Keep live preview on a separate range from Confirm UI so a stale preview tab
+# cannot send ``/api/shutdown`` to a later Confirm UI process.
+DEFAULT_PORT = 6060
 PUBLIC_HOST = '127.0.0.1'
 STARTUP_TIMEOUT = 15
 
@@ -163,11 +166,11 @@ def _normalize_preview_hrefs(root: ET.Element) -> None:
 def _inline_icons(
     content: str,
     icons_dir: Path,
-    fallback_dir: Optional[Path] = None,
+    target_dir: Path,
 ) -> tuple[str, list[dict]]:
     """Replace <use data-icon="..."/> with rendered <g> for browser preview.
 
-    Resolve icons from the project directory first, then the shared library.
+    Resolve icons only from the prepared project directory.
     Returns (rewritten_content, warnings). Each warning is
     ``{"icon": <name>, "reason": <str>}`` so the frontend can surface
     "icon X not found" to the user instead of silently dropping it.
@@ -186,9 +189,13 @@ def _inline_icons(
             if not icon_name:
                 warnings.append({'icon': '', 'reason': 'missing data-icon attribute'})
                 continue
-            icon_path, _ = resolve_icon_path(icon_name, icons_dir, fallback_dir)
+            icon_path, _ = resolve_icon_path(icon_name, icons_dir)
             color = str(attrs.get('fill', '#000000'))
-            elements, style, base_size = extract_paths_from_icon(icon_path, color)
+            elements, style, base_size = extract_paths_from_icon(
+                icon_path,
+                color,
+                target_dir=target_dir,
+            )
         except Exception as exc:
             warnings.append({'icon': icon_name, 'reason': f'{type(exc).__name__}: {exc}'})
             logger.warning('icon inline failed: name=%r reason=%s', icon_name, exc)
@@ -429,8 +436,7 @@ def create_app(
     project_path = Path(project_dir).resolve()
     svg_dir = project_path / 'svg_output'
     images_dir = project_path / 'images'
-    assets_dir = project_path / 'assets'
-    icons_dir, icons_fallback_dir = icon_search_dirs_for_project(project_path)
+    icons_dir = icon_dir_for_project(project_path)
 
     app = Flask(__name__, static_folder='static', static_url_path='/static')
     app.config['PROJECT_PATH'] = project_path
@@ -450,6 +456,20 @@ def create_app(
 
     @app.before_request
     def _update_activity():
+        allowed_hosts = {PUBLIC_HOST, 'localhost', '::1', '[::1]'}
+        host = request.headers.get('Host', '').lower()
+        if host.startswith('[') or host.count(':') == 1:
+            host = re.sub(r':\d+$', '', host)
+        if host not in allowed_hosts:
+            return jsonify({'error': 'Forbidden Host header'}), 403
+        origin = request.headers.get('Origin')
+        if origin is not None:
+            try:
+                origin_host = urllib.parse.urlsplit(origin).hostname
+            except ValueError:
+                origin_host = None
+            if origin_host not in allowed_hosts:
+                return jsonify({'error': 'Forbidden Origin header'}), 403
         app.config['LAST_REQUEST_TIME'] = time.time()
 
     def _exit_with_lock_release(code: int = 0) -> None:
@@ -535,42 +555,6 @@ def create_app(
             return jsonify({'error': 'not found'}), 404
         return send_from_directory(str(images_dir), filename)
 
-    @app.route('/assets/<path:filename>')
-    def serve_asset(filename: str):
-        """Serve media extracted by pptx_to_svg.py as `../assets/*`."""
-        if not assets_dir.exists():
-            return jsonify({'error': 'assets directory not found'}), 404
-        target = (assets_dir / filename).resolve()
-        try:
-            target.relative_to(assets_dir.resolve())
-        except ValueError:
-            return jsonify({'error': 'invalid path'}), 400
-        if not target.exists() or not target.is_file():
-            return jsonify({'error': 'not found'}), 404
-        return send_from_directory(str(assets_dir), filename)
-
-    @app.route('/<path:filename>')
-    def serve_bare_asset(filename: str):
-        """Resolve a template SVG's bare image href (e.g. `href="cover_bg.png"`).
-
-        Mirror templates copy hrefs verbatim, so a bare filename reaches the
-        browser as `/<filename>` (no `../images/` prefix). Resolve it against the
-        project's images/ then assets/. Every real route (`/api/*`, `/images/*`,
-        `/assets/*`, `/static/*`, `/`) is more specific and matches first; this
-        only catches the leftover bare references and 404s otherwise.
-        """
-        for base in (images_dir, assets_dir):
-            if not base.exists():
-                continue
-            target = (base / filename).resolve()
-            try:
-                target.relative_to(base.resolve())
-            except ValueError:
-                continue
-            if target.exists() and target.is_file():
-                return send_from_directory(str(base), filename)
-        return jsonify({'error': 'not found'}), 404
-
     @app.route('/api/slides')
     def get_slides():
         svg_dir = app.config['SVG_DIR']
@@ -589,8 +573,8 @@ def create_app(
 
             ok = True
             error_msg: Optional[str] = None
-            disk_count = _cache_get(_LIST_CACHE, _LIST_CACHE_LOCK, path_str, mtime)
-            if disk_count is None:
+            cached = _cache_get(_LIST_CACHE, _LIST_CACHE_LOCK, path_str, mtime)
+            if cached is None:
                 try:
                     tree = ET.parse(path_str)
                     disk_count = len(parse_annotations(tree.getroot()))
@@ -599,7 +583,9 @@ def create_app(
                     error_msg = f'XML parse error: {exc}'
                     disk_count = 0
                     logger.warning('slide parse failed: %s: %s', svg_file.name, exc)
-                _cache_put(_LIST_CACHE, _LIST_CACHE_LOCK, path_str, mtime, disk_count)
+                _cache_put(_LIST_CACHE, _LIST_CACHE_LOCK, path_str, mtime, (disk_count, ok, error_msg))
+            else:
+                disk_count, ok, error_msg = cached
 
             if svg_file.name in annotations:
                 annotation_count = len(annotations[svg_file.name])
@@ -711,7 +697,7 @@ def create_app(
             content, warnings = _inline_icons(
                 content,
                 icons_dir,
-                icons_fallback_dir,
+                svg_file.parent,
             )
             if not pending_edits:
                 _cache_put(
@@ -927,6 +913,7 @@ def create_app(
         annotations = app.config['ANNOTATIONS']
         pending_edits = app.config['PENDING_EDITS']
         modified = []
+        failures = []
 
         filenames = sorted(set(annotations.keys()) | set(pending_edits.keys()))
         for filename in filenames:
@@ -937,20 +924,29 @@ def create_app(
             # need to write so the on-disk data-edit-* attributes are cleared.
 
             svg_file = _safe_svg_path(filename)
-            if svg_file is None or not svg_file.exists():
+            if svg_file is None:
+                failures.append(f'{filename}: Invalid slide path')
+                continue
+            if not svg_file.exists():
+                failures.append(f'{filename}: Slide not found')
                 continue
 
             try:
                 tree = ET.parse(str(svg_file))
                 root = tree.getroot()
-            except ET.ParseError:
+            except ET.ParseError as exc:
+                failures.append(f'{filename}: Failed to parse SVG: {exc}')
+                continue
+            except OSError as exc:
+                failures.append(f'{filename}: Failed to read SVG: {exc}')
                 continue
 
             assign_temp_ids(root)
 
             ok, reason = _apply_edit_records(root, edits)
             if not ok:
-                return jsonify({'error': f'Failed to apply edits in {filename}: {reason}'}), 400
+                failures.append(f'{filename}: Failed to apply edits: {reason}')
+                continue
 
             old_annotations = {
                 item['element_id']: item['annotation']
@@ -973,7 +969,11 @@ def create_app(
             annotated_ids = set(anns.keys())
             strip_unused_temp_ids(root, annotated_ids)
 
-            tree.write(str(svg_file), encoding='UTF-8', xml_declaration=True)
+            try:
+                tree.write(str(svg_file), encoding='UTF-8', xml_declaration=True)
+            except OSError as exc:
+                failures.append(f'{filename}: Failed to write SVG: {exc}')
+                continue
             ts = time.time()
             for element_id, annotation_text in anns.items():
                 old_text = old_annotations.get(element_id)
@@ -998,9 +998,14 @@ def create_app(
                         'old': chg.get('old'), 'new': chg.get('new'),
                     })
             modified.append(filename)
+            annotations.pop(filename, None)
+            pending_edits.pop(filename, None)
 
-        app.config['ANNOTATIONS'] = {}
-        app.config['PENDING_EDITS'] = {}
+        if failures:
+            return jsonify({
+                'error': 'Failed to save: ' + '; '.join(failures),
+                'files_modified': modified,
+            }), 500
 
         return jsonify({'status': 'ok', 'files_modified': modified})
 
@@ -1077,26 +1082,35 @@ def _wait_for_ready(
     proc: subprocess.Popen,
     project_path: Path,
     timeout: int = STARTUP_TIMEOUT,
-) -> bool:
-    """Wait until this project's detached live-preview server responds."""
+) -> int:
+    """Wait until this project's detached live-preview server responds.
+
+    Returns the server pid recorded in the project lock, or 0 on timeout.
+    ``proc.pid`` is not used for identity: on Windows a venv ``python.exe``
+    may be a launcher whose child is the real interpreter.
+    """
     deadline = time.time() + timeout
     health_url = _server_url(port, '/api/health')
     last_error = ''
     while time.time() < deadline:
         if proc.poll() is not None:
             logger.error('live preview exited during startup (code=%s)', proc.returncode)
-            return False
+            return 0
         try:
             with urllib.request.urlopen(health_url, timeout=1) as response:
                 data = json.load(response)
+                lock = _read_lock(_lock_file(project_path))
+                server_pid = _lock_pid(lock)
                 if (
                     response.status == 200
                     and isinstance(data, dict)
                     and data.get('service') == 'live_preview'
                     and data.get('project') == str(project_path)
-                    and data.get('pid') == proc.pid
+                    and lock is not None
+                    and lock.get('port') == port
+                    and data.get('pid') == server_pid
                 ):
-                    return True
+                    return server_pid
                 last_error = 'health response belongs to another service or project'
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             last_error = str(exc)
@@ -1107,21 +1121,11 @@ def _wait_for_ready(
         timeout,
         f' (last error: {last_error})' if last_error else '',
     )
-    return False
+    return 0
 
 
 def _open_browser(url: str) -> bool:
-    """Best-effort browser launch after the local server is reachable."""
-    try:
-        if os.name == 'nt':
-            os.startfile(url)  # type: ignore[attr-defined]
-            return True
-        return bool(webbrowser.open(url))
-    except OSError as exc:
-        logger.warning('browser auto-open failed: %s', exc)
-    except webbrowser.Error as exc:
-        logger.warning('browser auto-open failed: %s', exc)
-    return False
+    return open_preview_browser(url, logger=logger)
 
 
 def _reuse_running_server(
@@ -1303,12 +1307,13 @@ def main(argv: Optional[list[str]] = None) -> int:
             logger.error('cannot write live preview log: %s (%s)', log_path, exc)
             return 1
         url = _server_url(port)
-        if not _wait_for_ready(port, proc, project_path):
+        server_pid = _wait_for_ready(port, proc, project_path)
+        if not server_pid:
             if proc.poll() is None:
                 proc.terminate()
             logger.error('live preview failed to become reachable: %s (log: %s)', url, log_path)
             return 1
-        logger.info('started live preview in background: %s (pid=%s)', url, proc.pid)
+        logger.info('started live preview in background: %s (pid=%s)', url, server_pid)
         logger.info('log: %s', log_path)
         if not args.no_browser and not _open_browser(url):
             logger.info('browser did not auto-open; open %s manually', url)

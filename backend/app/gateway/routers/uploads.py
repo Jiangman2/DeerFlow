@@ -1,5 +1,6 @@
 """Upload router for handling file uploads."""
 
+import asyncio
 import logging
 import os
 import shlex
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Annotated, BinaryIO, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from langgraph.errors import GraphBubbleUp
 from pydantic import BaseModel, Field
 
 from app.gateway.authz import require_permission
@@ -22,6 +24,7 @@ from app.gateway.file_security import (
     validate_staged_upload,
     validate_upload_extension,
 )
+from app.gateway.sandbox_requests import SandboxRequestSession
 from app.gateway.upload_document_parser import (
     UploadDocumentParseError,
     conversation_document_parser_endpoint,
@@ -30,6 +33,7 @@ from app.gateway.upload_document_parser import (
 from deerflow.config.app_config import AppConfig
 from deerflow.config.paths import get_paths
 from deerflow.runtime.user_context import get_effective_user_id
+from deerflow.sandbox.exceptions import SandboxAuthorizationError
 from deerflow.sandbox.sandbox_provider import SandboxProvider, get_sandbox_provider
 from deerflow.uploads.manager import (
     UPLOAD_STAGING_PREFIX,
@@ -58,7 +62,19 @@ UPLOAD_CHUNK_SIZE = 8192
 DEFAULT_MAX_FILES = 10
 DEFAULT_MAX_FILE_SIZE = 50 * 1024 * 1024
 DEFAULT_MAX_TOTAL_SIZE = 100 * 1024 * 1024
-ENTERPRISE_PARSER_EXTENSIONS = {".doc", ".docx", ".pdf", ".ppt", ".pptx"}
+ENTERPRISE_DOCUMENT_PARSER_EXTENSIONS = {".doc", ".docx", ".pdf", ".ppt", ".pptx"}
+ENTERPRISE_IMAGE_PARSER_EXTENSIONS = {
+    ".bmp",
+    ".gif",
+    ".jp2",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".webp",
+}
+ENTERPRISE_PARSER_EXTENSIONS = ENTERPRISE_DOCUMENT_PARSER_EXTENSIONS | ENTERPRISE_IMAGE_PARSER_EXTENSIONS
 PRESENTATION_TEMPLATE_EXTENSIONS = {".ppt", ".pptx"}
 UploadPurpose = Literal["attachment", "presentation_template"]
 
@@ -367,10 +383,7 @@ def _sync_upload_to_sandbox(sandbox, file_path: os.PathLike[str] | str, virtual_
 
 async def _convert_legacy_doc_via_sandbox(
     *,
-    sandbox_provider: SandboxProvider,
-    sandbox,
-    thread_id: str,
-    user_id: str,
+    sandbox_session: SandboxRequestSession,
     source_path: Path,
     output_path: Path | None = None,
 ) -> Path | None:
@@ -389,28 +402,36 @@ async def _convert_legacy_doc_via_sandbox(
     if source_path.suffix.lower() != ".doc":
         return None
 
-    active_sandbox = sandbox
+    try:
+        active_sandbox = await sandbox_session.acquire()
+    except SandboxAuthorizationError:
+        logger.info("Legacy DOC sandbox fallback skipped by execution policy")
+        return None
+    except GraphBubbleUp:
+        raise
+    except Exception as exc:
+        logger.warning("Legacy DOC sandbox acquisition failed: %s", type(exc).__name__)
+        return None
+
     workdir = f"/mnt/user-data/workspace/.deerflow-doc-fallback-{uuid.uuid4().hex}"
     source_virtual_path = f"{workdir}/source.doc"
     converted_virtual_path = f"{workdir}/source.docx"
     temp_docx_path: Path | None = None
     temp_md_path: Path | None = None
+    cancellation: asyncio.CancelledError | None = None
 
     try:
-        if active_sandbox is None:
-            sandbox_id = await sandbox_provider.acquire_async(thread_id, user_id=user_id)
-            active_sandbox = sandbox_provider.get(sandbox_id)
         if active_sandbox is None:
             logger.warning("Legacy DOC fallback could not acquire a sandbox for %s", source_path.name)
             return None
 
-        await run_file_io(
+        await sandbox_session.run_sync(
             active_sandbox.execute_command,
             f"set -eu; mkdir -p {shlex.quote(workdir)}",
             timeout=30,
         )
         source_bytes = await run_file_io(source_path.read_bytes)
-        await run_file_io(active_sandbox.update_file, source_virtual_path, source_bytes)
+        await sandbox_session.run_sync(active_sandbox.update_file, source_virtual_path, source_bytes)
         command = (
             "set -eu; "
             "office_bin=; "
@@ -422,8 +443,8 @@ async def _convert_legacy_doc_via_sandbox(
             f"{shlex.quote(source_virtual_path)} >/dev/null; "
             f"test -s {shlex.quote(converted_virtual_path)}"
         )
-        await run_file_io(active_sandbox.execute_command, command, timeout=120)
-        docx_bytes = await run_file_io(active_sandbox.download_file, converted_virtual_path)
+        await sandbox_session.run_sync(active_sandbox.execute_command, command, timeout=120)
+        docx_bytes = await sandbox_session.run_sync(active_sandbox.download_file, converted_virtual_path)
         if not docx_bytes:
             return None
 
@@ -452,6 +473,11 @@ async def _convert_legacy_doc_via_sandbox(
             source_path.name,
         )
         return target_path
+    except asyncio.CancelledError as exc:
+        cancellation = exc
+        raise
+    except GraphBubbleUp:
+        raise
     except Exception as exc:
         logger.warning(
             "Legacy DOC sandbox fallback failed for %s: %s",
@@ -468,11 +494,16 @@ async def _convert_legacy_doc_via_sandbox(
                     logger.debug("Could not remove temporary legacy DOC file %s", temp_path)
         if active_sandbox is not None:
             try:
-                await run_file_io(
+                await sandbox_session.run_sync(
                     active_sandbox.execute_command,
                     f"rm -rf -- {shlex.quote(workdir)}",
                     timeout=30,
                 )
+            except asyncio.CancelledError:
+                # run_sync has drained the cleanup worker. A second request
+                # cancellation must not replace the original conversion cancel.
+                if cancellation is None:
+                    raise
             except Exception:
                 logger.debug("Could not remove sandbox legacy DOC workspace %s", workdir)
 
@@ -627,13 +658,25 @@ async def upload_files(
     """Upload multiple files to a thread's uploads directory."""
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
-
     limits = _get_upload_limits(config)
     if len(files) > limits.max_files:
         raise HTTPException(status_code=413, detail=f"Too many files: maximum is {limits.max_files}")
+    async with SandboxRequestSession(request, get_sandbox_provider(), thread_id, get_effective_user_id()) as sandbox_session:
+        return await _upload_files(thread_id, files, upload_purpose, config, limits=limits, sandbox_session=sandbox_session)
 
+
+async def _upload_files(
+    thread_id: str,
+    files: list[UploadFile],
+    upload_purpose: UploadPurpose,
+    config: AppConfig,
+    *,
+    limits: UploadLimits,
+    sandbox_session: SandboxRequestSession,
+) -> UploadResponse:
+    """The upload transaction, bounded by a lazy request client holder."""
     try:
-        effective_user_id = get_effective_user_id()
+        effective_user_id = sandbox_session.user_id
         uploads_dir = await run_file_io(ensure_uploads_dir, thread_id, user_id=effective_user_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -651,12 +694,20 @@ async def upload_files(
     # overwrite behavior for a single replacement upload.
     seen_filenames: set[str] = set()
 
-    sandbox_provider = get_sandbox_provider()
+    sandbox_provider = sandbox_session.provider
     sync_to_sandbox = not _uses_thread_data_mounts(sandbox_provider)
     sandbox = None
+    sandbox_denied = False
     if sync_to_sandbox:
-        sandbox_id = await sandbox_provider.acquire_async(thread_id, user_id=effective_user_id)
-        sandbox = sandbox_provider.get(sandbox_id)
+        try:
+            sandbox = await sandbox_session.acquire()
+        except SandboxAuthorizationError:
+            # Keep the primary host upload/parser path, but do not allocate,
+            # synchronize or invoke LibreOffice under a denied actor's request.
+            sync_to_sandbox = False
+            sandbox_denied = True
+            logger.info("Upload sandbox sync skipped by execution policy")
+    if sync_to_sandbox:
         if sandbox is None:
             raise HTTPException(status_code=500, detail="Failed to acquire sandbox")
     auto_convert_documents = _auto_convert_documents_enabled(config)
@@ -783,7 +834,7 @@ async def upload_files(
                     )
                     parsed_document = True
                 except UploadDocumentParseError as exc:
-                    parser_warning = f"企业文档解析服务失败：{exc}。"
+                    parser_warning = f"企业文件解析服务失败：{exc}。"
                     logger.warning(
                         "Conversation document parser failed for %s: %s",
                         safe_filename,
@@ -797,12 +848,9 @@ async def upload_files(
                     file_path,
                     output_path=markdown_output,
                 )
-                if md_path is None and file_ext == ".doc":
+                if md_path is None and file_ext == ".doc" and not sandbox_denied:
                     md_path = await _convert_legacy_doc_via_sandbox(
-                        sandbox_provider=sandbox_provider,
-                        sandbox=sandbox,
-                        thread_id=thread_id,
-                        user_id=effective_user_id,
+                        sandbox_session=sandbox_session,
                         source_path=file_path,
                         output_path=markdown_output,
                     )
@@ -829,10 +877,10 @@ async def upload_files(
                     parsed_document = True
 
             if require_parsed_text and parse_attempted and not parsed_document:
-                reason = parser_warning or "文档转换没有生成可读取的文本。"
+                reason = parser_warning or "文件解析没有生成可读取的文本。"
                 raise HTTPException(
                     status_code=503,
-                    detail=(f"文档“{safe_filename}”解析失败，任务未启动。{reason} 请稍后重试；系统不会提交空白解析结果。"),
+                    detail=(f"文件“{safe_filename}”解析失败，任务未启动。{reason} 请稍后重试；系统不会提交空白解析结果。"),
                 )
 
             if parser_warning is not None and not parsed_document:
@@ -873,7 +921,7 @@ async def upload_files(
 
         if sync_to_sandbox:
             for file_path, virtual_path in sandbox_sync_targets:
-                await run_file_io(_sync_upload_to_sandbox, sandbox, file_path, virtual_path)
+                await sandbox_session.run_sync(_sync_upload_to_sandbox, sandbox, file_path, virtual_path)
     except Exception:
         await run_file_io(
             _rollback_upload_transaction,

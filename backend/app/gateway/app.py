@@ -30,6 +30,8 @@ from app.gateway.routers import (
     dashboard,
     data_lake_auth,
     datalake,
+    employee_changes,
+    employee_resources,
     features,
     feedback,
     github_webhooks,
@@ -51,10 +53,11 @@ from app.gateway.routers import (
     voice_input,
     weknora,
 )
-from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
+from app.gateway.trace_middleware import TraceMiddleware
 from app.gateway.upload_document_parser import close_conversation_document_parser_client
 from deerflow.config import app_config as deerflow_app_config
 from deerflow.logging_config import DEFAULT_LOG_DATE_FORMAT, DEFAULT_LOG_FORMAT, configure_logging
+from deerflow.trace_context import TRACE_ID_HEADER
 from deerflow.tracing.monocle import setup_monocle_tracing_if_enabled
 from deerflow.uploads.manager import cleanup_stale_upload_staging_files
 
@@ -211,6 +214,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.oa_policy_flow_config = oa_policy_flow_config
         configure_logging(startup_config)
         ensure_browser_runtime_available(startup_config)
+        from deerflow.config.subagent_runtime_config import SubagentRuntimeConfig
+        from deerflow.subagents.capacity import configure_subagent_execution_capacity
+
+        runtime_config = getattr(startup_config, "subagent_runtime", None)
+        if not isinstance(runtime_config, SubagentRuntimeConfig):
+            runtime_config = SubagentRuntimeConfig()
+        if not _is_ppt_master_runner_profile():
+            configure_subagent_execution_capacity(runtime_config)
         logger.info("Configuration loaded successfully")
         warn_if_auth_disabled_enabled()
     except Exception as e:
@@ -279,6 +290,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize LangGraph runtime components (StreamBridge, RunManager, checkpointer, store)
     async with langgraph_runtime(app, startup_config):
         logger.info("LangGraph runtime initialised")
+        if not isolated_ppt_runner:
+            from app.gateway.employee_knowledge import EmployeeKnowledgeBroker
+            from deerflow.config.paths import get_paths
+            from deerflow.runtime.employee_resources import register_employee_resource_services
+
+            employee_broker = EmployeeKnowledgeBroker(get_paths())
+            register_employee_resource_services(search=employee_broker.search, authorize=employee_broker.authorize)
 
         # Check admin bootstrap state and migrate orphan threads after admin exists.
         # Must run AFTER langgraph_runtime so app.state.store is available for thread migration
@@ -549,15 +567,12 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
+            expose_headers=["Content-Location", TRACE_ID_HEADER],
         )
 
-    # Request trace correlation: when logging.enhance.enabled=true, bind one
-    # trace id per Gateway HTTP request and write it to response start headers.
-    # `logging` is registered as restart-required (see reload_boundary.py) so we
-    # snapshot the flag from the startup AppConfig instead of reading live; a
-    # runtime toggle would otherwise leave the log formatter (installed once by
-    # configure_logging() at lifespan startup) out of sync with the middleware.
-    app.add_middleware(TraceMiddleware, enabled=_resolve_trace_enabled_for_app_construction())
+    # Outermost user middleware: auth/CSRF rejections and SSE also carry the
+    # request id. No config read is needed; logging controls output only.
+    app.add_middleware(TraceMiddleware)
 
     # Include routers
     # Models API is mounted at /api/models
@@ -599,6 +614,8 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Agents API is mounted at /api/agents
     app.include_router(agents.router)
+    app.include_router(employee_resources.router)
+    app.include_router(employee_changes.router)
 
     # Suggestions API is mounted at /api/threads/{thread_id}/suggestions
     app.include_router(suggestions.router)
@@ -679,16 +696,6 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
         return {"status": "healthy", "service": "deer-flow-gateway"}
 
     return app
-
-
-def _resolve_trace_enabled_for_app_construction() -> bool:
-    """Resolve the trace middleware flag without making imports require config.yaml."""
-    try:
-        return resolve_trace_enabled(get_app_config())
-    except FileNotFoundError:
-        # Startup lifespan still performs strict config loading before serving.
-        logger.debug("config.yaml not found while constructing Gateway app; TraceMiddleware disabled for this app instance")
-        return False
 
 
 # Create app instance for uvicorn

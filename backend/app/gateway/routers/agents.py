@@ -2,22 +2,23 @@
 
 import asyncio
 import io
+import json
 import logging
 import os
 import re
 import secrets
-import shutil
 import unicodedata
 from pathlib import Path
 from typing import Literal
 from urllib.parse import quote
 
 import yaml
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field, field_validator
 
+from app.gateway.agent_knowledge import validate_creator_knowledge_scope
 from app.gateway.external_agent_analytics import (
     EXTERNAL_PLATFORM_AGENT_NAMES,
     EXTERNAL_PLATFORM_CLICK_ACTION,
@@ -26,25 +27,31 @@ from app.gateway.external_agent_analytics import (
     normalize_external_agent_source,
 )
 from deerflow.agents.memory.manager import get_memory_manager
+from deerflow.config.agent_knowledge_config import AgentKnowledgeScope
 from deerflow.config.agents_api_config import get_agents_api_config
 from deerflow.config.agents_config import (
     MAX_AGENT_NAME_LENGTH,
     AgentConfig,
     AgentModelSettings,
+    AgentSource,
     is_personal_agent,
     list_custom_agents,
     list_team_agents,
     load_agent_config,
     load_agent_soul,
-    preserve_non_managed_fields,
+    shared_agent_source_dir,
     validate_agent_display_name,
 )
 from deerflow.config.app_config import get_app_config
 from deerflow.config.paths import get_paths
 from deerflow.persistence.agents import AgentExistsError, get_agent_store
+from deerflow.persistence.agents.base import parse_agent_config
+from deerflow.persistence.agents.drafts import AgentDefinition, DraftConflict
+from deerflow.persistence.agents.publications import PublicationConflict, PublicationForbidden, PublicationSnapshot, TeamPublicationStore
 from deerflow.persistence.engine import get_session_factory
 from deerflow.persistence.observability.model import AuditLogRow
-from deerflow.runtime.user_context import get_effective_user_id
+from deerflow.runtime.user_context import get_current_user, get_effective_user_id
+from deerflow.skills.agent_selection import validate_agent_skills
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["agents"])
@@ -139,6 +146,7 @@ class AgentResponse(BaseModel):
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all, []=none)")
+    knowledge_scope: AgentKnowledgeScope | None = None
     category_id: str | None = Field(
         default=None,
         description="Fixed corporate business-domain category identifier",
@@ -153,6 +161,10 @@ class AgentResponse(BaseModel):
     source: str | None = Field(default=None, description="Agent source: personal, team, or legacy")
     published_by_user_id: str | None = Field(default=None, description="User id that published this team agent")
     published_by_current_user: bool = Field(default=False, description="Whether the current user published this team agent")
+    publication_id: str | None = None
+    publication_revision: str | None = None
+    publication_state: Literal["published", "withdrawn"] | None = None
+    draft_revision: str | None = None
 
 
 class AgentsListResponse(BaseModel):
@@ -178,6 +190,7 @@ class AgentCreateRequest(BaseModel):
     model: str | None = Field(default=None, description="Optional model override")
     tool_groups: list[str] | None = Field(default=None, description="Optional tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Optional skill whitelist (None=all enabled, []=none)")
+    knowledge_scope: AgentKnowledgeScope | None = None
     category_id: str | None = Field(
         default=DEFAULT_DIGITAL_EMPLOYEE_CATEGORY_ID,
         max_length=64,
@@ -199,11 +212,13 @@ class AgentCreateRequest(BaseModel):
 class AgentUpdateRequest(BaseModel):
     """Request body for updating a custom agent."""
 
+    expected_draft_revision: str | None = Field(default=None, max_length=80)
     display_name: str | None = Field(default=None, max_length=80, description="Updated display name")
     description: str | None = Field(default=None, max_length=500, description="Updated description")
     model: str | None = Field(default=None, description="Updated model override")
     tool_groups: list[str] | None = Field(default=None, description="Updated tool group whitelist")
     skills: list[str] | None = Field(default=None, description="Updated skill whitelist (None=all, []=none)")
+    knowledge_scope: AgentKnowledgeScope | None = None
     category_id: str | None = Field(default=None, max_length=64, description="Updated category id")
     tags: list[str] | None = Field(default=None, description="Updated search and discovery tags")
     avatar_id: str | None = Field(default=None, description="Updated bundled avatar identifier")
@@ -480,6 +495,21 @@ class AgentPublishRequest(BaseModel):
     """Request body for publishing a personal agent to the team square."""
 
     overwrite: bool = Field(default=True, description="Whether to replace an existing team agent with the same name")
+    expected_revision: str | None = Field(default=None, max_length=80, description="Last observed publication revision; required for replacement")
+    expected_draft_revision: str | None = Field(default=None, max_length=80)
+    grant_ids: list[str] = Field(default_factory=list, max_length=148)
+
+
+class AgentPublicationVersion(BaseModel):
+    publication_id: str
+    revision: str
+    previous_revision: str | None
+    state: Literal["published", "withdrawn"]
+    created_at: str
+
+
+class AgentPublicationHistory(BaseModel):
+    revisions: list[AgentPublicationVersion]
 
 
 class ExternalAgentClickRequest(BaseModel):
@@ -770,7 +800,8 @@ def migrate_digital_employee_categories() -> int:
 
     paths = get_paths()
     config_files = set((paths.base_dir / "users").glob("*/agents/*/config.yaml"))
-    config_files.update(paths.team_agents_dir.glob("*/config.yaml"))
+    # An adopted legacy definition is retained byte-for-byte as recovery data.
+    config_files.update(path for path in paths.team_agents_dir.glob("*/config.yaml") if not (path.parent / "current.json").exists())
     config_files.update(paths.agents_dir.glob("*/config.yaml"))
     for config_file in sorted(config_files):
         try:
@@ -798,7 +829,7 @@ def _avatar_url(name: str, source: str, agent_dir: Path) -> str | None:
     return f"/api/agents/{encoded_name}/avatar"
 
 
-def _encode_custom_avatar(payload: bytes, destination: Path) -> None:
+def _encode_custom_avatar(payload: bytes) -> bytes:
     try:
         with Image.open(io.BytesIO(payload)) as image:
             image.verify()
@@ -813,13 +844,9 @@ def _encode_custom_avatar(payload: bytes, destination: Path) -> None:
                 (512, 512),
                 method=Image.Resampling.LANCZOS,
             )
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            temporary = destination.with_name(f".{destination.name}.{secrets.token_hex(8)}.tmp")
-            try:
-                image.save(temporary, format="WEBP", quality=86, method=6)
-                os.replace(temporary, destination)
-            finally:
-                temporary.unlink(missing_ok=True)
+            output = io.BytesIO()
+            image.save(output, format="WEBP", quality=86, method=6)
+            return output.getvalue()
     except (UnidentifiedImageError, OSError) as exc:
         raise ValueError("Avatar must be a valid PNG, JPEG, or WebP image") from exc
 
@@ -840,13 +867,38 @@ def _agent_config_to_response(
     *,
     user_id: str | None = None,
     source: str | None = "personal",
+    definition: AgentDefinition | None = None,
 ) -> AgentResponse:
     """Convert AgentConfig to AgentResponse."""
     soul: str | None = None
-    if include_soul:
+    effective_user = user_id or get_effective_user_id()
+    if source == "personal" and definition is None and is_personal_agent(agent_cfg.name, user_id=effective_user):
+        definition = get_agent_store().read_definition(agent_cfg.name, user_id=effective_user)
+    if definition is not None:
+        agent_cfg = parse_agent_config(definition.config, agent_cfg.name)
+    if include_soul and definition is not None:
+        soul = definition.soul
+    elif include_soul:
         soul = load_agent_soul(agent_cfg.name, user_id=user_id) or ""
 
     agent_dir = get_paths().user_agent_dir(user_id or get_effective_user_id(), agent_cfg.name)
+    publication = None
+    publications = TeamPublicationStore(get_paths())
+    if source == "personal":
+        try:
+            if publications.has_record(agent_cfg.name):
+                head = publications.head(agent_cfg.name)
+                if head.owner == (user_id or get_effective_user_id()):
+                    publication = head
+        except (OSError, ValueError, KeyError, TypeError):
+            # Optional Square receipts must never hide existing private data.
+            # Publication writes still fail closed on the damaged record.
+            logger.warning("Could not read publication receipt for personal employee '%s'", agent_cfg.name, exc_info=True)
+    avatar_url = _avatar_url(agent_cfg.name, source or "personal", agent_dir)
+    if definition is not None:
+        from deerflow.persistence.agents.avatars import personal_avatar_path
+
+        avatar_url = f"/api/agents/{quote(agent_cfg.name, safe='')}/avatar?v={definition.revision}" if personal_avatar_path(agent_dir, definition.config) else None
     return AgentResponse(
         name=agent_cfg.name,
         display_name=agent_cfg.display_name,
@@ -854,23 +906,36 @@ def _agent_config_to_response(
         model=agent_cfg.model,
         tool_groups=agent_cfg.tool_groups,
         skills=agent_cfg.skills,
+        knowledge_scope=agent_cfg.knowledge_scope if source == "personal" else None,
         category_id=resolve_digital_employee_category(agent_cfg),
         tags=agent_cfg.tags,
         avatar_id=agent_cfg.avatar_id,
-        avatar_url=_avatar_url(agent_cfg.name, source or "personal", agent_dir),
+        avatar_url=avatar_url,
         model_settings=agent_cfg.model_settings,
         thinking_enabled=agent_cfg.thinking_enabled,
         reasoning_effort=agent_cfg.reasoning_effort,
         soul=soul,
         source=source,
+        draft_revision=definition.revision if definition else None,
+        publication_id=publication.publication_id if publication else None,
+        publication_revision=publication.revision if publication else None,
+        publication_state=publication.state if publication else None,
     )
+
+
+def _definition_response(name: str, definition: AgentDefinition, *, user_id: str) -> AgentResponse:
+    """Config, SOUL and the editing precondition come from the SAME read."""
+    response = _agent_config_to_response(parse_agent_config(definition.config, name), user_id=user_id, definition=definition)
+    response.soul = definition.soul
+    response.draft_revision = definition.revision
+    return response
 
 
 def _shared_agent_dir(name: str):
     paths = get_paths()
-    team_dir = paths.team_agent_dir(name)
-    if (team_dir / "config.yaml").exists():
-        return team_dir, "team"
+    publications = TeamPublicationStore(paths)
+    if publications.has_record(name):
+        return publications.read(name).directory, "team"
     legacy_dir = paths.agent_dir(name)
     if (legacy_dir / "config.yaml").exists():
         return legacy_dir, "legacy"
@@ -881,14 +946,28 @@ def _shared_agent_response(
     name: str,
     *,
     current_user_id: str | None,
+    source: AgentSource | None = None,
+    snapshot: PublicationSnapshot | None = None,
 ) -> AgentResponse:
-    agent_dir, source = _shared_agent_dir(name)
-    with open(agent_dir / "config.yaml", encoding="utf-8") as file:
-        raw_config = yaml.safe_load(file) or {}
+    publications = TeamPublicationStore(get_paths())
+    if snapshot is not None or source == "team" or (source is None and publications.has_record(name)):
+        snapshot = snapshot or publications.read(name)
+        source = "team"
+        agent_dir = snapshot.directory
+        raw_config = dict(snapshot.config)
+        soul = snapshot.soul.strip()
+    elif source is None:
+        agent_dir, source = _shared_agent_dir(name)
+    else:
+        agent_dir = shared_agent_source_dir(name, source)
+    if snapshot is None:
+        with open(agent_dir / "config.yaml", encoding="utf-8") as file:
+            raw_config = yaml.safe_load(file) or {}
+        soul_path = agent_dir / "SOUL.md"
+        soul = soul_path.read_text(encoding="utf-8").strip() if soul_path.exists() else ""
     raw_config.setdefault("name", name)
     known_fields = set(AgentConfig.model_fields.keys())
     agent_cfg = AgentConfig(**{key: value for key, value in raw_config.items() if key in known_fields})
-    soul_path = agent_dir / "SOUL.md"
     published_by = raw_config.get("published_by_user_id")
     published_by_user_id = str(published_by) if published_by is not None else None
     return AgentResponse(
@@ -905,10 +984,13 @@ def _shared_agent_response(
         model_settings=agent_cfg.model_settings,
         thinking_enabled=agent_cfg.thinking_enabled,
         reasoning_effort=agent_cfg.reasoning_effort,
-        soul=soul_path.read_text(encoding="utf-8").strip() if soul_path.exists() else "",
+        soul=soul,
         source=source,
         published_by_user_id=published_by_user_id,
         published_by_current_user=bool(current_user_id and published_by_user_id == current_user_id),
+        publication_id=snapshot.publication_id if snapshot else None,
+        publication_revision=snapshot.revision if snapshot else None,
+        publication_state=snapshot.state if snapshot else None,
     )
 
 
@@ -951,7 +1033,14 @@ async def list_team_agents_endpoint() -> AgentsListResponse:
     current_user_id = get_effective_user_id()
 
     def _list() -> list[AgentResponse]:
-        return [_shared_agent_response(agent.name, current_user_id=current_user_id) for agent in list_team_agents()]
+        result = []
+        for agent in list_team_agents():
+            try:
+                result.append(_shared_agent_response(agent.name, current_user_id=current_user_id))
+            except FileNotFoundError:
+                # A concurrent withdrawal must not break the entire square.
+                continue
+        return result
 
     try:
         return AgentsListResponse(agents=await asyncio.to_thread(_list))
@@ -1022,7 +1111,7 @@ async def check_agent_name(name: str) -> dict:
     summary="Get Custom Agent",
     description="Retrieve details and SOUL.md content for a specific custom agent.",
 )
-async def get_agent(name: str) -> AgentResponse:
+async def get_agent(name: str, source: AgentSource | None = None) -> AgentResponse:
     """Get a specific custom agent by name.
 
     Args:
@@ -1040,6 +1129,11 @@ async def get_agent(name: str) -> AgentResponse:
     user_id = get_effective_user_id()
 
     def _get() -> AgentResponse:
+        if source in ("team", "legacy"):
+            return _shared_agent_response(name, current_user_id=user_id, source=source)
+        if source == "personal" or is_personal_agent(name, user_id=user_id):
+            definition = get_agent_store().read_definition(name, user_id=user_id)
+            return _definition_response(name, definition, user_id=user_id)
         agent_cfg = load_agent_config(name, user_id=user_id)
         return _agent_config_to_response(agent_cfg, include_soul=True, user_id=user_id)
 
@@ -1061,8 +1155,15 @@ async def get_agent_avatar(name: str) -> FileResponse:
     _require_agents_api_enabled()
     _validate_agent_name(name)
     normalized = _normalize_agent_name(name)
-    avatar = _avatar_path(get_paths().user_agent_dir(get_effective_user_id(), normalized))
-    if not await asyncio.to_thread(avatar.is_file):
+    from deerflow.persistence.agents.avatars import personal_avatar_path
+
+    user_id = get_effective_user_id()
+    try:
+        definition = await asyncio.to_thread(get_agent_store().read_definition, normalized, user_id=user_id)
+        avatar = await asyncio.to_thread(personal_avatar_path, get_paths().user_agent_dir(user_id, normalized), definition.config)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Custom avatar not found") from exc
+    if avatar is None:
         raise HTTPException(status_code=404, detail="Custom avatar not found")
     return FileResponse(
         avatar,
@@ -1110,6 +1211,7 @@ async def get_team_agent_avatar(name: str) -> FileResponse:
 async def upload_agent_avatar(
     name: str,
     file: UploadFile = File(...),
+    expected_draft_revision: str | None = None,
 ) -> AgentResponse:
     _require_agents_api_enabled()
     _validate_agent_name(name)
@@ -1118,6 +1220,8 @@ async def upload_agent_avatar(
     agent_dir = await asyncio.to_thread(lambda: get_paths().user_agent_dir(user_id, normalized))
     if not await asyncio.to_thread(_agent_exists, normalized, user_id):
         raise HTTPException(status_code=404, detail=f"Agent '{normalized}' not found")
+    if not expected_draft_revision:
+        raise HTTPException(428, "Reload the employee draft before changing its avatar")
 
     payload = await file.read(MAX_AVATAR_BYTES + 1)
     if not payload:
@@ -1125,14 +1229,20 @@ async def upload_agent_avatar(
     if len(payload) > MAX_AVATAR_BYTES:
         raise HTTPException(status_code=413, detail="Avatar image exceeds 5 MB")
     try:
-        await asyncio.to_thread(_encode_custom_avatar, payload, _avatar_path(agent_dir))
-        agent_cfg = await asyncio.to_thread(load_agent_config, normalized, user_id=user_id)
-        return await asyncio.to_thread(
-            _agent_config_to_response,
-            agent_cfg,
-            True,
-            user_id=user_id,
-        )
+        from deerflow.persistence.agents.avatars import AVATAR_ASSET_KEY, stage_avatar
+
+        store = get_agent_store()
+        before = await asyncio.to_thread(store.read_definition, normalized, user_id=user_id)
+        if before.revision != expected_draft_revision:
+            raise DraftConflict("Employee draft changed; reload before saving")
+        encoded = await asyncio.to_thread(_encode_custom_avatar, payload)
+        digest = await asyncio.to_thread(stage_avatar, agent_dir, encoded)
+        after = await asyncio.to_thread(store.patch_definition, normalized, {AVATAR_ASSET_KEY: digest}, None, user_id=user_id, expected_revision=expected_draft_revision)
+        return await asyncio.to_thread(_definition_response, normalized, after, user_id=user_id)
+    except DraftConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "Personal employee is no longer available") from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
@@ -1142,18 +1252,32 @@ async def upload_agent_avatar(
 
 @router.delete(
     "/agents/{name}/avatar",
-    status_code=204,
+    response_model=AgentResponse,
     summary="Remove Custom Digital Employee Avatar",
 )
-async def delete_agent_avatar(name: str) -> None:
+async def delete_agent_avatar(name: str, expected_draft_revision: str | None = None) -> AgentResponse:
     _require_agents_api_enabled()
     _validate_agent_name(name)
     normalized = _normalize_agent_name(name)
     user_id = get_effective_user_id()
-    agent_dir = await asyncio.to_thread(lambda: get_paths().user_agent_dir(user_id, normalized))
     if not await asyncio.to_thread(_agent_exists, normalized, user_id):
         raise HTTPException(status_code=404, detail=f"Agent '{normalized}' not found")
-    await asyncio.to_thread(_avatar_path(agent_dir).unlink, missing_ok=True)
+    if not expected_draft_revision:
+        raise HTTPException(428, "Reload the employee draft before changing its avatar")
+    from deerflow.persistence.agents.avatars import AVATAR_ASSET_KEY, mark_avatar_format
+
+    try:
+        store = get_agent_store()
+        before = await asyncio.to_thread(store.read_definition, normalized, user_id=user_id)
+        if before.revision != expected_draft_revision:
+            raise DraftConflict("Employee draft changed; reload before saving")
+        await asyncio.to_thread(mark_avatar_format, get_paths().user_agent_dir(user_id, normalized))
+        after = await asyncio.to_thread(store.patch_definition, normalized, {AVATAR_ASSET_KEY: None}, None, user_id=user_id, expected_revision=expected_draft_revision)
+        return await asyncio.to_thread(_definition_response, normalized, after, user_id=user_id)
+    except DraftConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "Personal employee is no longer available") from exc
 
 
 @router.post(
@@ -1182,7 +1306,14 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
     await asyncio.to_thread(_ensure_category_exists, category_id)
     normalized_name = _normalize_agent_name(request.name)
     user_id = get_effective_user_id()
+    try:
+        selected_skills = await asyncio.to_thread(validate_agent_skills, request.skills, user_id=user_id)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     config_data: dict = {"name": normalized_name}
+    knowledge_scope = await validate_creator_knowledge_scope(request.knowledge_scope, get_current_user())
+    if knowledge_scope is not None:
+        config_data["knowledge_scope"] = knowledge_scope.model_dump(mode="json")
     if request.display_name:
         config_data["display_name"] = request.display_name.strip()
     if request.description:
@@ -1190,7 +1321,7 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
     if request.tool_groups is not None:
         config_data["tool_groups"] = request.tool_groups
     if request.skills is not None:
-        config_data["skills"] = request.skills
+        config_data["skills"] = selected_skills
     config_data["category_id"] = category_id
     if request.tags:
         config_data["tags"] = request.tags
@@ -1206,13 +1337,9 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
             request.soul,
             user_id=user_id,
         )
-        agent_cfg = load_agent_config(normalized_name, user_id=user_id)
+        definition = store.read_definition(normalized_name, user_id=user_id)
         logger.info("Created digital employee '%s'", normalized_name)
-        return _agent_config_to_response(
-            agent_cfg,
-            include_soul=True,
-            user_id=user_id,
-        )
+        return _definition_response(normalized_name, definition, user_id=user_id)
 
     try:
         return await asyncio.to_thread(_create_agent)
@@ -1233,55 +1360,78 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
     description="Publish a personal custom agent to the enterprise agent square.",
 )
 async def publish_agent(name: str, request: AgentPublishRequest) -> AgentResponse:
-    """Copy a personal agent into the shared team-agent catalog."""
+    """Commit an immutable definition without deleting the existing employee."""
     _require_agents_api_enabled()
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
     user_id = get_effective_user_id()
     paths = get_paths()
 
-    def _publish() -> AgentResponse | None:
+    def _review_definition():
         source_dir = paths.user_agent_dir(user_id, name)
         if not is_personal_agent(name, user_id=user_id):
             raise FileNotFoundError(name)
 
-        team_dir = paths.team_agent_dir(name)
-        if team_dir.exists():
-            if not request.overwrite:
-                return None
-            shutil.rmtree(team_dir)
-        team_dir.mkdir(parents=True, exist_ok=False)
-
-        personal = load_agent_config(name, user_id=user_id)
-        config_data = personal.model_dump(exclude_none=True)
+        definition = get_agent_store().read_definition(name, user_id=user_id)
+        if not request.expected_draft_revision:
+            raise HTTPException(422, "Review the current employee draft before publishing")
+        if request.expected_draft_revision != definition.revision:
+            raise PublicationConflict("Employee draft changed; review before publishing")
+        personal = parse_agent_config(definition.config, name)
+        publications = TeamPublicationStore(paths)
+        if not request.overwrite and publications.has_record(name):
+            raise PublicationConflict("Employee already published; reload before replacing")
+        config_data = dict(definition.config)
         config_data["name"] = name
         config_data["category_id"] = resolve_digital_employee_category(personal)
-        config_data["published_by_user_id"] = user_id
-        with open(team_dir / "config.yaml", "w", encoding="utf-8") as file:
-            yaml.safe_dump(config_data, file, default_flow_style=False, allow_unicode=True)
+        from deerflow.persistence.agents.avatars import personal_avatar_path, read_avatar_bytes
 
-        (team_dir / "SOUL.md").write_text(
-            load_agent_soul(name, user_id=user_id) or "",
-            encoding="utf-8",
-        )
-        custom_avatar = _avatar_path(source_dir)
-        if custom_avatar.is_file():
-            shutil.copy2(custom_avatar, _avatar_path(team_dir))
-        return _shared_agent_response(name, current_user_id=user_id)
+        custom_avatar = personal_avatar_path(source_dir, definition.config)
+        avatar = read_avatar_bytes(custom_avatar) if custom_avatar else None
+        from types import SimpleNamespace
+
+        return SimpleNamespace(config=config_data, soul=definition.soul, revision=definition.revision), avatar
 
     try:
-        response = await asyncio.to_thread(_publish)
+        from app.gateway.employee_publication import publish_reviewed_employee
+
+        actor = get_current_user()
+        if actor is None or str(actor.id) != user_id or getattr(actor, "is_disabled", True):
+            raise HTTPException(401, "Authenticated active publisher required")
+        definition, avatar = await asyncio.to_thread(_review_definition)
+        scope = parse_agent_config(definition.config, name).knowledge_scope
+        scope = await validate_creator_knowledge_scope(scope, actor)
+        if scope is not None:
+            definition.config["knowledge_scope"] = scope.model_dump(mode="json")
+        # Refuse a draft edited while fresh resource checks were in flight.
+        current = await asyncio.to_thread(lambda: get_agent_store().read_definition(name, user_id=user_id))
+        if current.revision != definition.revision:
+            raise PublicationConflict("Employee draft changed; review before publishing")
+        snapshot = await publish_reviewed_employee(paths, name, user_id, definition, expected_revision=request.expected_revision, grant_ids=request.grant_ids, avatar=avatar)
+        response = await asyncio.to_thread(_shared_agent_response, name, current_user_id=user_id, snapshot=snapshot)
+    except HTTPException:
+        raise
+    except PublicationForbidden as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from None
+    except PublicationConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Personal agent '{name}' not found")
-    except Exception as e:
+    except PermissionError:
+        raise HTTPException(403, "Resource owner approval is missing, expired or revoked") from None
+    except (json.JSONDecodeError, yaml.YAMLError):
+        logger.error("Stored employee publication is malformed for '%s'", name, exc_info=True)
+        raise HTTPException(500, "Stored employee publication needs administrator review; no replacement was committed") from None
+    except ValueError:
+        raise HTTPException(422, "Employee resource selection is invalid; review before publishing") from None
+    except TimeoutError:
+        raise HTTPException(503, "Resource verification timed out; no publication was committed") from None
+    except Exception:
         logger.error("Failed to publish agent '%s'", name, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to publish agent: {str(e)}",
+            detail="Failed to publish employee; reload to verify its current revision before retrying",
         )
-
-    if response is None:
-        raise HTTPException(status_code=409, detail=f"Team agent '{name}' already exists")
     return response
 
 
@@ -1291,48 +1441,70 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
     summary="Unpublish Team Agent",
     description="Remove a team-published agent from the enterprise agent square.",
 )
-async def unpublish_team_agent(name: str) -> None:
-    """Remove a shared agent, limited to the user who published it."""
+async def unpublish_team_agent(name: str, expected_revision: str | None = Query(default=None, max_length=80)) -> None:
+    """Withdraw from discovery; retain the definition and its committed history."""
     _require_agents_api_enabled()
     _validate_agent_name(name)
     name = _normalize_agent_name(name)
     user_id = get_effective_user_id()
     paths = get_paths()
 
-    def _unpublish() -> str:
-        team_dir = paths.team_agent_dir(name)
-        config_file = team_dir / "config.yaml"
-        if not config_file.exists():
-            return "legacy" if (paths.agent_dir(name) / "config.yaml").exists() else "missing"
-        with open(config_file, encoding="utf-8") as file:
-            config_data = yaml.safe_load(file) or {}
-        published_by = config_data.get("published_by_user_id")
-        if published_by is not None and str(published_by) != user_id:
-            return "forbidden"
-        shutil.rmtree(team_dir)
-        return "deleted"
+    def _unpublish() -> None:
+        publications = TeamPublicationStore(paths)
+        if not publications.has_record(name) and (paths.agent_dir(name) / "config.yaml").exists():
+            raise HTTPException(status_code=409, detail="Legacy shared agents cannot be unpublished through the team square.")
+        publications.unpublish(name, owner=user_id, expected_revision=expected_revision)
 
     try:
-        outcome = await asyncio.to_thread(_unpublish)
-    except Exception as e:
+        await asyncio.to_thread(_unpublish)
+    except HTTPException:
+        raise
+    except PublicationForbidden as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from None
+    except PublicationConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Team agent '{name}' not found") from None
+    except Exception:
         logger.error("Failed to unpublish team agent '%s'", name, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to unpublish team agent: {str(e)}",
+            detail="Failed to withdraw employee; reload to verify its current revision before retrying",
         )
 
-    if outcome == "missing":
-        raise HTTPException(status_code=404, detail=f"Team agent '{name}' not found")
-    if outcome == "legacy":
-        raise HTTPException(
-            status_code=409,
-            detail="Legacy shared agents cannot be unpublished through the team square.",
+
+@router.get("/agents/{name}/publications", response_model=AgentPublicationHistory)
+async def list_agent_publications(name: str, limit: int = Query(default=20, ge=1, le=100)) -> AgentPublicationHistory:
+    """Publisher-only revision receipts, never Skill sources or credentials."""
+    _require_agents_api_enabled()
+    _validate_agent_name(name)
+    name = _normalize_agent_name(name)
+    user_id = get_effective_user_id()
+
+    def _history() -> AgentPublicationHistory:
+        snapshots = TeamPublicationStore(get_paths()).history(name, owner=user_id, limit=limit)
+        return AgentPublicationHistory(
+            revisions=[
+                AgentPublicationVersion(
+                    publication_id=item.publication_id,
+                    revision=item.revision,
+                    previous_revision=item.previous_revision,
+                    state=item.state,
+                    created_at=item.created_at,
+                )
+                for item in snapshots
+            ]
         )
-    if outcome == "forbidden":
-        raise HTTPException(
-            status_code=403,
-            detail=f"Only the publisher can unpublish team agent '{name}'",
-        )
+
+    try:
+        return await asyncio.to_thread(_history)
+    except PublicationForbidden as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from None
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Publication not found") from None
+    except Exception:
+        logger.exception("Failed to list employee publication revisions")
+        raise HTTPException(status_code=500, detail="Could not load publication history") from None
 
 
 @router.put(
@@ -1370,7 +1542,7 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
 
     if not await asyncio.to_thread(is_personal_agent, name, user_id=user_id):
         paths = get_paths()
-        if await asyncio.to_thread((paths.team_agent_dir(name) / "config.yaml").is_file):
+        if await asyncio.to_thread(TeamPublicationStore(paths).has_record, name):
             raise HTTPException(
                 status_code=409,
                 detail=(f"Agent '{name}' exists in the team square but is not scoped to the current user. Create a personal copy before updating it."),
@@ -1381,8 +1553,27 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
                 detail=(f"Agent '{name}' only exists in the legacy shared layout and is not scoped to a user. Run scripts/migrate_user_isolation.py to move legacy agents into the per-user layout before updating."),
             )
 
+    if not request.expected_draft_revision:
+        raise HTTPException(status_code=428, detail="Reload the employee draft before saving; a reviewed draft revision is required")
+
+    # Capture the raw pair before async authorization; CAS rejects intervening edits.
+    try:
+        before = await asyncio.to_thread(lambda: get_agent_store().read_definition(name, user_id=user_id))
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Personal agent '{name}' not found") from None
+    if request.expected_draft_revision != before.revision:
+        raise HTTPException(status_code=409, detail="Employee draft changed; reload before saving")
+    agent_cfg = parse_agent_config(before.config, name)
+
     if "model" in request.model_fields_set:
         await asyncio.to_thread(_validate_model_exists, request.model)
+    if "knowledge_scope" in request.model_fields_set:
+        request.knowledge_scope = await validate_creator_knowledge_scope(request.knowledge_scope, get_current_user())
+    if "skills" in request.model_fields_set:
+        try:
+            request.skills = await asyncio.to_thread(validate_agent_skills, request.skills, user_id=user_id)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
     if "category_id" in request.model_fields_set:
         await asyncio.to_thread(
             _ensure_category_exists,
@@ -1400,6 +1591,7 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
             "model",
             "tool_groups",
             "skills",
+            "knowledge_scope",
             "category_id",
             "tags",
             "avatar_id",
@@ -1407,54 +1599,32 @@ async def update_agent(name: str, request: AgentUpdateRequest) -> AgentResponse:
             "thinking_enabled",
             "reasoning_effort",
         }
-        config_changed = bool(fields_set & managed_fields)
+        updated = request.model_dump(mode="json", include=managed_fields & fields_set)
+        if "category_id" in updated:
+            updated["category_id"] = updated["category_id"] or resolve_digital_employee_category(agent_cfg)
+        if isinstance(request.model_settings, AgentModelSettings):
+            settings = dict(before.config.get("model_settings") or {})
+            for key in request.model_settings.model_fields_set:
+                value = getattr(request.model_settings, key)
+                if value is None:
+                    settings.pop(key, None)
+                else:
+                    settings[key] = value
+            updated["model_settings"] = settings or None
 
-        updated: dict | None = None
-        if config_changed:
-            updated = {"name": agent_cfg.name}
-            for field_name in managed_fields - set(_MODEL_BEHAVIOR_FIELDS):
-                value = getattr(request, field_name) if field_name in fields_set else getattr(agent_cfg, field_name)
-                if field_name == "category_id":
-                    value = value or resolve_digital_employee_category(agent_cfg)
-                if value is not None:
-                    updated[field_name] = value
-            _apply_model_behavior(updated, request, existing=agent_cfg)
+        def _save():
+            return get_agent_store().patch_definition(name, updated, request.soul, user_id=user_id, expected_revision=before.revision)
 
-            # Carry forward every top-level AgentConfig field this route does
-            # not manage (currently ``github:``, plus any future field added
-            # to :class:`AgentConfig`). The harness ``update_agent`` tool uses
-            # the same helper, so an operator editing the agent description
-            # from the Web UI does not silently strip a hand-authored
-            # ``github:`` binding — which would otherwise leave the next
-            # webhook delivery unable to find the agent in the registry and
-            # silently no-op.
-            for key, value in preserve_non_managed_fields(agent_cfg).items():
-                updated.setdefault(key, value)
-
-        if updated is not None or request.soul is not None:
-
-            def _update_agent_store() -> None:
-                get_agent_store().update(
-                    name,
-                    updated,
-                    request.soul,
-                    user_id=user_id,
-                )
-
-            await asyncio.to_thread(_update_agent_store)
+        after = await asyncio.to_thread(_save)
 
         logger.info(f"Updated agent '{name}'")
 
-        def _refresh() -> AgentResponse:
-            refreshed_cfg = load_agent_config(name, user_id=user_id)
-            return _agent_config_to_response(
-                refreshed_cfg,
-                include_soul=True,
-                user_id=user_id,
-            )
+        return await asyncio.to_thread(_definition_response, name, after, user_id=user_id)
 
-        return await asyncio.to_thread(_refresh)
-
+    except DraftConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Personal employee is no longer available") from None
     except HTTPException:
         raise
     except Exception as e:
@@ -1531,9 +1701,9 @@ async def update_user_profile(request: UserProfileUpdateRequest) -> UserProfileR
     "/agents/{name}",
     status_code=204,
     summary="Delete Custom Agent",
-    description="Delete a custom agent and all its files (config, SOUL.md, memory).",
+    description="Remove a reviewed personal definition, retaining recovery bytes. Published Square versions are not withdrawn.",
 )
-async def delete_agent(name: str) -> None:
+async def delete_agent(name: str, expected_draft_revision: str | None = None) -> None:
     """Delete a custom agent.
 
     Args:
@@ -1550,21 +1720,30 @@ async def delete_agent(name: str) -> None:
     try:
         if not await asyncio.to_thread(is_personal_agent, name, user_id=user_id):
             paths = get_paths()
-            if await asyncio.to_thread((paths.team_agent_dir(name) / "config.yaml").is_file):
+            if await asyncio.to_thread(TeamPublicationStore(paths).has_record, name):
                 outcome = "team"
             elif await asyncio.to_thread((paths.agent_dir(name) / "config.yaml").is_file):
                 outcome = "legacy"
             else:
                 outcome = "missing"
         else:
+            if not expected_draft_revision:
+                raise HTTPException(428, "Reload the employee draft before deleting")
             outcome = await asyncio.to_thread(
                 _delete_agent_with_memory_cancel,
                 name,
                 user_id,
+                expected_draft_revision,
             )
+    except HTTPException:
+        raise
+    except DraftConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "Personal employee is no longer available") from exc
     except Exception as e:
         logger.error(f"Failed to delete agent '{name}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to delete agent: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete employee") from e
 
     if outcome == "legacy":
         raise HTTPException(
@@ -1582,11 +1761,10 @@ async def delete_agent(name: str) -> None:
     logger.info("Deleted digital employee '%s'", name)
 
 
-def _delete_agent_with_memory_cancel(name: str, user_id: str | None) -> str:
-    """Cancel queued memory before and after deleting a digital employee."""
+def _delete_agent_with_memory_cancel(name: str, user_id: str | None, expected_revision: str) -> str:
+    """Cancel only after the storage transaction authorizes the reviewed delete."""
     store = get_agent_store()
-    _cancel_pending_memory_for_agent(name, user_id)
-    outcome = store.delete(name, user_id=user_id)
+    outcome = store.delete_definition(name, user_id=user_id, expected_revision=expected_revision, before_delete=lambda: _cancel_pending_memory_for_agent(name, user_id))
     if outcome == "deleted":
         _cancel_pending_memory_for_agent(name, user_id)
     return outcome

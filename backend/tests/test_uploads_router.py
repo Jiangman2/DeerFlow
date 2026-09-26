@@ -4,7 +4,7 @@ import stat
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 from _router_auth_helpers import call_unwrapped, make_authed_test_app
@@ -16,6 +16,10 @@ from app.gateway.routers import uploads
 from app.gateway.upload_document_parser import UploadDocumentParseError
 
 INERT_PDF_BYTES = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
+
+# Legacy upload behavior is tested under an explicit disabled operator policy;
+# enabled/denied/config-error request paths have independent composed tests.
+pytestmark = pytest.mark.usefixtures("disabled_sandbox_authorization")
 
 
 class ChunkedUpload:
@@ -341,6 +345,48 @@ def test_upload_files_creates_markdown_companion_from_enterprise_pdf_parser(
         endpoint="http://parser:50052/file_parse",
         filename="scan.pdf",
         content=INERT_PDF_BYTES,
+    )
+
+
+def test_upload_files_creates_markdown_companion_from_enterprise_image_parser(
+    tmp_path,
+):
+    thread_uploads_dir = tmp_path / "uploads"
+    thread_uploads_dir.mkdir(parents=True)
+    image_bytes = b"\x89PNG\r\n\x1a\nenterprise-image"
+    parser = AsyncMock(return_value="# 图片识别结果\n\n设备编号 A-1024")
+
+    with (
+        patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "get_sandbox_provider", return_value=_mounted_provider()),
+        patch.object(uploads, "_require_parsed_text_enabled", return_value=True),
+        patch.object(
+            uploads,
+            "conversation_document_parser_endpoint",
+            return_value="http://parser:50052/file_parse",
+        ),
+        patch.object(uploads, "parse_conversation_document", parser),
+    ):
+        file = UploadFile(filename="现场照片.png", file=BytesIO(image_bytes))
+        result = asyncio.run(
+            call_unwrapped(
+                uploads.upload_files,
+                "thread-local",
+                request=MagicMock(),
+                files=[file],
+                config=SimpleNamespace(),
+            )
+        )
+
+    assert result.success is True
+    assert result.files[0].markdown_file == "现场照片.md"
+    assert "设备编号 A-1024" in (thread_uploads_dir / "现场照片.md").read_text(
+        encoding="utf-8",
+    )
+    parser.assert_awaited_once_with(
+        endpoint="http://parser:50052/file_parse",
+        filename="现场照片.png",
+        content=image_bytes,
     )
 
 
@@ -1130,7 +1176,10 @@ def test_upload_files_does_not_sync_non_local_sandbox_when_total_size_exceeds_li
     assert exc_info.value.status_code == 413
     provider.acquire.assert_not_called()
     provider.acquire_async.assert_awaited_once_with("thread-aio", user_id="owner-upload")
-    provider.get.assert_called_once_with("aio-1")
+    # Request holder cleanup resolves the same client once more, but does not
+    # park the warm sandbox or synchronize files after a failed transaction.
+    assert provider.get.call_args_list == [call("aio-1"), call("aio-1")]
+    provider.release.assert_not_called()
     sandbox.update_file.assert_not_called()
 
 
@@ -1159,7 +1208,8 @@ def test_upload_files_does_not_sync_non_local_sandbox_when_conversion_fails(tmp_
     assert exc_info.value.status_code == 500
     provider.acquire.assert_not_called()
     provider.acquire_async.assert_awaited_once_with("thread-aio", user_id="owner-upload")
-    provider.get.assert_called_once_with("aio-1")
+    assert provider.get.call_args_list == [call("aio-1"), call("aio-1")]
+    provider.release.assert_not_called()
     sandbox.update_file.assert_not_called()
     assert not (thread_uploads_dir / "report.pdf").exists()
 

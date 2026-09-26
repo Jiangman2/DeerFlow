@@ -2,12 +2,13 @@
 
 ## 概述
 
-DeerFlow 后端提供了完整的文件上传功能，支持多文件上传，并可选地将 Office 文档和 PDF 转换为 Markdown 格式。
+DeerFlow 后端提供了完整的文件上传功能，支持多文件上传，并可选地将 Office 文档、PDF 和安全的栅格图片解析为 Markdown。
 
 ## 功能特性
 
 - ✅ 支持多文件同时上传
 - ✅ 可选地转换文档为 Markdown（PDF、PPT、Excel、Word）
+- ✅ 企业部署通过 MinerU OCR 解析 BMP/GIF/JP2/JPEG/PNG/TIFF/WEBP 图片
 - ✅ 文件存储在线程隔离的目录中
 - ✅ Agent 自动感知已上传的文件
 - ✅ 支持文件列表查询和删除
@@ -114,7 +115,7 @@ DELETE /api/threads/{thread_id}/uploads/{filename}
 
 默认情况下，自动转换是关闭的，以避免在网关主机上对不受信任的 Office/PDF 上传执行解析。只有在受信任部署中明确接受此风险时，才应将 `uploads.auto_convert_documents` 设置为 `true`。
 
-企业 Kubernetes 部署仍沿用同一个同步上传接口和响应结构，但会把会话文档交给独立的文档解析服务。会话 DOCX 优先使用本地 AnyDoc；普通 WeKnora 知识库文件仍保持显式解析规则，只有达到结构型大文档门槛的 DOCX 才进入同一条 AnyDoc 快速路径。AnyDoc 输出过少、达到 XML 节点安全上限、报错或超时时，大型 DOCX 会绕过 `StdMarkitdownParser`，转入官方 DocReader 0.8 原生 `DocxParser`，并保留低内存流式正文恢复，随后仍可使用 LibreOffice 和 MinerU 路径。每个本地解析器在独立子进程中运行并有明确超时，因此单个异常大文件不会阻塞解析服务的健康探针，也不需要放宽 AnyDoc 的安全上限。
+企业 Kubernetes 部署仍沿用同一个同步上传接口和响应结构，但会把会话文档和栅格图片交给独立的文档解析服务。图片按文件内容签名识别，不信任浏览器提供的扩展名；BMP/GIF/JP2/JPEG/PNG/TIFF/WEBP 会以检测出的真实 MIME 直接提交 MinerU OCR，而不是先伪装或转换成 PDF。会话 DOCX 优先使用本地 AnyDoc；普通 WeKnora 知识库文件仍保持显式解析规则，只有达到结构型大文档门槛的 DOCX 才进入同一条 AnyDoc 快速路径。AnyDoc 输出过少、达到 XML 节点安全上限、报错或超时时，大型 DOCX 会绕过 `StdMarkitdownParser`，转入官方 DocReader 0.8 原生 `DocxParser`，并保留低内存流式正文恢复，随后仍可使用 LibreOffice 和 MinerU 路径。每个本地解析器在独立子进程中运行并有明确超时，因此单个异常大文件不会阻塞解析服务的健康探针，也不需要放宽 AnyDoc 的安全上限。
 
 企业部署保持同步语义：上传响应只在 Markdown companion 已生成后返回，前端仍在上传完成后再提交对话。解析队列、各级回退及 Gateway 的超时均小于 Nginx 的 600 秒上游读取边界；全部解析方式失败时返回可识别的 `503`，而不是等待反向代理产生不明确的 `504`。Gateway 在企业解析服务已完成整条回退链后不会再次执行本地重复转换。
 
@@ -130,6 +131,7 @@ The following files have been uploaded and are available for use:
 
 - document.pdf (1.2 MB)
   Path: /mnt/user-data/uploads/document.pdf
+  Parsed text: /mnt/user-data/uploads/document.md
 
 - document.md (45.3 KB)
   Path: /mnt/user-data/uploads/document.md
@@ -149,6 +151,8 @@ read_file(path="/mnt/user-data/uploads/document.pdf")
 # 读取转换后的 Markdown（推荐）
 read_file(path="/mnt/user-data/uploads/document.md")
 ```
+
+对图片或扫描件，Agent 会优先读取上传响应绑定的 `Parsed text` Markdown；只有当前模型支持视觉工具、且任务确实需要 OCR 文本之外的颜色、布局等视觉细节时，才需要读取原图。绑定只接受当前线程目录下真实存在的同名或 `_N` 冲突后缀 companion，客户端不能借此指定任意文件。
 
 **路径映射关系：**
 - Agent 使用：`/mnt/user-data/uploads/document.pdf`（虚拟路径）

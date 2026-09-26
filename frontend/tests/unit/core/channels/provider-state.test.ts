@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@rstest/core";
 
 import {
+  getChannelDisplayName,
   providerCanConnect,
   providerCanEditRuntimeConfig,
   providerNeedsRuntimeConfig,
@@ -27,6 +28,20 @@ function makeProvider(overrides: Partial<ChannelProvider>): ChannelProvider {
     ...overrides,
   };
 }
+
+describe("getChannelDisplayName", () => {
+  it("uses the enterprise label for Feishu even with an older API response", () => {
+    expect(
+      getChannelDisplayName(
+        makeProvider({ provider: "feishu", display_name: "Feishu" }),
+      ),
+    ).toBe("海能 Work");
+  });
+
+  it("preserves other provider labels", () => {
+    expect(getChannelDisplayName(makeProvider({}))).toBe("Slack");
+  });
+});
 
 describe("providerCanConnect", () => {
   it("allows connecting a configured, not yet connected provider", () => {

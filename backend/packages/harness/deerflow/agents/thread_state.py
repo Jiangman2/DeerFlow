@@ -4,6 +4,8 @@ from typing import Annotated, NotRequired, TypedDict
 from langchain.agents import AgentState
 
 from deerflow.agents.goal_state import GoalState
+from deerflow.agents.middlewares.receipt_verification import ReceiptVerdict
+from deerflow.subagents.acceptance_checks import AcceptanceVerdict
 from deerflow.subagents.status_contract import SUBAGENT_STATUS_VALUES
 
 
@@ -141,6 +143,8 @@ class DelegationEntry(TypedDict):
     result_brief: NotRequired[str]
     result_sha256: NotRequired[str]
     result_ref: NotRequired[str]
+    receipt_verdict: NotRequired[ReceiptVerdict]
+    acceptance_verdict: NotRequired[AcceptanceVerdict]
     # Why a guardrail cap ended the run early (#3875 Phase 2): token_capped /
     # turn_capped / loop_capped. The status stays completed/failed; this field
     # is the additive signal that distinguishes a capped run from a clean one.

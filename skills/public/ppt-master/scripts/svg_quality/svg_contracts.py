@@ -178,13 +178,13 @@ _CANONICAL_PAINT_ALPHA_PROPERTY = {
     "flood-color": "flood-opacity",
 }
 _SUPPORTED_INLINE_STYLE_PROPERTIES = frozenset({
-    "cx", "cy", "fill", "fill-opacity", "filter", "flood-color",
+    "cx", "cy", "display", "fill", "fill-opacity", "filter", "flood-color",
     "flood-opacity", "font-family", "font-size", "font-style", "font-weight",
     "height", "letter-spacing", "opacity", "r", "rx", "ry",
     "shape-rendering", "stop-color", "stop-opacity", "stroke",
     "stroke-dasharray", "stroke-linecap", "stroke-linejoin", "stroke-opacity",
     "stroke-width", "text-anchor", "text-decoration", "vector-effect",
-    "width", "x", "y",
+    "visibility", "width", "x", "y",
 })
 _BAKE_REQUIRED_VISUAL_PROPERTIES = frozenset({
     "backdrop-filter",
@@ -387,7 +387,7 @@ def check_reference_spelling(root: ET.Element, result: Dict) -> None:
     labels = []
     xlink_href = f'{{{XLINK_NS}}}href'
     for elem in root.iter():
-        if _local_name(elem).lower() not in {'image', 'use'}:
+        if _local_name(elem).lower() not in {'a', 'image', 'use'}:
             continue
         if elem.get(xlink_href) is not None:
             labels.append(_element_label(elem))

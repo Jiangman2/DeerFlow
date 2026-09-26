@@ -11,7 +11,8 @@ import asyncio
 import json
 import logging
 import os
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
 
@@ -20,6 +21,8 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.messages.utils import convert_to_messages
 from langgraph.types import Command
 
+from app.gateway.agent_knowledge import apply_agent_knowledge_scope
+from app.gateway.agent_publications import admit_agent_publication
 from app.gateway.auth_disabled import AUTH_SOURCE_INTERNAL
 from app.gateway.deps import get_checkpointer, get_local_provider, get_run_context, get_run_manager, get_stream_bridge
 from app.gateway.internal_auth import (
@@ -31,27 +34,52 @@ from app.gateway.internal_auth import (
 from app.gateway.utils import sanitize_log_param
 from app.gateway.weknora_identity import ensure_weknora_session_for_deerflow_user
 from deerflow.agents.human_input import read_human_input_response
+from deerflow.agents.middlewares.audit_context import SERVER_OWNED_AUDIT_CONTEXT_KEYS
 from deerflow.agents.middlewares.dynamic_context_middleware import _DYNAMIC_CONTEXT_REMINDER_KEY, _REMINDER_DATE_KEY
+from deerflow.agents.middlewares.tool_receipt import TOOL_RECEIPT_KEY, TOOL_RECEIPT_LEDGER_KEY
 from deerflow.config.app_config import get_app_config
 from deerflow.runtime import (
     END_SENTINEL,
     HEARTBEAT_SENTINEL,
+    ORPHAN_RECOVERY_STOP_REASON,
     ConflictError,
     DisconnectMode,
+    RunContext,
     RunManager,
     RunRecord,
     RunStatus,
     StreamBridge,
+    ThreadOperationKind,
     UnsupportedStrategyError,
     run_agent,
 )
 from deerflow.runtime.goal import goal_thread_lock
 from deerflow.runtime.runs.naming import resolve_root_run_name
 from deerflow.runtime.secret_context import redact_config_secrets
-from deerflow.runtime.user_context import reset_current_user, set_current_user
+from deerflow.runtime.user_context import get_effective_user_id, reset_current_user, set_current_user
+from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, ensure_trace_context, get_current_trace_id
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, SUMMARY_MESSAGE_NAME, UNTRUSTED_INPUT_KEY
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def reserve_checkpoint_write(
+    request: Request,
+    thread_id: str,
+    *,
+    user_id: str | None = None,
+) -> AsyncIterator[None]:
+    """Serialize an out-of-run checkpoint writer against all thread operations."""
+    run_manager = get_run_manager(request)
+    async with goal_thread_lock(thread_id):
+        async with run_manager.reserve_thread_operation(
+            thread_id,
+            kind=ThreadOperationKind.checkpoint_write,
+            user_id=user_id,
+        ):
+            yield
+
 
 _TERMINAL_RUN_STATUSES = {
     RunStatus.success,
@@ -60,6 +88,8 @@ _TERMINAL_RUN_STATUSES = {
     RunStatus.interrupted,
 }
 
+_THREAD_METADATA_SETUP_TIMEOUT_SECONDS = 5.0
+
 _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS = frozenset(
     {
         _DYNAMIC_CONTEXT_REMINDER_KEY,
@@ -67,7 +97,7 @@ _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS = frozenset(
     }
 )
 
-_SERVER_OWNED_MESSAGE_METADATA_KEYS = _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS | frozenset({UNTRUSTED_INPUT_KEY})
+_SERVER_OWNED_MESSAGE_METADATA_KEYS = _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS | frozenset({UNTRUSTED_INPUT_KEY, TOOL_RECEIPT_KEY, TOOL_RECEIPT_LEDGER_KEY, "subagent_tool_receipts", "subagent_receipt_verdict", "subagent_acceptance_verdict"})
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +125,41 @@ def _run_is_terminal(record: RunRecord) -> bool:
     return record.status in _TERMINAL_RUN_STATUSES
 
 
+def _consume_task_result(task: asyncio.Task) -> None:
+    """Retrieve a detached task's exception without propagating cancellation."""
+    if not task.cancelled():
+        task.exception()
+
+
+def _log_thread_metadata_task_result(task: asyncio.Task, *, thread_id: str) -> None:
+    if task.cancelled():
+        return
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        return
+    except Exception:
+        logger.warning("Failed to ensure thread_meta for %s after worker detached (non-fatal)", sanitize_log_param(thread_id), exc_info=True)
+
+
+async def _ensure_thread_metadata(run_ctx: RunContext, record: RunRecord, *, owner_user_id: str | None) -> None:
+    """Ensure the thread exists without delaying admission's worker attachment."""
+    thread_store = run_ctx.thread_store
+    existing = await thread_store.get(record.thread_id)
+    if existing is None and owner_user_id:
+        unscoped = await thread_store.get(record.thread_id, user_id=None)
+        if unscoped is not None:
+            if unscoped.get("user_id") != owner_user_id:
+                await thread_store.update_owner(record.thread_id, owner_user_id, user_id=None)
+            existing = await thread_store.get(record.thread_id)
+    if existing is None:
+        await thread_store.create(
+            record.thread_id,
+            assistant_id=record.assistant_id,
+            metadata={key: value for key, value in record.metadata.items() if key != DEERFLOW_TRACE_METADATA_KEY},
+        )
+
+
 async def _terminal_record_stream_missing(bridge: StreamBridge, record: RunRecord) -> bool:
     """True when a terminal run has no retained stream on bridges that can tell."""
     if not _run_is_terminal(record):
@@ -111,6 +176,24 @@ async def _terminal_record_stream_missing(bridge: StreamBridge, record: RunRecor
             exc_info=True,
         )
         return False
+
+
+async def _orphan_recovery_observed_after_heartbeat(
+    record: RunRecord,
+    run_mgr: RunManager,
+) -> bool:
+    """Return whether durable orphan recovery is the consumer's liveness edge.
+
+    A normal terminal status is not sufficient: the producer persists status
+    before publishing its final error/data frames and END. Orphan recovery is
+    different because the producer is known to be gone and the durable
+    ``stop_reason`` is written atomically with the terminal status. Only that
+    explicit signal may synthesize END after a heartbeat.
+    """
+    if not record.store_only:
+        return False
+    refreshed = await run_mgr.get(record.run_id, user_id=record.user_id)
+    return refreshed is not None and _run_is_terminal(refreshed) and refreshed.stop_reason == ORPHAN_RECOVERY_STOP_REASON
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +268,9 @@ def _strip_external_metadata_from_message_like(item: Any) -> Any:
 
 def strip_server_owned_state_metadata(values: Mapping[str, Any]) -> dict[str, Any]:
     """Protect direct thread-state writes with the run-input trust boundary."""
+    if "sandbox" in values:
+        raise HTTPException(status_code=400, detail="External sandbox state is not allowed")
+
     stripped: dict[str, Any] = {}
     for channel, value in values.items():
         if isinstance(value, list):
@@ -216,6 +302,8 @@ def normalize_input(raw_input: dict[str, Any] | None, *, trusted_internal: bool 
     """
     if raw_input is None:
         return {}
+    if not trusted_internal and "sandbox" in raw_input:
+        raise HTTPException(status_code=400, detail="External sandbox state is not allowed")
     messages = raw_input.get("messages")
     if messages and isinstance(messages, list):
         converted: list[Any] = []
@@ -258,7 +346,9 @@ _CONTEXT_CONFIGURABLE_KEYS: frozenset[str] = frozenset(
         "max_concurrent_subagents",
         "max_total_subagents",
         "agent_name",
+        "agent_source",
         "is_bootstrap",
+        "agent_skill_selection",
         "weknora_knowledge_base_ids",
         "weknora_knowledge_bases",
         "weknora_knowledge_ids",
@@ -471,6 +561,7 @@ async def inject_weknora_user_context(
     request: Request,
     *,
     internal_owner_user: Any | None = None,
+    verified_knowledge_tenants: dict[str, str] | None = None,
 ) -> None:
     """Attach a server-derived WeKnora credential to a scoped agent run.
 
@@ -544,6 +635,10 @@ async def inject_weknora_user_context(
             kb_id = str(tag_scope.get("knowledge_base_id") or "").strip()
             if kb_id and active_tenant_id:
                 access_tenant_ids.setdefault(kb_id, active_tenant_id)
+        if verified_knowledge_tenants is not None:
+            # Fresh binding validation outranks cached SSO memberships. This
+            # argument is server-local and never accepted from request config.
+            access_tenant_ids = dict(verified_knowledge_tenants)
         if access_tenant_ids:
             runtime_context["weknora_access_tenant_ids"] = access_tenant_ids
 
@@ -722,7 +817,16 @@ def build_run_config(
             runtime_context["agent_name"] = effective_agent_name
         config.setdefault("run_name", resolve_root_run_name(config, normalized))
     if metadata:
-        config.setdefault("metadata", {}).update(metadata)
+        existing_metadata = config.get("metadata")
+        merged_metadata = dict(existing_metadata) if isinstance(existing_metadata, dict) else {}
+        merged_metadata.update(metadata)
+        config["metadata"] = merged_metadata
+    # Audit attribution and bridges are installed by the execution host, never
+    # chosen via either public or internal run request options.
+    for section in ("context", "configurable"):
+        if isinstance(config.get(section), dict):
+            for key in SERVER_OWNED_AUDIT_CONTEXT_KEYS:
+                config[section].pop(key, None)
     return config
 
 
@@ -795,6 +899,21 @@ async def start_run(
     thread_id: str,
     request: Request,
 ) -> RunRecord:
+    """Scope one admission, including non-HTTP launches, to one trace id.
+
+    HTTP inherits TraceMiddleware's id. A background caller receives a fresh
+    scope per launch, not a binding leaked onto its long-lived poller. The
+    worker task inherits this context before the scope is restored.
+    """
+    with ensure_trace_context():
+        return await _start_run(body, thread_id, request)
+
+
+async def _start_run(
+    body: Any,
+    thread_id: str,
+    request: Request,
+) -> RunRecord:
     """Create a RunRecord and launch the background agent task.
 
     Parameters
@@ -856,13 +975,99 @@ async def start_run(
 
     owner_context_token = set_current_user(SimpleNamespace(id=owner_user_id)) if owner_user_id else None
     try:
+        # Validate the executable resource scope before creating a pending run.
+        # A revoked binding must not leave an orphaned run or alter thread state.
+        agent_factory = resolve_agent_factory(body.assistant_id)
+        is_internal_caller = getattr(getattr(request, "state", None), "auth_source", None) == AUTH_SOURCE_INTERNAL
+        command = getattr(body, "command", None)
+        if command and command.get("resume") is not None:
+            graph_input = Command(resume=command["resume"])
+        else:
+            graph_input = normalize_input(body.input, trusted_internal=is_internal_caller)
+        # Both persistence and live execution use the request's authority, not
+        # caller-supplied trace metadata. Keep the caller's request unchanged.
+        run_metadata = dict(body.metadata) if isinstance(body.metadata, dict) else {}
+        run_metadata[DEERFLOW_TRACE_METADATA_KEY] = get_current_trace_id()
+        config = build_run_config(thread_id, body.config, run_metadata, assistant_id=body.assistant_id)
+        await apply_checkpoint_to_run_config(config, body=body, thread_id=thread_id, request=request)
+        merge_run_context_overrides(config, getattr(body, "context", None), internal=is_internal_caller)
+        if not is_internal_caller:
+            strip_internal_context_keys(config)
+        internal_owner_user = await resolve_trusted_internal_owner_for_attribution(request, owner_user_id)
+        inject_authenticated_user_context(
+            config,
+            request,
+            internal_owner_user=internal_owner_user,
+            request_context=getattr(body, "context", None),
+        )
+        actor = internal_owner_user or user
+        # A failed owner lookup must not change the receipt bucket to the
+        # synthetic system user and silently start an unbound employee run.
+        publication_user_id = owner_user_id or (str(actor.id) if actor is not None else get_effective_user_id())
+        publication = await admit_agent_publication(config, thread_id=thread_id, user_id=publication_user_id, commit=False)
+        if publication is not None:
+            if actor is None or str(getattr(actor, "id", "")) != publication_user_id or getattr(actor, "system_role", None) == INTERNAL_SYSTEM_ROLE or getattr(actor, "is_disabled", True):
+                raise HTTPException(403, "Employee invocation requires an active authenticated owner.")
+            verified_knowledge_tenants = await apply_agent_knowledge_scope(config, actor, publication=publication)
+        else:
+            verified_knowledge_tenants = await apply_agent_knowledge_scope(config, actor)
+        await inject_weknora_user_context(config, request, internal_owner_user=internal_owner_user, verified_knowledge_tenants=verified_knowledge_tenants)
+        if publication is not None:
+            await admit_agent_publication(config, thread_id=thread_id, user_id=publication_user_id, expected_revision=publication.revision)
+
+        async def run_after_metadata(record: RunRecord) -> None:
+            metadata_task = asyncio.create_task(_ensure_thread_metadata(run_ctx, record, owner_user_id=owner_user_id))
+            abort_task = asyncio.create_task(record.abort_event.wait())
+            metadata_failure_logged = False
+            try:
+                done, _ = await asyncio.wait(
+                    (metadata_task, abort_task),
+                    timeout=_THREAD_METADATA_SETUP_TIMEOUT_SECONDS,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if metadata_task in done:
+                    try:
+                        metadata_task.result()
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception:
+                        metadata_failure_logged = True
+                        logger.warning("Failed to ensure thread_meta for %s (non-fatal)", sanitize_log_param(thread_id), exc_info=True)
+                elif abort_task not in done:
+                    logger.warning("Timed out ensuring thread_meta for %s after %.1fs", sanitize_log_param(thread_id), _THREAD_METADATA_SETUP_TIMEOUT_SECONDS)
+            finally:
+                if metadata_task.done():
+                    if not metadata_failure_logged:
+                        _log_thread_metadata_task_result(metadata_task, thread_id=thread_id)
+                else:
+                    metadata_task.cancel()
+                    metadata_task.add_done_callback(lambda task: _log_thread_metadata_task_result(task, thread_id=thread_id))
+                if not abort_task.done():
+                    abort_task.cancel()
+                    abort_task.add_done_callback(_consume_task_result)
+            # Even an aborted pending run enters the worker's startup barrier:
+            # it skips agent construction but still closes its stream.
+            await run_agent(
+                bridge,
+                run_mgr,
+                record,
+                ctx=run_ctx,
+                agent_factory=agent_factory,
+                graph_input=graph_input,
+                config=config,
+                stream_modes=normalize_stream_modes(body.stream_mode),
+                stream_subgraphs=body.stream_subgraphs,
+                interrupt_before=body.interrupt_before,
+                interrupt_after=body.interrupt_after,
+            )
+
         try:
             async with goal_thread_lock(thread_id):
                 record = await run_mgr.create_or_reject(
                     thread_id,
                     body.assistant_id,
                     on_disconnect=disconnect,
-                    metadata=body.metadata or {},
+                    metadata=run_metadata,
                     # Persist a secret-redacted copy of the config: the run record is
                     # written to runs.kwargs_json and echoed by the run API, so a
                     # request-scoped secret (#3861) must not ride along. The live
@@ -872,79 +1077,20 @@ async def start_run(
                     model_name=model_name,
                     user_id=owner_user_id,
                 )
+                worker = run_after_metadata(record)
+                try:
+                    # No await between durable admission and task attachment.
+                    # Keep thread-store IO inside the attached worker so pending
+                    # cancellation cannot be stranded behind a metadata lookup.
+                    record.task = asyncio.create_task(worker)
+                except Exception as exc:
+                    worker.close()
+                    await run_mgr.fail_start_if_pending(record.run_id, error=f"Failed to attach run worker: {exc}")
+                    raise
         except ConflictError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except UnsupportedStrategyError as exc:
             raise HTTPException(status_code=501, detail=str(exc)) from exc
-
-        # Upsert thread metadata so the thread appears in /threads/search,
-        # even for threads that were never explicitly created via POST /threads
-        # (e.g. stateless runs).
-        try:
-            existing = await run_ctx.thread_store.get(thread_id)
-            if existing is None and owner_user_id:
-                unscoped_existing = await run_ctx.thread_store.get(thread_id, user_id=None)
-                if unscoped_existing is not None:
-                    if unscoped_existing.get("user_id") != owner_user_id:
-                        await run_ctx.thread_store.update_owner(thread_id, owner_user_id, user_id=None)
-                    existing = await run_ctx.thread_store.get(thread_id)
-            if existing is None:
-                await run_ctx.thread_store.create(
-                    thread_id,
-                    assistant_id=body.assistant_id,
-                    metadata=body.metadata,
-                )
-            else:
-                await run_ctx.thread_store.update_status(thread_id, "running")
-        except Exception:
-            logger.warning("Failed to upsert thread_meta for %s (non-fatal)", sanitize_log_param(thread_id))
-
-        agent_factory = resolve_agent_factory(body.assistant_id)
-        is_internal_caller = getattr(getattr(request, "state", None), "auth_source", None) == AUTH_SOURCE_INTERNAL
-        command = getattr(body, "command", None)
-        if command and command.get("resume") is not None:
-            graph_input = Command(resume=command["resume"])
-        else:
-            graph_input = normalize_input(body.input, trusted_internal=is_internal_caller)
-        config = build_run_config(thread_id, body.config, body.metadata, assistant_id=body.assistant_id)
-        await apply_checkpoint_to_run_config(config, body=body, thread_id=thread_id, request=request)
-
-        # Merge DeerFlow-specific context overrides into both ``configurable`` and ``context``.
-        # The ``context`` field is a custom extension for the langgraph-compat layer
-        # that carries agent configuration (model_name, thinking_enabled, etc.).
-        # Only agent-relevant keys are forwarded; unknown keys (e.g. thread_id) are ignored.
-        merge_run_context_overrides(config, getattr(body, "context", None), internal=is_internal_caller)
-        if not is_internal_caller:
-            # ``body.config`` is free-form and copied verbatim by
-            # ``build_run_config``; scrub internal-only keys smuggled there.
-            strip_internal_context_keys(config)
-        internal_owner_user = await resolve_trusted_internal_owner_for_attribution(request, owner_user_id)
-        inject_authenticated_user_context(
-            config,
-            request,
-            internal_owner_user=internal_owner_user,
-            request_context=getattr(body, "context", None),
-        )
-        await inject_weknora_user_context(config, request, internal_owner_user=internal_owner_user)
-
-        stream_modes = normalize_stream_modes(body.stream_mode)
-
-        task = asyncio.create_task(
-            run_agent(
-                bridge,
-                run_mgr,
-                record,
-                ctx=run_ctx,
-                agent_factory=agent_factory,
-                graph_input=graph_input,
-                config=config,
-                stream_modes=stream_modes,
-                stream_subgraphs=body.stream_subgraphs,
-                interrupt_before=body.interrupt_before,
-                interrupt_after=body.interrupt_after,
-            )
-        )
-        record.task = task
 
         # Title sync is handled by worker.py's finally block which reads the
         # title from the checkpoint and calls thread_store.update_display_name
@@ -1046,7 +1192,7 @@ async def sse_consumer(
                 break
 
             if entry is HEARTBEAT_SENTINEL:
-                if await _terminal_record_stream_missing(bridge, record):
+                if await _orphan_recovery_observed_after_heartbeat(record, run_mgr):
                     yield format_sse("end", None)
                     return
                 yield ": heartbeat\n\n"
@@ -1059,10 +1205,9 @@ async def sse_consumer(
             yield format_sse(entry.event, entry.data, event_id=entry.id or None)
 
     finally:
-        # store_only records are cross-worker runs hydrated from the RunStore; this
-        # worker holds no in-memory task/abort state for them, so run_mgr.cancel()
-        # cannot stop the task (it would 409). Skip on_disconnect cancellation for
-        # those and only act on runs this worker actually owns.
+        # Store-only records are cross-worker observation handles. Explicit
+        # cancel-then-stream already persisted its request before subscribing;
+        # a plain join disconnect must not invent a new cancellation request.
         if not record.store_only and record.status in (RunStatus.pending, RunStatus.running):
             if record.on_disconnect == DisconnectMode.cancel:
                 await run_mgr.cancel(record.run_id)
@@ -1109,7 +1254,7 @@ async def wait_for_run_completion(
             if entry is END_SENTINEL:
                 completed = True
                 return True
-            if entry is HEARTBEAT_SENTINEL and await _terminal_record_stream_missing(bridge, record):
+            if entry is HEARTBEAT_SENTINEL and await _orphan_recovery_observed_after_heartbeat(record, run_mgr):
                 completed = True
                 return True
             if await request.is_disconnected():

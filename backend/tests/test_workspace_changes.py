@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -14,11 +15,16 @@ from deerflow.workspace_changes import (
     WorkspaceRoot,
     capture_workspace_snapshot,
     compare_snapshots,
+    get_changed_output_paths,
     record_workspace_changes,
     scan_workspace_roots,
 )
 from deerflow.workspace_changes.api import get_workspace_changes_response
-from deerflow.workspace_changes.scanner import SAMPLE_BYTES, is_sensitive_workspace_path
+from deerflow.workspace_changes.scanner import (
+    SAMPLE_BYTES,
+    _normalize_symlink_target,
+    is_sensitive_workspace_path,
+)
 
 
 def _roots(tmp_path):
@@ -68,6 +74,27 @@ def test_compare_snapshots_reports_text_file_changes(tmp_path):
     assert "+gamma" in changes["/mnt/user-data/workspace/draft.md"].diff
     assert changes["/mnt/user-data/outputs/report.md"].status == "created"
     assert changes["/mnt/user-data/workspace/old.txt"].status == "deleted"
+
+
+def test_get_changed_output_paths_returns_only_created_or_modified_regular_outputs(tmp_path):
+    roots = _roots(tmp_path)
+    workspace = roots[0].host_path
+    outputs = roots[1].host_path
+    (workspace / "draft.md").write_text("before", encoding="utf-8")
+    (outputs / "existing.md").write_text("before", encoding="utf-8")
+    (outputs / "deleted.md").write_text("before", encoding="utf-8")
+    before = scan_workspace_roots(roots)
+
+    (workspace / "draft.md").write_text("after", encoding="utf-8")
+    (outputs / "existing.md").write_text("after", encoding="utf-8")
+    (outputs / "created.md").write_text("new", encoding="utf-8")
+    (outputs / "deleted.md").unlink()
+    after = scan_workspace_roots(roots)
+
+    assert get_changed_output_paths(before, after) == [
+        "/mnt/user-data/outputs/created.md",
+        "/mnt/user-data/outputs/existing.md",
+    ]
 
 
 def test_compare_snapshots_treats_utf16_markdown_as_text(tmp_path):
@@ -225,6 +252,83 @@ def test_scan_workspace_roots_skips_excluded_directories(tmp_path):
     assert "/mnt/user-data/workspace/node_modules/ignored.js" not in snapshot.files
 
 
+def test_scan_workspace_roots_skips_stdio_mcp_temp_files(tmp_path):
+    roots = _roots(tmp_path)
+    workspace = roots[0].host_path
+    (workspace / "report.md").write_text("keep", encoding="utf-8")
+    mcp_tmp = workspace / ".mcp" / "tmp"
+    mcp_tmp.mkdir(parents=True)
+    (mcp_tmp / "debug.json").write_text("internal", encoding="utf-8")
+    # `.mcp` is excluded by directory name at any depth, matching the other
+    # entries in EXCLUDED_DIR_NAMES and staying robust if a server ever
+    # creates a relative `.mcp` from a cwd below the workspace root.
+    nested_mcp = workspace / "project" / ".mcp"
+    nested_mcp.mkdir(parents=True)
+    (nested_mcp / "nested.json").write_text("internal", encoding="utf-8")
+
+    snapshot = scan_workspace_roots(roots)
+
+    assert "/mnt/user-data/workspace/report.md" in snapshot.files
+    assert "/mnt/user-data/workspace/.mcp/tmp/debug.json" not in snapshot.files
+    assert "/mnt/user-data/workspace/project/.mcp/nested.json" not in snapshot.files
+
+
+def test_scan_workspace_roots_skips_browser_frames(tmp_path):
+    roots = _roots(tmp_path)
+    outputs = roots[1].host_path
+    (outputs / "report.md").write_text("keep", encoding="utf-8")
+    frames = outputs / ".browser-frames"
+    frames.mkdir()
+    (frames / "browser-navigate-1.png").write_bytes(b"\x89PNG\r\n\x1a\nshot")
+
+    snapshot = scan_workspace_roots(roots)
+
+    assert "/mnt/user-data/outputs/report.md" in snapshot.files
+    assert "/mnt/user-data/outputs/.browser-frames/browser-navigate-1.png" not in snapshot.files
+
+
+def test_scan_workspace_roots_skips_externalized_tool_results(tmp_path):
+    roots = _roots(tmp_path)
+    outputs = roots[1].host_path
+    (outputs / "report.md").write_text("keep", encoding="utf-8")
+    tool_results = outputs / ".tool-results"
+    tool_results.mkdir()
+    (tool_results / "bash-abcdef123456.log").write_text("oversized tool output", encoding="utf-8")
+
+    snapshot = scan_workspace_roots(roots)
+
+    assert "/mnt/user-data/outputs/report.md" in snapshot.files
+    assert "/mnt/user-data/outputs/.tool-results/bash-abcdef123456.log" not in snapshot.files
+
+
+def test_scan_workspace_roots_skips_extra_excluded_dir_names(tmp_path):
+    roots = _roots(tmp_path)
+    outputs = roots[1].host_path
+    (outputs / "report.md").write_text("keep", encoding="utf-8")
+    custom = outputs / "custom-tool-results"
+    custom.mkdir()
+    (custom / "bash-abcdef123456.log").write_text("oversized tool output", encoding="utf-8")
+
+    snapshot = scan_workspace_roots(roots, extra_excluded_dir_names=frozenset({"custom-tool-results"}))
+
+    assert "/mnt/user-data/outputs/report.md" in snapshot.files
+    assert "/mnt/user-data/outputs/custom-tool-results/bash-abcdef123456.log" not in snapshot.files
+
+
+def test_get_changed_output_paths_ignores_externalized_tool_results(tmp_path):
+    roots = _roots(tmp_path)
+    outputs = roots[1].host_path
+    before = scan_workspace_roots(roots)
+
+    tool_results = outputs / ".tool-results"
+    tool_results.mkdir()
+    (tool_results / "web_fetch-abcdef123456.log").write_text("x" * 20000, encoding="utf-8")
+    (outputs / "report.md").write_text("deliverable", encoding="utf-8")
+    after = scan_workspace_roots(roots)
+
+    assert get_changed_output_paths(before, after) == ["/mnt/user-data/outputs/report.md"]
+
+
 def test_scan_workspace_roots_can_skip_text_loading(tmp_path):
     roots = _roots(tmp_path)
     workspace = roots[0].host_path
@@ -271,6 +375,85 @@ def test_compare_snapshots_hides_sensitive_and_binary_file_content(tmp_path):
     assert binary_change.binary is True
     assert binary_change.diff == ""
     assert binary_change.diff_unavailable_reason == "binary"
+
+
+@pytest.fixture
+def symlink_support(tmp_path):
+    # Real symlink creation needs elevated privilege on stock Windows (no Developer
+    # Mode / admin); skip gracefully there instead of failing the whole run. Linux/CI
+    # and WSL create symlinks natively, so this exercises the real behavior there.
+    probe_link = tmp_path / "_symlink_probe"
+    try:
+        probe_link.symlink_to(tmp_path)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink creation is not permitted on this platform/user")
+    probe_link.unlink()
+
+
+def test_compare_snapshots_classifies_symlink_replacing_file_as_symlink_created(tmp_path, symlink_support):
+    roots = _roots(tmp_path)
+    workspace = roots[0].host_path
+    outside_target = tmp_path / "outside-secret.txt"
+    outside_target.write_text("host-side content outside the workspace root\n", encoding="utf-8")
+
+    (workspace / "config.txt").write_text("original tracked content\n", encoding="utf-8")
+    before = scan_workspace_roots(roots)
+    assert before.files["/mnt/user-data/workspace/config.txt"].symlink is False
+
+    # Simulate an agent run doing: rm config.txt && ln -s <outside path> config.txt
+    (workspace / "config.txt").unlink()
+    (workspace / "config.txt").symlink_to(outside_target)
+    after = scan_workspace_roots(roots)
+
+    result = compare_snapshots(before, after)
+    changes = {change.path: change for change in result.files}
+    change = changes["/mnt/user-data/workspace/config.txt"]
+
+    assert change.status == "symlink_created"
+    assert change.status != "deleted"
+    assert change.symlink is True
+    assert change.symlink_target_after == str(outside_target)
+    assert change.diff_unavailable_reason == "symlink"
+    assert change.diff == ""
+    assert result.summary.symlink_created == 1
+    assert result.summary.deleted == 0
+    assert result.has_changes() is True
+
+
+def test_scan_workspace_roots_captures_symlinks_as_metadata_only_stubs(tmp_path, symlink_support):
+    roots = _roots(tmp_path)
+    workspace = roots[0].host_path
+    outside_target = tmp_path / "outside-target.txt"
+    outside_target.write_text("outside content\n", encoding="utf-8")
+    (workspace / "link.txt").symlink_to(outside_target)
+
+    snapshot = scan_workspace_roots(roots)
+    file = snapshot.files["/mnt/user-data/workspace/link.txt"]
+
+    assert file.symlink is True
+    assert file.symlink_target == str(outside_target)
+    assert file.text is None
+    assert file.sha256 is None
+    assert file.content_unavailable_reason == "symlink"
+
+
+def test_compare_snapshots_reports_removed_symlink_without_replacement_as_deleted(tmp_path, symlink_support):
+    # Scope boundary: a symlink that is genuinely removed with nothing taking its
+    # place is still "deleted" - only a symlink *newly occupying* a path (created or
+    # replacing a prior non-symlink) gets the distinct "symlink_created" status.
+    roots = _roots(tmp_path)
+    workspace = roots[0].host_path
+    outside_target = tmp_path / "outside-target.txt"
+    outside_target.write_text("outside content\n", encoding="utf-8")
+    (workspace / "link.txt").symlink_to(outside_target)
+    before = scan_workspace_roots(roots)
+
+    (workspace / "link.txt").unlink()
+    after = scan_workspace_roots(roots)
+
+    result = compare_snapshots(before, after)
+    changes = {change.path: change for change in result.files}
+    assert changes["/mnt/user-data/workspace/link.txt"].status == "deleted"
 
 
 def test_compare_snapshots_truncates_large_text_diffs(tmp_path):
@@ -381,6 +564,7 @@ async def test_workspace_changes_response_is_empty_when_no_event_exists():
         "created": 0,
         "modified": 0,
         "deleted": 0,
+        "symlink_created": 0,
         "additions": 0,
         "deletions": 0,
         "truncated": False,
@@ -562,3 +746,46 @@ async def test_workspace_changes_route_forwards_include_files_flag():
     assert response["available"] is True
     assert response["files"] == []
     assert calls["event_types"] == ["workspace_changes"]
+
+
+def test_normalize_symlink_target_strips_extended_length_drive_prefix(monkeypatch):
+    # The strip only applies on Windows hosts, so force the platform here;
+    # this test runs on the ubuntu-only CI too.
+    monkeypatch.setattr(os, "name", "nt")
+    assert _normalize_symlink_target(r"\\?\C:\Users\u1\target.txt") == r"C:\Users\u1\target.txt"
+
+
+def test_normalize_symlink_target_strips_extended_length_unc_prefix(monkeypatch):
+    monkeypatch.setattr(os, "name", "nt")
+    assert _normalize_symlink_target(r"\\?\UNC\server\share\a.txt") == r"\\server\share\a.txt"
+
+
+def test_normalize_symlink_target_preserves_volume_guid_and_degenerate_prefixes(monkeypatch):
+    monkeypatch.setattr(os, "name", "nt")
+    # Volume-GUID paths are absolute Windows targets in their own namespace;
+    # stripping the prefix would leave a relative-looking path.
+    target = r"\\?\Volume{01234567-89ab-cdef-0123-456789abcdef}\folder\target.txt"
+    assert _normalize_symlink_target(target) == target
+    # Only a drive letter followed by a colon and a separator is a drive path.
+    for degenerate in (r"\\?\C:", r"\\?\1:\x", r"\\?\:"):
+        assert _normalize_symlink_target(degenerate) == degenerate
+
+
+def test_normalize_symlink_target_leaves_relative_and_plain_posix_targets_verbatim():
+    assert _normalize_symlink_target("relative/target.txt") == "relative/target.txt"
+    assert _normalize_symlink_target("/tmp/target.txt") == "/tmp/target.txt"
+
+
+def test_normalize_symlink_target_leaves_mid_string_prefix_verbatim():
+    # Backslash is a legal filename byte on POSIX, so only a *leading*
+    # extended-length prefix may ever be stripped.
+    for target in (r"/data/\\?\weird-target.txt", r"C:\data\\?\nested.txt"):
+        assert _normalize_symlink_target(target) == target
+
+
+def test_normalize_symlink_target_is_identity_off_windows(monkeypatch):
+    # The strip is gated on Windows hosts: readlink(2) on POSIX returns the
+    # literal string the link was created with, so a target that starts with
+    # "\\?\" there must be recorded verbatim.
+    monkeypatch.setattr(os, "name", "posix")
+    assert _normalize_symlink_target(r"\\?\C:\Users\u1\target.txt") == r"\\?\C:\Users\u1\target.txt"

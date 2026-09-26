@@ -78,8 +78,8 @@ silently resubmit an uncertain video job. Publish validated outputs atomically;
 serve audio/video artifacts with `FileResponse` so Gateway never buffers a
 large media file in memory. The public image/video Skills call these tools and
 must not bypass them with provider SDKs, shell commands, or direct HTTP.
-Conversation PDF/DOC/DOCX/PPT/PPTX uploads reuse the configured WeKnora/MinerU
-adapter to write a same-stem Markdown companion without creating
+Conversation PDF/DOC/DOCX/PPT/PPTX and safe raster-image uploads reuse the
+configured WeKnora/MinerU adapter to write a same-stem Markdown companion without creating
 knowledge-base records. The dispatcher marks only interactive DeerFlow uploads
 with the trusted `conversation` parse profile; WeKnora knowledge ingestion
 retains explicit `knowledge` routes. Conversation DOCX uses pinned local
@@ -89,7 +89,14 @@ native parser and retain isolated low-memory text recovery without weakening
 AnyDoc's XML-node limit. LibreOffice and MinerU remain bounded fallbacks, while
 legacy DOC starts at DocReader. Searchable and scanned PDFs retain their
 adapter-specific routing, and presentations use their strict presentation
-conversion path. A hung local parser must be terminated with its process group
+conversion path. Raster images are identified by content magic rather than
+their browser-provided extension and are sent directly to MinerU with their
+detected MIME type; they are never disguised as PDFs. The frontend carries the
+server-returned companion basename into the HumanMessage, and UploadsMiddleware
+accepts only an existing same-stem (or collision-suffixed) Markdown file under
+the current thread before telling the Agent to read OCR text. This keeps image
+understanding available to text-only models without trusting a client-selected
+path. A hung local parser must be terminated with its process group
 without failing the worker's liveness endpoint. Keep the complete interactive
 adapter envelope below the Nginx upload timeout and do not repeat the same
 unbounded local conversion in Gateway after that chain fails. The frontend marks PPT/PPTX
@@ -118,7 +125,7 @@ ordinary Gateway endpoint. Its graph is one external-process relay node:
 it must never construct a LangChain model/Agent or attach DeerFlow Agent
 middleware. The real Agent CLI runs in the `ppt-master-agent-host` container of
 the thread's provisioned Sandbox Pod on authenticated ClusterIP port 8788. That
-host installs the exact vendored upstream `ppt-master` v4.5.0 package into its
+host installs the exact vendored upstream `ppt-master` v6.6.0 package into its
 normal Agent Skill directory, refreshes a writable snapshot under
 `/mnt/user-data/workspace/.ppt-master-runtime`, persists the Agent session and
 public command/file events under `.ppt-master-agent`, and generates the paired
@@ -134,6 +141,10 @@ for the Agent host `/health` endpoint because the two containers do not become
 ready atomically. Treat bounded DNS/connect/read failures during startup and
 polling as transient, but fail visibly after the configured deadline rather
 than leaking a raw Kubernetes resolver exception to the browser.
+The PPT-capable Sandbox image patches the outer authentication Nginx command
+routes idempotently. Accept both a literal `${AUTH_BACKEND_PORT}` and a rendered
+numeric loopback port, normalize all three timeout directives in exactly two
+locations, and fail closed when the base configuration shape changes.
 The ordinary Gateway and `ppt-master-runner` run in separate Pods and have
 independent in-memory Sandbox registries. Hold a shared cross-process execution
 lease for the entire external
@@ -153,6 +164,15 @@ transitions as object animations, then resume the same Agent session and project
 with the concrete mismatch for at most three repair attempts. Publish only the
 accepted current-turn deck and a preview regenerated at least as recently as the
 PPTX; stale output files from earlier turns are not deliverables.
+Keep v6.5's runtime-authority model intact: ordinary Default, explicit Quick,
+Beautify, Image-to-PPTX, Create Template, and Edit Native PPTX load only the
+authority selected by the upstream routing document. Image-to-PPTX may load its
+required Quick child runtime without being reclassified as a route switch. The
+removed v4.5 native-enhance/template-fill routes must not be restored. Preserve
+the enterprise CNOOC Deck registration and the explicit-argv, `shell=False`
+process-launch hardening as the only maintained local modifications inside the
+vendored Skill tree; record the exact upstream tag, commit, and Skill tree in the
+Sandbox image provenance lock.
 The Agent host must fail closed without Codex auth or a Responses-compatible
 provider and must never fall back to the old lead graph. DeerFlow owns only
 authentication, streaming/checkpoint transport, cancellation, Confirm UI
@@ -386,6 +406,13 @@ tool results.
 In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 `/platform/knowledge-bases`. Keep that proxy on the `weknora-frontend` Kubernetes
 service DNS name; never pin a ClusterIP, because recreating the cluster changes it.
+Legacy binary `.doc` and `.ppt` files must never be sent to the OOXML-only
+DOCX/PPTX browser previewers. Keep the enterprise WeKnora v0.8 runtime patch
+fail-closed and preserve the complete customized UI tree. Publish the patched
+JavaScript module graph under new asset names so browsers cannot keep executing
+the old long-lived hashed bundle after rollout; editing bytes under an existing
+asset name is not sufficient. Old Office files stay downloadable with parsed
+summaries/chunks, while `.docx` and `.pptx` retain their native online previews.
 The DeerFlow knowledge page embeds that same-origin native workspace. Its SSO
 response assigns either the full `system_admin` presentation or the simplified
 `personal_workspace_owner` presentation (Knowledge Q&A, Knowledge Bases, Shared
@@ -742,16 +769,18 @@ Enterprise Kubernetes storage note:
   a narrow route policy, not a blanket external-network bypass. Do not restore empty
   proxy overrides in `config.yaml`, rely only on the Sandbox image's build-time
   CA snapshot, or replace either path with `verify=false`.
-- Every provisioned enterprise Sandbox uses the release-pinned PPT-capable
-  `SANDBOX_IMAGE`. Keep that image preloaded with the complete dependency set
-  declared by the vendored upstream `ppt-master`, together with its documented
-  undeclared runtime requirements (including Playwright/Chromium, LibreOffice,
-  Pandoc, Cairo, FFmpeg, and CJK fonts). A change to
-  `skills/public/ppt-master/requirements.txt` therefore requires rebuilding,
-  distributing, importing, and smoke-testing the Sandbox image on every worker;
-  updating only the Skills PVC is insufficient. Never install these dependencies
-  on demand during a conversational run. Existing Sandbox Pods retain their old
-  image and must be replaced before release acceptance tests.
+- Provisioner may set `PPT_MASTER_AGENT_HOST_IMAGE` independently of
+  `SANDBOX_IMAGE`. Enterprise PPT Master releases must keep the proven AIO
+  command/browser image for the `sandbox` container and its init containers,
+  while the dependency-rich PPT image is used only by `ppt-master-agent-host`.
+  The host image must preload the vendored upstream requirements, including
+  Playwright/Chromium, LibreOffice, Pandoc, Cairo, FFmpeg, and CJK fonts.
+  Omitting the separate setting retains the shared-image local-development
+  behavior, but is not an enterprise release gate. Distribute and import both
+  images on every eligible node, then test an actual two-container Pod's AIO
+  command API and Agent Host before mutating production. Never install these
+  dependencies on demand during a conversational run. Existing Pods retain
+  their old images and must be replaced before release acceptance tests.
 - Long presentation workflows may legitimately invoke `bash` and `read_file`
   far more often than ordinary tools. Keep the enterprise runtime's per-tool
   loop-detection overrides bounded (currently warn at 120 and stop at 240)
@@ -819,7 +848,7 @@ Enterprise Kubernetes storage note:
   never recover or execute nested tool calls from an upstream error message.
   Null-choices failures receive at most one retry.
 - Enterprise Qwen3 Embedding and Reranker requests pass through authenticated Gateway relays. Keep the upstream `CNOOC_RETRIEVAL_API_KEY` separate from the independently generated `WEKNORA_INTERNAL_MODEL_RELAY_KEY`, never expose either key to browsers, and keep the upstream client direct with `trust_env=false`. The Qwen3 embedding relay requests 1024-dimensional Matryoshka output; if the approved endpoint returns 4096 values, Gateway truncates the prefix to 1024 and L2-normalizes it before returning the OpenAI-compatible response. Changing this dimension after documents are indexed requires a complete re-parse of every affected knowledge base. The approved retrieval credential admits 200 concurrent upstream requests, so keep `WEKNORA_INTERNAL_EMBEDDING_CONCURRENCY=200` as both the default and hard Gateway ceiling; WeKnora's 2+1 worker limits continue to control document parsing pressure. Retain bounded retries for transient business code `10020` to absorb brief shared-capacity races with rerank traffic.
-- Keep the exact internal model hostname `model.ai.cnooc` and the authenticated in-cluster `gateway` relay Service in the WeKnora App's comma-separated `SSRF_WHITELIST_EXTRA` as well as both proxy-bypass variables. WeKnora correctly blocks private addresses by default; this narrow deployment allowlist permits only the approved internal endpoints without opening the surrounding private network or disabling SSRF validation.
+- Keep the exact internal model hostnames `model.ai.cnooc` and `aiapi.cnooc.com.cn`, plus the authenticated in-cluster `gateway` relay Service, in the WeKnora App's comma-separated `SSRF_WHITELIST_EXTRA` as well as both proxy-bypass variables. WeKnora correctly blocks private addresses by default; this narrow deployment allowlist permits only the approved internal endpoints without opening the surrounding private network or disabling SSRF validation. `aiapi.cnooc.com.cn` is required by the configured DeepSeek V4 chat model used during document summary and question post-processing.
 - Route additional enterprise embedding/rerank providers through authenticated Gateway adapters when practical, so WeKnora continues to call the stable `gateway` Service while Gateway owns upstream credentials, CA trust, proxy routing, timeouts, and audit-safe error mapping. If a provider must be called directly from WeKnora, add only its reviewed exact hostname to `SSRF_WHITELIST_EXTRA`, `NO_PROXY`, and `no_proxy`; never pre-authorize a broad RFC1918 CIDR for anticipated providers.
 - Keep the CNOOC data-lake OAuth endpoint in both Gateway proxy-bypass variables by hostname and audited service IP (`datalake.cnooc` and `10.77.78.223`). The SSO validation endpoint is direct-only in the enterprise network; sending it through the outbound proxy times out before the platform Token can be validated.
 - Enterprise deployments set `DEER_FLOW_SSO_ONLY=true` on both Gateway and
@@ -901,6 +930,15 @@ thread routing or a distributed session broker is added.
 
 ## Where to Go Next
 
+Digital Employee resource sharing is implemented across the Gateway publication,
+resource-grant and proposal services, per-thread immutable Skill projections,
+the Gateway-only knowledge broker, and the frontend management/review surfaces.
+The Square grants invocation only, not source/KB browsing or owner credentials.
+Preserve every existing employee identity and unknown config field; never rebuild
+or bulk-delete production definitions. Release remains blocked on production
+source alignment, shared-storage canaries and safe old-version rollback; see
+`docs/digital-employee-sharing-2026-09-23.md` and `release/employee-sharing/`.
+
 - Backend work → **[backend/AGENTS.md](backend/AGENTS.md)**
 - Frontend work → **[frontend/AGENTS.md](frontend/AGENTS.md)**
 - Setup & install → **[Install.md](Install.md)**, **[CONTRIBUTING.md](CONTRIBUTING.md)**
@@ -920,5 +958,12 @@ These apply repo-wide; module guides own the module-specific detail.
 - **Test-driven development** — features and bug fixes ship with tests. Backend tests live
   in `backend/tests/` (TDD is mandatory there; see [backend/AGENTS.md](backend/AGENTS.md));
   frontend tests live in `frontend/tests/`.
+- Keep persistent Sandbox language and document dependencies in an immutable
+  AIO Sandbox image. Never install them inside an Agent turn. `read_file` is a
+  DeerFlow tool call rather than a shell binary. Chinese PDF generation must
+  embed a reviewed CJK font and fail closed when none is available. The
+  official AIO provider warm pool is deterministic user/thread reuse within a
+  Gateway process; do not add generic anonymous prewarming Pods that bypass
+  Provisioner identity, mounts, capacity, or teardown semantics.
 - **Format before pushing** — run `make format` (backend) / `pnpm check` (frontend). Backend
   CI enforces `ruff format --check`, so formatting must be clean before a push.

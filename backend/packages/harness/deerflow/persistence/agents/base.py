@@ -77,8 +77,28 @@ class AgentExistsError(Exception):
 
 
 class AgentStore(abc.ABC):
+    def read_definition(self, name: str, *, user_id: str | None = None):
+        """Read one coherent raw PRIVATE definition, never a shared fallback.
+
+        Real backends preserve fields not understood by AgentConfig. Do not
+        emulate this through get()+get_soul(), which can mix two revisions.
+        """
+        raise NotImplementedError("Atomic raw definition reads are required")
+
+    def patch_definition(self, name: str, updates: dict, soul: str | None, *, user_id: str | None = None, expected_revision: str | None):
+        """CAS a private field patch and SOUL together; must never upsert."""
+        raise NotImplementedError("Atomic raw definition edits are required")
+
+    def delete_definition(self, name: str, *, user_id: str | None = None, expected_revision: str, before_delete=None) -> AgentDeleteOutcome:
+        """Delete only the reviewed private definition under its write lock.
+
+        before_delete is a bounded host callback invoked after CAS succeeds,
+        never for a stale/missing record. It must not reenter this store.
+        """
+        raise NotImplementedError("Revision-guarded deletion is required")
+
     @abc.abstractmethod
-    def get(self, name: str, *, user_id: str | None = None) -> AgentConfig:
+    def get(self, name: str, *, user_id: str | None = None, allow_shared: bool = True) -> AgentConfig:
         """Return the agent's config.
 
         Raises :class:`FileNotFoundError` if the agent does not exist — the
@@ -96,7 +116,7 @@ class AgentStore(abc.ABC):
         """
 
     @abc.abstractmethod
-    def get_soul(self, name: str, *, user_id: str | None = None) -> str | None:
+    def get_soul(self, name: str, *, user_id: str | None = None, allow_shared: bool = True) -> str | None:
         """Return the agent's ``SOUL.md`` content, or ``None`` if unset/empty."""
 
     @abc.abstractmethod

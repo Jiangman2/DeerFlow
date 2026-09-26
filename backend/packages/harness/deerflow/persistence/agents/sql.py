@@ -101,21 +101,60 @@ class SqlAgentStore(AgentStore):
         stmt = select(AgentRow).where(AgentRow.user_id == user_id, AgentRow.name == name.lower())
         return session.execute(stmt).scalar_one_or_none()
 
+    def read_definition(self, name: str, *, user_id: str | None = None):
+        from deerflow.persistence.agents.drafts import AgentDefinition
+
+        effective_user = user_id or get_effective_user_id()
+        with self._Session() as session:
+            row = self._row(session, name, effective_user)
+            if row is None:
+                raise FileNotFoundError("Personal employee is unavailable")
+            return AgentDefinition.from_parts(row.name, row.config or {}, row.soul or "")
+
+    def patch_definition(self, name: str, updates: dict, soul: str | None, *, user_id: str | None = None, expected_revision: str | None):
+        from deerflow.persistence.agents.drafts import AgentDefinition, patched_definition
+
+        effective_user = user_id or get_effective_user_id()
+        with self._Session() as session:
+            # SQLite ignores FOR UPDATE. Reserve its writer BEFORE reading;
+            # PostgreSQL locks only this existing employee row. No network or
+            # resource-authorization work belongs inside this short transaction.
+            if session.get_bind().dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            row = session.execute(select(AgentRow).where(AgentRow.user_id == effective_user, AgentRow.name == name.lower()).with_for_update()).scalar_one_or_none()
+            if row is None:
+                raise FileNotFoundError("Personal employee is unavailable")
+            before = AgentDefinition.from_parts(row.name, row.config or {}, row.soul or "")
+            after = patched_definition(before, updates, soul, expected_revision)
+            if after != before:
+                row.config = _config_document(after.config)
+                row.soul = after.soul
+                session.commit()
+            return after
+
     @staticmethod
     def _shared_file(name: str, filename: str):
         """Return an enterprise team/legacy file without consulting personal files."""
         paths = get_paths()
-        for directory in (paths.team_agent_dir(name), paths.agent_dir(name)):
+        from deerflow.persistence.agents.publications import TeamPublicationStore
+
+        publications = TeamPublicationStore(paths)
+        if publications.has_record(name):
+            candidate = publications.read(name).directory / filename
+            return candidate if candidate.is_file() else None
+        for directory in (paths.agent_dir(name),):
             candidate = directory / filename
             if candidate.is_file():
                 return candidate
         return None
 
-    def get(self, name: str, *, user_id: str | None = None) -> AgentConfig:
+    def get(self, name: str, *, user_id: str | None = None, allow_shared: bool = True) -> AgentConfig:
         effective_user = user_id or get_effective_user_id()
         with self._Session() as session:
             row = self._row(session, name, effective_user)
         if row is None:
+            if not allow_shared:
+                raise FileNotFoundError("Personal agent is no longer available")
             config_file = self._shared_file(name, "config.yaml")
             if config_file is None:
                 raise FileNotFoundError(f"Agent config not found: {name} (user {effective_user})")
@@ -128,11 +167,13 @@ class SqlAgentStore(AgentStore):
         with self._Session() as session:
             return self._row(session, name, effective_user) is not None
 
-    def get_soul(self, name: str, *, user_id: str | None = None) -> str | None:
+    def get_soul(self, name: str, *, user_id: str | None = None, allow_shared: bool = True) -> str | None:
         effective_user = user_id or get_effective_user_id()
         with self._Session() as session:
             row = self._row(session, name, effective_user)
         if row is None:
+            if not allow_shared:
+                raise FileNotFoundError("Personal agent is no longer available")
             soul_file = self._shared_file(name, "SOUL.md")
             if soul_file is None:
                 return None
@@ -175,7 +216,9 @@ class SqlAgentStore(AgentStore):
     def update(self, name: str, config: dict | None, soul: str | None, *, user_id: str | None = None) -> None:
         effective_user = user_id or get_effective_user_id()
         with self._Session() as session:
-            row = self._row(session, name, effective_user)
+            if session.get_bind().dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            row = session.execute(select(AgentRow).where(AgentRow.user_id == effective_user, AgentRow.name == name.lower()).with_for_update()).scalar_one_or_none()
             if row is not None:
                 self._apply_update(row, config, soul)
                 session.commit()
@@ -198,7 +241,9 @@ class SqlAgentStore(AgentStore):
                 session.commit()
             except IntegrityError:
                 session.rollback()
-                existing = self._row(session, name, effective_user)
+                if session.get_bind().dialect.name == "sqlite":
+                    session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+                existing = session.execute(select(AgentRow).where(AgentRow.user_id == effective_user, AgentRow.name == name.lower()).with_for_update()).scalar_one_or_none()
                 if existing is None:
                     raise
                 self._apply_update(existing, config, soul)
@@ -208,11 +253,11 @@ class SqlAgentStore(AgentStore):
         """Merge into the stored JSON document without a model round trip."""
         effective_user = user_id or get_effective_user_id()
         with self._Session() as session:
-            row = self._row(session, name, effective_user)
+            if session.get_bind().dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            row = session.execute(select(AgentRow).where(AgentRow.user_id == effective_user, AgentRow.name == name.lower()).with_for_update()).scalar_one_or_none()
             if row is None:
-                raise FileNotFoundError(
-                    f"Agent config not found: {name} (user {effective_user})"
-                )
+                raise FileNotFoundError(f"Agent config not found: {name} (user {effective_user})")
             document = dict(row.config or {})
             document.update(_config_document(updates))
             row.config = document
@@ -221,9 +266,39 @@ class SqlAgentStore(AgentStore):
     @staticmethod
     def _apply_update(row: AgentRow, config: dict | None, soul: str | None) -> None:
         if config is not None:
-            row.config = _config_document(config)
+            row.config = {**(row.config or {}), **_config_document(config)}
         if soul is not None:
             row.soul = soul
+
+    def delete_definition(self, name: str, *, user_id: str | None = None, expected_revision: str, before_delete=None) -> AgentDeleteOutcome:
+        from deerflow.config.agents_config import validate_agent_name
+        from deerflow.persistence.agents.deletion import retain_deleted_definition
+        from deerflow.persistence.agents.drafts import AgentDefinition, patched_definition
+
+        name = validate_agent_name(name)
+        effective_user = user_id or get_effective_user_id()
+        with self._Session() as session:
+            if session.get_bind().dialect.name == "sqlite":
+                session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+            row = session.execute(select(AgentRow).where(AgentRow.user_id == effective_user, AgentRow.name == name).with_for_update()).scalar_one_or_none()
+            if row is None:
+                raise FileNotFoundError("Personal employee is unavailable")
+            current = AgentDefinition.from_parts(row.name, row.config or {}, row.soul or "")
+            patched_definition(current, {}, None, expected_revision)
+            if before_delete is not None:
+                before_delete()
+            # Retain the exact row and move its ancillary directory BEFORE
+            # commit. No recursive work under the row lock, and no cleanup
+            # after commit that might delete a newly created namesake.
+            root = get_paths().user_agent_dir(effective_user, name)
+            row_record = {column.name: getattr(row, column.name) for column in AgentRow.__table__.columns}
+            row_record = {key: value.isoformat() if isinstance(value, datetime) else value for key, value in row_record.items()}
+            retain_deleted_definition(root, current, owner=effective_user, backend="sql", row=row_record)
+            session.delete(row)
+            # On an uncertain commit, retain the recovery record and surface
+            # failure. Never restore over a potentially new namesake.
+            session.commit()
+        return "deleted"
 
     def delete(self, name: str, *, user_id: str | None = None) -> AgentDeleteOutcome:
         effective_user = user_id or get_effective_user_id()

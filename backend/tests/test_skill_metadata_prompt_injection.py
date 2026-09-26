@@ -105,7 +105,6 @@ def test_skill_prompt_requires_mandatory_references_before_phase_entry():
     assert "command's `--help`" in rendered
 
 
-# The sixth render site — the subagent ``<skill name=...>`` injection in
-# ``SubagentExecutor._load_skill_messages`` (which also injects the raw SKILL.md
-# body) — is guarded by ``test_subagent_skill_injection_escapes_name_and_content``
-# in ``test_subagent_executor.py``, where the executor's un-mock fixtures live.
+# Subagents reuse the escaped metadata/index renderers and load bodies only on
+# activation. Their lazy-index boundary is covered in test_subagent_executor.py;
+# the real publication-bound activation/policy pair in test_subagent_lazy_skills.py.

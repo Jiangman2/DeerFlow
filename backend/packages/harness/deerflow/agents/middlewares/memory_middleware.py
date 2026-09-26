@@ -12,7 +12,7 @@ from deerflow.agents.memory import get_memory_manager
 from deerflow.config.memory_config import get_memory_config
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.runtime.weknora_context import has_weknora_scope
-from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
+from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, resolve_trace_id
 
 if TYPE_CHECKING:
     from deerflow.config.memory_config import MemoryConfig
@@ -96,16 +96,9 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         # threading.Timer fires on a different thread where ContextVar values are not
         # propagated, so we must store user_id explicitly in ConversationContext.
         user_id = get_effective_user_id()
-        trace_id = normalize_trace_id(runtime_context.get(DEERFLOW_TRACE_METADATA_KEY))
-        if trace_id is None:
-            try:
-                config_data = get_config()
-            except RuntimeError:
-                config_data = {}
-            config_metadata = config_data.get("metadata", {}) if isinstance(config_data.get("metadata"), dict) else {}
-            trace_id = normalize_trace_id(config_metadata.get(DEERFLOW_TRACE_METADATA_KEY))
-        if trace_id is None:
-            trace_id = get_current_trace_id()
+        # Capture before the queue crosses to a Timer/executor thread. Runtime
+        # context is host-owned; arbitrary runnable metadata cannot replace it.
+        trace_id = resolve_trace_id(runtime_context.get(DEERFLOW_TRACE_METADATA_KEY))
 
         # Hand raw messages to the manager; the backend filters to user + final-AI
         # turns, validates, detects correction/reinforcement, and enqueues.

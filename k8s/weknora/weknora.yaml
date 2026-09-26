@@ -453,11 +453,11 @@ spec:
             # reviewed internal model endpoint directly. Permit only these
             # exact private hostnames through WeKnora's SSRF guard.
             - name: SSRF_WHITELIST_EXTRA
-              value: model.ai.cnooc,gateway
+              value: model.ai.cnooc,gateway,aiapi.cnooc.com.cn
             - name: NO_PROXY
-              value: localhost,127.0.0.1,gateway,weknora-postgres,weknora-redis,weknora-docreader,weknora-neo4j,model.ai.cnooc,.svc,.cluster.local
+              value: localhost,127.0.0.1,gateway,weknora-postgres,weknora-redis,weknora-docreader,weknora-neo4j,model.ai.cnooc,aiapi.cnooc.com.cn,.svc,.cluster.local
             - name: no_proxy
-              value: localhost,127.0.0.1,gateway,weknora-postgres,weknora-redis,weknora-docreader,weknora-neo4j,model.ai.cnooc,.svc,.cluster.local
+              value: localhost,127.0.0.1,gateway,weknora-postgres,weknora-redis,weknora-docreader,weknora-neo4j,model.ai.cnooc,aiapi.cnooc.com.cn,.svc,.cluster.local
           ports:
             - containerPort: 8080
               name: http

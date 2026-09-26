@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from deerflow.community.infoquest import tools
 from deerflow.community.infoquest.infoquest_client import InfoQuestClient
+from deerflow.utils.readability import Article
 
 
 class TestInfoQuestClient:
@@ -137,17 +138,22 @@ class TestInfoQuestClient:
         mock_client.web_search.assert_called_once_with("test query")
 
     @patch("deerflow.community.infoquest.tools._get_infoquest_client")
-    def test_web_fetch_tool(self, mock_get_client):
+    def test_web_fetch_tool(self, mock_get_client, monkeypatch):
         """Test web_fetch_tool function."""
         mock_client = MagicMock()
         mock_client.fetch.return_value = "<html><body>Test content</body></html>"
         mock_get_client.return_value = mock_client
+        # Transport routing is under test, not Readability's optional Node/npm
+        # dependency bootstrap. Preserve the real Article Markdown conversion.
+        parser = MagicMock(return_value=Article("Untitled", "<p>Test content</p>"))
+        monkeypatch.setattr(tools.readability_extractor, "extract_article", parser)
 
         result = tools.web_fetch_tool.run("https://example.com")
 
         assert result == "# Untitled\n\nTest content"
         mock_get_client.assert_called_once()
         mock_client.fetch.assert_called_once_with("https://example.com")
+        parser.assert_called_once_with(mock_client.fetch.return_value)
 
     @patch("deerflow.community.infoquest.tools.get_app_config")
     def test_get_infoquest_client(self, mock_get_app_config):

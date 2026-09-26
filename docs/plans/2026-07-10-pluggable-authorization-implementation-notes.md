@@ -202,6 +202,42 @@ Phase 1 最低验证要求：
 
 ### 新记录模板
 
+### 2026-09-26 — 企业 v2.1 对齐 / 工具授权接线
+
+- **依据：** 锁定 v2.1.0 最终源码；不采用旧 RFC 的 Protocol fallback 或 internal 角色推断。
+- **决策：** lead/bootstrap、subagent、embedded 的全部候选工具先过 Layer 1 再建 MCP catalog；相同 Provider 用于 Layer 2。现有员工和知识权限不被替换。
+- **兼容适配：** 当前 LangChain 实际 create_agent 拒绝两个同名 GuardrailMiddleware；授权实例采用独立 name，复用原逻辑，保留显式 guardrail 的独立拒绝权。
+- **缓存：** embedded 开启授权时逐 run 构建，不用不完整身份 cache key 复用旧权限；默认关闭时沿用缓存。
+- **证据：** 批次 41 十二模块 Windows 498/4 skip，离线 Linux 501/1 skip；真实 graph 构建修复前四项失败。
+- **延期：** sandbox/route 及 observer outcome 仍待接入；不启用生产授权或编造企业角色策略。完整上线尚未就绪。
+
+### 新记录模板（沿用）
+
+### 2026-09-26 — 企业 v2.1 对齐 / 中立授权结果
+
+- **决策：** 使用官方有界 outcome contract 交接实际决策，不让 observer 猜测 allow/deny；先完成 Guardrail 写端与 Gateway context 防伪回归。
+- **证据：** 批次 42 Windows/Linux 各 344 通过；observer 消费、子循环持久审计尚未接入。
+- **审阅项：** 官方 sandbox helper 的配置读取任意异常会跳过授权。企业接线尚未采用这段行为，需先区分明确关闭与配置不可用，禁止静默放行。
+
+### 2026-09-26 — 企业 v2.1 对齐 / Sandbox 执行边界
+
+- **决策：** 同步/异步/eager/复用及旧 runtime lookup 接入 sandbox:execute；read-before-write 不吞掉拒绝。
+- **企业差异：** 不接受官方配置异常 None=关闭；只有明确有效 disabled 配置才跳过。测试显式注入关闭配置而非全局屏蔽 gate。
+- **组合调用：** 私有 ContextVar permit 只在一次调用有效，绑定 runtime/thread/Principal，防止异步转同步重复构造 loop-affine provider；不跳过员工撤销、归属、挂载校验。
+- **证据：** 批次 43 新增 59 项；扩展 Linux 346 通过、16 项需 delta loader 跳过（未算验收）。
+- **延期：** Gateway 辅助分配路径、route、observer 消费和完整回归，生产默认不开启。
+
+### 2026-09-26 — 企业批次 45 / Gateway 辅助沙箱入口
+
+- **决策：** 请求 actor 与 storage owner 分离；授权只显式关闭时略过。
+  internal 来源需要 auth_source，有归属用户解析失败不落到更宽的默认角色。
+- **实现：** 上传同步和独立旧 DOC fallback 一起设 gate；主机上传/解析保持可用。
+  Preview 修改在 Runner 转发之前同样设 gate；只读审阅仍用 read 权限。
+- **证据：** 新增 32 项组合测试；六模块离线 Linux 357 全通过（无跳过）。
+- **延期：** request lease、provider-backed route、observer 消费、完整回归。
+
+### 新记录模板（继续沿用）
+
 ```markdown
 ### YYYY-MM-DD — Phase N / PR #NNNN
 

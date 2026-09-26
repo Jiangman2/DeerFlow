@@ -1,6 +1,7 @@
 """Focused unit coverage for the CNOOC IAM protocol boundary."""
 
 import asyncio
+from types import SimpleNamespace
 
 from starlette.requests import Request
 
@@ -29,7 +30,8 @@ def test_iam_sm4_response_round_trip_and_sm3_signature_material():
     assert len(sm3_hexdigest("a=x&b=false")) == 64
 
 
-def test_iam_account_mapping_is_corporate_and_legacy_address_is_recognized():
+def test_iam_account_mapping_is_corporate_and_legacy_address_is_recognized(monkeypatch):
+    monkeypatch.setattr("deerflow.config.app_config.get_app_config", lambda: SimpleNamespace(auth=SimpleNamespace(iam=SimpleNamespace(redirect_uri=""))))
     assert account_email("AD.User") == "ad.user@cnooc.com.cn"
     legacy = legacy_account_email("AD.User")
     assert is_legacy_account_email(legacy)

@@ -31,6 +31,14 @@ class SandboxRuntimeError(SandboxError):
     pass
 
 
+class SandboxAuthorizationError(SandboxError):
+    """The current principal may not execute sandbox operations."""
+
+    def __init__(self, message: str = "Sandbox execution is not permitted for your role", *, role: str | None = None):
+        super().__init__(message)
+        self.role = role
+
+
 class SandboxCommandError(SandboxError):
     """Raised when a command execution fails in the sandbox."""
 

@@ -17,6 +17,7 @@ from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command
 from app.channels.connection_identity import attach_connection_identity
 from app.channels.message_bus import InboundMessage, InboundMessageType, MessageBus, OutboundMessage, ResolvedAttachment
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -542,7 +543,7 @@ class DingTalkChannel(Channel):
             conversation_type,
             sender_staff_id,
             conversation_id,
-            "DingTalk connected to DeerFlow.",
+            f"钉钉已连接至{ENTERPRISE_PRODUCT_NAME}。",
         )
         return True
 
@@ -670,7 +671,7 @@ class DingTalkChannel(Channel):
                 headers=self._api_headers(token),
                 json={
                     "msgKey": "sampleMarkdown",
-                    "msgParam": json.dumps({"title": "DeerFlow", "text": text}),
+                    "msgParam": json.dumps({"title": ENTERPRISE_PRODUCT_NAME, "text": text}),
                     "robotCode": robot_code,
                     "userIds": [user_id],
                 },
@@ -701,7 +702,7 @@ class DingTalkChannel(Channel):
                 headers=self._api_headers(token),
                 json={
                     "msgKey": "sampleMarkdown",
-                    "msgParam": json.dumps({"title": "DeerFlow", "text": text}),
+                    "msgParam": json.dumps({"title": ENTERPRISE_PRODUCT_NAME, "text": text}),
                     "robotCode": robot_code,
                     "openConversationId": conversation_id,
                 },

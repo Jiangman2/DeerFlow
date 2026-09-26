@@ -13,6 +13,7 @@ matching the LangGraph Platform wire format expected by the
 from __future__ import annotations
 
 import copy
+import inspect
 import logging
 import shutil
 import uuid
@@ -25,9 +26,9 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 
 from app.gateway.authz import require_permission
-from app.gateway.deps import get_authorized_read_scope_user_id, get_checkpointer, get_run_manager
+from app.gateway.deps import get_authorized_read_scope_user_id, get_checkpointer, get_run_event_store, get_run_manager, get_run_store
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
-from app.gateway.services import strip_server_owned_state_metadata
+from app.gateway.services import reserve_checkpoint_write, resolve_trusted_internal_owner_for_attribution, strip_server_owned_state_metadata
 from app.gateway.utils import sanitize_log_param
 from deerflow.config.paths import Paths, get_paths
 from deerflow.config.summarization_config import ContextSize
@@ -47,9 +48,12 @@ from deerflow.runtime.goal import (
     read_thread_goal,
     write_thread_goal,
 )
+from deerflow.runtime.runs.manager import ConflictError
+from deerflow.runtime.runs.schemas import ThreadOperationKind
 from deerflow.runtime.runs.worker import valid_duration_entry
 from deerflow.runtime.user_context import get_effective_user_id
-from deerflow.utils.file_io import run_file_io
+from deerflow.utils.file_io import await_drained, run_file_io
+from deerflow.utils.thread_id import validate_thread_id
 from deerflow.utils.time import coerce_iso, now_iso
 
 logger = logging.getLogger(__name__)
@@ -498,10 +502,41 @@ async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteRe
     and removes the thread_meta row from the configured ThreadMetaStore
     (sqlite or memory).
     """
+    run_manager = get_run_manager(request)
+    user_id = get_effective_user_id()
+    try:
+        async with goal_thread_lock(thread_id):
+            async with run_manager.reserve_thread_operation(thread_id, kind=ThreadOperationKind.delete, user_id=user_id):
+                return await _delete_thread_data_with_reservation(thread_id, request, user_id=user_id)
+    except ConflictError:
+        raise HTTPException(status_code=409, detail="Thread has work in flight. Delete it after the work finishes.") from None
+
+
+def _event_delete_owner_kwargs(delete_by_thread: Any, user_id: str) -> dict[str, str]:
+    """Keep legacy event-store signatures without retrying backend TypeErrors."""
+    try:
+        parameters = inspect.signature(delete_by_thread).parameters.values()
+    except (TypeError, ValueError):
+        return {}
+    if any(parameter.kind == inspect.Parameter.VAR_KEYWORD or (parameter.name == "user_id" and parameter.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)) for parameter in parameters):
+        return {"user_id": user_id}
+    return {}
+
+
+async def _delete_thread_data_with_reservation(thread_id: str, request: Request, *, user_id: str) -> ThreadDeleteResponse:
+    """Use one captured owner while the durable deletion reservation is held."""
     from app.gateway.deps import get_thread_store
 
-    # Clean local filesystem
-    response = _delete_thread_data(thread_id, user_id=get_effective_user_id())
+    # Authorized legacy metadata may use IDs unsafe for filesystem paths. Never
+    # interpolate them into a host path, but still permit metadata cleanup.
+    try:
+        validate_thread_id(thread_id)
+    except ValueError:
+        response = ThreadDeleteResponse(success=True, message="Skipped local data cleanup for legacy thread ID")
+    else:
+        # A cancelled request must not release admission while its offloaded
+        # rmtree can still remove a new run's workspace.
+        response = await await_drained(run_file_io(_delete_thread_data, thread_id, user_id=user_id))
 
     # Remove checkpoints (best-effort)
     checkpointer = getattr(request.app.state, "checkpointer", None)
@@ -512,11 +547,35 @@ async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteRe
         except Exception:
             logger.debug("Could not delete checkpoints for thread %s (not critical)", sanitize_log_param(thread_id))
 
+    # Remove historical runs, never the internal reservation protecting this
+    # operation. Older third-party stores may not expose bulk history cleanup.
+    try:
+        delete_runs = getattr(get_run_store(request), "delete_by_thread", None)
+        if delete_runs is not None:
+            await delete_runs(thread_id, user_id=user_id)
+    except Exception:
+        logger.debug("Could not delete run records for thread %s (not critical)", sanitize_log_param(thread_id))
+
+    try:
+        delete_events = get_run_event_store(request).delete_by_thread
+        await delete_events(thread_id, **_event_delete_owner_kwargs(delete_events, user_id))
+    except Exception:
+        logger.debug("Could not delete run events for thread %s (not critical)", sanitize_log_param(thread_id))
+
+    # Cleans existing feedback; already-admitted future feedback writes require
+    # a separate lifecycle fence. Memory deployments have no feedback repo.
+    try:
+        feedback_repo = getattr(request.app.state, "feedback_repo", None)
+        if feedback_repo is not None:
+            await feedback_repo.delete_by_thread(thread_id, user_id=user_id)
+    except Exception:
+        logger.debug("Could not delete feedback for thread %s (not critical)", sanitize_log_param(thread_id))
+
     # Remove thread_meta row (best-effort) — required for sqlite backend
     # so the deleted thread no longer appears in /threads/search.
     try:
         thread_store = get_thread_store(request)
-        await thread_store.delete(thread_id)
+        await thread_store.delete(thread_id, user_id=user_id)
     except Exception:
         logger.debug("Could not delete thread_meta for %s (not critical)", sanitize_log_param(thread_id))
 
@@ -690,6 +749,20 @@ async def branch_thread(thread_id: str, body: ThreadBranchRequest, request: Requ
     )
     thread_owner_user_id = get_trusted_internal_owner_user_id(request)
     thread_owner_kwargs = {"user_id": thread_owner_user_id} if thread_owner_user_id else {}
+
+    from app.gateway.agent_publications import branch_agent_publication
+
+    actor = getattr(request.state, "user", None)
+    if thread_owner_user_id:
+        actor = await resolve_trusted_internal_owner_for_attribution(request, thread_owner_user_id)
+    publication = await branch_agent_publication(
+        source_thread_id=thread_id,
+        target_thread_id=new_thread_id,
+        owner_user_id=source_record.get("user_id"),
+        actor=actor,
+    )
+    if publication is not None:
+        branch_metadata.update(agent_name=publication.name, agent_source="team")
 
     checkpoint = copy.deepcopy(getattr(checkpoint_tuple, "checkpoint", {}) or {})
     metadata = copy.deepcopy(getattr(checkpoint_tuple, "metadata", {}) or {})
@@ -887,13 +960,17 @@ async def set_thread_goal(thread_id: str, body: ThreadGoalRequest, request: Requ
     this endpoint creates the missing thread checkpoint on demand.
     """
     checkpointer = get_checkpointer(request)
-    await _ensure_thread_for_goal(thread_id, request)
     try:
         goal = build_goal_state(body.objective, max_continuations=body.max_continuations)
-        async with goal_thread_lock(thread_id):
+        async with reserve_checkpoint_write(request, thread_id, user_id=get_effective_user_id()):
+            await _ensure_thread_for_goal(thread_id, request)
             await write_thread_goal(checkpointer, thread_id, goal, as_node="goal", create_if_missing=True)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ConflictError:
+        raise HTTPException(status_code=409, detail="Thread has a run in flight. Set the goal after the run finishes.") from None
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Failed to set goal for thread %s", sanitize_log_param(thread_id))
         raise HTTPException(status_code=500, detail="Failed to set thread goal") from None
@@ -906,8 +983,10 @@ async def clear_thread_goal(thread_id: str, request: Request) -> ThreadGoalRespo
     """Clear the active goal for a thread."""
     checkpointer = get_checkpointer(request)
     try:
-        async with goal_thread_lock(thread_id):
+        async with reserve_checkpoint_write(request, thread_id, user_id=get_effective_user_id()):
             await write_thread_goal(checkpointer, thread_id, None, as_node="goal")
+    except ConflictError:
+        raise HTTPException(status_code=409, detail="Thread has a run in flight. Clear the goal after the run finishes.") from None
     except LookupError:
         return ThreadGoalResponse(goal=None)
     except Exception:
@@ -933,13 +1012,10 @@ def _thread_compact_response(result: ThreadCompactionResult) -> ThreadCompactRes
 @require_permission("threads", "write", owner_check=True, require_existing=True)
 async def compact_thread(thread_id: str, body: ThreadCompactRequest, request: Request) -> ThreadCompactResponse:
     """Manually summarize old thread context while preserving the visible history."""
-    run_manager = get_run_manager(request)
     checkpointer = get_checkpointer(request)
     keep = body.keep.to_tuple() if body.keep is not None else None
     try:
-        async with goal_thread_lock(thread_id):
-            if await run_manager.has_inflight(thread_id):
-                raise HTTPException(status_code=409, detail="Thread has a run in flight. Compact after the run finishes.")
+        async with reserve_checkpoint_write(request, thread_id, user_id=get_effective_user_id()):
             result = await compact_thread_context(
                 checkpointer,
                 thread_id,
@@ -948,6 +1024,8 @@ async def compact_thread(thread_id: str, body: ThreadCompactRequest, request: Re
                 user_id=get_effective_user_id(),
                 agent_name=body.agent_name,
             )
+    except ConflictError:
+        raise HTTPException(status_code=409, detail="Thread has a run in flight. Compact after the run finishes.") from None
     except ContextCompactionDisabled:
         raise HTTPException(status_code=409, detail="Context compaction is disabled.") from None
     except ContextCompactionFailed:
@@ -1025,6 +1103,15 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
     ThreadMetaStore abstraction so that ``/threads/search`` reflects the
     change immediately in both sqlite and memory backends.
     """
+    try:
+        async with reserve_checkpoint_write(request, thread_id, user_id=get_effective_user_id()):
+            return await _update_reserved_thread_state(thread_id, body, request)
+    except ConflictError:
+        raise HTTPException(status_code=409, detail="Thread has a run in flight. Update state after the run finishes.") from None
+
+
+async def _update_reserved_thread_state(thread_id: str, body: ThreadStateUpdateRequest, request: Request) -> ThreadStateResponse:
+    """Keep the enterprise read/merge/write and title sync inside one reservation."""
     from app.gateway.deps import get_thread_store
 
     checkpointer = get_checkpointer(request)

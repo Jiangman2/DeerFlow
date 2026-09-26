@@ -31,6 +31,10 @@ import re
 from collections.abc import Mapping
 from typing import Any, Literal, NotRequired, TypedDict
 
+from deerflow.agents.middlewares.receipt_verification import ReceiptVerdict, validate_receipt_verdict
+from deerflow.agents.middlewares.tool_receipt import is_valid_receipt
+from deerflow.subagents.acceptance_checks import AcceptanceVerdict, validate_acceptance_verdict
+
 SUBAGENT_STATUS_KEY = "subagent_status"
 SUBAGENT_STOP_REASON_KEY = "subagent_stop_reason"
 SUBAGENT_ERROR_KEY = "subagent_error"
@@ -38,6 +42,9 @@ SUBAGENT_RESULT_BRIEF_KEY = "subagent_result_brief"
 SUBAGENT_RESULT_SHA256_KEY = "subagent_result_sha256"
 SUBAGENT_MODEL_NAME_KEY = "subagent_model_name"
 SUBAGENT_TOKEN_USAGE_KEY = "subagent_token_usage"
+SUBAGENT_TOOL_RECEIPTS_KEY = "subagent_tool_receipts"
+SUBAGENT_RECEIPT_VERDICT_KEY = "subagent_receipt_verdict"
+SUBAGENT_ACCEPTANCE_VERDICT_KEY = "subagent_acceptance_verdict"
 SUBAGENT_METADATA_TEXT_MAX_CHARS = 2000
 
 #: The producer always emits ``hashlib.sha256(...).hexdigest()`` — 64
@@ -111,6 +118,9 @@ class StructuredSubagentResult(TypedDict):
     result_brief: NotRequired[str]
     result_sha256: NotRequired[str]
     error: NotRequired[str]
+    tool_receipts: NotRequired[list[dict[str, Any]]]
+    receipt_verdict: NotRequired[ReceiptVerdict]
+    acceptance_verdict: NotRequired[AcceptanceVerdict]
 
 
 def _bound_metadata_text(text: str, cap: int = SUBAGENT_METADATA_TEXT_MAX_CHARS) -> str:
@@ -135,6 +145,9 @@ def make_subagent_additional_kwargs(
     stop_reason: SubagentStopReasonValue | None = None,
     model_name: str | None = None,
     token_usage: Mapping[str, object] | None = None,
+    tool_receipts: list[dict[str, Any]] | None = None,
+    receipt_verdict: Mapping[str, object] | None = None,
+    acceptance_verdict: AcceptanceVerdict | None = None,
 ) -> dict[str, object]:
     """Build the ``additional_kwargs`` payload the middleware stamps.
 
@@ -168,6 +181,16 @@ def make_subagent_additional_kwargs(
     normalized_usage = normalize_token_usage(token_usage)
     if normalized_usage is not None:
         payload[SUBAGENT_TOKEN_USAGE_KEY] = normalized_usage
+    if isinstance(tool_receipts, list):
+        cleaned_receipts = [dict(receipt) for receipt in tool_receipts if is_valid_receipt(receipt)]
+        if cleaned_receipts:
+            payload[SUBAGENT_TOOL_RECEIPTS_KEY] = cleaned_receipts
+    validated_verdict = validate_receipt_verdict(receipt_verdict)
+    if status == "completed" and validated_verdict is not None:
+        payload[SUBAGENT_RECEIPT_VERDICT_KEY] = validated_verdict
+    validated_acceptance = validate_acceptance_verdict(acceptance_verdict)
+    if status == "completed" and validated_acceptance is not None:
+        payload[SUBAGENT_ACCEPTANCE_VERDICT_KEY] = validated_acceptance
     return payload
 
 
@@ -283,4 +306,15 @@ def read_subagent_result_metadata(
         payload["stop_reason"] = raw_stop_reason
     elif legacy_stop_reason is not None:
         payload["stop_reason"] = legacy_stop_reason
+    raw_receipts = additional_kwargs.get(SUBAGENT_TOOL_RECEIPTS_KEY)
+    if isinstance(raw_receipts, list):
+        cleaned_receipts = [dict(receipt) for receipt in raw_receipts if is_valid_receipt(receipt)]
+        if cleaned_receipts:
+            payload["tool_receipts"] = cleaned_receipts
+    validated_verdict = validate_receipt_verdict(additional_kwargs.get(SUBAGENT_RECEIPT_VERDICT_KEY))
+    if status == "completed" and validated_verdict is not None:
+        payload["receipt_verdict"] = validated_verdict
+    validated_acceptance = validate_acceptance_verdict(additional_kwargs.get(SUBAGENT_ACCEPTANCE_VERDICT_KEY))
+    if status == "completed" and validated_acceptance is not None:
+        payload["acceptance_verdict"] = validated_acceptance
     return payload

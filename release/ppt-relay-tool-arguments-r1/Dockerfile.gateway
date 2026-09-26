@@ -1,0 +1,7 @@
+# The base is an explicitly supplied, digest-verified local OCI context.
+# Never resolve this name through a registry.
+FROM ppt-relay-gateway-base
+COPY codex_responses_adapter.py PATCH.json apply-candidate.py smoke.py /tmp/ppt-relay-r1/
+RUN --network=none cd /app/backend \
+    && .venv/bin/python -B /tmp/ppt-relay-r1/apply-candidate.py /app/backend /tmp/ppt-relay-r1 \
+    && .venv/bin/python -B /tmp/ppt-relay-r1/smoke.py /app/backend/app/gateway/codex_responses_adapter.py

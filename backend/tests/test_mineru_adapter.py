@@ -41,9 +41,7 @@ def _fake_docx_with_text(text: str = "大型文档恢复正文") -> bytes:
         archive.writestr("[Content_Types].xml", "<Types />")
         archive.writestr(
             "word/document.xml",
-            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-            f"<w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body>"
-            "</w:document>",
+            f'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body></w:document>',
         )
     return data.getvalue()
 
@@ -111,6 +109,26 @@ def test_detect_input_suffix_recognises_pdf_pptx_and_docx():
     assert app.detect_input_suffix(b"%PDF-1.7\n") == ".pdf"
     assert app.detect_input_suffix(_fake_pptx()) == ".pptx"
     assert app.detect_input_suffix(_fake_docx()) == ".docx"
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    (
+        (b"\x89PNG\r\n\x1a\nimage", ".png"),
+        (b"\xff\xd8\xff\xe0image", ".jpg"),
+        (b"GIF89aimage", ".gif"),
+        (b"BMimage", ".bmp"),
+        (b"II*\x00image", ".tiff"),
+        (b"MM\x00*image", ".tiff"),
+        (b"RIFF\x04\x00\x00\x00WEBPimage", ".webp"),
+        (b"\x00\x00\x00\x0cjP  \r\n\x87\nimage", ".jp2"),
+    ),
+)
+def test_detect_input_suffix_recognises_raster_images_from_magic_bytes(
+    content,
+    expected,
+):
+    assert app.detect_input_suffix(content, "misleading.pdf") == expected
 
 
 def test_detect_legacy_office_suffix_uses_compound_document_streams():
@@ -632,9 +650,7 @@ def test_docx_workload_routes_on_expanded_document_xml(monkeypatch):
 
 
 def test_docx_streaming_recovery_extracts_text_without_images():
-    markdown, images = app._parse_docx_streaming_in_process(
-        _fake_docx_with_text("低内存流式正文")
-    )
+    markdown, images = app._parse_docx_streaming_in_process(_fake_docx_with_text("低内存流式正文"))
 
     assert markdown == "低内存流式正文"
     assert images == {}
@@ -1039,6 +1055,35 @@ def test_scanned_pdf_uses_mineru_instead_of_builtin(monkeypatch):
     assert response["results"]["document"]["md_content"] == "## 第 1 页\n\nOCR result"
 
 
+def test_raster_image_uses_mineru_without_pdf_conversion(monkeypatch):
+    image = b"\x89PNG\r\n\x1a\nimage-payload"
+    monkeypatch.setenv("MINERU_API_URL", "http://mineru.internal/parse/v1")
+    monkeypatch.setenv("MINERU_API_TOKEN", "secret")
+
+    class _MinerU:
+        def __init__(self, **kwargs):
+            assert kwargs["api_url"] == "http://mineru.internal/parse/v1"
+
+        def parse_image(self, content, filename, suffix):
+            assert content == image
+            assert filename == "现场照片.png"
+            assert suffix == ".png"
+            return {
+                "results": {
+                    filename: {
+                        "md_content": "# OCR\n\n设备编号 A-1024",
+                        "images": {},
+                    }
+                }
+            }
+
+    monkeypatch.setattr(app, "EnterpriseMinerUClient", _MinerU)
+
+    response = app.parse_upload(image, "现场照片.jpeg", parse_profile="conversation")
+
+    assert response["results"]["document"]["md_content"] == "# OCR\n\n设备编号 A-1024"
+
+
 def test_source_page_render_failure_rejects_incomplete_mineru_result(monkeypatch):
     monkeypatch.setattr(
         app,
@@ -1309,6 +1354,40 @@ def test_enterprise_mineru_client_matches_native_rest_contract():
         "response_format_zip": "false",
     }
     assert captured["timeout"] == 123
+
+
+def test_enterprise_mineru_client_submits_image_with_detected_media_type():
+    captured = {}
+
+    class _Response:
+        status_code = 200
+
+        def json(self):
+            return {
+                "results": {
+                    "photo.png": {
+                        "md_content": "OCR text",
+                        "images": {},
+                    }
+                }
+            }
+
+    class _Session:
+        def post(self, url, **kwargs):
+            captured.update({"url": url, **kwargs})
+            return _Response()
+
+    client = app.EnterpriseMinerUClient(
+        api_url="http://model.ai.cnooc/member1/mineru-2605",
+        api_token="secret-token",
+        timeout_seconds=123,
+        session=_Session(),
+    )
+
+    result = client.parse_image(b"\x89PNG\r\n\x1a\nimage", "photo.png", ".png")
+
+    assert result["results"]["photo.png"]["md_content"] == "OCR text"
+    assert captured["files"] == {"files": ("photo.png", b"\x89PNG\r\n\x1a\nimage", "image/png")}
 
 
 def test_split_pdf_for_sync_uses_lossless_page_ranges():

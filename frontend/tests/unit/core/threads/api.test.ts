@@ -43,6 +43,22 @@ test("fetchThreadTokenUsage uses shared auth fetch without JSON GET headers", as
   );
 });
 
+test("compactThreadContext surfaces an active-run conflict", async () => {
+  fetchWithAuth.mockResolvedValue({
+    ok: false,
+    status: 409,
+    json: async () => ({
+      detail: "Thread has a run in flight. Compact after the run finishes.",
+    }),
+  });
+
+  const { compactThreadContext } = await import("@/core/threads/api");
+
+  await expect(compactThreadContext("thread-1")).rejects.toThrow(
+    "Thread has a run in flight. Compact after the run finishes.",
+  );
+});
+
 test("fetchThreadTokenUsage returns null for unavailable token usage", async () => {
   fetchWithAuth.mockResolvedValue({
     ok: false,

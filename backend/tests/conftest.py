@@ -40,6 +40,21 @@ _executor_mock.get_background_task_result = MagicMock()
 sys.modules["deerflow.subagents.executor"] = _executor_mock
 
 
+@pytest.fixture
+def disabled_sandbox_authorization(monkeypatch):
+    """Explicit policy input for sandbox-only tests without a config.yaml.
+
+    Opt-in, not autouse: authorization/config failure tests must exercise the
+    real loader. Never make production code infer disabled from missing files.
+    """
+    from deerflow.config.app_config import AppConfig
+    from deerflow.config.authorization_config import AuthorizationConfig
+
+    config = AppConfig.model_construct(authorization=AuthorizationConfig(enabled=False))
+    monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
+    return config
+
+
 @pytest.fixture()
 def provisioner_module():
     """Load docker/provisioner/app.py as an importable test module.

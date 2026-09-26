@@ -122,12 +122,10 @@ def test_aio_sandbox_env_routes_through_bash_exec() -> None:
         def close_session(self, session_id, **kwargs):
             captured["closed_session_id"] = session_id
 
-    sbx = AioSandbox.__new__(AioSandbox)
-    sbx._lock = __import__("threading").Lock()
-    sbx._client = SimpleNamespace(bash=_FakeBash())
+    with patch("deerflow.community.aio_sandbox.aio_sandbox.AioSandboxClient", return_value=SimpleNamespace(bash=_FakeBash())):
+        sbx = AioSandbox("test-env", "http://test.invalid", home_dir="/home/test")
     sbx._DEFAULT_NO_CHANGE_TIMEOUT = 30
     sbx._DEFAULT_HARD_TIMEOUT = 30
-    sbx._bash_exec_unsupported = False
 
     out = sbx.execute_command("gh pr create", env={"GH_TOKEN": "tok-123"})
 

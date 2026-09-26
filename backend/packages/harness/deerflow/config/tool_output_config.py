@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+import os
+
+from pydantic import BaseModel, Field, field_validator
+
+from deerflow.constants import TOOL_RESULTS_DIRNAME
 
 
 class ToolOutputConfig(BaseModel):
@@ -49,9 +53,19 @@ class ToolOutputConfig(BaseModel):
         description="Tail characters for fallback truncation.",
     )
     storage_subdir: str = Field(
-        default=".tool-results",
+        default=TOOL_RESULTS_DIRNAME,
         description="Subdirectory under the thread outputs path for persisted tool results.",
     )
+
+    @field_validator("storage_subdir")
+    @classmethod
+    def _single_segment_storage_subdir(cls, value: str) -> str:
+        # Snapshot pruning matches one directory name at a time. A nested path
+        # would silently count tool feedback as an undelivered output (#4657).
+        if value in {"", ".", ".."} or os.path.isabs(value) or "/" in value or "\\" in value:
+            raise ValueError("storage_subdir must be a single non-empty directory name")
+        return value
+
     exempt_tools: list[str] = Field(
         default_factory=lambda: ["read_file", "read_file_tool"],
         description="Tool names exempt from budget enforcement (prevents persist→read→persist loops).",

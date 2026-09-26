@@ -623,11 +623,26 @@ def _make_test_app(tmp_path: Path):
 
 
 @pytest.fixture()
-def agent_client(tmp_path):
+def agent_client(tmp_path, monkeypatch):
     """TestClient with agents router, using tmp_path as base_dir."""
+    from types import SimpleNamespace
+
     import app.gateway.routers.agents as agents_router
+    from app.gateway import employee_knowledge
+
+    actor = SimpleNamespace(id="test-user-autouse", is_disabled=False, system_role="user")
+    monkeypatch.setattr(agents_router, "get_current_user", lambda: actor)
+    skill_config = SimpleNamespace(skills=SimpleNamespace(get_skills_path=lambda: tmp_path / "skills", container_path="/mnt/skills"))
+    monkeypatch.setattr("deerflow.config.get_app_config", lambda: skill_config)
+    real_broker = employee_knowledge.EmployeeKnowledgeBroker
+
+    async def lookup_actor(uid):
+        return actor if uid == actor.id else None
+
+    monkeypatch.setattr(employee_knowledge, "EmployeeKnowledgeBroker", lambda paths: real_broker(paths, actor_lookup=lookup_actor))
 
     paths_instance = _make_paths(tmp_path)
+    monkeypatch.setattr("deerflow.config.paths.get_paths", lambda: paths_instance)
     previous_config = AgentsApiConfig(**get_agents_api_config().model_dump())
 
     with patch("deerflow.config.agents_config.get_paths", return_value=paths_instance), patch.object(agents_router, "get_paths", return_value=paths_instance):
@@ -657,6 +672,13 @@ def disabled_agent_client(tmp_path):
                 yield client
         finally:
             set_agents_api_config(previous_config)
+
+
+def _publish_current(client, name, **options):
+    """Exercise publication with the same explicit review receipt as the UI."""
+    definition = client.get(f"/api/agents/{name}?source=personal")
+    assert definition.status_code == 200, definition.text
+    return client.post(f"/api/agents/{name}/publish", json={"expected_draft_revision": definition.json()["draft_revision"], **options})
 
 
 class TestAgentsAPI:
@@ -723,7 +745,7 @@ class TestAgentsAPI:
 
         updated = agent_client.put(
             "/api/agents/monthly-report",
-            json={"category_id": "oil-gas-resource-development", "tags": ["日报", "自动化"]},
+            json={"category_id": "oil-gas-resource-development", "tags": ["日报", "自动化"], "expected_draft_revision": created["draft_revision"]},
         )
         assert updated.status_code == 200
         assert updated.json()["category_id"] == "oil-gas-resource-development"
@@ -876,11 +898,12 @@ class TestAgentsAPI:
         png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
         uploaded = agent_client.post(
             "/api/agents/avatar-agent/avatar",
+            params={"expected_draft_revision": created.json()["draft_revision"]},
             files={"file": ("avatar.png", png, "image/png")},
         )
 
         assert uploaded.status_code == 200
-        assert uploaded.json()["avatar_url"].endswith("/api/agents/avatar-agent/avatar")
+        assert uploaded.json()["avatar_url"].startswith("/api/agents/avatar-agent/avatar?v=")
         served = agent_client.get("/api/agents/avatar-agent/avatar")
         assert served.status_code == 200
         assert served.headers["content-type"].startswith("image/webp")
@@ -1047,14 +1070,16 @@ class TestAgentsAPI:
     def test_update_agent_soul(self, agent_client):
         agent_client.post("/api/agents", json={"name": "update-me", "soul": "original"})
 
-        response = agent_client.put("/api/agents/update-me", json={"soul": "updated"})
+        revision = agent_client.get("/api/agents/update-me?source=personal").json()["draft_revision"]
+        response = agent_client.put("/api/agents/update-me", json={"soul": "updated", "expected_draft_revision": revision})
         assert response.status_code == 200
         assert response.json()["soul"] == "updated"
 
     def test_update_agent_description(self, agent_client):
         agent_client.post("/api/agents", json={"name": "desc-agent", "description": "old desc", "soul": "p"})
 
-        response = agent_client.put("/api/agents/desc-agent", json={"description": "new desc"})
+        revision = agent_client.get("/api/agents/desc-agent?source=personal").json()["draft_revision"]
+        response = agent_client.put("/api/agents/desc-agent", json={"description": "new desc", "expected_draft_revision": revision})
         assert response.status_code == 200
         assert response.json()["description"] == "new desc"
 
@@ -1094,7 +1119,8 @@ class TestAgentsAPI:
         config_file.write_text(yaml.safe_dump(config_data, sort_keys=False), encoding="utf-8")
 
         # PATCH only the description.
-        response = agent_client.put("/api/agents/github-agent", json={"description": "new desc"})
+        revision = agent_client.get("/api/agents/github-agent?source=personal").json()["draft_revision"]
+        response = agent_client.put("/api/agents/github-agent", json={"description": "new desc", "expected_draft_revision": revision})
         assert response.status_code == 200
 
         # github: block must survive verbatim.
@@ -1142,14 +1168,14 @@ class TestAgentsAPI:
         assert response.status_code == 404
 
     def test_delete_agent(self, agent_client):
-        agent_client.post("/api/agents", json={"name": "del-me", "soul": "bye"})
+        created = agent_client.post("/api/agents", json={"name": "del-me", "soul": "bye"}).json()
 
         import app.gateway.routers.agents as agents_router
 
         memory_manager = MagicMock()
         memory_manager.cancel_by_agent.return_value = 1
         with patch.object(agents_router, "get_memory_manager", return_value=memory_manager):
-            response = agent_client.delete("/api/agents/del-me")
+            response = agent_client.delete("/api/agents/del-me", params={"expected_draft_revision": created["draft_revision"]})
         assert response.status_code == 204
         assert memory_manager.cancel_by_agent.call_count == 2
         memory_manager.cancel_by_agent.assert_called_with("del-me", user_id="test-user-autouse")
@@ -1188,13 +1214,16 @@ class TestAgentsAPI:
         assert (agent_dir / "SOUL.md").exists()
         assert (agent_dir / "SOUL.md").read_text() == "disk soul"
 
-    def test_delete_removes_files_from_disk(self, agent_client, tmp_path):
-        agent_client.post("/api/agents", json={"name": "remove-me", "soul": "bye"})
+    def test_delete_retains_files_outside_active_directory(self, agent_client, tmp_path):
+        created = agent_client.post("/api/agents", json={"name": "remove-me", "soul": "bye"}).json()
         agent_dir = tmp_path / "users" / "test-user-autouse" / "agents" / "remove-me"
         assert agent_dir.exists()
 
-        agent_client.delete("/api/agents/remove-me")
+        result = agent_client.delete("/api/agents/remove-me", params={"expected_draft_revision": created["draft_revision"]})
+        assert result.status_code == 204
         assert not agent_dir.exists()
+        retained = list(agent_dir.parent.glob(".deleted-*/files/SOUL.md"))
+        assert len(retained) == 1 and retained[0].read_text() == "bye"
 
     def test_create_rejects_legacy_name_collision(self, agent_client, tmp_path):
         """An unmigrated legacy agent must still block name collision so that
@@ -1228,27 +1257,47 @@ class TestAgentsAPI:
             "/api/agents",
             json={
                 "name": "publish-me",
+                "skills": [],
                 "description": "Publishable agent",
                 "soul": "Shared soul",
             },
         )
 
-        publish_response = agent_client.post(
-            "/api/agents/publish-me/publish",
-            json={"overwrite": True},
-        )
+        publish_response = _publish_current(agent_client, "publish-me", overwrite=True)
 
         assert publish_response.status_code == 200
         published = publish_response.json()
         assert published["source"] == "team"
         assert published["published_by_current_user"] is True
         team_dir = tmp_path / "team_agents" / "publish-me"
-        assert (team_dir / "config.yaml").exists()
-        assert (team_dir / "SOUL.md").read_text(encoding="utf-8") == "Shared soul"
+        revision_dir = team_dir / ".revisions" / published["publication_revision"]
+        assert (revision_dir / "config.yaml").exists()
+        assert (revision_dir / "SOUL.md").read_text(encoding="utf-8") == "Shared soul"
 
-        unpublish_response = agent_client.delete("/api/team-agents/publish-me")
+        unpublish_response = agent_client.delete("/api/team-agents/publish-me", params={"expected_revision": published["publication_revision"]})
         assert unpublish_response.status_code == 204
-        assert not team_dir.exists()
+        assert revision_dir.exists()  # Unpublish retains the historical content.
+        assert agent_client.get("/api/team-agents/publish-me").status_code == 404
+
+    def test_editing_draft_does_not_change_square_and_stale_publish_conflicts(self, agent_client):
+        agent_client.post("/api/agents", json={"name": "versions", "soul": "v1", "skills": []})
+        first_response = _publish_current(agent_client, "versions")
+        assert first_response.status_code == 200, first_response.text
+        first = first_response.json()
+        revision = agent_client.get("/api/agents/versions?source=personal").json()["draft_revision"]
+        assert agent_client.put("/api/agents/versions", json={"soul": "v2", "expected_draft_revision": revision}).status_code == 200
+        assert agent_client.get("/api/team-agents/versions").json()["soul"] == "v1"
+        personal = agent_client.get("/api/agents/versions?source=personal").json()
+        assert personal["publication_revision"] == first["publication_revision"]
+        assert _publish_current(agent_client, "versions").status_code == 409
+        second = _publish_current(agent_client, "versions", expected_revision=first["publication_revision"])
+        assert second.status_code == 200
+        assert second.json()["soul"] == "v2"
+        assert second.json()["publication_revision"] != first["publication_revision"]
+        assert agent_client.delete("/api/team-agents/versions", params={"expected_revision": first["publication_revision"]}).status_code == 409
+        history = agent_client.get("/api/agents/versions/publications").json()
+        assert len(history["revisions"]) == 2
+        assert "soul" not in str(history)
 
     def test_personal_delete_does_not_remove_team_agent(self, agent_client, tmp_path):
         _write_team_agent(tmp_path, "team-only", {"description": "Shared"})
@@ -1257,6 +1306,91 @@ class TestAgentsAPI:
 
         assert response.status_code == 409
         assert (tmp_path / "team_agents" / "team-only" / "config.yaml").exists()
+
+    def test_legacy_employee_survives_adoption_and_category_startup(self, agent_client, tmp_path):
+        from app.gateway.routers.agents import migrate_digital_employee_categories
+
+        _write_team_agent(tmp_path, "existing", {"published_by_user_id": "test-user-autouse", "future_binding": {"keep": True}}, soul="旧员工职责")
+        root = tmp_path / "team_agents" / "existing"
+        (root / "avatar.webp").write_bytes(b"existing-avatar")
+        (root / "memory.json").write_bytes(b'{"keep":true}')
+        before = {path.name: path.read_bytes() for path in root.iterdir()}
+        legacy = agent_client.get("/api/team-agents/existing").json()
+        assert legacy["soul"] == "旧员工职责"
+        assert {path.name: path.read_bytes() for path in root.iterdir()} == before
+        agent_client.post("/api/agents", json={"name": "existing", "soul": "明确发布的新职责", "skills": []})
+        response = _publish_current(agent_client, "existing", expected_revision=legacy["publication_revision"])
+        assert response.status_code == 200
+        app_config = MagicMock()
+        app_config.agent_storage.backend = "file"
+        with patch("app.gateway.routers.agents.get_app_config", return_value=app_config):
+            migrate_digital_employee_categories()
+        assert all((root / name).read_bytes() == value for name, value in before.items())
+        assert len(agent_client.get("/api/agents/existing/publications").json()["revisions"]) == 2
+
+    def test_failed_republication_retains_square_and_private_employee(self, agent_client):
+        from deerflow.persistence.agents.publications import TeamPublicationStore
+
+        agent_client.post("/api/agents", json={"name": "durable", "soul": "first", "skills": []})
+        first_response = _publish_current(agent_client, "durable")
+        assert first_response.status_code == 200, first_response.text
+        first = first_response.json()
+        revision = agent_client.get("/api/agents/durable?source=personal").json()["draft_revision"]
+        assert agent_client.put("/api/agents/durable", json={"soul": "draft", "expected_draft_revision": revision}).status_code == 200
+        with patch.object(TeamPublicationStore, "_commit_head", side_effect=OSError("disk full")):
+            result = _publish_current(agent_client, "durable", expected_revision=first["publication_revision"])
+        assert result.status_code == 500
+        assert "disk full" not in result.text
+        assert agent_client.get("/api/team-agents/durable").json()["soul"] == "first"
+        assert agent_client.get("/api/agents/durable?source=personal").json()["soul"] == "draft"
+
+    def test_publication_history_is_owner_only_and_bounded(self, agent_client, tmp_path):
+        _write_team_agent(tmp_path, "other-owner", {"published_by_user_id": "another-owner"}, soul="private history")
+        assert agent_client.get("/api/agents/other-owner/publications").status_code == 403
+        assert agent_client.get("/api/agents/other-owner/publications?limit=101").status_code == 422
+        assert agent_client.get("/api/agents/missing/publications").status_code == 404
+
+    def test_broken_publication_does_not_hide_private_employees(self, agent_client, tmp_path):
+        agent_client.post("/api/agents", json={"name": "retained", "soul": "keep personal draft", "skills": []})
+        agent_client.post("/api/agents", json={"name": "another", "soul": "keep another"})
+        response = _publish_current(agent_client, "retained")
+        assert response.status_code == 200, response.text
+        (tmp_path / "team_agents" / "retained" / "current.json").write_text("broken", encoding="utf-8")
+        response = agent_client.get("/api/agents")
+        assert response.status_code == 200
+        assert {agent["name"] for agent in response.json()["agents"]} == {"retained", "another"}
+        assert agent_client.get("/api/agents/retained?source=personal").json()["soul"] == "keep personal draft"
+        rejected = _publish_current(agent_client, "retained")
+        assert rejected.status_code == 500
+        assert "administrator review" in rejected.json()["detail"]
+        assert (tmp_path / "team_agents" / "retained" / "current.json").read_text(encoding="utf-8") == "broken"
+        assert agent_client.get("/api/agents/retained?source=personal").json()["soul"] == "keep personal draft"
+
+    def test_publish_cannot_overwrite_another_publishers_agent(self, agent_client, tmp_path):
+        _write_team_agent(tmp_path, "shared", {"published_by_user_id": "another-owner"}, soul="original")
+        agent_client.post("/api/agents", json={"name": "shared", "soul": "replacement", "skills": []})
+        response = _publish_current(agent_client, "shared", overwrite=True)
+        assert response.status_code == 403
+        assert (tmp_path / "team_agents" / "shared" / "SOUL.md").read_text(encoding="utf-8") == "original"
+
+    def test_unpublish_without_known_publisher_is_denied(self, agent_client, tmp_path):
+        _write_team_agent(tmp_path, "unowned", {}, soul="original")
+        response = agent_client.delete("/api/team-agents/unowned")
+        assert response.status_code == 403
+        assert (tmp_path / "team_agents" / "unowned" / "config.yaml").is_file()
+
+    def test_publication_still_requires_active_identity_and_draft_review(self, agent_client):
+        agent_client.post("/api/agents", json={"name": "reviewed", "soul": "duty", "skills": []})
+        assert agent_client.post("/api/agents/reviewed/publish", json={}).status_code == 422
+        with patch("app.gateway.routers.agents.get_current_user", return_value=None):
+            assert _publish_current(agent_client, "reviewed").status_code == 401
+
+    def test_create_rejects_unavailable_skill(self, agent_client, tmp_path):
+        with patch("deerflow.skills.agent_selection.get_or_new_user_skill_storage") as storage:
+            storage.return_value.load_skills.return_value = []
+            response = agent_client.post("/api/agents", json={"name": "bad-skill", "skills": ["private-other"]})
+        assert response.status_code == 422
+        assert not (tmp_path / "users" / "test-user-autouse" / "agents" / "bad-skill").exists()
 
 
 # ===========================================================================

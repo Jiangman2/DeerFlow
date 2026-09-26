@@ -8,8 +8,8 @@ Usage:
     python3 scripts/svg_finalize/embed_images.py *.svg
 
 Examples:
-    python3 scripts/svg_finalize/embed_images.py examples/ppt169_demo/svg_output/01_cover.svg
-    python3 scripts/svg_finalize/embed_images.py examples/ppt169_demo/svg_output/*.svg
+    python3 scripts/svg_finalize/embed_images.py projects/ppt169_demo/svg_output/01_cover.svg
+    python3 scripts/svg_finalize/embed_images.py projects/ppt169_demo/svg_output/*.svg
 """
 
 import os
@@ -28,6 +28,18 @@ from console_encoding import configure_utf8_stdio  # noqa: E402
 configure_utf8_stdio()
 
 
+_SVG_DOCUMENT_START_RE = re.compile(
+    br"\A(?:\xef\xbb\xbf)?[ \t\r\n]*"
+    br"(?:<\?xml(?=[ \t\r\n])(?:[^?]|\?(?!>))*\?>[ \t\r\n]*)?"
+    br"(?:(?:"
+    br"<!--(?:[^-]|-(?!-))*-->"
+    br"|<!DOCTYPE[ \t\r\n]+svg(?=[ \t\r\n\[>])"
+    br"(?:[^>\"']|\"[^\"]*\"|'[^']*')*>"
+    br")[ \t\r\n]*)*"
+    br"<svg(?:[ \t\r\n:]|/?>|\Z)"
+)
+
+
 def get_mime_type(filename: str, file_bytes: bytes | None = None) -> str:
     """Return the MIME type based on file bytes first, then extension."""
     if file_bytes:
@@ -39,7 +51,7 @@ def get_mime_type(filename: str, file_bytes: bytes | None = None) -> str:
             return 'image/gif'
         if file_bytes.startswith(b"RIFF") and file_bytes[8:12] == b"WEBP":
             return 'image/webp'
-        if file_bytes.lstrip().startswith(b"<svg"):
+        if _SVG_DOCUMENT_START_RE.match(file_bytes):
             return 'image/svg+xml'
 
     ext = filename.lower().split('.')[-1]
@@ -75,6 +87,7 @@ def _optimize_image_bytes(img_bytes: bytes, mime_type: str,
 
     try:
         from PIL import Image as PILImage
+        from PIL import ImageOps
         import io
     except ImportError:
         return img_bytes
@@ -97,6 +110,8 @@ def _optimize_image_bytes(img_bytes: bytes, mime_type: str,
                       f"exempt from size limits")
         return img_bytes
 
+    source_format = img.format
+    img = ImageOps.exif_transpose(img)
     changed = False
 
     # Downscale if exceeding max_dimension
@@ -119,7 +134,7 @@ def _optimize_image_bytes(img_bytes: bytes, mime_type: str,
             img.save(buf, format='PNG', optimize=True)
         else:
             # For other formats, just re-save
-            fmt = img.format or 'PNG'
+            fmt = source_format or 'PNG'
             img.save(buf, format=fmt)
 
         optimized = buf.getvalue()

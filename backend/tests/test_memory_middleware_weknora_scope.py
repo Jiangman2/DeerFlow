@@ -5,6 +5,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from deerflow.agents.middlewares.memory_middleware import MemoryMiddleware
 from deerflow.config.memory_config import MemoryConfig
+from deerflow.trace_context import request_trace_context
 
 
 def _runtime(context: dict) -> SimpleNamespace:
@@ -45,6 +46,7 @@ def test_unselected_run_still_uses_normal_durable_memory_policy() -> None:
     messages = [HumanMessage(content="请记住我偏好中文"), AIMessage(content="好的")]
 
     with (
+        request_trace_context("memory-policy-test"),
         patch(
             "deerflow.agents.middlewares.memory_middleware.get_memory_manager",
             return_value=manager,
@@ -62,3 +64,4 @@ def test_unselected_run_still_uses_normal_durable_memory_policy() -> None:
     assert result is None
     manager.add.assert_called_once()
     assert manager.add.call_args.args[:2] == ("thread-no-kb", messages)
+    assert manager.add.call_args.kwargs["trace_id"] == "memory-policy-test"

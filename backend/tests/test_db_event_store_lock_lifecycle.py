@@ -17,12 +17,18 @@ class _PausedDeleteSession:
     async def __aexit__(self, exc_type, exc, tb):
         return False
 
+    def get_bind(self):
+        return None
+
+    def begin(self):
+        return self
+
     async def scalar(self, _stmt):
         self._scalar_started.set()
         await self._allow_scalar.wait()
         return 1
 
-    async def execute(self, _stmt):
+    async def execute(self, _stmt, _params=None):
         return None
 
     async def commit(self) -> None:
@@ -51,21 +57,23 @@ async def test_delete_waiter_handoff_keeps_one_write_lock_generation():
             waiter_entered.set()
             await release_waiter.wait()
 
+    delete_task = asyncio.create_task(store.delete_by_thread("t1", user_id=None))
+    await asyncio.sleep(0)
+    assert not scalar_started.is_set()
+    assert not delete_task.done()
+
     waiter_task = asyncio.create_task(queued_writer())
     await waiter_resolved.wait()
     await asyncio.sleep(0)
     assert not waiter_entered.is_set()
 
-    delete_task = asyncio.create_task(store.delete_by_thread("t1", user_id=None))
-    await scalar_started.wait()
-
-    # Resume deletion first, then release the holder. asyncio.Lock.release()
-    # marks the lock unlocked before the queued waiter resumes, so the old
-    # implementation could evict the registry entry in that handoff window.
-    allow_scalar.set()
+    # Delete queues behind the holder and ahead of the new writer. Keep the
+    # same generation during both handoffs rather than splitting the registry.
     old_lock.release()
     del old_lock
-
+    await asyncio.wait_for(scalar_started.wait(), 3)
+    assert not waiter_entered.is_set()
+    allow_scalar.set()
     await delete_task
     await waiter_entered.wait()
 

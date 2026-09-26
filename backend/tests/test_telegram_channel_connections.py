@@ -67,8 +67,7 @@ async def test_start_with_deep_link_state_binds_telegram_chat(repo):
     assert connections[0]["external_account_name"] == "Alice Example"
     assert connections[0]["workspace_id"] == "100"
     assert connections[0]["metadata"]["chat_type"] == "private"
-    update.message.reply_text.assert_awaited_once()
-    assert "connected" in update.message.reply_text.await_args.args[0].lower()
+    update.message.reply_text.assert_awaited_once_with("Telegram已连接至中国海油通用智能体。")
 
 
 @pytest.mark.anyio
@@ -100,7 +99,7 @@ async def test_start_token_bypasses_allowed_users_filter(repo):
     connections = await repo.list_connections("deerflow-user-1")
     assert len(connections) == 1
     assert connections[0]["external_account_id"] == "42"
-    assert "connected" in update.message.reply_text.await_args.args[0].lower()
+    update.message.reply_text.assert_awaited_once_with("Telegram已连接至中国海油通用智能体。")
 
 
 @pytest.mark.anyio

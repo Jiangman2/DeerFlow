@@ -6,11 +6,38 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+        - name: patch-legacy-office-preview
+          image: wechatopenai/weknora-ui@sha256:401604e79a5717dd966a13383d775f15d3125481d3e080eba329e4a0fbcf9523
+          imagePullPolicy: Never
+          command:
+            - /bin/sh
+            - /opt/deerflow-weknora-patches/patch-legacy-office-preview.sh
+            - /usr/share/nginx/html
+            - /patched-ui
+          volumeMounts:
+            - name: weknora-ui-runtime
+              mountPath: /patched-ui
+            - name: weknora-v08-preview-patch
+              mountPath: /opt/deerflow-weknora-patches
+              readOnly: true
       containers:
         - name: frontend
           imagePullPolicy: Never
           # The enterprise v0.8 image already contains the SSO/bootstrap and
-          # DOM-guard assets. Mounting the legacy v0.7 ConfigMap here would
-          # overwrite its entrypoint and produce a blank or mismatched UI.
-          volumeMounts: null
-      volumes: null
+          # DOM-guard assets. Copying its complete web root into an emptyDir
+          # preserves those assets while the init container applies only the
+          # upstream DOC/PPT preview compatibility fix. Never restore the
+          # legacy v0.7 per-file ConfigMap mounts here.
+          volumeMounts:
+            - $patch: replace
+            - name: weknora-ui-runtime
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - $patch: replace
+        - name: weknora-ui-runtime
+          emptyDir: {}
+        - name: weknora-v08-preview-patch
+          configMap:
+            name: weknora-v08-preview-patch
+            defaultMode: 365

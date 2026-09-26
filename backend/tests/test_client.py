@@ -19,6 +19,7 @@ from app.gateway.routers.skills import SkillInstallResponse, SkillResponse, Skil
 from app.gateway.routers.threads import ThreadGoalResponse
 from app.gateway.routers.uploads import UploadResponse
 from deerflow.client import DeerFlowClient
+from deerflow.config.authorization_config import AuthorizationConfig
 from deerflow.config.paths import Paths
 from deerflow.skills.types import SkillCategory
 from deerflow.uploads.manager import PathTraversalError
@@ -39,6 +40,7 @@ def mock_app_config():
     model.model_dump.return_value = {"name": "test-model", "use": "langchain_openai:ChatOpenAI"}
 
     config = MagicMock()
+    config.authorization = AuthorizationConfig()
     config.models = [model]
     config.token_usage.enabled = False
     config.skills.deferred_discovery = False
@@ -1204,6 +1206,7 @@ class TestEnsureAgent:
             None,
             None,
             "test-user-autouse",
+            False,
         )
 
         config = client._get_runnable_config("t1")

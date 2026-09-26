@@ -14,6 +14,34 @@ NodePort `32026`. WeKnora remains behind the same-origin
 `/platform/knowledge-bases` route and is addressed by the stable
 `weknora-frontend` Service DNS name.
 
+## Multi-instance Gateway runtime
+
+**Do not apply this whole overlay to the current production cluster.** The
+checked-in `runtime-redis.yaml` and `runtime-patches.yaml` are an earlier,
+unlaunched single-Redis / two-Gateway draft. The latter sets `replicas: 2`;
+the former pins Redis to `datax-03` with a local hostPath. Kustomize does pin
+the Redis and BusyBox image digests, but this does not make the single Redis
+instance highly available or prove the images are present on every eligible
+node. Production still has one Gateway Pod and no dedicated DeerFlow runtime
+Redis or corresponding Secret (read-only audit on 2026-09-24).
+
+The candidate first scale-out topology is `2 Gateway Pods x 1 worker`, only
+after the gates in [`docs/enterprise-multiworker-upstream-catchup.md`](../../docs/enterprise-multiworker-upstream-catchup.md)
+and [`docs/enterprise-redis-ha-staging.md`](../../docs/enterprise-redis-ha-staging.md)
+pass. Dedicated Redis data and Sentinel are planned on 0012/0014/0016 under
+their independent `/mnt/data` disks, not under the 48 GB root partition. The
+local `sentinel://` client adapter is not yet deployed or fault-tested. Do not
+reuse SkillHub/WeKnora Redis or the old `redis://` Secret shape as proof of HA.
+
+`sandbox.replicas` is process-local for AIO Sandbox. Production currently
+reports `6`, so two Gateway Pods would nominally allow about twelve warm or
+active Sandboxes unless that value is deliberately revised. Recalculate
+Sandbox, PVC, NFS, node disk, Redis connection, and model-provider capacity
+before scaling. An in-flight model turn terminated by rollout is not
+automatically resumed. Browser Live remains process-local and the Feishu
+channel worker lacks fleet-wide singleton election, so neither replica
+expansion nor raising `GATEWAY_WORKERS` is ready for production yet.
+
 ## Dashboard database isolation
 
 The enterprise dashboard fails closed onto a physical PostgreSQL standby.
@@ -62,9 +90,19 @@ changes.
 The production WeKnora v0.8 UI must likewise exchange the DeerFlow session
 through the same-origin `/api/weknora/sso-session` endpoint. Its SSO2 and
 DOM-guard assets are built into the immutable image. The enterprise overlay
-therefore removes the base v0.7 ConfigMap asset mounts; restoring those mounts
-would overwrite the v0.8 entrypoint and can produce a blank or mixed-version
-workspace. Restart `weknora-frontend` after changing the UI image or its runtime
+therefore removes the base v0.7 per-file ConfigMap asset mounts; restoring
+those mounts would overwrite the v0.8 entrypoint and can produce a blank or
+mixed-version workspace. A dedicated init container instead copies the
+complete customized v0.8 web root and applies the upstream legacy Office
+preview compatibility fix to that copy. It removes `.doc` from the DOCX
+previewer and `.ppt` from the PPTX previewer because those old OLE2 formats are
+not OOXML ZIP packages. Legacy files remain downloadable and their parsed
+summary/chunks remain available; DOCX/PPTX online preview is unchanged. The
+patch copies the complete JavaScript module graph to deterministic versioned
+asset names and rewrites the HTML/import references, preventing a browser from
+reusing the pre-patch long-lived hashed bundle. It fails closed if either the
+compiled registrations or the versioned graph cannot be proved.
+Restart `weknora-frontend` after changing the UI image or its runtime
 configuration.
 
 The base WeKnora deployment creates one personal workspace for each newly
@@ -237,8 +275,8 @@ provider quota and queue latency.
 
 The `weknora-enterprise-mineru-defaults-v2` Job applies
 `weknora-mineru-defaults.sql` once. It routes platform defaults for
-PDF/DOC/DOCX/PPT/PPTX through the adapter for existing and future knowledge
-bases, while leaving explicit non-default parser engines and later user edits
+PDF/DOC/DOCX/PPT/PPTX and BMP/GIF/JP2/JPEG/PNG/TIFF/WEBP through the adapter
+for existing and future knowledge bases, while leaving explicit non-default parser engines and later user edits
 authoritative. Documents indexed before this Job or adapter release must be
 re-parsed; missing image bytes cannot be reconstructed during question
 answering.
@@ -508,7 +546,8 @@ in-cluster `/file_parse` request to the enterprise proxy, which may redirect it
 to a DNS-failure IP that WeKnora correctly rejects through SSRF validation.
 Its comma-separated `SSRF_WHITELIST_EXTRA` must retain
 `deer-flow-mineru-adapter`, the exact internal model hostname
-`model.ai.cnooc`, and the authenticated in-cluster `gateway` relay Service.
+`model.ai.cnooc`, the reviewed direct DeepSeek hostname
+`aiapi.cnooc.com.cn`, and the authenticated in-cluster `gateway` relay Service.
 These names resolve to approved private service addresses,
 which WeKnora intentionally rejects unless explicitly allowlisted. Do not
 replace the exact hostname with a broad private CIDR or disable SSRF checks.

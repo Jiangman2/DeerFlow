@@ -1,23 +1,20 @@
-"""update_agent tool — let a custom agent persist updates to its own SOUL.md / config.
+"""update_agent tool — propose owner-reviewed changes to private SOUL/config.
 
 Bound to the lead agent only when ``runtime.context['agent_name']`` identifies
 a personal custom agent owned by the current user. The default and team-shared
 agents do not see this tool, and the bootstrap flow continues to use
 ``setup_agent`` for the initial creation handshake.
 
-The tool writes through the configured file/SQL agent store so an employee
-created by one user is never visible to (or mutable by) another. SQL mode
-commits config and soul in one transaction; file mode uses atomic replacements.
+The tool stores an owner-only proposal. The authenticated confirmation route
+revalidates resources and commits through the configured file/SQL draft CAS;
+a model response cannot confirm, apply or publish its own proposal.
 """
 
 from __future__ import annotations
 
 import logging
-import tempfile
-from pathlib import Path
 from typing import Annotated, Any
 
-import yaml
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import tool
 from langgraph.types import Command
@@ -26,14 +23,15 @@ from pydantic import BeforeValidator
 from deerflow.config.agents_config import (
     MAX_AGENT_DESCRIPTION_LENGTH,
     is_personal_agent,
-    load_agent_config,
-    preserve_non_managed_fields,
     validate_agent_name,
 )
 from deerflow.config.app_config import get_app_config
 from deerflow.config.paths import get_paths
 from deerflow.persistence.agents import get_agent_store
+from deerflow.persistence.agents.base import parse_agent_config
+from deerflow.persistence.agents.proposals import EmployeeProposalStore
 from deerflow.runtime.user_context import resolve_runtime_user_id
+from deerflow.skills.agent_selection import validate_agent_skills
 from deerflow.tools.types import Runtime
 
 logger = logging.getLogger(__name__)
@@ -47,25 +45,6 @@ _NULLISH_STRINGS = frozenset({"null", "none", "undefined"})
 # so a custom factory that re-attaches ``update_agent`` cannot silently
 # expose self-mutation over a webhook.
 _UNTRUSTED_CHANNELS: frozenset[str] = frozenset({"github"})
-
-
-def _stage_temp(path: Path, text: str) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle = tempfile.NamedTemporaryFile(mode="w", dir=path.parent, suffix=".tmp", delete=False, encoding="utf-8")
-    try:
-        handle.write(text)
-        handle.flush()
-        handle.close()
-        return Path(handle.name)
-    except BaseException:
-        handle.close()
-        Path(handle.name).unlink(missing_ok=True)
-        raise
-
-
-def _cleanup_temps(temps: list[Path]) -> None:
-    for temporary in temps:
-        temporary.unlink(missing_ok=True)
 
 
 def _is_nullish_string(value: object) -> bool:
@@ -89,7 +68,7 @@ def update_agent(
     tool_groups: OptionalStringList = None,
     model: OptionalText = None,
 ) -> Command:
-    """Persist updates to the current custom agent's SOUL.md and config.yaml.
+    """Propose updates to this employee for its creator's explicit review.
 
     Use this when the user asks to refine the agent's identity, description,
     skill whitelist, tool-group whitelist, or default model. Only the fields
@@ -111,9 +90,9 @@ def update_agent(
         model: Optional model override (must match a configured model name).
 
     Returns:
-        Command with a ToolMessage describing the result. Changes take effect
-        on the next user turn (when the lead agent is rebuilt with the fresh
-        SOUL.md and config.yaml).
+        Command containing a review link. No employee definition is changed
+        until the creator confirms in that authenticated page. Always show the
+        review link and say the proposal is not yet applied or published.
     """
     tool_call_id = runtime.tool_call_id
     agent_name_raw: str | None = runtime.context.get("agent_name") if runtime.context else None
@@ -157,6 +136,12 @@ def update_agent(
     # even if the contextvar gets lost across an async/thread boundary
     # (issue #2782 / #2862 class of bugs).
     user_id = resolve_runtime_user_id(runtime)
+    if runtime.context and runtime.context.get("agent_source") not in (None, "personal"):
+        return _err("Shared agent selection is read-only; it cannot update a same-name personal agent")
+    try:
+        skills = validate_agent_skills(skills, user_id=user_id)
+    except ValueError as error:
+        return _err(str(error))
 
     # Reject an unknown ``model`` *before* touching the filesystem. Otherwise
     # ``_resolve_model_name`` silently falls back to the default at runtime
@@ -179,7 +164,9 @@ def update_agent(
         return _err(f"Agent '{agent_name}' does not exist for the current user. Use setup_agent to create a new agent first.")
 
     try:
-        existing_cfg = load_agent_config(agent_name, user_id=user_id)
+        store = get_agent_store()
+        before = store.read_definition(agent_name, user_id=user_id)
+        existing_cfg = parse_agent_config(before.config, agent_name)
     except FileNotFoundError:
         return _err(f"Agent '{agent_name}' does not exist for the current user. Use setup_agent to create a new agent first.")
     except ValueError as e:
@@ -221,34 +208,6 @@ def update_agent(
     if skills is not None and skills != existing_cfg.skills:
         updated_fields.append("skills")
 
-    # The conversational updater does not expose directory presentation
-    # metadata, but it must preserve values written by the Digital Employee
-    # settings surface.  These fields are part of AgentConfig's managed set so
-    # the HTTP route can update them explicitly.
-    for metadata_field in (
-        "display_name",
-        "category_id",
-        "tags",
-        "avatar_id",
-        "model_settings",
-        "thinking_enabled",
-        "reasoning_effort",
-    ):
-        metadata_value = getattr(existing_cfg, metadata_field)
-        if metadata_value is not None:
-            config_data[metadata_field] = metadata_value
-
-    # Preserve every top-level AgentConfig field that this tool does not
-    # expose as an argument (currently ``github:``, plus any future field
-    # added to :class:`AgentConfig`). The same helper is used by the HTTP
-    # ``PATCH /api/agents/{name}`` route so the two surfaces stay in lockstep.
-    # Without this, operators who hand-author a ``github:`` block on a custom
-    # agent would silently lose it the next time the agent self-updates via
-    # ``update_agent``.
-    preserved = preserve_non_managed_fields(existing_cfg)
-    for key, value in preserved.items():
-        config_data.setdefault(key, value)
-
     config_changed = bool({"description", "model", "tool_groups", "skills"} & set(updated_fields))
 
     if soul is not None:
@@ -256,42 +215,15 @@ def update_agent(
 
     if config_changed or soul is not None:
         try:
-            store = get_agent_store()
-            if store.__class__.__name__ == "FileAgentStore":
-                agent_dir = paths.user_agent_dir(user_id, agent_name)
-                agent_dir.mkdir(parents=True, exist_ok=True)
-                pending: list[tuple[Path, Path]] = []
-                staged: list[Path] = []
-                try:
-                    if config_changed:
-                        target = agent_dir / "config.yaml"
-                        temporary = _stage_temp(
-                            target,
-                            yaml.safe_dump(
-                                config_data,
-                                allow_unicode=True,
-                                sort_keys=False,
-                            ),
-                        )
-                        staged.append(temporary)
-                        pending.append((temporary, target))
-                    if soul is not None:
-                        target = agent_dir / "SOUL.md"
-                        temporary = _stage_temp(target, soul)
-                        staged.append(temporary)
-                        pending.append((temporary, target))
-                    for temporary, target in pending:
-                        temporary.replace(target)
-                        staged.remove(temporary)
-                finally:
-                    _cleanup_temps(staged)
-            else:
-                store.update(
-                    agent_name,
-                    config_data if config_changed else None,
-                    soul,
-                    user_id=user_id,
-                )
+            # Only explicit changes cross the store boundary. Model defaults
+            # must never erase fields unknown to this version of the tool.
+            proposal = EmployeeProposalStore(paths).create(
+                agent_name,
+                user_id,
+                before,
+                {key: config_data[key] for key in updated_fields if key != "soul"},
+                soul,
+            )
         except Exception as e:
             logger.error(
                 "[update_agent] Failed to update agent '%s' (user=%s): %s",
@@ -305,12 +237,17 @@ def update_agent(
     if not updated_fields:
         return Command(update={"messages": [ToolMessage(content=f"No changes applied to agent '{agent_name}'. The provided values matched the existing config.", tool_call_id=tool_call_id)]})
 
-    logger.info("[update_agent] Updated agent '%s' (user=%s) fields: %s", agent_name, user_id, updated_fields)
+    logger.info("[update_agent] Proposed changes to agent '%s' (user=%s) fields: %s", agent_name, user_id, updated_fields)
+    from urllib.parse import quote
+
+    review_url = f"/workspace/agents/manage/{quote(agent_name, safe='')}/proposals/{proposal['id']}"
     return Command(
         update={
             "messages": [
                 ToolMessage(
-                    content=(f"Agent '{agent_name}' updated successfully. Changed: {', '.join(updated_fields)}. The new configuration takes effect on the next user turn."),
+                    content=(
+                        f"Employee change proposal created; NOTHING has been applied or published. Proposed fields: {', '.join(updated_fields)}. Ask the creator to [review and confirm the changes]({review_url}). Do not claim the employee has already changed."
+                    ),
                     tool_call_id=tool_call_id,
                 )
             ]

@@ -3,10 +3,14 @@
 RunEventStore is the unified storage interface for run event streams.
 Messages (frontend display) and execution traces (debugging/audit) go
 through the same interface, distinguished by the ``category`` field.
+Producer names live in ``runtime.events.catalog``; the repository contract is
+``contracts/run_event_stream_contract.json``. Stores remain permissive readers
+of legacy/extension rows; the catalog is not a history-deletion allowlist.
 
 Implementations:
 - MemoryRunEventStore: in-memory dict (development, tests)
-- Future: DB-backed store (SQLAlchemy ORM), JSONL file store
+- DbRunEventStore: SQLAlchemy ORM-backed persistence
+- JsonlRunEventStore: JSONL file persistence for local/debug use
 """
 
 from __future__ import annotations
@@ -47,6 +51,26 @@ class RunEventStore(abc.ABC):
 
         Each dict's keys match put()'s keyword arguments.
         Returns complete records with seq assigned.
+        """
+
+    @abc.abstractmethod
+    async def put_if_absent(
+        self,
+        *,
+        thread_id: str,
+        run_id: str,
+        event_type: str,
+        category: str,
+        content: str | dict = "",
+        metadata: dict | None = None,
+        created_at: str | None = None,
+    ) -> tuple[dict, bool]:
+        """Write one event unless this run already has the same event type.
+
+        The check and write must be serialized with ordinary writers for the
+        thread. Returns ``(record, created)``. Terminal receipts use this
+        primitive to retry safely after a worker crash. Ordinary put/put_batch
+        events remain append-only, not implicitly deduplicated.
         """
 
     @abc.abstractmethod
@@ -127,9 +151,14 @@ class RunEventStore(abc.ABC):
         """Count displayable messages (category=message) in a thread."""
 
     @abc.abstractmethod
-    async def delete_by_thread(self, thread_id: str) -> int:
-        """Delete all events for a thread. Return the number of deleted events."""
+    async def delete_by_thread(self, thread_id: str, *, user_id: str | None | _AutoSentinel = AUTO) -> int:
+        """Delete a thread's events and return the deleted count.
+
+        AUTO resolves the caller, an explicit id scopes the owner, and None
+        removes every owner's rows. Memory/JSONL accept but ignore owner scope;
+        these development stores rely on their caller's thread authorization.
+        """
 
     @abc.abstractmethod
-    async def delete_by_run(self, thread_id: str, run_id: str) -> int:
-        """Delete all events for a specific run. Return the number of deleted events."""
+    async def delete_by_run(self, thread_id: str, run_id: str, *, user_id: str | None | _AutoSentinel = AUTO) -> int:
+        """Delete a run's events; owner scope follows delete_by_thread."""

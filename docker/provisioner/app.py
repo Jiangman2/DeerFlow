@@ -60,6 +60,7 @@ SANDBOX_IMAGE = os.environ.get(
     "SANDBOX_IMAGE",
     "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest",
 )
+PPT_MASTER_AGENT_HOST_IMAGE = os.environ.get("PPT_MASTER_AGENT_HOST_IMAGE", "").strip()
 SKILLS_HOST_PATH = os.environ.get("SKILLS_HOST_PATH", "/skills")
 THREADS_HOST_PATH = os.environ.get("THREADS_HOST_PATH", "/.deer-flow/threads")
 DEER_FLOW_HOST_BASE_DIR = os.environ.get("DEER_FLOW_HOST_BASE_DIR", "/.deer-flow")
@@ -105,11 +106,12 @@ SANDBOX_PASSTHROUGH_ENV_KEYS = tuple(
         "DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,"
         "VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,"
         "DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,"
-        "PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,"
+        "PODCAST_GENERATION_PROVIDER,QWEN_TTS_BASE_URL,DASHSCOPE_TTS_MODEL,"
         "DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,"
         "MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,"
         "DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,"
-        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT",
+        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,"
+        "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED",
     ).split(",")
     if key.strip()
 )
@@ -162,6 +164,7 @@ DEFAULT_USER_ID = "default"
 SANDBOX_USER_ANNOTATION = "deerflow.io/user-id"
 SANDBOX_THREAD_ANNOTATION = "deerflow.io/thread-id"
 SANDBOX_LEGACY_SKILLS_ANNOTATION = "deerflow.io/include-legacy-skills"
+EMPLOYEE_SKILL_PROJECTION_ANNOTATION = "deerflow.io/employee-skill-projection"
 
 # Path to the kubeconfig *inside* the provisioner container.
 # Typically the host's ~/.kube/config is mounted here.
@@ -427,12 +430,14 @@ class CreateSandboxRequest(BaseModel):
     thread_id: str = Field(pattern=SAFE_THREAD_ID_PATTERN)
     user_id: str = Field(default=DEFAULT_USER_ID, pattern=SAFE_USER_ID_PATTERN)
     include_legacy_skills: bool = False
+    employee_skill_projection: str | None = Field(default=None, pattern=r"^[a-f0-9]{24}$")
 
 
 class SandboxResponse(BaseModel):
     sandbox_id: str
     sandbox_url: str
     status: str
+    employee_skill_projection: str | None = None
 
 
 # ── K8s resource helpers ─────────────────────────────────────────────────
@@ -485,6 +490,7 @@ def _build_volumes(
     user_id: str = DEFAULT_USER_ID,
     *,
     include_legacy_skills: bool = False,
+    employee_skill_projection: str | None = None,
 ) -> list[k8s_client.V1Volume]:
     """Build volume list: PVC when configured, otherwise hostPath.
 
@@ -608,7 +614,23 @@ def _build_volumes(
                 ),
             )
         )
+    if employee_skill_projection is not None:
+        _validate_employee_projection(employee_skill_projection, include_legacy_skills)
+        volumes = [volume for volume in volumes if volume.name not in {"skills-public", "skills-custom", "skills-legacy"}]
+        if not USERDATA_PVC_NAME:
+            volumes.append(k8s_client.V1Volume(
+                name="employee-skills",
+                host_path=k8s_client.V1HostPathVolumeSource(
+                    path=join_host_path(DEER_FLOW_HOST_BASE_DIR, "users", user_id, "threads", thread_id, "agent-skills", employee_skill_projection),
+                    type="Directory",
+                ),
+            ))
     return volumes
+
+
+def _validate_employee_projection(key: str, include_legacy_skills: bool) -> None:
+    if not re.fullmatch(r"[a-f0-9]{24}", key) or include_legacy_skills:
+        raise ValueError("Employee Skill projection must be an opaque key without legacy mounts")
 
 
 def _build_volume_mounts(
@@ -616,6 +638,7 @@ def _build_volume_mounts(
     user_id: str = DEFAULT_USER_ID,
     *,
     include_legacy_skills: bool = False,
+    employee_skill_projection: str | None = None,
 ) -> list[k8s_client.V1VolumeMount]:
     """Build volume mount list, mirroring three-way skills layout.
 
@@ -714,6 +737,14 @@ def _build_volume_mounts(
             )
         )
 
+    if employee_skill_projection is not None:
+        _validate_employee_projection(employee_skill_projection, include_legacy_skills)
+        mounts = [mount for mount in mounts if not mount.mount_path.startswith("/mnt/skills/")]
+        mounts.append(k8s_client.V1VolumeMount(
+            name="user-data" if USERDATA_PVC_NAME else "employee-skills",
+            mount_path="/mnt/skills", read_only=True,
+            sub_path=_user_pvc_subpath(user_id, "threads", thread_id, "agent-skills", employee_skill_projection) if USERDATA_PVC_NAME else None,
+        ))
     return mounts
 
 
@@ -723,12 +754,14 @@ def _build_pod(
     user_id: str = DEFAULT_USER_ID,
     *,
     include_legacy_skills: bool = False,
+    employee_skill_projection: str | None = None,
 ) -> k8s_client.V1Pod:
     """Construct a Pod manifest for a single sandbox."""
     volume_mounts = _build_volume_mounts(
         thread_id,
         user_id=user_id,
         include_legacy_skills=include_legacy_skills,
+        employee_skill_projection=employee_skill_projection,
     )
     sandbox_env = _build_sandbox_env(include_agent_only_secrets=False)
     user_data_mount = next(
@@ -760,7 +793,7 @@ def _build_pod(
         f"{user_data_root}/uploads",
         f"{user_data_root}/outputs",
     ]
-    if custom_skills_root:
+    if custom_skills_root and employee_skill_projection is None:
         initializer_roots.append(custom_skills_root)
     roots_expression = ",".join(f"Path({path!r})" for path in initializer_roots)
     temp_path = f"{user_data_root}/workspace/.ppt-master-agent/tmp"
@@ -786,7 +819,7 @@ def _build_pod(
         ),
     )
     skill_mounts = [
-        mount for mount in volume_mounts if mount.mount_path.startswith("/mnt/skills/")
+        mount for mount in volume_mounts if mount.mount_path == "/mnt/skills" or mount.mount_path.startswith("/mnt/skills/")
     ]
     skill_roots_expression = ",".join(
         f"Path({mount.mount_path!r})" for mount in skill_mounts
@@ -877,10 +910,20 @@ def _build_pod(
         )
     ]
     if PPT_MASTER_AGENT_HOST_ENABLED:
+        relay_required = os.environ.get(
+            "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", ""
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        if relay_required and (
+            not PPT_MASTER_AGENT_HOST_IMAGE
+            or PPT_MASTER_AGENT_HOST_IMAGE == SANDBOX_IMAGE
+        ):
+            raise RuntimeError(
+                "enterprise PPT Agent requires a distinct PPT_MASTER_AGENT_HOST_IMAGE"
+            )
         containers.append(
             k8s_client.V1Container(
                 name="ppt-master-agent-host",
-                image=SANDBOX_IMAGE,
+                image=PPT_MASTER_AGENT_HOST_IMAGE or SANDBOX_IMAGE,
                 image_pull_policy="IfNotPresent",
                 command=["python3", "/opt/ppt-master-agent-host/agent_host.py"],
                 ports=[
@@ -890,15 +933,25 @@ def _build_pod(
                         protocol="TCP",
                     )
                 ],
+                startup_probe=k8s_client.V1Probe(
+                    http_get=k8s_client.V1HTTPGetAction(
+                        path="/health",
+                        port=PPT_MASTER_AGENT_HOST_PORT,
+                        scheme="HTTP",
+                    ),
+                    period_seconds=5,
+                    timeout_seconds=5,
+                    failure_threshold=60,
+                ),
                 readiness_probe=k8s_client.V1Probe(
                     http_get=k8s_client.V1HTTPGetAction(
                         path="/health",
                         port=PPT_MASTER_AGENT_HOST_PORT,
                         scheme="HTTP",
                     ),
-                    initial_delay_seconds=2,
+                    initial_delay_seconds=0,
                     period_seconds=5,
-                    timeout_seconds=3,
+                    timeout_seconds=5,
                     failure_threshold=12,
                 ),
                 liveness_probe=k8s_client.V1Probe(
@@ -907,17 +960,17 @@ def _build_pod(
                         port=PPT_MASTER_AGENT_HOST_PORT,
                         scheme="HTTP",
                     ),
-                    initial_delay_seconds=10,
+                    initial_delay_seconds=0,
                     period_seconds=15,
-                    timeout_seconds=3,
-                    failure_threshold=4,
+                    timeout_seconds=5,
+                    failure_threshold=6,
                 ),
                 resources=k8s_client.V1ResourceRequirements(
-                    requests={"cpu": "100m", "memory": "256Mi"},
+                    requests={"cpu": "250m", "memory": "512Mi"},
                     limits={"cpu": "2", "memory": "4Gi"},
                 ),
                 env=[
-                    *_build_sandbox_env(include_agent_only_secrets=True),
+                    *_build_ppt_agent_host_env(),
                     k8s_client.V1EnvVar(
                         name="PPT_MASTER_AGENT_HOST_PORT",
                         value=str(PPT_MASTER_AGENT_HOST_PORT),
@@ -957,6 +1010,7 @@ def _build_pod(
                 "app.kubernetes.io/component": "sandbox",
             },
             annotations={
+                **({EMPLOYEE_SKILL_PROJECTION_ANNOTATION: employee_skill_projection} if employee_skill_projection else {}),
                 SANDBOX_USER_ANNOTATION: user_id,
                 SANDBOX_THREAD_ANNOTATION: thread_id,
                 SANDBOX_LEGACY_SKILLS_ANNOTATION: str(
@@ -976,6 +1030,7 @@ def _build_pod(
                 thread_id,
                 user_id=user_id,
                 include_legacy_skills=include_legacy_skills,
+                employee_skill_projection=employee_skill_projection,
             ),
             restart_policy="Always",
         ),
@@ -1030,6 +1085,34 @@ def _build_sandbox_env(
                 value=SANDBOX_OPENSSL_CONFIG_FILE,
             )
         )
+    return env
+
+
+def _build_ppt_agent_host_env() -> list[k8s_client.V1EnvVar]:
+    """Override Codex profile only in the PPT Agent Host container.
+
+    Ordinary sandbox commands retain the operator's existing Codex profile.
+    The relay credential remains a Secret reference, never a literal Pod env.
+    """
+    env = _build_sandbox_env(include_agent_only_secrets=True)
+    overrides = {
+        "CODEX_CONFIG_TOML": os.environ.get("PPT_MASTER_AGENT_CODEX_CONFIG_TOML", ""),
+        "CODEX_MODEL_CATALOG_JSON": os.environ.get(
+            "PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON", ""
+        ),
+    }
+    relay_required = os.environ.get(
+        "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    if relay_required and not all(overrides.values()):
+        raise RuntimeError(
+            "enterprise PPT Agent requires its own Codex profile and model catalog"
+        )
+    for name, value in overrides.items():
+        if not value:
+            continue
+        env = [item for item in env if item.name != name]
+        env.append(k8s_client.V1EnvVar(name=name, value=value))
     return env
 
 
@@ -1121,6 +1204,7 @@ def _assert_existing_sandbox_identity(
     thread_id: str,
     user_id: str,
     include_legacy_skills: bool,
+    employee_skill_projection: str | None = None,
 ) -> None:
     """Reject idempotent reuse when a Pod belongs to another storage scope.
 
@@ -1144,6 +1228,7 @@ def _assert_existing_sandbox_identity(
 
     annotations = pod.metadata.annotations or {}
     expected_annotations = {
+        **({EMPLOYEE_SKILL_PROJECTION_ANNOTATION: employee_skill_projection} if employee_skill_projection else {}),
         SANDBOX_USER_ANNOTATION: user_id,
         SANDBOX_THREAD_ANNOTATION: thread_id,
         SANDBOX_LEGACY_SKILLS_ANNOTATION: str(include_legacy_skills).lower(),
@@ -1153,7 +1238,7 @@ def _assert_existing_sandbox_identity(
         for key in expected_annotations
         if key in annotations
     }
-    annotation_match = not present_identity or present_identity == expected_annotations
+    annotation_match = (not present_identity or present_identity == expected_annotations) and annotations.get(EMPLOYEE_SKILL_PROJECTION_ANNOTATION) == employee_skill_projection
 
     expected_mounts = {
         mount.mount_path: (mount.name, mount.sub_path, bool(mount.read_only))
@@ -1161,9 +1246,11 @@ def _assert_existing_sandbox_identity(
             thread_id,
             user_id=user_id,
             include_legacy_skills=include_legacy_skills,
+            employee_skill_projection=employee_skill_projection,
         )
         if mount.mount_path
         in {
+            "/mnt/skills",
             "/mnt/skills/public",
             "/mnt/skills/custom",
             "/mnt/skills/legacy",
@@ -1175,6 +1262,7 @@ def _assert_existing_sandbox_identity(
         None,
     )
     identity_mount_paths = {
+        "/mnt/skills",
         "/mnt/skills/public",
         "/mnt/skills/custom",
         "/mnt/skills/legacy",
@@ -1227,6 +1315,9 @@ def create_sandbox(req: CreateSandboxRequest):
     thread_id = req.thread_id
     user_id = req.user_id
     include_legacy_skills = req.include_legacy_skills
+    employee_skill_projection = req.employee_skill_projection
+    if employee_skill_projection:
+        _validate_employee_projection(employee_skill_projection, include_legacy_skills)
 
     logger.info(
         "Received request to create sandbox '%s' for thread '%s' user '%s' include_legacy_skills=%s",
@@ -1244,11 +1335,13 @@ def create_sandbox(req: CreateSandboxRequest):
             thread_id=thread_id,
             user_id=user_id,
             include_legacy_skills=include_legacy_skills,
+            employee_skill_projection=employee_skill_projection,
         )
         return SandboxResponse(
             sandbox_id=sandbox_id,
             sandbox_url=existing_url,
             status=_get_pod_phase(sandbox_id),
+            employee_skill_projection=employee_skill_projection,
         )
 
     # ── Create Pod ───────────────────────────────────────────────────
@@ -1260,6 +1353,7 @@ def create_sandbox(req: CreateSandboxRequest):
                 thread_id,
                 user_id=user_id,
                 include_legacy_skills=include_legacy_skills,
+                employee_skill_projection=employee_skill_projection,
             ),
         )
         logger.info(f"Created Pod {_pod_name(sandbox_id)}")
@@ -1273,6 +1367,7 @@ def create_sandbox(req: CreateSandboxRequest):
             thread_id=thread_id,
             user_id=user_id,
             include_legacy_skills=include_legacy_skills,
+            employee_skill_projection=employee_skill_projection,
         )
 
     # ── Create Service ───────────────────────────────────────────────
@@ -1307,6 +1402,7 @@ def create_sandbox(req: CreateSandboxRequest):
         sandbox_id=sandbox_id,
         sandbox_url=sandbox_url,
         status=_get_pod_phase(sandbox_id),
+        employee_skill_projection=employee_skill_projection,
     )
 
 

@@ -221,10 +221,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
                 "messages": [
                     last.model_copy(
                         update={
-                            "content": (
-                                f"当前 PPT 设计确认页面已准备好，请在[确认页面]({confirmation_url})完成本阶段选择。"
-                                "确认后回到对话输入“继续”，任务将从已持久化的检查点继续。"
-                            ),
+                            "content": (f"当前 PPT 设计确认页面已准备好，请在[确认页面]({confirmation_url})完成本阶段选择。确认后回到对话输入“继续”，任务将从已持久化的检查点继续。"),
                             "additional_kwargs": additional_kwargs,
                         }
                     )

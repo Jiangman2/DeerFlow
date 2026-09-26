@@ -66,6 +66,7 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
 ENV CURL_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
 ENV NODE_EXTRA_CA_CERTS=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
 # Keep the sandbox runtime aligned with the ppt-master skill dependency list.
 # Place this after the large OS layer so skill-only requirement changes do not
@@ -75,7 +76,9 @@ COPY --from=ppt-master-skill requirements.txt /tmp/ppt-master-requirements.txt
 # Install the complete upstream dependency list instead of relying on packages
 # that happen to be present in the base image. Playwright is an upstream
 # runtime requirement of visual_review.py and extract_svg_pictures.py, but is
-# not yet declared in the upstream requirements.txt.
+# not yet declared in the upstream requirements.txt. Pin urllib3 to the version
+# used by the v6.6.0 transport-security suite: newer urllib3 releases changed
+# the private TLS wrapper return protocol exercised by that upstream test.
 RUN --mount=type=secret,id=enterprise_proxy,required=false \
     set -a; \
     if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
@@ -83,10 +86,11 @@ RUN --mount=type=secret,id=enterprise_proxy,required=false \
     python3 -m pip install --no-cache-dir \
     --timeout 60 --retries 3 --prefer-binary --ignore-installed \
     -r /tmp/ppt-master-requirements.txt \
-    "playwright>=1.50.0" "pydantic>=2.12.5,<3.0.0" \
-    && python3 -m playwright install chromium \
+    "playwright>=1.50.0" "pydantic>=2.12.5,<3.0.0" "urllib3==2.5.0" \
+    && python3 -m playwright install --with-deps chromium \
+    && python3 -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); b=p.chromium.launch(headless=True, args=['--no-sandbox']); page=b.new_page(); page.set_content('<title>ready</title>'); assert page.title() == 'ready'; b.close(); p.stop()" \
     && rm -rf /root/.cache/pip /tmp/pip-* /tmp/ppt-master-requirements.txt \
-    && find /usr /opt -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
+    && (find /usr /opt -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true)
 
 # Keep optional production hardening in trailing layers so an update does not
 # invalidate the large office/browser dependency layers above.
@@ -99,6 +103,20 @@ RUN --mount=type=secret,id=enterprise_proxy,required=false \
         "duckdb>=1.3,<2" \
         "PyYAML>=6,<7" \
     && python3 -c "import cairosvg, duckdb, pydantic, yaml; from packaging.version import Version; assert Version(pydantic.__version__) >= Version('2.12.5'), pydantic.__version__; assert duckdb.sql('select 1').fetchone() == (1,); assert yaml.safe_load('ready: true')['ready']; data = cairosvg.svg2png(bytestring=b'<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2\" height=\"2\"><rect width=\"2\" height=\"2\"/></svg>'); assert data.startswith(b'\\x89PNG')"
+
+# Keep document and common analysis dependencies in the release image. Agent
+# turns must not install these from an external package index at runtime.
+COPY docker/sandbox-ppt-master/document-runtime-requirements.txt /tmp/document-runtime-requirements.txt
+COPY docker/sandbox-ppt-master/markdown_to_pdf.py /usr/local/bin/deerflow-markdown-to-pdf
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    python3 -m pip install --no-cache-dir --timeout 60 --retries 3 --prefer-binary \
+        -r /tmp/document-runtime-requirements.txt \
+    && chmod 0755 /usr/local/bin/deerflow-markdown-to-pdf \
+    && python3 -m py_compile /usr/local/bin/deerflow-markdown-to-pdf \
+    && rm -rf /root/.cache/pip /tmp/pip-* /tmp/document-runtime-requirements.txt
 
 ARG WEBSOCAT_VERSION=1.14.1
 ARG WEBSOCAT_SHA256=711a69576a2ff473fb01a90ffafb571c2ed019e55479d7ae71b12c2eadeb7011
@@ -128,13 +146,11 @@ RUN --mount=type=secret,id=enterprise_proxy,required=false \
 # upstream locations aligned with the command service; the DeerFlow client
 # still enforces its per-command hard timeout. Keep this in a trailing layer so
 # transport-only changes do not invalidate the large Office/browser layers.
-RUN outer_nginx=/opt/gem/nginx-server-with-auth.conf; \
-    upstream_count="$(grep -cF 'proxy_pass http://127.0.0.1:${AUTH_BACKEND_PORT};' "${outer_nginx}")"; \
-    test "${upstream_count}" -eq 2; \
-    sed -i '/proxy_pass http:\/\/127\.0\.0\.1:${AUTH_BACKEND_PORT};/a\        proxy_connect_timeout 5s;\
-        proxy_read_timeout 86400s;\
-        proxy_send_timeout 86400s;' "${outer_nginx}"; \
-    test "$(grep -cF 'proxy_read_timeout 86400s;' "${outer_nginx}")" -eq 2
+# Released bases may preserve ${AUTH_BACKEND_PORT} or render it as a concrete
+# port such as 8081. Patch either representation and remain idempotent.
+COPY docker/sandbox-ppt-master/patch_nginx_timeouts.py /tmp/patch_nginx_timeouts.py
+RUN python3 /tmp/patch_nginx_timeouts.py /opt/gem/nginx-server-with-auth.conf \
+    && rm -f /tmp/patch_nginx_timeouts.py
 
 ENV PYTHONDONTWRITEBYTECODE=1
 
@@ -142,6 +158,20 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # the stock AIO command/browser container and this lightweight external Agent
 # host. Keeping Codex, Office/Chromium, fonts, ppt-master dependencies, CA trust,
 # and the host service in one image prevents host/runtime drift between them.
+COPY --from=ppt-master-skill . /opt/ppt-master-release-skill
 COPY docker/sandbox-ppt-master/agent_host.py /opt/ppt-master-agent-host/agent_host.py
-RUN chmod 0755 /opt/ppt-master-agent-host/agent_host.py \
-    && python3 -m py_compile /opt/ppt-master-agent-host/agent_host.py
+COPY docker/sandbox-ppt-master/PPT_MASTER_UPSTREAM.env /opt/ppt-master-agent-host/PPT_MASTER_UPSTREAM.env
+COPY docker/sandbox-ppt-master/runtime_capability_probe.py /opt/ppt-master-agent-host/runtime_capability_probe.py
+RUN chmod 0755 \
+        /opt/ppt-master-agent-host/agent_host.py \
+        /opt/ppt-master-agent-host/runtime_capability_probe.py \
+    && test -s /opt/ppt-master-release-skill/SKILL.md \
+    && grep -Eq '^[[:space:]]+version:.*6\.6\.0' /opt/ppt-master-release-skill/SKILL.md \
+    && cd /tmp \
+    && PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+        -s /opt/ppt-master-release-skill/scripts/tests -p 'test_*.py' \
+    && python3 -m py_compile \
+        /opt/ppt-master-agent-host/agent_host.py \
+        /opt/ppt-master-agent-host/runtime_capability_probe.py \
+    && find /opt/ppt-master-release-skill -type d -name __pycache__ \
+        -prune -exec rm -rf {} +

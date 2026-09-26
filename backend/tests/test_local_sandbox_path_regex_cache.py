@@ -189,21 +189,7 @@ def test_reverse_resolve_path_matches_windows_backslash_containment(monkeypatch)
     # otherwise perform and pin it directly to the Windows-resolved root.
     sb._resolved_local_paths = {mapping: "C:\\Users\\test\\workspace"}
 
-    class _FakeWindowsPath:
-        """Stand-in for ``Path`` inside ``_reverse_resolve_path``. Mimics
-        ``WindowsPath.resolve()`` -- a backslash-joined ``str()`` -- without
-        touching the real filesystem, so this runs identically on Linux CI."""
-
-        def __init__(self, raw: str) -> None:
-            self._raw = raw
-
-        def resolve(self) -> _FakeWindowsPath:
-            return _FakeWindowsPath(self._raw.replace("/", "\\"))
-
-        def __str__(self) -> str:
-            return self._raw
-
-    monkeypatch.setattr(local_sandbox_module, "Path", _FakeWindowsPath)
+    monkeypatch.setattr(local_sandbox_module.os.path, "realpath", lambda raw: raw.replace("/", "\\"))
 
     result = sb._reverse_resolve_path("C:\\Users\\test\\workspace\\sub\\f.txt")
 

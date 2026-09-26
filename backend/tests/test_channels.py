@@ -1459,8 +1459,9 @@ class TestChannelManager:
 
             history_by_checkpoint: dict[tuple[str, str], list[str]] = {}
 
-            async def _runs_wait(thread_id, assistant_id, *, input, config, context, multitask_strategy=None):
+            async def _runs_wait(thread_id, assistant_id, *, input, config, context, multitask_strategy=None, headers=None):
                 del assistant_id, context  # unused in this test, kept for signature parity
+                assert headers and headers["X-Trace-Id"]
 
                 checkpoint_ns = config.get("configurable", {}).get("checkpoint_ns")
                 key = (thread_id, str(checkpoint_ns))
@@ -1559,6 +1560,7 @@ class TestChannelManager:
             second_call = mock_client.runs.wait.call_args_list[1]
             assert first_call.kwargs["config"]["configurable"]["checkpoint_ns"] == ""
             assert second_call.kwargs["config"]["configurable"]["checkpoint_ns"] == ""
+            assert first_call.kwargs["headers"]["X-Trace-Id"] != second_call.kwargs["headers"]["X-Trace-Id"]
 
         _run(go())
 
@@ -3139,6 +3141,7 @@ class TestChannelManager:
             # Should use streaming path (runs.stream, not runs.wait)
             mock_client.runs.stream.assert_called_once()
             call_args = mock_client.runs.stream.call_args
+            assert call_args.kwargs["headers"]["X-Trace-Id"]
 
             assert call_args[1]["input"]["messages"][0]["content"] == "hello"
             assert call_args[1]["config"]["configurable"]["checkpoint_ns"] == ""
@@ -3585,15 +3588,18 @@ class TestGithubFireAndForget:
             mock_client.runs.create = AsyncMock(return_value={"run_id": "run-abc", "status": "pending"})
             manager._client = mock_client
 
-            await manager._handle_chat(
-                InboundMessage(
-                    channel_name="github",
-                    chat_id="zhfeng/llm-gateway",
-                    user_id="zhfeng",
-                    owner_user_id="agent-owner-1",
-                    text="please fix the bug in foo.py",
+            from deerflow.trace_context import request_trace_context
+
+            with request_trace_context("github-inbound-trace"):
+                await manager._handle_chat(
+                    InboundMessage(
+                        channel_name="github",
+                        chat_id="zhfeng/llm-gateway",
+                        user_id="zhfeng",
+                        owner_user_id="agent-owner-1",
+                        text="please fix the bug in foo.py",
+                    )
                 )
-            )
 
             mock_client.runs.create.assert_called_once()
             # And — crucially — ``runs.wait`` must NOT have been called. Any
@@ -3602,6 +3608,7 @@ class TestGithubFireAndForget:
             mock_client.runs.wait.assert_not_called()
 
             create_args = mock_client.runs.create.call_args
+            assert create_args.kwargs["headers"]["X-Trace-Id"] == "github-inbound-trace"
             assert create_args[0][0] == "gh-thread-1"  # thread_id
             assert create_args[0][1] == "lead_agent"  # assistant_id
             # multitask_strategy must still be ``reject`` — concurrent runs on
@@ -3740,17 +3747,21 @@ class TestGithubFireAndForget:
             mock_client.runs.create = AsyncMock(return_value={"run_id": "should-not-be-used"})
             manager._client = mock_client
 
-            await manager._handle_chat(
-                InboundMessage(
-                    channel_name="slack",
-                    chat_id="C1",
-                    user_id="U1",
-                    text="hi",
+            from deerflow.trace_context import request_trace_context
+
+            with request_trace_context("slack-inbound-trace"):
+                await manager._handle_chat(
+                    InboundMessage(
+                        channel_name="slack",
+                        chat_id="C1",
+                        user_id="U1",
+                        text="hi",
+                    )
                 )
-            )
 
             mock_client.runs.wait.assert_called_once()
             mock_client.runs.create.assert_not_called()
+            assert mock_client.runs.wait.call_args.kwargs["headers"]["X-Trace-Id"] == "slack-inbound-trace"
 
         _run(go())
 

@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY
+
 # Reserved sub-key of the run context that holds request-scoped secrets supplied
 # by the caller. Source of truth for what a skill *may* receive.
 SECRETS_CONTEXT_KEY = "secrets"
@@ -145,13 +147,17 @@ def redact_config_secrets(config: Any) -> Any:
     (``runs.kwargs_json``) and echoed by the run API. Strip the secret-bearing
     keys from its ``context`` so a request-scoped secret is never persisted or
     returned, while the live config that drives the run (built separately) keeps
-    them. Non-dict / context-less configs pass through unchanged.
+    them. Also omit the server-owned trace id from request echoes (including
+    historical records), so a forged input cannot disagree with run metadata.
     """
     if not isinstance(config, dict):
         return config
-    context = config.get("context")
-    if not isinstance(context, dict):
-        return config
     redacted = dict(config)
-    redacted["context"] = redact_secret_context_keys(context)
+    context = config.get("context")
+    if isinstance(context, dict):
+        redacted["context"] = redact_secret_context_keys(context)
+        redacted["context"].pop(DEERFLOW_TRACE_METADATA_KEY, None)
+    metadata = config.get("metadata")
+    if isinstance(metadata, dict):
+        redacted["metadata"] = {key: value for key, value in metadata.items() if key != DEERFLOW_TRACE_METADATA_KEY}
     return redacted

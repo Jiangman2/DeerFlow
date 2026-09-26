@@ -21,6 +21,15 @@ from deerflow.config.agents_config import (
 )
 
 
+@pytest.fixture(autouse=True)
+def file_agent_backend(monkeypatch):
+    """YAML round trips use a real file store, never an operator's app config."""
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    store = FileAgentStore()
+    monkeypatch.setattr("deerflow.persistence.agents.get_agent_store", lambda: store)
+
+
 def test_github_field_defaults_to_none() -> None:
     cfg = AgentConfig(name="solo")
     assert cfg.github is None

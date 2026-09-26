@@ -28,6 +28,8 @@ def _config_with_backend(
     *,
     heartbeat_enabled: bool | None = None,
     run_events_backend: str = "db",
+    stream_bridge_type: str = "redis",
+    sandbox_ownership_type: str | None = None,
     scheduler_enabled: bool = False,
     scheduler_multi_instance: bool = False,
 ) -> SimpleNamespace:
@@ -36,6 +38,10 @@ def _config_with_backend(
         database=DatabaseConfig(backend=backend),
         run_ownership=run_ownership,
         run_events=SimpleNamespace(backend=run_events_backend),
+        stream_bridge=SimpleNamespace(type=stream_bridge_type),
+        sandbox=SimpleNamespace(
+            ownership=(SimpleNamespace(type=sandbox_ownership_type) if sandbox_ownership_type is not None else None),
+        ),
         scheduler=SimpleNamespace(
             enabled=scheduler_enabled,
             multi_instance=scheduler_multi_instance,
@@ -218,6 +224,29 @@ def test_gate_heartbeat_check_not_triggered_for_sqlite(monkeypatch):
         _enforce_postgres_for_multi_worker(_config_with_backend("sqlite", heartbeat_enabled=True))
     msg = str(exc_info.value)
     assert "postgres" in msg.lower()
+
+
+def test_gate_rejects_multi_worker_with_process_local_run_events(monkeypatch):
+    monkeypatch.setenv("GATEWAY_WORKERS", "2")
+    with pytest.raises(SystemExit, match="run_events.backend='db'"):
+        _enforce_postgres_for_multi_worker(_config_with_backend("postgres", heartbeat_enabled=True, run_events_backend="memory"))
+
+
+def test_gate_rejects_multi_worker_with_process_local_stream_bridge(monkeypatch):
+    monkeypatch.setenv("GATEWAY_WORKERS", "2")
+    with pytest.raises(SystemExit, match="stream_bridge.type='redis'"):
+        _enforce_postgres_for_multi_worker(_config_with_backend("postgres", heartbeat_enabled=True, stream_bridge_type="memory"))
+
+
+def test_gate_rejects_explicit_process_local_sandbox_ownership(monkeypatch):
+    monkeypatch.setenv("GATEWAY_WORKERS", "2")
+    with pytest.raises(SystemExit, match="sandbox.ownership.type='redis'"):
+        _enforce_postgres_for_multi_worker(_config_with_backend("postgres", heartbeat_enabled=True, sandbox_ownership_type="memory"))
+
+
+def test_gate_allows_sandbox_ownership_inferred_from_redis_bridge(monkeypatch):
+    monkeypatch.setenv("GATEWAY_WORKERS", "2")
+    _enforce_postgres_for_multi_worker(_config_with_backend("postgres", heartbeat_enabled=True, stream_bridge_type="redis", sandbox_ownership_type=None))
 
 
 # ---------------------------------------------------------------------------

@@ -39,8 +39,9 @@ from langchain_core.messages import ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
-from deerflow.agents.middlewares.tool_result_meta import normalize_tool_result
-from deerflow.sandbox.tools import read_current_file_content
+from deerflow.agents.middlewares.tool_result_meta import normalize_tool_result, stamp_exception_meta
+from deerflow.sandbox.exceptions import SandboxAuthorizationError
+from deerflow.sandbox.tools import read_current_file_content, sandbox_authorization_scope, sandbox_authorization_scope_async
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +88,45 @@ def _content_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+async def _await_off_thread(task: asyncio.Task[Any]) -> Any:
+    """Drain an already-dispatched worker operation before propagating cancellation."""
+    first_cancel: asyncio.CancelledError | None = None
+    while True:
+        try:
+            result = await asyncio.shield(task)
+        except asyncio.CancelledError as exc:
+            if task.cancelled():
+                if first_cancel is not None:
+                    raise first_cancel
+                raise
+            if first_cancel is None:
+                first_cancel = exc
+            if not task.done():
+                continue
+        except BaseException:
+            if first_cancel is None:
+                raise
+        else:
+            if first_cancel is None:
+                return result
+
+        if first_cancel is not None:
+            if task.done() and not task.cancelled():
+                task.exception()
+            raise first_cancel
+
+
+async def _acquire_gate_lock(lock: threading.Lock) -> None:
+    """Acquire off-loop safely; threading.Lock permits cross-thread release."""
+    acquire_task = asyncio.create_task(asyncio.to_thread(lock.acquire))
+    try:
+        await _await_off_thread(acquire_task)
+    except asyncio.CancelledError:
+        if acquire_task.done() and not acquire_task.cancelled() and acquire_task.exception() is None:
+            lock.release()
+        raise
+
+
 class ReadBeforeWriteMiddleware(AgentMiddleware):
     """Version gate: block writes to existing files not read at their current version."""
 
@@ -100,6 +140,15 @@ class ReadBeforeWriteMiddleware(AgentMiddleware):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], ToolMessage | Command],
     ) -> ToolMessage | Command:
+        if request.tool_call.get("name") not in _GATED_WRITE_TOOLS | _READ_TOOLS or self._requested_path(request) is None:
+            return handler(request)
+        try:
+            with sandbox_authorization_scope(request.runtime):
+                return self._wrap_authorized_tool_call(request, handler)
+        except SandboxAuthorizationError as exc:
+            return self._authorization_error_result(request, exc)
+
+    def _wrap_authorized_tool_call(self, request: ToolCallRequest, handler: Callable[[ToolCallRequest], ToolMessage | Command]) -> ToolMessage | Command:
         name = request.tool_call.get("name")
         if name in _GATED_WRITE_TOOLS:
             path = self._requested_path(request)
@@ -128,6 +177,15 @@ class ReadBeforeWriteMiddleware(AgentMiddleware):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
     ) -> ToolMessage | Command:
+        if request.tool_call.get("name") not in _GATED_WRITE_TOOLS | _READ_TOOLS or self._requested_path(request) is None:
+            return await handler(request)
+        try:
+            async with sandbox_authorization_scope_async(request.runtime):
+                return await self._awrap_authorized_tool_call(request, handler)
+        except SandboxAuthorizationError as exc:
+            return self._authorization_error_result(request, exc)
+
+    async def _awrap_authorized_tool_call(self, request: ToolCallRequest, handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]]) -> ToolMessage | Command:
         name = request.tool_call.get("name")
         if name in _GATED_WRITE_TOOLS:
             path = self._requested_path(request)
@@ -137,9 +195,10 @@ class ReadBeforeWriteMiddleware(AgentMiddleware):
             # acquiring one, so acquiring in a worker thread and releasing on
             # the event-loop thread is safe.
             lock = self._lock_for(request, path)
-            await asyncio.to_thread(lock.acquire)
+            await _acquire_gate_lock(lock)
             try:
-                blocked = await asyncio.to_thread(self._check_write_gate, request)
+                check_task = asyncio.create_task(asyncio.to_thread(self._check_write_gate, request))
+                blocked = await _await_off_thread(check_task)
                 if blocked is not None:
                     return normalize_tool_result(blocked)
                 return await handler(request)
@@ -150,14 +209,25 @@ class ReadBeforeWriteMiddleware(AgentMiddleware):
             if path is None:
                 return await handler(request)
             lock = self._lock_for(request, path)
-            await asyncio.to_thread(lock.acquire)
+            await _acquire_gate_lock(lock)
             try:
                 result = await handler(request)
-                await asyncio.to_thread(self._attach_read_mark, request, result)
+                mark_task = asyncio.create_task(asyncio.to_thread(self._attach_read_mark, request, result))
+                await _await_off_thread(mark_task)
                 return result
             finally:
                 lock.release()
         return await handler(request)
+
+    @staticmethod
+    def _authorization_error_result(request: ToolCallRequest, exc: SandboxAuthorizationError) -> ToolMessage:
+        message = ToolMessage(
+            content=f"Error: {exc}",
+            tool_call_id=str(request.tool_call.get("id") or "missing-tool-call-id"),
+            name=str(request.tool_call.get("name") or "unknown_tool"),
+            status="error",
+        )
+        return stamp_exception_meta(message, str(exc))
 
     # -- locking ---------------------------------------------------------
 
@@ -190,6 +260,8 @@ class ReadBeforeWriteMiddleware(AgentMiddleware):
             return None
         try:
             current = self._content_reader(request.runtime, path)
+        except SandboxAuthorizationError:
+            raise
         except FileNotFoundError:
             # write_file creates the file; str_replace surfaces its own error.
             return None
@@ -246,6 +318,8 @@ class ReadBeforeWriteMiddleware(AgentMiddleware):
             return
         try:
             content = self._content_reader(request.runtime, path)
+        except SandboxAuthorizationError:
+            raise
         except Exception:
             logger.debug("read-before-write mark skipped for %r: file not hashable", path, exc_info=True)
             return

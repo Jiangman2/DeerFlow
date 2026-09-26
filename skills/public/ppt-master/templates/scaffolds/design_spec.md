@@ -17,7 +17,6 @@
 | Reading Mode | [fill] |
 | Content Strategy | [fill] |
 | Design Style | [fill] |
-| Formula Policy | [fill] |
 | AI Image Acquisition Path | [fill or not applicable] |
 | Generation Mode | [fill] |
 | Spec Refinement | [fill] |
@@ -79,19 +78,12 @@
 
 ## V. Layout Principles
 
-### Page Structure
+### Deck-wide Direction
 
-- **Header area**: [fill]
-- **Content area**: [fill]
-- **Footer area**: [fill]
-
-### Spacing Specification
-
-| Element | Current Project |
-| --- | --- |
-| Safe margin | [fill] |
-| Content block gap | [fill] |
-| Icon-text gap | [fill] |
+- **Hierarchy direction**: [fill]
+- **Composition tendency**: [fill]
+- **Cross-page continuity**: [fill]
+- **Spacing posture**: [fill]
 
 ## VI. Icon Usage Specification
 
@@ -101,7 +93,7 @@
 
 ## VIII. Image Resource List
 
-| Filename | Dimensions | Ratio | Purpose | Type | Layout pattern | Crop Policy | Acquire Via | Status | Reference | text_policy | page_role |
+| Filename | Dimensions | Ratio | Purpose | Type | Image pattern | Crop Policy | Acquire Via | Status | Reference | text_policy | page_role |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 
 ## IX. Content Outline
@@ -111,10 +103,11 @@
 #### Slide 01 - [fill]
 
 - **Audience move**: [fill]
-- **Layout**: [fill]
+- **Composition**: [non-binding macro composition direction]
 - **Title**: [fill]
 - **Core message**: [fill]
 - **Content**: [fill]
+- **Mathematical content**: [fill exact delimiter-free LaTeX expression body, or omit]
 
 ## X. Speaker Notes Requirements
 

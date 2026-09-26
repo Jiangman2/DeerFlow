@@ -88,7 +88,8 @@ async def test_update_preserves_unset_model_settings(_agent_env) -> None:
     )
 
     # Update only the description — model_settings / thinking must be preserved.
-    resp = await update_agent("researcher", AgentUpdateRequest(description="updated"))
+    revision = (await get_agent("researcher", source="personal")).draft_revision
+    resp = await update_agent("researcher", AgentUpdateRequest(description="updated", expected_draft_revision=revision))
     assert resp.description == "updated"
     assert resp.model_settings is not None
     assert resp.model_settings.temperature == 0.2
@@ -100,7 +101,7 @@ async def test_update_changes_model_settings(_agent_env) -> None:
 
     resp = await update_agent(
         "researcher",
-        AgentUpdateRequest(model_settings={"temperature": 0.9, "max_tokens": 2048}),
+        AgentUpdateRequest(model_settings={"temperature": 0.9, "max_tokens": 2048}, expected_draft_revision=(await get_agent("researcher", source="personal")).draft_revision),
     )
     assert resp.model_settings is not None
     assert resp.model_settings.temperature == 0.9
@@ -116,7 +117,8 @@ async def test_update_model_settings_merges_omitted_subfields(_agent_env) -> Non
         )
     )
 
-    resp = await update_agent("researcher", AgentUpdateRequest(model_settings={"temperature": 0.9}))
+    revision = (await get_agent("researcher", source="personal")).draft_revision
+    resp = await update_agent("researcher", AgentUpdateRequest(model_settings={"temperature": 0.9}, expected_draft_revision=revision))
 
     assert resp.model_settings is not None
     assert resp.model_settings.temperature == 0.9
@@ -132,7 +134,8 @@ async def test_update_model_settings_null_subfield_clears_only_that_subfield(_ag
         )
     )
 
-    resp = await update_agent("researcher", AgentUpdateRequest(model_settings={"max_tokens": None}))
+    revision = (await get_agent("researcher", source="personal")).draft_revision
+    resp = await update_agent("researcher", AgentUpdateRequest(model_settings={"max_tokens": None}, expected_draft_revision=revision))
 
     assert resp.model_settings is not None
     assert resp.model_settings.temperature == 0.2
@@ -142,5 +145,6 @@ async def test_update_model_settings_null_subfield_clears_only_that_subfield(_ag
 async def test_update_rejects_unknown_model(_agent_env) -> None:
     await create_agent_endpoint(AgentCreateRequest(name="researcher", model="agent-model"))
     with pytest.raises(HTTPException) as excinfo:
-        await update_agent("researcher", AgentUpdateRequest(model="ghost-model"))
+        revision = (await get_agent("researcher", source="personal")).draft_revision
+        await update_agent("researcher", AgentUpdateRequest(model="ghost-model", expected_draft_revision=revision))
     assert excinfo.value.status_code == 422

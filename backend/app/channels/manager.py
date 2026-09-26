@@ -37,12 +37,14 @@ from app.gateway.github import run_policy as _github_run_policy  # noqa: F401
 from app.gateway.internal_auth import create_internal_auth_headers
 from deerflow.config.agents_config import load_agent_config
 from deerflow.config.paths import make_safe_user_id
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 from deerflow.runtime.goal import parse_goal_command
 from deerflow.runtime.keyed_lock import AsyncKeyedLockTable
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.skills.slash import parse_slash_skill_reference
 from deerflow.skills.storage import get_or_new_skill_storage
 from deerflow.skills.storage.skill_storage import SkillStorage
+from deerflow.trace_context import TRACE_ID_HEADER, ensure_trace_context, get_current_trace_id
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY
 
 logger = logging.getLogger(__name__)
@@ -71,8 +73,8 @@ STREAM_UPDATE_MIN_CHARS = 60  # flush immediately when this many chars accumulat
 STREAM_MODES = ["messages-tuple", "values"]
 MESSAGE_STREAM_EVENTS = ("messages-tuple", "messages")
 THREAD_BUSY_MESSAGE = "This conversation is already processing another request. Please wait for it to finish and try again."
-BOUND_IDENTITY_REQUIRED_MESSAGE = "Connect this channel from DeerFlow Settings, complete the in-channel connect step, then send your message again."
-BOUND_IDENTITY_UNAVAILABLE_MESSAGE = "Channel connection verification is temporarily unavailable. Please try again later or contact the DeerFlow operator."
+BOUND_IDENTITY_REQUIRED_MESSAGE = f"请先在{ENTERPRISE_PRODUCT_NAME}的「设置 → 渠道」中连接此渠道，完成渠道内绑定后再发送消息。"
+BOUND_IDENTITY_UNAVAILABLE_MESSAGE = f"渠道连接暂时无法验证，请稍后重试或联系{ENTERPRISE_PRODUCT_NAME}管理员。"
 INBOUND_DEDUPE_TTL_SECONDS = 10 * 60
 INBOUND_DEDUPE_MAX_ENTRIES = 4096
 # Only server-stable provider message ids: client-generated ids (client_msg_id,
@@ -537,6 +539,17 @@ def _owner_headers(msg: InboundMessage) -> dict[str, str] | None:
     if not owner_user_id:
         return None
     return create_internal_auth_headers(owner_user_id=owner_user_id)
+
+
+def _run_request_headers(msg: InboundMessage) -> dict[str, str] | None:
+    """Carry this inbound message's trace to the Gateway run request."""
+    owner_headers = _owner_headers(msg)
+    trace_id = get_current_trace_id()
+    if trace_id is None:
+        return owner_headers
+    headers = dict(owner_headers or create_internal_auth_headers())
+    headers[TRACE_ID_HEADER] = trace_id
+    return headers
 
 
 def _safe_user_id_for_run(raw_user_id: str) -> str:
@@ -1229,6 +1242,13 @@ class ChannelManager:
             logger.error("[Manager] unhandled error in message task: %s", exc, exc_info=exc)
 
     async def _handle_message(self, msg: InboundMessage) -> None:
+        # Each inbound task starts from the long-lived dispatcher rather than an
+        # HTTP request. Keep its trace bound across admission, execution, error
+        # handling, and cleanup without leaking into another inbound message.
+        with ensure_trace_context():
+            await self._handle_message_in_trace(msg)
+
+    async def _handle_message_in_trace(self, msg: InboundMessage) -> None:
         msg = _apply_effective_owner(msg)
         try:
             # Non-command chat can be rejected before it consumes a semaphore
@@ -1603,8 +1623,8 @@ class ChannelManager:
             "context": run_context,
             "multitask_strategy": "reject",
         }
-        if owner_headers := _owner_headers(msg):
-            run_kwargs["headers"] = owner_headers
+        if request_headers := _run_request_headers(msg):
+            run_kwargs["headers"] = request_headers
 
         if policy is not None and policy.fire_and_forget:
             # Fire-and-forget path: the channel does its own outbound
@@ -1713,8 +1733,8 @@ class ChannelManager:
             "stream_mode": list(STREAM_MODES),
             "multitask_strategy": "reject",
         }
-        if owner_headers := _owner_headers(msg):
-            stream_kwargs["headers"] = owner_headers
+        if request_headers := _run_request_headers(msg):
+            stream_kwargs["headers"] = request_headers
 
         try:
             async for chunk in client.runs.stream(

@@ -217,3 +217,46 @@ def test_deermem_shutdown_flush_drains_a_pending_update() -> None:
     assert deermem._queue.pending_count == 0
     assert mock_updater.update_memory.call_count == 3
     reset_memory_manager()
+
+
+def test_host_memory_trace_hook_inherits_and_restores(tmp_path) -> None:
+    from deerflow.trace_context import get_current_trace_id, request_trace_context
+
+    set_memory_config(MemoryConfig(manager_class="deermem", backend_config={"storage_path": str(tmp_path)}))
+    manager = get_memory_manager()
+    with request_trace_context("memory-parent"):
+        with manager._config.trace_context_manager(None) as inherited:
+            assert inherited == get_current_trace_id() == "memory-parent"
+        with manager._config.trace_context_manager("memory-carrier"):
+            assert get_current_trace_id() == "memory-carrier"
+        assert get_current_trace_id() == "memory-parent"
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_memory_updater_restores_captured_trace_on_reused_thread(tmp_path, monkeypatch, fail) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    from deerflow.trace_context import get_current_trace_id, request_trace_context
+
+    set_memory_config(MemoryConfig(manager_class="deermem", backend_config={"storage_path": str(tmp_path)}))
+    updater = get_memory_manager()._updater
+    observed = []
+
+    def update(**kwargs):
+        observed.append((get_current_trace_id(), kwargs["trace_id"], kwargs["user_id"]))
+        if fail:
+            raise RuntimeError("synthetic memory failure")
+        return True
+
+    monkeypatch.setattr(updater, "_do_update_memory_sync_impl", update)
+    with ThreadPoolExecutor(max_workers=1) as pool, request_trace_context("unrelated-parent"):
+        for trace_id, user_id in (("captured-a", "alice"), ("captured-b", "bob")):
+            future = pool.submit(updater._do_update_memory_sync, messages=[], trace_id=trace_id, user_id=user_id)
+            if fail:
+                with pytest.raises(RuntimeError, match="synthetic memory failure"):
+                    future.result(timeout=10)
+            else:
+                assert future.result(timeout=10) is True
+            assert pool.submit(get_current_trace_id).result(timeout=10) is None
+            assert get_current_trace_id() == "unrelated-parent"
+    assert observed == [("captured-a", "captured-a", "alice"), ("captured-b", "captured-b", "bob")]

@@ -17,9 +17,7 @@ _PREVIEW_PORT = 30900
 _PREVIEW_PATH_PREFIX = "/img-preview/"
 _TIMEOUT_SECONDS = 20.0
 _MAX_IMAGE_BYTES = 32 * 1024 * 1024
-_SAFE_IMAGE_TYPES = frozenset(
-    {"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"}
-)
+_SAFE_IMAGE_TYPES = frozenset({"image/avif", "image/gif", "image/jpeg", "image/png", "image/webp"})
 
 
 def _contains_unsafe_path_segment(path: str) -> bool:

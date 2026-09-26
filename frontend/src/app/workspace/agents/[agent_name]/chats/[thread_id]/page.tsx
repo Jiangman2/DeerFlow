@@ -1,13 +1,16 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { BotIcon, PlusSquare } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { AgentWelcome } from "@/components/workspace/agent-welcome";
+import { EmployeeVersionNotice } from "@/components/workspace/agents/employee-version-notice";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
 import { BrowserTrigger } from "@/components/workspace/browser-view";
 import {
@@ -35,7 +38,17 @@ import { TodoList } from "@/components/workspace/todo-list";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { Tooltip } from "@/components/workspace/tooltip";
 import { useActiveGoal } from "@/components/workspace/use-active-goal";
-import { decodeAgentNameRouteParam, useAgent } from "@/core/agents";
+import {
+  agentChatPath,
+  decodeAgentNameRouteParam,
+  parseAgentSource,
+  useAgent,
+} from "@/core/agents";
+import { agentKnowledgeContext } from "@/core/agents/knowledge-selection";
+import {
+  resourceRequest,
+  type EmployeeThreadPublication,
+} from "@/core/agents/resources";
 import { useBrowserControlEnabled } from "@/core/features";
 import { useI18n } from "@/core/i18n/hooks";
 import {
@@ -61,6 +74,14 @@ import { cn } from "@/lib/utils";
 export default function AgentChatPage() {
   const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawAgentSource = searchParams.get("source");
+  const invalidAgentSource =
+    rawAgentSource !== null &&
+    !["personal", "team", "legacy"].includes(rawAgentSource);
+  const agentSource = invalidAgentSource
+    ? undefined
+    : parseAgentSource(rawAgentSource);
 
   const { agent_name: agentNameParam } = useParams<{
     agent_name: string;
@@ -69,15 +90,60 @@ export default function AgentChatPage() {
     () => decodeAgentNameRouteParam(agentNameParam),
     [agentNameParam],
   );
-  const agentRouteName = useMemo(
-    () => encodeURIComponent(agentName),
-    [agentName],
-  );
-
-  const { agent } = useAgent(agentName);
-
+  const {
+    agent,
+    isLoading: isAgentLoading,
+    error: agentError,
+  } = useAgent(invalidAgentSource ? null : agentName, agentSource);
   const { threadId, setThreadId, isNewThread, setIsNewThread, isMock } =
     useThreadChat();
+  const publication = useQuery({
+    queryKey: ["employee-thread-publication", threadId],
+    queryFn: () =>
+      resourceRequest<EmployeeThreadPublication>(
+        `threads/${encodeURIComponent(threadId)}/employee-publication`,
+      ),
+    enabled:
+      !isNewThread &&
+      !isMock &&
+      !invalidAgentSource &&
+      agentSource !== "personal",
+    retry: false,
+    staleTime: 10000,
+    refetchInterval: 30000,
+  });
+  const effectiveKnowledgeScope = useMemo(() => {
+    if (!publication.data?.bound) return agent?.knowledge_scope;
+    // The server broker uses the pinned scope, never the updated Square head.
+    return {
+      version: 1 as const,
+      mode:
+        publication.data.knowledge_mode === "inherit"
+          ? ("inherit" as const)
+          : ("disabled" as const),
+      items: [],
+    };
+  }, [publication.data, agent?.knowledge_scope]);
+  const agentContext = useMemo(
+    () => ({
+      agent_name: agentName,
+      ...(agentSource ? { agent_source: agentSource } : {}),
+      ...agentKnowledgeContext(effectiveKnowledgeScope),
+      employee_knowledge_scope_locked: Boolean(
+        effectiveKnowledgeScope && effectiveKnowledgeScope.mode !== "inherit",
+      ),
+    }),
+    [agentName, agentSource, effectiveKnowledgeScope],
+  );
+  const configuredDisplayName = agent?.display_name?.trim();
+  const agentDisplayName = configuredDisplayName?.length
+    ? configuredDisplayName
+    : (agent?.name ?? agentName);
+  const sourceBlocked =
+    invalidAgentSource ||
+    Boolean(agentSource && (isAgentLoading || Boolean(agentError) || !agent));
+  const selectionBlocked =
+    sourceBlocked || publication.isLoading || Boolean(publication.error);
   // `isNewThread` gates history/token-usage fetches until the backend creates
   // the thread. `isWelcomeMode` controls only the centered welcome layout, so
   // it can flip immediately on submit without triggering eager history loads.
@@ -115,7 +181,7 @@ export default function AgentChatPage() {
   } = useThreadStream({
     threadId: isNewThread ? undefined : threadId,
     displayThreadId: threadId,
-    context: { ...settings.context, agent_name: agentName },
+    context: { ...settings.context, ...agentContext },
     isMock,
     onSend: () => {
       setIsWelcomeMode(false);
@@ -125,11 +191,11 @@ export default function AgentChatPage() {
       // Keep the official DeerFlow lifecycle used by ordinary chats. A
       // Next.js RSC navigation while the first Agent stream is being created
       // can remount the SDK transport and strand the page on a 404 poll.
-      const nextPath = `/workspace/agents/${agentRouteName}/chats/${createdThreadId}`;
+      const nextPath = agentChatPath(agentName, createdThreadId, agentSource);
       history.replaceState(null, "", nextPath);
       setThreadId(createdThreadId);
       setIsNewThread(false);
-      notifyThreadChatRouteChange(nextPath);
+      notifyThreadChatRouteChange(window.location.pathname);
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -154,6 +220,7 @@ export default function AgentChatPage() {
   useEffect(() => {
     if (
       !isNewThread &&
+      !invalidAgentSource &&
       !isMock &&
       threadMetadata.isFetched &&
       threadMetadata.data === null &&
@@ -165,13 +232,15 @@ export default function AgentChatPage() {
       !hasMoreHistory &&
       !hasThreadMessages
     ) {
-      router.replace(`/workspace/agents/${agentRouteName}/chats/new`);
+      router.replace(agentChatPath(agentName, "new", agentSource));
     }
   }, [
-    agentRouteName,
+    agentName,
+    agentSource,
     hasMoreHistory,
     hasThreadMessages,
     isHistoryLoading,
+    invalidAgentSource,
     isMock,
     isNewThread,
     router,
@@ -185,22 +254,19 @@ export default function AgentChatPage() {
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage, options?: InputBoxSubmitOptions) => {
-      const sendPromise = sendMessage(
-        threadId,
-        message,
-        { agent_name: agentName },
-        options,
-      );
+      if (selectionBlocked) return;
+      const sendPromise = sendMessage(threadId, message, agentContext, options);
       if (message.files.length > 0) {
         return sendPromise;
       }
       void sendPromise;
     },
-    [agentName, sendMessage, threadId],
+    [agentContext, selectionBlocked, sendMessage, threadId],
   );
 
   const handleSubmitHumanInput = useCallback(
     async (request: HumanInputRequest, response: HumanInputResponse) => {
+      if (selectionBlocked) return false;
       let sent = false;
       await sendMessage(
         threadId,
@@ -208,7 +274,7 @@ export default function AgentChatPage() {
           text: buildHumanInputResponseText(request, response),
           files: [],
         },
-        { agent_name: agentName },
+        agentContext,
         {
           additionalKwargs: {
             hide_from_ui: true,
@@ -221,7 +287,7 @@ export default function AgentChatPage() {
       );
       return sent;
     },
-    [agentName, sendMessage, threadId],
+    [agentContext, selectionBlocked, sendMessage, threadId],
   );
 
   const handleStop = useCallback(async () => {
@@ -259,7 +325,7 @@ export default function AgentChatPage() {
     <ThreadContext.Provider value={{ thread, isMock }}>
       <SidecarProvider
         parentThreadId={threadId}
-        context={{ ...settings.context, agent_name: agentName }}
+        context={{ ...settings.context, ...agentContext }}
         isMock={isMock}
       >
         <ChatBox
@@ -284,7 +350,7 @@ export default function AgentChatPage() {
               <div className="cnooc-agent-header-badge flex min-w-0 shrink-0 items-center gap-1 rounded-md border p-1 sm:gap-1.5 sm:px-2 sm:py-1">
                 <BotIcon className="text-primary h-3.5 w-3.5" />
                 <span className="max-w-36 truncate text-xs font-medium sm:max-w-none">
-                  {agent?.name ?? agentName}
+                  {agentDisplayName}
                 </span>
               </div>
 
@@ -302,11 +368,12 @@ export default function AgentChatPage() {
                     <Button
                       className="size-8 px-0 sm:h-8 sm:w-auto sm:px-3"
                       data-testid="agent-new-chat-button"
+                      disabled={sourceBlocked}
                       size="sm"
                       variant="secondary"
                       onClick={() => {
                         router.push(
-                          `/workspace/agents/${agentRouteName}/chats/new`,
+                          agentChatPath(agentName, "new", agentSource),
                         );
                       }}
                     >
@@ -358,6 +425,7 @@ export default function AgentChatPage() {
                   isHistoryLoading={isHistoryLoading}
                   tokenUsageInlineMode={tokenUsageInlineMode}
                   canRegenerate={
+                    !selectionBlocked &&
                     !isNewThread &&
                     !isMock &&
                     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY !== "true" &&
@@ -414,6 +482,17 @@ export default function AgentChatPage() {
                     </div>
                   )}
 
+                  {(invalidAgentSource || (agentSource && agentError)) && (
+                    <Alert variant="destructive" className="mb-2">
+                      <AlertDescription>
+                        {t.agents.selectedSourceUnavailable}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  <EmployeeVersionNotice
+                    publication={publication.data}
+                    error={Boolean(publication.error)}
+                  />
                   <InputBox
                     className={cn(
                       "bg-background/5 w-full",
@@ -421,6 +500,11 @@ export default function AgentChatPage() {
                     )}
                     isWelcomeMode={isWelcomeMode}
                     threadId={threadId}
+                    employeeSkillScope={{
+                      name: agentName,
+                      source: agentSource,
+                      threadId: isNewThread ? undefined : threadId,
+                    }}
                     autoFocus={isWelcomeMode}
                     status={
                       thread.error
@@ -429,9 +513,10 @@ export default function AgentChatPage() {
                           ? "streaming"
                           : "ready"
                     }
-                    context={settings.context}
+                    context={{ ...settings.context, ...agentContext }}
                     extraHeader={undefined}
                     disabled={
+                      selectionBlocked ||
                       env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
                       isUploading ||
                       hasOpenHumanInputCard ||

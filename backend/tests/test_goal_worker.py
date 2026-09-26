@@ -8,7 +8,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from deerflow.runtime.goal import GoalEvaluation, attach_goal_evaluation, build_goal_state, latest_visible_assistant_signature, read_thread_goal, write_thread_goal
 from deerflow.runtime.runs import worker
-from deerflow.runtime.runs.manager import RunRecord
+from deerflow.runtime.runs.manager import RunManager, RunRecord
 from deerflow.runtime.runs.schemas import DisconnectMode, RunStatus
 
 
@@ -542,7 +542,12 @@ async def test_run_agent_does_not_stream_continuation_after_abort(monkeypatch):
 
             return _gen()
 
-    class FakeRunManager:
+    class FakeRunManager(RunManager):
+        def __init__(self):
+            super().__init__()
+            self._runs[record.run_id] = record
+            self._index_run_locked(record)
+
         async def set_status(self, _run_id, status, **_kwargs):
             record.status = status
 
@@ -619,7 +624,12 @@ async def test_run_agent_reuses_goal_evaluator_model_for_goal_loop(monkeypatch):
 
             return _gen()
 
-    class FakeRunManager:
+    class FakeRunManager(RunManager):
+        def __init__(self):
+            super().__init__()
+            self._runs[record.run_id] = record
+            self._index_run_locked(record)
+
         async def set_status(self, _run_id, status, **_kwargs):
             record.status = status
 
@@ -795,7 +805,12 @@ async def test_run_agent_strips_branch_checkpoint_for_goal_continuation(monkeypa
 
             return _gen()
 
-    class FakeRunManager:
+    class FakeRunManager(RunManager):
+        def __init__(self):
+            super().__init__()
+            self._runs[record.run_id] = record
+            self._index_run_locked(record)
+
         async def set_status(self, _run_id, status, **_kwargs):
             record.status = status
 

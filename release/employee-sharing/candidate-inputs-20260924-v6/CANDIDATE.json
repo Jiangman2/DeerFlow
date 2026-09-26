@@ -1,0 +1,36 @@
+{
+  "components": {
+    "frontend": {
+      "delta_sha256": "b3f4540246d2e654fd245626f36f43313dc61ea6b1e8e7f3fc101e8f3587a9a9",
+      "files": 33,
+      "source_image": "deerflow.local/deer-flow-frontend:20260923-enterprise-arm64-rc15-channel-pdf-preview-r2",
+      "source_image_id": "sha256:b0e7e951586937b28e0f3d5dc0b2df8e6748405bef623c8dfc455e7613688c36"
+    },
+    "gateway": {
+      "delta_sha256": "fdad15f36c18455dceac38a8fcbf46b7b742b25dedc13ab3c8c5608f10361040",
+      "files": 46,
+      "source_image": "deerflow.local/deer-flow-gateway:20260923-enterprise-arm64-rc15-channel-pdf-preview-r2",
+      "source_image_id": "sha256:a18f04d64152ea0b1272863e2dd57c2706573a4642bc06943da36a9518fb0856"
+    },
+    "provisioner": {
+      "delta_sha256": "3c03d922e9ca1b1d8110b71e2daff965915065633cc726d4022cc064ad7601c4",
+      "files": 1,
+      "source_image": "deerflow.local/deer-flow-provisioner:20260923-enterprise-arm64-rc15-ppt-master-v660-r16-split",
+      "source_image_id": "sha256:7e16f032bf6723ebb8533a7be250e8b028a35a3ddbd824fdd79933b9f6fdd846"
+    }
+  },
+  "images_built": false,
+  "open_gates": [
+    "exact_ARM64_image_builds",
+    "overlay_aware_deployment_bootstrap_and_live_source_validation",
+    "consistent_data_backup_and_safe_post_write_rollback",
+    "SSO_WeKnora_multi_identity_acceptance",
+    "cross_node_NFS_readonly_mounts",
+    "ordinary_chat_PDF_PPT_channels_regression"
+  ],
+  "production_workloads_mutated": false,
+  "ready_for_rollout": false,
+  "schema": 1,
+  "scope": "OFFLINE_IMAGE_INPUTS_ONLY",
+  "source_overlays_sha256": "5c0ab26548a90a13571634b487244b0106c648edf569dee394a3b08ba18c8e9f"
+}

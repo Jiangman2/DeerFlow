@@ -321,8 +321,16 @@ def test_validate_browser_url_rejects_private_and_non_http(monkeypatch):
     loopback / metadata / non-http targets, so the live stream cannot be steered
     at internal infrastructure.
     """
+    import ipaddress
+
     from deerflow.community.browser_automation import tools as browser_tools
     from deerflow.community.browser_automation import validate_browser_url
+
+    def resolve(host):
+        assert host == "github.com", "Unexpected test DNS lookup: " + host
+        return [ipaddress.ip_address("93.184.216.34")]
+
+    monkeypatch.setattr(browser_tools, "_resolve_host_addresses", resolve)
 
     # Isolate from any local config.yaml that may set allow_private_addresses.
     monkeypatch.setattr(browser_tools, "_get_tool_config", lambda _tool_name: {})

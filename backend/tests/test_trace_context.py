@@ -12,6 +12,41 @@ import pytest
 from deerflow.trace_context import _MAX_TRACE_ID_LENGTH, normalize_trace_id
 
 
+def test_ensure_trace_id_is_stable_within_an_isolated_context():
+    from contextvars import Context
+
+    from deerflow import trace_context
+
+    def check():
+        assert trace_context.get_current_trace_id() is None
+        first = trace_context.ensure_trace_id()
+        assert first and trace_context.ensure_trace_id() == first
+        assert trace_context.get_current_trace_id() == first
+
+    Context().run(check)
+
+
+def test_resolve_trace_id_validates_carriers_without_rebinding_parent():
+    from deerflow import trace_context
+
+    with trace_context.request_trace_context("ambient"):
+        assert trace_context.resolve_trace_id(None, "unsafe\nvalue", " trusted-carrier ") == "trusted-carrier"
+        assert trace_context.get_current_trace_id() == "ambient"
+        assert trace_context.resolve_trace_id(None, "unsafe\nvalue") == "ambient"
+
+
+def test_resolve_trace_id_mints_one_fallback_when_carriers_are_invalid():
+    from contextvars import Context
+
+    from deerflow import trace_context
+
+    def check():
+        first = trace_context.resolve_trace_id(None, "unsafe\nvalue")
+        assert first and trace_context.resolve_trace_id() == first
+
+    Context().run(check)
+
+
 class TestNormalizeTraceIdAcceptsPrintableAscii:
     def test_accepts_uuid_hex(self) -> None:
         assert normalize_trace_id("0123456789abcdef0123456789abcdef") == "0123456789abcdef0123456789abcdef"

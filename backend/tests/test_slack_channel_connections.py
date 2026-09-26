@@ -59,6 +59,7 @@ def test_slack_connect_command_binds_socket_mode_identity(tmp_path):
         assert connections[0]["workspace_id"] == "T123"
         assert connections[0]["metadata"]["channel_id"] == "C123"
         channel._web_client.chat_postMessage.assert_called_once()
+        assert "中国海油通用智能体" in str(channel._web_client.chat_postMessage.call_args)
         await repo.close()
 
     anyio.run(go)

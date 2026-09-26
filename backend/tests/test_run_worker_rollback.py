@@ -10,9 +10,12 @@ from langchain_core.messages import AIMessage
 from langgraph.checkpoint.base import empty_checkpoint
 from langgraph.checkpoint.memory import InMemorySaver
 
+from deerflow.config.run_ownership_config import RunOwnershipConfig
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
-from deerflow.runtime.runs.manager import ConflictError, RunManager
+from deerflow.runtime.events.store.memory import MemoryRunEventStore
+from deerflow.runtime.runs.manager import CancelOutcome, ConflictError, RunManager
 from deerflow.runtime.runs.schemas import RunStatus
+from deerflow.runtime.runs.store.memory import MemoryRunStore
 from deerflow.runtime.runs.worker import (
     RunContext,
     _agent_factory_supports_app_config,
@@ -35,6 +38,74 @@ class FakeCheckpointer:
         self.aput_writes = AsyncMock()
 
 
+@pytest.mark.anyio
+async def test_remote_cancel_wins_when_graph_finishes_before_owner_heartbeat():
+    store = MemoryRunStore()
+    ownership = RunOwnershipConfig(
+        heartbeat_enabled=True,
+        lease_seconds=30,
+        grace_seconds=10,
+    )
+    owner = RunManager(
+        store=store,
+        worker_id="worker-a",
+        run_ownership_config=ownership,
+    )
+    peer = RunManager(
+        store=store,
+        worker_id="worker-b",
+        run_ownership_config=ownership,
+    )
+    record = await owner.create_or_reject("thread-cancel-race")
+    bridge = SimpleNamespace(
+        publish=AsyncMock(),
+        publish_end=AsyncMock(),
+        cleanup=AsyncMock(),
+    )
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class _FinishingAgent:
+        async def astream(
+            self,
+            graph_input,
+            config=None,
+            stream_mode=None,
+            subgraphs=False,
+        ):
+            del graph_input, config, stream_mode, subgraphs
+            started.set()
+            await release.wait()
+            yield {"messages": []}
+
+    task = asyncio.create_task(
+        run_agent(
+            bridge,
+            owner,
+            record,
+            ctx=RunContext(
+                checkpointer=None,
+                event_store=MemoryRunEventStore(),
+            ),
+            agent_factory=lambda **_kwargs: _FinishingAgent(),
+            graph_input={},
+            config={},
+        )
+    )
+    record.task = task
+
+    await asyncio.wait_for(started.wait(), timeout=1)
+    assert await peer.cancel(record.run_id, action="rollback") == CancelOutcome.requested
+    release.set()
+    await asyncio.wait_for(task, timeout=1)
+
+    stored = await store.get(record.run_id)
+    assert stored is not None
+    assert stored["status"] == "error"
+    assert stored["error"] == "Rolled back by user"
+    assert record.status == RunStatus.error
+
+
 def _make_checkpoint(checkpoint_id: str, messages: list[str], version: int):
     checkpoint = empty_checkpoint()
     checkpoint["id"] = checkpoint_id
@@ -51,6 +122,20 @@ def test_build_runtime_context_includes_app_config_when_present():
     assert context["thread_id"] == "thread-1"
     assert context["run_id"] == "run-1"
     assert context["app_config"] is app_config
+
+
+def test_worker_drops_audit_attribution_and_bridges_from_replayed_context():
+    from deerflow.agents.middlewares.audit_context import SERVER_OWNED_AUDIT_CONTEXT_KEYS
+
+    caller = {key: "forged" for key in SERVER_OWNED_AUDIT_CONTEXT_KEYS}
+    caller.update(user_id="alice", agent_name="employee")
+    result = _build_runtime_context("t", "r", caller)
+    assert not (set(result) & SERVER_OWNED_AUDIT_CONTEXT_KEYS)
+    assert result["user_id"] == "alice" and result["agent_name"] == "employee"
+    config = {"context": dict(caller), "configurable": dict(caller)}
+    _install_runtime_context(config, result)
+    assert not (set(config["context"]) & SERVER_OWNED_AUDIT_CONTEXT_KEYS)
+    assert not (set(config["configurable"]) & SERVER_OWNED_AUDIT_CONTEXT_KEYS)
 
 
 def test_install_runtime_context_preserves_existing_thread_id_and_threads_app_config():
@@ -186,7 +271,8 @@ async def test_run_agent_threads_pre_existing_message_ids_into_runtime_context()
 
     class DummyAgent:
         async def astream(self, graph_input, config=None, stream_mode=None, subgraphs=False):
-            captured["context"] = config["context"]
+            captured["live_context"] = config["context"]
+            captured["context"] = dict(config["context"])
             yield {"messages": []}
 
     def factory(*, config):
@@ -204,6 +290,7 @@ async def test_run_agent_threads_pre_existing_message_ids_into_runtime_context()
 
     context = captured["context"]
     assert context[CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY] == frozenset({"old-ai"})
+    assert CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY not in captured["live_context"]
 
 
 @pytest.mark.anyio
@@ -219,7 +306,8 @@ async def test_run_agent_overrides_spoofed_pre_existing_message_ids_without_snap
 
     class DummyAgent:
         async def astream(self, graph_input, config=None, stream_mode=None, subgraphs=False):
-            captured["context"] = config["context"]
+            captured["live_context"] = config["context"]
+            captured["context"] = dict(config["context"])
             yield {"messages": []}
 
     def factory(*, config):
@@ -237,6 +325,7 @@ async def test_run_agent_overrides_spoofed_pre_existing_message_ids_without_snap
 
     context = captured["context"]
     assert context[CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY] == frozenset()
+    assert CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY not in captured["live_context"]
 
 
 @pytest.mark.anyio
@@ -1935,7 +2024,6 @@ async def test_worker_finally_block_swallows_helper_exceptions(monkeypatch):
 
     run_manager = RunManager()
     record = await run_manager.create("thread-1")
-    record.status = RunStatus.interrupted
 
     bridge = SimpleNamespace(
         publish=AsyncMock(),

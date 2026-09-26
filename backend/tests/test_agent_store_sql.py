@@ -42,6 +42,29 @@ def test_create_and_get_round_trips_config_and_soul(store):
     assert store.get_soul("reviewer", user_id="u1") == "You review."
 
 
+def test_shared_revisions_do_not_modify_existing_sql_employee(store, tmp_path):
+    from deerflow.config.paths import Paths
+    from deerflow.persistence.agents.publications import TeamPublicationStore
+
+    paths = Paths(base_dir=tmp_path)
+    store.create("reports", {"description": "existing", "future_binding": {"keep": True}}, "原有职责", user_id="owner")
+    with store._Session() as session:
+        row = store._row(session, "reports", "owner")
+        before = (row.id, row.config, row.soul, row.created_at, row.updated_at)
+    publications = TeamPublicationStore(paths)
+    first = publications.publish("reports", owner="owner", config={"description": "square"}, soul="published", avatar=None, expected_revision=None)
+    with mock.patch("deerflow.persistence.agents.sql.get_paths", return_value=paths):
+        assert store.get("reports", user_id="viewer").description == "square"
+        assert store.get_soul("reports", user_id="viewer") == "published"
+        publications.unpublish("reports", owner="owner", expected_revision=first.revision)
+        with pytest.raises(FileNotFoundError):
+            store.get("reports", user_id="viewer")
+        assert store.get_soul("reports", user_id="owner") == "原有职责"
+    with store._Session() as session:
+        row = store._row(session, "reports", "owner")
+        assert (row.id, row.config, row.soul, row.created_at, row.updated_at) == before
+
+
 def test_name_is_stored_lowercase_and_excluded_from_document(store):
     store.create("Mixed", {"name": "Mixed", "description": "d"}, "s", user_id="u1")
     # Stored lowercase (matches the on-disk layout), and the JSON document does
@@ -59,6 +82,17 @@ def test_get_missing_raises_file_not_found(store):
         store.get("nope", user_id="u1")
     assert store.get_soul("nope", user_id="u1") is None
     assert store.exists("nope", user_id="u1") is False
+
+
+def test_explicit_personal_read_never_falls_back_to_shared(store):
+    store.create("reports", {"description": "owner only"}, "private soul", user_id="owner")
+    with mock.patch.object(store, "_shared_file", side_effect=AssertionError("must not resolve a shared fallback")):
+        assert store.get("reports", user_id="owner", allow_shared=False).description == "owner only"
+        assert store.get_soul("reports", user_id="owner", allow_shared=False) == "private soul"
+        with pytest.raises(FileNotFoundError):
+            store.get("reports", user_id="viewer", allow_shared=False)
+        with pytest.raises(FileNotFoundError):
+            store.get_soul("reports", user_id="viewer", allow_shared=False)
 
 
 def test_create_duplicate_raises_agent_exists(store):
@@ -109,6 +143,7 @@ def test_patch_config_preserves_unknown_raw_fields(store):
         "owner": "newer-release",
         "enabled": True,
     }
+
 
 def test_update_insert_race_recovers_via_upsert(store):
     """update()'s insert-on-missing branch is a true upsert under a write race.

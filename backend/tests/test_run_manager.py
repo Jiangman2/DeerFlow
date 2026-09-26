@@ -9,8 +9,10 @@ from typing import Any
 import pytest
 from sqlalchemy.exc import DatabaseError as SQLAlchemyDatabaseError
 
-from deerflow.runtime import DisconnectMode, RunManager, RunStatus
+from deerflow.config.run_ownership_config import RunOwnershipConfig
+from deerflow.runtime import DisconnectMode, RunManager, RunStatus, ThreadOperationKind
 from deerflow.runtime.runs.manager import CancelOutcome, ConflictError, PersistenceRetryPolicy
+from deerflow.runtime.runs.store.base import LeaseRenewal
 from deerflow.runtime.runs.store.memory import MemoryRunStore
 
 ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
@@ -61,15 +63,15 @@ class PermanentStatusRunStore(MemoryRunStore):
         )
 
 
-class FailingStatusRunStore(MemoryRunStore):
-    """Memory run store that always fails status updates."""
+class FailingTakeoverRunStore(MemoryRunStore):
+    """Memory run store that always fails takeover claims."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.status_update_attempts = 0
+        self.takeover_attempts = 0
 
-    async def update_status(self, run_id, status, *, error=None, stop_reason=None):
-        self.status_update_attempts += 1
+    async def claim_for_takeover(self, run_id, *, grace_seconds, error, stop_reason=None):
+        self.takeover_attempts += 1
         raise sqlite3.OperationalError("database is locked")
 
 
@@ -99,12 +101,176 @@ class AlwaysMissingCompletionRunStore(MemoryRunStore):
         return False
 
 
+class FailingDeleteRunStore(MemoryRunStore):
+    """Run store that cannot release a persisted thread-operation row."""
+
+    async def delete_thread_operation(self, run_id, *, user_id=None):
+        raise RuntimeError("delete failed")
+
+
+class LostLeaseRunStore(MemoryRunStore):
+    """Run store that reports a reservation was taken over."""
+
+    async def renew_lease(self, run_id, *, owner_worker_id, lease_expires_at):
+        return LeaseRenewal(renewed=False)
+
+
+class PausedLostLeaseRunStore(MemoryRunStore):
+    """Run store whose failed renewal can be released after reservation cleanup."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.renewal_started = asyncio.Event()
+        self.finish_renewal = asyncio.Event()
+
+    async def renew_lease(self, run_id, *, owner_worker_id, lease_expires_at):
+        self.renewal_started.set()
+        await self.finish_renewal.wait()
+        return LeaseRenewal(renewed=False)
+
+
 async def _stored_statuses(store: MemoryRunStore, *run_ids: str) -> dict[str, Any]:
     rows = {}
     for run_id in run_ids:
         row = await store.get(run_id)
         rows[run_id] = row["status"] if row else None
     return rows
+
+
+@pytest.mark.anyio
+async def test_reservation_delete_failure_preserves_body_error_and_clears_local_record(caplog):
+    store = FailingDeleteRunStore()
+    manager = RunManager(
+        store=store,
+        persistence_retry_policy=PersistenceRetryPolicy(max_attempts=1, initial_delay=0),
+    )
+
+    with caplog.at_level(logging.WARNING), pytest.raises(ValueError, match="body failed"):
+        async with manager.reserve_thread_operation(
+            "thread-1",
+            kind=ThreadOperationKind.checkpoint_write,
+        ):
+            raise ValueError("body failed")
+
+    assert not await manager.has_inflight("thread-1")
+    assert manager._runs == {}
+    assert manager._runs_by_thread == {}
+    assert len(await store.list_inflight()) == 1
+    assert "leaving it for orphan reconciliation" in caplog.text
+
+
+@pytest.mark.anyio
+async def test_reservation_lease_loss_surfaces_as_conflict_after_cancelling_body():
+    store = LostLeaseRunStore()
+    manager = RunManager(
+        store=store,
+        run_ownership_config=RunOwnershipConfig(
+            lease_seconds=30,
+            grace_seconds=10,
+            heartbeat_enabled=True,
+        ),
+    )
+    entered = asyncio.Event()
+
+    async def hold_reservation() -> None:
+        async with manager.reserve_thread_operation(
+            "thread-1",
+            kind=ThreadOperationKind.checkpoint_write,
+        ):
+            entered.set()
+            await asyncio.Event().wait()
+
+    task = asyncio.create_task(hold_reservation())
+    await entered.wait()
+
+    await manager._renew_leases()
+
+    with pytest.raises(ConflictError, match="reservation lease was lost"):
+        await task
+    assert not await manager.has_inflight("thread-1")
+    assert await store.list_inflight() == []
+
+
+@pytest.mark.anyio
+async def test_reservation_cancelled_while_attaching_task_is_released(monkeypatch):
+    store = MemoryRunStore()
+    manager = RunManager(store=store)
+    admitted = asyncio.Event()
+    return_from_admission = asyncio.Event()
+    original_admit = manager._admit_thread_operation
+
+    async def pause_after_admission(*args, **kwargs):
+        record = await original_admit(*args, **kwargs)
+        admitted.set()
+        await return_from_admission.wait()
+        return record
+
+    monkeypatch.setattr(manager, "_admit_thread_operation", pause_after_admission)
+
+    async def reserve() -> None:
+        async with manager.reserve_thread_operation(
+            "thread-1",
+            kind=ThreadOperationKind.checkpoint_write,
+        ):
+            raise AssertionError("cancelled reservation must not enter its body")
+
+    task = asyncio.create_task(reserve())
+    await admitted.wait()
+    await manager._lock.acquire()
+    return_from_admission.set()
+    await asyncio.sleep(0)
+    task.cancel()
+    manager._lock.release()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert not await manager.has_inflight("thread-1")
+    assert manager._runs == {}
+    assert manager._runs_by_thread == {}
+    assert await store.list_inflight() == []
+
+
+@pytest.mark.anyio
+async def test_late_failed_renewal_does_not_cancel_released_reservation():
+    store = PausedLostLeaseRunStore()
+    manager = RunManager(
+        store=store,
+        run_ownership_config=RunOwnershipConfig(
+            lease_seconds=30,
+            grace_seconds=10,
+            heartbeat_enabled=True,
+        ),
+    )
+    entered = asyncio.Event()
+    leave_body = asyncio.Event()
+    context_exited = asyncio.Event()
+    finish_request = asyncio.Event()
+
+    async def request() -> None:
+        async with manager.reserve_thread_operation(
+            "thread-1",
+            kind=ThreadOperationKind.checkpoint_write,
+        ):
+            entered.set()
+            await leave_body.wait()
+        context_exited.set()
+        await finish_request.wait()
+
+    request_task = asyncio.create_task(request())
+    await entered.wait()
+    renewal_task = asyncio.create_task(manager._renew_leases())
+    await store.renewal_started.wait()
+
+    leave_body.set()
+    await context_exited.wait()
+    assert not await manager.has_inflight("thread-1")
+
+    store.finish_renewal.set()
+    await renewal_task
+    assert not request_task.done()
+
+    finish_request.set()
+    await request_task
 
 
 @pytest.mark.anyio
@@ -301,9 +467,9 @@ async def test_reconcile_orphaned_inflight_runs_skips_live_local_run():
 
 
 @pytest.mark.anyio
-async def test_reconcile_orphaned_inflight_runs_skips_rows_when_error_status_is_not_persisted():
-    """Startup recovery must not report a row as recovered if the error update failed."""
-    store = FailingStatusRunStore()
+async def test_reconcile_orphaned_inflight_runs_skips_rows_when_takeover_claim_fails():
+    """Startup recovery must not report a row as recovered if the takeover claim failed."""
+    store = FailingTakeoverRunStore()
     await store.put("running-run", thread_id="thread-1", status="running", created_at="2026-01-01T00:00:00+00:00")
     manager = RunManager(
         store=store,
@@ -318,7 +484,7 @@ async def test_reconcile_orphaned_inflight_runs_skips_rows_when_error_status_is_
     stored = await store.get("running-run")
     assert recovered == []
     assert stored["status"] == "running"
-    assert store.status_update_attempts == 2
+    assert store.takeover_attempts == 2
 
 
 @pytest.mark.anyio
@@ -609,6 +775,25 @@ async def test_list_by_thread_merges_store_runs_newest_first():
 
 
 @pytest.mark.anyio
+async def test_list_by_thread_limit_does_not_let_old_memory_hide_new_store_run():
+    """A local row must not consume the store query's newest-run limit."""
+    store = MemoryRunStore()
+    manager = RunManager(store=store)
+    old_memory = await manager.create("thread-1")
+    old_memory.created_at = "2026-01-01T00:00:00+00:00"
+    await store.put(
+        "new-store",
+        thread_id="thread-1",
+        status="success",
+        created_at="2026-01-02T00:00:00+00:00",
+    )
+
+    runs = await manager.list_by_thread("thread-1", limit=1)
+
+    assert [run.run_id for run in runs] == ["new-store"]
+
+
+@pytest.mark.anyio
 async def test_create_defaults(manager: RunManager):
     """Create with no optional args should use defaults."""
     record = await manager.create("thread-1")
@@ -675,7 +860,7 @@ async def test_create_or_reject_does_not_interrupt_old_run_when_new_run_store_wr
     manager = RunManager(store=store)
     old = await manager.create("thread-1")
     await manager.set_status(old.run_id, RunStatus.running)
-    store.create_run_atomic = AsyncMock(side_effect=RuntimeError("db down"))
+    store.create_thread_operation_atomic = AsyncMock(side_effect=RuntimeError("db down"))
 
     with pytest.raises(RuntimeError, match="db down"):
         await manager.create_or_reject("thread-1", multitask_strategy="interrupt")
@@ -699,7 +884,7 @@ async def test_create_or_reject_does_not_interrupt_old_run_when_new_run_store_wr
     async def cancelled_create(run_id, **kwargs):
         raise asyncio.CancelledError
 
-    store.create_run_atomic = cancelled_create
+    store.create_thread_operation_atomic = cancelled_create
 
     with pytest.raises(asyncio.CancelledError):
         await manager.create_or_reject("thread-1", multitask_strategy="interrupt")
@@ -710,6 +895,245 @@ async def test_create_or_reject_does_not_interrupt_old_run_when_new_run_store_wr
     assert old.abort_event.is_set() is False
     assert stored_old is not None
     assert stored_old["status"] == "running"
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("strategy", ["interrupt", "rollback"])
+async def test_create_or_reject_cancellation_after_registration_interrupts_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+    strategy: str,
+) -> None:
+    """Cancellation after admission must not leave the replacement active."""
+    store = MemoryRunStore()
+    manager = RunManager(store=store)
+    old = await manager.create("thread-1")
+    await manager.set_status(old.run_id, RunStatus.running)
+    persist_started = asyncio.Event()
+    release_persist = asyncio.Event()
+    original_persist_status = manager._persist_status
+
+    async def blocking_persist_status(record: Any, status: RunStatus, **kwargs: Any) -> bool:
+        persist_started.set()
+        await asyncio.wait_for(release_persist.wait(), timeout=1)
+        return await original_persist_status(record, status, **kwargs)
+
+    monkeypatch.setattr(manager, "_persist_status", blocking_persist_status)
+    create_task = asyncio.create_task(manager.create_or_reject("thread-1", multitask_strategy=strategy))
+    await asyncio.wait_for(persist_started.wait(), timeout=1)
+    create_task.cancel()
+    release_persist.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        _ = await create_task
+
+    records = await manager.list_by_thread("thread-1")
+    replacement = next(record for record in records if record.run_id != old.run_id)
+    stored_replacement = await store.get(replacement.run_id)
+    assert not await manager.has_inflight("thread-1")
+    assert replacement.status == RunStatus.interrupted
+    assert replacement.abort_event.is_set()
+    assert stored_replacement is not None
+    assert stored_replacement["status"] == RunStatus.interrupted.value
+
+
+@pytest.mark.anyio
+async def test_create_or_reject_repeated_cancellation_drains_replacement_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repeated cancellation must not abandon the durable cleanup task."""
+    store = MemoryRunStore()
+    manager = RunManager(store=store)
+    old = await manager.create("thread-1")
+    await manager.set_status(old.run_id, RunStatus.running)
+    old_persist_started = asyncio.Event()
+    release_old_persist = asyncio.Event()
+    replacement_persist_started = asyncio.Event()
+    release_replacement_persist = asyncio.Event()
+    original_persist_status = manager._persist_status
+
+    async def staged_persist_status(record: Any, status: RunStatus, **kwargs: Any) -> bool:
+        if record.run_id == old.run_id:
+            old_persist_started.set()
+            await asyncio.wait_for(release_old_persist.wait(), timeout=1)
+        else:
+            replacement_persist_started.set()
+            await asyncio.wait_for(release_replacement_persist.wait(), timeout=1)
+        return await original_persist_status(record, status, **kwargs)
+
+    monkeypatch.setattr(manager, "_persist_status", staged_persist_status)
+    create_task = asyncio.create_task(manager.create_or_reject("thread-1", multitask_strategy="interrupt"))
+    await asyncio.wait_for(old_persist_started.wait(), timeout=1)
+    replacement = next(record for record in manager._runs.values() if record.run_id != old.run_id)
+
+    create_task.cancel()
+    release_old_persist.set()
+    await asyncio.wait_for(replacement_persist_started.wait(), timeout=1)
+    create_task.cancel()
+    await asyncio.sleep(0)
+    assert not create_task.done()
+
+    release_replacement_persist.set()
+    with pytest.raises(asyncio.CancelledError):
+        _ = await asyncio.wait_for(create_task, timeout=1)
+
+    stored_replacement = await store.get(replacement.run_id)
+    assert replacement.status == RunStatus.interrupted
+    assert stored_replacement is not None
+    assert stored_replacement["status"] == RunStatus.interrupted.value
+
+
+@pytest.mark.anyio
+async def test_create_or_reject_retries_replacement_when_cancel_status_cannot_persist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed best-effort update must get a strict durable retry."""
+
+    class FailFirstReplacementInterruptStore(MemoryRunStore):
+        failed = False
+
+        async def get(self, run_id: str, *, user_id: str | None = None) -> dict[str, Any] | None:
+            raw = await super().get(run_id)
+            if raw is not None and raw.get("status") == RunStatus.pending.value and raw.get("user_id") is not None and user_id != raw.get("user_id"):
+                raise RuntimeError("replacement lookup was not owner-scoped")
+            return await super().get(run_id, user_id=user_id)
+
+        async def update_status(self, run_id: str, status: str, **kwargs: Any) -> bool:
+            row = await super().get(run_id)
+            if not self.failed and status == RunStatus.interrupted.value and row is not None and row.get("status") == RunStatus.pending.value:
+                self.failed = True
+                raise RuntimeError("replacement status write failed")
+            return await super().update_status(run_id, status, **kwargs)
+
+    store = FailFirstReplacementInterruptStore()
+    manager = RunManager(store=store)
+    old = await manager.create("thread-1", user_id="owner-1")
+    await manager.set_status(old.run_id, RunStatus.running)
+    old_persist_started = asyncio.Event()
+    release_old_persist = asyncio.Event()
+    original_persist_status = manager._persist_status
+
+    async def block_old_persist(record: Any, status: RunStatus, **kwargs: Any) -> bool:
+        if record.run_id != old.run_id:
+            return await original_persist_status(record, status, **kwargs)
+        old_persist_started.set()
+        await asyncio.wait_for(release_old_persist.wait(), timeout=1)
+        return await original_persist_status(record, status, **kwargs)
+
+    monkeypatch.setattr(manager, "_persist_status", block_old_persist)
+    create_task = asyncio.create_task(manager.create_or_reject("thread-1", multitask_strategy="interrupt", user_id="owner-1"))
+    await asyncio.wait_for(old_persist_started.wait(), timeout=1)
+    replacement = next(record for record in manager._runs.values() if record.run_id != old.run_id)
+    create_task.cancel()
+    release_old_persist.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        _ = await asyncio.wait_for(create_task, timeout=1)
+
+    stored_replacement = await store.get(replacement.run_id, user_id="owner-1")
+    assert stored_replacement is not None
+    assert stored_replacement["status"] == RunStatus.interrupted.value
+    assert replacement.status == RunStatus.interrupted
+    assert not await manager.has_inflight("thread-1")
+
+
+@pytest.mark.anyio
+async def test_create_or_reject_cleanup_failure_preserves_caller_cancellation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cleanup IO failure must not replace the caller's CancelledError."""
+
+    class FailingReplacementCleanupStore(MemoryRunStore):
+        replacement_update_failed = False
+
+        async def update_status(self, run_id: str, status: str, **kwargs: Any) -> bool:
+            row = await super().get(run_id)
+            if status == RunStatus.interrupted.value and row is not None and row.get("status") == RunStatus.pending.value:
+                self.replacement_update_failed = True
+                raise RuntimeError("replacement status unavailable")
+            return await super().update_status(run_id, status, **kwargs)
+
+        async def get(self, run_id: str, *, user_id: str | None = None) -> dict[str, Any] | None:
+            row = await super().get(run_id, user_id=user_id)
+            if self.replacement_update_failed and row is not None and row.get("status") == RunStatus.pending.value:
+                raise RuntimeError("replacement verification unavailable")
+            return row
+
+    store = FailingReplacementCleanupStore()
+    manager = RunManager(store=store)
+    old = await manager.create("thread-1")
+    await manager.set_status(old.run_id, RunStatus.running)
+    old_persist_started = asyncio.Event()
+    release_old_persist = asyncio.Event()
+    original_persist_status = manager._persist_status
+
+    async def block_old_persist(record: Any, status: RunStatus, **kwargs: Any) -> bool:
+        if record.run_id != old.run_id:
+            return await original_persist_status(record, status, **kwargs)
+        old_persist_started.set()
+        await asyncio.wait_for(release_old_persist.wait(), timeout=1)
+        return await original_persist_status(record, status, **kwargs)
+
+    monkeypatch.setattr(manager, "_persist_status", block_old_persist)
+    create_task = asyncio.create_task(manager.create_or_reject("thread-1", multitask_strategy="interrupt"))
+    await asyncio.wait_for(old_persist_started.wait(), timeout=1)
+    create_task.cancel()
+    release_old_persist.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        _ = await asyncio.wait_for(create_task, timeout=1)
+
+
+@pytest.mark.anyio
+async def test_create_or_reject_preserves_peer_terminal_status_during_cancel_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A peer terminal transition must win the strict cancellation retry."""
+
+    class PeerWinsReplacementInterruptStore(MemoryRunStore):
+        replacement_attempts = 0
+
+        async def update_status(self, run_id: str, status: str, **kwargs: Any) -> bool:
+            row = await self.get(run_id)
+            if status == RunStatus.interrupted.value and row is not None and row.get("status") == RunStatus.pending.value:
+                self.replacement_attempts += 1
+                if self.replacement_attempts == 1:
+                    raise RuntimeError("replacement status write failed")
+                await super().update_status(run_id, RunStatus.error.value, error="peer takeover")
+                return False
+            return await super().update_status(run_id, status, **kwargs)
+
+    store = PeerWinsReplacementInterruptStore()
+    manager = RunManager(store=store)
+    old = await manager.create("thread-1")
+    await manager.set_status(old.run_id, RunStatus.running)
+    old_persist_started = asyncio.Event()
+    release_old_persist = asyncio.Event()
+    original_persist_status = manager._persist_status
+
+    async def block_old_persist(record: Any, status: RunStatus, **kwargs: Any) -> bool:
+        if record.run_id != old.run_id:
+            return await original_persist_status(record, status, **kwargs)
+        old_persist_started.set()
+        await asyncio.wait_for(release_old_persist.wait(), timeout=1)
+        return await original_persist_status(record, status, **kwargs)
+
+    monkeypatch.setattr(manager, "_persist_status", block_old_persist)
+    create_task = asyncio.create_task(manager.create_or_reject("thread-1", multitask_strategy="interrupt"))
+    await asyncio.wait_for(old_persist_started.wait(), timeout=1)
+    replacement = next(record for record in manager._runs.values() if record.run_id != old.run_id)
+    create_task.cancel()
+    release_old_persist.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        _ = await asyncio.wait_for(create_task, timeout=1)
+
+    stored_replacement = await store.get(replacement.run_id)
+    assert stored_replacement is not None
+    assert stored_replacement["status"] == RunStatus.error.value
+    assert stored_replacement["error"] == "peer takeover"
+    assert replacement.status == RunStatus.error
+    assert replacement.error == "peer takeover"
+    assert not await manager.has_inflight("thread-1")
 
 
 @pytest.mark.anyio
@@ -913,12 +1337,12 @@ async def test_list_by_thread_falls_back_to_store_with_user_filter():
 
 
 class _FailingPutRunStore(MemoryRunStore):
-    """Memory run store whose every ``put`` and ``create_run_atomic`` fails (non-retryably)."""
+    """Memory run store whose every ``put`` and atomic operation create fails."""
 
     async def put(self, run_id, **kwargs):
         raise ValueError("simulated persist failure")
 
-    async def create_run_atomic(self, run_id, **kwargs):
+    async def create_thread_operation_atomic(self, run_id, **kwargs):
         raise ValueError("simulated persist failure")
 
 
@@ -953,10 +1377,12 @@ async def test_thread_index_cleanup_prunes_run_and_empty_bucket():
     a1 = await manager.create("thread-a")
     a2 = await manager.create("thread-a")
 
+    await manager.set_status(a1.run_id, RunStatus.success)
     await manager.cleanup(a1.run_id, delay=0)
     assert a1.run_id not in manager._runs
     assert set(manager._runs_by_thread["thread-a"]) == {a2.run_id}
 
+    await manager.set_status(a2.run_id, RunStatus.success)
     await manager.cleanup(a2.run_id, delay=0)
     # Empty buckets are pruned so the index cannot grow without bound.
     assert "thread-a" not in manager._runs_by_thread

@@ -8,7 +8,12 @@ export type WorkspaceChangeLineClass =
   | "meta";
 
 export function getChangedFileCount(summary: WorkspaceChangeSummary) {
-  return summary.created + summary.modified + summary.deleted;
+  return (
+    summary.created +
+    summary.modified +
+    summary.deleted +
+    (summary.symlink_created ?? 0)
+  );
 }
 
 export function getWorkspaceChangeBadgeLabel(summary: WorkspaceChangeSummary) {
@@ -41,6 +46,7 @@ export function sortWorkspaceChanges(files: WorkspaceFileChange[]) {
   const statusRank = {
     created: 0,
     modified: 1,
+    symlink_created: 1,
     deleted: 2,
   } satisfies Record<WorkspaceFileChange["status"], number>;
 

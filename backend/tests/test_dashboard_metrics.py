@@ -146,7 +146,14 @@ async def test_summary_uses_selected_thread_creations_and_weekly_activity_bucket
         assert sum(item["threads"] for item in payload["user_activity"]) == 2
         assert payload["external_platform_agent_clicks"]["days"] == 30
         assert len(payload["external_platform_agent_clicks"]["trend"]["dates"]) == 30
-        assert len(payload["external_platform_agent_clicks"]["agents"]) == 5
+        assert {item["name"] for item in payload["external_platform_agent_clicks"]["agents"]} == {
+            "专业文档解析专家",
+            "地震数据提频专家",
+            "专业报告校审专家",
+            "自动数采专家",
+            "前期研究报告编写专家",
+            "邮件智能整理助手",
+        }
     finally:
         await engine.dispose()
 

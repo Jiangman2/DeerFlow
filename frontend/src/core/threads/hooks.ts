@@ -1396,7 +1396,7 @@ export function useThreadStream({
         thread_id: meta.thread_id,
         created_at: now,
         updated_at: now,
-        metadata: context.agent_name ? { agent_name: context.agent_name } : {},
+        metadata: context.agent_name ? { agent_name: context.agent_name, ...(context.agent_source ? { agent_source: context.agent_source } : {}) } : {},
         status: "busy",
         values: {
           title: t.pages.newChat,
@@ -1409,7 +1409,7 @@ export function useThreadStream({
         thread_id: meta.thread_id,
         created_at: now,
         updated_at: now,
-        metadata: context.agent_name ? { agent_name: context.agent_name } : {},
+        metadata: context.agent_name ? { agent_name: context.agent_name, ...(context.agent_source ? { agent_source: context.agent_source } : {}) } : {},
         status: "busy",
         values: {
           title: t.pages.newChat,
@@ -1421,7 +1421,7 @@ export function useThreadStream({
       if (context.agent_name && !isMock) {
         void getAPIClient()
           .threads.update(meta.thread_id, {
-            metadata: { agent_name: context.agent_name },
+            metadata: { agent_name: context.agent_name, ...(context.agent_source ? { agent_source: context.agent_source } : {}) },
           })
           .catch(() => ({}));
       }
@@ -1946,6 +1946,9 @@ export function useThreadStream({
                   filename: info.filename,
                   size: info.size,
                   path: info.virtual_path,
+                  ...(info.markdown_file
+                    ? { markdown_file: info.markdown_file }
+                    : {}),
                   status: "uploaded" as const,
                 }),
               );
@@ -1983,6 +1986,9 @@ export function useThreadStream({
             filename: info.filename,
             size: info.size,
             path: info.virtual_path,
+            ...(info.markdown_file
+              ? { markdown_file: info.markdown_file }
+              : {}),
             status: "uploaded" as const,
           }),
         );

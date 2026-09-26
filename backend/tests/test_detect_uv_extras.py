@@ -28,6 +28,7 @@ def isolated_cwd(tmp_path, monkeypatch):
     monkeypatch.delenv("UV_EXTRAS", raising=False)
     monkeypatch.delenv("DEER_FLOW_CONFIG_PATH", raising=False)
     monkeypatch.delenv("DEER_FLOW_STREAM_BRIDGE_REDIS_URL", raising=False)
+    monkeypatch.delenv("DEER_FLOW_SANDBOX_OWNERSHIP_REDIS_URL", raising=False)
     return tmp_path
 
 
@@ -266,6 +267,12 @@ def test_detect_from_config_combines_postgres_and_redis(tmp_path):
     assert detect.detect_from_config(cfg) == ["postgres", "redis"]
 
 
+def test_detect_from_config_adds_redis_for_sandbox_ownership(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("sandbox:\n  ownership:\n    type: redis\n")
+    assert detect.detect_from_config(cfg) == ["redis"]
+
+
 def test_detect_from_config_dedupes_when_both_present(tmp_path):
     cfg = tmp_path / "config.yaml"
     cfg.write_text("checkpointer:\n  type: postgres\ndatabase:\n  backend: postgres\n")
@@ -292,6 +299,14 @@ def test_resolve_extras_env_supports_multiple(isolated_cwd, monkeypatch):
 
 def test_resolve_extras_detects_redis_url_env_without_config(isolated_cwd, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_STREAM_BRIDGE_REDIS_URL", "redis://redis:6379/0")
+    assert detect.resolve_extras() == ["redis"]
+
+
+def test_resolve_extras_detects_sandbox_ownership_redis_url(isolated_cwd, monkeypatch):
+    monkeypatch.setenv(
+        "DEER_FLOW_SANDBOX_OWNERSHIP_REDIS_URL",
+        "redis://redis:6379/0",
+    )
     assert detect.resolve_extras() == ["redis"]
 
 

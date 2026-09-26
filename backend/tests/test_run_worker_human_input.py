@@ -4,7 +4,7 @@ import pytest
 from langchain_core.messages import HumanMessage, ToolMessage
 
 from deerflow.runtime.runs import worker
-from deerflow.runtime.runs.manager import RunRecord
+from deerflow.runtime.runs.manager import RunManager, RunRecord
 from deerflow.runtime.runs.schemas import DisconnectMode, RunStatus
 
 
@@ -36,15 +36,11 @@ def _human_input_response(request_id: str) -> HumanMessage:
 
 
 def test_open_clarification_is_cleared_by_matching_response() -> None:
-    assert not worker._has_open_clarification(
-        [_clarification_tool_message("req-1"), _human_input_response("req-1")]
-    )
+    assert not worker._has_open_clarification([_clarification_tool_message("req-1"), _human_input_response("req-1")])
 
 
 def test_open_clarification_detects_nested_stream_chunk() -> None:
-    assert worker._chunk_has_open_clarification(
-        {"lead_agent": {"messages": [_clarification_tool_message("req-1")]}}
-    )
+    assert worker._chunk_has_open_clarification({"lead_agent": {"messages": [_clarification_tool_message("req-1")]}})
 
 
 @pytest.mark.asyncio
@@ -98,7 +94,12 @@ async def test_run_agent_does_not_start_goal_continuation_for_clarification(monk
 
             return _gen()
 
-    class FakeRunManager:
+    class FakeRunManager(RunManager):
+        def __init__(self):
+            super().__init__()
+            self._runs[record.run_id] = record
+            self._index_run_locked(record)
+
         async def wait_for_prior_finalizing(self, *_args, **_kwargs):
             return None
 

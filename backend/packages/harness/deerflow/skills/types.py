@@ -20,6 +20,7 @@ class SkillCategory(StrEnum):
     PUBLIC = "public"
     CUSTOM = "custom"
     LEGACY = "legacy"
+    PUBLISHED = "published"
 
 
 @dataclass(frozen=True)
@@ -70,7 +71,10 @@ class Skill:
         Returns:
             Full container path to the skill directory
         """
-        category_base = f"{container_base_path}/{self.category}"
+        # Published employee dependencies are an isolated read-only custom
+        # mount, never the viewer's personal custom-skill directory.
+        category = SkillCategory.CUSTOM if self.category == SkillCategory.PUBLISHED else self.category
+        category_base = f"{container_base_path}/{category}"
         skill_path = self.skill_path
         if skill_path:
             return f"{category_base}/{skill_path}"

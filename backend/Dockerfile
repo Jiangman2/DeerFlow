@@ -134,6 +134,14 @@ ENV TIKTOKEN_CACHE_DIR=/opt/deerflow/tiktoken-cache
 
 COPY --from=builder /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt
 
+# ReportLab must embed a real CJK font for server-generated Chinese PDFs. Keep
+# this in the canonical image as a safe fallback; enterprise offline hotfixes
+# additionally pin Noto Sans SC at a deterministic path.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-wqy-zenhei fontconfig \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -f
+
 # Keep cl100k_base token counting deterministic in restricted enterprise
 # networks. tiktoken addresses this file by the SHA-1 of its canonical URL;
 # the content hash below is the upstream hash pinned by tiktoken 0.12.0.

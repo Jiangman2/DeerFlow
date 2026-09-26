@@ -42,7 +42,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AgentKnowledgeSelection } from "@/components/workspace/agents/agent-knowledge-selection";
 import { AgentNameIcon } from "@/components/workspace/agents/agent-name-icon";
+import { AgentSkillSelection } from "@/components/workspace/agents/agent-skill-selection";
 import { BusinessDomainPicker } from "@/components/workspace/agents/business-domain-picker";
 import { TagEditor } from "@/components/workspace/agents/tag-editor";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
@@ -61,6 +63,11 @@ import {
   getAgent,
   updateAgent,
 } from "@/core/agents/api";
+import {
+  agentKnowledgeContext,
+  invalidAgentKnowledgeSelection,
+} from "@/core/agents/knowledge-selection";
+import type { AgentKnowledgeScope } from "@/core/agents/types";
 import { useI18n } from "@/core/i18n/hooks";
 import {
   buildHumanInputResponseText,
@@ -94,7 +101,7 @@ async function getAgentWithRetry(agentName: string) {
     }
 
     try {
-      return await getAgent(agentName);
+      return await getAgent(agentName, "personal");
     } catch {
       // Retry until the write settles or the attempts are exhausted.
     }
@@ -112,6 +119,9 @@ export default function NewAgentPage() {
   const [descriptionInput, setDescriptionInput] = useState("");
   const [categoryId, setCategoryId] = useState("comprehensive-management");
   const [tags, setTags] = useState<string[]>([]);
+  const [selectedSkills, setSelectedSkills] = useState<string[] | null>(null);
+  const [knowledgeScope, setKnowledgeScope] =
+    useState<AgentKnowledgeScope | null>(null);
   const [selectedAvatarId, setSelectedAvatarId] = useState(
     EXPERT_AVATAR_OPTIONS[0]!.id,
   );
@@ -135,6 +145,8 @@ export default function NewAgentPage() {
     context: {
       mode: "flash",
       is_bootstrap: true,
+      agent_skill_selection: selectedSkills,
+      ...agentKnowledgeContext(knowledgeScope),
       model_name: selectedModelName,
     },
     onFinish() {
@@ -148,18 +160,24 @@ export default function NewAgentPage() {
       void getAgentWithRetry(agentName).then(async (fetched) => {
         if (fetched) {
           try {
+            if (!fetched.draft_revision) throw new Error(t.agents.draftLoadFailed);
             setAgent(
               await updateAgent(agentName, {
+                expected_draft_revision: fetched.draft_revision,
                 avatar_id: selectedAvatarId,
                 display_name: nameInput.trim(),
                 description: descriptionInput.trim() || fetched.description,
                 category_id: categoryId || null,
                 tags,
                 model: selectedModel?.name ?? null,
+                skills: selectedSkills,
+                knowledge_scope: knowledgeScope,
               }),
             );
-          } catch {
-            setAgent(fetched);
+          } catch (error) {
+            toast.error(t.agents.profileSaveError);
+            console.error("Failed to save employee creation form", error);
+            setSetupAgentStatus("idle");
           }
           return;
         }
@@ -204,6 +222,7 @@ export default function NewAgentPage() {
   }, [step]);
 
   const handleConfirmName = useCallback(async () => {
+    if (invalidAgentKnowledgeSelection(knowledgeScope)) return;
     const trimmed = nameInput.trim();
     if (!trimmed) return;
     if (trimmed.length > 64 || !NAME_RE.test(trimmed)) {
@@ -275,6 +294,12 @@ export default function NewAgentPage() {
       tags.length
         ? t.agents.initialTags.replace("{value}", tags.join("、"))
         : null,
+      selectedSkills !== null
+        ? t.agents.initialSkills.replace(
+            "{value}",
+            selectedSkills.join(", ") || t.agents.skillsEmptyMeansNone,
+          )
+        : null,
     ]
       .filter(Boolean)
       .join("\n");
@@ -294,6 +319,8 @@ export default function NewAgentPage() {
     sendMessage,
     selectedModel?.name,
     selectedAvatarId,
+    selectedSkills,
+    knowledgeScope,
     t.agents.nameStepAlreadyExistsError,
     t.agents.nameStepApiDisabledError,
     t.agents.nameStepNetworkError,
@@ -304,6 +331,8 @@ export default function NewAgentPage() {
     t.agents.initialCategory,
     t.agents.initialDescription,
     t.agents.initialTags,
+    t.agents.initialSkills,
+    t.agents.skillsEmptyMeansNone,
     tags,
     threadId,
   ]);
@@ -651,6 +680,16 @@ export default function NewAgentPage() {
                       />
                     </div>
                   </div>
+                  <AgentSkillSelection
+                    value={selectedSkills}
+                    onChange={setSelectedSkills}
+                    disabled={isCheckingName}
+                  />
+                  <AgentKnowledgeSelection
+                    value={knowledgeScope}
+                    onChange={setKnowledgeScope}
+                    disabled={isCheckingName}
+                  />
                   {selectedModel ? (
                     <div className="bg-muted/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
                       <div className="min-w-0">
@@ -672,7 +711,11 @@ export default function NewAgentPage() {
               <Button
                 className="w-full"
                 onClick={() => void handleConfirmName()}
-                disabled={!nameInput.trim() || isCheckingName}
+                disabled={
+                  !nameInput.trim() ||
+                  isCheckingName ||
+                  invalidAgentKnowledgeSelection(knowledgeScope)
+                }
               >
                 {t.agents.nameStepContinue}
               </Button>

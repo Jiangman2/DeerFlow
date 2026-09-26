@@ -1,5 +1,7 @@
 import type { Message } from "@langchain/langgraph-sdk";
 
+import { agentChatPath, parseAgentSource } from "../agents/routing";
+
 import type { AgentThread, AgentThreadContext } from "./types";
 
 export const THREAD_PINNED_METADATA_KEY = "deerflow_pinned";
@@ -15,16 +17,22 @@ type ThreadRouteTarget =
   | string
   | {
       thread_id: string;
-      context?: Pick<AgentThreadContext, "agent_name"> | null;
+      context?: Pick<AgentThreadContext, "agent_name" | "agent_source"> | null;
       metadata?: Record<string, unknown> | null;
     };
 
 export function pathOfThread(
   thread: ThreadRouteTarget,
-  context?: Pick<AgentThreadContext, "agent_name"> | null,
+  context?: Pick<AgentThreadContext, "agent_name" | "agent_source"> | null,
 ) {
   const threadId = typeof thread === "string" ? thread : thread.thread_id;
   let agentName: string | undefined;
+  const source =
+    typeof thread === "string"
+      ? context?.agent_source
+      : thread.context?.agent_name
+        ? thread.context.agent_source
+        : thread.metadata?.agent_source;
   if (typeof thread === "string") {
     agentName = context?.agent_name;
   } else {
@@ -37,9 +45,14 @@ export function pathOfThread(
     }
   }
 
-  return agentName
-    ? `/workspace/agents/${encodeURIComponent(agentName)}/chats/${threadId}`
-    : `/workspace/chats/${threadId}`;
+  if (!agentName) return `/workspace/chats/${threadId}`;
+  try {
+    return agentChatPath(agentName, threadId, parseAgentSource(source));
+  } catch {
+    // Keep the history link usable, but the Agent page must reject this
+    // explicit invalid origin rather than run a same-name fallback.
+    return `${agentChatPath(agentName, threadId)}?source=invalid`;
+  }
 }
 
 export function textOfMessage(message: Message) {
@@ -87,7 +100,7 @@ export function sortPinnedThreads<T extends Pick<AgentThread, "metadata">>(
 const CHANNEL_PROVIDER_LABELS: Record<string, string> = {
   dingtalk: "DingTalk",
   discord: "Discord",
-  feishu: "Feishu",
+  feishu: "海能 Work",
   slack: "Slack",
   telegram: "Telegram",
   wechat: "WeChat",

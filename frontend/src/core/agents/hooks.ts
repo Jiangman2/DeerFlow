@@ -11,6 +11,7 @@ import {
   listDigitalEmployeeCategories,
   listTeamAgents,
   publishAgent,
+  shouldRetryAgentLoad,
   unpublishTeamAgent,
   uploadAgentAvatar,
   updateAgent,
@@ -20,7 +21,11 @@ import {
   resolveAgentsApiEnabled,
   writeCachedAgentsApiEnabled,
 } from "./feature-cache";
-import type { CreateAgentRequest, UpdateAgentRequest } from "./types";
+import type {
+  AgentSource,
+  CreateAgentRequest,
+  UpdateAgentRequest,
+} from "./types";
 
 export function useAgentsApiEnabled() {
   const { data, isPending } = useQuery({
@@ -69,11 +74,15 @@ export function useAgents() {
   return { agents: data ?? [], isLoading, error };
 }
 
-export function useAgent(name: string | null | undefined) {
+export function useAgent(
+  name: string | null | undefined,
+  source?: AgentSource,
+) {
   const { data, isLoading, error } = useQuery({
-    queryKey: ["agents", name],
-    queryFn: () => getAgent(name!),
+    queryKey: ["agents", name, source],
+    queryFn: () => getAgent(name!, source),
     enabled: !!name,
+    retry: shouldRetryAgentLoad,
   });
   return { agent: data ?? null, isLoading, error };
 }
@@ -108,6 +117,7 @@ export function useCreateAgent() {
 export function useUpdateAgent() {
   const queryClient = useQueryClient();
   return useMutation({
+    retry: false,
     mutationFn: ({
       name,
       request,
@@ -125,7 +135,8 @@ export function useUpdateAgent() {
 export function useDeleteAgent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => deleteAgent(name),
+    retry: false,
+    mutationFn: ({ name, expectedDraftRevision }: { name: string; expectedDraftRevision: string }) => deleteAgent(name, expectedDraftRevision),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["agents"] });
     },
@@ -135,8 +146,20 @@ export function useDeleteAgent() {
 export function usePublishAgent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => publishAgent(name),
-    onSuccess: () => {
+    mutationFn: ({
+      name,
+      expectedRevision,
+      expectedDraftRevision,
+      grantIds,
+    }: {
+      name: string;
+      expectedRevision?: string | null;
+      expectedDraftRevision: string;
+      grantIds: string[];
+    }) => publishAgent(name, expectedRevision, expectedDraftRevision, grantIds),
+    retry: false,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["agents"] });
       void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
     },
   });
@@ -145,8 +168,16 @@ export function usePublishAgent() {
 export function useUnpublishTeamAgent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => unpublishTeamAgent(name),
-    onSuccess: () => {
+    mutationFn: ({
+      name,
+      expectedRevision,
+    }: {
+      name: string;
+      expectedRevision?: string | null;
+    }) => unpublishTeamAgent(name, expectedRevision),
+    retry: false,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["agents"] });
       void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
     },
   });
@@ -155,8 +186,9 @@ export function useUnpublishTeamAgent() {
 export function useUploadAgentAvatar() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, file }: { name: string; file: File }) =>
-      uploadAgentAvatar(name, file),
+    retry: false,
+    mutationFn: ({ name, file, expectedDraftRevision }: { name: string; file: File; expectedDraftRevision: string }) =>
+      uploadAgentAvatar(name, file, expectedDraftRevision),
     onSuccess: (_data, { name }) => {
       void queryClient.invalidateQueries({ queryKey: ["agents"] });
       void queryClient.invalidateQueries({ queryKey: ["agents", name] });
@@ -167,8 +199,9 @@ export function useUploadAgentAvatar() {
 export function useDeleteAgentAvatar() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: deleteAgentAvatar,
-    onSuccess: (_data, name) => {
+    retry: false,
+    mutationFn: ({ name, expectedDraftRevision }: { name: string; expectedDraftRevision: string }) => deleteAgentAvatar(name, expectedDraftRevision),
+    onSuccess: (_data, { name }) => {
       void queryClient.invalidateQueries({ queryKey: ["agents"] });
       void queryClient.invalidateQueries({ queryKey: ["agents", name] });
     },

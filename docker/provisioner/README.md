@@ -177,6 +177,16 @@ The provisioner is configured via environment variables (set in [docker-compose-
 
 Provisioner-created sandbox Pods use the provisioner's `SANDBOX_IMAGE` environment variable. This is separate from `sandbox.image` in `config.yaml`, which applies to local Docker or Apple Container mode.
 
+When the PPT Master Agent Host sidecar is enabled, `PPT_MASTER_AGENT_HOST_IMAGE`
+can select a different image for that container. If unset, it falls back to
+`SANDBOX_IMAGE` for local compatibility. Enterprise releases should retain a
+proven AIO image for the `sandbox` and init containers and put PPT-only Python
+dependencies in the Agent Host image. Preload both images on every eligible
+node and test the AIO command API and Agent Host together before rollout. When
+`PPT_MASTER_ENTERPRISE_RELAY_REQUIRED=true`, Provisioner rejects an unset or
+shared `PPT_MASTER_AGENT_HOST_IMAGE`; a new release cannot silently replace the
+ordinary AIO image with a PPT dependency image.
+
 For persistent dependencies, build an image that extends the default `all-in-one-sandbox` image and set `SANDBOX_IMAGE` to your published tag. A from-scratch image must remain compatible with the AIO sandbox HTTP API consumed by `agent-sandbox`, keep `/mnt/user-data` writable, and listen on the configured sandbox port.
 
 See [Building a Custom AIO Sandbox Image](../../backend/docs/CONFIGURATION.md#building-a-custom-aio-sandbox-image) for the runtime contract and a minimal Dockerfile example.

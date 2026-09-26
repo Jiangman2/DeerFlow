@@ -72,7 +72,14 @@ def do_run_migrations(connection):
 
 
 async def run_migrations_online() -> None:
-    connectable = create_async_engine(config.get_main_option("sqlalchemy.url"))
+    url = config.get_main_option("sqlalchemy.url")
+    pg_schema = config.get_main_option("deerflow_pg_schema")
+    connect_args: dict = {}
+    if pg_schema and url and url.split("+", 1)[0].split(":", 1)[0] in {"postgresql", "postgres"}:
+        from deerflow.persistence.postgres_schema import build_asyncpg_connect_args
+
+        connect_args = build_asyncpg_connect_args(pg_schema)
+    connectable = create_async_engine(url, connect_args=connect_args)
 
     # Cross-process bootstrap safety for SQLite: every connection alembic
     # opens needs a wide ``busy_timeout`` so that when another process holds
@@ -92,9 +99,11 @@ async def run_migrations_online() -> None:
             finally:
                 cursor.close()
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-    await connectable.dispose()
+    try:
+        async with connectable.connect() as connection:
+            await connection.run_sync(do_run_migrations)
+    finally:
+        await connectable.dispose()
 
 
 if context.is_offline_mode():

@@ -55,6 +55,7 @@ class SkillToolPolicyMiddleware(AgentMiddleware[AgentState]):
         available_skills: set[str] | None = None,
         app_config: AppConfig | None = None,
         user_id: str | None = None,
+        thread_id: str | None = None,
         slash_source_owner_token: str,
     ) -> None:
         super().__init__()
@@ -63,10 +64,17 @@ class SkillToolPolicyMiddleware(AgentMiddleware[AgentState]):
         self._available_skills = set(available_skills) if available_skills is not None else None
         self._app_config = app_config
         self._user_id = user_id
+        self._thread_id = thread_id
         self._slash_source_owner_token = slash_source_owner_token
         self._decision_owner_token = secrets.token_urlsafe(24)
 
     def _storage(self) -> SkillStorage:
+        if self._thread_id and self._user_id:
+            from deerflow.skills.agent_publication import get_thread_published_skill_storage
+
+            published = get_thread_published_skill_storage(self._thread_id, user_id=self._user_id, app_config=self._app_config)
+            if published is not None:
+                return published
         if self._user_id is not None:
             return get_or_new_user_skill_storage(self._user_id, app_config=self._app_config)
         if self._app_config is not None:

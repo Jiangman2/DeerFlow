@@ -48,12 +48,14 @@ from deerflow.agents.middlewares.view_image_middleware import ViewImageMiddlewar
 from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
 from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware
 from deerflow.agents.thread_state import ThreadState
-from deerflow.config.agents_config import is_personal_agent, load_agent_config, validate_agent_name
+from deerflow.authz.tool_filter import apply_tool_authorization
+from deerflow.config.agents_config import is_personal_agent, load_agent_config, validate_agent_name, validate_agent_source
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.memory_config import should_use_memory_tools
-from deerflow.config.subagents_config import DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN
+from deerflow.config.subagents_config import DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN, effective_subagent_concurrency
 from deerflow.models import create_chat_model
 from deerflow.skills.types import Skill
+from deerflow.subagents.capacity import configured_subagent_max_running
 from deerflow.tools.tools import filter_tools_by_datalake_scope
 from deerflow.tracing import build_tracing_callbacks
 
@@ -279,6 +281,9 @@ def build_middlewares(
     deferred_setup=None,
     mcp_routing_middleware: AgentMiddleware | None = None,
     user_id: str | None = None,
+    publication=None,
+    authorization_provider=None,
+    subagent_execution_capacity: int | None = None,
 ):
     """Build the lead-agent middleware chain based on runtime configuration.
 
@@ -299,12 +304,18 @@ def build_middlewares(
             deferred MCP schemas before the deferred filter runs.
         user_id: Effective user ID for user-scoped skill loading. Passed through
             to ``SkillActivationMiddleware`` so it can resolve per-user custom skills.
+        subagent_execution_capacity: Startup-frozen process capacity shared by
+            the prompt and task-call guard, independent of later config reloads.
 
     Returns:
         List of middleware instances.
     """
     resolved_app_config = app_config or get_app_config()
-    middlewares = build_lead_runtime_middlewares(app_config=resolved_app_config, lazy_init=True)
+    middlewares = build_lead_runtime_middlewares(app_config=resolved_app_config, lazy_init=True, authorization_provider=authorization_provider, deferred_setup=deferred_setup)
+    if publication is not None:
+        from deerflow.agents.middlewares.employee_publication_middleware import EmployeePublicationMiddleware
+
+        middlewares.insert(0, EmployeePublicationMiddleware(thread_id=_get_runtime_config(config).get("thread_id"), user_id=user_id))
 
     # Always inject current date (and optionally memory) as <system-reminder> into the
     # first HumanMessage to keep the system prompt fully static for prefix-cache reuse.
@@ -314,7 +325,9 @@ def build_middlewares(
 
     # Carry the UI-selected WeKnora knowledge-base scope into the model context
     # and tell the agent which knowledge tool to call for enterprise knowledge.
-    middlewares.append(WeKnoraScopeMiddleware())
+    from deerflow.runtime.employee_resources import has_delegated_knowledge
+
+    middlewares.append(WeKnoraScopeMiddleware(delegated=has_delegated_knowledge(publication)))
 
     # Deterministically load a full SKILL.md when the user starts the turn with
     # /skill-name. This keeps the base system prompt metadata-only while giving
@@ -329,17 +342,24 @@ def build_middlewares(
             available_skills=available_skills,
             app_config=resolved_app_config,
             user_id=user_id,
+            thread_id=_get_runtime_config(config).get("thread_id"),
             slash_source_owner_token=slash_source_owner_token,
         )
     )
 
     # Enabled skills are only discoverable metadata. Apply allowed-tools at
     # runtime after explicit slash activation or an actual skill-file load.
+    if deferred_setup is not None and deferred_setup.deferred_names:
+        from deerflow.agents.middlewares.tool_promotion_audit_middleware import DeferredToolPromotionAuditMiddleware
+
+        # Outer wrapper observes only the final policy-filtered Command.
+        middlewares.append(DeferredToolPromotionAuditMiddleware(deferred_setup.deferred_names, deferred_setup.catalog_hash))
     middlewares.append(
         SkillToolPolicyMiddleware(
             available_skills=available_skills,
             app_config=resolved_app_config,
             user_id=user_id,
+            thread_id=_get_runtime_config(config).get("thread_id"),
             slash_source_owner_token=slash_source_owner_token,
         )
     )
@@ -429,7 +449,11 @@ def build_middlewares(
             from deerflow.agents.middlewares.explicit_parallel_delegation_middleware import ExplicitParallelDelegationMiddleware
 
             middlewares.append(ExplicitParallelDelegationMiddleware())
-        max_concurrent_subagents = cfg.get("max_concurrent_subagents", 3)
+        max_concurrent_subagents = effective_subagent_concurrency(
+            cfg.get("max_concurrent_subagents"),
+            resolved_app_config,
+            execution_capacity=subagent_execution_capacity,
+        )
         max_total_subagents = cfg.get("max_total_subagents", _default_max_total_subagents(resolved_app_config))
         middlewares.append(SubagentLimitMiddleware(max_concurrent=max_concurrent_subagents, max_total=max_total_subagents))
 
@@ -503,11 +527,11 @@ def _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, *, scop
     return gated
 
 
-def _load_enabled_available_skills(available_skills: set[str] | None, *, app_config: AppConfig, user_id: str | None = None) -> list[Skill]:
+def _load_enabled_available_skills(available_skills: set[str] | None, *, app_config: AppConfig, user_id: str | None = None, thread_id: str | None = None) -> list[Skill]:
     try:
         from deerflow.agents.lead_agent.prompt import get_enabled_skills_for_config
 
-        skills = get_enabled_skills_for_config(app_config, user_id=user_id)
+        skills = get_enabled_skills_for_config(app_config, user_id=user_id, **({"thread_id": thread_id} if thread_id else {}))
     except Exception:
         logger.exception("Failed to load enabled skills")
         raise
@@ -546,13 +570,60 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     requested_model_name: str | None = cfg.get("model_name") or cfg.get("model")
     is_plan_mode = cfg.get("is_plan_mode", False)
     subagent_enabled = cfg.get("subagent_enabled", False)
-    max_concurrent_subagents = cfg.get("max_concurrent_subagents", 3)
+    subagent_execution_capacity = configured_subagent_max_running()
+    max_concurrent_subagents = effective_subagent_concurrency(
+        cfg.get("max_concurrent_subagents"),
+        resolved_app_config,
+        execution_capacity=subagent_execution_capacity,
+    )
     max_total_subagents = cfg.get("max_total_subagents", _default_max_total_subagents(resolved_app_config))
     is_bootstrap = cfg.get("is_bootstrap", False)
     non_interactive = bool(cfg.get("non_interactive", False))
     agent_name = validate_agent_name(cfg.get("agent_name"))
+    agent_source = validate_agent_source(cfg.get("agent_source"))
+    if is_bootstrap and agent_source in ("team", "legacy"):
+        raise ValueError("Shared agent selection cannot enter personal bootstrap")
 
-    agent_config = load_agent_config(agent_name) if not is_bootstrap else None
+    from deerflow.config.paths import get_paths
+    from deerflow.persistence.agents.base import parse_agent_config
+    from deerflow.persistence.agents.runtime import EmployeePublicationBindings
+
+    publication = None
+    thread_id = cfg.get("thread_id")
+    if thread_id:
+        publication = EmployeePublicationBindings(get_paths()).admit(thread_id, user_id=resolved_user_id, name=agent_name, source=agent_source, is_bootstrap=is_bootstrap)
+    elif agent_source == "team":
+        raise ValueError("Published employee execution requires a conversation identity")
+    from deerflow.runtime.employee_resources import scope_employee_config
+
+    resolved_app_config = scope_employee_config(resolved_app_config, publication)
+    if is_bootstrap:
+        agent_config = None
+    elif publication is not None:
+        agent_name = publication.name
+        agent_source = "team"
+        for section in ("context", "configurable"):
+            config.setdefault(section, {}).update(agent_name=agent_name, agent_source="team", agent_publication_id=publication.publication_id, agent_publication_revision=publication.revision)
+        cfg = _get_runtime_config(config)
+        agent_config = parse_agent_config(publication.config, agent_name)
+    elif agent_source is not None:
+        agent_config = load_agent_config(agent_name, user_id=resolved_user_id, source=agent_source)
+    else:
+        agent_config = load_agent_config(agent_name)
+    knowledge_scope = None
+    if agent_config is not None:
+        from deerflow.config.agent_knowledge_config import AgentKnowledgeScope, enforce_agent_knowledge_context
+
+        knowledge_scope = getattr(agent_config, "knowledge_scope", None)
+        if isinstance(knowledge_scope, AgentKnowledgeScope):
+            enforce_agent_knowledge_context(
+                knowledge_scope,
+                config,
+                source=agent_source,
+                personal=agent_source == "personal" or (agent_source is None and is_personal_agent(agent_name, user_id=resolved_user_id)),
+                publication=publication,
+            )
+            cfg = _get_runtime_config(config)
     available_skills = _available_skill_names(agent_config, is_bootstrap)
     # Custom agent model from agent config (if any), or None to let _resolve_model_name pick the default
     agent_model_name = agent_config.model if agent_config and agent_config.model else None
@@ -571,6 +642,10 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
 
     # Final model name resolution: request → agent config → global default, with fallback for unknown names
     model_name = _resolve_model_name(requested_model_name or agent_model_name, app_config=resolved_app_config)
+
+    from deerflow.authz.model_authorization import authorize_model_name
+
+    model_name = authorize_model_name(model_name, context=cfg, app_config=resolved_app_config)
 
     model_config = resolved_app_config.get_model_config(model_name)
 
@@ -606,6 +681,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             "subagent_enabled": subagent_enabled,
             "tool_groups": agent_config.tool_groups if agent_config else None,
             "available_skills": sorted(available_skills) if available_skills is not None else None,
+            "employee_knowledge_disabled": getattr(knowledge_scope, "mode", None) == "disabled",
         }
     )
 
@@ -622,7 +698,12 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             existing = list(existing)
         config["callbacks"] = [*existing, *tracing_callbacks]
 
-    enabled_skills = _load_enabled_available_skills(available_skills, app_config=resolved_app_config, user_id=resolved_user_id)
+    enabled_skills = _load_enabled_available_skills(
+        available_skills,
+        app_config=resolved_app_config,
+        user_id=resolved_user_id,
+        **({"thread_id": thread_id} if thread_id else {}),
+    )
 
     # Build skill search setup (deferred skill discovery).
     # Controlled by skills.deferred_discovery — independent from tool_search.enabled.
@@ -650,16 +731,17 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         configured_tools = filter_tools_by_datalake_scope(configured_tools, enabled=datalake_enabled)
         if non_interactive:
             configured_tools = [tool for tool in configured_tools if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
+        if skill_setup.describe_skill_tool:
+            configured_tools.append(skill_setup.describe_skill_tool)
+        if should_use_memory_tools(resolved_app_config.memory):
+            _append_memory_tools_without_name_conflicts(configured_tools)
+        configured_tools, authorization_provider = apply_tool_authorization(configured_tools, context=cfg, app_config=resolved_app_config)
         final_tools, setup = assemble_deferred_tools(configured_tools, enabled=resolved_app_config.tool_search.enabled)
         mcp_routing_middleware = build_mcp_routing_middleware(
             final_tools,
             setup,
             top_k=resolved_app_config.tool_search.auto_promote_top_k,
         )
-        if skill_setup.describe_skill_tool:
-            final_tools.append(skill_setup.describe_skill_tool)
-        if should_use_memory_tools(resolved_app_config.memory):
-            _append_memory_tools_without_name_conflicts(final_tools)
         return create_agent(
             model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, app_config=resolved_app_config, attach_tracing=False),
             tools=final_tools,
@@ -671,6 +753,8 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
                 deferred_setup=setup,
                 mcp_routing_middleware=mcp_routing_middleware,
                 user_id=resolved_user_id,
+                authorization_provider=authorization_provider,
+                subagent_execution_capacity=subagent_execution_capacity,
             ),
             system_prompt=_with_non_interactive_guidance(
                 apply_prompt_template(
@@ -682,6 +766,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
                     deferred_names=setup.deferred_names,
                     user_id=resolved_user_id,
                     skill_names=skill_setup.skill_names or None,
+                    subagent_execution_capacity=subagent_execution_capacity,
                 ),
                 enabled=non_interactive,
             ),
@@ -715,7 +800,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     # leave it unset, so personal agents keep ``update_agent`` there.
     channel_name = cfg.get("channel_name")
     is_webhook_channel = channel_name in _WEBHOOK_CHANNELS
-    can_update_agent = bool(agent_name and not is_webhook_channel and is_personal_agent(agent_name, user_id=resolved_user_id))
+    can_update_agent = bool(agent_name and agent_source not in ("team", "legacy") and not is_webhook_channel and is_personal_agent(agent_name, user_id=resolved_user_id))
     extra_tools = [update_agent] if can_update_agent else []
     # Default lead agent (unchanged behavior)
     raw_tools = get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled, app_config=resolved_app_config)
@@ -725,8 +810,16 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         scope_context=cfg,
     )
     configured_tools = filter_tools_by_datalake_scope(configured_tools, enabled=datalake_enabled)
+    from deerflow.runtime.employee_resources import scope_employee_tools
+
+    configured_tools = scope_employee_tools(configured_tools, publication, knowledge_scope=knowledge_scope)
     if non_interactive:
         configured_tools = [tool for tool in configured_tools if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
+    if skill_setup.describe_skill_tool:
+        configured_tools.append(skill_setup.describe_skill_tool)
+    if should_use_memory_tools(resolved_app_config.memory):
+        _append_memory_tools_without_name_conflicts(configured_tools)
+    configured_tools, authorization_provider = apply_tool_authorization(configured_tools, context=cfg, app_config=resolved_app_config)
     final_tools, setup = assemble_deferred_tools(configured_tools, enabled=resolved_app_config.tool_search.enabled)
     mcp_routing_middleware = build_mcp_routing_middleware(
         final_tools,
@@ -734,10 +827,6 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         top_k=resolved_app_config.tool_search.auto_promote_top_k,
     )
     mcp_routing_hints_section = get_mcp_routing_hints_prompt_section(configured_tools, deferred_names=setup.deferred_names)
-    if skill_setup.describe_skill_tool:
-        final_tools.append(skill_setup.describe_skill_tool)
-    if should_use_memory_tools(resolved_app_config.memory):
-        _append_memory_tools_without_name_conflicts(final_tools)
     return create_agent(
         model=create_chat_model(name=model_name, thinking_enabled=thinking_enabled, reasoning_effort=reasoning_effort, app_config=resolved_app_config, attach_tracing=False, model_overrides=agent_model_overrides),
         tools=final_tools,
@@ -750,6 +839,9 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             deferred_setup=setup,
             mcp_routing_middleware=mcp_routing_middleware,
             user_id=resolved_user_id,
+            publication=publication,
+            authorization_provider=authorization_provider,
+            subagent_execution_capacity=subagent_execution_capacity,
         ),
         system_prompt=_with_non_interactive_guidance(
             apply_prompt_template(
@@ -757,6 +849,9 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
                 max_concurrent_subagents=max_concurrent_subagents,
                 max_total_subagents=max_total_subagents,
                 agent_name=agent_name,
+                agent_source=agent_source,
+                agent_soul=publication.soul if publication is not None else None,
+                thread_id=thread_id,
                 self_update_enabled=can_update_agent,
                 available_skills=available_skills,
                 app_config=resolved_app_config,
@@ -764,6 +859,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
                 mcp_routing_hints_section=mcp_routing_hints_section,
                 user_id=resolved_user_id,
                 skill_names=skill_setup.skill_names or None,
+                subagent_execution_capacity=subagent_execution_capacity,
             ),
             enabled=non_interactive,
         ),

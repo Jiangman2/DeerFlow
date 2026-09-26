@@ -1,0 +1,15 @@
+# BUILD INPUT ONLY. Bind employee-gateway-base to an audited local OCI context.
+# No remote syntax frontend, dependency resolution or production configuration.
+FROM employee-gateway-base AS source-check
+COPY apply_image_delta.py gateway-delta.json smoke_image_imports.py /tmp/employee-sharing/
+RUN --network=none cd /app/backend \
+    && .venv/bin/python /tmp/employee-sharing/apply_image_delta.py /app/backend \
+       /tmp/employee-sharing/gateway-delta.json --check-only
+
+FROM source-check AS candidate
+RUN --network=none cd /app/backend \
+    && .venv/bin/python /tmp/employee-sharing/apply_image_delta.py /app/backend \
+       /tmp/employee-sharing/gateway-delta.json --image-build-stage \
+    && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=packages/harness:. .venv/bin/python \
+       /tmp/employee-sharing/smoke_image_imports.py /app/backend \
+       /tmp/employee-sharing/gateway-delta.json

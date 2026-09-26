@@ -200,6 +200,11 @@ class LocalContainerBackend(SandboxBackend):
     - Support for volume mounts and environment variables
     """
 
+    # Wall clock for a single `stop`. Comfortably above the runtime's own
+    # default SIGKILL escalation (10s for Docker/Podman), so this only fires
+    # when the daemon itself is wedged.
+    _STOP_TIMEOUT_SECONDS = 120.0
+
     def __init__(
         self,
         *,
@@ -263,6 +268,37 @@ class LocalContainerBackend(SandboxBackend):
         return "docker"
 
     # ── SandboxBackend interface ──────────────────────────────────────────
+
+    def validate_employee_skills(self, sandbox_id: str, thread_id: str, *, user_id: str) -> None:
+        from pathlib import Path, PurePosixPath
+
+        from deerflow.skills.agent_publication import get_thread_published_skill_storage
+
+        storage = get_thread_published_skill_storage(thread_id, user_id=user_id)
+        if storage is None:
+            return
+        if self._runtime != "docker":
+            # Apple Container has a different inspect schema. Do not infer RO
+            # isolation from a running process or silently adopt an old mount.
+            raise RuntimeError("This container runtime cannot verify published employee Skill isolation")
+        name = f"{self._container_prefix}-{sandbox_id}"
+        try:
+            result = subprocess.run([self._runtime, "inspect", name], capture_output=True, text=True, timeout=10)
+            payload = json.loads(result.stdout) if result.returncode == 0 else []
+            if not isinstance(payload, list) or len(payload) != 1 or payload[0].get("Name") != "/" + name:
+                raise ValueError("Unexpected container identity")
+            target = PurePosixPath(storage.get_container_root())
+            mounts = payload[0].get("Mounts", [])
+            related = [m for m in mounts if (p := PurePosixPath(m.get("Destination", ""))) == target or p in target.parents or target in p.parents]
+            if len(related) != 1:
+                raise ValueError("Missing or overlapping Skill mounts")
+            mount = related[0]
+            if mount.get("Type") != "bind" or mount.get("RW") is not False or PurePosixPath(mount["Destination"]) != target:
+                raise ValueError("Skill mount must be an exact read-only bind")
+            if Path(mount["Source"]).resolve() != storage.get_skills_root_path().resolve():
+                raise ValueError("Skill mount belongs to another employee or user")
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError):
+            raise RuntimeError("Sandbox employee Skill mounts could not be verified; the existing container was not changed") from None
 
     def create(
         self,
@@ -611,15 +647,31 @@ class LocalContainerBackend(SandboxBackend):
             raise RuntimeError(f"Failed to start sandbox container: {e.stderr}")
 
     def _stop_container(self, container_id: str) -> None:
-        """Stop a container (--rm ensures automatic removal)."""
+        """Stop a container (--rm ensures automatic removal).
+
+        Bound the stop independently of the ownership lease. If the runtime
+        daemon wedges, an unbounded stop could outlive the Redis teardown lease
+        and later land on a container that a peer has legitimately acquired.
+        """
         try:
             subprocess.run(
                 [self._runtime, "stop", container_id],
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=self._STOP_TIMEOUT_SECONDS,
             )
             logger.info(f"Stopped container {container_id} using {self._runtime}")
+        except subprocess.TimeoutExpired:
+            # The container may still be running. Propagate uncertainty so the
+            # caller cannot report a clean stop and drop its tracking state.
+            logger.error(
+                "Timed out after %ss stopping container %s using %s",
+                self._STOP_TIMEOUT_SECONDS,
+                container_id,
+                self._runtime,
+            )
+            raise
         except subprocess.CalledProcessError as e:
             logger.warning(f"Failed to stop container {container_id}: {e.stderr}")
 

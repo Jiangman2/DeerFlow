@@ -43,6 +43,7 @@ STARTUP_ONLY_PREFIX = "startup-only:"
 #: field is restart-required — so an operator changing the value knows
 #: which subsystem to restart.
 STARTUP_ONLY_FIELDS: dict[str, str] = {
+    "subagent_runtime": ("The shared native-subagent admission controller and isolated execution loop use a startup snapshot; changing process slots, queue policy or queue bounds requires a restart."),
     "database": ("init_engine_from_config() runs once during langgraph_runtime() startup; the SQLAlchemy engine holds the connection pool and is not rebuilt on config.yaml edits."),
     "agent_storage": ("custom-agent graph workers and Gateway routes select their definition store from the startup configuration; changing file/db mode requires every process to restart together."),
     "checkpointer": ("make_checkpointer() binds the persistent checkpointer once at startup, including SQLite WAL / busy_timeout settings."),
@@ -54,8 +55,8 @@ STARTUP_ONLY_FIELDS: dict[str, str] = {
     ),
     "logging": (
         "configure_logging() runs only during app.py startup; it installs/removes the trace-context filter and the enhanced formatter on root handlers, "
-        "and TraceMiddleware captures logging.enhance.enabled once at startup so response X-Trace-Id headers, log trace_id fields, and Langfuse "
-        "deerflow_trace_id stay coherent. A freshly reloaded AppConfig does not retrigger any of this."
+        "a freshly reloaded AppConfig does not reconfigure those handlers. Gateway HTTP trace ids and X-Trace-Id headers are unconditional "
+        "and do not depend on this log-formatting switch."
     ),
     # Not part of the AppConfig Pydantic schema — channel credentials are
     # consumed directly by ``start_channel_service()`` once at lifespan
@@ -67,7 +68,8 @@ STARTUP_ONLY_FIELDS: dict[str, str] = {
     ),
     "scheduler": (
         "ScheduledTaskService is constructed and started once during Gateway lifespan startup; enabled, poll_interval_seconds, lease_seconds, "
-        "and max_concurrent_runs are captured into the service instance and the background poller task is not rebuilt on config.yaml edits."
+        "max_concurrent_runs, and multi_instance are captured into the service instance and the background poller task is not rebuilt on config.yaml edits. "
+        "Changing multi-instance recovery prerequisites or lease behavior requires restarting every Gateway Pod together."
     ),
     "run_ownership": (
         "RunOwnershipConfig is captured once into RunManager at langgraph_runtime() startup; the lease heartbeat background task is created and "

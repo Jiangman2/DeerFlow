@@ -13,6 +13,7 @@ export interface Translations {
     delete: string;
     edit: string;
     rename: string;
+    renameFailed: string;
     share: string;
     openInNewWindow: string;
     close: string;
@@ -126,10 +127,13 @@ export interface Translations {
     truncatedUnavailable: string;
     truncatedSummary: string;
     symlinkUnavailable: string;
+    symlinkCreated: string;
   };
 
   // Input Box
   inputBox: {
+    employeeSkillsLoading: string;
+    employeeSkillsUnavailable: string;
     placeholder: string;
     createSkillPrompt: string;
     addAttachments: string;
@@ -453,6 +457,7 @@ export interface Translations {
     unpublishFromSquare: string;
     unpublishConfirm: string;
     publishSuccess: string;
+    publicationConflict: string;
     unpublishSuccess: string;
     chat: string;
     viewProfile: string;
@@ -463,6 +468,8 @@ export interface Translations {
     delete: string;
     deleteConfirm: string;
     deleteSuccess: string;
+    deleteConflict: string;
+    deleteUnconfirmed: string;
     newChat: string;
     createPageTitle: string;
     createPageSubtitle: string;
@@ -488,6 +495,25 @@ export interface Translations {
     initialDescription: string;
     initialCategory: string;
     initialTags: string;
+    initialSkills: string;
+    profileSaveError: string;
+    selectedSourceUnavailable: string;
+    skillSelectionTitle: string;
+    knowledgeSelectionTitle: string;
+    knowledgeSelectionHint: string;
+    knowledgeInherit: string;
+    knowledgeDisabled: string;
+    knowledgeSelected: string;
+    knowledgeSelectionRequired: string;
+    skillSelectionHint: string;
+    skillsInherit: string;
+    skillsExplicit: string;
+    skillsSearch: string;
+    skillsLoadError: string;
+    skillsEmpty: string;
+    skillsUnavailable: string;
+    skillsEmptyMeansNone: string;
+    skillsClear: string;
     save: string;
     saving: string;
     saveRequested: string;
@@ -504,6 +530,10 @@ export interface Translations {
     capabilities: string;
     edit: string;
     settingsTitle: string;
+    draftConflict: string;
+    avatarPartialSave: string;
+    draftLoadFailed: string;
+    draftRetry: string;
     settingsDescription: string;
     displayName: string;
     stableName: string;

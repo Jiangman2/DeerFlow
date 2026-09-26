@@ -60,6 +60,7 @@ import threading
 from collections import Counter, OrderedDict, defaultdict, deque
 from collections.abc import Awaitable, Callable
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
 
 from langchain.agents import AgentState
@@ -69,6 +70,8 @@ from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
+from deerflow.agents.middlewares.audit_context import LOOP_DETECTION_RECORDER_CONTEXT_KEY, resolve_audit_recorder
+from deerflow.runtime.events.catalog import MIDDLEWARE_LOOP_DETECTION_TAG
 
 if TYPE_CHECKING:
     from deerflow.config.loop_detection_config import LoopDetectionConfig
@@ -191,14 +194,11 @@ def _hash_tool_calls(tool_calls: list[dict]) -> str:
 _WARNING_MSG = "[LOOP DETECTED] You are repeating the same tool calls. Stop calling tools and produce your final answer now. If you cannot complete the task, summarize what you accomplished so far."
 
 _NO_PROGRESS_WARNING_MSG = (
-    "[NO PROGRESS DETECTED] The same tool failure has recurred across repair attempts. "
-    "Re-read the owning input/output, change the repair strategy, or report a concrete "
-    "blocking reason; do not repeat an unchanged validation cycle."
+    "[NO PROGRESS DETECTED] The same tool failure has recurred across repair attempts. Re-read the owning input/output, change the repair strategy, or report a concrete blocking reason; do not repeat an unchanged validation cycle."
 )
-_NO_PROGRESS_HARD_STOP_MSG = (
-    "[FORCED STOP] The same tool failure recurred after the bounded repair limit. "
-    "Producing a final answer with the last known state and blocking reason."
-)
+_NO_PROGRESS_HARD_STOP_MSG = "[FORCED STOP] The same tool failure recurred after the bounded repair limit. Producing a final answer with the last known state and blocking reason."
+
+
 def _problem_result_signature(result: object) -> str | None:
     """Return a stable fingerprint for a repeated failing tool result.
 
@@ -308,6 +308,8 @@ def _successful_changed_file_mutation(messages: list, result: object) -> tuple[s
     if not isinstance(old_str, str) or not isinstance(new_str, str) or old_str == new_str:
         return None
     return name, path
+
+
 _TOOL_FREQ_WARNING_MSG = (
     "[LOOP DETECTED] You have called {tool_name} {count} times without producing a final answer. Stop calling tools and produce your final answer now. If you cannot complete the task, summarize what you accomplished so far."
 )
@@ -315,6 +317,20 @@ _TOOL_FREQ_WARNING_MSG = (
 _HARD_STOP_MSG = "[FORCED STOP] Repeated tool calls exceeded the safety limit. Producing final answer with results collected so far."
 
 _TOOL_FREQ_HARD_STOP_MSG = "[FORCED STOP] Tool {tool_name} called {count} times — exceeded the per-tool safety limit. Producing final answer with results collected so far."
+
+
+@dataclass(frozen=True)
+class _LoopDecision:
+    message: str
+    action: str
+    detection_layer: str
+    tool_names: tuple[str, ...]
+    count: int
+    threshold: int
+
+    @property
+    def hard_stop(self) -> bool:
+        return self.action == "hard_stop"
 
 
 class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
@@ -588,6 +604,10 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
                     "Repair loop hard limit reached",
                     extra={"thread_id": key[0], "run_id": key[1], "count": count},
                 )
+        if count == _DEFAULT_NO_PROGRESS_WARN:
+            # Audit outside the state lock; never persist the error signature,
+            # tool arguments, validator output, or project contents.
+            self._record_audit_event(_LoopDecision(_NO_PROGRESS_WARNING_MSG, "warn", "unchanged_failure", (), count, _DEFAULT_NO_PROGRESS_WARN), runtime)
 
     def _clear_repetition_state_locked(self, thread_id: str) -> None:
         """Clear exact/frequency repetition accounting for one thread."""
@@ -624,9 +644,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
         key = self._pending_key(runtime)
         marker = str(getattr(last_tool, "id", None) or "")
         if not marker:
-            marker = hashlib.sha256(
-                f"{getattr(last_tool, 'name', '')}\n{getattr(last_tool, 'content', '')}".encode("utf-8", errors="replace")
-            ).hexdigest()
+            marker = hashlib.sha256(f"{getattr(last_tool, 'name', '')}\n{getattr(last_tool, 'content', '')}".encode("utf-8", errors="replace")).hexdigest()
         with self._lock:
             if self._last_result_marker.get(key) == marker:
                 return
@@ -634,7 +652,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
         self._record_tool_result_progress(last_tool, runtime)
         self._record_changed_file_mutation_progress(messages, last_tool, runtime)
 
-    def _track_and_check(self, state: AgentState, runtime: Runtime) -> tuple[str | None, bool]:
+    def _track_and_check(self, state: AgentState, runtime: Runtime) -> _LoopDecision | None:
         """Track tool calls and check for loops.
 
         Two detection layers:
@@ -644,33 +662,34 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
              on 40 different files).
 
         Returns:
-            (warning_message_or_none, should_hard_stop)
+            A structured warning/stop transition, without sensitive arguments.
         """
         messages = state.get("messages", [])
         if not messages:
-            return None, False
+            return None
 
         self._observe_last_tool_result(messages, runtime)
 
         last_msg = messages[-1]
         if getattr(last_msg, "type", None) != "ai":
-            return None, False
+            return None
 
         tool_calls = getattr(last_msg, "tool_calls", None)
         if not tool_calls:
-            return None, False
+            return None
 
         thread_id = self._get_thread_id(runtime)
         pending_key = self._pending_key(runtime)
 
         with self._lock:
             repair_hard_stop = pending_key in self._no_progress_hard
+            repair_count = self._no_progress.get(pending_key, (None, 0))[1]
         if repair_hard_stop:
             logger.error(
                 "Repeated unchanged tool failure forcing stop",
                 extra={"thread_id": thread_id, "run_id": pending_key[1]},
             )
-            return _NO_PROGRESS_HARD_STOP_MSG, True
+            return _LoopDecision(_NO_PROGRESS_HARD_STOP_MSG, "hard_stop", "unchanged_failure", (), repair_count, _DEFAULT_NO_PROGRESS_HARD_LIMIT)
 
         call_hash = _hash_tool_calls(tool_calls)
 
@@ -694,7 +713,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
                     self._warned.pop(thread_id, None)
 
             count = history.count(call_hash)
-            tool_names = [tc.get("name", "?") for tc in tool_calls]
+            tool_names = [str(tc.get("name") or "?") for tc in tool_calls]
 
             # --- Layer 1: hash-based (identical call sets) ---
             if count >= self.hard_limit:
@@ -707,7 +726,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
                         "tools": tool_names,
                     },
                 )
-                return _HARD_STOP_MSG, True
+                return _LoopDecision(_HARD_STOP_MSG, "hard_stop", "identical_call_set", tuple(tool_names), count, self.hard_limit)
 
             if count >= self.warn_threshold:
                 warned = self._warned[thread_id]
@@ -722,7 +741,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
                             "tools": tool_names,
                         },
                     )
-                    return _WARNING_MSG, False
+                    return _LoopDecision(_WARNING_MSG, "warn", "identical_call_set", tuple(tool_names), count, self.warn_threshold)
 
             # --- Layer 2: per-tool-type frequency (windowed) ---
             tool_name_history = self._tool_name_history[thread_id]
@@ -761,7 +780,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
                             "count": freq_count,
                         },
                     )
-                    return _TOOL_FREQ_HARD_STOP_MSG.format(tool_name=name, count=freq_count), True
+                    return _LoopDecision(_TOOL_FREQ_HARD_STOP_MSG.format(tool_name=name, count=freq_count), "hard_stop", "tool_frequency", (name,), freq_count, eff_hard)
 
                 if freq_count >= eff_warn:
                     freq_warned = self._tool_freq_warned[thread_id]
@@ -775,13 +794,13 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
                                 "count": freq_count,
                             },
                         )
-                        return _TOOL_FREQ_WARNING_MSG.format(tool_name=name, count=freq_count), False
+                        return _LoopDecision(_TOOL_FREQ_WARNING_MSG.format(tool_name=name, count=freq_count), "warn", "tool_frequency", (name,), freq_count, eff_warn)
                 else:
                     # Windowed count decayed below the warn threshold; allow a
                     # future burst of this tool to warn again.
                     self._tool_freq_warned[thread_id].discard(name)
 
-        return None, False
+        return None
 
     @staticmethod
     def _append_text(content: str | list | None, text: str) -> str | list:
@@ -826,10 +845,36 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
 
         return update
 
-    def _apply(self, state: AgentState, runtime: Runtime) -> dict | None:
-        warning, hard_stop = self._track_and_check(state, runtime)
+    def _record_audit_event(self, decision: _LoopDecision, runtime: Runtime) -> None:
+        recorder, is_subagent, agent_id = resolve_audit_recorder(getattr(runtime, "context", None), recorder_key=LOOP_DETECTION_RECORDER_CONTEXT_KEY)
+        if recorder is None:
+            return
+        try:
+            recorder.record_middleware(
+                tag=MIDDLEWARE_LOOP_DETECTION_TAG,
+                name=type(self).__name__,
+                hook="after_model",
+                action=decision.action,
+                changes={
+                    "is_subagent": is_subagent,
+                    "agent_id": agent_id,
+                    "detection_layer": decision.detection_layer,
+                    "tool_names": list(decision.tool_names),
+                    "count": decision.count,
+                    "threshold": decision.threshold,
+                },
+            )
+        except Exception:
+            logger.warning("Failed to record middleware:loop_detection event")
 
-        if hard_stop:
+    def _apply(self, state: AgentState, runtime: Runtime) -> dict | None:
+        decision = self._track_and_check(state, runtime)
+        if decision is None:
+            return None
+        self._record_audit_event(decision, runtime)
+        warning = decision.message
+
+        if decision.hard_stop:
             # Record the stop reason so the executor can surface
             # ``stop_reason=loop_capped`` after the run returns (#3875 Phase 2).
             # The hard stop does not raise — it strips tool_calls and lets the

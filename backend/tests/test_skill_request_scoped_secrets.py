@@ -259,14 +259,15 @@ class TestEnvPolicy:
         monkeypatch.setenv("MYSQL_URL", "mysql://user:pw@host/db")
         monkeypatch.setenv("MYSQL_PWD", "prod-db-password")
         monkeypatch.setenv("REDISCLI_AUTH", "prod-redis-auth")
+        benign_name = "SYSTEMROOT" if os.name == "nt" else "PWD"
+        benign_value = "C:\\Windows" if os.name == "nt" else "/tmp/test-skill-workspace"
+        # Python-as-container-entrypoint need not receive a shell-created PWD.
+        monkeypatch.setenv(benign_name, benign_value)
         env = build_sandbox_env()
         assert "MYSQL_URL" not in env
         assert "MYSQL_PWD" not in env
         assert "REDISCLI_AUTH" not in env
-        if os.name == "nt":
-            assert env.get("SYSTEMROOT")  # benign Windows system environment survives
-        else:
-            assert env.get("PWD")  # the working directory survives on POSIX
+        assert env[benign_name] == benign_value
 
     def test_injection_still_wins_for_the_newly_blocked_names(self, monkeypatch):
         """``required-secrets`` stays the escape hatch for the names added here.

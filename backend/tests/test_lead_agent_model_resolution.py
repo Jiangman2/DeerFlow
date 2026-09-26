@@ -483,7 +483,9 @@ def test_build_middlewares_passes_explicit_app_config_to_shared_factory(monkeypa
     def _raise_get_app_config():
         raise AssertionError("ambient get_app_config() must not be used when app_config is explicit")
 
-    def _fake_build_lead_runtime_middlewares(*, app_config, lazy_init):
+    def _fake_build_lead_runtime_middlewares(*, app_config, lazy_init, authorization_provider, deferred_setup):
+        assert authorization_provider is None
+        assert deferred_setup is None
         captured["app_config"] = app_config
         captured["lazy_init"] = lazy_init
         return ["base-middleware"]
@@ -530,7 +532,7 @@ def test_build_middlewares_orders_skill_activation_before_policy_and_durable_con
     from deerflow.agents.middlewares.skill_workflow_middleware import SkillWorkflowMiddleware
 
     app_config = _make_app_config([_make_model("safe-model", supports_thinking=False)])
-    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True: [])
+    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True, authorization_provider=None, deferred_setup=None: [])
     monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda *, app_config=None: None)
     monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
 
@@ -561,7 +563,7 @@ def test_compiled_skill_policy_chain_filters_schema_and_blocks_execution(monkeyp
         [_make_model("safe-model", supports_thinking=False)],
         loop_detection=LoopDetectionConfig(enabled=False),
     )
-    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True: [])
+    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True, authorization_provider=None, deferred_setup=None: [])
     monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda *, app_config=None: None)
     monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
 
@@ -637,7 +639,7 @@ def test_build_middlewares_places_mcp_routing_before_deferred_filter(monkeypatch
     setup = DeferredToolSetup(object(), frozenset({"mcp_thing"}), "hash123")
 
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
-    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True: [])
+    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True, authorization_provider=None, deferred_setup=None: [])
     monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda *, app_config=None: None)
     monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
 
@@ -652,6 +654,8 @@ def test_build_middlewares_places_mcp_routing_before_deferred_filter(monkeypatch
     routing_idx = next(i for i, middleware in enumerate(middlewares) if isinstance(middleware, McpRoutingMiddleware))
     filter_idx = next(i for i, middleware in enumerate(middlewares) if isinstance(middleware, DeferredToolFilterMiddleware))
     assert routing_idx < filter_idx
+    names = [type(m).__name__ for m in middlewares]
+    assert names.index("SkillActivationMiddleware") < names.index("DeferredToolPromotionAuditMiddleware") < names.index("SkillToolPolicyMiddleware")
 
 
 def test_build_middlewares_uses_loop_detection_config(monkeypatch):
@@ -668,7 +672,7 @@ def test_build_middlewares_uses_loop_detection_config(monkeypatch):
     )
 
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
-    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True: [])
+    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True, authorization_provider=None, deferred_setup=None: [])
     monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda *, app_config=None: None)
     monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
 
@@ -694,7 +698,7 @@ def test_build_middlewares_omits_loop_detection_when_disabled(monkeypatch):
     )
 
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
-    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True: [])
+    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True, authorization_provider=None, deferred_setup=None: [])
     monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda *, app_config=None: None)
     monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
 
@@ -715,7 +719,7 @@ def test_build_middlewares_passes_subagent_total_limit_from_app_config(monkeypat
     app_config.subagents = SubagentsAppConfig(max_total_per_run=7)
 
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
-    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True: [])
+    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True, authorization_provider=None, deferred_setup=None: [])
     monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda *, app_config=None: None)
     monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
 
@@ -738,7 +742,7 @@ def test_build_middlewares_allows_runtime_subagent_total_limit_override(monkeypa
     app_config.subagents = SubagentsAppConfig(max_total_per_run=7)
 
     monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
-    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True: [])
+    monkeypatch.setattr(lead_agent_module, "build_lead_runtime_middlewares", lambda *, app_config, lazy_init=True, authorization_provider=None, deferred_setup=None: [])
     monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda *, app_config=None: None)
     monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
 

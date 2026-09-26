@@ -580,6 +580,8 @@ class TestDbRunEventStoreWriteLock:
 
     @pytest.mark.anyio
     async def test_delete_by_thread_keeps_lock_held_by_inflight_writer(self, tmp_path):
+        import asyncio
+
         from deerflow.persistence.engine import close_engine, get_session_factory, init_engine
         from deerflow.runtime.events.store.db import DbRunEventStore
 
@@ -587,16 +589,16 @@ class TestDbRunEventStoreWriteLock:
         await init_engine("sqlite", url=url, sqlite_dir=str(tmp_path))
         s = DbRunEventStore(get_session_factory())
 
-        # Simulate a writer mid-flight by holding the lock; the eviction must
-        # not drop a lock another coroutine is actively using.
+        # Deletion must wait for the in-flight writer's lock generation.
         lock = s._get_write_lock("t1")
         await lock.acquire()
-        try:
-            await s.delete_by_thread("t1")
-            assert "t1" in s._write_locks
-            assert s._write_locks["t1"] is lock
-        finally:
-            lock.release()
+        task = asyncio.create_task(s.delete_by_thread("t1"))
+        await asyncio.sleep(0)
+        assert not task.done()
+        lock.release()
+        await asyncio.wait_for(task, 3)
+        assert "t1" in s._write_locks
+        assert s._write_locks["t1"] is lock
 
         await close_engine()
 

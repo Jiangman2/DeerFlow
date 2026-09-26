@@ -458,6 +458,7 @@ The unified nginx endpoint is same-origin by default and does not emit browser C
 
 > [!IMPORTANT]
 > The Gateway still owns active run tasks in process, so production defaults to a single Gateway worker (`GATEWAY_WORKERS=1`). The Redis stream bridge (`stream_bridge.type: redis`) shares SSE delivery and `Last-Event-ID` replay across workers, with a rolling retained-buffer TTL (`stream_ttl_seconds`) as a cleanup safety net. Malformed reconnect IDs live-tail new events instead of replaying the retained buffer. It does not make run cancellation, request de-duplication, or IM channel state fully cross-worker by itself; use single-worker Gateway or explicit sticky routing/ownership before raising `GATEWAY_WORKERS`.
+> A local enterprise candidate also accepts a three-node `sentinel://` endpoint for both Redis StreamBridge and Sandbox Ownership while preserving direct `redis://` URLs. This is not deployed and does not itself make ownership safe across failover: real Sentinel, AOF, old-primary isolation, and lease-loss tests remain mandatory before multi-Gateway rollout. See [`docs/enterprise-redis-ha-staging.md`](docs/enterprise-redis-ha-staging.md).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed Docker development guide.
 
@@ -566,6 +567,8 @@ See the [MCP Server Guide](backend/docs/MCP_SERVER.md) for detailed instructions
 DeerFlow supports receiving tasks from messaging apps. Channels auto-start when configured — no public IP required for any of them.
 
 DeerFlow can also expose user-owned IM channel connections in the workspace UI. When `channel_connections` is enabled, logged-in users can bind Telegram, Slack, Discord, Feishu/Lark, DingTalk, WeChat, or WeCom from the sidebar / Settings > Channels. It reuses the existing outbound `channels.*` transports, so no public IP or provider callback URL is required. Incoming IM messages then run under the connected DeerFlow user account. See [IM Channel Connections](backend/docs/IM_CHANNEL_CONNECTIONS.md) for setup and security notes.
+
+The CNOOC enterprise presentation labels the `feishu` channel **海能 Work**, uses its supplied icon, and calls the bot **中国海油通用智能体**. This does not rename the internal provider key or alter existing bindings.
 
 If Gateway shutdown or startup cancellation interrupts IM-channel activation, DeerFlow now drains the partial `ChannelService` rollback before propagating the cancellation. This prevents an interrupted startup from leaving orphaned channel workers or a half-initialized global service.
 
@@ -777,7 +780,7 @@ Once a channel is connected, you can interact with DeerFlow directly from the ch
 
 #### Request Trace Correlation
 
-Gateway request trace correlation is disabled by default so existing HTTP responses and log formats stay unchanged. To enable it, set:
+Gateway HTTP always returns `X-Trace-Id`, including authentication rejections and SSE. A valid incoming header is reused; missing or unsafe values generate a new ID. To also print that ID in log records, set:
 
 ```yaml
 logging:
@@ -786,7 +789,7 @@ logging:
     format: text
 ```
 
-When enabled, every Gateway HTTP response includes `X-Trace-Id`, logs include `trace_id`, and Langfuse traces created by that request include `metadata.deerflow_trace_id` with the same value.
+Admitted runs persist the same ID in `metadata.deerflow_trace_id`; caller-supplied trace fields cannot override it. An unhandled pre-response error carries the ID on its plain 500 response (that fallback remains CORS-opaque). Split-origin normal responses expose the header through the configured CORS allowlist. Embedded client turns also inherit or mint one ID independently of logging/exporter settings; generator steps and cleanup bind it without leaking into callers between yields. Logging changes still require restart. This is a partial enterprise v2.1 adaptation: scheduler, background channel, memory and subagent trace alignment remains under review, not a completed v2.1 release.
 
 #### LangSmith Tracing
 
@@ -822,7 +825,7 @@ If you are using a self-hosted Langfuse instance, set `LANGFUSE_BASE_URL` to you
 - `user_id` = effective user from `get_effective_user_id()` (falls back to `default` in no-auth mode)
 - `trace_name` = assistant id (defaults to `lead-agent`)
 - `tags` = `[env:<DEER_FLOW_ENV>, model:<model_name>]` (omitted when not set)
-- `metadata.deerflow_trace_id` = DeerFlow request correlation id, matching `X-Trace-Id` when request trace correlation is enabled
+- `metadata.deerflow_trace_id` = DeerFlow request correlation id, matching `X-Trace-Id` for Gateway-admitted runs independently of the enhanced-log switch
 
 These are injected into `RunnableConfig.metadata` at the graph invocation root for both the gateway path (`runtime/runs/worker.py::run_agent`) and the embedded path (`client.py::DeerFlowClient.stream`), so any LangChain-compatible callback can read them. Set `DEER_FLOW_ENV` (or `ENVIRONMENT`) to tag traces by deployment environment.
 
@@ -862,6 +865,132 @@ Use it as-is. Or tear it apart and make it yours.
 
 ## Core Features
 
+### Terminal delivery facts and changed outputs (local v2.1 alignment)
+
+The local candidate also deduplicates repeated model completion callbacks in
+durable conversation history. Late token usage is counted once without replacing
+the first answer, changing its caller, or undoing an enterprise delivery-failure
+replacement. This does not retrospectively repair existing duplicate history.
+Cross-thread middleware audit writes return to the journal's owning event loop;
+threshold-triggered writes cannot overlap an explicit flush. This is local
+lifecycle hardening, not completion of the subagent audit/progress integration.
+Command-wrapped tool receipts now retain the same failure/progress semantics as
+bare messages, including structured failed/cancelled/timed-out subagent results.
+Only the current tool call's receipt is assessed; unrelated state and routing
+are preserved, as is the enterprise Bash project-repair exception.
+The persisted [run-event contract](backend/docs/RUN_EVENT_STREAM.md) now shares
+canonical producer names and existing column limits. Malformed subagent chunks
+are rejected before persistence; legacy and extension history remains readable.
+This preserves enterprise PPT progress and delivery, but does not by itself
+complete child-loop audit forwarding or make the candidate rollout-ready.
+Subagents now remove only loop-bound parent callbacks from their copied runtime
+context. Parent history stays on its owning loop while framework streaming,
+caller identity and checkpoint lineage remain inherited. Rejected coroutine
+submissions are closed; this does not change worker capacity or production topology.
+Subagents discover Skills through metadata (or the configured name-only index),
+not by injecting every enabled Skill body. The same activation and active-tool
+policy chain used by the lead agent is bound to the caller and business thread,
+including Digital Employee publication snapshots. Passive Skills no longer
+restrict unrelated tools; activation still restricts both tool visibility and
+execution. This is behavioral scoping, not a replacement for authorization.
+
+Ordinary delegation optionally accepts `context_mode="snapshot"`; the default
+remains `isolated`. A snapshot captures retained conversation and summary once
+at dispatch, adding input-token cost without granting new tools, Skill access,
+or knowledge permissions. Historical tool calls/results are inert background
+data, never child receipts or proof of completion. Sibling agents do not share
+mutable history, and later parent turns do not alter the snapshot. This local
+v2.1 candidate still requires full regression and production-equivalent checks.
+
+The local v2.1 alignment candidate also includes the official RBAC provider,
+two-phase provider factory, and fail-closed tool-filter helpers. Authorization
+remains disabled by default. Tool filtering and per-call checks are now wired
+through lead/bootstrap, delegated, and embedded execution, including deferred
+MCP catalogs and late discovery/memory tools. Embedded graphs rebuild per run
+when authorization is enabled. Separate operator guardrails remain enforced;
+employee publication and knowledge grants remain independent access boundaries.
+Sandbox execution now checks policy before cold acquisition and cached reuse,
+including eager and asynchronous tool paths. Only valid, explicitly disabled
+authorization is a no-op: unreadable configuration fails closed. Composed file
+tools share one invocation-scoped decision without skipping employee withdrawal,
+user/thread ownership or immutable Skill mount checks. Gateway upload sync and
+legacy DOC sandbox conversion now use the authenticated request actor's policy;
+denial preserves host uploads/parsing but skips sandbox side effects. Preview
+mutations enforce the same policy before local discovery or isolated PPT Runner
+forwarding; read-only artifacts/previews keep their separate read authorization.
+Upload sync and legacy DOC conversion lazily borrow a request client lease and
+drain blocking client operations before releasing it. Upload-only completion
+does not itself park a warm sandbox, but a concurrent agent's pending release is
+honored after the request drains. Legacy conversion cleanup retains the first
+cancellation even if cancellation repeats during workspace cleanup.
+Route-policy integration and full release validation are still pending.
+Read-before-write now drains queued lock acquisition and in-flight synchronous
+inspection before propagating cancellation. Sandbox tool bodies also drain before
+their execution/client fences are released; repeated cancellation cannot orphan
+a future lock owner or overlap another write with a still-running worker.
+Guardrails now hand off their actual per-call decision through a bounded,
+run-local authorization outcome contract. The observer/receipt consumer still
+needs integration; this alone is not a persisted or tamper-evident audit trail.
+
+The local enterprise candidate records a singleton `run.delivery` fact from
+real tool-returned artifacts, including tool attribution and an explicit zero
+when no artifact was observed. Goal continuations share the same run receipt;
+model prose or an old artifact in graph state does not create a delivery fact.
+Worker finalization writes it before the durable terminal outcome and keeps the
+run active through its duration checkpoint. Lease renewal and cancellation stay
+effective while that finalization is pending. Orphan recovery backfills only
+after a successful lease takeover, preserves an existing receipt, and retains
+the original run owner rather than the recovery caller.
+
+Completion-hook cancellation is deferred until the finalizing barrier and END
+signal have been handled, then re-raised. Journal teardown also runs when durable
+finalization or END publication fails. Enterprise lease-release cancellation
+must still reset WeKnora context in its owning task; delayed stream eviction
+does not retain the request's ContextVars.
+The enterprise clarification/stream race also cancels and drains both owned
+tasks before releasing the sandbox lease. Repeated host cancellation cannot
+skip an in-progress generator shutdown; this does not undo remote effects
+already committed or make non-cooperative tools forcibly cancellable.
+After finalization, initial and goal-continuation configs release the worker's
+runtime, Journal callback and internal wait/history markers. Caller configuration
+and unrelated callbacks remain intact, including on interrupted completion.
+Store-backed managers schedule local terminal-record eviction after five minutes.
+Active tasks, unfinished finalization and unconfirmed terminal writes remain
+tracked. Eviction first verifies a matching terminal history row with the captured
+owner; missing/unavailable storage keeps the local record. Memory-only managers
+without a backing store retain their history. Cleanup never deletes persisted runs.
+Terminal graph cycles are collected in coalesced passes (at most once per ten
+seconds), scheduled without request context and executed off the event loop.
+Slow passes are logged; CPython GIL contention is still possible. Local output
+masking keeps dynamic user/thread/ACP roots out of compiled regex caches, while
+resolved-root and stable-pattern caches are bounded separately.
+LocalSandbox resolution also avoids interning per-thread path components while
+retaining resolved-path containment, symlink escape rejection and read-only mounts.
+On Windows, the browser's private event loop supports subprocesses independently
+of the Gateway's database-compatible loop policy; Linux loop selection is unchanged.
+
+Changed outputs now participate in terminal acceptance: a successful file-producing
+run must have a trusted publication matching at least one new/modified output.
+`present_files` may publish a directory; platform image/video and browser capture
+tools must publish exact files. The dedicated PPT bridge records the authenticated
+current Agent-host handoff under its own publisher identity, not a fabricated
+tool callback. PPT's stricter upstream delivery/content checks remain independent.
+Model prose and historical graph artifacts never satisfy this check. An artifact
+run whose terminal receipt cannot be persisted ends in error; human confirmation
+waits remain resumable, and cancellation/owner fencing retain precedence.
+
+Snapshots exclude browser frames, `.tool-results`, `.mcp`, and the configured
+single-directory tool-output cache. Symlinks are metadata-only, never scanned
+through. Cache-bearing scans drain before cancellation cleanup; metadata-only
+scans may release the caller promptly. `tool_output.storage_subdir` must be a
+single non-traversing directory name; audit custom nested values before migration.
+
+This is **not** the full v2.1 artifact acceptance system: subagent verifiable
+handles and deterministic acceptance criteria still need their dependent batches.
+Unavailable/truncated snapshots cannot prove that no files were produced, and a
+zero recovery fact does not prove that a crashed task produced no files. These
+are local changes; production rollout, backends, and worker counts are unchanged.
+
 ### Digital Employees
 
 The enterprise workspace presents custom Agents as **Digital Employees**. It
@@ -883,6 +1012,57 @@ and reasoning effort. Employees with the `browser` tool group can also expose an
 authenticated same-origin Browser Live view. See
 [`docs/digital-employee-upgrade-operations.md`](docs/digital-employee-upgrade-operations.md)
 for deployment, migration, limits, and rollback details.
+
+Creation and editing support explicit enabled-Skill selection, validated again
+against the creator's live catalog when saving. Empty selections mean no Skills;
+an omitted update preserves existing settings. Explicit Square selections retain
+their source through detail loading, the first message, refresh and history;
+an unavailable source never falls back to a same-name personal employee.
+Creator knowledge bindings support explicit bases/documents, disabled knowledge
+or per-chat selection. Save/run checks use fresh WeKnora caller permissions.
+Square publication additionally requires resource-specific invocation grants:
+knowledge owners approve an exact scope, and Skill packages require explicit
+platform approval. Read access alone never grants onward sharing.
+The confirmed source-access policy concerns the **Digital Employee Square**,
+not SkillHub: execution models may read authorized read-only Skill packages;
+invoking an employee must not grant source-browser, download, installation, or
+publisher-credential access. This is not a guarantee against model quotation.
+In the local candidate, all admitted Square publications, including old-format
+ones, use per-caller conversation context without personal long-term memory
+injection, capture or memory tools. Automatic and manual compaction preserve
+conversation summaries without promoting them to personal memory. Personal
+employees keep their owner-scoped memory policy; publishing does not copy the
+creator's memory. Existing memory/history is not erased.
+Local publication admission pins config/SOUL and immutable Skill dependencies to
+one server-owned thread revision. Existing conversations stay pinned; New chat
+selects the current release. Form saves require the reviewed content revision:
+missing revisions return 428 and stale revisions return 409 without writing.
+Creation/detail/save responses carry a coherent config/SOUL revision. Conversational
+edits produce owner-confirmed proposals, not automatic mutations. Restoring a
+historical definition updates only the draft and preserves the employee ID and
+unknown configuration. Separate reviewed publication rechecks grants.
+Avatar edits share the draft revision guard, retain legacy files, and publish
+the exact reviewed immutable portrait. The editor distinguishes saved details
+from an unconfirmed avatar update; these remain two requests, not one atomic
+operation. New avatar pointers also block unadapted legacy-image downgrade.
+Personal deletion requires the reviewed revision and a fresh confirmation;
+conflicts and uncertain responses are not retried automatically. Definition,
+SQL-row and ancillary recovery bytes are retained outside the active employee
+directory. Deletion does not withdraw a Square version. Recovery requires
+operator reconciliation, especially after uncertain database commit; this is
+not yet a production recovery workflow or automatic undo feature.
+The shared knowledge tool performs bounded Gateway-side retrieval without
+delegating owner credentials or document download links to the caller. Grant
+revocation blocks subsequent guarded model/tool execution.
+These features have local integration coverage but are **not deployment-ready**:
+complete precise-overlay integration, NFS/ARM64 canaries, rollback compatibility, and
+real two-account acceptance remain release gates. Details are tracked in
+[`docs/digital-employee-sharing-2026-09-23.md`](docs/digital-employee-sharing-2026-09-23.md).
+The actual production source audit has been received and verified. Selected
+Gateway/provisioner deltas are tested on that source, not wholesale replacements
+from this checkout. Definition-file backup rehearsals restore only into a new
+directory; they do not overwrite live employees and do not include SQL rows or
+thread bindings. This is not yet a production backup/rollback procedure.
 
 ### Skills & Tools
 
@@ -985,7 +1165,10 @@ complex but progressing Skill can legitimately exceed the old 1000-step value.
 Gateway clamping, token budgets, and loop detection remain enabled. For AIO
 Sandboxes, the PPT-capable image also aligns the outer authentication proxy's
 idle timeout with the bounded command transport; this prevents false 504s on
-long image-generation commands while retaining the client hard timeout.
+long image-generation commands while retaining the client hard timeout. The
+image patch accepts both the base image's literal `${AUTH_BACKEND_PORT}` form
+and a rendered concrete loopback port such as `8081`, and fails closed unless
+exactly the two expected proxy locations are present.
 
 A skill directory is a package boundary: once DeerFlow finds its `SKILL.md`, nested `SKILL.md` files under that package (for example evaluation fixtures) remain supporting data and are not registered as runtime skills. Namespace directories without their own `SKILL.md` can still group nested skills.
 
@@ -1441,6 +1624,12 @@ warm Sandbox capacity per Gateway process. After a Gateway restart, inherited
 Sandbox Pods are reconciled immediately and excess warm Pods are removed oldest
 first. `sandbox.idle_timeout` controls reclamation of inactive entries.
 
+For a multi-Gateway rollout, separately verify the in-process execution leases
+used by concurrent lead/subagent turns and the Redis ownership leases used
+between Pods. Neither alone makes a cluster safe to scale. The enterprise
+rollout checklist and current unverified gates are in
+[`docs/enterprise-multiworker-upstream-catchup.md`](docs/enterprise-multiworker-upstream-catchup.md).
+
 The Provisioner accepts `SANDBOX_*_PROBE_*` environment variables for
 startup/readiness/liveness timing and `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}`
 for generated Sandbox Pod resources. Heavy all-in-one images should keep a
@@ -1664,10 +1853,11 @@ default in spaces owned or administered by the signed-in user, while preserving
 their other parser settings.
 The enterprise Gateway bypasses the outbound proxy for the internal
 `model.ai.cnooc` model endpoint while continuing to use the proxy for external
-providers. The WeKnora App includes that exact hostname and the authenticated
-in-cluster `gateway` model relay in its deployment-managed SSRF allowlist. This
-permits the approved internal endpoints while retaining private-network blocking
-for every other unapproved destination.
+providers. The WeKnora App includes that exact hostname, the reviewed
+`aiapi.cnooc.com.cn` DeepSeek endpoint used by document post-processing, and the
+authenticated in-cluster `gateway` model relay in its deployment-managed SSRF
+allowlist and proxy bypass. This permits only the approved internal endpoints
+while retaining private-network blocking for every other unapproved destination.
 The Gateway image also carries a hash-verified `cl100k_base` tiktoken cache, so
 memory token budgeting does not require a runtime download from public blob
 storage.
@@ -1863,7 +2053,7 @@ gate requires three consecutive PostgreSQL connectivity samples, so a transient
 service-DNS or database startup failure cannot make the ordinary Gateway lose its
 Service endpoint. The transport graph contains no LangChain model,
 `create_agent`, or DeerFlow Agent middleware. The Sandbox-side host installs the
-vendored upstream `ppt-master` v4.5.0 package into the Agent's normal Skill
+vendored upstream `ppt-master` v6.6.0 package into the Agent's normal Skill
 directory, keeps an exact writable thread-persistent snapshot, persists the
 Agent session pointer and command events, and exposes only a cluster-internal
 authenticated control port. The upstream package owns route selection, stage
@@ -1927,6 +2117,28 @@ request is same-origin; the rest of the Gateway remains protected by the normal
 double-submit CSRF contract.
 Writing or publishing a generated file no longer opens the artifact panel automatically. Deliverables remain available in the conversation and Files list; the chat column narrows only after the user explicitly opens a write step, artifact link, file card, or the Files control. Artifact reads use the authorized thread owner's storage bucket, so administrator read-only review and ordinary owner views resolve the same PPT preview companion.
 Final assistant responses cannot claim a `/mnt/user-data/outputs/...` deliverable unless that file both exists in the current thread outputs directory and was successfully published with `present_files`. DeerFlow retries one invalid delivery claim with hidden execution guidance, then returns a visible delivery error instead of persisting a fabricated download link.
+
+Enterprise Sandbox release images preinstall the reviewed document runtime
+(`python-docx`, PDF extraction/generation libraries, Markdown, encoding
+detection, statsmodels, and scikit-learn) together with an embedded Noto Sans
+SC font and the `deerflow-markdown-to-pdf` command. Agent turns must use the
+platform `read_file` tool as a tool call, not invoke it as a shell executable,
+and must not install these dependencies during a conversation. Gateway PDF
+generation fails closed when Chinese text cannot be rendered with an embedded
+CJK font instead of returning a corrupted PDF. Provisioner deployments should
+roll forward `SANDBOX_IMAGE` immutably and replace old ephemeral Sandbox Pods;
+thread files remain on user-data storage. DeerFlow's existing AIO Sandbox warm
+pool reuses released sandboxes for the same deterministic user/thread identity
+within each Gateway process. It is not a generic anonymous prewarming queue;
+keep `sandbox.replicas` and `sandbox.idle_timeout` capacity-bounded rather than
+creating unbound Pods outside the official provider lifecycle.
+
+For isolated PPT Master releases, Provisioner can set
+`PPT_MASTER_AGENT_HOST_IMAGE` separately from `SANDBOX_IMAGE`. Keep the proven
+AIO image for ordinary sandbox execution and init containers; put the larger
+PPT Master dependencies in the Agent Host image. Preload both images on every
+eligible node and validate the two-container Pod's AIO command API and Agent
+Host before rolling out the release.
 
 ## License
 

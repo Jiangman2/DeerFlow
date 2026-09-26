@@ -2,14 +2,13 @@
 
 import asyncio
 import atexit
-import html
 import logging
 import os
 import sys
 import threading
 import uuid
 from collections.abc import Callable, Coroutine, Mapping
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from contextvars import Context, copy_context
 from dataclasses import dataclass, field
@@ -19,8 +18,10 @@ from typing import TYPE_CHECKING, Any
 
 from langchain.agents import create_agent
 from langchain.tools import BaseTool
+from langchain_core.callbacks.base import BaseCallbackManager
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables.config import var_child_runnable_config
 from langgraph.errors import GraphRecursionError
 
 from deerflow.agents.language_policy import ensure_default_chinese_language
@@ -30,12 +31,15 @@ from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
 from deerflow.models import create_chat_model
 from deerflow.runtime.runs.stream_cleanup import close_agent_stream
-from deerflow.skills.tool_policy import filter_tools_by_skill_allowed_tools
+from deerflow.sandbox.lease import release_sandbox_execution_lease_async
 from deerflow.skills.types import Skill
+from deerflow.subagents.bash_evidence import BASH_EVIDENCE_MAX_ENTRIES, harvest_bash_executions
+from deerflow.subagents.capacity import SubagentCapacityError, SubagentExecutionCapacity, get_subagent_execution_capacity
 from deerflow.subagents.config import SubagentConfig, resolve_subagent_model_name
+from deerflow.subagents.context_snapshot import SNAPSHOT_SYSTEM_NOTE, ParentContextSnapshot
 from deerflow.subagents.step_events import capture_new_step_messages
 from deerflow.subagents.token_collector import SubagentTokenCollector
-from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY
+from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, ensure_trace_context, resolve_trace_id
 from deerflow.tracing import build_tracing_callbacks, inject_langfuse_metadata
 from deerflow.utils.messages import message_content_to_text
 
@@ -107,6 +111,11 @@ class SubagentResult:
     ai_messages: list[dict[str, Any]] | None = None
     token_usage_records: list[dict[str, int | str | None]] = field(default_factory=list)
     usage_reported: bool = False
+    # None means no trustworthy citing snapshot; [] means an empty ledger.
+    tool_receipts: list[dict[str, Any]] | None = field(default=None, kw_only=True)
+    bash_executions: list[dict[str, Any]] | None = field(default=None, kw_only=True)
+    admission_failure: bool = field(default=False, kw_only=True)
+    external_task_id: str | None = field(default=None, kw_only=True)
     cancel_event: threading.Event = field(default_factory=threading.Event, repr=False)
     _state_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
@@ -121,6 +130,33 @@ class SubagentResult:
             if not self.status.is_terminal:
                 self.token_usage_records = list(records)
 
+    def update_tool_receipts(self, receipts: list[dict[str, Any]] | None) -> None:
+        if receipts is None:
+            return
+        with self._state_lock:
+            if not self.status.is_terminal:
+                self.tool_receipts = [dict(receipt) for receipt in receipts]
+
+    def snapshot_tool_receipts(self) -> list[dict[str, Any]] | None:
+        with self._state_lock:
+            return None if self.tool_receipts is None else [dict(receipt) for receipt in self.tool_receipts]
+
+    def update_bash_executions(self, executions: list[dict[str, Any]] | None) -> None:
+        """Accumulate across compaction; the first terminal transition fences IO."""
+        if executions is None:
+            return
+        with self._state_lock:
+            if self.status.is_terminal:
+                return
+            merged = {entry["tool_call_id"]: dict(entry) for entry in self.bash_executions or []}
+            for execution in executions:
+                merged[execution["tool_call_id"]] = dict(execution)
+            self.bash_executions = list(merged.values())[-BASH_EVIDENCE_MAX_ENTRIES:]
+
+    def snapshot_bash_executions(self) -> list[dict[str, Any]] | None:
+        with self._state_lock:
+            return None if self.bash_executions is None else [dict(entry) for entry in self.bash_executions]
+
     def try_set_terminal(
         self,
         status: SubagentStatus,
@@ -131,6 +167,8 @@ class SubagentResult:
         completed_at: datetime | None = None,
         ai_messages: list[dict[str, Any]] | None = None,
         token_usage_records: list[dict[str, int | str | None]] | None = None,
+        tool_receipts: list[dict[str, Any]] | None = None,
+        admission_failure: bool = False,
     ) -> bool:
         """Set a terminal status exactly once.
 
@@ -155,9 +193,34 @@ class SubagentResult:
                 self.ai_messages = ai_messages
             if token_usage_records is not None:
                 self.token_usage_records = token_usage_records
+            if tool_receipts is not None:
+                self.tool_receipts = [dict(receipt) for receipt in tool_receipts]
+            elif status == SubagentStatus.COMPLETED:
+                # Never reuse a running, renumbered scan when the actual
+                # completed report lacks its citing-turn snapshot.
+                self.tool_receipts = None
             self.completed_at = completed_at or datetime.now()
+            self.admission_failure = admission_failure
             self.status = status
             return True
+
+
+def _harvest_tool_receipts(final_state: Any, *, prefer_citing_turn: bool = False) -> list[dict[str, Any]] | None:
+    """Harvest execution evidence without inventing a post-compaction id map."""
+    messages = final_state.get("messages") if isinstance(final_state, dict) else None
+    if not messages:
+        return None
+    try:
+        from deerflow.agents.middlewares.tool_receipt import extract_citing_turn_receipts, extract_tool_receipts
+
+        message_list = list(messages)
+        citing_messages = message_list if prefer_citing_turn else [message_list[-1]]
+        citing = extract_citing_turn_receipts(citing_messages) if prefer_citing_turn or isinstance(message_list[-1], AIMessage) else None
+        receipts = citing if prefer_citing_turn else citing if citing is not None else extract_tool_receipts(message_list)
+        return None if receipts is None else [dict(receipt) for receipt in receipts]
+    except Exception:
+        logger.warning("Failed to harvest subagent tool receipts")
+        return None
 
 
 def _extract_final_result(final_state: Any, *, trace_id: str, name: str) -> str:
@@ -258,8 +321,8 @@ def _extract_llm_error_fallback(final_state: Any) -> str | None:
 _background_tasks: dict[str, SubagentResult] = {}
 _background_tasks_lock = threading.Lock()
 
-# Thread pool for background task scheduling and orchestration
-_scheduler_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="subagent-scheduler-")
+# Background execution waits asynchronously for the bounded process capacity.
+_background_futures: dict[str, Future[SubagentResult]] = {}
 
 # Persistent event loop for isolated subagent executions triggered from an
 # already-running parent loop. Reusing one long-lived loop avoids creating a
@@ -355,13 +418,55 @@ def _submit_to_isolated_loop_in_context(
     context: Context,
     coro_factory: Callable[[], Coroutine[Any, Any, SubagentResult]],
 ) -> Future[SubagentResult]:
-    """Submit a coroutine to the isolated loop while preserving ContextVar state."""
-    return context.run(
-        lambda: asyncio.run_coroutine_threadsafe(
-            coro_factory(),
-            _get_isolated_subagent_loop(),
-        )
-    )
+    """Preserve context and release coroutines rejected before scheduling.
+
+    Resolve the loop before creating the coroutine: a startup failure must not
+    retain an unscheduled coroutine and its captured parent resources.
+    """
+
+    def submit() -> Future[SubagentResult]:
+        loop = _get_isolated_subagent_loop()
+        coroutine = coro_factory()
+        try:
+            return asyncio.run_coroutine_threadsafe(coroutine, loop)
+        except BaseException:
+            coroutine.close()
+            raise
+
+    return context.run(submit)
+
+
+def _copy_isolated_subagent_context() -> Context:
+    """Copy identity/lineage/stream context without loop-bound parent callbacks.
+
+    An explicit child collector alone is insufficient: LangGraph merges it with
+    the inherited callback manager. Copy that manager before filtering either
+    handler list so the parent's own journal and framework streaming stay intact.
+    """
+    context = copy_context()
+    inherited_config = context.get(var_child_runnable_config)
+    if inherited_config is None or "callbacks" not in inherited_config:
+        return context
+
+    callbacks = inherited_config.get("callbacks")
+    if isinstance(callbacks, BaseCallbackManager):
+        isolated_callbacks = callbacks.copy()
+        isolated_callbacks.handlers = [handler for handler in callbacks.handlers if not getattr(handler, "deerflow_loop_bound", False)]
+        isolated_callbacks.inheritable_handlers = [handler for handler in callbacks.inheritable_handlers if not getattr(handler, "deerflow_loop_bound", False)]
+    elif isinstance(callbacks, (list, tuple)):
+        isolated_callbacks = [handler for handler in callbacks if not getattr(handler, "deerflow_loop_bound", False)]
+    elif getattr(callbacks, "deerflow_loop_bound", False):
+        isolated_callbacks = None
+    else:
+        isolated_callbacks = callbacks
+
+    isolated_config = inherited_config.copy()
+    if isolated_callbacks:
+        isolated_config["callbacks"] = isolated_callbacks
+    else:
+        isolated_config.pop("callbacks", None)
+    context.run(var_child_runnable_config.set, isolated_config)
+    return context
 
 
 def _filter_tools(
@@ -417,6 +522,12 @@ class SubagentExecutor:
         authz_attributes: Mapping[str, Any] | None = None,
         deerflow_trace_id: str | None = None,
         datalake_enabled: bool = True,
+        loop_detection_recorder: Any | None = None,
+        tool_promotion_recorder: Any | None = None,
+        tool_progress_recorder: Any | None = None,
+        acceptance_criteria: list[str] | None = None,
+        execution_capacity: SubagentExecutionCapacity | None = None,
+        context_snapshot: ParentContextSnapshot | None = None,
     ):
         """Initialize the executor.
 
@@ -443,9 +554,24 @@ class SubagentExecutor:
                 from the parent run for Langfuse metadata correlation.
             datalake_enabled: Whether AppForge Data Lake tools are available to
                 this delegated run.
+            loop_detection_recorder: Private parent-loop audit bridge, never a
+                raw journal or caller-supplied runtime context.
+            tool_promotion_recorder: Private bridge with child-scoped discovery
+                claims; no parent run's mutable claim state is shared.
+            tool_progress_recorder: Private bridge for child progress decisions.
+            acceptance_criteria: Untrusted task requirements, never system authority.
+            execution_capacity: Explicit shared controller, otherwise the startup singleton.
+            context_snapshot: Immutable parent history captured at dispatch, rendered
+                as background data, never child evidence or inherited authority.
         """
         self.config = config
+        self.execution_capacity = execution_capacity
+        self.context_snapshot = context_snapshot
+        from deerflow.subagents.report_contract import normalize_acceptance_criteria
+
+        self.acceptance_criteria = normalize_acceptance_criteria(acceptance_criteria)
         self.app_config = app_config
+        self._resolved_app_config = app_config
         self.parent_model = parent_model
         # Resolve eagerly only when it does not require loading config.yaml; otherwise defer
         # to _create_agent (which already loads app_config) so unit tests can construct
@@ -474,11 +600,18 @@ class SubagentExecutor:
         # subagent's GuardrailMiddleware sees the same provenance as the lead.
         self.is_internal = is_internal
         self.authz_attributes = normalize_authz_attributes(authz_attributes)
-        self.deerflow_trace_id = deerflow_trace_id
+        self.deerflow_trace_id = resolve_trace_id(deerflow_trace_id)
         self.datalake_enabled = datalake_enabled is not False
+        # Never pass the parent journal itself across isolated execution loops.
+        self.loop_detection_recorder = loop_detection_recorder
+        self.tool_promotion_recorder = tool_promotion_recorder
+        self.tool_progress_recorder = tool_progress_recorder
 
+        from deerflow.runtime.employee_resources import read_employee_publication, scope_employee_tools
+
+        self.employee_publication = read_employee_publication(thread_id, user_id)
         self._base_tools = _filter_tools(
-            tools,
+            scope_employee_tools(tools, self.employee_publication),
             config.tools,
             config.disallowed_tools,
         )
@@ -489,6 +622,10 @@ class SubagentExecutor:
             enabled=self.datalake_enabled,
         )
         self.tools = self._base_tools
+        # Prompt discovery and both activation/policy consumers share this
+        # exact catalog. An empty set is deny-all, never an unrestricted None.
+        self._available_skill_names: set[str] = set()
+        self._authorization_provider = None
         # Guard middlewares that expose ``consume_stop_reason`` (currently
         # ``TokenBudgetMiddleware`` and ``LoopDetectionMiddleware``), captured in
         # ``_create_agent`` so ``_aexecute`` can read each after the run and
@@ -500,6 +637,11 @@ class SubagentExecutor:
 
         logger.info(f"[trace={self.trace_id}] SubagentExecutor initialized: {config.name} with {len(self.tools)} tools")
 
+    def _get_resolved_app_config(self):
+        if self._resolved_app_config is None:
+            self._resolved_app_config = get_app_config()
+        return self._resolved_app_config
+
     def _create_agent(self, tools: list[BaseTool] | None = None, *, deferred_setup: "DeferredToolSetup | None" = None):
         """Create the agent instance.
 
@@ -507,7 +649,7 @@ class SubagentExecutor:
         deferred MCP tool names + catalog hash so the subagent gets the same
         DeferredToolFilterMiddleware the lead agent has. ``None`` is a no-op.
         """
-        app_config = self.app_config or get_app_config()
+        app_config = self._get_resolved_app_config()
         if self.model_name is None:
             self.model_name = resolve_subagent_model_name(self.config, self.parent_model, app_config=app_config)
         model = create_chat_model(name=self.model_name, thinking_enabled=False, app_config=app_config, attach_tracing=False)
@@ -531,10 +673,21 @@ class SubagentExecutor:
             "lazy_init": True,
             "deferred_setup": deferred_setup,
             "agent_name": self.config.name,
+            "available_skills": self._available_skill_names,
+            "user_id": self.user_id,
+            "thread_id": self.thread_id,
+            "authorization_provider": self._authorization_provider,
         }
         if mcp_routing_middleware is not None:
             middleware_kwargs["mcp_routing_middleware"] = mcp_routing_middleware
         middlewares = build_subagent_runtime_middlewares(**middleware_kwargs)
+        if self.employee_publication is not None:
+            from deerflow.agents.middlewares.employee_publication_middleware import EmployeePublicationMiddleware
+            from deerflow.agents.middlewares.weknora_scope_middleware import WeKnoraScopeMiddleware
+            from deerflow.runtime.employee_resources import has_delegated_knowledge
+
+            middlewares.insert(0, EmployeePublicationMiddleware(thread_id=self.thread_id, user_id=self.user_id))
+            middlewares.append(WeKnoraScopeMiddleware(delegated=has_delegated_knowledge(self.employee_publication)))
         # Collect every guard middleware that exposes ``consume_stop_reason``
         # (TokenBudgetMiddleware, LoopDetectionMiddleware) so _aexecute can read
         # each after the run and surface whichever cap fired. Duck-typed
@@ -579,10 +732,18 @@ class SubagentExecutor:
             return []
 
         try:
-            from deerflow.skills.storage import get_or_new_skill_storage
+            from deerflow.skills.agent_publication import get_thread_published_skill_storage
+            from deerflow.skills.storage import get_or_new_skill_storage, get_or_new_user_skill_storage
 
             storage_kwargs = {"app_config": self.app_config} if self.app_config is not None else {}
-            storage = await asyncio.to_thread(get_or_new_skill_storage, **storage_kwargs)
+            storage = None
+            if self.user_id:
+                storage = await asyncio.to_thread(get_thread_published_skill_storage, self.thread_id, user_id=self.user_id, **storage_kwargs)
+            if storage is None:
+                if self.user_id:
+                    storage = await asyncio.to_thread(get_or_new_user_skill_storage, self.user_id, **storage_kwargs)
+                else:
+                    storage = await asyncio.to_thread(get_or_new_skill_storage, **storage_kwargs)
             # Use asyncio.to_thread to avoid blocking the event loop (LangGraph ASGI requirement)
             all_skills = await asyncio.to_thread(storage.load_skills, enabled_only=True)
             logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} loaded {len(all_skills)} enabled skills from disk")
@@ -600,43 +761,6 @@ class SubagentExecutor:
             return [s for s in all_skills if s.name in allowed]
         return all_skills
 
-    def _apply_skill_allowed_tools(self, skills: list[Skill]) -> list[BaseTool]:
-        return filter_tools_by_skill_allowed_tools(self._base_tools, skills)
-
-    async def _load_skill_messages(self, skills: list[Skill]) -> list[SystemMessage]:
-        """Load skill content as conversation items based on config.skills.
-
-        Aligned with Codex's pattern: each subagent loads its own skills
-        per-session and injects them as conversation items (developer messages),
-        not as system prompt text. The config.skills whitelist controls which
-        skills are loaded:
-        - None: load all enabled skills
-        - []: no skills
-        - ["skill-a", "skill-b"]: only these skills
-
-        Returns:
-            List of SystemMessages containing skill content.
-        """
-        if not skills:
-            return []
-
-        # Read each skill's SKILL.md content and create conversation items
-        messages = []
-        for skill in skills:
-            try:
-                content = await asyncio.to_thread(skill.skill_file.read_text, encoding="utf-8")
-                content = content.strip()
-                if content:
-                    # name/body are untrusted (installable ``.skill`` archive); escape
-                    # both so the body cannot forge a framework tag, matching the
-                    # slash-activation sibling (name quote=True attribute, body quote=False).
-                    messages.append(SystemMessage(content=f'<skill name="{html.escape(skill.name, quote=True)}">\n{html.escape(content, quote=False)}\n</skill>'))
-                    logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} loaded skill: {skill.name}")
-            except Exception:
-                logger.debug(f"[trace={self.trace_id}] Failed to read skill {skill.name}", exc_info=True)
-
-        return messages
-
     async def _build_initial_state(self, task: str) -> tuple[dict[str, Any], list[BaseTool], "DeferredToolSetup"]:
         """Build the initial state for agent execution.
 
@@ -645,8 +769,8 @@ class SubagentExecutor:
 
         Returns:
             ``(state, final_tools, deferred_setup)``. ``final_tools`` is the
-            policy-filtered tool list with the ``tool_search`` tool appended when
-            deferral applies; ``deferred_setup`` is consumed by ``_create_agent``
+            scoped tool list with discovery helpers appended when deferral
+            applies; ``deferred_setup`` is consumed by ``_create_agent``
             so the agent build and the injected ``<available-deferred-tools>``
             section share one catalog/hash.
         """
@@ -655,27 +779,91 @@ class SubagentExecutor:
         # re-enter this package during its own initialization.
         from deerflow.tools.builtins.tool_search import assemble_deferred_tools, get_deferred_tools_prompt_section, get_mcp_routing_hints_prompt_section
 
-        # Load skills as conversation items (Codex pattern)
+        # Enabled skills are discovery metadata, not an active workflow or a
+        # global union of allowed-tools. Middleware enforces the active policy
+        # at both model binding and execution time.
         skills = await self._load_skills()
-        filtered_tools = self._apply_skill_allowed_tools(skills)
-        # Assemble deferred tool_search AFTER policy filtering (fail-closed),
+        self._available_skill_names = {skill.name for skill in skills}
+        resolved_app_config = self._get_resolved_app_config()
+        from deerflow.skills.describe import build_skill_search_setup, get_skill_index_prompt_section
+
+        skill_setup = build_skill_search_setup(
+            skills,
+            enabled=resolved_app_config.skills.deferred_discovery,
+            container_base_path=resolved_app_config.skills.container_path,
+        )
+        filtered_tools = list(self._base_tools)
+        if skill_setup.describe_skill_tool is not None:
+            filtered_tools.append(skill_setup.describe_skill_tool)
+        from deerflow.authz.model_authorization import authorize_model_name_async
+        from deerflow.authz.runtime import construct_authorization_provider, resolve_authorization_provider_spec
+        from deerflow.authz.tool_filter import apply_tool_authorization
+
+        # Import discovery can block; loop-bound providers must be constructed
+        # here, on the child execution loop, not inside a worker thread.
+        authz_spec = await asyncio.to_thread(resolve_authorization_provider_spec, resolved_app_config.authorization) if resolved_app_config.authorization.enabled is True else None
+        self._authorization_provider = construct_authorization_provider(authz_spec, resolved_app_config.authorization)
+        authz_context = {
+            "user_id": self.user_id,
+            "user_role": self.user_role,
+            "oauth_provider": self.oauth_provider,
+            "oauth_id": self.oauth_id,
+            "channel_user_id": self.channel_user_id,
+            "is_internal": self.is_internal,
+            "authz_attributes": self.authz_attributes,
+        }
+        self.model_name = await authorize_model_name_async(self.model_name, context=authz_context, app_config=resolved_app_config, authorization_provider=self._authorization_provider)
+        filtered_tools, self._authorization_provider = apply_tool_authorization(
+            filtered_tools,
+            context=authz_context,
+            app_config=resolved_app_config,
+            authorization_provider=self._authorization_provider,
+        )
+        # Assemble deferred tool_search AFTER enterprise/config filtering,
         # mirroring the lead path so subagents stop binding full MCP schemas.
         # The generated tool_search helper is intentionally not subject to the
         # subagent's name-level allow/deny (config.tools / disallowed_tools):
         # its catalog is built from the already-filtered list, so it can never
         # surface a tool the policy denied. This matches the lead agent.
-        enabled = (self.app_config or get_app_config()).tool_search.enabled
+        enabled = resolved_app_config.tool_search.enabled
         final_tools, deferred_setup = assemble_deferred_tools(filtered_tools, enabled=enabled)
-        skill_messages = await self._load_skill_messages(skills)
 
-        # Combine system_prompt and skills into a single SystemMessage.
+        # Combine system_prompt and discovery metadata into one SystemMessage.
         # Some LLM APIs reject multiple SystemMessages with
         # "System message must be at the beginning."
         system_parts: list[str] = []
         if self.config.system_prompt:
             system_parts.append(self.config.system_prompt)
-        for skill_msg in skill_messages:
-            system_parts.append(skill_msg.content)
+        if self.context_snapshot is not None:
+            system_parts.append(SNAPSHOT_SYSTEM_NOTE)
+        from deerflow.subagents.report_contract import build_acceptance_criteria_system_note, build_report_contract_section, render_acceptance_criteria_block
+
+        verification_cfg = getattr(resolved_app_config, "verification", None)
+        receipts_enabled = getattr(verification_cfg, "receipts_enabled", True)
+        system_parts.append(build_report_contract_section(receipts_enabled=receipts_enabled))
+        criteria_block = render_acceptance_criteria_block(self.acceptance_criteria)
+        if criteria_block:
+            system_parts.append(build_acceptance_criteria_system_note(receipts_enabled=receipts_enabled))
+        if skills:
+            if skill_setup.skill_names:
+                skills_section = get_skill_index_prompt_section(
+                    skill_names=skill_setup.skill_names,
+                    container_base_path=resolved_app_config.skills.container_path,
+                )
+            else:
+                from deerflow.agents.lead_agent.prompt import get_skills_prompt_section
+
+                # Keep the same business thread and identity as _load_skills;
+                # a published employee must never resolve the viewer's namesake.
+                skills_section = await asyncio.to_thread(
+                    get_skills_prompt_section,
+                    self._available_skill_names,
+                    app_config=resolved_app_config,
+                    user_id=self.user_id,
+                    thread_id=self.thread_id,
+                )
+            if skills_section:
+                system_parts.append(skills_section)
         # Name the deferred MCP tools in the prompt; their schemas stay withheld
         # until tool_search promotes them. Empty set -> "" -> appends nothing.
         deferred_section = get_deferred_tools_prompt_section(deferred_names=deferred_setup.deferred_names)
@@ -689,8 +877,12 @@ class SubagentExecutor:
         if system_parts:
             messages.append(SystemMessage(content=ensure_default_chinese_language("\n\n".join(system_parts))))
 
+        if self.context_snapshot is not None:
+            messages.append(self.context_snapshot.to_message())
+
         # Then the actual task
-        messages.append(HumanMessage(content=task))
+        task_content = f"{task}\n\n{criteria_block}" if criteria_block else task
+        messages.append(HumanMessage(content=task_content))
 
         state: dict[str, Any] = {
             "messages": messages,
@@ -705,6 +897,33 @@ class SubagentExecutor:
         return state, final_tools, deferred_setup
 
     async def _aexecute(self, task: str, result_holder: SubagentResult | None = None) -> SubagentResult:
+        """Bound native work before model, Skill or sandbox setup; keep queued work pending."""
+        result = result_holder or SubagentResult(task_id=str(uuid.uuid4()), trace_id=self.trace_id, status=SubagentStatus.PENDING)
+        with ensure_trace_context(self.deerflow_trace_id):
+            if result.status.is_terminal:
+                return result
+            if result.cancel_event.is_set():
+                result.try_set_terminal(SubagentStatus.CANCELLED, error="Cancelled by user")
+                return result
+            try:
+                capacity = self.execution_capacity or get_subagent_execution_capacity()
+                async with capacity.slot():
+                    with result._state_lock:
+                        if result.status.is_terminal:
+                            return result
+                        if not result.cancel_event.is_set():
+                            result.status = SubagentStatus.RUNNING
+                            result.started_at = datetime.now()
+                    if result.cancel_event.is_set():
+                        result.try_set_terminal(SubagentStatus.CANCELLED, error="Cancelled by user")
+                        return result
+                    # Keep the slot through existing stream and lease cleanup.
+                    return await self._aexecute_in_trace(task, result)
+            except SubagentCapacityError as exc:
+                result.try_set_terminal(SubagentStatus.FAILED, error=str(exc), admission_failure=True)
+                return result
+
+    async def _aexecute_in_trace(self, task: str, result_holder: SubagentResult | None = None) -> SubagentResult:
         """Execute a task asynchronously.
 
         Args:
@@ -741,7 +960,17 @@ class SubagentExecutor:
         processed_message_count = 0
 
         collector: SubagentTokenCollector | None = None
+        context: dict[str, Any] | None = None
+        final_state = None
+        verification_cfg = None
+
+        def terminal_receipts(*, prefer_citing_turn: bool = False):
+            if not getattr(verification_cfg, "receipts_enabled", True):
+                return None
+            return _harvest_tool_receipts(final_state, prefer_citing_turn=prefer_citing_turn)
+
         try:
+            verification_cfg = getattr(self._get_resolved_app_config(), "verification", None)
             state, final_tools, deferred_setup = await self._build_initial_state(task)
             agent = self._create_agent(final_tools, deferred_setup=deferred_setup)
 
@@ -758,6 +987,7 @@ class SubagentExecutor:
                 "recursion_limit": self.config.max_turns,
                 "callbacks": [collector],
                 "tags": [collector_caller],
+                "metadata": {DEERFLOW_TRACE_METADATA_KEY: self.deerflow_trace_id},
             }
 
             # Inject tracing callbacks at the graph level so a single subagent run
@@ -810,17 +1040,29 @@ class SubagentExecutor:
             # (including False); attributes copied again on write-back.
             context["is_internal"] = self.is_internal
             context["authz_attributes"] = dict(self.authz_attributes)
-            if self.deerflow_trace_id:
-                context[DEERFLOW_TRACE_METADATA_KEY] = self.deerflow_trace_id
+            context[DEERFLOW_TRACE_METADATA_KEY] = self.deerflow_trace_id
             context["datalake_enabled"] = self.datalake_enabled
             context["is_subagent"] = True
+            if self.loop_detection_recorder is not None:
+                from deerflow.agents.middlewares.audit_context import LOOP_DETECTION_RECORDER_CONTEXT_KEY
+
+                context[LOOP_DETECTION_RECORDER_CONTEXT_KEY] = self.loop_detection_recorder
+                context["agent_id"] = self.config.name
+            if self.tool_promotion_recorder is not None:
+                from deerflow.agents.middlewares.audit_context import TOOL_PROMOTION_RECORDER_CONTEXT_KEY
+
+                context[TOOL_PROMOTION_RECORDER_CONTEXT_KEY] = self.tool_promotion_recorder
+                context["agent_id"] = self.config.name
+            if self.tool_progress_recorder is not None:
+                from deerflow.agents.middlewares.audit_context import TOOL_PROGRESS_RECORDER_CONTEXT_KEY
+
+                context[TOOL_PROGRESS_RECORDER_CONTEXT_KEY] = self.tool_progress_recorder
+                context["agent_id"] = self.config.name
 
             logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} starting async execution with max_turns={self.config.max_turns}")
 
             # Use stream instead of invoke to get real-time updates
             # This allows us to collect AI messages as they are generated
-            final_state = None
-
             # Pre-check: bail out immediately if already cancelled before streaming starts
             if result.cancel_event.is_set():
                 logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} cancelled before streaming")
@@ -835,6 +1077,12 @@ class SubagentExecutor:
             stream = agent.astream(state, config=run_config, context=context, stream_mode="values")  # type: ignore[arg-type]
             try:
                 async for chunk in stream:
+                    # A yielded chunk has already executed, including when
+                    # cancellation raced with the last tool's completion.
+                    final_state = chunk
+                    result.update_tool_receipts(terminal_receipts())
+                    if self.acceptance_criteria:
+                        result.update_bash_executions(harvest_bash_executions(final_state, thread_id=self.thread_id, user_id=self.user_id))
                     # Cooperative cancellation: check if parent requested stop.
                     # Note: cancellation is only detected at astream iteration boundaries,
                     # so long-running tool calls within a single iteration will not be
@@ -844,7 +1092,6 @@ class SubagentExecutor:
                         cancelled_during_stream = True
                         break
 
-                    final_state = chunk
                     result.update_token_usage_records(collector.snapshot_records())
 
                     # Capture every step message (assistant turns AND tool outputs)
@@ -878,6 +1125,7 @@ class SubagentExecutor:
                     SubagentStatus.CANCELLED,
                     error="Cancelled by user",
                     token_usage_records=collector.snapshot_records(),
+                    tool_receipts=terminal_receipts(),
                 )
                 return result
 
@@ -889,6 +1137,7 @@ class SubagentExecutor:
                     SubagentStatus.FAILED,
                     error=llm_error,
                     token_usage_records=token_usage_records,
+                    tool_receipts=terminal_receipts(),
                 )
             else:
                 final_result = _extract_final_result(final_state, trace_id=self.trace_id, name=self.config.name)
@@ -906,6 +1155,7 @@ class SubagentExecutor:
                     result=final_result,
                     stop_reason=stop_reason,
                     token_usage_records=token_usage_records,
+                    tool_receipts=terminal_receipts(prefer_citing_turn=True),
                 )
 
         except GraphRecursionError:
@@ -943,6 +1193,7 @@ class SubagentExecutor:
                     error=llm_error,
                     stop_reason=stop_reason,
                     token_usage_records=records,
+                    tool_receipts=terminal_receipts(),
                 )
             else:
                 messages = (final_state or {}).get("messages", [])
@@ -959,6 +1210,7 @@ class SubagentExecutor:
                         result=usable_partial,
                         stop_reason=stop_reason,
                         token_usage_records=records,
+                        tool_receipts=terminal_receipts(prefer_citing_turn=True),
                     )
                 else:
                     result.try_set_terminal(
@@ -966,15 +1218,31 @@ class SubagentExecutor:
                         error=f"Reached max_turns={max_turns}",
                         stop_reason=stop_reason,
                         token_usage_records=records,
+                        tool_receipts=terminal_receipts(),
                     )
 
+        except asyncio.CancelledError:
+            # A callback may have received billable usage before astream emits
+            # its next state. Preserve that snapshot before outer timeout/cancel
+            # terminalization; never turn cancellation into task completion.
+            if collector is not None:
+                result.update_token_usage_records(collector.snapshot_records())
+            result.update_tool_receipts(terminal_receipts())
+            raise
         except Exception as e:
             logger.exception(f"[trace={self.trace_id}] Subagent {self.config.name} async execution failed")
             result.try_set_terminal(
                 SubagentStatus.FAILED,
                 error=str(e),
                 token_usage_records=collector.snapshot_records() if collector is not None else None,
+                tool_receipts=terminal_receipts(),
             )
+        finally:
+            if context is not None:
+                try:
+                    await release_sandbox_execution_lease_async(context)
+                except Exception:
+                    logger.warning("[trace=%s] Could not release subagent sandbox lease", self.trace_id, exc_info=True)
 
         return result
 
@@ -988,7 +1256,7 @@ class SubagentExecutor:
         from being tied to a short-lived loop that gets closed per execution.
         """
         future: Future[SubagentResult] | None = None
-        parent_context = copy_context()
+        parent_context = _copy_isolated_subagent_context()
         try:
             future = _submit_to_isolated_loop_in_context(
                 parent_context,
@@ -1017,13 +1285,9 @@ class SubagentExecutor:
     def execute(self, task: str, result_holder: SubagentResult | None = None) -> SubagentResult:
         """Execute a task synchronously (wrapper around async execution).
 
-        This method runs the async execution in a new event loop, allowing
-        asynchronous tools (like MCP tools) to be used within the thread pool.
-
-        When called from within an already-running event loop (e.g., when the
-        parent agent is async), this method synchronously waits on the
-        persistent isolated loop to avoid event loop conflicts with shared
-        async primitives like httpx clients.
+        All sync executions use the persistent isolated event loop. This keeps
+        shared async clients and the process-wide admission controller bound to
+        one long-lived loop instead of creating a short-lived loop per call.
 
         Args:
             task: The task description for the subagent.
@@ -1033,17 +1297,7 @@ class SubagentExecutor:
             SubagentResult with the execution result.
         """
         try:
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-
-            if loop is not None and loop.is_running():
-                logger.debug(f"[trace={self.trace_id}] Subagent {self.config.name} detected running event loop, using isolated loop")
-                return self._execute_in_isolated_loop(task, result_holder)
-
-            # Standard path: no running event loop, use asyncio.run
-            return asyncio.run(self._aexecute(task, result_holder))
+            return self._execute_in_isolated_loop(task, result_holder)
         except Exception as e:
             logger.exception(f"[trace={self.trace_id}] Subagent {self.config.name} execution failed")
             # Create a result with error if we don't have one
@@ -1063,63 +1317,101 @@ class SubagentExecutor:
 
         Args:
             task: The task description for the subagent.
-            task_id: Optional task ID to use. If not provided, a random UUID will be generated.
+            task_id: Optional external correlation ID for logs. It is never used
+                as the process-wide background registry key because provider
+                tool-call IDs can repeat across concurrent parent runs.
 
         Returns:
-            Task ID that can be used to check status later.
+            Unique execution ID that can be used to check status later.
         """
-        # Use provided task_id or generate a new one
-        if task_id is None:
-            task_id = str(uuid.uuid4())[:8]
+        execution_id = str(uuid.uuid4())
 
         # Create initial pending result
         result = SubagentResult(
-            task_id=task_id,
+            task_id=execution_id,
+            external_task_id=task_id,
             trace_id=self.trace_id,
             status=SubagentStatus.PENDING,
         )
 
-        logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} starting async execution, task_id={task_id}, timeout={self.config.timeout_seconds}s")
+        logger.info(
+            "[trace=%s] Subagent %s starting async execution, execution_id=%s, external_task_id=%s, timeout=%ss",
+            self.trace_id,
+            self.config.name,
+            execution_id,
+            task_id,
+            self.config.timeout_seconds,
+        )
+
+        # Copy the parent context before registering: context copying can
+        # itself fail (callback-manager copy or loop-bound handler filtering),
+        # and a failure after registration would strand a PENDING entry —
+        # the caller never receives an execution_id to poll, and
+        # cleanup_background_task() refuses non-terminal entries.
+        parent_context = _copy_isolated_subagent_context()
 
         with _background_tasks_lock:
-            _background_tasks[task_id] = result
+            _background_tasks[execution_id] = result
 
-        parent_context = copy_context()
+        execution_started = threading.Event()
 
-        # Submit to scheduler pool
-        def run_task():
-            with _background_tasks_lock:
-                _background_tasks[task_id].status = SubagentStatus.RUNNING
-                _background_tasks[task_id].started_at = datetime.now()
-                result_holder = _background_tasks[task_id]
-
+        async def run_with_timeout() -> SubagentResult:
+            execution_started.set()
             try:
-                # Submit execution directly to the persistent isolated loop so the
-                # background path does not create a temporary loop via execute().
-                execution_future = _submit_to_isolated_loop_in_context(
-                    parent_context,
-                    lambda: self._aexecute(task, result_holder),
+                if result.status.is_terminal or result.cancel_event.is_set():
+                    result.try_set_terminal(SubagentStatus.CANCELLED, error="Cancelled by user")
+                    return result
+                return await asyncio.wait_for(
+                    self._aexecute(task, result),
+                    timeout=self.config.timeout_seconds,
                 )
-                try:
-                    # Wait for execution with timeout
-                    execution_future.result(timeout=self.config.timeout_seconds)
-                except FuturesTimeoutError:
-                    logger.error(f"[trace={self.trace_id}] Subagent {self.config.name} execution timed out after {self.config.timeout_seconds}s")
-                    # Signal cooperative cancellation and cancel the future
-                    result_holder.cancel_event.set()
-                    result_holder.try_set_terminal(
-                        SubagentStatus.TIMED_OUT,
-                        error=f"Execution timed out after {self.config.timeout_seconds} seconds",
-                    )
-                    execution_future.cancel()
-            except Exception as e:
-                logger.exception(f"[trace={self.trace_id}] Subagent {self.config.name} async execution failed")
-                with _background_tasks_lock:
-                    task_result = _background_tasks[task_id]
-                task_result.try_set_terminal(SubagentStatus.FAILED, error=str(e))
+            except TimeoutError:
+                result.cancel_event.set()
+                result.try_set_terminal(
+                    SubagentStatus.TIMED_OUT,
+                    error=f"Execution timed out after {self.config.timeout_seconds} seconds",
+                    tool_receipts=result.snapshot_tool_receipts(),
+                )
+                return result
+            except asyncio.CancelledError:
+                result.cancel_event.set()
+                result.try_set_terminal(
+                    SubagentStatus.CANCELLED,
+                    error="Cancelled by user",
+                    tool_receipts=result.snapshot_tool_receipts(),
+                )
+                return result
+            except Exception as exc:
+                logger.exception("[trace=%s] Subagent %s async execution failed", self.trace_id, self.config.name)
+                result.try_set_terminal(SubagentStatus.FAILED, error=str(exc))
+                return result
 
-        _scheduler_pool.submit(run_task)
-        return task_id
+        try:
+            execution_future = _submit_to_isolated_loop_in_context(parent_context, run_with_timeout)
+        except BaseException:
+            # Submitting can fail before any coroutine starts (e.g. the
+            # persistent loop failed to spin up). The caller then sees the
+            # exception and never polls this execution_id, and
+            # cleanup_background_task() refuses non-terminal entries — so the
+            # just-registered entry must be dropped here, not left as a
+            # PENDING zombie nothing will ever remove.
+            with _background_tasks_lock:
+                _background_tasks.pop(execution_id, None)
+            raise
+        with _background_tasks_lock:
+            _background_futures[execution_id] = execution_future
+
+        def forget_future(_future: Future[SubagentResult]) -> None:
+            # Before the first coroutine instruction, its body cannot persist
+            # cancellation. Do not strand a PENDING entry in that race.
+            if _future.cancelled() and not execution_started.is_set():
+                result.cancel_event.set()
+                result.try_set_terminal(SubagentStatus.CANCELLED, error="Cancelled by user")
+            with _background_tasks_lock:
+                _background_futures.pop(execution_id, None)
+
+        execution_future.add_done_callback(forget_future)
+        return execution_id
 
 
 MAX_CONCURRENT_SUBAGENTS = 3
@@ -1138,8 +1430,12 @@ def request_cancel_background_task(task_id: str) -> None:
     """
     with _background_tasks_lock:
         result = _background_tasks.get(task_id)
-        if result is not None:
-            result.cancel_event.set()
+        future = _background_futures.get(task_id) if result is not None else None
+    if result is not None:
+        result.cancel_event.set()
+        # cancel() may synchronously call forget_future, which takes this lock.
+        if future is not None:
+            future.cancel()
             logger.info("Requested cancellation for background task %s", task_id)
 
 

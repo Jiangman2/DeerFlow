@@ -183,11 +183,13 @@ OpenAI-compatible chat payload containing `input_audio`. The built-in ASR model
 therefore points to
 `http://gateway:8001/api/weknora/bailian/v1`. Gateway validates the same Bailian
 key, converts the request without persisting the uploaded audio, and calls
-Bailian. Keep the bare `gateway` Service name and the reviewed internal
-KnowledgeQA host `model.ai.cnooc` in the WeKnora App's `NO_PROXY` and
-`no_proxy` values in proxy-enabled clusters. Because both names resolve to
+Bailian. Keep the bare `gateway` Service name and the reviewed internal model
+hosts `model.ai.cnooc` and `aiapi.cnooc.com.cn` in the WeKnora App's `NO_PROXY`
+and `no_proxy` values in proxy-enabled clusters. Because these names resolve to
 private addresses, keep those exact hostnames in `SSRF_WHITELIST_EXTRA` as
-well. Do not disable SSRF validation or allow a broad private CIDR; otherwise
+well. The direct `aiapi.cnooc.com.cn` entry is required for the configured
+DeepSeek chat model used by document summary and question post-processing. Do
+not disable SSRF validation or allow a broad private CIDR; otherwise
 document parsing either fails before Embedding or opens unnecessary access to
 unrelated internal endpoints.
 

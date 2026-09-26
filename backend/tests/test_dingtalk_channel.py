@@ -1030,6 +1030,7 @@ class TestGroupMessageMarkdownFormat:
             import json
 
             param = json.loads(payload["msgParam"])
+            assert param["title"] == "中国海油通用智能体"
             assert param["text"] == "hello"
             assert "@" not in json.dumps(param)
 

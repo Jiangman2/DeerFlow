@@ -74,9 +74,19 @@ export function resolveLivePreviewURL(
   if (!href || !threadId) {
     return null;
   }
+  // Markdown autolinkers can include Chinese sentence punctuation (and even
+  // the next words) after a bare loopback URL. Only trim that suffix when it
+  // follows the exact allowlisted preview origin; never rewrite other hosts.
+  const previewOrigin =
+    /^https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):5050(?=$|[/?#。！？；，])/i.exec(
+      href,
+    )?.[0];
+  const suffix = previewOrigin ? href.slice(previewOrigin.length) : "";
+  const candidate =
+    previewOrigin && /^[。！？；，]/.test(suffix) ? `${previewOrigin}/` : href;
   let parsed: URL;
   try {
-    parsed = new URL(href);
+    parsed = new URL(candidate);
   } catch {
     return null;
   }
@@ -87,7 +97,7 @@ export function resolveLivePreviewURL(
     return null;
   }
   const prefix = `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/live-preview/5050`;
-  return `${prefix}${parsed.pathname || "/"}${parsed.search}`;
+  return `${prefix}${parsed.pathname || "/"}${parsed.search}${parsed.hash}`;
 }
 
 /**
@@ -104,7 +114,8 @@ export function createMarkdownLinkComponent(
     href,
     ...props
   }: AnchorHTMLAttributes<HTMLAnchorElement>) {
-    if (href !== undefined && !isSafeHref(href)) {
+    const livePreviewURL = resolveLivePreviewURL(href, threadId);
+    if (href !== undefined && !isSafeHref(href) && !livePreviewURL) {
       const { className, children } = props;
       return (
         <UnsafeLink href={href} className={className}>
@@ -147,9 +158,14 @@ export function createMarkdownLinkComponent(
         />
       );
     }
-    const livePreviewURL = resolveLivePreviewURL(href, threadId);
     if (livePreviewURL) {
       const { className, target, rel, children, ...rest } = props;
+      const trailingProse =
+        typeof children === "string"
+          ? /^https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):5050([。！？；，].+)$/i.exec(
+              children,
+            )?.[1]
+          : undefined;
       const visibleChildren =
         typeof children === "string" &&
         /https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):5050(?:\/|\b)/i.test(
@@ -157,7 +173,7 @@ export function createMarkdownLinkComponent(
         )
           ? (livePreviewLabel ?? children)
           : children;
-      return (
+      const previewLink = (
         <a
           {...rest}
           href={livePreviewURL}
@@ -170,6 +186,14 @@ export function createMarkdownLinkComponent(
         >
           {visibleChildren}
         </a>
+      );
+      return trailingProse ? (
+        <>
+          {previewLink}
+          {trailingProse}
+        </>
+      ) : (
+        previewLink
       );
     }
     const { className, target, rel, ...rest } = props;

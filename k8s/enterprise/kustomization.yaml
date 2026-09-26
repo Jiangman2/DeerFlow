@@ -12,6 +12,7 @@ resources:
   - weknora-mineru-defaults-job.yaml
   - gateway-openssl-compat.yaml
   - dashboard-postgres-replica.yaml
+  - runtime-redis.yaml
 
 configMapGenerator:
   - name: weknora-config
@@ -21,6 +22,9 @@ configMapGenerator:
   - name: weknora-mineru-defaults
     files:
       - defaults.sql=weknora-mineru-defaults.sql
+  - name: weknora-v08-preview-patch
+    files:
+      - patch-legacy-office-preview.sh=weknora-v08-preview-patches/patch-legacy-office-preview.sh
 
 patches:
   - path: storage-patches.yaml

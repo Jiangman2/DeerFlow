@@ -4,8 +4,12 @@ import {
   getChangedFileCount,
   getWorkspaceChangeBadgeLabel,
   getWorkspaceChangeLineClass,
+  sortWorkspaceChanges,
 } from "@/core/workspace-changes/summary";
-import type { WorkspaceChangesResponse } from "@/core/workspace-changes/types";
+import type {
+  WorkspaceChangesResponse,
+  WorkspaceFileChange,
+} from "@/core/workspace-changes/types";
 
 const changes: WorkspaceChangesResponse = {
   available: true,
@@ -23,6 +27,29 @@ const changes: WorkspaceChangesResponse = {
 };
 
 describe("workspace change summary helpers", () => {
+  test("counts link replacements while retaining legacy summary compatibility", () => {
+    expect(
+      getChangedFileCount({ ...changes.summary, symlink_created: 2 }),
+    ).toBe(5);
+    expect(getChangedFileCount(changes.summary)).toBe(3);
+  });
+
+  test("sorts link replacements with modifications without mutating input", () => {
+    const files = [
+      { status: "deleted", path: "z" },
+      { status: "symlink_created", path: "b" },
+      { status: "modified", path: "a" },
+      { status: "created", path: "new" },
+    ] as WorkspaceFileChange[];
+    expect(sortWorkspaceChanges(files).map((file) => file.path)).toEqual([
+      "new",
+      "a",
+      "b",
+      "z",
+    ]);
+    expect(files[0]?.path).toBe("z");
+  });
+
   test("counts created, modified, and deleted files", () => {
     expect(getChangedFileCount(changes.summary)).toBe(3);
   });

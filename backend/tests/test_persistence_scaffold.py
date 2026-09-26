@@ -268,20 +268,21 @@ class TestBaseToDictMixin:
     @pytest.mark.anyio
     async def test_to_dict_and_exclude(self, tmp_path):
         """Create a temp SQLite DB with a minimal model, verify to_dict."""
-        from sqlalchemy import String
+        from sqlalchemy import MetaData, String
         from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
         from sqlalchemy.orm import Mapped, mapped_column
 
         from deerflow.persistence.base import Base
 
         class _Tmp(Base):
+            metadata = MetaData()
             __tablename__ = "_tmp_test"
             id: Mapped[str] = mapped_column(String(64), primary_key=True)
             name: Mapped[str] = mapped_column(String(128))
 
         engine = create_async_engine(f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_Tmp.metadata.create_all)
 
         sf = async_sessionmaker(engine, expire_on_commit=False)
         async with sf() as session:

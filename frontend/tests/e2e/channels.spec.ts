@@ -84,7 +84,8 @@ function mockChannelsAPI(
         mode: "binding_code",
         url: null,
         code: "abc123",
-        instruction: "Send /connect abc123 to the DeerFlow Slack bot.",
+        instruction:
+          "请向中国海油通用智能体的Slack机器人发送 /connect abc123。",
         expires_in: 600,
       }),
     });
@@ -105,7 +106,15 @@ test.describe("IM channels", () => {
     await expect(sidebar.getByText("Telegram")).toBeVisible();
     await expect(sidebar.getByText("Slack")).toBeVisible();
     await expect(sidebar.getByText("Discord")).toBeVisible();
-    await expect(sidebar.getByText("Feishu")).toBeVisible();
+    await expect(sidebar.getByText("海能 Work")).toBeVisible();
+    await expect(
+      sidebar.locator('svg image[href="/images/cnooc-haineng-mark.png"]'),
+    ).toBeVisible();
+    const iconResponse = await page.request.get(
+      "/images/cnooc-haineng-mark.png",
+    );
+    expect(iconResponse.ok()).toBe(true);
+    expect(iconResponse.headers()["content-type"]).toContain("image/png");
     await expect(sidebar.getByText("DingTalk")).toBeVisible();
     await expect(sidebar.getByText("WeChat")).toBeVisible();
     await expect(sidebar.getByText("WeCom")).toBeVisible();
@@ -120,7 +129,9 @@ test.describe("IM channels", () => {
     await expect(page.getByText("Telegram direct messages")).toBeVisible();
     await expect(page.getByText("Slack workspace messages")).toBeVisible();
     await expect(page.getByText("Discord server messages")).toBeVisible();
-    await expect(page.getByText("Feishu and Lark messages")).toBeVisible();
+    await expect(
+      page.getByText("Messages through your 海能 Work app."),
+    ).toBeVisible();
     await expect(page.getByText("DingTalk Stream Push messages")).toBeVisible();
     await expect(page.getByText("WeChat iLink messages")).toBeVisible();
     await expect(page.getByText("WeCom messages")).toBeVisible();
@@ -299,9 +310,55 @@ test.describe("IM channels", () => {
     await sidebar.getByRole("button", { name: "Connect" }).click();
 
     await expect(
-      page.getByText("Send /connect abc123 to the DeerFlow Slack bot."),
+      page.getByText(
+        "请向中国海油通用智能体的Slack机器人发送 /connect abc123。",
+      ),
     ).toBeVisible();
     expect(slackConnectCalls).toBe(1);
+  });
+
+  test("Feishu binding instruction uses the enterprise product name", async ({
+    page,
+  }) => {
+    mockLangGraphAPI(page);
+    mockChannelsAPI(page, [
+      {
+        provider: "feishu",
+        display_name: "Feishu",
+        enabled: true,
+        configured: true,
+        connectable: true,
+        auth_mode: "binding_code",
+        connection_status: "not_connected",
+      },
+    ]);
+    await page.route("**/api/channels/feishu/connect", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          provider: "feishu",
+          mode: "binding_code",
+          url: null,
+          code: "test-code",
+          instruction:
+            "请向中国海油通用智能体的海能 Work机器人发送 /connect test-code。",
+          expires_in: 600,
+        }),
+      }),
+    );
+
+    await page.goto("/workspace/chats/new");
+    const sidebar = page.locator("[data-sidebar='sidebar']");
+    await expect(sidebar.getByText("海能 Work")).toBeVisible({
+      timeout: 15_000,
+    });
+    await sidebar.getByRole("button", { name: "Connect" }).click();
+    await expect(
+      page.getByText(
+        "请向中国海油通用智能体的海能 Work机器人发送 /connect test-code。",
+      ),
+    ).toBeVisible();
   });
 
   test("runtime setup continues into the connect flow when a binding is still required", async ({
@@ -378,7 +435,8 @@ test.describe("IM channels", () => {
           mode: "binding_code",
           url: null,
           code: "abc123",
-          instruction: "Send /connect abc123 to the DeerFlow Slack bot.",
+          instruction:
+            "请向中国海油通用智能体的Slack机器人发送 /connect abc123。",
           expires_in: 600,
         }),
       });
@@ -397,7 +455,9 @@ test.describe("IM channels", () => {
 
     await expect(setupDialog).toBeHidden();
     await expect(
-      page.getByText("Send /connect abc123 to the DeerFlow Slack bot."),
+      page.getByText(
+        "请向中国海油通用智能体的Slack机器人发送 /connect abc123。",
+      ),
     ).toBeVisible();
     expect(slackConnectCalls).toBe(1);
   });
@@ -439,10 +499,12 @@ test.describe("IM channels", () => {
     await page.goto("/workspace/chats/new");
 
     const sidebar = page.locator("[data-sidebar='sidebar']");
-    await expect(sidebar.getByText("Feishu")).toBeVisible({ timeout: 15_000 });
+    await expect(sidebar.getByText("海能 Work")).toBeVisible({
+      timeout: 15_000,
+    });
     await sidebar.getByRole("button", { name: "Connected" }).click();
 
-    const setupDialog = page.getByRole("dialog", { name: "Modify Feishu" });
+    const setupDialog = page.getByRole("dialog", { name: "Modify 海能 Work" });
     await expect(setupDialog).toBeVisible();
     await expect(setupDialog.getByLabel("App ID")).toHaveValue(
       "cli_feishu_app",

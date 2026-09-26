@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "scope": "employee-sharing-only",
+  "ready_for_rollout": false,
+  "source_image_id": "sha256:7e16f032bf6723ebb8533a7be250e8b028a35a3ddbd824fdd79933b9f6fdd846",
+  "reviewed_candidates": {
+    "app.py": "dc635f820d119978bbcd09a3a72a5d6b44859c208bd996f40036f6f485687c23"
+  }
+}

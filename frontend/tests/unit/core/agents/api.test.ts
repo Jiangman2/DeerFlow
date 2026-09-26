@@ -27,9 +27,18 @@ rs.mock("@/core/config", () => ({
 }));
 
 import {
+  AgentLoadError,
   AgentsApiDisabledError,
   checkAgentName,
+  deleteAgent,
+  deleteAgentAvatar,
+  getAgent,
+  publishAgent,
   recordExternalAgentClick,
+  shouldRetryAgentLoad,
+  unpublishTeamAgent,
+  updateAgent,
+  uploadAgentAvatar,
 } from "@/core/agents/api";
 import { fetch as fetcher } from "@/core/api/fetcher";
 
@@ -44,6 +53,96 @@ function jsonResponse(status: number, body: unknown): Response {
 
 beforeEach(() => {
   mockedFetch.mockReset();
+});
+
+test("employee deletion requires the reviewed revision and does not retry conflicts", async () => {
+  await expect(deleteAgent("reports", "")).rejects.toMatchObject({ status: 428 });
+  expect(mockedFetch).not.toHaveBeenCalled();
+  mockedFetch.mockResolvedValueOnce(jsonResponse(409, { detail: "Employee changed" }));
+  await expect(deleteAgent("reports", "draft-reviewed")).rejects.toMatchObject({ status: 409 });
+  expect(mockedFetch).toHaveBeenCalledTimes(1);
+  expect(mockedFetch).toHaveBeenCalledWith("/api/agents/reports?expected_draft_revision=draft-reviewed", { method: "DELETE" });
+});
+
+test("avatar writes bind to the saved draft and propagate conflicts without retry", async () => {
+  const image = new File(["image"], "portrait.png", { type: "image/png" });
+  mockedFetch.mockResolvedValueOnce(jsonResponse(409, { detail: "Draft changed" }));
+  await expect(uploadAgentAvatar("reports", image, "draft-saved")).rejects.toMatchObject({ status: 409 });
+  expect(mockedFetch).toHaveBeenCalledTimes(1);
+  expect(mockedFetch.mock.calls[0]?.[0]).toBe("/api/agents/reports/avatar?expected_draft_revision=draft-saved");
+  mockedFetch.mockResolvedValueOnce(jsonResponse(200, { name: "reports", draft_revision: "draft-removed" }));
+  await expect(deleteAgentAvatar("reports", "draft-saved")).resolves.toMatchObject({ draft_revision: "draft-removed" });
+  expect(mockedFetch.mock.calls[1]?.[0]).toBe("/api/agents/reports/avatar?expected_draft_revision=draft-saved");
+});
+
+test("avatar requests cannot silently drop their revision", async () => {
+  await expect(deleteAgentAvatar("reports", "")).rejects.toMatchObject({ status: 428 });
+  await expect(uploadAgentAvatar("reports", new File(["a"], "a.png"), "")).rejects.toMatchObject({ status: 428 });
+  expect(mockedFetch).not.toHaveBeenCalled();
+});
+
+test("draft save forwards the observed revision and exposes a conflict without retry", async () => {
+  mockedFetch.mockResolvedValueOnce(jsonResponse(409, { detail: "Draft changed" }));
+  await expect(updateAgent("reports", { description: "local", expected_draft_revision: "draft-observed" })).rejects.toMatchObject({ status: 409 });
+  expect(mockedFetch).toHaveBeenCalledTimes(1);
+  expect(mockedFetch.mock.calls[0]?.[1]?.body).toBe(JSON.stringify({ description: "local", expected_draft_revision: "draft-observed" }));
+});
+
+test("employee reads explicitly identify the Square source", async () => {
+  mockedFetch.mockResolvedValueOnce(
+    jsonResponse(200, { name: "reports", source: "team" }),
+  );
+  await getAgent("reports", "team");
+  expect(mockedFetch).toHaveBeenCalledWith("/api/agents/reports?source=team");
+});
+
+test("publication replacement sends the observed revision, not an unconditional overwrite", async () => {
+  mockedFetch.mockResolvedValueOnce(jsonResponse(200, { name: "reports" }));
+  await publishAgent("reports", "observed-version", "draft-reviewed");
+  expect(mockedFetch).toHaveBeenCalledWith("/api/agents/reports/publish", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      overwrite: true,
+      expected_revision: "observed-version",
+      expected_draft_revision: "draft-reviewed",
+      grant_ids: [],
+    }),
+  });
+});
+
+test("withdrawal is scoped to the exact observed revision", async () => {
+  mockedFetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+  await unpublishTeamAgent("reports", "observed-version");
+  expect(mockedFetch).toHaveBeenCalledWith(
+    "/api/team-agents/reports?expected_revision=observed-version",
+    { method: "DELETE" },
+  );
+});
+
+test("publication conflict surfaces without retry or silent overwrite", async () => {
+  mockedFetch.mockResolvedValueOnce(
+    jsonResponse(409, { detail: "Publication changed; reload" }),
+  );
+  await expect(publishAgent("reports", "stale-version")).rejects.toMatchObject({
+    status: 409,
+  });
+  expect(mockedFetch).toHaveBeenCalledTimes(1);
+});
+
+test.each([403, 404, 410])(
+  "HTTP %i never silently falls back or retries the employee read",
+  async (status) => {
+    mockedFetch.mockResolvedValueOnce(jsonResponse(status, {}));
+    await expect(getAgent("reports", "team")).rejects.toMatchObject({ status });
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(shouldRetryAgentLoad(0, new AgentLoadError(status))).toBe(false);
+  },
+);
+
+test("transient employee fetch failures get only one bounded retry", () => {
+  expect(shouldRetryAgentLoad(0, new AgentLoadError(503))).toBe(true);
+  expect(shouldRetryAgentLoad(1, new AgentLoadError(503))).toBe(false);
 });
 
 describe("checkAgentName", () => {
@@ -176,8 +275,8 @@ describe("recordExternalAgentClick", () => {
       jsonResponse(403, { detail: "CSRF validation failed" }),
     );
 
-    await expect(
-      recordExternalAgentClick("专业文档解析专家"),
-    ).rejects.toThrow("Failed to record external agent click: 403");
+    await expect(recordExternalAgentClick("专业文档解析专家")).rejects.toThrow(
+      "Failed to record external agent click: 403",
+    );
   });
 });

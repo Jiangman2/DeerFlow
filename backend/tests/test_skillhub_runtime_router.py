@@ -212,9 +212,7 @@ def test_registry_install_preserves_complete_tree_and_runs_from_sandbox_path(mon
 
     discovered = {skill.name: skill for skill in storage.load_skills(enabled_only=True)}
     assert "runtime-check" in discovered
-    assert discovered["runtime-check"].get_container_file_path("/mnt/skills") == (
-        "/mnt/skills/custom/runtime-check/SKILL.md"
-    )
+    assert discovered["runtime-check"].get_container_file_path("/mnt/skills") == ("/mnt/skills/custom/runtime-check/SKILL.md")
 
     sandbox = LocalSandbox(
         "skillhub-runtime-check",

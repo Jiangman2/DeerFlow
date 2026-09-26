@@ -14,6 +14,7 @@ Backend selection (`IMAGE_BACKEND` in `.env` or the current process environment)
   IMAGE_BACKEND=qwen        -> Alibaba Qwen image backend
   IMAGE_BACKEND=zhipu       -> Zhipu GLM-Image backend
   IMAGE_BACKEND=volcengine  -> Volcengine Seedream backend
+  IMAGE_BACKEND=tencent     -> Tencent Cloud TokenHub backend
   IMAGE_BACKEND=modelscope  -> ModelScope backend
   IMAGE_BACKEND=siliconflow -> SiliconFlow backend
   IMAGE_BACKEND=fal         -> fal.ai backend
@@ -49,6 +50,7 @@ import concurrent.futures
 import json
 import os
 import re
+import stat
 import sys
 import tempfile
 import threading
@@ -74,7 +76,10 @@ IMAGE_ENV_PREFIXES = (
     "ZHIPU_",
     "BIGMODEL_",
     "VOLCENGINE_",
+    "LAS_",
     "ARK_",
+    "TENCENT_",
+    "TOKENHUB_",
     "MODELSCOPE_",
     "SILICONFLOW_",
     "FAL_",
@@ -90,9 +95,10 @@ DEPRECATED_IMAGE_KEYS = {
 # All aspect ratios accepted by the unified CLI
 # (each backend validates its own subset internally)
 ALL_ASPECT_RATIOS = [
-    "1:1", "1:4", "1:8",
-    "2:3", "3:2", "3:4", "4:1", "4:3",
-    "4:5", "5:4", "8:1", "9:16", "16:9", "21:9"
+    "1:1", "1:2", "1:3", "1:4", "1:8",
+    "2:1", "2:3", "3:1", "3:2", "3:4", "4:1", "4:3",
+    "4:5", "5:4", "8:1", "9:16", "9:21", "10:16",
+    "16:9", "16:10", "21:9",
 ]
 
 ALL_IMAGE_SIZES = ["512px", "1K", "2K", "4K"]
@@ -102,7 +108,8 @@ BACKEND_REGISTRY = {
         "module": "backend_gemini",
         "tier": "core",
         "label": "Google Gemini",
-        "default_model": "gemini-3.1-flash-image-preview",
+        "default_model": "gemini-3.1-flash-image",
+        "default_image_size": "1K",
         "key_hint": "GEMINI_API_KEY",
         "aliases": ["google"],
     },
@@ -111,6 +118,7 @@ BACKEND_REGISTRY = {
         "tier": "core",
         "label": "OpenAI / OpenAI-compatible",
         "default_model": "gpt-image-2",
+        "default_image_size": "1K",
         "key_hint": "OPENAI_API_KEY",
         "aliases": ["openai-compatible", "openai_compatible"],
     },
@@ -119,6 +127,7 @@ BACKEND_REGISTRY = {
         "tier": "experimental",
         "label": "MiniMax Image",
         "default_model": "image-01",
+        "default_image_size": "1K",
         "key_hint": "MINIMAX_API_KEY",
         "aliases": ["minimaxi"],
     },
@@ -127,6 +136,7 @@ BACKEND_REGISTRY = {
         "tier": "core",
         "label": "Alibaba Qwen Image",
         "default_model": "qwen-image-2.0-pro",
+        "default_image_size": "1K",
         "key_hint": "QWEN_API_KEY / DASHSCOPE_API_KEY",
         "aliases": ["alibaba", "dashscope"],
     },
@@ -135,6 +145,7 @@ BACKEND_REGISTRY = {
         "tier": "core",
         "label": "Zhipu GLM-Image",
         "default_model": "glm-image",
+        "default_image_size": "1K",
         "key_hint": "ZHIPU_API_KEY / BIGMODEL_API_KEY",
         "aliases": ["bigmodel", "glm", "glm-image"],
     },
@@ -143,14 +154,26 @@ BACKEND_REGISTRY = {
         "tier": "core",
         "label": "Volcengine Seedream",
         "default_model": "doubao-seedream-4-5-251128",
-        "key_hint": "VOLCENGINE_API_KEY / ARK_API_KEY",
+        "default_image_size": "2K",
+        "key_hint": "LAS_API_KEY / VOLCENGINE_API_KEY / ARK_API_KEY",
         "aliases": ["ark", "doubao", "seedream"],
+    },
+    "tencent": {
+        "module": "backend_tencent",
+        "tier": "extended",
+        "label": "Tencent Cloud TokenHub",
+        "default_model": "hy-image-v3",
+        "default_image_size": "1K",
+        "key_hint": "TENCENT_API_KEY / TOKENHUB_API_KEY",
+        "aliases": ["tokenhub", "hunyuan", "tencentmaas"],
     },
     "modelscope": {
         "module": "backend_modelscope",
         "tier": "experimental",
         "label": "ModelScope",
-        "default_model": "Tongyi-MAI/Z-Image-Turbo",
+        "default_model": None,
+        "model_hint": "MODELSCOPE_MODEL",
+        "default_image_size": "1K",
         "key_hint": "MODELSCOPE_API_KEY",
         "aliases": ["modelscope", "model-scope"]
     },
@@ -159,6 +182,7 @@ BACKEND_REGISTRY = {
         "tier": "extended",
         "label": "Stability AI",
         "default_model": "stable-image-core",
+        "default_image_size": "1K",
         "key_hint": "STABILITY_API_KEY",
         "aliases": ["stabilityai", "stability-ai"],
     },
@@ -167,6 +191,7 @@ BACKEND_REGISTRY = {
         "tier": "extended",
         "label": "Black Forest Labs FLUX",
         "default_model": "flux-pro-1.1-ultra",
+        "default_image_size": "1K",
         "key_hint": "BFL_API_KEY",
         "aliases": ["flux", "black-forest-labs", "black_forest_labs"],
     },
@@ -175,6 +200,7 @@ BACKEND_REGISTRY = {
         "tier": "extended",
         "label": "Ideogram",
         "default_model": "ideogram-v3",
+        "default_image_size": "1K",
         "key_hint": "IDEOGRAM_API_KEY",
     },
     "siliconflow": {
@@ -182,6 +208,7 @@ BACKEND_REGISTRY = {
         "tier": "experimental",
         "label": "SiliconFlow",
         "default_model": "Qwen/Qwen-Image",
+        "default_image_size": "1K",
         "key_hint": "SILICONFLOW_API_KEY",
         "aliases": ["silicon"],
     },
@@ -189,7 +216,8 @@ BACKEND_REGISTRY = {
         "module": "backend_fal",
         "tier": "experimental",
         "label": "fal.ai",
-        "default_model": "fal-ai/imagen3/fast",
+        "default_model": "fal-ai/nano-banana-2",
+        "default_image_size": "1K",
         "key_hint": "FAL_KEY / FAL_API_KEY",
         "aliases": ["fal-ai"],
     },
@@ -198,13 +226,15 @@ BACKEND_REGISTRY = {
         "tier": "experimental",
         "label": "Replicate",
         "default_model": "black-forest-labs/flux-1.1-pro",
+        "default_image_size": "1K",
         "key_hint": "REPLICATE_API_TOKEN / REPLICATE_API_KEY",
     },
     "openrouter": {
         "module": "backend_openrouter",
         "tier": "experimental",
         "label": "OpenRouter",
-        "default_model": "google/gemini-3.1-flash-image-preview",
+        "default_model": "google/gemini-3.1-flash-image",
+        "default_image_size": "1K",
         "key_hint": "OPENROUTER_API_KEY",
     },
 }
@@ -213,7 +243,7 @@ TIER_ORDER = {"core": 0, "extended": 1, "experimental": 2}
 SUPPORTED_BACKENDS = tuple(sorted(BACKEND_REGISTRY))
 
 
-def _load_image_env_file() -> None:
+def _load_image_env_file() -> Path | None:
     """
     Load image generation config from the resolved `.env` as a fallback layer.
 
@@ -231,7 +261,10 @@ def _load_image_env_file() -> None:
         )
         for key, replacement in replacements.items()
     }
-    load_prefixed_env_file(IMAGE_ENV_PREFIXES, deprecated_keys=deprecated_messages)
+    return load_prefixed_env_file(
+        IMAGE_ENV_PREFIXES,
+        deprecated_keys=deprecated_messages,
+    )
 
 
 def _validate_runtime_config() -> None:
@@ -287,6 +320,44 @@ def _load_backend(canonical_name: str) -> tuple[object, str]:
     return module, canonical_name
 
 
+def _print_backend_resolution() -> None:
+    """Print the effective Path A backend without exposing credentials."""
+    backend_from_process = "IMAGE_BACKEND" in os.environ
+    try:
+        env_path = _load_image_env_file()
+    except ValueError as exc:
+        print("Resolved backend: invalid configuration")
+        print(f"Configuration source: {ENV_PATH}")
+        print(f"Configuration error: {exc}")
+        return
+
+    try:
+        _validate_runtime_config()
+    except ValueError as exc:
+        print("Resolved backend: invalid configuration")
+        print("Configuration source: process environment")
+        print(f"Configuration error: {exc}")
+        return
+
+    backend_name = os.environ.get("IMAGE_BACKEND", "").strip().lower()
+    if not backend_name:
+        if backend_from_process:
+            source = "process environment (empty)"
+        elif env_path is not None:
+            source = f"none (checked {env_path})"
+        else:
+            source = "none (no .env found)"
+        print("Resolved backend: not configured (Path A unavailable)")
+        print(f"Configuration source: {source}")
+        return
+
+    canonical = BACKEND_ALIASES.get(backend_name)
+    resolved = canonical or f"invalid ({backend_name})"
+    source = "process environment" if backend_from_process else str(env_path or ENV_PATH)
+    print(f"Resolved backend: {resolved}")
+    print(f"Configuration source: {source}")
+
+
 def _print_backend_list() -> None:
     """Print supported backends grouped by support tier."""
     print("Supported image backends:\n")
@@ -299,12 +370,33 @@ def _print_backend_list() -> None:
         ):
             if info["tier"] != tier:
                 continue
+            if info["default_model"]:
+                model_label = f"default={info['default_model']}"
+            else:
+                model_label = f"model=required via {info['model_hint']}"
             print(
-                f"  {name:<12} {info['label']} | default={info['default_model']} | keys={info['key_hint']}"
+                f"  {name:<12} {info['label']} | "
+                f"{model_label} | "
+                f"size={info['default_image_size']} | keys={info['key_hint']}"
             )
         print()
     print("Recommendation: prefer CORE backends for everyday PPT generation.")
-    print(f"Config fallback file: {ENV_PATH}")
+    _print_backend_resolution()
+
+
+def _check_backend_aspect_ratio(backend_module, aspect_ratio: str) -> None:
+    """Fail before the request when the resolved backend rejects this ratio.
+
+    ``ALL_ASPECT_RATIOS`` is the union across backends; each backend module
+    may narrow it with ``VALID_ASPECT_RATIOS``.
+    """
+    valid = getattr(backend_module, "VALID_ASPECT_RATIOS", None)
+    if valid and aspect_ratio not in valid:
+        name = getattr(backend_module, "__name__", "backend").rsplit(".", 1)[-1]
+        raise ValueError(
+            f"aspect_ratio '{aspect_ratio}' is not supported by {name}. "
+            f"Valid for this backend: {list(valid)}"
+        )
 
 
 def _resolve_backend() -> tuple[object, str]:
@@ -457,6 +549,7 @@ STRUCTURAL_IMAGE_TYPES = {
 }
 LEGACY_IMAGE_TYPES = {"background", "hero", "portrait", "typography"}
 EARLY_LEGACY_IMAGE_TYPES = {"illustration", "photography"}
+SHEET_TYPE_SPELLINGS = {"illustration sheet", "sheet"}
 VALID_IMAGE_TYPES = (
     STRUCTURAL_IMAGE_TYPES
     | LEGACY_IMAGE_TYPES
@@ -619,6 +712,11 @@ def load_manifest(path: str) -> dict:
             )
 
         image_type = item.get("type")
+        if isinstance(image_type, str) and image_type.strip().lower() in SHEET_TYPE_SPELLINGS:
+            # The resource-row column reads "Illustration Sheet"; the manifest
+            # item omits type. Accept the row spelling as that omission.
+            item.pop("type")
+            image_type = None
         if image_type is not None:
             normalized_type = (
                 image_type.strip().lower()
@@ -751,6 +849,12 @@ def load_manifest(path: str) -> dict:
 def save_manifest(path: str, data: dict) -> None:
     """Atomically write manifest back to disk (tmp file + rename)."""
     target = Path(path)
+    try:
+        mode = stat.S_IMODE(target.stat().st_mode)
+    except FileNotFoundError:
+        umask = os.umask(0)
+        os.umask(umask)
+        mode = 0o666 & ~umask
     fd, tmp_path = tempfile.mkstemp(
         prefix=target.stem + ".",
         suffix=".tmp",
@@ -760,6 +864,8 @@ def save_manifest(path: str, data: dict) -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
             f.write("\n")
+        # mkstemp creates 0600; keep the manifest's own permissions.
+        os.chmod(tmp_path, mode)
         os.replace(tmp_path, target)
     except Exception:
         try:
@@ -812,6 +918,8 @@ def _run_manifest(manifest: dict, manifest_path: str, backend_module, *,
         and not retried within this run. `Failed` remains retryable and
         non-terminal; the Step 5 gate must resolve it by rerunning this
         manifest or marking the item `Needs-Manual`.
+      - Global auth or billing errors stop new batches; untouched rows remain
+        retryable. Permanent model or request errors fail only their own row.
       - Status is written back to the manifest file after each completion;
         a Ctrl-C in the middle still preserves done items.
       - `Needs-Manual` items are skipped (user processes them externally).
@@ -827,6 +935,8 @@ def _run_manifest(manifest: dict, manifest_path: str, backend_module, *,
     output_dir = str(manifest_output_dir)
 
     from image_backends.backend_common import (
+        is_global_permanent_error,
+        is_permanent_error,
         is_rate_limit_error,
         validate_image_file,
     )
@@ -876,11 +986,13 @@ def _run_manifest(manifest: dict, manifest_path: str, backend_module, *,
     current = max(1, initial_concurrency)
     state_lock = threading.Lock()
     rate_limit_attempts: dict[int, int] = {}
+    stopped_for_global_error = False
     stopped_for_rate_limit = False
 
     def _one(idx: int):
         item = items[idx]
         try:
+            _check_backend_aspect_ratio(backend_module, item["aspect_ratio"])
             saved_path = backend_module.generate(
                 prompt=item["prompt"],
                 aspect_ratio=item["aspect_ratio"],
@@ -919,6 +1031,23 @@ def _run_manifest(manifest: dict, manifest_path: str, backend_module, *,
                         item.pop("last_error", None)
                         ok_count += 1
                         print(f"  [OK]   {item['filename']}")
+                    elif isinstance(exc, ValueError) or is_permanent_error(exc):
+                        global_error = is_global_permanent_error(exc)
+                        item["status"] = STATUS_FAILED
+                        error_scope = "Global" if global_error else "Permanent"
+                        repair_target = (
+                            "backend access" if global_error else "model or request"
+                        )
+                        item["last_error"] = (
+                            f"{error_scope} backend error: {exc}"
+                        )[:500]
+                        fail_count += 1
+                        if global_error:
+                            stopped_for_global_error = True
+                        print(
+                            f"  [FAIL] {item['filename']}: {exc} "
+                            f"(status=Failed; repair {repair_target} before retry)"
+                        )
                     elif is_rate_limit_error(exc):
                         rate_limited = True
                         attempts = rate_limit_attempts.get(idx, 0) + 1
@@ -960,6 +1089,12 @@ def _run_manifest(manifest: dict, manifest_path: str, backend_module, *,
                         )
                     save_manifest(manifest_path, manifest)
 
+        if stopped_for_global_error:
+            print(
+                "\n  Backend authentication or billing requires repair. "
+                "Stopping new batches; untouched items remain retryable.\n"
+            )
+            break
         if stopped_for_rate_limit:
             print(
                 "\n  Persistent rate limit reached the run boundary. "
@@ -977,9 +1112,10 @@ def _run_manifest(manifest: dict, manifest_path: str, backend_module, *,
         elif queue:
             time.sleep(2)
 
-    run_state = "Stopped" if stopped_for_rate_limit else "Done"
+    stopped_early = stopped_for_global_error or stopped_for_rate_limit
+    run_state = "Stopped" if stopped_early else "Done"
     remaining_note = ""
-    if stopped_for_rate_limit:
+    if stopped_early:
         remaining = sum(
             1 for item in items if item["status"] in RETRYABLE_STATUSES
         )
@@ -992,8 +1128,9 @@ def _run_manifest(manifest: dict, manifest_path: str, backend_module, *,
     if fail_count:
         print(
             "[Manifest] Failed is retryable and non-terminal. "
-            "Resolve failed item(s) by rerunning this manifest or marking them "
-            "Needs-Manual before entering Executor."
+            "Repair permanent backend errors before rerunning; retry transient "
+            "failures or follow the owning manual recovery before entering "
+            "Executor."
         )
     return ok_count, fail_count, skipped
 
@@ -1122,8 +1259,11 @@ def main() -> None:
         help=f"Aspect ratio. Default: 1:1."
     )
     parser.add_argument(
-        "--image_size", default="1K",
-        help=f"Image size. Choices: {ALL_IMAGE_SIZES}. Default: 1K. (case-insensitive)"
+        "--image_size", default=None,
+        help=(
+            f"Image size. Choices: {ALL_IMAGE_SIZES}. Default depends on the "
+            "backend and is shown by --list-backends. (case-insensitive)"
+        ),
     )
     parser.add_argument(
         "--output", "-o", default=None,
@@ -1172,8 +1312,8 @@ def main() -> None:
         help=(
             "Source image for image-to-image editing (single-image mode only). "
             "When set, the prompt is used as the edit instruction. Only backends "
-            "that support editing accept this (currently: openai). Not valid with "
-            "--manifest / --render-md / --list-backends."
+            "that support editing accept this (currently: gemini, openai). Not "
+            "valid with --manifest / --render-md / --list-backends."
         ),
     )
 
@@ -1261,6 +1401,10 @@ def main() -> None:
         os.environ["IMAGE_BACKEND"] = args.backend
 
     backend, backend_name = _resolve_backend()
+    image_size = (
+        args.image_size
+        or BACKEND_REGISTRY[backend_name]["default_image_size"]
+    )
     print(f"Using backend: {backend_name}\n")
 
     if args.manifest:
@@ -1269,7 +1413,7 @@ def main() -> None:
             _, failed, _ = _run_manifest(
                 manifest, args.manifest, backend,
                 initial_concurrency=concurrency,
-                image_size=args.image_size,
+                image_size=image_size,
                 output_dir=str(manifest_output_dir),
                 model=args.model,
             )
@@ -1288,7 +1432,7 @@ def main() -> None:
     gen_kwargs = {
         "prompt": prompt,
         "aspect_ratio": args.aspect_ratio,
-        "image_size": args.image_size,
+        "image_size": image_size,
         "output_dir": args.output,
         "filename": args.filename,
         "model": args.model,
@@ -1297,7 +1441,8 @@ def main() -> None:
         if not getattr(backend, "SUPPORTS_REFERENCE_IMAGE", False):
             print(
                 f"Error: backend '{backend_name}' does not support image editing "
-                "(--reference-image). Use a backend that does (currently: openai)."
+                "(--reference-image). Use a backend that does "
+                "(currently: gemini, openai)."
             )
             sys.exit(1)
         gen_kwargs["reference_image"] = args.reference_image

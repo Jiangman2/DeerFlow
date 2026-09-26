@@ -41,10 +41,10 @@ One resolved row contains these fields:
 | Trigger shape | Optional different top-level group; maps to PowerPoint `On Click of` |
 | Duration | Finite positive schedule duration; scalable native behavior trees preserve their internal timing ratios |
 | Delay | Finite non-negative row offset; shape-trigger rows use it as `TriggerDelayTime` |
-| Order | Positive integer sidecar order; ties retain stable SVG group order, then `effects[]` index |
-| Effect options | Effect-specific `direction`, `amount`, `color`, `font_name` (one installed PowerPoint face, required for Change Font; not a CSS list), `relative`, or `size` values from PowerPoint `EffectParameters` |
+| Order | Positive integer sidecar order; ties retain stable SVG group order, then `effects[]` index; a group with no sidecar `order` follows the nearest listed group before it in SVG order (and precedes every listed group when none precedes it), so a headline above the numbered body enters first |
+| Effect options | Effect-specific `direction`, `amount`, `color`, `font_name` (one installed PowerPoint face, required for Change Font; not a CSS list), `relative`, or `size` values from PowerPoint `EffectParameters`; an edge `direction` (`up` / `right` / `down` / `left`) names the side the effect starts from, PowerPoint's From Top / From Right / From Bottom / From Left |
 | Timing options | Repeat count/span, auto-reverse, rewind, accelerate/decelerate, bounce-end ratio, and restart policy |
-| Completion | Optional dim/hide behavior and packaged `.m4a`/`.mp3`/`.wav` sound |
+| Completion / cue | Optional dim/hide behavior and packaged `.m4a`/`.mp3`/`.wav` sound |
 
 Modes resolve before XML writing:
 
@@ -61,6 +61,15 @@ can be audited without replaying the resolver.
 
 `animation_config.py scaffold` is neutral: object defaults are `none`, and
 empty `{}` group placeholders inherit no motion until populated.
+
+Bundled sound discovery/materialization is a workflow concern, not part of the
+animation core. After the SVG and object-motion solution are complete,
+`sound_sync.py` may copy only selected namespaced ids into
+`<project>/sounds/`; new sidecars then reference those project-relative WAV
+paths. Existing low-level project-relative/absolute `.m4a`, `.mp3`, and `.wav`
+inputs remain compatible. The core never resolves a library id or reads
+`templates/sounds/` directly; see [`animations.md`](../../references/animations.md)
+§2.2.
 
 ---
 
@@ -132,20 +141,14 @@ start/end remain derived rather than duplicated.
 ## 4. Target Resolution
 
 Generated object animation targets top-level SVG content groups. Explicit SVG
-semantics are authoritative; the group-id chrome heuristic is only a fallback
-for marker-free legacy SVGs.
+semantics are authoritative; the group-id chrome heuristic applies only to a
+top-level group that itself lacks `data-pptx-layer`, `data-pptx-role`, and
+`data-pptx-placeholder` semantics.
 
 | Target state | Behavior |
 |---|---|
 | Ordinary content group | Animatable; a legacy block resolves one row and `effects[]` may resolve several rows against the same final shape |
-| Legacy chrome-like id | Skipped unless explicitly named in `animations.json` |
-| Explicit sidecar group override | May override only the legacy chrome-name heuristic |
-| `data-pptx-layer` or explicit static role/placeholder | Structural and never animatable |
-
-An explicit sidecar entry cannot turn a Master/Layout/Slide structural layer or
-an explicitly marked static page-frame role/placeholder into an animation
-target. This boundary preserves PPTX structure even when a legacy id resembles
-content.
+| Chrome-like ids, static roles/placeholders, and structural exclusions | See [`animations.md`](../../references/animations.md) §5 for defaults and explicit sidecar overrides |
 
 ---
 
@@ -227,17 +230,19 @@ duplicate or malformed `p:cTn` ids, missing `p:spTgt` shapes, invalid build
 targets, and unsupported generated effect tuples. A mismatch fails export
 before the requested output file replaces an existing deck.
 
+`pptx_to_svg.py` reuses that semantic reader and behavior-tree validator for a
+finite reverse projection. A row enters `animations.json` only when its current
+registry effect/options, pane order, Start trigger, exact behavior duration,
+relative delay, and target/optional trigger shape can be represented by unique
+top-level slide SVG groups. Repeated targets become `effects[]`. Duration-less
+native rows, advanced timing modifiers, sounds, build/media commands, unknown
+trees, and unmapped targets remain explicit import diagnostics. This is not a
+general PowerPoint timing-tree normalizer.
+
 Narration injection parses and merges the slide DOM. It adds audio timing under
 the existing `tmRoot`, allocates fresh ids, and preserves object animation.
 For bounce timing it updates both p14 Choice and Fallback; unsupported nested
 timing containers still fail safely instead of being duplicated.
-
-Direct-PPTX routes run the structural package validator with generated-effect
-enforcement disabled. This permits preservation of source/extension effects and
-legacy group build rows while still rejecting corrupt timing IDs or missing
-targets. Template fill and native enhancement fingerprint the source
-object-animation tree before and after their allowed edits; any semantic change
-fails. These routes have no object-animation write ownership.
 
 The conversion trace is also the authoritative input for downstream video
 motion. `video_motion_plan.py` preserves the resolved effect/options, direction,
@@ -268,3 +273,37 @@ See [`pptx-transitions.md`](./pptx-transitions.md) for the symmetric page-motion
 core, MCE handling, and slide-advance contract.
 See [`video-motion-plan.md`](./video-motion-plan.md) for the downstream
 animation-to-video contract.
+
+## 8. Sidecar Field Reference
+
+`animations.json` fields as validated by `animation_config.py validate` and consumed by export; the [`customize-animations`](../../workflows/stages/customize-animations.md) stage owns when and why each is written.
+
+| Field | Behavior |
+|---|---|
+| `defaults.transition` / `slides.<slide>.transition` | Deck-wide or slide-specific page transition object |
+| `transition.effect` | One of the 48 canonical native effects, or `none` (removes only the visual effect; timed advance remains) |
+| `transition.effect_options` | Only the selected effect's PowerPoint Effect Options (`pptx_animations.py --describe-transition <effect>`); requires an explicit `effect` |
+| `transition.duration` | Finite seconds greater than zero |
+| `transition.auto_advance` | Optional finite non-negative seconds before automatic advance; click stays enabled; valid with `effect: none` |
+| `transition.sound` | Optional project-relative `.wav` cue; valid with `effect: none`; a slide override of `null` clears an inherited default sound |
+| `morph.from` | Immediately preceding SVG stem for an explicit deterministic Morph transition |
+| `morph.pairs.<key>.from` / `.to` | Unique source/destination direct-root group ids receiving the shared PowerPoint name `!!<key>`; Morph by object only |
+| `defaults.animation` / `slides.<slide>.animation` | Deck-wide or slide-specific default object-animation behavior |
+| `animation.effect` | Default object effect: one canonical key, `auto`, `mixed`, `random`, or `none` |
+| `animation.duration` / `animation.stagger` / `animation.trigger` | Default schedule duration, delay between rows, and Start mode (`after-previous`, `with-previous`, `on-click`) |
+| `groups.<id>.effects[]` | Non-empty ordered array for a multi-duty lifecycle; every row names `effect`; cannot coexist with legacy single-effect fields in the same group |
+| `groups.<id>.effect` | Backward-compatible single-row form; old short names are read-only compatibility inputs |
+| `effects[].trigger` / legacy `trigger` | Row-specific Start mode; omitted values inherit `animation.trigger` |
+| `order` | Page-wide order for ordinary rows; ties keep SVG group order, then `effects[]` index; an unlisted animated group inherits the order of the nearest listed group above it in SVG order (0 before the first); `trigger_shape` rows keep relative order in separate interactive sequences; SVG layer order never changes |
+| `delay` | Row-specific seconds added to the resolved Start or shape trigger |
+| `duration` | Per-row schedule duration; scalable native trees keep internal ratios, while `entrance_appear` and instantaneous presets keep their authored duration and use the value for `after-previous` spacing |
+| `effect_options` | Effect-specific parameters (`direction`, `amount`, `color`, `font_name`, `relative`, `size`) limited to what the selected effect supports (`pptx_animations.py --describe <effect>`; `direction` is the way the motion travels — PowerPoint names the origin edge, so `right` is its "From Left"); requires an explicit canonical `effect` in the same block or row; `font_name` is one target-installed face |
+| `trigger_shape` | Different top-level group id for native **On Click of**; row-only, not inherited; implies `on-click` and accepts an explicit row `trigger` only when it is also `on-click` |
+| `repeat_count` / `repeat_duration` | Repeat count or total repeat span; mutually exclusive |
+| `auto_reverse`, `rewind` | Reverse each cycle and/or restore the pre-animation state |
+| `accelerate`, `decelerate`, `bounce_end` | `0..1` timing ratios; acceleration plus deceleration ≤ `1`; bounce needs an interpolated effect and cannot combine with deceleration |
+| `restart` | `always`, `when-not-active`, or `never` |
+| `after_effect` | `none`, `dim` with `color`, `hide`, or `hide-on-next-click` |
+| `sound` | Object-animation cue: project-relative or absolute `.m4a` / `.mp3` / `.wav` on low-level inputs; bundled selections use the synced project-relative `.wav` path |
+
+An unlisted SVG inherits the resolved deck-wide settings; a listed slide may contain only the `transition`, `animation`, `groups`, or `morph` fields it overrides. The chrome-name heuristic matches an id equal to, or holding a `-`/`_`-separated token from, `bg`, `background`, `header`, `footer`, `decor`, `decoration`, `decorations`, `chrome`, `nav`, `watermark`, `logo`, `pagenumber`, `pagenum`, `slidenumber`, `slidenum`, `rule`; `list-groups` names the excluded ids at the end of each slide line. A marker-free `*-header` / `*-footer` group whose text reaches the page's median font size is read as the title block and stays an ordinary target. For chrome defaults, explicit sidecar overrides, and structural exclusions, see [`animations.md`](../../references/animations.md) §5.

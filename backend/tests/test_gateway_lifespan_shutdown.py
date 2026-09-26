@@ -79,11 +79,13 @@ def test_shutdown_is_bounded_when_channel_stop_hangs():
     assert elapsed >= _SHUTDOWN_HOOK_TIMEOUT_SECONDS - 0.5, f"Lifespan exited too quickly ({elapsed:.2f}s); wait_for may not have been invoked."
 
 
-async def _run_lifespan_with_upload_staging_cleanup():
+async def _run_lifespan_with_upload_staging_cleanup(runtime_config=None):
     from app.gateway.app import lifespan
 
     app = FastAPI()
     startup_config = SimpleNamespace(log_level="INFO", memory=SimpleNamespace(token_counting="char", enabled=False, shutdown_flush_timeout_seconds=30.0))
+    if runtime_config is not None:
+        startup_config.subagent_runtime = runtime_config
     fake_service = MagicMock()
     fake_service.get_status = MagicMock(return_value={})
     cleanup_upload_staging_files = MagicMock(return_value=2)
@@ -114,6 +116,18 @@ def test_lifespan_sweeps_upload_staging_files_on_startup():
     cleanup_upload_staging_files.assert_called_once_with()
     close_oidc_service.assert_awaited_once()
     stop_channel_service.assert_awaited_once()
+
+
+def test_lifespan_installs_default_and_explicit_subagent_capacity():
+    from deerflow.config.subagent_runtime_config import SubagentRuntimeConfig
+
+    with patch("deerflow.subagents.capacity.configure_subagent_execution_capacity") as configure:
+        asyncio.run(_run_lifespan_with_upload_staging_cleanup())
+        configure.assert_called_once_with(SubagentRuntimeConfig())
+    configured = SubagentRuntimeConfig(max_running=2, max_queued=0, admission_policy="reject")
+    with patch("deerflow.subagents.capacity.configure_subagent_execution_capacity") as configure:
+        asyncio.run(_run_lifespan_with_upload_staging_cleanup(configured))
+        configure.assert_called_once_with(configured)
 
 
 async def _run_lifespan_with_memory_flush(*, enabled: bool, flush_return: bool) -> MagicMock:
@@ -155,7 +169,8 @@ async def _run_lifespan_with_memory_flush(*, enabled: bool, flush_return: bool) 
         patch("app.gateway.app.auth.close_oidc_service", close_oidc_service),
         patch("app.channels.service.start_channel_service", side_effect=fake_start),
         patch("app.channels.service.stop_channel_service", stop_channel_service),
-        patch("deerflow.agents.memory.get_memory_manager", return_value=manager),
+        patch("app.gateway.memory_shutdown._load_app_config", return_value=startup_config),
+        patch("app.gateway.memory_shutdown._load_memory_manager", return_value=manager),
     ):
         async with lifespan(app):
             pass
@@ -167,7 +182,7 @@ def test_lifespan_drains_memory_on_shutdown_with_configured_timeout(caplog) -> N
     """When memory is enabled, shutdown calls manager.shutdown_flush with the
     configured timeout (asserts the timeout is forwarded, review #3) and logs
     'completed' at INFO when the drain finishes."""
-    caplog.set_level(logging.INFO, logger="app.gateway.app")
+    caplog.set_level(logging.INFO, logger="app.gateway.memory_shutdown")
     manager = asyncio.run(_run_lifespan_with_memory_flush(enabled=True, flush_return=True))
     manager.shutdown_flush.assert_called_once_with(5.0)
     assert any(r.levelno == logging.INFO and "flush completed" in r.message for r in caplog.records)
@@ -178,7 +193,7 @@ def test_lifespan_warns_when_memory_flush_does_not_finish(caplog) -> None:
     K8s SIGKILLs the drain; the host must log a WARNING (not 'completed'), so
     the loss risk is visible (review #3 False-branch coverage; review #2/#4
     failed-flush semantics)."""
-    caplog.set_level(logging.WARNING, logger="app.gateway.app")
+    caplog.set_level(logging.WARNING, logger="app.gateway.memory_shutdown")
     manager = asyncio.run(_run_lifespan_with_memory_flush(enabled=True, flush_return=False))
     manager.shutdown_flush.assert_called_once_with(5.0)
     assert any(r.levelno == logging.WARNING and "did not finish" in r.message for r in caplog.records)

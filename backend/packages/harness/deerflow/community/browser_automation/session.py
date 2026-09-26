@@ -15,9 +15,13 @@ private loop so the core harness installs without it.
 from __future__ import annotations
 
 import asyncio
+import base64
 import contextlib
+import hashlib
 import logging
 import os
+import re
+import sys
 import threading
 import time
 from collections.abc import Callable, Coroutine
@@ -138,6 +142,65 @@ _LIVE_FRAME_SETTLE_DELAYS_S = (0.8, 2.0)
 _DEFAULT_MAX_SESSIONS = 32
 _DEFAULT_IDLE_TIMEOUT_S = 30 * 60.0
 
+_BROWSER_CA_ENV = "DEERFLOW_BROWSER_CA_BUNDLE"
+_MAX_BROWSER_CA_BUNDLE_BYTES = 8 * 1024 * 1024
+_MAX_BROWSER_CA_CERTIFICATES = 256
+_PEM_CERTIFICATE_RE = re.compile(
+    rb"-----BEGIN CERTIFICATE-----\s+.+?\s+-----END CERTIFICATE-----",
+    re.DOTALL,
+)
+
+
+def browser_ca_spki_hashes(ca_bundle: str | None = None) -> tuple[str, ...]:
+    """Return Chromium SPKI allow-list hashes for an operator-owned CA bundle.
+
+    Chromium does not consume Python/OpenSSL's ``SSL_CERT_FILE`` setting.  The
+    enterprise deployment therefore opts in with ``DEERFLOW_BROWSER_CA_BUNDLE``
+    and Chromium receives only the public-key hashes from that exact bundle.
+    This is deliberately narrower than ``ignore_https_errors``: unrelated bad
+    certificates continue to fail closed.
+    """
+    configured = (ca_bundle if ca_bundle is not None else os.getenv(_BROWSER_CA_ENV, "")).strip()
+    if not configured:
+        return ()
+
+    try:
+        from cryptography import x509
+        from cryptography.hazmat.primitives import serialization
+
+        with open(configured, "rb") as handle:
+            data = handle.read(_MAX_BROWSER_CA_BUNDLE_BYTES + 1)
+        if len(data) > _MAX_BROWSER_CA_BUNDLE_BYTES:
+            raise ValueError("CA bundle exceeds the browser safety limit")
+        certificates = _PEM_CERTIFICATE_RE.findall(data)
+        if not certificates:
+            raise ValueError("CA bundle contains no PEM certificates")
+        if len(certificates) > _MAX_BROWSER_CA_CERTIFICATES:
+            raise ValueError("CA bundle contains too many certificates")
+
+        hashes: list[str] = []
+        for certificate_pem in certificates:
+            certificate = x509.load_pem_x509_certificate(certificate_pem)
+            spki = certificate.public_key().public_bytes(
+                serialization.Encoding.DER,
+                serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+            digest = base64.b64encode(hashlib.sha256(spki).digest()).decode("ascii")
+            if digest not in hashes:
+                hashes.append(digest)
+        return tuple(hashes)
+    except Exception as exc:
+        logger.error("browser enterprise CA bundle rejected (%s): %s", configured, exc)
+        return ()
+
+
+def _browser_ca_launch_args() -> list[str]:
+    hashes = browser_ca_spki_hashes()
+    if not hashes:
+        return []
+    logger.info("browser enterprise CA SPKI allow-list enabled (certificates=%d)", len(hashes))
+    return ["--ignore-certificate-errors-spki-list=" + ",".join(hashes)]
+
 
 def browser_multi_worker_error(workers: int | None = None) -> str | None:
     """Return the fail-closed reason for process-local browser sessions."""
@@ -184,7 +247,10 @@ class _PlaywrightLoopThread:
     """A private asyncio event loop running on a dedicated daemon thread."""
 
     def __init__(self) -> None:
-        self._loop = asyncio.new_event_loop()
+        # The Windows Gateway may need Selector for its database driver, but
+        # Playwright's driver subprocess needs Proactor. Isolate that choice to
+        # this private loop; never change the application's global loop policy.
+        self._loop = asyncio.ProactorEventLoop() if sys.platform == "win32" else asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._run, name="deerflow-browser-loop", daemon=True)
         self._thread.start()
 
@@ -386,7 +452,11 @@ class BrowserSession:
                 return self._page
 
             if self._browser is None or not self._browser.is_connected():
-                self._browser = await self._playwright.chromium.launch(headless=self._headless)
+                launch_options: dict[str, Any] = {"headless": self._headless}
+                browser_ca_args = _browser_ca_launch_args()
+                if browser_ca_args:
+                    launch_options["args"] = browser_ca_args
+                self._browser = await self._playwright.chromium.launch(**launch_options)
             # device_scale_factor=2 renders screenshots at retina density so the
             # panel stays crisp when the image is scaled up to fill the view.
             self._context = await self._browser.new_context(viewport=self._viewport, device_scale_factor=2)

@@ -1,6 +1,7 @@
 """Tests for JinaClient async crawl method."""
 
 import logging
+import threading
 from unittest.mock import MagicMock
 
 import httpx
@@ -14,11 +15,21 @@ from deerflow.community.jina_ai.tools import (
     _coerce_timeout,
     web_fetch_tool,
 )
+from deerflow.utils.readability import Article
 
 
 @pytest.fixture
 def jina_client():
     return JinaClient()
+
+
+@pytest.fixture
+def article_parser(monkeypatch):
+    # These are transport/configuration tests, not Node/Readability integration
+    # tests. Keep real Article Markdown conversion, without implicit npm install.
+    parser = MagicMock(side_effect=lambda html: Article("Page", html))
+    monkeypatch.setattr("deerflow.community.jina_ai.tools.readability_extractor.extract_article", parser)
+    return parser
 
 
 @pytest.mark.anyio
@@ -242,7 +253,7 @@ async def test_web_fetch_tool_returns_error_on_crawl_failure(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_web_fetch_tool_returns_markdown_on_success(monkeypatch):
+async def test_web_fetch_tool_returns_markdown_on_success(monkeypatch, article_parser):
     """Test that web_fetch_tool returns extracted markdown on successful crawl."""
 
     async def mock_crawl(self, url, **kwargs):
@@ -255,10 +266,11 @@ async def test_web_fetch_tool_returns_markdown_on_success(monkeypatch):
     result = await web_fetch_tool.ainvoke("https://example.com")
     assert "Hello world" in result
     assert not result.startswith("Error:")
+    article_parser.assert_called_once_with("<html><body><p>Hello world</p></body></html>")
 
 
 @pytest.mark.anyio
-async def test_web_fetch_tool_forwards_proxy_and_trust_env(monkeypatch):
+async def test_web_fetch_tool_forwards_proxy_and_trust_env(monkeypatch, article_parser):
     """web_fetch tool config should be forwarded to JinaClient.crawl."""
     captured_crawl_kwargs = {}
 
@@ -286,10 +298,11 @@ async def test_web_fetch_tool_forwards_proxy_and_trust_env(monkeypatch):
         "proxy": "http://host.docker.internal:7890",
         "trust_env": False,
     }
+    article_parser.assert_called_once_with("<html><body><p>Hello world</p></body></html>")
 
 
 @pytest.mark.anyio
-async def test_web_fetch_tool_ignores_empty_proxy(monkeypatch):
+async def test_web_fetch_tool_ignores_empty_proxy(monkeypatch, article_parser):
     """Empty proxy values from unresolved env vars should not be passed to httpx."""
     captured_crawl_kwargs = {}
 
@@ -309,10 +322,11 @@ async def test_web_fetch_tool_ignores_empty_proxy(monkeypatch):
     assert "Hello world" in result
     assert captured_crawl_kwargs["proxy"] is None
     assert captured_crawl_kwargs["trust_env"] is True
+    article_parser.assert_called_once_with("<html><body><p>Hello world</p></body></html>")
 
 
 @pytest.mark.anyio
-async def test_web_fetch_tool_offloads_extraction_to_thread(monkeypatch):
+async def test_web_fetch_tool_offloads_extraction_to_thread(monkeypatch, article_parser):
     """Test that readability extraction is offloaded via asyncio.to_thread to avoid blocking the event loop."""
     import asyncio
 
@@ -325,6 +339,13 @@ async def test_web_fetch_tool_offloads_extraction_to_thread(monkeypatch):
     monkeypatch.setattr(JinaClient, "crawl", mock_crawl)
 
     to_thread_called = False
+    parser_thread_ids = []
+
+    def extract(html):
+        parser_thread_ids.append(threading.get_ident())
+        return Article("Page", html)
+
+    article_parser.side_effect = extract
     original_to_thread = asyncio.to_thread
 
     async def tracking_to_thread(func, *args, **kwargs):
@@ -336,6 +357,8 @@ async def test_web_fetch_tool_offloads_extraction_to_thread(monkeypatch):
     result = await web_fetch_tool.ainvoke("https://example.com")
     assert to_thread_called, "extract_article must be called via asyncio.to_thread to avoid blocking the event loop"
     assert "threaded" in result
+    article_parser.assert_called_once_with("<html><body><p>threaded</p></body></html>")
+    assert parser_thread_ids and parser_thread_ids[0] != threading.get_ident()
 
 
 @pytest.mark.parametrize(

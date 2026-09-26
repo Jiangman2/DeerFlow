@@ -48,7 +48,7 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0019_digital_employee_agents"
+HEAD = "0021_thread_operation_kind"
 BASELINE = "0001_baseline"
 
 
@@ -859,7 +859,7 @@ class TestDecideState:
 # ---------------------------------------------------------------------------
 
 
-def test_head_revision_is_oa_policy_flow_revision() -> None:
+def test_head_revision_is_run_cancel_request_revision() -> None:
     assert _get_head_revision() == HEAD
 
 

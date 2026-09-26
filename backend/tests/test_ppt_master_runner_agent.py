@@ -10,6 +10,7 @@ from deerflow.agents.ppt_master_runner.agent import (
     PPT_MASTER_AGENT_HOST_PORT,
     _get_agent_task_with_retry,
     _poll_agent_turn,
+    _report_agent_usage,
     _start_agent_task_with_retry,
     _wait_for_agent_host,
     build_ppt_master_runner_system_prompt,
@@ -276,6 +277,65 @@ def test_poll_agent_turn_emits_plain_message_dicts_for_durable_task_steps():
     assert isinstance(chunks[0]["message"], dict)
     assert chunks[0]["message"]["type"] == "ai"
     assert subagent_run_event(chunks[0])["content"]["text"] == "Loading ppt-master."
+
+
+def test_runner_reports_external_codex_usage_to_the_run_journal():
+    class Recorder:
+        def __init__(self):
+            self.records = []
+
+        def record_external_llm_usage_records(self, records):
+            self.records.extend(records)
+
+    recorder = Recorder()
+    runtime = SimpleNamespace(config={"callbacks": [recorder]})
+    result = {
+        "usage_records": [
+            {
+                "source_run_id": "ppt-master:run-1:codex-turn:1",
+                "caller": "lead_agent:ppt-master",
+                "model_name": "DeepSeek-V4-Flash",
+                "input_tokens": 100,
+                "cache_read_tokens": 75,
+                "output_tokens": 20,
+                "total_tokens": 120,
+                "llm_call_count": 1,
+            }
+        ]
+    }
+
+    usage = _report_agent_usage({}, runtime, result)
+
+    assert recorder.records == result["usage_records"]
+    assert usage == {
+        "input_tokens": 100,
+        "cached_input_tokens": 75,
+        "output_tokens": 20,
+        "total_tokens": 120,
+        "llm_call_count": 1,
+    }
+
+
+def test_runner_fails_closed_when_usage_exists_without_a_run_journal():
+    try:
+        _report_agent_usage(
+            {},
+            SimpleNamespace(config={}),
+            {
+                "usage_records": [
+                    {
+                        "source_run_id": "ppt-master:run-1:codex-turn:1",
+                        "input_tokens": 1,
+                        "output_tokens": 1,
+                        "total_tokens": 2,
+                    }
+                ]
+            },
+        )
+    except RuntimeError as exc:
+        assert "token usage recorder is unavailable" in str(exc)
+    else:
+        raise AssertionError("missing RunJournal silently discarded PPT token usage")
 
 
 def test_poll_agent_turn_renews_the_sandbox_lease_until_completion():

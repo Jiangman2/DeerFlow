@@ -109,7 +109,7 @@ test("reads IM channel source metadata", () => {
   ).toEqual({
     type: "im_channel",
     provider: "feishu",
-    label: "Feishu",
+    label: "海能 Work",
   });
 });
 

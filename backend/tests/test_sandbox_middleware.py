@@ -18,6 +18,8 @@ from deerflow.sandbox.sandbox_provider import SandboxProvider, reset_sandbox_pro
 from deerflow.sandbox.search import GrepMatch
 from deerflow.sandbox.tools import ls_tool
 
+pytestmark = pytest.mark.usefixtures("disabled_sandbox_authorization")
+
 
 class _SyncProvider(SandboxProvider):
     def __init__(self) -> None:
@@ -98,6 +100,11 @@ class _AsyncOnlyProvider(SandboxProvider):
             return self.sandbox
         return None
 
+    def get_scoped(self, sandbox_id: str, *, thread_id: str, user_id: str) -> Sandbox | None:
+        if sandbox_id == "async-sandbox" and (thread_id, user_id) in zip(self.thread_ids, self.user_ids):
+            return self.sandbox
+        return None
+
     def release(self, sandbox_id: str) -> None:
         self.released_ids.append(sandbox_id)
         return None
@@ -152,7 +159,6 @@ async def test_abefore_agent_uses_async_provider_acquire() -> None:
     [
         (SandboxMiddleware(lazy_init=True), {}, Runtime(context={"thread_id": "thread-lazy"})),
         (SandboxMiddleware(lazy_init=False), {}, Runtime(context={})),
-        (SandboxMiddleware(lazy_init=False), {"sandbox": {"sandbox_id": "existing"}}, Runtime(context={"thread_id": "thread-existing"})),
     ],
 )
 async def test_abefore_agent_delegates_to_super_when_not_acquiring(
@@ -203,19 +209,20 @@ async def test_default_lazy_tool_acquisition_uses_async_provider() -> None:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("state", "runtime", "expected_sandbox_id"),
+    ("state", "runtime"),
     [
-        ({"sandbox": {"sandbox_id": "state-sandbox"}}, Runtime(context={}), "state-sandbox"),
-        ({}, Runtime(context={"sandbox_id": "context-sandbox"}), "context-sandbox"),
+        ({"sandbox": {"sandbox_id": "async-sandbox"}}, Runtime(context={"thread_id": "thread-1", "user_id": "owner-1"})),
+        ({}, Runtime(context={"thread_id": "thread-1", "user_id": "owner-1", "sandbox_id": "async-sandbox"})),
     ],
 )
 async def test_aafter_agent_releases_sandbox_off_thread(
     monkeypatch: pytest.MonkeyPatch,
     state: dict,
     runtime: Runtime,
-    expected_sandbox_id: str,
 ) -> None:
     provider = _AsyncOnlyProvider()
+    provider.thread_ids.append("thread-1")
+    provider.user_ids.append("owner-1")
     to_thread_calls: list[tuple[object, tuple[object, ...]]] = []
 
     async def fake_to_thread(func, /, *args):
@@ -230,8 +237,8 @@ async def test_aafter_agent_releases_sandbox_off_thread(
         reset_sandbox_provider()
 
     assert result is None
-    assert provider.released_ids == [expected_sandbox_id]
-    assert to_thread_calls == [(provider.release, (expected_sandbox_id,))]
+    assert provider.released_ids == ["async-sandbox"]
+    assert to_thread_calls == [(provider.release, ("async-sandbox",))]
 
 
 @pytest.mark.anyio

@@ -441,9 +441,10 @@ class TestBufferFlush:
         j, store = journal_setup
         j._flush_threshold = 2
         # Each on_llm_end emits 1 event
-        j.on_llm_end(_make_llm_response("A"), run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
+        usage = {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
+        j.on_llm_end(_make_llm_response("A", usage=usage), run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
         assert len(j._buffer) == 1
-        j.on_llm_end(_make_llm_response("B"), run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
+        j.on_llm_end(_make_llm_response("B", usage=usage), run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
         # At threshold the buffer should have been flushed asynchronously
         await asyncio.sleep(0.1)
         events = await store.list_events("t1", "r1")
@@ -555,6 +556,7 @@ class TestConvenienceFields:
             parent_run_id=None,
             tags=["lead_agent"],
         )
+        await j.flush()
 
         data = j.get_completion_data()
 
@@ -577,6 +579,7 @@ class TestConvenienceFields:
             parent_run_id=None,
             tags=["lead_agent"],
         )
+        await j.flush()
 
         data = j.get_completion_data()
 
@@ -587,6 +590,7 @@ class TestConvenienceFields:
     async def test_last_ai_message_extracts_mapping_content(self, journal_setup):
         j, _ = journal_setup
         j.on_llm_end(_make_llm_response({"content": "Nested answer"}), run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
+        await j.flush()
 
         data = j.get_completion_data()
 
@@ -617,6 +621,7 @@ class TestConvenienceFields:
         j, _ = journal_setup
         j.on_llm_end(_make_llm_response("Lead answer"), run_id=uuid4(), parent_run_id=None, tags=["lead_agent"])
         j.on_llm_end(_make_llm_response("Subagent detail"), run_id=uuid4(), parent_run_id=None, tags=["subagent:research"])
+        await j.flush()
 
         data = j.get_completion_data()
 

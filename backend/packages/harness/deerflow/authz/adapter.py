@@ -17,6 +17,8 @@ with consistent ``default_role`` and ``attributes`` semantics.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from deerflow.authz.principal import build_principal_from_context
 from deerflow.authz.provider import AuthorizationProvider, AuthzDecision, AuthzRequest
 from deerflow.guardrails.provider import GuardrailDecision, GuardrailReason, GuardrailRequest
@@ -47,11 +49,19 @@ class GuardrailAuthorizationAdapter:
         default_role: str = "user",
         resource_type: str = "tool",
         action: str = "call",
+        infrastructure_tool_names: Iterable[str] = (),
     ) -> None:
         self._provider = provider
         self._default_role = default_role
         self._resource_type = resource_type
         self._action = action
+        self._infrastructure_tool_names = frozenset(infrastructure_tool_names)
+
+    def _infrastructure_decision(self, request: GuardrailRequest) -> GuardrailDecision | None:
+        """Only exempt concrete helpers built from an already-authorized catalog."""
+        if request.tool_name not in self._infrastructure_tool_names:
+            return None
+        return GuardrailDecision(allow=True, reasons=[GuardrailReason(code="authz.infrastructure_tool")], policy_id="authz:infrastructure")
 
     def _to_authz(self, gr: GuardrailRequest) -> AuthzRequest:
         """Map a guardrail request to an authorization request."""
@@ -104,6 +114,8 @@ class GuardrailAuthorizationAdapter:
         here would duplicate that logic and risk divergent behavior between
         the two layers.
         """
+        if infrastructure_decision := self._infrastructure_decision(request):
+            return infrastructure_decision
         decision = self._provider.authorize(self._to_authz(request))
         return self._to_guardrail(decision)
 
@@ -112,5 +124,7 @@ class GuardrailAuthorizationAdapter:
 
         See :meth:`evaluate` for exception-propagation rationale.
         """
+        if infrastructure_decision := self._infrastructure_decision(request):
+            return infrastructure_decision
         decision = await self._provider.aauthorize(self._to_authz(request))
         return self._to_guardrail(decision)

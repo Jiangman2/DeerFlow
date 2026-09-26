@@ -511,7 +511,7 @@ LANGFUSE_BASE_URL=https://cloud.langfuse.com
 - `user_id` = 来自 `get_effective_user_id()` 的有效用户（在无鉴权模式下回退为 `default`）
 - `trace_name` = assistant id（默认为 `lead-agent`）
 - `tags` = `[env:<DEER_FLOW_ENV>, model:<model_name>]`（未设置时省略）
-- `metadata.deerflow_trace_id` = DeerFlow 的请求关联 id，当启用请求链路关联（request trace correlation）时与 `X-Trace-Id` 一致
+- `metadata.deerflow_trace_id` = DeerFlow 的请求关联 id；Gateway 准入的运行与 `X-Trace-Id` 一致，不依赖增强日志开关。嵌入式调用也为每轮建立或继承 id，流执行及提前关闭的清理保持同一个 id，且不污染调用方上下文。定时任务、渠道、记忆线程及子代理入口仍待完整对齐，不能视作 2.1 已全部合并。
 
 这些字段会在图（graph）调用的根部注入到 `RunnableConfig.metadata`，同时覆盖 gateway 路径（`runtime/runs/worker.py::run_agent`）和内嵌路径（`client.py::DeerFlowClient.stream`），因此任何兼容 LangChain 的 callback 都能读取到它们。设置 `DEER_FLOW_ENV`（或 `ENVIRONMENT`）可按部署环境为 trace 打标签。
 

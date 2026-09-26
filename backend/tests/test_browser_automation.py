@@ -8,12 +8,18 @@ skipped automatically when Playwright (or its browser binary) is unavailable.
 from __future__ import annotations
 
 import asyncio
+import datetime as dt
 import gc
+import ipaddress
 import sys
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
 from deerflow.community.browser_automation import session as session_mod
 from deerflow.community.browser_automation import tools
@@ -50,6 +56,47 @@ def _snapshot() -> PageSnapshot:
     )
 
 
+def _write_test_ca(path):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "DeerFlow Browser Test CA")])
+    now = dt.datetime.now(dt.timezone.utc)
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - dt.timedelta(minutes=1))
+        .not_valid_after(now + dt.timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
+    path.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
+    return certificate
+
+
+def test_browser_ca_spki_hashes_are_scoped_to_operator_bundle(tmp_path):
+    ca_bundle = tmp_path / "enterprise-ca.pem"
+    certificate = _write_test_ca(ca_bundle)
+
+    actual = session_mod.browser_ca_spki_hashes(str(ca_bundle))
+    spki = certificate.public_key().public_bytes(
+        serialization.Encoding.DER,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    import base64
+    import hashlib
+
+    assert actual == (base64.b64encode(hashlib.sha256(spki).digest()).decode("ascii"),)
+
+
+def test_browser_ca_spki_hashes_fail_closed_for_invalid_bundle(tmp_path):
+    ca_bundle = tmp_path / "invalid.pem"
+    ca_bundle.write_text("not a certificate", encoding="utf-8")
+    assert session_mod.browser_ca_spki_hashes(str(ca_bundle)) == ()
+
+
 class TestSnapshotRendering:
     def test_snapshot_lists_elements_by_ref(self):
         rendered = _snapshot().render()
@@ -65,6 +112,14 @@ class TestSnapshotRendering:
 
 @pytest.mark.asyncio
 class TestBrowserTools:
+    @pytest.fixture(autouse=True)
+    def public_example_dns(self, monkeypatch):
+        def resolve(host):
+            assert host == "example.com", "Unexpected test DNS lookup: " + host
+            return [ipaddress.ip_address("93.184.216.34")]
+
+        monkeypatch.setattr(tools, "_resolve_host_addresses", resolve)
+
     async def _patch_session(self, session):
         manager = MagicMock()
         manager.get_session.return_value = session
@@ -496,7 +551,8 @@ async def test_ensure_page_serializes_concurrent_rebuilds():
     browser.is_connected.return_value = True
     browser.new_context = AsyncMock(return_value=context)
 
-    async def launch(*, headless):
+    async def launch(**options):
+        assert options == {"headless": True}
         launch_started.set()
         await release_launch.wait()
         return browser
@@ -511,7 +567,10 @@ async def test_ensure_page_serializes_concurrent_rebuilds():
     fake_async_api.async_playwright = MagicMock()
     fake_playwright = ModuleType("playwright")
     fake_playwright.async_api = fake_async_api
-    with patch.dict(sys.modules, {"playwright": fake_playwright, "playwright.async_api": fake_async_api}):
+    with (
+        patch.dict(sys.modules, {"playwright": fake_playwright, "playwright.async_api": fake_async_api}),
+        patch.object(session_mod, "_browser_ca_launch_args", return_value=[]),
+    ):
         first = asyncio.create_task(session._ensure_page())
         await asyncio.wait_for(launch_started.wait(), timeout=1.0)
         second = asyncio.create_task(session._ensure_page())
@@ -522,6 +581,47 @@ async def test_ensure_page_serializes_concurrent_rebuilds():
     chromium.launch.assert_awaited_once_with(headless=True)
     browser.new_context.assert_awaited_once()
     context.new_page.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_ensure_page_passes_only_scoped_ca_spki_arg_to_chromium():
+    session = BrowserSession(
+        MagicMock(),
+        headless=True,
+        timeout_ms=1000,
+        viewport={"width": 1000, "height": 500},
+    )
+    page = MagicMock()
+    page.is_closed.return_value = False
+    context = MagicMock()
+    context.new_page = AsyncMock(return_value=page)
+    context.set_default_timeout = MagicMock()
+    context.on = MagicMock()
+    browser = MagicMock()
+    browser.is_connected.return_value = True
+    browser.new_context = AsyncMock(return_value=context)
+    chromium = MagicMock()
+    chromium.launch = AsyncMock(return_value=browser)
+    session._playwright = SimpleNamespace(chromium=chromium)
+
+    fake_async_api = ModuleType("playwright.async_api")
+    fake_async_api.async_playwright = MagicMock()
+    fake_playwright = ModuleType("playwright")
+    fake_playwright.async_api = fake_async_api
+    with (
+        patch.dict(sys.modules, {"playwright": fake_playwright, "playwright.async_api": fake_async_api}),
+        patch.object(
+            session_mod,
+            "_browser_ca_launch_args",
+            return_value=["--ignore-certificate-errors-spki-list=test-spki"],
+        ),
+    ):
+        await session._ensure_page()
+
+    chromium.launch.assert_awaited_once_with(
+        headless=True,
+        args=["--ignore-certificate-errors-spki-list=test-spki"],
+    )
 
 
 @pytest.mark.asyncio

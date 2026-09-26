@@ -240,8 +240,14 @@ ingress:
 # -- DeerFlow config.yaml content. Secrets MUST stay as $VAR references — never
 #    inline literal secret values here. The default enables provisioner sandbox.
 config: |
-  config_version: 31
+  config_version: 34
   log_level: info
+
+  verification:
+    receipts_enabled: true
+    receipts_render_mode: delegation_only
+    judge_enabled: false
+    judge_model_name: null
 
   models: []
   # Example (uncomment & set the matching secret in `secrets`):
@@ -265,11 +271,12 @@ config: |
     # resolved by the harness before the config is instantiated.
     backend: postgres
     postgres_url: $DATABASE_URL
+    pool_recycle: 300
+    command_timeout: 30
 
-  # The LangGraph Store (cross-thread memory + thread list) reads this legacy
-  # `checkpointer:` section — it does NOT fall back to `database:` the way the
-  # checkpointer does. Point it at the same postgres so the Store is shared
-  # across gateway pods (required for multi-replica operation).
+  # Legacy override for BOTH LangGraph Checkpointer and Store. If omitted,
+  # both follow database. Keep schema choices aligned when using a custom
+  # database.postgres_schema, or remove this legacy section before restart.
   checkpointer:
     type: postgres
     connection_string: $DATABASE_URL

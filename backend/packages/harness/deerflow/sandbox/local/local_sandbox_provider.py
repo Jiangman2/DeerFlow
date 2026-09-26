@@ -283,6 +283,13 @@ class LocalSandboxProvider(SandboxProvider):
         # Per-user custom skills mount (read-only).  This must be per-thread
         # because ``/mnt/skills/custom`` resolves to different host directories
         # for different users.
+        from deerflow.skills.agent_publication import get_thread_published_skill_storage
+
+        published = get_thread_published_skill_storage(thread_id, user_id=effective_user_id)
+        if published is not None:
+            published.load_skills()
+            mappings.append(PathMapping(published.get_container_root(), str(published.get_skills_root_path()), True))
+            return mappings
         try:
             config = get_app_config()
             skills_container_path = config.skills.container_path
@@ -349,10 +356,16 @@ class LocalSandboxProvider(SandboxProvider):
         effective_user_id = self._effective_acquire_user_id(user_id)
         key = self._thread_key(thread_id, effective_user_id)
 
+        from deerflow.skills.agent_publication import get_thread_published_skill_storage
+
+        published = get_thread_published_skill_storage(thread_id, user_id=effective_user_id)
+
         # Fast path under lock.
         with self._lock:
             cached = self._thread_sandboxes.get(key)
             if cached is not None:
+                if published is not None:
+                    self._validate_projection(cached, published)
                 # Mark as most-recently used so frequently-touched threads
                 # survive eviction.
                 self._thread_sandboxes.move_to_end(key)
@@ -360,7 +373,11 @@ class LocalSandboxProvider(SandboxProvider):
 
         # ``_build_thread_path_mappings`` touches the filesystem
         # (``ensure_thread_dirs``); release the lock during I/O.
-        new_mappings = list(self._path_mappings) + self._build_thread_path_mappings(thread_id, user_id=effective_user_id)
+        static_mappings = list(self._path_mappings)
+        if published is not None:
+            root = published.get_container_root().rstrip("/")
+            static_mappings = [m for m in static_mappings if not (m.container_path == root or m.container_path.startswith(root + "/"))]
+        new_mappings = static_mappings + self._build_thread_path_mappings(thread_id, user_id=effective_user_id)
 
         with self._lock:
             # Re-check after the lock-free I/O: another caller may have
@@ -371,8 +388,31 @@ class LocalSandboxProvider(SandboxProvider):
                 self._thread_sandboxes[key] = cached
                 self._evict_until_within_cap_locked()
             else:
+                if published is not None:
+                    self._validate_projection(cached, published)
                 self._thread_sandboxes.move_to_end(key)
             return cached.id
+
+    @staticmethod
+    def _validate_projection(sandbox, published) -> None:
+        published.load_skills()
+        root = published.get_container_root().rstrip("/")
+        mounts = [m for m in sandbox.path_mappings if m.container_path == root or m.container_path.startswith(root + "/")]
+        if len(mounts) != 1 or mounts[0].container_path != root or not mounts[0].read_only or Path(mounts[0].local_path).resolve() != published.get_skills_root_path().resolve():
+            raise RuntimeError("Employee Skill mount mismatch; start a new conversation")
+
+    def validate_employee_skills(self, sandbox_id: str, thread_id: str, *, user_id: str) -> None:
+        from deerflow.skills.agent_publication import get_thread_published_skill_storage
+
+        published = get_thread_published_skill_storage(thread_id, user_id=user_id)
+        if published is None:
+            return
+        if sandbox_id != self._sandbox_id_for_thread(thread_id, user_id):
+            raise RuntimeError("Employee Skill mount identity mismatch")
+        sandbox = self.get(sandbox_id)
+        if sandbox is None:
+            raise RuntimeError("Employee Skill mount unavailable")
+        self._validate_projection(sandbox, published)
 
     def _evict_until_within_cap_locked(self) -> None:
         """LRU-evict cached thread sandboxes once the cap is exceeded.
@@ -410,6 +450,18 @@ class LocalSandboxProvider(SandboxProvider):
                     self._thread_sandboxes.move_to_end(key)
                 return cached
         return None
+
+    def get_scoped(self, sandbox_id: str, *, thread_id: str, user_id: str) -> Sandbox | None:
+        """Return a cached local sandbox only for its exact user/thread key."""
+        if sandbox_id != self._sandbox_id_for_thread(thread_id, user_id):
+            return None
+        key = self._thread_key(thread_id, user_id)
+        with self._lock:
+            sandbox = self._thread_sandboxes.get(key)
+            if sandbox is not None and sandbox.id == sandbox_id:
+                self._thread_sandboxes.move_to_end(key)
+                return sandbox
+            return None
 
     def get_for_thread(self, thread_id: str, *, user_id: str | None = None) -> Sandbox | None:
         """Return the cached thread sandbox without creating a new one."""

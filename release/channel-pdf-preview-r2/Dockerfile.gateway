@@ -1,0 +1,12 @@
+FROM channel-pdf-gateway-base AS source-check
+COPY apply-delta.py gateway-delta.json smoke-gateway.py compressed-fixtures.json /tmp/channel-pdf-r2/
+RUN --network=none cd /app/backend \
+    && .venv/bin/python /tmp/channel-pdf-r2/apply-delta.py /app/backend \
+       /tmp/channel-pdf-r2/gateway-delta.json /opt/deerflow-release/channel-pdf-r2-gateway.json --check-only
+
+FROM source-check AS candidate
+RUN --network=none cd /app/backend \
+    && .venv/bin/python /tmp/channel-pdf-r2/apply-delta.py /app/backend \
+       /tmp/channel-pdf-r2/gateway-delta.json /opt/deerflow-release/channel-pdf-r2-gateway.json \
+    && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=packages/harness:. .venv/bin/python \
+       /tmp/channel-pdf-r2/smoke-gateway.py

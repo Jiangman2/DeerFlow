@@ -91,6 +91,8 @@ class ResolvedPath(NamedTuple):
 
 
 class LocalSandbox(Sandbox):
+    persistent_shell_sessions = False
+
     @staticmethod
     def _shell_name(shell: str) -> str:
         """Return the executable name for a shell path or command."""
@@ -247,9 +249,8 @@ class LocalSandbox(Sandbox):
 
     @cached_property
     def _resolved_local_paths(self) -> dict[PathMapping, str]:
-        """Filesystem-resolved local root per mapping. ``Path.resolve()`` hits the
-        disk, and the mounted directories don't move, so resolve once and reuse."""
-        return {m: str(Path(m.local_path).resolve()) for m in self.path_mappings}
+        """Filesystem-resolved local root per mapping, computed once."""
+        return {m: os.path.realpath(m.local_path) for m in self.path_mappings}
 
     @cached_property
     def _mappings_by_container_specificity(self) -> list[PathMapping]:
@@ -268,7 +269,7 @@ class LocalSandbox(Sandbox):
         mapping (i.e. the one whose local_path is the longest prefix of the
         resolved path), similar to how ``_resolve_path`` handles container paths.
         """
-        resolved = str(Path(resolved_path).resolve())
+        resolved = os.path.realpath(resolved_path)
 
         best_mapping: PathMapping | None = None
         best_prefix_len = -1
@@ -319,15 +320,16 @@ class LocalSandbox(Sandbox):
             return ResolvedPath(path_str, None)
 
         mapping, relative = mapping_match
-        local_root = Path(self._resolved_local_paths[mapping])
-        resolved_path = (local_root / relative).resolve() if relative else local_root
-
+        local_root = self._resolved_local_paths[mapping]
+        resolved_path = os.path.realpath(os.path.join(local_root, relative)) if relative else local_root
         try:
-            resolved_path.relative_to(local_root)
-        except ValueError as exc:
-            raise PermissionError(errno.EACCES, "Access denied: path escapes mounted directory", path_str) from exc
+            inside_root = os.path.normcase(os.path.commonpath([local_root, resolved_path])) == os.path.normcase(local_root)
+        except ValueError:
+            inside_root = False
+        if not inside_root:
+            raise PermissionError(errno.EACCES, "Access denied: path escapes mounted directory", path_str)
 
-        return ResolvedPath(str(resolved_path), mapping)
+        return ResolvedPath(resolved_path, mapping)
 
     def _resolve_path(self, path: str) -> str:
         return self._resolve_path_with_mapping(path).path
@@ -346,7 +348,7 @@ class LocalSandbox(Sandbox):
             Container path if mapping exists, otherwise original path
         """
         normalized_path = path.replace("\\", "/")
-        path_str = str(Path(normalized_path).resolve())
+        path_str = os.path.realpath(normalized_path)
 
         container_path = self._container_path_for_local(path_str)
         if container_path is None:
@@ -365,7 +367,7 @@ class LocalSandbox(Sandbox):
         # Try each mapping (longest local path first for more specific matches)
         for mapping in self._mappings_by_local_specificity:
             local_path_resolved = self._resolved_local_paths[mapping]
-            # ``Path.resolve()`` always renders with the native separator
+            # ``realpath()`` renders with the native separator
             # (backslash on Windows), regardless of the forward-slash
             # normalization above, so the containment check must compare with
             # ``os.sep`` here too -- mirroring ``_is_read_only_path`` -- instead
@@ -813,7 +815,7 @@ class LocalSandbox(Sandbox):
                 if "/" not in child_rel and mapping.container_path.rstrip("/") not in existing_dirs:
                     # Verify the host path exists so we don't add phantom entries
                     try:
-                        if Path(mapping.local_path).resolve().is_dir():
+                        if os.path.isdir(os.path.realpath(mapping.local_path)):
                             result.append(f"{mapping.container_path}/")
                     except OSError:
                         pass

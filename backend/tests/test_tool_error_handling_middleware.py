@@ -160,7 +160,10 @@ def test_build_subagent_runtime_middlewares_threads_app_config_to_llm_middleware
     from deerflow.agents.middlewares.tool_output_budget_middleware import ToolOutputBudgetMiddleware
     from deerflow.agents.middlewares.weknora_citation_middleware import WeKnoraCitationMiddleware
 
-    assert len(middlewares) == 17
+    assert len(middlewares) == 20  # + activation, active Skill policy, runtime receipt
+    receipts = [m for m in middlewares if type(m).__name__ == "ToolReceiptMiddleware"]
+    assert len(receipts) == 1
+    assert receipts[0]._render_mode == "always"
     assert isinstance(middlewares[0], FakeMiddleware)  # InputSanitizationMiddleware stub
     assert isinstance(middlewares[1], PlatformConfidentialityMiddleware)
     assert isinstance(middlewares[2], ToolOutputBudgetMiddleware)
@@ -563,6 +566,8 @@ def test_subagent_runtime_middlewares_attach_deferred_filter_when_setup_has_name
     filter_idx = next(i for i, m in enumerate(middlewares) if isinstance(m, DeferredToolFilterMiddleware))
     safety_idx = next(i for i, m in enumerate(middlewares) if isinstance(m, SafetyFinishReasonMiddleware))
     assert filter_idx < safety_idx
+    names = [type(m).__name__ for m in middlewares]
+    assert names.index("SkillActivationMiddleware") < names.index("DeferredToolPromotionAuditMiddleware") < names.index("SkillToolPolicyMiddleware")
 
 
 def test_subagent_runtime_middlewares_place_mcp_routing_before_deferred_filter(monkeypatch):

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from contextvars import Context
+
 import pytest
 
-from deerflow.trace_context import request_trace_context
+from deerflow.trace_context import get_current_trace_id, request_trace_context
 from deerflow.tracing import metadata as tracing_metadata
 
 
@@ -25,7 +27,8 @@ def _clear_tracing_env(monkeypatch):
     ):
         monkeypatch.delenv(name, raising=False)
     reset_tracing_config()
-    yield
+    with request_trace_context():
+        yield
     reset_tracing_config()
 
 
@@ -161,3 +164,26 @@ def test_deerflow_trace_id_explicit_argument_wins(monkeypatch):
         )
 
     assert result["deerflow_trace_id"] == "explicit-trace"
+
+
+@pytest.mark.parametrize("carrier", [None, "invalid\ntrace"])
+def test_enabled_exporter_mints_stable_trace_without_ambient_context(monkeypatch, carrier):
+    _enable_langfuse(monkeypatch)
+
+    def check():
+        assert get_current_trace_id() is None
+        first = tracing_metadata.build_langfuse_trace_metadata(thread_id="t", deerflow_trace_id=carrier)
+        second = tracing_metadata.build_langfuse_trace_metadata(thread_id="t")
+        assert first["deerflow_trace_id"]
+        assert first["deerflow_trace_id"] == second["deerflow_trace_id"] == get_current_trace_id()
+
+    Context().run(check)
+
+
+def test_disabled_exporter_does_not_mint_or_enable_external_tracing():
+    def check():
+        assert get_current_trace_id() is None
+        assert tracing_metadata.build_langfuse_trace_metadata(thread_id="t") == {}
+        assert get_current_trace_id() is None
+
+    Context().run(check)

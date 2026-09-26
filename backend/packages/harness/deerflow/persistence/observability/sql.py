@@ -570,7 +570,7 @@ class ObservabilityRepository:
             return []
         bounded_limit = min(max(limit, 1), 500)
         since, until, _window_hours = _window_bounds(hours=hours, start_at=start_at, end_at=end_at)
-        stmt = select(RunRow).where(RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)).limit(1000)
+        stmt = select(RunRow).where(RunRow.operation_kind == "run", RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)).limit(1000)
         if user_id:
             stmt = stmt.where(RunRow.user_id == user_id)
         if status and status != "all":
@@ -647,7 +647,7 @@ class ObservabilityRepository:
         bounded_limit = min(max(limit, 1), 100)
         now = datetime.now(UTC)
         async with self._sf() as session:
-            rows = (await session.execute(select(RunRow).where(RunRow.created_at >= previous_since, RunRow.created_at <= current_until).order_by(desc(RunRow.created_at)))).scalars().all()
+            rows = (await session.execute(select(RunRow).where(RunRow.operation_kind == "run", RunRow.created_at >= previous_since, RunRow.created_at <= current_until).order_by(desc(RunRow.created_at)))).scalars().all()
             user_rows = await session.execute(select(UserRow.id, UserRow.email))
             user_email = {uid: email for uid, email in user_rows.all()}
             current_run_ids = [row.run_id for row in rows if _aware(row.created_at) and current_since <= _aware(row.created_at) <= current_until]
@@ -783,7 +783,7 @@ class ObservabilityRepository:
         bounded_limit = min(max(limit, 1), 500)
         bucket = "day" if window_hours > 72 else "hour"
         async with self._sf() as session:
-            rows = (await session.execute(select(RunRow).where(RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)).limit(20_000))).scalars().all()
+            rows = (await session.execute(select(RunRow).where(RunRow.operation_kind == "run", RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)).limit(20_000))).scalars().all()
             users_total = await session.scalar(select(func.count()).select_from(UserRow).where(UserRow.is_disabled.is_(False))) or 0
             user_rows = await session.execute(select(UserRow.id, UserRow.email, UserRow.is_disabled))
             user_email = {uid: email for uid, email, _disabled in user_rows.all()}
@@ -993,15 +993,15 @@ class ObservabilityRepository:
 
             users_total = await session.scalar(select(func.count()).select_from(UserRow)) or 0
             threads_total = await session.scalar(select(func.count()).select_from(ThreadMetaRow)) or 0
-            runs_total = await session.scalar(select(func.count()).select_from(RunRow)) or 0
+            runs_total = await session.scalar(select(func.count()).select_from(RunRow).where(RunRow.operation_kind == "run")) or 0
 
-            window_rows = (await session.execute(select(RunRow).where(RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)))).scalars().all()
+            window_rows = (await session.execute(select(RunRow).where(RunRow.operation_kind == "run", RunRow.created_at >= since, RunRow.created_at <= until).order_by(desc(RunRow.created_at)))).scalars().all()
             active_runs = sum(1 for row in window_rows if row.status in _ACTIVE_STATUSES)
             error_runs = [row for row in window_rows if row.status in _TERMINAL_ERROR_STATUSES]
             terminal_runs = [row for row in window_rows if row.status in _TERMINAL_STATUSES]
             error_rate = round(len(error_runs) / len(terminal_runs), 4) if terminal_runs else 0
 
-            status_rows = await session.execute(select(RunRow.status, func.count()).group_by(RunRow.status))
+            status_rows = await session.execute(select(RunRow.status, func.count()).where(RunRow.operation_kind == "run").group_by(RunRow.status))
             runs_by_status = {status or "unknown": count for status, count in status_rows.all()}
 
             user_rows = await session.execute(select(UserRow.id, UserRow.email))
@@ -1144,7 +1144,7 @@ class ObservabilityRepository:
             return None
         async with self._sf() as session:
             row = await session.get(RunRow, run_id)
-            if row is None:
+            if row is None or row.operation_kind != "run":
                 return None
             events = (await session.execute(select(RunEventRow).where(RunEventRow.run_id == run_id).order_by(RunEventRow.seq.asc()))).scalars().all()
             user_email = {}

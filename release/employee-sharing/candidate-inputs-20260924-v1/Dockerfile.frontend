@@ -1,0 +1,13 @@
+# BUILD INPUT ONLY. Bind employee-frontend-base to an audited local OCI context.
+FROM employee-frontend-base AS source-check
+WORKDIR /app/frontend
+COPY apply_image_delta.mjs frontend-delta.json /tmp/employee-sharing/
+RUN --network=none node /tmp/employee-sharing/apply_image_delta.mjs /app/frontend \
+    /tmp/employee-sharing/frontend-delta.json --check-only
+
+FROM source-check AS candidate
+RUN --network=none node /tmp/employee-sharing/apply_image_delta.mjs /app/frontend \
+      /tmp/employee-sharing/frontend-delta.json --image-build-stage \
+    && node node_modules/typescript/bin/tsc --noEmit \
+    && SKIP_ENV_VALIDATION=1 NEXT_TELEMETRY_DISABLED=1 NEXT_CONFIG_BUILD_OUTPUT=standalone \
+       node node_modules/next/dist/bin/next build

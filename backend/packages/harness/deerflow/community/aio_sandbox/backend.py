@@ -94,6 +94,9 @@ class SandboxBackend(ABC):
     - RemoteSandboxBackend: connects to a pre-existing URL (K8s service, external)
     """
 
+    def validate_employee_skills(self, sandbox_id: str, thread_id: str, *, user_id: str) -> None:
+        raise RuntimeError("Sandbox backend cannot verify employee Skill mounts")
+
     @abstractmethod
     def create(
         self,

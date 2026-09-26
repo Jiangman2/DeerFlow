@@ -65,6 +65,7 @@ type KnowledgeScopeProps<T> = {
   className?: string;
   context: T & KnowledgeScopeContext;
   disabled?: boolean;
+  allowTags?: boolean;
   onContextChange?: (context: T & KnowledgeScopeContext) => void;
 };
 
@@ -294,6 +295,7 @@ export function KnowledgeScopeSelector<T>({
   className,
   context,
   disabled,
+  allowTags = true,
   onContextChange,
 }: KnowledgeScopeProps<T>) {
   const [open, setOpen] = useState(false);
@@ -319,7 +321,7 @@ export function KnowledgeScopeSelector<T>({
       return {
         queryKey: weknoraTagsQueryKey(kb.id, tenantId),
         queryFn: () => listWeKnoraTags(kb.id, tenantId),
-        enabled: open,
+        enabled: open && allowTags,
         staleTime: 30_000,
       };
     }),
@@ -327,13 +329,13 @@ export function KnowledgeScopeSelector<T>({
 
   const allTags = useMemo<TagWithParent[]>(
     () =>
-      tagQueries.flatMap((tagQuery, index) => {
+      (allowTags ? tagQueries : []).flatMap((tagQuery, index) => {
         const parent = knowledgeBases[index];
         return parent
           ? (tagQuery.data?.items ?? []).map((tag) => ({ ...tag, parent }))
           : [];
       }),
-    [knowledgeBases, tagQueries],
+    [allowTags, knowledgeBases, tagQueries],
   );
   const tagsLoading = tagQueries.some((tagQuery) => tagQuery.isLoading);
   const tagsError = tagQueries.some((tagQuery) => tagQuery.isError);
@@ -539,7 +541,9 @@ export function KnowledgeScopeSelector<T>({
           aria-label={
             selectedItems.length > 0
               ? `知识范围，已选择 ${selectedItems.length} 项`
-              : "知识库、标签或文件"
+              : allowTags
+                ? "知识库、标签或文件"
+                : "知识库或文件"
           }
           className={cn(
             "min-w-0 gap-1.5 px-2!",
@@ -583,10 +587,14 @@ export function KnowledgeScopeSelector<T>({
           <div className="relative">
             <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
             <Input
-              aria-label="搜索知识库、标签或文件"
+              aria-label={
+                allowTags ? "搜索知识库、标签或文件" : "搜索知识库或文件"
+              }
               className="h-9 pl-8 text-sm"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索知识库、标签或文件"
+              placeholder={
+                allowTags ? "搜索知识库、标签或文件" : "搜索知识库或文件"
+              }
               value={query}
             />
           </div>
@@ -607,14 +615,16 @@ export function KnowledgeScopeSelector<T>({
                   testId="knowledge-scope-group-kb"
                   onSelect={() => setGroup("kb")}
                 />
-                <GroupEntry
-                  count={allTags.length}
-                  icon={<TagIcon className="size-4" />}
-                  label="标签"
-                  loading={tagsLoading}
-                  testId="knowledge-scope-group-tag"
-                  onSelect={() => setGroup("tag")}
-                />
+                {allowTags ? (
+                  <GroupEntry
+                    count={allTags.length}
+                    icon={<TagIcon className="size-4" />}
+                    label="标签"
+                    loading={tagsLoading}
+                    testId="knowledge-scope-group-tag"
+                    onSelect={() => setGroup("tag")}
+                  />
+                ) : null}
                 <GroupEntry
                   count={fileQuery.data?.total ?? files.length}
                   icon={<FileTextIcon className="size-4" />}

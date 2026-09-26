@@ -9,6 +9,7 @@ import pytest
 
 from deerflow.config.paths import Paths, join_host_path
 from deerflow.runtime.user_context import reset_current_user, set_current_user
+from deerflow.sandbox.acquire_serialization import AcquireSerializer
 
 # ── ensure_thread_dirs ───────────────────────────────────────────────────────
 
@@ -45,14 +46,39 @@ def test_host_thread_dir_rejects_invalid_thread_id(tmp_path):
 
 
 def _make_provider(tmp_path):
-    """Build a minimal AioSandboxProvider instance without starting the idle checker."""
+    """Build a minimal AioSandboxProvider instance without starting the idle checker.
+
+    ``tmp_path`` is accepted and ignored: ownership no longer lives on disk. Each
+    provider gets its own in-process ownership store, so it owns every sandbox it
+    tracks — cross-instance behaviour is covered in
+    ``test_sandbox_orphan_reconciliation.py`` (shared store) and
+    ``test_sandbox_ownership_store.py`` (store contract).
+    """
+    from deerflow.community.aio_sandbox.ownership.memory import MemoryOwnershipStore
+    from deerflow.config.sandbox_config import SandboxOwnershipConfig
+
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
     with patch.object(aio_mod.AioSandboxProvider, "_start_idle_checker"):
         provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
-        provider._config = {}
+        provider._config = {"idle_timeout": 600, "replicas": 3}
         provider._sandboxes = {}
+        provider._sandbox_infos = {}
+        provider._thread_sandboxes = {}
+        provider._last_activity = {}
+        provider._warm_pool = {}
+        provider._unowned_since = {}
+        provider._local_teardown = set()
+        provider._acquire_epoch = {}
+        provider._acquire_epoch_counter = 0
+        provider._acquire_inflight = {}
+        provider._acquire_serializer = AcquireSerializer(thread_name_prefix="aio-sandbox-lock-wait")
         provider._lock = MagicMock()
         provider._idle_checker_stop = MagicMock()
+        provider._renewal_stop = MagicMock()
+        provider._renewal_thread = None
+        provider._owner_id = "test-worker"
+        provider._ownership_config = SandboxOwnershipConfig()
+        provider._ownership = MemoryOwnershipStore(owner_id="test-worker", ttl_seconds=600)
     return provider
 
 
@@ -252,21 +278,35 @@ async def test_discover_or_create_with_lock_async_offloads_lock_file_open_and_cl
 
 
 @pytest.mark.anyio
-async def test_acquire_thread_lock_async_uses_dedicated_executor(monkeypatch):
+async def test_acquire_async_lock_wait_uses_dedicated_executor(tmp_path, monkeypatch):
     """Per-thread lock waits should not consume the default asyncio.to_thread pool."""
     aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
-    lock = aio_mod.threading.Lock()
+    provider = _make_provider(tmp_path)
 
-    async def fail_to_thread(*_args, **_kwargs):
+    async def fail_to_thread(func, *args, **kwargs):
+        if func == provider.validate_employee_skills:
+            return func(*args, **kwargs)
         raise AssertionError("thread-lock acquisition must not use asyncio.to_thread")
 
     monkeypatch.setattr(aio_mod.asyncio, "to_thread", fail_to_thread)
 
-    await aio_mod._acquire_thread_lock_async(lock)
+    async def fake_acquire_internal_async(thread_id: str | None, *, user_id: str) -> str:
+        await asyncio.sleep(0)
+        return "sandbox-lock-wait"
+
+    monkeypatch.setattr(provider, "_acquire_internal_async", fake_acquire_internal_async)
+
+    thread_id = "thread-lock-wait"
+    hold = provider._acquire_serializer.hold(provider._thread_key(thread_id, "default"))
+    hold.__enter__()
     try:
-        assert not lock.acquire(blocking=False)
+        waiter = asyncio.create_task(provider.acquire_async(thread_id, user_id="default"))
+        await asyncio.sleep(0.05)
+        assert not waiter.done()
     finally:
-        lock.release()
+        hold.__exit__(None, None, None)
+
+    assert await asyncio.wait_for(waiter, timeout=1) == "sandbox-lock-wait"
 
 
 @pytest.mark.anyio
@@ -282,8 +322,9 @@ async def test_acquire_async_cancellation_does_not_leak_thread_lock(tmp_path):
     provider._lock = aio_mod.threading.Lock()
 
     thread_id = "thread-cancel-lock"
-    thread_lock = provider._get_thread_lock(thread_id, "default")
-    thread_lock.acquire()
+    key = provider._thread_key(thread_id, "default")
+    hold = provider._acquire_serializer.hold(key)
+    hold.__enter__()
 
     task = asyncio.create_task(provider.acquire_async(thread_id, user_id="default"))
     await asyncio.sleep(0.05)
@@ -294,12 +335,10 @@ async def test_acquire_async_cancellation_does_not_leak_thread_lock(tmp_path):
     except asyncio.CancelledError:
         pass
 
-    thread_lock.release()
+    hold.__exit__(None, None, None)
     deadline = asyncio.get_running_loop().time() + 1
     while asyncio.get_running_loop().time() < deadline:
-        acquired = thread_lock.acquire(blocking=False)
-        if acquired:
-            thread_lock.release()
+        if key not in provider._acquire_serializer._table:
             return
         await asyncio.sleep(0.01)
 
@@ -327,8 +366,9 @@ async def test_acquire_async_cancelled_waiter_does_not_block_successor(tmp_path,
     monkeypatch.setattr(provider, "_acquire_internal_async", fake_acquire_internal_async)
 
     thread_id = "thread-successor-lock"
-    thread_lock = provider._get_thread_lock(thread_id, "default")
-    thread_lock.acquire()
+    key = provider._thread_key(thread_id, "default")
+    hold = provider._acquire_serializer.hold(key)
+    hold.__enter__()
 
     cancelled_waiter = asyncio.create_task(provider.acquire_async(thread_id, user_id="default"))
     await asyncio.sleep(0.05)
@@ -339,15 +379,13 @@ async def test_acquire_async_cancelled_waiter_does_not_block_successor(tmp_path,
         pass
 
     live_waiter = asyncio.create_task(provider.acquire_async(thread_id, user_id="default"))
-    thread_lock.release()
+    hold.__exit__(None, None, None)
 
     assert await asyncio.wait_for(live_waiter, timeout=1) == "sandbox-successor"
 
     deadline = asyncio.get_running_loop().time() + 1
     while asyncio.get_running_loop().time() < deadline:
-        acquired = thread_lock.acquire(blocking=False)
-        if acquired:
-            thread_lock.release()
+        if key not in provider._acquire_serializer._table:
             return
         await asyncio.sleep(0.01)
 
@@ -452,6 +490,10 @@ def _make_provider_with_active_sandbox(tmp_path, sandbox_id: str):
     }
     provider._thread_sandboxes = {}
     provider._last_activity = {sandbox_id: 0.0}
+    provider._local_teardown = set()
+    provider._acquire_epoch = {}
+    provider._acquire_epoch_counter = 0
+    provider._acquire_inflight = {}
     provider._shutdown_called = False
     provider._idle_checker_thread = None
     provider._backend = SimpleNamespace(destroy=MagicMock())
@@ -513,6 +555,7 @@ def test_cross_process_execution_lease_blocks_warm_pool_eviction(tmp_path, monke
                 "sandbox-shared",
                 info,
                 reason="idle_timeout",
+                still_reapable=lambda: "sandbox-shared" in gateway._warm_pool,
             )
             is False
         )
@@ -525,6 +568,7 @@ def test_cross_process_execution_lease_blocks_warm_pool_eviction(tmp_path, monke
             "sandbox-shared",
             info,
             reason="idle_timeout",
+            still_reapable=lambda: "sandbox-shared" in gateway._warm_pool,
         )
         is True
     )
@@ -756,12 +800,19 @@ def test_cleanup_idle_sandboxes_keeps_active_cleanup_and_delegates_warm_expiry(t
     }
 
     calls = []
-    provider.destroy = MagicMock(side_effect=lambda _sandbox_id: calls.append("active"))
+    # The idle path destroys through `_destroy_tracked`, not `destroy()`: its
+    # "still idle?" re-check has to run in the same critical section that
+    # reserves the teardown, so it is passed down as a predicate. Asserting on
+    # `destroy` here would pass vacuously — it is no longer on this path.
+    provider._destroy_tracked = MagicMock(side_effect=lambda _sandbox_id, **_kw: calls.append("active"))
     provider._reap_expired_warm = MagicMock(side_effect=lambda _idle_timeout: calls.append("warm"))
 
     provider._cleanup_idle_sandboxes(1.0)
 
-    provider.destroy.assert_called_once_with("active-old")
+    assert provider._destroy_tracked.call_count == 1
+    assert provider._destroy_tracked.call_args.args == ("active-old",)
+    # The gate must actually be a live predicate, not a constant-true placeholder.
+    assert provider._destroy_tracked.call_args.kwargs["still_reapable"]() is True
     provider._reap_expired_warm.assert_called_once_with(1.0)
     assert calls == ["active", "warm"]
 

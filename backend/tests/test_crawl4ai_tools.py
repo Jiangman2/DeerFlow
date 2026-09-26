@@ -163,6 +163,14 @@ class TestCrawl4AiClient:
 class TestCrawl4AiTools:
     """Tests for the Crawl4AI tool functions."""
 
+    @pytest.fixture(autouse=True)
+    def public_example_dns(self, monkeypatch):
+        def resolve(host):
+            assert host == "example.com", "Unexpected test DNS lookup: " + host
+            return [ipaddress.ip_address("93.184.216.34")]
+
+        monkeypatch.setattr("deerflow.community.url_safety.resolve_host_addresses", resolve)
+
     @patch("deerflow.community.crawl4ai.tools._build_client")
     async def test_web_fetch_tool_success(self, mock_build):
         from deerflow.community.crawl4ai import tools
@@ -201,7 +209,8 @@ class TestCrawl4AiTools:
         with patch("deerflow.community.crawl4ai.tools._get_tool_config", return_value=None):
             result = await tools.web_fetch_tool.ainvoke("https://example.com")
 
-        assert result.startswith("Error:")
+        assert result == "Error: Crawl4AI returned empty markdown"
+        mock_client.fetch_markdown.assert_called_once()
 
     @patch("deerflow.community.crawl4ai.tools._build_client")
     async def test_web_fetch_tool_exception(self, mock_build):
@@ -214,7 +223,8 @@ class TestCrawl4AiTools:
         with patch("deerflow.community.crawl4ai.tools._get_tool_config", return_value=None):
             result = await tools.web_fetch_tool.ainvoke("https://example.com")
 
-        assert result.startswith("Error:")
+        assert result == "Error: boom"
+        mock_client.fetch_markdown.assert_called_once()
 
     @patch("deerflow.community.crawl4ai.tools._build_client")
     async def test_web_fetch_tool_rejects_metadata_ip(self, mock_build):

@@ -38,8 +38,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+import authoring_roundtrip
 from console_encoding import configure_utf8_stdio
 from config import load_prefixed_env_file
+from pptx_workspace import (
+    AUTHORING_SVG_FLAT_DIR,
+    ROUNDTRIP_MANIFEST_PATH,
+)
 from slide_roster import discover_slide_svgs
 from tts_backends import (
     backend_cosyvoice,
@@ -137,7 +142,11 @@ def _prepare_audio_jobs(
 
 
 def _expected_note_roster(project: Path) -> list[NoteRosterEntry]:
-    """Resolve the owning route's complete per-slide notes roster."""
+    """Resolve the owning route's complete per-slide notes roster.
+
+    Round-trip workspaces follow their validated page plan or identity roster,
+    including source-note inheritance for copied output pages.
+    """
     notes_dir = project / "notes"
     svg_files = discover_slide_svgs(project / "svg_output")
     if svg_files:
@@ -204,6 +213,43 @@ def _expected_note_roster(project: Path) -> list[NoteRosterEntry]:
             )
         return note_roster
 
+    roundtrip_manifest_path = project / ROUNDTRIP_MANIFEST_PATH
+    authoring_dir = project / AUTHORING_SVG_FLAT_DIR
+    if roundtrip_manifest_path.is_file() and authoring_dir.is_dir():
+        try:
+            _, _, documents, _, _ = authoring_roundtrip._load_documents(
+                project.resolve(),
+                authoring_dir.resolve(),
+            )
+            pages, _ = authoring_roundtrip._load_page_plan(
+                project.resolve(),
+                authoring_dir.resolve(),
+                documents,
+            )
+        except authoring_roundtrip.AuthoringRoundtripError as exc:
+            raise ValueError(f"invalid round-trip notes roster: {exc}") from exc
+
+        note_roster: list[NoteRosterEntry] = []
+        missing_stems: list[str] = []
+        for page in pages:
+            note_path = notes_dir / f"{page.svg_stem}.md"
+            if not note_path.is_file() and page.svg_name != page.source_svg_name:
+                source_stem = Path(page.source_svg_name).stem
+                note_path = notes_dir / f"{source_stem}.md"
+            if not note_path.is_file():
+                missing_stems.append(page.svg_stem)
+                continue
+            note_roster.append(NoteRosterEntry(
+                note_path=note_path,
+                output_stem=page.svg_stem,
+            ))
+        if missing_stems:
+            raise ValueError(
+                "round-trip per-slide notes are incomplete; missing stems: "
+                + ", ".join(missing_stems)
+            )
+        return note_roster
+
     return [
         NoteRosterEntry(
             note_path=path,
@@ -237,6 +283,8 @@ def _provider_manifest_details(
     if backend.provider == "edge":
         return "edge-tts", {
             "rate": args.rate,
+            "pitch": args.pitch,
+            "volume": args.volume,
         }
     if backend.provider == "elevenlabs":
         return args.elevenlabs_model, {
@@ -334,6 +382,8 @@ async def _generate_edge_jobs(
     *,
     voice: str,
     rate: str,
+    pitch: str = "+0Hz",
+    volume: str = "+0%",
     subtitle_max_chars: int,
     concurrency: int,
 ) -> list[BaseException | None]:
@@ -347,6 +397,8 @@ async def _generate_edge_jobs(
                 job.output_path,
                 voice=voice,
                 rate=rate,
+                pitch=pitch,
+                volume=volume,
                 subtitle_path=subtitle_dir / f"{job.output_path.stem}.srt",
                 subtitle_max_chars=subtitle_max_chars,
             )
@@ -361,7 +413,26 @@ async def _generate_edge_jobs(
     ]
 
 
-def main() -> int:
+def _normalize_voice_option_args(argv: list[str]) -> list[str]:
+    """Keep signed voice values from being interpreted as argparse options."""
+    normalized: list[str] = []
+    index = 0
+    while index < len(argv):
+        option = argv[index]
+        if (
+            option in {"--rate", "--pitch", "--volume"}
+            and index + 1 < len(argv)
+            and re.fullmatch(r"-\d+(?:\.\d+)?(?:%|Hz)?", argv[index + 1])
+        ):
+            normalized.append(f"{option}={argv[index + 1]}")
+            index += 2
+        else:
+            normalized.append(option)
+            index += 1
+    return normalized
+
+
+def main(argv: list[str] | None = None) -> int:
     _load_tts_env_file()
 
     parser = argparse.ArgumentParser(
@@ -390,6 +461,14 @@ def main() -> int:
         "--rate",
         default="+0%",
         help='edge-tts speaking rate, e.g. "+0%%", "-10%%", "+15%%" (default: +0%%). Ignored by cloud providers.',
+    )
+    parser.add_argument(
+        "--pitch", default="+0Hz",
+        help="edge-tts pitch adjustment (default: +0Hz). Ignored by cloud providers.",
+    )
+    parser.add_argument(
+        "--volume", default="+0%",
+        help="edge-tts volume adjustment (default: +0%%). Ignored by cloud providers.",
     )
     parser.add_argument(
         "--concurrency",
@@ -514,7 +593,9 @@ def main() -> int:
     parser.add_argument("--list-common-voices", action="store_true", help="print a curated voice list and exit")
     parser.add_argument("--list-voices", action="store_true", help="query provider voices and exit")
     parser.add_argument("--locale", default=None, help='filter --list-voices by locale, e.g. "zh-CN"')
-    args = parser.parse_args()
+    args = parser.parse_args(_normalize_voice_option_args(
+        sys.argv[1:] if argv is None else argv
+    ))
 
     if args.list_common_voices:
         backend_edge.print_common_voices()
@@ -696,6 +777,8 @@ def main() -> int:
                 subtitle_dir,
                 voice=args.voice,
                 rate=args.rate,
+                pitch=args.pitch,
+                volume=args.volume,
                 subtitle_max_chars=args.subtitle_max_chars,
                 concurrency=args.concurrency,
             ))

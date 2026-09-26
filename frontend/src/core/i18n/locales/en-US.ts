@@ -23,6 +23,7 @@ export const enUS: Translations = {
     delete: "Delete",
     edit: "Edit",
     rename: "Rename",
+    renameFailed: "Failed to rename thread.",
     share: "Share",
     openInNewWindow: "Open in new window",
     close: "Close",
@@ -145,10 +146,13 @@ export const enUS: Translations = {
     truncatedUnavailable: "Diff omitted because the change set is too large.",
     truncatedSummary: "Some changes were truncated.",
     symlinkUnavailable: "Symlink change. Diff unavailable.",
+    symlinkCreated: "Replaced by symlink",
   },
 
   // Input Box
   inputBox: {
+    employeeSkillsLoading: "Loading this employee's authorized skills…",
+    employeeSkillsUnavailable: "This employee's skills are unavailable. Refresh to retry; personal skills will not be substituted.",
     placeholder: "How can I assist you today?",
     createSkillPrompt:
       "We're going to build a new skill step by step with `skill-creator`. To start, what do you want this skill to do?",
@@ -608,6 +612,8 @@ export const enUS: Translations = {
     unpublishConfirm:
       "Are you sure you want to remove this digital employee from the square?",
     publishSuccess: "Digital employee published to the square",
+    publicationConflict:
+      "The publication changed. Review the refreshed version before publishing or withdrawing again.",
     unpublishSuccess: "Digital employee removed from the square",
     chat: "Start work",
     viewProfile: "View profile",
@@ -618,8 +624,10 @@ export const enUS: Translations = {
     skills: "Skills",
     delete: "Delete",
     deleteConfirm:
-      "Are you sure you want to delete this digital employee? This action cannot be undone.",
+      "Remove this digital employee from your personal list? Published Square versions remain available. There is no undo here; recovery requires an administrator to review retained records.",
     deleteSuccess: "Digital employee deleted",
+    deleteConflict: "This employee changed after you opened this confirmation. Deletion was rejected. Close and reopen to review the latest draft before deciding again.",
+    deleteUnconfirmed: "Deletion could not be confirmed. Do not repeat this request; close and reopen to check the employee's current state.",
     newChat: "New chat",
     createPageTitle: "New Digital Employee",
     createPageSubtitle:
@@ -653,6 +661,33 @@ export const enUS: Translations = {
     initialDescription: "Initial description: {value}",
     initialCategory: "Initial business domain: {value}",
     initialTags: "Initial tags: {value}",
+    initialSkills:
+      "Skills selected in the creation form: {value}. Bind only these within my current permissions; do not add others.",
+    profileSaveError:
+      "The employee draft was saved, but its form settings could not be saved. Retry saving before publishing.",
+    skillSelectionTitle: "Employee skills",
+    knowledgeSelectionTitle: "Employee knowledge",
+    knowledgeSelectionHint:
+      "Choose bases or documents you can access. Saving rechecks access. Publishing bound knowledge additionally requires owner-approved invocation sharing; it does not grant browsing or downloading.",
+    knowledgeInherit: "Choose in chat",
+    knowledgeDisabled: "No knowledge",
+    knowledgeSelected: "Bind a scope",
+    knowledgeSelectionRequired:
+      "Select 1–20 bases or documents, or switch to No knowledge.",
+    selectedSourceUnavailable:
+      "The selected employee is unavailable or could not be verified. Return to the directory and retry; no same-name employee will be substituted.",
+    skillSelectionHint:
+      "Only your enabled skills are listed. Selection is not permission to delegate them to Square users; publication requires a separate check. Creator API keys are never shared.",
+    skillsInherit: "Follow current user",
+    skillsExplicit: "Choose explicitly",
+    skillsSearch: "Search skill names or descriptions",
+    skillsLoadError:
+      "Could not load the skill catalog. Your selection was preserved. Refresh and retry.",
+    skillsEmpty: "No matching available skills",
+    skillsUnavailable:
+      "Disabled or unavailable; remove it or restore access before saving",
+    skillsEmptyMeansNone: "An empty selection means no skills",
+    skillsClear: "Clear selection",
     save: "Save digital employee",
     saving: "Saving digital employee...",
     saveRequested:
@@ -673,6 +708,10 @@ export const enUS: Translations = {
     capabilities: "Tags and capabilities",
     edit: "Edit details",
     settingsTitle: "Edit digital employee",
+    draftConflict: "This employee has changed in another session. Your input has been kept; copy it before closing, then reopen to review the latest version. The conflicting request was rejected.",
+    avatarPartialSave: "Employee details were saved, but the avatar update could not be confirmed. Your selected image and input are retained. Reopen the draft to verify the current avatar before retrying.",
+    draftLoadFailed: "The current private draft could not be verified. Editing is blocked; retry or close this window.",
+    draftRetry: "Retry loading draft",
     settingsDescription:
       "Update the display name, description, business domain, tags, and avatar.",
     displayName: "Display name",
@@ -851,7 +890,7 @@ export const enUS: Translations = {
       telegram: "Telegram direct messages through your 本平台 bot.",
       slack: "Slack workspace messages and mentions.",
       discord: "Discord server messages through your 本平台 bot.",
-      feishu: "Feishu and Lark messages through your 本平台 app.",
+      feishu: "Messages through your 海能 Work app.",
       dingtalk: "DingTalk Stream Push messages through your 本平台 bot.",
       wechat: "WeChat iLink messages through your 本平台 bot.",
       wecom: "WeCom messages through your 本平台 AI bot.",
@@ -861,7 +900,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中海油勘探开发智能体",
+    appName: "中国海油通用智能体",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",

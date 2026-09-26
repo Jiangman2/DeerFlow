@@ -1,6 +1,6 @@
 # Isolated PPT Master Agent Host
 
-Explicit `/ppt-master` tasks use the vendored upstream `ppt-master` v4.5.0
+Explicit `/ppt-master` tasks use the vendored upstream `ppt-master` v6.6.0
 package through a real external Agent CLI. DeerFlow does not reinterpret that
 Skill as a second LangChain Agent.
 
@@ -33,8 +33,11 @@ both reach the transport by the stable `ppt-master-runner:8003` service name.
 
 ## Upstream Skill and writable state
 
-The public Skills volume stays read-only. Before a turn, the host computes the
-mounted package hash and atomically refreshes an exact copy at:
+The public Skills volume stays read-only. The release image carries the locked
+upstream tree at `/opt/ppt-master-release-skill`; this immutable image content,
+not the mutable shared Skills PVC, is the source of truth used by Agent Host.
+Before a turn, the host computes that release tree's package hash and atomically
+refreshes an exact writable copy at:
 
 `/mnt/user-data/workspace/.ppt-master-runtime`
 
@@ -65,8 +68,21 @@ DeerFlow retains only these duties:
 
 Raw model reasoning events are neither displayed nor persisted. The bridge does
 not decide route, stage order, template semantics, schema validity, retry
-policy, or phase progression. Those remain owned by the v4.5.0 Skill documents
+policy, or phase progression. Those remain owned by the v6.6.0 Skill documents
 and scripts.
+
+The vendored tree is locked to the upstream v6.6.0 tag, commit, and Skill tree
+recorded in `docker/sandbox-ppt-master/PPT_MASTER_UPSTREAM.env`. The maintained
+enterprise delta inside that tree is limited to the CNOOC Deck registration and
+safe explicit-argv process launching with `shell=False`. v6.6.0's runtime
+authorities remain upstream-owned: Image-to-PPTX and Beautify choose their
+documented child runtime, and the removed v4.5 native-enhance/template-fill
+routes are not reintroduced by DeerFlow.
+
+The production AIO base currently uses Python 3.10. Agent Host and the runtime
+capability probe therefore use `tomli` as the compatibility provider for the
+Python 3.11 `tomllib` API; the dependency is installed in the release image and
+is never fetched during a conversation.
 
 The Gateway API and `ppt-master-runner` are separate Pods and therefore do not
 share their in-memory active/warm Sandbox maps or readiness failure domain.
@@ -135,9 +151,32 @@ The checked-in Kubernetes configuration deliberately uses two provider paths:
   `trust_env=false`; normal CA and hostname verification are never replaced by
   `verify=false`.
 
+The enterprise Provisioner sets `PPT_MASTER_AGENT_CODEX_CONFIG_TOML` and
+`PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON` only on the Agent Host container as
+`CODEX_CONFIG_TOML` and `CODEX_MODEL_CATALOG_JSON`. The ordinary Sandbox keeps
+its inherited Codex configuration. When
+`PPT_MASTER_ENTERPRISE_RELAY_REQUIRED=true`, creation fails closed if either
+Agent-only profile value is absent. Do not replace the Provisioner's shared
+`CODEX_*` settings merely to make the PPT canary pass.
+
 `PPT_MASTER_RESPONSES_RELAY_KEY` must be generated independently from every
 upstream model credential and be identical in Gateway and the provisioned Agent
 host. The ordinary AIO Sandbox container must not receive it.
+
+Enterprise presentation media uses a separate least-privilege capability set
+inside the co-scheduled Agent host. `DASHSCOPE_API_KEY` enables the official
+`qwen-image-2.0-pro` image backend and optional `qwen3-tts-flash` narration.
+Set `QWEN_TTS_BASE_URL=https://dashscope.aliyuncs.com` explicitly so mainland
+credentials do not fall through to the upstream script's international default.
+`PEXELS_API_KEY` and `PIXABAY_API_KEY` remain optional because the official
+search tool retains Openverse and Wikimedia zero-key fallbacks. Release
+preflight must execute one real Agent/Codex/Responses turn, one generated image,
+one narration sample, one licensed-image search, and the local Office/browser/
+audio-video conversion toolchain from the target immutable Agent Host image.
+Enterprise rollout also needs a real two-container Pod: the pinned, previously
+validated AIO image must answer its authenticated command API and execute a
+short command, while the Agent Host image must answer its own health endpoint.
+An Agent-Host-only probe cannot establish AIO Sandbox readiness.
 
 Missing credentials/configuration fail before a billable Agent turn starts.
 The bridge never silently falls back to DeerFlow's lead Agent or to the removed
@@ -159,9 +198,14 @@ To schedule these Pods on multiple workers, user-data must be RWX (or an
 equivalent shared filesystem) because it contains uploads, projects, Agent
 sessions, events, outputs, and preview files. Skills must be available through
 ROX/RWX storage or baked immutably into the image. Every eligible worker must
-preload the exact release-pinned Sandbox image when `imagePullPolicy: Never` is
-used. The checked-in enterprise local-PV profile remains intentionally
-single-node/single-Gateway until those storage and distributed run-ownership
+preload both the proven AIO Sandbox image and the separate PPT Agent Host image
+when `imagePullPolicy: Never` is used. Enterprise Provisioner configuration
+must set a distinct `PPT_MASTER_AGENT_HOST_IMAGE`; the relay-required profile
+rejects a missing or shared image. A release preflight must start a Pod with
+both actual containers and verify AIO port 8080 command execution and Agent
+Host port 8788 health before changing production workloads. The checked-in
+enterprise local-PV profile remains intentionally single-node/single-Gateway
+until those storage and distributed run-ownership
 requirements are met.
 
 ## Migration

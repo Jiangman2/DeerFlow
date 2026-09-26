@@ -131,9 +131,9 @@ def test_apply_prompt_template_uses_enterprise_identity(monkeypatch):
 
     prompt = prompt_module.apply_prompt_template(app_config=config)
 
-    assert "中海油勘探开发智能体" in prompt
+    assert "中国海油通用智能体" in prompt
     assert "面向油气勘探开发业务的企业级多智能体工作平台" in prompt
-    assert "DeerFlow" not in prompt
+    assert "You are DeerFlow" not in prompt
     assert "github.com/bytedance" not in prompt
     assert "The product identity above describes who you are, not the content or visual" in prompt
     assert "Do not add the product name, organization name" in prompt
@@ -293,7 +293,7 @@ def test_apply_prompt_template_clamps_subagent_limits_to_enforced_bounds(monkeyp
         app_config=explicit_config,
     )
 
-    assert "MAXIMUM 4 `task` CALLS PER RESPONSE" in prompt
+    assert "MAXIMUM 3 `task` CALLS PER RESPONSE" in prompt
     assert "MAXIMUM 50 `task` CALLS PER RUN" in prompt
 
 
@@ -336,7 +336,7 @@ def test_apply_prompt_template_single_subagent_limit_matches_middleware(monkeypa
     )
 
     assert f"MAXIMUM {enforced} `task` CALLS PER RESPONSE" in prompt
-    assert f"HARD LIMITS: max {enforced} `task` calls per response" in prompt
+    assert f"HARD LIMITS ARE NON-NEGOTIABLE: max {enforced} `task` calls per response" in prompt
 
 
 def test_build_acp_section_uses_explicit_app_config_without_global_config(monkeypatch):

@@ -48,6 +48,7 @@ from deerflow.agents.middlewares.safety_termination_detectors import (
     default_detectors,
 )
 from deerflow.agents.middlewares.tool_call_metadata import clone_ai_message_with_tool_calls
+from deerflow.runtime.events.catalog import MIDDLEWARE_SAFETY_TERMINATION_TAG
 
 if TYPE_CHECKING:
     from deerflow.config.safety_finish_reason_config import SafetyFinishReasonConfig
@@ -251,7 +252,7 @@ class SafetyFinishReasonMiddleware(AgentMiddleware[AgentState]):
 
         try:
             journal.record_middleware(
-                tag="safety_termination",
+                tag=MIDDLEWARE_SAFETY_TERMINATION_TAG,
                 name=type(self).__name__,
                 hook="after_model",
                 action="suppress_tool_calls",
@@ -259,7 +260,7 @@ class SafetyFinishReasonMiddleware(AgentMiddleware[AgentState]):
             )
         except Exception:  # noqa: BLE001
             # Audit-event persistence must never break agent execution.
-            logger.debug("Failed to record middleware:safety_termination event", exc_info=True)
+            logger.warning("Failed to record middleware:safety_termination event", exc_info=True)
 
     # ----- main apply ------------------------------------------------------
 

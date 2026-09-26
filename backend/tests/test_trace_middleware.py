@@ -30,13 +30,13 @@ def _make_app(*, enabled: bool) -> FastAPI:
     return app
 
 
-def test_trace_header_absent_when_disabled() -> None:
+def test_legacy_disabled_argument_cannot_disable_http_trace() -> None:
     client = TestClient(_make_app(enabled=False))
 
     response = client.get("/plain")
 
-    assert TRACE_ID_HEADER not in response.headers
-    assert response.json() == {"trace_id": None}
+    assert response.headers[TRACE_ID_HEADER]
+    assert response.json() == {"trace_id": response.headers[TRACE_ID_HEADER]}
 
 
 def test_trace_header_inherits_inbound_value_and_binds_context() -> None:
@@ -122,13 +122,8 @@ def test_trace_header_rejects_crafted_c1_control_and_generates_fresh_id() -> Non
     assert all(0x20 <= ord(ch) <= 0x7E for ch in returned), returned
 
 
-def test_enabled_is_a_startup_snapshot_not_a_live_read() -> None:
-    """`logging` is startup-only (see reload_boundary.STARTUP_ONLY_FIELDS), so
-    the middleware must capture the flag by value at construction time. A
-    later mutation of the source object must not flip request-time behavior,
-    otherwise the response `X-Trace-Id` would drift out of sync with the
-    log formatter installed once by `configure_logging()` at startup.
-    """
+def test_legacy_flag_mutation_does_not_affect_http_trace() -> None:
+    """Only log formatting retains the startup-only logging contract."""
     source = {"enabled": True}
     app = FastAPI()
     app.add_middleware(TraceMiddleware, enabled=source["enabled"])
@@ -160,21 +155,24 @@ def test_resolve_trace_enabled_defaults_to_false_when_fields_missing() -> None:
     assert resolve_trace_enabled(SimpleNamespace(logging=SimpleNamespace(enhance=None))) is False
 
 
-def test_gateway_app_construction_trace_flag_defaults_false_when_config_missing(monkeypatch) -> None:
+def test_gateway_app_construction_does_not_load_trace_config(monkeypatch) -> None:
     import app.gateway.app as gateway_app
 
     def missing_config():
-        raise FileNotFoundError("no config")
+        raise AssertionError("HTTP trace must not read config during app construction")
 
     monkeypatch.setattr(gateway_app, "get_app_config", missing_config)
 
-    assert gateway_app._resolve_trace_enabled_for_app_construction() is False
+    response = TestClient(gateway_app.create_app()).get("/health")
+    assert response.status_code == 200
+    assert response.headers[TRACE_ID_HEADER]
 
 
-def test_gateway_app_construction_trace_flag_uses_config_snapshot(monkeypatch) -> None:
+def test_gateway_app_construction_traces_with_logging_disabled(monkeypatch) -> None:
     import app.gateway.app as gateway_app
 
-    config = SimpleNamespace(logging=SimpleNamespace(enhance=SimpleNamespace(enabled=True)))
+    config = SimpleNamespace(logging=SimpleNamespace(enhance=SimpleNamespace(enabled=False)))
     monkeypatch.setattr(gateway_app, "get_app_config", lambda: config)
 
-    assert gateway_app._resolve_trace_enabled_for_app_construction() is True
+    response = TestClient(gateway_app.create_app()).get("/health", headers={TRACE_ID_HEADER: "always-on"})
+    assert response.headers[TRACE_ID_HEADER] == "always-on"

@@ -87,6 +87,36 @@ class _RejectDeepcopy:
 
 
 @pytest.mark.asyncio
+async def test_manual_compaction_uses_server_publication_binding_to_disable_memory(tmp_path, monkeypatch):
+    from deerflow.config.app_config import AppConfig
+    from deerflow.config.paths import Paths
+    from deerflow.config.sandbox_config import SandboxConfig
+    from deerflow.persistence.agents.publications import TeamPublicationStore
+    from deerflow.persistence.agents.runtime import EmployeePublicationBindings
+
+    paths = Paths(base_dir=tmp_path)
+    monkeypatch.setattr("deerflow.runtime.employee_resources.get_paths", lambda: paths)
+    publications = TeamPublicationStore(paths)
+    publications.publish("reports", owner="alice", config={"skills": []}, soul="shared", avatar=None, expected_revision=None)
+    EmployeePublicationBindings(paths).admit("thread-1", user_id="bob", name="reports", source="team")
+    original = AppConfig(models=[], sandbox=SandboxConfig(use="deerflow.sandbox.local:LocalSandboxProvider"))
+    captured = []
+
+    def create(**kwargs):
+        captured.append(kwargs["app_config"].memory)
+        return _FakeCompactionMiddleware()
+
+    monkeypatch.setattr(context_compaction, "_create_compaction_middleware", create)
+    for user_id in ("bob", "alice"):
+        checkpointer = _FakeCheckpointer({"channel_values": {"messages": [HumanMessage(content="old"), HumanMessage(content="latest")]}})
+        result = await compact_thread_context(checkpointer, "thread-1", user_id=user_id, app_config=original)
+        assert result.compacted and checkpointer.put_args is not None
+    assert not captured[0].enabled and not captured[0].injection_enabled
+    assert captured[1].enabled and captured[1].injection_enabled
+    assert original.memory.enabled  # Never mutate global/personal settings.
+
+
+@pytest.mark.asyncio
 async def test_compact_thread_context_writes_summary_and_bumps_changed_channels(monkeypatch):
     messages = [
         HumanMessage(content="old question"),

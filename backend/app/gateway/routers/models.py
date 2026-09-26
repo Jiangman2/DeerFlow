@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.gateway.deps import get_config
+from app.gateway.request_authorization import resolve_request_authorization
 from deerflow.config.app_config import AppConfig
 
 router = APIRouter(prefix="/api", tags=["models"])
@@ -37,7 +38,7 @@ class ModelsListResponse(BaseModel):
     summary="List All Models",
     description="Retrieve a list of all available AI models configured in the system.",
 )
-async def list_models(config: AppConfig = Depends(get_config)) -> ModelsListResponse:
+async def list_models(request: Request, config: AppConfig = Depends(get_config)) -> ModelsListResponse:
     """List all available models from configuration.
 
     Returns model information suitable for frontend display,
@@ -73,6 +74,8 @@ async def list_models(config: AppConfig = Depends(get_config)) -> ModelsListResp
         }
         ```
     """
+    authorization = await resolve_request_authorization(request)
+    visible = set(await authorization.filter_models([model.name for model in config.models]))
     models = [
         ModelResponse(
             name=model.name,
@@ -83,6 +86,7 @@ async def list_models(config: AppConfig = Depends(get_config)) -> ModelsListResp
             supports_reasoning_effort=model.supports_reasoning_effort,
         )
         for model in config.models
+        if model.name in visible
     ]
     return ModelsListResponse(
         models=models,
@@ -96,7 +100,7 @@ async def list_models(config: AppConfig = Depends(get_config)) -> ModelsListResp
     summary="Get Model Details",
     description="Retrieve detailed information about a specific AI model by its name.",
 )
-async def get_model(model_name: str, config: AppConfig = Depends(get_config)) -> ModelResponse:
+async def get_model(model_name: str, request: Request, config: AppConfig = Depends(get_config)) -> ModelResponse:
     """Get a specific model by name.
 
     Args:
@@ -121,6 +125,10 @@ async def get_model(model_name: str, config: AppConfig = Depends(get_config)) ->
     model = config.get_model_config(model_name)
     if model is None:
         raise HTTPException(status_code=404, detail=f"Model '{model_name}' not found")
+
+    authorization = await resolve_request_authorization(request)
+    if not await authorization.allowed("model", "use", model_name):
+        raise HTTPException(status_code=403, detail=f"Model '{model_name}' is not available for your role")
 
     return ModelResponse(
         name=model.name,

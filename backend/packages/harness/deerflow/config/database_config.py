@@ -34,7 +34,9 @@ from __future__ import annotations
 import os
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from deerflow.config.postgres_schema import POSTGRES_SCHEMA_PATTERN, validate_postgres_schema
 
 
 class DatabaseConfig(BaseModel):
@@ -55,6 +57,20 @@ class DatabaseConfig(BaseModel):
             "(the +asyncpg driver suffix is added automatically where needed)."
         ),
     )
+    postgres_schema: str = Field(
+        default="",
+        description=(
+            "PostgreSQL schema shared by application, agent, checkpointer and store tables. "
+            "Empty keeps the server default search_path. Opt-in, restart required; does not move existing data. "
+            f"Plain lowercase identifiers only: {POSTGRES_SCHEMA_PATTERN}."
+        ),
+    )
+
+    @field_validator("postgres_schema")
+    @classmethod
+    def _validate_postgres_schema(cls, value: str) -> str:
+        return validate_postgres_schema(value)
+
     echo_sql: bool = Field(
         default=False,
         description="Echo all SQL statements to log (debug only).",
@@ -62,6 +78,16 @@ class DatabaseConfig(BaseModel):
     pool_size: int = Field(
         default=5,
         description="Connection pool size for the app ORM engine (postgres only).",
+    )
+    pool_recycle: int = Field(
+        default=300,
+        gt=0,
+        description="Seconds before app ORM PostgreSQL connections are recycled.",
+    )
+    command_timeout: float | None = Field(
+        default=30,
+        gt=0,
+        description="Timeout in seconds for app ORM PostgreSQL commands. Set to null to disable the command timeout.",
     )
 
     # -- Derived helpers (not user-configured) --
@@ -117,10 +143,19 @@ class DatabaseConfig(BaseModel):
         if self.backend == "postgres":
             url = self.postgres_url
             if url.startswith("postgresql+asyncpg://"):
-                return url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
-            if url.startswith("postgresql://"):
-                return url.replace("postgresql://", "postgresql+psycopg://", 1)
-            if url.startswith("postgres://"):
-                return url.replace("postgres://", "postgresql+psycopg://", 1)
+                url = url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
+            elif url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+            elif url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+psycopg://", 1)
+            if self.postgres_schema:
+                from sqlalchemy.engine import make_url
+
+                from deerflow.persistence.postgres_schema import dsn_with_search_path
+
+                # The URL is also the employee connection-pool cache key.
+                # Include schema while retaining driver, credentials and other options.
+                driver = make_url(url).drivername
+                url = make_url(dsn_with_search_path(url, self.postgres_schema)).set(drivername=driver).render_as_string(hide_password=False)
             return url
         raise ValueError(f"No synchronous SQLAlchemy URL for backend={self.backend!r}")

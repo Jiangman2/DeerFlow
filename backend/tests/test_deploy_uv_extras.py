@@ -20,6 +20,23 @@ def test_backend_dockerfile_defaults_direct_builds_to_postgres():
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _run_stubbed_deploy(worktree: Path, env: dict[str, str]) -> None:
+    result = subprocess.run(
+        ["bash", str(worktree / "scripts" / "deploy.sh"), "build"],
+        cwd=worktree,
+        env={
+            **env,
+            "DEER_FLOW_HOME": str(worktree / "backend" / ".deer-flow"),
+            "DEER_FLOW_CONFIG_PATH": str(worktree / "config.yaml"),
+            "DEER_FLOW_EXTENSIONS_CONFIG_PATH": str(worktree / "extensions_config.json"),
+        },
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def _backend_dockerfile_uv_sync_script() -> str:
     dockerfile = (REPO_ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
     match = re.search(r"""sh -c (?P<quote>["'])(?P<script>.*?uv sync.*?)(?P=quote)""", dockerfile, re.S)
@@ -126,14 +143,7 @@ def test_deploy_build_auto_detects_postgres_extra_when_other_extras_are_enabled(
     env["CAPTURE_UV_EXTRAS"] = str(capture)
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
 
-    subprocess.run(
-        ["bash", str(worktree / "scripts" / "deploy.sh"), "build"],
-        cwd=worktree,
-        env=env,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
+    _run_stubbed_deploy(worktree, env)
 
     assert capture.read_text(encoding="utf-8") == "discord,postgres"
 
@@ -172,14 +182,7 @@ def test_deploy_uses_dotenv_without_sourcing_shell_syntax(tmp_path):
     env["CAPTURE_DOCKER_ARGS"] = str(capture_args)
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
 
-    subprocess.run(
-        ["bash", str(worktree / "scripts" / "deploy.sh"), "build"],
-        cwd=worktree,
-        env=env,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
+    _run_stubbed_deploy(worktree, env)
 
     assert not marker.exists()
     assert capture_extras.read_text(encoding="utf-8") == "discord"
@@ -224,13 +227,6 @@ def test_deploy_build_auto_detects_postgres_extra_with_python_fallback(tmp_path)
     env["CAPTURE_UV_EXTRAS"] = str(capture)
     env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
 
-    subprocess.run(
-        ["bash", str(worktree / "scripts" / "deploy.sh"), "build"],
-        cwd=worktree,
-        env=env,
-        check=True,
-        text=True,
-        capture_output=True,
-    )
+    _run_stubbed_deploy(worktree, env)
 
     assert capture.read_text(encoding="utf-8") == "postgres"

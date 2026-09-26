@@ -15,7 +15,7 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 31
+config_version: 34
 
 # Optional per-model request pacing (inside a models[] entry):
 # request_admission:
@@ -33,8 +33,9 @@ config_version: 31
 # Log level for deerflow modules (debug/info/warning/error)
 log_level: info
 
-# Request trace correlation for Gateway logs, HTTP response headers, and
-# Langfuse metadata. Disabled by default to preserve existing HTTP/log output.
+# Enhanced log output. Gateway HTTP always returns X-Trace-Id and stamps
+# admitted runs, independent of this switch. Embedded turns also own a trace id;
+# this setting controls its display in log records, not correlation creation.
 logging:
   enhance:
     enabled: false
@@ -1184,6 +1185,18 @@ loop_detection:
 #     - task
 
 # ============================================================================
+# Tool execution receipts (provenance, not proof of correctness)
+# ============================================================================
+
+verification:
+  receipts_enabled: true
+  receipts_render_mode: delegation_only
+  # Selective judge integration remains pending in the enterprise alignment.
+  # Do not enable before the candidate's parent-side acceptance gate is verified.
+  judge_enabled: false
+  judge_model_name: null
+
+# ============================================================================
 # Read-Before-Write File Gate (issue #3857)
 # ============================================================================
 # Blocks write_file (append / overwrite of an existing file) and str_replace
@@ -1370,6 +1383,18 @@ sandbox:
 #   #   DASHSCOPE_TTS_VOICE_FEMALE: Cherry
 #   #   MUSIC_GENERATION_PROVIDER: dashscope
 #   #   DASHSCOPE_MUSIC_MODEL: fun-music-v1
+#
+#   # Cross-instance Sandbox ownership (official #4206/#4221 fix).
+#   # Multiple Gateway Pods or workers that share one provisioner/backend must
+#   # use Redis. Memory ownership is safe only for one Gateway process.
+#   # The lease is renewed independently of idle_timeout and failures are
+#   # fail-closed: an unowned Sandbox is never handed to a run.
+#   # ownership:
+#   #   type: redis
+#   #   redis_url: redis://redis:6379/0
+#   #   renewal_interval_seconds: 30
+#   #   ttl_multiplier: 4
+#   #   key_prefix: deerflow:sandbox:owner
 
 # Option 3: BoxLite micro-VM Sandbox
 # Runs each sandbox as a BoxLite micro-VM. Released boxes stay in an in-process
@@ -1859,9 +1884,22 @@ skill_evolution:
 # database:
 #   backend: postgres
 #   postgres_url: $DATABASE_URL
+#   # Optional, restart-required. Empty retains the server's existing search_path.
+#   # Applies to app/Alembic, employee definitions, LangGraph checkpoints and Store.
+#   # Does NOT migrate data from public. Do not set this on an existing deployment
+#   # without a separately reviewed data migration, including alembic_version,
+#   # all enterprise tables and LangGraph-owned tables. Back up and verify first.
+#   # The deprecated checkpointer section, if present, overrides this schema for
+#   # checkpoint/Store only via checkpointer.postgres_schema.
+#   postgres_schema: ""
 database:
   backend: sqlite
   sqlite_dir: .deer-flow/data
+  # App ORM PostgreSQL only. Infrastructure settings require a process restart.
+  pool_recycle: 300
+  # Command timeout is independent of HTTP/proxy timeouts; null disables it.
+  # Override explicitly for audited operations that intentionally take longer.
+  command_timeout: 30
 
 # ============================================================================
 # Run Events Configuration
@@ -1925,6 +1963,9 @@ scheduler:
 # grace_seconds if your environment cannot keep clocks within a few seconds;
 # the trade-off is longer recovery latency for genuinely dead workers
 # (lease_seconds + grace_seconds from last heartbeat to reclaim).
+# The owning worker does not use grace_seconds as extra execution time.
+# Unconfirmed renewal at the last durable deadline fences local execution and
+# finalization; peer grace is only a reclamation delay, not a renewal extension.
 
 run_ownership:
   lease_seconds: 30           # Seconds before a run lease expires if not renewed.

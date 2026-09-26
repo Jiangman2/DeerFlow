@@ -127,8 +127,9 @@ def test_weknora_allows_only_reviewed_internal_model_endpoints_through_ssrf_guar
     assert env["SSRF_WHITELIST_EXTRA"].split(",") == [
         "model.ai.cnooc",
         "gateway",
+        "aiapi.cnooc.com.cn",
     ]
-    for hostname in ("model.ai.cnooc", "gateway"):
+    for hostname in ("model.ai.cnooc", "gateway", "aiapi.cnooc.com.cn"):
         assert hostname in env["NO_PROXY"].split(",")
         assert hostname in env["no_proxy"].split(",")
     assert env_entries["LLM_API_KEY"]["valueFrom"]["secretKeyRef"] == {

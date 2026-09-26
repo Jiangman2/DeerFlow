@@ -240,6 +240,23 @@ class TestBrowserlessClient:
 class TestBrowserlessTools:
     """Tests for the Browserless tool functions."""
 
+    @pytest.fixture(autouse=True)
+    def public_example_dns(self, monkeypatch):
+        def resolve(host):
+            assert host == "example.com", "Unexpected test DNS lookup: " + host
+            return [ipaddress.ip_address("93.184.216.34")]
+
+        monkeypatch.setattr(tools, "_resolve_host_addresses", resolve)
+
+    @pytest.fixture(autouse=True)
+    def article_parser(self, monkeypatch):
+        # These are Browserless transport/policy tests. Readabilipy's JS
+        # implementation may bootstrap npm on a minimal offline test image.
+        parser = MagicMock()
+        parser.extract_article.return_value = SimpleNamespace(to_markdown=lambda: "# Title\n\nContent")
+        monkeypatch.setattr(tools, "_readability_extractor", parser)
+        return parser
+
     async def test_get_browserless_client_uses_env_token_fallback(self):
         """Browserless tools use BROWSERLESS_TOKEN when config omits token."""
         with patch("deerflow.community.browserless.tools._get_tool_config") as mock_cfg:
@@ -250,7 +267,7 @@ class TestBrowserlessTools:
         assert client.token == "env-token"
 
     @patch("deerflow.community.browserless.tools._get_browserless_client")
-    async def test_web_fetch_tool_success(self, mock_get_client):
+    async def test_web_fetch_tool_success(self, mock_get_client, article_parser):
         """web_fetch_tool successfully fetches and extracts content."""
         mock_client = MagicMock()
         mock_client.fetch_html = AsyncMock(return_value="<html><body><article><h1>Title</h1><p>Content</p></article></body></html>")
@@ -259,7 +276,9 @@ class TestBrowserlessTools:
         with patch("deerflow.community.browserless.tools._get_tool_config", return_value=None):
             result = await tools.web_fetch_tool.ainvoke("https://example.com/article")
 
-        assert "Error:" not in result
+        assert result == "# Title\n\nContent"
+        article_parser.extract_article.assert_called_once_with(mock_client.fetch_html.return_value)
+        mock_client.fetch_html.assert_called_once()
 
     @patch("deerflow.community.browserless.tools._get_browserless_client")
     async def test_web_fetch_tool_error(self, mock_get_client):
@@ -271,7 +290,8 @@ class TestBrowserlessTools:
         with patch("deerflow.community.browserless.tools._get_tool_config", return_value=None):
             result = await tools.web_fetch_tool.ainvoke("https://example.com")
 
-        assert result.startswith("Error:")
+        assert "Browserless returned empty response" in result
+        mock_client.fetch_html.assert_called_once()
 
     @patch("deerflow.community.browserless.tools._get_browserless_client")
     async def test_web_fetch_tool_exception(self, mock_get_client):
@@ -283,7 +303,8 @@ class TestBrowserlessTools:
         with patch("deerflow.community.browserless.tools._get_tool_config", return_value=None):
             result = await tools.web_fetch_tool.ainvoke("https://example.com")
 
-        assert result.startswith("Error:")
+        assert "Unexpected error" in result
+        mock_client.fetch_html.assert_called_once()
 
     @patch("deerflow.community.browserless.tools._get_browserless_client")
     async def test_web_fetch_tool_rejects_metadata_ip(self, mock_get_client):

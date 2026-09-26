@@ -1,6 +1,7 @@
 """Tool error handling middleware and shared runtime middleware builders."""
 
 import logging
+import secrets
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, override
 
@@ -132,7 +133,7 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         except Exception as exc:
             logger.exception("Tool execution failed (sync): name=%s id=%s", request.tool_call.get("name"), request.tool_call.get("id"))
             return self._build_error_message(request, exc)
-        return normalize_tool_result(self._maybe_stamp(result, request))
+        return normalize_tool_result(self._maybe_stamp(result, request), tool_call_id=str(request.tool_call.get("id") or ""))
 
     @override
     async def awrap_tool_call(
@@ -148,7 +149,7 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         except Exception as exc:
             logger.exception("Tool execution failed (async): name=%s id=%s", request.tool_call.get("name"), request.tool_call.get("id"))
             return self._build_error_message(request, exc)
-        return normalize_tool_result(self._maybe_stamp(result, request))
+        return normalize_tool_result(self._maybe_stamp(result, request), tool_call_id=str(request.tool_call.get("id") or ""))
 
 
 def _build_runtime_middlewares(
@@ -157,6 +158,9 @@ def _build_runtime_middlewares(
     include_uploads: bool,
     include_dangling_tool_call_patch: bool,
     lazy_init: bool = True,
+    receipts_render_mode: str = "delegation_only",
+    authorization_provider=None,
+    authorization_infrastructure_tool_names: frozenset[str] = frozenset(),
 ) -> list[AgentMiddleware]:
     """Build shared base middlewares for agent execution."""
     from deerflow.agents.middlewares.input_sanitization_middleware import InputSanitizationMiddleware
@@ -201,7 +205,38 @@ def _build_runtime_middlewares(
         tail.append(DanglingToolCallMiddleware())
     tail.append(LLMErrorHandlingMiddleware(app_config=app_config))
 
-    # Guardrail middleware (if configured)
+    # Outer sanitization/budget wrappers may change visible content; hashes
+    # describe captured execution results, not final task acceptance.
+    if app_config.verification.receipts_enabled:
+        from deerflow.agents.middlewares.tool_receipt_middleware import ToolReceiptMiddleware
+
+        tail.append(ToolReceiptMiddleware(render_mode=receipts_render_mode))
+
+    # Authorization and an explicit guardrail are independent AND gates.
+    # Reuse the assembly-time provider; never resolve a second policy instance.
+    authorization_config = app_config.authorization
+    if authorization_config.enabled is True:
+        if authorization_provider is None:
+            from deerflow.authz.runtime import resolve_authorization_provider
+
+            authorization_provider = resolve_authorization_provider(authorization_config)
+        if authorization_provider is not None:
+            from deerflow.authz.adapter import GuardrailAuthorizationAdapter
+            from deerflow.guardrails.middleware import GuardrailMiddleware
+
+            tail.append(
+                GuardrailMiddleware(
+                    GuardrailAuthorizationAdapter(
+                        authorization_provider,
+                        default_role=authorization_config.default_role,
+                        infrastructure_tool_names=authorization_infrastructure_tool_names,
+                    ),
+                    fail_closed=authorization_config.fail_closed,
+                    name="AuthorizationGuardrailMiddleware",
+                )
+            )
+
+    # Explicit guardrail middleware (if configured)
     guardrails_config = app_config.guardrails
     if guardrails_config.enabled and guardrails_config.provider:
         import inspect
@@ -266,13 +301,16 @@ def _build_runtime_middlewares(
     return middlewares
 
 
-def build_lead_runtime_middlewares(*, app_config: AppConfig, lazy_init: bool = True) -> list[AgentMiddleware]:
+def build_lead_runtime_middlewares(*, app_config: AppConfig, lazy_init: bool = True, authorization_provider=None, deferred_setup: "DeferredToolSetup | None" = None) -> list[AgentMiddleware]:
     """Middlewares shared by lead agent runtime before lead-only middlewares."""
     return _build_runtime_middlewares(
         app_config=app_config,
         include_uploads=True,
         include_dangling_tool_call_patch=True,
         lazy_init=lazy_init,
+        receipts_render_mode=app_config.verification.receipts_render_mode,
+        authorization_provider=authorization_provider,
+        authorization_infrastructure_tool_names=(frozenset({deferred_setup.tool_search_tool.name}) if authorization_provider is not None and deferred_setup is not None and deferred_setup.tool_search_tool is not None else frozenset()),
     )
 
 
@@ -284,6 +322,10 @@ def build_subagent_runtime_middlewares(
     deferred_setup: "DeferredToolSetup | None" = None,
     mcp_routing_middleware: AgentMiddleware | None = None,
     agent_name: str | None = None,
+    available_skills: set[str] | None = None,
+    user_id: str | None = None,
+    thread_id: str | None = None,
+    authorization_provider=None,
 ) -> list[AgentMiddleware]:
     """Middlewares shared by subagent runtime before subagent-only middlewares."""
     if app_config is None:
@@ -296,7 +338,30 @@ def build_subagent_runtime_middlewares(
         include_uploads=False,
         include_dangling_tool_call_patch=True,
         lazy_init=lazy_init,
+        receipts_render_mode="always",
+        authorization_provider=authorization_provider,
+        authorization_infrastructure_tool_names=(frozenset({deferred_setup.tool_search_tool.name}) if authorization_provider is not None and deferred_setup is not None and deferred_setup.tool_search_tool is not None else frozenset()),
     )
+
+    from deerflow.agents.middlewares.skill_activation_middleware import SkillActivationMiddleware
+    from deerflow.agents.middlewares.skill_tool_policy_middleware import SkillToolPolicyMiddleware
+
+    # One unforgeable slash source owner per child chain, shared only by its
+    # activation and policy consumers. Use the parent's business thread for
+    # enterprise publications, not LangGraph's child checkpoint namespace.
+    skill_kwargs = {
+        "app_config": app_config,
+        "available_skills": available_skills,
+        "user_id": user_id,
+        "thread_id": thread_id,
+        "slash_source_owner_token": secrets.token_urlsafe(24),
+    }
+    middlewares.append(SkillActivationMiddleware(**skill_kwargs))
+    if deferred_setup is not None and deferred_setup.deferred_names:
+        from deerflow.agents.middlewares.tool_promotion_audit_middleware import DeferredToolPromotionAuditMiddleware
+
+        middlewares.append(DeferredToolPromotionAuditMiddleware(deferred_setup.deferred_names, deferred_setup.catalog_hash))
+    middlewares.append(SkillToolPolicyMiddleware(**skill_kwargs))
 
     if model_name is None and app_config.models:
         model_name = app_config.models[0].name

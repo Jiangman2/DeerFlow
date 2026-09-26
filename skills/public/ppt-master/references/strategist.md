@@ -2,7 +2,7 @@
 
 ## Core Mission
 
-As a top-tier AI presentation strategist, receive source documents, perform content analysis and design planning, and output the **Design Specification & Content Outline** (hereafter `design_spec`).
+Receive source documents, analyze content, plan the design, and output the **Design Specification & Content Outline** (`design_spec`) plus its execution lock. The planning craft shared with Quick is [`plan-core.md`](./plan-core.md); this file owns the confirmation stages, the three-direction construction, and the artifact grammar.
 
 ## Pipeline Context
 
@@ -10,517 +10,273 @@ As a top-tier AI presentation strategist, receive source documents, perform cont
 |--------------|---------|-----------|
 | Project creation + template-candidate preparation complete | **Strategist**: Stage 1 communication/template confirmation → installation handoff → Stage 2 solution + Design Spec | Image_Generator or Executor |
 
----
-
-## Canvas Format Quick Reference
-
-> See [`canvas-formats.md`](canvas-formats.md) for the full format table (presentations / social / marketing) and the format-selection decision tree.
+Canvas formats and their typography scale start: [`canvas-formats.md`](canvas-formats.md).
 
 ---
 
 ## 1. Strategist Confirmation Stage
 
-🚧 **GATE — whole-document authoring**: Generate Step 4 reads `${SKILL_DIR}/templates/design_spec_reference.md`, authors the complete Design Spec once, passes Gate 1, then reads `${SKILL_DIR}/templates/spec_lock_reference.md` and authors the complete lock once. Do not scaffold or patch placeholders. Run `project_manager.py validate`; machine schemas, not remembered headings, own grammar validation.
+🚧 **GATE — whole-document authoring**: Generate Step 4 reads `${SKILL_DIR}/templates/design_spec_reference.md`, authors the complete Design Spec once, passes Gate 1, then reads `${SKILL_DIR}/templates/spec_lock_reference.md` and authors the complete lock once. No scaffolds, no placeholder patching; `project_manager.py validate` owns grammar.
 
-⛔ **BLOCKING**: After the read, present professional recommendations for the confirmation fields below and wait for explicit user confirmation.
-
-**Two-stage confirmation (the default Confirm UI flow; chat mirrors it).**
-Generate Step 3 prepares candidates only. Stage 1 confirms the communication
-contract and template/free-design choice together, while keeping the
-communication recommendation independent of every template candidate. After
-that single confirmation, selected workspaces are installed before the complete
-solution + production gate:
+⛔ **BLOCKING**: present professional recommendations for the fields below and wait for explicit user confirmation. Generate Step 3 prepares candidates only. Stage 1 confirms the communication contract and the template/free-design choice together (the recommendation independent of every candidate); the selected workspaces are installed before Stage 2.
 
 | Stage | Items | Role |
 |---|---|---|
-| **1 — communication contract + template choice** | `primary_language` · `c` audience · open-ended communication intent · audience outcome · core message / delivery context (primary + optional secondary) / artifact afterlife · `content_divergence` (all prose fields may be blank) · `a` canvas · explicit `free_design` or `templates` choice and selected roots | confirmed together; candidate workspaces do not influence the communication recommendation |
-| **2 — final solution + production** (authored once from the user's *actual* Stage 1) | reading mode (`delivery_purpose`, PPT only) · `d` mode + visual style · `b` page count · `e` color · `f` icon · `g` typography · `h` image source + generated-image rendering · conditional natural-language template application · formula policy · conditional AI-image acquisition path · generation mode · refine-spec toggle · proactive speaker notes / custom animations / narration audio | derived as one coherent plan from the confirmed contract; internal template exporter modes remain hidden |
+| **1 — communication contract + template choice** | `primary_language` · `c` audience · open-ended communication intent · audience outcome · core message / delivery context (primary + optional secondary) / artifact afterlife · `content_divergence` (all prose may be blank) · `a` canvas · explicit `free_design` or `templates` choice and selected roots | confirmed together; candidates never influence the communication recommendation |
+| **2 — final solution + production** (authored once from the user's *actual* Stage 1) | reading mode (`delivery_purpose`, PPT only) · `d` mode + visual style · `b` page count · `e` color · `f` icon · `g` typography · `h` image source + generated-image rendering · conditional template application · conditional AI-image acquisition path · generation mode · refine-spec toggle · `design_spec_depth` · proactive speaker notes / custom animations / narration audio | one coherent plan from the confirmed contract; exporter reuse/adherence stays internal |
 
-Do not force communication intent into one catalog label; Stage 1 records composite intent in prose. Editable prose fields are recommendation drafts, not required inputs: confirmation preserves current text and blanks; never repopulate a cleared field. Stage 2 confirms narrative spine, reading density, page budget, visual system, image direction, production mechanics, and how any installed template should be used. It never chooses or installs a template. Inspect only project-local template spec/prototypes, present one editable application plan, and keep exporter reuse/adherence internal. Present ≥3 coordinated safe / shifted / bold directions so color, type, icons, and generated-image rendering begin coherent; the user may override each component. Generated images inherit deck colors—there is no second image palette. Proactive defaults are speaker notes `true`, custom animations `false`, and narration audio `false`; a prior explicit user instruction overrides the matching recommendation, and effective narration audio requires effective speaker notes. Author each stage once; same-stage edits update only visible browser state through documented deterministic dependencies, without another AI/backend recommendation. Launch/derive/wait mechanics live in [`generate-pptx.md`](../workflows/generate-pptx.md) Step 4; item specs keep `a`–`h`.
+**Stage 1 fields**: record composite intent in prose, never one catalog label. Editable prose fields are drafts: confirmation keeps the current text and blanks, and a cleared field is never repopulated.
 
-**Hard rule — Stage-1 source boundary**: Build the communication recommendation only from the current user request, source facts, conversation constraints, and project-initialization state. Author it before loading index summaries for a chat listing, and do not read any candidate spec, prototype, asset, or template-owned canvas. The same Stage-1 surface may display template controls, but their values are confirmation state, not recommendation evidence. Do not load or apply [`strategist-template.md`](./strategist-template.md) until Stage 1 is confirmed and the selected workspace has been installed for Stage 2.
+**Stage 2 scope**: confirm narrative spine, reading density, page budget, visual system, image direction, production mechanics, and how an installed template is used (inspecting only project-local specs and prototypes). Stage 2 never chooses or installs a template.
 
-> **Execution discipline**: Step 3 is non-interactive candidate preparation. Stage 1 is the first BLOCKING checkpoint and closes communication plus template/free-design choice in one confirmation. Install/fuse any selection and complete its handoff before authoring final Stage 2. After final confirmation, proceed without another pause unless spec refinement is enabled.
+**Selected direction**: `design_directions.selected` is the actual zero-based index (`0`, `1`, or `2`) of the strongest fit, chosen after all three §d directions are complete. With an installed template it is the viable direction that best expresses its resolved context under [`strategist-template.md`](./strategist-template.md). Array order never determines preference.
+
+**Production defaults**: proactive defaults are notes `true`, custom animations `false`, narration `false`. An earlier explicit instruction overrides the matching recommendation; narration requires notes. Recommend `design_spec_depth: brief` (the same author draws the pages); recommend `complete` only for `split`, `refine_spec: true`, a preservation profile, or a requested hand-off document. Author each stage once; launch/wait mechanics are [`generate-pptx.md`](../workflows/generate-pptx.md) Step 4.
+
+**Default — continuity-aware whole solution (may override when a scene reset communicates better)**: before recommending page count or production mechanics, judge whether adjacent beats can stay within one recognizable mental map while a visible state changes. Where that lowers cognitive switching and motion has a named job, let it shape the spine, rhythm, visual approach, and notes/narration segmentation, and recommend `proactive_custom_animations: true`. Plan such neighbors as visible states of one scene: recognizable anchors kept, the delta legible, each enabled notes/narration segment aligned with its state, every state page still carrying content and an `Audience move`. Reset when the map changes or continuity adds nothing. One positive signal, not the only one: topic or wording repetition alone is insufficient, and a `Motion suggestion` never changes the effective outcome.
+
+**Hard rule — Stage-1 goal boundary**: what a template may inform in Stage 1 is fixed by [`generate-pptx.md`](../workflows/generate-pptx.md) Step 4; template controls on the same surface are confirmation state, never a reason to reshape the contract. Load [`strategist-template.md`](./strategist-template.md) only after Stage 1 is confirmed and the selection installed.
+
+> **Execution discipline**: Stage 1 is the first BLOCKING checkpoint; its receipt is intermediate and never ends the task. In the same run, install/fuse the selection, complete the handoff, author fresh Stage 2, and enter the final wait. After final confirmation proceed without another pause unless refinement is enabled; the only opt-in exception is [`refine-spec`](../workflows/stages/refine-spec.md), offered with the split-mode note and never entered unprompted.
 >
-> **One opt-in exception**: present the refinement line with the split-mode note ([`generate-pptx.md`](../workflows/generate-pptx.md) Step 4). Only explicit opt-in runs [`refine-spec`](../workflows/stages/refine-spec.md): write the Design Spec once, pass Gate 1, then stop before the lock for unrestricted chat revision. Never enter it unprompted.
+> **Presentation surface**: apply the sticky per-run surface decision in [`confirm-surface.md`](./confirm-surface.md) and author the Stage-1/Stage-2 payloads in its shapes; the chat/delegated branch keeps equivalent state without fabricating receipts. Stage 1 writes canonical BCP-47 `primary_language`; Stage 2 carries exactly three immutable `design_directions`; the final result stores only current component values, never a direction id. Server lifecycle: [`confirm_ui.md`](../scripts/docs/confirm_ui.md).
 
-> **Default presentation surface — Confirm UI.** Before the first actual confirmation phase, apply [`confirm_ui.md`](../scripts/docs/confirm_ui.md)'s sticky per-run surface decision; its explicit chat branch skips every UI command, and a chat selection after UI launch follows its in-run switch procedure. Chat-question tools alone do not select a branch. In the UI branch, `template_options.json` and `recommendations.stage1.json` open one Stage-1 page; its single submission writes the pure Strategist `result.json` plus the sidecar `template_selection.json`. After installation/free-design closure, `template_handoff.json` gates `.stage2.json`. The chat/delegated branch keeps equivalent state without fabricating those receipts. Replace only the active unconfirmed stage and print the URL plus combined Stage-1 summary/fallback without treating that handoff as confirmation. Stage 1 writes canonical BCP-47 `primary_language` apart from UI `lang`; Strategist projects it through Design Spec §I to lock communication. Stage 2 carries ≥3 safe / shifted / bold `design_directions`, each bundling visual style, a six-role HEX palette, primary-language heading/body typography plus an English companion only for non-English decks, icons, and conditional image rendering, plus the production fields above. Step 4 retains final confirmation from the selected channel for Design Spec authoring. `confirm_ui.md` owns selection-surface and staged-confirmation lifecycle.
-
-**Confirmed-value semantics**: confirmation preserves both the value and the owning field's semantic type. Apply the type to the affected property, not automatically to the whole object:
+**Confirmed-value semantics** — confirmation preserves the value and the owning field's semantic type, applied to that property, not the whole object:
 
 | Type | Consumption |
 |---|---|
 | Literal requirement | Preserve the exact contracted value, pixels, wording, or topology. |
 | Semantic requirement | Preserve facts, relationships, intent, prohibitions, and completeness; expression may change. |
 | Identity anchor | Keep recurring identity stable without creating an exhaustive allowlist. |
-| Reference | Preserve the selected direction or role; adapt its realization to context. |
-| Permission / default | An allowed candidate/source boundary or preference; Strategist may leave it unused, with no quota. |
+| Reference | A starting sketch: Executor adjusts or replaces it freely for the page's purpose, with no upstream repair or stated reason. It carries no binding semantics; label it `(binding)` only when the user, a template, or a resource contract requires that property. |
+| Permission / default | An allowed candidate/source boundary or preference; may stay unused, with no quota. |
 
-**Authority chain — materials → Strategist preparation → realization.** User inputs set materials/acquisition bounds. Strategist owns sufficiency, gap-filling, and selection: roster/content, resources, page-local visualization/Layout references, fonts, palette anchors, the icon library/stroke plus curated project pool, and crop bans. Fact research may precede confirmation; AI/web/slice follows final confirmation plus completed §VIII/lock; icons are synced/validated during authoring without page assignment. Before Executor, each resource has a path and terminal/`Needs-Manual` state. Executor owns geometry, composition, hierarchy, spacing, treatment, and per-page choice among prepared icons; it never searches, generates, syncs, invents, or substitutes resources. Missing material/reselection returns upstream. Specificity defines freedom; References flex realization, never selection.
+Explicit *must*, *only*, *exactly*, *verbatim*, *do not*, or `no-crop` wording strengthens only the named property; accepting a recommendation keeps the field's default type.
 
-Explicit *must*, *only*, *exactly*, *verbatim*, *do not*, or `no-crop` wording may strengthen only the named property into the appropriate Literal or Semantic requirement. Accepting an AI recommendation keeps the field's default type; it does not promote a Reference or Permission into a Literal requirement.
+**Authority chain — materials → Strategist preparation → realization**: user inputs bound materials and acquisition. Strategist owns sufficiency, gap-filling, and selection — roster and content, `Relationships`, prepared resources and paths, structured-template routing, fonts, palette anchors, icon library/stroke and curated pool, crop bans, and optional Chart/Table references. Strategist sketches macro composition, focus, and continuity as Reference (binding only when labeled `(binding)`), never a carrier mix, element geometry, or authoring method. Native construction is an Executor capability, not a resource.
 
-> ⛔ **GATE — final confirmation is consumed once into the Design Spec.** Use the complete final object already read by Generate Step 4 (`stage: final`, `status: confirmed`); on a chat path, use the final visible confirmation summary as the equivalent retained state. Do not reopen `result.json` during normal Design Spec or lock authoring. Consume every explicitly present field according to the semantics above and its field owner. Do not omit or substitute a value, and do not silently strengthen or weaken its type. Decide only details left unconfirmed; preserve an explicitly cleared prose field as empty. If a confirmed requirement cannot be honored, keep it visible and follow [`failure-recovery.md`](../workflows/governance/failure-recovery.md) instead of silently changing it.
+| Acquisition step | Timing |
+|---|---|
+| Topic research and its two-artifact pair | May precede confirmation; facts URLs are never auto-expanded; one adopted webpage becomes a reviewable source package only after normal image search fails |
+| AI / web / slice acquisition | After final confirmation plus §VIII/lock |
+| Icons | Synced during authoring without page assignment |
+| Every resource before Executor | Has a path and a terminal or `Needs-Manual` state |
+
+Missing material returns upstream, never invented or substituted.
+
+⛔ **GATE — final confirmation is consumed once into the Design Spec**: use the complete final object already read by Generate Step 4 (`stage: final`, `status: confirmed`) or the chat path's final visible summary; never reopen `result.json` during Design Spec or lock authoring. Consume every present field by its semantic type and owner without omission, substitution, or silent strengthening/weakening. Decide only what was left unconfirmed; keep a cleared prose field empty. An unhonorable requirement stays visible and follows [`failure-recovery.md`](../workflows/governance/failure-recovery.md).
 
 ### a. Canvas Format Confirmation
 
-Recommend format from the current scenario and project initialization (see [`canvas-formats.md`](canvas-formats.md)). A template canvas is not Stage-1 evidence; Stage 2 later checks whether selected structure can serve the confirmed current-project canvas.
+Recommend from the scenario and project initialization ([`canvas-formats.md`](canvas-formats.md)). A template canvas is not Stage-1 evidence; Stage 2 later checks whether selected structure serves the confirmed canvas.
 
 ### b. Page Count Confirmation
 
-**Stage-2 planning input.** Confirm UI may hold an approximation/range; *exactly*, *1:1*, or preservation fixes it. After Stage 1, choose one exact count from source volume, audience outcome, delivery context/afterlife, and reading mode, then author the complete §IX roster. After Gate 1 and any enabled refine-spec approval, that roster's ids, count, and order—not the earlier UI wording—are invariant. Executor cannot add, drop, merge, split, or reorder pages; changes first repair or reconfirm the Design Spec.
+Page count craft — the Stage-1 range, the exact count chosen after Stage 1, and the roster invariance after Gate 1 — is [`plan-core.md`](./plan-core.md) §3.
 
 ### c. Communication Contract Confirmation
 
-Seed the following as open-prose recommendations when the source and user request support an assessment. The user may retain, edit, or clear every editable field; the UI does not reduce the contract to a survey and does not require a non-empty answer:
+Seed the six contract fields of [`plan-core.md`](./plan-core.md) §1 as open-prose recommendations when the source and request support them; the user may retain, edit, or clear every field, and none requires a non-empty answer. Intent stays open-ended and is never a checkbox list or a `primary_job`.
 
-| Field | Question it answers |
-|---|---|
-| `audience` | Who exactly must receive this communication, and what do they already know / care about? |
-| `communication_intent` | What must the presentation accomplish? It may combine several purposes and state priority or sequence. |
-| `audience_outcome` | What observable change means the communication succeeded — what will the audience know, understand, believe, decide, or do? |
-| `core_message` | Which claim(s), decision ask(s), or action(s) must land even if little else is remembered? |
-| `delivery_context` | What is primary—presenter-led, reader-led, hybrid, or recorded/self-running? For hybrid, which mode leads; what secondary use, occasion, and time constraint remain? |
-| `artifact_afterlife` | What must the file support afterward — review, approval, audit, archive, hand-off, reuse, or no planned afterlife? |
+**Hard rule — confirmed current value wins**: submit every Stage-1 prose field exactly as it stands at confirmation. Blank means no explicit constraint (downstream judgment from source and request) and is never restored to the recommendation. A profile-declared `locked: true` field is the only read-only exception.
 
-**Delivery-context distinction**: Keep one open-prose field. Recommend a primary context and optional secondary use: presenter-led has a live presenter; reader-led must stand alone; hybrid names which one leads and what secondary use remains; recorded/self-running has no live presenter and relies on narration, timing, transitions, and playback. The user may clear it; do not replace it with an enum or add another field.
+**Reading mode** (PPT only, Stage 2): `text` / `balanced` (default) / `presentation`, kept under the compatibility key `delivery_purpose`; what each mode carries is [`plan-core.md`](./plan-core.md) §2. It drives page grammar, granularity, density, and the §b recommendation; the §g body baseline is a consequence.
 
-**Communication intent is open-ended.** Use *inform / explain / persuade / decide / align / teach / report and account / mobilize / record and hand off* only as prompts that help the user articulate an answer. Never render them as a checkbox list, radio group, or required single `primary_job`. When several purposes coexist, preserve their relationship in the prose (for example, “report progress and expose risk first; then obtain a decision on the next investment”). Do not silently collapse a composite answer into one label.
+**Material divergence** (`content_divergence`): a free-text Stage-1 field the user fills in their own words — never a set of options and never recommended from source analysis; blank is a balanced default. The spectrum and the facts-stay-sourced Hard rule are [`plan-core.md`](./plan-core.md) §3. Apply it only while authoring §IX and record it in `design_spec.md §I`, never in the lock. Beautify seeds and locks verbatim preservation; Edit Native PPTX does not surface it.
 
-**Hard rule — confirmed current value wins.** Submit every Stage-1 prose field exactly as it appears when the user confirms. Blank means no explicit user constraint and may trigger downstream judgment from the source and request; keep the stored value blank and never restore the initial recommendation. A profile-declared `locked: true` field remains read-only and is the only exception.
-
-The contract is not the narrative mode. `communication_intent` says what change is needed; `mode` is one Stage-2 strategy for organizing the argument. Several intents may share one dominant mode, and one intent may support several possible modes.
-
-**Reading mode** (PPT only) is a closed Stage-2 information-carriage axis: `text` (read-close) / `balanced` (business, default) / `presentation`. Keep the existing `recommend.delivery_purpose` / `result.json.delivery_purpose` key for compatibility, but label and reason about it as reading mode—never as communication purpose. It decides how meaning is divided among the page, visuals, presenter, and, when enabled, notes, driving page grammar, granularity, density / rhythm, and the §b page-count recommendation. The §g body baseline is a downstream typography default, not the label or definition shown in the reading-mode control.
-
-**Material divergence** — a **free-text** source-treatment intent in the Stage-1 delivery section: in their own words, how closely the deck should follow the source vs how freely it may reshape it. This is the user's own call — a free prose field (`content_divergence`), **not** a fixed set of options and **not** something you recommend from analyzing the source. Surface the question plainly (in the confirm UI it appears after the delivery-context fields); leave it for the user to fill. Blank = a balanced default.
-
-Read the user's prose as a point on a spectrum and apply judgment — from *stay close* (track the source's structure and wording, tune only for clarity, no substantive add / drop) through the default *balanced* (re-architect and distill into a narrative under the locked `mode`, keeping all substance) to *free* (regroup, reframe, expand terse points, draw out connections latent in the source, invent section structure and transitions).
-
-**Hard rule — facts stay sourced however free the user asks.** Divergence is freedom to *develop* what is in the source (reorganize / reframe / expand / connect), never licence to invent. Even the freest request must not introduce facts, figures, or claims from outside the source material — that is the `topic-research` job, not divergence. `mode` and divergence are orthogonal (e.g. a pyramid that hews to the source's own points vs. a pyramid built from freely synthesized themes).
-
-**Fact provenance contract**: When `sources/*.facts.json` exists, read it before outlining and reference its stable `fact_id` values in every §IX page that uses an external quantitative or factual claim. Add `Fact IDs: F001, ...` to that page. Invented demo KPIs, internal ratios, targets, and roadmap numbers must instead carry `Data class: scenario`; never assign them an external `fact_id`. The same page may use both classes, but each number's class must remain unambiguous so Executor can place citations in notes/footnotes and visibly label scenario data.
-
-When authoring §IX, translate every purpose named in `communication_intent` into an outline obligation. The rows below are a reasoning checklist, not a classifier; apply every relevant row and preserve the user's stated priority / sequence:
-
-| Intent named in the prose | Outline must enable |
-|---|---|
-| Inform | Relevant facts with enough context to know why they matter |
-| Explain | Mechanism, relationship, cause, or meaning made traceable |
-| Persuade | Claim + evidence + material objections / alternatives |
-| Decide | Explicit decision ask + options + criteria + trade-offs + consequence of delay |
-| Align | Shared frame + priorities + owners + next steps |
-| Teach | Prerequisites + sequence + worked application / check for understanding |
-| Report and account | Baseline + progress + variance + evidence + risk + ownership |
-| Mobilize | Urgency + agency + concrete action + immediate next step |
-| Record and hand off | Context + decisions + status + owners + unresolved items + durable provenance |
-
-**Material-divergence consumption — outline-authoring only.** Apply the user's stated divergence intent when authoring the `§IX` outline. Record the prose (or "balanced default") in `design_spec.md §I` (Content Strategy). Do **NOT** write it to `spec_lock.md`—it is baked into `§IX` at authoring time and the Executor never reads it. It carries no page-count coupling. Beautify seeds verbatim preservation and surfaces the field as locked/read-only; the server restores the locked value on every staged submit. Fill Native PPTX does not surface the field because that route is outside this confirmation flow.
+**Fact provenance** and the intent → outline-obligation checklist are [`plan-core.md`](./plan-core.md) §3 and §1; apply both while authoring §IX, preserving the user's priority and sequence.
 
 ### d. Style Objective Confirmation
 
-**Stage 2 only.** Do not recommend or confirm any item in this section until the Stage-1 communication contract is confirmed. These are tools selected to serve the scenario, not substitutes for defining it.
+**Stage 2 only** — tools that serve the confirmed scenario, never substitutes for defining it. Two independent layers, each locking one preset or `custom`; output `d. Mode: <mode> + Visual style: <visual_style>`.
 
-Two independent layers, each locks one preset or `custom`. Output: `d. Mode: <mode> + Visual style: <visual_style>`.
+**Hard rule — top-down direction construction**: author three complete, project-fit solution intents from the confirmed contract and source before touching any catalog basis. The three mode/style/rendering indexes are the only basis selectors. Freeze each direction's exact reference ids from the index summaries, read once only the deduplicated union of those detail files, then write the behaviors. Never force safe / shifted / bold archetypes, glob a catalog, read an unselected sibling, or write bespoke prose as an enum value.
 
-> **Mandatory AI custom candidates.** Every `recommendations.stage2.json` carries visible, non-empty `custom_candidates.mode` and `.visual_style`, initially unselected unless the user supplied that exact direction. If a proposal combines or borrows catalog entries, read every named entry file before authoring the synthesis and name those exact ids in the visible proposal; a genuinely novel proposal needs no catalog reference. If selected, spell the proposal out in plain language and save literal `custom` plus the edited `mode_behavior` / `visual_style_behavior`; otherwise it remains recommendation-only. Never write bespoke prose as the enum value.
+**Direction serialization**: every direction serializes `mode: custom`, `visual_style: custom`, and `image_strategy.rendering: custom`, each with visible non-empty behavior prose. A custom may use catalog material in any way or none; one preset carried unchanged is valid; a layer the user or an installed template already fixed to a catalog preset locks that preset id instead of `custom`. References record only actual sources, each owning a distinct executable contribution, never a decorative second basis.
+
+**Three plainly different designs**: the three directions differ as designs *before* any field is written. Whichever components a design requires carry the difference; mode, style, rendering, bases, color, type, and icons are each free to coincide. A different name, note, or reference count alone is no difference, and identical projections are not three solutions. Where authoritative truth fixes components, the open ones carry the difference. Where nothing is open, keep the projections identical and state that boundary.
 
 #### Layer 1 — Communication mode
 
-🚧 **GATE**: read [`modes/_index.md`](./modes/_index.md) before recommending.
+🚧 **GATE**: [`modes/_index.md`](./modes/_index.md) is the sole mode-basis authority; basis selection follows the §d Hard rule.
 
-The deck's **narrative + persuasion skeleton** — how the argument is organized and advanced. Lock one preset from `pyramid` / `narrative` / `instructional` / `showcase` / `briefing`, or `custom` with behavior.
+The narrative + persuasion skeleton: one preset from `pyramid` / `narrative` / `instructional` / `showcase` / `briefing`, or `custom` with behavior — one value per deck, never several simultaneous modes.
 
-**Source**:
-- User supplied their own outline / structure → preserve its facts and intended relationships, then apply the confirmed `content_divergence`. Treat an ordinary source outline as a Reference: regroup, reorder, or retitle when the communication contract benefits. Treat it as authoritative only when the user presents it as the final page plan or explicitly asks to preserve page order, titles, or wording; record that promoted boundary in `design_spec.md`. Still lock a mode for register, voice, and any permitted reshaping. `briefing` imposes the least if no particular "讲法" is intended.
-- Beautify / re-layout profile ([`beautify-pptx.md`](../workflows/profiles/beautify-pptx.md)) → the extracted source content is authoritative and **verbatim**, one step stricter than the user-outline case above. Each source slide becomes exactly one `§IX` page in source order; transcribe every content block word-for-word — never reshape / re-primary / condense / merge / split / reword. Lock `mode: briefing`; color (e) and typography (g) are whatever the user confirmed in the beautify plan — the source identity (theme or observed) by default, or a content / brand-aware alternative the beautify plan offered and the user picked — locked as truth (the beautify plan already ran the recommendation through the confirm UI, so do not re-recommend here). Charts / tables / images are regenerated from their extracted data in the inherited style: record only selected catalog references in §VII, keep unmatched chart/table plans in their §IX page blocks, and route pictures to §VIII. Data values stay frozen and the rendering is the deck's own; visuals are never carried over verbatim. Layout, hierarchy, rhythm, and visual rendering are what gets redesigned.
-- A bespoke direction the five don't give — a nameable cadence (dialectic 正反合, myth-vs-reality, countdown, Socratic), a multi-act fusion of modes, or the user's own feel (confrontational here, detached there). Either the user asks, **or you recommend it** when a fusion / bespoke direction genuinely serves the deck better than a single preset (a recommendation the user confirms, like every lock). The *kind* doesn't matter → `mode: custom` + a `mode_behavior:` paragraph that **crystallizes the intent** (act sequence or posture shifts, title voice, page rhythm, register) concretely enough for the Executor to follow per page; it reads only `spec_lock.md`, never the chat. If the direction uses existing modes, read every corresponding `modes/<id>.md` before synthesis and retain those exact ids as its catalog basis; if it is genuinely new, do not invent a basis. One deck locks **one** value — a fusion is one `custom` describing the acts, never several modes. Avoid only the *dodge*: don't default to `custom` when a preset genuinely fits, and prefer a dominant mode + page-level variation when one mode leads.
-- No user structure or cadence → recommend from the confirmed `communication_intent`, `audience_outcome`, source texture, and delivery context using the index's auto-selection table. Composite intent does not automatically require `custom`: choose the dominant spine of the body pages when one exists; use a concrete `custom` act sequence only when no single spine can serve the stated priority / sequence. Present as a recommendation; the user may override.
+| Input | Mode derivation |
+|---|---|
+| **User outline or structure** | Preserve its facts and relationships, then apply `content_divergence`. An ordinary outline is a Reference (regroup, reorder, retitle when the contract benefits); it becomes authoritative only when presented as the final page plan or with an explicit ask to keep order, titles, or wording — record that promotion in `design_spec.md`. Still lock a mode for register and voice; `briefing` imposes the least. |
+| **Beautify** ([`beautify-pptx.md`](../workflows/profiles/beautify-pptx.md)) | Extracted content is authoritative and verbatim: one source slide = one §IX page in order, every block transcribed word-for-word, never reshaped, condensed, merged, split, or reworded; all three mode behaviors keep that boundary and may share `briefing`. Color (e) and typography (g) are whatever the beautify plan confirmed (source identity by default) locked as truth. Charts, tables, and images are regenerated from extracted data in the inherited style with values frozen (catalog references in §VII, unmatched plans in §IX, pictures in §VIII). Layout, hierarchy, rhythm, and rendering are what gets redesigned. |
+| **No user structure** | Derive each solution from `communication_intent`, `audience_outcome`, source texture, and delivery context, then project its custom mode; directions may share bases or behavior when the whole solutions differ. |
 
-Record the confirmed mode and rationale in `design_spec.md` first, including the exact catalog basis when a selected custom uses one. Then project `- mode:` to `spec_lock.md`; for `custom`, also project `- mode_behavior:` and, only when catalog material is actually used, `- mode_references: <id>, <id>`. Executor reads one file for a preset. For `custom`, it reads every listed reference before applying the behavior; an unreferenced novel custom follows the behavior directly.
+Record the mode and rationale in `design_spec.md` (with every catalog basis a custom uses), then project `- mode:` — and for custom `- mode_behavior:` plus `- mode_references:` only when catalog material is used — to `spec_lock.md`; Executor reads only those references.
 
 #### Layer 2 — Visual style
 
-🚧 **GATE**: read [`visual-styles/_index.md`](./visual-styles/_index.md) before recommending.
+🚧 **GATE**: [`visual-styles/_index.md`](./visual-styles/_index.md) is the sole style-basis authority; basis selection follows the §d Hard rule.
 
-The deck's **visual aesthetic** — shape language, decoration density, whitespace rhythm, typographic character, texture. Anchors downstream fields e (Color), f (Icon), g (Typography), h (Image). Lock one preset from the catalog, or `custom`.
+The visual aesthetic — shape language, decoration density, whitespace rhythm, typographic character, texture — anchoring e, f, g, and h. It carries no color (it governs how the HEX locked at `e` is *used*). When the deck has AI images the style's paired rendering keeps layout and illustration in one aesthetic.
 
-**Source**:
-- User named a style (chat / template / beautify) → it is truth: map to the closest preset (or `custom` with a `visual_style_behavior` paragraph) and lock directly. **Skip the spectrum below** — do not re-offer choice they already made.
-- No user description → **present a personality spectrum, not one safe pick** (this is the lever against "every deck looks the same" — the visual style is what most determines a deck's character, so it gets real choice, like the alternative-set rule used for image rendering). Author **≥3 distinct styles** from the index's auto-selection table spanning *safe* (the industry-norm recommendation) → *shifted* (an alternate one tick more expressive) → *bold* (a characterful style that challenges the default — `brutalist` / `zine` / `memphis` / `ink-wash` / `vintage-poster` etc., whenever the content can carry it). Give each a one-line **temperament tag + real-world analogy** (for example, "like an Economist feature"). Write the three to `recommendations.stage2.json` `visual_style_spectrum` (each `{id, tag_zh/en/ja, note_zh/en/ja}` — include the `_ja` variants whenever the page `lang` is `ja`) **and present the same three in chat** as the always-valid fallback; set `recommend.visual_style` to the *safe* pick as the pre-selected default. The user may pick any of the three or the separate full-copy Custom proposal. Honest-shortfall may reduce the preset set, never remove Custom.
+| Input | Style derivation |
+|---|---|
+| **User named a style** (chat, template, beautify) | It is truth: the required basis or inherited anchor in every behavior. Derive each direction through the open dimensions; when all variation is forbidden let the other components carry the difference and say so in the note. |
+| **No description** | Project one complete custom aesthetic per solution, written as the carriers and techniques it *uses* — containers, icons, swatches, shadows, gradients, image treatments, native shapes — never as a list of avoidances. A locked prohibition removes that tool from every page; write one only when the user or material requires it. Behaviors differ when the designs genuinely differ, never to meet a quota; no forced bases, safe-to-bold ladder, or deliberate extreme. |
 
-**Forbidden — a non-catalog name as `visual_style`**: the value MUST be an `id` from the visual-styles catalog or literal `custom`; bespoke prose belongs only in `visual_style_behavior`. A name that is **not** in that catalog is not a visual style — most often it is an image-rendering name from the `_index` "Paired rendering" column (`flat`, `vector-illustration`, `digital-dashboard`, `3d-isometric`, `corporate-photo`, …), which names the §h *illustration* family, not the deck's layout aesthetic. Do not borrow it. (Names that are intentionally **both** a style and its paired rendering — `glassmorphism`, `blueprint`, `editorial`, `dark-tech` — are valid styles because they *are* in the catalog.) Generic baseline words — `flat` / flat-design / 扁平 / modern / clean / simple / minimal — are **not** custom-worthy either: the whole system is flat by default (shadows discouraged), so map them to the closest preset (flat + grid → `swiss-minimal`; flat + rounded → `soft-rounded`; flat + dense → `brutalist`). Reserve a custom lock for an aesthetic no preset covers; the mandatory candidate does not make it the default.
+**Direction name and note**: give each direction a `name` and one- or two-sentence `note` in the confirmed UI language (plain keys). Confirm UI's localized labels such as `瑞士极简`, `柔和圆角`, `编辑出版` are optional vocabulary, never a required mapping, and the note exposes no catalog ids.
 
-**Carries no color.** A visual style governs how the deck's HEX (locked at `e`) is *used* — never which colors, same discipline as [`image-renderings`](./image-renderings/_index.md). When the deck has AI images, prefer the style's paired rendering so layout and illustration share one aesthetic.
+**Forbidden — a non-catalog name as `visual_style`**: the field is literal `custom`; prose lives in `visual_style_behavior` and `visual_style_references` holds only first-column catalog ids (a "Paired rendering" id such as `flat` or `digital-dashboard` is a rendering, not a style). Generic words — flat / modern / clean / simple / minimal — are not behavior: state the executable shape language, composition, density, whitespace, typography, and texture, which may match one preset exactly.
 
-Record the confirmed visual style and rationale in `design_spec.md` first, including the exact catalog basis when a selected custom uses one. Then project `- visual_style:` to `spec_lock.md`; for `custom`, also project `- visual_style_behavior:` and, only when catalog material is actually used, `- visual_style_references: <id>, <id>`. Executor reads one file for a preset. For `custom`, it reads every listed reference before applying the behavior; an unreferenced novel custom follows the behavior directly.
+Record the style and rationale in `design_spec.md`, then project `- visual_style:` — and for custom `- visual_style_behavior:` plus `- visual_style_references:` only when catalog material is used — to `spec_lock.md`.
 
-**Conditional template workspace**: When the Stage-1 template choice has been installed into `<project_path>/templates/`, read [`strategist-template.md`](./strategist-template.md) before completing Stage 2. Read the installed project-local spec and prototypes only; never reopen the library/external source root. The module owns the editable natural-language application plan, confirmed-value consumption, AI-authored prototype selection, internal reuse/adherence derivation, inherited design precedence, and structured-lock planning. This plan decides how to use the installed template, never which template to select. Bare names, style words, and free-design projects do not trigger it.
+**Conditional template workspace**: when the Stage-1 choice is installed under `<project_path>/templates/`, read [`strategist-template.md`](./strategist-template.md) before completing Stage 2 — installed spec and prototypes only, never the library root. It covers the editable application plan, confirmed-value consumption, prototype selection, reuse/adherence derivation, inherited precedence, and structured-lock planning; it decides how to use the template, never which one.
 
-**Downstream effect**: e / f / g / h realize the locked mode + visual style. Example: `showcase` + `dark-tech` → e applies one luminous accent on a dark field; g pairs a clean sans with mono; f minimal glow icons; h the `digital-dashboard` rendering.
+**Downstream effect**: e / f / g / h realize mode + style — e.g. `showcase` + `dark-tech` → one luminous accent on a dark field, a clean sans paired with mono, minimal glow icons, the `digital-dashboard` rendering.
 
 ### e. Color Scheme Recommendation
 
-**Hard rule**: User-specified colors are truth. Lock supplied HEX, brand colors, or natural-language directives; templates follow inherited-design precedence. Even direct locks fill all six roles (`background`, `secondary_bg`, `primary`, `accent`, `secondary_accent`, `body_text`) in each of ≥3 directions: repeat fixed roles and vary only open ones. Never emit an empty palette. Keep body-text contrast at least 4.5:1 and preserve confirmed/brand semantic roles.
+**Hard rule**: user-specified colors are truth — lock supplied HEX, brand colors, or natural-language directives (templates follow inherited-design precedence). Every direction fills all six roles (`background`, `secondary_bg`, `primary`, `accent`, `secondary_accent`, `body_text`), repeating fixed roles and varying only open ones; never an empty palette. In §III derive the standard `secondary_text` and `divider` neutrals and project them to `spec_lock.md colors`; §V fixes the five deck-wide spacing anchors.
 
-**Reference — not a constraint**: Without user/template colors, propose project-specific directions from content and style. `scripts/config.py` industry colors and dominant/support/accent hierarchy are recall aids, never default locks, ratios, or color-count quotas.
-
-**Lock recurring semantic anchors, not every possible paint.** Add the neutral roles already known to recur across the deck—such as `surface`, `grid`, `scrim`, `overlay`, or `block-shade`—when the visual style and page plan establish a stable meaning for them. Do not try to predict every page-local tint, gradient stop, shadow/glow color, transparency composite, or one-off illustration tone. Those values are chosen from page context during execution; promote one into `spec_lock.colors` only when it becomes a reusable named role.
-
-| Style trait | Extra neutral tiers to lock |
-|---|---|
-| Layers panels / charts (e.g. `data-journalism`, `swiss-minimal`) | `surface` (panel lift), `grid` (hairline, lighter than dividers) |
-| Text over imagery / dark field (e.g. `photo-editorial`, `glassmorphism`, `dark-tech`) | `scrim` / `overlay` for legibility |
-| Print / hand-drawn fills (e.g. `chalkboard`, `zine`) | `block-shade`, one step off the field |
+Palette precedence, proportion, contrast, recall anchors, and the neutral tiers to lock are [`plan-core.md`](./plan-core.md) §6.1; Strategist owns the reusable positive / warning / negative roles and every locked neutral tier.
 
 ### f. Icon Usage Confirmation
 
-| Option | Approach | Suitable Scenarios |
-|--------|----------|-------------------|
-| **A** | Emoji | Casual, playful, social media |
-| **B** | AI-generated | Custom style needed |
-| **C** | Built-in icon library | Professional scenarios (recommended) |
-| **D** | Custom icons | Has brand assets |
+One single-select base identity (A emoji / B built-in library / C custom / D none), not a material whitelist — the option table, the illustrated-icon and brand-mark boundaries, and the library line are [`plan-core.md`](./plan-core.md) §6.3.
 
-The built-in icon library contains multiple stylistic libraries plus a brand-logo library:
+**Mandatory — bundled SVG resources**:
 
-See [`../templates/icons/README.md`](../templates/icons/README.md) for the current library inventory, counts, prefixes, and SVG placeholder details.
+1. At confirmation decide only the generic library and stroke: one primary stylistic library per pool, chosen from the four characters in the [icon README](../templates/icons/README.md) table; `simple-icons` is prepared from content for real brand marks and is never a confirmation choice. This governs catalog selection, not the prepared pool — user, template, imported, custom, and previously prepared files under `<project_path>/icons/` stay valid whatever their namespace.
+2. For a stroke library (currently `tabler-outline`) lock one deck-wide `stroke_width` from `{1.5, 2, 3}` (default `2`).
+3. After approval, when writing §VI / the lock, materialize the curated pool before Executor starts (Executor cannot sync; which icons a page uses is realization, never a preassignment). Put known basenames in the final batch; search an uncertain one under [README § Searching for Icons](../templates/icons/README.md); copy and validate in one batch — `python3 skills/ppt-master/scripts/icon_sync.py <project_path> <lib/name> [<lib/name> …]` — keeping each successful case-sensitive `lib/name` (bundled basenames are lowercase). Record each synced path with broad scenarios in §VI and the same pool, primary library, and any `stroke_width` in `spec_lock.md icons` (`simple-icons/*` ids join the inventory without becoming a second library; other prepared icons stay usable).
 
-> **Mandatory rules when choosing C**:
->
-> **At the Strategist confirmation stage — decide the library and stroke only; resolve and sync filenames after approval.**
->
-> 1. **Pick at most one primary stylistic library from the four bundled choices** — when generic icons are needed, read the source material and choose the one whose visual character best serves the deck:
->    - **`chunk-filled`** — fill, straight-line geometry (M/L/H/V/Z only); sharp right angles; heavy, solid, architectural
->    - **`tabler-filled`** — fill, bezier curves and arcs (C/A); smooth, rounded, organic; medium weight, approachable
->    - **`tabler-outline`** — stroke (line art); airy, refined, lightweight; best for screen-only (thin strokes may be hard to read in print)
->    - **`phosphor-duotone`** — duotone; main shape + 20% opacity backplate; medium weight, layered, contemporary
->    - During bundled-library selection, do not select generic icons from more than one of `chunk-filled` / `tabler-filled` / `tabler-outline` / `phosphor-duotone`. If the chosen library lacks an exact icon, find the closest alternative **within that same library**.
->    - **`simple-icons` may be selected alone or alongside the primary library**: it is a brand-logo library, not one of the four stylistic choices. Add it only for real company / product / service marks (customer logos, tech-stack icons, social handles), never as a substitute for a missing generic icon.
->    - This restriction governs Strategist selection from the bundled catalog, not the prepared project asset pool. User-provided, template-carried, imported, custom, and previously prepared files under `<project_path>/icons/` remain valid material regardless of namespace or visual style.
-> 2. **Stroke weight lock (stroke-style libraries only)** — for stroke-based libraries (currently `tabler-outline`), pick one deck-wide value from `{1.5, 2, 3}` (default `2`). For heavier presence, switch library instead of going above `3`.
->
-> **After the Strategist confirmation stage is approved — when writing `design_spec.md` §VI / `spec_lock.md`**, materialize a curated project icon pool:
->
-> 3. Choose a reusable set that covers recurring semantics and likely slide needs in the confirmed outline. Do not preassign individual icons to pages or add filler to meet a quota.
-> 4. Put known basenames in the final batch. For an uncertain one, search the chosen style library — or `simple-icons` for a real brand mark — with `rg --files "skills/ppt-master/templates/icons/<library>" -g '*<keyword>*.svg'`; do not enumerate broad keyword families.
-> 5. **Copy and validate in one batch** — run `python3 skills/ppt-master/scripts/icon_sync.py <project_path> <lib/name> [<lib/name> …]`. This both validates and materializes `<project>/icons/<lib>/`; skip per-file prechecks.
-> 6. Keep each successful, case-sensitive `lib/name`: bundled basenames are lowercase (`tabler-outline/award`, never `tabler-outline/Award`); custom icons retain exact case.
-> 7. Record each synced bundled path with broad suitable scenarios in `design_spec.md` §VI; record the same curated pool, its primary stylistic library, and any stroke-library `stroke_width` in `spec_lock.md icons`. Keep selected `simple-icons/*` ids in the same inventory without treating them as a second stylistic library. The pool is prepared optional material, not a page-use plan, coverage quota, or whitelist over other prepared project-local icons.
->
-> 🚧 **GATE — missing icon = re-pick now**: on non-zero exit, search a missing generic concept only in the chosen stylistic library, or a missing real brand mark in `simple-icons`; re-pick and rerun the final batch until clean. Never carry a missing icon forward or switch among the four stylistic libraries to fill the gap.
->
-> **Default — targeted lookup only**: do not load or rebuild a full index; search only unresolved concepts.
+🚧 **GATE — missing icon = re-pick now**: on non-zero exit, search the missing concept only in the chosen library (or `simple-icons` for a brand), re-pick, and rerun the final batch until clean; never carry a missing icon forward or switch libraries to fill it. Search only unresolved concepts; never load or rebuild a full index.
 
 ### g. Typography Plan Confirmation (Font + Size)
 
-🚧 **GATE**: Read the locked preset visual-style file's §2 Typography character before recommending type. For a custom style, first read every file in `visual_style_references` when present, then resolve their typography character under `visual_style_behavior`; a novel custom uses the behavior directly. The title carries the character; the body may remain neutral.
+🚧 **GATE**: apply the chosen custom behavior and only the already-loaded `visual_style_references` files. The title carries the character; the body may stay neutral.
 
-**Family selection**:
+**Family selection**: user/template typography is authoritative — repeat fixed stacks with `typography.fixed: true` in every direction (reasonable repetition is non-blocking; no extra font round). Each direction carries `heading` / `body` `primary`, `css`, and a positive `body_size`, plus `english` only for a non-English deck. Delivery target, concrete-face naming, family count, brand/web faces, near-equivalent splits, contrast/concord pairing, and the PPT-safe face recall are [`plan-core.md`](./plan-core.md) §6.2; the Confirm UI catalog is manual choice, not a whitelist. Across the direction set include both a concord and a contrast pairing unless the user or template fixes the stack.
 
-- User/template typography is authoritative. Repeat fixed stacks with `typography.fixed: true` in every direction; never vary them for diversity. Keep ≥3 directions distinct as full bundles; reasonable font repetition is non-blocking, with no extra font round.
-- Every Stage-2 direction carries `heading` / `body` `primary`, `css`, and positive `body_size`; add `english` only when the deck's main language is not English.
-- Use concrete, target-installed PowerPoint faces. The Confirm UI font catalog supplies additional manual dropdown choices, not a recommendation whitelist.
-- Keep stacks to four families or fewer. A brand/web face may lead only after user-confirmed target installation/approved install; PPT Master does not embed fonts. Otherwise export a safe face and keep the unavailable face as Design Spec reference.
-- Avoid near-equivalent role splits such as YaHei↔PingFang, SimSun↔Songti, Arial↔Helvetica↔Segoe UI, or Times New Roman↔Times. Counterparts may aid SVG/browser preview; CSS tails are not deterministic PowerPoint fallbacks.
-- Choose by locked style and vary the axis: serif×sans, Kai/FangSong×hei, hei×song, double-serif, display×neutral, same-family weight, or sans+mono. These are recall seeds, not presets.
+**Role extension after confirmation**: add recurring roles under [`plan-core.md`](./plan-core.md) §6.2 while authoring §IX and §IV; confirmation is not reopened, and one compact `Role rationale` line in §IV names any added role.
 
-**Strategist-owned role extension after confirmation**: Confirm UI keeps the heading/body choice unchanged. While authoring the complete §IX roster and §IV typography plan, scan the actual content for recurring roles that materially need a different family for character or legibility—such as `annotation`, `footer`, `footnote`, `data`, `emphasis`, `quote`, or `code`. Add a lowercase snake_case role and exact stack only when it recurs; inherited roles and one-off garnish stay omitted. The extension must remain coherent with the confirmed heading/body system and locked visual style, and it does not reopen confirmation. Only when an additional family role is added, record one compact `Role rationale` in §IV naming the added role(s) and why; otherwise omit the line.
+**Size anchors — px only** ([`plan-core.md`](./plan-core.md) §6.2 owns the ratios and the recurring-role scan). **Mandatory**: take Confirm UI `body_size` / `sizes` verbatim — a manually edited anchor stays pinned and a canvas change never rescales it — and declare every recurring role before locking so no structural text depends on Executor's display exception.
 
-**Size anchors — px only**: Every authoring layer carries bare px numbers. PowerPoint's displayed pt is an export result (`px × 0.75`), never an input or confirmation value.
+#### Mathematical and hyperlink content
 
-| Reading mode on PPT | Initial body | Information posture |
-|---|---:|---|
-| `text` | 20 | read-close / dense |
-| `balanced` | 24 | mixed reading + presentation |
-| `presentation` | 32 | projected / sparse |
+Record equations and links in §IX under [`plan-core.md`](./plan-core.md) §3 — never a policy, manifest, PNG, §VIII row, or lock entry; Executor owns the text-versus-native decision and returns here only for a content-level correction.
 
-Other canvases use the body baseline in [`canvas-formats.md`](canvas-formats.md). The confirmed role-anchor values always win: take Confirm UI `body_size` / `sizes` verbatim as anchors; a manually edited anchor remains pinned, and changing canvas does not secretly rescale it.
+### Resource Need and Reference Planning (non-blocking; no user confirmation)
 
-| Recurring role | Ratio to body |
-|---|---:|
-| Cover title / single-focus hero | 2.5–5× |
-| Chapter title | 2–2.5× |
-| Page title / KPI hero | 1.5–2× |
-| Subtitle | 1.2–1.5× |
-| Lead / subheading | 1.1–1.4× |
-| Body | 1× |
-| Annotation | 0.7–0.85× |
-| Footnote / page number | 0.5–0.65× |
+Resource need from the roster, the native-construction Hard rule, the capability opportunity signals, and the communication-job menu are [`plan-core.md`](./plan-core.md) §5; derive §VIII rows from that need and use existing fields only (icon basis and pool in §VI; image, lettering, or illustrated-icon resources in §VIII). Each capability hands off as follows:
 
-Scan §IX before locking. Declare every recurring role, including `lead`, `footnote`, and chart annotations when used; a lead is always at least body size. Give each role one deck-wide anchor and snap derived anchors to clean even px (for body 24, a sound set is title 42, subtitle 32, lead 30, annotation 18, footnote 16). Executor may vary one occurrence within that role's anchor ±2px while preserving hierarchy and readability. A short non-structural Hero/Display size planned for at most two occurrences may remain undeclared; the third planned occurrence makes it recurring and requires an explicit named slot. Structural text never uses this sparse exception.
-#### Formula Planning Trigger
+| Capability | Design Spec handoff |
+|---|---|
+| Image composition | Propose a permitted source; when selected, apply [`strategist-image.md`](./strategist-image.md), record a concise §VIII `Image pattern` in ordinary words, and state how several images relate in §IX `Images` |
+| Composable illustration family | Plan transparent elements by compatible family under `strategist-image.md`, record fixed reuse or adaptive variation in §VIII `Reference`, and describe each page's carrier relationships in §IX |
+| AI decorative lettering asset | Under `strategist-image.md`: preserve every exact string, group compatible marks, keep chrome/body native; the asset may carry the complete title as its display layer while a native title/subtitle stays in a separate frame wherever a searchable, selectable, or outline-visible heading is needed; never shorten copy toward a wordmark |
+| Motion | §IX `Motion suggestion` on every Slide whose unit visibly continues from the previous page (a recurring figure, a number that becomes a chart, a rail marker that advances, a cover element that becomes a section mark): name the continuing unit and its previous-page counterpart as a Morph candidate, whether or not Custom Animations is enabled — the deck keeps that wire so a later animation pass binds it without redrawing; elsewhere the line is optional (the communication job, the units involved, and their meaningful order or initial → end state). Effects, ids, options, and timing stay with Executor, and a suggestion never activates the custom stage |
 
-Formula policy and formula-asset planning are conditional. If the source contains formula-worthy expressions, or the user explicitly requests formula handling, read [`strategist-image.md`](./strategist-image.md) §3 before confirming the production policy or writing formula rows. Load it even when `image_usage` is `none`; otherwise omit formula planning from the core path.
+The information-model rule, the Chart/Table vocabulary Reference, and the validation command are [`plan-core.md`](./plan-core.md) §3 and §5.2; validate every selected reference before the lock.
+
+Write §VII as `Page | Family | Template | Usage` for each `chart|table` reference (Usage = semantic purpose; omit no-match), e.g. `| P03 | chart | line_chart | Compare the source metrics over time |`. **Native-ready boundary**: give every independent data chart and pure text-grid table in §IX `Visualization` a unique page-local `kebab-case` key and write one `Native-ready` map `<key>=yes|no; ...`; the `yes` / `no` criterion and what stays unlisted are [`plan-core.md`](./plan-core.md) §5.2.
 
 ### h. Image Source Recommendation
 
-| Source id | Approach | Use when |
-|---|---|---|
-| `none` | No images | Data reports or process documentation whose visual burden is fully served by charts / native SVG |
-| `provided` | User-provided assets | Existing images carry factual, brand, product, or narrative authority |
-| `ai` | AI-generated | Custom illustrations, backgrounds, metaphors, or a coherent spot family are needed |
-| `web` | Web-sourced | Real-world editorial or stock-style reference imagery is needed |
-| `placeholder` | Deferred | The image is required but will be supplied later |
+Source ids (`none` / `provided` / `ai` / `web` / `placeholder`), the credentials Hard rule, and visual grounding before `none` are [`plan-core.md`](./plan-core.md) §5.1; Generate Step 5 is the first capability check.
 
-**Current inventory**: If `images/` is non-empty, run `python3 scripts/analyze_images.py <project_path>/images` and read `analysis/image_analysis.csv` before recommending a source. Re-run after that folder changes.
+If `images/` is non-empty, run `python3 scripts/analyze_images.py <project_path>/images` and read `analysis/image_analysis.csv` before recommending (rerun after changes).
 
-**Recommendation output**: Write `recommend.image_usage` as one source id or an array for mixed sources. Put page roles, authoritative assets, preferred/avoided imagery, and placeholder tolerance in `image_notes.value`. `none` is exclusive. Human-scale topics such as family life, education, wellness, or children lean `ai` when no supplied asset carries the story; regulated investor decks, B2B finance reports, and data-only dashboards remain eligible for `none` by judgment.
+**Proactive illustrated icons and lettering**: before each Stage-2 `recommend.image_usage`, run [`strategist-image.md`](./strategist-image.md)'s illustrated-icon and decorative-lettering candidate scan over the complete roster. A selected mark may be the sole AI job and may support an `ai` recommendation in `image_notes.value`. Zero is valid without explanation; explicit no-AI or editable-only requirements win.
 
-**Confirmed value wins**: Accept the confirmed legacy string or multi-select array. Map `ai→ai`, `web→web`, `provided→user`, and `placeholder→placeholder` into §VIII `Acquire Via`. Until confirmation, a coordinated direction that proposes AI may use the visual style's paired rendering; generated images inherit the deck colors and never introduce a second image-palette choice.
+**Recommendation output**: `recommend.image_usage` is one source id or an array (`none` exclusive). `image_notes.value` carries each source's intended jobs, authoritative assets, preferred/avoided imagery, placeholder tolerance, and — when `ai` is proposed — how generated visuals contribute, including any anticipated illustration, illustrated-icon, or lettering role: an open strategy, not an enum, allowlist, page assignment, count, or manifest. On confirmation map `ai→ai`, `web→web`, `provided→user`, `placeholder→placeholder` into §VIII `Acquire Via`.
 
-**Conditional module — two-stage trigger**:
-
-1. First derive the proposed `recommend.image_usage` in core. If it contains any non-`none` source—especially `ai`—read [`strategist-image.md`](./strategist-image.md) **before authoring the Stage-2 design directions** so rendering and other image-dependent candidate details are real, not backfilled after confirmation. An explicit non-`none` image constraint or the formula trigger from §g activates the module at the same point.
-2. Confirmed sources bound production. Non-`none` loads or retains [`strategist-image.md`](./strategist-image.md) for resource planning without backfilling candidates; `none` without formulas writes no image rows.
-
-The module owns formula policy, AI rendering alternatives, acquisition paths, resource rows, prompt depth, page roles, and placement intent.
-
-### Presentation Capability & Visualization Recall (Non-blocking — Strategist recommends, no user confirmation needed)
-
-**Per-page capability recall**: Before §IX, consider this menu without a usage
-quota. Use existing fields for semantic intent; omit unused lines and
-implementation parameters. Executor may adapt/decline the
-two non-literal suggestions while preserving content and intent; explicit
-user/template requirements bind.
-
-| Capability | Opportunity signal | Design Spec handoff |
-|---|---|---|
-| Image composition | Image-as-canvas, editorial crop, collage, cutout, or meaningful focus / comparison / evidence units carry the page better than an adjacent rectangle | Propose a permitted source; when selected, load [`strategist-image.md`](./strategist-image.md), record a concise §VIII `Layout pattern` suggestion, and describe page-level image/overlay relationships in §IX `Layout` / `Images` |
-| Native paint / overlay | Gradient, translucency, scrim, vignette, or wash supports focus, hierarchy, depth, legibility, or image integration | Record purpose/layering in §IX `Layout`, plus `Images` when imagery participates; no new field or type/stops/opacity/coordinates—Executor chooses realization |
-| Native shape / Merge Shapes | A literal Office symbol, a stock bent/curved relationship contour, or a compound silhouette, negative-space cutout, overlap-only region, or meaningful fragmentation strengthens the visual idea | Add an optional §IX `Native shape suggestion` with the semantic result plus a candidate preset/Connector family or Boolean operation/operands |
-| Page transition | A section/state change, spatial continuity, recorded/self-running flow, or the same semantic object changing position, scale, crop, or state across adjacent pages benefits from motion | Add an optional §IX `Motion suggestion` describing the communication job and any continuing object's initial state → action → end state; leave effect, ids, pairing names, and timing to Executor |
-| Object animation | Progressive reveal, emphasis, movement, removal, or deliberate stillness clarifies sequence, causality, comparison, hierarchy, narration order, full-view → detail, atmosphere → evidence, or hotspot/annotation order | Add an optional §IX `Motion suggestion` naming each relevant semantic unit's lifecycle duty and initial state → communication action → end state, plus any meaningful order/relationship; leave group ids, effects, options, and timing to Executor |
-
-**Reference — not a constraint: motion lifecycle vocabulary.**
-
-| Duty | Semantic lifecycle |
-|---|---|
-| `enter` | absent → introduce → present |
-| `emphasize` | present → redirect attention → present/altered |
-| `move` | state/position A → progress → state/position B |
-| `exit` | present → retire → absent |
-| `static` | present → hold as reference → present |
-
-Use only relevant duties—no category quota. For every unit mentioned in a
-`Motion suggestion`, state its duty, lifecycle, and meaningful order; never
-name an effect, target id, option, or timing. Write useful advice regardless of
-the effective outcome. Suggestions remain non-binding and never activate the
-custom stage; only an explicit motion requirement or an enabled outcome may
-require visible lifecycle-state preparation.
-
-Classify by information model, never source PowerPoint object type:
-
-| Model | Planning action |
-|---|---|
-| Qualitative `order`, `link`, `parent`, `membership`, `contrast`, or `overlap` | Preserve units, relationship, and reading path as free §IX prose; no catalog key |
-| Values/dates/durations determine geometry | Chart; recall is optional |
-| Row header × column header addresses each fact | Table; recall is optional |
-
-**Mandatory — relationship handoff**: keep every qualitative relationship in §IX free prose; never serialize grammar atoms, coordinates, or named models. Executor makes the per-page Structure decision at runtime.
-
-**Reference — not a constraint**: recall Chart/Table with 3–8 English tags when useful; add `--family chart|table` only when certain. Skip custom objects and qualitative composition.
-
-```bash
-python3 skills/ppt-master/scripts/visualization_recall.py recall \
-  --page P03 \
-  --tag "time series" \
-  --tag "three metrics" \
-  --tag "direction over time" \
-  --limit 6
-```
-
-The command returns a bounded shortlist plus `no-template-match`. Read it unfiltered; `tail` / `head` / `grep` can hide ranked candidates. `confidence` is lexical only. At `high` / `medium`, keep no-match after candidate review. At `low` / `none`, use a fitting candidate directly; otherwise rerun once with `--semantic-fallback` before no-match. Do not open any family index separately.
-
-**Selection**:
-
-1. Choose at most one flexible Chart/Table `family/key` per page; keep children and qualitative relationships in §IX.
-2. If none fits, keep `no-template-match` and plan the fallback only in §IX; never serialize no-match.
-3. Validate every selected canonical reference before the lock:
-
-```bash
-python3 skills/ppt-master/scripts/visualization_recall.py validate \
-  <family>/<key> [<family>/<key> ...]
-```
-
-Correct failed selections by recall; `no-template-match` never enters `page_visualizations`.
-
-**Section VII selection list**: write `Page | Family | Template | Usage` for each `chart|table` reference; Usage is semantic purpose. Omit empty/no-match detail. Qualitative composition stays in §IX; only Layout/Deck owns reusable PowerPoint structure.
-
-**Native-ready boundary**: Give every independent data chart and pure text-grid table in §IX `Visualization` a unique page-local semantic `kebab-case` key, then write one `Native-ready` map: `<key>=yes|no; ...`. Use `yes` only when an editable native object benefits the confirmed requirement/afterlife. Qualitative shape compositions and incidental microvisuals stay unlisted.
-
-```markdown
-| Page | Family | Template | Usage |
-| --- | --- | --- | --- |
-| P03 | chart | line_chart | Compare the source metrics over time |
-```
-
-**Native-geometry candidate detail**: Add `Native shape suggestion` to the
-affected §IX page when the content calls for a literal stock PowerPoint
-chevron, block arrow, standard flowchart node, callout, banner, star, or a
-stock bent/curved Connector contour. Describe a relationship by its semantic
-route and candidate family, not an exact preset key, endpoint/site metadata, or
-attachment promise. For a compound silhouette, cutout, common region, or
-meaningful fragmentation, name the candidate Union / Combine / Fragment /
-Intersect / Subtract operation, semantic operands, and intended result.
-Executor still decides the exact basic primitive, preset, Boolean construction,
-or necessary freeform under its native-shape branch; the recommendation never
-creates a §VII row or lock field.
+**Always-on decision module; conditional resource extension**: the fixed planning batch (this module, the decision indexes, the icon contract, the Chart/Table vocabularies) is loaded before the directions. After the three intents are frozen, [`strategist-image.md`](./strategist-image.md) authors one complete custom rendering per direction before AI is decided. `recommend.image_usage` is derived independently from source needs; a confirmed non-`none` set activates its resource-planning sections, and confirmed `none` writes no rows while keeping the rendering candidates and composition vocabulary.
 
 ### Speaker Notes Requirements
 
-Resolve the effective Speaker Notes outcome from the latest explicit user
-instruction, then final Stage 2 `proactive_speaker_notes`, then workflow default
-`true`. Effective Narration Audio `enabled` requires Speaker Notes `enabled`
-without changing the raw proactive preference; when that dependency changes the
-notes outcome, its provenance names enabled Narration Audio.
+Resolve the effective outcome as latest explicit instruction → final Stage 2 `proactive_speaker_notes` → default `true`; enabled Narration Audio requires enabled notes and names that dependency in provenance.
 
 | Effective outcome | Design Spec §X |
 |---|---|
 | `enabled` | Record filename policy, content/source handling, total duration, notes style, and presentation purpose |
 | `disabled` | Keep §X and write `Generation: disabled`; do not invent note requirements |
 
-When enabled, match SVG names where possible (`01_cover.svg` →
-`notes/01_cover.md`); `notes/slide01.md` remains compatible. Split files contain
-no `#` heading lines; `notes/total.md` uses `#` headings.
+Note files match SVG names (`01_cover.svg` → `notes/01_cover.md`; `notes/slide01.md` stays compatible); split files carry no `#` headings while `notes/total.md` does. A user-marked final/literal script keeps its wording and order: segment it by scene while resolving §IX, record source and verbatim policy in §X `Content`, and let Generate freeze `notes/total.md` after the roster and lock pass — never copy it into on-slide `Content`.
 
 ---
 
 ## 2. Mode & Visual-Style Catalogs (Reference for Confirmation Item d)
 
-Confirmation `d` locks two independent catalog items:
-
-- **Mode** — narrative skeleton: [`modes/_index.md`](./modes/_index.md) → `pyramid` / `narrative` / `instructional` / `showcase` / `briefing`.
-- **Visual style** — aesthetic: [`visual-styles/_index.md`](./visual-styles/_index.md) → presets + `custom`.
-
-Read the relevant `_index.md` at confirmation `d` (Layer 1 / Layer 2) for its catalog table and auto-selection. Executor loads one locked file per preset, or every exact custom reference before applying its behavior (see [`generate-pptx`](../workflows/generate-pptx.md) Step 6).
+Mode: [`modes/_index.md`](./modes/_index.md) → `pyramid` / `narrative` / `instructional` / `showcase` / `briefing`. Visual style: [`visual-styles/_index.md`](./visual-styles/_index.md) → presets + `custom`. Basis selection follows the §d Hard rule; Executor later reads one locked preset file or a custom's exact references ([`generate-pptx`](../workflows/generate-pptx.md) Step 6).
 
 ---
 
 ## 3. Color Selection Reference
 
-Do not start from a universal palette. Precedence is user / brand → active template → project-specific proposal; `scripts/config.py` industry anchors are optional recall. Keep body-text contrast at least 4.5:1; color count and distribution follow encoding, style, and natural assets, not a quota.
-
-Lock the stable role set the deck needs, including recurring neutrals such as `surface`, `grid`, `scrim`, `overlay`, or `block-shade`. These are identity anchors, not an exhaustive paint list. Executor may derive tints, shades, alpha, gradients, and effects, preserve necessary natural asset colors, and add sparse page-local accents for differentiation or ornament. Such accents must not form a competing/recurring palette; Strategist owns reusable positive / warning / negative roles.
+Owned by [`plan-core.md`](./plan-core.md) §6.1: precedence, proportion, anchor tiers, and polarity ramps live there; §e owns the six confirmed roles.
 
 ---
 
-## 4. Layout Pattern Library
+## 4. Composition Reference and Motif
 
-**Proportion follows information weight, not preset ratios.** Choose or combine the smallest structure that expresses the relationship; break the grid for a genuine `breathing` page. Repeating symmetric card grids is a failure mode.
-
-| Content relationship | Useful starting structure |
-|---|---|
-| One focal claim | centered single column, negative space, or full-bleed + floating text |
-| Equal comparison | symmetric split or a true matrix |
-| Dominant evidence + takeaway | asymmetric split, typically 3:7 or 2:8 |
-| Parallel sequence | three-column, process line, or Z-pattern |
-| Core + surrounding forces | center-radiating or hub-spoke |
-| Wide visual + explanation | top-bottom split |
-
-**Default — define one cross-page visual motif when it can carry identity or
-meaning (may omit when restraint serves the deck better)**: after the complete
-§IX roster and planned visual resources are known, choose or inherit one reusable
-page-scale geometry or material gesture—such as a directional contour, opening,
-line lattice, or oversized numeral. Fold its recognizable invariant and allowed
-variation (scale, crop, density, position, content interaction) into the
-existing §III `Theme`, and mention it only in §IX `Layout` blocks that use it.
-Vary it by page role instead of copying one ornament; create no motif field or
-lock row. This is a continuity Reference, not a decoration quota.
-
-On PPT 16:9, start from a 1200×640 safe area with 40px outer margins, then adapt to content. Template workspaces may supply different geometry; when active, [`strategist-template.md`](./strategist-template.md) owns precedence.
+The §IX `Composition` line and the cross-page motif recommendation are [`plan-core.md`](./plan-core.md) §4: both are References Executor adjusts or declines; the motif's continuity job and reuse mode go in §III `Theme`.
 
 ---
 
 ## 5. Template Flexibility Principle
 
-Free-design patterns are starting points, not quotas. Adjust composition, spacing, and role sizes to the confirmed reading mode, page rhythm, and content. When a template workspace is active, do not reinterpret its reuse contract here; load [`strategist-template.md`](./strategist-template.md).
+Free-design patterns are starting points, not quotas: recommend a macro direction from reading mode, page rhythm, and content, and leave exact composition and spacing to Executor within the locked typography anchors. An active template workspace is governed only by [`strategist-template.md`](./strategist-template.md).
 
 ## 6. Workflow & Deliverables
 
 ### 6.1 Content Planning Strategy
 
-Content-outline strategy and, when enabled, speaker-notes strategy follow the deck's locked **mode** — see [`modes/_index.md`](./modes/_index.md), then the locked preset file or every listed custom reference plus its behavior. The guidance below applies within any mode:
-
-**Reading mode controls information carriage, not communication intent.** `result.json delivery_purpose` is retained as the compatibility key for `text` (read-close) / `balanced` (business, default) / `presentation`, confirmed with the complete deck solution in Stage 2. It decides how meaning is divided among the page, visuals, presenter, and enabled notes. The body baseline (§g) is one consequence, not the definition:
-
-| Reading mode | Primary carrier | §IX page grammar | Granularity / rhythm | Speaker notes |
-|---|---|---|---|---|
-| `text` · read-close | page / document | complete assertions, short prose paragraphs, captions, tables, and necessary detail; bullets only for genuinely parallel or ordered items | fewer, fuller pages; leans `dense` | supplemental context, not a substitute for missing page logic |
-| `balanced` · business (default) | page + presenter | one primary claim with concise explanation, structured evidence, or a necessary list | moderate granularity; mixed rhythm | interpretation and transitions |
-| `presentation` | presenter + visuals | one claim per page, keywords / short phrases, a large visual or hero number; no paragraph dumps or prose compressed into bullet fragments | more, sparser pages; leans `anchor` / `breathing` | carries explanation, transitions, and supporting detail |
-
-When Speaker Notes is disabled, the final column is unavailable: keep every
-required meaning in the visible page and confirmed presenter channel.
-
-**Recommendation signals**: derive the initial reading mode from the confirmed `audience`, `delivery_context`, and `artifact_afterlife`. Asynchronous review, reference, approval, audit, and leave-behind use lean `text`; presenter-led projection, large-room delivery, launch, or classroom explanation lean `presentation`; hybrid review / roadshow use leans `balanced`. When live projection and durable afterlife both matter, recommend `balanced` unless the contract clearly prioritizes one. If the user confirms `presentation`, support afterlife through enabled notes, appendix pages, captions, and visible sources instead of crowding every slide.
-
-**Per-block expression**: let the semantic relationship choose the form. Causal explanation, argument, interpretation, and narrative continuity use prose. Truly parallel, ordered, or enumerable items may use bullets / numbers. Never create bullets merely because copy is long or a template exposes a list slot. In `presentation`, distill one assertion and move its explanation into enabled notes rather than turning every sentence into a fragment; when notes are disabled, keep the necessary explanation in the visible page or confirmed presenter channel. Source texture remains a secondary cue: an article / transcript / talk leans prose, while a data sheet or inventory may lean structured labels. Write complete, usable phrasing into §IX; do not leave skeletons for Executor. It is preferred wording unless literal preservation applies; Executor owns faithful expression adaptation under [`executor-base.md`](./executor-base.md) §2.1's content-vs-expression contract.
-
-This is what makes the axis meaningful: a `presentation` deck and a `text` deck built from the **same source and communication contract** must differ in page grammar, page count recommendation, per-page text volume, visual burden, layout density, rhythm, and enabled notes—not only in font size. Page count stays the user's call; reading mode informs the recommendation when the user has not fixed one. Record it as **Reading Mode** in `design_spec.md §I` (compatibility key `delivery_purpose`, lock key `consumption_mode`). Separately, `communication_intent` / `audience_outcome` determine what the outline must accomplish, while `delivery_context` and `artifact_afterlife` help select the reading mode and still remain independent constraints after selection. The `page_rhythm` leans are a bias, not a quota. Preservation paths keep source wording and structure verbatim: honor reading mode only in styling and enabled notes, never by rephrasing or re-paginating.
-
-> Note: §IX is the complete page brief; Executor retains it with the lock until context invalidation, then reloads both once.
+Outline and, when enabled, notes strategy follow the locked mode ([`modes/_index.md`](./modes/_index.md), then the preset file or the custom's references plus behavior). Within any mode, reading-mode carriage and per-block expression are [`plan-core.md`](./plan-core.md) §2 and §3: record the mode as **Reading Mode** in `design_spec.md §I` (lock key `consumption_mode`), and write §IX at the confirmed depth so Executor can retain it with the lock until context invalidation.
 
 ### 6.2 Planning Artifact Content
 
-Generate Step 4 owns this sequence. `design_spec.md` is the complete human-readable decision; `spec_lock.md` is its context-selected execution subset/routing contract. Consume `result.json` once into the initial Design Spec and never reopen it for the lock. Refinement edits that same Design Spec; affected user revisions become the latest authority. Never treat the planning files as parallel interpretations.
+Generate Step 4 owns the sequence: `design_spec.md` is the complete human-readable decision, `spec_lock.md` its context-selected execution subset; `result.json` is consumed once and never reopened; refinement edits the same Design Spec, and the files are never parallel interpretations. A later explicit notes/animation/narration instruction updates only the affected §I outcome and provenance, after Generate's notes/audio dependency gate, without reopening Confirm UI or touching the lock. Animation provenance is final Stage 2 `false`, explicit objects-off, or explicit all-motion-off; only the last includes transitions.
 
-After final confirmation, a newer explicit notes/animation/narration instruction
-updates only affected §I outcomes/provenance and resumes their owner; never
-reopen Confirm UI or add them to `spec_lock.md`. Before editing, apply
-Generate's notes/audio dependency gate. Record animation provenance as
-final Stage 2 `false`, explicit objects-off, or explicit all-motion-off; only the last
-includes transitions.
-
-1. With Generate Step 4's retained complete final-confirmation state, read `${SKILL_DIR}/templates/design_spec_reference.md`.
-2. Compose the whole Design Spec in active context before touching the target path. Create `design_spec.md` once from the schema marker through §X; do not copy a scaffold into the project or patch placeholder fields. Record production mechanics in §I, including one effective outcome plus provenance for Speaker Notes, Custom Animations, and Narration Audio. Resolve them from latest explicit user instruction → matching final Stage 2 proactive value → workflow default `enabled` / `disabled` / `disabled`; Narration Audio enabled requires Speaker Notes enabled without rewriting the raw proactive evidence, and a dependency-driven notes outcome records that provenance. In §IX, create the complete ordered roster; each entry carries layout, title, core message, **Audience move**, complete preferred wording, applicable capability recommendations, visualization/image references, sourced `Fact IDs`, and `Data class: scenario` for invented demo data. After Gate 1 plus conditional refine approval, roster ids/count/order and semantic content are authoritative; non-literal wording, block texture, layout, cover/closing composition, capability recommendations, and image/visualization patterns remain References unless promoted.
-3. Compare `design_spec.md` against the final confirmation field by field. Repair every omission or deviation before entering an enabled refine-spec review or authoring `spec_lock.md`.
-4. If enabled, run [`refine-spec`](../workflows/stages/refine-spec.md) after Gate 1; edit only that Design Spec and create no lock before explicit approval.
-5. Read `${SKILL_DIR}/templates/spec_lock_reference.md`; create the lock once or resynchronize stale derived state from the approved Design Spec and context. Retain identity/refinements and stable roles/routing; omit unnamed page-local values, do not reopen evidence, and make no new recommendation.
-
-**Final confirmation → Design Spec consumption map**:
+1. With the retained final confirmation, read `${SKILL_DIR}/templates/design_spec_reference.md`.
+2. Compose the whole Design Spec in context and create `design_spec.md` once from the schema marker through §X. §I records production mechanics — one effective outcome plus provenance each for Speaker Notes, Custom Animations, and Narration Audio (latest explicit instruction → final Stage-2 proactive value → default enabled / disabled / disabled; narration enabled requires notes). §IX is the complete ordered roster: title, core message, **Audience move**, **Relationships** (the page's semantic units and their source-stated relationship, or `none`, at every depth), content at the confirmed depth, optional Composition Reference, exact mathematics, capability recommendations, visualization/image references, sourced `Fact IDs`, and `Data class: scenario` for invented data. After Gate 1 and any refine approval, roster ids/count/order and semantic content are authoritative (a continuous run may repair within the confirmed range per `executor-base.md` §2.1); everything else in a block is a Reference under §1 Confirmed-value semantics unless labeled `(binding)`.
+3. Compare `design_spec.md` with the final confirmation field by field and repair every omission before refinement or the lock.
+4. When enabled, run [`refine-spec`](../workflows/stages/refine-spec.md) on that file; no lock before explicit approval.
+5. Read `${SKILL_DIR}/templates/spec_lock_reference.md` and create or resynchronize the lock once from the approved Design Spec and context — identity, refinements, stable roles and routing; no page-local values, no reopened evidence, no new recommendation.
 
 | Confirmed state | Required Design Spec realization |
 |---|---|
-| Communication contract and `content_divergence` | §I records the confirmed contract; §IX realizes every stated purpose, outcome, priority, and source-treatment constraint |
-| Canvas, reading mode, and page count | §I records the confirmed input and exact resolved count; §IX contains that many ordered pages. Executor produces exactly one output slide per entry, in order |
-| Mode, visual style, palette, and generated-image rendering | §I and §III record the selected direction as identity anchors; named core roles stay stable while page-local expression remains contextual |
-| Typography, including Strategist-derived recurring family overrides and every visible role size | §IV records Character/upgrade References, resolved heading/body stacks, recurring support-role stacks justified by §IX, and exact `body`, `title`, `subtitle`, and `annotation` anchors; never discard a declared role override or re-derive a confirmed anchor |
-| Icons | §VI uses the confirmed library or confirmed no-icon/custom path |
-| Confirmed image-source set, `image_notes`, and AI strategy | §VIII uses only permitted sources and includes every explicitly required source, asset, or page role; a permitted but unused source needs no row |
-| Natural-language template application | §I records it and the relevant layout/prototype choices realize it without silently dropping a requested use or exclusion |
-| Formula policy, AI-image acquisition path, generation mode, refine-spec toggle | §I records them as production mechanics; their owning Generate stage consumes the Design Spec, and formula policy also shapes §VIII when formula-worthy content exists |
-| Proactive speaker notes, custom animations, and narration audio | §I records the three resolved effective outcomes with provenance, while §X records enabled note requirements or `Generation: disabled`; they remain outside `spec_lock.md`. §IX Motion suggestions remain optional advice regardless of the animation outcome |
+| Communication contract and `content_divergence` | §I records the contract; §IX realizes every stated purpose, outcome, priority, and source-treatment constraint |
+| Canvas, reading mode, and page count | §I records the confirmed input and exact resolved count; §IX contains that many ordered pages, one slide each |
+| Mode, visual style, palette, and generated-image rendering | §I and §III record the selected direction as identity anchors; core roles stay stable, page-local expression contextual |
+| Typography, including derived family overrides and every visible role size | §IV records Character/upgrade References, resolved heading/body stacks, recurring support-role stacks justified by §IX, and exact `body`, `title`, `subtitle`, `annotation` anchors; never drop a declared override or re-derive an anchor |
+| Icons | §VI records the confirmed base library / no-icon / custom path and content-driven `simple-icons` marks; illustrated-icon families are §VIII AI resources |
+| Confirmed image-source set, `image_notes`, AI strategy | §VIII uses only permitted sources and includes every explicitly required source, asset, or page role; an unused permitted source needs no row |
+| Natural-language template application | §I records it; layout/prototype choices realize it without dropping a requested use or exclusion |
+| AI-image path, generation mode, refine-spec toggle | §I records them as production mechanics for their owning stage |
+| Proactive notes, animations, narration | §I records the three effective outcomes with provenance; §X records note requirements or `Generation: disabled`; none enters the lock; §IX Motion suggestions stay advice |
+| Explicit final/literal narration script | §IX segments by scene with a supporting visible state each; §X records source and verbatim policy; Generate freezes `notes/total.md` after Gate 2 |
 
-⛔ **GATE 1 — active-decision fidelity.** Do not create `spec_lock.md` until the initial Design Spec passes the comparison above and any enabled refinement is explicitly approved. Before Gate 2, every requested revision must be present and every unaffected decision intact. Missing/substituted values, unapplied revisions, or silently changed semantic types block despite schema validity; bounded Reference adaptation and unused Permission remain valid.
+⛔ **GATE 1 — active-decision fidelity**: no lock until the Design Spec passes that comparison and any refinement is approved. Missing or substituted values, unapplied revisions, or silently changed semantic types block despite schema validity; bounded Reference adaptation and unused Permission remain valid.
 
-⛔ **GATE 2 — lock context fidelity.** After Gate 1 closes, author machine-relevant anchors/routing into `spec_lock.md`. The lock may normalize syntax and add justified recurring roles, but must not change identity, discard a refinement, introduce a direction, or become a field copy/allowlist. On contradiction, return to Gate 1 using retained confirmation by default or the approved revised Design Spec after refinement; fresh recovery reads persisted final evidence once only when active state is absent.
+⛔ **GATE 2 — lock context fidelity**: the lock may normalize syntax and add justified recurring roles but never changes identity, discards a refinement, introduces a direction, or becomes a field copy or allowlist. On contradiction return to Gate 1 (fresh recovery reads persisted final evidence once only when active state is absent).
 
-**Execution lock content**: `spec_lock.md` compactly carries communication, stable color/type anchors, icons, images, page rhythm, Chart/Table references, and route-specific PowerPoint structure; qualitative relationships stay only in §IX. Name every recurring typography role; a planned short non-structural Hero/Display size may stay omitted only while the same value appears at most twice, and its third occurrence requires a named role. Never re-derive a confirmed anchor. New locks keep `font_family` as the body/default compatibility stack and also write explicit `title_family` + `body_family`; every additional recurring Design Spec role projects to `<role>_family`. Collapsing distinct Design Spec stacks into `font_family`, or dropping an extra role, fails Gate 2. Keep core fonts/palette roles stable; page authoring varies treatment and may add sparse local garnish. Project every placed §VIII image's source, layout suggestion, and crop policy; omit unplaced sheets and planning provenance. Free-design, brand-only, and `template_reuse_scope: style` use `pptx_structure.mode: flat`; the template module owns structured mappings. Executor context policy lives in [executor-base.md](executor-base.md) §2.1. Repair from Gate 2's active decision authority, then re-author affected lock rows.
+**Execution lock content**: `spec_lock.md` carries communication, stable color/type anchors, icons, images, page rhythm, Chart/Table references, and route-specific structure; qualitative relationships stay in §IX. Grammar — section set, typography projection (`title_family` + `body_family` + every `<role>_family` and size anchor), `page_visualizations`, flat/structured `pptx_structure` — is [`spec_lock_reference.md`](../templates/spec_lock_reference.md) §2–4. Never re-derive a confirmed anchor, collapse distinct stacks into `font_family`, or drop a recurring role.
 
-**Contextual extension**: derived paint or sparse local font/color garnish may stay in one SVG while non-structural and non-recurring. New base/semantic colors, structural/recurring fonts, resources, or recurring cross-page identity patterns require upstream repair; a page-local §VIII preferred image pattern follows [`executor-image.md`](./executor-image.md) and may change during realization. Executor never reverse-projects a local choice as planning fact. Promote recurring garnish upstream before reuse, read back and validate the affected planning fragments, and never add values to silence a comparison.
+**Lock vs page-local values**: derived paint and sparse local garnish may stay in one SVG. New base colors, structural fonts, resources, or recurring identity patterns require upstream repair, and Executor never reverse-projects a local choice as planning fact.
 
-   - **Communication trace is mandatory**: Keep the full confirmed communication contract in `design_spec.md §I`, then project only `audience`, `objective`, `core_message`, and canonical `consumption_mode` into `spec_lock.md communication`. Write `objective` as one concise execution sentence that preserves both the confirmed `communication_intent` and the success condition in `audience_outcome`; do not copy `delivery_context`, `artifact_afterlife`, dates, provenance, or conflict-resolution commentary into the lock. Before finalizing §IX, check that every named purpose has at least one outline obligation and **every Slide block**, including cover / divider / closing pages, has an `Audience move` that advances the global outcome. A page that advances no purpose or outcome should be merged, rewritten, or cut. `project_manager.py validate` and `svg_quality_checker.py` enforce the compact lock fields and per-page move presence, not their subjective quality.
-   - **Custom behavior is concise and executable**: For confirmed `custom` mode or visual style, project one resolved `mode_behavior` / `visual_style_behavior` sentence or short paragraph. When the direction actually combines or borrows catalog entries, also project the exact, comma-separated `mode_references` / `visual_style_references`; omit the field for a genuinely novel direction and never fabricate a nearby reference. Preserve the confirmed direction, reference locked role names such as `colors.primary` when needed, and omit selection history, contradictions, precedence explanations, or other Design Spec provenance. Executor reads these fields from the retained lock and loads every referenced catalog entry once per valid context.
-   - **page_rhythm is mandatory**: Based on the page list in §IX Content Outline, assign each page one of `anchor` / `dense` / `breathing`. This is what breaks the uniform "every page is a card grid" feel. New locks may not omit the section; consumer omission behavior is owned by [`executor-base.md`](executor-base.md) §2.1.
-   - **Fact IDs and scenario labels are mandatory when applicable**: Read any `sources/*.facts.json`. For each §IX page, list the stable IDs actually used; never cite an ID whose claim is absent from the page. Mark invented KPIs/targets/internal ratios as `Data class: scenario` and state which values are scenario data. Executor carries external sources into notes/footnotes and renders a visible scenario label for scenario figures.
-   - **Mandatory — whole-roster rhythm check**: During the same §IX composition, compare neighbors and section arcs to judge whether chapter entries visibly reset, extended same-density runs are intentional, extended same-carrier or same-topology runs form an intentional semantic sub-arc, repeated dominant geometry carries a continuity job, each section follows a mode-fitting progression—including framework → explanation/evidence → judgment/action when it serves the objective—and the final arc resolves the communication objective before a genuine ending lowers information load. Repair the existing roster, `Layout`, and `page_rhythm` choices in place. This is judgment, not quota; preserve intentional continuity, legitimately all-`dense` material, and 1:1/literal order. Do not invent filler pages to manufacture rhythm; a `breathing` page marks a meaningful pause—chapter transition, standalone emphasis, or SCQA bridge—and must stand alone. Create no field, lock row, artifact, or second review/execution pass.
-   - **Cover impact is mandatory**: In `design_spec.md §IX`, give `P01` one concrete hook from the source's strongest claim, metaphor, number, moment, or conflict plus a recommended composition. The hook binds; Executor may adapt the composition to prepared assets and explicit constraints. With no suitable image, recommend a native-SVG hook instead of a generic title treatment. Beautify / template-fill preservation paths are exempt.
-   - **Cover rhythm lock**: `P01` remains `anchor`. Default away from generic content-page templates; a card grid, agenda, or equal-weight columns remains valid when content, user direction, or the template makes it the clearest cover.
-   - **Closing impact (only when the deck closes)**: For a genuine conclusion / CTA / final takeaway, name the binding takeaway plus a recommended composition; Executor may adapt the latter. Do not default to an information-empty "Thank you", contact-only slide, or cover reprise; an explicit contact/event CTA may serve the purpose. **Do NOT invent a closing page to satisfy this**. Preservation paths are exempt.
-   - **pptx_structure is mandatory**: Free-design, brand-only, and `template_reuse_scope: style` routes write `mode: flat`; a style-reference route may also record `template_reuse_scope: style` but omits every structure mapping and `template_adherence`. `template_reuse_scope: mirror|layout` writes `mode: structured` plus `template_adherence: strict|adaptive`. Do not write legacy `baseline`, `template`, `preserve`, `layout_strategy`, or Layout-kind rows into a new project.
-   - **Flat-route boundary**: With `mode: flat`, omit `pptx_masters`, `pptx_layouts`, `page_pptx_layouts`, and `page_layouts`. Do not plan native Master/Layout families or reusable placeholder slots. Every generated SVG object remains Slide-local: omit root Master/Layout identity, `data-pptx-layer`, and `data-pptx-placeholder*` metadata. Export materializes one clean project-owned Master plus one Blank Layout from the current color/typography lock, removes stock content placeholders/Layout inventory, and retains only the standard date/footer/slide-number capability hooks.
-   - **Structured template route**: When [`strategist-template.md`](./strategist-template.md) is active and reuse is `mirror|layout`, follow its complete Master/Layout/slot/prototype mapping rules.
-   - **page_visualizations**: project at most one §VII `P<NN>: <chart|table>/<key>` per page. Usage/children/qualitative relationships stay in the Design Spec; omit empty/no-match. It locks no geometry/native output. New locks never write legacy `page_charts`.
+**Hard rule — a lock prohibition is the user's**: `forbidden` takes the technical baseline plus prohibitions the user stated in their own words, each quoted verbatim and tagged `(user)` ([`spec_lock_reference.md`](../templates/spec_lock_reference.md) §2). A confirmed direction's behavior stays identity prose and is never projected into a prohibition.
+
+- **Communication trace is mandatory**: keep the full contract in §I and project only `audience`, `objective` (one execution sentence preserving intent and the `audience_outcome` success condition), `core_message`, and `consumption_mode` into `spec_lock.md communication`. Before finalizing §IX, every named purpose has an outline obligation and every Slide block — cover, divider, closing included — has an `Audience move`; a page that advances nothing is merged, rewritten, or cut. Tools enforce presence, not quality.
+- **Custom behavior is concise and executable**: one resolved `mode_behavior` / `visual_style_behavior` sentence or short paragraph plus exact `*_references` only when catalog entries are used; no selection history.
+- **page_rhythm is mandatory**: one of `anchor` / `dense` / `breathing` per §IX page — what breaks the uniform card-grid feel; consumer omission behavior is `executor-base.md` §2.2's.
+- **Fact IDs and scenario labels**: list the stable IDs actually used per page, never one whose claim is absent; mark invented KPIs, targets, and ratios `Data class: scenario` and say which values they are.
+- **Whole-roster rhythm check, cover impact, and closing impact** are [`plan-core.md`](./plan-core.md) §4 and apply while composing §IX; the cover hook and closing takeaway bind, their compositions are References, and Beautify preservation is exempt.
+- **pptx_structure and page_visualizations**: free-design, brand-only, and `template_reuse_scope: style` write `mode: flat` and omit every structured mapping section; `mirror|layout` writes `mode: structured` with `template_adherence` and the four mapping sections under [`strategist-template.md`](./strategist-template.md). Project at most one §VII `P<NN>: <chart|table>/<key>` per page; grammar in [`spec_lock_reference.md`](../templates/spec_lock_reference.md) §3–4.
 
 ---
 
 ## 7. Project Boundary
 
-The Generate route owns project initialization and supplies `<project_path>`. Strategist writes only the two complete planning artifacts at that root plus the explicitly triggered resource manifests; it does not choose or create another project path.
-
----
+Generate owns project initialization and supplies `<project_path>`; Strategist writes only the two planning artifacts at that root plus explicitly triggered resource manifests.
 
 ## 8. Handoff
 
-After validation, return to the Generate Step 4 checkpoint. The route—not this role—owns whether Step 5 runs and how execution resumes or auto-proceeds.
+After validation, return to the Generate Step 4 checkpoint; the route owns whether Step 5 runs and how execution proceeds.

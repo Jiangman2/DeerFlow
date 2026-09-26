@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+import json
 import yaml
 from langchain.tools import ToolRuntime
 
@@ -21,6 +22,19 @@ from deerflow.config.agents_config import AgentConfig
 from deerflow.tools.builtins.update_agent_tool import update_agent
 
 DEFAULT_USER = "test-user-autouse"  # matches the autouse fixture in tests/conftest.py
+
+
+def _confirm_proposal(paths, name="test-agent", owner=DEFAULT_USER):
+    """Separate human-confirmation boundary, never invoked by the tool itself."""
+    from deerflow.persistence.agents.proposals import EmployeeProposalStore
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    files = list((paths.user_agent_dir(owner, name) / ".change-proposals").glob("*.json"))
+    assert len(files) == 1
+    proposal = json.loads(files[0].read_text(encoding="utf-8"))
+    current = FileAgentStore().read_definition(name, user_id=owner)
+    assert current.revision == proposal["expected_draft_revision"], "Model must not mutate the draft"
+    return EmployeeProposalStore(paths).apply(name, owner, proposal["id"], agent_store=FileAgentStore(), validated_updates=proposal["updates"], validated_soul=proposal["soul"])
 
 
 @pytest.fixture(autouse=True)
@@ -237,6 +251,7 @@ def test_update_agent_accepts_known_model(tmp_path, patched_paths, stub_app_conf
     _seed_agent(tmp_path)
 
     result = update_agent.func(runtime=_runtime(), model="gpt-known")
+    _confirm_proposal(patched_paths)
 
     cfg = yaml.safe_load((_user_agent_dir(tmp_path) / "config.yaml").read_text())
     assert cfg["model"] == "gpt-known"
@@ -309,6 +324,7 @@ def test_update_agent_updates_soul_only(tmp_path, patched_paths):
     agent_dir = _seed_agent(tmp_path, description="keep me", soul="old soul")
 
     result = update_agent.func(runtime=_runtime(), soul="brand new soul")
+    _confirm_proposal(patched_paths)
 
     assert (agent_dir / "SOUL.md").read_text() == "brand new soul"
     cfg = yaml.safe_load((agent_dir / "config.yaml").read_text())
@@ -354,6 +370,7 @@ def test_update_agent_updates_description_only(tmp_path, patched_paths):
     agent_dir = _seed_agent(tmp_path, description="old desc", soul="keep this soul")
 
     result = update_agent.func(runtime=_runtime(), description="new desc")
+    _confirm_proposal(patched_paths)
 
     cfg = yaml.safe_load((agent_dir / "config.yaml").read_text())
     assert cfg["description"] == "new desc"
@@ -389,6 +406,7 @@ def test_update_agent_preserves_github_block_on_description_change(tmp_path, pat
     agent_dir = _seed_agent(tmp_path, description="old desc", github=github_block)
 
     update_agent.func(runtime=_runtime(), description="refined desc")
+    _confirm_proposal(patched_paths)
 
     cfg = yaml.safe_load((agent_dir / "config.yaml").read_text())
     assert cfg["description"] == "refined desc"
@@ -400,6 +418,7 @@ def test_update_agent_skills_empty_list_disables_all(tmp_path, patched_paths):
     agent_dir = _seed_agent(tmp_path, skills=["a", "b"])
 
     result = update_agent.func(runtime=_runtime(), skills=[])
+    _confirm_proposal(patched_paths)
 
     cfg = yaml.safe_load((agent_dir / "config.yaml").read_text())
     assert cfg["skills"] == [], "empty list must persist as empty list (not be omitted)"
@@ -433,6 +452,7 @@ def test_update_agent_forces_name_to_directory(tmp_path, patched_paths):
     (agent_dir / "SOUL.md").write_text("soul", encoding="utf-8")
 
     update_agent.func(runtime=_runtime(), description="bumped")
+    _confirm_proposal(patched_paths)
 
     cfg = yaml.safe_load((agent_dir / "config.yaml").read_text())
     assert cfg["name"] == "test-agent", "config.yaml name must follow the directory name, not legacy yaml content"
@@ -444,18 +464,24 @@ def test_update_agent_forces_name_to_directory(tmp_path, patched_paths):
 def test_update_agent_failure_preserves_existing_files(tmp_path, patched_paths):
     agent_dir = _seed_agent(tmp_path, soul="original soul")
 
-    real_replace = Path.replace
+    from deerflow.persistence.agents import drafts
+    from deerflow.persistence.agents.file import FileAgentStore
+
+    real_replace = drafts.os.replace
 
     def _explode(self, target):
         if str(target).endswith("SOUL.md"):
             raise OSError("disk full")
         return real_replace(self, target)
 
-    with patch.object(Path, "replace", _explode):
+    with patch.object(drafts.os, "replace", _explode):
         result = update_agent.func(runtime=_runtime(), soul="poisoned content")
+        assert "NOTHING has been applied" in result.update["messages"][0].content
+        with pytest.raises(OSError, match="disk full"):
+            _confirm_proposal(patched_paths)
 
+    FileAgentStore().read_definition("test-agent", user_id=DEFAULT_USER)
     assert (agent_dir / "SOUL.md").read_text() == "original soul", "atomic write must not corrupt existing SOUL.md"
-    assert "Error" in result.update["messages"][0].content
     leftover_tmps = list(agent_dir.glob("*.tmp"))
     assert leftover_tmps == [], "temp files must be cleaned up on failure"
 
@@ -467,23 +493,26 @@ def test_update_agent_soul_failure_does_not_replace_config(tmp_path, patched_pat
     after all temps exist on disk."""
     agent_dir = _seed_agent(tmp_path, description="original-desc", soul="original soul")
 
-    real_named_temp_file = __import__("tempfile").NamedTemporaryFile
-    call_count = {"n": 0}
+    from deerflow.persistence.agents import drafts
+    from deerflow.persistence.agents.file import FileAgentStore
 
-    def _explode_on_soul(*args, **kwargs):
-        # Inspect target dir + suffix; the SOUL temp file is the second one we stage.
-        call_count["n"] += 1
-        if call_count["n"] >= 2:
-            raise OSError("disk full while staging SOUL.md")
-        return real_named_temp_file(*args, **kwargs)
+    real_replace = drafts.os.replace
 
-    with patch("deerflow.tools.builtins.update_agent_tool.tempfile.NamedTemporaryFile", side_effect=_explode_on_soul):
+    def _explode_on_soul(source, target):
+        if str(target).endswith("SOUL.md"):
+            raise OSError("disk full while committing SOUL.md")
+        return real_replace(source, target)
+
+    with patch.object(drafts.os, "replace", _explode_on_soul):
         result = update_agent.func(runtime=_runtime(), description="new-desc", soul="new soul")
+        assert "NOTHING has been applied" in result.update["messages"][0].content
+        with pytest.raises(OSError, match="disk full"):
+            _confirm_proposal(patched_paths)
 
+    FileAgentStore().read_definition("test-agent", user_id=DEFAULT_USER)
     cfg = yaml.safe_load((agent_dir / "config.yaml").read_text())
     assert cfg["description"] == "original-desc", "config.yaml must not be replaced when SOUL.md staging fails"
     assert (agent_dir / "SOUL.md").read_text() == "original soul"
-    assert "Error" in result.update["messages"][0].content
     assert list(agent_dir.glob("*.tmp")) == [], "staged config.yaml temp must be cleaned up on SOUL.md failure"
 
 
@@ -502,6 +531,7 @@ def test_update_agent_only_writes_under_current_user(tmp_path, patched_paths):
     token = set_current_user(SimpleNamespace(id="alice"))
     try:
         update_agent.func(runtime=_runtime(agent_name="shared"), description="alice-bumped")
+        _confirm_proposal(patched_paths, name="shared", owner="alice")
     finally:
         reset_current_user(token)
 
@@ -516,15 +546,8 @@ def test_update_agent_only_writes_under_current_user(tmp_path, patched_paths):
 
 
 def test_update_agent_round_trips_known_fields(tmp_path, patched_paths):
-    """update_agent reads through load_agent_config so all fields the loader
-    knows about (name, description, model, tool_groups, skills) round-trip
-    on a partial update.
-
-    Note: ``load_agent_config`` strips unknown fields before constructing
-    AgentConfig, so legacy/extra YAML keys are NOT preserved across
-    updates — by design.
-    """
-    _seed_agent(tmp_path, description="legacy")
+    """Partial edits retain known AND unknown raw fields, including bindings."""
+    agent_dir = _seed_agent(tmp_path, description="legacy")
 
     fake_cfg = AgentConfig(
         name="test-agent",
@@ -539,9 +562,11 @@ def test_update_agent_round_trips_known_fields(tmp_path, patched_paths):
     )
     fake_app_config = MagicMock()
     fake_app_config.get_model_config.return_value = object()
-    with patch("deerflow.tools.builtins.update_agent_tool.load_agent_config", return_value=fake_cfg):
-        with patch("deerflow.tools.builtins.update_agent_tool.get_app_config", return_value=fake_app_config):
-            update_agent.func(runtime=_runtime(), description="bumped")
+    raw = {**fake_cfg.model_dump(mode="json"), "future_binding": {"retain": ["unknown"]}}
+    (agent_dir / "config.yaml").write_text(yaml.safe_dump(raw), encoding="utf-8")
+    with patch("deerflow.tools.builtins.update_agent_tool.get_app_config", return_value=fake_app_config):
+        update_agent.func(runtime=_runtime(), description="bumped")
+    _confirm_proposal(patched_paths)
 
     cfg = yaml.safe_load((_user_agent_dir(tmp_path) / "config.yaml").read_text())
     assert cfg["description"] == "bumped"
@@ -552,6 +577,7 @@ def test_update_agent_round_trips_known_fields(tmp_path, patched_paths):
     assert cfg["category_id"] == "development"
     assert cfg["tags"] == ["production", "daily-report"]
     assert cfg["avatar_id"] == "05-offshore"
+    assert cfg["future_binding"] == {"retain": ["unknown"]}
 
 
 def test_update_agent_refuses_on_webhook_channel(tmp_path, patched_paths):
@@ -601,13 +627,12 @@ def test_update_agent_proceeds_on_non_webhook_channel(tmp_path, patched_paths, s
     """
     seeded = _seed_agent(tmp_path, description="seeded")
 
-    fake_cfg = AgentConfig(name="test-agent", description="seeded")
     runtime = SimpleNamespace(
         context={"agent_name": "test-agent", "channel_name": "telegram"},
         tool_call_id="call_tg",
     )
-    with patch("deerflow.tools.builtins.update_agent_tool.load_agent_config", return_value=fake_cfg):
-        update_agent.func(runtime=runtime, description="bumped")
+    update_agent.func(runtime=runtime, description="bumped")
+    _confirm_proposal(patched_paths)
 
     cfg = yaml.safe_load((seeded / "config.yaml").read_text())
     assert cfg["description"] == "bumped"

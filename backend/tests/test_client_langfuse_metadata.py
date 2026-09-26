@@ -63,9 +63,8 @@ def _make_client(_monkeypatch, *, enhance_enabled: bool = True) -> DeerFlowClien
     """Build a client without going through ``__init__`` so we never load
     config.yaml or perform any other side-effectful startup work.
 
-    ``enhance_enabled`` seeds the ``logging.enhance.enabled`` flag that
-    :func:`DeerFlowClient.stream` consults to gate request-trace binding
-    (mirrors the Gateway ``TraceMiddleware`` startup snapshot).
+    ``enhance_enabled`` only controls log formatting, not whether an
+    embedded turn owns a correlation id.
     """
     fake_app_config = SimpleNamespace(
         models=[SimpleNamespace(name="stub-model")],
@@ -133,6 +132,7 @@ def test_stream_is_inert_when_langfuse_disabled(monkeypatch):
     metadata = config.get("metadata") or {}
     assert "langfuse_session_id" not in metadata
     assert "langfuse_user_id" not in metadata
+    assert metadata[DEERFLOW_TRACE_METADATA_KEY]
 
 
 def test_stream_preserves_caller_metadata_overrides(monkeypatch):
@@ -148,17 +148,18 @@ def test_stream_preserves_caller_metadata_overrides(monkeypatch):
     captured = _stub_agent_creation(monkeypatch, fake_agent)
     client = _make_client(monkeypatch)
 
-    # Drive stream with a pre-populated metadata so the worker-equivalent
-    # ``setdefault`` semantics are exercised.
+    # Business metadata remains caller-owned, but cannot replace the bound
+    # correlation id, matching Gateway admission.
     original_get_config = DeerFlowClient._get_runnable_config
+    caller_metadata = {
+        DEERFLOW_TRACE_METADATA_KEY: "explicit-client-trace",
+        "langfuse_session_id": "explicit-session-override",
+        "langfuse_user_id": "explicit-user",
+    }
 
     def patched_get_runnable_config(self, thread_id, **overrides):
         cfg = original_get_config(self, thread_id, **overrides)
-        cfg["metadata"] = {
-            DEERFLOW_TRACE_METADATA_KEY: "explicit-client-trace",
-            "langfuse_session_id": "explicit-session-override",
-            "langfuse_user_id": "explicit-user",
-        }
+        cfg["metadata"] = caller_metadata
         return cfg
 
     monkeypatch.setattr(DeerFlowClient, "_get_runnable_config", patched_get_runnable_config)
@@ -168,18 +169,15 @@ def test_stream_preserves_caller_metadata_overrides(monkeypatch):
     metadata = captured["config"].get("metadata") or {}
     assert metadata["langfuse_session_id"] == "explicit-session-override"
     assert metadata["langfuse_user_id"] == "explicit-user"
-    assert metadata[DEERFLOW_TRACE_METADATA_KEY] == "explicit-client-trace"
+    assert metadata[DEERFLOW_TRACE_METADATA_KEY] == "client-trace-3"
+    assert caller_metadata[DEERFLOW_TRACE_METADATA_KEY] == "explicit-client-trace"
+    assert captured["context"][DEERFLOW_TRACE_METADATA_KEY] == "client-trace-3"
     # ``trace_name`` was not supplied by caller so the worker still fills it.
     assert metadata["langfuse_trace_name"] == "lead-agent"
 
 
-def test_stream_omits_deerflow_trace_id_when_enhance_disabled(monkeypatch):
-    """With ``logging.enhance.enabled=false`` the embedded client must not
-    forge a fresh request trace id. Otherwise embedded / TUI callers on the
-    default config would silently gain a new indexed ``deerflow_trace_id``
-    key on every Langfuse trace they emit — the exact schema change the
-    enhancement flag exists to opt into.
-    """
+def test_stream_binds_deerflow_trace_id_when_enhance_disabled(monkeypatch):
+    """Official 2.1 correlation is unconditional; log formatting is opt-in."""
     monkeypatch.setenv("LANGFUSE_TRACING", "true")
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-test")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-test")
@@ -199,15 +197,11 @@ def test_stream_omits_deerflow_trace_id_when_enhance_disabled(monkeypatch):
     # unrelated to the request-trace-correlation enhancement.
     assert metadata.get("langfuse_session_id") == "thread-client-disabled"
     assert metadata.get("langfuse_trace_name") == "lead-agent"
-    # The gated key stays out of metadata.
-    assert DEERFLOW_TRACE_METADATA_KEY not in metadata
+    assert metadata[DEERFLOW_TRACE_METADATA_KEY]
 
 
 def test_stream_respects_caller_bound_trace_when_enhance_disabled(monkeypatch):
-    """Even with the enhancement disabled, a caller that explicitly binds
-    :func:`request_trace_context` has opted into propagation. The embedded
-    client must not swallow that id — the flag only gates *implicit*
-    per-turn id creation, not caller-supplied context."""
+    """An existing caller scope remains authoritative with logging disabled."""
     monkeypatch.setenv("LANGFUSE_TRACING", "true")
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-test")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-test")

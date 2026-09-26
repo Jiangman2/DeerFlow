@@ -116,7 +116,7 @@ export function getLeadingSlashSkillQuery(value: string): string | null {
 }
 
 export function getMatchingSkillSuggestions(
-  skills: Skill[],
+  skills: Pick<Skill, "name" | "description" | "enabled">[],
   query: string,
   builtinCommands: SlashSuggestion[],
 ): SlashSuggestion[] {

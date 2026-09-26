@@ -16,6 +16,7 @@ from app.gateway.routers import threads
 from deerflow.config.paths import Paths
 from deerflow.persistence.thread_meta import THREAD_ARCHIVED_METADATA_KEY, THREAD_PINNED_METADATA_KEY, InvalidMetadataFilterError
 from deerflow.persistence.thread_meta.memory import THREADS_NS, MemoryThreadMetaStore
+from deerflow.runtime import RunManager
 
 _ISO_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
@@ -70,6 +71,7 @@ def _build_thread_app() -> tuple[FastAPI, InMemoryStore, InMemorySaver]:
     checkpointer = InMemorySaver()
     app.state.store = store
     app.state.checkpointer = checkpointer
+    app.state.run_manager = RunManager()
     app.state.thread_store = _PermissiveThreadMetaStore(store)
     app.include_router(threads.router)
     return app, store, checkpointer
@@ -154,6 +156,7 @@ def test_delete_thread_route_cleans_thread_directory(tmp_path):
     (paths.sandbox_work_dir("thread-route", user_id=user_id) / "notes.txt").write_text("hello", encoding="utf-8")
 
     app = make_authed_test_app()
+    app.state.run_manager = RunManager()
     app.include_router(threads.router)
 
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
@@ -178,18 +181,19 @@ def test_delete_thread_route_rejects_invalid_thread_id(tmp_path):
     assert response.status_code == 404
 
 
-def test_delete_thread_route_returns_422_for_route_safe_invalid_id(tmp_path):
+def test_delete_thread_route_skips_filesystem_for_legacy_invalid_id(tmp_path):
     paths = Paths(tmp_path)
 
     app = make_authed_test_app()
+    app.state.run_manager = RunManager()
     app.include_router(threads.router)
 
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
         with TestClient(app) as client:
             response = client.delete("/api/threads/thread.with.dot")
 
-    assert response.status_code == 422
-    assert "Invalid thread_id" in response.json()["detail"]
+    assert response.status_code == 200
+    assert "Skipped local data cleanup" in response.json()["message"]
 
 
 def test_delete_thread_data_returns_generic_500_error(tmp_path):

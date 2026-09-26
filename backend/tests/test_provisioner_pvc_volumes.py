@@ -5,6 +5,41 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
+
+@pytest.mark.parametrize("pvc", [False, True])
+def test_employee_projection_replaces_all_skill_mounts(provisioner_module, pvc):
+    module = provisioner_module
+    module.USERDATA_PVC_NAME = "user-data" if pvc else ""
+    key = "a" * 24
+    pod = module._build_pod("sandbox", "thread", user_id="bob", employee_skill_projection=key)
+    for container in pod.spec.containers:
+        mounts = [m for m in container.volume_mounts if m.mount_path == "/mnt/skills" or m.mount_path.startswith("/mnt/skills/")]
+        assert len(mounts) == 1
+        assert mounts[0].mount_path == "/mnt/skills" and mounts[0].read_only
+        if pvc:
+            assert mounts[0].sub_path == "deer-flow/users/bob/threads/thread/agent-skills/" + key
+    assert not any(v.name in ("skills-public", "skills-custom", "skills-legacy") for v in pod.spec.volumes)
+    assert "employee-skill-projection" in str(pod.metadata.annotations)
+    initializer = next(c for c in pod.spec.init_containers if c.name == "prepare-user-data")
+    assert "agent-skills" not in " ".join(initializer.command)
+
+
+@pytest.mark.parametrize("key", ["../private", "/root", "a" * 23, "g" * 24, "a" * 25])
+def test_employee_projection_accepts_only_opaque_keys(provisioner_module, key):
+    with pytest.raises(ValueError):
+        provisioner_module.CreateSandboxRequest(sandbox_id="id", thread_id="thread", user_id="bob", employee_skill_projection=key)
+
+
+def test_employee_projection_rejects_reuse_with_other_projection(provisioner_module, monkeypatch):
+    module = provisioner_module
+    module.USERDATA_PVC_NAME = "user-data"
+    pod = module._build_pod("sandbox", "thread", user_id="bob", employee_skill_projection="a" * 24)
+    monkeypatch.setattr(module, "core_v1", SimpleNamespace(read_namespaced_pod=lambda *a: pod))
+    with pytest.raises(HTTPException) as raised:
+        module._assert_existing_sandbox_identity("sandbox", thread_id="thread", user_id="bob", include_legacy_skills=False, employee_skill_projection="b" * 24)
+    assert raised.value.status_code == 409
+
+
 # ── _build_volumes ─────────────────────────────────────────────────────
 
 
@@ -483,9 +518,23 @@ class TestBuildPodVolumes:
         skills_mount = pod.spec.containers[0].volume_mounts[0]
         assert skills_mount.sub_path == "deer-flow/users/user-7/threads/thread-1/skills/public"
 
-    def test_ppt_master_agent_host_is_a_real_second_container_when_enabled(self, provisioner_module):
+    def test_ppt_master_agent_host_is_a_real_second_container_when_enabled(self, provisioner_module, monkeypatch):
         provisioner_module.PPT_MASTER_AGENT_HOST_ENABLED = True
+        provisioner_module.PPT_MASTER_AGENT_HOST_IMAGE = "registry.test/ppt-agent-host:v1"
         provisioner_module.SANDBOX_ENV_SECRET_NAME = "deer-flow-env"
+        monkeypatch.setenv("PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", "true")
+        monkeypatch.setenv("CODEX_CONFIG_TOML", "model_provider = 'model_studio'")
+        monkeypatch.setenv("CODEX_MODEL_CATALOG_JSON", '{"models": [{"slug": "qwen3.7-max"}]}')
+        monkeypatch.setenv("PPT_MASTER_AGENT_CODEX_CONFIG_TOML", "model_provider = 'cnooc_deepseek'")
+        monkeypatch.setenv(
+            "PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON",
+            '{"models": [{"slug": "DeepSeek-V4-Flash"}]}',
+        )
+        provisioner_module.SANDBOX_PASSTHROUGH_ENV_KEYS = (
+            "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED",
+            "CODEX_CONFIG_TOML",
+            "CODEX_MODEL_CATALOG_JSON",
+        )
         provisioner_module.SANDBOX_SECRET_ENV_KEYS = (
             "SANDBOX_API_KEY",
             "PPT_MASTER_RESPONSES_RELAY_KEY",
@@ -498,18 +547,43 @@ class TestBuildPodVolumes:
             "ppt-master-agent-host",
         ]
         host = pod.spec.containers[1]
-        assert host.image == provisioner_module.SANDBOX_IMAGE
+        assert host.image == provisioner_module.PPT_MASTER_AGENT_HOST_IMAGE
         assert host.command == ["python3", "/opt/ppt-master-agent-host/agent_host.py"]
         assert host.ports[0].container_port == provisioner_module.PPT_MASTER_AGENT_HOST_PORT
+        assert host.startup_probe.http_get.path == "/health"
+        assert host.startup_probe.http_get.port == provisioner_module.PPT_MASTER_AGENT_HOST_PORT
+        assert host.startup_probe.timeout_seconds == 5
+        assert host.startup_probe.failure_threshold == 60
+        assert host.readiness_probe.timeout_seconds == 5
+        assert host.liveness_probe.timeout_seconds == 5
+        assert host.liveness_probe.failure_threshold == 6
+        assert host.resources.requests == {"cpu": "250m", "memory": "512Mi"}
         sandbox_env_names = {item.name for item in pod.spec.containers[0].env}
         host_env_names = {item.name for item in host.env}
         assert "PPT_MASTER_RESPONSES_RELAY_KEY" not in sandbox_env_names
         assert "PPT_MASTER_RESPONSES_RELAY_KEY" in host_env_names
+        sandbox_env = {item.name: item.value for item in pod.spec.containers[0].env if item.value is not None}
         host_env = {item.name: item.value for item in host.env if item.value is not None}
+        assert sandbox_env["CODEX_CONFIG_TOML"] == "model_provider = 'model_studio'"
+        assert "qwen3.7-max" in sandbox_env["CODEX_MODEL_CATALOG_JSON"]
+        assert host_env["CODEX_CONFIG_TOML"] == "model_provider = 'cnooc_deepseek'"
+        assert "DeepSeek-V4-Flash" in host_env["CODEX_MODEL_CATALOG_JSON"]
+        assert len(host_env_names) == len(host.env)
+        assert host_env["PPT_MASTER_ENTERPRISE_RELAY_REQUIRED"] == "true"
         assert host_env["TMPDIR"] == provisioner_module.PPT_MASTER_AGENT_TEMP_ROOT
         assert host_env["TMP"] == provisioner_module.PPT_MASTER_AGENT_TEMP_ROOT
         assert host_env["TEMP"] == provisioner_module.PPT_MASTER_AGENT_TEMP_ROOT
         assert [(mount.name, mount.mount_path, mount.read_only) for mount in host.volume_mounts] == [(mount.name, mount.mount_path, mount.read_only) for mount in pod.spec.containers[0].volume_mounts]
+
+    def test_enterprise_agent_host_requires_isolated_profile(self, provisioner_module, monkeypatch):
+        provisioner_module.PPT_MASTER_AGENT_HOST_ENABLED = True
+        provisioner_module.PPT_MASTER_AGENT_HOST_IMAGE = "registry.test/ppt-agent-host:v1"
+        monkeypatch.setenv("PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", "true")
+        monkeypatch.delenv("PPT_MASTER_AGENT_CODEX_CONFIG_TOML", raising=False)
+        monkeypatch.delenv("PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON", raising=False)
+
+        with pytest.raises(RuntimeError, match="requires its own Codex profile"):
+            provisioner_module._build_pod("sandbox-1", "thread-1")
 
     def test_pod_uses_configurable_ephemeral_storage_budget(self, provisioner_module):
         provisioner_module.SANDBOX_EPHEMERAL_STORAGE_REQUEST = "3Gi"

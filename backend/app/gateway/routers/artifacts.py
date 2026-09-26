@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import ctypes
 import html
 import inspect
 import io
@@ -17,9 +18,10 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, PlainTextResponse, Response
 
 from app.gateway.authz import require_permission
-from app.gateway.file_security import pdf_file_requires_attachment, pdf_payload_has_active_content
+from app.gateway.file_security import pdf_file_requires_attachment, pdf_payload_findings, pdf_payload_has_active_content
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.path_utils import resolve_thread_virtual_path
+from deerflow.config.app_config import get_app_config
 from deerflow.config.paths import make_safe_user_id
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 
@@ -36,6 +38,22 @@ ACTIVE_CONTENT_MIME_TYPES = {
     "text/xml",
     "application/xml",
     "text/xsl",
+}
+
+# System MIME databases differ across Windows and minimal Linux images. This
+# floor may only tighten download policy; MIME-based +xml checks still apply.
+_ACTIVE_SUFFIX_MIME_TYPES = {
+    ".html": "text/html",
+    ".htm": "text/html",
+    ".xhtml": "application/xhtml+xml",
+    ".xht": "application/xhtml+xml",
+    ".svg": "image/svg+xml",
+    ".xml": "application/xml",
+    ".xsl": "application/xslt+xml",
+    ".xslt": "application/xslt+xml",
+    ".rdf": "application/rdf+xml",
+    ".rss": "application/rss+xml",
+    ".atom": "application/atom+xml",
 }
 
 TEXT_CONTENT_MIME_TYPES = {
@@ -75,10 +93,20 @@ def _is_active_content_mime_type(mime_type: str | None) -> bool:
     return normalized in ACTIVE_CONTENT_MIME_TYPES or normalized.endswith("+xml")
 
 
-# ``server.py --live`` currently listens on 5050 inside the AIO Sandbox.  Do
-# not turn this into an arbitrary localhost proxy: the port is an explicit
-# contract of the PPT Live Preview workflow.
+def _artifact_mime_type(path: str | Path) -> str | None:
+    active_mime = _ACTIVE_SUFFIX_MIME_TYPES.get(Path(path).suffix.lower())
+    if active_mime is not None:
+        return active_mime
+    mime_type, _ = mimetypes.guess_type(path)
+    return mime_type
+
+
+# The vendored Confirm UI chooses the first free port in 5050..5099, while the
+# SVG live editor chooses the first free port in 6060..6109. Keep this an
+# explicit, bounded PPT-only contract, never an arbitrary localhost proxy.
 LIVE_PREVIEW_PORT = 5050
+PPT_CONFIRM_UI_PORTS = range(5050, 5100)
+PPT_SVG_PREVIEW_PORTS = range(6060, 6110)
 MAX_LIVE_PREVIEW_BYTES = 64 * 1024 * 1024
 PPT_MASTER_RUNTIME_PROFILE = "ppt-master-runner"
 PPT_MASTER_RUNNER_INTERNAL_URL = os.environ.get(
@@ -127,11 +155,11 @@ SECURE_ATTACHMENT_HEADERS = {
 }
 
 
-def _live_preview_prefix(thread_id: str) -> str:
-    return f"/api/threads/{quote(thread_id, safe='')}/live-preview/{LIVE_PREVIEW_PORT}"
+def _live_preview_prefix(thread_id: str, port: int = LIVE_PREVIEW_PORT) -> str:
+    return f"/api/threads/{quote(thread_id, safe='')}/live-preview/{port}"
 
 
-def _rewrite_live_preview_root_urls(payload: bytes, thread_id: str) -> bytes:
+def _rewrite_live_preview_root_urls(payload: bytes, thread_id: str, port: int = LIVE_PREVIEW_PORT) -> bytes:
     """Keep the preview app's root-relative assets inside the proxy route.
 
     The upstream preview uses paths such as ``/static/app.js`` and
@@ -142,19 +170,19 @@ def _rewrite_live_preview_root_urls(payload: bytes, thread_id: str) -> bytes:
         text = payload.decode("utf-8")
     except UnicodeDecodeError:
         return payload
-    prefix = _live_preview_prefix(thread_id)
+    prefix = _live_preview_prefix(thread_id, port)
     rewritten = _LIVE_PREVIEW_ROOT_URL_RE.sub(rf"\1{prefix}/\2", text)
     return rewritten.encode("utf-8")
 
 
-def _rewrite_live_preview_location(location: str, thread_id: str) -> str:
+def _rewrite_live_preview_location(location: str, thread_id: str, port: int = LIVE_PREVIEW_PORT) -> str:
     """Rewrite upstream root-relative redirects to the authenticated proxy."""
     if location.startswith(("/api/", "/static/")):
-        return f"{_live_preview_prefix(thread_id)}{location}"
+        return f"{_live_preview_prefix(thread_id, port)}{location}"
     return location
 
 
-def _live_preview_target(sandbox: object, path: str) -> tuple[str, dict[str, str]] | None:
+def _live_preview_target(sandbox: object, path: str, port: int = LIVE_PREVIEW_PORT) -> tuple[str, dict[str, str]] | None:
     """Build the internal Sandbox URL and trusted preview-port header."""
     normalized_path = "/" + path.lstrip("/")
     if "\x00" in normalized_path or any(part == ".." for part in normalized_path.split("/")):
@@ -166,7 +194,7 @@ def _live_preview_target(sandbox: object, path: str) -> tuple[str, dict[str, str
         # LocalSandbox runs commands on the Gateway host, so its local preview
         # server is already reachable from the Gateway process.
         if sandbox_id == "local" or sandbox_id.startswith("local:"):
-            return f"http://127.0.0.1:{LIVE_PREVIEW_PORT}{normalized_path}", {}
+            return f"http://127.0.0.1:{port}{normalized_path}", {}
         return None
 
     parsed = urlsplit(base_url)
@@ -177,18 +205,18 @@ def _live_preview_target(sandbox: object, path: str) -> tuple[str, dict[str, str
     # proxy.  This reaches a process that intentionally binds only to the Pod's
     # loopback interface without depending on a synthetic subdomain Host value.
     # Never copy this header from the browser: it selects an internal port and
-    # must remain fixed at DeerFlow's single allowlisted preview port.
-    return target, {"x-aio-proxy-port": str(LIVE_PREVIEW_PORT)}
+    # must remain inside DeerFlow's bounded, workflow-owned port allowlist.
+    return target, {"x-aio-proxy-port": str(port)}
 
 
-def _live_preview_response_headers(upstream: httpx.Response, thread_id: str) -> dict[str, str]:
+def _live_preview_response_headers(upstream: httpx.Response, thread_id: str, port: int = LIVE_PREVIEW_PORT) -> dict[str, str]:
     headers: dict[str, str] = {}
     for name, value in upstream.headers.items():
         lower_name = name.lower()
         if lower_name in _LIVE_PREVIEW_HOP_BY_HOP_HEADERS or lower_name in {"content-length", "content-encoding"}:
             continue
         if lower_name == "location":
-            value = _rewrite_live_preview_location(value, thread_id)
+            value = _rewrite_live_preview_location(value, thread_id, port)
         headers[name] = value
     headers["Cache-Control"] = "no-store"
     headers["X-Content-Type-Options"] = "nosniff"
@@ -203,11 +231,22 @@ async def _proxy_live_preview(
     *,
     user_can_write: bool,
 ) -> Response:
-    del user_can_write  # The decorator on each route owns authorization.
-    if port != LIVE_PREVIEW_PORT:
+    if port not in PPT_CONFIRM_UI_PORTS and port not in PPT_SVG_PREVIEW_PORTS:
         raise HTTPException(status_code=404, detail="Unsupported Live Preview port")
     owner_user_id = await _resolve_artifact_owner_user_id(request, thread_id)
     runtime_profile = await _resolve_thread_runtime_profile(request, thread_id)
+    if port != LIVE_PREVIEW_PORT and runtime_profile != PPT_MASTER_RUNTIME_PROFILE:
+        raise HTTPException(status_code=404, detail="Unsupported Live Preview port")
+    if user_can_write:
+        from app.gateway.sandbox_authz import authorize_sandbox_for_request
+        from deerflow.sandbox.exceptions import SandboxAuthorizationError
+
+        try:
+            await authorize_sandbox_for_request(request)
+        except SandboxAuthorizationError:
+            raise HTTPException(status_code=403, detail="Sandbox execution is not permitted") from None
+    # Read-only artifact/preview review retains its separate read permission.
+    # Mutations must pass here even when forwarded to the isolated Runner.
     if runtime_profile == PPT_MASTER_RUNTIME_PROFILE and os.environ.get("DEER_FLOW_RUNTIME_PROFILE") != PPT_MASTER_RUNTIME_PROFILE:
         # The isolated Runner owns the Sandbox lifecycle. Forward the browser
         # request to its internal Service instead of discovering that Sandbox
@@ -221,12 +260,20 @@ async def _proxy_live_preview(
     if sandbox is None:
         raise HTTPException(status_code=404, detail="Live Preview sandbox is no longer available")
 
-    target_info = _live_preview_target(sandbox, path)
+    target_info = _live_preview_target(sandbox, path, port)
     if target_info is None:
         raise HTTPException(status_code=404, detail="Live Preview is unavailable for this sandbox")
     target_url, sandbox_headers = target_info
 
     forward_headers: dict[str, str] = dict(sandbox_headers)
+    if sandbox_headers:
+        # The AIO Nginx authenticates the request before forwarding to the
+        # loopback-only preview port. Never forward a browser credential to the
+        # Sandbox; use the same server-owned key as the ordinary AIO client.
+        sandbox_api_key = get_app_config().sandbox.sandbox_api_key
+        if not sandbox_api_key:
+            raise HTTPException(status_code=503, detail="Live Preview authentication is not configured")
+        forward_headers["authorization"] = f"Bearer {sandbox_api_key}"
     for header_name in ("accept", "content-type", "if-none-match", "if-modified-since"):
         value = request.headers.get(header_name)
         if value:
@@ -234,7 +281,7 @@ async def _proxy_live_preview(
     body = await request.body() if request.method not in {"GET", "HEAD", "OPTIONS"} else None
     try:
         timeout = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)
-        async with httpx.AsyncClient(follow_redirects=False, timeout=timeout) as client:
+        async with httpx.AsyncClient(follow_redirects=False, timeout=timeout, trust_env=False) as client:
             async with client.stream(
                 request.method,
                 target_url,
@@ -255,11 +302,11 @@ async def _proxy_live_preview(
                 payload = b"".join(chunks)
                 media_type = upstream.headers.get("content-type", "").split(";", 1)[0].lower()
                 if media_type in _LIVE_PREVIEW_TEXT_TYPES:
-                    payload = _rewrite_live_preview_root_urls(payload, thread_id)
+                    payload = _rewrite_live_preview_root_urls(payload, thread_id, port)
                 return Response(
                     content=payload,
                     status_code=upstream.status_code,
-                    headers=_live_preview_response_headers(upstream, thread_id),
+                    headers=_live_preview_response_headers(upstream, thread_id, port),
                     media_type=None,
                 )
     except httpx.HTTPError as exc:
@@ -298,7 +345,7 @@ async def _forward_live_preview_to_runner(
     body = await request.body() if request.method not in {"GET", "HEAD", "OPTIONS"} else None
     try:
         timeout = httpx.Timeout(connect=5.0, read=35.0, write=10.0, pool=5.0)
-        async with httpx.AsyncClient(follow_redirects=False, timeout=timeout) as client:
+        async with httpx.AsyncClient(follow_redirects=False, timeout=timeout, trust_env=False) as client:
             async with client.stream(
                 request.method,
                 target_url,
@@ -319,7 +366,7 @@ async def _forward_live_preview_to_runner(
                 return Response(
                     content=b"".join(chunks),
                     status_code=upstream.status_code,
-                    headers=_live_preview_response_headers(upstream, thread_id),
+                    headers=_live_preview_response_headers(upstream, thread_id, int(request.path_params["port"])),
                     media_type=None,
                 )
     except httpx.HTTPError as exc:
@@ -331,9 +378,10 @@ async def _forward_live_preview_to_runner(
         raise HTTPException(status_code=502, detail="PPT Runner Live Preview is not reachable") from exc
 
 
-@router.api_route(
+@router.head("/threads/{thread_id}/live-preview/{port}/{path:path}", summary="Inspect Sandbox Live Preview")
+@router.options("/threads/{thread_id}/live-preview/{port}/{path:path}", summary="Sandbox Live Preview Options")
+@router.get(
     "/threads/{thread_id}/live-preview/{port}/{path:path}",
-    methods=["GET", "HEAD", "OPTIONS"],
     summary="Proxy Sandbox Live Preview",
     description="Serve the authenticated Live Preview process from the active thread sandbox.",
 )
@@ -347,9 +395,11 @@ async def get_live_preview(
     return await _proxy_live_preview(thread_id, port, path, request, user_can_write=False)
 
 
-@router.api_route(
+@router.put("/threads/{thread_id}/live-preview/{port}/{path:path}", summary="Update Sandbox Live Preview")
+@router.patch("/threads/{thread_id}/live-preview/{port}/{path:path}", summary="Patch Sandbox Live Preview")
+@router.delete("/threads/{thread_id}/live-preview/{port}/{path:path}", summary="Delete Sandbox Live Preview Resource")
+@router.post(
     "/threads/{thread_id}/live-preview/{port}/{path:path}",
-    methods=["POST", "PUT", "PATCH", "DELETE"],
     summary="Update Sandbox Live Preview",
     description="Proxy authenticated mutation requests made by the Live Preview editor.",
 )
@@ -508,7 +558,7 @@ def _load_skill_archive_member(actual_skill_path: Path, skill_file_path: str, in
     content = _extract_file_from_skill_archive(actual_skill_path, internal_path)
     if content is None:
         raise HTTPException(status_code=404, detail=f"File '{internal_path}' not found in skill archive")
-    mime_type, _ = mimetypes.guess_type(internal_path)
+    mime_type = _artifact_mime_type(internal_path)
     return content, mime_type
 
 
@@ -526,7 +576,7 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
         raise HTTPException(status_code=404, detail=f"Artifact not found: {path}")
     if not actual_path.is_file():
         raise HTTPException(status_code=400, detail=f"Path is not a file: {path}")
-    mime_type, _ = mimetypes.guess_type(actual_path)
+    mime_type = _artifact_mime_type(actual_path)
     # Active content / explicit download is streamed by FileResponse — no read here.
     normalized_virtual_path = "/" + path.replace("\\", "/").lstrip("/")
     is_user_upload = normalized_virtual_path.startswith("/mnt/user-data/uploads/")
@@ -550,7 +600,7 @@ def _read_artifact_payload(actual_path: Path, path: str, download: bool) -> tupl
     return ("bytes", mime_type, actual_path.read_bytes())
 
 
-def _validate_pdf_preview_artifact(actual_path: Path, path: str) -> None:
+def _validate_pdf_preview_artifact(actual_path: Path, path: str) -> bytes:
     normalized_virtual_path = "/" + path.replace("\\", "/").lstrip("/")
     is_outputs_pdf = normalized_virtual_path.startswith("/mnt/user-data/outputs/") and normalized_virtual_path.lower().endswith(".pdf")
     if not is_outputs_pdf:
@@ -561,8 +611,20 @@ def _validate_pdf_preview_artifact(actual_path: Path, path: str) -> None:
         raise HTTPException(status_code=400, detail=f"Path is not a file: {path}")
     if actual_path.stat().st_size > MAX_PDF_PREVIEW_BYTES:
         raise HTTPException(status_code=413, detail="PDF preview is too large")
-    if pdf_file_requires_attachment(actual_path):
+    # Keep the exact validated bytes for rendering, even if the output is replaced
+    # while this request is in flight. Original-file/download policy is unchanged.
+    with actual_path.open("rb") as source:
+        payload = source.read(MAX_PDF_PREVIEW_BYTES + 1)
+    if len(payload) > MAX_PDF_PREVIEW_BYTES:
+        raise HTTPException(status_code=413, detail="PDF preview is too large")
+    if not payload[:1024].lstrip().startswith(b"%PDF-"):
+        raise HTTPException(status_code=422, detail="PDF preview cannot be opened")
+    findings = pdf_payload_findings(payload)
+    if findings == ("compressed object streams",):
+        return _normalize_compressed_pdf_preview(payload)
+    if findings:
         raise HTTPException(status_code=400, detail="PDF preview contains unsupported active or encrypted content")
+    return payload
 
 
 def _load_pdfium():
@@ -573,11 +635,63 @@ def _load_pdfium():
     return pdfium
 
 
-def _inspect_pdf_preview(actual_path: Path) -> int:
+def _normalize_compressed_pdf_preview(payload: bytes) -> bytes:
+    """Expand object streams for inspection, never for original-file delivery.
+
+    PDFium's non-incremental save writes ordinary objects, exposing dictionaries
+    hidden inside ObjStm to the existing fail-closed scanner. Render only the
+    inspected copy. Do not initialize a form environment or execute PDF actions.
+    """
+    pdfium = _load_pdfium()
+    output = io.BytesIO()
+    exceeded_limit = False
+    writer = pdfium.raw.FPDF_FILEWRITE()
+    writer.version = 1
+
+    @type(writer.WriteBlock)
+    def write_block(_writer, data, size):
+        nonlocal exceeded_limit
+        if output.tell() + size > MAX_PDF_PREVIEW_BYTES:
+            exceeded_limit = True
+            return 0
+        try:
+            output.write(ctypes.string_at(data, size))
+            return 1
+        except Exception:
+            # Exceptions must never escape a ctypes callback into native code.
+            return 0
+
+    writer.WriteBlock = write_block
+    with _PDF_PREVIEW_LOCK:
+        try:
+            document = pdfium.PdfDocument(payload)
+            try:
+                if pdfium.raw.FPDF_GetSecurityHandlerRevision(document) != -1:
+                    raise HTTPException(status_code=400, detail="PDF preview contains unsupported active or encrypted content")
+                if len(document) > MAX_PDF_PREVIEW_PAGES:
+                    raise HTTPException(status_code=413, detail=f"PDF preview exceeds {MAX_PDF_PREVIEW_PAGES} pages")
+                saved = pdfium.raw.FPDF_SaveAsCopy(document, writer, pdfium.raw.FPDF_NO_INCREMENTAL)
+                if exceeded_limit:
+                    raise HTTPException(status_code=413, detail="Expanded PDF preview is too large")
+                if not saved:
+                    raise ValueError("PDF object expansion failed")
+            finally:
+                document.close()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=422, detail="PDF preview cannot be inspected") from exc
+    expanded = output.getvalue()
+    if not expanded.startswith(b"%PDF-") or pdf_payload_has_active_content(expanded):
+        raise HTTPException(status_code=400, detail="PDF preview contains unsupported active or encrypted content")
+    return expanded
+
+
+def _inspect_pdf_preview(actual_path: Path | bytes) -> int:
     pdfium = _load_pdfium()
     with _PDF_PREVIEW_LOCK:
         try:
-            document = pdfium.PdfDocument(str(actual_path))
+            document = pdfium.PdfDocument(str(actual_path) if isinstance(actual_path, Path) else actual_path)
             try:
                 page_count = len(document)
             finally:
@@ -593,11 +707,11 @@ def _inspect_pdf_preview(actual_path: Path) -> int:
     return page_count
 
 
-def _render_pdf_preview_page(actual_path: Path, page_index: int) -> bytes:
+def _render_pdf_preview_page(actual_path: Path | bytes, page_index: int) -> bytes:
     pdfium = _load_pdfium()
     with _PDF_PREVIEW_LOCK:
         try:
-            document = pdfium.PdfDocument(str(actual_path))
+            document = pdfium.PdfDocument(str(actual_path) if isinstance(actual_path, Path) else actual_path)
             try:
                 page_count = len(document)
                 if page_index < 0 or page_index >= page_count or page_index >= MAX_PDF_PREVIEW_PAGES:
@@ -622,7 +736,7 @@ def _render_pdf_preview_page(actual_path: Path, page_index: int) -> bytes:
             raise HTTPException(status_code=422, detail="PDF preview page cannot be rendered") from exc
 
 
-def _render_pdf_preview_pages(actual_path: Path, page_count: int) -> list[bytes]:
+def _render_pdf_preview_pages(actual_path: Path | bytes, page_count: int) -> list[bytes]:
     return [_render_pdf_preview_page(actual_path, page_index) for page_index in range(page_count)]
 
 
@@ -632,6 +746,8 @@ def _build_embedded_pdf_preview_gallery(path: str, page_payloads: list[bytes]) -
     return (
         '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; '
+        "style-src 'unsafe-inline'; script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'\">"
         f"<title>{title}</title><style>"
         "html,body{margin:0;background:#eef4fb;color:#172033}body{padding:16px}"
         "main{display:grid;gap:16px;max-width:1200px;margin:0 auto}figure{margin:0;background:#fff;"
@@ -655,18 +771,18 @@ async def get_pdf_artifact_preview(
 ) -> Response:
     owner_user_id = await _resolve_artifact_owner_user_id(request, thread_id)
     actual_path = await asyncio.to_thread(resolve_thread_virtual_path, thread_id, path, user_id=owner_user_id)
-    await asyncio.to_thread(_validate_pdf_preview_artifact, actual_path, path)
+    preview_payload = await asyncio.to_thread(_validate_pdf_preview_artifact, actual_path, path)
 
     if page is not None:
-        payload = await asyncio.to_thread(_render_pdf_preview_page, actual_path, page)
+        payload = await asyncio.to_thread(_render_pdf_preview_page, preview_payload, page)
         return Response(
             content=payload,
             media_type="image/png",
             headers={**PASSIVE_FILE_HEADERS, "Cache-Control": "private, max-age=300"},
         )
 
-    page_count = await asyncio.to_thread(_inspect_pdf_preview, actual_path)
-    page_payloads = await asyncio.to_thread(_render_pdf_preview_pages, actual_path, page_count)
+    page_count = await asyncio.to_thread(_inspect_pdf_preview, preview_payload)
+    page_payloads = await asyncio.to_thread(_render_pdf_preview_pages, preview_payload, page_count)
     return Response(
         content=_build_embedded_pdf_preview_gallery(path, page_payloads),
         media_type="text/html",
@@ -674,9 +790,9 @@ async def get_pdf_artifact_preview(
     )
 
 
-@router.api_route(
+@router.head("/threads/{thread_id}/artifacts/{path:path}", summary="Inspect Artifact File")
+@router.get(
     "/threads/{thread_id}/artifacts/{path:path}",
-    methods=["GET", "HEAD"],
     summary="Get Artifact File",
     description="Retrieve an artifact file generated by the AI agent. Text and binary files can be viewed inline, while active web content is always downloaded.",
 )

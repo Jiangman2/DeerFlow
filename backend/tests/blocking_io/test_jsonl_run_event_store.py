@@ -49,6 +49,11 @@ async def test_jsonl_run_event_store_async_api_does_not_block_event_loop(tmp_pat
     )
     assert len(batch) == 2
 
+    # Singleton creation and duplicate lookup must both offload filesystem I/O.
+    receipt, created = await store.put_if_absent(thread_id="t1", run_id="r2", event_type="run.delivery", category="lifecycle", content={"status": "success"})
+    replay, repeated = await store.put_if_absent(thread_id="t1", run_id="r2", event_type="run.delivery", category="lifecycle", content={"status": "error"})
+    assert created and not repeated and replay == receipt
+
     # reads: list_messages / list_events / list_messages_by_run / count_messages.
     # list_events is exercised both without and with the event_types filter so
     # the filter branch runs after _read_run_events' filesystem IO.

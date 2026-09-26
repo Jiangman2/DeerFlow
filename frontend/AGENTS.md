@@ -54,6 +54,8 @@ The frontend is a stateful chat application. Users create **threads** (conversat
   - `landing/` — Landing page sections
   - `docs/` — Docs / MDX rendering components
 - **`core/`** — Business logic, the heart of the app. Domains include `threads/` (creation, streaming, state), `api/` (LangGraph client singleton), `agents/` (custom agents), `auth/` (authentication), `artifacts/`, `channels/` (IM connections), `i18n/` (en-US, zh-CN), `settings/`, `memory/`, `skills/`, `messages/`, `mcp/`, `models/`, `input-polish/` (pre-send draft rewrite API), `voice-input/` (secure microphone PCM capture and authenticated Gateway transcription), `suggestions/`, `tasks/`, `todos/`, `tools/`, `workspace-changes/` (run-scoped changed-file summaries and diff fetching), `config/`, `notification/`, `blog/`, plus rendering helpers (`rehype/`, `streamdown/`) and `utils/`.
+
+Channel UI presentation maps the internal `feishu` provider to the enterprise label **海能 Work** and the existing `public/images/cnooc-haineng-mark.png` asset. Keep the internal provider key, API path, and credential fields unchanged; use the shared display-name helper and icon component rather than displaying an old API-supplied `Feishu` name directly.
 - **`hooks/`** — Shared React hooks
 - **`lib/`** — Utilities (`cn()` from clsx + tailwind-merge)
 - **`content/`** — MDX content (blog posts, docs) rendered by the app
@@ -75,6 +77,61 @@ add the main chat's attachment, Data Lake, knowledge-base, voice, polish, or
 mode state to this workflow. Its existing model selector, `agent_name`,
 `is_bootstrap`, hidden human-input responses, and save interaction must remain
 intact.
+
+The name-step and personal editor have a separate Skill-selection field. Keep
+`null` (follow current user's enabled catalog) distinct from `[]` (no Skills).
+Preserve unavailable saved names visibly instead of silently pruning them on
+catalog error. An untouched edit must omit `skills`; bootstrap forwards explicit
+form intent as `agent_skill_selection` for backend validation. Selection is not
+permission to publish dependencies. Never add shared-Skill source, install or
+download actions to Square consumers. Form-persistence failures must be visible,
+not silently presented as a successfully configured employee.
+
+The same separate form now supports creator knowledge selection: inherit chat
+selection, no knowledge, or 1–20 explicit KBs/documents. Reuse the existing
+knowledge selector with dynamic tags disabled for employee bindings only.
+Untouched editor saves omit `knowledge_scope`; an explicit clear/reset is
+preserved. Fixed employee scopes are displayed in chat with selector/removal
+controls locked; server admission remains the permission boundary. Do not
+present a knowledge binding as permission to publish it to other users. Draft,
+published revision and chat-pinned revision are separate lifecycle concepts;
+their confirmation/history UI lives in `agents/manage/[name]` and resource
+approval in `agents/grants/[grant_id]`. Conversational proposals require a real
+owner checkbox/confirmation. A stale draft response must not auto-retry a write.
+Avatar upload/removal sends expected_draft_revision from the successful details
+save and consumes the newly returned AgentResponse revision. Both mutations
+disable retries. If details were saved but the avatar fails, display that partial
+success explicitly, retain the user's input/image, and block a stale retry until
+the editor is reopened. Do not present the two requests as an atomic form save.
+Personal deletion opens a fresh source=personal read and freezes the reviewed
+revision for the confirmation lifetime. Missing revisions disable deletion.
+Conflict/uncertain results stay visible and block repeat submission until the
+dialog is reopened; never auto-retry DELETE or adopt a list-cache revision.
+Deleting a personal definition does not unpublish its Square version. Retained
+recovery records require operator reconciliation, not one-click undo.
+Historical restore updates only the draft, never publishes automatically.
+Publication review binds its grants and explicit dependency selection to the
+displayed draft revision; selection alone is not onward-sharing approval.
+An existing Square chat reads `/threads/{id}/employee-publication` for its pinned
+revision and knowledge mode. Do not substitute the latest catalog definition.
+An authorization failure blocks continuation, while New chat may establish a
+fresh admission. Upgrading means a new conversation, not rewriting old history.
+
+Employee chat Slash discovery uses the metadata-only
+`/agents/{name}/invocation-skills` endpoint with explicit source and, for existing
+chats, the owned thread ID. Scope query caches by authenticated user, employee,
+source and thread. Show pinned publication Skills even when the viewer has not
+installed them; never substitute a personal catalog on errors or revocation.
+This endpoint must not expose source paths, package contents or install links.
+Ordinary chat keeps its existing personal Skill catalog.
+
+Explicit employee source is part of detail query keys, chat URLs, stream
+context and history metadata. Preserve it after the first-send URL replacement,
+reload, continuation and new-chat navigation. The chat-route notification helper
+still receives only `window.location.pathname`, not a query-bearing URL. Missing
+or malformed explicit sources show a bounded error and disable execution instead
+of loading a same-name fallback. Malformed historical metadata must not crash
+the sidebar. Show `display_name` separately from the stable employee identifier.
 
 The Agent gallery presents custom Agents as **数字员工 / Digital Employees**.
 Keep its compact horizontal portrait-and-details rows, circular CNOOC cartoon
@@ -119,6 +176,17 @@ delete mutations hosted above rows that may unmount, and retain the upstream
 confirmation dialog before destructive chat deletion. Workspace change badges
 show at most three file rows by default and expose a reversible remainder
 toggle; the full diff panel remains unchanged.
+Workspace-change summaries also count `symlink_created`; missing counters and
+link metadata in older persisted events remain valid. Link changes are
+metadata-only: show their localized status, never expose an open-file action
+for a symlink/replacement, and do not render raw target paths as links or text.
+Keep ordinary legacy file actions and the existing Sheet/Collapsible controls.
+
+Thread title rename is a checkpoint mutation. Close/reset its dialog only after
+server success; a 409 busy conflict or other failure must show the diagnostic
+and retain the typed title. Do not automatically retry conflicting checkpoint
+mutations. Goal/compact/state writes are admitted by the backend's durable
+thread-operation reservation, not by the sidebar's local busy state alone.
 
 The main workspace composer's knowledge control mirrors WeKnora New Chat's
 mention scope without copying WeKnora conversation state. It supports complete

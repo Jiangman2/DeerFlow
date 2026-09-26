@@ -580,10 +580,14 @@ def test_task_tool_propagates_disabled_data_lake_scope_to_subagent(monkeypatch):
     assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == ["web_search"]
 
 
-def test_task_tool_emits_running_and_completed_events(monkeypatch):
+@pytest.mark.parametrize("runtime_trace", ["task-trace-1", None, "invalid\ntrace"])
+def test_task_tool_emits_running_and_completed_events(monkeypatch, runtime_trace):
+    from deerflow.trace_context import get_current_trace_id, request_trace_context
+
     config = _make_subagent_config()
     runtime = _make_runtime()
-    runtime.context["deerflow_trace_id"] = "task-trace-1"
+    runtime.context["deerflow_trace_id"] = runtime_trace
+    runtime.config["metadata"]["deerflow_trace_id"] = "caller-forged"
     events = []
     captured = {}
     get_available_tools = MagicMock(return_value=["tool-a", "tool-b"])
@@ -619,13 +623,15 @@ def test_task_tool_emits_running_and_completed_events(monkeypatch):
     # task_tool lazily imports from deerflow.tools at call time, so patch that module-level function.
     monkeypatch.setattr("deerflow.tools.get_available_tools", get_available_tools)
 
-    output = _run_task_tool(
-        runtime=runtime,
-        description="运行子任务",
-        prompt="collect diagnostics",
-        subagent_type="general-purpose",
-        tool_call_id="tc-123",
-    )
+    with request_trace_context("ambient-parent"):
+        output = _run_task_tool(
+            runtime=runtime,
+            description="运行子任务",
+            prompt="collect diagnostics",
+            subagent_type="general-purpose",
+            tool_call_id="tc-123",
+        )
+        assert get_current_trace_id() == "ambient-parent"
 
     message = _task_tool_message(output)
     assert message.content == "Task Succeeded. Result: all done"
@@ -633,7 +639,8 @@ def test_task_tool_emits_running_and_completed_events(monkeypatch):
     assert captured["task_id"] == "tc-123"
     assert captured["executor_kwargs"]["thread_id"] == "thread-1"
     assert captured["executor_kwargs"]["parent_model"] == "ark-model"
-    assert captured["executor_kwargs"]["deerflow_trace_id"] == "task-trace-1"
+    expected_trace = "task-trace-1" if runtime_trace == "task-trace-1" else "ambient-parent"
+    assert captured["executor_kwargs"]["deerflow_trace_id"] == expected_trace
     assert captured["executor_kwargs"]["config"].max_turns == config.max_turns
     # Skills are no longer appended to system_prompt; they are loaded per-session
     # by SubagentExecutor and injected as conversation items (Codex pattern).

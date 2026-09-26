@@ -187,6 +187,7 @@ def test_namespace_tools_are_flattened_and_restored_without_losing_history() -> 
         kind="function",
         name="spawn_agent",
         namespace="multi_agent_v1",
+        parameters=payload["tools"][0]["tools"][0]["parameters"],
     )
 
     completion = adapter.DeepSeekCompletion(model="DeepSeek-V4-Flash")

@@ -1,0 +1,20 @@
+{
+  "gateway": {
+    "deployment": "gateway",
+    "image": "deerflow.local/deer-flow-gateway:20260924-ppt-relay-r1-adadc3fb4d787ed1",
+    "source_sha256": "25db8c3d4b98686aea770e45f22a750354d4af2b70d32f1501b08f05c113b12f",
+    "target_image": "deerflow.local/deer-flow-gateway:20260924-ppt-preview-auth-r1"
+  },
+  "runner": {
+    "deployment": "ppt-master-runner",
+    "image": "deerflow.local/deer-flow-gateway:20260923-enterprise-arm64-rc15-ppt-master-v660-r15",
+    "source_sha256": "8c05d60d67b259e3286fcea33e558d4325c401f66c25c90aa7d847eb782d40e0",
+    "target_image": "deerflow.local/deer-flow-gateway:20260924-ppt-preview-auth-r1-runner"
+  },
+  "frontend": {
+    "deployment": "frontend",
+    "image": "deerflow.local/deer-flow-frontend:20260923-enterprise-arm64-rc15-channel-pdf-preview-r2",
+    "source_sha256": "a11c882b53936ee34489a5ffeda5db3daec1df3b6c9be95381d775e0aa2c3164",
+    "target_image": "deerflow.local/deer-flow-frontend:20260924-ppt-preview-auth-r1"
+  }
+}

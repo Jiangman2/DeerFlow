@@ -50,6 +50,7 @@ import {
   usePromptInputController,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfettiButton } from "@/components/ui/confetti-button";
 import {
@@ -77,6 +78,8 @@ import {
   type SidecarContext,
 } from "@/core/sidecar";
 import { useSkills } from "@/core/skills/hooks";
+import type { EmployeeSkillScope } from "@/core/skills/invocation";
+import { useEmployeeInvocationSkills } from "@/core/skills/invocation-hooks";
 import { useSuggestionsConfig } from "@/core/suggestions/hooks";
 import type { AgentThreadContext, GoalState } from "@/core/threads";
 import { compactThreadContext } from "@/core/threads/api";
@@ -283,6 +286,7 @@ export function InputBox({
   extraHeader,
   isWelcomeMode,
   threadId,
+  employeeSkillScope,
   initialValue,
   onContextChange,
   onFollowupsVisibilityChange,
@@ -303,6 +307,7 @@ export function InputBox({
    */
   isWelcomeMode?: boolean;
   threadId: string;
+  employeeSkillScope?: EmployeeSkillScope;
   initialValue?: string;
   onContextChange?: (context: InputBoxContext) => void;
   onFollowupsVisibilityChange?: (visible: boolean) => void;
@@ -334,7 +339,9 @@ export function InputBox({
   const [desktopMaterialRows, setDesktopMaterialRows] = useState(1);
   const desktopMaterialOffset = Math.max(0, desktopMaterialRows - 1) * 40;
   const removeAttachment = attachments.remove;
-  const { skills } = useSkills();
+  const { skills: personalSkills } = useSkills({ enabled: !employeeSkillScope });
+  const employeeSkills = useEmployeeInvocationSkills(employeeSkillScope);
+  const skills = employeeSkillScope ? employeeSkills.skills : personalSkills;
   const { data: uploadLimits } = useUploadLimits(threadId);
   const promptRootRef = useRef<HTMLDivElement | null>(null);
 
@@ -646,7 +653,7 @@ export function InputBox({
     promptHistoryDraftRef.current = "";
     setSelectedSlashSkill(null);
     setInputPolishUndo(null);
-  }, [threadId]);
+  }, [threadId, employeeSkillScope?.name, employeeSkillScope?.source]);
 
   useEffect(() => {
     const goalRequestState = goalRequestStateRef.current;
@@ -1856,6 +1863,13 @@ export function InputBox({
           </div>
         </div>
       )}
+      {employeeSkillScope && slashSkillQuery !== null && (employeeSkills.error || employeeSkills.isLoading) && (
+        <Alert variant={employeeSkills.error ? "destructive" : "default"}>
+          <AlertDescription>
+            {employeeSkills.error ? t.inputBox.employeeSkillsUnavailable : t.inputBox.employeeSkillsLoading}
+          </AlertDescription>
+        </Alert>
+      )}
       {showSkillSuggestions && (
         <div className="absolute right-0 bottom-full left-0 z-40 mb-2 px-1">
           <div
@@ -1941,7 +1955,7 @@ export function InputBox({
           <KnowledgeScopeChips
             className="contents"
             context={context}
-            disabled={composerLocked}
+            disabled={composerLocked || context.employee_knowledge_scope_locked === true}
             onContextChange={onContextChange}
           />
           {polishingInput && (
@@ -2067,7 +2081,7 @@ export function InputBox({
             <KnowledgeScopeSelector
               className="cnooc-tool-knowledge"
               context={context}
-              disabled={composerLocked}
+              disabled={composerLocked || context.employee_knowledge_scope_locked === true}
               onContextChange={onContextChange}
             />
             {!isWelcomeMode && voiceInputControl}

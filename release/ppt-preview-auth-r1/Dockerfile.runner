@@ -1,0 +1,9 @@
+FROM preview-runner-base AS source-check
+COPY apply_delta.py /tmp/preview-fix/apply_delta.py
+RUN --network=none /app/backend/.venv/bin/python -B /tmp/preview-fix/apply_delta.py runner /app/backend --check-only
+
+FROM source-check AS candidate
+RUN --network=none /app/backend/.venv/bin/python -B /tmp/preview-fix/apply_delta.py runner /app/backend \
+    && cd /app/backend \
+    && PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=packages/harness:. .venv/bin/python -B -c \
+      "from app.gateway.routers.artifacts import _proxy_live_preview; assert _proxy_live_preview"

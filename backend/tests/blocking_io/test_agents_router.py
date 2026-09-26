@@ -77,7 +77,12 @@ async def test_delete_agent_does_not_block_event_loop(tmp_path: Path, monkeypatc
         await asyncio.to_thread(agent_dir.mkdir, parents=True, exist_ok=True)
         await asyncio.to_thread((agent_dir / "config.yaml").write_text, "name: loop-test-agent\n", encoding="utf-8")
 
-        await delete_agent("loop-test-agent")
+        # The delete route requires the definition the caller reviewed. Resolve
+        # the store and read it off-loop, just as an API detail request does.
+        from deerflow.persistence.agents import get_agent_store
+
+        definition = await asyncio.to_thread(lambda: get_agent_store().read_definition("loop-test-agent", user_id=user_id))
+        await delete_agent("loop-test-agent", expected_draft_revision=definition.revision)
 
         assert not await asyncio.to_thread(agent_dir.exists)
     finally:

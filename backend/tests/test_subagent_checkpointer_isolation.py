@@ -63,11 +63,14 @@ def _setup_executor_module():
     executor_module = sys.modules["deerflow.subagents.executor"]
     executor_module.get_app_config = _default_app_config
 
-    yield {
-        "SubagentConfig": SubagentConfig,
-        "SubagentExecutor": SubagentExecutor,
-        "executor_module": executor_module,
-    }
+    from deerflow.trace_context import request_trace_context
+
+    with request_trace_context():
+        yield {
+            "SubagentConfig": SubagentConfig,
+            "SubagentExecutor": SubagentExecutor,
+            "executor_module": executor_module,
+        }
 
     for name in _MOCKED_MODULE_NAMES:
         if original_modules[name] is not None:

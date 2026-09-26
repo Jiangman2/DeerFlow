@@ -11,7 +11,24 @@ When user_id is None, no user filtering is applied (single-user mode).
 from __future__ import annotations
 
 import abc
+from dataclasses import dataclass
 from typing import Any
+
+
+@dataclass(frozen=True)
+class LeaseRenewal:
+    """Result of renewing a lease and reading durable cancel intent."""
+
+    renewed: bool
+    cancel_action: str | None = None
+
+
+@dataclass(frozen=True)
+class StatusFinalization:
+    """Result of finalizing only when cancellation has not won."""
+
+    finalized: bool
+    cancel_action: str | None = None
 
 
 class RunStore(abc.ABC):
@@ -25,6 +42,7 @@ class RunStore(abc.ABC):
         user_id: str | None = None,
         model_name: str | None = None,
         status: str = "pending",
+        operation_kind: str = "run",
         multitask_strategy: str = "reject",
         metadata: dict[str, Any] | None = None,
         kwargs: dict[str, Any] | None = None,
@@ -95,8 +113,26 @@ class RunStore(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def start_run(self, run_id: str) -> bool:
+        """Atomically transition only a pending run to running.
+
+        Return False when the row is missing or no longer pending. Do not
+        implement this as an unguarded update_status after a separate read.
+        """
+        pass
+
+    @abc.abstractmethod
     async def delete(self, run_id: str) -> None:
         pass
+
+    async def delete_thread_operation(self, run_id: str, *, user_id: str | None) -> None:
+        """Release an admitted thread operation for its recorded owner.
+
+        The default keeps legacy stores compatible: older implementations only
+        accepted ``run_id``. User-aware stores should override this method so
+        cleanup never depends on ambient request context.
+        """
+        await self.delete(run_id)
 
     @abc.abstractmethod
     async def update_model_name(
@@ -128,7 +164,9 @@ class RunStore(abc.ABC):
     ) -> bool | None:
         """Persist final completion fields.
 
-        Returns ``False`` when the store can prove no row was updated.
+        Implementations must not replace a different terminal status. Returns
+        ``False`` when the row is missing or already has a conflicting terminal
+        outcome.
         """
         pass
 
@@ -181,6 +219,46 @@ class RunStore(abc.ABC):
         """Renew the lease on an active run. Returns ``False`` when no row matched."""
         pass
 
+    async def renew_lease(
+        self,
+        run_id: str,
+        *,
+        owner_worker_id: str,
+        lease_expires_at: str,
+    ) -> LeaseRenewal:
+        """Renew ownership and return any durable cancellation request.
+
+        The default wraps the legacy method so third-party stores remain source
+        compatible. Multi-process stores override this atomically.
+        """
+        renewed = await self.update_lease(
+            run_id,
+            owner_worker_id=owner_worker_id,
+            lease_expires_at=lease_expires_at,
+        )
+        return LeaseRenewal(renewed=renewed)
+
+    async def request_cancel(self, run_id: str, *, action: str) -> str | None:
+        """Persist the first cancellation action for an active run."""
+        raise NotImplementedError
+
+    async def finalize_if_not_cancelled(
+        self,
+        run_id: str,
+        *,
+        status: str,
+        error: str | None = None,
+        stop_reason: str | None = None,
+    ) -> StatusFinalization:
+        """Atomically finalize an active run unless cancellation won."""
+        updated = await self.update_status(
+            run_id,
+            status,
+            error=error,
+            stop_reason=stop_reason,
+        )
+        return StatusFinalization(finalized=updated is not False)
+
     @abc.abstractmethod
     async def claim_for_takeover(
         self,
@@ -188,13 +266,15 @@ class RunStore(abc.ABC):
         *,
         grace_seconds: int,
         error: str,
+        stop_reason: str | None = None,
     ) -> bool:
         """Atomically mark an expired-lease active run as ``error``.
 
         Only rows whose lease has expired past *grace_seconds* (or whose
         lease is NULL — pre-ownership data) are updated.  The conditional
         WHERE closes the race between the caller's stale read of the lease
-        and a concurrent heartbeat renewal by the owning worker.
+        and a concurrent heartbeat renewal by the owning worker.  When
+        supplied, *stop_reason* is persisted by the same atomic update.
 
         Returns ``False`` when:
           - the run is no longer ``pending`` / ``running``,
@@ -213,7 +293,53 @@ class RunStore(abc.ABC):
         """Return active runs whose lease has expired (or is NULL for pre-ownership rows)."""
         pass
 
-    @abc.abstractmethod
+    async def create_thread_operation_atomic(
+        self,
+        run_id: str,
+        *,
+        thread_id: str,
+        owner_worker_id: str,
+        lease_expires_at: str | None,
+        operation_kind: str = "run",
+        multitask_strategy: str = "reject",
+        assistant_id: str | None = None,
+        user_id: str | None = None,
+        model_name: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        kwargs: dict[str, Any] | None = None,
+        created_at: str | None = None,
+        grace_seconds: int = 10,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        """Atomically create an active thread operation with cross-process uniqueness.
+
+        The default implementation preserves compatibility with stores that
+        still implement the former ``create_run_atomic`` interface. Legacy
+        stores support only normal run rows; internal operation kinds require
+        an implementation of this method.
+
+        Returns ``(new_run_dict, claimed_run_dicts)``.
+        Raises ``IntegrityError`` on conflict for ``reject`` strategy.
+        """
+        legacy_impl = type(self).create_run_atomic
+        if legacy_impl is RunStore.create_run_atomic:
+            raise NotImplementedError("RunStore must implement create_thread_operation_atomic() or create_run_atomic()")
+        if operation_kind != "run":
+            raise NotImplementedError("Legacy RunStore.create_run_atomic() cannot create non-run thread operations")
+        return await self.create_run_atomic(
+            run_id,
+            thread_id=thread_id,
+            owner_worker_id=owner_worker_id,
+            lease_expires_at=lease_expires_at,
+            multitask_strategy=multitask_strategy,
+            assistant_id=assistant_id,
+            user_id=user_id,
+            model_name=model_name,
+            metadata=metadata,
+            kwargs=kwargs,
+            created_at=created_at,
+            grace_seconds=grace_seconds,
+        )
+
     async def create_run_atomic(
         self,
         run_id: str,
@@ -230,9 +356,22 @@ class RunStore(abc.ABC):
         created_at: str | None = None,
         grace_seconds: int = 10,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-        """Atomically create a run row with cross-process thread-uniqueness.
-
-        Returns ``(new_run_dict, claimed_run_dicts)``.
-        Raises ``IntegrityError`` on conflict for ``reject`` strategy.
-        """
-        pass
+        """Deprecated compatibility alias for normal-run admission."""
+        operation_impl = type(self).create_thread_operation_atomic
+        if operation_impl is RunStore.create_thread_operation_atomic:
+            raise NotImplementedError("RunStore must implement create_thread_operation_atomic() or create_run_atomic()")
+        return await self.create_thread_operation_atomic(
+            run_id,
+            thread_id=thread_id,
+            owner_worker_id=owner_worker_id,
+            lease_expires_at=lease_expires_at,
+            operation_kind="run",
+            multitask_strategy=multitask_strategy,
+            assistant_id=assistant_id,
+            user_id=user_id,
+            model_name=model_name,
+            metadata=metadata,
+            kwargs=kwargs,
+            created_at=created_at,
+            grace_seconds=grace_seconds,
+        )

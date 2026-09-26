@@ -78,6 +78,8 @@ _BLOCKED_TAG_NAMES: frozenset[str] = frozenset(
         "response_style",
         "citations",
         "subagent_system",
+        "report_contract",
+        "acceptance_criteria",
         "skill_system",
         "skill_index",
         "available_skills",

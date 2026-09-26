@@ -636,7 +636,7 @@ async def build_raw_contribution(session: AsyncSession, *, start: datetime, end:
             ThreadMetaRow.metadata_json.label("meta_json"),
         )
         .outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id)
-        .where(RunRow.created_at >= start, RunRow.created_at < end)
+        .where(RunRow.operation_kind == "run", RunRow.created_at >= start, RunRow.created_at < end)
         .execution_options(yield_per=1000)
     )
     async for row in run_stream:
@@ -898,7 +898,10 @@ class RollupStatus:
 async def _source_min_timestamp(session: AsyncSession) -> datetime | None:
     timestamps: list[datetime] = []
     for model in (RunRow, ThreadCreationRow, FeedbackRow):
-        value = await session.scalar(select(func.min(model.created_at)))
+        statement = select(func.min(model.created_at))
+        if model is RunRow:
+            statement = statement.where(RunRow.operation_kind == "run")
+        value = await session.scalar(statement)
         if isinstance(value, datetime):
             timestamps.append(_aware_utc(value))
     click_min = await session.scalar(select(func.min(AuditLogRow.created_at)).where(AuditLogRow.action.in_((EXTERNAL_AGENT_CLICK_ACTION, EXTERNAL_PLATFORM_CLICK_ACTION))))
@@ -1143,7 +1146,7 @@ async def refresh_changed_rollup_days(
     async with source_factory() as session:
         await apply_dashboard_statement_limits(session, maintenance=True)
         statements = (
-            select(RunRow.created_at).where(RunRow.updated_at > scan_from, RunRow.updated_at <= scan_until),
+            select(RunRow.created_at).where(RunRow.operation_kind == "run", RunRow.updated_at > scan_from, RunRow.updated_at <= scan_until),
             select(ThreadCreationRow.created_at).where(
                 ThreadCreationRow.created_at > scan_from,
                 ThreadCreationRow.created_at <= scan_until,
@@ -1216,7 +1219,7 @@ async def refresh_changed_rollup_hours(
     async with source_factory() as session:
         await apply_dashboard_statement_limits(session, maintenance=True)
         statements = (
-            select(RunRow.created_at).where(RunRow.updated_at > scan_from, RunRow.updated_at <= scan_until),
+            select(RunRow.created_at).where(RunRow.operation_kind == "run", RunRow.updated_at > scan_from, RunRow.updated_at <= scan_until),
             select(ThreadCreationRow.created_at).where(
                 ThreadCreationRow.created_at > scan_from,
                 ThreadCreationRow.created_at <= scan_until,

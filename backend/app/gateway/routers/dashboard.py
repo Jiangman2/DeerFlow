@@ -1513,7 +1513,7 @@ async def get_registered_user_sessions(
                     func.max(RunRow.updated_at),
                     func.max(ThreadMetaRow.updated_at),
                 )
-                .outerjoin(RunRow, RunRow.thread_id == ThreadMetaRow.thread_id)
+                .outerjoin(RunRow, and_(RunRow.thread_id == ThreadMetaRow.thread_id, RunRow.operation_kind == "run"))
                 .where(ThreadMetaRow.user_id.in_(user_ids))
                 .group_by(ThreadMetaRow.user_id)
             )
@@ -1567,7 +1567,7 @@ async def get_user_existing_sessions(
         total = int(await session.scalar(select(func.count()).select_from(ThreadMetaRow).where(ThreadMetaRow.user_id == user_id)) or 0)
         threads = list((await session.execute(select(ThreadMetaRow).where(ThreadMetaRow.user_id == user_id).order_by(desc(ThreadMetaRow.updated_at), desc(ThreadMetaRow.created_at)).limit(limit).offset(offset))).scalars().all())
         thread_ids = [row.thread_id for row in threads]
-        runs = list((await session.execute(select(RunRow).where(RunRow.thread_id.in_(thread_ids)).order_by(desc(RunRow.created_at)))).scalars().all()) if thread_ids else []
+        runs = list((await session.execute(select(RunRow).where(RunRow.operation_kind == "run", RunRow.thread_id.in_(thread_ids)).order_by(desc(RunRow.created_at)))).scalars().all()) if thread_ids else []
 
     runs_by_thread: dict[str, list[RunRow]] = defaultdict(list)
     for run in runs:
@@ -1611,8 +1611,10 @@ async def get_failed_runs(
     await require_admin_user(request, detail=_ADMIN_REQUIRED)
     failed_filter = or_(RunRow.status.in_(_FAILED_STATUSES), RunRow.error.is_not(None))
     owner_user_id = func.coalesce(RunRow.user_id, ThreadMetaRow.user_id)
-    rows_stmt = select(RunRow, owner_user_id.label("owner_user_id"), UserRow).outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id).outerjoin(UserRow, UserRow.id == owner_user_id).where(failed_filter)
-    count_stmt = select(func.count()).select_from(RunRow).outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id).outerjoin(UserRow, UserRow.id == owner_user_id).where(failed_filter)
+    rows_stmt = (
+        select(RunRow, owner_user_id.label("owner_user_id"), UserRow).outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id).outerjoin(UserRow, UserRow.id == owner_user_id).where(RunRow.operation_kind == "run", failed_filter)
+    )
+    count_stmt = select(func.count()).select_from(RunRow).outerjoin(ThreadMetaRow, ThreadMetaRow.thread_id == RunRow.thread_id).outerjoin(UserRow, UserRow.id == owner_user_id).where(RunRow.operation_kind == "run", failed_filter)
     normalized_query = q.strip().casefold()
     if normalized_query:
         pattern = f"%{normalized_query}%"
@@ -1903,6 +1905,7 @@ async def get_dashboard_run_rankings(
                         duration_expression.label("duration_ms"),
                     )
                     filters = (
+                        RunRow.operation_kind == "run",
                         RunRow.created_at >= start,
                         RunRow.created_at < end,
                         RunRow.updated_at.is_not(None),
@@ -2031,7 +2034,7 @@ async def _build_dashboard_summary(
                 RunRow.created_at,
                 RunRow.updated_at,
             )
-            .where(RunRow.created_at >= start, RunRow.created_at <= end)
+            .where(RunRow.operation_kind == "run", RunRow.created_at >= start, RunRow.created_at <= end)
             .order_by(desc(RunRow.created_at))
             .execution_options(yield_per=1000)
         )
@@ -2178,6 +2181,7 @@ async def _build_dashboard_summary(
                     RunEventRow.created_at >= start,
                     RunEventRow.created_at <= end,
                     RunEventRow.event_type.in_(_DASHBOARD_EVENT_TYPES),
+                    RunRow.operation_kind == "run",
                     RunRow.created_at >= start,
                     RunRow.created_at <= end,
                 )

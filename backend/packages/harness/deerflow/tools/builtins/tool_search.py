@@ -203,8 +203,8 @@ def assemble_deferred_tools(candidate_tools: list[BaseTool], *, enabled: bool) -
     Fail closed on deferral assembly itself: if tool_search is enabled and MCP
     candidates exist but no deferred set was recovered, raise rather than silently
     binding their full schemas to the model. Lead-agent authorization is enforced
-    separately at runtime by ``SkillToolPolicyMiddleware``; subagents may already
-    have applied their static skill policy to ``candidate_tools``.
+    separately at runtime by ``SkillToolPolicyMiddleware`` in both lead and
+    subagent chains. Subagent candidate tools retain enterprise/config scoping.
 
     Shared by every agent-build path (lead, embedded client, subagent) so they
     all get the same fail-closed guarantee from one place.

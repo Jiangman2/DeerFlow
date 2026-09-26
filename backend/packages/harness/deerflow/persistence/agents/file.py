@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import tempfile
 from collections.abc import Hashable
 from pathlib import Path
 from typing import Any
@@ -42,9 +41,32 @@ logger = logging.getLogger(__name__)
 
 
 class FileAgentStore(AgentStore):
-    def get(self, name: str, *, user_id: str | None = None) -> AgentConfig:
+    def read_definition(self, name: str, *, user_id: str | None = None):
+        from deerflow.persistence.agents.drafts import file_draft_transaction, read_file_definition
+
         name = validate_agent_name(name)
-        agent_dir = resolve_agent_dir(name, user_id=user_id)
+        root = _ac.get_paths().user_agent_dir(user_id or _ac.get_effective_user_id(), name)
+        with file_draft_transaction(root):
+            return read_file_definition(root, name)
+
+    def patch_definition(self, name: str, updates: dict, soul: str | None, *, user_id: str | None = None, expected_revision: str | None):
+        from deerflow.persistence.agents.drafts import commit_file_definition, file_draft_transaction, patched_definition, read_file_definition
+
+        name = validate_agent_name(name)
+        root = _ac.get_paths().user_agent_dir(user_id or _ac.get_effective_user_id(), name)
+        with file_draft_transaction(root):
+            before = read_file_definition(root, name)
+            after = patched_definition(before, updates, soul, expected_revision)
+            if before != after:
+                commit_file_definition(root, after)
+            return after
+
+    def get(self, name: str, *, user_id: str | None = None, allow_shared: bool = True) -> AgentConfig:
+        name = validate_agent_name(name)
+        agent_dir = resolve_agent_dir(name, user_id=user_id) if allow_shared else _ac.get_paths().user_agent_dir(user_id or _ac.get_effective_user_id(), name)
+        personal_dir = _ac.get_paths().user_agent_dir(user_id or _ac.get_effective_user_id(), name)
+        if agent_dir == personal_dir and (agent_dir / "config.yaml").is_file():
+            return parse_agent_config(self.read_definition(name, user_id=user_id).config, name)
         config_file = agent_dir / "config.yaml"
         if not agent_dir.exists():
             raise FileNotFoundError(f"Agent directory not found: {agent_dir}")
@@ -63,15 +85,21 @@ class FileAgentStore(AgentStore):
         effective_user = user_id or _ac.get_effective_user_id()
         return paths.user_agent_dir(effective_user, name).exists() or paths.agent_dir(name).exists()
 
-    def get_soul(self, name: str, *, user_id: str | None = None) -> str | None:
-        agent_dir = resolve_agent_dir(name, user_id=user_id)
+    def get_soul(self, name: str, *, user_id: str | None = None, allow_shared: bool = True) -> str | None:
+        name = validate_agent_name(name)
+        agent_dir = resolve_agent_dir(name, user_id=user_id) if allow_shared else _ac.get_paths().user_agent_dir(user_id or _ac.get_effective_user_id(), name)
+        personal_dir = _ac.get_paths().user_agent_dir(user_id or _ac.get_effective_user_id(), name)
+        if agent_dir == personal_dir and (agent_dir / "config.yaml").is_file():
+            return self.read_definition(name, user_id=user_id).soul.strip() or None
+        if not allow_shared and not (agent_dir / "config.yaml").is_file():
+            raise FileNotFoundError("Personal agent is no longer available")
         soul_path = agent_dir / SOUL_FILENAME
         # resolve_agent_dir requires config.yaml; SOUL.md loading does not, so
         # when the resolver fell back to its default path (no qualifying dir),
         # check the per-user and legacy dirs directly (#4135). The config.yaml
         # guard keeps this fallback from firing for a properly-resolved per-user
         # agent that merely lacks SOUL.md (preserves per-user-shadows-legacy).
-        if not soul_path.exists() and not (agent_dir / "config.yaml").exists():
+        if allow_shared and not soul_path.exists() and not (agent_dir / "config.yaml").exists():
             paths = _ac.get_paths()
             effective_user = user_id or _ac.get_effective_user_id()
             for candidate in (
@@ -159,20 +187,33 @@ class FileAgentStore(AgentStore):
 
     def patch_config(self, name: str, updates: dict, *, user_id: str | None = None) -> None:
         """Atomically merge fields without normalizing away unknown YAML keys."""
+        from deerflow.persistence.agents.drafts import commit_file_definition, file_draft_transaction, patched_definition, read_file_definition
+
         name = validate_agent_name(name)
         effective_user = user_id or _ac.get_effective_user_id()
         config_file = _ac.get_paths().user_agent_dir(effective_user, name) / "config.yaml"
         if not config_file.is_file():
             raise FileNotFoundError(f"Agent config not found: {config_file}")
-        try:
-            with config_file.open(encoding="utf-8") as file:
-                document = yaml.safe_load(file) or {}
-        except yaml.YAMLError as exc:
-            raise ValueError(f"Failed to parse agent config {config_file}: {exc}") from exc
-        if not isinstance(document, dict):
-            raise ValueError(f"Agent config must be a mapping: {config_file}")
-        document.update(updates)
-        self._write(config_file.parent, document, None)
+        with file_draft_transaction(config_file.parent):
+            before = read_file_definition(config_file.parent, name)
+            after = patched_definition(before, updates, None, before.revision)
+            if after != before:
+                commit_file_definition(config_file.parent, after)
+
+    def delete_definition(self, name: str, *, user_id: str | None = None, expected_revision: str, before_delete=None) -> AgentDeleteOutcome:
+        from deerflow.persistence.agents.deletion import retain_deleted_definition
+        from deerflow.persistence.agents.drafts import file_draft_transaction, patched_definition, read_file_definition
+
+        name = validate_agent_name(name)
+        effective_user = user_id or _ac.get_effective_user_id()
+        root = _ac.get_paths().user_agent_dir(effective_user, name)
+        with file_draft_transaction(root):
+            current = read_file_definition(root, name)
+            patched_definition(current, {}, None, expected_revision)
+            if before_delete is not None:
+                before_delete()
+            retain_deleted_definition(root, current, owner=effective_user, backend="file")
+        return "deleted"
 
     def delete(self, name: str, *, user_id: str | None = None) -> AgentDeleteOutcome:
         name = validate_agent_name(name)
@@ -239,38 +280,15 @@ class FileAgentStore(AgentStore):
 
     @staticmethod
     def _write(agent_dir: Path, config: dict | None, soul: str | None) -> None:
-        """Write config.yaml and/or SOUL.md, each via an atomic ``os.replace``.
+        """Legacy upsert writer, sharing recovery/locking with draft edits.
 
-        Each part is written only when supplied (``config``/``soul`` non-None),
-        staged to a temp file then committed with ``os.replace``, so neither file
-        is ever observed half-written. The two commits are sequential, **not** a
-        single transaction: a crash between them can leave a freshly-replaced
-        config.yaml beside a stale SOUL.md (single-node, sub-millisecond window).
-        The ``db`` backend commits both fields in one transaction; if cross-file
-        atomicity ever matters here, restore ``update_agent``'s partial-write
-        reporting.
+        Merge supplied keys, never erase unknown fields. New editing surfaces
+        use patch_definition with an explicit revision instead of this method.
         """
-        pending: list[tuple[Path, Path]] = []
-        staged: list[Path] = []
-        try:
-            if config is not None:
-                config_text = yaml.dump(config, default_flow_style=False, allow_unicode=True, sort_keys=False)
-                config_tmp = _stage_temp(agent_dir / "config.yaml", config_text)
-                staged.append(config_tmp)
-                pending.append((config_tmp, agent_dir / "config.yaml"))
-            if soul is not None:
-                soul_tmp = _stage_temp(agent_dir / SOUL_FILENAME, soul)
-                staged.append(soul_tmp)
-                pending.append((soul_tmp, agent_dir / SOUL_FILENAME))
-            for tmp, target in pending:
-                tmp.replace(target)
-                staged.remove(tmp)
-        finally:
-            for tmp in staged:
-                tmp.unlink(missing_ok=True)
+        from deerflow.persistence.agents.drafts import AgentDefinition, commit_file_definition, file_draft_transaction, read_file_definition
 
-
-def _stage_temp(target: Path, text: str) -> Path:
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=target.parent, suffix=".tmp", delete=False) as f:
-        f.write(text)
-        return Path(f.name)
+        with file_draft_transaction(agent_dir):
+            before = read_file_definition(agent_dir, agent_dir.name) if (agent_dir / "config.yaml").is_file() else AgentDefinition.from_parts(agent_dir.name, {}, "")
+            after = AgentDefinition.from_parts(agent_dir.name, {**before.config, **(config or {})}, before.soul if soul is None else soul)
+            if after != before or not (agent_dir / "config.yaml").exists():
+                commit_file_definition(agent_dir, after)

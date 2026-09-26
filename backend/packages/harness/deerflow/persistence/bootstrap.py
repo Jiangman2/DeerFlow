@@ -234,7 +234,7 @@ def _alembic_safe_url(engine: AsyncEngine) -> str:
     return _escape_url_for_alembic(rendered)
 
 
-def _get_alembic_config(engine: AsyncEngine) -> AlembicConfig:
+def _get_alembic_config(engine: AsyncEngine, *, postgres_schema: str = "") -> AlembicConfig:
     """Build an in-process alembic config pointing at our migrations dir.
 
     Avoids reading ``alembic.ini`` from disk so the production runtime doesn't
@@ -244,6 +244,10 @@ def _get_alembic_config(engine: AsyncEngine) -> AlembicConfig:
     cfg = AlembicConfig()
     cfg.set_main_option("script_location", str(_MIGRATIONS_DIR))
     cfg.set_main_option("sqlalchemy.url", _alembic_safe_url(engine))
+    if postgres_schema:
+        from deerflow.config.postgres_schema import validate_postgres_schema
+
+        cfg.set_main_option("deerflow_pg_schema", validate_postgres_schema(postgres_schema))
     return cfg
 
 
@@ -470,7 +474,7 @@ def _bootstrap_lock(engine: AsyncEngine, *, backend: str):
 # ---------------------------------------------------------------------------
 
 
-async def bootstrap_schema(engine: AsyncEngine, *, backend: str) -> None:
+async def bootstrap_schema(engine: AsyncEngine, *, backend: str, postgres_schema: str = "") -> None:
     """Bring the DB schema to head.
 
     Postgres calls are serialised across processes with an advisory lock.
@@ -482,7 +486,9 @@ async def bootstrap_schema(engine: AsyncEngine, *, backend: str) -> None:
     loop; both are wrapped in ``asyncio.to_thread``.
     """
     head = _get_head_revision()
-    cfg = _get_alembic_config(engine)
+    # Alembic opens its own engine. Pass the same schema explicitly so both
+    # its revision marker and migration DDL follow the application tables.
+    cfg = _get_alembic_config(engine, postgres_schema=postgres_schema if backend == "postgres" else "")
 
     async with _bootstrap_lock(engine, backend=backend):
         async with engine.connect() as conn:

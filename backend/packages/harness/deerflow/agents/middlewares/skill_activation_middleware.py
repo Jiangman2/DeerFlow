@@ -21,6 +21,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.thread_state import SkillWorkflowState, ThreadState
+from deerflow.runtime.events.catalog import MIDDLEWARE_SKILL_ACTIVATION_TAG, MIDDLEWARE_SKILL_SECRETS_TAG
 from deerflow.runtime.secret_context import (
     _SECRETS_BINDING_AUDIT_KEY,
     _SLASH_SKILL_ACTIVATION_CACHE_KEY,
@@ -158,6 +159,7 @@ class SkillActivationMiddleware(AgentMiddleware[ThreadState]):
         available_skills: set[str] | None = None,
         app_config: AppConfig | None = None,
         user_id: str | None = None,
+        thread_id: str | None = None,
         slash_source_owner_token: str,
     ) -> None:
         super().__init__()
@@ -166,9 +168,16 @@ class SkillActivationMiddleware(AgentMiddleware[ThreadState]):
         self._available_skills = set(available_skills) if available_skills is not None else None
         self._app_config = app_config
         self._user_id = user_id
+        self._thread_id = thread_id
         self._slash_source_owner_token = slash_source_owner_token
 
     def _storage(self) -> SkillStorage:
+        if self._thread_id and self._user_id:
+            from deerflow.skills.agent_publication import get_thread_published_skill_storage
+
+            published = get_thread_published_skill_storage(self._thread_id, user_id=self._user_id, app_config=self._app_config)
+            if published is not None:
+                return published
         if self._user_id is not None:
             return get_or_new_user_skill_storage(self._user_id, app_config=self._app_config)
         if self._app_config is not None:
@@ -640,7 +649,7 @@ Failed commands and validation errors do not advance the workflow. Read the exac
             return
         try:
             journal.record_middleware(
-                "skill_activation",
+                MIDDLEWARE_SKILL_ACTIVATION_TAG,
                 name="SkillActivationMiddleware",
                 hook=hook,
                 action="activate",
@@ -652,7 +661,7 @@ Failed commands and validation errors do not advance the workflow. Read the exac
                 },
             )
         except Exception:
-            logger.debug("Failed to record slash skill activation audit event", exc_info=True)
+            logger.warning("Failed to record slash skill activation audit event", exc_info=True)
 
     def _prepare_model_request(self, request: ModelRequest, *, hook: str) -> tuple[ModelRequest | AIMessage | None, _Activation | None]:
         run_context = self._run_context(request)
@@ -893,14 +902,14 @@ Failed commands and validation errors do not advance the workflow. Read the exac
             return
         try:
             journal.record_middleware(
-                "skill_secrets",
+                MIDDLEWARE_SKILL_SECRETS_TAG,
                 name="SkillActivationMiddleware",
                 hook=hook,
                 action="bind_secrets",
                 changes=audit_state,
             )
         except Exception:
-            logger.debug("Failed to record skill secret binding audit event", exc_info=True)
+            logger.warning("Failed to record skill secret binding audit event", exc_info=True)
 
     @staticmethod
     def _make_activation_message(target: HumanMessage, activation_content: str) -> HumanMessage:

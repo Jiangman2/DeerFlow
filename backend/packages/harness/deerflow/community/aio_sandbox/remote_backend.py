@@ -84,6 +84,12 @@ class RemoteSandboxBackend(SandboxBackend):
         """Destroy a sandbox Pod + Service via the provisioner."""
         self._provisioner_destroy(info.sandbox_id)
 
+    def validate_employee_skills(self, sandbox_id: str, thread_id: str, *, user_id: str) -> None:
+        # Idempotent create verifies the existing Pod's identity AND actual
+        # mounts. A stale in-process/discovery cache cannot bypass that check.
+        # A mismatch is rejected, never fixed by deleting another live Pod.
+        self._provisioner_create(thread_id, sandbox_id, user_id=user_id)
+
     def is_alive(self, info: SandboxInfo) -> bool:
         """Check whether the sandbox Pod is running."""
         return self._provisioner_is_alive(info.sandbox_id)
@@ -153,7 +159,16 @@ class RemoteSandboxBackend(SandboxBackend):
         """POST /api/sandboxes → create Pod + Service."""
         del extra_mounts
         effective_user_id = user_id or get_effective_user_id()
-        include_legacy_skills = user_should_see_legacy_skills(effective_user_id)
+        from deerflow.skills.agent_publication import get_thread_published_skill_storage
+
+        published = get_thread_published_skill_storage(thread_id, user_id=effective_user_id)
+        projection = None
+        if published is not None:
+            if not self._api_key:
+                raise RuntimeError("Employee Skill projection requires authenticated provisioning")
+            published.load_skills()
+            projection = published.get_skills_root_path().name
+        include_legacy_skills = False if projection else user_should_see_legacy_skills(effective_user_id)
         try:
             resp = requests.post(
                 f"{self._provisioner_url}/api/sandboxes",
@@ -162,12 +177,15 @@ class RemoteSandboxBackend(SandboxBackend):
                     "thread_id": thread_id,
                     "user_id": effective_user_id,
                     "include_legacy_skills": include_legacy_skills,
+                    **({"employee_skill_projection": projection} if projection else {}),
                 },
                 headers=self._auth_headers(),
                 timeout=30,
             )
             resp.raise_for_status()
             data = resp.json()
+            if projection and data.get("employee_skill_projection") != projection:
+                raise RuntimeError("Provisioner did not confirm the employee Skill projection; upgrade or verify its configuration")
             logger.info(f"Provisioner created sandbox {sandbox_id}: sandbox_url={data['sandbox_url']}")
             return SandboxInfo(
                 sandbox_id=sandbox_id,

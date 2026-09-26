@@ -8,13 +8,14 @@ Verifies that the agent factory's resulting graph receives a
 from __future__ import annotations
 
 import asyncio
+from contextlib import nullcontext
 
 import pytest
 
-from deerflow.runtime.runs.manager import RunRecord
+from deerflow.runtime.runs.manager import RunManager, RunRecord
 from deerflow.runtime.runs.schemas import DisconnectMode, RunStatus
 from deerflow.runtime.runs.worker import RunContext, run_agent
-from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, request_trace_context
+from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, request_trace_context
 
 
 class _FakeAgent:
@@ -36,7 +37,12 @@ class _FakeAgent:
         yield  # pragma: no cover (makes this an async generator)
 
 
-class _FakeRunManager:
+class _FakeRunManager(RunManager):
+    def __init__(self, record):
+        super().__init__()
+        self._runs[record.run_id] = record
+        self._index_run_locked(record)
+
     async def wait_for_prior_finalizing(self, *_args, **_kwargs) -> None:
         return None
 
@@ -47,6 +53,10 @@ class _FakeRunManager:
         return False
 
     async def set_status(self, *_args, **_kwargs) -> None:
+        return None
+
+    async def set_status_if_not_cancelled(self, *_args, **_kwargs):
+        # Current enterprise worker finalizes through the persisted-cancel gate.
         return None
 
     async def update_model_name(self, *_args, **_kwargs) -> None:
@@ -109,7 +119,7 @@ async def test_run_agent_injects_langfuse_metadata(monkeypatch):
     with request_trace_context("gateway-trace-1"):
         await run_agent(
             _FakeBridge(),
-            _FakeRunManager(),
+            _FakeRunManager(record),
             record,
             ctx=ctx,
             agent_factory=agent_factory,
@@ -165,7 +175,7 @@ async def test_run_agent_uses_context_user_id_over_contextvar(monkeypatch):
 
     await run_agent(
         _FakeBridge(),
-        _FakeRunManager(),
+        _FakeRunManager(record),
         record,
         ctx=ctx,
         agent_factory=agent_factory,
@@ -223,7 +233,7 @@ async def test_run_agent_falls_back_to_default_user_when_unset(monkeypatch):
 
     await run_agent(
         _FakeBridge(),
-        _FakeRunManager(),
+        _FakeRunManager(record),
         record,
         ctx=ctx,
         agent_factory=agent_factory,
@@ -262,7 +272,7 @@ async def test_run_agent_preserves_caller_metadata_overrides(monkeypatch):
 
     await run_agent(
         _FakeBridge(),
-        _FakeRunManager(),
+        _FakeRunManager(record),
         record,
         ctx=ctx,
         agent_factory=agent_factory,
@@ -278,11 +288,12 @@ async def test_run_agent_preserves_caller_metadata_overrides(monkeypatch):
     )
 
     metadata = fake_agent.captured_config.get("metadata") or {}
-    # Caller-supplied keys win.
+    # Ordinary Langfuse overrides survive; the reserved host trace does not.
     assert metadata["langfuse_session_id"] == "custom-session-id"
     assert metadata["langfuse_user_id"] == "explicit-user"
-    assert metadata[DEERFLOW_TRACE_METADATA_KEY] == "explicit-deerflow-trace"
-    assert fake_agent.captured_config.get("context", {}).get(DEERFLOW_TRACE_METADATA_KEY) == "explicit-deerflow-trace"
+    assert metadata[DEERFLOW_TRACE_METADATA_KEY]
+    assert metadata[DEERFLOW_TRACE_METADATA_KEY] != "explicit-deerflow-trace"
+    assert fake_agent.captured_config.get("context", {}).get(DEERFLOW_TRACE_METADATA_KEY) == metadata[DEERFLOW_TRACE_METADATA_KEY]
     # Worker still fills in keys that the caller didn't set.
     assert metadata["langfuse_trace_name"] == "lead-agent"
 
@@ -306,7 +317,7 @@ async def test_run_agent_skips_metadata_when_langfuse_disabled(monkeypatch):
 
     await run_agent(
         _FakeBridge(),
-        _FakeRunManager(),
+        _FakeRunManager(record),
         record,
         ctx=ctx,
         agent_factory=agent_factory,
@@ -318,3 +329,84 @@ async def test_run_agent_skips_metadata_when_langfuse_disabled(monkeypatch):
     assert "langfuse_session_id" not in metadata
     assert "langfuse_user_id" not in metadata
     assert "langfuse_trace_name" not in metadata
+
+
+@pytest.mark.asyncio
+async def test_run_agent_http_trace_overrides_conflicting_metadata_and_context():
+    fake_agent = _FakeAgent()
+    record = RunRecord(run_id="run-trace", thread_id="thread-trace", assistant_id="lead-agent", status=RunStatus.pending, on_disconnect=DisconnectMode.cancel)
+    record.abort_event = asyncio.Event()
+    with request_trace_context("http-canonical"):
+        await run_agent(
+            _FakeBridge(),
+            _FakeRunManager(record),
+            record,
+            ctx=RunContext(checkpointer=None),
+            agent_factory=lambda config: fake_agent,
+            graph_input={"messages": []},
+            config={"metadata": {DEERFLOW_TRACE_METADATA_KEY: "forged-metadata"}, "context": {DEERFLOW_TRACE_METADATA_KEY: "forged-context"}},
+        )
+    assert fake_agent.captured_config["metadata"][DEERFLOW_TRACE_METADATA_KEY] == "http-canonical"
+    assert fake_agent.captured_config["context"][DEERFLOW_TRACE_METADATA_KEY] == "http-canonical"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("ambient", [None, "request-parent"])
+@pytest.mark.parametrize("outcome", ["success", "error", "cancel"])
+async def test_worker_scopes_initialization_finalization_and_detached_cleanup(ambient, outcome):
+    observed = []
+    cleanup_done = asyncio.Event()
+    caller_metadata = {DEERFLOW_TRACE_METADATA_KEY: "caller-forged", "keep": "value"}
+
+    class Manager(_FakeRunManager):
+        async def wait_for_prior_finalizing(self, *args, **kwargs):
+            observed.append(("initialization", get_current_trace_id()))
+
+        async def set_finalizing(self, *args, **kwargs):
+            pass
+
+    class Bridge(_FakeBridge):
+        async def cleanup(self, *args, **kwargs):
+            observed.append(("cleanup", get_current_trace_id()))
+            cleanup_done.set()
+
+    class Agent(_FakeAgent):
+        async def astream(self, graph_input, *, config, stream_mode, **kwargs):
+            self.captured_config = config
+            observed.append(("stream", get_current_trace_id()))
+            if outcome == "error":
+                raise RuntimeError("synthetic worker error")
+            if outcome == "cancel":
+                raise asyncio.CancelledError
+            return
+            yield  # pragma: no cover - async generator
+
+    async def completed(record):
+        observed.append(("finalization", get_current_trace_id()))
+
+    agent = Agent()
+    record = RunRecord(run_id="scope-run", thread_id="scope-thread", assistant_id="lead-agent", status=RunStatus.pending, on_disconnect=DisconnectMode.cancel)
+    record.abort_event = asyncio.Event()
+    with request_trace_context(ambient) if ambient else nullcontext():
+        previous = get_current_trace_id()
+        await run_agent(
+            Bridge(),
+            Manager(record),
+            record,
+            ctx=RunContext(checkpointer=None, on_run_completed=completed),
+            agent_factory=lambda config: agent,
+            graph_input={"messages": []},
+            config={"metadata": caller_metadata, "context": {DEERFLOW_TRACE_METADATA_KEY: "caller-forged"}},
+        )
+        assert get_current_trace_id() == previous
+        await asyncio.wait_for(cleanup_done.wait(), timeout=5)
+        assert get_current_trace_id() == previous
+
+    canonical = agent.captured_config["metadata"][DEERFLOW_TRACE_METADATA_KEY]
+    assert canonical and canonical != "caller-forged"
+    if ambient:
+        assert canonical == ambient
+    assert observed == [(stage, canonical) for stage in ("initialization", "stream", "finalization", "cleanup")]
+    assert agent.captured_config["context"][DEERFLOW_TRACE_METADATA_KEY] == canonical
+    assert agent.captured_config["metadata"]["keep"] == "value"
+    assert caller_metadata == {DEERFLOW_TRACE_METADATA_KEY: "caller-forged", "keep": "value"}

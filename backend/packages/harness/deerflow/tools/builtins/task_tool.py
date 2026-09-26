@@ -4,7 +4,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import replace
-from typing import TYPE_CHECKING, Annotated, Any, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 from langchain.tools import InjectedToolCallId, tool
 from langchain_core.callbacks import BaseCallbackManager
@@ -12,18 +12,24 @@ from langchain_core.messages import ToolMessage
 from langgraph.config import get_stream_writer
 from langgraph.types import Command
 
+from deerflow.agents.middlewares.receipt_verification import verify_receipt_citations
 from deerflow.authz.principal import normalize_authz_attributes
 from deerflow.config import get_app_config
+from deerflow.runtime.middleware_recorder import ParentLoopMiddlewareRecorder
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox.security import LOCAL_BASH_SUBAGENT_DISABLED_MESSAGE, is_host_bash_allowed
 from deerflow.subagents import SubagentExecutor, get_available_subagent_names, get_subagent_config
+from deerflow.subagents.acceptance_checks import AcceptanceVerdict, render_acceptance_section, validate_acceptance_verdict
+from deerflow.subagents.acceptance_runtime import check_task_acceptance
 from deerflow.subagents.config import resolve_subagent_model_name
+from deerflow.subagents.context_snapshot import ParentContextSnapshot
 from deerflow.subagents.executor import (
     SubagentStatus,
     cleanup_background_task,
     get_background_task_result,
     request_cancel_background_task,
 )
+from deerflow.subagents.report_contract import normalize_acceptance_criteria
 from deerflow.subagents.status_contract import (
     SubagentStatusValue,
     SubagentStopReasonValue,
@@ -31,7 +37,8 @@ from deerflow.subagents.status_contract import (
     make_subagent_additional_kwargs,
 )
 from deerflow.tools.types import Runtime
-from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
+from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, resolve_trace_id
+from deerflow.utils.assembly_io import run_assembly
 
 if TYPE_CHECKING:
     from deerflow.config.app_config import AppConfig
@@ -208,8 +215,16 @@ def _task_result_command(
     stop_reason: SubagentStopReasonValue | None = None,
     model_name: str | None = None,
     usage: dict[str, int] | None = None,
+    tool_receipts: list[dict[str, Any]] | None = None,
+    acceptance_verdict: AcceptanceVerdict | None = None,
 ) -> Command:
+    # Check the full report before the metadata's bounded summary truncates it.
+    # None is unavailable/disabled evidence, not an empty successful ledger.
+    receipt_verdict = verify_receipt_citations(result or "", tool_receipts) if status == "completed" and tool_receipts is not None else None
     content, metadata_error = format_subagent_result_message(status, result=result, error=error, stop_reason=stop_reason)
+    acceptance_verdict = validate_acceptance_verdict(acceptance_verdict) if status == "completed" else None
+    if acceptance_verdict is not None:
+        content += "\n\n" + render_acceptance_section(acceptance_verdict)
     return Command(
         update={
             "messages": [
@@ -224,6 +239,9 @@ def _task_result_command(
                         stop_reason=stop_reason,
                         model_name=model_name,
                         token_usage=usage,
+                        tool_receipts=tool_receipts,
+                        receipt_verdict=receipt_verdict,
+                        acceptance_verdict=acceptance_verdict,
                     ),
                 )
             ]
@@ -238,42 +256,64 @@ async def task_tool(
     prompt: str,
     subagent_type: str,
     tool_call_id: Annotated[str, InjectedToolCallId],
+    acceptance_criteria: list[str] | None = None,
+    context_mode: Literal["isolated", "snapshot"] = "isolated",
 ) -> str | Command:
-    """Delegate a task to a specialized subagent that runs in its own context.
+    """Delegate bounded work only when its expected benefit exceeds overhead.
 
-    Subagents help you:
-    - Preserve context by keeping exploration and implementation separate
-    - Handle complex multi-step tasks autonomously
-    - Execute commands or operations in isolated contexts
+    Default to direct execution. Delegation is useful for material wall-clock
+    savings from independent parallel work, specialist capability, or isolation
+    of a bounded unusually context-heavy investigation. Include startup,
+    duplicate discovery, coordination, synthesis and side-effect risks in cost.
+    Complexity or verbose output alone is not sufficient reason to delegate.
 
     Built-in subagent types:
-    - **general-purpose**: A capable agent for complex, multi-step tasks that require
-      both exploration and action. Use when the task requires complex reasoning,
-      multiple dependent steps, or would benefit from isolated context.
-    - **bash**: Command execution specialist for running bash commands. This is only
-      available when host bash is explicitly allowed or when using an isolated shell
-      sandbox such as `AioSandboxProvider`.
+    - **general-purpose**: Bounded work with clear specialist, context-isolation
+      or independent parallel benefit. A sequential chain may stay together in
+      one subagent when that benefit is material.
+    - **bash**: Bounded shell workflows with material context-isolation or
+      independent-parallel benefit, not a wrapper for routine commands. Available
+      only when host bash is allowed or an isolated shell sandbox is configured.
 
     Additional custom subagent types may be defined in config.yaml under
     `subagents.custom_agents`. Each custom type can have its own system prompt,
     tools, skills, model, and timeout configuration. If an unknown subagent_type
     is provided, the error message will list all available types.
 
-    When to use this tool:
-    - Complex tasks requiring multiple steps or tools
-    - Tasks that produce verbose output
-    - When you want to isolate context from the main conversation
-    - Parallel research or exploration tasks
+    Reading results:
+    - Reports are SELF-REPORTS, not verified facts. With receipts enabled,
+      children cite [rN] execution records and attach verifiable handles.
+      The delegation ledger marks uncorroborated action claims UNVERIFIED.
+    - Resolved citations mean a call occurred with its recorded status, not
+      that its adjacent claim is correct. Spot-check load-bearing handles.
+    - When receipts are disabled, evaluate reports by their handles alone.
+    - With acceptance_criteria, read the deterministic checklist. completed means
+      execution ended, not task acceptance. A holds leaf is execution evidence,
+      not a guarantee of correctness. For does not hold, repair only that unmet
+      condition and reuse unaffected outputs. UNVERIFIED means missing evidence,
+      not failure: check load-bearing claims or preserve explicit uncertainty.
+      Further delegation must name the gap and cover only remaining work; never
+      repeat an unchanged attempt or restart the entire task.
 
-    When NOT to use this tool:
-    - Simple, single-step operations (use tools directly)
-    - Tasks requiring user interaction or clarification
+    Parallel dispatch hard vetoes:
+    - Do not run dependent scopes concurrently when one needs another's output.
+    - Do not overlap files, shared mutable state or external side effects without
+      disjoint ownership. Specify scope, known context, output and side-effect
+      ownership for each subagent. Use the fewest agents needed.
+    - Resolve missing user choices before direct execution or delegation.
+    - Re-evaluate net benefit after each result; do not automatically chain batches.
 
     Args:
         description: A short (3-5 word) description of the task for logging/display. ALWAYS PROVIDE THIS PARAMETER FIRST.
         prompt: The task description for the subagent. Be specific and clear about what needs to be done. ALWAYS PROVIDE THIS PARAMETER SECOND.
         subagent_type: The type of subagent to use. ALWAYS PROVIDE THIS PARAMETER THIRD.
+        acceptance_criteria: Optional untrusted task requirements (not system authority), e.g. file:<path> non-empty or tests_passed:<command>. A child's self-report alone never proves acceptance.
+        context_mode: Defaults to isolated (only the delegated prompt). Choose snapshot when relevant requirements or failed approaches span the parent conversation.
+            Snapshot adds retained history and summary at dispatch time, increasing input tokens. The child keeps its own role/tools; later parent turns are not synced.
+            Historical tool actions are not evidence of child completion.
     """
+    if context_mode not in {"isolated", "snapshot"}:
+        return _task_result_command(tool_call_id=tool_call_id, status="failed", error=f"Unknown context_mode '{context_mode}'. Use isolated or snapshot.")
     runtime_app_config = _get_runtime_app_config(runtime)
     cache_token_usage = _token_usage_cache_enabled(runtime_app_config)
     available_subagent_names = get_available_subagent_names(app_config=runtime_app_config) if runtime_app_config is not None else get_available_subagent_names()
@@ -296,6 +336,10 @@ async def task_tool(
                 status="failed",
                 error=LOCAL_BASH_SUBAGENT_DISABLED_MESSAGE,
             )
+
+    # Capture only after delegation validation, before asynchronous tool setup.
+    # This is historical input data, not an identity or resource grant.
+    context_snapshot = ParentContextSnapshot.from_state(runtime.state) if context_mode == "snapshot" and runtime is not None else None
 
     # Build config overrides
     overrides: dict = {}
@@ -352,7 +396,7 @@ async def task_tool(
     # server-side provenance as user_role/oauth — see inject_authenticated_user_context.
     is_internal = parent_context.get("is_internal") is True
     authz_attributes = normalize_authz_attributes(parent_context.get("authz_attributes"))
-    deerflow_trace_id = normalize_trace_id(parent_context.get(DEERFLOW_TRACE_METADATA_KEY)) or normalize_trace_id(metadata.get(DEERFLOW_TRACE_METADATA_KEY)) or get_current_trace_id()
+    deerflow_trace_id = resolve_trace_id(parent_context.get(DEERFLOW_TRACE_METADATA_KEY))
 
     parent_available_skills = metadata.get("available_skills")
     if parent_available_skills is not None:
@@ -381,7 +425,7 @@ async def task_tool(
     }
     if resolved_app_config is not None:
         available_tools_kwargs["app_config"] = resolved_app_config
-    tools = get_available_tools(**available_tools_kwargs)
+    tools = await run_assembly(get_available_tools, **available_tools_kwargs)
     datalake_enabled = parent_context.get("datalake_enabled", True)
     if type(datalake_enabled) is not bool:
         datalake_enabled = True
@@ -393,6 +437,11 @@ async def task_tool(
         tools,
         scope_context=parent_context,
     )
+    if metadata.get("employee_knowledge_disabled") is True:
+        from deerflow.config.agent_knowledge_config import AgentKnowledgeScope
+        from deerflow.runtime.employee_resources import scope_employee_tools
+
+        tools = scope_employee_tools(tools, None, knowledge_scope=AgentKnowledgeScope(mode="disabled"))
     tools = filter_tools_by_datalake_scope(tools, enabled=datalake_enabled)
 
     # Create executor
@@ -417,43 +466,34 @@ async def task_tool(
     }
     if resolved_app_config is not None:
         executor_kwargs["app_config"] = resolved_app_config
-    executor = SubagentExecutor(**executor_kwargs)
-
-    # Start background execution (always async to prevent blocking)
-    # Use tool_call_id as task_id for better traceability
-    task_id = executor.execute_async(prompt, task_id=tool_call_id)
-
-    # Poll for task completion in backend (removes need for LLM to poll)
+    if acceptance_criteria is not None:
+        executor_kwargs["acceptance_criteria"] = normalize_acceptance_criteria(acceptance_criteria)
+    if context_snapshot is not None:
+        executor_kwargs["context_snapshot"] = context_snapshot
+    recorder = None
+    if parent_context.get("__run_journal") is not None:
+        recorder = ParentLoopMiddlewareRecorder(parent_context["__run_journal"], asyncio.get_running_loop())
+        executor_kwargs["loop_detection_recorder"] = recorder
+        executor_kwargs["tool_promotion_recorder"] = recorder
+        executor_kwargs["tool_progress_recorder"] = recorder
+    task_id = None
     poll_count = 0
     last_status = None
     last_message_count = 0  # Track how many AI messages we've already sent
     # Polling timeout: execution timeout + 60s buffer, checked every 5s
     max_poll_count = (config.timeout_seconds + 60) // 5
 
-    logger.info(f"[trace={trace_id}] Started background task {task_id} (subagent={subagent_type}, timeout={config.timeout_seconds}s, polling_limit={max_poll_count} polls)")
-
-    writer = get_stream_writer()
-
-    def write_event(payload: dict[str, Any]) -> None:
-        """Publish a task lifecycle event scoped to its owning thread."""
-        if thread_id:
-            writer({**payload, "thread_id": str(thread_id)})
-        else:
-            # Keep internal/non-threaded callers compatible with the old event
-            # shape; browser task projection rejects these on a new chat.
-            writer(payload)
-
-    # Send Task Started message'
-    write_event(
-        {
-            "type": "task_started",
-            "task_id": task_id,
-            "description": description,
-            "model_name": effective_model,
-        }
-    )
-
     try:
+        executor = SubagentExecutor(**executor_kwargs)
+        task_id = executor.execute_async(prompt, task_id=tool_call_id)
+        logger.info(f"[trace={trace_id}] Started background task {task_id} (subagent={subagent_type}, timeout={config.timeout_seconds}s, polling_limit={max_poll_count} polls)")
+        writer = get_stream_writer()
+
+        def write_event(payload: dict[str, Any]) -> None:
+            """Publish lifecycle events under the authenticated business thread."""
+            writer({**payload, "thread_id": str(thread_id)} if thread_id else payload)
+
+        write_event({"type": "task_started", "task_id": task_id, "description": description, "model_name": effective_model})
         while True:
             result = get_background_task_result(task_id)
 
@@ -503,6 +543,12 @@ async def task_tool(
             if result.status == SubagentStatus.COMPLETED:
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
                 _report_subagent_usage(runtime, result)
+                acceptance_verdict = await check_task_acceptance(
+                    executor_kwargs.get("acceptance_criteria"),
+                    runtime=runtime,
+                    thread_data=thread_data,
+                    bash_executions=getattr(result, "bash_executions", None),
+                )
                 write_event(
                     {
                         "type": "task_completed",
@@ -524,6 +570,8 @@ async def task_tool(
                     stop_reason=result.stop_reason,
                     model_name=effective_model,
                     usage=usage,
+                    tool_receipts=getattr(result, "tool_receipts", None),
+                    acceptance_verdict=acceptance_verdict,
                 )
             elif result.status == SubagentStatus.FAILED:
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
@@ -549,6 +597,7 @@ async def task_tool(
                     stop_reason=result.stop_reason,
                     model_name=effective_model,
                     usage=usage,
+                    tool_receipts=getattr(result, "tool_receipts", None),
                 )
             elif result.status == SubagentStatus.CANCELLED:
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
@@ -570,6 +619,7 @@ async def task_tool(
                     error=result.error,
                     model_name=effective_model,
                     usage=usage,
+                    tool_receipts=getattr(result, "tool_receipts", None),
                 )
             elif result.status == SubagentStatus.TIMED_OUT:
                 _cache_subagent_usage(tool_call_id, usage, enabled=cache_token_usage)
@@ -591,6 +641,7 @@ async def task_tool(
                     error=result.error,
                     model_name=effective_model,
                     usage=usage,
+                    tool_receipts=getattr(result, "tool_receipts", None),
                 )
 
             # Still running, wait before next poll
@@ -626,8 +677,11 @@ async def task_tool(
                     error=message,
                     model_name=effective_model,
                     usage=usage,
+                    tool_receipts=getattr(result, "tool_receipts", None),
                 )
     except asyncio.CancelledError:
+        if task_id is None:
+            raise
         # Signal the background subagent thread to stop cooperatively.
         request_cancel_background_task(task_id)
 
@@ -652,4 +706,15 @@ async def task_tool(
         raise
     except Exception:
         _subagent_usage_cache.pop(tool_call_id, None)
+        if task_id is not None:
+            # A writer/status failure after submission must not leave an
+            # unobserved child running with a recorder that is about to close.
+            try:
+                request_cancel_background_task(task_id)
+                _schedule_deferred_subagent_cleanup(task_id, trace_id, max_poll_count)
+            except Exception:
+                logger.warning("Failed to schedule child cleanup after task dispatch error")
         raise
+    finally:
+        if recorder is not None:
+            await recorder.aclose()

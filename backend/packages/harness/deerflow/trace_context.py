@@ -65,6 +65,29 @@ def get_current_trace_id() -> str | None:
     return _current_trace_id.get()
 
 
+def ensure_trace_id() -> str:
+    """Return the ambient id, minting and binding one when it is absent."""
+    trace_id = _current_trace_id.get()
+    if trace_id is None:
+        trace_id = generate_trace_id()
+        _current_trace_id.set(trace_id)
+    return trace_id
+
+
+def resolve_trace_id(*carriers: object) -> str:
+    """Resolve trusted cross-boundary carriers, then the current trace scope.
+
+    Carriers must come from host-owned runtime data, never caller metadata.
+    A usable carrier is returned without changing the caller's context; the
+    receiving execution boundary binds it with ``ensure_trace_context``.
+    """
+    for carrier in carriers:
+        normalized = normalize_trace_id(carrier)
+        if normalized is not None:
+            return normalized
+    return ensure_trace_id()
+
+
 @contextmanager
 def request_trace_context(trace_id: str | None = None) -> Iterator[str]:
     """Bind a request trace id for the duration of a request or entry point."""
