@@ -167,13 +167,21 @@ async def install_registry_skill(
         target_exists = await asyncio.to_thread(storage.custom_skill_exists, slug)
 
         owner_for_name = next(
-            (record for existing_key, record in installations.items() if existing_key != key and record.get("skill_name") == slug),
+            (
+                record
+                for existing_key, record in installations.items()
+                if existing_key != key and record.get("skill_name") == slug
+            ),
             None,
         )
         if owner_for_name is not None:
-            raise RegistrySkillConflictError(f"Custom skill '{slug}' is already managed by another SkillHub namespace.")
+            raise RegistrySkillConflictError(
+                f"Custom skill '{slug}' is already managed by another SkillHub namespace."
+            )
         if target_exists and previous is None:
-            raise RegistrySkillConflictError(f"Custom skill '{slug}' already exists and is not managed by SkillHub.")
+            raise RegistrySkillConflictError(
+                f"Custom skill '{slug}' already exists and is not managed by SkillHub."
+            )
         if target_exists and previous is not None and previous.get("version") == normalized_version:
             return {
                 **_record_with_live_state(storage, dict(previous)),

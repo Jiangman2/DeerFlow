@@ -1,5 +1,8 @@
 # DeerFlow Frontend
 
+The 2026-09-28 production source alignment on the enterprise 7·16 branch is
+recorded in `../release/production-build-alignment-20260928/README.md`.
+
 Like the original DeerFlow 1.0, we would love to give the community a minimalistic and easy-to-use web interface with a more modern and flexible architecture.
 
 ## Tech Stack

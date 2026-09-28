@@ -7,7 +7,6 @@ import com.iflytek.skillhub.auth.rbac.PlatformPrincipal;
 import com.iflytek.skillhub.domain.namespace.NamespaceMemberRepository;
 import com.iflytek.skillhub.domain.user.UserAccount;
 import com.iflytek.skillhub.domain.user.UserAccountRepository;
-import jakarta.servlet.http.Cookie;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -66,7 +65,6 @@ class DeerFlowSessionBootstrapCsrfTest {
         given(localCredentialRepository.existsByUserId("bootstrap-user-1")).willReturn(false);
 
         mockMvc.perform(post("/api/v1/auth/session/bootstrap")
-                .cookie(new Cookie("SESSION", "foreign-parent-session"))
                 .contentType("application/json")
                 .content("""
                     {"provider":"csrf-test-session"}

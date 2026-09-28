@@ -58,7 +58,19 @@ UPLOAD_CHUNK_SIZE = 8192
 DEFAULT_MAX_FILES = 10
 DEFAULT_MAX_FILE_SIZE = 50 * 1024 * 1024
 DEFAULT_MAX_TOTAL_SIZE = 100 * 1024 * 1024
-ENTERPRISE_PARSER_EXTENSIONS = {".doc", ".docx", ".pdf", ".ppt", ".pptx"}
+ENTERPRISE_DOCUMENT_PARSER_EXTENSIONS = {".doc", ".docx", ".pdf", ".ppt", ".pptx"}
+ENTERPRISE_IMAGE_PARSER_EXTENSIONS = {
+    ".bmp",
+    ".gif",
+    ".jp2",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".tif",
+    ".tiff",
+    ".webp",
+}
+ENTERPRISE_PARSER_EXTENSIONS = ENTERPRISE_DOCUMENT_PARSER_EXTENSIONS | ENTERPRISE_IMAGE_PARSER_EXTENSIONS
 PRESENTATION_TEMPLATE_EXTENSIONS = {".ppt", ".pptx"}
 UploadPurpose = Literal["attachment", "presentation_template"]
 
@@ -783,7 +795,7 @@ async def upload_files(
                     )
                     parsed_document = True
                 except UploadDocumentParseError as exc:
-                    parser_warning = f"企业文档解析服务失败：{exc}。"
+                    parser_warning = f"企业文件解析服务失败：{exc}。"
                     logger.warning(
                         "Conversation document parser failed for %s: %s",
                         safe_filename,
@@ -829,10 +841,10 @@ async def upload_files(
                     parsed_document = True
 
             if require_parsed_text and parse_attempted and not parsed_document:
-                reason = parser_warning or "文档转换没有生成可读取的文本。"
+                reason = parser_warning or "文件解析没有生成可读取的文本。"
                 raise HTTPException(
                     status_code=503,
-                    detail=(f"文档“{safe_filename}”解析失败，任务未启动。{reason} 请稍后重试；系统不会提交空白解析结果。"),
+                    detail=(f"文件“{safe_filename}”解析失败，任务未启动。{reason} 请稍后重试；系统不会提交空白解析结果。"),
                 )
 
             if parser_warning is not None and not parsed_document:

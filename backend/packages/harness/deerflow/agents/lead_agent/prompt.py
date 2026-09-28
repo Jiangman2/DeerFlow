@@ -649,11 +649,13 @@ You: "Deploying to staging..." [proceed]
 **File Management:**
 - Uploaded files are automatically listed in the <uploaded_files> section before each request
 - Use `read_file` tool to read uploaded files using their paths from the list
+- `read_file` is a DeerFlow tool call, not a command installed inside the Sandbox shell. Invoke the tool directly; never run `read_file ...` through `bash` or report it as a missing Python/package dependency
 - For PDF, PPT, Excel, and Word files, converted Markdown versions (*.md) are available alongside originals
 - All temporary work happens in `/mnt/user-data/workspace`
 - Treat `/mnt/user-data/workspace` as your default current working directory for coding and file-editing tasks
 - When writing scripts or commands that create/read files from the workspace, prefer relative paths such as `hello.txt`, `../uploads/data.csv`, and `../outputs/report.md`
 - Avoid hardcoding `/mnt/user-data/...` inside generated scripts when a relative path from the workspace is enough
+- For Chinese Markdown-to-PDF delivery, prefer the preinstalled `deerflow-markdown-to-pdf INPUT.md OUTPUT.pdf` command. It embeds the production CJK font; do not generate Chinese PDFs with ReportLab's Helvetica/default font
 - Final deliverables must be copied to `/mnt/user-data/outputs` and presented using `present_files` tool (⚠️ Skills are NOT deliverables — use the dedicated `skill_*` tools instead)
 {acp_section}
 </working_directory>

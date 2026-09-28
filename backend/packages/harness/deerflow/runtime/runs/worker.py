@@ -20,7 +20,6 @@ import copy
 import inspect
 import logging
 import os
-import sys
 import threading
 import weakref
 from collections.abc import AsyncIterator
@@ -57,7 +56,6 @@ from deerflow.runtime.goal import (
     visible_conversation_signature,
     write_thread_goal,
 )
-from deerflow.runtime.runs.stream_cleanup import close_agent_stream
 from deerflow.runtime.serialization import serialize
 from deerflow.runtime.stream_bridge import StreamBridge
 from deerflow.runtime.user_context import get_effective_user_id, resolve_runtime_user_id
@@ -328,7 +326,7 @@ class _SubagentEventBuffer:
         if record is None:
             return
         self._pending.append({"thread_id": self._thread_id, "run_id": self._run_id, **record})
-        if record["event_type"] == "subagent.end" or len(self._pending) >= self.FLUSH_THRESHOLD:
+        if record["event_type"] in {"subagent.end", "subagent.usage"} or len(self._pending) >= self.FLUSH_THRESHOLD:
             await self.flush()
 
     async def flush(self) -> None:
@@ -611,58 +609,38 @@ async def run_agent(
                 if len(lg_modes) == 1 and not stream_subgraphs:
                     # Single mode, no subgraphs: astream yields raw chunks
                     single_mode = lg_modes[0]
-                    stream = agent.astream(input_payload, config=stream_config, stream_mode=single_mode)
-                    try:
-                        async for chunk in stream:
-                            if record.abort_event.is_set():
-                                logger.info("Run %s abort requested — stopping", run_id)
-                                break
-                            llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
-                            stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
-                            sse_event = _lg_mode_to_sse_event(single_mode)
-                            await bridge.publish(run_id, sse_event, serialize(chunk, mode=single_mode))
-                            if single_mode == "custom":
-                                await subagent_events.add(chunk)
-                    finally:
-                        active_error = sys.exception()
-                        try:
-                            await close_agent_stream(stream)
-                        except Exception:
-                            if active_error is None and not record.abort_event.is_set():
-                                raise
-                            logger.warning("Could not close interrupted run stream %s", run_id, exc_info=True)
+                    async for chunk in agent.astream(input_payload, config=stream_config, stream_mode=single_mode):
+                        if record.abort_event.is_set():
+                            logger.info("Run %s abort requested — stopping", run_id)
+                            break
+                        llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
+                        stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
+                        sse_event = _lg_mode_to_sse_event(single_mode)
+                        await bridge.publish(run_id, sse_event, serialize(chunk, mode=single_mode))
+                        if single_mode == "custom":
+                            await subagent_events.add(chunk)
                     return
                 # Multiple modes or subgraphs: astream yields tuples
-                stream = agent.astream(
+                async for item in agent.astream(
                     input_payload,
                     config=stream_config,
                     stream_mode=lg_modes,
                     subgraphs=stream_subgraphs,
-                )
-                try:
-                    async for item in stream:
-                        if record.abort_event.is_set():
-                            logger.info("Run %s abort requested — stopping", run_id)
-                            break
+                ):
+                    if record.abort_event.is_set():
+                        logger.info("Run %s abort requested — stopping", run_id)
+                        break
 
-                        mode, chunk = _unpack_stream_item(item, lg_modes, stream_subgraphs)
-                        if mode is None:
-                            continue
+                    mode, chunk = _unpack_stream_item(item, lg_modes, stream_subgraphs)
+                    if mode is None:
+                        continue
 
-                        llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
-                        stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
-                        sse_event = _lg_mode_to_sse_event(mode)
-                        await bridge.publish(run_id, sse_event, serialize(chunk, mode=mode))
-                        if mode == "custom":
-                            await subagent_events.add(chunk)
-                finally:
-                    active_error = sys.exception()
-                    try:
-                        await close_agent_stream(stream)
-                    except Exception:
-                        if active_error is None and not record.abort_event.is_set():
-                            raise
-                        logger.warning("Could not close interrupted run stream %s", run_id, exc_info=True)
+                    llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
+                    stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
+                    sse_event = _lg_mode_to_sse_event(mode)
+                    await bridge.publish(run_id, sse_event, serialize(chunk, mode=mode))
+                    if mode == "custom":
+                        await subagent_events.add(chunk)
 
         async def _stream_once(input_payload: Any, stream_config: RunnableConfig) -> None:
             nonlocal stream_clarification_seen
@@ -813,7 +791,9 @@ async def run_agent(
         checkpoint_tuple = None
         if checkpointer is not None:
             try:
-                checkpoint_tuple = await checkpointer.aget_tuple({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
+                checkpoint_tuple = await checkpointer.aget_tuple(
+                    {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+                )
             except Exception:
                 logger.warning("Could not inspect the last checkpoint after recursion cap for run %s", run_id, exc_info=True)
         recursion_limit = config.get("recursion_limit")

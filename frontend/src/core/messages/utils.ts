@@ -753,6 +753,7 @@ export interface FileInMessage {
   filename: string;
   size: number; // bytes
   path?: string; // virtual path, may not be set during upload
+  markdown_file?: string; // server-verified parsed-text companion basename
   status?: "uploading" | "uploaded";
 }
 

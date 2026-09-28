@@ -17,6 +17,7 @@ from app.channels.message_bus import (
     OutboundMessage,
     ResolvedAttachment,
 )
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -367,7 +368,7 @@ class WeComChannel(Channel):
             },
             status="connected",
         )
-        await self._send_connection_reply(frame, "WeCom connected to DeerFlow.")
+        await self._send_connection_reply(frame, f"WeCom已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
     async def _send_connection_reply(self, frame: dict[str, Any], text: str) -> None:

@@ -89,7 +89,7 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用中海油勘探开发智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
+      "欢迎使用中国海油通用智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
     mobileDescription: "面向油气业务的智能研究与协作助手",
 
     createYourOwnSkill: "创建您的专属技能",
@@ -379,7 +379,6 @@ export const zhCN: Translations = {
       cronHint:
         "使用 5 段 cron：分钟 小时 日期 月份 星期。每分钟执行请填 * * * * * 或 */1 * * * *；1 * * * * 表示每小时第 1 分钟执行。",
       runAt: "运行时间",
-      invalidRunAt: "所选时区中不存在这个本地时间，请选择其他时间。",
       timezone: "时区",
       timezoneShanghai: "北京时间 (Asia/Shanghai)",
       intervalAmount: "重复间隔",
@@ -436,11 +435,6 @@ export const zhCN: Translations = {
       reuseNoticeTitle: "使用该线程的历史对话",
       reuseNoticeDescription:
         "如果触发时该线程正在运行，DeerFlow 会将本次执行排队，并在线程空闲后启动；超过配置的最长等待时间后会标记为失败。",
-    },
-    search: {
-      placeholder: "搜索任务标题或提示词",
-      clear: "清除搜索",
-      noResults: "没有符合搜索内容和筛选条件的任务。",
     },
     filters: {
       label: "筛选",
@@ -519,8 +513,6 @@ export const zhCN: Translations = {
     },
     history: {
       navigation: "运行历史分页",
-      statusFilter: "按状态筛选运行历史",
-      allStatuses: "全部状态",
       newer: "较新",
       older: "较早",
       latest: "回到最新",
@@ -800,7 +792,7 @@ export const zhCN: Translations = {
       telegram: "通过本平台 Bot 接收 Telegram 私聊消息。",
       slack: "接收 Slack 工作区消息和提及。",
       discord: "通过本平台 Bot 接收 Discord 服务器消息。",
-      feishu: "通过本平台应用接收飞书和 Lark 消息。",
+      feishu: "通过海能 Work 应用接收消息。",
       dingtalk: "通过本平台 Bot 接收钉钉 Stream Push 消息。",
       wechat: "通过本平台 Bot 接收微信 iLink 消息。",
       wecom: "通过本平台 AI Bot 接收企业微信消息。",
@@ -810,7 +802,7 @@ export const zhCN: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中海油勘探开发智能体",
+    appName: "中国海油通用智能体",
     chats: "对话",
     newChat: "新对话",
     untitled: "未命名",

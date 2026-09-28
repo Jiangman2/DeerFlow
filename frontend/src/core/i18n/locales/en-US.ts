@@ -408,8 +408,6 @@ export const enUS: Translations = {
       cronHint:
         "Use 5 fields: minute hour day month weekday. Every minute is * * * * * or */1 * * * *; 1 * * * * means the 1st minute of every hour.",
       runAt: "Run at",
-      invalidRunAt:
-        "This local time does not exist in the selected timezone. Choose another time.",
       timezone: "Timezone",
       timezoneShanghai: "Beijing time (Asia/Shanghai)",
       intervalAmount: "Repeat every",
@@ -469,11 +467,6 @@ export const enUS: Translations = {
       reuseNoticeTitle: "Uses this thread's conversation history",
       reuseNoticeDescription:
         "If this thread has an active run at the scheduled time, DeerFlow queues this occurrence and starts it when the thread is available. It fails if the configured queue wait limit is exceeded.",
-    },
-    search: {
-      placeholder: "Search task titles or prompts",
-      clear: "Clear search",
-      noResults: "No tasks match your search and filters.",
     },
     filters: {
       label: "Filters",
@@ -553,8 +546,6 @@ export const enUS: Translations = {
     },
     history: {
       navigation: "Run history pagination",
-      statusFilter: "Filter run history by status",
-      allStatuses: "All statuses",
       newer: "Newer",
       older: "Older",
       latest: "Latest",
@@ -851,7 +842,7 @@ export const enUS: Translations = {
       telegram: "Telegram direct messages through your 本平台 bot.",
       slack: "Slack workspace messages and mentions.",
       discord: "Discord server messages through your 本平台 bot.",
-      feishu: "Feishu and Lark messages through your 本平台 app.",
+      feishu: "Messages through your 海能 Work app.",
       dingtalk: "DingTalk Stream Push messages through your 本平台 bot.",
       wechat: "WeChat iLink messages through your 本平台 bot.",
       wecom: "WeCom messages through your 本平台 AI bot.",
@@ -861,7 +852,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中海油勘探开发智能体",
+    appName: "中国海油通用智能体",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",

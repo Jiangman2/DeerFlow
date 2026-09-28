@@ -1,5 +1,8 @@
 # DeerFlow Backend
 
+The 2026-09-28 production source alignment on the enterprise 7·16 branch is
+recorded in `../release/production-build-alignment-20260928/README.md`.
+
 DeerFlow is a LangGraph-based AI super agent with sandbox execution, persistent memory, and extensible tool integration. The backend enables AI agents to execute code, browse the web, manage files, delegate tasks to subagents, and retain context across conversations - all in isolated, per-thread environments.
 
 ---

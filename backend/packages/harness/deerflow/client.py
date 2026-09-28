@@ -31,7 +31,7 @@ from typing import Any, Literal
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
 from deerflow.agents.lead_agent.agent import build_middlewares
@@ -693,11 +693,7 @@ class DeerFlowClient:
         message.  ``values`` events continue to carry full state snapshots
         after each graph node finishes; AI text already delivered via the
         ``messages`` stream is **not** re-synthesized from the snapshot to
-        avoid duplicate deliveries. When a later node replaces a delivered AI
-        message under the same id and appends to its text (for example, a
-        guard's stop notice), only the appended text is emitted as one more
-        delta for that id; new ``additional_kwargs`` arrive as a metadata-only
-        follow-up.
+        avoid duplicate deliveries.
 
         Why not reuse Gateway's ``run_agent``?
         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -791,20 +787,10 @@ class DeerFlowClient:
         if self._agent_name:
             context["agent_name"] = self._agent_name
 
-        # Last message object seen per id in ``values`` snapshots. A later node,
-        # such as a guard's ``after_model``, can replace a message under the same
-        # id, so a different object for a known id is inspected again.
-        seen_messages: dict[str, Any] = {}
-        # AI text already emitted per id. A replacement that appends to it only
-        # needs the newly added suffix.
-        sent_text_by_id: dict[str, str] = {}
+        seen_ids: set[str] = set()
         # Cross-mode handoff: ids already streamed via LangGraph ``messages``
         # mode so the ``values`` path skips re-synthesis of the same message.
         streamed_ids: set[str] = set()
-        # Tool-call arguments can arrive across several AIMessageChunk
-        # fragments. Defer those calls until the assembled values snapshot so
-        # consumers receive one event with complete arguments.
-        pending_tool_call_ids: set[str] = set()
         # The same message id carries identical cumulative ``usage_metadata``
         # in both the final ``messages`` chunk and the values snapshot —
         # count it only on whichever arrives first.
@@ -887,7 +873,6 @@ class DeerFlowClient:
                     if text:
                         if msg_id:
                             streamed_ids.add(msg_id)
-                            sent_text_by_id[msg_id] = sent_text_by_id.get(msg_id, "") + text
                         additional_kwargs_delta = _unsent_additional_kwargs(msg_id, additional_kwargs)
                         yield self._ai_text_event(
                             msg_id,
@@ -897,10 +882,7 @@ class DeerFlowClient:
                         )
                         sent_additional_kwargs = bool(additional_kwargs_delta)
 
-                    if isinstance(msg_chunk, AIMessageChunk) and msg_chunk.tool_call_chunks and msg_id:
-                        streamed_ids.add(msg_id)
-                        pending_tool_call_ids.add(msg_id)
-                    elif msg_chunk.tool_calls:
+                    if msg_chunk.tool_calls:
                         if msg_id:
                             streamed_ids.add(msg_id)
                         additional_kwargs_delta = None if sent_additional_kwargs else _unsent_additional_kwargs(msg_id, additional_kwargs)
@@ -921,33 +903,10 @@ class DeerFlowClient:
 
             for msg in messages:
                 msg_id = getattr(msg, "id", None)
-                if msg_id and msg_id in seen_messages:
-                    if seen_messages[msg_id] is msg:
-                        continue
-                    seen_messages[msg_id] = msg
-                    if isinstance(msg, AIMessage):
-                        # A later graph node replaced a message already sent.
-                        # Emit only a true appended suffix, never a conflicting
-                        # rewrite that would duplicate or corrupt client text.
-                        text = self._extract_text(msg.content)
-                        sent_text = sent_text_by_id.get(msg_id, "")
-                        additional_kwargs_delta = _unsent_additional_kwargs(
-                            msg_id,
-                            self._serialize_additional_kwargs(msg),
-                        )
-                        if len(text) > len(sent_text) and text.startswith(sent_text):
-                            sent_text_by_id[msg_id] = text
-                            yield self._ai_text_event(
-                                msg_id,
-                                text[len(sent_text) :],
-                                None,
-                                additional_kwargs_delta,
-                            )
-                        elif additional_kwargs_delta:
-                            yield self._ai_text_event(msg_id, "", None, additional_kwargs_delta)
+                if msg_id and msg_id in seen_ids:
                     continue
                 if msg_id:
-                    seen_messages[msg_id] = msg
+                    seen_ids.add(msg_id)
 
                 # Already streamed via ``messages`` mode; only (defensively)
                 # capture usage here and skip re-synthesizing the event.
@@ -956,14 +915,7 @@ class DeerFlowClient:
                         _account_usage(msg_id, getattr(msg, "usage_metadata", None))
                         additional_kwargs = self._serialize_additional_kwargs(msg)
                         additional_kwargs_delta = _unsent_additional_kwargs(msg_id, additional_kwargs)
-                        if msg_id in pending_tool_call_ids and msg.tool_calls:
-                            pending_tool_call_ids.discard(msg_id)
-                            yield self._ai_tool_calls_event(
-                                msg_id,
-                                msg.tool_calls,
-                                additional_kwargs_delta,
-                            )
-                        elif additional_kwargs_delta:
+                        if additional_kwargs_delta:
                             # Metadata-only follow-up: ``messages-tuple`` has no
                             # dedicated attribution event, so clients should
                             # merge this empty-content AI event by message id
@@ -987,8 +939,6 @@ class DeerFlowClient:
 
                     text = self._extract_text(msg.content)
                     if text:
-                        if msg_id:
-                            sent_text_by_id[msg_id] = text
                         additional_kwargs_delta = None if sent_additional_kwargs else _unsent_additional_kwargs(msg_id, additional_kwargs)
                         yield self._ai_text_event(
                             msg_id,

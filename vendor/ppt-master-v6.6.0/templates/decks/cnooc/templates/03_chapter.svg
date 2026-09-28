@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+  width="1280" height="720" viewBox="0 0 1280 720"
+  data-pptx-master="cnooc_corporate_master" data-pptx-master-name="CNOOC Corporate"
+  data-pptx-layout="section" data-pptx-layout-name="Section Header">
+  <rect id="cnooc-master-background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"
+    data-pptx-layer="master" data-pptx-editable="false"/>
+
+  <image id="section-background" x="0" y="0" width="1280" height="720"
+    href="../images/chapter_bg.png" preserveAspectRatio="xMidYMid slice"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <line id="section-rule-blue-left" x1="456" y1="386" x2="582" y2="386" stroke="#0060A6"
+    stroke-width="4" data-pptx-layer="layout" data-pptx-editable="false"/>
+  <line id="section-rule-red" x1="582" y1="386" x2="698" y2="386" stroke="#DE002B"
+    stroke-width="4" data-pptx-layer="layout" data-pptx-editable="false"/>
+  <line id="section-rule-blue-right" x1="698" y1="386" x2="824" y2="386" stroke="#0060A6"
+    stroke-width="4" data-pptx-layer="layout" data-pptx-editable="false"/>
+
+  <g id="section-number-slot" data-pptx-placeholder="body" data-pptx-idx="1"
+    data-pptx-bounds="490 184 300 132">
+    <text id="section-number-carrier" data-pptx-carrier="true"
+      x="640" y="296" text-anchor="middle" fill="#004C8B"
+      font-family="Arial, sans-serif" font-size="112" font-weight="700">{{CHAPTER_NUM}}</text>
+  </g>
+  <g id="section-title-slot" data-pptx-placeholder="title"
+    data-pptx-bounds="190 416 900 78">
+    <text id="section-title-carrier" data-pptx-carrier="true"
+      x="640" y="468" text-anchor="middle" fill="#004C8B"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="44" font-weight="700">{{CHAPTER_TITLE}}</text>
+  </g>
+  <g id="section-subtitle-slot" data-pptx-placeholder="subtitle" data-pptx-idx="2"
+    data-pptx-bounds="250 504 780 42">
+    <text id="section-subtitle-carrier" data-pptx-carrier="true"
+      x="640" y="534" text-anchor="middle" fill="#6A7785"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="20">{{CHAPTER_SUBTITLE}}</text>
+  </g>
+</svg>

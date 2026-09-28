@@ -14,41 +14,23 @@ import {
 import { useI18n } from "@/core/i18n/hooks";
 import {
   describeSchedule,
-  clampIntervalAmount,
-  intervalToSeconds,
-  maxIntervalAmount,
-  minIntervalAmount,
   pad2,
   parseCron,
-  secondsToInterval,
   serializeCron,
   utcToZonedLocalInput,
-  validZonedLocalToUtcIso,
   WEEKDAYS,
+  zonedLocalToUtcIso,
   type CronParts,
   type CronPreset,
-  type IntervalUnit,
   type ScheduleLocale,
-  type ScheduleType,
   type Weekday,
 } from "@/core/scheduled-tasks/cron";
 
 export type ScheduleValue = {
-  schedule_type: ScheduleType;
-  schedule_spec: { cron?: string; run_at?: string; every_seconds?: number };
+  schedule_type: "once" | "cron";
+  schedule_spec: { cron?: string; run_at?: string };
   timezone: string;
 };
-
-function parseInitialInterval(spec: { every_seconds?: number }): {
-  amount: number;
-  unit: IntervalUnit;
-} {
-  const raw = spec.every_seconds;
-  if (typeof raw === "number" && Number.isInteger(raw) && raw > 0) {
-    return secondsToInterval(raw);
-  }
-  return { amount: 60, unit: "minutes" };
-}
 
 const PRESETS: CronPreset[] = [
   "hourly",
@@ -109,7 +91,7 @@ export function ScheduledTaskScheduleInput({
   const schedLocale: ScheduleLocale = locale.startsWith("zh") ? "zh" : "en";
   const labels = t.scheduledTasks;
 
-  const [scheduleType, setScheduleType] = useState<ScheduleType>(
+  const [scheduleType, setScheduleType] = useState<"once" | "cron">(
     initial.schedule_type,
   );
   const [preset, setPreset] = useState<CronPreset>(
@@ -118,42 +100,24 @@ export function ScheduledTaskScheduleInput({
   const [parts, setParts] = useState<CronParts>(
     () => parseCron(initial.schedule_spec.cron ?? "0 9 * * *").parts,
   );
-  const [timezone, setTimezone] = useState<string>(
-    () => initial.timezone || detectBrowserTimezone(),
-  );
   const [runAtLocal, setRunAtLocal] = useState<string>(
     initial.schedule_type === "once" && initial.schedule_spec.run_at
-      ? utcToZonedLocalInput(initial.schedule_spec.run_at, timezone)
+      ? utcToZonedLocalInput(
+          initial.schedule_spec.run_at,
+          initial.timezone || "UTC",
+        )
       : "",
   );
+  const [timezone, setTimezone] = useState<string>(
+    initial.timezone || "UTC",
+  );
 
-  // Minute-precision wall time cannot retain seconds or identify the later
-  // occurrence of a repeated DST time. Keep the mounted task's original
-  // instant while its schedule fields match, even if the parent echoes edits
-  // back through initial. Task switches remount this component with a key.
-  const [initialOnce] = useState(() =>
-    initial.schedule_type === "once" && initial.schedule_spec.run_at
-      ? {
-          runAt: initial.schedule_spec.run_at,
-          local: runAtLocal,
-          timezone,
-        }
-      : null,
-  );
-  const initialInterval = parseInitialInterval(initial.schedule_spec);
-  const [intervalAmount, setIntervalAmount] = useState(initialInterval.amount);
-  const [intervalAmountText, setIntervalAmountText] = useState(
-    String(initialInterval.amount),
-  );
-  const [intervalUnit, setIntervalUnit] = useState<IntervalUnit>(
-    initialInterval.unit,
-  );
-  const [intervalEdited, setIntervalEdited] = useState(false);
-
-  const onceRunAt = runAtLocal
-    ? validZonedLocalToUtcIso(runAtLocal, timezone)
-    : null;
-  const invalidOnceTime = scheduleType === "once" && !!runAtLocal && !onceRunAt;
+  useEffect(() => {
+    if (initial.timezone) {
+      return;
+    }
+    setTimezone(detectBrowserTimezone());
+  }, [initial.timezone]);
 
   // Hold the latest onChange in a ref so the effect below does not depend on
   // it. This avoids a re-render loop: if the parent passes an inline
@@ -167,28 +131,10 @@ export function ScheduledTaskScheduleInput({
   // value always matches what the user sees in the preview.
   useEffect(() => {
     if (scheduleType === "once") {
-      const unchanged =
-        runAtLocal === initialOnce?.local && timezone === initialOnce.timezone;
-      const runAt = unchanged ? initialOnce.runAt : onceRunAt;
+      const runAt = runAtLocal ? zonedLocalToUtcIso(runAtLocal, timezone) : "";
       onChangeRef.current({
         schedule_type: "once",
         schedule_spec: runAt ? { run_at: runAt } : {},
-        timezone,
-      });
-      return;
-    }
-    if (scheduleType === "interval") {
-      // Existing API-approved intervals may be below the default UI floor.
-      // Preserve their cadence on edit/duplicate until the amount or unit is
-      // explicitly changed; the server owns the configurable minimum.
-      const amount = intervalEdited
-        ? clampIntervalAmount(intervalAmount, intervalUnit)
-        : intervalAmount;
-      onChangeRef.current({
-        schedule_type: "interval",
-        schedule_spec: {
-          every_seconds: intervalToSeconds(amount, intervalUnit),
-        },
         timezone,
       });
       return;
@@ -200,18 +146,7 @@ export function ScheduledTaskScheduleInput({
       schedule_spec: cron ? { cron } : {},
       timezone,
     });
-  }, [
-    scheduleType,
-    preset,
-    parts,
-    onceRunAt,
-    runAtLocal,
-    timezone,
-    initialOnce,
-    intervalAmount,
-    intervalUnit,
-    intervalEdited,
-  ]);
+  }, [scheduleType, preset, parts, runAtLocal, timezone]);
 
   function updateParts(patch: Partial<CronParts>) {
     setParts((prev) => ({ ...prev, ...patch }));
@@ -250,24 +185,15 @@ export function ScheduledTaskScheduleInput({
   }
 
   const preview = describeSchedule(
-    {
-      scheduleType,
-      preset,
-      parts,
-      runAtLocal,
-      intervalAmount,
-      intervalUnit,
-      timezone,
-    },
+    { scheduleType, preset, parts, runAtLocal, timezone },
     schedLocale,
   );
-
   const timezoneLabel = (tzOption: string) =>
     tzOption === "Asia/Shanghai" ? labels.fields.timezoneShanghai : tzOption;
 
   return (
     <div
-      className="flex max-w-full min-w-0 flex-col gap-2 overflow-x-hidden"
+      className="flex min-w-0 max-w-full flex-col gap-2 overflow-x-hidden"
       data-testid="schedule-input"
     >
       {!scheduleTypeLocked && (
@@ -285,13 +211,6 @@ export function ScheduledTaskScheduleInput({
             onClick={() => setScheduleType("once")}
           >
             {labels.scheduleType.once}
-          </Button>
-          <Button
-            variant={scheduleType === "interval" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setScheduleType("interval")}
-          >
-            {labels.scheduleType.interval}
           </Button>
         </div>
       )}
@@ -376,91 +295,20 @@ export function ScheduledTaskScheduleInput({
           )}
 
           {preset === "custom" && (
-            <div className="flex flex-col gap-1">
-              <Input
-                value={parts.raw ?? ""}
-                onChange={(e) => updateParts({ raw: e.target.value })}
-                placeholder={labels.fields.cronPlaceholder}
-                aria-label={labels.fields.cron}
-              />
-              <a
-                href="https://crontab.guru/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-muted-foreground text-xs hover:underline"
-              >
-                {labels.cronHelp} ↗
-              </a>
-            </div>
+            <Input
+              value={parts.raw ?? ""}
+              onChange={(e) => updateParts({ raw: e.target.value })}
+              placeholder={labels.fields.cronPlaceholder}
+              aria-label={labels.fields.cron}
+            />
           )}
         </>
-      ) : scheduleType === "interval" ? (
-        <div className="flex gap-2">
-          <Input
-            type="number"
-            min={minIntervalAmount(intervalUnit)}
-            max={maxIntervalAmount(intervalUnit)}
-            value={intervalAmountText}
-            onChange={(e) => {
-              // Do not clamp on every keystroke: typing 90 would otherwise
-              // become 9 -> 60, then 600. Emit/blur still apply the floor.
-              const raw = e.target.value;
-              setIntervalEdited(true);
-              setIntervalAmountText(raw);
-              const next = Number(raw);
-              if (!Number.isInteger(next) || next <= 0) {
-                return;
-              }
-              setIntervalAmount(next);
-            }}
-            onBlur={() => {
-              if (!intervalEdited) return;
-              const next = clampIntervalAmount(
-                Number(intervalAmountText),
-                intervalUnit,
-              );
-              setIntervalAmount(next);
-              setIntervalAmountText(String(next));
-            }}
-            aria-label={labels.fields.intervalAmount}
-          />
-          <Select
-            value={intervalUnit}
-            onValueChange={(value) => {
-              const unit = value as IntervalUnit;
-              setIntervalEdited(true);
-              setIntervalUnit(unit);
-              const next = clampIntervalAmount(intervalAmount, unit);
-              setIntervalAmount(next);
-              setIntervalAmountText(String(next));
-            }}
-          >
-            <SelectTrigger
-              className="w-36"
-              data-testid="schedule-interval-unit"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="seconds">
-                {labels.fields.intervalUnitSeconds}
-              </SelectItem>
-              <SelectItem value="minutes">
-                {labels.fields.intervalUnitMinutes}
-              </SelectItem>
-              <SelectItem value="hours">
-                {labels.fields.intervalUnitHours}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
       ) : (
         <Input
           type="datetime-local"
           value={runAtLocal}
           onChange={(e) => setRunAtLocal(e.target.value)}
           aria-label={labels.fields.runAt}
-          aria-invalid={invalidOnceTime}
         />
       )}
 
@@ -477,26 +325,12 @@ export function ScheduledTaskScheduleInput({
         </SelectContent>
       </Select>
 
-      {invalidOnceTime && (
-        <p role="alert" className="text-destructive text-sm">
-          {labels.fields.invalidRunAt}
-        </p>
-      )}
-
       <div
         className="text-muted-foreground text-sm"
         data-testid="schedule-preview"
       >
         {preview}
       </div>
-      {scheduleType === "interval" && intervalUnit === "seconds" && (
-        <div
-          className="text-muted-foreground text-xs"
-          data-testid="schedule-interval-min-hint"
-        >
-          {labels.fields.intervalMinHint}
-        </div>
-      )}
     </div>
   );
 }

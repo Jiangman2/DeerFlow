@@ -8,9 +8,8 @@ import contextvars
 import functools
 import logging
 import os
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,25 +49,3 @@ async def run_file_io[**P, T](func: Callable[P, T], /, *args: P.args, **kwargs: 
     ctx = contextvars.copy_context()
     call = functools.partial(func, *args, **kwargs)
     return await loop.run_in_executor(_FILE_IO_EXECUTOR, ctx.run, call)
-
-
-async def await_drained[T](coro: Coroutine[Any, Any, T]) -> T:
-    """Await ``coro`` to completion before propagating caller cancellation.
-
-    Shielding alone keeps owned cleanup running but lets the caller unwind and
-    tear down dependencies underneath it. Drain the task through repeated
-    cancellation, retrieve its outcome, and only then deliver cancellation to
-    the caller.
-    """
-    task = asyncio.ensure_future(coro)
-    try:
-        return await asyncio.shield(task)
-    except asyncio.CancelledError:
-        while not task.done():
-            try:
-                await asyncio.wait({task})
-            except asyncio.CancelledError:
-                continue
-        if not task.cancelled():
-            task.exception()
-        raise

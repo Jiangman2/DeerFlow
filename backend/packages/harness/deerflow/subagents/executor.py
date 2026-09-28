@@ -5,10 +5,9 @@ import atexit
 import html
 import logging
 import os
-import sys
 import threading
 import uuid
-from collections.abc import Callable, Coroutine, Mapping
+from collections.abc import Callable, Coroutine
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from contextvars import Context, copy_context
@@ -25,11 +24,9 @@ from langgraph.errors import GraphRecursionError
 
 from deerflow.agents.language_policy import ensure_default_chinese_language
 from deerflow.agents.thread_state import SandboxState, ThreadDataState, ThreadState
-from deerflow.authz.principal import normalize_authz_attributes
 from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
 from deerflow.models import create_chat_model
-from deerflow.runtime.runs.stream_cleanup import close_agent_stream
 from deerflow.skills.tool_policy import filter_tools_by_skill_allowed_tools
 from deerflow.skills.types import Skill
 from deerflow.subagents.config import SubagentConfig, resolve_subagent_model_name
@@ -413,8 +410,6 @@ class SubagentExecutor:
         oauth_id: str | None = None,
         run_id: str | None = None,
         channel_user_id: str | None = None,
-        is_internal: bool = False,
-        authz_attributes: Mapping[str, Any] | None = None,
         deerflow_trace_id: str | None = None,
         datalake_enabled: bool = True,
     ):
@@ -469,11 +464,6 @@ class SubagentExecutor:
         # chats share one thread across senders, so delegated bash commands
         # must export the dispatching turn's id, not none at all.
         self.channel_user_id = channel_user_id
-        # Authorization identity propagated from the parent runtime context.
-        # is_internal is written unconditionally (including False) so the
-        # subagent's GuardrailMiddleware sees the same provenance as the lead.
-        self.is_internal = is_internal
-        self.authz_attributes = normalize_authz_attributes(authz_attributes)
         self.deerflow_trace_id = deerflow_trace_id
         self.datalake_enabled = datalake_enabled is not False
 
@@ -806,10 +796,6 @@ class SubagentExecutor:
             context["run_id"] = self.run_id
             if self.channel_user_id:
                 context["channel_user_id"] = self.channel_user_id
-            # Authorization identity: is_internal written unconditionally
-            # (including False); attributes copied again on write-back.
-            context["is_internal"] = self.is_internal
-            context["authz_attributes"] = dict(self.authz_attributes)
             if self.deerflow_trace_id:
                 context[DEERFLOW_TRACE_METADATA_KEY] = self.deerflow_trace_id
             context["datalake_enabled"] = self.datalake_enabled
@@ -831,55 +817,33 @@ class SubagentExecutor:
                 )
                 return result
 
-            cancelled_during_stream = False
-            stream = agent.astream(state, config=run_config, context=context, stream_mode="values")  # type: ignore[arg-type]
-            try:
-                async for chunk in stream:
-                    # Cooperative cancellation: check if parent requested stop.
-                    # Note: cancellation is only detected at astream iteration boundaries,
-                    # so long-running tool calls within a single iteration will not be
-                    # interrupted until the next chunk is yielded.
-                    if result.cancel_event.is_set():
-                        logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} cancelled by parent")
-                        cancelled_during_stream = True
-                        break
-
-                    final_state = chunk
-                    result.update_token_usage_records(collector.snapshot_records())
-
-                    # Capture every step message (assistant turns AND tool outputs)
-                    # appended since the last chunk. A single super-step can append
-                    # several ToolMessages when the model emits multiple tool calls in
-                    # one turn, so capturing only messages[-1] would drop all but the
-                    # last output (#3779). Dedup/serialization live in capture_step_message.
-                    messages = chunk.get("messages", [])
-                    previous_count = len(ai_messages)
-                    processed_message_count = capture_new_step_messages(messages, ai_messages, seen_message_ids, processed_message_count)
-                    if len(ai_messages) > previous_count:
-                        logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} captured {len(ai_messages) - previous_count} step message(s); total #{len(ai_messages)}")
-            finally:
-                active_error = sys.exception()
-                cancel_requested = cancelled_during_stream or result.cancel_event.is_set()
-                try:
-                    await close_agent_stream(stream)
-                except Exception:
-                    cancel_requested = cancel_requested or result.cancel_event.is_set()
-                    if active_error is None and not cancel_requested:
-                        raise
-                    logger.warning(
-                        "[trace=%s] Could not close interrupted subagent stream %s",
-                        self.trace_id,
-                        self.config.name,
-                        exc_info=True,
+            async for chunk in agent.astream(state, config=run_config, context=context, stream_mode="values"):  # type: ignore[arg-type]
+                # Cooperative cancellation: check if parent requested stop.
+                # Note: cancellation is only detected at astream iteration boundaries,
+                # so long-running tool calls within a single iteration will not be
+                # interrupted until the next chunk is yielded.
+                if result.cancel_event.is_set():
+                    logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} cancelled by parent")
+                    result.try_set_terminal(
+                        SubagentStatus.CANCELLED,
+                        error="Cancelled by user",
+                        token_usage_records=collector.snapshot_records(),
                     )
+                    return result
 
-            if cancel_requested:
-                result.try_set_terminal(
-                    SubagentStatus.CANCELLED,
-                    error="Cancelled by user",
-                    token_usage_records=collector.snapshot_records(),
-                )
-                return result
+                final_state = chunk
+                result.update_token_usage_records(collector.snapshot_records())
+
+                # Capture every step message (assistant turns AND tool outputs)
+                # appended since the last chunk. A single super-step can append
+                # several ToolMessages when the model emits multiple tool calls in
+                # one turn, so capturing only messages[-1] would drop all but the
+                # last output (#3779). Dedup/serialization live in capture_step_message.
+                messages = chunk.get("messages", [])
+                previous_count = len(ai_messages)
+                processed_message_count = capture_new_step_messages(messages, ai_messages, seen_message_ids, processed_message_count)
+                if len(ai_messages) > previous_count:
+                    logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} captured {len(ai_messages) - previous_count} step message(s); total #{len(ai_messages)}")
 
             logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} completed async execution")
             token_usage_records = collector.snapshot_records()

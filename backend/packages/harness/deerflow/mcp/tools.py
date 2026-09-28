@@ -9,8 +9,7 @@ from collections.abc import Iterable, Mapping
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
-from urllib.request import url2pathname
+from urllib.parse import unquote, urlparse
 
 from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.config import get_config
@@ -53,15 +52,7 @@ _MCP_TMP_SUBDIR = ".mcp/tmp"
 # server process cwd (e.g. ``temp/page.yml``, ``./shot.png``). Each match is
 # only rewritten when it resolves to an existing file inside the thread's
 # user-data tree, so an over-eager match is harmless (left untouched).
-_LOCAL_PATH_IN_TEXT_RE = re.compile(
-    r"(?:file://)?/[^\s'\"<>|*?]+"  # POSIX absolute path or file:// URI
-    r"|file://[A-Za-z]:[^\s'\"<>|*?]+"  # file://C:/… — some Windows tools skip the third slash
-    # Windows drive-qualified absolute path; the lookbehind keeps a word
-    # character before the colon (file:/…, id:/…) on the earlier alternatives
-    r"|(?<![\w.-])[A-Za-z]:[\\/][^\s'\"<>|*?]+"
-    # path relative to the server cwd (Windows servers print "\" separators)
-    r"|(?:\.{0,2}[\\/]|[\w.-]+[\\/])[^\s'\"<>|*?]+"
-)
+_LOCAL_PATH_IN_TEXT_RE = re.compile(r"(?:file://)?/[^\s'\"<>|*?]+|(?:\.{0,2}/|[\w.-]+/)[^\s'\"<>|*?]+")
 
 # Trailing characters that are punctuation/markup rather than part of a path.
 _TEXT_PATH_TRAILING_CHARS = ".,;:!?)]}>\"'`"
@@ -79,32 +70,9 @@ def _local_path_from_uri(uri: str, *, base_dir: Path | None = None) -> Path | No
     """
     if not uri:
         return None
-    try:
-        parsed = urlparse(uri)
-    except ValueError:
-        return None
+    parsed = urlparse(uri)
     if parsed.scheme == "file":
-        # url2pathname converts the "/C:/..." form a file URI's path takes on
-        # Windows into a drive-qualified "C:\..." path; on POSIX it is identity.
-        # It already percent-decodes, so no extra unquote here, and it can
-        # reject odd Windows spellings with OSError — leave those untouched.
-        netloc = parsed.netloc
-        if netloc and netloc.lower() != "localhost":
-            # Some Windows tools emit file://C:/… (two slashes): the drive
-            # lands in the URI authority. Any other host is not a local file.
-            if len(netloc) != 2 or not netloc[0].isalpha() or netloc[1] != ":":
-                return None
-            url_path = f"/{netloc}{parsed.path}"
-        else:
-            url_path = parsed.path
-        try:
-            raw = url2pathname(url_path)
-        except OSError:
-            return None
-    elif len(parsed.scheme) == 1 and parsed.scheme.isalpha():
-        # urlparse reads a Windows drive prefix ("C:\...") as the URI scheme;
-        # the original string is a bare local path, not a remote URI.
-        raw = uri
+        raw = unquote(parsed.path)
     elif parsed.scheme == "":
         raw = uri
     else:
@@ -146,9 +114,9 @@ def _local_uri_to_virtual_path(
 
     try:
         real = src.resolve()
-        if not real.is_file():
-            return None
     except OSError:
+        return None
+    if not real.is_file():
         return None
 
     try:
@@ -275,9 +243,7 @@ def _rewrite_unique_bare_filenames(
         # Do not rewrite inside longer paths/words. A final sentence period is
         # allowed, but ".bak" or another path segment is not.
         pattern = re.compile(rf"(?<![\w./-]){re.escape(name)}(?!(?:[\w/-]|\.[\w]))")
-        # Use a callable replacement, not a regex template: virtual paths are
-        # built from real relative paths where backslashes are literal bytes.
-        rewritten_text, count = pattern.subn(lambda _match: unique[name], rewritten)
+        rewritten_text, count = pattern.subn(unique[name], rewritten)
         if count:
             logger.debug("MCP bare filename rewrite: %s -> %s", name, unique[name])
         rewritten = rewritten_text

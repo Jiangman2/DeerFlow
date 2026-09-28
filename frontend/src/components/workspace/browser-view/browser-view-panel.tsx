@@ -442,9 +442,13 @@ export function BrowserViewPanel({
             <ConversationEmptyState
               className="absolute inset-0 m-auto h-fit"
               icon={<MonitorIcon />}
-              title={live ? t.browser.connecting : t.browser.noActivity}
+              title={
+                live ? t.browser.connecting : t.browser.noActivity
+              }
               description={
-                live ? t.browser.waitingForFrame : t.browser.emptyDescription
+                live
+                  ? t.browser.waitingForFrame
+                  : t.browser.emptyDescription
               }
             />
           )}

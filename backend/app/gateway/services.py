@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from fastapi import HTTPException, Request
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import BaseMessage
 from langchain_core.messages.utils import convert_to_messages
 from langgraph.types import Command
 
@@ -30,7 +30,6 @@ from app.gateway.internal_auth import (
 )
 from app.gateway.utils import sanitize_log_param
 from app.gateway.weknora_identity import ensure_weknora_session_for_deerflow_user
-from deerflow.agents.human_input import read_human_input_response
 from deerflow.agents.middlewares.dynamic_context_middleware import _DYNAMIC_CONTEXT_REMINDER_KEY, _REMINDER_DATE_KEY
 from deerflow.config.app_config import get_app_config
 from deerflow.runtime import (
@@ -49,7 +48,7 @@ from deerflow.runtime.goal import goal_thread_lock
 from deerflow.runtime.runs.naming import resolve_root_run_name
 from deerflow.runtime.secret_context import redact_config_secrets
 from deerflow.runtime.user_context import reset_current_user, set_current_user
-from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, SUMMARY_MESSAGE_NAME, UNTRUSTED_INPUT_KEY
+from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +65,6 @@ _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS = frozenset(
         _REMINDER_DATE_KEY,
     }
 )
-
-_SERVER_OWNED_MESSAGE_METADATA_KEYS = _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS | frozenset({UNTRUSTED_INPUT_KEY})
 
 
 # ---------------------------------------------------------------------------
@@ -130,68 +127,17 @@ def normalize_stream_modes(raw: list[str] | str | None) -> list[str]:
     return raw if raw else ["values"]
 
 
-def _skips_input_guardrail(additional_kwargs: dict[str, Any], name: Any) -> bool:
-    """Return whether caller markers would make the input guardrail skip."""
-    if name == SUMMARY_MESSAGE_NAME:
-        return True
-    return bool(additional_kwargs.get("hide_from_ui")) and read_human_input_response(additional_kwargs) is None
-
-
-def _mark_untrusted_framework_markers(additional_kwargs: dict[str, Any], name: Any) -> dict[str, Any]:
-    """Keep caller presentation markers while preserving the trust boundary."""
-    if not _skips_input_guardrail(additional_kwargs, name):
-        return additional_kwargs
-    return {**additional_kwargs, UNTRUSTED_INPUT_KEY: True}
-
-
-def _is_human_message_like(message: Any) -> bool:
-    if isinstance(message, BaseMessage):
-        return isinstance(message, HumanMessage)
-    if isinstance(message, dict):
-        return (message.get("type") or message.get("role")) in {"human", "user"}
-    return False
-
-
 def _strip_external_message_metadata(message: Any) -> Any:
-    """Remove server-owned metadata and mark guardrail-skipping human input."""
+    """Remove server-owned metadata from an untrusted input message."""
     if not isinstance(message, BaseMessage):
         return message
     additional_kwargs = dict(message.additional_kwargs)
     additional_kwargs.pop(ORIGINAL_USER_CONTENT_KEY, None)
-    for key in _SERVER_OWNED_MESSAGE_METADATA_KEYS:
+    for key in _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS:
         additional_kwargs.pop(key, None)
-    if _is_human_message_like(message):
-        additional_kwargs = _mark_untrusted_framework_markers(additional_kwargs, message.name)
     if additional_kwargs == message.additional_kwargs:
         return message
     return message.model_copy(update={"additional_kwargs": additional_kwargs})
-
-
-def _strip_external_metadata_from_message_like(item: Any) -> Any:
-    """Apply the same boundary to BaseMessage and raw checkpoint values."""
-    if isinstance(item, BaseMessage):
-        return _strip_external_message_metadata(item)
-    if not isinstance(item, dict):
-        return item
-    source_kwargs = item.get("additional_kwargs")
-    source_kwargs = source_kwargs if isinstance(source_kwargs, dict) else {}
-    additional_kwargs = {key: value for key, value in source_kwargs.items() if key not in _SERVER_OWNED_MESSAGE_METADATA_KEYS and key != ORIGINAL_USER_CONTENT_KEY}
-    if _is_human_message_like(item):
-        additional_kwargs = _mark_untrusted_framework_markers(additional_kwargs, item.get("name"))
-    if additional_kwargs == source_kwargs:
-        return item
-    return {**item, "additional_kwargs": additional_kwargs}
-
-
-def strip_server_owned_state_metadata(values: Mapping[str, Any]) -> dict[str, Any]:
-    """Protect direct thread-state writes with the run-input trust boundary."""
-    stripped: dict[str, Any] = {}
-    for channel, value in values.items():
-        if isinstance(value, list):
-            stripped[channel] = [_strip_external_metadata_from_message_like(item) for item in value]
-        else:
-            stripped[channel] = _strip_external_metadata_from_message_like(value)
-    return stripped
 
 
 def normalize_input(raw_input: dict[str, Any] | None, *, trusted_internal: bool = False) -> dict[str, Any]:
@@ -208,11 +154,9 @@ def normalize_input(raw_input: dict[str, Any] | None, *, trusted_internal: bool 
     of bubbling up as a 500.  The gateway is a system boundary, so per-entry
     validation errors are the right shape for clients to retry against.
 
-    ``original_user_content``, dynamic-context reminder markers, and
-    ``untrusted_input`` are server-owned. External callers cannot supply them.
-    Caller-owned ``hide_from_ui`` and human ``name=summary`` markers are kept
-    for presentation compatibility but stamped as untrusted so they cannot
-    bypass input sanitization.
+    ``original_user_content`` and dynamic-context reminder markers are
+    server-owned. External callers cannot supply them; trusted internal channel
+    calls may preserve metadata they added before invoking this boundary.
     """
     if raw_input is None:
         return {}
@@ -271,15 +215,6 @@ _CONTEXT_CONFIGURABLE_KEYS: frozenset[str] = frozenset(
 # ``non_interactive`` strips ``ask_clarification`` from the lead-agent toolset;
 # arbitrary HTTP/IM clients must not be able to force autonomous execution.
 _CONTEXT_INTERNAL_CALLER_KEYS: frozenset[str] = frozenset({"non_interactive"})
-
-# Server-owned authorization identity fields. These must never be accepted from
-# client-supplied ``body.config.context`` or ``body.config.configurable``. They
-# are either produced by Gateway auth state or admitted from a separately
-# authenticated internal request channel.
-#   ``is_internal``       — derived from ``request.state.auth_source``
-#   ``authz_attributes`` — Phase 1A has no Gateway-side producer; always cleared.
-#   ``channel_user_id``  — accepted only from trusted internal ``body.context``.
-_SERVER_OWNED_AUTHZ_CONTEXT_KEYS: frozenset[str] = frozenset({"is_internal", "authz_attributes", "channel_user_id"})
 
 # Keys forwarded from ``body.context`` into ``config['context']`` ONLY (the
 # runtime context that becomes ``ToolRuntime.context`` / ``runtime.context``),
@@ -352,9 +287,8 @@ def merge_run_context_overrides(config: dict[str, Any], context: Mapping[str, An
     ``setdefault`` so a server-authenticated id stamped by
     :func:`inject_authenticated_user_context` always wins over the client-supplied one.
 
-    :data:`_CONTEXT_INTERNAL_CALLER_KEYS` are also forwarded when ``internal``
-    is True; for non-internal callers those keys are dropped from client requests
-    by :func:`strip_internal_context_keys`.
+    :data:`_CONTEXT_INTERNAL_CALLER_KEYS`; those keys are dropped from client
+    requests.
 
     A second set of keys (``_CONTEXT_RUNTIME_ONLY_KEYS`` — e.g. ``github_token``,
     ``disable_clarification``) is forwarded into ``config['context']`` only, never
@@ -381,6 +315,11 @@ def merge_run_context_overrides(config: dict[str, Any], context: Mapping[str, An
             runtime_context.setdefault(key, context[key])
     if "user_id" in context and isinstance(runtime_context, dict):
         runtime_context.setdefault("user_id", context["user_id"])
+    # The raw platform user id from IM channels (Feishu open_id, Slack Uxxx, ...)
+    # follows the same runtime-context-only rule as user_id: tools may read it,
+    # but it never enters ``configurable`` (checkpointed with the thread).
+    if "channel_user_id" in context and isinstance(runtime_context, dict):
+        runtime_context.setdefault("channel_user_id", context["channel_user_id"])
 
 
 async def resolve_trusted_internal_owner_for_attribution(request: Request, owner_user_id: str | None) -> Any | None:
@@ -403,38 +342,13 @@ def inject_authenticated_user_context(
     request: Request,
     *,
     internal_owner_user: Any | None = None,
-    request_context: Mapping[str, Any] | None = None,
 ) -> None:
     """Stamp the authenticated user into the run context for background tools.
 
     Tool execution may happen after the request handler has returned, so tools
     that persist user-scoped files should not rely only on ambient ContextVars.
     The value comes from server-side auth state, never from client context.
-
-    ``request_context.channel_user_id`` is the sole exception: it is honored
-    only after ``request.state.auth_source`` proves the caller is internal.
-    Values copied through the free-form RunnableConfig are always cleared.
     """
-
-    # --- Server-owned authorization identity fields ---
-    # Clear any client-forged values from both config sections, then write the
-    # authoritative is_internal. This runs before ALL early returns so that
-    # even user_id-is-None paths get a defined is_internal value.
-    runtime_context = config.setdefault("context", {})
-    if not isinstance(runtime_context, dict):
-        raise TypeError("run context must be a mapping")
-    for key in _SERVER_OWNED_AUTHZ_CONTEXT_KEYS:
-        runtime_context.pop(key, None)
-    configurable = config.get("configurable")
-    if isinstance(configurable, dict):
-        for key in _SERVER_OWNED_AUTHZ_CONTEXT_KEYS:
-            configurable.pop(key, None)
-    auth_source = getattr(getattr(request, "state", None), "auth_source", None)
-    runtime_context["is_internal"] = auth_source == AUTH_SOURCE_INTERNAL
-    if auth_source == AUTH_SOURCE_INTERNAL and request_context is not None:
-        channel_user_id = request_context.get("channel_user_id")
-        if channel_user_id is not None:
-            runtime_context["channel_user_id"] = channel_user_id
 
     user = getattr(request.state, "user", None)
     user_id = getattr(user, "id", None)
@@ -646,7 +560,7 @@ def build_run_config(
                 logger.warning(
                     "build_run_config: client sent both 'context' and 'configurable'; preferring 'context' (LangGraph >= 0.6.0). thread_id=%s, caller_configurable keys=%s",
                     thread_id,
-                    list((request_config.get("configurable") or {}).keys()),
+                    list(request_config.get("configurable", {}).keys()),
                 )
             context_value = request_config["context"]
             if context_value is None:
@@ -673,7 +587,7 @@ def build_run_config(
             config["configurable"] = {"thread_id": thread_id}
         else:
             configurable = {"thread_id": thread_id}
-            configurable.update(request_config.get("configurable") or {})
+            configurable.update(request_config.get("configurable", {}))
             config["configurable"] = configurable
         for k, v in request_config.items():
             if k not in ("configurable", "context"):
@@ -919,12 +833,7 @@ async def start_run(
             # ``build_run_config``; scrub internal-only keys smuggled there.
             strip_internal_context_keys(config)
         internal_owner_user = await resolve_trusted_internal_owner_for_attribution(request, owner_user_id)
-        inject_authenticated_user_context(
-            config,
-            request,
-            internal_owner_user=internal_owner_user,
-            request_context=getattr(body, "context", None),
-        )
+        inject_authenticated_user_context(config, request, internal_owner_user=internal_owner_user)
         await inject_weknora_user_context(config, request, internal_owner_user=internal_owner_user)
 
         stream_modes = normalize_stream_modes(body.stream_mode)

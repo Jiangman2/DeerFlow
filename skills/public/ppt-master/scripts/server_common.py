@@ -69,10 +69,7 @@ def popen_detached(
     args: list[str],
     *,
     logger: Optional[logging.Logger] = None,
-    stdin: object = None,
-    stdout: object = None,
-    stderr: object = None,
-    env: Optional[dict[str, str]] = None,
+    **kwargs: object,
 ) -> subprocess.Popen:
     """Start a long-running child process detached from the caller.
 
@@ -84,31 +81,21 @@ def popen_detached(
     Detached service output remains in its component log, so the child receives
     the shared workflow-transcript opt-out environment flag.
     """
-    child_env = dict(os.environ if env is None else env)
+    supplied_env = kwargs.get('env')
+    child_env = dict(os.environ if supplied_env is None else supplied_env)
     child_env[DISABLE_TRANSCRIPT_ENV] = '1'
+    kwargs['env'] = child_env
 
     if os.name != 'nt':
-        return subprocess.Popen(
-            args,
-            stdin=stdin,
-            stdout=stdout,
-            stderr=stderr,
-            env=child_env,
-            shell=False,
-            start_new_session=True,
-        )
+        return subprocess.Popen(args, start_new_session=True, **kwargs)
 
     base_flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
     breakaway_flag = getattr(subprocess, 'CREATE_BREAKAWAY_FROM_JOB', 0x01000000)
     try:
         return subprocess.Popen(
             args,
-            stdin=stdin,
-            stdout=stdout,
-            stderr=stderr,
-            env=child_env,
-            shell=False,
             creationflags=base_flags | breakaway_flag,
+            **kwargs,
         )
     except OSError as exc:
         if logger is not None:
@@ -117,15 +104,7 @@ def popen_detached(
                 'process-group launch (%s)',
                 exc,
             )
-        return subprocess.Popen(
-            args,
-            stdin=stdin,
-            stdout=stdout,
-            stderr=stderr,
-            env=child_env,
-            shell=False,
-            creationflags=base_flags,
-        )
+        return subprocess.Popen(args, creationflags=base_flags, **kwargs)
 
 
 def process_alive(pid: object) -> bool:

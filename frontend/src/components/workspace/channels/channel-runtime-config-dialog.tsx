@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { getChannelDisplayName } from "@/core/channels/provider-state";
 import type {
   ChannelProvider,
   ChannelRuntimeConfigValues,
@@ -92,8 +93,8 @@ export function ChannelRuntimeConfigDialog({
           <DialogHeader>
             <DialogTitle>
               {isEditing
-                ? t.channels.setupEditTitle(provider.display_name)
-                : t.channels.setupTitle(provider.display_name)}
+                ? t.channels.setupEditTitle(getChannelDisplayName(provider))
+                : t.channels.setupTitle(getChannelDisplayName(provider))}
             </DialogTitle>
             <DialogDescription>{t.channels.setupDescription}</DialogDescription>
           </DialogHeader>

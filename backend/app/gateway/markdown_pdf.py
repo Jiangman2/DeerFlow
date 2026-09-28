@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 
@@ -12,33 +13,45 @@ _EMOJI_SEQ_RE = re.compile(
 )
 
 
+_CJK_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+
+_TEXT_FONT_CANDIDATES: tuple[tuple[Path, int | None], ...] = (
+    # Enterprise release images install this variable TrueType font at a
+    # deterministic path so ReportLab can always embed Simplified Chinese.
+    (Path("/usr/share/fonts/truetype/deerflow/NotoSansSC-VF.ttf"), None),
+    # Production Linux images. WenQuanYi uses TrueType outlines and is
+    # understood by ReportLab; Noto CJK is retained as a secondary candidate
+    # for distributions that ship a compatible TTC build.
+    (Path("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"), 0),
+    (Path("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"), 0),
+    (Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"), 2),
+    (Path("/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf"), None),
+    # Developer workstations.
+    (Path(r"C:\Windows\Fonts\msyh.ttc"), 0),
+    (Path(r"C:\Windows\Fonts\simhei.ttf"), None),
+    (Path(r"C:\Windows\Fonts\simkai.ttf"), None),
+    (Path(r"C:\Windows\Fonts\simfang.ttf"), None),
+    (Path(r"C:\Windows\Fonts\arial.ttf"), None),
+)
+
+
+@lru_cache(maxsize=1)
 def _get_font_name() -> str:
     from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
     from reportlab.pdfbase.ttfonts import TTFont
 
-    candidates = [
-        Path(r"C:\Windows\Fonts\simhei.ttf"),
-        Path(r"C:\Windows\Fonts\simkai.ttf"),
-        Path(r"C:\Windows\Fonts\simfang.ttf"),
-        Path(r"C:\Windows\Fonts\arial.ttf"),
-    ]
-
-    for path in candidates:
+    for path, subfont_index in _TEXT_FONT_CANDIDATES:
         if not path.exists():
             continue
         try:
-            name = f"DeerFlowFont_{path.stem}"
-            pdfmetrics.registerFont(TTFont(name, str(path)))
+            index_suffix = "" if subfont_index is None else f"_{subfont_index}"
+            name = f"DeerFlowFont_{path.stem}{index_suffix}"
+            kwargs = {} if subfont_index is None else {"subfontIndex": subfont_index}
+            pdfmetrics.registerFont(TTFont(name, str(path), **kwargs))
             return name
         except Exception:
             continue
-
-    try:
-        pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
-        return "STSong-Light"
-    except Exception:
-        return "Helvetica"
+    return "Helvetica"
 
 
 def _get_emoji_font_name() -> str | None:
@@ -68,13 +81,24 @@ def _sanitize_text(text: str) -> str:
     return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
 
 
+def _require_embedded_cjk_font(text: str, font_name: str) -> None:
+    if font_name == "Helvetica" and _CJK_RE.search(text):
+        raise RuntimeError(
+            "A compatible embedded CJK font is required to generate this PDF. "
+            "Install WenQuanYi Zen Hei or Noto Sans CJK in the Gateway image."
+        )
+
+
 def markdown_to_pdf_bytes(markdown: str, *, title: str = "report") -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
     from reportlab.platypus import ListFlowable, Paragraph, Preformatted, SimpleDocTemplate, Spacer
 
+    clean_markdown = _sanitize_text(markdown)
+    clean_title = _sanitize_text(title)
     font_name = _get_font_name()
+    _require_embedded_cjk_font(f"{clean_title}\n{clean_markdown}", font_name)
     emoji_font_name = _get_emoji_font_name()
     styles = getSampleStyleSheet()
     base = ParagraphStyle(
@@ -97,7 +121,7 @@ def markdown_to_pdf_bytes(markdown: str, *, title: str = "report") -> bytes:
         rightMargin=18 * mm,
         topMargin=16 * mm,
         bottomMargin=16 * mm,
-        title=title,
+        title=clean_title,
     )
 
     def escape_para(text: str) -> str:
@@ -107,7 +131,7 @@ def markdown_to_pdf_bytes(markdown: str, *, title: str = "report") -> bytes:
             return _EMOJI_SEQ_RE.sub("", text)
         return _EMOJI_SEQ_RE.sub(lambda m: f'<font face="{emoji_font_name}">{m.group(0)}</font>', text)
 
-    lines = _sanitize_text(markdown).replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    lines = clean_markdown.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     story = []
     in_code = False
     code_lines: list[str] = []

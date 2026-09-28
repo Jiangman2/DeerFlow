@@ -1,5 +1,9 @@
 import type { ChannelProvider } from "./types";
 
+export function getChannelDisplayName(provider: ChannelProvider): string {
+  return provider.provider === "feishu" ? "海能 Work" : provider.display_name;
+}
+
 export function providerCanConnect(provider: ChannelProvider): boolean {
   return (
     (provider.connectable ?? (provider.enabled && provider.configured)) &&

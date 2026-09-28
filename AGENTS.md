@@ -1,5 +1,11 @@
 # AGENTS.md
 
+The 2026-09-28 enterprise source alignment is documented in
+`release/production-build-alignment-20260928/README.md`. The running PPT Agent
+Host uses `vendor/ppt-master-v6.6.0/`; shared Skills retain their separate
+`skills/public/ppt-master/` content. Do not substitute one for the other when
+building the sandbox image.
+
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with code in this repository. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 
 It is the **monorepo orientation layer**: it maps the whole repo and points to the

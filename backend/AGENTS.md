@@ -1,5 +1,13 @@
 # AGENTS.md
 
+The enterprise 7·16 production source alignment and its rebuild limits are
+recorded in `../release/production-build-alignment-20260928/README.md`.
+The isolated PPT Agent Host uses the vendored v6.6.0 Skill build input, while
+the shared Skills volume has its own separate `ppt-master` tree.
+The current dedicated Runner's R3 source and base-image lock are under
+`../docker/ppt-master-runner/`; its `agent.py` must not replace the ordinary
+Gateway's copy.
+
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with code in this repository. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 
 ## Project Overview

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+  width="1280" height="720" viewBox="0 0 1280 720"
+  data-pptx-master="cnooc_corporate_master" data-pptx-master-name="CNOOC Corporate"
+  data-pptx-layout="agenda" data-pptx-layout-name="Agenda">
+  <rect id="cnooc-master-background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"
+    data-pptx-layer="master" data-pptx-editable="false"/>
+
+  <image id="agenda-background" x="0" y="0" width="1280" height="720"
+    href="../images/toc_bg.png" preserveAspectRatio="xMidYMid slice"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <text id="agenda-vertical-label" x="116" y="214" fill="#0060A6" fill-opacity="0.16"
+    font-family="Arial, sans-serif" font-size="34" font-weight="700"
+    transform="rotate(90 116 214)" data-pptx-layer="layout"
+    data-pptx-editable="false">CONTENTS</text>
+  <rect id="agenda-divider" x="272" y="150" width="2" height="410" fill="#D9DEE5"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="agenda-accent-blue" x="340" y="174" width="104" height="4" rx="2" fill="#0060A6"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="agenda-accent-red" x="444" y="174" width="36" height="4" rx="2" fill="#DE002B"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+
+  <text id="agenda-number-1" x="340" y="252" fill="#0060A6"
+    font-family="Arial, sans-serif" font-size="34" font-weight="700"
+    data-pptx-layer="layout" data-pptx-editable="false">01</text>
+  <line id="agenda-rule-1" x1="340" y1="276" x2="1128" y2="276" stroke="#D9DEE5"
+    stroke-width="1" data-pptx-layer="layout" data-pptx-editable="false"/>
+  <text id="agenda-number-2" x="340" y="348" fill="#0060A6"
+    font-family="Arial, sans-serif" font-size="34" font-weight="700"
+    data-pptx-layer="layout" data-pptx-editable="false">02</text>
+  <line id="agenda-rule-2" x1="340" y1="372" x2="1128" y2="372" stroke="#D9DEE5"
+    stroke-width="1" data-pptx-layer="layout" data-pptx-editable="false"/>
+  <text id="agenda-number-3" x="340" y="444" fill="#0060A6"
+    font-family="Arial, sans-serif" font-size="34" font-weight="700"
+    data-pptx-layer="layout" data-pptx-editable="false">03</text>
+  <line id="agenda-rule-3" x1="340" y1="468" x2="1128" y2="468" stroke="#D9DEE5"
+    stroke-width="1" data-pptx-layer="layout" data-pptx-editable="false"/>
+  <text id="agenda-number-4" x="340" y="540" fill="#0060A6"
+    font-family="Arial, sans-serif" font-size="34" font-weight="700"
+    data-pptx-layer="layout" data-pptx-editable="false">04</text>
+  <line id="agenda-rule-4" x1="340" y1="564" x2="1128" y2="564" stroke="#D9DEE5"
+    stroke-width="1" data-pptx-layer="layout" data-pptx-editable="false"/>
+
+  <g id="agenda-title-slot" data-pptx-placeholder="title"
+    data-pptx-bounds="72 54 620 54">
+    <text id="agenda-title-carrier" data-pptx-carrier="true"
+      x="72" y="92" fill="#004C8B"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="28" font-weight="700">{{PAGE_TITLE}}</text>
+  </g>
+  <g id="agenda-item-1-slot" data-pptx-placeholder="body" data-pptx-idx="1"
+    data-pptx-bounds="438 210 690 54">
+    <text id="agenda-item-1-carrier" data-pptx-carrier="true"
+      x="438" y="246" fill="#004C8B"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="27" font-weight="700">{{TOC_ITEM_1_TITLE}}</text>
+  </g>
+  <g id="agenda-item-2-slot" data-pptx-placeholder="body" data-pptx-idx="2"
+    data-pptx-bounds="438 306 690 54">
+    <text id="agenda-item-2-carrier" data-pptx-carrier="true"
+      x="438" y="342" fill="#1F2D3D"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="27" font-weight="700">{{TOC_ITEM_2_TITLE}}</text>
+  </g>
+  <g id="agenda-item-3-slot" data-pptx-placeholder="body" data-pptx-idx="3"
+    data-pptx-bounds="438 402 690 54">
+    <text id="agenda-item-3-carrier" data-pptx-carrier="true"
+      x="438" y="438" fill="#1F2D3D"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="27" font-weight="700">{{TOC_ITEM_3_TITLE}}</text>
+  </g>
+  <g id="agenda-item-4-slot" data-pptx-placeholder="body" data-pptx-idx="4"
+    data-pptx-bounds="438 498 690 54">
+    <text id="agenda-item-4-carrier" data-pptx-carrier="true"
+      x="438" y="534" fill="#1F2D3D"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="27" font-weight="700">{{TOC_ITEM_4_TITLE}}</text>
+  </g>
+  <g id="agenda-slide-number-slot" data-pptx-placeholder="slide-number"
+    data-pptx-idx="5" data-pptx-bounds="1128 666 80 24">
+    <text id="agenda-slide-number-carrier" data-pptx-carrier="true"
+      x="1208" y="684" text-anchor="end" fill="#6A7785"
+      font-family="Arial, sans-serif" font-size="13">{{PAGE_NUM}}</text>
+  </g>
+</svg>

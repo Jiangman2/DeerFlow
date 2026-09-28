@@ -26,6 +26,7 @@ from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command
 from app.channels.connection_identity import attach_connection_identity
 from app.channels.message_bus import InboundMessage, InboundMessageType, MessageBus, OutboundMessage, ResolvedAttachment
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -581,30 +582,13 @@ class WechatChannel(Channel):
 
                 self._update_longpoll_timeout(data)
 
-                # Each message is isolated in its own try/except: one message that
-                # fails to process (e.g. an attachment that fails to decrypt) must
-                # not abort the whole batch and strand every message after it.
-                for raw_message in data.get("msgs", []):
-                    try:
-                        await self._handle_update(raw_message)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        message_id = raw_message.get("message_id") or raw_message.get("msg_id") if isinstance(raw_message, dict) else None
-                        logger.exception(
-                            "[WeChat] failed to handle inbound message message_id=%s; skipping it and continuing with the rest of the batch",
-                            message_id,
-                        )
-
-                # The cursor is advanced only after the whole batch has been
-                # attempted (not before the loop above), so a hard crash mid-batch
-                # leaves it unmoved -- the worst case on restart is re-fetching and
-                # re-processing this batch, not silently skipping past messages
-                # that were never actually handled.
                 next_buf = data.get("get_updates_buf")
                 if isinstance(next_buf, str) and next_buf != self._get_updates_buf:
                     self._get_updates_buf = next_buf
                     await asyncio.to_thread(self._save_state)
+
+                for raw_message in data.get("msgs", []):
+                    await self._handle_update(raw_message)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -700,7 +684,7 @@ class WechatChannel(Channel):
             },
             status="connected",
         )
-        await self._send_connection_reply(chat_id, context_token, "WeChat connected to DeerFlow.")
+        await self._send_connection_reply(chat_id, context_token, f"WeChat已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
     async def _send_connection_reply(self, chat_id: str, context_token: str, text: str) -> None:
