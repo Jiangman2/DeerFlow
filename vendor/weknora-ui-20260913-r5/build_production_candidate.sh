@@ -31,7 +31,7 @@ test "${TARGET_WEKNORA_FRONTEND_IMAGE}" = \
   cd "${R11}"
   sha256sum -c PACKAGE.SHA256
 )
-"${ROOT}/build_oci.sh" "${BASE_OCI}"
+bash "${ROOT}/build_oci.sh" "${BASE_OCI}"
 
 LAYOUT="$(mktemp -d)"
 trap 'rm -rf -- "${LAYOUT}"' EXIT
