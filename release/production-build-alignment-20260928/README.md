@@ -15,16 +15,21 @@ digests and source hashes are in `docker/ppt-master-runner/RUNNER-LOCK.json`.
 It is separate from the context-fixed ordinary Gateway source. Build the R3
 Runner overlay only from the verified R2 Runner base image using
 `docker/ppt-master-runner/Dockerfile.production-r3-overlay`.
-The active Runner Pod reported image ID
+The R3 Runner rollout reported image ID
 `sha256:a9cc1a5468064e51327f1ea6a43e7d8448b8b787f9ddfa56325402f1eedd3746`,
-matching the R3 build receipt's config digest.
+matching the R3 build receipt's config digest. R4 subsequently replaced only
+`artifacts.py` in both the ordinary Gateway and dedicated Runner images.
+The exact R4 build payload is in `r4-build/` and its member manifest hashes to
+`9473ecee03df4e4373e7427587f69449487049a31bbc596cff86210b1f1653e7`.
+The operator-reported rollout result and Pod configuration digests are recorded
+in `R4-ROLLOUT-RECEIPT.json`; browser and business Token acceptance remain open.
 
 The production deployment image tags checked on 2026-09-28 are:
 
 | Component | Image tag |
 | --- | --- |
-| Gateway | `20260927-ppt-context-fix-r1-gateway-5f2726f3daf0ed04` |
-| PPT Runner | `20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe` |
+| Gateway | `20260928-ppt-preview-profile-r4-gateway-9473ecee03df4e43` |
+| PPT Runner | `20260928-ppt-preview-profile-r4-runner-9473ecee03df4e43` |
 | Frontend | `20260927-ppt-runtime-r2-frontend-3959a039ee854dca` |
 | Provisioner | `20260923-enterprise-arm64-rc15-ppt-master-v660-r16-split` |
 | PPT Agent Host | `20260927-ppt-runtime-r2-agent-host-3959a039ee854dca` |
@@ -43,13 +48,13 @@ The external-service R8 archive has SHA-256
 The server collectors reported no production workload mutation.
 
 `PRODUCTION-IMAGE-LOCK.json` records the image references from the 2026-09-28
-read-only Kubernetes collection. Where the R7/R8 OCI archives or accepted build
+read-only Kubernetes collection, updated for the operator-reported R4 switch. Where the R7/R8 OCI archives or accepted build
 receipts supplied both digests, it also records the manifest and config digests.
 For example, after building an ARM64 OCI candidate, verify its full blob graph:
 
 ```bash
 python3 release/production-build-alignment-20260928/verify_oci.py \
-  --image deerflow.local/deer-flow-gateway:20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe \
+  --image deerflow.local/deer-flow-gateway:20260928-ppt-preview-profile-r4-runner-9473ecee03df4e43 \
   --archive /path/to/runner.candidate.oci.tar
 ```
 

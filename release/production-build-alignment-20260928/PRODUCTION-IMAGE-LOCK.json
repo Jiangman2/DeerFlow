@@ -54,10 +54,10 @@
       "containers": [
         {
           "name": "gateway",
-          "image": "deerflow.local/deer-flow-gateway:20260927-ppt-context-fix-r1-gateway-5f2726f3daf0ed04",
-          "manifest_digest": "sha256:7c31bc160e1810dad40dc1fc832b09e000348af720e47aaea8364702d1b5fcdd",
-          "config_digest": "sha256:f039c1065450e31c6e8cb114d8ad3f2e7ceb17ded59fe15c021369cac61f6063",
-          "evidence": "operator_build_receipt"
+          "image": "deerflow.local/deer-flow-gateway:20260928-ppt-preview-profile-r4-gateway-9473ecee03df4e43",
+          "manifest_digest": "sha256:e58a8740d95389eed538a60e37190ca05f969150008091db8e8998a37ff7a4f8",
+          "config_digest": "sha256:f42b9a50aecfb313fbaae029955cbaf5970e5b83209c395d7f0beb691ae39918",
+          "evidence": "R4_operator_rollout_receipt_and_build2_lock"
         }
       ],
       "init_containers": [
@@ -88,10 +88,10 @@
       "containers": [
         {
           "name": "ppt-master-runner",
-          "image": "deerflow.local/deer-flow-gateway:20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe",
-          "manifest_digest": "sha256:529a8408063003ecb2c89f1ce81b6d6d141f63254c9e8a497f7732e196fe77b5",
-          "config_digest": "sha256:a9cc1a5468064e51327f1ea6a43e7d8448b8b787f9ddfa56325402f1eedd3746",
-          "evidence": "operator_build_receipt"
+          "image": "deerflow.local/deer-flow-gateway:20260928-ppt-preview-profile-r4-runner-9473ecee03df4e43",
+          "manifest_digest": "sha256:eb23de08345bab65c78264f99ce33085c4ea3574ff8d6281b62418f644fc06cd",
+          "config_digest": "sha256:bc378da76f8ba638256d7f70764dcd130a12cb44346a596ed7a17c4d61815cec",
+          "evidence": "R4_operator_rollout_receipt_and_build2_lock"
         }
       ],
       "init_containers": [

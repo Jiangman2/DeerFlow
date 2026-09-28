@@ -16,8 +16,8 @@ the Provisioner; they are outside those 19 workload references.
 
 | Image group | Build input currently in this branch | Remaining proof or input |
 | --- | --- | --- |
-| Ordinary Gateway and Frontend | Captured production runtime source and operator build receipts | Independently build ARM64 candidates from this checkout and compare full OCI manifests. |
-| Isolated PPT Runner | Captured R3 source, R2 base-image lock, and R3 overlay Dockerfile | Build from the locked R2 base and compare the complete R3 image. |
+| Ordinary Gateway and Frontend | Captured runtime source, R4 Gateway overlay payload, and operator build/rollout receipts | Independently build ARM64 candidates from this checkout and compare full OCI manifests. |
+| Isolated PPT Runner | Captured R3 base source and the exact R4 overlay payload in `r4-build/` | Build from the locked R3 base and compare the complete R4 image. |
 | PPT Agent Host and ordinary AIO Sandbox | R7 runtime source, vendored `ppt-master` 6.6.0, and reviewed Dockerfiles | Independently rebuild against the exact base images and verify both OCI images. |
 | Provisioner and MinerU adapter | Captured runtime source and current Pod configuration IDs | Pin the complete build inputs and collect full production manifest digests before byte-identity checks. |
 | WeKnora UI | Complete R5 upstream frontend, enterprise R5 overlay, and production `sidebarlabels1` overlay | Build the two-stage ARM64 candidate and compare the final OCI manifest and blob graph. |
@@ -42,5 +42,8 @@ record all of the following for that image:
 4. Any runtime-only configuration and mounted content needed for equivalent
    service behavior, separately from the image build.
 
-No new candidate has been imported into production as part of this source
-alignment work.
+The operator reports that R4 Gateway and Runner candidates were imported and
+rolled out. Their Pod configuration IDs match the R4 Build2 locks. The files
+in this branch have not yet produced an independently rebuilt ARM64 candidate
+whose full OCI manifest and blob graph match those running images. Browser and
+business Token acceptance also remain open.

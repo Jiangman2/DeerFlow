@@ -411,9 +411,16 @@ async def _resolve_artifact_owner_user_id(request: Request | None, thread_id: st
 
 
 async def _resolve_thread_runtime_profile(request: Request | None, thread_id: str) -> str | None:
-    """Read the durable runtime owner used to route Sidecar-owned previews."""
+    """Use an owner-scoped run receipt to identify the isolated PPT runtime.
+
+    The browser creates a thread before submitting its first run, so run
+    metadata does not necessarily reach an existing ``threads_meta`` row.
+    Conversely, thread metadata alone is client-writable and must not grant
+    access to the PPT-only preview ports.
+    """
     app = request.scope.get("app") if request is not None else None
-    thread_store = getattr(getattr(app, "state", None), "thread_store", None)
+    state = getattr(app, "state", None)
+    thread_store = getattr(state, "thread_store", None)
     get_thread = getattr(thread_store, "get", None)
     if not callable(get_thread):
         return None
@@ -422,11 +429,22 @@ async def _resolve_thread_runtime_profile(request: Request | None, thread_id: st
     record = await record_or_awaitable if inspect.isawaitable(record_or_awaitable) else record_or_awaitable
     if not isinstance(record, dict):
         return None
-    metadata = record.get("metadata")
-    if not isinstance(metadata, dict):
+    owner_user_id = record.get("user_id")
+    if not isinstance(owner_user_id, str) or not owner_user_id:
         return None
-    raw_profile = metadata.get("runtime_profile")
-    return str(raw_profile).strip() or None if raw_profile is not None else None
+
+    run_store = getattr(state, "run_store", None)
+    list_by_thread = getattr(run_store, "list_by_thread", None)
+    if not callable(list_by_thread):
+        return None
+    runs_or_awaitable = list_by_thread(thread_id, user_id=owner_user_id, limit=1)
+    runs = await runs_or_awaitable if inspect.isawaitable(runs_or_awaitable) else runs_or_awaitable
+    if not isinstance(runs, list) or not runs:
+        return None
+    latest_run = runs[0]
+    if not isinstance(latest_run, dict) or latest_run.get("user_id") != owner_user_id:
+        return None
+    return PPT_MASTER_RUNTIME_PROFILE if latest_run.get("assistant_id") == PPT_MASTER_RUNTIME_PROFILE else None
 
 
 def _build_content_disposition(disposition_type: str, filename: str) -> str:
