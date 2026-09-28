@@ -1,0 +1,297 @@
+{
+  "schema": 1,
+  "snapshot_date": "2026-09-28",
+  "source_commit": "6f91fc55930a6230eb41de4ca30eced53eca6dad",
+  "status": "reference_only_rebuilds_not_yet_verified",
+  "private_evidence_archive_sha256": {
+    "R7": "d6ae36377a196bd882f0a89c4433284217326c3b7706af0a70bcad49b",
+    "R8": "264fd43a02caec2a6988fe20c9e4f587f37915e9e52dd9a588a636f50563bc75"
+  },
+  "workloads": [
+    {
+      "kind": "Deployment",
+      "name": "deer-flow-mineru-adapter",
+      "containers": [
+        {
+          "name": "adapter",
+          "image": "deerflow.local/deer-flow-mineru-adapter:20260921-enterprise-arm64-rc15-conversation-runtime4",
+          "config_digest": "sha256:bfbdd4d3309110be003549b2959d5080204b27bcd6440e33d4c67d80ee3775e9",
+          "evidence": "core_runtime_Pod"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "deer-flow-mineru-dispatcher",
+      "containers": [
+        {
+          "name": "dispatcher",
+          "image": "deerflow.local/deer-flow-mineru-adapter:20260921-enterprise-arm64-rc15-conversation-runtime4",
+          "config_digest": "sha256:bfbdd4d3309110be003549b2959d5080204b27bcd6440e33d4c67d80ee3775e9",
+          "evidence": "core_runtime_Pod"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "frontend",
+      "containers": [
+        {
+          "name": "frontend",
+          "image": "deerflow.local/deer-flow-frontend:20260927-ppt-runtime-r2-frontend-3959a039ee854dca",
+          "manifest_digest": "sha256:7fbfbbffcc26d77da9827ba5ca17a30e13c0c7266df63d37f078a79e565e7c3f",
+          "config_digest": "sha256:864f6abf2f0ef87bf32a2d5ddf1085f434a64abe09657fac58a010d0e54e2e19",
+          "evidence": "operator_build_receipt"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "gateway",
+      "containers": [
+        {
+          "name": "gateway",
+          "image": "deerflow.local/deer-flow-gateway:20260927-ppt-context-fix-r1-gateway-5f2726f3daf0ed04",
+          "manifest_digest": "sha256:7c31bc160e1810dad40dc1fc832b09e000348af720e47aaea8364702d1b5fcdd",
+          "config_digest": "sha256:f039c1065450e31c6e8cb114d8ad3f2e7ceb17ded59fe15c021369cac61f6063",
+          "evidence": "operator_build_receipt"
+        }
+      ],
+      "init_containers": [
+        {
+          "name": "seed-extensions-config",
+          "image": "deerflow.local/deer-flow-gateway:20260811-enterprise-arm64-rc15-consolidated2"
+        },
+        {
+          "name": "wait-for-skills",
+          "image": "m.daocloud.io/docker.io/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"
+        }
+      ]
+    },
+    {
+      "kind": "Deployment",
+      "name": "nginx",
+      "containers": [
+        {
+          "name": "nginx",
+          "image": "m.daocloud.io/docker.io/library/nginx@sha256:4a73073bd557c65b759505da037898b61f1be6cbcc3c2c3aeac22d2a470c1752"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "ppt-master-runner",
+      "containers": [
+        {
+          "name": "ppt-master-runner",
+          "image": "deerflow.local/deer-flow-gateway:20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe",
+          "manifest_digest": "sha256:529a8408063003ecb2c89f1ce81b6d6d141f63254c9e8a497f7732e196fe77b5",
+          "config_digest": "sha256:a9cc1a5468064e51327f1ea6a43e7d8448b8b787f9ddfa56325402f1eedd3746",
+          "evidence": "operator_build_receipt"
+        }
+      ],
+      "init_containers": [
+        {
+          "name": "wait-for-postgres",
+          "image": "deerflow.local/deer-flow-gateway:20260923-enterprise-arm64-rc15-ppt-master-v660-r15"
+        },
+        {
+          "name": "wait-for-skills",
+          "image": "m.daocloud.io/docker.io/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"
+        }
+      ]
+    },
+    {
+      "kind": "Deployment",
+      "name": "provisioner",
+      "containers": [
+        {
+          "name": "provisioner",
+          "image": "deerflow.local/deer-flow-provisioner:20260923-enterprise-arm64-rc15-ppt-master-v660-r16-split",
+          "config_digest": "sha256:7e16f032bf6723ebb8533a7be250e8b028a35a3ddbd824fdd79933b9f6fdd846",
+          "evidence": "core_runtime_Pod"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "skillhub-scanner",
+      "containers": [
+        {
+          "name": "scanner",
+          "image": "deerflow.local/skillhub-scanner:20260905-enterprise-arm64-rc15-roleexpertskillhub1"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "skillhub-server",
+      "containers": [
+        {
+          "name": "server",
+          "image": "deerflow.local/skillhub-server:20260908-enterprise-arm64-rc15-skillhubsession2"
+        }
+      ],
+      "init_containers": [
+        {
+          "name": "wait-for-dependencies",
+          "image": "deerflow.local/skillhub-busybox:20260905-enterprise-arm64-rc15-roleexpertskillhub1"
+        }
+      ]
+    },
+    {
+      "kind": "Deployment",
+      "name": "skillhub-web",
+      "containers": [
+        {
+          "name": "web",
+          "image": "deerflow.local/skillhub-web:20260907-enterprise-arm64-rc15-skillhubux-dashboard1-r2",
+          "manifest_digest": "sha256:5be3605b82c84300c228ac8c65f23a762181a3293aa9e4f3863875bbd17c6744",
+          "config_digest": "sha256:ed9d1aac498906946c97b74108440d602e05e2b79839b801b7f99847d948c981",
+          "evidence": "R8_verified_OCI"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "weknora-app",
+      "containers": [
+        {
+          "name": "app",
+          "image": "deerflow.local/weknora-app:0.8.0-enterprise-proxy1-anydoc1-arm64-20260912"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "weknora-docreader",
+      "containers": [
+        {
+          "name": "docreader",
+          "image": "deerflow.local/weknora-docreader:0.8.0-official-arm64-20260915"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "Deployment",
+      "name": "weknora-frontend",
+      "containers": [
+        {
+          "name": "frontend",
+          "image": "deerflow.local/weknora-ui:0.8.0-enterprise-sso2-r5-sidebarlabels1-arm64-20260918",
+          "manifest_digest": "sha256:dc0fb010596a8257f16ee01aa4179320a05dc02b06f18af1da52efafdb0837ca",
+          "config_digest": "sha256:5a3b6c0fff1cb328ac15e82515242c812cd2c1673ef3018418e387a7c4c39b79",
+          "evidence": "R8_verified_OCI"
+        }
+      ],
+      "init_containers": [
+        {
+          "name": "patch-legacy-office-preview",
+          "image": "deerflow.local/weknora-ui:0.8.0-enterprise-sso2-r5-sidebarlabels1-arm64-20260918",
+          "manifest_digest": "sha256:dc0fb010596a8257f16ee01aa4179320a05dc02b06f18af1da52efafdb0837ca",
+          "config_digest": "sha256:5a3b6c0fff1cb328ac15e82515242c812cd2c1673ef3018418e387a7c4c39b79",
+          "evidence": "R8_verified_OCI"
+        }
+      ]
+    },
+    {
+      "kind": "Deployment",
+      "name": "weknora-redis",
+      "containers": [
+        {
+          "name": "redis",
+          "image": "m.daocloud.io/docker.io/library/redis@sha256:c9d92d840fd011c908f040592857c724ae6d877f2aba5c40ad963276507386b2"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "StatefulSet",
+      "name": "postgres",
+      "containers": [
+        {
+          "name": "postgres",
+          "image": "m.daocloud.io/docker.io/library/postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "StatefulSet",
+      "name": "skillhub-postgresql",
+      "containers": [
+        {
+          "name": "postgresql",
+          "image": "deerflow.local/skillhub-postgresql:20260905-enterprise-arm64-rc15-roleexpertskillhub1"
+        },
+        {
+          "name": "metrics",
+          "image": "deerflow.local/skillhub-postgres-exporter:20260905-enterprise-arm64-rc15-roleexpertskillhub1"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "StatefulSet",
+      "name": "skillhub-redis-master",
+      "containers": [
+        {
+          "name": "redis",
+          "image": "deerflow.local/skillhub-redis:20260905-enterprise-arm64-rc15-roleexpertskillhub1"
+        },
+        {
+          "name": "metrics",
+          "image": "deerflow.local/skillhub-redis-exporter:20260905-enterprise-arm64-rc15-roleexpertskillhub1"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "StatefulSet",
+      "name": "weknora-neo4j",
+      "containers": [
+        {
+          "name": "neo4j",
+          "image": "m.daocloud.io/docker.io/library/neo4j@sha256:155c8aad10d5c838bc3bbc476c0418779086547822acb214ec5e3d49ba336907"
+        }
+      ],
+      "init_containers": []
+    },
+    {
+      "kind": "StatefulSet",
+      "name": "weknora-postgres",
+      "containers": [
+        {
+          "name": "postgres",
+          "image": "deerflow.local/weknora-postgres:pg16-search-arm64-20260722-1"
+        }
+      ],
+      "init_containers": []
+    }
+  ],
+  "runtime_images": [
+    {
+      "role": "ppt-agent-host",
+      "image": "deerflow.local/deer-flow-aio-sandbox:20260927-ppt-runtime-r2-agent-host-3959a039ee854dca",
+      "manifest_digest": "sha256:126fabc46a5d4d3b9d50924722bf10e7a1003a4d1adbdf72ace8ae25e188f97e",
+      "config_digest": "sha256:09ea44f66e1d47269b10e05f11f933f9f08897a1e5a55222a138f0a1b1acfaea",
+      "evidence": "R7_verified_OCI"
+    },
+    {
+      "role": "ordinary-aio-sandbox",
+      "image": "deerflow.local/deer-flow-aio-sandbox:20260921-enterprise-arm64-rc15-document-runtime1",
+      "manifest_digest": "sha256:b12286cbe09b19577896f8f00177eb3872e8bd100aa0faec6184e82ee66bb4f5",
+      "config_digest": "sha256:fb36911f899cc43f1228ee4d0701130761b43b3e9792320bf4e0f16f41f0bec8",
+      "evidence": "R7_verified_OCI"
+    }
+  ]
+}

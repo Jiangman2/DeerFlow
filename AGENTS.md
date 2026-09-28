@@ -5,6 +5,10 @@ The 2026-09-28 enterprise source alignment is documented in
 Host uses `vendor/ppt-master-v6.6.0/`; shared Skills retain their separate
 `skills/public/ppt-master/` content. Do not substitute one for the other when
 building the sandbox image.
+The WeKnora UI 0.8.0 frontend and R5 build inputs are under
+`vendor/weknora-ui-20260913-r5/`; apply the tracked R11 `sidebarlabels1`
+overlay to build a candidate for the 2026-09-18 production image. A matching
+ARM64 rebuild must pass the production OCI lock before claiming image identity.
 
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with code in this repository. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 

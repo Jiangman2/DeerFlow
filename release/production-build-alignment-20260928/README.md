@@ -42,6 +42,23 @@ The external-service R8 archive has SHA-256
 `264fd43a02caec2a6988fe20c9e4f587f37915e9e52dd9a588a636f50563bc75`.
 The server collectors reported no production workload mutation.
 
+`PRODUCTION-IMAGE-LOCK.json` records the image references from the 2026-09-28
+read-only Kubernetes collection. Where the R7/R8 OCI archives or accepted build
+receipts supplied both digests, it also records the manifest and config digests.
+For example, after building an ARM64 OCI candidate, verify its full blob graph:
+
+```bash
+python3 release/production-build-alignment-20260928/verify_oci.py \
+  --image deerflow.local/deer-flow-gateway:20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe \
+  --archive /path/to/runner.candidate.oci.tar
+```
+
+The example image reference above is the PPT Runner. The verifier fails closed
+for images whose production manifest digest has not been collected. A digest
+match proves image identity for the checked archive; it does not prove that the
+archive was built solely from this Git checkout. The lock contains no Kubernetes
+environment values or Secret data.
+
 The PPT Agent Host Skill is kept under `vendor/ppt-master-v6.6.0/` because the
 running Agent Host uses that tree, while the shared Skills volume contains an
 older `skills/public/ppt-master` tree. The sandbox Dockerfile uses the vendored
@@ -62,9 +79,13 @@ Supporting WeKnora model-network and spreadsheet-policy source is in
 ## Rebuild limits
 
 This is a source-alignment commit, not a claim of byte-identical image builds.
-The WeKnora UI source for the 2026-09-18 image was not present in the server
-build directory; R8 captured its deployed compiled assets separately as private
-evidence. The WeKnora App copy excludes the frontend tree, examples, selected
+The complete WeKnora UI v0.8.0 upstream frontend and the enterprise R5 build
+overlay are now under `vendor/weknora-ui-20260913-r5/`. The 2026-09-18
+`sidebarlabels1` overlay in `deploy/hotfixes/deerflow-skill-authoring-defaults-20260919-r11/`
+matched a separately downloaded server package byte for byte. The two-stage
+build script in the vendor directory produces and verifies a final ARM64 OCI
+candidate, but no matching production rebuild has been recorded yet. R8 also
+captured the deployed compiled assets as private evidence. The WeKnora App copy excludes the frontend tree, examples, selected
 test/example files with token-shaped fixtures, and a demo SQL migration with a
 token-shaped comment. These are not used by the captured App Dockerfile's Go
 build and its named test packages, but the vendored directory is not a complete
