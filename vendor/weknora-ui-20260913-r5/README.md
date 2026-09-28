@@ -21,7 +21,10 @@ On an approved ARM64 Linux builder with the pinned BuildKit frontend, Node and
 Nginx images already available, set `ENTERPRISE_CA_FILE` and optionally
 `BUILDKIT_ADDR`, then run `build_oci.sh /absolute/path/to/new.oci.tar`.
 This writes a local candidate OCI archive only. The script follows the R5
-BuildKit options and refuses source-hash drift. It does not import or deploy
+BuildKit options, restores the one upstream source file's official LF bytes in
+the temporary context, and refuses source-hash drift. The builder also needs
+the operator-owned egress proxy values used for the original npm install.
+It does not import or deploy
 the image. The current 2026-09-18 production UI image additionally applies
 the `sidebarlabels1` layer; building R5 alone does not produce that final
 image. Verify any candidate against the production lock before claiming image

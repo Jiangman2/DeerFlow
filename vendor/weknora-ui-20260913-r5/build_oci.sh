@@ -28,6 +28,7 @@ trap 'rm -rf -- "${STAGE}"' EXIT
 mkdir -p "${STAGE}/frontend" "${STAGE}/.deerflow-enterprise/overlay" \
   "${STAGE}/.deerflow-enterprise/tests"
 cp -a "${ROOT}/frontend/." "${STAGE}/frontend/"
+python3 "${ROOT}/normalize_upstream_ui_newlines.py" --source-root "${STAGE}"
 cp -a "${ROOT}/overlay/." "${STAGE}/.deerflow-enterprise/overlay/"
 cp -a "${ROOT}/tests/." "${STAGE}/.deerflow-enterprise/tests/"
 
