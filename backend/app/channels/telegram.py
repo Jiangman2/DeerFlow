@@ -11,6 +11,7 @@ from typing import Any
 from app.channels.base import Channel
 from app.channels.connection_identity import attach_connection_identity
 from app.channels.message_bus import InboundMessage, InboundMessageType, MessageBus, OutboundMessage, ResolvedAttachment
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -423,7 +424,7 @@ class TelegramChannel(Channel):
             status="connected",
         )
         logger.info("[Telegram] bound chat=%s user=%s to DeerFlow user=%s connection=%s", chat_id, user_id, owner_user_id, connection["id"])
-        await update.message.reply_text("Telegram connected to DeerFlow.")
+        await update.message.reply_text(f"Telegram已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
     async def _attach_connection_identity(self, inbound: InboundMessage) -> InboundMessage:
@@ -472,7 +473,7 @@ class TelegramChannel(Channel):
                 return
         if not self._check_user(update.effective_user.id):
             return
-        await update.message.reply_text("Welcome to DeerFlow! Send me a message to start a conversation.\nType /help for available commands.")
+        await update.message.reply_text(f"欢迎使用{ENTERPRISE_PRODUCT_NAME}！发送消息即可开始对话。\n输入 /help 查看可用命令。")
 
     async def _process_incoming_with_reply(self, chat_id: str, msg_id: int, inbound: InboundMessage) -> None:
         await self._send_running_reply(chat_id, msg_id)

@@ -26,8 +26,6 @@ import asyncio
 import json
 import logging
 import re
-import weakref
-from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -44,45 +42,11 @@ class JsonlRunEventStore(RunEventStore):
     def __init__(self, base_dir: str | Path | None = None):
         self._base_dir = Path(base_dir) if base_dir else Path(".deer-flow")
         self._seq_counters: dict[str, int] = {}  # thread_id -> current max seq
-        # Weak ownership avoids leaking one lock per historical thread without
-        # splitting a live lock generation while a holder/waiter still owns it.
-        self._write_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
+        # Per-thread asyncio.Lock — serialises concurrent writes within one process.
+        self._write_locks: dict[str, asyncio.Lock] = {}
 
     def _get_write_lock(self, thread_id: str) -> asyncio.Lock:
-        lock = self._write_locks.get(thread_id)
-        if lock is None:
-            lock = asyncio.Lock()
-            self._write_locks[thread_id] = lock
-        return lock
-
-    async def _run_mutation[T](self, thread_id: str, operation: Callable[[], Coroutine[Any, Any, T]]) -> T:
-        """Drain an admitted mutation before propagating caller cancellation.
-
-        Cancelling ``to_thread`` only stops its awaiter, not the filesystem
-        worker. Keep the thread lock through I/O and bookkeeping even if the
-        caller is cancelled repeatedly. A caller still waiting for the lock
-        can cancel without starting its mutation.
-        """
-        async with self._get_write_lock(thread_id):
-            task = asyncio.create_task(operation(), name=f"jsonl-mutation:{thread_id}")
-            cancellation: asyncio.CancelledError | None = None
-            while not task.done():
-                try:
-                    await asyncio.shield(task)
-                except asyncio.CancelledError as exc:
-                    if cancellation is None:
-                        cancellation = exc
-                except Exception:
-                    # Retrieve the failure below after preserving any earlier
-                    # cancellation. The operation has already settled.
-                    break
-            if cancellation is not None:
-                try:
-                    task.result()
-                except Exception as exc:
-                    raise cancellation from exc
-                raise cancellation
-            return task.result()
+        return self._write_locks.setdefault(thread_id, asyncio.Lock())
 
     @staticmethod
     def _validate_id(value: str, label: str) -> str:
@@ -109,10 +73,7 @@ class JsonlRunEventStore(RunEventStore):
         thread_dir = self._thread_dir(thread_id)
         if thread_dir.exists():
             for f in thread_dir.glob("*.jsonl"):
-                # JSONL is delimited by the physical LF byte. ``splitlines``
-                # also treats Unicode separators inside JSON strings as record
-                # boundaries, corrupting otherwise valid event payloads.
-                for line in f.read_text(encoding="utf-8").strip().split("\n"):
+                for line in f.read_text(encoding="utf-8").strip().splitlines():
                     try:
                         record = json.loads(line)
                         max_seq = max(max_seq, record.get("seq", 0))
@@ -140,7 +101,7 @@ class JsonlRunEventStore(RunEventStore):
         if not thread_dir.exists():
             return events
         for f in sorted(thread_dir.glob("*.jsonl")):
-            for line in f.read_text(encoding="utf-8").strip().split("\n"):
+            for line in f.read_text(encoding="utf-8").strip().splitlines():
                 if not line:
                     continue
                 try:
@@ -156,7 +117,7 @@ class JsonlRunEventStore(RunEventStore):
         if not path.exists():
             return []
         events = []
-        for line in path.read_text(encoding="utf-8").strip().split("\n"):
+        for line in path.read_text(encoding="utf-8").strip().splitlines():
             if not line:
                 continue
             try:
@@ -178,7 +139,7 @@ class JsonlRunEventStore(RunEventStore):
             path.unlink()
 
     async def put(self, *, thread_id, run_id, event_type, category, content="", metadata=None, created_at=None):
-        async def mutate():
+        async with self._get_write_lock(thread_id):
             await self._ensure_seq_loaded(thread_id)
             seq = self._next_seq(thread_id)
             record = {
@@ -193,8 +154,6 @@ class JsonlRunEventStore(RunEventStore):
             }
             await asyncio.to_thread(self._write_record, record)
             return record
-
-        return await self._run_mutation(thread_id, mutate)
 
     async def put_batch(self, events):
         """Persist a batch of events atomically per-thread.
@@ -220,7 +179,7 @@ class JsonlRunEventStore(RunEventStore):
         return results
 
     async def _write_batch_async(self, thread_id: str, batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        async def mutate():
+        async with self._get_write_lock(thread_id):
             await self._ensure_seq_loaded(thread_id)
             records: list[dict[str, Any]] = []
             for ev in batch:
@@ -241,8 +200,6 @@ class JsonlRunEventStore(RunEventStore):
             # persisted; the caller's re-buffer reproduces no duplicates.
             await asyncio.to_thread(self._append_records, path, records)
             return records
-
-        return await self._run_mutation(thread_id, mutate)
 
     def _append_records(self, path: Path, records: list[dict[str, Any]]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -303,22 +260,21 @@ class JsonlRunEventStore(RunEventStore):
         return sum(1 for e in all_events if e.get("category") == "message")
 
     async def delete_by_thread(self, thread_id):
-        async def mutate():
+        async with self._get_write_lock(thread_id):
             all_events = await asyncio.to_thread(self._read_thread_events, thread_id)
             count = len(all_events)
             await asyncio.to_thread(self._delete_thread_files, thread_id)
             self._seq_counters.pop(thread_id, None)
-            # Mutations already queued on this lock resume after deletion; with
-            # files and the counter cleared, they recreate the thread at seq 1.
+            # Pop the lock inside the held scope to minimise the window where a new caller
+            # could obtain a fresh lock while a waiting coroutine still holds the old one.
+            # Note: coroutines that already acquired a reference to this lock before the
+            # delete will still proceed after we release — this is an accepted narrow race.
+            self._write_locks.pop(thread_id, None)
             return count
 
-        return await self._run_mutation(thread_id, mutate)
-
     async def delete_by_run(self, thread_id, run_id):
-        async def mutate():
+        async with self._get_write_lock(thread_id):
             events = await asyncio.to_thread(self._read_run_events, thread_id, run_id)
             count = len(events)
             await asyncio.to_thread(self._delete_run_file, thread_id, run_id)
             return count
-
-        return await self._run_mutation(thread_id, mutate)

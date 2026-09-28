@@ -13,19 +13,14 @@ middleware reachable from this graph (e.g. ``TitleMiddleware``) — MUST pass
 Forgetting that flag emits duplicate spans (one rooted at the graph, one at
 the model) AND prevents the Langfuse handler's ``propagate_attributes``
 path from firing, so ``session_id`` / ``user_id`` never reach the trace.
-The five current sites are: bootstrap agent, default agent, summarization
-middleware, the async path inside ``TitleMiddleware``, and the skill security
-scanner reached from the ``skill_manage`` tool (``skills/security_scanner.py``'s
-``scan_skill_content``, which is dual-use: ``_scan_or_raise`` in
-``tools/skill_manage_tool.py`` is the in-graph choke point and passes the flag,
-while its standalone callers keep the default). Any new in-graph
+The four current sites are: bootstrap agent, default agent, summarization
+middleware, and the async path inside ``TitleMiddleware``. Any new in-graph
 ``create_chat_model`` call must add to this list and pass the flag.
 """
 
 from __future__ import annotations
 
 import logging
-import secrets
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware
@@ -53,6 +48,7 @@ from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.memory_config import should_use_memory_tools
 from deerflow.config.subagents_config import DEFAULT_MAX_TOTAL_SUBAGENTS_PER_RUN
 from deerflow.models import create_chat_model
+from deerflow.skills.tool_policy import ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES, filter_tools_by_skill_allowed_tools
 from deerflow.skills.types import Skill
 from deerflow.tools.tools import filter_tools_by_datalake_scope
 from deerflow.tracing import build_tracing_callbacks
@@ -320,34 +316,11 @@ def build_middlewares(
     # /skill-name. This keeps the base system prompt metadata-only while giving
     # explicit user activation priority over model-side relevance guessing.
     from deerflow.agents.middlewares.skill_activation_middleware import SkillActivationMiddleware
-    from deerflow.agents.middlewares.skill_tool_policy_middleware import SkillToolPolicyMiddleware
     from deerflow.agents.middlewares.skill_workflow_middleware import SkillWorkflowMiddleware
 
-    slash_source_owner_token = secrets.token_urlsafe(24)
-    middlewares.append(
-        SkillActivationMiddleware(
-            available_skills=available_skills,
-            app_config=resolved_app_config,
-            user_id=user_id,
-            slash_source_owner_token=slash_source_owner_token,
-        )
-    )
-
-    # Enabled skills are only discoverable metadata. Apply allowed-tools at
-    # runtime after explicit slash activation or an actual skill-file load.
-    middlewares.append(
-        SkillToolPolicyMiddleware(
-            available_skills=available_skills,
-            app_config=resolved_app_config,
-            user_id=user_id,
-            slash_source_owner_token=slash_source_owner_token,
-        )
-    )
-
+    middlewares.append(SkillActivationMiddleware(available_skills=available_skills, app_config=resolved_app_config, user_id=user_id))
     # Persist the selected Skill authority, project path, tool-backed stage
-    # receipts, and resume pointer across run boundaries and compaction. Keep
-    # this after the official runtime tool policy so both observe the same
-    # authenticated slash activation source.
+    # receipts, and resume pointer across run boundaries and compaction.
     middlewares.append(SkillWorkflowMiddleware())
 
     # Capture completed task delegations and loaded skill files before
@@ -401,9 +374,8 @@ def build_middlewares(
         middlewares.append(mcp_routing_middleware)
 
     # Hide deferred tool schemas from model binding until tool_search promotes them.
-    # The lead deferred set + catalog hash come from the full build-time MCP
-    # catalog; SkillToolPolicyMiddleware separately filters model visibility,
-    # tool_search results, and execution for the active skill at runtime.
+    # The deferred set + catalog hash come from the build-time setup (assembled
+    # after tool-policy filtering); promotion is read from graph state.
     if deferred_setup is not None and deferred_setup.deferred_names:
         from deerflow.agents.middlewares.deferred_tool_filter_middleware import DeferredToolFilterMiddleware
 
@@ -485,6 +457,20 @@ def _available_skill_names(agent_config, is_bootstrap: bool) -> set[str] | None:
     return None
 
 
+def _restore_task_tool_for_subagent_mode(raw_tools, filtered_tools, *, subagent_enabled: bool):
+    """Keep the framework ``task`` tool when lead-agent delegation is enabled.
+
+    Skill ``allowed-tools`` declarations restrict domain tools, but cannot remove
+    the lead agent's only orchestration primitive after the runtime has enabled
+    subagents and the prompt has advertised delegation.  This deliberately
+    restores only ``task`` and only for the lead-agent subagent mode.
+    """
+    if not subagent_enabled or any(getattr(tool, "name", None) == "task" for tool in filtered_tools):
+        return filtered_tools
+    task_tool = next((tool for tool in raw_tools if getattr(tool, "name", None) == "task"), None)
+    return [*filtered_tools, task_tool] if task_tool is not None else filtered_tools
+
+
 def _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, *, scope_context: object):
     """Gate WeKnora on an explicit KB scope, restoring configured tools when selected.
 
@@ -503,17 +489,24 @@ def _restore_weknora_tools_for_selected_scope(raw_tools, filtered_tools, *, scop
     return gated
 
 
-def _load_enabled_available_skills(available_skills: set[str] | None, *, app_config: AppConfig, user_id: str | None = None) -> list[Skill]:
+def _load_enabled_skills_for_tool_policy(available_skills: set[str] | None, *, app_config: AppConfig, user_id: str | None = None) -> list[Skill]:
+    # ``None`` means the default agent may discover every enabled skill; it does
+    # not mean every skill is active for this run. Applying one discoverable
+    # skill's ``allowed-tools`` declaration globally would let a narrow helper
+    # (for example skill-reviewer) remove bash/write_file/present_files from all
+    # ordinary tasks. Static tool restrictions are therefore only assembled for
+    # agents that explicitly declare a finite skill allowlist. Explicit slash
+    # activation remains governed by SkillActivationMiddleware.
+    if available_skills is None:
+        return []
     try:
         from deerflow.agents.lead_agent.prompt import get_enabled_skills_for_config
 
         skills = get_enabled_skills_for_config(app_config, user_id=user_id)
     except Exception:
-        logger.exception("Failed to load enabled skills")
+        logger.exception("Failed to load skills for allowed-tools policy")
         raise
 
-    if available_skills is None:
-        return skills
     return [skill for skill in skills if skill.name in available_skills]
 
 
@@ -622,7 +615,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
             existing = list(existing)
         config["callbacks"] = [*existing, *tracing_callbacks]
 
-    enabled_skills = _load_enabled_available_skills(available_skills, app_config=resolved_app_config, user_id=resolved_user_id)
+    skills_for_tool_policy = _load_enabled_skills_for_tool_policy(available_skills, app_config=resolved_app_config, user_id=resolved_user_id)
 
     # Build skill search setup (deferred skill discovery).
     # Controlled by skills.deferred_discovery — independent from tool_search.enabled.
@@ -635,22 +628,23 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
         # Special bootstrap agent with minimal prompt for initial custom agent creation flow
         # Keep the bootstrap skill set intentionally narrow so agent creation
         # remains deterministic before the custom agent's own config exists.
-        bootstrap_skills = [s for s in enabled_skills if s.name in _BOOTSTRAP_SKILL_NAMES]
+        bootstrap_skills = [s for s in skills_for_tool_policy if s.name in _BOOTSTRAP_SKILL_NAMES]
         skill_setup = build_skill_search_setup(
             bootstrap_skills,
             enabled=skill_search_enabled,
             container_base_path=container_base_path,
         )
         raw_tools = get_available_tools(model_name=model_name, subagent_enabled=subagent_enabled, app_config=resolved_app_config) + [setup_agent]
-        configured_tools = _restore_weknora_tools_for_selected_scope(
+        filtered = filter_tools_by_skill_allowed_tools(raw_tools, skills_for_tool_policy, always_allowed_tool_names=ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES)
+        filtered = _restore_weknora_tools_for_selected_scope(
             raw_tools,
-            raw_tools,
+            filtered,
             scope_context=cfg,
         )
-        configured_tools = filter_tools_by_datalake_scope(configured_tools, enabled=datalake_enabled)
+        filtered = filter_tools_by_datalake_scope(filtered, enabled=datalake_enabled)
         if non_interactive:
-            configured_tools = [tool for tool in configured_tools if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
-        final_tools, setup = assemble_deferred_tools(configured_tools, enabled=resolved_app_config.tool_search.enabled)
+            filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
+        final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)
         mcp_routing_middleware = build_mcp_routing_middleware(
             final_tools,
             setup,
@@ -692,11 +686,10 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     # update_agent. Team/legacy shared agents and the default agent do not see
     # this tool: shared agents are immutable published snapshots, and exposing
     # the tool would let a viewer create a same-name personal shadow.
-    # Build skill search setup from the agent-available skills. The same
-    # allowlist is enforced by the runtime policy resolver, so describe_skill
-    # cannot expose a skill this custom agent is not allowed to activate.
+    # Build skill search setup from policy-filtered skills (same list used for
+    # tool-policy filtering), so describe_skill only exposes allowed skills.
     skill_setup = build_skill_search_setup(
-        enabled_skills,
+        skills_for_tool_policy,
         enabled=skill_search_enabled,
         container_base_path=container_base_path,
     )
@@ -719,21 +712,23 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
     extra_tools = [update_agent] if can_update_agent else []
     # Default lead agent (unchanged behavior)
     raw_tools = get_available_tools(model_name=model_name, groups=agent_config.tool_groups if agent_config else None, subagent_enabled=subagent_enabled, app_config=resolved_app_config)
-    configured_tools = _restore_weknora_tools_for_selected_scope(
-        raw_tools + extra_tools,
-        raw_tools + extra_tools,
+    filtered = filter_tools_by_skill_allowed_tools(raw_tools + extra_tools, skills_for_tool_policy, always_allowed_tool_names=ALWAYS_AVAILABLE_BUILTIN_TOOL_NAMES)
+    filtered = _restore_task_tool_for_subagent_mode(raw_tools, filtered, subagent_enabled=subagent_enabled)
+    filtered = _restore_weknora_tools_for_selected_scope(
+        raw_tools,
+        filtered,
         scope_context=cfg,
     )
-    configured_tools = filter_tools_by_datalake_scope(configured_tools, enabled=datalake_enabled)
+    filtered = filter_tools_by_datalake_scope(filtered, enabled=datalake_enabled)
     if non_interactive:
-        configured_tools = [tool for tool in configured_tools if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
-    final_tools, setup = assemble_deferred_tools(configured_tools, enabled=resolved_app_config.tool_search.enabled)
+        filtered = [tool for tool in filtered if tool.name not in _NON_INTERACTIVE_DISABLED_TOOL_NAMES]
+    final_tools, setup = assemble_deferred_tools(filtered, enabled=resolved_app_config.tool_search.enabled)
     mcp_routing_middleware = build_mcp_routing_middleware(
         final_tools,
         setup,
         top_k=resolved_app_config.tool_search.auto_promote_top_k,
     )
-    mcp_routing_hints_section = get_mcp_routing_hints_prompt_section(configured_tools, deferred_names=setup.deferred_names)
+    mcp_routing_hints_section = get_mcp_routing_hints_prompt_section(filtered, deferred_names=setup.deferred_names)
     if skill_setup.describe_skill_tool:
         final_tools.append(skill_setup.describe_skill_tool)
     if should_use_memory_tools(resolved_app_config.memory):

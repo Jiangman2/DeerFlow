@@ -625,6 +625,8 @@ class RunJournal(BaseCallbackHandler):
             output_tokens: Output token count
             total_tokens: Total token count (computed from input+output if 0/missing)
             cache_read_tokens: Optional prompt-cache-hit input tokens
+            llm_call_count: Optional number of external model calls represented
+                by the record (defaults to 1)
         """
         if not self._track_tokens:
             return
@@ -650,6 +652,11 @@ class RunJournal(BaseCallbackHandler):
             self._total_input_tokens += input_tk
             self._total_output_tokens += output_tk
             self._total_tokens += total_tk
+            try:
+                external_call_count = max(int(record.get("llm_call_count", 1) or 1), 1)
+            except (TypeError, ValueError):
+                external_call_count = 1
+            self._llm_call_count += external_call_count
 
             caller = str(record.get("caller", ""))
             if caller.startswith("subagent:"):

@@ -11,10 +11,6 @@ from agent_sandbox import Sandbox as AioSandboxClient
 from agent_sandbox.core.api_error import ApiError
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
-from deerflow.sandbox.remote_list_dir import (
-    parse_remote_list_dir_output,
-    remote_list_dir_command,
-)
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
 
@@ -106,8 +102,6 @@ class AioSandbox(Sandbox):
         self._home_dir = home_dir
         self._default_env = dict(default_env or {})
         self._lock = threading.Lock()
-        self._recovery_session_id: str | None = None
-        self._default_shell_corrupted = False
         self._closed = False
         # Set to True after bash.exec answers 404 (image predates /v1/bash/*),
         # so later env-bearing calls fail fast instead of re-hitting HTTP (#3921).
@@ -142,14 +136,6 @@ class AioSandbox(Sandbox):
                 return
             self._closed = True
             client = self._client
-            recovery_session_id = getattr(self, "_recovery_session_id", None)
-            if recovery_session_id is not None and client is not None:
-                self._cleanup_shell_session_best_effort(
-                    client,
-                    recovery_session_id,
-                    context="default recovery session",
-                )
-                self._recovery_session_id = None
             # Drop the reference under the lock for use-after-close safety: any
             # later command on this instance fails loudly instead of reusing a
             # half-closed client.
@@ -175,88 +161,6 @@ class AioSandbox(Sandbox):
             target.close()
         except Exception as e:
             logger.warning(f"Error closing AioSandbox client for {self.id}: {e}")
-
-    @staticmethod
-    def _cleanup_shell_session_best_effort(client, session_id: str, *, context: str) -> None:
-        try:
-            client.shell.cleanup_session(session_id)
-        except Exception as cleanup_error:
-            logger.warning(
-                "Failed to release shell session %s (%s): %s",
-                session_id,
-                context,
-                cleanup_error,
-            )
-
-    @staticmethod
-    def _cleanup_bash_session_best_effort(client, session_id: str) -> None:
-        try:
-            client.bash.close_session(session_id)
-        except Exception as cleanup_error:
-            logger.warning(
-                "Failed to release transient bash session %s: %s",
-                session_id,
-                cleanup_error,
-            )
-
-    @staticmethod
-    def _is_missing_shell_session_error(error: ApiError) -> bool:
-        body = error.body
-        if error.status_code != 404 or not isinstance(body, dict):
-            return False
-        message = body.get("message")
-        return isinstance(message, str) and "session not found" in message.casefold()
-
-    @staticmethod
-    def _shell_output(result) -> str:
-        return result.data.output if result and result.data else ""
-
-    def _create_shell_session(self, client) -> str:
-        session_id = str(uuid.uuid4())
-        client.shell.create_session(id=session_id)
-        return session_id
-
-    def _exec_shell(self, client, command: str, *, session_id: str | None) -> str:
-        kwargs = {
-            "command": command,
-            "no_change_timeout": self._DEFAULT_NO_CHANGE_TIMEOUT,
-        }
-        if session_id is not None:
-            kwargs["id"] = session_id
-        return self._shell_output(client.shell.exec_command(**kwargs))
-
-    def _rotate_and_retry_shell(
-        self,
-        client,
-        command: str,
-        *,
-        corrupted_session_id: str | None,
-        context: str,
-    ) -> tuple[str, str | None]:
-        if corrupted_session_id is not None:
-            self._cleanup_shell_session_best_effort(
-                client,
-                corrupted_session_id,
-                context=f"corrupted {context}",
-            )
-        replacement_id = self._create_shell_session(client)
-        try:
-            output = self._exec_shell(client, command, session_id=replacement_id)
-        except BaseException:
-            self._cleanup_shell_session_best_effort(
-                client,
-                replacement_id,
-                context=f"abandoned replacement for {context}",
-            )
-            raise
-        if output and _ERROR_OBSERVATION_SIGNATURE in output:
-            self._cleanup_shell_session_best_effort(
-                client,
-                replacement_id,
-                context=f"failed replacement for {context}",
-            )
-            return output, None
-        return output, replacement_id
 
     @property
     def home_dir(self) -> str:
@@ -290,20 +194,22 @@ class AioSandbox(Sandbox):
     ) -> str:
         """Execute a shell command in the sandbox.
 
-        Uses a lock to serialize unscoped requests. The AIO sandbox container's
-        implicit persistent shell can corrupt when hit from another process. If
-        corruption is detected, the healthy replacement is retained for later
-        calls instead of returning to the already-corrupted implicit session.
+        Uses a lock to serialize concurrent requests. The AIO sandbox
+        container maintains a single persistent shell session that
+        corrupts when hit with concurrent exec_command calls (returns
+        ``ErrorObservation`` instead of real output). If corruption is
+        detected despite the lock (e.g. multiple processes sharing a
+        sandbox), the command is retried on a fresh session.
 
         Args:
             command: The command to execute.
             env: Optional per-call environment variables (request-scoped secrets,
                 issue #3861). When provided, the command runs via the ``bash.exec``
-                API (which supports per-command env) on a fresh explicitly released
-                session so the secrets are scoped to this single command and never
-                persist; secret values travel in the structured ``env`` field, never
-                in the command string. When ``None`` the legacy persistent-shell path
-                runs unchanged.
+                API (which supports per-command env) on a fresh auto-created session
+                so the secrets are scoped to this single command and never persist;
+                secret values travel in the structured ``env`` field, never in the
+                command string. When ``None`` the legacy persistent-shell path runs
+                unchanged.
             timeout: Optional per-call timeout. The current sandbox SDK does not
                 expose a command-level timeout distinct from its client/request
                 timeout, so DeerFlow keeps using the backend's default here.
@@ -317,53 +223,33 @@ class AioSandbox(Sandbox):
         # keys; enforcing the POSIX env-var name rule keeps the contract
         # consistent with the local and e2b sandboxes and catches unsafe keys
         # early. ``_validate_extra_env`` is a no-op when ``env`` is None or empty.
-        command_env = {**getattr(self, "_default_env", {}), **(env or {})}
+        command_env = {**self._default_env, **(env or {})}
         _validate_extra_env(command_env)
         if command_env:
             return self._execute_with_env(command, command_env)
         captured_command = _capture_bash_exit_code(command)
         with self._lock:
             try:
-                client = self._client
-                if getattr(self, "_closed", False) or client is None:
-                    raise RuntimeError("sandbox client is closed")
-                if getattr(self, "_default_shell_corrupted", False) and getattr(
-                    self, "_recovery_session_id", None
-                ) is None:
-                    self._recovery_session_id = self._create_shell_session(client)
+                result = self._client.shell.exec_command(command=captured_command, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                output = result.data.output if result.data else ""
 
-                recovered_missing_session = False
-                try:
-                    output = self._exec_shell(
-                        client,
-                        captured_command,
-                        session_id=getattr(self, "_recovery_session_id", None),
-                    )
-                except ApiError as error:
-                    if not self._is_missing_shell_session_error(error):
-                        raise
-                    logger.warning(
-                        "Default sandbox shell session is missing; recreating it once"
-                    )
-                    self._default_shell_corrupted = True
-                    self._recovery_session_id = None
-                    recovered_missing_session = True
-                    output, self._recovery_session_id = self._rotate_and_retry_shell(
-                        client,
-                        captured_command,
-                        corrupted_session_id=None,
-                        context="default shell after missing session",
-                    )
-
-                if not recovered_missing_session and output and _ERROR_OBSERVATION_SIGNATURE in output:
-                    self._default_shell_corrupted = True
+                if output and _ERROR_OBSERVATION_SIGNATURE in output:
                     logger.warning("ErrorObservation detected in sandbox output, retrying on a fresh session")
-                    output, self._recovery_session_id = self._rotate_and_retry_shell(
-                        client,
-                        captured_command,
-                        corrupted_session_id=self._recovery_session_id,
-                        context="default shell",
-                    )
+                    # exec_command only auto-creates a session when called with
+                    # no id, so the recovery session must be created explicitly
+                    # before we target it on retry.
+                    fresh_id = str(uuid.uuid4())
+                    self._client.shell.create_session(id=fresh_id)
+                    try:
+                        result = self._client.shell.exec_command(command=captured_command, id=fresh_id, no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                        output = result.data.output if result.data else ""
+                    finally:
+                        # Release the one-shot recovery session, best-effort, so
+                        # repeated corruption can't accumulate sessions.
+                        try:
+                            self._client.shell.cleanup_session(fresh_id)
+                        except Exception as cleanup_error:
+                            logger.warning(f"Failed to release recovery session {fresh_id}: {cleanup_error}")
 
                 return _normalize_bash_exit_output(output)
             except Exception as e:
@@ -375,10 +261,10 @@ class AioSandbox(Sandbox):
 
         The persistent-shell ``shell.exec_command`` API has no env parameter, so
         injected commands use the ``bash.exec`` API which accepts per-command env.
-        Each call creates and explicitly closes a transient session, so injected
-        request-scoped secrets are scoped to this command, never persist across
-        calls, and do not consume the server's bounded session capacity. Secret
-        values travel in the structured ``env`` field, never in the command string.
+        Each call lets the sandbox auto-create a fresh session (no ``session_id``),
+        so injected request-scoped secrets are scoped to this command and never
+        persist across calls. Secret values travel in the structured ``env`` field,
+        never in the command string.
 
         Trade-off of the fresh-session choice: consecutive env-bearing bash calls
         within the same skill do not share session state (cwd, sourced venv,
@@ -409,52 +295,31 @@ class AioSandbox(Sandbox):
         return output
 
     def _run_bash_exec(self, command: str, env: dict[str, str]) -> str:
-        """Run bash.exec in a fresh session and always release that session."""
+        """Single bash.exec invocation with injected env (one fresh session)."""
         with self._lock:
-            client = self._client
-            if getattr(self, "_closed", False) or client is None:
-                return "Error: sandbox client is closed"
-            for attempt in range(2):
-                session_id = str(uuid.uuid4())
-                session_created = False
-                try:
-                    client.bash.create_session(session_id=session_id)
-                    session_created = True
-                    result = client.bash.exec(
-                        command=_capture_bash_exit_code(command),
-                        session_id=session_id,
-                        env=env,
-                        hard_timeout=self._DEFAULT_HARD_TIMEOUT,
-                    )
-                    data = result.data if result else None
-                    stdout = (data.stdout or "") if data else ""
-                    stderr = (data.stderr or "") if data else ""
-                    output = stdout
-                    if stderr:
-                        output += f"\nStd Error:\n{stderr}" if output else stderr
-                    return _normalize_bash_exit_output(output)
-                except ApiError as e:
-                    if self._is_missing_shell_session_error(e):
-                        if attempt == 0:
-                            logger.warning(
-                                "Transient bash.exec session disappeared; recreating it once"
-                            )
-                            continue
-                        return "Error: bash.exec session disappeared after retry"
-                    if e.status_code == 404:
-                        self._bash_exec_unsupported = True
-                        logger.error("Sandbox %s does not support bash.exec (/v1/bash/exec returned 404); env-bearing commands are unavailable until the sandbox image is upgraded to all-in-one-sandbox >= 1.9.3", self.id)
-                        return _BASH_EXEC_UNSUPPORTED_ERROR
-                    logger.error(f"Failed to execute command with injected env in sandbox: {e}")
-                    return f"Error: {e}"
-                except Exception as e:
-                    logger.error(f"Failed to execute command with injected env in sandbox: {e}")
-                    return f"Error: {e}"
-                finally:
-                    if session_created:
-                        self._cleanup_bash_session_best_effort(client, session_id)
-
-            return "Error: bash.exec session disappeared after retry"
+            try:
+                result = self._client.bash.exec(
+                    command=_capture_bash_exit_code(command),
+                    env=env,
+                    hard_timeout=self._DEFAULT_HARD_TIMEOUT,
+                )
+                data = result.data if result else None
+                stdout = (data.stdout or "") if data else ""
+                stderr = (data.stderr or "") if data else ""
+                output = stdout
+                if stderr:
+                    output += f"\nStd Error:\n{stderr}" if output else stderr
+                return _normalize_bash_exit_output(output)
+            except ApiError as e:
+                if e.status_code == 404:
+                    self._bash_exec_unsupported = True
+                    logger.error("Sandbox %s does not support bash.exec (/v1/bash/exec returned 404); env-bearing commands are unavailable until the sandbox image is upgraded to all-in-one-sandbox >= 1.9.3", self.id)
+                    return _BASH_EXEC_UNSUPPORTED_ERROR
+                logger.error(f"Failed to execute command with injected env in sandbox: {e}")
+                return f"Error: {e}"
+            except Exception as e:
+                logger.error(f"Failed to execute command with injected env in sandbox: {e}")
+                return f"Error: {e}"
 
     def read_file(self, path: str) -> str:
         """Read the content of a file in the sandbox.
@@ -552,27 +417,16 @@ class AioSandbox(Sandbox):
         Returns:
             The contents of the directory.
         """
-        resolved = path
         with self._lock:
             try:
-                result = self._client.shell.exec_command(
-                    command=remote_list_dir_command(resolved, max_depth),
-                    no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
-                )
+                result = self._client.shell.exec_command(command=f"find {shlex.quote(path)} -maxdepth {max_depth} -type f -o -type d 2>/dev/null | head -500", no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT)
+                output = result.data.output if result.data else ""
+                if output:
+                    return [line.strip() for line in output.strip().split("\n") if line.strip()]
+                return []
             except Exception as e:
                 logger.error(f"Failed to list directory in sandbox: {e}")
-                raise OSError(
-                    f"Failed to list directory '{resolved}' in sandbox: {e}"
-                ) from e
-            if result.data is None:
-                raise OSError(
-                    f"Failed to list directory '{resolved}' in sandbox: empty response"
-                )
-            return parse_remote_list_dir_output(
-                result.data.output or "",
-                resolved,
-                pipeline_exit_code=getattr(result.data, "exit_code", None),
-            )
+                return []
 
     def write_file(self, path: str, content: str, append: bool = False) -> None:
         """Write content to a file in the sandbox.
@@ -593,9 +447,10 @@ class AioSandbox(Sandbox):
                         no_change_timeout=self._DEFAULT_NO_CHANGE_TIMEOUT,
                     )
                 if append:
-                    self._client.file.write_file(file=path, content=content, append=True)
-                else:
-                    self._client.file.write_file(file=path, content=content)
+                    existing = self.read_file(path)
+                    if not existing.startswith("Error:"):
+                        content = existing + content
+                self._client.file.write_file(file=path, content=content)
             except Exception as e:
                 logger.error(f"Failed to write file in sandbox: {e}")
                 raise
@@ -621,11 +476,8 @@ class AioSandbox(Sandbox):
             rel_path = entry.path[len(root_path) :].lstrip("/")
             if path_matches(pattern, rel_path):
                 matches.append(entry.path)
-                # Scan one eligible match past the cap. Returning on the
-                # max-th match misclassifies an exactly-full result as
-                # truncated and returns one match when max_results is zero.
-                if len(matches) > max_results:
-                    return matches[:max_results], True
+                if len(matches) >= max_results:
+                    return matches, True
         return matches, False
 
     def grep(

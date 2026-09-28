@@ -18,11 +18,9 @@ import re
 import stat
 import zipfile
 from collections.abc import Iterable
-from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
-from deerflow.skills.package_files import is_code_file, is_executable_binary_prefix
 from deerflow.skills.package_paths import is_eval_fixture_skill_md
 from deerflow.skills.skillscan.models import (
     FindingSeverity,
@@ -41,17 +39,10 @@ MAX_FILE_BYTES = 64 * 1024 * 1024
 _BLOCK_SEVERITY = "CRITICAL"
 _NESTED_ZIP_PEEK_MEMBER_LIMIT = 256
 _MAX_ARCHIVE_MEMBERS = 4096
-_TEXT_PROBE_BYTES = 4096
 
 _SPECS = [
     RuleSpec("package-path-traversal", "CRITICAL", "Archive member path traverses outside the skill root.", "Remove parent-directory traversal from the package path."),
     RuleSpec("package-absolute-path", "CRITICAL", "Archive member path is absolute.", "Use relative paths inside the skill archive."),
-    RuleSpec(
-        "package-ads-stream-name",
-        "CRITICAL",
-        "Archive member path contains a colon, which on Windows/NTFS addresses an alternate data stream hidden from directory listing.",
-        "Remove colons from archive member paths.",
-    ),
     RuleSpec("package-symlink", "HIGH", "Package contains a symlink entry.", "Remove symlinks from the skill package."),
     RuleSpec("package-nested-skill-md", "CRITICAL", "Package contains a nested SKILL.md file.", "Keep exactly one SKILL.md at the skill root."),
     RuleSpec("package-oversized-total", "CRITICAL", "Package total uncompressed size exceeds the limit.", "Remove large files or split assets out of the skill package."),
@@ -60,7 +51,6 @@ _SPECS = [
     RuleSpec("package-executable-binary", "CRITICAL", "Package contains an executable binary.", "Remove binary executables from the skill package."),
     RuleSpec("package-nested-archive", "HIGH", "Package contains a nested archive file.", "Unpack and review nested archives before packaging the skill."),
     RuleSpec("package-hidden-sensitive-file", "HIGH", "Package contains a hidden sensitive file.", "Remove hidden credential or package-manager config files."),
-    RuleSpec("package-undecodable-script", "HIGH", "Code file is not NUL-free UTF-8 text, so it was analyzed from a lossy decode.", "Store code as UTF-8 text without NUL bytes, and keep compiled or binary artifacts out of scripts/."),
     RuleSpec("package-git-directory", "MEDIUM", "Package contains a .git directory.", "Package only source files needed by the skill, excluding repository metadata."),
     RuleSpec("secret-private-key", "CRITICAL", "Private key material is embedded in skill content.", "Move private keys to a managed secret store and remove them from the skill."),
     RuleSpec("secret-cloud-token", "CRITICAL", "High-confidence cloud or API token is embedded in skill content.", "Move tokens to environment variables or a secret store."),
@@ -72,7 +62,7 @@ _SPECS = [
     RuleSpec("python-dynamic-exec", "CRITICAL", "Python dynamic code execution primitive is used in a skill file.", "Remove dynamic execution and replace it with explicit typed logic."),
     RuleSpec("python-shell-exec", "CRITICAL", "Python shell execution primitive is used in a skill file.", "Use subprocess with a fixed argument list and shell=False, or remove shell execution."),
     RuleSpec("python-sensitive-exfil", "CRITICAL", "Python code reads a sensitive path and uses an outbound network sink in the same file.", "Remove the sensitive read or network sink, and keep credential access outside skills."),
-    RuleSpec("python-env-dump-exfil", "CRITICAL", "Python code sends a bulk process-environment value to an outbound network sink.", "Avoid bulk environment reads and never send environment data over the network."),
+    RuleSpec("python-env-dump-exfil", "CRITICAL", "Python code reads the process environment in bulk and uses an outbound network sink in the same file.", "Avoid bulk environment reads and never send environment data over the network."),
     RuleSpec("python-reverse-shell", "CRITICAL", "Python code matches a reverse-shell shape.", "Remove reverse-shell behavior from the skill."),
     RuleSpec("python-dynamic-import", "HIGH", "Python dynamically imports a non-literal module.", "Use explicit imports or a constrained allowlist."),
     RuleSpec("python-subprocess", "HIGH", "Python invokes subprocess without shell=True.", "Review subprocess usage and keep arguments fixed and minimal."),
@@ -209,7 +199,7 @@ def scan_archive_preflight(archive_path: Path) -> ScanResult:
                 except Exception as e:
                     scanner_errors.append(f"{normalized}: failed to read archive member prefix: {e}")
                     continue
-                if is_executable_binary_prefix(prefix):
+                if _is_executable_binary(prefix):
                     findings.append(_finding("package-executable-binary", file=normalized, evidence=_binary_magic_evidence(prefix)))
                 if _is_nested_archive_name(normalized) or _looks_like_archive(prefix):
                     findings.append(_nested_archive_finding(normalized, prefix, lambda: _read_archive_member(zf, info), scanner_errors))
@@ -239,15 +229,7 @@ def scan_skill_dir(skill_dir: Path) -> ScanResult:
         findings.extend(_scan_file_package_properties(rel_path, file_bytes, path.stat().st_size))
         text = _decode_text_for_analysis(file_bytes)
         if text is None:
-            text = _decode_script_lossily(rel_path, file_bytes)
-            if text is None:
-                continue
-            evidence = "NUL byte" if b"\x00" in file_bytes[:_TEXT_PROBE_BYTES] else "invalid UTF-8"
-            findings.append(_finding("package-undecodable-script", file=rel_path, evidence=evidence))
-            # A decoded executable is string-table noise that reads as secrets
-            # and URLs; its CRITICAL executable finding already blocks it.
-            if is_executable_binary_prefix(file_bytes[:8]):
-                continue
+            continue
 
         try:
             findings.extend(_scan_text_file(rel_path, text))
@@ -264,8 +246,6 @@ def _scan_archive_member_metadata(info: zipfile.ZipInfo, normalized: str) -> lis
         findings.append(_finding("package-absolute-path", file=normalized, evidence=info.filename))
     elif _archive_member_traverses(info.filename):
         findings.append(_finding("package-path-traversal", file=normalized, evidence=info.filename))
-    elif _archive_member_has_colon(info.filename):
-        findings.append(_finding("package-ads-stream-name", file=normalized, evidence=info.filename))
     if _is_symlink_member(info):
         findings.append(_finding("package-symlink", file=normalized, evidence=info.filename))
     parts = PurePosixPath(normalized).parts
@@ -287,7 +267,7 @@ def _scan_file_package_properties(rel_path: str, file_bytes: bytes, file_size: i
         findings.append(_finding("package-git-directory", file=rel_path, evidence=".git"))
     if _is_nested_archive_name(rel_path) or _looks_like_archive(file_bytes):
         findings.append(_nested_archive_finding(rel_path, file_bytes[:8], lambda: file_bytes, []))
-    if is_executable_binary_prefix(file_bytes[:8]):
+    if _is_executable_binary(file_bytes[:8]):
         findings.append(_finding("package-executable-binary", file=rel_path, evidence=_binary_magic_evidence(file_bytes[:8])))
     return findings
 
@@ -368,11 +348,8 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
     sensitive_node: ast.AST | None = None
     env_node: ast.AST | None = None
     network_node: ast.AST | None = None
-    env_exfil_node: ast.AST | None = None
     reverse_shell_parts: set[str] = set()
     reverse_shell_node: ast.AST | None = None
-    env_dump_names = _collect_python_env_dump_names(tree, aliases)
-    network_connection_names = _collect_python_network_connection_names(tree, aliases)
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -393,7 +370,7 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
         call_name = _python_call_name(node, aliases)
         if call_name in {"eval", "exec"} or (call_name == "compile" and _compile_mode_is_exec(node)):
             findings.append(_finding_for_node("python-dynamic-exec", rel_path, node, call_name))
-        elif call_name in {"os.system", "os.popen"} or (call_name.startswith("subprocess.") and _call_shell_may_be_true(node)):
+        elif call_name in {"os.system", "os.popen"} or (call_name.startswith("subprocess.") and _call_has_shell_true(node)):
             findings.append(_finding_for_node("python-shell-exec", rel_path, node, call_name))
         elif call_name.startswith("subprocess."):
             findings.append(_finding_for_node("python-subprocess", rel_path, node, call_name))
@@ -407,14 +384,6 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
             has_network_sink = True
             network_node = network_node or node
 
-        if env_exfil_node is None and _call_sends_environment_dump(
-            node,
-            aliases,
-            env_dump_names=env_dump_names,
-            network_connection_names=network_connection_names,
-        ):
-            env_exfil_node = node
-
         if call_name == "os.dup2":
             reverse_shell_parts.add("dup2")
             reverse_shell_node = reverse_shell_node or node
@@ -423,24 +392,6 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
         elif call_name.startswith("subprocess.") or call_name in {"os.system", "os.popen"}:
             reverse_shell_parts.add("subprocess")
 
-    # Direct module-level clients are handled by the precise data-flow check
-    # above. Instance clients need the bounded constructor-to-handle analysis:
-    # their call name is only ``session.post`` / ``conn.request`` and therefore
-    # cannot prove the client type on its own. Keep the upstream conservative
-    # composition (a bulk environment read plus a proven instance-client sink)
-    # while retaining the enterprise branch's more precise direct-call flow.
-    if not has_network_sink or env_exfil_node is None:
-        try:
-            if handle_sink := _find_client_handle_sink(tree, rel_path):
-                has_network_sink = True
-                network_node = network_node or handle_sink
-                if env_exfil_node is None and has_env_dump:
-                    env_exfil_node = env_node or handle_sink
-        except RecursionError:
-            # The AST is untrusted. Preserve deterministic findings collected above when an
-            # adversarially deep tree exceeds the recursive handle-analysis budget.
-            logger.warning("SkillScan client-handle analysis hit recursion limit for %s", rel_path)
-
     if {"dup2", "socket", "subprocess"} <= reverse_shell_parts:
         findings.append(_finding_for_node("python-reverse-shell", rel_path, reverse_shell_node, "socket + dup2 + subprocess"))
 
@@ -448,8 +399,8 @@ def _scan_python(rel_path: str, text: str) -> list[SecurityFinding]:
         findings.append(_finding_for_node("python-sensitive-exfil", rel_path, sensitive_node or network_node, "sensitive read + network sink"))
     elif has_sensitive_read:
         findings.append(_finding_for_node("python-sensitive-path-read", rel_path, sensitive_node, "sensitive path read"))
-    if env_exfil_node is not None:
-        findings.append(_finding_for_node("python-env-dump-exfil", rel_path, env_exfil_node, "environment dump flows to network sink"))
+    if has_env_dump and has_network_sink:
+        findings.append(_finding_for_node("python-env-dump-exfil", rel_path, env_node or network_node, "environment dump + network sink"))
     return findings
 
 
@@ -537,7 +488,7 @@ def _nested_zip_contains_executable(data: bytes) -> bool:
                     continue
                 try:
                     with nested.open(info) as member:
-                        if is_executable_binary_prefix(member.read(8)):
+                        if _is_executable_binary(member.read(8)):
                             return True
                 except Exception:
                     continue
@@ -594,18 +545,6 @@ def _archive_member_traverses(name: str) -> bool:
     return ".." in PurePosixPath(name.replace("\\", "/")).parts
 
 
-def _archive_member_has_colon(name: str) -> bool:
-    # A colon has no legitimate use in a relative archive member path (zip
-    # entries use ``/`` separators; a real Windows drive prefix is already
-    # caught by ``_archive_member_is_absolute``). On Windows/NTFS a colon
-    # elsewhere in the path addresses an Alternate Data Stream on the
-    # preceding path component (e.g. ``scripts/run.sh:hidden.txt`` attaches
-    # hidden content to ``run.sh`` instead of creating a sibling file), and
-    # that stream is invisible to directory-listing-based scanning. Reject
-    # outright rather than trying to allow-list "safe" colon positions.
-    return ":" in name
-
-
 def _is_symlink_member(info: zipfile.ZipInfo) -> bool:
     return stat.S_ISLNK(info.external_attr >> 16)
 
@@ -632,6 +571,10 @@ def _looks_like_archive(file_bytes: bytes) -> bool:
     return file_bytes.startswith(b"PK\x03\x04") or file_bytes.startswith(b"\x1f\x8b") or file_bytes.startswith(b"7z\xbc\xaf\x27\x1c")
 
 
+def _is_executable_binary(prefix: bytes) -> bool:
+    return prefix.startswith(b"\x7fELF") or prefix.startswith(b"MZ") or prefix.startswith((b"\xfe\xed\xfa", b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe"))
+
+
 def _binary_magic_evidence(prefix: bytes) -> str:
     if prefix.startswith(b"\x7fELF"):
         return "ELF"
@@ -643,21 +586,12 @@ def _binary_magic_evidence(prefix: bytes) -> str:
 def _decode_text_for_analysis(file_bytes: bytes) -> str | None:
     # Binaries are rejected by the NUL probe and the decode failure below, so
     # every NUL-free, UTF-8-decodable file is analyzed regardless of extension.
-    if b"\x00" in file_bytes[:_TEXT_PROBE_BYTES]:
+    if b"\x00" in file_bytes[:4096]:
         return None
     try:
         return file_bytes.decode("utf-8")
     except UnicodeDecodeError:
         return None
-
-
-def _decode_script_lossily(rel_path: str, file_bytes: bytes) -> str | None:
-    # Interpreters run code despite a stray NUL or non-UTF-8 byte (a PEP 263
-    # cookie even makes Latin-1 valid Python), so skipping code files as binaries
-    # would let one byte hide the whole file. Replacement characters keep lines.
-    if not is_code_file(rel_path, file_bytes):
-        return None
-    return file_bytes.decode("utf-8", errors="replace")
 
 
 def _is_python_path(rel_path: str, text: str) -> bool:
@@ -706,141 +640,8 @@ def _python_name(node: ast.AST, aliases: dict[str, str]) -> str:
     return ""
 
 
-def _python_import_name(node: ast.AST, aliases: dict[str, str]) -> str:
-    """Resolve only names proven by the scope-local import map."""
-    if isinstance(node, ast.Name):
-        return aliases.get(node.id, "")
-    if isinstance(node, ast.Attribute):
-        base = _python_import_name(node.value, aliases)
-        return f"{base}.{node.attr}" if base else ""
-    return ""
-
-
 def _python_call_name(node: ast.Call, aliases: dict[str, str]) -> str:
     return _python_name(node.func, aliases)
-
-
-def _python_assigned_names(target: ast.AST) -> set[str]:
-    if isinstance(target, ast.Name):
-        return {target.id}
-    if isinstance(target, (ast.Tuple, ast.List)):
-        return {name for item in target.elts for name in _python_assigned_names(item)}
-    return set()
-
-
-def _python_value_references_names(node: ast.AST, names: set[str]) -> bool:
-    return bool(names) and any(isinstance(item, ast.Name) and item.id in names for item in ast.walk(node))
-
-
-def _python_value_contains_bulk_environment_read(node: ast.AST, aliases: dict[str, str]) -> bool:
-    """Return whether *node* evaluates the whole process environment.
-
-    Reading one configured value through ``os.environ.get`` or
-    ``os.environ["KEY"]`` is deliberately not a bulk read.  That distinction
-    keeps ordinary API clients from being classified as credential exfiltration
-    merely because the same module also performs an HTTP request.
-    """
-
-    if isinstance(node, (ast.Name, ast.Attribute)):
-        return _python_name(node, aliases) == "os.environ"
-    if isinstance(node, ast.Subscript) and _python_name(node.value, aliases) == "os.environ":
-        return False
-    if isinstance(node, ast.Call):
-        call_name = _python_call_name(node, aliases)
-        if call_name == "os.environ.get":
-            return False
-        if call_name in {
-            "os.environ.copy",
-            "os.environ.items",
-            "os.environ.keys",
-            "os.environ.values",
-        }:
-            return True
-        receiver = node.func.value if isinstance(node.func, ast.Attribute) else None
-        return (
-            receiver is not None
-            and _python_value_contains_bulk_environment_read(receiver, aliases)
-            or any(_python_value_contains_bulk_environment_read(arg, aliases) for arg in node.args)
-            or any(_python_value_contains_bulk_environment_read(keyword.value, aliases) for keyword in node.keywords)
-        )
-    if isinstance(node, ast.Dict):
-        return any(key is None and _python_value_contains_bulk_environment_read(value, aliases) for key, value in zip(node.keys, node.values, strict=True)) or any(
-            _python_value_contains_bulk_environment_read(value, aliases) for value in node.values
-        )
-    return any(_python_value_contains_bulk_environment_read(child, aliases) for child in ast.iter_child_nodes(node))
-
-
-def _collect_python_env_dump_names(tree: ast.AST, aliases: dict[str, str]) -> set[str]:
-    """Collect local names that transitively hold a bulk environment value."""
-
-    tainted: set[str] = set()
-    assignments: list[tuple[set[str], ast.AST]] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign):
-            names = {name for target in node.targets for name in _python_assigned_names(target)}
-            assignments.append((names, node.value))
-        elif isinstance(node, ast.AnnAssign) and node.value is not None:
-            assignments.append((_python_assigned_names(node.target), node.value))
-        elif isinstance(node, ast.NamedExpr):
-            assignments.append((_python_assigned_names(node.target), node.value))
-
-    changed = True
-    while changed:
-        changed = False
-        for names, value in assignments:
-            if names <= tainted:
-                continue
-            if _python_value_contains_bulk_environment_read(value, aliases) or _python_value_references_names(value, tainted):
-                tainted.update(names)
-                changed = True
-    return tainted
-
-
-def _collect_python_network_connection_names(tree: ast.AST, aliases: dict[str, str]) -> set[str]:
-    """Collect local names that hold sockets created by recognized sinks."""
-
-    names: set[str] = set()
-    for node in ast.walk(tree):
-        if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
-            continue
-        value = node.value
-        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-        if isinstance(value, ast.Call) and _python_call_name(value, aliases) in {
-            "socket.socket",
-            "socket.create_connection",
-        }:
-            for target in targets:
-                names.update(_python_assigned_names(target))
-    return names
-
-
-def _python_call_is_network_transfer(
-    node: ast.Call,
-    aliases: dict[str, str],
-    network_connection_names: set[str],
-) -> bool:
-    call_name = _python_call_name(node, aliases)
-    if _call_is_network_sink(call_name):
-        return True
-    if not isinstance(node.func, ast.Attribute) or node.func.attr not in {"send", "sendall", "sendto"}:
-        return False
-    receiver = node.func.value
-    if isinstance(receiver, ast.Name) and receiver.id in network_connection_names:
-        return True
-    return any(isinstance(child, ast.Call) and _call_is_network_sink(_python_call_name(child, aliases)) for child in ast.walk(receiver))
-
-
-def _call_sends_environment_dump(
-    node: ast.Call,
-    aliases: dict[str, str],
-    *,
-    env_dump_names: set[str],
-    network_connection_names: set[str],
-) -> bool:
-    if not _python_call_is_network_transfer(node, aliases, network_connection_names):
-        return False
-    values = [*node.args, *(keyword.value for keyword in node.keywords)]
-    return any(_python_value_contains_bulk_environment_read(value, aliases) or _python_value_references_names(value, env_dump_names) for value in values)
 
 
 def _compile_mode_is_exec(node: ast.Call) -> bool:
@@ -849,27 +650,8 @@ def _compile_mode_is_exec(node: ast.Call) -> bool:
     return any(keyword.arg == "mode" and isinstance(keyword.value, ast.Constant) and keyword.value.value == "exec" for keyword in node.keywords)
 
 
-def _call_shell_may_be_true(node: ast.Call) -> bool:
-    # Fail closed on ambiguity: a ``shell=`` keyword is only safe when it is a
-    # literal, statically-provable ``False``. Any other value under that keyword,
-    # the literal ``True``, any other literal, or a non-literal expression such as
-    # a variable or a function call (``shell=shell_flag``, ``shell=bool(1)``),
-    # cannot be proven safe by static analysis, so it is treated the same as an
-    # explicit ``shell=True`` rather than silently falling through to the
-    # non-blocking ``python-subprocess`` classification.
-    for keyword in node.keywords:
-        if keyword.arg is None:
-            # ``**mapping`` / ``**kwargs`` unpacking: represented in the AST as a
-            # keyword with ``arg is None``. The mapping's contents (and whether it
-            # even carries a ``shell`` key) are not knowable by static analysis, so
-            # this fails closed the same as a variable/expression shell= value.
-            # Deliberate, documented over-block: a harmless kwargs-unpack with no
-            # ``shell`` key also blocks, since the alternative (inspecting the
-            # unpacked mapping's contents) is not generally possible statically.
-            return True
-        if keyword.arg == "shell":
-            return not (isinstance(keyword.value, ast.Constant) and keyword.value.value is False)
-    return False
+def _call_has_shell_true(node: ast.Call) -> bool:
+    return any(keyword.arg == "shell" and isinstance(keyword.value, ast.Constant) and keyword.value.value is True for keyword in node.keywords)
 
 
 def _call_is_network_sink(call_name: str) -> bool:
@@ -896,472 +678,6 @@ def _call_is_network_sink(call_name: str) -> bool:
         "socket.socket",
         "socket.create_connection",
     }
-
-
-# Instance clients split construction from egress: the constructor does no I/O and the
-# outbound call is an attribute call on a variable, so neither statement alone is a
-# call-name sink. The signal therefore follows only the minimum high-confidence chain:
-# known constructor -> simple name/alias -> constructor-supported direct method call in
-# the same lexical scope. Nested scopes inherit only stable import aliases and never client
-# handles. Comprehensions, walrus-bearing statements, annotations, and executable expressions
-# in complex binding targets deliberately produce no finding from this signal; any names those
-# skipped constructs may bind are invalidated so stale state cannot create a finding.
-#
-# Compound bodies are still walked from isolated entry-state copies so `if True:` is not a
-# universal bypass, but ambiguous bindings are dropped rather than joined. Every AST visit
-# and copied scope entry consumes a deterministic work budget, and the walk stops as soon
-# as it finds one sink. This bounds the branch-copy cost on untrusted source.
-
-
-@dataclass(frozen=True)
-class _ClientSpec:
-    methods: frozenset[str]
-    sync_context: bool = False
-    async_context: bool = False
-
-
-# Keep response-only operations such as `getresponse()` out: this signal needs outbound I/O.
-_PYTHON_CLIENT_SPECS = {
-    "http.client.HTTPConnection": _ClientSpec(frozenset({"request", "connect", "send"})),
-    "http.client.HTTPSConnection": _ClientSpec(frozenset({"request", "connect", "send"})),
-    "requests.Session": _ClientSpec(frozenset({"request", "get", "post", "put", "patch", "delete", "head", "options", "send"}), sync_context=True),
-    "urllib3.PoolManager": _ClientSpec(frozenset({"request", "urlopen"}), sync_context=True),
-    "aiohttp.ClientSession": _ClientSpec(frozenset({"request", "get", "post", "put", "patch", "delete", "head", "options"}), async_context=True),
-}
-_PYTHON_CLIENT_CONSTRUCTORS = frozenset(_PYTHON_CLIENT_SPECS)
-_PYTHON_CLIENT_SINK_METHODS = frozenset().union(*(spec.methods for spec in _PYTHON_CLIENT_SPECS.values()))
-_PYTHON_CLIENT_ANALYSIS_BUDGET = 100_000
-_PYTHON_SCOPE_NODES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
-_PYTHON_COMPREHENSION_NODES = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
-_PYTHON_MATCH_CAPTURE_NODES = (ast.MatchAs, ast.MatchStar, ast.MatchMapping)
-# Statements whose parts do not all run, or run an unknown number of times. Their bodies are
-# analyzed from a copy and every name they bind is dropped afterwards.
-_PYTHON_BRANCHING_NODES = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.TryStar, ast.Match)
-
-
-@dataclass
-class _ClientScope:
-    handles: dict[str, str]
-    aliases: dict[str, str]
-    unstable_aliases: frozenset[str] = frozenset()
-
-    def copy_without(self, analysis: _ClientAnalysis, names: set[str] | None = None) -> _ClientScope:
-        names = names or set()
-        analysis.charge(len(self.handles) + len(self.aliases) + 1)
-        return _ClientScope(
-            handles={name: constructor for name, constructor in self.handles.items() if name not in names},
-            aliases={name: target for name, target in self.aliases.items() if name not in names},
-            unstable_aliases=self.unstable_aliases,
-        )
-
-    def aliases_only(self, analysis: _ClientAnalysis, names: set[str] | None = None, unstable_aliases: frozenset[str] = frozenset()) -> _ClientScope:
-        names = names or set()
-        analysis.charge(len(self.aliases) + 1)
-        return _ClientScope(
-            handles={},
-            aliases={name: target for name, target in self.aliases.items() if name not in names and name not in self.unstable_aliases},
-            unstable_aliases=unstable_aliases,
-        )
-
-
-class _ClientAnalysisBudgetExceeded(Exception):
-    pass
-
-
-@dataclass
-class _ClientAnalysis:
-    remaining: int
-    found: ast.AST | None = None
-
-    def charge(self, cost: int = 1) -> None:
-        if cost > self.remaining:
-            raise _ClientAnalysisBudgetExceeded
-        self.remaining -= cost
-
-
-def _find_client_handle_sink(tree: ast.AST, rel_path: str) -> ast.AST | None:
-    analysis = _ClientAnalysis(remaining=_PYTHON_CLIENT_ANALYSIS_BUDGET)
-    module = _ClientScope(handles={}, aliases={})
-    try:
-        if isinstance(tree, ast.Module):
-            module.unstable_aliases = _client_unstable_aliases(tree.body, analysis)
-        _walk_client_scope(tree, module, module, analysis)
-    except _ClientAnalysisBudgetExceeded:
-        logger.warning("SkillScan client-handle analysis exhausted work budget for %s", rel_path)
-    return analysis.found
-
-
-def _walk_client_statements(body: list[ast.AST], scope: _ClientScope, inherited: _ClientScope, analysis: _ClientAnalysis) -> None:
-    """Walk ordinary statements; a walrus-bearing statement is an explicit false negative."""
-    for statement in body:
-        if analysis.found is not None:
-            return
-        walrus_names = set() if isinstance(statement, _PYTHON_SCOPE_NODES) else _walrus_target_names(statement, analysis)
-        if walrus_names:
-            bound_names: set[str] = set()
-            declared_names: set[str] = set()
-            _collect_client_scope_bindings(statement, bound_names, declared_names, analysis)
-            _drop_client_bindings(scope, walrus_names | (bound_names - declared_names))
-            continue
-        _walk_client_scope(statement, scope, inherited, analysis)
-
-
-def _walk_client_scope(node: ast.AST, scope: _ClientScope, inherited: _ClientScope, analysis: _ClientAnalysis) -> None:
-    """Walk executable AST in statement order, carrying a one-level client-handle map."""
-    if analysis.found is not None:
-        return
-    analysis.charge()
-    if isinstance(node, ast.Module):
-        _walk_client_statements(node.body, scope, inherited, analysis)
-        return
-    if isinstance(node, _PYTHON_SCOPE_NODES):
-        _walk_client_nested_scope(node, scope, inherited, analysis)
-        return
-    if isinstance(node, _PYTHON_COMPREHENSION_NODES):
-        return
-    if isinstance(node, ast.NamedExpr):
-        _drop_client_bindings(scope, set(_client_assignment_target_names(node.target)))
-        return
-    if isinstance(node, _PYTHON_BRANCHING_NODES):
-        _walk_client_branching(node, scope, inherited, analysis)
-        return
-    if isinstance(node, (ast.Import, ast.ImportFrom)):
-        _bind_client_import(node, scope)
-        return
-    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
-        if node.value is not None:
-            _walk_client_scope(node.value, scope, inherited, analysis)
-        if analysis.found is not None:
-            return
-        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-        _rebind_client_scope(targets, node.value if isinstance(node, (ast.Assign, ast.AnnAssign)) else None, scope)
-        return
-    if isinstance(node, (ast.With, ast.AsyncWith)):
-        bound_names = {name for item in node.items if item.optional_vars is not None for name in _client_assignment_target_names(item.optional_vars)}
-        for item in node.items:
-            _walk_client_scope(item.context_expr, scope, inherited, analysis)
-            if analysis.found is not None:
-                return
-            constructor = _client_constructor_from_value(item.context_expr, scope)
-            if item.optional_vars is not None:
-                _drop_client_bindings(scope, set(_client_assignment_target_names(item.optional_vars)))
-            if constructor:
-                spec = _PYTHON_CLIENT_SPECS[constructor]
-                supported = spec.async_context if isinstance(node, ast.AsyncWith) else spec.sync_context
-                if not supported:
-                    _drop_client_bindings(scope, bound_names)
-                    return
-                if isinstance(item.optional_vars, ast.Name):
-                    scope.handles[item.optional_vars.id] = constructor
-        _walk_client_statements(node.body, scope, inherited, analysis)
-        return
-    if isinstance(node, ast.Delete):
-        _drop_client_bindings(scope, {name for target in node.targets for name in _client_assignment_target_names(target)})
-        return
-    if isinstance(node, ast.Call):
-        if _call_is_client_handle_sink(node, scope.handles):
-            analysis.found = node
-            return
-    for child in ast.iter_child_nodes(node):
-        _walk_client_scope(child, scope, inherited, analysis)
-        if analysis.found is not None:
-            return
-
-
-def _walk_client_branching(node: ast.AST, scope: _ClientScope, inherited: _ClientScope, analysis: _ClientAnalysis) -> None:
-    """Analyze a compound statement without deciding which of its parts run, or in what order.
-
-    Every name the statement may bind is dropped *before* any body is walked, not after. Dropping
-    afterwards would be wrong for the parts that run after a sibling has already rebound the name --
-    a `finally` after a handler replaced the handle, a later `except*` clause, a second loop
-    iteration -- and each of those disagreements is a benign file hard-blocked as `CRITICAL`.
-    Ordering the parts instead of dropping is the control-flow interpreter this signal is not.
-
-    Bodies are still walked, each from its own copy, so a construction inside one branch cannot leak
-    into a sibling and a sink inside a branch is still seen. What is lost is a name that the same
-    statement both calls and rebinds; that is the documented false negative.
-    """
-    _drop_client_bindings(scope, _branching_bound_names(node, analysis))
-    for header in _branching_header_exprs(node):
-        walrus_names = _walrus_target_names(header, analysis)
-        if walrus_names:
-            _drop_client_bindings(scope, walrus_names)
-            continue
-        _walk_client_scope(header, scope, inherited, analysis)
-        if analysis.found is not None:
-            return
-    for body in _branching_bodies(node):
-        branch_scope = scope.copy_without(analysis)
-        _walk_client_statements(body, branch_scope, inherited, analysis)
-        if analysis.found is not None:
-            return
-
-
-def _branching_header_exprs(node: ast.AST) -> list[ast.AST]:
-    if isinstance(node, ast.If):
-        return [node.test]
-    if isinstance(node, (ast.For, ast.AsyncFor)):
-        return [node.iter]
-    if isinstance(node, ast.While):
-        return [node.test]
-    if isinstance(node, ast.Match):
-        return [node.subject]
-    return []  # `try` has no header; handler types run only when an exception was raised
-
-
-def _branching_bodies(node: ast.AST) -> list[list[ast.AST]]:
-    if isinstance(node, (ast.Try, ast.TryStar)):
-        # A handler's `type` expression and its body run on the same path, so they share one copy.
-        handlers = [[*([handler.type] if handler.type is not None else []), *handler.body] for handler in node.handlers]
-        return [node.body, *handlers, node.orelse, node.finalbody]
-    if isinstance(node, ast.Match):
-        return [[*([case.guard] if case.guard is not None else []), *case.body] for case in node.cases]
-    if isinstance(node, ast.If):
-        return [node.body, node.orelse]
-    if isinstance(node, (ast.For, ast.AsyncFor)):
-        return [node.body, node.orelse]
-    if isinstance(node, ast.While):
-        return [node.body, node.orelse]
-    return []
-
-
-def _branching_bound_names(node: ast.AST, analysis: _ClientAnalysis) -> set[str]:
-    """Every name the statement may bind, including the loop/handler/capture targets themselves."""
-    names: set[str] = set()
-    declared: set[str] = set()
-    if isinstance(node, (ast.For, ast.AsyncFor)):
-        names.update(_client_assignment_target_names(node.target))
-    for body in _branching_bodies(node):
-        for statement in body:
-            _collect_client_scope_bindings(statement, names, declared, analysis)
-    if isinstance(node, (ast.Try, ast.TryStar)):
-        names.update(handler.name for handler in node.handlers if handler.name)
-    if isinstance(node, ast.Match):
-        for case in node.cases:
-            _collect_client_scope_bindings(case.pattern, names, declared, analysis)
-    return names - declared
-
-
-def _walrus_target_names(node: ast.AST, analysis: _ClientAnalysis) -> set[str]:
-    """Return walrus targets in this scope so the entire ambiguous statement can be skipped."""
-    if isinstance(node, _PYTHON_SCOPE_NODES):
-        return set()
-    found: set[str] = set()
-    stack = [node]
-    while stack:
-        current = stack.pop()
-        analysis.charge()
-        if isinstance(current, ast.NamedExpr):
-            found.update(_client_assignment_target_names(current.target))
-        for child in ast.iter_child_nodes(current):
-            if isinstance(child, _PYTHON_SCOPE_NODES):
-                continue
-            stack.append(child)
-    return found
-
-
-def _walk_client_nested_scope(node: ast.AST, scope: _ClientScope, inherited: _ClientScope, analysis: _ClientAnalysis) -> None:
-    annotation_bindings = {name for annotation in _client_scope_annotations(node) for name in _walrus_target_names(annotation, analysis)}
-    _drop_client_bindings(scope, annotation_bindings)
-    for expr in _client_scope_prelude(node):
-        _walk_client_scope(expr, scope, inherited, analysis)
-        if analysis.found is not None:
-            return
-    body = node.body if isinstance(node.body, list) else [node.body]
-    unstable_aliases = _client_unstable_aliases(body, analysis)
-    if isinstance(node, ast.ClassDef):
-        inner, nested = inherited.aliases_only(analysis, unstable_aliases=unstable_aliases), inherited
-    else:
-        inner = inherited.aliases_only(analysis, _client_scope_bindings(node, analysis), unstable_aliases)
-        nested = inner
-    _walk_client_statements(body, inner, nested, analysis)
-    if not isinstance(node, ast.Lambda):
-        _drop_client_bindings(scope, {node.name})
-
-
-def _match_capture_names(node: ast.AST) -> list[str]:
-    if isinstance(node, ast.MatchMapping):
-        return [node.rest] if node.rest else []
-    return [node.name] if node.name else []
-
-
-def _client_scope_prelude(node: ast.AST) -> list[ast.AST]:
-    """Expressions a scope-defining statement evaluates in its *enclosing* scope, not the new one:
-    decorators, argument/keyword defaults, and class bases/keywords. Annotations are not walked for
-    sinks -- whether the runtime evaluates one depends on the scope, on `from __future__ import
-    annotations`, and on the Python version. Their possible binding effects are invalidated
-    separately so skipping an annotation cannot leave a stale handle behind.
-    """
-    if isinstance(node, ast.ClassDef):
-        return [*node.decorator_list, *node.bases, *(keyword.value for keyword in node.keywords)]
-    defaults = [default for default in [*node.args.defaults, *node.args.kw_defaults] if default is not None]
-    if isinstance(node, ast.Lambda):
-        return defaults
-    return [*node.decorator_list, *defaults]
-
-
-def _client_scope_annotations(node: ast.AST) -> list[ast.AST]:
-    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        return []
-    args = node.args
-    annotations = [arg.annotation for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs] if arg.annotation is not None]
-    for extra in (args.vararg, args.kwarg):
-        if extra is not None and extra.annotation is not None:
-            annotations.append(extra.annotation)
-    if node.returns is not None:
-        annotations.append(node.returns)
-    return annotations
-
-
-def _client_unstable_aliases(body: list[ast.AST], analysis: _ClientAnalysis) -> frozenset[str]:
-    """Names whose import-alias value is not stable for a nested scope.
-
-    This is a binding-only prepass: it never interprets expression values or paths. Any ordinary
-    binding makes a same-named import alias non-inheritable, as does a repeated/star import. Scope
-    bodies are skipped, while walrus targets in their enclosing-scope preludes are invalidated.
-    """
-    imported: set[str] = set()
-    unstable: set[str] = set()
-    saw_star_import = False
-    stack = list(reversed(body))
-    while stack:
-        current = stack.pop()
-        analysis.charge()
-        if isinstance(current, (ast.Import, ast.ImportFrom)):
-            for alias in current.names:
-                if alias.name == "*":
-                    saw_star_import = True
-                    continue
-                name = alias.asname or alias.name.split(".")[0]
-                if name in imported:
-                    unstable.add(name)
-                imported.add(name)
-            continue
-        if isinstance(current, _PYTHON_SCOPE_NODES):
-            if not isinstance(current, ast.Lambda):
-                unstable.add(current.name)
-            for expr in [*_client_scope_prelude(current), *_client_scope_annotations(current)]:
-                unstable.update(_walrus_target_names(expr, analysis))
-            continue
-        if isinstance(current, _PYTHON_COMPREHENSION_NODES):
-            unstable.update(_walrus_target_names(current, analysis))
-            continue
-        if isinstance(current, ast.Global | ast.Nonlocal):
-            continue
-        if isinstance(current, ast.Name) and isinstance(current.ctx, (ast.Store, ast.Del)):
-            unstable.add(current.id)
-        elif isinstance(current, ast.ExceptHandler) and current.name:
-            unstable.add(current.name)
-        elif isinstance(current, _PYTHON_MATCH_CAPTURE_NODES):
-            unstable.update(_match_capture_names(current))
-        stack.extend(reversed(list(ast.iter_child_nodes(current))))
-    if saw_star_import:
-        unstable.update(imported)
-    return frozenset(unstable)
-
-
-def _client_scope_bindings(node: ast.AST, analysis: _ClientAnalysis) -> set[str]:
-    """Names that shadow inherited constructor aliases throughout a function scope."""
-    args = node.args
-    names = {arg.arg for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]}
-    for extra in (args.vararg, args.kwarg):
-        if extra is not None:
-            names.add(extra.arg)
-    declared: set[str] = set()
-    for statement in node.body if isinstance(node.body, list) else [node.body]:
-        _collect_client_scope_bindings(statement, names, declared, analysis)
-    return names - declared
-
-
-def _collect_client_scope_bindings(node: ast.AST, names: set[str], declared: set[str], analysis: _ClientAnalysis) -> None:
-    analysis.charge()
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        names.add(node.name)  # The statement binds its own name here; its body is a separate scope.
-        return
-    if isinstance(node, ast.Lambda):
-        return
-    if isinstance(node, (ast.Global, ast.Nonlocal)):
-        declared.update(node.names)
-        return
-    if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
-        names.add(node.id)
-    elif isinstance(node, ast.ExceptHandler) and node.name:
-        names.add(node.name)
-    elif isinstance(node, (ast.Import, ast.ImportFrom)):
-        for alias in node.names:
-            names.add(alias.asname or alias.name.split(".")[0])
-    elif isinstance(node, _PYTHON_MATCH_CAPTURE_NODES):
-        names.update(_match_capture_names(node))
-    if isinstance(node, _PYTHON_COMPREHENSION_NODES):
-        # The expression is not analyzed for sinks, but a walrus target is local to the
-        # containing function. Removing a same-named inherited constructor alias prevents a
-        # definition-order false positive; whether the comprehension executes remains a false
-        # negative by design.
-        names.update(_walrus_target_names(node, analysis))
-        return
-    for child in ast.iter_child_nodes(node):
-        _collect_client_scope_bindings(child, names, declared, analysis)
-
-
-def _client_constructor_from_value(value: ast.AST | None, scope: _ClientScope) -> str:
-    if isinstance(value, ast.Call):
-        called = _python_import_name(value.func, scope.aliases)
-        return called if called in _PYTHON_CLIENT_CONSTRUCTORS else ""
-    if isinstance(value, ast.Name):
-        return scope.handles.get(value.id, "")
-    return ""
-
-
-def _rebind_client_scope(targets: list[ast.AST], value: ast.AST | None, scope: _ClientScope) -> None:
-    """Apply one binding: drop the targets, then re-add them if the value is a client handle.
-
-    The value is resolved before the targets are dropped, so `session = session` and `s = session`
-    keep the handle. Name-to-name propagation is what stops a two-character rename from shedding it;
-    it stays one level, so a handle reached through an attribute or an item is not tracked.
-    """
-    constructor = _client_constructor_from_value(value, scope)
-    names = {name for target in targets for name in _client_assignment_target_names(target)}
-    _drop_client_bindings(scope, names)
-    if constructor:
-        for target in targets:
-            if isinstance(target, ast.Name):
-                scope.handles[target.id] = constructor
-
-
-def _client_assignment_target_names(target: ast.AST) -> list[str]:
-    if isinstance(target, ast.Name):
-        return [target.id]
-    if isinstance(target, ast.Starred):
-        return _client_assignment_target_names(target.value)
-    if isinstance(target, (ast.List, ast.Tuple)):
-        return [name for element in target.elts for name in _client_assignment_target_names(element)]
-    return []
-
-
-def _drop_client_bindings(scope: _ClientScope, names: set[str]) -> None:
-    for name in names:
-        scope.handles.pop(name, None)
-        scope.aliases.pop(name, None)
-
-
-def _bind_client_import(node: ast.Import | ast.ImportFrom, scope: _ClientScope) -> None:
-    for alias in node.names:
-        if alias.name == "*":
-            continue
-        name = alias.asname or alias.name.split(".")[0]
-        _drop_client_bindings(scope, {name})
-        if isinstance(node, ast.Import):
-            scope.aliases[name] = alias.name if alias.asname else name
-        elif node.module:
-            scope.aliases[name] = f"{node.module}.{alias.name}"
-
-
-def _call_is_client_handle_sink(node: ast.Call, handles: dict[str, str]) -> bool:
-    func = node.func
-    if not isinstance(func, ast.Attribute) or not isinstance(func.value, ast.Name):
-        return False
-    constructor = handles.get(func.value.id)
-    return bool(constructor and func.attr in _PYTHON_CLIENT_SPECS[constructor].methods)
 
 
 def _yaml_load_uses_safe_loader(node: ast.Call) -> bool:

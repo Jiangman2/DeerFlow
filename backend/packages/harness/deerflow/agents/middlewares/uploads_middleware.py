@@ -103,6 +103,37 @@ def _extract_outline_for_file(file_path: Path) -> tuple[list[dict], list[str]]:
     return [], preview
 
 
+def _resolve_parsed_text_companion(
+    uploads_dir: Path,
+    filename: str,
+    declared_markdown_file: object = None,
+) -> Path | None:
+    """Resolve a parser companion without trusting a browser-supplied path.
+
+    Parser collision handling may produce ``<stem>_N.md``. Accept that narrow
+    server naming family only, require the candidate to be a basename under the
+    current thread uploads directory, and require it to exist. When older
+    clients omit metadata, retain the historical exact-sibling fallback.
+    """
+    source = Path(filename)
+    if source.suffix.lower() == ".md":
+        return None
+
+    if declared_markdown_file is not None:
+        candidate_name = declared_markdown_file if isinstance(declared_markdown_file, str) else ""
+        candidate = Path(candidate_name)
+        source_stem = source.stem
+        valid_stem = candidate.stem == source_stem or bool(re.fullmatch(rf"{re.escape(source_stem)}_\d+", candidate.stem))
+        if candidate.name == candidate_name and candidate.suffix.lower() == ".md" and valid_stem and not is_upload_staging_file(candidate_name):
+            resolved = uploads_dir / candidate_name
+            if resolved.is_file():
+                return resolved
+        return None
+
+    sibling = uploads_dir / source.with_suffix(".md").name
+    return sibling if sibling.is_file() else None
+
+
 class UploadsMiddlewareState(AgentState):
     """State schema for uploads middleware."""
 
@@ -144,6 +175,9 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
         size_str = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb / 1024:.1f} MB"
         lines.append(f"- {file['filename']} ({size_str})")
         lines.append(f"  Path: {file['path']}")
+        if parsed_text_path := file.get("parsed_text_path"):
+            lines.append(f"  Parsed text: {parsed_text_path}")
+            lines.append("  Read the parsed text path for OCR/document content; keep the original path for visual or binary access.")
         if file.get("selection_reason") == "query_match":
             lines.append("  Selected because: matched the current query.")
         outline = file.get("outline") or []
@@ -242,7 +276,9 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
                 lines.append("")
 
         lines.append("To work with these files:")
-        lines.append("- Read from the file first — use the outline line numbers and `read_file` to locate relevant sections.")
+        lines.append("- When a Parsed text path is present, read that Markdown path first; it is the server-generated OCR/document companion.")
+        lines.append("- Otherwise read from the file first — use the outline line numbers and `read_file` to locate relevant sections.")
+        lines.append("- For an image, use `view_image` only when that tool is available and visual detail beyond the parsed text is needed.")
         lines.append("- Use `grep` to search for keywords when you are not sure which section to look at")
         lines.append("  (e.g. `grep(pattern='revenue', path='/mnt/user-data/uploads/')`).")
         lines.append("- Use `glob` to find files by name pattern")
@@ -280,14 +316,21 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
                 continue
             if uploads_dir is not None and not (uploads_dir / filename).is_file():
                 continue
-            files.append(
-                {
-                    "filename": filename,
-                    "size": int(f.get("size") or 0),
-                    "path": f"/mnt/user-data/uploads/{filename}",
-                    "extension": Path(filename).suffix,
-                }
-            )
+            file_info = {
+                "filename": filename,
+                "size": int(f.get("size") or 0),
+                "path": f"/mnt/user-data/uploads/{filename}",
+                "extension": Path(filename).suffix,
+            }
+            if uploads_dir is not None:
+                companion = _resolve_parsed_text_companion(
+                    uploads_dir,
+                    filename,
+                    f.get("markdown_file"),
+                )
+                if companion is not None:
+                    file_info["parsed_text_path"] = f"/mnt/user-data/uploads/{companion.name}"
+            files.append(file_info)
         return files if files else None
 
     @override
@@ -345,16 +388,21 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
                     continue
                 if file_path.is_file() and file_path.name not in new_filenames:
                     stat = file_path.stat()
-                    historical_candidates.append(
-                        {
-                            "filename": file_path.name,
-                            "size": stat.st_size,
-                            "path": f"/mnt/user-data/uploads/{file_path.name}",
-                            "extension": file_path.suffix,
-                            "_mtime": stat.st_mtime,
-                            "_host_path": file_path,
-                        }
+                    candidate = {
+                        "filename": file_path.name,
+                        "size": stat.st_size,
+                        "path": f"/mnt/user-data/uploads/{file_path.name}",
+                        "extension": file_path.suffix,
+                        "_mtime": stat.st_mtime,
+                        "_host_path": file_path,
+                    }
+                    companion = _resolve_parsed_text_companion(
+                        uploads_dir,
+                        file_path.name,
                     )
+                    if companion is not None:
+                        candidate["parsed_text_path"] = f"/mnt/user-data/uploads/{companion.name}"
+                    historical_candidates.append(candidate)
 
         historical_files, omitted_historical_files = self._select_files_for_context(
             historical_candidates,
@@ -364,7 +412,10 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
         for file in historical_files:
             file_path = file.pop("_host_path")
             file.pop("_mtime", None)
-            outline, preview = _extract_outline_for_file(file_path)
+            outline_source = file_path
+            if parsed_text_path := file.get("parsed_text_path"):
+                outline_source = uploads_dir / Path(parsed_text_path).name
+            outline, preview = _extract_outline_for_file(outline_source)
             file["outline"] = outline
             file["outline_preview"] = preview
 
@@ -373,7 +424,10 @@ class UploadsMiddleware(AgentMiddleware[UploadsMiddlewareState]):
             new_files_by_name = {file["filename"]: file for file in new_files}
             for file in context_new_files:
                 phys_path = uploads_dir / file["filename"]
-                outline, preview = _extract_outline_for_file(phys_path)
+                outline_source = phys_path
+                if parsed_text_path := file.get("parsed_text_path"):
+                    outline_source = uploads_dir / Path(parsed_text_path).name
+                outline, preview = _extract_outline_for_file(outline_source)
                 file["outline"] = outline
                 file["outline_preview"] = preview
                 if original_file := new_files_by_name.get(file["filename"]):

@@ -37,8 +37,8 @@ from app.gateway.github import run_policy as _github_run_policy  # noqa: F401
 from app.gateway.internal_auth import create_internal_auth_headers
 from deerflow.config.agents_config import load_agent_config
 from deerflow.config.paths import make_safe_user_id
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 from deerflow.runtime.goal import parse_goal_command
-from deerflow.runtime.keyed_lock import AsyncKeyedLockTable
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.skills.slash import parse_slash_skill_reference
 from deerflow.skills.storage import get_or_new_skill_storage
@@ -71,8 +71,8 @@ STREAM_UPDATE_MIN_CHARS = 60  # flush immediately when this many chars accumulat
 STREAM_MODES = ["messages-tuple", "values"]
 MESSAGE_STREAM_EVENTS = ("messages-tuple", "messages")
 THREAD_BUSY_MESSAGE = "This conversation is already processing another request. Please wait for it to finish and try again."
-BOUND_IDENTITY_REQUIRED_MESSAGE = "Connect this channel from DeerFlow Settings, complete the in-channel connect step, then send your message again."
-BOUND_IDENTITY_UNAVAILABLE_MESSAGE = "Channel connection verification is temporarily unavailable. Please try again later or contact the DeerFlow operator."
+BOUND_IDENTITY_REQUIRED_MESSAGE = f"请先在{ENTERPRISE_PRODUCT_NAME}的「设置 → 渠道」中连接此渠道，完成渠道内绑定后再发送消息。"
+BOUND_IDENTITY_UNAVAILABLE_MESSAGE = f"渠道连接暂时无法验证，请稍后重试或联系{ENTERPRISE_PRODUCT_NAME}管理员。"
 INBOUND_DEDUPE_TTL_SECONDS = 10 * 60
 INBOUND_DEDUPE_MAX_ENTRIES = 4096
 # Only server-stable provider message ids: client-generated ids (client_msg_id,
@@ -830,11 +830,9 @@ class ChannelManager:
         self._require_bound_identity = require_bound_identity
         self._client = None  # lazy init — langgraph_sdk async client
         self._channel_metadata_synced: set[str] = set()
-        # Waiter-aware per-conversation locks prevent concurrent inbound
-        # messages from creating duplicate threads. Participants check out
-        # before waiting, so an aborting creator cannot let a late caller
-        # bypass a creator already queued on the live lock generation.
-        self._thread_create_locks = AsyncKeyedLockTable[tuple[str, str, str | None]]()
+        # Per-conversation locks so concurrent inbound messages for the same
+        # chat don't race to create duplicate threads (see _get_or_create_thread).
+        self._thread_create_locks: dict[tuple[str, str, str | None], asyncio.Lock] = {}
         # Per-thread run locks for channels that want in-manager serialization
         # instead of surfacing the runtime's generic busy reply.
         self._serialized_thread_runs: dict[tuple[str, str], _SerializedThreadRunState] = {}
@@ -1457,13 +1455,20 @@ class ChannelManager:
             return thread_id, False
 
         key = (msg.channel_name, msg.chat_id, msg.topic_id)
-        async with self._thread_create_locks.hold(key):
-            # A concurrent message for the same chat may have created the
-            # thread while we were waiting on the lock.
-            thread_id = await self._lookup_thread_id(msg)
-            if thread_id:
-                return thread_id, False
-            return await self._create_thread(client, msg), True
+        lock = self._thread_create_locks.setdefault(key, asyncio.Lock())
+        try:
+            async with lock:
+                # A concurrent message for the same chat may have created the
+                # thread while we were waiting on the lock.
+                thread_id = await self._lookup_thread_id(msg)
+                if thread_id:
+                    return thread_id, False
+                return await self._create_thread(client, msg), True
+        finally:
+            # Once the thread is stored, later messages short-circuit on the
+            # lookup above and never reach this lock, so it's safe to drop the
+            # entry and keep the registry bounded to in-flight conversations.
+            self._thread_create_locks.pop(key, None)
 
     async def _update_thread_channel_metadata(self, client, msg: InboundMessage, thread_id: str) -> None:
         """Best-effort source metadata backfill for existing IM-created threads."""

@@ -12,7 +12,6 @@ from app.channels.manager import DEFAULT_GATEWAY_URL, DEFAULT_LANGGRAPH_URL, Cha
 from app.channels.message_bus import MessageBus
 from app.channels.runtime_config_store import merge_runtime_channel_configs
 from app.channels.store import ChannelStore
-from deerflow.utils.file_io import await_drained
 
 logger = logging.getLogger(__name__)
 
@@ -415,27 +414,9 @@ async def start_channel_service(app_config: AppConfig | None = None) -> ChannelS
         return _channel_service
     # from_app_config reads the JSON channel store and runtime config files;
     # keep that disk IO off the event loop.
-    service = await asyncio.to_thread(ChannelService.from_app_config, app_config)
-    _channel_service = service
-
-    async def rollback_failed_start() -> None:
-        global _channel_service
-        await service.stop()
-        if _channel_service is service:
-            _channel_service = None
-
-    try:
-        await service.start()
-    except BaseException:
-        try:
-            await await_drained(rollback_failed_start())
-        except asyncio.CancelledError:
-            # Repeated cancellation is delivered only after rollback drains.
-            raise
-        except Exception:
-            logger.exception("Failed to stop ChannelService after startup failure; retaining singleton")
-        raise
-    return service
+    _channel_service = await asyncio.to_thread(ChannelService.from_app_config, app_config)
+    await _channel_service.start()
+    return _channel_service
 
 
 async def stop_channel_service() -> None:

@@ -1,9 +1,8 @@
 import type { Skill } from "./type";
 
 /**
- * Composer control names that may own the leading slash. Their command syntax
- * must not be shown as a skill activation. These values plus
- * {@link SLASH_SKILL_RE} mirror
+ * Composer control commands that own the leading slash. They must never be
+ * shown as skill activations. These values plus {@link SLASH_SKILL_RE} mirror
  * the backend slash-skill gate; both sides are pinned to the
  * shared fixture at `contracts/slash_skill_contract.json` by contract tests
  * (`tests/unit/core/skills/slash-contract.test.ts` here,
@@ -12,7 +11,6 @@ import type { Skill } from "./type";
  */
 export const RESERVED_SLASH_SKILL_NAMES = new Set([
   "bootstrap",
-  "context",
   "goal",
   "help",
   "memory",
@@ -22,7 +20,6 @@ export const RESERVED_SLASH_SKILL_NAMES = new Set([
 ]);
 
 export const SLASH_SKILL_RE = /^\/([a-z0-9]+(?:-[a-z0-9]+)*)(?:\s+|$)/;
-const CONTEXT_COMPACT_ARGUMENT = "compact";
 
 export type SlashSkillReference = {
   name: string;
@@ -42,16 +39,12 @@ export function parseSlashSkillReference(
     return null;
   }
   const name = match[1];
-  const remainingText = text.slice(match[0].length).replace(/^\s+/, "");
-  const isContextSkillTask =
-    name === "context" &&
-    remainingText.trim().toLowerCase() !== CONTEXT_COMPACT_ARGUMENT;
-  if (!name || (RESERVED_SLASH_SKILL_NAMES.has(name) && !isContextSkillTask)) {
+  if (!name || RESERVED_SLASH_SKILL_NAMES.has(name)) {
     return null;
   }
   return {
     name,
-    remainingText,
+    remainingText: text.slice(match[0].length).replace(/^\s+/, ""),
   };
 }
 

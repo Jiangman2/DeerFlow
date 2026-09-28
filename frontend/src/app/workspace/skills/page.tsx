@@ -389,7 +389,7 @@ function MySkillsPanel({
           <div>
             <h2 className="text-foreground text-xl font-semibold">我的技能</h2>
             <p className="text-muted-foreground mt-1 text-sm">
-              管理当前账号个人目录中的技能；启用后可供新对话和允许加载该技能的数字员工使用。
+              管理当前账号个人目录中的技能；启用后可供新对话和允许加载该技能的岗位专家使用。
             </p>
           </div>
           <Button type="button" size="sm" onClick={onCreate}>
@@ -1190,7 +1190,7 @@ export default function SkillCenterPage() {
                 {t.sidebar.skillCenter}
               </h1>
               <p className="text-muted-foreground truncate text-xs">
-                发现并管理数字员工可用技能
+                发现并管理岗位专家可用技能
               </p>
             </div>
           </div>

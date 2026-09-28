@@ -288,7 +288,6 @@ export interface Translations {
       cronPlaceholder: string;
       cronHint: string;
       runAt: string;
-      invalidRunAt: string;
       timezone: string;
       timezoneShanghai: string;
       intervalAmount: string;
@@ -338,7 +337,6 @@ export interface Translations {
       reuseNoticeTitle: string;
       reuseNoticeDescription: string;
     };
-    search: { placeholder: string; clear: string; noResults: string };
     filters: {
       label: string;
       allStatuses: string;
@@ -415,8 +413,6 @@ export interface Translations {
     };
     history: {
       navigation: string;
-      statusFilter: string;
-      allStatuses: string;
       newer: string;
       older: string;
       latest: string;

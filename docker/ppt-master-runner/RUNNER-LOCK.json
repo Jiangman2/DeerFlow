@@ -1,0 +1,13 @@
+{
+  "component": "ppt-master-runner",
+  "base_image": "deerflow.local/deer-flow-gateway:20260927-ppt-runtime-r2-runner-3959a039ee854dca",
+  "base_manifest_digest": "sha256:4568753cfc6cdd42798282ead370001118c033547668fc4a6410db4d5dae99f0",
+  "base_config_digest": "sha256:ff8167fc6990ee114865329642abe9bde91ef26e87fff3aa07034dd60ca3b669",
+  "base_agent_sha256": "4d7a880aa863f3cfd490b47e89dc80604068e5248afa6d253a937228a26554ef",
+  "current_image": "deerflow.local/deer-flow-gateway:20260928-ppt-receipt-r3-runner-c1c876c9b520a0fe",
+  "current_manifest_digest": "sha256:529a8408063003ecb2c89f1ce81b6d6d141f63254c9e8a497f7732e196fe77b5",
+  "current_config_digest": "sha256:a9cc1a5468064e51327f1ea6a43e7d8448b8b787f9ddfa56325402f1eedd3746",
+  "current_agent_sha256": "2c5c21575c9380f081fe408073142de9a17de7418efd38198c1dd85d343395a8",
+  "release_package_sha256": "f7848a841706460db130641bc29c5076296c9b2ffc742d76422f4be00d230b3e",
+  "release_package_manifest_sha256": "c1c876c9b520a0fe911bfe2418f88dafc0655394cc05e039d0f7ef51fb059cb2"
+}

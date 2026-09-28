@@ -1,5 +1,10 @@
 # AGENTS.md
 
+The enterprise 7·16 production source alignment is recorded in
+`../release/production-build-alignment-20260928/README.md`. For production
+comparisons, use the captured Frontend image source rather than later local
+branch changes.
+
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with the DeerFlow frontend. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 
 ## Project Overview

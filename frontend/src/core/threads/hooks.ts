@@ -1505,7 +1505,7 @@ export function useThreadStream({
         updateSubtask(taskUpdate, { eager: true });
       }
 
-      if (eventType === "task_running") {
+      if (eventType === "task_running" && typeof event === "object" && event !== null && "message" in event && typeof event.message === "object" && event.message !== null) {
         const e = event as {
           type: "task_running";
           task_id: string;
@@ -1946,6 +1946,9 @@ export function useThreadStream({
                   filename: info.filename,
                   size: info.size,
                   path: info.virtual_path,
+                  ...(info.markdown_file
+                    ? { markdown_file: info.markdown_file }
+                    : {}),
                   status: "uploaded" as const,
                 }),
               );
@@ -1983,6 +1986,9 @@ export function useThreadStream({
             filename: info.filename,
             size: info.size,
             path: info.virtual_path,
+            ...(info.markdown_file
+              ? { markdown_file: info.markdown_file }
+              : {}),
             status: "uploaded" as const,
           }),
         );

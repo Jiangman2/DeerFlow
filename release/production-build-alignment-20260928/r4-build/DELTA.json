@@ -1,0 +1,25 @@
+{
+  "csrf_middleware_changed": false,
+  "database_migrations": [],
+  "entries": [
+    {
+      "after_sha256": "888816a1fb36d98bde100398783e61c5a9fdea5896fa96381bd9818d2b7de5f8",
+      "before_sha256": "13004e5f876bff16ae76cf89bac2df88be05dec58f86d6aea673f777da3cc36e",
+      "component": "gateway",
+      "path": "backend/app/gateway/routers/artifacts.py",
+      "payload": "payload-00.py",
+      "target": "/app/backend/app/gateway/routers/artifacts.py"
+    },
+    {
+      "after_sha256": "6ae2a2633ee476094b6de66f1524f2cf1b4b77ea7d69d8a1f53c5ff0a92e13d1",
+      "before_sha256": "cf03bfa827411d23089a18418378676ee718ad257e7bb3491f662e1f3ba21652",
+      "component": "runner",
+      "path": "backend/app/gateway/routers/artifacts.py",
+      "payload": "payload-01.py",
+      "target": "/app/backend/app/gateway/routers/artifacts.py"
+    }
+  ],
+  "provisioner_changed": false,
+  "status": "BUILD_ONLY_NOT_RELEASE_ACCEPTED",
+  "upstream_skill_changed": false
+}

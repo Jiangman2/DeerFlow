@@ -29,7 +29,6 @@ def filter_tools_by_datalake_scope(tools: Iterable[BaseTool], *, enabled: bool |
         return tool_list
     return [tool for tool in tool_list if tool.name not in DATALAKE_TOOL_NAMES]
 
-
 BUILTIN_TOOLS = [
     present_file_tool,
     ask_clarification_tool,
@@ -121,10 +120,8 @@ def get_available_tools(
     if getattr(skill_evolution_config, "enabled", False):
         from deerflow.tools.skill_manage_tool import SKILL_AUTHORING_TOOLS
 
-        # Bind action-specific schemas instead of the legacy multi-action
-        # ``skill_manage`` schema.  The latter necessarily marks action-only
-        # parameters such as ``content`` and ``path`` optional, which lets a
-        # model emit structurally valid but unusable write_file calls.
+        # Action-specific schemas make content/path structurally required for
+        # the operations that need them and prevent incomplete write calls.
         builtin_tools.extend(SKILL_AUTHORING_TOOLS)
 
     # Add subagent tools only if enabled via runtime parameter
@@ -159,11 +156,11 @@ def get_available_tools(
                 if mcp_tools:
                     logger.info(f"Using {len(mcp_tools)} cached MCP tool(s)")
 
-                    # Tag MCP-sourced tools so deferred-tool assembly at each
-                    # agent construction site can identify them. Lead agents
-                    # assemble their full configured MCP catalog and apply active
-                    # skill policy at runtime; subagents may pass an already
-                    # policy-filtered list because their skills load at startup.
+                    # Tag MCP-sourced tools so deferred-tool assembly (done at
+                    # the agent construction site, AFTER tool-policy filtering)
+                    # can identify them. No ContextVar / registry is built here;
+                    # the deferred catalog + tool_search tool are assembled per
+                    # agent from the policy-filtered tool list.
                     for t in mcp_tools:
                         tag_mcp_tool(t)
         except ImportError:

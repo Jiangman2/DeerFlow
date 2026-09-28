@@ -28,13 +28,11 @@ from typing import Any, Protocol, runtime_checkable
 
 @dataclass
 class Principal:
-    """The actor resolved from trusted runtime identity context.
+    """The actor. Built once per run from ``request.state.user`` + context.
 
     Identity fields mirror what ``inject_authenticated_user_context``
     (``app/gateway/services.py``) already stamps into the run context, so the
-    provider sees one consistent identity shape. Layer 1 and the execution-time
-    guardrail adapter both use ``build_principal_from_context``; the adapter
-    rebuilds the value per request so it never caches stale runtime identity.
+    provider sees a single resolved actor rather than re-deriving it per call.
     """
 
     user_id: str | None = None

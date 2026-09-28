@@ -25,14 +25,6 @@ import threading
 from typing import TYPE_CHECKING, TypeVar
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
-from deerflow.sandbox.remote_list_dir import (
-    parse_remote_list_dir_output,
-    remote_list_dir_command,
-)
-from deerflow.sandbox.remote_search import (
-    parse_remote_search_output,
-    remote_search_command,
-)
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
 
@@ -281,12 +273,8 @@ class BoxliteBox(Sandbox):
 
     def list_dir(self, path: str, max_depth: int = 2) -> list[str]:
         resolved = self._resolve_path(path)
-        result = self._sh(remote_list_dir_command(resolved, max_depth))
-        return parse_remote_list_dir_output(
-            result.stdout,
-            resolved,
-            pipeline_exit_code=result.exit_code,
-        )
+        r = self._sh(f"find {shlex.quote(resolved)} -maxdepth {int(max_depth)} \\( -type f -o -type d \\) 2>/dev/null | head -500")
+        return [line.strip() for line in (r.stdout or "").splitlines() if line.strip()]
 
     def glob(
         self,
@@ -300,19 +288,13 @@ class BoxliteBox(Sandbox):
         types = ("f", "d") if include_dirs else ("f",)
         type_expr = " -o ".join(f"-type {t}" for t in types)
         hard_limit = max(max_results * 4, max_results + 50)
-        search = f"find -H {shlex.quote(resolved)} \\( {type_expr} \\) -print 2>/dev/null"
-        result = self._sh(remote_search_command(search, resolved, limit=hard_limit))
-        output = parse_remote_search_output(
-            result.stdout,
-            resolved,
-            tool="find",
-            limit=hard_limit,
-        )
+        r = self._sh(f"find {shlex.quote(resolved)} \\( {type_expr} \\) -print 2>/dev/null | head -{hard_limit}")
 
         matches: list[str] = []
         root = resolved.rstrip("/") or "/"
         root_prefix = root if root == "/" else f"{root}/"
-        for entry in output.text.splitlines():
+        for entry in (r.stdout or "").splitlines():
+            entry = entry.strip()
             if not entry or (entry != root and not entry.startswith(root_prefix)):
                 continue
             if should_ignore_path(entry):
@@ -324,7 +306,7 @@ class BoxliteBox(Sandbox):
                 matches.append(entry)
                 if len(matches) >= max_results:
                     return matches, True
-        return matches, output.truncated
+        return matches, False
 
     def grep(
         self,
@@ -352,19 +334,13 @@ class BoxliteBox(Sandbox):
             flags.append("-i")
         flags.append("-F" if literal else "-E")
         total_cap = max(max_results * 4, max_results + 50)
-        search = "grep " + " ".join(flags) + f" -e {shlex.quote(pattern)} {shlex.quote(resolved)} 2>/dev/null"
-        result = self._sh(remote_search_command(search, resolved, limit=total_cap))
-        output = parse_remote_search_output(
-            result.stdout,
-            resolved,
-            tool="grep",
-            limit=total_cap,
-        )
+        cmd = "grep " + " ".join(flags) + f" -e {shlex.quote(pattern)} {shlex.quote(resolved)} 2>/dev/null | head -{total_cap}"
+        r = self._sh(cmd)
 
         include = glob.split("/")[-1] if glob else None
         matches: list[GrepMatch] = []
-        truncated = output.truncated
-        for raw in output.text.splitlines():
+        truncated = False
+        for raw in (r.stdout or "").splitlines():
             try:
                 file_path, line_no_str, line_text = raw.split(":", 2)
             except ValueError:

@@ -354,7 +354,7 @@ export default function ChatPage() {
                     <span>海能 AI</span>
                   </div>
                   <div className="cnooc-mobile-product-title">
-                    <strong>中海油勘探开发智能体</strong>
+                    <strong>中国海油通用智能体</strong>
                     <ModeSelector
                       className="cnooc-mobile-mode-pill"
                       disabled={isAdminReview}

@@ -1,4 +1,4 @@
-import { RESERVED_SLASH_SKILL_NAMES, type Skill } from "@/core/skills";
+import type { Skill } from "@/core/skills";
 export {
   SUGGESTION_TEMPLATE_PLACEHOLDER_PATTERN,
   findSuggestionTemplatePlaceholder,
@@ -124,10 +124,6 @@ export function getMatchingSkillSuggestions(
   const builtinCommandNames = new Set(
     builtinCommands.map(({ name }) => name.toLowerCase()),
   );
-  const reservedNames = new Set([
-    ...RESERVED_SLASH_SKILL_NAMES,
-    ...builtinCommandNames,
-  ]);
 
   const builtinMatches = builtinCommands.filter(({ name, description }) => {
     if (!normalizedQuery) {
@@ -149,7 +145,7 @@ export function getMatchingSkillSuggestions(
       if (!skill.enabled) {
         return false;
       }
-      if (reservedNames.has(name) && name !== "context") {
+      if (builtinCommandNames.has(name)) {
         return false;
       }
       return !normalizedQuery || name.includes(normalizedQuery);

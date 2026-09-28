@@ -850,9 +850,6 @@ discord = [
 monocle = [
     { name = "deerflow-harness", extra = ["monocle"] },
 ]
-ollama = [
-    { name = "deerflow-harness", extra = ["ollama"] },
-]
 postgres = [
     { name = "deerflow-harness", extra = ["postgres"] },
 ]
@@ -879,7 +876,6 @@ requires-dist = [
     { name = "deerflow-harness", editable = "packages/harness" },
     { name = "deerflow-harness", extras = ["browser"], marker = "extra == 'browser'", editable = "packages/harness" },
     { name = "deerflow-harness", extras = ["monocle"], marker = "extra == 'monocle'", editable = "packages/harness" },
-    { name = "deerflow-harness", extras = ["ollama"], marker = "extra == 'ollama'", editable = "packages/harness" },
     { name = "deerflow-harness", extras = ["postgres"], marker = "extra == 'postgres'", editable = "packages/harness" },
     { name = "deerflow-harness", extras = ["redis"], marker = "extra == 'redis'", editable = "packages/harness" },
     { name = "dingtalk-stream", specifier = ">=0.24.3" },
@@ -901,7 +897,7 @@ requires-dist = [
     { name = "websockets", specifier = ">=16.0" },
     { name = "wecom-aibot-python-sdk", specifier = ">=0.1.6" },
 ]
-provides-extras = ["postgres", "redis", "discord", "monocle", "ollama", "browser"]
+provides-extras = ["postgres", "redis", "discord", "monocle", "browser"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -993,7 +989,7 @@ tui = [
 [package.metadata]
 requires-dist = [
     { name = "agent-client-protocol", specifier = ">=0.4.0" },
-    { name = "agent-sandbox", specifier = ">=0.0.30" },
+    { name = "agent-sandbox", specifier = ">=0.0.19" },
     { name = "aiosqlite", specifier = ">=0.19" },
     { name = "alembic", specifier = ">=1.13" },
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.29" },

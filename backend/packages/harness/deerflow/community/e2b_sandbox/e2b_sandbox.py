@@ -9,14 +9,6 @@ import threading
 from e2b_code_interpreter import Sandbox as E2BClientSandbox
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
-from deerflow.sandbox.remote_list_dir import (
-    parse_remote_list_dir_output,
-    remote_list_dir_command,
-)
-from deerflow.sandbox.remote_search import (
-    parse_remote_search_output,
-    remote_search_command,
-)
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
 
@@ -324,17 +316,14 @@ class E2BSandbox(Sandbox):
         with self._lock:
             client = self._client
             if client is None:
-                raise RuntimeError("sandbox client has been closed")
+                return []
             try:
-                result = client.commands.run(remote_list_dir_command(resolved, max_depth))
+                result = client.commands.run(f"find {shlex.quote(resolved)} -maxdepth {int(max_depth)} \\( -type f -o -type d \\) 2>/dev/null | head -500")
+                output = getattr(result, "stdout", "") or ""
+                return [line.strip() for line in output.splitlines() if line.strip()]
             except Exception as e:
                 logger.error("Failed to list_dir %s in e2b sandbox: %s", resolved, e)
-                raise OSError(f"Failed to list_dir {resolved} in e2b sandbox: {e}") from e
-            return parse_remote_list_dir_output(
-                getattr(result, "stdout", "") or "",
-                resolved,
-                pipeline_exit_code=getattr(result, "exit_code", None),
-            )
+                return []
 
     def write_file(self, path: str, content: str, append: bool = False) -> None:
         resolved = self._resolve_path(path)
@@ -381,28 +370,24 @@ class E2BSandbox(Sandbox):
     ) -> tuple[list[str], bool]:
         resolved = self._resolve_path(path)
         types = "f,d" if include_dirs else "f"
-        hard_limit = max(max_results * 4, max_results + 50)
-        search = f"find -H {shlex.quote(resolved)} \\( " + " -o ".join(f"-type {item_type}" for item_type in types.split(",")) + " \\) -print 2>/dev/null"
         with self._lock:
             client = self._client
             if client is None:
-                raise RuntimeError("sandbox client has been closed")
+                return [], False
             try:
-                result = client.commands.run(remote_search_command(search, resolved, limit=hard_limit))
+                hard_limit = max(max_results * 4, max_results + 50)
+                cmd = f"find {shlex.quote(resolved)} \\( " + " -o ".join(f"-type {t}" for t in types.split(",")) + f" \\) -print 2>/dev/null | head -{hard_limit}"
+                result = client.commands.run(cmd)
+                output = getattr(result, "stdout", "") or ""
             except Exception as e:
                 logger.error("Failed to glob in e2b sandbox: %s", e)
-                raise OSError(f"Failed to glob {resolved} in e2b sandbox: {e}") from e
-        output = parse_remote_search_output(
-            getattr(result, "stdout", "") or "",
-            resolved,
-            tool="find",
-            limit=hard_limit,
-        )
+                return [], False
 
         matches: list[str] = []
         root = resolved.rstrip("/") or "/"
         root_prefix = root if root == "/" else f"{root}/"
-        for entry in output.text.splitlines():
+        for entry in output.splitlines():
+            entry = entry.strip()
             if not entry:
                 continue
             if entry != root and not entry.startswith(root_prefix):
@@ -416,7 +401,7 @@ class E2BSandbox(Sandbox):
                 matches.append(entry)
                 if len(matches) >= max_results:
                     return matches, True
-        return matches, output.truncated
+        return matches, False
 
     def grep(
         self,
@@ -450,27 +435,22 @@ class E2BSandbox(Sandbox):
         total_cap = max(max_results * 4, max_results + 50)
         flags.append(f"-m{per_file_cap}")
 
-        search = "grep " + " ".join(flags) + f" -- {shlex.quote(regex_source)} {shlex.quote(resolved)} 2>/dev/null"
+        cmd = "grep " + " ".join(flags) + f" -- {shlex.quote(regex_source)} {shlex.quote(resolved)} 2>/dev/null" + f" | head -{total_cap}"
 
         with self._lock:
             client = self._client
             if client is None:
-                raise RuntimeError("sandbox client has been closed")
+                return [], False
             try:
-                result = client.commands.run(remote_search_command(search, resolved, limit=total_cap))
+                result = client.commands.run(cmd)
+                output = getattr(result, "stdout", "") or ""
             except Exception as e:
                 logger.error("Failed to grep in e2b sandbox: %s", e)
-                raise OSError(f"Failed to grep {resolved} in e2b sandbox: {e}") from e
-        output = parse_remote_search_output(
-            getattr(result, "stdout", "") or "",
-            resolved,
-            tool="grep",
-            limit=total_cap,
-        )
+                return [], False
 
         matches: list[GrepMatch] = []
-        truncated = output.truncated
-        for raw in output.text.splitlines():
+        truncated = False
+        for raw in output.splitlines():
             try:
                 file_path, line_no_str, line_text = raw.split(":", 2)
             except ValueError:

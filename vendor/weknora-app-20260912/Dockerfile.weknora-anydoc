@@ -1,0 +1,110 @@
+# syntax=m.daocloud.io/docker.io/docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
+
+ARG BUILDER_IMAGE=m.daocloud.io/docker.io/library/golang@sha256:9566de04f98bfc5918e63d8d6f3d5cf47385e7e920e92bf40cf1299d3a0d968d
+ARG RUNTIME_IMAGE=m.daocloud.io/docker.io/wechatopenai/weknora-app@sha256:a93c674eebb8103597de5ec8f84d5c263eaf1c64cfe71a1c2f15795d8cf3591e
+
+FROM ${BUILDER_IMAGE} AS builder
+
+WORKDIR /app
+
+ARG GOPROXY_ARG=https://proxy.golang.org|direct
+ARG GOSUMDB_ARG=sum.golang.org
+ARG VERSION_ARG=0.8.0-enterprise-proxy1-anydoc1
+ARG COMMIT_ID_ARG=1edcd54b43606d9079bb36650efe3f68707a79ea
+ARG BUILD_TIME_ARG=unknown
+ARG GO_VERSION_ARG=go1.26.8
+ARG RUST_TOOLCHAIN_ARG=stable
+
+ENV GOPROXY=${GOPROXY_ARG} \
+    GOSUMDB=${GOSUMDB_ARG} \
+    VERSION=${VERSION_ARG} \
+    COMMIT_ID=${COMMIT_ID_ARG} \
+    BUILD_TIME=${BUILD_TIME_ARG} \
+    GO_VERSION=${GO_VERSION_ARG} \
+    RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    RUSTUP_DIST_SERVER=https://rsproxy.cn \
+    RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup \
+    CARGO_HTTP_MULTIPLEXING=false \
+    CARGO_NET_RETRY=3 \
+    PATH=/usr/local/cargo/bin:${PATH}
+
+RUN --mount=type=secret,id=enterprise_ca,target=/usr/local/share/ca-certificates/deerflow-enterprise-ca.crt \
+    update-ca-certificates
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates curl git build-essential libsqlite3-dev pkg-config && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY go.mod go.sum ./
+COPY third_party/anydoc-go/go.mod third_party/anydoc-go/go.mod
+RUN --mount=type=cache,target=/go/pkg/mod \
+    set -eu; \
+    attempt=1; \
+    while [ "${attempt}" -le 3 ]; do \
+        if GODEBUG=http2client=0 go mod download; then exit 0; fi; \
+        echo "go mod download attempt ${attempt}/3 failed; retrying" >&2; \
+        sleep "$((attempt * 10))"; \
+        attempt="$((attempt + 1))"; \
+    done; \
+    exit 1
+
+COPY . .
+
+RUN grep -Fq 'Proxy:               http.ProxyFromEnvironment,' internal/utils/security.go
+RUN grep -Fq 'anydoc = "=0.1.9"' third_party/anydoc-go/Cargo.toml && \
+    grep -Fq 'const Version = "0.1.9"' third_party/anydoc-go/version.go
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go test ./internal/utils \
+      -run '^TestNewSSRFSafeTransportConfiguresProxyResolver$' \
+      -count=1
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+      | sh -s -- -y --profile minimal --default-toolchain "${RUST_TOOLCHAIN_ARG}" && \
+    rustc --version --verbose && \
+    cargo --version && \
+    mkdir -p /usr/local/cargo && \
+    printf '%s\n' \
+      '[source.crates-io]' \
+      'replace-with = "rsproxy-sparse"' \
+      '[source.rsproxy-sparse]' \
+      'registry = "sparse+https://rsproxy.cn/index/"' \
+      '[net]' \
+      'retry = 3' \
+      '[http]' \
+      'multiplexing = false' \
+      > /usr/local/cargo/config.toml
+
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    ./scripts/build-anydoc-lib.sh
+
+RUN test -s third_party/anydoc-go/lib/linux_arm64_gnu/libanydoc_go.a
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go vet -tags anydoc ./internal/infrastructure/docparser/...
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go test -tags anydoc -count=1 ./internal/infrastructure/docparser/...
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go build -tags anydoc -trimpath -o /app/weknora-anydoc-probe ./cmd/anydoc-probe && \
+    /app/weknora-anydoc-probe --self-test
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    make build-prod GO_BUILD_TAGS=anydoc
+
+FROM ${RUNTIME_IMAGE} AS runtime
+
+COPY --from=builder --chown=root:root /app/WeKnora /app/WeKnora
+COPY --from=builder --chown=root:root /app/weknora-anydoc-probe /usr/local/bin/weknora-anydoc-probe
+
+LABEL org.opencontainers.image.source="https://github.com/Tencent/WeKnora" \
+      org.opencontainers.image.revision="1edcd54b43606d9079bb36650efe3f68707a79ea" \
+      org.opencontainers.image.version="0.8.0-enterprise-proxy1-anydoc1" \
+      deerflow.enterprise.proxy-fix="http.ProxyFromEnvironment" \
+      deerflow.enterprise.anydoc="enabled" \
+      deerflow.enterprise.anydoc.version="0.1.9" \
+      deerflow.enterprise.release-stage="candidate-only"
