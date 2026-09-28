@@ -78,6 +78,10 @@ Supporting WeKnora model-network and spreadsheet-policy source is in
 
 ## Rebuild limits
 
+See [REBUILD-STATUS.md](REBUILD-STATUS.md) for the per-image build inputs,
+remaining evidence, and the criteria for claiming an image can be reproduced
+from this branch.
+
 This is a source-alignment commit, not a claim of byte-identical image builds.
 The complete WeKnora UI v0.8.0 upstream frontend and the enterprise R5 build
 overlay are now under `vendor/weknora-ui-20260913-r5/`. The 2026-09-18
