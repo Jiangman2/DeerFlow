@@ -1,3 +1,4 @@
+import { CONTEST_EXTERNAL_AGENTS } from "./contest-agents";
 import type { Agent } from "./types";
 
 export const SHARED_EXTERNAL_AGENT_NAME_ALIASES = [
@@ -71,4 +72,5 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     source: "team",
     external_url: "https://cnoocclaw.cnooc.com.cn/qqyjbgbxzj/",
   },
+  ...CONTEST_EXTERNAL_AGENTS,
 ];

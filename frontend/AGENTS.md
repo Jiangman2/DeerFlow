@@ -94,6 +94,15 @@ deterministic local suggestions. Browser Live is feature-gated and only appears
 for a custom employee when its tool-group allowlist is unset or includes
 `browser`; on mobile it is a bottom sheet, while desktop uses the side panel.
 Do not fork the conversational builder or weaken its existing save workflow.
+
+The September 28 contest catalog in `core/agents/contest-agents.ts` is appended
+to `SHARED_EXTERNAL_AGENTS`, preserving the original external employees and
+normal team/personal records. These are shared link cards, not model-backed
+personal Agents or database seed records. Keep source descriptions and full URL
+queries/fragments intact, use the existing category identifiers, and limit each
+entry to three tags. Rows with no application URL are omitted; a hidden source
+repository hyperlink on a cell labelled “暂无” is not an application URL.
+
 The UI must submit only the fixed category identifier and must not attempt to
 rewrite or migrate complete Agent configuration objects; persistence migration
 is a raw-field operation owned by Gateway.
@@ -528,6 +537,18 @@ The native App integration and release checklist live in
 `docs/mobile-webview-integration.md`.
 
 ## Environment
+
+### Haineng portal integration
+
+`HainengHomeFooter` and the portal header link belong only to the ordinary chat
+welcome surface. Preserve existing chat/auth routes and keep the support popup
+hover-driven, keyboard-accessible, and above the composer stacking context.
+The Agent Square sidebar link uses the existing icon/label layout.
+`/integrations/haineng/model-call-count` is a Next.js-owned authenticated GET
+route, not a Gateway API. Keep APP_ID/APP_KEY server-only, use per-request signed
+headers, HTTPS without redirects, a bounded timeout, and private no-store
+responses. Docker contexts must exclude frontend runtime environment files.
+See `docs/haineng-portal-integration.md` for the configuration contract.
 
 Backend API URLs are optional; an nginx proxy is used by default:
 

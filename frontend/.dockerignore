@@ -1,0 +1,6 @@
+# Local and production secrets are runtime configuration, never image contents.
+.env
+.env.*
+!.env.example
+.next/**/.env
+.next/**/.env.*

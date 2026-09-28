@@ -80,6 +80,17 @@ export interface Translations {
     mobileDescription: string;
     createYourOwnSkill: string;
     createYourOwnSkillDescription: string;
+    hainengPortal: string;
+    totalUsage: string;
+    todayUsage: string;
+    usageUnavailable: string;
+    contactUs: string;
+    feedback: string;
+    supportPhone: string;
+    supportEmail: string;
+    businessOwner: string;
+    operationsOwner: string;
+    serviceHours: string;
   };
 
   // Clipboard
@@ -260,6 +271,7 @@ export interface Translations {
     chats: string;
     demoChats: string;
     agents: string;
+    agentSquare: string;
     knowledge: string;
     skillCenter: string;
     openSkillCenter: string;
