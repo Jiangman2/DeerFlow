@@ -1,0 +1,3011 @@
+{
+  "schema": 1,
+  "production_commit": "523f1f0fbc6145c454b5a1430d60775fe7215150",
+  "local_archive_integrity": "PASS",
+  "offsite_backup": "PENDING",
+  "server_oci_images": "NOT_CAPTURED",
+  "private_configuration_backup": "NOT_CAPTURED",
+  "database_and_volume_backup": "NOT_CAPTURED",
+  "isolated_restore_test": "NOT_PERFORMED",
+  "all_historical_packages": "NOT_PROVEN_COMPLETE",
+  "optional_receipts_missing": [],
+  "artifacts": [
+    {
+      "name": "historical-packages-and-evidence.private.tar",
+      "sha256": "2cfda2b753d9123da29f8c8320044f7c0b77a88ae2cc4c4bc61cb4a5223f98a2",
+      "bytes": 1814794240,
+      "classification": "PRIVATE_REVIEW_NOT_FOR_GITHUB"
+    },
+    {
+      "name": "production-source-523f1f0f-raw.tar.gz",
+      "bytes": 379373619,
+      "sha256": "829ba2a6c09d174b34e6cacfe22498abde1fd0a0ef264d32d75bb3d26ce80e37",
+      "git_commit": "523f1f0fbc6145c454b5a1430d60775fe7215150",
+      "verified_git_blobs": 33098
+    }
+  ],
+  "files": [
+    {
+      "name": "historical-local/deerflow-cnooc-rsaca-ca-hotfix-20260807.tar.gz",
+      "bytes": 5187,
+      "sha256": "42f8db102916bc0337f2655df1f90d6729bde25dba68d44c8cd4e62fd50291b2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-cnooc-rsaca-full-chain-hotfix-v2-20260807.tar.gz",
+      "bytes": 6405,
+      "sha256": "3dff9cdad9f9ee5a3793352c1699710ff732c214ba71d595b21b640c44cfb5a6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-cnooc-rsaca-kbmineru2-async-v4-20260807.tar.gz",
+      "bytes": 17156,
+      "sha256": "aed62b6f6a31b28c5d5744413b834988f74f7146ae43e16b74d97a9116500dff",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-cnooc-rsaca-kbmineru2-async-v4-20260807.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "42e6814494c8e6eefff9cde964fc435cc656cff27370d8e72b4626b5601640f3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-cnooc-rsaca-kbmineru2-authfix-v3-20260807.tar.gz",
+      "bytes": 14504,
+      "sha256": "c562d9dc08e688923b67ee0745f6f4f3cdd3b900cdfcd0427d5d67ba44b0e4a5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-enterprise-source-20260728-arm64-rc10.tar.gz",
+      "bytes": 100375650,
+      "sha256": "a3e449c8d6011203f7aa1e47ffd0c0eea766c4012fbb48679e13583936027c8f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-enterprise-source-20260728-arm64-rc11.tar.gz",
+      "bytes": 106499515,
+      "sha256": "d2f60590ab1f51a9cd392b1b4288f30020f6a1743af2f5466983f97a168a893a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-enterprise-source-20260728-arm64-rc11.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "0b1fa5d934585708154df2d8fc37699678687ec92d3508fa7eabb96f80c1f7bc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-enterprise-source-20260811-enterprise-arm64-rc15-consolidated1.tar.gz",
+      "bytes": 246063896,
+      "sha256": "9584fd3cf3fc3539f03fd29a474ff566a4eb23e2a899ad2f9c9c90e73e45da20",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-enterprise-source-20260811-enterprise-arm64-rc15-consolidated1.tar.gz.sha256",
+      "bytes": 145,
+      "sha256": "ba43473749030273f73c501b6891ccd65de084418ad3b2d695fee7c2c2f75622",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-enterprise-source-20260811-enterprise-arm64-rc15-consolidated2.tar.gz",
+      "bytes": 245028580,
+      "sha256": "7f5e4ff8d29d1c55f54ded930bea7df6d020849c557b1e430940a397ce3c1e38",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-enterprise-source-20260811-enterprise-arm64-rc15-consolidated2.tar.gz.sha256",
+      "bytes": 145,
+      "sha256": "500f6d48b0d6206a972f9af867091db235cc981556942f138518ffb0d9398636",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-external-source-20260928-r8.tar.gz",
+      "bytes": 10895,
+      "sha256": "adf57d524c2cae9618447af80f91a8a3423c689407783428536ad0d76fc43e08",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-external-source-20260928-r8.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "c1840566179f4372ad45e0df73afe5b12d810e5850c683ddaf63199dd9368ee9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-identity-batch-11792c79c-r1.tar.gz",
+      "bytes": 11255232,
+      "sha256": "b4f09b586830a7a913da83da44d826bf70220abef54b342baaa5eddc4e8a73c8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-identity-batch-1bcd0101e-r4.tar.gz",
+      "bytes": 11256664,
+      "sha256": "e0af9bd5b409020772618b459521d04057a546dc8e0bd8fd003d062058bda120",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-identity-batch-2b7d8ddf1-r2.tar.gz",
+      "bytes": 11256524,
+      "sha256": "150d2a7e7f1332ef68d5c5eb6e74640cc3850623df5e31007b5d9e1735e13a85",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-identity-batch-68f3d6010-r3.tar.gz",
+      "bytes": 11256683,
+      "sha256": "74227174c74e686336d4d1d9cf49dd49a56404d0c33fe33afe72141af0e8a917",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-2b7d8ddf1.tar.gz",
+      "bytes": 11250843,
+      "sha256": "35f2288f4654e4a614074898be95631a940fc740e00ebe404f9889248fb61bea",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-snapshot-20260928-r1.tar.gz",
+      "bytes": 10582,
+      "sha256": "0949a3bca893b6b52aab2086691772ad259752f6ef35d45082482b6a138377e4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-snapshot-20260928-r1.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "4d9ad9aaca2d7b42efd8cd4d3725323965f353f4323add7df9412e563d578b4e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-snapshot-20260928-r2.tar.gz",
+      "bytes": 10837,
+      "sha256": "f22f55d50f51c66ec3e201f003d0393e0ae0d5237ed9df80edd0e5d669f97c9f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-snapshot-20260928-r2.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "f4ee34cc5db2e359f2f1ae255a561cedaeaf276afc923118c8f2f4d8c5eccd3a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-snapshot-20260928-r3.tar.gz",
+      "bytes": 9740,
+      "sha256": "f6fe01b91db7aac9fe12aed26cbea2bced99a7fa1a7001b9aaa1fc219e3dcbe3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-snapshot-20260928-r3.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "f22d62ba2fe1e7834c11293e46009874a4b83898706415ee65c1ea48f7f04d96",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-snapshot-20260928-r4.tar.gz",
+      "bytes": 9752,
+      "sha256": "13065e9765343804ea636d4bb6fc5e8c2fd7b2179335628bceed94ae2b9d42bc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-snapshot-20260928-r4.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "a51a9a1d8afcd47ccc05e2d7c1c8d6c3922962d0e1ba4cac5a7ec34997cad60b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-supplement-20260928-r5.tar.gz",
+      "bytes": 8848,
+      "sha256": "64414a7a3e33a6512057dff0cb2533bfeaa50ea7553613b603c5f17cb2d2f8da",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-supplement-20260928-r5.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "08276885c59ae76d7c25703842854ed82d410387f70a043ca4f154a09e950032",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-supplement-20260928-r6.tar.gz",
+      "bytes": 9382,
+      "sha256": "f4475c70c4be634bccf7e1598b07add4dabd873a0dcbe5bf057ef04d7b11128b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-supplement-20260928-r6.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "bf48528ddb011ebae726cfceafe6a74161b312c8b682b45abeaac9a783bf7c94",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-supplement-20260928-r7.tar.gz",
+      "bytes": 10065,
+      "sha256": "24ab9e88ee9020e178f4ffca073b7ffa546d0e67aa319133b0d1832edd1c3f90",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-production-source-supplement-20260928-r7.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "fd2f63b7f7fdaec7665aa2fe3be692551388143e1dd0bc103f5ec9f7908c4dee",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc10-jobv5-supplement-20260728.tar.gz",
+      "bytes": 2487,
+      "sha256": "c3423da06f63e99c4e9421a68eeb0116783d89cdb5bb009d94f0b756815bd96f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc10-pdffix1-deployment-kit-20260728.tar.gz",
+      "bytes": 19370,
+      "sha256": "018af1f1a05df5ce7d48afc8a15983585286e422d20c6f2561b31b33fab02c3e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc10-pdffix1-supplement-20260728.tar.gz",
+      "bytes": 9014,
+      "sha256": "ecf92588b9134bf160520a0853291769a6ab5701543d2f4457838420a4e310ea",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc11-deployment-kit-20260728.tar.gz",
+      "bytes": 106477966,
+      "sha256": "d76c7be0d60fdd46410ce19c5489aed18064dd285ba366997f6694958a705bea",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc11-deployment-kit-20260728.tar.gz.sha256",
+      "bytes": 111,
+      "sha256": "295fdb6fe79a2bdaaf8e884c2097e0489de03e842e4815398429c59ccb030657",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc12-imagequery1-gateway-supplement-20260729.tar.gz",
+      "bytes": 102124,
+      "sha256": "0f3d19d371ca3c12048f9f6e14ea882a13cde2074710ffddd422ae03570dfc30",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc12-imagequery2-gateway-supplement-20260729.tar.gz",
+      "bytes": 105913,
+      "sha256": "8ff471d99046c0d2148ddfeef5f21b94c1f1a54d842144f8502115be3c26776c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc12-minerustability1-supplement-20260729.tar.gz",
+      "bytes": 98308,
+      "sha256": "6a5044158da60c4231579fbafb71c693995667d108a4117cbc890218bf3f4c60",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-dashboard1-deployment-kit-20260730.tar.gz",
+      "bytes": 204678,
+      "sha256": "76254245593b36062ee3bc7a6fda111dd81f128015683ab44b32649383e7006e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-dashboard1-supplement-20260730.tar.gz",
+      "bytes": 192477,
+      "sha256": "7c1bdf94f2c64c281bfa347247cc87ba163f8d29adaca88ee32a42b3efb9b255",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-image-skill-dashscope-only-supplement-20260730.tar.gz",
+      "bytes": 7767,
+      "sha256": "bfbb0df94fc89f4f13f7cbdc59f5352a7b6e87b5292a3f3acd2cc88f8453c4cc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-scheduledllm1-supplement-20260731.tar.gz",
+      "bytes": 6755,
+      "sha256": "c2e60628585eb486a71ceafc47155cc5bd8950f3cc2c58df2df3cbe096bfbf29",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-userprofile1-supplement-20260731.tar.gz",
+      "bytes": 42609,
+      "sha256": "85692b9c3942b972f8660dc3b1278056768583cc2badf67f8aa232f2c33651f7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-videoasync1-deploy-kit-20260731.tar.gz",
+      "bytes": 34748,
+      "sha256": "89b30f574f4cf80118f644bf62b721437a30940cb28aff2e822f22b4083cbae4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-videoasync1-supplement-20260731.tar.gz",
+      "bytes": 26802,
+      "sha256": "7c1297c1a6b7f0a53659f2f269b654c9f0710f135c232714fe766d7d47beb421",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-videoasync2-hotfix-kit-20260731.tar.gz",
+      "bytes": 11809,
+      "sha256": "a12bc8bacd0a0e639b946f26f4bb814155b17b0da738715caad782d5da1f125b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-videoasync2-hotfix-kit-v2-20260731.tar.gz",
+      "bytes": 11808,
+      "sha256": "b8b482486b3754a28c8d7aa8e5fa4538839adcc06380ae3eb9506a503a8941e9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc13-videoasync2-supplement-20260731.tar.gz",
+      "bytes": 7961,
+      "sha256": "ec83f26c4babc12c8caced15549787c6c260f4e4f42b2baccbc35f7e13b813cb",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-appforge1-deployment-kit-20260802.tar.gz",
+      "bytes": 17788,
+      "sha256": "f4bc179ed3f6195cb16bb828ae1e3d79fa0758460bb73261282767b488d4591a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-appforge1-supplement-20260802.tar.gz",
+      "bytes": 7201,
+      "sha256": "25c685adf3b6a340eda3058369a95fbcea65371d4f626707700e24653b74af3d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-artifactmanual1-deployment-kit-20260804.tar.gz",
+      "bytes": 183069,
+      "sha256": "8b0f2034519913713309d678728b9558180a8bb323f22b34c5865787daad3726",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-artifactmanual1-frontend-supplement-20260804.tar.gz",
+      "bytes": 62005,
+      "sha256": "af40eb47edc5b8712b6261f4537d00db90c118992593dba2cabe00eb910cc704",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-artifactmanual1-gateway-supplement-20260804.tar.gz",
+      "bytes": 111466,
+      "sha256": "068a11a8d70a65340752f040a77f2c919ad4776dac256fdc5c953071a28a1851",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-artifactpanel1-deployment-kit-20260803.tar.gz",
+      "bytes": 68144,
+      "sha256": "6fc82046077b611b5b25e29d8a3d6f5f07a9c5f99d2007f44c0b47b385f64e58",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-artifactpanel1-supplement-20260803.tar.gz",
+      "bytes": 58684,
+      "sha256": "657e9f6cb5a0984f12155e74c161c3dc5f917498dcbd6205f034a229e9a7b913",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-consolidated1-audit-kit-20260731.tar.gz",
+      "bytes": 461373,
+      "sha256": "09ba33ebb587665fc94f835d01638b30b844943a9d84b26036a8b25b346436f7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-consolidated1-supplement-20260731.tar.gz",
+      "bytes": 451594,
+      "sha256": "092a3070c113dcca23ac389992f9bd1bc369f2668a2a5034615e6ab2ce4b963d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-dashboardidentity1-deployment-kit-20260808.tar.gz",
+      "bytes": 39878,
+      "sha256": "b984f2c2fb82e0a948f9d7842fec3b4d10e8b66b8e88eeda9a7ad1312a316a80",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-dashboardidentity1-deployment-kit-20260808.tar.gz.sha256",
+      "bytes": 130,
+      "sha256": "947741c5e5d58b7442c1b0d33b0a759388e909fdd005b22011ffdbf52b935ef8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-dashboardidentity1-supplement-20260808.tar.gz",
+      "bytes": 31628,
+      "sha256": "01146e8e0f6b0b99218fa50fd16b9c623f6fb8ab65fa75607359e64451567bf6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-dashboardidentity1-supplement-20260808.tar.gz.sha256",
+      "bytes": 127,
+      "sha256": "ad1d5d8c245e38e18c3a1e705b71c1bb8e56f0b1e17ac73094e5c9da549cc1b6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-doclegacy1-supplement-20260806.tar.gz",
+      "bytes": 12295,
+      "sha256": "27c584f547068bc5a33fef5692aaf520ad75eb19308af2fa940a299f7f068514",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-docstability1-supplement-20260806.tar.gz",
+      "bytes": 145589,
+      "sha256": "c4bf3e992c12647cf788237831d2b5ab58b72b0f1dd93c37589e96c77b790d46",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru1-deployment-kit-20260807.tar.gz",
+      "bytes": 43391,
+      "sha256": "6d23fdc4165ce496892d9505996b05a6ef07ce11a3db55cc3f4680162f4ac8ca",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru1-deployment-kit-20260807.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "f269e45228a778ad0290c49a9cca041e59e6c5da00df8fa3b2a6db00b67666a1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru1-supplement-20260807.tar.gz",
+      "bytes": 29554,
+      "sha256": "96f58c23c42b7add3389a12dce43c8e77ff3767f582a1bace76efaa767db7cfd",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru2-deployment-kit-20260807.tar.gz",
+      "bytes": 47161,
+      "sha256": "a462ac937c8fb0c109bfc037d1a19a20984b1dca147bd3317dda4f3949b8dbf7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru2-deployment-kit-20260807.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "7d4471e2b4ac507cb489422a87678151c5b72d4c1d994b8e59028758959982db",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru2-supplement-20260807.tar.gz",
+      "bytes": 30916,
+      "sha256": "21def66c4f428fe0d62739f39e6a0c728c1092f40b8da839b24103033b29785a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru3-deployment-kit-20260808.tar.gz",
+      "bytes": 54269,
+      "sha256": "f134f84793940146da5779914e9d9b09697510206483ea4de6107092f290fe75",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru3-deployment-kit-20260808.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "ee1c1e0c85cfde13c73c2cfff7d1cad0c64816cf91391f648c1a97db0f9c6629",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru3-supplement-20260808.tar.gz",
+      "bytes": 30916,
+      "sha256": "76b9e12854ae69aa06fbd2093a1cd30ec7930e9731985eb509e0cf328d32bdb9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru4-deployment-kit-20260808.tar.gz",
+      "bytes": 25454,
+      "sha256": "05bb5ab599721a285be58cb5b8be3c84126141d0bbd3b2c706e0bd5b3f093326",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru4-deployment-kit-20260808.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "bd528eb9ca3dc1b648de9bb42709de73f51946f933c05874d1b04aaa61529384",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbmineru4-supplement-20260808.tar.gz",
+      "bytes": 17561,
+      "sha256": "ac6e7f386e4e38fecdef19d597a050eb13514ac4e96ab5b000e9e65f838f0bf9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbsso1-deployment-kit-20260806.tar.gz",
+      "bytes": 91988,
+      "sha256": "a76ed0b7b49947f9fc84476750c1487dd75e302a9d676bfdb64c14020bd67eab",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbsso1-frontend-supplement-20260806.tar.gz",
+      "bytes": 19441,
+      "sha256": "a4d5a0a6946ce27f0323ad003ace1fc9114411224ea3cd5ab5841b7708c1e493",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-kbsso1-gateway-supplement-20260806.tar.gz",
+      "bytes": 56954,
+      "sha256": "c82e514e8ba913628f397aeb60a611a798b65547e40d4daa7d31d063f0bab4f5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-llmprotocol1-deployment-kit-20260806.tar.gz",
+      "bytes": 17389,
+      "sha256": "23025e9aed07fd7a662b6d66c9022fad6244656d1b0aee2d7d81cc267c6271a3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-llmprotocol1-gateway-supplement-20260806.tar.gz",
+      "bytes": 9555,
+      "sha256": "4cb83cf58c1821f8a4d77ca253ed3dc95e4e947845685563e7d90d0f7f3c45f4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-llmprotocol2-gateway-supplement-20260807.tar.gz",
+      "bytes": 4345,
+      "sha256": "ac2ade30e92b2b7d9de28fd1bfd942581deaf66f2c328184fc513b58d5823694",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix1-deployment-kit-20260804.tar.gz",
+      "bytes": 265700,
+      "sha256": "60348f4527258a2ce6493cf86e200eaf0da0be91bf25369dfa0f4013fdc2f9e1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix1-frontend-supplement-20260804.tar.gz",
+      "bytes": 53128,
+      "sha256": "d499ea59fac1b7cb46549c8d109ff8c80124787bcc653b510f19c53b6f1f9131",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix1-gateway-supplement-20260804.tar.gz",
+      "bytes": 200016,
+      "sha256": "f4291cc47259c772568999618d5c842a801ee23403e70d44f1011a6a0a896aa8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix2-deployment-kit-20260804.tar.gz",
+      "bytes": 45137,
+      "sha256": "c885c761e6b3067b7ad00857ac35cad2705c0c5f658076eb7fdce2090d1e09b8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix2-frontend-supplement-20260804.tar.gz",
+      "bytes": 14828,
+      "sha256": "04a20307a1e40b2655f21793d3d712928c4fe70a24f83d7664b27a702a8fe91c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix2-gateway-supplement-20260804.tar.gz",
+      "bytes": 20952,
+      "sha256": "1381c32fd9940df50b4028e0a4f02af7e5f2080f593b4369bb6ad420190de0d8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix3-deployment-kit-20260805.tar.gz",
+      "bytes": 378521,
+      "sha256": "76f09933439a85fb18713d7ec083f42df88bd8c1c6f67919ec710eeddf88d6ab",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix3-frontend-supplement-20260805.tar.gz",
+      "bytes": 28687,
+      "sha256": "bdeffeaca19b7694598426056a67816a8dcc70293633f18855f79acb89132e48",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptartifactfix3-gateway-supplement-20260805.tar.gz",
+      "bytes": 338543,
+      "sha256": "86974d34ef1e76cf5d24d473b732fa75da64c6db963c8aaa77484ad2ece0eeaa",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptmasterupstream1-deployment-kit-20260805.tar.gz",
+      "bytes": 46198169,
+      "sha256": "4fdf45ae34fef88eda792f2dd48f82d6df8cd8d81a9a77e5b4080174493058bf",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-pptmasterupstream1-supplement-20260805.tar.gz",
+      "bytes": 45920392,
+      "sha256": "89de0907a892a821c530c943041c3882c9d93266ab7dff866370f1d20530d3c6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-securitysandbox1-deployment-kit-20260730.tar.gz",
+      "bytes": 278207,
+      "sha256": "a4befe44484a652ebe218e03edfb245a652ac1d2fe5eb2bcfda64a9d99bb4c39",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-securitysandbox1-supplement-20260730.tar.gz",
+      "bytes": 270868,
+      "sha256": "84b043901a112758fa2dde6899c002b7582b474501b21f819f5439f1ea4387b5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-shopcart1-deployment-kit-20260810.tar.gz",
+      "bytes": 25812,
+      "sha256": "ffd90768ae4ed96d6c400422e18ffe713703cce9e9415f0401f2a545164963a0",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-shopcart1-deployment-kit-20260810.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "27b178ad17c8b1ab744c48390adddbec60f7258a91d4cd72fec9ac897f2e1de1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-shopcart1-supplement-20260810.tar.gz",
+      "bytes": 16089,
+      "sha256": "f570fcd1c4007e9ff59b8489c4639e0766085fb733f503c34d0fcdd3c0e74636",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-shopcart1-supplement-20260810.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "745978ff329eea237187ecc13f8854fd078f0da07816c61dec7ef01f48f003a5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-skillreadonly1-supplement-20260802.tar.gz",
+      "bytes": 28577,
+      "sha256": "790fe58fc121f281e82c990f6e7e5824a6070c24ceb652d20626e874bb578729",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-streamartifact1-deployment-kit-20260803.tar.gz",
+      "bytes": 51754,
+      "sha256": "482efb65b0e2c3ec6d663e6cd1871d6d0dc4fba3a0ed67d7ec99327d65174183",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-streamartifact1-supplement-20260803.tar.gz",
+      "bytes": 43250,
+      "sha256": "4aa14b788b943b0a1b743d9b32a9fadcffcf513463577c87552c9f0365018b96",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-streamreconnect1-deployment-kit-20260803.tar.gz",
+      "bytes": 30543,
+      "sha256": "8d27a7d1c9073cc08316beeced582febd130317b27830880b35addc80d6d16ea",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-streamreconnect1-supplement-20260803.tar.gz",
+      "bytes": 23274,
+      "sha256": "4f4646cfcd3c706526ba698102ab6936fa2040b98c44daae450588d4840cdbed",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-titlecache1-deployment-kit-20260806.tar.gz",
+      "bytes": 5428,
+      "sha256": "b784ba917cf9418745fa223e24a667919cb46f904852e94f97b96da6e08ceaab",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-kbnav1-hotfix-kit-20260808.tar.gz",
+      "bytes": 10766,
+      "sha256": "25fe9d364a69f54a35acc786ec2adee7cbc9e5e8fe9c57f3c6566081e36ea61b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-kbnav1-hotfix-kit-20260808.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "d6f89498467fc6928a61649774d9d5c90b676605e8fccb59f736d43efc973af3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-kbnav1-supplement-20260808.tar.gz",
+      "bytes": 5579,
+      "sha256": "dfaa3ce2593bec542f0fc2a07c5c9e935ad88127f8dfb6f753c0af8dedbd330c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-kbnav1-supplement-20260808.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "05de908bba2475b77a4deb5f2f0f13442db329e8121fd69e523a9a77b44a6462",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-sharing1-hotfix-kit-20260807.tar.gz",
+      "bytes": 8387,
+      "sha256": "863398045db604e8064f91045c291c3219e77eabd1fd18d751722532fa50a9ec",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-sharing1-hotfix-kit-20260807.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "062c2f4afb2ba2bf658665e70c45b44d7f49185864d27a5d391d171f9fec0224",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-sharing1-supplement-20260807.tar.gz",
+      "bytes": 5589,
+      "sha256": "ec1c4dd8135853220a6ca60e623aff4f0daac5ae5b9d026f42e27472087e1ec8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-sharing1-supplement-20260807.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "94c0a127a3bb250b94dc4e91b7b2c01b7b27365760841b7f5caa451207ba4ec7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-xlsxcompat1-hotfix-kit-20260810.tar.gz",
+      "bytes": 5512,
+      "sha256": "1ab887c3a9f403dd6997def7506242aa23c1dad844c10ac10261dafb0e839cf4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-xlsxcompat1-hotfix-kit-20260810.tar.gz.sha256",
+      "bytes": 127,
+      "sha256": "5583f36a397ae07f23d2b4b9003b45b1983c44297d015ce6b68a4d14d4ec913f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-xlsxcompat1-supplement-20260810.tar.gz",
+      "bytes": 840,
+      "sha256": "0f6ecb734e9716baae0214a09a524ec6f0deac7945bd77a091d442115ccdfcff",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc14-weknora-xlsxcompat1-supplement-20260810.tar.gz.sha256",
+      "bytes": 127,
+      "sha256": "453c6480a77fe1ada6ff8f490a7722c59d6747359e0412e3cd96af826ca46029",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-agentppt1-hotfix-kit-20260812.tar.gz",
+      "bytes": 201561,
+      "sha256": "7b432362998894030bf45dc599c8ee0ba8abc7899ca93c47d42a7f0a25d3cac0",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-agentppt1-hotfix-kit-20260812.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "883be7697768fd7b0a5b1ed3cd1b1b8b3a3c63abb29aff536dc0f87d475f719f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-agentppt1-supplement-20260812.tar.gz",
+      "bytes": 192111,
+      "sha256": "29077230dd01c3bde27a3411636680291c3b40760ae3c09d6a4a5f3e11e185c5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-agentppt1-supplement-20260812.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "1c79289c742501c87f2a28daad0f35e334a76aaf3c4d84ce43ed6b2f2da6e6df",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-agentppt2-hotfix-kit-20260812.tar.gz",
+      "bytes": 201413,
+      "sha256": "dcd8c62c54c97dfa0b8cc88c6240c22ef2c1a69a3427370494fffd837ec90ccc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-agentppt2-hotfix-kit-20260812.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "6ea036e5d793a717436dcfd36ded61f9444880cdb9c46db013e2c79fbb437a71",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-agentppt2-supplement-20260812.tar.gz",
+      "bytes": 192111,
+      "sha256": "29077230dd01c3bde27a3411636680291c3b40760ae3c09d6a4a5f3e11e185c5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-agentppt2-supplement-20260812.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "a3d44b0b520a7801b31f5e02f2f257fbb1d9bd6084fce278a2b1d04ae2012f23",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-appforgeretrieve1-hotfix-kit-20260812.tar.gz",
+      "bytes": 16271,
+      "sha256": "ae0b4e199d59e5785b4ac2b9b6100433cdb18eb4483f8a9e00fbf6bff39de658",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-appforgeretrieve1-hotfix-kit-20260812.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "5978e764c8907585a7fc888bdb144a69dbf239674158a36051d2b85139daaaa6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-appforgeretrieve1-supplement-20260812.tar.gz",
+      "bytes": 7389,
+      "sha256": "815639aaf0382f5f620d695448a50dbba8b6d224282c03de4bc0b90d2f6458dc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-appforgeretrieve1-supplement-20260812.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "73acb31b615ead4be15a185e4d1ebc54e31489b4f167abb69f331ee26af3fa82",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-appforgeretrieve2-hotfix-kit-20260812.tar.gz",
+      "bytes": 16674,
+      "sha256": "1fd5ee530bf0d99cb0b644f44824bbbb0a3685e99c9e00e972612da2aa97061e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-appforgeretrieve2-hotfix-kit-20260812.tar.gz.sha256",
+      "bytes": 126,
+      "sha256": "c24697a5979f2764672cf37c03375a6365365ce084daab591bd1c71e8d52d1a3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-appforgeretrieve2-supplement-20260812.tar.gz",
+      "bytes": 7389,
+      "sha256": "815639aaf0382f5f620d695448a50dbba8b6d224282c03de4bc0b90d2f6458dc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-appforgeretrieve2-supplement-20260812.tar.gz.sha256",
+      "bytes": 126,
+      "sha256": "62d78c63ed5f42e02672019f27d16a10b2773bdddde543e4ab618b84d69b7c97",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdelivery1-hotfix-kit-20260813.tar.gz",
+      "bytes": 42217,
+      "sha256": "2c5602cc0096e456e9f68ae73309f3b21bf4b950f710c7c70784f5e27b8dc3f8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdelivery1-hotfix-kit-20260813.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "294f61fdf8d8ca1892191e75747c2e78482ed4c07115257af06b08408c37f9b7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdelivery1-supplement-20260813.tar.gz",
+      "bytes": 35593,
+      "sha256": "93e08df40b1477be4a78041388fd19f2a225d0d8766130a144a6f6f6330031a4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdelivery1-supplement-20260813.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "bc8fd04eb69dc0d6ae16e6142f10653886c979f4dfadad03a39af560ccf031db",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdrawer1-hotfix-kit-20260816.tar.gz",
+      "bytes": 28455,
+      "sha256": "d36ae8d12ee0913575edb7eef7043bb71a81d9f3a156d8db96020ec6dba45015",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdrawer1-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "49883d2a8d676dfeb2823a7dc87bf7b92b7e9d756f2ca7cde46ec516537848ba",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdrawer1-supplement-20260816.tar.gz",
+      "bytes": 20806,
+      "sha256": "dffb9860b1fcf80ace76e5207766ad807c1ed62052aab21d910d5cb5c7ef101c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdrawer1-supplement-20260816.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "499d48bfc57d4529dada45c6dd01214d00c2acba78e79aeaad811de3aeffe49b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdrawer2-hotfix-kit-20260816.tar.gz",
+      "bytes": 28389,
+      "sha256": "517ae509443323ee1ea26504144afb4dc72bef4458f2b82c35b3b3f8f768d78d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdrawer2-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "25047bee7a54153c21daaed7379aad353242df1708745a7ca587f8fe1448210c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdrawer2-supplement-20260816.tar.gz",
+      "bytes": 20730,
+      "sha256": "4eb8a02be4730edea6e3e7f60ba6e4197bc5f0dc2636cd9bc03530e97a703027",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-artifactdrawer2-supplement-20260816.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "5aa26a4df173c3bca800442517b742ed69809697707af1d679c7b3a41172eecb",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-browsercompat1-hotfix-kit-20260818.tar.gz",
+      "bytes": 32949,
+      "sha256": "32264d148e42db85e6057de4a88eb98adb7e9643da13f4124bc64bc17dc5ce6c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-browsercompat1-hotfix-kit-20260818.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "4e75f305eb6d3a8de52e2132a2e1ad3dba587ae0d45a20502a858d3c3e788d20",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-browsercompat1-supplement-20260818.tar.gz",
+      "bytes": 24668,
+      "sha256": "03ab4d8d6864b535a1a3b109231da286db87d031d6a0f57daa302974d25e916b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-browsercompat1-supplement-20260818.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "903c4d41fb5561ad07feb0f62cd9782782969819c982acac69e53d4ea77ec605",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-cnooctemplate1-hotfix-kit-20260819.tar.gz",
+      "bytes": 6518914,
+      "sha256": "f0fd02219a316e2c45f8f234fe32780009523882f77b594647f0f97aef9d7750",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-cnooctemplate1-hotfix-kit-20260819.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "ced91be37cf67dc6ad27966864f00154f35035d61281841fc96390ddd975e76e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-cnooctemplate1-supplement-20260819.tar.gz",
+      "bytes": 6508492,
+      "sha256": "e6484acfec9c5293acb6d204461525ab2879daa89792c1c1c60a862c1ae08999",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-cnooctemplate1-supplement-20260819.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "749d93cb233f48a721b1dd0e6166065bce0f54b745a006588152fc06f38f26cd",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-buildkit-reuse-fix-20260811.tar.gz",
+      "bytes": 9067,
+      "sha256": "01a3496349103943331507d8268f09378e4bff2cb537de31df7ab37032a01614",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-buildkit-reuse-fix-20260811.tar.gz.sha256",
+      "bytes": 129,
+      "sha256": "19c64eede0a7a840ce975a104caccd831e0da6bc70ffa5cdf127898220440a30",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-hotupdate-kit-20260811.tar.gz",
+      "bytes": 248684827,
+      "sha256": "0f8b1b333ea6b91dc368a09e00b7baedea33ec4a31e16a926c434b2cc760517d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-hotupdate-kit-20260811.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "f6d85b34f1628f00e2a6284b527f729f5ad16cf427414c9565b4821b1265f4bf",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-lf-manifest-fix-20260811.tar.gz",
+      "bytes": 723328,
+      "sha256": "205b27b85c2fe5ed766773024e435ff1688d8a78322174407b8465c938effab3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-lf-manifest-fix-20260811.tar.gz.sha256",
+      "bytes": 126,
+      "sha256": "68e0d0a07e34eaea85ed32feefdf3e77dd211f9bd737b5a7c63ede8c3bf39273",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-maintenance-rollout-kit-20260811.tar.gz",
+      "bytes": 11474,
+      "sha256": "5325520cd7984456b06a6ffb49093b5a6e283eb7105ea85110fb9e3dd158e7a8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-maintenance-rollout-kit-20260811.tar.gz.sha256",
+      "bytes": 134,
+      "sha256": "bf9d099123e3306dae594246b66121c692b734d4d043b098c175a150afc9a59a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-sandbox-resume-v2-20260811.tar.gz",
+      "bytes": 1788233,
+      "sha256": "7396cd826d8b517a093f7c449f3d1b7900b98760f8d94dd8346943889ee8dc3f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-sandbox-resume-v2-20260811.tar.gz.sha256",
+      "bytes": 128,
+      "sha256": "e87319a52cc6eccf192efdcf2be854bb10b090c641699e4e91def1850cad28dc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-sandboxdep-fix-20260811.tar.gz",
+      "bytes": 1788181,
+      "sha256": "87b17fb4083788af01c23ba35e59f559b1e17f2fae0e96961cf2cdaa62da4815",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-sandboxdep-fix-20260811.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "bfda048659e4bdd698aad654236ab6123cf821c00f874ed66835e3e9952eb554",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-weknora-render-fix-20260811.tar.gz",
+      "bytes": 9593,
+      "sha256": "897983182e690a1262bef4f1663244079d3efff078b0a9e8df6c12fe828710b0",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-weknora-render-fix-20260811.tar.gz.sha256",
+      "bytes": 129,
+      "sha256": "ad9014a2d1cde6faada6dc45dea587f68b64bb28af459c619b3c3493dfcb94f4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-wheelname-fix-20260811.tar.gz",
+      "bytes": 9098,
+      "sha256": "b32a26befc05a830e9923052699453d16917041729aac44cb72ff2d62a134c39",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated1-wheelname-fix-20260811.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "36b1458a2dd5f9d8fe8fe32e6562acf61e88ce33df0ca1321c13c61237358c99",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated2-hotupdate-kit-20260811.tar.gz",
+      "bytes": 247649802,
+      "sha256": "d6dbfb4e6ca1134919067b57775a0cb15f64029f316237b3c976ee81c4f2128b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated2-hotupdate-kit-20260811.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "e37512495149c6ba6285e3762dceb4e8c1c964eea12eed6498bc2aa0f96c6238",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated2-maintenance-rollout-kit-20260811.tar.gz",
+      "bytes": 11366,
+      "sha256": "004b719d85cf4187443ff63cf8e052118d77b841229e31482cc77fb8cd429237",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated2-maintenance-rollout-kit-20260811.tar.gz.sha256",
+      "bytes": 134,
+      "sha256": "f3cc4246231eb688770a0aab8b3340106cdf15860d3160a0a0a320e74ef4d764",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated2-weknora-render-fix-20260811.tar.gz",
+      "bytes": 9481,
+      "sha256": "cf9fd887e9d2980cdb32a9a7401914e7fbbb8c956ac9ca4b8395777376f51fb8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-consolidated2-weknora-render-fix-20260811.tar.gz.sha256",
+      "bytes": 129,
+      "sha256": "7360b1f88a65f08dde01ae58defeb3e23e670d48f3dbbfd220881ded2c9ea459",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-dashboardmetrics1-hotfix-kit-20260818.tar.gz",
+      "bytes": 24037,
+      "sha256": "1f850579a7f8134e2c6d45603d1edd4c3026e106d499dc83d315f33537ed87cd",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-dashboardmetrics1-hotfix-kit-20260818.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "1381939dcb82389944c900f9d03ce66e0c5ed05e31cd306cf38b8365dcd0d0b5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-dashboardmetrics1-supplement-20260818.tar.gz",
+      "bytes": 16144,
+      "sha256": "bd360b2ad1794fd4fcd56eaf65cc09d03e00d4abd3ec4915eeaa2873cd9614e4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-dashboardmetrics1-supplement-20260818.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "f97fa667e5716cb2427e8545bf34b0e71f8bcd62ca3728e5acff052ff90cce0b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeintegration1-supplement-20260820.tar.gz",
+      "bytes": 64397,
+      "sha256": "5a04a9783920a82f043afe49ced4f7224dff3be8b96ccda3c641744f8131be9b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeproxy1-hotfix-kit-20260820.tar.gz",
+      "bytes": 51186,
+      "sha256": "881db7d42138ffd9178c4b2b23f22242c1a286640f68a30b2e4dfa0bd3dbbeb9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeproxy1-hotfix-kit-20260820.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "fb1b9bc96c77457c8252a6e9d2f180df39da83464046d0139a1bb1951581fda2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeproxy1-supplement-20260820.tar.gz",
+      "bytes": 42465,
+      "sha256": "2e1be43cc601834d2c943df4e1b8e49ac044d8a00793fd507808e407ae92548e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeproxy1-supplement-20260820.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "76ede3de8abec0750726c9eaa47872ea5082e525456ebd5bea9a6bbb6a0d4b91",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeuploads1-hotfix-kit-20260820.tar.gz",
+      "bytes": 30359,
+      "sha256": "ef6336b8ffb9db03f1926b3e85c87d811d098fecb322a3f811ab84708aabe61f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeuploads1-hotfix-kit-20260820.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "37c8ede70b77efd764f1213ed98d4a5aa435319a26262577586da67d6ac7152c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeuploads1-supplement-20260820.tar.gz",
+      "bytes": 22190,
+      "sha256": "f1b9be7335fd8e955cd395782fa59a5c81ab5249a3d321343d41534a51f9f8c4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-datalakeuploads1-supplement-20260820.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "22fe2a1a405081f5309f4eb8bd750f8e5d3b7e18518229c2980dbf3298ced2a2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-deepseekframe1-hotfix-kit-20260823.tar.gz",
+      "bytes": 26070,
+      "sha256": "f0b715b16c64a8a18bd62038b1f7bd22cff938e3a57992816b7bbe6eb7e1c5db",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-deepseekframe1-hotfix-kit-20260823.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "27fd0980b85da40f5b908a732f31fb671e0c57da8ab6757ae87b35565ec9e347",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-deepseekframe1-supplement-20260823.tar.gz",
+      "bytes": 17358,
+      "sha256": "d1962a8ff82f4f27d3d5a1f6c5d80f70a0b5c2e5d7f75f306569140c79cd9d02",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-deepseekframe1-supplement-20260823.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "b0c5fd9e9567f1f401334bb99522ec967c64a53a4de6957d5ce2ff69617827dc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbenrichment1-hotfix-kit-20260817.tar.gz",
+      "bytes": 4759,
+      "sha256": "77fb11438f3271ec53a234117891cf6fcb3a2456f6c544db4690f4db2ccb0dd6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbenrichment1-hotfix-kit-20260817.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "c6ec1ff4c2f737e5465db672489a8b830d8df30b3167edc0b76fbb38f0174ed1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbenrichment2-config-hotfix-kit-20260817.tar.gz",
+      "bytes": 2872,
+      "sha256": "f7c4abee296b66c9184c10732433a0528e9ad63dac8bed3b2f3e3acdaf7411d3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbenrichment2-config-hotfix-kit-20260817.tar.gz.sha256",
+      "bytes": 128,
+      "sha256": "6d442e3dadf3cba10ea2e2d6b6223b4c288b2149e80c002bac6d93bfe387a6e2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbparse1-hotfix-kit-20260812.tar.gz",
+      "bytes": 29948,
+      "sha256": "337b392fa3bf9d416560b353b0ab454f2fe0f4d6ed59d27d2388b733e1c8b666",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbparse1-hotfix-kit-20260812.tar.gz.sha256",
+      "bytes": 116,
+      "sha256": "b6ce2abce8e5890d61b3718a90c26722b9b8872f02460079f21771061f6c4695",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbparse1-supplement-20260812.tar.gz",
+      "bytes": 19569,
+      "sha256": "59fdd620821811ef21165684391d98eca7b45d8a4e0a8db051c591e269afeb19",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbparse1-supplement-20260812.tar.gz.sha256",
+      "bytes": 116,
+      "sha256": "1a3643d6086b97308b4585e77bd1b251665abc903b29bf70e79e00e04822e6ae",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbupload100m1-config-hotfix-kit-20260817.tar.gz",
+      "bytes": 3166,
+      "sha256": "507086d39c4875958b49dd0014313315402d0ee3aeb4cbd3c784ed6321eaceae",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kbupload100m1-config-hotfix-kit-20260817.tar.gz.sha256",
+      "bytes": 128,
+      "sha256": "1839f51ef1900c94f24c07724b1b4f84ea15b8a8f3fdade138b334f32214bc66",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kimik262-hotfix-kit-20260823.tar.gz",
+      "bytes": 13111,
+      "sha256": "eb7b9047545220ed68847659d77d4cd1bb0d20d69141979e5b5cd7d8e2f139c4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-kimik262-supplement-20260823.tar.gz",
+      "bytes": 3382,
+      "sha256": "3201732e5f0e843f0f3daf488ffccd80a4085b06de7f6dcc9d1be4ca46331b82",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-landingentry1-hotfix-kit-20260817.tar.gz",
+      "bytes": 17368,
+      "sha256": "e9647cac6cda28a1de90e9ecc0afddd9a179faa3c1b8b589a828e179a30205f7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-landingentry1-hotfix-kit-20260817.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "594f240766432e3d142c32fa9a1094a7e9965e7fa7a9e350043cdc11fdcafd2b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-landingentry1-supplement-20260817.tar.gz",
+      "bytes": 7599,
+      "sha256": "bff51a0b9bbb023f2ad48955ef19d070d53fa105a059849a1790d2372699fe53",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-landingentry1-supplement-20260817.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "26347b13e1fc64ebe48f8d1d142127b4dcd0a47774297d60e95fb92a87b75cbd",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-mineru-sync-hotfix-kit-20260812.tar.gz",
+      "bytes": 3755,
+      "sha256": "999df79e07561f060670698f9600619ac5efdeb2811fdc7c7425fcfa71f528d8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-mineru-sync-hotfix-kit-20260812.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "82bd257b6e40db55dff81bb0c3a9d40403cbdb5b183a5ea7b0d9140889e37520",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-mineruasync1-hotfix-kit-20260817.tar.gz",
+      "bytes": 5259,
+      "sha256": "d9a139752377bf90dc9a92d8208f5bc5fadfb31189218397eefc7b431ccd3943",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-mineruasync1-hotfix-kit-20260817.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "3473b092fa84370b4902a96ed4b6dffb9161ac611a3c187a65b70a5b1229d329",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-mineruasync2-hotfix-kit-20260817.tar.gz",
+      "bytes": 27655,
+      "sha256": "2aef49a5f99bf99b7b545234c12f5ce7dbd43076291c4f76c427ad695429c2f7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-mineruasync2-hotfix-kit-20260817.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "5cb700d6540ab90975d47875227cae364c84c1813d50e9968505ba64d0958581",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-mineruasync2-supplement-20260817.tar.gz",
+      "bytes": 18059,
+      "sha256": "d3e9695fb43f0e89d0b23f7ea72d65737e717c005d6506117943eb7fb6a94d8f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-mineruasync2-supplement-20260817.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "7aa89a0ea4e201563aec6b197791ca1fa417d0994ca86458d043306ed15084b8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-officemobile1-hotfix-kit-20260821.tar.gz",
+      "bytes": 1182141,
+      "sha256": "ee55586a9f00a23fe5a341990df5789f657ab41b74fb929f5e18ed91ed768b0c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-officemobile1-hotfix-kit-20260821.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "2f28b5f828743803b4af32b723f4cd2a83c3469dff47e720879112f49601867a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-officemobile1-supplement-20260821.tar.gz",
+      "bytes": 1167824,
+      "sha256": "22c0280067a5272584102581098f3e811ce13638f8c276d9ba1c74a57b26dac9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-officemobile1-supplement-20260821.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "d3854a5eba2e40ddda1937c0c99eff4a6f32938c1c8c5bb0a5d3f087b6c1212a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-officepreview1-hotfix-kit-20260820.tar.gz",
+      "bytes": 69072,
+      "sha256": "579be2050e2f9081a5241118501bdfa3cb1bef5a1eec85315611716f7a9563b6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-officepreview1-hotfix-kit-20260820.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "a8eb08b3e4cc3c4cd1a3811e404668caa083ba5ee3d8183c6d47700b7f0c15f4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-officepreview1-supplement-20260820.tar.gz",
+      "bytes": 57326,
+      "sha256": "d10989041ac451907a367d47c1b2234061c15a7ab0cc2dc8bf6cb93810797d59",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-officepreview1-supplement-20260820.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "8046c385b0373fa0014863d969adde58b5be905bd43d591b6cb317b2734f50a5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pdfpreview1-hotfix-kit-20260819.tar.gz",
+      "bytes": 19580,
+      "sha256": "280eb6726098dd789a958fe13300a6e5090b3d8bd76bd119c6b7a4711d1f5f3f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pdfpreview1-hotfix-kit-20260819.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "65d1912d9829f8d8934008d796e71151e3821b45eb27c316fb0ce0eded71099e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pdfpreview1-supplement-20260819.tar.gz",
+      "bytes": 13395,
+      "sha256": "832e7be0a7ec4499e8d48226be7c26c736abf9932bef59ced22e70c10a34b805",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pdfpreview1-supplement-20260819.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "7ce2a0fabe2295b027f436d08c5cc928af611b684252e2e27296261ca9d5ccc5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppt-demo-assets-20260811.tar.gz",
+      "bytes": 925198,
+      "sha256": "3727458adcbae99b5eee0c0dbd9c463097bfc406e68a5226708a38efec53bc37",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppt-demo-assets-20260811.tar.gz.sha256",
+      "bytes": 112,
+      "sha256": "26d543dbec1551afcd3056314da271de58aef90e876d246b14deb41d02d6e43f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppt-route-demo-hotfix-kit-20260811.tar.gz",
+      "bytes": 930281,
+      "sha256": "09385bb31c5170a8a4719939358bd5c467369aba88e199137b2059c941bfbae9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppt-route-demo-hotfix-kit-20260811.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "19584bf40d6e384d9d4e9e42b5d8ef6e2597d888d9ccc4dd360c0ef587ee9712",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptnamespace1-hotfix-kit-20260811.tar.gz",
+      "bytes": 130170,
+      "sha256": "8f40bfd06376a9a157e6c5b0876ea47957fa03130eca1110997e799cf7e07228",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptnamespace1-hotfix-kit-20260811.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "b79753464df639370c2fdc6aef8d6b6b682c7083bfc1505517318b210aa09169",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptnamespace1-supplement-20260811.tar.gz",
+      "bytes": 123369,
+      "sha256": "8275986441ba0c8ccebf4d003e24fcf1b67bc4b56f078ea60807cdd8c6720787",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptnamespace1-supplement-20260811.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "0f6e98072316db518b61d65ba14f0389f406fe48e35324b47b21396de057950f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptpreviewweb1-hotfix-kit-20260820.tar.gz",
+      "bytes": 219143,
+      "sha256": "1c4d22384c6e81fae3090f16a65cc82fdf91fe2e4aa474f5c7401d3d573821dc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptpreviewweb1-hotfix-kit-20260820.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "338f4f2893b51b8e7f306eb68fb499f3106538e55b7469ccb06c950846770e3c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptpreviewweb1-recovery1-hotfix-kit-20260820.tar.gz",
+      "bytes": 220964,
+      "sha256": "2df5e37bb6fcf61e65fe40665bebfaa65371ed0f71cc9acd1d2672f02f6a7e23",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptpreviewweb1-recovery1-hotfix-kit-20260820.tar.gz.sha256",
+      "bytes": 132,
+      "sha256": "e920f68f17b29c35b969b3a1d73ae91ccd73ce464d235a478b6b225bd146f01b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptpreviewweb1-supplement-20260820.tar.gz",
+      "bytes": 209676,
+      "sha256": "f7eccffe2125ae436b429275dd5251a8fef030d034ab1d906187f9f7c8572bc7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptpreviewweb1-supplement-20260820.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "fdf14f970448b63c2fbb0580a650b4e1a1731d4c021196f497deb0b2834c68fb",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptprotocol2-hotfix-kit-20260811.tar.gz",
+      "bytes": 166366,
+      "sha256": "5a7d19db54b3b986bdd37f48c0222762680f4f0a9b1fd5159bd2c1d5bf2e285a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptprotocol2-hotfix-kit-20260811.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "6cfecb830dff91ac051567f0f41cd8e6f5fcbaaa89cb3d5dce08307369e74849",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptprotocol2-supplement-20260811.tar.gz",
+      "bytes": 157308,
+      "sha256": "1b360b7e17b980f2db9bca5b219f27ff16a7d090ab8c9da8f98c257f8b68463a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptprotocol2-supplement-20260811.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "fcf1bbd2793f203d616d288078f02bad98e3191221719ce037befb05bde53aef",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstability1-hotfix-kit-20260813.tar.gz",
+      "bytes": 198219,
+      "sha256": "b337dba526e58b674d6fae2cf27aa4ed9e2c51b4958d997f5446003ceea62071",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstability1-hotfix-kit-20260813.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "03258f14a688cd69665080f4c93a14e3d53e4315b96dea61aadd27fca62de45e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstability1-supplement-20260813.tar.gz",
+      "bytes": 189437,
+      "sha256": "14c23fb770e378e96a9ae6e617bf4acf3a22f94aab2d76503adfa50dc6643ac5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstability1-supplement-20260813.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "a1fbc82ab9d28ecd4c4c5a64db9536bc499e767acba3292c5dedd21263c44f06",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstate1-hotfix-kit-20260813.tar.gz",
+      "bytes": 27029,
+      "sha256": "00c0e4d7ad13a29d4eaeaddf2a1ee878861c6762a1078d4ca1b679d00db317a9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstate1-hotfix-kit-20260813.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "f685f48613fe8dda34d13078984977823e66fe25dfbaf4c997c4f76b5699a904",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstate1-supplement-20260813.tar.gz",
+      "bytes": 20709,
+      "sha256": "919a25b8d68300d69d6b2a8a53d77d300d8c3df8b68267f1f5308b9ec3d014c5",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstate1-supplement-20260813.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "924713cd9b82a0351dd3052a4db9445632e2f2c375a76a5f1a2d16d20583dfb9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstate2-hotfix-kit-20260813.tar.gz",
+      "bytes": 17171,
+      "sha256": "d8463a95388bafbae16e1086b98f0b09977f52d918da7ae428dd379088d87b25",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstate2-hotfix-kit-20260813.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "7a4d980f6dc6dc55fc668ee6a1a2e915245267226a417d5540d7091a9f64ec5c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstate2-supplement-20260813.tar.gz",
+      "bytes": 10357,
+      "sha256": "c9cc85895182a8db2cd8fe262d063e7ca3230c05d53d3c3495a8a584e7a8cf9a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-pptstate2-supplement-20260813.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "34c0c506e3d154025cb7c5fae7db5b82d3813584292dcf40ca39be5c1f0df990",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppttransport1-hotfix-kit-20260812.tar.gz",
+      "bytes": 22766,
+      "sha256": "6695161467781e5d8d2a1288281ba945e42b882b86504db8acaf88662ff1758a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppttransport1-hotfix-kit-20260812.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "a35076c39002cd8be096c2c7745f571511c927566963b397aa69d62dba82ae72",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppttransport1-supplement-20260812.tar.gz",
+      "bytes": 12487,
+      "sha256": "442f00f8f52442845474223512dc1e2df549a072387c57efa69c9d40d73d4350",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppttransport1-supplement-20260812.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "d6d1719f21eb713f33b71796e08d4dcde292c881bd6639e2c90abb0db630085a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppttransport2-hotfix-kit-20260813.tar.gz",
+      "bytes": 42742,
+      "sha256": "a0ef6cb9edf2fd21d3661182b503892db66b0f2a5fd3550bde6b96311670aefc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppttransport2-hotfix-kit-20260813.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "34bb3b99f0438267a582bd9fea8674f3c28ddb6b5b77f3abd8c8267fec96cdb6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppttransport2-supplement-20260813.tar.gz",
+      "bytes": 32027,
+      "sha256": "f198226cc4eb8020d458cd9fbf0168de6bd0cd40c668cf062ce0a93121400582",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ppttransport2-supplement-20260813.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "0248e828d894754ccbcf3572e45d5b7b0ff1bf50bf82483df8197d0f73a769a4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-sandboxstorage1-hotfix-kit-20260817.tar.gz",
+      "bytes": 28708,
+      "sha256": "df4e98b1820e46e05b8703b955ea822693deed003eb6a7f4569a174f3c1b362e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-sandboxstorage1-hotfix-kit-20260817.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "b376cb732b078198d4eacd728b4e98fb74db2db1eee8f1f1a641d6192cbb1324",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-sandboxstorage1-supplement-20260817.tar.gz",
+      "bytes": 19474,
+      "sha256": "0ff39db1152f50d896f7c792977b8ad05467114f6baa1098092f3f1ee932c2fe",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-sandboxstorage1-supplement-20260817.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "10887ee95fd843282c2cf732849a2109daf6ccbec3a8e44365bde045fa22c7a3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-settingslayout1-hotfix-kit-20260820.tar.gz",
+      "bytes": 8025,
+      "sha256": "63fab0b66517f52c491cf2e647aad37d5adc0b11dbd8ae533fbbeab94a05b404",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-settingslayout1-hotfix-kit-20260820.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "49cc929c1ffe2cc67484bc866e90e1219260f38a05a54ee94c7ca3f3eb11c485",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-settingslayout1-supplement-20260820.tar.gz",
+      "bytes": 2555,
+      "sha256": "32e4444c5e7296882543c71c084aa796942ab42415eb40a14672bbcce8a4a2ab",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-settingslayout1-supplement-20260820.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "ccdce5aaffc8816d5651da8f0cecee7832e665599c17f08439a3b75336dd252b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ssoresilience1-hotfix-kit-20260813.tar.gz",
+      "bytes": 9461,
+      "sha256": "69e27602c02e01e45c7804b4e636a816e426e7a38a74dae6b99f9f056692f840",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ssoresilience1-hotfix-kit-20260813.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "9489737f31e819a78225ff819d18c65ca93742580a92fda625dd29221a16875a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ssoresilience1-supplement-20260813.tar.gz",
+      "bytes": 3398,
+      "sha256": "570d1b7fd20182a754b8f7aa3007f3762853a6ac3e193690bd56b5fa97eb5b7f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-ssoresilience1-supplement-20260813.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "eb018415e073ce480a82be8746b386e01eca74dc7a53ec6773eb478ec4dd9bb8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope1-hotfix-kit-20260814.tar.gz",
+      "bytes": 48160,
+      "sha256": "72c73577420caf0d4966a38e9211ee88e5b7c9aa4bb30b0a157a6adaa3add454",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope1-hotfix-kit-20260814.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "ac05319c18572fccd785c7fa2a475d023bfe07207ac6a4b71b1d8b0427de6640",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope1-supplement-20260814.tar.gz",
+      "bytes": 39282,
+      "sha256": "514a82965643b307d0451217d303c2284f13fd989b7f8cc8e9c0b0ae6db7a007",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope1-supplement-20260814.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "0ce6a00331b441473a1517597c8bbb2748c6592db89aec827817b9a7511641b8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope10-hotfix-kit-20260816.tar.gz",
+      "bytes": 41007,
+      "sha256": "afd9032ce0949945a68a81e7d41b0b933ddaae0243f01567fd2d768e3503c91d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope10-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "66f24940ae7c3029a286a6eeac3a309d07bd39477116b105864e691a20c7baae",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope10-supplement-20260816.tar.gz",
+      "bytes": 29814,
+      "sha256": "db71c0a5e4f71f127f541a859ca4c3d6d3384f00fe04a73dc70327d56e3588b2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope10-supplement-20260816.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "4d1d35644410071b2ada8d8c06d3fb9bab7c5c71602497d7b0a7f03debb7af16",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope2-hotfix-kit-20260814.tar.gz",
+      "bytes": 48079,
+      "sha256": "3eb040420c4c9b78fa825d391b6c8984ccf217ead91a08900882b51753690e0f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope2-hotfix-kit-20260814.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "4ed956527ef9eae981a6fc3b1661428c1f158c876598c18a2e79bbae6eb08289",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope2-supplement-20260814.tar.gz",
+      "bytes": 39282,
+      "sha256": "514a82965643b307d0451217d303c2284f13fd989b7f8cc8e9c0b0ae6db7a007",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope2-supplement-20260814.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "1cc2cfc5d1b5f13c941c41830df1f27bb80505224adc327440ecf0a568c358c2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope3-hotfix-kit-20260814.tar.gz",
+      "bytes": 48303,
+      "sha256": "9f0a2d93c33e14981c9d72d5f9dc2db85b0f6b6e0ad7b99fe662bdd098f03e7f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope3-hotfix-kit-20260814.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "99d310ac86239c5d50cec49005eec38e6c37990ca0877d4b77430a04c2292cf6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope3-supplement-20260814.tar.gz",
+      "bytes": 39282,
+      "sha256": "514a82965643b307d0451217d303c2284f13fd989b7f8cc8e9c0b0ae6db7a007",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope3-supplement-20260814.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "31de88d350d07036a0206b23ca44fbeb0a6e8f5b0d9a1fff0a9f772df4604763",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope3-verifyfix-hotfix-kit-20260816.tar.gz",
+      "bytes": 48907,
+      "sha256": "020cdb869a70b83d04364d08e698b17ea9557a30e7ad3838f42f08d0e31d307a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope3-verifyfix-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 130,
+      "sha256": "32021215ce2ff7ffa0b4612538707ba15ebdbb96f3628df0590c0c0e29590468",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope3-verifyfix2-hotfix-kit-20260816.tar.gz",
+      "bytes": 48964,
+      "sha256": "231e7c80dd53128c22579786d13666505999b4ee9a6ba65f993b24306b92121c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope3-verifyfix2-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 130,
+      "sha256": "435e1a862ec95bdabd03951ff413badd98a5e7c1c99b84db9c7cd080a8ea7aa1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope4-hotfix-kit-20260816.tar.gz",
+      "bytes": 63556,
+      "sha256": "bd1812a8fc9f1b3243fa5874c18d82b8ba3f461a5192b27c9146afa9a6b964df",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope4-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "29d199ff8c560f10b6c4f087190f400150be895024816ae81eecd75c08230750",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope4-supplement-20260816.tar.gz",
+      "bytes": 53581,
+      "sha256": "783d6bb9d55fcf3fb29da4bd25cc1ef54c091fa4ee231219572f8b54c96cc5ea",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope4-supplement-20260816.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "abc9f2fe22a404624661245154163ab6ca95f7018842bc249ca00af1353c5d9b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope5-hotfix-kit-20260816.tar.gz",
+      "bytes": 63700,
+      "sha256": "4b4ba6f328159b868c38c1f6618d0eb95e86bafa02949bd48e389373b0a801f0",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope5-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "2e7123e6f5715c04039966982a3e996273bdf0fd01f9afb4b4bc087bb4388e35",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope5-supplement-20260816.tar.gz",
+      "bytes": 53699,
+      "sha256": "20065becc7796a10c370580b66ddddfd14ba04e8e32e49b2149816325a19efde",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope5-supplement-20260816.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "ec90909d46d4be6b1197884f842843dfd8906b38fb94fe5dc17e7766b91917ea",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope6-hotfix-kit-20260816.tar.gz",
+      "bytes": 67713,
+      "sha256": "4f4d7ca2b611711c0f148665f57253aeb5fc98d849d1736be21ca9c6ace3f44f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope6-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "6ff9932710f27570411ab7e9df5a6b8c5bb3d1ba8afcb4047d6cae9e3eb09f78",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope6-supplement-20260816.tar.gz",
+      "bytes": 57048,
+      "sha256": "e5fe2f523816cb4397bb8e756ad1d3566c0f2024cbaad6f8dac90ba2c9045693",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope6-supplement-20260816.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "b034418564e806138129818c7275509d9c4b0900933fd5d0b332147445d26ebc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope7-hotfix-kit-20260816.tar.gz",
+      "bytes": 73214,
+      "sha256": "815d7b8a96f74c8187e34960699c578c55092512135536e49f0b1391223c6970",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope7-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "3d27eaf7717ebf8117904bda66d046cea159209daf11f84bc172c3bf061cad9d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope7-supplement-20260816.tar.gz",
+      "bytes": 62151,
+      "sha256": "89ed5220ec62b15ebb87d377ec1abf1bf496632493f46e60c8ee6587f05a0579",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope7-supplement-20260816.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "72b8ac06b7451d01eb9ea52cab2c33ee7910a7ca0bfd7d3254ee0f1a79e044b1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope8-hotfix-kit-20260816.tar.gz",
+      "bytes": 80132,
+      "sha256": "3b01bcf5ab245fe491cfe4a3bccbbee78b97f32fd9faa3ffe311e29a39cb49bf",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope8-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "966f84313d9b145712607e41a8498db02ceb5c2b48abd73311109b9eaf344c06",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope8-supplement-20260816.tar.gz",
+      "bytes": 68461,
+      "sha256": "9f31b76ac3c738b771ed68d728cb4d8ab1b7c3bd33c8e1ffc5bfbeb7b5050c71",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope8-supplement-20260816.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "c70a9809aa3fedebac3694c094f6322be785dd7253a568a1cf4b1bab73ca3e30",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope9-hotfix-kit-20260816.tar.gz",
+      "bytes": 41155,
+      "sha256": "151a57ca86e21ef36e65b5e524fbf9661c9196afa0e7f607bb88ef61c17fab68",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope9-hotfix-kit-20260816.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "47d3cb64b4727d3e808a0c6f8d49907cefa3124c70a25dd5633b0deba39b5c8c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope9-supplement-20260816.tar.gz",
+      "bytes": 29814,
+      "sha256": "db71c0a5e4f71f127f541a859ca4c3d6d3384f00fe04a73dc70327d56e3588b2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-threadscope9-supplement-20260816.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "e1f04122b4817ff0ba256fc6abe98e87b2b173d5c9eecb06a92de269ff98e458",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh1-hotfix-kit-20260821.tar.gz",
+      "bytes": 650627,
+      "sha256": "eb805a86b54f9251e81790d1be6a96d1e2803e0a4e15fe58b41ecccc592c90fc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh1-hotfix-kit-20260821.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "dcccef90b8dddef959ac0e5db190e75d28d381a88c0045fc882aa82060373722",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh1-hotfix-kit-20260822.tar.gz",
+      "bytes": 6322253,
+      "sha256": "91a353dfc3691aafeccfc52dffbd496a7c358fae5b392957fc4eb4a6a4fe781f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh1-hotfix-kit-20260822.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "d572d2557267f0d1264cb77c7eadad842ffa2421578851cf9de1a2298af4a668",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh1-supplement-20260821.tar.gz",
+      "bytes": 642236,
+      "sha256": "acad0f0f47288e7276284065128f3946daf26333a47738122a5eae31a9e05505",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh1-supplement-20260821.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "77312c4a336544e7238fcab27f99e27972da5dbf51b1a75e75bd2e9971e48c66",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh1-supplement-20260822.tar.gz",
+      "bytes": 6312365,
+      "sha256": "891b12e7568f41509117023bb68fe77e6999048e943984dad24b079aa585801c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh1-supplement-20260822.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "5eca4e5571ec865c961a6bdaba0b1593ef8bd2eaaa709ac4f961972e8f408daf",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh2-hotfix-kit-20260824.tar.gz",
+      "bytes": 6350677,
+      "sha256": "faf8c939d03a8f31d8d6d1c49d98da07febf4beb3f4ebca38447968bc526af05",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh2-hotfix-kit-20260824.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "7659002393b341f177efe7e8f4dd63b24b6eaecd03ea9db1d3f9b28745d537ba",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh2-supplement-20260824.tar.gz",
+      "bytes": 6339949,
+      "sha256": "7298585710bba2cee3dc6d73523a117fc18f2ff43358aa098f2eeb9b69bb7aa7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh2-supplement-20260824.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "277b1178d9d82809a8138614bb5a24cfa736d84866190d3bd6fe83efde60948d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh3-hotfix-kit-20260824.tar.gz",
+      "bytes": 6341165,
+      "sha256": "3bc7730c4937e4c9f1814e047d9cd0126d396ae7175a9d4e54c63097f4b82694",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh3-hotfix-kit-20260824.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "b5543fa47c463ebc58c6eefd262a3df793f7a69ea4ccefc49c53d30c2e1b431e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh3-supplement-20260824.tar.gz",
+      "bytes": 6330196,
+      "sha256": "7996c056a1f4c3ae5afcd3bf39c4dea212cdbc4d1fb9fc377ab37740601e0503",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh3-supplement-20260824.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "82f7c884c200f5576db77764a8c960b21d55eeb9d5f878ffbafdf99b61cbb6be",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-hotfix-kit-20260824.tar.gz",
+      "bytes": 10374523,
+      "sha256": "4055225334fc7e29debea0bb9e5d0ee94616926de3790a1c9fab0c1a5f9bd78a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-hotfix-kit-20260824.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "76043a12c2ceb011852de3aeb1306e9459f23c8ab470c71fc9eb50e03facef51",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r1-hotfix-kit-20260824.tar.gz",
+      "bytes": 10374696,
+      "sha256": "04b7bab24c5691c7744e849f852ad77568c7157a4b6d9ed71c320ffd404f300c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r1-hotfix-kit-20260824.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "e6e4389916682794c7553e2649e714c2268742010cd62483e4d67ccb5d353392",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r1-supplement-20260824.tar.gz",
+      "bytes": 10361977,
+      "sha256": "da024d23cde82ae7e4807ac79c93c9a52d5095be79b4c4ddc4fae1efc3fa704c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r1-supplement-20260824.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "b0519f85a5c875d5b167d765d0bdb980045052e90128beb87db9956c1d063724",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r2-buildfix1-20260824.tar.gz",
+      "bytes": 6656,
+      "sha256": "e707594cc7ed6dff4ec206ff0af8e5985f97c93dccdb60f15f0bcfeab3d21818",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r2-buildfix1-20260824.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "556c9669f20a5963b7182a03171351c85c45bccb89789fefed8a305fb1db6a2f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r2-hotfix-kit-20260824.tar.gz",
+      "bytes": 10374759,
+      "sha256": "497eec8eb5263e3eb9983740d2d85f3b63d2d3726f5c06ac697dbc6050dbf225",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r2-hotfix-kit-20260824.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "df259860b8b55eb9cc8603ec761d96d1cb7ab6a6304766f639042f1c071d348d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r2-supplement-20260824.tar.gz",
+      "bytes": 10361978,
+      "sha256": "8d1646a808b2b44006e4edf57bded0f8da673135e629fadbd4e6a7eaf095373a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-r2-supplement-20260824.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "69044f89cb2c82f44d1e21c897e67f39730fca64052e321852ee309282371f44",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-supplement-20260824.tar.gz",
+      "bytes": 10361973,
+      "sha256": "1a5616cda2d7da6f1905d03459a1900dbb0512ea6a6ff146429b6b4a993931e1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh4-supplement-20260824.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "69a2ea1d0c2c23e9984b5feb1a8ae19b06259038be58fa278ec61310eb4eba25",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh5-buildfix2-20260824.tar.gz",
+      "bytes": 6158,
+      "sha256": "53b4eec21ac71d31cb064f584ba51749bf615344e04c5c3b6a64a4b1bc9a76ad",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh5-buildfix2-20260824.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "272ddb8b984cfa37b06e1f02bc77d2debe2c708d140d36166b4b318ad7f97fae",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh5-hotfix-kit-20260824.tar.gz",
+      "bytes": 43406,
+      "sha256": "8cc5fc5e255568b539feac2a481c78f8662685212e0261ace68aa46fb4a915c8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh5-hotfix-kit-20260824.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "f0bab142104d7a9d275bd3be87a0e768f22b1850516209f6a8fe9462787f447c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh5-supplement-20260824.tar.gz",
+      "bytes": 35217,
+      "sha256": "685fc8541950f888f3cc5866718497d41dd321139e0774148f8b5bee13456aa6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-visualrefresh5-supplement-20260824.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "af6686cdb368d22c262319b1c54085cd24450f95f64b376ac8b5bb3d85a6e4bd",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr1-hotfix-kit-20260818.tar.gz",
+      "bytes": 342068,
+      "sha256": "dd3f678b52d19aa6f6a93e890627b66fa96039963efe87ef0fabeb16f0d60da3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr1-hotfix-kit-20260818.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "4ec8bbe7649bb9c13206c5e4c77570756a1b837d65e2f7cbe6526de2e8c1a14f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr1-online-rollout-kit-20260818.tar.gz",
+      "bytes": 340522,
+      "sha256": "190cc76b706a1be81971554afce3c3dcf329c27da9c16fb64ce8fc72fac8aeb9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr1-online-rollout-kit-20260818.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "1045a9d3a5c8a64440b9a51d751d8a6cfcb2b5a585193248012bda94f1be0e3c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr1-supplement-20260818.tar.gz",
+      "bytes": 332447,
+      "sha256": "85501b529d1080426192e9836a63a2428c1e23112d032e8ccc05095b159b0c48",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr1-supplement-20260818.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "3c2f7b2232504337975408692ef45cca6427d4caa2f6d67834623d183810b7c8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr2-hotfix-kit-20260818.tar.gz",
+      "bytes": 11212,
+      "sha256": "626ce74206e349d0dfaf2159ca30f8361d4092de0adec30d13ac494d9b61e456",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr2-hotfix-kit-20260818.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "1f836f65a2112de8fe015a844ec60e2d440e013e4f68919832664db016869183",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr2-supplement-20260818.tar.gz",
+      "bytes": 5945,
+      "sha256": "7c139a30789bb7f40d3a666ee2037c419b30d0b543494640dc4ae6dd17c1354d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc15-voiceasr2-supplement-20260818.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "58c4622c3477de4a13c5a035f7501125035b5e9e207882ee2188129ec247464b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc9-tavilycitation1-supplement-20260728.tar.gz",
+      "bytes": 26787,
+      "sha256": "aa2f8cd45a834df069d6bb6dc4d6029703e976b5e521726d1b317de5290890e8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-rc9-tavilytls1-supplement-20260728.tar.gz",
+      "bytes": 3250,
+      "sha256": "5f1af44cbd2b818cebf1d4ed05abb7e622e1cf8f0c58ac8cc3af50f89697411f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-ui-production-candidate-11792c79c-r1.tar.gz",
+      "bytes": 11253497,
+      "sha256": "80b4915409538c1ac67f718224f065840536c54f4d0d44c094a31549040b13bd",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "historical-local/deerflow-ui-production-candidate-source-11792c79c.tar.gz",
+      "bytes": 11249749,
+      "sha256": "cb23fc972e3cf33ee67497aed408e76ea2e2c583963e153eb2894a9946505ca4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-canary-20260928-r1.tar.gz",
+      "bytes": 8920,
+      "sha256": "28bd65c4d983d9fc859a074a7cc8d7824f90aa30fa811479542f9c890eb1ee87",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-canary-20260928-r1.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "08c7ea370efad07f835fd5a80f68f952c5c4d53b9e55bc92213aec557648a462",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-preload-20260928-r1.tar.gz",
+      "bytes": 9597,
+      "sha256": "652981b59f710ad3a8ad4d94f4c262a57618828d778c6ce2239c8a2eafff7016",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-preload-20260928-r1.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "864da7c6d648ad0a4cc3b4c4ea8a03a84a721d1df66fc95b516e4e3ed1c51f6e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-prepare-20260928-r1-fix1.tar.gz",
+      "bytes": 13885,
+      "sha256": "484a1e2f4bb61bf76a140fd6bfc9131a5b18c8f100939ee00529139ec79d0c61",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-prepare-20260928-r1-fix1.tar.gz.sha256",
+      "bytes": 123,
+      "sha256": "e9b5cae047b14ddc419a38027e98fc8e9dfff5b5c30ef27eed058adc61d662f2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-prepare-20260928-r1.tar.gz",
+      "bytes": 13348,
+      "sha256": "332e177b6229f106b079c629860cbd2d0acedc4b66e174d39bf3587252af4db2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-prepare-20260928-r1.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "5aa326a3201e8100f97524960977cdc4b30293d61706bd3225bd5c1f4f885737",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-rollout-20260928-r1.tar.gz",
+      "bytes": 16460,
+      "sha256": "e71c9b75f477febfe163229f28d8cc5114d387bc68ff185c1152867e89976a9c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-context-fix-rollout-20260928-r1.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "e0725eb9ec0efdeb92c3a7332f87ebccd9206edbd0281389583c35a1c5a83e04",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-build1.tar.gz",
+      "bytes": 46196,
+      "sha256": "133401dc4833ba71d88b3b87a44835daf63a4364328fcffc607df0366ce96464",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-build1.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "568329847a6f9481ac03bd3888edafbc90f0a106e4bbdf5567261f4325eacf4b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-build2.tar.gz",
+      "bytes": 46190,
+      "sha256": "1e3ff5684c9515e46b76370922ad234d12b20c8b6f75c4ee2552bab2882c1b62",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-build2.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "c55d68339005e515f71c67dc8b1fb24521f45f1faa054886d6369c1138a0fba3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-canary-fix1.tar.gz",
+      "bytes": 22111,
+      "sha256": "00d9eec86362d35254811725f0211efb49a7be736723b52d60ef95d126a8b196",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-canary-fix1.tar.gz.sha256",
+      "bytes": 126,
+      "sha256": "af65d936676b1e69cd01642792c4a99fa4d2ea605dd33c3d21575597adbb13bf",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-canary.tar.gz",
+      "bytes": 22021,
+      "sha256": "fd9e7de1106872e53d27b9ee27fdb2d1cfb725a2d9cc2b2082ee431c794236dc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-canary.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "dad32286d7d6fb291d717173502dbd8408543813262cacd79476035542ab420d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-preload.tar.gz",
+      "bytes": 9213,
+      "sha256": "9723bed7b0a6fa42e0f3f841f94e52f96a2b7e39ecfe3b34ea357f29e7b1fb32",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-preload.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "a35d058417fcc1e9626c7ac3ef18f626a06d37338a05a742f5f9ea7246f3fbc4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-prepare.tar.gz",
+      "bytes": 13497,
+      "sha256": "c624d9e729482dd6f059fc864290d0017f00c550c3ecdc5bcbeab8b0a0791e18",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-prepare.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "579efbdf515f7282842b882516602ad066ef8474d2aa4add25d953d519412612",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-switch.tar.gz",
+      "bytes": 15177,
+      "sha256": "a772c9740f57ba476886488ea6341120f692d0c2c65bfbba36cd7d17f4141124",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-preview-profile-20260928-r4-switch.tar.gz.sha256",
+      "bytes": 121,
+      "sha256": "1f3035f92001309bfdd55e3ea383b5cadf9be4d86e8cdf1c783bb1ef0b69aa86",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-canary-20260928-fix1.tar.gz",
+      "bytes": 20481,
+      "sha256": "96abcf90cdddbdb7771dff237f2ce42c4e8fe7bf7775fb06af534b1d11f59db3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-canary-20260928-fix1.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "26353ad90f9b8d176eaa560bf713fa5f9a861740f018bff69ce004ecef6b93bc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-canary-20260928.tar.gz",
+      "bytes": 20475,
+      "sha256": "7480c910d4d42c60674ccca872c36cc3b78883eaff5c98af6ec38586442fae1d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-canary-20260928.tar.gz.sha256",
+      "bytes": 113,
+      "sha256": "d881a72d02f19ece46b03ded5c1a479e4b2f9a929790a220e1acab56ae3a1814",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-preload-20260928.tar.gz",
+      "bytes": 8488,
+      "sha256": "a636b5fd31c6e0ad99b0e75759280b2be66ba09db5cc442258102f7d84aeafdc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-preload-20260928.tar.gz.sha256",
+      "bytes": 114,
+      "sha256": "a21ac3b5f7ccf61a21840be8a505bebe6be178dc6696f2628b4884c5a839001d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-prepare-20260928-r1-force1.tar.gz",
+      "bytes": 15907,
+      "sha256": "7a432146713556610929d54a51f48db3416406d993c25c0b2ff5395096a43dda",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-prepare-20260928-r1-force1.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "131e4de06b3c4298f500a25269c1330c1189f9ec1b86631e3131640a8a0c948b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-prepare-20260928-r1-force6.tar.gz",
+      "bytes": 15872,
+      "sha256": "52ad2b8b28e73e06d86fa49dbfa00d17ffe82e4921fc2d47b9c315f0d5808e1f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-prepare-20260928-r1-force6.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "c0b69d4eec81647d10a69eb5ff84efb450e57229fab14e00b86e3ee66351bee7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-prepare-20260928-r1.tar.gz",
+      "bytes": 15020,
+      "sha256": "8ac853bca37bc02820c9ef7170567f571c4561031febdd0e22b9bbabf8daab49",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-prepare-20260928-r1.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "77603e76b3dfd469704d2553328e9eb7bc2b659ab55b083be821b00425e9117e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-rollout-20260928-r1-any-active.tar.gz",
+      "bytes": 17068,
+      "sha256": "23d37640b9afcb0012819c85f7ec0a186fd80ee7015cde697669b6f4de7712c8",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-rollout-20260928-r1-any-active.tar.gz.sha256",
+      "bytes": 128,
+      "sha256": "013ec68ea99bb1313a9d1cd23cea82710a91ee3ae102fe173646d5c789da835f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-rollout-20260928-r1-force1.tar.gz",
+      "bytes": 17112,
+      "sha256": "a61957f1dc824fadd086ef2d3151dc64cac699a51784735e1e4bfd950bca0f5e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-rollout-20260928-r1-force1.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "35c30d41e8af00eb81fcdb4a2489a1b83660605a915d56a7781a7b305bfd9fc0",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-rollout-20260928-r1-force3.tar.gz",
+      "bytes": 17042,
+      "sha256": "157ca2feb1bbb9b4f574aa493e8faf9c7eeaaf38ee3203013ecd30141d024a21",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-rollout-20260928-r1-force3.tar.gz.sha256",
+      "bytes": 124,
+      "sha256": "e3fe55c1b3a0da5cb74a08cbefa229a511ae07f04fa8a43e688ecfda3454026c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-rollout-20260928-r1-idle.tar.gz",
+      "bytes": 15637,
+      "sha256": "1d9e4e2b5b4ac06332d27922cf8e68a5d4c4e0bf53eff0e1d6225278fa7d1091",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-receipt-r3-rollout-20260928-r1-idle.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "aa0c526be4cf59d27581709b8904d80c516e2805674165ab84a2afd1a4c2a376",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-context-fix-20260927-r1-build1.tar.gz",
+      "bytes": 35162,
+      "sha256": "ebf2a4be696d249b2851ab5fc62a0dd24b3ac0b64b3dab39d61cef5b7e460a46",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-context-fix-20260927-r1-build1.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "1d56dfdbca93be3170e34fbb8820f30e7769db2e169ab5358162bab9f85f4bf4",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-context-fix-20260928-r1-build2.tar.gz",
+      "bytes": 36213,
+      "sha256": "d5e20e7646ec5e8a60b9bf8d5f45f23bc77cf58a3b23c1da9ba721fbad200175",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-context-fix-20260928-r1-build2.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "2400d98a232f6c34dad93b0adc742eb9594b0c2d48a6e83c39eedfc55aa76429",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-host-startup-20260927-r1.tar.gz",
+      "bytes": 15925,
+      "sha256": "50994973f1bebf2448b183364d0d959a9241a8291bcd0045b11984c2e86d799d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-host-startup-20260927-r1.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "3e7323576dc7a4a921de11bef2ce031520489f33a3f5b3f8b1f51b45452ec303",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-image-canary-20260927-r1.tar.gz",
+      "bytes": 15860,
+      "sha256": "f4be35c6591e09ffe280b5b797a6e272bbb5707e1e1a5e5bfc08742b5bb8d819",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-image-canary-20260927-r1.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "43d39e16a4621d92060ab8f8c3f51661673ec3a399b5af529eb61c89f1013ef1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-image-canary-20260927-r2.tar.gz",
+      "bytes": 22833,
+      "sha256": "62915e31dbfaa04a7a77b818a225ef04cded3f5f57df24ee900ccdee8f17b33b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-image-canary-20260927-r2.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "5cd661a43e6b0c2dcd215326a7c9fb766d1090b08a10f0e66e7d45d2e7a8a8c2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-live-model-20260927-r1-fix1.tar.gz",
+      "bytes": 14949,
+      "sha256": "fde9dbfe2b37193dc1c19c323ec6c9fdcf2652d2739914a9085bf4d78b0ac121",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-live-model-20260927-r1-fix1.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "3546fc1481514e52d837d0a2d7e0ae7fd77aea60a031518f47ad1b118929d5ba",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-live-model-20260927-r1.tar.gz",
+      "bytes": 14107,
+      "sha256": "42eab5b5cf1ee3ca6d29c1a1cef6eaa171eee8d421c505afaf41fe67d4571770",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-live-model-20260927-r1.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "b74804ff162aa2cf3e3d556b32d400a1e1f18944924a94c6bdce0cd91c55d5b9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preload-20260927-r1-fix1.tar.gz",
+      "bytes": 8816,
+      "sha256": "4f7e400e4976240552c3c2be2de9880e5d7a87682844f0bbf5e555e7910229f7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preload-20260927-r1-fix1.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "9cc88c4fd8806c96a23581fd0109a50da46253ab292a9adcb1d7246d72dc59aa",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preload-20260927-r1.tar.gz",
+      "bytes": 7859,
+      "sha256": "cbd8cba19c73ebbe39770a0b4725fd86b69298f0e4be4e925749f6210505455e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preload-20260927-r1.tar.gz.sha256",
+      "bytes": 114,
+      "sha256": "048fb8d6a076829328bc4626cb76b5e7b572e2d23a14270afb4f5a04c68066ca",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preload-20260927-r2.tar.gz",
+      "bytes": 11155,
+      "sha256": "04f84d743202fb82588132b324bec45ddca3b317aeb2238cd46bda9ecde42774",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preload-20260927-r2.tar.gz.sha256",
+      "bytes": 114,
+      "sha256": "8f205baa2d26711dd100e18c3f2548226afbf1c114431073303d14ddb1002490",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preview-chain-20260927-r1-diag1.tar.gz",
+      "bytes": 22819,
+      "sha256": "a79234f281e0c75db0872febb3d4f2cde21a589b021a47f6cb59ae8a21c3c648",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preview-chain-20260927-r1-diag1.tar.gz.sha256",
+      "bytes": 126,
+      "sha256": "899e42c957609e0bd7d978b6b0d831c03ebf20a77caa2ec385f65c8f9b86d55a",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preview-chain-20260927-r1-diag2.tar.gz",
+      "bytes": 25399,
+      "sha256": "b992e777156e9ed1e0f99d25913d583c5e9beefbbb060c5e0b2f9377f7499b1e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preview-chain-20260927-r1-diag2.tar.gz.sha256",
+      "bytes": 126,
+      "sha256": "05c232b9d30718eea68ea9995e16c7c2378259bde39170a93cf90401cd8e1cf9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preview-chain-20260927-r1.tar.gz",
+      "bytes": 17987,
+      "sha256": "8e218955ee6135313516294efd9f53db6d3d820373732b610d1579cae305b559",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preview-chain-20260927-r1.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "df55ef9ce6e2966396b94daf1d2317b85eda6cdc23f244688d7880c046e6cde3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preview-chain-20260927-r2.tar.gz",
+      "bytes": 27162,
+      "sha256": "23b3d9497f5485ddc785cc6988b76f923b4fa0e6425310924f6af399e061e09e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-preview-chain-20260927-r2.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "947d5aa6cbfb4ecf39ae7eede7d238115a332eb04236420df60c5a2695bb423e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-receipt-recovery-20260928-r3-build1.tar.gz",
+      "bytes": 41246,
+      "sha256": "f7848a841706460db130641bc29c5076296c9b2ffc742d76422f4be00d230b3e",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-receipt-recovery-20260928-r3-build1.tar.gz.sha256",
+      "bytes": 130,
+      "sha256": "2adf05a9ab07f044692dfcf0c894c97d5aaf3ad4185d3619fb458037a0df3b19",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-remaining-services-20260927-r1.tar.gz",
+      "bytes": 28478,
+      "sha256": "bb6d98a3f8223683b2687c7c8fd6ba25bdb56274eedf195161d7a994ab31179d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-remaining-services-20260927-r1.tar.gz.sha256",
+      "bytes": 125,
+      "sha256": "6dd0e35ad65e4bd96570274195e6a9b19269ef0af6142c7caac319a7be2dfa87",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-repair-20260926-r1-build1.tar.gz",
+      "bytes": 180219,
+      "sha256": "ae12ab4c0ea53a1b0536e98db662de12d7595eee71b7076bf54ba4b24a350d44",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-repair-20260926-r1-build1.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "37cdf598ba61e57eaac04beb7aa102401dcab8c42cc73b5cb46141c92a839556",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-repair-20260926-r1-build2.tar.gz",
+      "bytes": 182961,
+      "sha256": "a43cfa3e87e0e6f934aa8809d71ac316fae57ef322094b711384d032261cbd24",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-repair-20260926-r1-build2.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "9c746dc033d801cdf5213e9fd99be6b03e300fdac2368e29f42c607619dfecef",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-repair-20260927-r2-build1.tar.gz",
+      "bytes": 115908,
+      "sha256": "81ddea047d98c3f1937a6b630dd1b3963272b3d6ea6e6171b33c3ec88d58100c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-repair-20260927-r2-build1.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "9c26d34bdad744a3fcec6010d13e317f6cc71e89fdc2d0cd9d39408875d264e2",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-rollout-20260927-r1.tar.gz",
+      "bytes": 14569,
+      "sha256": "fcfb0103b64b8fea2861ab095a82294f8c332f2e6dcef842376f4273d5e80ce3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-rollout-20260927-r1.tar.gz.sha256",
+      "bytes": 114,
+      "sha256": "887181ab1825b5dba1dfa7b913adeb976c45ab97d4154d7494023e5ae92dfcf1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-rollout-20260927-r2.tar.gz",
+      "bytes": 15192,
+      "sha256": "94281a162918717797f7951cfeefbd1129e6aff2c4707f630087bc37dd62f9aa",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-rollout-20260927-r2.tar.gz.sha256",
+      "bytes": 114,
+      "sha256": "015490baa91b14500500030b321e02d067ac1495c3b6fd2c7834d1348683d2d6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-rollout-prepare-20260927-r1.tar.gz",
+      "bytes": 9244,
+      "sha256": "79a5c966b02dd4541573e27a9229ca76e727afece3b6731aacc79afbe7a2793c",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-rollout-prepare-20260927-r1.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "e2ac714568817e19199d729f5679b43fbc7a99a5a13a42b907484e24d8cf463b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-rollout-prepare-20260927-r2.tar.gz",
+      "bytes": 12450,
+      "sha256": "bd586caadf284777bbd9b82119d9196c0ba3e5aefb48b904a0c23aa6dc4b0b79",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-rollout-prepare-20260927-r2.tar.gz.sha256",
+      "bytes": 122,
+      "sha256": "a5c9b60465b9d842df111cef1a7836cdca0a66b493d87f09e7fff0badb242fcc",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-services-20260927-r2-fix1.tar.gz",
+      "bytes": 27575,
+      "sha256": "d70ba870db0d7055d48f3771f3a99eb81ae454214709f4aa7525ed577bb6b684",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-services-20260927-r2-fix1.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "43198604fd365feaabaa120ae635b15b868e0675f514b579814aa26a34265388",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-services-20260927-r2-fix2.tar.gz",
+      "bytes": 27682,
+      "sha256": "a5d2c23f195b22a9c19dbe9f55753b980ce0d1d69f52147bf1c53b503a08838d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-services-20260927-r2-fix2.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "fb97b908f55016ffcf7dcc50f47c6343ab1a980e99a89013804e5d32a80fdab6",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-services-20260927-r2-fix3.tar.gz",
+      "bytes": 28652,
+      "sha256": "5fbf63ea8e109665deaf43cf7e436aeb5d353ee7b0157e52c0159b6aa2e5c107",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-services-20260927-r2-fix3.tar.gz.sha256",
+      "bytes": 120,
+      "sha256": "d5707eac4fb47e135d7f4cd9a79f218567a518f9f7bba8ab9b0bcf71085f5ba7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-services-20260927-r2.tar.gz",
+      "bytes": 26208,
+      "sha256": "d188c748d434a6f8d95366a4e74f90d1138f94c7367a3f5a135b27619236070d",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-runtime-services-20260927-r2.tar.gz.sha256",
+      "bytes": 115,
+      "sha256": "257785fff0687a50101c07d8d8435ca8de67e052812ba3ce082bce0d366496c1",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-stage2-detail-audit-20260927-r4.tar.gz",
+      "bytes": 23659,
+      "sha256": "1fe6e746d930e9d453caad0a497fe2d07cf08cae46f65b0bbef185592514891b",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-stage2-detail-audit-20260927-r4.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "60ce2898e0aa9921fc8fa9fef1524a5f20710378f641d3221510fd6da9c0fc40",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-task-stop-audit-20260927-r3.tar.gz",
+      "bytes": 20112,
+      "sha256": "ff9a02ea7a30813226b572db474db828febcd5b23662ecff7c1d118628fcd26f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-task-stop-audit-20260927-r3.tar.gz.sha256",
+      "bytes": 114,
+      "sha256": "e3928f7df1b75305dd671b0d82950095496f05f168c142c97b7cbc181b9550b7",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-worker-detail-audit-20260927-r1.tar.gz",
+      "bytes": 10753,
+      "sha256": "05425809f5112b79d59a4323870d5969fc5507d5975c91f7f5ebb7a09de8272f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-worker-detail-audit-20260927-r1.tar.gz.sha256",
+      "bytes": 118,
+      "sha256": "02cc2c7742c1f24d3eb8b4c21bc8b77afcd8fc9d8f7d7956b289a4cb4d2e2d45",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-worker-failure-audit-20260927-r2.tar.gz",
+      "bytes": 13378,
+      "sha256": "6ffe7102fffc76121f41cab4725aecf17b594ceaec0a497066580094aef9b837",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-worker-failure-audit-20260927-r2.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "ed76f71907108ba79728288bc2ebe438aef05502f151642fd76a095fa6612011",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-worker-network-audit-20260927-r5.tar.gz",
+      "bytes": 26897,
+      "sha256": "f9836fcd6ec08424ce7150907a354c82052b235147dfff4aed0abe1e0b7e9ee9",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/deerflow-ppt-worker-network-audit-20260927-r5.tar.gz.sha256",
+      "bytes": 119,
+      "sha256": "88927c45b24b189df68575cb449bd88cf3569b4df7c910581f8b48b4b60c53dd",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/ppt-agent-host-source-collector-20260926-r1.tar.gz",
+      "bytes": 5743,
+      "sha256": "0f669914fede057e8534eff73b7deb8a0349911178cb809ab22108188a3d6283",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/ppt-agent-host-source-collector-20260926-r1.tar.gz.sha256",
+      "bytes": 117,
+      "sha256": "ec0d010345c2386caea1759d2ad1f1a8679644fb47bfb536dbbf361b10fd29d3",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/ppt-relay-retained-log-audit-20260926-r1.tar.gz",
+      "bytes": 4829,
+      "sha256": "09c364bd2a6e4807a7c7fb94f1337bf31105d0ee839e853824e4ddf7ed33d612",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/ppt-relay-retained-log-audit-20260926-r1.tar.gz.sha256",
+      "bytes": 114,
+      "sha256": "55b8226636801dbfcfdfa57e34bcb68e239654da9647311f4be7e1f05ca9e0cd",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/ppt-runtime-receipt-audit-20260926-r1.tar.gz",
+      "bytes": 5627,
+      "sha256": "e94300595b822619308e6a20607442ccbfa60e63b7b6f7e4e188d18d46ba5280",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "ppt-releases/ppt-runtime-receipt-audit-20260926-r1.tar.gz.sha256",
+      "bytes": 111,
+      "sha256": "91170d050f28d53d6d36e9942920ad51e04ec40d751d45491b5eea615b76417f",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "server-evidence/production-source-snapshot-20260928T034713Z-ik2wlooj.tar.gz",
+      "bytes": 4078822,
+      "sha256": "c55e4dfbe43899df8f25f1659b242193da9e3b4e55d662af0f09457800ee208d",
+      "provenance": "PINNED_EVIDENCE"
+    },
+    {
+      "name": "server-evidence/production-source-snapshot-20260928T042326Z-9aza7iit.tar.gz",
+      "bytes": 123421,
+      "sha256": "ccdf9cb0714d0f4acfef2b5b6b027096d9f1d15439894c0329c1a7e5591fc457",
+      "provenance": "PINNED_EVIDENCE"
+    },
+    {
+      "name": "server-evidence/production-source-snapshot-20260928T043123Z-acm9y5ot.tar.gz",
+      "bytes": 27357435,
+      "sha256": "d776e10cdf39b671e2ef2a3166a0acfc092651c68887b4a1c1450aad0c3ded6e",
+      "provenance": "PINNED_EVIDENCE"
+    },
+    {
+      "name": "server-evidence/production-source-supplement-r7-20260928T062128Z.tar.gz",
+      "bytes": 114910510,
+      "sha256": "d6ae36377a196bd882f0a89c4433284217326c3b7706af3dd86af0a70bcad49b",
+      "provenance": "PINNED_EVIDENCE"
+    },
+    {
+      "name": "server-evidence/production-external-source-r8-20260928T080436Z.tar.gz",
+      "bytes": 60333309,
+      "sha256": "264fd43a02caec2a6988fe20c9e4f587f37915e9e52dd9a588a636f50563bc75",
+      "provenance": "PINNED_EVIDENCE"
+    },
+    {
+      "name": "server-evidence/ppt-preview-r4-rollout-result-OhLlw4ad.json",
+      "bytes": 2686,
+      "sha256": "58699339fd3d2f013936a3f221e06b0ce0f3c5246be499a4215eeb10dda8373b",
+      "provenance": "PINNED_EVIDENCE"
+    },
+    {
+      "name": "rollout-receipts/ppt-runtime-r2-rollout-result-bP7mLQtM.json",
+      "bytes": 1540,
+      "sha256": "0f8836eeeb1e75497a2d68d6a0942185f3e063d71442439948dce351dd646d74",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "rollout-receipts/ppt-context-rollout-result-TatXcjmM.json",
+      "bytes": 2324,
+      "sha256": "bcd5cdb27d28d26efd91f5ebaafedbe13f3ee3f4ef90e60410208ffb7fe52883",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    },
+    {
+      "name": "rollout-receipts/ppt-receipt-r3-any-active-result-RuocCYGS.json",
+      "bytes": 2364,
+      "sha256": "c2d79dbd5952fc3d70a79f7c0297a8fc16868b9c1bf8035c0f7bc2b4c72e2079",
+      "provenance": "LOCAL_ORIGINAL_UNCLASSIFIED"
+    }
+  ]
+}

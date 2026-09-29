@@ -42,7 +42,7 @@ The runtime source came from the server-side verified core snapshot committed as
 `330ce1227e05f24b944f3efde36906234bd71196` on
 `codex/production-baseline-20260928-verified-core`. The private R7 supplement
 archive has SHA-256
-`d6ae36377a196bd882f0a89c4433284217326c3b7706af0a70bcad49b`.
+`d6ae36377a196bd882f0a89c4433284217326c3b7706af3dd86af0a70bcad49b`.
 The external-service R8 archive has SHA-256
 `264fd43a02caec2a6988fe20c9e4f587f37915e9e52dd9a588a636f50563bc75`.
 The server collectors reported no production workload mutation.

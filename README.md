@@ -3,6 +3,8 @@
 The 7·16 enterprise branch's 2026-09-28 production source alignment and its
 rebuild limits are documented in
 [`release/production-build-alignment-20260928/README.md`](release/production-build-alignment-20260928/README.md).
+The portable source/evidence archive, verification index, and remaining backup
+gaps are documented in [`release/production-archive-20260929/README.md`](release/production-archive-20260929/README.md).
 The captured WeKnora UI 0.8.0 source and two-stage production candidate build
 are under [`vendor/weknora-ui-20260913-r5/`](vendor/weknora-ui-20260913-r5/).
 
