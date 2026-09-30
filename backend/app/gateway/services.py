@@ -48,6 +48,7 @@ from deerflow.runtime import (
 from deerflow.runtime.goal import goal_thread_lock
 from deerflow.runtime.runs.naming import resolve_root_run_name
 from deerflow.runtime.secret_context import redact_config_secrets
+from deerflow.runtime.stream_bridge.base import StreamReplayGapError
 from deerflow.runtime.user_context import reset_current_user, set_current_user
 from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, SUMMARY_MESSAGE_NAME, UNTRUSTED_INPUT_KEY
 
@@ -1001,6 +1002,7 @@ async def sse_consumer(
     - ``continue``: let the task run; events are discarded.
     """
     last_event_id = request.headers.get("Last-Event-ID")
+    replay_gap_reported = False
     if await _terminal_record_stream_missing(bridge, record):
         yield format_sse("end", None)
         return
@@ -1023,12 +1025,23 @@ async def sse_consumer(
 
             yield format_sse(entry.event, entry.data, event_id=entry.id or None)
 
+    except StreamReplayGapError:
+        replay_gap_reported = True
+        logger.warning("Run %s SSE replay cursor predates retained stream history", record.run_id)
+        yield format_sse(
+            "error",
+            {
+                "name": "StreamReplayGapError",
+                "message": "Stream replay history is no longer available; refresh the thread to load its latest state.",
+            },
+        )
+
     finally:
         # store_only records are cross-worker runs hydrated from the RunStore; this
         # worker holds no in-memory task/abort state for them, so run_mgr.cancel()
         # cannot stop the task (it would 409). Skip on_disconnect cancellation for
         # those and only act on runs this worker actually owns.
-        if not record.store_only and record.status in (RunStatus.pending, RunStatus.running):
+        if not replay_gap_reported and not record.store_only and record.status in (RunStatus.pending, RunStatus.running):
             if record.on_disconnect == DisconnectMode.cancel:
                 await run_mgr.cancel(record.run_id)
 

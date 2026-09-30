@@ -6,15 +6,18 @@ import asyncio
 import logging
 import socket
 import sqlite3
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
+from weakref import WeakValueDictionary
 
 from sqlalchemy.exc import IntegrityError as SAIntegrityError
 
+from deerflow.run_timing import run_timing_logs_enabled
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, resolve_user_id
 from deerflow.utils.time import is_lease_expired
 from deerflow.utils.time import now_iso as _now_iso
@@ -43,6 +46,11 @@ _RETRYABLE_SQLITE_ERROR_CODES = {
 # failed", Postgres says "duplicate key value violates unique constraint").
 _UNIQUE_PGCODE = "23505"
 _SQLITE_UNIQUE_ERRORCODE = sqlite3.SQLITE_CONSTRAINT_UNIQUE
+
+# Limit database work per worker without serializing unrelated threads.  The
+# SQLAlchemy pool can serve more than one request, but a bounded admission fanout
+# avoids turning a burst into unbounded connection-pool waiters.
+_MAX_CONCURRENT_RUN_ADMISSIONS = 8
 
 
 def _generate_worker_id() -> str:
@@ -207,12 +215,28 @@ class RunManager:
         # preserving ``_runs`` iteration order (see ``_thread_records_locked``).
         self._runs_by_thread: dict[str, dict[str, None]] = {}
         self._lock = asyncio.Lock()
+        self._admission_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
+        self._admission_slots = asyncio.Semaphore(_MAX_CONCURRENT_RUN_ADMISSIONS)
         self._store = store
         self._persistence_retry_policy = persistence_retry_policy or PersistenceRetryPolicy()
         self._worker_id = worker_id or _generate_worker_id()
         self._run_ownership_config = run_ownership_config
         self._heartbeat_task: asyncio.Task | None = None
+        self._reconcile_task: asyncio.Task | None = None
         self._heartbeat_stop: asyncio.Event | None = None
+
+    def _thread_admission_lock(self, thread_id: str) -> asyncio.Lock:
+        """Serialize admission for one thread while allowing other threads through.
+
+        The lookup and insertion have no await, so they are atomic within the
+        manager's event loop. The caller keeps a strong reference until release;
+        the weak dictionary does not retain a lock for every historical thread.
+        """
+        lock = self._admission_locks.get(thread_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._admission_locks[thread_id] = lock
+        return lock
 
     def _index_run_locked(self, record: RunRecord) -> None:
         """Register *record* in the thread index. Caller must hold ``self._lock``."""
@@ -506,21 +530,24 @@ class RunManager:
             owner_worker_id=self._worker_id,
             lease_expires_at=lease_expires_at,
         )
-        async with self._lock:
-            self._runs[run_id] = record
-            self._index_run_locked(record)
-            persisted = False
-            try:
-                await self._persist_new_run_to_store(record)
-                persisted = True
-            except Exception:
-                logger.warning("Failed to persist run %s; rolled back in-memory record", run_id, exc_info=True)
-                raise
-            finally:
-                # Also covers cancellation, which bypasses ``except Exception``.
-                if not persisted:
-                    self._runs.pop(run_id, None)
-                    self._unindex_run_locked(run_id, record.thread_id)
+        # This legacy helper still holds the registry lock across its upsert,
+        # but must share the same-thread admission gate with create_or_reject.
+        async with self._thread_admission_lock(thread_id):
+            async with self._lock:
+                self._runs[run_id] = record
+                self._index_run_locked(record)
+                persisted = False
+                try:
+                    await self._persist_new_run_to_store(record)
+                    persisted = True
+                except Exception:
+                    logger.warning("Failed to persist run %s; rolled back in-memory record", run_id, exc_info=True)
+                    raise
+                finally:
+                    # Also covers cancellation, which bypasses ``except Exception``.
+                    if not persisted:
+                        self._runs.pop(run_id, None)
+                        self._unindex_run_locked(run_id, record.thread_id)
         logger.info("Run created: run_id=%s thread_id=%s", run_id, thread_id)
         return record
 
@@ -935,13 +962,11 @@ class RunManager:
         already has a pending/running run.  For ``interrupt``/``rollback``,
         cancels inflight runs before creating.
 
-        Lock ordering invariant: the local ``self._lock`` is held across
-        the local check, the store insert, and the local register, so the
-        store insert can never succeed while a same-worker ConflictError
-        is about to fire (which would leak a pending row in the store).
-        Cross-process contention is resolved at the store level via a
-        partial unique index on ``(thread_id) WHERE status IN
-        ('pending','running')``.
+        A per-thread admission lock spans the local check, store insert and
+        registration. The registry lock protects only in-memory mutations, so
+        unrelated threads can persist concurrently up to the admission limit.
+        Cross-process contention is resolved at the store level via a partial
+        unique index on ``(thread_id) WHERE status IN ('pending','running')``.
         """
         run_id = str(uuid.uuid4())
         now = _now_iso()
@@ -971,57 +996,28 @@ class RunManager:
             lease_expires_at=lease_expires_at,
         )
 
-        async with self._lock:
+        async with self._thread_admission_lock(thread_id):
             # 1) Local inflight check (same-worker guard; cross-worker is the
             #    store's partial unique index below).
-            local_inflight = [r for r in self._thread_records_locked(thread_id) if r.status in (RunStatus.pending, RunStatus.running) or r.finalizing]
+            async with self._lock:
+                local_inflight = [r for r in self._thread_records_locked(thread_id) if r.status in (RunStatus.pending, RunStatus.running) or r.finalizing]
 
-            if multitask_strategy == "reject" and local_inflight:
-                raise ConflictError(f"Thread {thread_id} already has an active run")
+                if multitask_strategy == "reject" and local_inflight:
+                    raise ConflictError(f"Thread {thread_id} already has an active run")
 
-            if multitask_strategy in ("interrupt", "rollback") and local_inflight:
-                logger.info(
-                    "Preparing to cancel %d inflight run(s) on thread %s (strategy=%s)",
-                    len(local_inflight),
-                    thread_id,
-                    multitask_strategy,
-                )
+                if multitask_strategy in ("interrupt", "rollback") and local_inflight:
+                    logger.info(
+                        "Preparing to cancel %d inflight run(s) on thread %s (strategy=%s)",
+                        len(local_inflight),
+                        thread_id,
+                        multitask_strategy,
+                    )
 
-            # 2) Persist to store while still holding the local lock. The
-            #    store is the source of truth for cross-process atomicity.
-            if self._store is not None:
-                if multitask_strategy == "reject":
-                    try:
-                        await self._call_store_with_retry(
-                            "create_run_atomic",
-                            run_id,
-                            lambda: self._store.create_run_atomic(
-                                run_id=run_id,
-                                thread_id=thread_id,
-                                owner_worker_id=self._worker_id,
-                                lease_expires_at=lease_expires_at,
-                                multitask_strategy="reject",
-                                assistant_id=assistant_id,
-                                user_id=user_id,
-                                model_name=model_name,
-                                metadata=metadata,
-                                kwargs=kwargs,
-                                created_at=now,
-                                grace_seconds=grace_seconds,
-                            ),
-                        )
-                    except ConflictError:
-                        raise
-                    except Exception as exc:
-                        if _is_unique_violation(exc):
-                            raise ConflictError(f"Thread {thread_id} already has an active run") from exc
-                        raise
-                else:
-                    # Interrupt / rollback: store-side claim + insert in one
-                    # transaction. Retry on IntegrityError in case another
-                    # worker races us between our SELECT FOR UPDATE and INSERT.
-                    max_retries = 3
-                    for attempt in range(max_retries):
+            # 2) The store owns cross-process atomicity. Do not hold the
+            #    registry lock while waiting for a connection or SQL commit.
+            async with self._admission_slots:
+                if self._store is not None:
+                    if multitask_strategy == "reject":
                         try:
                             await self._call_store_with_retry(
                                 "create_run_atomic",
@@ -1031,7 +1027,7 @@ class RunManager:
                                     thread_id=thread_id,
                                     owner_worker_id=self._worker_id,
                                     lease_expires_at=lease_expires_at,
-                                    multitask_strategy=multitask_strategy,
+                                    multitask_strategy="reject",
                                     assistant_id=assistant_id,
                                     user_id=user_id,
                                     model_name=model_name,
@@ -1041,46 +1037,78 @@ class RunManager:
                                     grace_seconds=grace_seconds,
                                 ),
                             )
-                            break
+                        except ConflictError:
+                            raise
                         except Exception as exc:
-                            is_unique = _is_unique_violation(exc)
-                            if is_unique and attempt + 1 < max_retries:
-                                continue
-                            if is_unique:
-                                # Exhausted retries on unique violation — surface
-                                # as ConflictError to match the reject branch's
-                                # contract (409, not 500). Same root cause: another
-                                # worker won the race for this thread.
+                            if _is_unique_violation(exc):
                                 raise ConflictError(f"Thread {thread_id} already has an active run") from exc
                             raise
-                    # ``create_run_atomic`` already marked any claimed store
-                    # rows as interrupted in the same transaction; no extra
-                    # store write is needed for them.
+                    else:
+                        # Interrupt / rollback: store-side claim + insert in one
+                        # transaction. Retry on IntegrityError in case another
+                        # worker races us between our SELECT FOR UPDATE and INSERT.
+                        max_retries = 3
+                        for attempt in range(max_retries):
+                            try:
+                                await self._call_store_with_retry(
+                                    "create_run_atomic",
+                                    run_id,
+                                    lambda: self._store.create_run_atomic(
+                                        run_id=run_id,
+                                        thread_id=thread_id,
+                                        owner_worker_id=self._worker_id,
+                                        lease_expires_at=lease_expires_at,
+                                        multitask_strategy=multitask_strategy,
+                                        assistant_id=assistant_id,
+                                        user_id=user_id,
+                                        model_name=model_name,
+                                        metadata=metadata,
+                                        kwargs=kwargs,
+                                        created_at=now,
+                                        grace_seconds=grace_seconds,
+                                    ),
+                                )
+                                break
+                            except Exception as exc:
+                                is_unique = _is_unique_violation(exc)
+                                if is_unique and attempt + 1 < max_retries:
+                                    continue
+                                if is_unique:
+                                    # Exhausted retries on unique violation — surface
+                                    # as ConflictError to match the reject branch's
+                                    # contract (409, not 500). Same root cause: another
+                                    # worker won the race for this thread.
+                                    raise ConflictError(f"Thread {thread_id} already has an active run") from exc
+                                raise
+                        # ``create_run_atomic`` already marked any claimed store
+                        # rows as interrupted in the same transaction; no extra
+                        # store write is needed for them.
 
             # 3) Only now safe to register locally — store insert succeeded.
-            self._runs[run_id] = record
-            self._index_run_locked(record)
+            async with self._lock:
+                self._runs[run_id] = record
+                self._index_run_locked(record)
 
-            # 4) Cancel local in-memory inflight (interrupt/rollback). The
-            #    store-side counterparts were already cancelled in step 2.
-            if multitask_strategy in ("interrupt", "rollback"):
-                for r in local_inflight:
-                    if r.finalizing:
-                        continue
-                    r.abort_action = multitask_strategy
-                    r.abort_event.set()
-                    task_active = r.task is not None and not r.task.done()
-                    r.finalizing = task_active
-                    if task_active:
-                        r.task.cancel()
-                    r.status = RunStatus.interrupted
-                    r.updated_at = now
-                    interrupted_records.append(r)
+                # 4) Cancel local in-memory inflight (interrupt/rollback). The
+                #    store-side counterparts were already cancelled in step 2.
+                if multitask_strategy in ("interrupt", "rollback"):
+                    for r in local_inflight:
+                        if r.finalizing or r.status not in (RunStatus.pending, RunStatus.running):
+                            continue
+                        r.abort_action = multitask_strategy
+                        r.abort_event.set()
+                        task_active = r.task is not None and not r.task.done()
+                        r.finalizing = task_active
+                        if task_active:
+                            r.task.cancel()
+                        r.status = RunStatus.interrupted
+                        r.updated_at = now
+                        interrupted_records.append(r)
 
-        # Outside the lock: persist interrupted status for locally-cancelled
-        # runs. Store-side claimed rows are already finalised.
-        for interrupted_record in interrupted_records:
-            await self._persist_status(interrupted_record, RunStatus.interrupted)
+            # Store-side claim is atomic; keep same-thread admission closed
+            # until local interrupted status has also been persisted.
+            for interrupted_record in interrupted_records:
+                await self._persist_status(interrupted_record, RunStatus.interrupted)
 
         logger.info("Run created: run_id=%s thread_id=%s", run_id, thread_id)
         return record
@@ -1130,13 +1158,25 @@ class RunManager:
                     # Still owned by a local task — skip
                     continue
 
+            try:
+                claimed = await self._call_store_with_retry(
+                    "claim_for_takeover",
+                    record.run_id,
+                    lambda: self._store.claim_for_takeover(
+                        record.run_id,
+                        grace_seconds=grace_seconds,
+                        error=error,
+                    ),
+                )
+            except Exception:
+                logger.warning("Failed to claim expired run %s during reconciliation", record.run_id, exc_info=True)
+                continue
+            if not claimed:
+                # The owner may have renewed after our expired-lease read.
+                continue
             record.status = RunStatus.error
             record.error = error
             record.updated_at = now
-            persisted = await self._persist_status(record, RunStatus.error, error=error)
-            if not persisted:
-                logger.warning("Skipped orphaned run %s recovery because error status was not persisted", record.run_id)
-                continue
             recovered.append(record)
 
         if recovered:
@@ -1198,143 +1238,214 @@ class RunManager:
         task = asyncio.create_task(self._heartbeat_loop())
         task.set_name("deerflow-run-lease-heartbeat")
         self._heartbeat_task = task
+        reconcile_task = asyncio.create_task(self._reconcile_loop())
+        reconcile_task.set_name("deerflow-run-orphan-reconciliation")
+        self._reconcile_task = reconcile_task
         logger.info("Run lease heartbeat started for worker %s", self._worker_id)
 
     async def stop_heartbeat(self) -> None:
-        """Stop the background heartbeat task."""
+        """Stop both ownership tasks within one bounded shutdown window."""
         if self._heartbeat_stop is not None:
             self._heartbeat_stop.set()
-        if self._heartbeat_task is not None and not self._heartbeat_task.done():
-            try:
-                await asyncio.wait_for(self._heartbeat_task, timeout=5.0)
-            except TimeoutError:
-                self._heartbeat_task.cancel()
+        tasks = [task for task in (self._heartbeat_task, self._reconcile_task) if task is not None]
+        pending = {task for task in tasks if not task.done()}
+        if pending:
+            _, pending = await asyncio.wait(pending, timeout=4.0)
+        for task in pending:
+            task.cancel()
+        if pending:
+            _, pending = await asyncio.wait(pending, timeout=0.5)
+            if pending:
+                logger.warning("%d run ownership task(s) did not stop after cancellation", len(pending))
+        for task in tasks:
+            if task.done():
                 try:
-                    await self._heartbeat_task
+                    task.result()
                 except asyncio.CancelledError:
                     pass
-            except asyncio.CancelledError:
-                pass
+                except Exception:
+                    logger.warning("Run ownership task failed before shutdown", exc_info=True)
         self._heartbeat_task = None
+        self._reconcile_task = None
         self._heartbeat_stop = None
         logger.info("Run lease heartbeat stopped for worker %s", self._worker_id)
 
     async def _heartbeat_loop(self) -> None:
-        """Periodically renew leases and reclaim orphaned runs from dead peers.
+        """Renew on a fixed cadence, independently of orphan sweeps.
 
-        Lease renewal runs every ``lease_seconds / 3``. Reconciliation
-        (sweeping for expired leases owned by dead workers) runs every
-        ``lease_seconds`` (every 3rd cycle) so orphaned runs are recovered
-        without waiting for a pod restart.
-
-        Both operations are guarded so a transient failure cannot take the
-        heartbeat task down — a dead heartbeat means no lease is renewed
-        again, and every active run eventually looks orphaned to peers.
+        A slow renewal must not add another full interval before the next
+        attempt; with a short lease that extra delay can expire live runs.
         """
         if self._run_ownership_config is None or self._heartbeat_stop is None:
             return
         lease_seconds = self._run_ownership_config.lease_seconds
         interval = max(1, lease_seconds // 3)
         stop = self._heartbeat_stop
-        cycle = 0
-
         while not stop.is_set():
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=interval)
-                break  # stop event was set
-            except TimeoutError:
-                pass  # interval elapsed
-
-            cycle += 1
+            cycle_started = time.monotonic()
             try:
                 await self._renew_leases()
             except Exception:
                 logger.warning("Heartbeat renewal cycle failed", exc_info=True)
+            if stop.is_set():
+                break
+            delay = max(0.0, interval - (time.monotonic() - cycle_started))
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=delay)
+            except TimeoutError:
+                pass
 
-            # Reconcile every 3rd cycle (= every lease_seconds). Startup
-            # reconciliation (in langgraph_runtime) covers the initial
-            # sweep; this periodic pass catches orphans whose lease
-            # expires between restarts — e.g. Worker A crashes, its
-            # replacement starts before the lease expires, and the
-            # startup pass skips the still-valid lease.
-            if cycle % 3 == 0:
-                try:
-                    await self._reconcile_orphans_periodic()
-                except Exception:
-                    logger.warning("Periodic orphan reconciliation failed", exc_info=True)
+    async def _reconcile_loop(self) -> None:
+        """Sweep expired peer leases without delaying this worker's renewal."""
+        if self._run_ownership_config is None or self._heartbeat_stop is None:
+            return
+        stop = self._heartbeat_stop
+        interval = max(1, self._run_ownership_config.lease_seconds)
+        while not stop.is_set():
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+                break
+            except TimeoutError:
+                pass
+            try:
+                await self._reconcile_orphans_periodic()
+            except Exception:
+                logger.warning("Periodic orphan reconciliation failed", exc_info=True)
 
     async def _renew_leases(self) -> None:
         """Renew the lease on every locally-owned active run."""
         if self._store is None or self._run_ownership_config is None:
             return
+        timing_enabled = run_timing_logs_enabled()
+        batch_started = time.perf_counter()
+        if timing_enabled:
+            logger.info("RUN_HEARTBEAT event=renew_start owner_worker_id=%s", self._worker_id)
         lease_seconds = self._run_ownership_config.lease_seconds
         new_expiry = (datetime.now(UTC) + timedelta(seconds=lease_seconds)).isoformat()
+        lock_wait_started = time.perf_counter()
+        lock_wait_ms = 0
+        active_runs: list[tuple[str, RunRecord]] = []
+        updated_count = lost_count = error_count = 0
+        max_update_ms = 0
+        max_update_run_id = "-"
+        min_prior_lease_remaining_ms: int | None = None
+        batch_outcome = "incomplete"
 
-        async with self._lock:
-            # Renew any pending/running run owned by this worker unless its
-            # background task has already completed. A pending run whose task
-            # has not been spawned yet (``task is None``) is still live from
-            # this worker's perspective — between ``create_run_atomic``
-            # inserting the row and the worker layer spawning the agent task
-            # there is a brief window. If we drop those records here and the
-            # window stretches past ``lease_seconds`` (e.g. event-loop
-            # saturation, slow checkpoint hydrate on a fresh worker), peer
-            # reconciliation will reclaim the run as an orphan and mark it
-            # ``error`` even though this worker still intends to execute it.
-            active_runs = [(rid, record) for rid, record in self._runs.items() if record.status in (RunStatus.pending, RunStatus.running) and record.owner_worker_id == self._worker_id and (record.task is None or not record.task.done())]
+        try:
+            async with self._lock:
+                lock_wait_ms = round((time.perf_counter() - lock_wait_started) * 1000)
+                # Pending runs without a spawned task are still live locally.
+                active_runs = [(rid, record) for rid, record in self._runs.items() if record.status in (RunStatus.pending, RunStatus.running) and record.owner_worker_id == self._worker_id and (record.task is None or not record.task.done())]
 
-        for run_id, record in active_runs:
-            try:
-                updated = await self._call_store_with_retry(
-                    "update_lease",
-                    run_id,
-                    lambda: self._store.update_lease(
-                        run_id,
-                        owner_worker_id=self._worker_id,
-                        lease_expires_at=new_expiry,
-                    ),
-                )
-                if updated:
-                    # Unsynced write is benign: ``lease_expires_at`` is the
-                    # only field on an existing record this path mutates, so
-                    # there is no concurrent writer to race against
-                    # (``set_status`` / ``_persist_status`` touch other
-                    # fields). Re-acquiring ``self._lock`` here would
-                    # serialise against unrelated run mutations for no gain.
-                    record.lease_expires_at = new_expiry
-                else:
-                    # ``update_lease`` returned False — the row was claimed
-                    # by another worker (status is no longer pending/running,
-                    # or ``owner_worker_id`` changed). Stop the local task so
-                    # we don't waste CPU or overwrite the takeover status on
-                    # finalisation.
-                    logger.warning(
-                        "Run %s lease renewal failed (status=%s,owner=%s) – worker likely taken over; aborting local task",
-                        run_id,
-                        record.status.value,
-                        record.owner_worker_id,
+            if timing_enabled:
+                now = datetime.now(UTC)
+                for _, record in active_runs:
+                    if record.lease_expires_at is None:
+                        continue
+                    try:
+                        remaining_ms = round((datetime.fromisoformat(record.lease_expires_at) - now).total_seconds() * 1000)
+                    except (TypeError, ValueError):
+                        continue
+                    if min_prior_lease_remaining_ms is None or remaining_ms < min_prior_lease_remaining_ms:
+                        min_prior_lease_remaining_ms = remaining_ms
+
+            if active_runs:
+                update_started = time.perf_counter()
+                try:
+                    updated_ids = await self._call_store_with_retry(
+                        "renew_leases",
+                        "*",
+                        lambda: self._store.renew_leases(
+                            [run_id for run_id, _ in active_runs],
+                            owner_worker_id=self._worker_id,
+                            lease_expires_at=new_expiry,
+                        ),
                     )
-                    record.abort_event.set()
-                    task_active = record.task is not None and not record.task.done()
-                    if task_active:
-                        record.task.cancel()
-            except Exception:
-                logger.warning("Failed to renew lease for run %s", run_id, exc_info=True)
+                    for run_id, record in active_runs:
+                        if run_id in updated_ids:
+                            record.lease_expires_at = new_expiry
+                            updated_count += 1
+                        elif record.status in (RunStatus.pending, RunStatus.running) and (record.task is None or not record.task.done()):
+                            # A completed run may go terminal during the DB call.
+                            lost_count += 1
+                            logger.warning(
+                                "Run %s lease renewal failed (status=%s,owner=%s) – worker likely taken over; aborting local task",
+                                run_id,
+                                record.status.value,
+                                record.owner_worker_id,
+                            )
+                            record.abort_event.set()
+                            if record.task is not None:
+                                record.task.cancel()
+                except Exception:
+                    error_count = len(active_runs)
+                    logger.warning("Failed to renew lease batch of %d run(s)", len(active_runs), exc_info=True)
+                finally:
+                    if timing_enabled:
+                        max_update_ms = round((time.perf_counter() - update_started) * 1000)
+                        max_update_run_id = "batch"
+                        if max_update_ms >= 1000:
+                            logger.warning(
+                                "RUN_HEARTBEAT event=renew_batch_slow owner_worker_id=%s run_count=%d elapsed_ms=%d",
+                                self._worker_id,
+                                len(active_runs),
+                                max_update_ms,
+                            )
+            batch_outcome = "completed" if not (lost_count or error_count) else "partial"
+        finally:
+            if timing_enabled:
+                elapsed_ms = round((time.perf_counter() - batch_started) * 1000)
+                expiry_remaining_ms = round((datetime.fromisoformat(new_expiry) - datetime.now(UTC)).total_seconds() * 1000)
+                logger.info(
+                    "RUN_HEARTBEAT event=renew_end owner_worker_id=%s outcome=%s "
+                    "run_count=%d updated_count=%d lost_count=%d error_count=%d "
+                    "elapsed_ms=%d lock_wait_ms=%d min_prior_lease_remaining_ms=%s "
+                    "max_update_ms=%d max_update_run_id=%s new_expiry_remaining_ms=%d",
+                    self._worker_id,
+                    batch_outcome,
+                    len(active_runs),
+                    updated_count,
+                    lost_count,
+                    error_count,
+                    elapsed_ms,
+                    lock_wait_ms,
+                    min_prior_lease_remaining_ms if min_prior_lease_remaining_ms is not None else "-",
+                    max_update_ms,
+                    max_update_run_id,
+                    expiry_remaining_ms,
+                )
 
     async def _reconcile_orphans_periodic(self) -> None:
         """Sweep for expired leases owned by dead peers.
 
-        Called from ``_heartbeat_loop`` every ``lease_seconds``. Startup
+        Called from ``_reconcile_loop`` every ``lease_seconds``. Startup
         reconciliation handles the initial sweep; this periodic pass
         catches orphans whose lease expires between restarts.
         """
         error_msg = "Run lease expired — owning worker is unreachable."
-        recovered = await self.reconcile_orphaned_inflight_runs(error=error_msg)
-        if recovered:
-            logger.warning(
-                "Periodic reconciliation recovered %d orphaned run(s) as error",
-                len(recovered),
-            )
+        timing_enabled = run_timing_logs_enabled()
+        started = time.perf_counter()
+        recovered: list[RunRecord] = []
+        outcome = "incomplete"
+        if timing_enabled:
+            logger.info("RUN_HEARTBEAT event=reconcile_start owner_worker_id=%s", self._worker_id)
+        try:
+            recovered = await self.reconcile_orphaned_inflight_runs(error=error_msg)
+            outcome = "completed"
+            if recovered:
+                logger.warning(
+                    "Periodic reconciliation recovered %d orphaned run(s) as error",
+                    len(recovered),
+                )
+        finally:
+            if timing_enabled:
+                logger.info(
+                    "RUN_HEARTBEAT event=reconcile_end owner_worker_id=%s outcome=%s recovered_count=%d elapsed_ms=%d",
+                    self._worker_id,
+                    outcome,
+                    len(recovered),
+                    round((time.perf_counter() - started) * 1000),
+                )
 
     async def shutdown(self, *, timeout: float = 5.0) -> None:
         """Cancel and bounded-await all in-flight runs on process shutdown.

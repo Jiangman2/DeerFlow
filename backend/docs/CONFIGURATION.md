@@ -91,6 +91,45 @@ For OpenAI-compatible gateways (for example Novita or OpenRouter), keep using `l
 
 > **Note:** for `langchain_openai:ChatOpenAI` the endpoint override key is `base_url` (not `api_base`). If you write `api_base` it is automatically normalized to `base_url`, and unrecognized keys are logged with a warning at model-build time. Some other model classes (e.g. `PatchedChatDeepSeek`) do use `api_base` — match the key to the class you configured.
 
+Alibaba Cloud Model Studio Qwen3.7-Plus is also an OpenAI-compatible **Chat
+Completions** model. Do not set `use_responses_api` for the Gateway model entry:
+the separate PPT runtime's Responses configuration is unrelated. Use
+`RobustChatOpenAI` so its streamed `reasoning_content` is retained and replayed
+for later tool-call turns:
+
+```yaml
+models:
+  - name: qwen3.7-plus
+    display_name: Qwen3.7-Plus
+    use: deerflow.models.robust_openai:RobustChatOpenAI
+    model: qwen3.7-plus
+    api_key: $DASHSCOPE_API_KEY
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    request_timeout: 900.0
+    max_retries: 2
+    max_tokens: 65536
+    supports_thinking: true
+    supports_reasoning_effort: true
+    supports_vision: false
+    when_thinking_enabled:
+      extra_body:
+        enable_thinking: true
+        preserve_thinking: true
+    when_thinking_disabled:
+      extra_body:
+        enable_thinking: false
+```
+
+If DashScope egress must traverse an HTTP(S) proxy, configure `HTTP_PROXY` and
+`HTTPS_PROXY` (plus lowercase aliases when your deployment convention uses
+them) on the **Gateway container** through its Kubernetes Secret. Do not add a
+`trust_env` field to this model configuration: it is not a Chat Completions
+request parameter. The local-PVC baseline intentionally clears proxy variables
+for Docker Desktop; use its opt-in
+`k8s/local-pvc/qwen3.7-dashscope-proxy-test-patch.yaml` overlay in a test
+cluster. Keep Kubernetes Service names and CIDRs in `NO_PROXY`, but do not add
+`dashscope.aliyuncs.com` there.
+
 ```yaml
 models:
   - name: novita-deepseek-v3.2

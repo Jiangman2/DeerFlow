@@ -26,6 +26,7 @@ import uuid
 import warnings
 from collections import OrderedDict
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
+from contextlib import aclosing, asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any, Literal
 from urllib.parse import urlsplit, urlunsplit
@@ -57,6 +58,7 @@ from deerflow.models.assistant_payload_replay import (
     restore_assistant_payloads,
     restore_reasoning_content,
 )
+from deerflow.models.stream_admission import admit_model_stream
 
 _MAX_PROVIDER_MESSAGE_CHARS = 1000
 _MAX_JSON_STRING_UNWRAP_DEPTH = 3
@@ -178,6 +180,19 @@ class _ModelStreamTiming:
     chunk_count: int = 0
     token_usage: dict[str, int | float] = field(default_factory=dict)
     finished: bool = False
+    upstream_next_count: int = 0
+    upstream_next_total_s: float = 0.0
+    upstream_next_max_s: float = 0.0
+    upstream_next_over_1s: int = 0
+    upstream_error_wait_s: float | None = None
+    callback_count: int = 0
+    callback_total_s: float = 0.0
+    callback_max_s: float = 0.0
+    callback_over_100ms: int = 0
+    downstream_resume_count: int = 0
+    downstream_resume_total_s: float = 0.0
+    downstream_resume_max_s: float = 0.0
+    downstream_resume_over_100ms: int = 0
 
     @classmethod
     def for_invocation(
@@ -186,7 +201,7 @@ class _ModelStreamTiming:
         run_manager: CallbackManagerForLLMRun | AsyncCallbackManagerForLLMRun | None,
         *,
         mode: str,
-    ) -> "_ModelStreamTiming":
+    ) -> _ModelStreamTiming:
         deerflow_thread_id, deerflow_run_id = _timing_context_from_run_manager(run_manager)
         return cls(
             enabled=_llm_timing_logs_enabled(),
@@ -218,11 +233,7 @@ class _ModelStreamTiming:
         usage = getattr(generation_chunk.message, "usage_metadata", None)
         if not isinstance(usage, Mapping):
             return
-        self.token_usage = {
-            key: value
-            for key in ("input_tokens", "output_tokens", "total_tokens")
-            if isinstance((value := usage.get(key)), (int, float))
-        }
+        self.token_usage = {key: value for key in ("input_tokens", "output_tokens", "total_tokens") if isinstance((value := usage.get(key)), (int, float))}
 
     def observe_result(self, result: ChatResult) -> None:
         """Record one non-stream result using the same content-free fields.
@@ -240,11 +251,7 @@ class _ModelStreamTiming:
             usage = getattr(getattr(generation, "message", None), "usage_metadata", None)
             if not isinstance(usage, Mapping):
                 continue
-            self.token_usage = {
-                key: value
-                for key in ("input_tokens", "output_tokens", "total_tokens")
-                if isinstance((value := usage.get(key)), (int, float))
-            }
+            self.token_usage = {key: value for key in ("input_tokens", "output_tokens", "total_tokens") if isinstance((value := usage.get(key)), (int, float))}
             return
 
     def _mark_first_chunk(self) -> None:
@@ -264,6 +271,38 @@ class _ModelStreamTiming:
                 self.deerflow_run_id,
                 round((self.first_chunk_at - self.started_at) * 1000),
             )
+
+    def observe_upstream_next(self, elapsed_s: float, *, failed: bool = False) -> None:
+        """Measure only the await for the next raw provider chunk, not local work."""
+
+        if not self.enabled:
+            return
+        self.upstream_next_count += 1
+        self.upstream_next_total_s += elapsed_s
+        self.upstream_next_max_s = max(self.upstream_next_max_s, elapsed_s)
+        self.upstream_next_over_1s += elapsed_s >= 1.0
+        if failed:
+            self.upstream_error_wait_s = elapsed_s
+
+    def observe_callback(self, elapsed_s: float) -> None:
+        """Measure the awaited LangChain callback for one delivered chunk."""
+
+        if not self.enabled:
+            return
+        self.callback_count += 1
+        self.callback_total_s += elapsed_s
+        self.callback_max_s = max(self.callback_max_s, elapsed_s)
+        self.callback_over_100ms += elapsed_s >= 0.1
+
+    def observe_downstream_resume(self, elapsed_s: float) -> None:
+        """Measure time suspended at yield while the downstream consumer runs."""
+
+        if not self.enabled:
+            return
+        self.downstream_resume_count += 1
+        self.downstream_resume_total_s += elapsed_s
+        self.downstream_resume_max_s = max(self.downstream_resume_max_s, elapsed_s)
+        self.downstream_resume_over_100ms += elapsed_s >= 0.1
 
     def finish(self, *, outcome: str, error: BaseException | None = None) -> None:
         if self.finished:
@@ -292,6 +331,71 @@ class _ModelStreamTiming:
             error_type,
             self.token_usage or "-",
         )
+        if self.mode == "async":
+            logger.info(
+                "LLM_STREAM_PATH event=end llm_call_id=%s model=%s "
+                "deerflow_thread_id=%s deerflow_run_id=%s outcome=%s "
+                "upstream_next_count=%d upstream_next_total_ms=%d upstream_next_max_ms=%d "
+                "upstream_next_over_1s=%d upstream_error_wait_ms=%s "
+                "callback_count=%d callback_total_ms=%d callback_max_ms=%d callback_over_100ms=%d "
+                "downstream_resume_count=%d downstream_resume_total_ms=%d "
+                "downstream_resume_max_ms=%d downstream_resume_over_100ms=%d",
+                self.llm_call_id,
+                self.model,
+                self.deerflow_thread_id,
+                self.deerflow_run_id,
+                outcome,
+                self.upstream_next_count,
+                round(self.upstream_next_total_s * 1000),
+                round(self.upstream_next_max_s * 1000),
+                self.upstream_next_over_1s,
+                "-" if self.upstream_error_wait_s is None else round(self.upstream_error_wait_s * 1000),
+                self.callback_count,
+                round(self.callback_total_s * 1000),
+                round(self.callback_max_s * 1000),
+                self.callback_over_100ms,
+                self.downstream_resume_count,
+                round(self.downstream_resume_total_s * 1000),
+                round(self.downstream_resume_max_s * 1000),
+                self.downstream_resume_over_100ms,
+            )
+
+
+@asynccontextmanager
+async def _closing_async_iterator(iterator: AsyncIterator[Any], *, close_on_exit: bool = True) -> AsyncIterator[AsyncIterator[Any]]:
+    """Close async generators without requiring every iterator to expose aclose."""
+
+    try:
+        yield iterator
+    finally:
+        if close_on_exit:
+            close = getattr(iterator, "aclose", None)
+            if callable(close):
+                await close()
+
+
+async def _timed_async_stream_chunks(
+    chunks: AsyncIterator[Any],
+    timing: _ModelStreamTiming,
+    *,
+    clock: Callable[[], float] = time.monotonic,
+) -> AsyncIterator[Any]:
+    """Keep provider await time separate from callback and consumer backpressure."""
+
+    async with _closing_async_iterator(chunks) as source:
+        while True:
+            wait_started = clock() if timing.enabled else None
+            try:
+                chunk = await anext(source)
+            except StopAsyncIteration:
+                return
+            except BaseException:
+                if wait_started is not None:
+                    timing.observe_upstream_next(clock() - wait_started, failed=True)
+                raise
+            if wait_started is not None:
+                timing.observe_upstream_next(clock() - wait_started)
+            yield chunk
 
 
 def _bounded_field(value: Any, *, limit: int = _MAX_PROVIDER_MESSAGE_CHARS) -> str:
@@ -779,6 +883,30 @@ class RobustChatOpenAI(ChatOpenAI):
         stream_usage: bool | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
+        """Queue only configured models before opening an outbound stream."""
+
+        async with admit_model_stream(self.model_name):
+            async with aclosing(
+                self._astream_admitted(
+                    messages,
+                    stop=stop,
+                    run_manager=run_manager,
+                    stream_usage=stream_usage,
+                    **kwargs,
+                )
+            ) as stream:
+                async for chunk in stream:
+                    yield chunk
+
+    async def _astream_admitted(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        *,
+        stream_usage: bool | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
         """Async stream while normalizing non-standard scalar SSE chunks."""
 
         kwargs["stream"] = True
@@ -812,32 +940,46 @@ class RobustChatOpenAI(ChatOpenAI):
                 context_manager = response
             async with context_manager as response:
                 is_first_chunk = True
-                async for raw_chunk in _astream_with_chunk_timeout(
+                source_chunks = _astream_with_chunk_timeout(
                     response,
                     self.stream_chunk_timeout,
                     model_name=self.model_name,
-                ):
-                    chunk = frame_guard.normalize(raw_chunk)
-                    if chunk is None:
-                        continue
-                    generation_chunk = self._convert_chunk_to_generation_chunk(
-                        chunk,
-                        default_chunk_class,
-                        base_generation_info if is_first_chunk else {},
-                    )
-                    if generation_chunk is None:
-                        continue
-                    default_chunk_class = generation_chunk.message.__class__
-                    timing.observe_chunk(generation_chunk)
-                    logprobs = (generation_chunk.generation_info or {}).get("logprobs")
-                    if run_manager:
-                        await run_manager.on_llm_new_token(
-                            generation_chunk.text,
-                            chunk=generation_chunk,
-                            logprobs=logprobs,
+                )
+                if timing.enabled:
+                    source_chunks = _timed_async_stream_chunks(source_chunks, timing)
+                async with _closing_async_iterator(source_chunks, close_on_exit=timing.enabled) as raw_chunks:
+                    async for raw_chunk in raw_chunks:
+                        chunk = frame_guard.normalize(raw_chunk)
+                        if chunk is None:
+                            continue
+                        generation_chunk = self._convert_chunk_to_generation_chunk(
+                            chunk,
+                            default_chunk_class,
+                            base_generation_info if is_first_chunk else {},
                         )
-                    is_first_chunk = False
-                    yield generation_chunk
+                        if generation_chunk is None:
+                            continue
+                        default_chunk_class = generation_chunk.message.__class__
+                        timing.observe_chunk(generation_chunk)
+                        logprobs = (generation_chunk.generation_info or {}).get("logprobs")
+                        if run_manager:
+                            callback_started = time.monotonic() if timing.enabled else None
+                            try:
+                                await run_manager.on_llm_new_token(
+                                    generation_chunk.text,
+                                    chunk=generation_chunk,
+                                    logprobs=logprobs,
+                                )
+                            finally:
+                                if callback_started is not None:
+                                    timing.observe_callback(time.monotonic() - callback_started)
+                        is_first_chunk = False
+                        resume_started = time.monotonic() if timing.enabled else None
+                        try:
+                            yield generation_chunk
+                        finally:
+                            if resume_started is not None:
+                                timing.observe_downstream_resume(time.monotonic() - resume_started)
         except openai.BadRequestError as exc:
             timing.finish(outcome="error", error=exc)
             _handle_openai_bad_request(exc)
@@ -858,8 +1000,18 @@ class RobustChatOpenAI(ChatOpenAI):
                 generation_chunk = self._get_generation_chunk_from_completion(final_completion)
                 timing.observe_chunk(generation_chunk)
                 if run_manager:
-                    await run_manager.on_llm_new_token(generation_chunk.text, chunk=generation_chunk)
-                yield generation_chunk
+                    callback_started = time.monotonic() if timing.enabled else None
+                    try:
+                        await run_manager.on_llm_new_token(generation_chunk.text, chunk=generation_chunk)
+                    finally:
+                        if callback_started is not None:
+                            timing.observe_callback(time.monotonic() - callback_started)
+                resume_started = time.monotonic() if timing.enabled else None
+                try:
+                    yield generation_chunk
+                finally:
+                    if resume_started is not None:
+                        timing.observe_downstream_resume(time.monotonic() - resume_started)
             frame_guard.raise_if_incomplete()
         except asyncio.CancelledError as exc:
             timing.finish(outcome="cancelled", error=exc)

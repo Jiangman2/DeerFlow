@@ -6,6 +6,7 @@ Uses a temp SQLite DB to test ORM-backed CRUD operations.
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import event
 from sqlalchemy.dialects import postgresql
 
 from deerflow.persistence.run import RunRepository
@@ -384,21 +385,6 @@ class TestRunRepository:
             "subagent": 25,
             "middleware": 5,
         }
-        await _cleanup()
-
-    @pytest.mark.anyio
-    async def test_aggregate_tokens_by_thread_scopes_to_user(self, tmp_path):
-        repo = await _make_repo(tmp_path)
-        await repo.put("owner-run", thread_id="t1", status="running", user_id="owner-a")
-        await repo.update_run_completion("owner-run", status="success", total_tokens=10)
-        await repo.put("other-run", thread_id="t1", status="running", user_id="owner-b")
-        await repo.update_run_completion("other-run", status="success", total_tokens=90)
-
-        scoped = await repo.aggregate_tokens_by_thread("t1", user_id="owner-a")
-        unscoped = await repo.aggregate_tokens_by_thread("t1", user_id=None)
-
-        assert (scoped["total_runs"], scoped["total_tokens"]) == (1, 10)
-        assert (unscoped["total_runs"], unscoped["total_tokens"]) == (2, 100)
         await _cleanup()
 
     @pytest.mark.anyio
@@ -837,6 +823,44 @@ class TestRunRepository:
                 created_at=datetime.now(UTC).isoformat(),
             )
 
+        await _cleanup()
+
+    @pytest.mark.anyio
+    async def test_renew_leases_updates_only_active_rows_of_requested_owner(self, tmp_path):
+        from deerflow.persistence.engine import get_engine
+
+        repo = await _make_repo(tmp_path)
+        old_expiry = (datetime.now(UTC) - timedelta(seconds=10)).isoformat()
+        new_expiry = (datetime.now(UTC) + timedelta(seconds=30)).isoformat()
+        await repo.put("owned-pending", thread_id="t1", status="pending", owner_worker_id="worker-a", lease_expires_at=old_expiry)
+        await repo.put("owned-running", thread_id="t2", status="running", owner_worker_id="worker-a", lease_expires_at=old_expiry)
+        await repo.put("other-owner", thread_id="t3", status="running", owner_worker_id="worker-b", lease_expires_at=old_expiry)
+        await repo.put("terminal", thread_id="t4", status="success", owner_worker_id="worker-a", lease_expires_at=old_expiry)
+
+        statements: list[str] = []
+
+        def capture_update(_connection, _cursor, statement, _parameters, _context, _executemany):
+            if statement.lstrip().lower().startswith("update runs"):
+                statements.append(statement)
+
+        engine = get_engine()
+        assert engine is not None
+        event.listen(engine.sync_engine, "before_cursor_execute", capture_update)
+        try:
+            renewed = await repo.renew_leases(
+                ["owned-pending", "owned-running", "owned-pending", "other-owner", "terminal", "missing"],
+                owner_worker_id="worker-a",
+                lease_expires_at=new_expiry,
+            )
+        finally:
+            event.remove(engine.sync_engine, "before_cursor_execute", capture_update)
+
+        assert len(statements) == 1
+        assert renewed == {"owned-pending", "owned-running"}
+        assert (await repo.get("owned-pending"))["lease_expires_at"] == new_expiry
+        assert (await repo.get("owned-running"))["lease_expires_at"] == new_expiry
+        assert (await repo.get("other-owner"))["lease_expires_at"] == old_expiry
+        assert (await repo.get("terminal"))["lease_expires_at"] == old_expiry
         await _cleanup()
 
     # ------------------------------------------------------------------

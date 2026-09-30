@@ -1460,6 +1460,55 @@ def test_cumulative_stream_usage_reaches_robust_provider(monkeypatch):
     assert captured["cumulative_stream_usage"] is True
 
 
+def test_dashscope_qwen37_plus_uses_chat_completions_and_preserves_thinking(monkeypatch):
+    """The Qwen3.7 Gateway profile stays on DashScope Chat Completions.
+
+    It must not inherit the isolated PPT Agent's Responses API settings. The
+    thinking options and robust provider preserve reasoning for a later
+    tool-call turn, while the generic OpenAI defaults retain stream token usage
+    and the bounded chunk-gap watchdog needed by load-test diagnostics.
+    """
+    from deerflow.models.robust_openai import RobustChatOpenAI
+
+    model = ModelConfig(
+        name="qwen3.7-plus",
+        display_name="Qwen3.7-Plus",
+        description=None,
+        use="deerflow.models.robust_openai:RobustChatOpenAI",
+        model="qwen3.7-plus",
+        api_key="test-dashscope-key",
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        request_timeout=900.0,
+        max_retries=2,
+        max_tokens=65536,
+        supports_thinking=True,
+        supports_reasoning_effort=True,
+        supports_vision=False,
+        when_thinking_enabled={
+            "extra_body": {"enable_thinking": True, "preserve_thinking": True}
+        },
+        when_thinking_disabled={"extra_body": {"enable_thinking": False}},
+    )
+    cfg = _make_app_config([model])
+    captured: dict = {}
+    _patch_factory(monkeypatch, cfg, model_class=_capturing_class(RobustChatOpenAI, captured))
+
+    factory_module.create_chat_model(
+        name="qwen3.7-plus", thinking_enabled=True, reasoning_effort="medium"
+    )
+
+    assert captured["base_url"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    assert captured["extra_body"] == {
+        "enable_thinking": True,
+        "preserve_thinking": True,
+    }
+    assert captured["reasoning_effort"] == "medium"
+    assert captured["stream_usage"] is True
+    assert captured["stream_chunk_timeout"] == 240.0
+    assert "use_responses_api" not in captured
+    assert "output_version" not in captured
+
+
 def test_api_base_dropped_when_openai_api_base_field_name_set(monkeypatch):
     """If the field-name openai_api_base is set alongside api_base, the alias is dropped (no dup)."""
     from langchain_openai import ChatOpenAI

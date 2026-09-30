@@ -450,6 +450,14 @@ servers + skills). Both real files are gitignored and may be edited at runtime v
 Gateway API. Config schema and resolution order are documented in
 [backend/AGENTS.md](backend/AGENTS.md).
 
+For a Gateway conversation entry using Alibaba Cloud Model Studio Qwen3.7-Plus,
+configure `qwen3.7-plus` through DashScope's OpenAI-compatible Chat Completions
+endpoint (`https://dashscope.aliyuncs.com/compatible-mode/v1`) with
+`$DASHSCOPE_API_KEY`. This is separate from the isolated PPT Agent's native
+Responses provider. Use `RobustChatOpenAI`, enable `preserve_thinking` together
+with `enable_thinking`, and set `when_thinking_disabled.extra_body.enable_thinking`
+to `false` so multi-turn tool calls retain their reasoning payloads.
+
 Skill quality review note:
 - `skills/public/skill-reviewer/` is the built-in read-only skill quality reviewer.
   It uses the harness-layer `review_skill_package` tool and contracts in

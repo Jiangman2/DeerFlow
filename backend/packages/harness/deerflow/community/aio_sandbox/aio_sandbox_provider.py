@@ -697,6 +697,54 @@ class AioSandboxProvider(WarmPoolLifecycleMixin[SandboxInfo], SandboxProvider):
         safe_name = hashlib.sha256(sandbox_id.encode("utf-8")).hexdigest()
         return lease_dir / f"{safe_name}.lock"
 
+    def acquire_thread_execution_lease(self, thread_id: str, *, user_id: str | None = None) -> tuple[str, IO[str]]:
+        """Protect a whole Gateway run, including lazy Sandbox acquisition.
+
+        The deterministic ID is known before the Pod exists. Taking the shared
+        lease before graph execution closes the gap between lazy acquisition and
+        another Gateway's startup/idle/capacity reconciliation. Unlike the PPT
+        host lease, this must not require the Sandbox to be locally tracked yet.
+        """
+
+        sandbox_id = self._deterministic_sandbox_id(thread_id, self._effective_acquire_user_id(user_id))
+        lock_file: IO[str] = _open_lock_file(self._execution_lease_path(sandbox_id))
+        locked = False
+        try:
+            # A cached Pod may have died between turns. Repair it before taking
+            # the run-long shared lease; otherwise our own lease would prevent
+            # _drop_unhealthy_sandbox() from obtaining deletion authority.
+            _lock_file_exclusive(lock_file)
+            locked = True
+            with self._lock:
+                info = self._sandbox_infos.get(sandbox_id)
+                if info is None:
+                    warm = self._warm_pool.get(sandbox_id)
+                    info = warm[0] if warm is not None else None
+            if info is not None and self._check_tracked_sandbox_alive(sandbox_id, info) is False:
+                sandbox, stale_info, removed = self._remove_tracked_sandbox(sandbox_id, expected_info=info)
+                if removed:
+                    if sandbox is not None:
+                        try:
+                            sandbox.close()
+                        except Exception:
+                            logger.warning("Failed to close stale Sandbox client %s", sandbox_id, exc_info=True)
+                    if stale_info is not None:
+                        self._backend.destroy(stale_info)
+                    logger.warning("Removed stale sandbox %s before Gateway Run lease", sandbox_id)
+            if fcntl is None:
+                # msvcrt has no lock conversion; Windows is only a local-test
+                # fallback, while Kubernetes uses atomic Linux flock conversion.
+                _unlock_file(lock_file)
+                locked = False
+            _lock_file_shared(lock_file)
+            locked = True
+            return sandbox_id, lock_file
+        except BaseException:
+            if locked:
+                _unlock_file(lock_file)
+            lock_file.close()
+            raise
+
     def acquire_execution_lease(self, sandbox_id: str) -> IO[str]:
         """Hold a cross-process lease while an external host uses a Sandbox.
 

@@ -25,7 +25,7 @@ import threading
 import time
 import weakref
 from collections import Counter
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -74,6 +74,7 @@ from deerflow.runtime.weknora_context import (
     set_current_weknora_access_token,
     set_current_weknora_scope,
 )
+from deerflow.sandbox import get_sandbox_provider
 from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
 from deerflow.tracing import inject_langfuse_metadata
 from deerflow.utils.messages import message_to_text
@@ -83,8 +84,36 @@ from deerflow.workspace_changes.types import WorkspaceSnapshot
 from .manager import RunManager, RunRecord
 from .naming import resolve_root_run_name
 from .schemas import RunStatus
+from .stream_publish_batch import MessagePublishBatcher
 
 logger = logging.getLogger(__name__)
+
+
+async def _acquire_gateway_sandbox_lease(provider: Any, thread_id: str, user_id: str) -> tuple[str, Any]:
+    """Acquire a run-long Sandbox lease without blocking the event loop.
+
+    A cancelled waiter must release a lease that its worker thread acquires
+    later; otherwise a cancelled run could protect its Sandbox indefinitely.
+    """
+
+    task = asyncio.create_task(asyncio.to_thread(provider.acquire_thread_execution_lease, thread_id, user_id=user_id))
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+
+        def release_late(completed: asyncio.Task) -> None:
+            try:
+                sandbox_id, lock_file = completed.result()
+            except BaseException:
+                return
+            try:
+                provider.release_execution_lease(lock_file, sandbox_id)
+            except Exception:
+                logger.exception("Failed to release late Sandbox execution lease for %s", sandbox_id)
+
+        task.add_done_callback(release_late)
+        raise
+
 
 _checkpoint_locks_guard = threading.Lock()
 _checkpoint_locks_by_loop: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[str, asyncio.Lock]] = weakref.WeakKeyDictionary()
@@ -126,9 +155,7 @@ def _pending_async_task_summary(*, limit: int = 8) -> tuple[int, str, str]:
         label_counts[safe_label or "unknown"] += 1
 
     summary = ".".join(sorted(label_counts)[:limit])[:120]
-    top_counts = ".".join(
-        f"{count}:{label}" for label, count in sorted(label_counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
-    )[:120]
+    top_counts = ".".join(f"{count}:{label}" for label, count in sorted(label_counts.items(), key=lambda item: (-item[1], item[0]))[:limit])[:120]
     return pending_count, summary or "none", top_counts or "none"
 
 
@@ -525,6 +552,8 @@ async def run_agent(
     stream_clarification_seen = False
     pending_clarification = False
     stream_end_published = False
+    run_sandbox_provider: Any | None = None
+    run_sandbox_lease: tuple[str, Any] | None = None
 
     async def _publish_stream_end() -> None:
         """Publish the terminal stream event at most once."""
@@ -647,6 +676,17 @@ async def run_agent(
         _install_llm_timing_metadata(config, thread_id=thread_id, run_id=run_id)
         runtime = Runtime(context=cast(Any, runtime_ctx), store=store)
         config.setdefault("configurable", {})["__pregel_runtime"] = runtime
+
+        # Every remote AIO Sandbox has a deterministic user/thread ID. Hold a
+        # shared lease for the *entire* run, before a lazy tool can create the
+        # Pod. Other Gateway processes may adopt the same Pod into their warm
+        # pools, but their idle/capacity/shutdown paths cannot delete it while
+        # this graph (including subagent tools) is executing.
+        if getattr(getattr(ctx.app_config, "sandbox", None), "provisioner_url", None):
+            run_sandbox_provider = await asyncio.to_thread(get_sandbox_provider)
+            if not callable(getattr(run_sandbox_provider, "acquire_thread_execution_lease", None)):
+                raise RuntimeError("Remote Sandbox provider does not support run execution leases")
+            run_sandbox_lease = await _acquire_gateway_sandbox_lease(run_sandbox_provider, thread_id, resolve_runtime_user_id(runtime))
 
         # Inject RunJournal as a LangChain callback handler.
         # on_llm_end captures token usage; on_chain_start/end captures lifecycle.
@@ -870,11 +910,7 @@ async def run_agent(
                 if watchdog is not None:
                     watchdog.cancel()
                 elapsed_ms = round((time.monotonic() - started_at) * 1000) if graph_task_timing_enabled else 0
-                if (
-                    graph_task_timing_enabled
-                    and elapsed_ms >= idle_wait_watchdog_seconds * 1000
-                    and not graph_task_started_at
-                ):
+                if graph_task_timing_enabled and elapsed_ms >= idle_wait_watchdog_seconds * 1000 and not graph_task_started_at:
                     fields: dict[str, int | str] = {
                         "outcome": outcome,
                         "stream_kind": stream_kind,
@@ -884,14 +920,13 @@ async def run_agent(
                         fields["error_type"] = error_type
                     log_run_timing(logger, "agent_graph_stream_idle_wait_end", elapsed_ms=elapsed_ms, **fields)
 
-        async def _publish_graph_item(
-            sse_event: str,
-            payload: Any,
+        async def _publish_graph_items(
+            events: Sequence[tuple[str, Any]],
             *,
             mode: str,
             stream_kind: str,
         ) -> None:
-            """Publish a graph item while surfacing only slow bridge backpressure.
+            """Publish ordered graph events while logging only slow backpressure.
 
             A start/end pair for every streamed token would materially distort
             a 100-concurrency load test.  The timer therefore emits only a
@@ -900,7 +935,11 @@ async def run_agent(
 
             started_at = time.monotonic() if graph_task_timing_enabled else 0.0
             try:
-                await bridge.publish(run_id, sse_event, payload)
+                if len(events) == 1:
+                    event, payload = events[0]
+                    await bridge.publish(run_id, event, payload)
+                else:
+                    await bridge.publish_many(run_id, events)
             except asyncio.CancelledError as exc:
                 if graph_task_timing_enabled:
                     log_run_timing(
@@ -911,6 +950,7 @@ async def run_agent(
                         error_type=type(exc).__name__,
                         event_mode=mode,
                         stream_kind=stream_kind,
+                        event_count=len(events),
                     )
                 raise
             except Exception as exc:
@@ -923,6 +963,7 @@ async def run_agent(
                         error_type=type(exc).__name__,
                         event_mode=mode,
                         stream_kind=stream_kind,
+                        event_count=len(events),
                     )
                 raise
             else:
@@ -934,6 +975,7 @@ async def run_agent(
                         elapsed_ms=elapsed_ms,
                         event_mode=mode,
                         stream_kind=stream_kind,
+                        event_count=len(events),
                     )
 
         goal_evaluator_model: Any | None = None
@@ -999,9 +1041,7 @@ async def run_agent(
                         log_run_timing(
                             logger,
                             "agent_graph_stream_tail",
-                            elapsed_ms=round(
-                                (time.monotonic() - (last_graph_event_at or graph_stream_started_at)) * 1000
-                            ),
+                            elapsed_ms=round((time.monotonic() - (last_graph_event_at or graph_stream_started_at)) * 1000),
                             stream_kind=stream_kind,
                             **_active_graph_task_fields(),
                         )
@@ -1050,70 +1090,86 @@ async def run_agent(
             """
             nonlocal llm_error_fallback_message, stream_clarification_seen
             last_graph_event_at: float | None = None
-            if len(lg_modes) == 1 and not stream_subgraphs:
-                # Single mode, no subgraphs: astream yields raw chunks
-                single_mode = lg_modes[0]
-                graph_stream = agent.astream(input_payload, config=stream_config, stream_mode=single_mode)
+            message_batch = MessagePublishBatcher(
+                publish_one=lambda event, data, mode: _publish_graph_items(((event, data),), mode=mode, stream_kind=stream_kind),
+                publish_many=lambda events: _publish_graph_items(events, mode="messages", stream_kind=stream_kind),
+                enabled=getattr(bridge, "supports_batched_publish", False),
+                max_events=getattr(bridge, "max_publish_batch_size", 64),
+            )
+            primary_error: BaseException | None = None
+            try:
+                if len(lg_modes) == 1 and not stream_subgraphs:
+                    # Single mode, no subgraphs: astream yields raw chunks
+                    single_mode = lg_modes[0]
+                    graph_stream = agent.astream(input_payload, config=stream_config, stream_mode=single_mode)
+                    graph_iterator = aiter(graph_stream)
+                    while True:
+                        has_item, chunk = await message_batch.next_item(lambda: _next_graph_stream_item(graph_iterator, stream_kind=stream_kind))
+                        if not has_item:
+                            break
+                        if record.abort_event.is_set():
+                            logger.info("Run %s abort requested — stopping", run_id)
+                            break
+                        if single_mode == "tasks" and graph_task_timing_enabled:
+                            _observe_graph_tasks(chunk, stream_kind=stream_kind)
+                        llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
+                        stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
+                        sse_event = _lg_mode_to_sse_event(single_mode)
+                        await message_batch.publish(sse_event, serialize(chunk, mode=single_mode), single_mode)
+                        last_graph_event_at = time.monotonic()
+                        if single_mode == "custom":
+                            await subagent_events.add(chunk)
+                    return last_graph_event_at
+                # Multiple modes or subgraphs: astream yields tuples
+                graph_stream = agent.astream(
+                    input_payload,
+                    config=stream_config,
+                    stream_mode=lg_modes,
+                    subgraphs=stream_subgraphs,
+                )
                 graph_iterator = aiter(graph_stream)
                 while True:
-                    has_item, chunk = await _next_graph_stream_item(graph_iterator, stream_kind=stream_kind)
+                    has_item, item = await message_batch.next_item(lambda: _next_graph_stream_item(graph_iterator, stream_kind=stream_kind))
                     if not has_item:
                         break
                     if record.abort_event.is_set():
                         logger.info("Run %s abort requested — stopping", run_id)
                         break
-                    if single_mode == "tasks" and graph_task_timing_enabled:
+
+                    mode, chunk = _unpack_stream_item(item, lg_modes, stream_subgraphs)
+                    if mode is None:
+                        continue
+                    if mode == "tasks" and graph_task_timing_enabled:
                         _observe_graph_tasks(chunk, stream_kind=stream_kind)
+                        if graph_task_mode_added:
+                            continue
+
                     llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
                     stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
-                    sse_event = _lg_mode_to_sse_event(single_mode)
-                    await _publish_graph_item(
-                        sse_event,
-                        serialize(chunk, mode=single_mode),
-                        mode=single_mode,
-                        stream_kind=stream_kind,
-                    )
+                    sse_event = _lg_mode_to_sse_event(mode)
+                    await message_batch.publish(sse_event, serialize(chunk, mode=mode), mode)
                     last_graph_event_at = time.monotonic()
-                    if single_mode == "custom":
+                    if mode == "custom":
                         await subagent_events.add(chunk)
                 return last_graph_event_at
-            # Multiple modes or subgraphs: astream yields tuples
-            graph_stream = agent.astream(
-                input_payload,
-                config=stream_config,
-                stream_mode=lg_modes,
-                subgraphs=stream_subgraphs,
-            )
-            graph_iterator = aiter(graph_stream)
-            while True:
-                has_item, item = await _next_graph_stream_item(graph_iterator, stream_kind=stream_kind)
-                if not has_item:
-                    break
-                if record.abort_event.is_set():
-                    logger.info("Run %s abort requested — stopping", run_id)
-                    break
-
-                mode, chunk = _unpack_stream_item(item, lg_modes, stream_subgraphs)
-                if mode is None:
-                    continue
-                if mode == "tasks" and graph_task_timing_enabled:
-                    _observe_graph_tasks(chunk, stream_kind=stream_kind)
-                    if graph_task_mode_added:
-                        continue
-
-                llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
-                stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
-                sse_event = _lg_mode_to_sse_event(mode)
-                await _publish_graph_item(
-                    sse_event,
-                    serialize(chunk, mode=mode),
-                    mode=mode,
-                    stream_kind=stream_kind,
-                )
-                last_graph_event_at = time.monotonic()
-                if mode == "custom":
-                    await subagent_events.add(chunk)
-            return last_graph_event_at
+            except BaseException as exc:
+                primary_error = exc
+                raise
+            finally:
+                try:
+                    await message_batch.finish(prior_error=primary_error)
+                finally:
+                    if graph_task_timing_enabled and message_batch.batch_count:
+                        log_run_timing(
+                            logger,
+                            "agent_stream_bridge_batch_summary",
+                            stream_kind=stream_kind,
+                            batch_count=message_batch.batch_count,
+                            event_count=message_batch.batched_event_count,
+                            max_batch_size=message_batch.max_batch_size_observed,
+                            source_message_count=message_batch.source_message_count,
+                            coalesced_message_count=message_batch.coalesced_message_count,
+                        )
 
         async def _stream_once(
             input_payload: Any,
@@ -1309,9 +1365,7 @@ async def run_agent(
         checkpoint_tuple = None
         if checkpointer is not None:
             try:
-                checkpoint_tuple = await checkpointer.aget_tuple(
-                    {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-                )
+                checkpoint_tuple = await checkpointer.aget_tuple({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
             except Exception:
                 logger.warning("Could not inspect the last checkpoint after recursion cap for run %s", run_id, exc_info=True)
         recursion_limit = config.get("recursion_limit")
@@ -1342,6 +1396,12 @@ async def run_agent(
         )
 
     finally:
+        if run_sandbox_lease is not None:
+            sandbox_id, lock_file = run_sandbox_lease
+            try:
+                run_sandbox_provider.release_execution_lease(lock_file, sandbox_id)
+            except Exception:
+                logger.exception("Failed to release Gateway Run Sandbox execution lease for %s", sandbox_id)
         finalization_started_at = time.monotonic()
         log_run_timing(logger, "run_finalize_start")
         if weknora_token_context is not None:
@@ -1404,6 +1464,7 @@ async def run_agent(
         # Sync title from checkpoint to threads_meta.display_name
         if checkpointer is not None and thread_store is not None:
             try:
+
                 async def _sync_title() -> None:
                     ckpt_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
                     ckpt_tuple = await checkpointer.aget_tuple(ckpt_config)

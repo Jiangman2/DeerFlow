@@ -161,7 +161,7 @@ class RunStore(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False, user_id: str | None = None) -> dict[str, Any]:
+    async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False) -> dict[str, Any]:
         """Aggregate token usage for completed runs in a thread.
 
         Returns a dict with keys: total_tokens, total_input_tokens,
@@ -180,6 +180,24 @@ class RunStore(abc.ABC):
     ) -> bool:
         """Renew the lease on an active run. Returns ``False`` when no row matched."""
         pass
+
+    async def renew_leases(
+        self,
+        run_ids: list[str],
+        *,
+        owner_worker_id: str,
+        lease_expires_at: str,
+    ) -> set[str]:
+        """Renew owned active runs, returning only the IDs still owned.
+
+        Custom stores retain the per-run fallback. SQL stores override this
+        with one conditional UPDATE and one transaction for the whole batch.
+        """
+        updated: set[str] = set()
+        for run_id in dict.fromkeys(run_ids):
+            if await self.update_lease(run_id, owner_worker_id=owner_worker_id, lease_expires_at=lease_expires_at):
+                updated.add(run_id)
+        return updated
 
     @abc.abstractmethod
     async def claim_for_takeover(

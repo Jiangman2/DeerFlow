@@ -13,6 +13,7 @@ Coverage:
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
@@ -82,6 +83,98 @@ async def test_reject_blocks_reentrant_same_thread_locally():
 
     with pytest.raises(ConflictError, match="already has an active run"):
         await manager.create_or_reject("thread-1", multitask_strategy="reject")
+
+
+class _BlockedAtomicStore(MemoryRunStore):
+    """Hold inserts open so admission overlap and same-thread ordering are observable."""
+
+    def __init__(self):
+        super().__init__()
+        self.release = asyncio.Event()
+        self.eight_started = asyncio.Event()
+        self.first_started = asyncio.Event()
+        self.calls = 0
+        self.active = 0
+        self.peak_active = 0
+
+    async def create_run_atomic(self, *args, **kwargs):
+        self.calls += 1
+        self.active += 1
+        self.peak_active = max(self.peak_active, self.active)
+        self.first_started.set()
+        if self.calls == 8:
+            self.eight_started.set()
+        try:
+            await self.release.wait()
+            return await super().create_run_atomic(*args, **kwargs)
+        finally:
+            self.active -= 1
+
+
+@pytest.mark.anyio
+async def test_distinct_threads_can_insert_concurrently_without_blocking_registry():
+    store = _BlockedAtomicStore()
+    manager = _make_manager(store=store)
+    tasks = [asyncio.create_task(manager.create_or_reject(f"thread-{index}")) for index in range(9)]
+    try:
+        await asyncio.wait_for(store.eight_started.wait(), timeout=2)
+        assert store.calls == 8
+        assert store.peak_active == 8
+        assert await asyncio.wait_for(manager.has_inflight("unrelated"), timeout=0.5) is False
+    finally:
+        store.release.set()
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+    records = [result for result in results if not isinstance(result, BaseException)]
+    assert len({record.run_id for record in records}) == 9
+    assert store.calls == 9
+    assert store.peak_active == 8
+
+
+@pytest.mark.anyio
+async def test_same_thread_admissions_stay_serial_and_reject_duplicate():
+    store = _BlockedAtomicStore()
+    manager = _make_manager(store=store)
+    first = asyncio.create_task(manager.create_or_reject("thread-1"))
+    try:
+        await asyncio.wait_for(store.first_started.wait(), timeout=2)
+        second = asyncio.create_task(manager.create_or_reject("thread-1"))
+        await asyncio.sleep(0)
+        assert store.calls == 1
+    finally:
+        store.release.set()
+    await first
+    with pytest.raises(ConflictError, match="already has an active run"):
+        await second
+    assert store.calls == 1
+
+
+@pytest.mark.anyio
+async def test_interrupt_does_not_revert_run_completed_during_store_insert(monkeypatch):
+    store = MemoryRunStore()
+    manager = _make_manager(store=store)
+    old = await manager.create_or_reject("thread-1")
+    await manager.set_status(old.run_id, RunStatus.running)
+
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    original_insert = store.create_run_atomic
+
+    async def blocked_insert(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return await original_insert(*args, **kwargs)
+
+    monkeypatch.setattr(store, "create_run_atomic", blocked_insert)
+    replacement_task = asyncio.create_task(manager.create_or_reject("thread-1", multitask_strategy="interrupt"))
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=2)
+        await asyncio.wait_for(manager.set_status(old.run_id, RunStatus.success), timeout=0.5)
+    finally:
+        release.set()
+    replacement = await replacement_task
+    assert replacement.status == RunStatus.pending
+    assert old.status == RunStatus.success
+    assert not old.abort_event.is_set()
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +439,38 @@ async def test_reconciliation_returns_empty_when_no_orphaned_runs():
     assert recovered == []
 
 
+@pytest.mark.anyio
+async def test_reconciliation_does_not_reclaim_lease_renewed_after_snapshot():
+    store = MemoryRunStore()
+    expired = (datetime.now(UTC) - timedelta(seconds=60)).isoformat()
+    await store.put(
+        "raced-run",
+        thread_id="thread-race",
+        status="running",
+        owner_worker_id="alive-worker",
+        lease_expires_at=expired,
+        created_at=(datetime.now(UTC) - timedelta(seconds=120)).isoformat(),
+    )
+    original_list = store.list_inflight_with_expired_lease
+
+    async def list_then_renew(*args, **kwargs):
+        rows = await original_list(*args, **kwargs)
+        await store.update_lease(
+            "raced-run",
+            owner_worker_id="alive-worker",
+            lease_expires_at=(datetime.now(UTC) + timedelta(seconds=30)).isoformat(),
+        )
+        return rows
+
+    store.list_inflight_with_expired_lease = list_then_renew
+    manager = _make_manager(store=store, run_ownership_config=_lease_config(heartbeat_enabled=True))
+
+    recovered = await manager.reconcile_orphaned_inflight_runs(error="lease expired")
+
+    assert recovered == []
+    assert (await store.get("raced-run"))["status"] == "running"
+
+
 # ---------------------------------------------------------------------------
 # Lease heartbeat
 # ---------------------------------------------------------------------------
@@ -374,6 +499,71 @@ async def test_heartbeat_renews_active_run_leases():
     assert record.lease_expires_at is not None
     # Lease should have been extended
     assert record.lease_expires_at >= original_lease
+
+
+@pytest.mark.anyio
+async def test_heartbeat_logs_renewal_batch_timing_without_run_content(caplog, monkeypatch):
+    monkeypatch.setenv("DEERFLOW_RUN_TIMING_LOGS", "true")
+    store = MemoryRunStore()
+    manager = _make_manager(store=store, run_ownership_config=_lease_config(heartbeat_enabled=True))
+    record = await manager.create_or_reject("thread-1")
+    await manager.set_status(record.run_id, RunStatus.running)
+
+    original_update_lease = store.update_lease
+
+    async def delayed_update_lease(*args, **kwargs):
+        await asyncio.sleep(0.005)
+        return await original_update_lease(*args, **kwargs)
+
+    store.update_lease = delayed_update_lease
+
+    with caplog.at_level(logging.INFO, logger="deerflow.runtime.runs.manager"):
+        await manager._renew_leases()
+
+    heartbeat_lines = [record.message for record in caplog.records if "RUN_HEARTBEAT" in record.message]
+    assert len(heartbeat_lines) == 2
+    assert "event=renew_start" in heartbeat_lines[0]
+    assert f"owner_worker_id={manager.worker_id}" in heartbeat_lines[0]
+    assert "event=renew_end" in heartbeat_lines[1]
+    assert "run_count=1" in heartbeat_lines[1]
+    assert "updated_count=1" in heartbeat_lines[1]
+    assert "lost_count=0" in heartbeat_lines[1]
+    assert "error_count=0" in heartbeat_lines[1]
+    assert "max_update_ms=" in heartbeat_lines[1]
+    assert "max_update_run_id=batch" in heartbeat_lines[1]
+    assert "new_expiry_remaining_ms=" in heartbeat_lines[1]
+
+
+@pytest.mark.anyio
+async def test_heartbeat_logs_reconciliation_start_and_end(caplog, monkeypatch):
+    monkeypatch.setenv("DEERFLOW_RUN_TIMING_LOGS", "true")
+    manager = _make_manager(run_ownership_config=_lease_config(heartbeat_enabled=True))
+    manager.reconcile_orphaned_inflight_runs = AsyncMock(return_value=[])
+
+    with caplog.at_level(logging.INFO, logger="deerflow.runtime.runs.manager"):
+        await manager._reconcile_orphans_periodic()
+
+    heartbeat_lines = [record.message for record in caplog.records if "RUN_HEARTBEAT" in record.message]
+    assert len(heartbeat_lines) == 2
+    assert "event=reconcile_start" in heartbeat_lines[0]
+    assert "event=reconcile_end" in heartbeat_lines[1]
+    assert "outcome=completed" in heartbeat_lines[1]
+    assert "recovered_count=0" in heartbeat_lines[1]
+    assert "elapsed_ms=" in heartbeat_lines[1]
+
+
+@pytest.mark.anyio
+async def test_heartbeat_timing_logs_are_opt_in(caplog, monkeypatch):
+    monkeypatch.delenv("DEERFLOW_RUN_TIMING_LOGS", raising=False)
+    store = MemoryRunStore()
+    manager = _make_manager(store=store, run_ownership_config=_lease_config(heartbeat_enabled=True))
+    await manager.create_or_reject("thread-1")
+
+    with caplog.at_level(logging.INFO, logger="deerflow.runtime.runs.manager"):
+        await manager._renew_leases()
+        await manager._reconcile_orphans_periodic()
+
+    assert not any("RUN_HEARTBEAT" in record.message for record in caplog.records)
 
 
 @pytest.mark.anyio
@@ -413,6 +603,64 @@ async def test_heartbeat_renews_pending_run_before_task_is_spawned():
     store.update_lease.assert_awaited_once()
     assert record.lease_expires_at is not None
     assert record.lease_expires_at > original_lease
+
+
+@pytest.mark.anyio
+async def test_heartbeat_renews_multiple_runs_in_one_store_call():
+    store = MemoryRunStore()
+    manager = _make_manager(store=store, run_ownership_config=_lease_config(heartbeat_enabled=True))
+    first = await manager.create_or_reject("thread-1")
+    second = await manager.create_or_reject("thread-2")
+    store.renew_leases = AsyncMock(wraps=store.renew_leases)
+
+    await manager._renew_leases()
+
+    store.renew_leases.assert_awaited_once()
+    args, kwargs = store.renew_leases.await_args
+    assert set(args[0]) == {first.run_id, second.run_id}
+    assert kwargs["owner_worker_id"] == manager.worker_id
+    assert first.lease_expires_at == second.lease_expires_at
+
+
+@pytest.mark.anyio
+async def test_heartbeat_starts_independent_reconciliation_task():
+    manager = _make_manager(run_ownership_config=_lease_config(heartbeat_enabled=True))
+
+    await manager.start_heartbeat()
+    assert manager._heartbeat_task is not None
+    assert manager._reconcile_task is not None
+    assert manager._heartbeat_task is not manager._reconcile_task
+
+    await manager.stop_heartbeat()
+    assert manager._heartbeat_task is None
+    assert manager._reconcile_task is None
+
+
+@pytest.mark.anyio
+async def test_stop_heartbeat_waits_for_both_tasks_in_one_window(monkeypatch):
+    manager = _make_manager(run_ownership_config=_lease_config(heartbeat_enabled=True))
+    manager._heartbeat_stop = asyncio.Event()
+    heartbeat = asyncio.create_task(asyncio.sleep(3600))
+    reconciliation = asyncio.create_task(asyncio.sleep(3600))
+    manager._heartbeat_task = heartbeat
+    manager._reconcile_task = reconciliation
+    original_wait = asyncio.wait
+    first_waited_tasks = None
+
+    async def capture_wait(tasks, *, timeout):
+        nonlocal first_waited_tasks
+        if first_waited_tasks is None:
+            first_waited_tasks = set(tasks)
+        for task in tasks:
+            task.cancel()
+        return await original_wait(tasks, timeout=0.1)
+
+    monkeypatch.setattr(asyncio, "wait", capture_wait)
+    await manager.stop_heartbeat()
+
+    assert first_waited_tasks == {heartbeat, reconciliation}
+    assert heartbeat.cancelled()
+    assert reconciliation.cancelled()
 
 
 @pytest.mark.anyio

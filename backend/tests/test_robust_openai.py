@@ -8,14 +8,14 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_openai import ChatOpenAI
 
+from deerflow.llm_timing_context import reset_current_llm_timing_context, set_current_llm_timing_context
 from deerflow.models.robust_openai import (
-    _ModelStreamTiming,
     OpenAICompatibleResponseError,
     RobustChatOpenAI,
-    _StreamFrameGuard,
+    _ModelStreamTiming,
     _safe_endpoint_for_log,
+    _StreamFrameGuard,
 )
-from deerflow.llm_timing_context import reset_current_llm_timing_context, set_current_llm_timing_context
 
 
 def _model(*, cumulative_stream_usage: bool = False) -> RobustChatOpenAI:
@@ -195,7 +195,7 @@ def test_timing_log_records_share_one_llm_call_id(caplog) -> None:
 
     rendered = "\n".join(record.getMessage() for record in caplog.records)
     call_ids = re.findall(r"llm_call_id=([a-f0-9]{32})", rendered)
-    assert len(call_ids) == 3
+    assert len(call_ids) == 4
     assert set(call_ids) == {timing.llm_call_id}
 
 
