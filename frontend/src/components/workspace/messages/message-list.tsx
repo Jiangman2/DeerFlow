@@ -72,6 +72,8 @@ import {
 import type { Subtask } from "@/core/tasks";
 import { useSubtaskContext, useUpdateSubtask } from "@/core/tasks/context";
 import { pptMasterTaskMessageToSubtaskUpdate } from "@/core/tasks/lifecycle";
+import { currentPptTaskId } from "@/core/tasks/ppt-confirmation";
+import { usePptTaskRecovery } from "@/core/tasks/ppt-task-recovery";
 import {
   derivePendingSubtaskStatus,
   parseSubtaskResult,
@@ -97,6 +99,7 @@ import {
   MessageTokenUsageDebugList,
   MessageTokenUsageList,
 } from "./message-token-usage";
+import { PptMainProgress } from "./ppt-main-progress";
 import { MessageListSkeleton } from "./skeleton";
 import { SubtaskCard } from "./subtask-card";
 import { VirtualMessageList } from "./virtual-message-list";
@@ -384,6 +387,7 @@ export function MessageList({
   const rehypePlugins = useRehypeSplitWordsIntoSpans(thread.isLoading);
   const { tasks: subtasks } = useSubtaskContext();
   const updateSubtask = useUpdateSubtask();
+  usePptTaskRecovery(threadId, messages, thread.isLoading, updateSubtask);
   useEffect(() => {
     for (const message of messages) {
       const durableTask = pptMasterTaskMessageToSubtaskUpdate(message);
@@ -410,6 +414,8 @@ export function MessageList({
         !referencedTaskIds.has(task.id),
     );
   }, [messages, subtasks]);
+  const currentPptId = currentPptTaskId(subtasks, messages);
+  const currentPptTask = currentPptId ? subtasks[currentPptId] : undefined;
   const lastGroupIndex = groupedMessages.length - 1;
   let lastHumanGroupIndex = -1;
   for (let index = lastGroupIndex; index >= 0; index--) {
@@ -1176,6 +1182,9 @@ export function MessageList({
             );
             }}
           />
+          {currentPptTask && (
+            <PptMainProgress key={`${threadId}:${currentPptTask.id}`} task={currentPptTask} threadId={threadId} />
+          )}
           {standalonePptMasterTasks.map((task) => (
             <div
               key={`standalone-ppt-master-${task.id}`}

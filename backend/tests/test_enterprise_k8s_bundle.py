@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import re
+import runpy
 import ssl
 import tomllib
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -18,6 +21,18 @@ def _read(path: str) -> str:
 
 def _yaml_documents(path: str) -> list[dict]:
     return [document for document in yaml.safe_load_all(_read(path)) if isinstance(document, dict)]
+
+
+def test_enterprise_gateway_configures_internal_media_generation_endpoints():
+    patches = _yaml_documents("k8s/enterprise/runtime-patches.yaml")
+    gateway = next(document for document in patches if document.get("kind") == "Deployment" and document.get("metadata", {}).get("name") == "gateway")
+    container = next(item for item in gateway["spec"]["template"]["spec"]["containers"] if item["name"] == "gateway")
+    env = {item["name"]: item.get("value") for item in container["env"]}
+
+    assert env["DEERFLOW_IMAGE_GENERATION_API_URL"] == "http://10.57.2.43:30008/v1/images/generations"
+    assert env["DEERFLOW_VIDEO_GENERATION_API_URL"] == "http://10.57.2.43:30009/v1/videos"
+    assert env["DEERFLOW_IMAGE_GENERATION_TIMEOUT_SECONDS"] == "600"
+    assert env["DEERFLOW_VIDEO_GENERATION_POLL_SECONDS"] == "3"
 
 
 def test_dashboard_rollup_job_is_suspended_and_resource_bounded_by_default():
@@ -187,13 +202,62 @@ def test_enterprise_sandbox_image_pins_arm64_websocat_and_cairosvg():
     assert "Version(pydantic.__version__) >= Version('2.12.5')" in dockerfile
 
 
-def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands():
+@pytest.mark.parametrize("port", ["${AUTH_BACKEND_PORT}", "8081"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands(port, newline):
     dockerfile = _read("docker/sandbox-ppt-master/Dockerfile")
 
-    assert "nginx-server-with-auth.conf" in dockerfile
-    assert "grep -cF 'proxy_pass http://127.0.0.1:${AUTH_BACKEND_PORT};'" in dockerfile
-    assert "proxy_read_timeout 86400s;" in dockerfile
-    assert "proxy_send_timeout 86400s;" in dockerfile
+    assert "COPY docker/sandbox-ppt-master/patch_nginx_timeouts.py /tmp/patch_nginx_timeouts.py" in dockerfile
+    assert "RUN python3 /tmp/patch_nginx_timeouts.py /opt/gem/nginx-server-with-auth.conf" in dockerfile
+    patch_text = runpy.run_path(str(REPO_ROOT / "docker/sandbox-ppt-master/patch_nginx_timeouts.py"))["patch_text"]
+    source = "\n".join([
+        "server {",
+        "    location /command {",
+        "        proxy_read_timeout 60s;",
+        f"        proxy_pass http://127.0.0.1:{port};",
+        "        proxy_send_timeout 60s;",
+        "    }",
+        "    location /stream {",
+        f"        proxy_pass http://127.0.0.1:{port};",
+        "        proxy_connect_timeout 30s;",
+        "    }",
+        "    location /external {",
+        "        proxy_pass http://example.invalid:8000;",
+        "        proxy_read_timeout 90s;",
+        "    }",
+        "}",
+        "",
+    ]).replace("\n", newline)
+    patched, mode = patch_text(source)
+    assert mode == "patched"
+    assert patched.count("proxy_connect_timeout 5s;") == 2
+    assert patched.count("proxy_read_timeout 86400s;") == 2
+    assert patched.count("proxy_send_timeout 86400s;") == 2
+    assert patched.count(f"proxy_pass http://127.0.0.1:{port};") == 2
+    assert "proxy_read_timeout 60s;" not in patched
+    assert "proxy_send_timeout 60s;" not in patched
+    assert "proxy_connect_timeout 30s;" not in patched
+    assert "proxy_read_timeout 90s;" in patched
+    assert patch_text(patched) == (patched, "already-compatible")
+    if newline == "\r\n":
+        assert "\n" not in patched.replace("\r\n", "")
+
+
+@pytest.mark.parametrize("routes", [0, 1, 3])
+def test_enterprise_sandbox_nginx_patch_rejects_unexpected_route_counts(routes):
+    patch_text = runpy.run_path(str(REPO_ROOT / "docker/sandbox-ppt-master/patch_nginx_timeouts.py"))["patch_text"]
+    source = "server {\n" + "".join(
+        f"    location /route{index} {{\n        proxy_pass http://127.0.0.1:8081;\n    }}\n" for index in range(routes)
+    ) + "}\n"
+    with pytest.raises(ValueError, match="expected_two_loopback_proxy_routes"):
+        patch_text(source)
+
+
+def test_enterprise_sandbox_nginx_patch_rejects_duplicate_routes_in_one_block():
+    patch_text = runpy.run_path(str(REPO_ROOT / "docker/sandbox-ppt-master/patch_nginx_timeouts.py"))["patch_text"]
+    source = "server {\n    location /command {\n        proxy_pass http://127.0.0.1:8081;\n        proxy_pass http://127.0.0.1:8081;\n    }\n}\n"
+    with pytest.raises(ValueError, match="multiple_loopback_proxy_routes_in_one_block"):
+        patch_text(source)
 
 
 def test_ppt_master_runner_is_an_independent_failure_domain():
@@ -286,21 +350,9 @@ def test_enterprise_ppt_runner_retains_proxy_and_ca_boundary():
 
 def test_gateway_and_nginx_readiness_do_not_form_a_transitive_failure_chain():
     documents = _yaml_documents("k8s/local-pvc/deer-flow-pvc-stack.yaml")
-    deployments = {
-        document["metadata"]["name"]: document
-        for document in documents
-        if document.get("kind") == "Deployment"
-    }
-    gateway = next(
-        container
-        for container in deployments["gateway"]["spec"]["template"]["spec"]["containers"]
-        if container["name"] == "gateway"
-    )
-    nginx = next(
-        container
-        for container in deployments["nginx"]["spec"]["template"]["spec"]["containers"]
-        if container["name"] == "nginx"
-    )
+    deployments = {document["metadata"]["name"]: document for document in documents if document.get("kind") == "Deployment"}
+    gateway = next(container for container in deployments["gateway"]["spec"]["template"]["spec"]["containers"] if container["name"] == "gateway")
+    nginx = next(container for container in deployments["nginx"]["spec"]["template"]["spec"]["containers"] if container["name"] == "nginx")
 
     assert gateway["startupProbe"]["httpGet"]["path"] == "/api/v1/auth/setup-status"
     assert gateway["readinessProbe"] == {
@@ -378,10 +430,7 @@ def test_enterprise_runtime_images_are_immutable():
     assert {image["name"]: image.get("newTag") for image in custom} == expected_tags
     docreader = next(image for image in images if image["name"] == "wechatopenai/weknora-docreader")
     assert docreader["digest"] == "sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b"
-    assert (
-        "ARG DOCREADER_IMAGE="
-        "wechatopenai/weknora-docreader@sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b"
-    ) in _read("docker/mineru_adapter/Dockerfile")
+    assert ("ARG DOCREADER_IMAGE=wechatopenai/weknora-docreader@sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b") in _read("docker/mineru_adapter/Dockerfile")
     assert "latest" not in _read("k8s/enterprise/kustomization.yaml")
 
 
@@ -1055,7 +1104,12 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
         ".tavily.com",
     }.isdisjoint(set(gateway_values["NO_PROXY"].split(",")))
 
-    config = yaml.safe_load(_read("config.yaml"))
+    # Repository tests verify the tracked example contract, never a developer's
+    # gitignored runtime secrets. The actual release config has its separate
+    # scripts/validate_enterprise_release.py gate before deployment.
+    examples = re.findall(r"```yaml\n(sandbox:\n  environment:.*?\n)```", _read("k8s/enterprise/README.md"), re.DOTALL)
+    assert len(examples) == 1
+    config = yaml.safe_load(examples[0])
     sandbox_environment = config["sandbox"]["environment"]
     assert sandbox_environment["HTTP_PROXY"] == "$HTTP_PROXY"
     assert sandbox_environment["HTTPS_PROXY"] == "$HTTPS_PROXY"
@@ -1063,6 +1117,9 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
     assert sandbox_environment["NODE_EXTRA_CA_CERTS"] == "$NODE_EXTRA_CA_CERTS"
     assert sandbox_environment["OPENSSL_CONF"] == "$OPENSSL_CONF"
     assert sandbox_environment["DASHSCOPE_TLS_COMPAT"] == "$DASHSCOPE_TLS_COMPAT"
+    template = _read("config.example.yaml")
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "OPENSSL_CONF", "DASHSCOPE_TLS_COMPAT"):
+        assert f"#   #   {name}: {sandbox_environment[name]}" in template
 
 
 def test_enterprise_local_volumes_are_pinned_to_known_nodes():

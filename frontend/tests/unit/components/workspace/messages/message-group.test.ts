@@ -314,6 +314,207 @@ describe("MessageGroup", () => {
   });
 });
 
+// Tool args come from the model and results from search providers, so a
+// prompt-injected URL must not become a navigable anchor. React only rewrites
+// javascript: hrefs; local and OS-handler schemes would otherwise pass through.
+// A blocked URL keeps the markdown path's "Unsafe link omitted" marker.
+describe("MessageGroup tool links", () => {
+  const unsafeUrls = [
+    "javascript:alert(1)",
+    "file:///etc/passwd",
+    "ms-msdt:/id PCWDiagnostic",
+    "vscode://file/etc/passwd",
+  ];
+
+  it.each(unsafeUrls)("marks a web_fetch URL of %s as omitted", (url) => {
+    const html = renderToolCall("web_fetch", { url });
+
+    expect(html).toContain(`>${url}</span>`);
+    expect(html).toContain(`title="Unsafe link scheme in ${url}"`);
+    expect(unsafeMarkerCount(html)).toBe(1);
+    expect(html).not.toContain("<a");
+  });
+
+  it.each(unsafeUrls)("marks a web_search result at %s as omitted", (url) => {
+    const html = renderToolCall(
+      "web_search",
+      { query: "DeerFlow" },
+      JSON.stringify([
+        { title: "Safe source", url: "https://safe.example" },
+        { title: "Injected source", url },
+      ]),
+    );
+
+    expect(html).toContain('href="https://safe.example"');
+    expect(html).toContain(">Injected source</span>");
+    expect(unsafeMarkerCount(html)).toBe(1);
+    expect(anchorCount(html)).toBe(1);
+  });
+
+  it.each(unsafeUrls)(
+    "marks an image_search source at %s as omitted",
+    (url) => {
+      const html = renderToolCall(
+        "image_search",
+        { query: "DeerFlow" },
+        JSON.stringify({
+          results: [
+            {
+              title: "Injected image",
+              source_url: url,
+              thumbnail_url: "https://images.example/thumb.png",
+              image_url: "https://images.example/full.png",
+            },
+          ],
+        }),
+      );
+
+      expect(html).toContain('src="https://images.example/thumb.png"');
+      expect(unsafeMarkerCount(html)).toBe(1);
+      expect(html).not.toContain("<a");
+    },
+  );
+
+  it("keeps linking web_fetch and image_search results with web URLs", () => {
+    const fetchHtml = renderToolCall("web_fetch", {
+      url: "https://example.com/page",
+    });
+    const imageHtml = renderToolCall(
+      "image_search",
+      { query: "DeerFlow" },
+      JSON.stringify({
+        results: [
+          {
+            title: "Image",
+            source_url: "https://example.com/source",
+            thumbnail_url: "https://images.example/thumb.png",
+            image_url: "https://images.example/full.png",
+          },
+        ],
+      }),
+    );
+
+    expect(fetchHtml).toContain('href="https://example.com/page"');
+    expect(imageHtml).toContain('href="https://example.com/source"');
+    expect(unsafeMarkerCount(fetchHtml + imageHtml)).toBe(0);
+  });
+
+  // Models occasionally emit non-string args, and the step renders mid-stream;
+  // an object reaching the JSX would throw and take down the message list.
+  it("renders a web_fetch step whose url arg is not a string", () => {
+    const html = renderToolCall("web_fetch", {
+      url: { href: "https://example.com/page" },
+    });
+
+    expect(html).toContain("View web page");
+    expect(html).not.toContain("<a");
+  });
+
+  it("routes tool-result Sandbox preview links through the thread proxy", () => {
+    const html = renderGroup([
+      {
+        id: "ai-1", type: "ai", content: "",
+        tool_calls: [{ id: "call-1", name: "web_fetch", args: { url: "http://127.0.0.1:5050/" } }],
+      } as Message,
+    ], "thread-1");
+    expect(html).toContain('href="/api/threads/thread-1/live-preview/5050/"');
+    expect(html).not.toContain('href="http://127.0.0.1:5050/"');
+  });
+
+  it("ignores malformed search entries and never renders an object label", () => {
+    const html = renderToolCall("web_search", { query: {} }, JSON.stringify([
+      null, 4, {}, { title: {}, url: {} },
+      { title: "Safe source", url: "https://safe.example" },
+    ]));
+    expect(html).toContain("Safe source");
+    expect(anchorCount(html)).toBe(1);
+    expect(html).not.toContain("[object Object]");
+  });
+
+  it.each(["file:///etc/passwd", "http://127.0.0.1:5050/image.png", "http://localhost/image.png"])("does not render local image thumbnails %s", (thumbnail) => {
+    const html = renderToolCall("image_search", {}, JSON.stringify({
+      results: [
+        null, { title: {}, thumbnail_url: {} },
+        { title: "Local image", thumbnail_url: thumbnail, source_url: "https://safe.example" },
+      ]
+    }));
+    expect(html).not.toContain("<img");
+    expect(html).not.toContain("<a");
+  });
+
+  it.each(["ls", "read_file", "write_file", "str_replace", "bash", "mcp_lookup"])(
+    "renders a %s step whose display arguments are not strings",
+    (name) => {
+      expect(() => renderToolCall(name, {
+        description: { text: "bad" }, path: {}, command: [],
+      })).not.toThrow();
+    },
+  );
+
+  // Persisted or mid-stream tool calls can arrive without an args object;
+  // every specialized branch reads args, so none may throw on its absence.
+  it.each([
+    "web_fetch",
+    "web_search",
+    "image_search",
+    "ls",
+    "read_file",
+    "write_file",
+    "str_replace",
+    "bash",
+    "ask_clarification",
+    "write_todos",
+    "browser_navigate",
+    "mcp_lookup",
+  ])("renders a %s step whose tool call has no args", (name) => {
+    for (const args of [undefined, null]) {
+      const render = () =>
+        renderGroup([
+          {
+            id: "ai-1",
+            type: "ai",
+            content: "",
+            tool_calls: [{ id: "call-1", name, args }],
+          } as unknown as Message,
+        ]);
+
+      expect(render).not.toThrow();
+    }
+  });
+});
+
+function renderToolCall(
+  name: string,
+  args: Record<string, unknown>,
+  content?: string,
+) {
+  const messages: Message[] = [
+    {
+      id: "ai-1",
+      type: "ai",
+      content: "",
+      tool_calls: [{ id: "call-1", name, args }],
+    } as Message,
+  ];
+  if (content !== undefined) {
+    messages.push({
+      id: "tool-1",
+      type: "tool",
+      name,
+      tool_call_id: "call-1",
+      content,
+    } as Message);
+  }
+  return renderGroup(messages);
+}
+
+function unsafeMarkerCount(html: string) {
+  return html.split('aria-label="Unsafe link omitted"').length - 1;
+}
+
+function anchorCount(html: string) {
+  return html.match(/<a\s/g)?.length ?? 0;
+}
 function renderGroup(
   messages: Message[],
   props: Omit<ComponentProps<typeof MessageGroup>, "messages"> | string = {},

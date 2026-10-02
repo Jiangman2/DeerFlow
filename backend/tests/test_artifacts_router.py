@@ -49,6 +49,7 @@ class _FakeLivePreviewStream:
 class _FakeLivePreviewClient:
     def __init__(self, *args, **kwargs):
         self.request_args = None
+        self.options = kwargs
 
     async def __aenter__(self):
         return self
@@ -70,7 +71,15 @@ def test_live_preview_proxy_rewrites_sandbox_root_urls(monkeypatch) -> None:
     monkeypatch.setattr(artifacts_router, "get_sandbox_provider", lambda: fake_provider)
     monkeypatch.setattr(artifacts_router, "_resolve_artifact_owner_user_id", AsyncMock(return_value="owner-1"))
     monkeypatch.setattr(artifacts_router, "_resolve_thread_runtime_profile", AsyncMock(return_value=None))
-    monkeypatch.setattr(artifacts_router.httpx, "AsyncClient", _FakeLivePreviewClient)
+    monkeypatch.setattr(artifacts_router, "get_app_config", lambda: SimpleNamespace(sandbox=SimpleNamespace(sandbox_api_key="test-server-key")))
+    clients = []
+
+    def make_client(*args, **kwargs):
+        client = _FakeLivePreviewClient(*args, **kwargs)
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(artifacts_router.httpx, "AsyncClient", make_client)
 
     response = asyncio.run(
         call_unwrapped(
@@ -87,6 +96,10 @@ def test_live_preview_proxy_rewrites_sandbox_root_urls(monkeypatch) -> None:
     assert "/api/threads/thread-1/live-preview/5050/static/app.js" in body
     assert "/api/threads/thread-1/live-preview/5050/api/slides" in body
     assert response.headers["cache-control"] == "no-store"
+    assert len(clients) == 1
+    assert clients[0].options["trust_env"] is False
+    assert clients[0].request_args[1]["headers"]["authorization"] == "Bearer test-server-key"
+    assert clients[0].request_args[1]["headers"]["x-aio-proxy-port"] == "5050"
 
 
 def test_live_preview_uses_aio_trusted_header_port_routing() -> None:
@@ -132,7 +145,39 @@ def test_live_preview_for_isolated_ppt_runtime_is_forwarded_to_runner(monkeypatc
     )
 
     assert response is expected
-    forward.assert_awaited_once_with(request, "thread-1")
+    forward.assert_awaited_once_with(request, "thread-1", 5050)
+
+
+def test_live_preview_missing_server_key_fails_closed_without_sending_request(monkeypatch) -> None:
+    sandbox = SimpleNamespace(id="sandbox-1", base_url="http://sandbox-1-svc:8080")
+    monkeypatch.setattr(artifacts_router, "_resolve_artifact_owner_user_id", AsyncMock(return_value="owner-1"))
+    monkeypatch.setattr(artifacts_router, "_resolve_thread_runtime_profile", AsyncMock(return_value=None))
+    monkeypatch.setattr(artifacts_router, "get_sandbox_provider", lambda: SimpleNamespace(get_for_thread=lambda _thread_id, **_kwargs: sandbox))
+    monkeypatch.setattr(artifacts_router, "get_app_config", lambda: SimpleNamespace(sandbox=SimpleNamespace(sandbox_api_key="")))
+    monkeypatch.setattr(artifacts_router.httpx, "AsyncClient", lambda **_kwargs: pytest.fail("No request may be sent without the server key"))
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(call_unwrapped(artifacts_router.get_live_preview, "thread-1", 5050, "", _make_request()))
+    assert caught.value.status_code == 503
+
+
+def test_live_preview_ignores_browser_credentials_and_port_headers(monkeypatch) -> None:
+    sandbox = SimpleNamespace(id="sandbox-1", base_url="http://sandbox-1-svc:8080")
+    client = _FakeLivePreviewClient()
+    monkeypatch.setattr(artifacts_router, "_resolve_artifact_owner_user_id", AsyncMock(return_value="owner-1"))
+    monkeypatch.setattr(artifacts_router, "_resolve_thread_runtime_profile", AsyncMock(return_value=None))
+    monkeypatch.setattr(artifacts_router, "get_sandbox_provider", lambda: SimpleNamespace(get_for_thread=lambda _thread_id, **_kwargs: sandbox))
+    monkeypatch.setattr(artifacts_router, "get_app_config", lambda: SimpleNamespace(sandbox=SimpleNamespace(sandbox_api_key="test-server-key")))
+    monkeypatch.setattr(artifacts_router.httpx, "AsyncClient", lambda **_kwargs: client)
+    request = Request({"type": "http", "method": "GET", "path": "/", "query_string": b"", "headers": [
+        (b"authorization", b"Bearer browser-key"), (b"cookie", b"session=browser"),
+        (b"x-aio-proxy-port", b"9999"), (b"host", b"browser-controlled.invalid"),
+    ]})
+    asyncio.run(call_unwrapped(artifacts_router.get_live_preview, "thread-1", 5050, "", request))
+    headers = client.request_args[1]["headers"]
+    assert headers["authorization"] == "Bearer test-server-key"
+    assert headers["x-aio-proxy-port"] == "5050"
+    assert "cookie" not in headers
+    assert "host" not in headers
 
 
 def test_live_preview_proxy_rejects_unsupported_port(monkeypatch) -> None:
@@ -395,6 +440,31 @@ def test_get_artifact_keeps_safe_uploaded_raster_image_inline(tmp_path, monkeypa
     assert response.headers["x-content-type-options"] == "nosniff"
 
 
+def test_get_artifact_streams_generated_video_inline(tmp_path, monkeypatch) -> None:
+    artifact_path = tmp_path / "generated.mp4"
+    artifact_path.write_bytes(b"\x00\x00\x00\x18ftypisomgenerated-video")
+
+    monkeypatch.setattr(
+        artifacts_router,
+        "resolve_thread_virtual_path",
+        lambda _thread_id, _path, user_id=None: artifact_path,
+    )
+
+    response = asyncio.run(
+        call_unwrapped(
+            artifacts_router.get_artifact,
+            "thread-1",
+            "mnt/user-data/outputs/generated.mp4",
+            _make_request(),
+        )
+    )
+
+    assert isinstance(response, FileResponse)
+    assert response.media_type == "video/mp4"
+    assert response.headers["content-disposition"].startswith("inline;")
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
 def test_get_artifact_forces_active_pdf_output_to_download(tmp_path, monkeypatch) -> None:
     artifact_path = tmp_path / "active.pdf"
     artifact_path.write_bytes(b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog /OpenAction 2 0 R >>\nendobj\n2 0 obj\n<< /S /JavaScript /JS (app.alert('probe')) >>\nendobj\n%%EOF\n")
@@ -490,6 +560,11 @@ def test_is_active_content_mime_type_covers_html_and_xml_documents(mime_type: st
 )
 def test_is_active_content_mime_type_keeps_passive_types_inline(mime_type: str | None) -> None:
     assert not artifacts_router._is_active_content_mime_type(mime_type)
+
+
+@pytest.mark.parametrize("mime_type", [" text/xml ", "APPLICATION/RSS+XML; charset=utf-8", "text/html; charset=UTF-8", "image/svg+xml;charset=utf-8"])
+def test_active_content_mime_normalization_cannot_bypass_download_policy(mime_type: str) -> None:
+    assert artifacts_router._is_active_content_mime_type(mime_type)
 
 
 def test_get_artifact_download_false_does_not_force_attachment(tmp_path, monkeypatch) -> None:

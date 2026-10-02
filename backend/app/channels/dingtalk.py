@@ -17,6 +17,7 @@ from app.channels.base import Channel
 from app.channels.commands import is_known_channel_command
 from app.channels.connection_identity import attach_connection_identity
 from app.channels.message_bus import InboundMessage, InboundMessageType, MessageBus, OutboundMessage, ResolvedAttachment
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +366,13 @@ class DingTalkChannel(Channel):
             msg_id = message.message_id or ""
             sender_nick = message.sender_nick or ""
 
+            # Validate the routing boundary before binding or publishing. A group
+            # can have an unknown sender, but must still have a conversation ID.
+            chat_id = conversation_id if conversation_type == _CONVERSATION_TYPE_GROUP else sender_staff_id
+            if not isinstance(chat_id, str) or not chat_id.strip():
+                logger.warning("[DingTalk] missing conversation routing identity, ignoring message")
+                return
+
             text = self._extract_text(message)
             if not text:
                 logger.info("[DingTalk] empty text, ignoring message")
@@ -412,9 +420,6 @@ class DingTalkChannel(Channel):
             # P2P: topic_id=None (single thread per user, like Telegram private chat)
             # Group: topic_id=msg_id (each new message starts a new topic, like Feishu)
             topic_id: str | None = msg_id if conversation_type == _CONVERSATION_TYPE_GROUP else None
-
-            # chat_id uses conversation_id for groups, sender_staff_id for P2P
-            chat_id = conversation_id if conversation_type == _CONVERSATION_TYPE_GROUP else sender_staff_id
 
             inbound = self._make_inbound(
                 chat_id=chat_id,
@@ -529,7 +534,7 @@ class DingTalkChannel(Channel):
             conversation_type,
             sender_staff_id,
             conversation_id,
-            "DingTalk connected to DeerFlow.",
+            f"钉钉已连接至{ENTERPRISE_PRODUCT_NAME}。",
         )
         return True
 
@@ -657,7 +662,7 @@ class DingTalkChannel(Channel):
                 headers=self._api_headers(token),
                 json={
                     "msgKey": "sampleMarkdown",
-                    "msgParam": json.dumps({"title": "DeerFlow", "text": text}),
+                    "msgParam": json.dumps({"title": ENTERPRISE_PRODUCT_NAME, "text": text}),
                     "robotCode": robot_code,
                     "userIds": [user_id],
                 },
@@ -688,7 +693,7 @@ class DingTalkChannel(Channel):
                 headers=self._api_headers(token),
                 json={
                     "msgKey": "sampleMarkdown",
-                    "msgParam": json.dumps({"title": "DeerFlow", "text": text}),
+                    "msgParam": json.dumps({"title": ENTERPRISE_PRODUCT_NAME, "text": text}),
                     "robotCode": robot_code,
                     "openConversationId": conversation_id,
                 },

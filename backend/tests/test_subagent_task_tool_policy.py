@@ -1,19 +1,21 @@
 from types import SimpleNamespace
 
-from deerflow.agents.lead_agent.agent import _restore_task_tool_for_subagent_mode
+from deerflow.skills.tool_policy import filter_tools_by_skill_allowed_tools
 
 
-def test_subagent_mode_restores_task_removed_by_skill_tool_policy() -> None:
-    raw_tools = [SimpleNamespace(name="read_file"), SimpleNamespace(name="task"), SimpleNamespace(name="bash")]
-    filtered_tools = [raw_tools[0]]
+def test_restrictive_skill_does_not_restore_task_for_subagent_mode() -> None:
+    tools = [SimpleNamespace(name="read_file"), SimpleNamespace(name="task"), SimpleNamespace(name="bash")]
+    skills = [SimpleNamespace(name="read-only", allowed_tools=("read_file",))]
 
-    restored = _restore_task_tool_for_subagent_mode(raw_tools, filtered_tools, subagent_enabled=True)
+    filtered = filter_tools_by_skill_allowed_tools(tools, skills)
 
-    assert [tool.name for tool in restored] == ["read_file", "task"]
+    assert [tool.name for tool in filtered] == ["read_file"]
 
 
-def test_non_subagent_mode_preserves_skill_tool_policy_result() -> None:
-    raw_tools = [SimpleNamespace(name="read_file"), SimpleNamespace(name="task")]
-    filtered_tools = [raw_tools[0]]
+def test_restrictive_skill_can_explicitly_allow_task() -> None:
+    tools = [SimpleNamespace(name="read_file"), SimpleNamespace(name="task"), SimpleNamespace(name="bash")]
+    skills = [SimpleNamespace(name="delegating", allowed_tools=("read_file", "task"))]
 
-    assert _restore_task_tool_for_subagent_mode(raw_tools, filtered_tools, subagent_enabled=False) == filtered_tools
+    filtered = filter_tools_by_skill_allowed_tools(tools, skills)
+
+    assert [tool.name for tool in filtered] == ["read_file", "task"]

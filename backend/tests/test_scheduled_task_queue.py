@@ -285,6 +285,51 @@ async def test_only_one_worker_can_claim_a_queued_run(tmp_path):
         await close_engine()
 
 
+async def test_global_launch_budget_holds_when_distinct_rows_are_claimed_concurrently(tmp_path):
+    """Distinct SQLite claims must share one serialized global budget."""
+    await init_engine_from_config(DatabaseConfig(backend="sqlite", sqlite_dir=str(tmp_path)))
+    try:
+        sf = get_session_factory()
+        assert sf is not None
+        run_repo = ScheduledTaskRunRepository(sf)
+        now = datetime(2026, 8, 20, 9, 0, tzinfo=UTC)
+        claimants = 8
+        for index in range(claimants):
+            await run_repo.create(
+                run_record_id=f"task-run-budget-{index}",
+                task_id=f"task-budget-{index}",
+                thread_id=f"thread-budget-{index}",
+                scheduled_for=now,
+                trigger="scheduled",
+                status="queued",
+            )
+
+        # Warm every connection before the race. Otherwise per-connection
+        # SQLite initialization can stagger a cold pool and hide the bug.
+        await asyncio.gather(*(run_repo.count_active_runs() for _ in range(claimants)))
+        pool = sf.kw["bind"].sync_engine.pool
+        pooled = pool.checkedin() if hasattr(pool, "checkedin") else 0
+        assert pooled >= 2, f"{type(pool).__name__} left {pooled} connections pooled after warm-up; concurrent budget coverage would be ineffective"
+
+        claims = await asyncio.gather(
+            *(
+                run_repo.claim_queued_run(
+                    f"task-run-budget-{index}",
+                    lease_owner=f"worker-{index}",
+                    now=now,
+                    lease_seconds=120,
+                    global_max_concurrent_runs=1,
+                )
+                for index in range(claimants)
+            )
+        )
+
+        assert sum(claim is not None for claim in claims) == 1
+        assert await run_repo.count_active_runs() == 1
+    finally:
+        await close_engine()
+
+
 async def test_same_thread_queue_is_claimed_in_fifo_order(tmp_path):
     await init_engine_from_config(DatabaseConfig(backend="sqlite", sqlite_dir=str(tmp_path)))
     try:

@@ -26,6 +26,7 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from deerflow.utils.messages import message_content_to_text
 
 from .status_contract import normalize_token_usage
+from .ppt_usage_observation import observed_session_usage
 
 #: Default per-step character cap for the ``text`` field. Tool outputs (web
 #: search results, file contents) can be large; this cap bounds the persisted
@@ -204,17 +205,28 @@ def subagent_run_event(chunk: Any) -> dict[str, Any] | None:
         return None
 
     task_id = chunk.get("task_id")
+    if not isinstance(task_id, str) or not task_id or len(task_id) > 128:
+        return None
 
     if event == "task_started":
         return {
             "event_type": "subagent.start",
             "category": SUBAGENT_EVENT_CATEGORY,
-            "content": {"task_id": task_id, "description": chunk.get("description")},
+            "content": {"task_id": task_id, "description": chunk.get("description"), **({"model_name": "ppt-master-agent-host"} if chunk.get("model_name") == "ppt-master-agent-host" else {})},
             "metadata": {"task_id": task_id},
         }
 
     if event == "task_running":
+        observation = observed_session_usage(chunk)
+        usage = normalize_token_usage(chunk.get("usage"))
+        if chunk.get("model_name") == "ppt-master-agent-host" and (observation is not None or usage is not None):
+            return {"event_type": "subagent.usage", "category": SUBAGENT_EVENT_CATEGORY,
+                    "content": {"task_id": task_id, "model_name": "ppt-master-agent-host",
+                                **({"session_usage_observation": observation} if observation is not None else {}),
+                                **({"usage": usage} if usage is not None else {})}, "metadata": {"task_id": task_id}}
         message_index = chunk.get("message_index")
+        if type(message_index) is not int or message_index < 0 or not isinstance(chunk.get("message"), dict):
+            return None
         return {
             "event_type": "subagent.step",
             "category": SUBAGENT_EVENT_CATEGORY,
@@ -231,6 +243,9 @@ def subagent_run_event(chunk: Any) -> dict[str, Any] | None:
         usage = normalize_token_usage(chunk.get("usage"))
         if usage is not None:
             content["usage"] = usage
+        observation = observed_session_usage(chunk) if chunk.get("model_name") == "ppt-master-agent-host" else None
+        if observation is not None:
+            content["session_usage_observation"] = observation
         # The final result/error can be a multi-page report; cap it so the
         # persisted run-event row stays bounded (it is also kept verbatim on the
         # terminal ToolMessage, which the card reads separately).

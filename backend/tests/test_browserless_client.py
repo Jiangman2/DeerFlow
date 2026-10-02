@@ -1,6 +1,7 @@
 """Tests for Browserless community tools."""
 
 import ipaddress
+import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -256,10 +257,30 @@ class TestBrowserlessTools:
         mock_client.fetch_html = AsyncMock(return_value="<html><body><article><h1>Title</h1><p>Content</p></article></body></html>")
         mock_get_client.return_value = mock_client
 
-        with patch("deerflow.community.browserless.tools._get_tool_config", return_value=None):
+        caller_thread = threading.get_ident()
+        parser_threads = []
+
+        def parse_article(html, *, use_readability):
+            parser_threads.append(threading.get_ident())
+            assert html == mock_client.fetch_html.return_value
+            assert use_readability is True
+            return {"title": "Title", "content": "<p>Content</p>"}
+
+        with (
+            patch("deerflow.community.browserless.tools._get_tool_config", return_value=None),
+            patch("deerflow.community.browserless.tools._resolve_host_addresses", return_value=[ipaddress.ip_address("93.184.216.34")]) as resolve,
+            patch("deerflow.utils.readability.simple_json_from_html_string", side_effect=parse_article) as parse,
+        ):
             result = await tools.web_fetch_tool.ainvoke("https://example.com/article")
 
         assert "Error:" not in result
+        assert result.startswith("# Title\n\n")
+        assert "Content" in result
+        resolve.assert_called_once_with("example.com")
+        mock_client.fetch_html.assert_called_once()
+        assert mock_client.fetch_html.call_args.kwargs["url"] == "https://example.com/article"
+        parse.assert_called_once_with(mock_client.fetch_html.return_value, use_readability=True)
+        assert len(parser_threads) == 1 and parser_threads[0] != caller_thread
 
     @patch("deerflow.community.browserless.tools._get_browserless_client")
     async def test_web_fetch_tool_error(self, mock_get_client):
@@ -268,10 +289,17 @@ class TestBrowserlessTools:
         mock_client.fetch_html = AsyncMock(return_value="Error: Browserless returned empty response")
         mock_get_client.return_value = mock_client
 
-        with patch("deerflow.community.browserless.tools._get_tool_config", return_value=None):
+        with (
+            patch("deerflow.community.browserless.tools._get_tool_config", return_value=None),
+            patch("deerflow.community.browserless.tools._resolve_host_addresses", return_value=[ipaddress.ip_address("93.184.216.34")]),
+            patch("deerflow.utils.readability.simple_json_from_html_string") as parse,
+        ):
             result = await tools.web_fetch_tool.ainvoke("https://example.com")
 
         assert result.startswith("Error:")
+        assert result == "Error: Browserless returned empty response"
+        mock_client.fetch_html.assert_called_once()
+        parse.assert_not_called()
 
     @patch("deerflow.community.browserless.tools._get_browserless_client")
     async def test_web_fetch_tool_exception(self, mock_get_client):
@@ -280,10 +308,17 @@ class TestBrowserlessTools:
         mock_client.fetch_html = AsyncMock(side_effect=Exception("Unexpected error"))
         mock_get_client.return_value = mock_client
 
-        with patch("deerflow.community.browserless.tools._get_tool_config", return_value=None):
+        with (
+            patch("deerflow.community.browserless.tools._get_tool_config", return_value=None),
+            patch("deerflow.community.browserless.tools._resolve_host_addresses", return_value=[ipaddress.ip_address("93.184.216.34")]),
+            patch("deerflow.utils.readability.simple_json_from_html_string") as parse,
+        ):
             result = await tools.web_fetch_tool.ainvoke("https://example.com")
 
         assert result.startswith("Error:")
+        assert "Unexpected error" in result
+        mock_client.fetch_html.assert_called_once()
+        parse.assert_not_called()
 
     @patch("deerflow.community.browserless.tools._get_browserless_client")
     async def test_web_fetch_tool_rejects_metadata_ip(self, mock_get_client):
@@ -314,11 +349,18 @@ class TestBrowserlessTools:
         mock_client.fetch_html = AsyncMock(return_value="<html><body><article><p>internal</p></article></body></html>")
         mock_get_client.return_value = mock_client
 
-        with patch("deerflow.community.browserless.tools._get_tool_config", return_value={"allow_private_addresses": True}):
+        with (
+            patch("deerflow.community.browserless.tools._get_tool_config", return_value={"allow_private_addresses": True}),
+            patch("deerflow.utils.readability.simple_json_from_html_string", return_value={"title": "Internal", "content": "<p>internal</p>"}) as parse,
+        ):
             result = await tools.web_fetch_tool.ainvoke("http://10.0.0.5/dashboard")
 
         assert "Error:" not in result
+        assert result.startswith("# Internal\n\n")
+        assert "internal" in result
         mock_client.fetch_html.assert_called_once()
+        assert mock_client.fetch_html.call_args.kwargs["url"] == "http://10.0.0.5/dashboard"
+        parse.assert_called_once_with(mock_client.fetch_html.return_value, use_readability=True)
 
     @patch("deerflow.community.browserless.tools._get_browserless_client")
     async def test_web_capture_tool_writes_artifact(self, mock_get_client, tmp_path):

@@ -18,6 +18,8 @@ UNTRUSTED_INPUT_KEY = "untrusted_input"
 
 def message_content_to_text(content: Any) -> str:
     """Extract text from LangChain message content shapes."""
+    if content is None:
+        return ""
     if isinstance(content, str):
         return content
     if isinstance(content, list):

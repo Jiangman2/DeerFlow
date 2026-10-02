@@ -1,5 +1,31 @@
 # AGENTS.md
 
+October 2 dmdb frontend reconciliation: `MessageGroup` normalizes unknown tool
+argument/result records before using string display fields. Every tool-result
+link permits only absolute HTTP(S), rejects controls/backslashes and embedded
+credentials, and renders blocked navigation as an inert label plus the unsafe
+link marker. Safe links reuse the thread-aware Markdown preview renderer;
+never expose a Sandbox loopback navigation. Image thumbnails are likewise
+HTTP(S)-only. Clarification message content is displayed once outside the
+processing panel, while ordinary tool-bearing progress remains visible within
+it. Keep the first-non-empty tool-result index and task-call suppression intact.
+The regular chat layout and legacy provider import share the custom-agent
+`ChatProviders` stack, without making the server layout a Client Component or
+changing static demo parameters. Upload deletion encodes the filename component
+and GFM disables only single-tilde strikethrough. Existing fixed employees retain
+the test hostname and precede the unchanged twelve contest entries. Do not change
+the runtime to production URLs to satisfy hardcoded test expectations: those two
+expectations are explicitly aligned with the test deployment. Incoming-only
+reconnect-input hydration's three tests are deferred; the runtime and exact
+pre-merge reconnect tests remain unchanged. See
+`docs/FRONTEND_RECONCILIATION_BATCH2_20261002.md`; validation is still required
+before completing the merge or deploying.
+
+The enterprise 7·16 production source alignment is recorded in
+`../release/production-build-alignment-20260928/README.md`. For production
+comparisons, use the captured Frontend image source rather than later local
+branch changes.
+
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with the DeerFlow frontend. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 
 ## Project Overview
@@ -188,8 +214,8 @@ than reimplementing its knowledge-management UI. Keep the iframe entry at
 `/platform/knowledge-bases` and let the iframe fill the whole page without a
 second DeerFlow title/action bar. The mounted WeKnora bootstrap persists the
 Gateway-provided `ui_policy`: system administrators retain the complete native
-navigation, while ordinary personal-workspace Owners see New Chat, Knowledge
-Bases, Shared Spaces, and Agents but do not see Publish Integrations, system
+navigation, while ordinary personal-workspace Owners see Knowledge Q&A,
+Knowledge Bases, Shared Spaces, and Custom Q&A but do not see Publish Integrations, system
 settings, or tenant-creation controls. Entering the
 embedded workspace collapses DeerFlow's sidebar and expands WeKnora's sidebar
 once for both ordinary users and administrators. The automatic collapse must
@@ -312,6 +338,8 @@ Writing or publishing an artifact must not automatically open the right-side pan
 
 Human input requests are a structured message protocol layered on normal chat history. The backend writes request payloads to `ToolMessage.artifact.human_input`, `src/core/messages/human-input.ts` owns the runtime validators/types, and `src/components/workspace/messages/human-input-card.tsx` renders the reusable card. The AI `ask_clarification` tool call uses the same canonical `clarification:<tool_call_id>` request identity as the authoritative ToolMessage, and message grouping replaces the streamed call card when that ToolMessage arrives so one request renders only once. `MessageList` owns answered/latest/pending state for visible cards, but derives answered responses from raw `thread.messages` because replies are hidden; pending cards clear when the hidden reply appears, when dispatch is dropped, or when a new `thread.error` reports an async stream failure. Page-level submit callbacks must send a normal human message and put `hide_from_ui: true` plus the response payload in the fourth `sendMessage(..., options)` argument as `options.additionalKwargs`; the third argument remains run context such as `{ agent_name }`. Composer entry points should disable normal bottom input while `hasOpenHumanInputRequest(...)` is true so users answer through the card and preserve response metadata.
 
+The authoritative clarification ToolMessage also delimits the next streaming run even though the user's reply is hidden. Keep completed assistant answers stable across that boundary, and render any user-facing context from the AI clarification call once as normal dialogue outside the processing disclosure while retaining its tool association internally.
+
 Tool-calling AI messages can contain user-visible text as well as `tool_calls`. `core/messages/utils.ts` keeps these turns in an `assistant:processing` group, and `components/workspace/messages/message-group.tsx` must render the visible text as a processing step instead of treating the message as only tool metadata. This preserves provider text such as error explanations or "trying another approach" notes during tool-heavy runs.
 
 Sidecar threads use `metadata.platform_sidecar` for newly created records. Thread
@@ -407,13 +435,15 @@ dialog with the error stack, failed node, tool calls, and terminal events; it mu
 not add retry or mutation actions. The dashboard also reports
 current and historically-created scheduled tasks plus run outcomes. Do not
 substitute DeerFlow `weknora_search`/`weknora_ask` tool-call counts for native
-WeKnora usage. Dashboard progress bars, including the five external-agent
+WeKnora usage. Dashboard progress bars, including the six external-agent
 launch bars, use explicit solid `backgroundColor` values instead of gradients
 or alpha-color syntax so the audited enterprise browser renders them reliably.
 The backend remains the authoritative enforcement boundary. The panel must not mix runs from deleted
 conversations into that current-session view.
-The five built-in external-agent cards navigate directly to their fixed
-same-origin HTTPS aliases under `cnoocclaw.cnooc.com.cn`; do not rewrite those
+The six built-in external-agent cards navigate directly to their fixed
+same-origin HTTPS aliases under the active DeerFlow hostname
+(`cnoocclawtest.cnooc.com.cn` in test and `cnoocclaw.cnooc.com.cn` in production);
+do not rewrite those
 current aliases through the legacy launch API. Legacy `datalake.cnooc` card
 records may still use `/api/cnooc/external-agents/<agent>/launch`. Those routes
 read the HttpOnly `cnooc.platform_token` cookie, validate its current-user
@@ -473,8 +503,30 @@ is available, falls back to the first available model elsewhere, and persists th
 selection in `run_context`. Editing a task may change that saved model; switching
 models in a chat must not mutate scheduled tasks. Keep create/edit/duplicate flows
 aligned for `once`, `cron`, and minimum-60-second `interval` schedules and for the
-pinned custom-agent selection. Run history uses server pagination; older pages pause
-live refresh and must not be merged with the latest-page cache.
+pinned custom-agent selection. Run history uses server pagination; task ID and
+page belong to the query/cache identity. Older pages pause live refresh and must
+not be merged with the latest-page cache. The September 30 isolated merge
+restores these pre-merge implementations and the matching Gateway route; keep
+their existing regression tests and pinned DOM-test dependencies intact.
+Incoming occurrence-status filtering, exact-instant preservation on one-time
+edits, nonexistent-wall-time validation, and task-text search remain deferred:
+their required implementations or UI integration are absent from the incoming
+production baseline. The existing timezone offset correction stays active, but
+must not be described as a DST-gap validator. Existing task status/type filters
+remain supported. New leaked-system-tag Markdown handling is likewise deferred;
+retain the existing nesting/math/Mermaid preprocessing and all its original tests.
+See `../backend/docs/ENTERPRISE_MERGE_20260930.md` for the deferral inventory and
+required frontend/backend acceptance gates. Do not delete or skip old tests to
+make this reconciliation pass.
+The scheduled-task page's enterprise card grid and modal detail/edit workflow are
+an owned customization, not an upstream mirror. Adapt useful official behavior to
+those surfaces and their tests; do not replace the page wholesale or assume the
+official side-by-side detail layout.
+
+PPT confirmation summary values use `pptSummaryValue` in the locale-owned copy
+module. Preserve the fallback for both empty and missing values, plus literal
+nonempty values such as `"0"`; a blind `||` to `??` replacement changes empty
+string behavior. Existing PPT confirmation transport and acceptance are unchanged.
 
 ### Workspace announcements
 
@@ -524,6 +576,9 @@ and task backdrop classes as the ordinary new-chat route. Keep the agent name
 and description in the independent welcome stage rather than placing them in
 `InputBox.extraHeader`; the custom `agent_name` send context and native task
 header actions remain unchanged.
+The shared chat settings default a missing mode preference to `flash`. Preserve
+an explicitly saved `thinking`, `pro`, or `ultra` choice; do not reset existing
+user intent during settings hydration or login.
 The native App integration and release checklist live in
 `docs/mobile-webview-integration.md`.
 

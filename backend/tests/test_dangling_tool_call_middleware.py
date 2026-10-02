@@ -768,6 +768,8 @@ class TestBuildPatchedMessagesPatching:
         assert ai_message.invalid_tool_calls[0]["args"] == _invalid_tc()["args"]
 
 
+
+
 class TestWrapModelCall:
     def test_no_patch_passthrough(self):
         mw = DanglingToolCallMiddleware()

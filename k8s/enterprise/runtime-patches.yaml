@@ -250,6 +250,17 @@ spec:
               value: "true"
             - name: DASHSCOPE_TLS_COMPAT
               value: "true"
+            # Operator-owned image and asynchronous video endpoints. Gateway
+            # clients bypass ambient proxies and publish validated results into
+            # the current thread's outputs.
+            - name: DEERFLOW_IMAGE_GENERATION_API_URL
+              value: http://10.57.2.43:30008/v1/images/generations
+            - name: DEERFLOW_VIDEO_GENERATION_API_URL
+              value: http://10.57.2.43:30009/v1/videos
+            - name: DEERFLOW_IMAGE_GENERATION_TIMEOUT_SECONDS
+              value: "600"
+            - name: DEERFLOW_VIDEO_GENERATION_POLL_SECONDS
+              value: "3"
             # The local base intentionally clears proxy variables for Docker
             # Desktop. Restore them from the enterprise runtime Secret here so
             # every enterprise render keeps Gateway external egress working.
@@ -319,7 +330,7 @@ spec:
                   name: deer-flow-env
                   key: PPT_MASTER_RESPONSES_RELAY_KEY
             - name: PPT_MASTER_DEEPSEEK_UPSTREAM_URL
-              value: http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1/chat/completions
+              value: https://aiapi.cnooc.com.cn/DeepSeek-V4-Flash/FEAT-511-001/v1/chat/completions
             - name: PPT_MASTER_DEEPSEEK_MODEL
               value: DeepSeek-V4-Flash
             - name: PPT_MASTER_DEEPSEEK_MAX_OUTPUT_TOKENS

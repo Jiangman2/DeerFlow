@@ -340,3 +340,83 @@ def test_skill_manage_per_user_isolation(monkeypatch, tmp_path):
     # No cross-contamination
     assert not (tmp_path / "users" / "alice" / "skills" / "custom" / "bob-skill").exists()
     assert not (tmp_path / "users" / "bob" / "skills" / "custom" / "alice-skill").exists()
+
+
+def test_action_specific_skill_tools_create_and_write_complete_file(monkeypatch, tmp_path):
+    skills_root = tmp_path / "skills"
+    config = _make_config(skills_root)
+    monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
+    monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
+    from deerflow.config.paths import Paths
+
+    monkeypatch.setattr("deerflow.config.paths.get_paths", lambda: Paths(base_dir=tmp_path))
+    monkeypatch.setattr("deerflow.config.paths._paths", None)
+
+    refresh_calls = []
+
+    async def _refresh(user_id: str):
+        refresh_calls.append(user_id)
+
+    monkeypatch.setattr(skill_manage_module, "refresh_user_skills_system_prompt_cache_async", _refresh)
+    monkeypatch.setattr(skill_manage_module, "scan_skill_content", lambda *args, **kwargs: _async_result("allow", "ok"))
+
+    runtime = _make_runtime(user_id="alice")
+    create_result = anyio.run(
+        skill_manage_module.skill_create_tool.coroutine,
+        runtime,
+        "schema-safe-skill",
+        _skill_content("schema-safe-skill"),
+    )
+    write_result = anyio.run(
+        skill_manage_module.skill_write_file_tool.coroutine,
+        runtime,
+        "schema-safe-skill",
+        "scripts/run.py",
+        "print('complete')\n",
+    )
+
+    skill_dir = tmp_path / "users" / "alice" / "skills" / "custom" / "schema-safe-skill"
+    assert "Created custom skill" in create_result
+    assert "Wrote 'scripts/run.py'" in write_result
+    assert (skill_dir / "scripts" / "run.py").read_text(encoding="utf-8") == "print('complete')\n"
+    assert refresh_calls == ["alice", "alice"]
+
+
+# --- tracing wiring: the in-graph choke point (see the INVARIANT in
+# packages/harness/deerflow/agents/lead_agent/agent.py) ---
+
+
+def test_scan_or_raise_does_not_attach_model_tracing(monkeypatch, tmp_path):
+    """``_scan_or_raise`` is the in-graph choke point for the skill security scan.
+
+    The graph root already attached the tracing callbacks, so the scan model must
+    not attach them again: double-attaching emits duplicate spans and blocks the
+    Langfuse handler's ``propagate_attributes`` path, so session_id/user_id never
+    reach the trace. Drives the real ``scan_skill_content`` rather than stubbing it,
+    so the flag is pinned all the way to the model factory.
+    """
+    config = _make_config(tmp_path / "skills")
+    monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
+
+    create_kwargs = {}
+
+    class FakeModel:
+        async def ainvoke(self, *args, **kwargs):
+            return SimpleNamespace(content='{"decision":"allow","reason":"ok"}')
+
+    def _fake_create_chat_model(**kwargs):
+        create_kwargs.update(kwargs)
+        return FakeModel()
+
+    monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", _fake_create_chat_model)
+
+    result = anyio.run(
+        lambda: skill_manage_module._scan_or_raise(
+            _skill_content("demo-skill"),
+            executable=False,
+            location="demo-skill/SKILL.md",
+        )
+    )
+
+    assert result["decision"] == "allow"
+    assert create_kwargs["attach_tracing"] is False

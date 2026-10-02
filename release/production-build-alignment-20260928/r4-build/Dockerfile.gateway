@@ -1,0 +1,7 @@
+FROM ppt-relay-gateway-base AS source-check
+COPY DELTA.json apply_payload.py payload-00.py payload-01.py /tmp/ppt-repair/
+RUN --network=none /app/backend/.venv/bin/python -B /tmp/ppt-repair/apply_payload.py --component gateway --check-only
+FROM source-check AS candidate
+RUN --network=none /app/backend/.venv/bin/python -B /tmp/ppt-repair/apply_payload.py --component gateway
+RUN --network=none /app/backend/.venv/bin/python -B /tmp/ppt-repair/apply_payload.py --component gateway --verify-after
+RUN --network=none cd /app/backend && PYTHONPATH=packages/harness:. /app/backend/.venv/bin/python -B -c "from app.gateway.routers.artifacts import _resolve_thread_runtime_profile; assert callable(_resolve_thread_runtime_profile)"

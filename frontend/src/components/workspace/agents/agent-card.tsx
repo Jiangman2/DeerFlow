@@ -137,9 +137,7 @@ export function AgentCard({
   }
 
   function handleChat() {
-    router.push(
-      `/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`,
-    );
+    router.push(`/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`);
   }
 
   async function handleDelete() {

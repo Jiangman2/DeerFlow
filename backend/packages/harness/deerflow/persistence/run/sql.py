@@ -361,7 +361,7 @@ class RunRepository(RunStore):
             await session.execute(update(RunRow).where(RunRow.run_id == run_id, RunRow.status == "running").values(**values))
             await session.commit()
 
-    async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False) -> dict[str, Any]:
+    async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False, user_id: str | None = None) -> dict[str, Any]:
         """Aggregate token usage for a thread.
 
         ``by_model`` is reduced in Python from each row's ``token_usage_by_model``
@@ -373,7 +373,8 @@ class RunRepository(RunStore):
         Headline totals (``total_tokens``, ``total_input_tokens``,
         ``total_output_tokens``) and the ``by_caller`` bucket are summed from
         their own columns and are therefore unaffected by the JSON column being
-        empty.
+        empty. A non-None ``user_id`` restricts the rows before any aggregation;
+        authorized administrative reads pass None explicitly.
         """
         statuses = ("success", "error", "running") if include_active else ("success", "error")
         _completed = RunRow.status.in_(statuses)
@@ -389,6 +390,8 @@ class RunRepository(RunStore):
             RunRow.middleware_tokens,
             RunRow.token_usage_by_model,
         ).where(_thread, _completed)
+        if user_id is not None:
+            stmt = stmt.where(RunRow.user_id == user_id)
 
         async with self._sf() as session:
             rows = (await session.execute(stmt)).all()

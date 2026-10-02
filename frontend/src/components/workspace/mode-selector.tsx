@@ -36,7 +36,7 @@ export function resolveAgentMode(
   if (mode) {
     return mode;
   }
-  return supportsThinking ? "pro" : "flash";
+  return "flash";
 }
 
 export function reasoningEffortForMode(mode: AgentMode) {

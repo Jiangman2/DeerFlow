@@ -288,17 +288,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if not isolated_ppt_runner:
             await _ensure_admin_user(app)
 
-        if not isolated_ppt_runner:
-            try:
-                migrated_categories = await asyncio.to_thread(agents.migrate_digital_employee_categories)
-                if migrated_categories:
-                    logger.info(
-                        "Migrated %d digital employee(s) to the corporate business-domain taxonomy",
-                        migrated_categories,
-                    )
-            except Exception:
-                logger.exception("Digital employee category migration failed (non-fatal)")
-
         # Start IM channel service if any channels are configured
         if not isolated_ppt_runner:
             try:

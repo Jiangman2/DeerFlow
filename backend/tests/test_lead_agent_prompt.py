@@ -19,6 +19,7 @@ def _set_skills_cache_state(*, skills=None, active=False, version=0):
         prompt_module._enabled_skills_refresh_active = active
         prompt_module._enabled_skills_refresh_version = version
         prompt_module._enabled_skills_refresh_event.clear()
+        prompt_module._enabled_skills_refresh_waiters.clear()
 
 
 def test_build_self_update_section_empty_for_default_agent():
@@ -121,6 +122,7 @@ def test_apply_prompt_template_uses_enterprise_identity(monkeypatch):
         sandbox=SimpleNamespace(mounts=[]),
         skills=SimpleNamespace(container_path="/mnt/skills", use="deerflow.skills.storage.local_skill_storage:LocalSkillStorage", get_skills_path=lambda: Path("/tmp/skills")),
         skill_evolution=SimpleNamespace(enabled=False),
+        memory=SimpleNamespace(enabled=False),
     )
     monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
     monkeypatch.setattr(prompt_module, "get_deferred_tools_prompt_section", lambda **kwargs: "")
@@ -130,12 +132,22 @@ def test_apply_prompt_template_uses_enterprise_identity(monkeypatch):
 
     prompt = prompt_module.apply_prompt_template(app_config=config)
 
-    assert "中海油勘探开发智能体" in prompt
-    assert "面向油气勘探开发业务的企业级多智能体工作平台" in prompt
-    assert "DeerFlow" not in prompt
+    # Identity belongs to the role block. Internal native-tool documentation
+    # may name the framework without claiming it as the product identity.
+    assert "<role>" in prompt and "</role>" in prompt
+    role = prompt.split("<role>", 1)[1].split("</role>", 1)[0]
+    assert "中国海油通用智能体" in role
+    assert "面向油气勘探开发业务的企业级多智能体工作平台" in role
+    assert "DeerFlow" not in role
     assert "github.com/bytedance" not in prompt
     assert "The product identity above describes who you are, not the content or visual" in prompt
     assert "Do not add the product name, organization name" in prompt
+
+
+def test_system_prompt_template_read_file_guidance_uses_native_tool():
+    prompt = prompt_module.SYSTEM_PROMPT_TEMPLATE
+    assert "`read_file` is a DeerFlow tool call, not a command installed inside the Sandbox shell" in prompt
+    assert "never run `read_file ...` through `bash`" in prompt
 
 
 def test_apply_prompt_template_includes_memory_tool_guidance_only_in_tool_mode(monkeypatch):
@@ -294,6 +306,44 @@ def test_apply_prompt_template_clamps_subagent_limits_to_enforced_bounds(monkeyp
 
     assert "MAXIMUM 4 `task` CALLS PER RESPONSE" in prompt
     assert "MAXIMUM 50 `task` CALLS PER RUN" in prompt
+
+
+def test_apply_prompt_template_existing_subagent_floor_matches_middleware(monkeypatch):
+    """The retained floor is two; prompt and enforcement must not diverge.
+
+    The incoming single-subagent feature is deferred, not implemented here.
+    """
+    from deerflow.agents.middlewares.subagent_limit_middleware import SubagentLimitMiddleware
+
+    explicit_config = SimpleNamespace(
+        sandbox=SimpleNamespace(
+            use="deerflow.sandbox.local:LocalSandboxProvider",
+            allow_host_bash=False,
+            mounts=[],
+        ),
+        subagents=SubagentsAppConfig(),
+        skills=SimpleNamespace(container_path="/mnt/skills", use="deerflow.skills.storage.local_skill_storage:LocalSkillStorage", get_skills_path=lambda: Path("/tmp/skills")),
+        skill_evolution=SimpleNamespace(enabled=False),
+        tool_search=SimpleNamespace(enabled=False),
+        memory=SimpleNamespace(enabled=False, injection_enabled=True, max_injection_tokens=2000),
+        acp_agents={},
+    )
+
+    monkeypatch.setattr(prompt_module, "get_or_new_skill_storage", lambda app_config=None: SimpleNamespace(load_skills=lambda enabled_only=True: []))
+    monkeypatch.setattr(prompt_module, "get_agent_soul", lambda agent_name=None: "")
+
+    enforced = SubagentLimitMiddleware(max_concurrent=1).max_concurrent
+    assert enforced == 2
+
+    prompt = prompt_module.apply_prompt_template(
+        subagent_enabled=True,
+        max_concurrent_subagents=1,
+        max_total_subagents=6,
+        app_config=explicit_config,
+    )
+
+    assert f"MAXIMUM {enforced} `task` CALLS PER RESPONSE" in prompt
+    assert f"HARD LIMITS: max {enforced} `task` calls per response" in prompt
 
 
 def test_build_acp_section_uses_explicit_app_config_without_global_config(monkeypatch):

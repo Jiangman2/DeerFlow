@@ -42,16 +42,9 @@ export function getMessageGroups(
   }
 
   const groups: MessageGroup[] = [];
-  let currentTurnStartIndex = -1;
-  if (isCurrentTurnLoading) {
-    for (let index = messages.length - 1; index >= 0; index--) {
-      const message = messages[index];
-      if (message?.type === "human" && !isHiddenFromUIMessage(message)) {
-        currentTurnStartIndex = index;
-        break;
-      }
-    }
-  }
+  const currentTurnStartIndex = isCurrentTurnLoading
+    ? findCurrentTurnStartIndex(messages)
+    : -1;
 
   // Returns the last group if it can still accept tool messages
   // (i.e. it's an in-flight processing group, not a terminal human/assistant group).
@@ -165,13 +158,19 @@ export function getMessageGroups(
       // panel above the bubble paints the identical reasoning a second time
       // (#3868). Intermediate reasoning (no content) and tool-calling steps
       // still belong in the processing group.
+      // Non-empty content arrays can contain only provider thinking blocks.
+      // Require content the answer renderer can actually display.
+      const hasAnswerContent = extractContentFromMessage(message).length > 0;
       const isUnresolvedAssistantText =
         currentTurnStartIndex >= 0 &&
         messageIndex > currentTurnStartIndex &&
-        hasContent(message) &&
-        !hasToolCalls(message);
+        hasAnswerContent &&
+        !hasToolCalls(message) &&
+        // Reasoning plus answer text is a completed answer until a tool call
+        // actually arrives; do not place it in the processing disclosure.
+        !hasReasoning(message);
       const becomesAssistantBubble =
-        hasContent(message) &&
+        hasAnswerContent &&
         !hasToolCalls(message) &&
         !isUnresolvedAssistantText;
 
@@ -579,7 +578,7 @@ export function hasReasoning(message: Message) {
     return false;
   }
   if (typeof message.additional_kwargs?.reasoning_content === "string") {
-    return true;
+    return message.additional_kwargs.reasoning_content.trim().length > 0;
   }
   if (Array.isArray(message.content)) {
     const part = message.content[0];
@@ -605,6 +604,23 @@ export function hasPresentFiles(message: Message) {
     message.type === "ai" &&
     message.tool_calls?.some((toolCall) => toolCall.name === "present_files")
   );
+}
+
+/** The latest visible user input or clarification result delimits a run. */
+export function findCurrentTurnStartIndex(
+  messages: readonly Message[],
+): number {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+    if (
+      message &&
+      !isHiddenFromUIMessage(message) &&
+      (message.type === "human" || isClarificationToolMessage(message))
+    ) {
+      return index;
+    }
+  }
+  return -1;
 }
 
 export function isClarificationToolMessage(message: Message) {
@@ -737,6 +753,7 @@ export interface FileInMessage {
   filename: string;
   size: number; // bytes
   path?: string; // virtual path, may not be set during upload
+  markdown_file?: string; // server-verified parsed-text companion basename
   status?: "uploading" | "uploaded";
 }
 

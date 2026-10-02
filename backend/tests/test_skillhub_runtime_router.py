@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import shlex
+import sys
 import zipfile
 from io import BytesIO
 from pathlib import Path
@@ -226,7 +228,8 @@ def test_registry_install_preserves_complete_tree_and_runs_from_sandbox_path(mon
             )
         ],
     )
-    output = sandbox.execute_command("python /mnt/skills/custom/runtime-check/scripts/check.py")
+    # Use pytest's Python 3 interpreter, not a host PATH alias to Python 2.
+    output = sandbox.execute_command(f"{shlex.quote(sys.executable)} /mnt/skills/custom/runtime-check/scripts/check.py")
     assert output.strip() == "skillhub-runtime-ok"
 
 

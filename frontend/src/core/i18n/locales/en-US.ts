@@ -854,7 +854,7 @@ export const enUS: Translations = {
       telegram: "Telegram direct messages through your 本平台 bot.",
       slack: "Slack workspace messages and mentions.",
       discord: "Discord server messages through your 本平台 bot.",
-      feishu: "Feishu and Lark messages through your 本平台 app.",
+      feishu: "Messages through your 海能 Work app.",
       dingtalk: "DingTalk Stream Push messages through your 本平台 bot.",
       wechat: "WeChat iLink messages through your 本平台 bot.",
       wecom: "WeCom messages through your 本平台 AI bot.",
@@ -864,7 +864,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中海油勘探开发智能体",
+    appName: "中国海油通用智能体",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",

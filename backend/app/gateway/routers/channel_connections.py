@@ -18,6 +18,7 @@ from app.channels.runtime_config_store import (
 )
 from app.gateway.deps import require_admin_user
 from deerflow.config.channel_connections_config import ChannelConnectionsConfig
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 from deerflow.persistence.channel_connections import ChannelConnectionRepository
 from deerflow.persistence.engine import get_session_factory
 
@@ -88,7 +89,7 @@ _PROVIDER_META: dict[str, dict[str, str]] = {
     "telegram": {"display_name": "Telegram", "auth_mode": "deep_link"},
     "slack": {"display_name": "Slack", "auth_mode": "binding_code"},
     "discord": {"display_name": "Discord", "auth_mode": "binding_code"},
-    "feishu": {"display_name": "Feishu", "auth_mode": "binding_code"},
+    "feishu": {"display_name": "海能 Work", "auth_mode": "binding_code"},
     "dingtalk": {"display_name": "DingTalk", "auth_mode": "binding_code"},
     "wechat": {"display_name": "WeChat", "auth_mode": "binding_code"},
     "wecom": {"display_name": "WeCom", "auth_mode": "binding_code"},
@@ -346,11 +347,11 @@ async def _create_state(
 
 def _connect_instruction(provider: str, code: str) -> str:
     if provider == "telegram":
-        return f"Send /start {code} to the DeerFlow Telegram bot."
+        return f"请向{ENTERPRISE_PRODUCT_NAME}的Telegram机器人发送 /start {code}。"
     meta = _PROVIDER_META.get(provider)
     if meta is None:
         raise HTTPException(status_code=404, detail="Unknown channel provider")
-    return f"Send /connect {code} to the DeerFlow {meta['display_name']} bot."
+    return f"请向{ENTERPRISE_PRODUCT_NAME}的{meta['display_name']}机器人发送 /connect {code}。"
 
 
 def _connect_url(config: ChannelConnectionsConfig, provider: str, code: str) -> str | None:

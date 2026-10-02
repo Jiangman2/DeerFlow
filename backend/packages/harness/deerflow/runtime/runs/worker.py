@@ -496,7 +496,7 @@ class _SubagentEventBuffer:
         if record is None:
             return
         self._pending.append({"thread_id": self._thread_id, "run_id": self._run_id, **record})
-        if record["event_type"] == "subagent.end" or len(self._pending) >= self.FLUSH_THRESHOLD:
+        if record["event_type"] in {"subagent.end", "subagent.usage"} or len(self._pending) >= self.FLUSH_THRESHOLD:
             await self.flush()
 
     async def flush(self) -> None:
@@ -1242,6 +1242,15 @@ async def run_agent(
                 else:
                     await stream_task
             finally:
+                # asyncio.wait does not propagate parent cancellation to its
+                # children. Drain the stream before rollback/finalization can
+                # release the checkpoint lock or the Sandbox execution lease.
+                if not stream_task.done():
+                    stream_task.cancel()
+                    try:
+                        await stream_task
+                    except asyncio.CancelledError:
+                        pass
                 if not event_task.done():
                     event_task.cancel()
                     try:

@@ -37,6 +37,25 @@ def test_known_channel_command_detection_only_matches_control_commands():
     assert not is_known_channel_command(" /new")
 
 
+def test_strip_leading_mentions_only_drops_flush_leading_mentions():
+    from app.channels.commands import is_known_channel_command, strip_leading_mentions
+
+    assert strip_leading_mentions("@bot /goal") == "/goal"
+    assert strip_leading_mentions("@_user_1 /goal ship") == "/goal ship"
+    assert strip_leading_mentions("<@U1> /status") == "/status"
+    assert strip_leading_mentions("@bot @_user_2 /help") == "/help"
+    assert strip_leading_mentions("@bot") == ""
+    assert strip_leading_mentions("") == ""
+    # No leading mention -> unchanged, including the leading-space non-command case.
+    assert strip_leading_mentions("/goal") == "/goal"
+    assert strip_leading_mentions(" /new") == " /new"
+    assert strip_leading_mentions("hello /goal") == "hello /goal"
+    # The shared classifier is deliberately NOT changed to strip mentions: Slack
+    # relies on it keeping a leading non-bot mention as chat (see Slack tests), so
+    # mention handling lives in the adapters, not here.
+    assert not is_known_channel_command("@bot /goal")
+
+
 def _make_channel_skill(tmp_path: Path, name: str, *, enabled: bool = True) -> Skill:
     skill_dir = tmp_path / name
     skill_dir.mkdir(parents=True, exist_ok=True)
@@ -690,6 +709,7 @@ class TestChannelManager:
             assert store.get_thread_id("slack", "C1") == "thread-1"
 
         _run(go())
+
 
     def test_fetch_gateway_includes_internal_auth_headers(self, monkeypatch):
         from app.channels.manager import ChannelManager
@@ -4920,6 +4940,221 @@ class TestFeishuChannel:
             assert json.loads(reply_request.body.content)["elements"][0]["content"] == "> What changed in the last run?\n\nthinking..."
             assert json.loads(first_patch_request.body.content)["elements"][0]["content"] == "> What changed in the last run?\n\nQueued behind another request"
             assert json.loads(final_patch_request.body.content)["elements"][0]["content"] == "> What changed in the last run?\n\nAnswer ready"
+
+        _run(go())
+
+
+class TestFeishuSendFileSuccessChecks:
+    """``send_file`` uploads via ``_upload_image``/``_upload_file`` (which already
+    raise on a ``response.success() is False`` business failure), then sends the
+    resulting file/image message with a raw ``message.reply``/``message.create``
+    call whose response was never checked. lark-oapi signals that same kind of
+    business-level failure (invalid receiver, permission error, etc.) by
+    returning ``success()=False`` without raising, so a failed file/image send
+    logged "file sent" and returned ``True`` exactly like a real success.
+    """
+
+
+
+    def test_send_file_returns_true_on_reply_business_success(self, tmp_path):
+        """Control case: a genuinely successful response still returns True."""
+        from lark_oapi.api.im.v1 import ReplyMessageRequest, ReplyMessageRequestBody
+
+        from app.channels.feishu import FeishuChannel
+
+        async def go():
+            bus = MessageBus()
+            channel = FeishuChannel(bus, config={})
+            channel._api_client = MagicMock()
+            channel._ReplyMessageRequest = ReplyMessageRequest
+            channel._ReplyMessageRequestBody = ReplyMessageRequestBody
+            channel._upload_image = AsyncMock(return_value="img-key-1")
+
+            success_response = MagicMock()
+            success_response.success.return_value = True
+            channel._api_client.im.v1.message.reply = MagicMock(return_value=success_response)
+
+            path = tmp_path / "image.png"
+            path.write_bytes(b"png")
+            attachment = ResolvedAttachment(
+                virtual_path="/mnt/user-data/outputs/image.png",
+                actual_path=path,
+                filename="image.png",
+                mime_type="image/png",
+                size=path.stat().st_size,
+                is_image=True,
+            )
+            msg = OutboundMessage(
+                channel_name="feishu",
+                chat_id="chat-1",
+                thread_id="thread-1",
+                text="",
+                is_final=True,
+                thread_ts="om-source-msg",
+            )
+
+            result = await channel.send_file(msg, attachment)
+
+            assert result is True
+
+        _run(go())
+
+
+class TestFeishuCardSuccessChecks:
+    """Regression coverage: ``lark-oapi`` signals a *business-level* failure
+    (expired/invalid card, permission error, etc.) by returning a response
+    whose ``response.success()`` is ``False`` -- the SDK call itself does not
+    raise. This file's own ``_upload_image``/``_upload_file``/
+    ``_receive_single_file`` already guard against this by checking
+    ``response.success()``; ``_reply_card``/``_create_card``/``_update_card``/
+    ``_add_reaction`` did not, so a failed card send/update looked identical
+    to a successful one to every caller.
+    """
+
+
+
+
+
+    def test_final_streaming_update_falls_back_to_new_card_when_update_card_fails(self):
+        """``_send_card_message``'s ``try/except`` around ``_update_card``
+        already falls back to a brand-new card reply for a final message --
+        but that fallback could never fire while ``_update_card`` swallowed
+        business failures silently. Now that ``_update_card`` raises, the
+        fallback is reachable."""
+        from app.channels.feishu import FeishuChannel
+
+        async def go():
+            bus = MessageBus()
+            channel = FeishuChannel(bus, config={})
+            channel._api_client = MagicMock()
+
+            channel._running_card_ids["om-source-msg"] = "om-running-card"
+            channel._update_card = AsyncMock(side_effect=RuntimeError("Feishu card update failed: code=99991400, msg=card expired"))
+            channel._reply_card = AsyncMock(return_value="om-fallback-card")
+            channel._add_reaction = AsyncMock()
+
+            msg = OutboundMessage(
+                channel_name="feishu",
+                chat_id="chat-1",
+                thread_id="thread-1",
+                text="final answer",
+                is_final=True,
+                thread_ts="om-source-msg",
+            )
+
+            await channel._send_card_message(msg)
+
+            channel._update_card.assert_awaited_once_with("om-running-card", "final answer")
+            channel._reply_card.assert_awaited_once_with("om-source-msg", "final answer")
+            assert "om-source-msg" not in channel._running_card_ids
+
+        _run(go())
+
+    def test_non_final_streaming_update_failure_propagates_instead_of_silently_succeeding(self):
+        """A non-final ``_update_card`` failure must propagate out of
+        ``_send_card_message`` so ``send()``'s ``_send_with_retry`` sees it --
+        previously it never would, since ``_update_card`` had no way to raise
+        on a business-level failure."""
+        from app.channels.feishu import FeishuChannel
+
+        async def go():
+            bus = MessageBus()
+            channel = FeishuChannel(bus, config={})
+            channel._api_client = MagicMock()
+
+            channel._running_card_ids["om-source-msg"] = "om-running-card"
+            channel._update_card = AsyncMock(side_effect=RuntimeError("Feishu card update failed: code=99991400, msg=card expired"))
+            channel._reply_card = AsyncMock()
+
+            msg = OutboundMessage(
+                channel_name="feishu",
+                chat_id="chat-1",
+                thread_id="thread-1",
+                text="partial answer",
+                is_final=False,
+                thread_ts="om-source-msg",
+            )
+
+            with pytest.raises(RuntimeError, match="99991400"):
+                await channel._send_card_message(msg)
+
+            channel._reply_card.assert_not_awaited()
+            assert channel._running_card_ids["om-source-msg"] == "om-running-card"
+
+        _run(go())
+
+    def test_send_retries_after_update_card_business_failure_then_succeeds(self, monkeypatch):
+        """End-to-end through ``send()``: a non-final ``_update_card``
+        business failure must now engage ``_send_with_retry`` instead of the
+        caller believing the streaming update was delivered."""
+        from app.channels.feishu import FeishuChannel
+
+        async def go():
+            bus = MessageBus()
+            channel = FeishuChannel(bus, config={})
+            channel._api_client = MagicMock()
+            sleep = AsyncMock()
+            monkeypatch.setattr("app.channels.base.asyncio.sleep", sleep)
+
+            channel._running_card_ids["om-source-msg"] = "om-running-card"
+            channel._update_card = AsyncMock(
+                side_effect=[
+                    RuntimeError("Feishu card update failed: code=99991400, msg=card expired"),
+                    None,
+                ]
+            )
+
+            msg = OutboundMessage(
+                channel_name="feishu",
+                chat_id="chat-1",
+                thread_id="thread-1",
+                text="partial answer",
+                is_final=False,
+                thread_ts="om-source-msg",
+            )
+
+            await channel.send(msg, _max_retries=2)
+
+            assert channel._update_card.await_count == 2
+            sleep.assert_awaited_once_with(1)
+
+        _run(go())
+
+    def test_send_retries_after_create_card_business_failure_then_succeeds(self, monkeypatch):
+        """End-to-end through ``send()`` for the no-``thread_ts`` path: a
+        business failure from ``_create_card`` (unwrapped at the tail of
+        ``_send_card_message``) must also engage ``_send_with_retry``,
+        mirroring ``test_send_retries_after_update_card_business_failure_then_succeeds``
+        for the ``_update_card`` path above."""
+        from app.channels.feishu import FeishuChannel
+
+        async def go():
+            bus = MessageBus()
+            channel = FeishuChannel(bus, config={})
+            channel._api_client = MagicMock()
+            sleep = AsyncMock()
+            monkeypatch.setattr("app.channels.base.asyncio.sleep", sleep)
+
+            channel._create_card = AsyncMock(
+                side_effect=[
+                    RuntimeError("Feishu card creation failed: code=99991400, msg=param invalid, log_id=log-1"),
+                    None,
+                ]
+            )
+
+            msg = OutboundMessage(
+                channel_name="feishu",
+                chat_id="chat-1",
+                thread_id="thread-1",
+                text="new card message",
+                is_final=True,
+                thread_ts=None,
+            )
+
+            await channel.send(msg, _max_retries=2)
+
+            assert channel._create_card.await_count == 2
+            sleep.assert_awaited_once_with(1)
 
         _run(go())
 

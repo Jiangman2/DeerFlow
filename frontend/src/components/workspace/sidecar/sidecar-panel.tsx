@@ -127,7 +127,7 @@ function getResolvedMode(
   if (mode) {
     return mode;
   }
-  return supportsThinking ? "pro" : "flash";
+  return "flash";
 }
 
 function reasoningEffortForMode(mode: SidecarInputMode) {

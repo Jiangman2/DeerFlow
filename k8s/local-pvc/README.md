@@ -54,7 +54,7 @@ docker build -f backend/Dockerfile --build-arg UV_EXTRAS=postgres -t "deer-flow-
 docker build -f frontend/Dockerfile --target prod -t "deer-flow-frontend:$tag" .
 docker build -f docker/provisioner/Dockerfile -t "deer-flow-provisioner:$tag" docker/provisioner
 docker build -f docker/k8s-skills/Dockerfile -t "deer-flow-skills:$tag" .
-docker build --build-context ppt-master-skill=skills/public/ppt-master -f docker/sandbox-ppt-master/Dockerfile -t "deer-flow-aio-sandbox:ppt-master-$tag" .
+docker build -f docker/sandbox-ppt-master/Dockerfile -t "deer-flow-aio-sandbox:ppt-master-$tag" .
 
 kubectl kustomize k8s/local-pvc
 kubectl apply -k k8s/local-pvc

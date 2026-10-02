@@ -16,8 +16,13 @@ def _make_env(monkeypatch, response_content):
             return fake_response
 
     model = FakeModel()
+
+    def _fake_create_chat_model(**kwargs):
+        model.create_kwargs = kwargs
+        return model
+
     monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
-    monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", lambda **kwargs: model)
+    monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", _fake_create_chat_model)
     return model
 
 
@@ -239,3 +244,8 @@ async def test_scan_distinguishes_unparseable_executable(monkeypatch):
     # Even for executable content, unparseable uses the unparseable message
     assert result.decision == "block"
     assert "unparseable" in result.reason
+
+
+# Standalone/in-graph moderation tracing is deferred with its two incoming-only
+# tests until the scanner signature and all callers are reconciled. Retain the
+# pre-merge attach_tracing=False policy and every preexisting test above.

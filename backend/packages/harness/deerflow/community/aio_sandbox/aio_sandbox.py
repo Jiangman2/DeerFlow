@@ -11,6 +11,7 @@ from agent_sandbox import Sandbox as AioSandboxClient
 from agent_sandbox.core.api_error import ApiError
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
+from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
 from deerflow.sandbox.sandbox import Sandbox, _validate_extra_env
 from deerflow.sandbox.search import GrepMatch, path_matches, should_ignore_path, truncate_line
 
@@ -346,7 +347,7 @@ class AioSandbox(Sandbox):
                     raise PermissionError("path traversal detected")
                 if not any(
                     normalized == prefix or normalized.startswith(f"{prefix}/")
-                    for prefix in (VIRTUAL_PATH_PREFIX, "/mnt/skills", "/mnt/acp-workspace")
+                    for prefix in (VIRTUAL_PATH_PREFIX, DEFAULT_SKILLS_CONTAINER_PATH, "/mnt/acp-workspace")
                 ):
                     raise PermissionError("path is outside the sandbox virtual mounts")
                 fallback = self._client.shell.exec_command(
@@ -475,9 +476,12 @@ class AioSandbox(Sandbox):
                 continue
             rel_path = entry.path[len(root_path) :].lstrip("/")
             if path_matches(pattern, rel_path):
-                matches.append(entry.path)
+                # Only a further eligible match proves truncation. An exactly
+                # full result, followed only by filtered entries, is complete.
+                # Check before appending so a zero cap returns no matches.
                 if len(matches) >= max_results:
                     return matches, True
+                matches.append(entry.path)
         return matches, False
 
     def grep(

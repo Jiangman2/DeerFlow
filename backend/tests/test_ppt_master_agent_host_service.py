@@ -101,7 +101,14 @@ def test_agent_host_writes_valid_operator_model_catalog(tmp_path: Path, monkeypa
             }
         ]
     }
-    config = 'model = "qwen3.7-max"\nmodel_provider = "model_studio"\n'
+    config = (
+        'model = "qwen3.7-max"\n'
+        'model_provider = "model_studio"\n'
+        '[model_providers.model_studio]\n'
+        'base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"\n'
+        'env_key = "DASHSCOPE_API_KEY"\n'
+        'wire_api = "responses"\n'
+    )
 
     host._prepare_codex_home(
         {

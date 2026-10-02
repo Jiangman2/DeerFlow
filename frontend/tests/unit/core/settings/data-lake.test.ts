@@ -22,6 +22,14 @@ test("defaults the user Data Lake setting to disabled", () => {
   expect(DEFAULT_LOCAL_SETTINGS.context.datalake_enabled).toBe(false);
 });
 
+test("defaults a missing chat mode to flash without overriding a saved choice", () => {
+  expect(DEFAULT_LOCAL_SETTINGS.context.mode).toBe("flash");
+  expect(mergeLocalSettings({ context: {} }).context.mode).toBe("flash");
+  expect(mergeLocalSettings({ context: { mode: "pro" } }).context.mode).toBe(
+    "pro",
+  );
+});
+
 test("defaults an invalid persisted Data Lake setting to disabled", () => {
   const invalidSettings = JSON.parse(
     '{"context":{"datalake_enabled":"false"}}',

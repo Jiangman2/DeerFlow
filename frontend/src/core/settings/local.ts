@@ -11,7 +11,7 @@ export const DEFAULT_LOCAL_SETTINGS: LocalSettings = {
   },
   context: {
     model_name: undefined,
-    mode: undefined,
+    mode: "flash",
     reasoning_effort: undefined,
     datalake_enabled: false,
   },
@@ -47,8 +47,12 @@ export interface LocalSettings {
   };
 }
 
+type LocalSettingsInput = Omit<Partial<LocalSettings>, "context"> & {
+  context?: Partial<LocalSettings["context"]>;
+};
+
 export function mergeLocalSettings(
-  settings?: Partial<LocalSettings>,
+  settings?: LocalSettingsInput,
 ): LocalSettings {
   return {
     ...DEFAULT_LOCAL_SETTINGS,
@@ -120,7 +124,7 @@ export function getLocalSettings(): LocalSettings {
   const json = localStorage.getItem(LOCAL_SETTINGS_KEY);
   try {
     if (json) {
-      const settings = JSON.parse(json) as Partial<LocalSettings>;
+      const settings = JSON.parse(json) as LocalSettingsInput;
       return mergeLocalSettings(settings);
     }
   } catch {}

@@ -1,6 +1,11 @@
 import type { AnchorHTMLAttributes } from "react";
 
 import {
+  isSandboxInternalURL,
+  parseLivePreviewURL,
+  previewTrailingProse,
+} from "@/core/artifacts/live-preview";
+import {
   artifactPathFromHref,
   resolveArtifactURL,
 } from "@/core/artifacts/utils";
@@ -25,20 +30,10 @@ export function resolveLivePreviewURL(
   if (!href || !threadId) {
     return null;
   }
-  let parsed: URL;
-  try {
-    parsed = new URL(href);
-  } catch {
-    return null;
-  }
-  if (
-    parsed.port !== "5050" ||
-    !["127.0.0.1", "localhost", "::1"].includes(parsed.hostname)
-  ) {
-    return null;
-  }
-  const prefix = `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/live-preview/5050`;
-  return `${prefix}${parsed.pathname || "/"}${parsed.search}`;
+  const parsed = parseLivePreviewURL(href);
+  if (!parsed) return null;
+  const prefix = `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/live-preview/${parsed.port}`;
+  return `${prefix}${parsed.pathname || "/"}${parsed.search}${parsed.hash}`;
 }
 
 /**
@@ -55,6 +50,20 @@ export function createMarkdownLinkComponent(
     href,
     ...props
   }: AnchorHTMLAttributes<HTMLAnchorElement>) {
+    const livePreviewURL = resolveLivePreviewURL(href, threadId);
+    if (!livePreviewURL && isSandboxInternalURL(href)) {
+      return (
+        <span
+          className="text-muted-foreground cursor-not-allowed"
+          aria-disabled="true"
+        >
+          {typeof props.children === "string" &&
+          isSandboxInternalURL(props.children)
+            ? (livePreviewLabel ?? "预览不可用")
+            : props.children}
+        </span>
+      );
+    }
     if (typeof props.children === "string") {
       const match = /^citation:(.+)$/.exec(props.children);
       if (match) {
@@ -92,17 +101,17 @@ export function createMarkdownLinkComponent(
         />
       );
     }
-    const livePreviewURL = resolveLivePreviewURL(href, threadId);
     if (livePreviewURL) {
       const { className, target, rel, children, ...rest } = props;
+      const trailingProse =
+        typeof children === "string"
+          ? previewTrailingProse(children)
+          : undefined;
       const visibleChildren =
-        typeof children === "string" &&
-        /https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):5050(?:\/|\b)/i.test(
-          children,
-        )
-          ? (livePreviewLabel ?? children)
+        typeof children === "string" && parseLivePreviewURL(children)
+          ? (livePreviewLabel ?? "预览")
           : children;
-      return (
+      const previewLink = (
         <a
           {...rest}
           href={livePreviewURL}
@@ -115,6 +124,14 @@ export function createMarkdownLinkComponent(
         >
           {visibleChildren}
         </a>
+      );
+      return trailingProse ? (
+        <>
+          {previewLink}
+          {trailingProse}
+        </>
+      ) : (
+        previewLink
       );
     }
     const { className, target, rel, ...rest } = props;

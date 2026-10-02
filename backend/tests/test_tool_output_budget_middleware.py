@@ -32,6 +32,7 @@ from deerflow.agents.middlewares.tool_output_budget_middleware import (
     _snap_to_line_boundary,
     _tool_message_over_budget,
 )
+from deerflow.agents.middlewares.tool_output_synopsis import build_tool_output_synopsis
 from deerflow.config.app_config import AppConfig
 from deerflow.config.sandbox_config import SandboxConfig
 from deerflow.config.tool_output_config import ToolOutputConfig
@@ -285,6 +286,123 @@ class TestBuildPreview:
             tail_chars=100,
         )
         assert "10000 chars" in preview
+
+class TestToolOutputSynopsis:
+    def test_code_synopsis_extracts_imports_and_symbols(self):
+        content = "import os\nfrom pathlib import Path\n\nclass Runner:\n    pass\n\ndef main():\n    return Path(os.getcwd())\n"
+        synopsis = build_tool_output_synopsis(content, tool_name="python")
+        assert synopsis.kind == "code"
+        assert "line count" in synopsis.structure[0]
+        assert any("imports: os, pathlib" in item for item in synopsis.structure)
+        assert "class Runner" in synopsis.notable_items
+        assert "def main" in synopsis.notable_items
+
+    def test_yaml_synopsis_extracts_top_level_keys(self):
+        content = "name: deer\nsettings:\n  enabled: true\n  retries: 3\nitems:\n  - alpha\n"
+        synopsis = build_tool_output_synopsis(content, tool_name="config")
+        assert synopsis.kind == "yaml"
+        assert "Top-level keys: name, settings, items" in synopsis.summary
+        assert "settings: object" in synopsis.structure
+        assert "items: array" in synopsis.structure
+
+    def test_xml_synopsis_extracts_root_and_children(self):
+        content = '<feed><entry id="1"/><entry id="2"/><meta/></feed>'
+        synopsis = build_tool_output_synopsis(content, tool_name="xml")
+        assert synopsis.kind == "xml"
+        assert "XML document with root tag feed." in synopsis.summary
+        assert "root tag: feed" in synopsis.structure
+        assert "entry: 2" in synopsis.structure
+
+    # ------------------------------------------------------------------
+    # Regression tests for the @willem-bd review of PR #3377.
+    # Each test pins one of the eight findings so a future change cannot
+    # silently regress the fix.
+    # ------------------------------------------------------------------
+
+    def test_review_5_log_lines_are_not_misclassified_as_yaml(self):
+        # 200 lines of log output shaped like "LEVEL: message". The previous
+        # _looks_yaml counted 2 'key:' lines and accepted it; _try_yaml then
+        # produced a "YAML object with 3 top-level keys: INFO, ERROR, WARN"
+        # summary that hid every line, count, and middle-of-log signal.
+        content = "INFO: starting service\nERROR: failed to connect\nWARN: retrying\nINFO: connected\n" * 200
+        synopsis = build_tool_output_synopsis(content, tool_name="bash")
+        assert synopsis.kind == "text", f"expected text, got {synopsis.kind!r}: {synopsis.summary}"
+
+    def test_review_7_scalar_examples_respects_depth_cap(self):
+        # build_tool_output_synopsis used to recurse without a depth cap
+        # in _scalar_examples, which could trigger RecursionError on
+        # deeply nested JSON. The cap is now mirrored from
+        # _JSON_STRUCTURE_DEPTH.
+        deep = {"k": 1}
+        for _ in range(500):
+            deep = {"k": deep}
+        # Should not raise.
+        synopsis = build_tool_output_synopsis(json.dumps(deep))
+        assert synopsis.kind == "json"
+
+    def test_review_8_csv_first_row_quoted_cells_round_trip(self):
+        # delimiter.join(rows[1]) silently re-split cells containing the
+        # delimiter inside a quoted cell, misleading the model about
+        # column count.
+        header = "name,description,score"
+        rows = [
+            'Ada,"a fine, brilliant logician",98',
+            'Grace,"a creator, of compilers",99',
+            'Alan,"a pioneer, of computing",95',
+            'Kurt,"a poet, of logic",91',
+            'Ada2,"another, fine mind",97',
+            'Grace2,"yet another, creator",93',
+        ]
+        content = header + "\n" + "\n".join(rows) + "\n"
+        synopsis = build_tool_output_synopsis(content, tool_name="csv_tool")
+        assert synopsis.kind == "csv"
+        first_row = next((line for line in synopsis.structure if line.startswith("first data row:")), "")
+        # All three columns must be present, and the quoted cell must
+        # round-trip without losing the embedded comma.
+        assert "name=Ada" in first_row
+        assert "score=98" in first_row
+        assert "a fine, brilliant logician" in first_row
+        # The re-joined comma-broken row is the failure mode we are guarding.
+        assert "Ada,a fine, brilliant" not in first_row
+
+    def test_review_9_tsv_detector_rejects_tab_indented_bash(self):
+        # Tab-indented output (ls -l, tree, indented logs) used to be
+        # accepted as TSV because _try_table only checked that the
+        # delimiter is present and rows agree on width.
+        row = "drwxr-xr-x  2 user  group   64 Jun 24 17:00 dir"
+        bash_out = "ls -l output:\n\ttotal 0\n" + "\n".join(f"\t{row}{i}" for i in range(1, 6)) + "\n"
+        synopsis = build_tool_output_synopsis(bash_out, tool_name="bash")
+        assert synopsis.kind == "text", f"expected text, got {synopsis.kind!r}: {synopsis.summary}"
+
+    def test_review_11_short_text_does_not_duplicate_excerpts(self):
+        # For inputs shorter than 2 * _TEXT_EXCERPT_CHARS, the previous
+        # opener/closer slices overlapped and the model saw the same
+        # body twice. build_tool_output_synopsis is reachable directly
+        # from tests and other callers that pass small inputs.
+        short = "hello world " * 30  # ~360 chars
+        synopsis = build_tool_output_synopsis(short)
+        opener_line = next((ln for ln in synopsis.summary if ln.startswith("Opening excerpt: ")), "")
+        # Closer is now suppressed entirely for short inputs.
+        assert all(not ln.startswith("Closing excerpt: ") for ln in synopsis.summary), f"unexpected closer for short input: {synopsis.summary}"
+        assert opener_line, "opening excerpt should still be present"
+
+    def test_review_12_preview_head_tail_chars_are_operational(self):
+        # preview_head_chars / preview_tail_chars were silently no-op
+        # for every non-binary kind. The fix plumbs them through
+        # render_tool_output_preview as an explicit 'Raw sample' section.
+        content = "alpha " * 1000  # 6000 chars
+        preview = _build_preview(
+            content,
+            tool_name="bash",
+            virtual_path="/mnt/test/run.log",
+            head_chars=300,
+            tail_chars=300,
+        )
+        # The head sample should contain 'alpha' more times than the
+        # tail (or split-count), proving head_chars=300 took effect.
+        # The full document has 1000 'alpha' tokens; without head_chars
+        # we'd see fewer than 50 in the head sample.
+        assert preview.count("alpha") >= 50
 
 
 class TestBuildFallback:
@@ -563,9 +681,7 @@ class TestWrapToolCallExternalize:
             assert compact["agent_id"] == "builtin-data-analyst"
             assert compact["tool_calls"][0]["tool_name"] == "data_schema"
             assert compact["pending_actions"][0]["data"]["pending_id"] == "approval-1"
-            assert compact["full_output"]["path"].startswith(
-                "/mnt/user-data/outputs/.tool-results/weknora_invoke_agent-"
-            )
+            assert compact["full_output"]["path"].startswith("/mnt/user-data/outputs/.tool-results/weknora_invoke_agent-")
 
 
 class TestWrapToolCallFallback:

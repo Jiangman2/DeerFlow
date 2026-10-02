@@ -161,12 +161,13 @@ class RunStore(abc.ABC):
         pass
 
     @abc.abstractmethod
-    async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False) -> dict[str, Any]:
+    async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False, user_id: str | None = None) -> dict[str, Any]:
         """Aggregate token usage for completed runs in a thread.
 
         Returns a dict with keys: total_tokens, total_input_tokens,
         total_output_tokens, total_runs, by_model (model_name → {tokens, runs}),
         by_caller ({lead_agent, subagent, middleware}).
+        A non-None user_id restricts all totals and breakdowns to that owner.
         """
         pass
 

@@ -5,6 +5,7 @@ import html
 import logging
 import threading
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
@@ -49,6 +50,19 @@ _enabled_skills_refresh_version = 0
 _enabled_skills_refresh_event = threading.Event()
 
 
+@dataclass
+class _EnabledSkillsRefreshHandle:
+    version: int
+    event: threading.Event = field(default_factory=threading.Event)
+    error: Exception | None = None
+
+    def wait(self, timeout: float | None = None) -> bool:
+        return self.event.wait(timeout=timeout)
+
+
+_enabled_skills_refresh_waiters: list[_EnabledSkillsRefreshHandle] = []
+
+
 def _load_enabled_skills_sync() -> list[Skill]:
     return list(get_or_new_skill_storage().load_skills(enabled_only=True))
 
@@ -68,33 +82,41 @@ def _refresh_enabled_skills_cache_worker() -> None:
         with _enabled_skills_lock:
             target_version = _enabled_skills_refresh_version
 
+        refresh_error = None
         try:
             skills = _load_enabled_skills_sync()
-        except Exception:
+        except Exception as exc:
             logger.exception("Failed to load enabled skills for prompt injection")
-            skills = []
+            skills = None
+            refresh_error = exc
 
         with _enabled_skills_lock:
             if _enabled_skills_refresh_version == target_version:
-                _enabled_skills_cache = skills
+                if refresh_error is None:
+                    assert skills is not None
+                    _enabled_skills_cache = skills
                 _enabled_skills_refresh_active = False
                 _enabled_skills_refresh_event.set()
+                completed_waiters = [waiter for waiter in _enabled_skills_refresh_waiters if waiter.version <= target_version]
+                _enabled_skills_refresh_waiters[:] = [waiter for waiter in _enabled_skills_refresh_waiters if waiter.version > target_version]
+                for waiter in completed_waiters:
+                    waiter.error = refresh_error
+                    waiter.event.set()
                 return
 
             # A newer invalidation happened while loading. Keep the worker alive
             # and loop again so the cache always converges on the latest version.
-            _enabled_skills_cache = None
 
 
 def _ensure_enabled_skills_cache() -> threading.Event:
     global _enabled_skills_refresh_active
 
     with _enabled_skills_lock:
+        if _enabled_skills_refresh_active:
+            return _enabled_skills_refresh_event
         if _enabled_skills_cache is not None:
             _enabled_skills_refresh_event.set()
             return _enabled_skills_refresh_event
-        if _enabled_skills_refresh_active:
-            return _enabled_skills_refresh_event
         _enabled_skills_refresh_active = True
         _enabled_skills_refresh_event.clear()
 
@@ -102,21 +124,22 @@ def _ensure_enabled_skills_cache() -> threading.Event:
     return _enabled_skills_refresh_event
 
 
-def _invalidate_enabled_skills_cache() -> threading.Event:
-    global _enabled_skills_cache, _enabled_skills_refresh_active, _enabled_skills_refresh_version
+def _invalidate_enabled_skills_cache() -> _EnabledSkillsRefreshHandle:
+    global _enabled_skills_refresh_active, _enabled_skills_refresh_version
 
     _get_cached_skills_prompt_section.cache_clear()
     with _enabled_skills_lock:
-        _enabled_skills_cache = None
         _enabled_skills_by_config_cache.clear()
         _enabled_skills_refresh_version += 1
+        refresh_handle = _EnabledSkillsRefreshHandle(version=_enabled_skills_refresh_version)
+        _enabled_skills_refresh_waiters.append(refresh_handle)
         _enabled_skills_refresh_event.clear()
         if _enabled_skills_refresh_active:
-            return _enabled_skills_refresh_event
+            return refresh_handle
         _enabled_skills_refresh_active = True
 
     _start_enabled_skills_refresh_thread()
-    return _enabled_skills_refresh_event
+    return refresh_handle
 
 
 def prime_enabled_skills_cache() -> None:
@@ -176,18 +199,20 @@ def get_enabled_skills_for_config(app_config: AppConfig | None = None, user_id: 
                 # next eviction cycle.
                 _enabled_skills_by_config_cache.move_to_end(cache_key)
                 return list(cached_skills)
+        load_version = _enabled_skills_refresh_version
 
     if user_id:
         skills = list(get_or_new_user_skill_storage(user_id, app_config=app_config).load_skills(enabled_only=True))
     else:
         skills = list(get_or_new_skill_storage(app_config=app_config).load_skills(enabled_only=True))
     with _enabled_skills_lock:
-        _enabled_skills_by_config_cache[cache_key] = (app_config, skills)
-        # Evict the least-recently-used entries when we exceed the cap.
-        # The cap is intentionally small (256) so a long-running process
-        # cannot leak one entry per distinct (config, user) pair seen.
-        while len(_enabled_skills_by_config_cache) > _ENABLED_SKILLS_BY_CONFIG_CACHE_MAXSIZE:
-            _enabled_skills_by_config_cache.popitem(last=False)
+        if _enabled_skills_refresh_version == load_version:
+            _enabled_skills_by_config_cache[cache_key] = (app_config, skills)
+            # Evict the least-recently-used entries when we exceed the cap.
+            # The cap is intentionally small (256) so a long-running process
+            # cannot leak one entry per distinct (config, user) pair seen.
+            while len(_enabled_skills_by_config_cache) > _ENABLED_SKILLS_BY_CONFIG_CACHE_MAXSIZE:
+                _enabled_skills_by_config_cache.popitem(last=False)
     return list(skills)
 
 
@@ -215,7 +240,12 @@ def clear_skills_system_prompt_cache() -> None:
 
 
 async def refresh_skills_system_prompt_cache_async() -> None:
-    await asyncio.to_thread(_invalidate_enabled_skills_cache().wait)
+    refresh_handle = _invalidate_enabled_skills_cache()
+    refreshed = await asyncio.to_thread(refresh_handle.wait, _ENABLED_SKILLS_REFRESH_WAIT_TIMEOUT_SECONDS)
+    if not refreshed:
+        raise TimeoutError("Timed out waiting for enabled skills cache refresh")
+    if refresh_handle.error is not None:
+        raise RuntimeError("Enabled skills cache refresh failed") from refresh_handle.error
 
 
 def invalidate_user_skill_cache(user_id: str) -> None:
@@ -258,15 +288,21 @@ After completing a task, consider creating or updating a skill when:
 - You discovered a non-trivial, recurring workflow
 If you used a skill and encountered issues not covered by it, patch it immediately.
 
-**CRITICAL: You MUST use the `skill_manage` tool for ALL skill operations.**
-- `skill_manage(action="create", name="my-skill", content="...")` — Create a new skill
-- `skill_manage(action="patch", name="my-skill", find="...", replace="...")` — Patch an existing skill
-- `skill_manage(action="edit", name="my-skill", content="...")` — Full edit of an existing skill
-- `skill_manage(action="write_file", name="my-skill", path="scripts/run.py", content="...")` — Add supporting files
-- `skill_manage(action="delete", name="my-skill")` — Delete a skill
+**CRITICAL: You MUST use the dedicated `skill_*` tools for ALL skill operations.**
+- `skill_create(name="my-skill", content="...")` — Create a new skill
+- `skill_patch(name="my-skill", find="...", replace="...")` — Patch an existing skill
+- `skill_edit(name="my-skill", content="...")` — Full edit of an existing skill
+- `skill_write_file(name="my-skill", path="scripts/run.py", content="...")` — Add one supporting file
+- `skill_remove_file(name="my-skill", path="scripts/run.py")` — Remove one supporting file
+- `skill_delete(name="my-skill")` — Delete a skill
+
+Construct every tool call only after all required arguments are complete. For
+`skill_create`, `skill_edit`, and `skill_write_file`, `content` is mandatory:
+never omit it, never send a placeholder, and write only one complete file per
+call.
 
 **⛔ NEVER write SKILL.md files to `/mnt/user-data/workspace` or `/mnt/user-data/outputs`.**
-Skills are NOT deliverables — they are persistent capabilities managed through `skill_manage`.
+Skills are NOT deliverables — they are persistent capabilities managed through the dedicated `skill_*` tools.
 The tool stores skills in the per-user skills directory automatically; you do NOT need to specify a path.
 
 Prefer patch over edit. Before creating a new skill, confirm with the user first.
@@ -613,12 +649,14 @@ You: "Deploying to staging..." [proceed]
 **File Management:**
 - Uploaded files are automatically listed in the <uploaded_files> section before each request
 - Use `read_file` tool to read uploaded files using their paths from the list
+- `read_file` is a DeerFlow tool call, not a command installed inside the Sandbox shell. Invoke the tool directly; never run `read_file ...` through `bash` or report it as a missing Python/package dependency
 - For PDF, PPT, Excel, and Word files, converted Markdown versions (*.md) are available alongside originals
 - All temporary work happens in `/mnt/user-data/workspace`
 - Treat `/mnt/user-data/workspace` as your default current working directory for coding and file-editing tasks
 - When writing scripts or commands that create/read files from the workspace, prefer relative paths such as `hello.txt`, `../uploads/data.csv`, and `../outputs/report.md`
 - Avoid hardcoding `/mnt/user-data/...` inside generated scripts when a relative path from the workspace is enough
-- Final deliverables must be copied to `/mnt/user-data/outputs` and presented using `present_files` tool (⚠️ Skills are NOT deliverables — use `skill_manage` tool instead)
+- For Chinese Markdown-to-PDF delivery, prefer the preinstalled `deerflow-markdown-to-pdf INPUT.md OUTPUT.pdf` command. It embeds the production CJK font; do not generate Chinese PDFs with ReportLab's Helvetica/default font
+- Final deliverables must be copied to `/mnt/user-data/outputs` and presented using `present_files` tool (⚠️ Skills are NOT deliverables — use the dedicated `skill_*` tools instead)
 {acp_section}
 </working_directory>
 
@@ -690,7 +728,7 @@ technical documentation. Distinguish retrieved evidence from analysis or inferen
 - **Clarification First**: ALWAYS clarify unclear/missing/ambiguous requirements BEFORE starting work - never assume or guess
 {subagent_reminder}{skill_first_reminder}
 - Progressive Loading: Load skill resources incrementally as referenced
-- Output Files: Final deliverables must be in `/mnt/user-data/outputs` (⚠️ Skills are NOT deliverables — use `skill_manage` tool instead)
+- Output Files: Final deliverables must be in `/mnt/user-data/outputs` (⚠️ Skills are NOT deliverables — use the dedicated `skill_*` tools instead)
 - File Editing Workflow: When revising an existing file, prefer
   `str_replace` over `write_file` — it sends only the diff and avoids
   re-emitting the whole file (mirrors Claude Code's Edit and Codex's

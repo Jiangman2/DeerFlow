@@ -18,6 +18,7 @@ import {
   type SlashSuggestion,
 } from "@/components/workspace/input-box-helpers";
 import type { Skill } from "@/core/skills";
+import { RESERVED_SLASH_SKILL_NAMES } from "@/core/skills";
 
 function makeSkill(name: string, enabled = true): Skill {
   return {
@@ -235,6 +236,28 @@ describe("getMatchingSkillSuggestions", () => {
       "skill:goal-helper",
       "builtin:goal",
     ]);
+  });
+
+  it("excludes parser-reserved skills but keeps a context skill available", () => {
+    for (const reserved of RESERVED_SLASH_SKILL_NAMES) {
+      if (reserved === "context") {
+        continue;
+      }
+      const result = getMatchingSkillSuggestions(
+        [makeSkill(reserved), makeSkill(`${reserved}-helper`)],
+        reserved,
+        [],
+      );
+      expect(result.map((suggestion) => suggestion.name)).toEqual([
+        `${reserved}-helper`,
+      ]);
+    }
+
+    expect(
+      getMatchingSkillSuggestions([makeSkill("context")], "context", []).map(
+        (suggestion) => `${suggestion.kind}:${suggestion.name}`,
+      ),
+    ).toEqual(["skill:context"]);
   });
 
   it("caps the number of suggestions", () => {

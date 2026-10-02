@@ -33,28 +33,28 @@ Cool? Cool.
 
 ## DeerFlow Environment (⚠️ READ THIS FIRST)
 
-If you are running inside a **DeerFlow** sandboxed agent environment (you have access to the `skill_manage` tool), you MUST follow these rules for all skill file operations. These override the generic file-writing and packaging instructions below.
+If you are running inside a **DeerFlow** sandboxed agent environment (you have access to the dedicated `skill_*` authoring tools), you MUST follow these rules for all skill file operations. These override the generic file-writing and packaging instructions below.
 
 ### Why this matters
 
-In DeerFlow, the sandbox filesystem is isolated. Files written with `write_file` land in `/mnt/user-data/outputs/`, which is a **per-thread output directory** — new chats cannot see files there. Skills must be persisted through the dedicated `skill_manage` tool so they are stored in the per-user skill directory and immediately visible to all future chats.
+In DeerFlow, the sandbox filesystem is isolated. Files written with `write_file` land in `/mnt/user-data/outputs/`, which is a **per-thread output directory** — new chats cannot see files there. Skills must be persisted through the dedicated `skill_*` authoring tools so they are stored in the per-user skill directory and immediately visible to all future chats.
 
-### Use `skill_manage` for all skill file operations
+### Use the dedicated `skill_*` tools for all skill file operations
 
-| Operation | skill_manage action | Example |
-|-----------|---------------------|---------|
-| Create a new skill | `action="create"` | `skill_manage(action="create", name="my-skill", content="---\nname: my-skill\n---\n...")` |
-| Replace entire SKILL.md | `action="edit"` | `skill_manage(action="edit", name="my-skill", content="updated SKILL.md")` |
-| Partial edit (find & replace) | `action="patch"` | `skill_manage(action="patch", name="my-skill", find="old text", replace="new text")` |
-| Delete a skill | `action="delete"` | `skill_manage(action="delete", name="my-skill")` |
-| Add a supporting file | `action="write_file"` | `skill_manage(action="write_file", name="my-skill", path="scripts/helper.py", content="...")` |
-| Remove a supporting file | `action="remove_file"` | `skill_manage(action="remove_file", name="my-skill", path="scripts/helper.py")` |
+| Operation | Tool | Example |
+|-----------|------|---------|
+| Create a new skill | `skill_create` | `skill_create(name="my-skill", content="---\nname: my-skill\n---\n...")` |
+| Replace entire SKILL.md | `skill_edit` | `skill_edit(name="my-skill", content="updated SKILL.md")` |
+| Partial edit (find & replace) | `skill_patch` | `skill_patch(name="my-skill", find="old text", replace="new text")` |
+| Delete a skill | `skill_delete` | `skill_delete(name="my-skill")` |
+| Add a supporting file | `skill_write_file` | `skill_write_file(name="my-skill", path="scripts/helper.py", content="...")` |
+| Remove a supporting file | `skill_remove_file` | `skill_remove_file(name="my-skill", path="scripts/helper.py")` |
 
 ### Key rules
 
-1. **NEVER use sandbox `write_file` to create or modify skill files** (SKILL.md, scripts/, references/, assets/). These would land in `/mnt/user-data/outputs/` and be invisible to future chats. Always use `skill_manage` instead.
+1. **NEVER use sandbox `write_file` to create or modify skill files** (SKILL.md, scripts/, references/, assets/). These would land in `/mnt/user-data/outputs/` and be invisible to future chats. Always use the matching dedicated `skill_*` tool instead.
 
-2. **Skip the `package_skill.py` step**. In DeerFlow, `skill_manage` already persists the skill to the correct per-user directory. No `.skill` packaging or manual install is needed. The skill is immediately available in all new chats.
+2. **Skip the `package_skill.py` step**. In DeerFlow, the dedicated authoring tools already persist the skill to the correct per-user directory. No `.skill` packaging or manual install is needed. The skill is immediately available in all new chats.
 
 3. **Separate installation from delivery**. Do not install or activate a skill unless the user explicitly asks. When the user requests a reusable package or downloadable artifact, package it as `.skill` under `/mnt/user-data/outputs/` and call `present_files`. Non-skill outputs such as eval reports and benchmarks also use `present_files`.
 
@@ -62,17 +62,19 @@ In DeerFlow, the sandbox filesystem is isolated. Files written with `write_file`
 
 5. **To read an existing skill's SKILL.md**, use `read_file("/mnt/skills/custom/<name>/SKILL.md")` in the sandbox (it maps to the per-user skill directory).
 
-6. **Updating an existing skill**: use `skill_manage(action="edit")` or `skill_manage(action="patch")`. Do NOT copy to `/tmp/` first — `skill_manage` handles the per-user storage directly.
+6. **Updating an existing skill**: use `skill_edit` or `skill_patch`. Do NOT copy to `/tmp/` first — the tools handle the per-user storage directly.
+
+7. **Complete arguments before calling a tool**: `content` is mandatory for `skill_create`, `skill_edit`, and `skill_write_file`. Never call one of them without the complete content, never send placeholder content, and write only one complete supporting file per `skill_write_file` call.
 
 ### Workflow in DeerFlow
 
 The core loop is the same, but the persistence mechanism changes:
 
 1. Capture intent → interview → draft SKILL.md content
-2. **Call `skill_manage(action="create", name=<name>, content=<SKILL.md>)`** to persist the skill
+2. **Call `skill_create(name=<name>, content=<SKILL.md>)`** to persist the skill
 3. Run test cases (eval workspace files use sandbox `write_file`)
 4. Evaluate results, gather feedback
-5. **Call `skill_manage(action="edit")` or `skill_manage(action="patch")`** to improve the skill
+5. **Call `skill_edit` or `skill_patch`** to improve the skill
 6. Repeat until satisfied
 7. **Done — no packaging needed.** The skill is already persisted and visible to all future chats.
 

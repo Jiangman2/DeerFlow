@@ -1,0 +1,10 @@
+FROM default-flash-frontend-base
+
+WORKDIR /app/frontend
+
+COPY patch_frontend_default_flash.mjs /tmp/patch_frontend_default_flash.mjs
+
+RUN --network=none node /tmp/patch_frontend_default_flash.mjs --frontend-root /app/frontend \
+    && rm -f /tmp/patch_frontend_default_flash.mjs \
+    && rm -rf .next \
+    && SKIP_ENV_VALIDATION=1 NEXT_CONFIG_BUILD_OUTPUT=standalone pnpm build

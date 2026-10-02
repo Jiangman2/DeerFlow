@@ -1,5 +1,6 @@
 """Enterprise SSO-only authentication boundary tests."""
 
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -86,8 +87,38 @@ def test_sso_only_mode_hides_generic_oidc_providers(
     with patch(
         "app.gateway.routers.auth.get_auth_config",
         return_value=sso_only_config,
+    ), patch(
+        "deerflow.config.app_config.get_app_config",
+        return_value=SimpleNamespace(
+            auth=SimpleNamespace(
+                iam=SimpleNamespace(enabled=False),
+                oidc=SimpleNamespace(enabled=True, providers={"github": SimpleNamespace(display_name="GitHub")}),
+            )
+        ),
     ):
         response = client.get("/api/v1/auth/providers")
 
     assert response.status_code == 200
     assert response.json() == {"providers": [], "sso_only": True}
+
+
+def test_sso_only_mode_preserves_enabled_iam_provider(
+    client: TestClient,
+    sso_only_config: AuthConfig,
+) -> None:
+    with patch(
+        "app.gateway.routers.auth.get_auth_config",
+        return_value=sso_only_config,
+    ), patch(
+        "deerflow.config.app_config.get_app_config",
+        return_value=SimpleNamespace(
+            auth=SimpleNamespace(
+                iam=SimpleNamespace(enabled=True),
+                oidc=SimpleNamespace(enabled=True, providers={"github": SimpleNamespace(display_name="GitHub")}),
+            )
+        ),
+    ):
+        response = client.get("/api/v1/auth/providers")
+
+    assert response.status_code == 200
+    assert response.json() == {"providers": [{"id": "iam", "display_name": "CNOOC IAM", "type": "iam"}], "sso_only": True}

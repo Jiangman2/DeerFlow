@@ -60,6 +60,7 @@ SANDBOX_IMAGE = os.environ.get(
     "SANDBOX_IMAGE",
     "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest",
 )
+PPT_MASTER_AGENT_HOST_IMAGE = os.environ.get("PPT_MASTER_AGENT_HOST_IMAGE", "").strip()
 SKILLS_HOST_PATH = os.environ.get("SKILLS_HOST_PATH", "/skills")
 THREADS_HOST_PATH = os.environ.get("THREADS_HOST_PATH", "/.deer-flow/threads")
 DEER_FLOW_HOST_BASE_DIR = os.environ.get("DEER_FLOW_HOST_BASE_DIR", "/.deer-flow")
@@ -105,11 +106,12 @@ SANDBOX_PASSTHROUGH_ENV_KEYS = tuple(
         "DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,"
         "VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,"
         "DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,"
-        "PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,"
+        "PODCAST_GENERATION_PROVIDER,QWEN_TTS_BASE_URL,DASHSCOPE_TTS_MODEL,"
         "DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,"
         "MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,"
         "DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,"
-        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT",
+        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,"
+        "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED",
     ).split(",")
     if key.strip()
 )
@@ -881,10 +883,20 @@ def _build_pod(
         )
     ]
     if PPT_MASTER_AGENT_HOST_ENABLED:
+        relay_required = os.environ.get(
+            "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", ""
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        if relay_required and (
+            not PPT_MASTER_AGENT_HOST_IMAGE
+            or PPT_MASTER_AGENT_HOST_IMAGE == SANDBOX_IMAGE
+        ):
+            raise RuntimeError(
+                "enterprise PPT Agent requires a distinct PPT_MASTER_AGENT_HOST_IMAGE"
+            )
         containers.append(
             k8s_client.V1Container(
                 name="ppt-master-agent-host",
-                image=SANDBOX_IMAGE,
+                image=PPT_MASTER_AGENT_HOST_IMAGE or SANDBOX_IMAGE,
                 image_pull_policy="IfNotPresent",
                 command=["python3", "/opt/ppt-master-agent-host/agent_host.py"],
                 ports=[
@@ -894,15 +906,25 @@ def _build_pod(
                         protocol="TCP",
                     )
                 ],
+                startup_probe=k8s_client.V1Probe(
+                    http_get=k8s_client.V1HTTPGetAction(
+                        path="/health",
+                        port=PPT_MASTER_AGENT_HOST_PORT,
+                        scheme="HTTP",
+                    ),
+                    period_seconds=5,
+                    timeout_seconds=5,
+                    failure_threshold=60,
+                ),
                 readiness_probe=k8s_client.V1Probe(
                     http_get=k8s_client.V1HTTPGetAction(
                         path="/health",
                         port=PPT_MASTER_AGENT_HOST_PORT,
                         scheme="HTTP",
                     ),
-                    initial_delay_seconds=2,
+                    initial_delay_seconds=0,
                     period_seconds=5,
-                    timeout_seconds=3,
+                    timeout_seconds=5,
                     failure_threshold=12,
                 ),
                 liveness_probe=k8s_client.V1Probe(
@@ -911,17 +933,17 @@ def _build_pod(
                         port=PPT_MASTER_AGENT_HOST_PORT,
                         scheme="HTTP",
                     ),
-                    initial_delay_seconds=10,
+                    initial_delay_seconds=0,
                     period_seconds=15,
-                    timeout_seconds=3,
-                    failure_threshold=4,
+                    timeout_seconds=5,
+                    failure_threshold=6,
                 ),
                 resources=k8s_client.V1ResourceRequirements(
-                    requests={"cpu": "100m", "memory": "256Mi"},
+                    requests={"cpu": "250m", "memory": "512Mi"},
                     limits={"cpu": "2", "memory": "4Gi"},
                 ),
                 env=[
-                    *_build_sandbox_env(include_agent_only_secrets=True),
+                    *_build_ppt_agent_host_env(),
                     k8s_client.V1EnvVar(
                         name="PPT_MASTER_AGENT_HOST_PORT",
                         value=str(PPT_MASTER_AGENT_HOST_PORT),
@@ -1034,6 +1056,34 @@ def _build_sandbox_env(
                 value=SANDBOX_OPENSSL_CONFIG_FILE,
             )
         )
+    return env
+
+
+def _build_ppt_agent_host_env() -> list[k8s_client.V1EnvVar]:
+    """Override Codex profile only in the PPT Agent Host container.
+
+    Ordinary sandbox commands retain the operator's existing Codex profile.
+    The relay credential remains a Secret reference, never a literal Pod env.
+    """
+    env = _build_sandbox_env(include_agent_only_secrets=True)
+    overrides = {
+        "CODEX_CONFIG_TOML": os.environ.get("PPT_MASTER_AGENT_CODEX_CONFIG_TOML", ""),
+        "CODEX_MODEL_CATALOG_JSON": os.environ.get(
+            "PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON", ""
+        ),
+    }
+    relay_required = os.environ.get(
+        "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    if relay_required and not all(overrides.values()):
+        raise RuntimeError(
+            "enterprise PPT Agent requires its own Codex profile and model catalog"
+        )
+    for name, value in overrides.items():
+        if not value:
+            continue
+        env = [item for item in env if item.name != name]
+        env.append(k8s_client.V1EnvVar(name=name, value=value))
     return env
 
 

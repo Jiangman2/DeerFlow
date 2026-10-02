@@ -14,7 +14,7 @@ const katexOptions = {
 
 export const streamdownPlugins = {
   remarkPlugins: [
-    remarkGfm,
+    [remarkGfm, { singleTilde: false }],
     [remarkMath, { singleDollarTextMath: true }],
   ] as StreamdownProps["remarkPlugins"],
   rehypePlugins: [
@@ -25,7 +25,7 @@ export const streamdownPlugins = {
 
 export const streamdownPluginsWithWordAnimation = {
   remarkPlugins: [
-    remarkGfm,
+    [remarkGfm, { singleTilde: false }],
     [remarkMath, { singleDollarTextMath: true }],
   ] as StreamdownProps["remarkPlugins"],
   rehypePlugins: [

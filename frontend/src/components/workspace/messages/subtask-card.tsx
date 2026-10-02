@@ -18,7 +18,12 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { ShineBorder } from "@/components/ui/shine-border";
+import {
+  containsLivePreviewURL,
+  maskSandboxURLDestinations,
+} from "@/core/artifacts/live-preview";
 import { useI18n } from "@/core/i18n/hooks";
+import { pptRuntimeUsageCopy } from "@/core/i18n/ppt-runtime-usage";
 import { hasToolCalls } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
@@ -26,6 +31,10 @@ import { streamdownPluginsWithWordAnimation } from "@/core/streamdown";
 import { SafeStreamdown } from "@/core/streamdown/components";
 import { fetchSubtaskSteps } from "@/core/tasks/api";
 import { useSubtask, useUpdateSubtask } from "@/core/tasks/context";
+import {
+  normalizePptUsageObservation,
+  type PptUsageCarrier,
+} from "@/core/tasks/ppt-usage-observation";
 import {
   formatSubtaskTokenUsage,
   resolveSubtaskModelLabel,
@@ -44,8 +53,6 @@ import { createMarkdownLinkComponent } from "./markdown-link";
 const STEP_SUMMARY_MAX_CHARS = 180;
 const INITIAL_VISIBLE_STEP_COUNT = 80;
 const VISIBLE_STEP_INCREMENT = 80;
-const LIVE_PREVIEW_URL_PATTERN =
-  /https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\]):5050(?:\/|\b)/i;
 
 function compactStepText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -125,6 +132,7 @@ const SubtaskTimelineStep = memo(function SubtaskTimelineStep({
   hideDetailsLabel,
   toolInputLabel,
   toolOutputLabel,
+  previewLabel,
 }: {
   step: SubtaskStep;
   isLastWhileRunning: boolean;
@@ -134,12 +142,13 @@ const SubtaskTimelineStep = memo(function SubtaskTimelineStep({
   hideDetailsLabel: string;
   toolInputLabel: string;
   toolOutputLabel: string;
+  previewLabel: string;
 }) {
-  const containsLivePreview = LIVE_PREVIEW_URL_PATTERN.test(step.text);
+  const containsLivePreview = containsLivePreviewURL(step.text);
   const [expanded, setExpanded] = useState(containsLivePreview);
   const hasToolInput = step.kind === "ai" && Boolean(step.tool_calls?.length);
   const hasDetails = hasToolInput || Boolean(step.text.trim());
-  const summary = stepSummary(step);
+  const summary = maskSandboxURLDestinations(stepSummary(step), previewLabel);
   const icon = isLastWhileRunning ? (
     <Loader2Icon className="size-4 animate-spin" />
   ) : step.kind === "tool" ? (
@@ -256,7 +265,7 @@ export function SubtaskCard({
   runId?: string;
   isLoading: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [collapsed, setCollapsed] = useState(true);
   const [visibleStepCount, setVisibleStepCount] = useState(
     INITIAL_VISIBLE_STEP_COUNT,
@@ -265,6 +274,12 @@ export function SubtaskCard({
   const task = useSubtask(taskId)!;
   const { models, tokenUsageEnabled } = useModels();
   const updateSubtask = useUpdateSubtask();
+  const observation = tokenUsageEnabled
+    ? normalizePptUsageObservation(
+        (task as typeof task & PptUsageCarrier).sessionUsageObservation,
+      )
+    : undefined;
+  const observationCopy = pptRuntimeUsageCopy(locale);
   const modelLabel = resolveSubtaskModelLabel(task.modelName, models);
   const tokenLabel = tokenUsageEnabled
     ? formatSubtaskTokenUsage(task.usage)
@@ -291,11 +306,7 @@ export function SubtaskCard({
     hiddenStepCount > 0 ? displaySteps.slice(hiddenStepCount) : displaySteps;
   const threadMarkdownComponents = useMemo(
     () => ({
-      a: createMarkdownLinkComponent(
-        threadId,
-        undefined,
-        t.common.preview,
-      ),
+      a: createMarkdownLinkComponent(threadId, undefined, t.common.preview),
     }),
     [t.common.preview, threadId],
   );
@@ -403,39 +414,41 @@ export function SubtaskCard({
                 icon={<ClipboardListIcon />}
               ></ChainOfThoughtStep>
               <div className="flex max-w-[55%] min-w-0 shrink-0 items-center gap-1 overflow-hidden">
-                {collapsed && (
-                  <div
-                    className={cn(
-                      "text-muted-foreground flex min-w-0 items-center gap-1 overflow-hidden text-xs font-normal",
-                      task.status === "failed" ? "text-red-500 opacity-67" : "",
-                    )}
-                  >
-                    {modelLabel && (
-                      <span className="max-w-32 truncate" title={modelLabel}>
-                        {modelLabel}
-                      </span>
-                    )}
-                    {runtimeUsageLabel && (
-                      <span
-                        className="max-w-28 truncate"
-                        title={runtimeUsageLabel}
-                      >
-                        {runtimeUsageLabel}
-                      </span>
-                    )}
-                    {icon}
-                    <FlipDisplay
-                      className="max-w-[420px] truncate pb-1"
-                      uniqueKey={task.latestMessage?.id ?? ""}
+                <div
+                  className={cn(
+                    "text-muted-foreground flex min-w-0 items-center gap-1 overflow-hidden text-xs font-normal",
+                    task.status === "failed" ? "text-red-500 opacity-67" : "",
+                  )}
+                >
+                  {modelLabel && (
+                    <span className="max-w-32 truncate" title={modelLabel}>
+                      {modelLabel}
+                    </span>
+                  )}
+                  {runtimeUsageLabel && (
+                    <span
+                      className="max-w-28 truncate"
+                      title={runtimeUsageLabel}
                     >
-                      {task.status === "in_progress" &&
-                      task.latestMessage &&
-                      hasToolCalls(task.latestMessage)
-                        ? explainLastToolCall(task.latestMessage, t)
-                        : t.subtasks[task.status]}
-                    </FlipDisplay>
-                  </div>
-                )}
+                      {runtimeUsageLabel}
+                    </span>
+                  )}
+                  {collapsed && (
+                    <>
+                      {icon}
+                      <FlipDisplay
+                        className="max-w-[420px] truncate pb-1"
+                        uniqueKey={task.latestMessage?.id ?? ""}
+                      >
+                        {task.status === "in_progress" &&
+                        task.latestMessage &&
+                        hasToolCalls(task.latestMessage)
+                          ? explainLastToolCall(task.latestMessage, t)
+                          : t.subtasks[task.status]}
+                      </FlipDisplay>
+                    </>
+                  )}
+                </div>
                 <ChevronUp
                   className={cn(
                     "text-muted-foreground size-4 shrink-0",
@@ -446,6 +459,30 @@ export function SubtaskCard({
             </div>
           </Button>
         </div>
+        {observation && (
+          <div className="text-muted-foreground space-y-1 border-t px-4 py-2 text-xs">
+            <p>{observationCopy.note}</p>
+            <p>
+              {observationCopy.parent}:{" "}
+              {observation.parent
+                ? observation.parent.usage.total_tokens.toLocaleString(locale)
+                : observationCopy.unknown}
+            </p>
+            {observation.workers.map((worker, index) => (
+              <p key={worker.session_id_hash}>
+                {observationCopy.worker} {index + 1}:{" "}
+                {worker.usage.total_tokens.toLocaleString(locale)}
+              </p>
+            ))}
+            <p>
+              {observationCopy.coverage(
+                observation.workers.length,
+                observation.worker_count,
+              )}
+            </p>
+            {observation.partial && <p>{observationCopy.partial}</p>}
+          </div>
+        )}
         <ChainOfThoughtContent className="max-h-[65vh] overflow-y-auto overscroll-contain px-4 pr-2 pb-4">
           {task.prompt && (
             <ChainOfThoughtStep
@@ -490,6 +527,7 @@ export function SubtaskCard({
                 hideDetailsLabel={t.subtasks.hideStepDetails}
                 toolInputLabel={t.subtasks.toolInput}
                 toolOutputLabel={t.subtasks.toolOutput}
+                previewLabel={t.common.preview}
               />
             );
           })}
@@ -506,6 +544,7 @@ export function SubtaskCard({
                       content={task.result}
                       isLoading={false}
                       rehypePlugins={rehypePlugins}
+                      components={threadMarkdownComponents}
                     />
                   ) : null
                 }

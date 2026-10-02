@@ -15,7 +15,12 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 28
+config_version: 31
+
+# Per-model request_admission RPM pacing is deferred in the dmdb 2026-09-30
+# merge: its typed config and model-factory hook are not implemented here.
+# Do not configure it as an effective limit. Existing stream-admission controls
+# remain independent. See backend/docs/ENTERPRISE_MERGE_20260930.md.
 
 # ============================================================================
 # Logging
@@ -818,6 +823,11 @@ tools:
   #   group: web
   #   use: deerflow.community.tavily.tools:web_search_tool
   #   max_results: 5
+  #   # Optional deployment-side source filters. Omit or use [] for no restriction.
+  #   # include_domains:
+  #   #   - docs.python.org
+  #   #   - developer.mozilla.org
+  #   # exclude_domains: []
   #   # api_key: $TAVILY_API_KEY  # Set if needed
 
   # Web search tool (uses InfoQuest, requires InfoQuest API key)
@@ -1070,8 +1080,8 @@ tool_search:
 # ============================================================================
 # Prevents oversized tool results from blowing the model context window.
 # Outputs exceeding `externalize_min_chars` are persisted to disk and replaced
-# with a compact preview + file reference. The model can read the full output
-# via read_file.  When disk persistence is unavailable, outputs exceeding
+# with a compact typed synopsis + file reference. The model can read the full output
+# via read_file. When disk persistence is unavailable, outputs exceeding
 # `fallback_max_chars` are head+tail truncated instead.
 #
 # `exempt_tools` prevents persist→read→persist infinite loops for read tools.
@@ -1080,6 +1090,8 @@ tool_search:
 tool_output:
   enabled: true
   externalize_min_chars: 12000
+  # Sampling budget for the inline raw head/tail sample appended to every
+  # typed synopsis; ignored for binary-like output, which carries its own sample.
   preview_head_chars: 2000
   preview_tail_chars: 1000
   fallback_max_chars: 30000
@@ -1260,6 +1272,8 @@ sandbox:
   # Tool output truncation limits (characters).
   # bash uses middle-truncation (head + tail) since errors can appear anywhere in the output.
   # read_file and ls use head-truncation since their content is front-loaded.
+  # A read_file cut prefers a complete line and names the exact next start_line,
+  # so long files can be paged without gaps, overlaps, or continuation loops.
   # Set to 0 to disable truncation.
   bash_output_max_chars: 20000
   read_file_output_max_chars: 50000
@@ -1497,6 +1511,7 @@ sandbox:
 #     description: Claude Code for implementation, refactoring, and debugging
 #     model: null
 #     # auto_approve_permissions: false  # Set to true to auto-approve ACP permission requests
+#     # timeout_seconds: 1800            # Abort + kill the subprocess if it doesn't respond in time (default: 1800 = 30 min)
 #     # env:                             # Optional: inject environment variables into the agent subprocess
 #     #   ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY  # $VAR resolves from host environment
 #
@@ -1541,8 +1556,10 @@ skills:
 # Native deterministic skill safety scanning. This runs before the LLM skill
 # scanner on skill install/update and agent-managed skill writes.
 skill_scan:
-  # Set false to disable the new deterministic analyzers. Safe archive
-  # extraction and the LLM skill scanner still run.
+  # Set false to disable the new deterministic analyzers (nested-archive,
+  # secret-pattern, and other content-level checks). Safe archive extraction
+  # (path traversal, symlinks, executable-binary, total-size, and entry-count
+  # limits) and the LLM skill scanner still run unconditionally.
   enabled: true
 
 # Note: To restrict which skills are loaded for a specific custom agent,

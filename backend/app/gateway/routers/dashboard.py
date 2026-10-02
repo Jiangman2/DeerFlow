@@ -1760,7 +1760,7 @@ async def get_dashboard_summary(
         except DashboardQueryBusy as exc:
             raise HTTPException(
                 status_code=429,
-                detail="看板统计正在生成，请稍后重试；正常对话和数字员工服务不受影响。",
+                detail="看板统计正在生成，请稍后重试；正常对话和岗位专家服务不受影响。",
                 headers={"Retry-After": "2"},
             ) from exc
         except DashboardRollupsNotReady as exc:

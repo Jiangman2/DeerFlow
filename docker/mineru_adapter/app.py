@@ -19,8 +19,8 @@ import tempfile
 import threading
 import time
 import uuid
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from email.parser import BytesParser
@@ -59,6 +59,7 @@ _NATIVE_IMAGE_DATA_RE = re.compile(
 _IMAGE_EXTENSIONS = {
     "image/bmp": "bmp",
     "image/gif": "gif",
+    "image/jp2": "jp2",
     "image/jpeg": "jpg",
     "image/jpg": "jpg",
     "image/png": "png",
@@ -68,6 +69,7 @@ _IMAGE_EXTENSIONS = {
 _IMAGE_MIME_BY_SUFFIX = {
     ".bmp": "image/bmp",
     ".gif": "image/gif",
+    ".jp2": "image/jp2",
     ".jpeg": "image/jpeg",
     ".jpg": "image/jpeg",
     ".png": "image/png",
@@ -75,6 +77,7 @@ _IMAGE_MIME_BY_SUFFIX = {
     ".tiff": "image/tiff",
     ".webp": "image/webp",
 }
+_IMAGE_INPUT_SUFFIXES = frozenset(_IMAGE_MIME_BY_SUFFIX)
 _MULTILINGUAL_FIGURE_CAPTION_RE = re.compile(
     r"^(?:(?:Figure|Fig\.?)\s+\d+(?:[.\-]\d+)*|(?:图表|图)\s*[A-Za-z]?\s*\d+(?:[.\-—]\d+)*)\b",
     re.IGNORECASE,
@@ -1429,9 +1432,23 @@ def _detect_legacy_office_suffix(content: bytes) -> str:
 
 
 def detect_input_suffix(content: bytes, filename: str | None = None) -> str:
-    """Identify the supported document type without trusting the filename."""
+    """Identify a supported document or raster image from trusted magic bytes."""
     if content.startswith(b"%PDF-"):
         return ".pdf"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if content.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    if content.startswith((b"GIF87a", b"GIF89a")):
+        return ".gif"
+    if content.startswith(b"BM"):
+        return ".bmp"
+    if content.startswith((b"II*\x00", b"MM\x00*")):
+        return ".tiff"
+    if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return ".webp"
+    if content.startswith(b"\x00\x00\x00\x0cjP  \r\n\x87\n"):
+        return ".jp2"
     if content.startswith(bytes.fromhex("D0CF11E0A1B11AE1")):
         hinted_suffix = Path(filename or "").suffix.lower()
         try:
@@ -1453,7 +1470,9 @@ def detect_input_suffix(content: bytes, filename: str | None = None) -> str:
                     return ".docx"
         except zipfile.BadZipFile:
             pass
-    raise ValueError("Only PDF, DOC, DOCX, PPT, and PPTX files are supported")
+    raise ValueError(
+        "Only PDF, DOC, DOCX, PPT, PPTX, BMP, GIF, JP2, JPEG, PNG, TIFF, and WEBP files are supported"
+    )
 
 
 def _terminate_process_group(
@@ -1932,10 +1951,11 @@ class EnterpriseMinerUClient:
             HTTPStatus.GATEWAY_TIMEOUT,
         }
 
-    def _parse_pdf_sync_single(
+    def _parse_file_sync_single(
         self,
-        pdf: bytes,
+        content: bytes,
         filename: str,
+        media_type: str,
     ) -> dict[str, Any]:
         for attempt in range(self.sync_transient_retries + 1):
             started = time.monotonic()
@@ -1944,7 +1964,7 @@ class EnterpriseMinerUClient:
                     self.api_url,
                     headers=self._headers(),
                     files={
-                        "files": (filename, pdf, "application/pdf"),
+                        "files": (filename, content, media_type),
                     },
                     data=self._request_data(),
                     timeout=self.timeout_seconds,
@@ -1970,6 +1990,13 @@ class EnterpriseMinerUClient:
                 if delay:
                     time.sleep(delay)
         raise AssertionError("unreachable MinerU synchronous retry state")
+
+    def _parse_pdf_sync_single(
+        self,
+        pdf: bytes,
+        filename: str,
+    ) -> dict[str, Any]:
+        return self._parse_file_sync_single(pdf, filename, "application/pdf")
 
     def _parse_pdf_sync(self, pdf: bytes, filename: str) -> dict[str, Any]:
         maximum_pages = _int_env("MINERU_SYNC_MAX_PAGES_PER_REQUEST", 20)
@@ -2012,12 +2039,17 @@ class EnterpriseMinerUClient:
             }
         }
 
-    def _parse_pdf_async(self, pdf: bytes, filename: str) -> dict[str, Any]:
+    def _parse_file_async(
+        self,
+        content: bytes,
+        filename: str,
+        media_type: str,
+    ) -> dict[str, Any]:
         deadline = time.monotonic() + self.timeout_seconds
         submission = self.session.post(
             self.tasks_url,
             headers=self._headers(),
-            files={"files": (filename, pdf, "application/pdf")},
+            files={"files": (filename, content, media_type)},
             data=self._request_data(),
             timeout=min(self.timeout_seconds, 120),
         )
@@ -2151,10 +2183,34 @@ class EnterpriseMinerUClient:
             result_payload = self._task_fields(decoded_result)
             return self._validate_result(result_payload)
 
+    def _parse_pdf_async(self, pdf: bytes, filename: str) -> dict[str, Any]:
+        return self._parse_file_async(pdf, filename, "application/pdf")
+
+    def parse_file(
+        self,
+        content: bytes,
+        filename: str,
+        media_type: str,
+    ) -> dict[str, Any]:
+        if self.request_mode == "async":
+            return self._parse_file_async(content, filename, media_type)
+        return self._parse_file_sync_single(content, filename, media_type)
+
     def parse_pdf(self, pdf: bytes, filename: str) -> dict[str, Any]:
         if self.request_mode == "async":
             return self._parse_pdf_async(pdf, filename)
         return self._parse_pdf_sync(pdf, filename)
+
+    def parse_image(
+        self,
+        content: bytes,
+        filename: str,
+        suffix: str,
+    ) -> dict[str, Any]:
+        media_type = _IMAGE_MIME_BY_SUFFIX.get(suffix)
+        if media_type is None:
+            raise ValueError(f"Unsupported MinerU image suffix: {suffix}")
+        return self.parse_file(content, filename, media_type)
 
 
 def _block_content(block: dict[str, Any]) -> str:
@@ -2490,6 +2546,19 @@ def parse_upload(
 ) -> dict[str, Any]:
     """Preserve searchable documents locally and OCR image-dominated input."""
     suffix = detect_input_suffix(content, filename)
+    if suffix in _IMAGE_INPUT_SUFFIXES:
+        canonical_filename = f"{Path(filename).stem or 'image'}{suffix}"
+        mineru_timeout_seconds = int(os.getenv("MINERU_TIMEOUT_SECONDS", "600"))
+        parsed = EnterpriseMinerUClient(
+            api_url=os.environ["MINERU_API_URL"],
+            api_token=os.environ["MINERU_API_TOKEN"],
+            timeout_seconds=mineru_timeout_seconds,
+        ).parse_image(content, canonical_filename, suffix)
+        markdown, images = mineru_pages_to_markdown(
+            parsed,
+            filename=canonical_filename,
+        )
+        return weknora_response(markdown, images)
     decision: PDFRoutingDecision | None = None
     searchable_document = suffix in {".pdf", ".doc", ".docx"}
     native_word: tuple[str, dict[str, str]] | None = None

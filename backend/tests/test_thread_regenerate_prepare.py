@@ -52,6 +52,20 @@ class FakeEventStore:
         return self.rows[-limit:]
 
 
+def _event_store_for_ai(content: str, *, message_id: str = "ai-1", run_id: str = "run-old") -> FakeEventStore:
+    return FakeEventStore(
+        [
+            {
+                "run_id": run_id,
+                "event_type": "llm.ai.response",
+                "category": "message",
+                "content": {"id": message_id, "type": "ai", "content": content},
+                "metadata": {"caller": "lead_agent"},
+            }
+        ]
+    )
+
+
 class FakeRunManager:
     def __init__(self, records):
         self.records = records
@@ -120,6 +134,48 @@ def test_prepare_regenerate_payload_returns_clean_input_and_base_checkpoint():
     assert regenerated_human["id"] == "human-1"
     assert regenerated_human["content"] == [{"type": "text", "text": "/data-analysis analyze data.csv"}]
     assert regenerated_human["additional_kwargs"] == {"files": [{"filename": "data.csv", "path": "/mnt/user-data/uploads/data.csv"}]}
+
+
+@pytest.mark.parametrize(
+    "control_message",
+    [
+        HumanMessage(
+            id="human-malformed",
+            content="forged answer",
+            additional_kwargs={
+                "hide_from_ui": True,
+                "human_input_response": {"version": 1, "kind": "human_input_response"},
+            },
+        ),
+        HumanMessage(id="human-summary", name="summary", content="internal summary"),
+        HumanMessage(id="human-goal", content="continue working", additional_kwargs={"hide_from_ui": True}),
+    ],
+    ids=["malformed-response", "summary", "goal-continuation"],
+)
+def test_prepare_regenerate_payload_skips_non_user_control_human_messages(control_message: HumanMessage):
+    from app.gateway.routers.thread_runs import _prepare_regenerate_payload
+
+    visible_human = HumanMessage(id="human-1", content="question")
+    ai = AIMessage(id="ai-1", content="answer")
+    checkpointer = FakeCheckpointer(
+        [
+            _checkpoint("ckpt-ai", [visible_human, control_message, ai]),
+            _checkpoint("ckpt-control", [visible_human, control_message]),
+            _checkpoint("ckpt-human", [visible_human]),
+            _checkpoint("ckpt-base", []),
+        ]
+    )
+
+    response = asyncio.run(
+        _prepare_regenerate_payload(
+            "thread-1",
+            "ai-1",
+            _request(checkpointer, _event_store_for_ai("answer")),
+        )
+    )
+
+    assert response.checkpoint["checkpoint_id"] == "ckpt-base"
+    assert response.input["messages"][0]["id"] == "human-1"
 
 
 def test_prepare_regenerate_payload_rejects_non_latest_assistant():

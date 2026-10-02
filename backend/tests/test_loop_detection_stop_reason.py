@@ -25,6 +25,26 @@ from langchain_core.messages import AIMessage
 
 from deerflow.runtime import RunContext, RunManager, RunStatus
 from deerflow.runtime.runs.worker import run_agent
+from deerflow.runtime.stream_bridge import StreamBridge
+
+
+def _make_stream_bridge():
+    # An unrestricted AsyncMock fabricates mock capability values. The worker
+    # needs real scalars before it can start the Agent's graph stream.
+    bridge = AsyncMock(spec=StreamBridge)
+    bridge.supports_batched_publish = False
+    bridge.max_publish_batch_size = 64
+    return bridge
+
+
+def test_stop_reason_bridge_uses_scalar_capabilities():
+    bridge = _make_stream_bridge()
+    assert type(bridge.supports_batched_publish) is bool
+    assert bridge.supports_batched_publish is False
+    assert type(bridge.max_publish_batch_size) is int
+    assert bridge.max_publish_batch_size == 64
+    with pytest.raises(AttributeError):
+        _ = bridge.nonexistent_bridge_capability
 
 
 @pytest.mark.asyncio
@@ -58,7 +78,7 @@ async def test_worker_surfaces_stop_reason_from_loop_detection():
 
             yield {"messages": [AIMessage(content="Done.")]}
 
-    bridge = AsyncMock()
+    bridge = _make_stream_bridge()
     bridge.publish = AsyncMock()
     bridge.publish_end = AsyncMock()
     bridge.cleanup = AsyncMock()
@@ -128,7 +148,7 @@ async def test_worker_surfaces_stop_reason_from_token_budget():
 
             yield {"messages": [AIMessage(content="Budget exceeded, wrapping up.")]}
 
-    bridge = AsyncMock()
+    bridge = _make_stream_bridge()
     bridge.publish = AsyncMock()
     bridge.publish_end = AsyncMock()
     bridge.cleanup = AsyncMock()
@@ -197,7 +217,7 @@ async def test_worker_surfaces_stop_reason_from_safety_finish_reason():
 
     run_manager = RunManager()
     record = await run_manager.create("thread-1")
-    bridge = AsyncMock()
+    bridge = _make_stream_bridge()
     bridge.publish = AsyncMock()
     bridge.publish_end = AsyncMock()
     bridge.cleanup = AsyncMock()
@@ -256,7 +276,7 @@ async def test_worker_surfaces_stop_reason_from_subagent_limit():
 
     run_manager = RunManager()
     record = await run_manager.create("thread-1")
-    bridge = AsyncMock()
+    bridge = _make_stream_bridge()
     bridge.publish = AsyncMock()
     bridge.publish_end = AsyncMock()
     bridge.cleanup = AsyncMock()

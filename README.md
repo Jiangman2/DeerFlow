@@ -1,5 +1,11 @@
 # 🦌 DeerFlow - 2.0
 
+The 7·16 enterprise branch's 2026-09-28 production source alignment and its
+rebuild limits are documented in
+[`release/production-build-alignment-20260928/README.md`](release/production-build-alignment-20260928/README.md).
+The captured WeKnora UI 0.8.0 source and two-stage production candidate build
+are under [`vendor/weknora-ui-20260913-r5/`](vendor/weknora-ui-20260913-r5/).
+
 English | [中文](./README_zh.md) | [日本語](./README_ja.md) | [Français](./README_fr.md) | [Русский](./README_ru.md)
 
 [![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](./backend/pyproject.toml)
@@ -105,6 +111,10 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
 
 ### Configuration
 
+Optional per-model [`request_admission`](backend/docs/CONFIGURATION.md#model-request-admission)
+paces calls against provider request-per-minute limits. It is disabled unless
+explicitly configured.
+
 1. **Clone the DeerFlow repository**
 
    ```bash
@@ -137,7 +147,7 @@ That prompt is intended for coding agents. It tells the agent to clone the repo 
    only, and does not include `.env`, raw conversation messages, or user file
    contents.
 
-   > **Advanced / manual configuration**: If you prefer to edit `config.yaml` directly, run `make config` instead to copy the full template. See `config.example.yaml` for the complete reference including CLI-backed providers (Codex CLI, Claude Code OAuth), OpenRouter, Responses API, subagent runtime caps such as `subagents.max_total_per_run`, and more.
+   > **Advanced / manual configuration**: If you prefer to edit `config.yaml` directly, run `make config` instead to copy the full template. Optional dependency auto-detection accepts UTF-8 configuration files with or without a byte-order mark (BOM), and installs the Ollama extra when a configured model uses `langchain_ollama`. See `config.example.yaml` for the complete reference including CLI-backed providers (Codex CLI, Claude Code OAuth), OpenRouter, Responses API, subagent runtime caps such as `subagents.max_total_per_run`, and more.
 
    <details>
    <summary>Manual model configuration examples</summary>
@@ -289,6 +299,14 @@ Use the table below as a practical starting point when choosing how to run DeerF
 
 #### Option 1: Docker (Recommended)
 
+For the separate Kubernetes PPT Bridge, keep its Alembic migration chain
+compatible with the shared database, including revisions supplied to Gateway
+by code overlays. The `ppt-master-runner` runtime profile skips global startup
+run recovery so restarting the bridge does not mark a live ordinary Gateway
+run with a NULL lease as failed. Stale PPT records are not automatically
+reclaimed by that guard; full multi-instance recovery still requires safe run
+ownership configuration.
+
 **Development** (hot-reload, source mounts):
 
 ```bash
@@ -300,15 +318,25 @@ make docker-start   # Start services (auto-detects sandbox mode from config.yaml
 
 In provisioner mode, values declared under `config.yaml -> sandbox.environment`
 are forwarded to sandbox commands through the sandbox API. This is the supported
-way to make configured media-provider variables available to PPT/image-generation
+way to make configured provider variables available to PPT, podcast, and music
 scripts; use an all-in-one-sandbox image with `/v1/bash/exec` support (1.9.3+).
-The bundled media skills use one `DASHSCOPE_API_KEY` by default: Qwen Image
-(`qwen-image-2.0-pro`), Wan video (`wan2.7-t2v`), Qwen-TTS
-(`qwen3-tts-flash`), and Fun-Music (`fun-music-v1`). Image generation does not
-fall back to Gemini; MiniMax is available only when explicitly selected for
-compatibility. Video, podcast, and music keep their documented provider-specific
-compatibility paths. The Fun-Music model requires separate Model Gallery access
-in China (Beijing).
+
+Image and video generation can instead be exposed as Gateway-local tools by
+setting `DEERFLOW_IMAGE_GENERATION_API_URL` and/or
+`DEERFLOW_VIDEO_GENERATION_API_URL`. The image endpoint uses the documented
+OpenAI-style `b64_json` response. The video endpoint uses a durable asynchronous
+job ID, bounded polling, and `/content` MP4 download. Generated files are
+validated, written atomically into the current thread's outputs, and published
+without a Sandbox shell command. The clients use `trust_env=false`, reject
+unsafe reference URLs, and never make an arbitrary download host trusted; add a
+known result host explicitly with `DEERFLOW_VIDEO_GENERATION_DOWNLOAD_HOSTS`.
+The optional `DEERFLOW_MEDIA_GENERATION_API_KEY` is sent only as a Bearer token
+to those operator-configured endpoints.
+
+The remaining bundled provider scripts use `DASHSCOPE_API_KEY` by default for
+Qwen-TTS (`qwen3-tts-flash`) and Fun-Music (`fun-music-v1`). The vendored PPT
+workflow retains its own image-provider contract. The Fun-Music model requires
+separate Model Gallery access in China (Beijing).
 
 Shared or production AIO deployments should also set
 `sandbox.sandbox_api_key: $SANDBOX_API_KEY` and inject the same secret into each
@@ -459,6 +487,9 @@ On Windows, run the local development flow from Git Bash. Native `cmd.exe` and P
    make setup-sandbox
    ```
 
+   The helper reads the configured sandbox image from UTF-8 `config.yaml`
+   with or without a leading BOM and with LF or CRLF line endings.
+
 4. **(Optional) Load sample memory data for local review**:
 
    ```bash
@@ -490,7 +521,7 @@ DeerFlow runs the agent runtime inside the Gateway API. Development mode enables
 | **Stop**    | `./scripts/serve.sh --stop`<br/>`make stop` | `./scripts/docker.sh stop`<br/>`make docker-stop` | `./scripts/deploy.sh down`<br/>`make down` |
 | **Restart** | `./scripts/serve.sh --restart [flags]`      | `./scripts/docker.sh restart`                     | —                                          |
 
-Gateway owns `/api/langgraph/*` and translates those public LangGraph-compatible paths to its native `/api/*` routers behind nginx.
+Gateway owns `/api/langgraph/*` and translates those public LangGraph-compatible paths to its native `/api/*` routers behind nginx. The maintained proxies accept bounded long JSON prompts on this route and disable request-body buffering, avoiding raw nginx failures caused by temporary-file spooling.
 
 #### Docker Production Deployment
 
@@ -535,6 +566,10 @@ See the [MCP Server Guide](backend/docs/MCP_SERVER.md) for detailed instructions
 DeerFlow supports receiving tasks from messaging apps. Channels auto-start when configured — no public IP required for any of them.
 
 DeerFlow can also expose user-owned IM channel connections in the workspace UI. When `channel_connections` is enabled, logged-in users can bind Telegram, Slack, Discord, Feishu/Lark, DingTalk, WeChat, or WeCom from the sidebar / Settings > Channels. It reuses the existing outbound `channels.*` transports, so no public IP or provider callback URL is required. Incoming IM messages then run under the connected DeerFlow user account. See [IM Channel Connections](backend/docs/IM_CHANNEL_CONNECTIONS.md) for setup and security notes.
+
+If Gateway shutdown or startup cancellation interrupts IM-channel activation, DeerFlow now drains the partial `ChannelService` rollback before propagating the cancellation. This prevents an interrupted startup from leaving orphaned channel workers or a half-initialized global service.
+
+Gateway shutdown also keeps the bounded in-flight RunManager drain alive across repeated cancellation. The checkpointer and database engines therefore cannot close underneath runs that are still writing their terminal state; the first cancellation is propagated after the drain reaches a safe terminal boundary.
 
 Administrators can create, schedule, publish, and archive workspace announcements from Settings > Announcement Management. The active announcement is shown to signed-in users as a prominent animated workspace card; severity, display window, and whether users may dismiss it are configurable.
 
@@ -965,9 +1000,17 @@ Sandboxes, the PPT-capable image also aligns the outer authentication proxy's
 idle timeout with the bounded command transport; this prevents false 504s on
 long image-generation commands while retaining the client hard timeout.
 
+A skill directory is a package boundary: once DeerFlow finds its `SKILL.md`, nested `SKILL.md` files under that package (for example evaluation fixtures) remain supporting data and are not registered as runtime skills. Namespace directories without their own `SKILL.md` can still group nested skills.
+
+Users can explicitly activate an enabled skill for a single turn by starting the request with `/skill-name`, for example `/data-analysis analyze uploads/foo.csv`. DeerFlow loads that skill's `SKILL.md` as hidden current-turn context while leaving the base prompt limited to skill metadata. Slash activation respects disabled skills, custom-agent skill whitelists, and existing channel commands such as `/new` and `/help`.
+
+The September 30 test-environment merge retains the verified production lead-agent behavior: merely discoverable default-agent skills do not statically narrow its tools; custom/bootstrap agents with a finite skill allowlist retain construction-time `allowed-tools` filtering. Slash activation still loads enabled, agent-allowed Skill instructions and preserves their workflow and secret-binding behavior. Activation-scoped model-schema and tool-execution enforcement is deferred because the incoming middleware and tests lack their matching context helpers and execution-chain integration. Do not describe that deferred enforcement as active or as an authorization boundary. See [the merge deferral record](docs/enterprise-merge-20260930-deferred-skill-policy.md).
+
 When you install `.skill` archives through the Gateway, DeerFlow accepts standard optional frontmatter metadata such as `version`, `author`, and `compatibility` instead of rejecting otherwise valid external skills.
 
-Skill installs and agent-managed skill edits run through **SkillScan**, a native deterministic safety scanner before the LLM-based skill scanner. Phase 1 runs offline with no Semgrep/OpenGrep dependency, blocks high-confidence `CRITICAL` findings such as private keys or shell execution, and passes warning findings to the LLM scanner for contextual review. Set `skill_scan.enabled: false` in `config.yaml` to disable only the deterministic analyzers; safe archive extraction and the LLM scanner still run.
+If a trusted operator manages the configured skills directory through an external mount such as MinIO, NFS, or CSI, an administrator can call `POST /api/skills/reload` after changing files. This invalidates skill prompt caches for the current Gateway process and waits up to the bounded refresh timeout so subsequent runs rescan the latest files; running tasks are unchanged. A loader-level filesystem failure returns a generic server error and preserves the last successfully loaded process cache rather than publishing an empty catalog. Uvicorn workers and Kubernetes Pods must each be targeted separately. Direct mount writes bypass the validation, SkillScan, and history applied by DeerFlow's install/edit APIs, so only operator-controlled systems should have write access.
+
+Skill installs and agent-managed skill edits run through **SkillScan**, a native deterministic safety scanner before the LLM-based skill scanner. Phase 1 runs offline with no Semgrep/OpenGrep dependency, blocks high-confidence `CRITICAL` findings such as private keys, shell execution, or bulk environment data flowing through a proven outbound network client, and passes warning findings to the LLM scanner for contextual review. Package review is byte-faithful: binary files are scanned, non-UTF-8/NUL-bearing scripts cannot hide behind binary classification, archive names cannot smuggle NTFS alternate data streams, and missing or colliding snapshot content fails closed. Python instance-client checks use a bounded same-scope evidence chain from a proven imported constructor through simple-name aliases to a supported outbound method or context-manager use. Bare canonical-looking names are not inferred as modules; ambiguous flows and unsupported constructs remain documented false negatives rather than producing unsafe guesses. Set `skill_scan.enabled: false` in `config.yaml` to disable only the deterministic analyzers; safe archive extraction and the LLM scanner still run.
 
 Set `skill_evolution.enabled: true` to let the bundled `skill-creator` persist
 agent-authored skills through `skill_manage`. Each authenticated user's skills
@@ -985,6 +1028,11 @@ uv run python -m deerflow.skills.review.cli ../skills/public/data-analysis --for
 ```
 
 Tools follow the same philosophy. DeerFlow comes with a core toolset — web search, web fetch, rendered web capture, file operations, bash execution — and supports custom tools via MCP servers and Python functions. Swap anything. Add anything.
+
+Tavily search accepts operator-configured `include_domains` and
+`exclude_domains` source filters without exposing them to the model. Tavily
+search and fetch also resolve credentials from their own tool entries, with
+`TAVILY_API_KEY` as the fallback for either tool.
 
 Enterprise deployments can also enable three CNOOC DataLake tools:
 `datalake_smart_qa` calls the internal Retrieve API and returns ranked narrative
@@ -1047,6 +1095,11 @@ open list dialog, and prevents all three DataLake tools from being assembled or
 contacted for each run. Existing attachments remain part of their
 conversations, and the choice is carried into normal, regenerated,
 custom-agent, and branched runs.
+
+Regenerating an answer after a Human Input clarification now replays the latest
+protocol-validated card response instead of falling back to an earlier visible
+question. The response stays hidden in the transcript and retains its request
+correlation metadata; unrelated hidden or control messages are never replayed.
 
 Gateway-generated follow-up suggestions now normalize both plain-string model output and block/list-style rich content before parsing the JSON array response, so provider-specific content wrappers do not silently drop suggestions.
 
@@ -1165,9 +1218,17 @@ are needed.
 
 Complex tasks rarely fit in a single pass. DeerFlow decomposes them.
 
+If Stop interrupts a delegated task before it can return a reply, the next
+user turn marks that earlier task as cancelled in durable context so the lead
+agent can delegate it again. Existing replies are preserved. Legacy replies
+without structured status metadata may remain `in_progress`; DeerFlow does not
+guess their outcome from reply text.
+
 The lead agent can spawn sub-agents on the fly — each with its own scoped context, tools, and termination conditions. Sub-agents run in parallel when possible, report back structured results, and the lead agent synthesizes everything into a coherent output. Their internal AI and tool messages stay scoped to the delegated graph instead of entering the parent chat stream. Long-running sub-agents compact older history when summarization is enabled and re-inject the summary as guarded, hidden durable context before continuing, so recent assistant/tool activity remains grounded in the task. Provider/model request failures are reported as failed sub-agent tasks rather than successful results, so the lead agent and Web UI can react to them correctly. Collapsed sub-agent cards show the effective model and, when the provider returns usage metadata, a cumulative token total that updates after each completed sub-agent LLM call and persists after a reload. When token usage tracking is enabled, completed sub-agent usage is also attributed back to the dispatching step.
 
 This is how DeerFlow handles tasks that take minutes to hours: a research task might fan out into a dozen sub-agents, each exploring a different angle, then converge into a single report — or a website — or a slide deck with generated visuals. One harness, many hands.
+
+Content-less sub-agent final messages report `No response generated` instead of the literal text `None`. A content-less provider-error fallback reports its structured error detail when available.
 
 ### Sandbox & File System
 
@@ -1196,11 +1257,21 @@ presentation templates rather than converted through the document parser.
 When `WEKNORA_MINERU_ENDPOINT` is configured, conversation PDF, DOC/DOCX, PPT,
 and PPTX uploads reuse that same enterprise parser without creating a
 knowledge-base record. The Gateway keeps the original document and writes a
-same-stem Markdown companion for the current task. Searchable PDFs and Word
-documents use the adapter's native path, scanned PDFs use enterprise OCR, and
-presentations use its presentation conversion path. Word native content is
-merged only after its mandatory visual PDF and page-evidence path succeeds, so
-the adapter never labels a text-only result as visually complete. Set
+same-stem Markdown companion for the current task. Searchable PDFs retain their
+native route, scanned PDFs use enterprise OCR, and presentations use the strict
+presentation route. Markdown companions with or without a leading UTF-8 BOM
+produce identical outlines and fallback previews; the original file bytes,
+physical heading line numbers, and embedded U+FEFF characters remain unchanged.
+Interactive DeerFlow DOCX attachments use pinned local
+AnyDoc first. Ordinary WeKnora knowledge-base documents retain their explicit
+parser rules, while only structurally large knowledge-base DOCX may use the
+same bounded AnyDoc fast path. Large DOCX bypasses `StdMarkitdownParser` for
+the official DocReader v0.8 native parser and has an isolated low-memory text
+recovery for files that reach AnyDoc's XML-node safety limit; that limit is
+never weakened. LibreOffice and MinerU remain bounded fallbacks, and legacy DOC
+remains native-first. An explicitly enabled visual
+supplement remains best-effort and cannot invalidate recovered native text,
+tables, and images. Set
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED=false` to disable this bridge, or
 override its base URL with
 `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`. The older
@@ -1440,6 +1511,13 @@ chooses another language. Existing summaries and facts written in another
 language are normalized on the next eligible background memory update without
 changing their identity or provenance. Memory updates are debounced, so the
 Settings page may update shortly after a conversation rather than immediately.
+
+During graceful Gateway shutdown, configuration lookup, memory-backend lookup,
+and the bounded pending-update flush run off the event loop as one owned drain.
+Repeated lifespan cancellation waits for that drain before propagating, so a
+rolling restart cannot detach a still-running memory worker from process
+teardown. Keep the configured flush budget plus surrounding shutdown work
+inside Kubernetes `terminationGracePeriodSeconds`.
 
 ### Knowledge Base SSO
 
@@ -1685,16 +1763,27 @@ All dict-returning methods are validated against Gateway Pydantic response model
 
 DeerFlow now includes a first-class scheduled-task MVP in the workspace.
 
+Editing a one-time task's title or prompt preserves its original execution time,
+including seconds and the selected occurrence during a daylight-saving clock
+rollback. Changing its date, time, or timezone recalculates the execution time;
+switching tasks loads the selected task's own draft and schedule.
+
 Current MVP capabilities:
 
 - Manage tasks at `/workspace/scheduled-tasks`
+- Search the currently authorized task list by title or prompt, composed with
+  thread, status, and schedule-type filters.
+- Reject one-time local times skipped by daylight-saving transitions before a
+  task can be created or saved.
 - Choose whether each scheduled task reuses a thread or creates a fresh thread per run
 - Support `once` and `cron` schedules
 - Preserve the selected model, mode, reasoning, subagent, and knowledge-base scope for every scheduled execution
 - Select or edit the execution model per task; when configured, enterprise task creation defaults to `deepseek-v4-flash`
 - Run background scheduled executions as non-interactive DeerFlow runs (`ask_clarification` is not exposed there)
-- Use `skip` overlap behavior for due cron executions that collide with an active run on the same reused thread
-- Pause, resume, trigger, inspect history, and delete tasks
+- Persist overlapping occurrences in a durable queue, enforce one active occurrence per task, and expire entries that exceed `scheduler.queue_timeout_seconds`
+- Apply the same global `scheduler.max_concurrent_runs` budget to scheduled and manual triggers, including concurrent claims in SQLite development and validation environments
+- Pause, resume, trigger, duplicate, inspect paginated history, and delete tasks
+- Optionally run multiple scheduler instances safely with database-backed leases and atomic completion bookkeeping
 - Execute scheduled work through the normal DeerFlow run lifecycle
 
 Scheduled execution is deliberately **non-interactive**: after a run starts, it cannot pause to ask the user a question, wait for confirmation, or collect temporary input. It is a good fit for fully specified recurring summaries, fixed-scope analysis, monitoring checks, and report generation. It is not a good fit for work that needs one-time codes, runtime uploads, temporary authorization, human approval, risk confirmation, dynamic choices, or iterative review. Move those inputs and approvals ahead of the run, or use a normal interactive thread instead.
@@ -1799,6 +1888,9 @@ While an Agent turn is active, the runner also holds a cross-process filesystem
 execution lease. Gateway warm-pool and explicit-destroy paths must obtain the
 exclusive side of that lease before deleting the Sandbox, so an idle/capacity
 decision in another Gateway process cannot terminate a live PPT task.
+The shared and exclusive sides open the lease file read-write with append
+semantics: Linux rejects `LOCK_SH` on a write-only descriptor, while opening an
+existing lease must never truncate it.
 Agent progress is normalized to the same plain message-dictionary contract used
 by durable `task_*` events before it reaches the stream and event store; live
 LangChain message objects never cross that transport boundary. The isolated

@@ -1,4 +1,13 @@
-const EXTERNAL_AGENT_KEYS = [
+const CNOOCCLAW_EXTERNAL_AGENT_KEYS = [
+  "zywdjxzj",
+  "qqyjbgbxzj",
+  "zjbgjszj",
+  "zdsczj",
+  "dzsjtpzj",
+  "yjzs",
+] as const;
+
+const LEGACY_EXTERNAL_AGENT_KEYS = [
   "zywdjxzj",
   "qqyjbgbxzj",
   "zjbgjszj",
@@ -24,14 +33,17 @@ export function resolveExternalAgentLaunchHref(
     const url = new URL(value);
     const key = url.pathname.replace(/^\/+|\/+$/g, "");
     const hostname = url.hostname.toLowerCase();
-    const isApprovedAgent = EXTERNAL_AGENT_KEYS.some(
+    const isApprovedCnoocClawAgent = CNOOCCLAW_EXTERNAL_AGENT_KEYS.some(
+      (candidate) => candidate === key,
+    );
+    const isApprovedLegacyAgent = LEGACY_EXTERNAL_AGENT_KEYS.some(
       (candidate) => candidate === key,
     );
 
     if (
       url.protocol === "https:" &&
       hostname === CNOOCCLAW_EXTERNAL_AGENT_HOST &&
-      isApprovedAgent
+      isApprovedCnoocClawAgent
     ) {
       return value;
     }
@@ -39,7 +51,7 @@ export function resolveExternalAgentLaunchHref(
     if (
       url.protocol === "https:" &&
       hostname === LEGACY_EXTERNAL_AGENT_HOST &&
-      isApprovedAgent
+      isApprovedLegacyAgent
     ) {
       return `/api/cnooc/external-agents/${key}/launch`;
     }

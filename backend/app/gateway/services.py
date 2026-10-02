@@ -399,6 +399,7 @@ def inject_authenticated_user_context(
     request: Request,
     *,
     internal_owner_user: Any | None = None,
+    request_context: Mapping[str, Any] | None = None,
 ) -> None:
     """Stamp the authenticated user into the run context for background tools.
 
@@ -406,6 +407,28 @@ def inject_authenticated_user_context(
     that persist user-scoped files should not rely only on ambient ContextVars.
     The value comes from server-side auth state, never from client context.
     """
+
+    runtime_context = config.setdefault("context", {})
+    if not isinstance(runtime_context, dict):
+        raise TypeError("run context must be a mapping")
+
+    # AuthMiddleware owns provenance. Neither a body.config section nor an
+    # earlier merge of body.context may mint these authorization attributes.
+    is_internal = getattr(getattr(request, "state", None), "auth_source", None) == AUTH_SOURCE_INTERNAL
+    for section in ("context", "configurable"):
+        values = config.get(section)
+        if isinstance(values, dict):
+            for key in ("is_internal", "authz_attributes", "channel_user_id"):
+                values.pop(key, None)
+    runtime_context["is_internal"] = is_internal
+
+    # Only an authenticated internal IM request's top-level context is the
+    # platform-sender source. In particular, setdefault would let body.config
+    # win over it, and reusing merged context would lose that distinction.
+    if is_internal and isinstance(request_context, Mapping):
+        channel_user_id = request_context.get("channel_user_id")
+        if isinstance(channel_user_id, str) and channel_user_id:
+            runtime_context["channel_user_id"] = channel_user_id
 
     user = getattr(request.state, "user", None)
     user_id = getattr(user, "id", None)
@@ -608,6 +631,9 @@ def build_run_config(
     # general-purpose subagent's max_turns.
     config: dict[str, Any] = {"recursion_limit": _DEFAULT_RECURSION_LIMIT}
     if request_config:
+        request_configurable = request_config.get("configurable")
+        if request_configurable is None:
+            request_configurable = {}
         # LangGraph >= 0.6.0 introduced ``context`` as the preferred way to
         # pass thread-level data and rejects requests that include both
         # ``configurable`` and ``context``.  If the caller already sends
@@ -617,7 +643,7 @@ def build_run_config(
                 logger.warning(
                     "build_run_config: client sent both 'context' and 'configurable'; preferring 'context' (LangGraph >= 0.6.0). thread_id=%s, caller_configurable keys=%s",
                     thread_id,
-                    list(request_config.get("configurable", {}).keys()),
+                    list(request_configurable.keys()),
                 )
             context_value = request_config["context"]
             if context_value is None:
@@ -644,7 +670,7 @@ def build_run_config(
             config["configurable"] = {"thread_id": thread_id}
         else:
             configurable = {"thread_id": thread_id}
-            configurable.update(request_config.get("configurable", {}))
+            configurable.update(request_configurable)
             config["configurable"] = configurable
         for k, v in request_config.items():
             if k not in ("configurable", "context"):
@@ -890,7 +916,12 @@ async def start_run(
             # ``build_run_config``; scrub internal-only keys smuggled there.
             strip_internal_context_keys(config)
         internal_owner_user = await resolve_trusted_internal_owner_for_attribution(request, owner_user_id)
-        inject_authenticated_user_context(config, request, internal_owner_user=internal_owner_user)
+        inject_authenticated_user_context(
+            config,
+            request,
+            internal_owner_user=internal_owner_user,
+            request_context=getattr(body, "context", None),
+        )
         await inject_weknora_user_context(config, request, internal_owner_user=internal_owner_user)
 
         stream_modes = normalize_stream_modes(body.stream_mode)

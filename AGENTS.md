@@ -1,5 +1,15 @@
 # AGENTS.md
 
+The 2026-09-28 enterprise source alignment is documented in
+`release/production-build-alignment-20260928/README.md`. The running PPT Agent
+Host uses `vendor/ppt-master-v6.6.0/`; shared Skills retain their separate
+`skills/public/ppt-master/` content. Do not substitute one for the other when
+building the sandbox image.
+The WeKnora UI 0.8.0 frontend and R5 build inputs are under
+`vendor/weknora-ui-20260913-r5/`; apply the tracked R11 `sidebarlabels1`
+overlay to build a candidate for the 2026-09-18 production image. A matching
+ARM64 rebuild must pass the production OCI lock before claiming image identity.
+
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with code in this repository. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 
 It is the **monorepo orientation layer**: it maps the whole repo and points to the
@@ -59,6 +69,18 @@ After artifact read authorization succeeds, resolve the storage bucket from the
 trusted `threads_meta.user_id` owner record rather than the current viewer. This
 keeps owner and administrator read-only views on the same thread files while
 preventing a browser from selecting an arbitrary user bucket.
+Platform-managed `generate_image` and `generate_video` tools run in Gateway,
+not in the Sandbox. Register each tool only when its operator-owned endpoint is
+configured. Keep those clients direct (`trust_env=false`), redirect-disabled,
+bounded by response/download limits, and restricted to the current thread's
+outputs. Image generation accepts exactly one validated `b64_json` result.
+Video generation persists an idempotent asynchronous job ID, permits only
+current-thread local reference images or SSRF-screened public URLs, and trusts
+download URLs only from the configured API host or an explicit allowlist. Never
+silently resubmit an uncertain video job. Publish validated outputs atomically;
+serve audio/video artifacts with `FileResponse` so Gateway never buffers a
+large media file in memory. The public image/video Skills call these tools and
+must not bypass them with provider SDKs, shell commands, or direct HTTP.
 Conversation PDF/DOC/DOCX/PPT/PPTX uploads reuse the configured WeKnora/MinerU
 adapter to write a same-stem Markdown companion without creating
 knowledge-base records. Searchable and scanned PDFs retain their
@@ -112,6 +134,9 @@ registries. Hold a shared cross-process execution lease for the entire external
 Agent turn; every idle, capacity, unhealthy, explicit, and shutdown destruction
 path must obtain the corresponding non-blocking exclusive lease first. A busy
 Sandbox is deferred and remains tracked, never deleted from another process.
+Open that lease read-write without truncation: Linux `LOCK_SH` rejects a
+write-only descriptor, while destruction still needs `LOCK_EX` through the
+same helper.
 Replay the original Slash request and require current upstream authority reads
 on every Agent turn. Owning upstream commands must keep their real exit status:
 do not allow terminal output-truncation pipes or shell fallbacks to mask a
@@ -357,15 +382,18 @@ In the `k8s/local-pvc` stack, Nginx also serves WeKnora at
 service DNS name; never pin a ClusterIP, because recreating the cluster changes it.
 The DeerFlow knowledge page embeds that same-origin native workspace. Its SSO
 response assigns either the full `system_admin` presentation or the simplified
-`personal_workspace_owner` presentation (New Chat, Knowledge Bases, Shared
-Spaces, and Agents). Keep WeKnora configured to create the first personal workspace while
+`personal_workspace_owner` presentation (Knowledge Q&A, Knowledge Bases, Shared
+Spaces, and Custom Q&A). New SSO-provisioned accounts must use the deterministic
+32-character credential accepted by WeKnora 0.8; login must retain the exact
+pre-0.8 deterministic credential as a fallback so existing account hashes and
+workspaces remain usable without reset. Keep WeKnora configured to create the first personal workspace while
 disabling ordinary self-service creation of additional tenant workspaces;
 native RBAC, not UI hiding, remains the authorization boundary. The embedded
 page has no extra DeerFlow header. Entering it collapses DeerFlow's sidebar and
 expands WeKnora's sidebar once for both ordinary users and administrators; the
 native WeKnora toggle remains available afterwards so chat history stays
-reachable. Ordinary users see New Chat, Knowledge Bases, Shared Spaces, and
-Agents in the native sidebar; the global Publish Integrations navigation and
+reachable. Ordinary users see Knowledge Q&A, Knowledge Bases, Shared Spaces,
+and Custom Q&A in the native sidebar; the global Publish Integrations navigation and
 system settings remain hidden and the embedded
 user menu also hides logout. Their New Knowledge Base dialog exposes only Basic
 Information, while preserving all native knowledge-base type and indexing choices
@@ -378,14 +406,18 @@ When `TAVILY_API_KEY` is present, Gateway SSO also idempotently provisions a
 native default `DeerFlow Tavily` provider in every workspace the user owns or
 administers. The key must remain a runtime secret and must never be exposed in
 the browser or committed to Kubernetes manifests.
-The five built-in CNOOC external-agent cards open fixed same-origin paths below
-`cnoocclaw.cnooc.com.cn`: `/zywdjxzj/`, `/dzsjtpzj/`, `/zjbgjszj/`,
-`/zdsczj/`, and `/qqyjbgbxzj/`. In the `k8s/local-pvc` stack, Nginx validates
-the DeerFlow session with Gateway before proxying these paths to their private
-tool services. Preserve the exact path-to-upstream mapping, root-path rewrite,
-WebSocket headers, and login redirect; do not hardcode a Data Lake Token,
-expose private service addresses to browser JavaScript, or restore legacy
-`/agent-tools/*` browser proxies.
+The six built-in external-agent cards use their fixed same-origin HTTPS entry
+points under the active DeerFlow hostname (`cnoocclawtest.cnooc.com.cn` in test
+and `cnoocclaw.cnooc.com.cn` in production) directly. Keep those six aliases on a
+strict allowlist and do not rewrite them through the legacy launch API. Legacy
+`datalake.cnooc` card records may still use the server launch route under
+`/api/cnooc/external-agents/<agent>/launch`; that route reads the validated
+HttpOnly `cnooc.platform_token` cookie and redirects only to the five legacy canonical
+Data Lake paths, adding the current Token at redirect time. Keep `no-store` and
+`no-referrer` headers, server-only cookie access, and the exact Nginx launch
+prefix ahead of the general `/api/` Gateway catch-all. Never hardcode a Token,
+expose it to frontend JavaScript, or restore the legacy `/agent-tools/*`
+reverse proxies.
 
 The mobile H5 sub-application is the same workspace frontend opened by a
 trusted Android WebView or iOS WKWebView at `/workspace/chats/new`; it is not a
@@ -557,6 +589,8 @@ Scheduled-task note:
 - The scheduled-task MVP adds a workspace page at `/workspace/scheduled-tasks` plus a background scheduler service gated by `config.yaml -> scheduler.enabled`.
 - Scheduled background runs are intentionally non-interactive: they execute through the normal run lifecycle, but the lead-agent toolset excludes `ask_clarification` when `context.non_interactive=true`. The key is honored only for internally-authenticated callers (the scheduler launch path); client-supplied `context.non_interactive` is dropped.
 - Scheduled tasks persist an allowlisted run context (model, mode, reasoning, subagent, and WeKnora scope) and pass it through the normal Gateway run path. The creation UI prefers the enterprise `deepseek-v4-flash` model when available, lets users choose another configured model, and does not inherit later chat-page model changes. Never persist caller identity, internal execution flags, runtime-only credentials, or arbitrary client context on the task row.
+- Scheduled occurrences use durable `queued`/`launching`/`running` admission, one active occurrence per task, a global concurrency budget shared with manual triggers, and atomic terminal bookkeeping. Do not restore the former `skip` overlap default. Multi-instance mode is opt-in and requires PostgreSQL, database run events, and run-ownership heartbeats.
+- Scheduled occurrence history may be filtered by one canonical run status; apply the status in the repository query before limit/offset and keep the enterprise card/modal UI rather than replacing it with the upstream page layout.
 - Scheduled runs use `scheduler.recursion_limit` as their LangGraph super-step budget. The Gateway clamps it to the global `max_recursion_limit`; keep loop detection enabled and diagnose repeated tool-call traces rather than using an unbounded value.
 
 Enterprise Kubernetes storage note:
@@ -665,8 +699,10 @@ Enterprise Kubernetes storage note:
   far more often than ordinary tools. Keep the enterprise runtime's per-tool
   loop-detection overrides bounded (currently warn at 120 and stop at 240)
   while retaining the global 30/50 limits for all other tools and the
-  identical-call loop guard. Repetition history is scoped to the current run,
-  and a successful `write_file`/`str_replace` that changes durable content
+  identical-call loop guard. Repetition history is scoped to the current run.
+  `read_file` identity includes its exact normalized line window, so
+  sequential continuation pages are progress rather than repetition. A
+  successful `write_file`/`str_replace` that changes durable content
   resets its repetition window. This keeps required read-before-write repair
   cycles from being mistaken for a loop while unchanged writes remain bounded
   by the 3/5 identical-call guard. A successful recovery must not be mistaken

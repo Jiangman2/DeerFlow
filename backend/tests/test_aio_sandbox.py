@@ -220,6 +220,18 @@ class TestErrorObservationRetry:
         assert call_count == 1
 
 
+    def test_unrelated_shell_404_is_not_treated_as_missing_session(self, sandbox):
+        """Only the structured session-not-found response rotates a session."""
+        from agent_sandbox.core.api_error import ApiError
+
+        sandbox._client.shell.exec_command = MagicMock(
+            side_effect=ApiError(status_code=404, body={"message": "Not Found"})
+        )
+
+        assert sandbox.execute_command("test").startswith("Error:")
+        sandbox._client.shell.create_session.assert_not_called()
+
+
 class TestBashExecUnsupportedFailFast:
     """Regression tests for #3921: sandbox images older than all-in-one-sandbox
     1.9.x have no ``/v1/bash/exec`` route, so every env-bearing command (skills

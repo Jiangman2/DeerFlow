@@ -40,8 +40,11 @@ _SEGMENT_BOUNDARY = r"(?=/|$|[^\w./-])"
 
 # The path tail following the base. ``[/\\]`` keeps Windows-separated paths
 # matching; the negated class stops at whitespace and shell punctuation so a
-# path embedded in a larger line is not over-consumed.
-_PATH_TAIL = r"(?:[/\\][^\s\"';&|<>()]*)?"
+# path embedded in a larger line is not over-consumed. A colon ends a PATH-style
+# entry: consuming it would swallow later host paths inside one match and leave
+# them unmasked. A drive colon inside the already-matched Windows base is not
+# affected, and any literal colon suffix stays in the surrounding output.
+_PATH_TAIL = r"(?:[/\\][^\s\"';&|<>():]*)?"
 
 
 def build_output_mask_pattern(base: str, *, separator_agnostic: bool = False) -> re.Pattern[str]:

@@ -410,6 +410,73 @@ class TestRunRepository:
         await _cleanup()
 
     @pytest.mark.anyio
+    async def test_thread_token_aggregation_filters_owner_before_all_breakdowns(self, tmp_path):
+        repo = await _make_repo(tmp_path)
+        try:
+            for run_id, thread_id, owner, status, tokens in [
+                ("a-success", "t1", "owner-a", "success", 7),
+                ("a-error", "t1", "owner-a", "error", 5),
+                ("b-success", "t1", "owner-b", "success", 100),
+                ("unowned", "t1", None, "success", 11),
+                ("a-other-thread", "t2", "owner-a", "success", 40),
+                ("b-active", "t1", "owner-b", "running", 13),
+            ]:
+                await repo.put(run_id, thread_id=thread_id, user_id=owner, status="running", model_name="fallback-model")
+                await repo.update_run_completion(
+                    run_id,
+                    status=status,
+                    total_tokens=tokens,
+                    total_input_tokens=tokens - 1,
+                    total_output_tokens=1,
+                    lead_agent_tokens=tokens - 1,
+                    subagent_tokens=1,
+                    token_usage_by_model={"actual-model": {"total_tokens": tokens}},
+                )
+            owner_a = await repo.aggregate_tokens_by_thread("t1", user_id="owner-a", include_active=True)
+            assert owner_a == {
+                "total_tokens": 12,
+                "total_input_tokens": 10,
+                "total_output_tokens": 2,
+                "total_runs": 2,
+                "by_model": {"actual-model": {"tokens": 12, "runs": 2}},
+                "by_caller": {"lead_agent": 10, "subagent": 2, "middleware": 0},
+            }
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id="owner-b"))["total_tokens"] == 100
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id="owner-b", include_active=True))["total_tokens"] == 113
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id=None))["total_tokens"] == 123
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id=None, include_active=True))["total_tokens"] == 136
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id="missing"))["total_runs"] == 0
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id=""))["total_runs"] == 0
+        finally:
+            await _cleanup()
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("owner", ["owner-a", "", None])
+    async def test_scoped_token_aggregation_predicate_compiles_on_postgres(self, owner):
+        from types import SimpleNamespace
+
+        captured = []
+
+        class FakeSessionContext:
+            async def __aenter__(self):
+                async def execute(stmt):
+                    captured.append(stmt)
+                    return SimpleNamespace(all=lambda: [])
+                return SimpleNamespace(execute=execute)
+
+            async def __aexit__(self, *args):
+                return None
+
+        await RunRepository(lambda: FakeSessionContext()).aggregate_tokens_by_thread("t1", user_id=owner)
+        compiled = captured[0].compile(dialect=postgresql.dialect())
+        where = str(compiled).split("WHERE", 1)[1]
+        assert ("runs.user_id =" in where) is (owner is not None)
+        if owner is not None:
+            assert owner in compiled.params.values()
+        assert "token_usage_by_model" in str(compiled)
+        assert len(captured) == 1
+
+    @pytest.mark.anyio
     async def test_list_by_thread_ordered_desc(self, tmp_path):
         """list_by_thread returns newest first."""
         repo = await _make_repo(tmp_path)

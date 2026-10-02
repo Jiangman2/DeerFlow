@@ -1,8 +1,9 @@
 """Tests for the shared host→virtual output-mask pattern (``sandbox/path_patterns.py``).
 
-The rule these pin is not "the regex is correct" — that is #4035/#4053 — but
-"there is exactly one copy of it, and extracting it did not change either call
-site's matching". The two sites differ on one axis only (separator handling),
+The extraction snapshot pins the unchanged root/boundary and two separator
+modes; its only deliberate tail change is stopping at colon-joined path-list
+boundaries. Both callers continue to share one helper. The two sites differ
+on one axis only (separator handling),
 and that asymmetry is load-bearing: erasing it would widen ``LocalSandbox``'s
 masking or narrow ``sandbox.tools``'s.
 
@@ -36,6 +37,15 @@ def _legacy_local_pattern(base: str) -> re.Pattern[str]:
     return re.compile(re.escape(base) + r"(?=/|$|[^\w./-])" + r"(?:[/\\][^\s\"';&|<>()]*)?")
 
 
+_LEGACY_TAIL = r"(?:[/\\][^\s\"';&|<>()]*)?"
+_COLON_SAFE_TAIL = r"(?:[/\\][^\s\"';&|<>():]*)?"
+
+
+def _with_colon_safe_tail(legacy: str) -> str:
+    assert legacy.endswith(_LEGACY_TAIL)
+    return legacy.removesuffix(_LEGACY_TAIL) + _COLON_SAFE_TAIL
+
+
 _BASES = [
     "/host/skills",
     "/host/dir with spaces",
@@ -53,13 +63,13 @@ _BASES = [
 
 @pytest.mark.parametrize("base", _BASES)
 def test_helper_reproduces_the_pre_extraction_expressions(base: str) -> None:
-    """Byte-identical to what each call site built inline, for both separator modes.
+    """Only the explicitly reviewed colon-tail fix differs from the frozen regex.
 
-    This is the anchor for the move itself: edit the helper in a way that changes
-    either site's regex and this goes red.
+    Root escaping, boundaries and separator asymmetry must still match the
+    extraction snapshot. Do not weaken this into a comparison of lengths.
     """
-    assert build_output_mask_pattern(base, separator_agnostic=True).pattern == _legacy_tools_pattern(base).pattern
-    assert build_output_mask_pattern(base).pattern == _legacy_local_pattern(base).pattern
+    assert build_output_mask_pattern(base, separator_agnostic=True).pattern == _with_colon_safe_tail(_legacy_tools_pattern(base).pattern)
+    assert build_output_mask_pattern(base).pattern == _with_colon_safe_tail(_legacy_local_pattern(base).pattern)
 
 
 def test_separator_agnostic_is_the_only_difference_between_the_two_modes() -> None:
@@ -127,3 +137,31 @@ def test_tools_mask_patterns_route_through_the_helper(tmp_path: Path) -> None:
     for pattern, variant, virtual_base in compiled:
         assert virtual_base == "/mnt/skills"
         assert pattern.pattern == build_output_mask_pattern(variant, separator_agnostic=True).pattern
+
+
+@pytest.mark.parametrize("base", ["/host/skills", r"C:\host\skills"])
+def test_colon_joined_paths_are_independent_matches_in_both_modes(base: str) -> None:
+    separator = "\\" if base.startswith("C:") else "/"
+    paths = [base + separator + f"s{i}" + separator + "bin" for i in range(8)]
+    for agnostic in (False, True):
+        pattern = build_output_mask_pattern(base, separator_agnostic=agnostic)
+        output = "PATH=" + ":".join([*paths, "/usr/bin"])
+        assert [m.group(0) for m in pattern.finditer(output)] == paths
+        masked = pattern.sub(lambda m: "/mnt/skills" + m.group(0)[len(base):].replace("\\", "/"), output)
+        assert masked == "PATH=" + ":".join([*(f"/mnt/skills/s{i}/bin" for i in range(8)), "/usr/bin"])
+
+
+def test_colon_suffix_is_preserved_without_swallowing_the_next_root() -> None:
+    pattern = build_output_mask_pattern("/host/skills")
+    output = "/host/skills/pkg/name:part:/host/skills/next"
+    masked = pattern.sub(lambda m: "/mnt/skills" + m.group(0)[len("/host/skills"):], output)
+    assert masked == "/mnt/skills/pkg/name:part:/mnt/skills/next"
+
+
+def test_local_sandbox_masks_eight_colon_joined_entries(tmp_path: Path) -> None:
+    local = tmp_path / "skills"
+    local.mkdir()
+    sandbox = LocalSandbox(id="local", path_mappings=[PathMapping(container_path="/mnt/skills", local_path=str(local), read_only=True)])
+    base = str(local.resolve())
+    output = "PATH=" + ":".join([*(f"{base}/s{i}/bin" for i in range(8)), "/usr/bin"])
+    assert sandbox._reverse_resolve_paths_in_output(output) == "PATH=" + ":".join([*(f"/mnt/skills/s{i}/bin" for i in range(8)), "/usr/bin"])

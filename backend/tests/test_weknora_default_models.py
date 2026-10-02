@@ -187,7 +187,7 @@ async def test_ensure_weknora_default_models_seeds_platform_builtins(monkeypatch
         "DeerFlow WeKnora CNOOC DeepSeek chat model",
     )
     assert json.loads(internal_deepseek_args[6]) == {
-        "base_url": "http://model.ai.cnooc/member1/deepseek-v4-flash-291b-1m/v1",
+        "base_url": "https://aiapi.cnooc.com.cn/DeepSeek-V4-Flash/FEAT-511-001/v1",
         "api_key": "internal-deepseek-secret",
         "provider": "generic",
     }

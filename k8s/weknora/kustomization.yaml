@@ -17,6 +17,7 @@ configMapGenerator:
       - index-itUW58et.js=ui-patches/index-itUW58et.js
       - weknora-BoLwP3xK.png=ui-patches/weknora-BoLwP3xK.png
       - favicon-bEsoBimf.ico=ui-patches/favicon-bEsoBimf.ico
+      - deerflow-sidebar-labels-20260918-r1.js=ui-patches/deerflow-sidebar-labels-20260918-r1.js
       - index.html=ui-patches/index.html
       - config.js=ui-patches/config.js
       - default.conf=ui-patches/default.conf
