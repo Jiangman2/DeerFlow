@@ -52,7 +52,7 @@ test.describe("Sidebar navigation", () => {
     await expect(sidebar.locator("a[href='/workspace/agents']")).toHaveCount(0);
 
     // The disabled Agents button is rendered and announces its disabled state.
-    const agentsButton = sidebar.getByRole("button", { name: "Agents" });
+    const agentsButton = sidebar.getByRole("button", { name: "Digital Employees" });
     await expect(agentsButton).toHaveAttribute("aria-disabled", "true");
 
     // The button itself has pointer-events suppressed; force the hover so the
@@ -93,12 +93,12 @@ test.describe("Sidebar navigation", () => {
       expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth + 1);
     };
 
-    await expectInsideViewport(page.getByText(/Welcome to|欢迎使用/).first());
+    await expectInsideViewport(page.locator(".cnooc-mobile-welcome-copy h1"));
     await expectInsideViewport(page.getByRole("textbox").first());
     await expectInsideViewport(page.locator("[data-slot='suggestions-list']"));
 
     const mobileSidebarTrigger = page
-      .locator("[data-sidebar='trigger']:visible")
+      .locator(".cnooc-mobile-menu-trigger:visible")
       .first();
     await expect(mobileSidebarTrigger).toBeVisible();
     await mobileSidebarTrigger.click();

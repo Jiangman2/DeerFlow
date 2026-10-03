@@ -9,6 +9,16 @@ const source = readFileSync(
 );
 
 describe("input box enterprise-browser compatibility", () => {
+  test("the plain composer uses the selected locale placeholder", () => {
+    const textarea = source.slice(
+      source.indexOf("<PromptInputTextarea"),
+      source.indexOf("<PromptInputFooter"),
+    );
+
+    expect(textarea).toContain("placeholder={t.inputBox.placeholder}");
+    expect(textarea).not.toMatch(/placeholder="[^"]*"/);
+  });
+
   test("voice recording uses a separate opacity layer", () => {
     const voiceButton = source.slice(
       source.indexOf("function VoiceInputButton"),
