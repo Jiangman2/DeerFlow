@@ -613,7 +613,7 @@ export function SidecarPanel({ className }: { className?: string }) {
       <div className="bg-background/95 shrink-0 px-3 pt-3 pb-4 sm:px-4">
         <PromptInputProvider key={sidecar.parentThreadId}>
           <PromptInput
-            className="bg-background/85 rounded-2xl backdrop-blur-sm *:data-[slot='input-group']:rounded-2xl"
+            className="bg-background/85 rounded-2xl border backdrop-blur-sm *:data-[slot='input-group']:rounded-2xl"
             disabled={disabled}
             multiple
             onSubmit={handleSubmit}
