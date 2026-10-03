@@ -375,6 +375,13 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
     });
   }
 
+  await expect.poll(() => page.evaluate(() => {
+    const list = document.querySelector('[data-testid="sidecar-message-list"]');
+    const scroller = list?.firstElementChild;
+    if (!(scroller instanceof HTMLElement)) return null;
+    return Math.abs(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop);
+  }), { timeout: 5_000 }).toBeLessThanOrEqual(1);
+
   const { scrollSamples, panelTransforms } = await page.evaluate(() => {
     const targetWindow = window as Window & {
       __sidecarScrollSamples?: Array<{ top: number; height: number; viewport: number }>;
@@ -395,26 +402,32 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
     };
   });
 
-  // The initial zero offset followed by a single jump to the bottom is an
-  // instant restore, not animation. Reject intermediate offsets and multiple
-  // nonzero positions while the content geometry is unchanged.
-  const positionsByGeometry = new Map<string, Set<number>>();
+  // A geometry change can deliver a scroll event with the old offset before
+  // ResizeObserver re-anchors the new measured extent. Ignore that first sample
+  // only; further samples at the same geometry must already be at the bottom.
+  // A smooth/spring animation produces intermediate offsets and fails this.
+  const seenGeometry = new Set<string>();
+  const positionsByGeometry = new Map<string, number[]>();
   for (const sample of scrollSamples) {
     const key = `${sample.height}:${sample.viewport}`;
-    const positions = positionsByGeometry.get(key) ?? new Set<number>();
-    if (sample.top !== 0) {
-      expect(
-        Math.abs(sample.top - (sample.height - sample.viewport)),
-        JSON.stringify(scrollSamples),
-      ).toBeLessThanOrEqual(1);
-      // Bottom anchoring can round by one pixel after row measurement.
-      // Compare the stable bottom boundary, not that rounding correction.
-      positions.add(sample.height - sample.viewport);
+    if (!seenGeometry.has(key)) {
+      seenGeometry.add(key);
+      continue;
     }
+    if (sample.top === 0) continue;
+    expect(
+      Math.abs(sample.top - (sample.height - sample.viewport)),
+      JSON.stringify(scrollSamples),
+    ).toBeLessThanOrEqual(1);
+    const positions = positionsByGeometry.get(key) ?? [];
+    positions.push(sample.top);
     positionsByGeometry.set(key, positions);
   }
   for (const positions of positionsByGeometry.values()) {
-    expect(positions.size, JSON.stringify(scrollSamples)).toBeLessThanOrEqual(1);
+    expect(
+      Math.max(...positions) - Math.min(...positions),
+      JSON.stringify(scrollSamples),
+    ).toBeLessThanOrEqual(1);
   }
   expect(
     panelTransforms.every(
@@ -894,7 +907,7 @@ test.describe("Side chat", () => {
     await expect
       .poll(() => createdThreadBody?.metadata, { timeout: 10_000 })
       .toMatchObject({
-        deerflow_sidecar: true,
+        platform_sidecar: true,
         parent_thread_id: MOCK_THREAD_ID,
         sidecar_context_type: "referenced_message",
         sidecar_context_label: "Selected assistant text #2",
