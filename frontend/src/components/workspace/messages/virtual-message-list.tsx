@@ -75,10 +75,8 @@ export function VirtualMessageList({
     let settleFrame: number | undefined;
     if (
       shouldVirtualize &&
-      isAtBottom &&
       !positionedInitialVirtualWindowRef.current
     ) {
-      positionedInitialVirtualWindowRef.current = true;
       const scrollToLatest = () => {
         virtualizer.scrollToIndex(groups.length - 1, { align: "end" });
       };
@@ -86,7 +84,13 @@ export function VirtualMessageList({
       // Dynamic row measurement changes the total after the first layout.
       // Re-anchor once with measured sizes so a long restored conversation
       // cannot land around the estimated midpoint.
-      settleFrame = requestAnimationFrame(scrollToLatest);
+      settleFrame = requestAnimationFrame(() => {
+        scrollToLatest();
+        // A measurement render may cancel this frame. Only mark positioning
+        // complete after the measured re-anchor actually ran, so the next
+        // layout retries rather than leaving the restored history midway.
+        positionedInitialVirtualWindowRef.current = true;
+      });
     } else if (!shouldVirtualize) {
       positionedInitialVirtualWindowRef.current = false;
     }

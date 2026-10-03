@@ -506,6 +506,7 @@ test.describe("mobile WebView workspace", () => {
     await expectNoPageOverflow(page, 320);
 
     await page.goto("/workspace/agents", { waitUntil: "domcontentloaded" });
+    await page.getByRole("tab", { name: "My Agents", exact: true }).click();
     await expect(page.getByText("mobile-agent")).toBeVisible({
       timeout: 15_000,
     });

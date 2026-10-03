@@ -99,7 +99,9 @@ test.describe("Sidebar navigation", () => {
 
     await expectInsideViewport(page.locator(".cnooc-mobile-welcome-copy h1"));
     await expectInsideViewport(page.getByRole("textbox").first());
-    await expectInsideViewport(page.locator("[data-slot='suggestions-list']"));
+    // The mobile quick actions intentionally scroll horizontally. Check their
+    // clipping viewport, not the wider inner content strip.
+    await expectInsideViewport(page.locator(".cnooc-welcome-actions"));
 
     const mobileSidebarTrigger = page
       .locator(".cnooc-mobile-menu-trigger:visible")

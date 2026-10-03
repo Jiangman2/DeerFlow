@@ -395,17 +395,24 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
     };
   });
 
-  // Instant corrections may move again when restored content or panel width
-  // changes. Intermediate positions within fixed geometry are animation.
+  // The initial zero offset followed by a single jump to the bottom is an
+  // instant restore, not animation. Reject intermediate offsets and multiple
+  // nonzero positions while the content geometry is unchanged.
   const positionsByGeometry = new Map<string, Set<number>>();
   for (const sample of scrollSamples) {
     const key = `${sample.height}:${sample.viewport}`;
     const positions = positionsByGeometry.get(key) ?? new Set<number>();
-    positions.add(sample.top);
+    if (sample.top !== 0) {
+      expect(
+        Math.abs(sample.top - (sample.height - sample.viewport)),
+        JSON.stringify(scrollSamples),
+      ).toBeLessThanOrEqual(1);
+      positions.add(sample.top);
+    }
     positionsByGeometry.set(key, positions);
   }
   for (const positions of positionsByGeometry.values()) {
-    expect([...positions], JSON.stringify(scrollSamples)).toHaveLength(1);
+    expect(positions.size, JSON.stringify(scrollSamples)).toBeLessThanOrEqual(1);
   }
   expect(
     panelTransforms.every(

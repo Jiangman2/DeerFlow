@@ -106,6 +106,15 @@ export function SidecarProvider({
     setConversationQuotes([]);
   }, [context, parentThreadId, updateSidecarThreadId]);
 
+  // Settings hydrate after the initial client render. A pristine side chat
+  // should inherit those settings, but never overwrite its independent choices
+  // after the user opens a draft or a persisted sidecar is restored.
+  useEffect(() => {
+    if (!open && !sidecarThreadId && activeReferences.length === 0) {
+      setSidecarContext(context);
+    }
+  }, [activeReferences.length, context, open, sidecarThreadId]);
+
   const restoreSidecarThread = useCallback(
     async (options?: { force?: boolean }) => {
       // A non-forced restore trusts the cached id; a forced restore always
