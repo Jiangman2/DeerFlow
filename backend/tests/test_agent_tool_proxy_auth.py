@@ -1,4 +1,4 @@
-"""Regression tests for the five data-lake external-agent links."""
+"""Regression tests for the built-in external-agent links."""
 
 import re
 from pathlib import Path
@@ -17,6 +17,7 @@ CNOOCCLAW_AGENTS = {
     "专业报告校审专家": "https://cnoocclaw.cnooc.com.cn/zjbgjszj/",
     "自动数采专家": "https://cnoocclaw.cnooc.com.cn/zdsczj/",
     "地震数据提频专家": "https://cnoocclaw.cnooc.com.cn/dzsjtpzj/",
+    "钻采技术查重智能体": "https://cnoocclaw.cnooc.com.cn/zwjkylxcczs/",
 }
 
 

@@ -10,9 +10,10 @@ const CNOOCCLAW_AGENT_URLS = [
   "https://cnoocclaw.cnooc.com.cn/zdsczj/",
   "https://cnoocclaw.cnooc.com.cn/qqyjbgbxzj/",
   "https://cnoocclaw.cnooc.com.cn/yjzs/",
+  "https://cnoocclaw.cnooc.com.cn/zwjkylxcczs/",
 ] as const;
 
-test("keeps all six current CNOOCClaw expert aliases as direct links", () => {
+test("keeps all current CNOOCClaw expert aliases as direct links", () => {
   for (const url of CNOOCCLAW_AGENT_URLS) {
     expect(resolveExternalAgentLaunchHref(url)).toBe(url);
   }
@@ -31,6 +32,19 @@ test("publishes the email assistant as the sixth fixed external employee", () =>
   });
 });
 
+test("publishes the drilling review agent with its requested description", () => {
+  const assistant = SHARED_EXTERNAL_AGENTS.find(
+    (agent) => agent.name === "钻采技术查重智能体",
+  );
+
+  expect(assistant).toMatchObject({
+    description:
+      "钻采项目文档智能评审专家，基于关键词初筛与大模型语义精判，输出分级结构化查重报告。",
+    category_id: "engineering-technology",
+    external_url: "https://cnoocclaw.cnooc.com.cn/zwjkylxcczs/",
+  });
+});
+
 test("routes legacy Data Lake expert links through the authenticated launch API", () => {
   expect(
     resolveExternalAgentLaunchHref("https://datalake.cnooc/zywdjxzj"),
@@ -38,6 +52,9 @@ test("routes legacy Data Lake expert links through the authenticated launch API"
   expect(resolveExternalAgentLaunchHref("https://datalake.cnooc/yjzs")).toBe(
     "https://datalake.cnooc/yjzs",
   );
+  expect(
+    resolveExternalAgentLaunchHref("https://datalake.cnooc/zwjkylxcczs"),
+  ).toBe("https://datalake.cnooc/zwjkylxcczs");
 });
 
 test("does not rewrite an unapproved host or path", () => {

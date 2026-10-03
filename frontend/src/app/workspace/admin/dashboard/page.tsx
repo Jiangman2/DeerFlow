@@ -568,6 +568,7 @@ function ExternalAgentClicks({ items }: { items: ExternalAgentClickItem[] }) {
     "专业报告校审专家",
     "自动数采专家",
     "前期研究报告编写专家",
+    "钻采技术查重智能体",
   ];
   const counts = new Map(items.map((item) => [item.name, item]));
   const max = Math.max(1, ...items.map((item) => item.clicks));

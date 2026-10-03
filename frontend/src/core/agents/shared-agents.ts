@@ -84,4 +84,17 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     source: "team",
     external_url: "https://cnoocclaw.cnooc.com.cn/yjzs/",
   },
+  {
+    name: "钻采技术查重智能体",
+    description:
+      "钻采项目文档智能评审专家，基于关键词初筛与大模型语义精判，输出分级结构化查重报告。",
+    model: null,
+    tool_groups: ["钻采技术"],
+    skills: null,
+    category_id: "engineering-technology",
+    tags: ["钻采", "查重", "校审"],
+    avatar_id: "drilling-completion",
+    source: "team",
+    external_url: "https://cnoocclaw.cnooc.com.cn/zwjkylxcczs/",
+  },
 ];
