@@ -540,16 +540,21 @@ test.describe("Artifact preview stability", () => {
         `/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifacts/mnt/user-data/outputs/${PRESENTED_PPTX_FILENAME.replace(".", "\\.")}$`,
       ),
     );
+    const galleryRequest = page.waitForRequest(
+      (request) => request.method() === "GET" &&
+        decodeURIComponent(new URL(request.url()).pathname) ===
+          `/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifact-previews/pdf${PRESENTED_PPTX_PREVIEW_PATH}`,
+    );
     await pptxLink.click();
 
     const previewFrame = page
       .locator("#artifacts")
       .locator('iframe[title="Artifact preview"]');
     await expect(previewFrame).toBeVisible();
-    await expect(previewFrame).toHaveAttribute(
-      "src",
-      /中国海油勘探开发智能体平台研究报告_20260805_111535\.preview\.pdf$/,
-    );
+    expect(decodeURIComponent((await galleryRequest).url())).toContain(PRESENTED_PPTX_PREVIEW_PATH);
+    await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
+    await expect(previewFrame).toHaveAttribute("sandbox", "");
+    await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
     await expect(
       page.locator(`[data-artifact-filepath="${PRESENTED_PPTX_PREVIEW_PATH}"]`),
     ).toHaveCount(0);
@@ -628,6 +633,11 @@ test.describe("Artifact preview stability", () => {
     );
 
     await page.goto(`/workspace/chats/${PRESENTED_PDF_THREAD_ID}`);
+    const galleryRequest = page.waitForRequest(
+      (request) => request.method() === "GET" &&
+        decodeURIComponent(new URL(request.url()).pathname) ===
+          `/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf${PRESENTED_PDF_PATH}`,
+    );
     await page.getByRole("link", { name: "普通任务报告_20260819.pdf" }).click();
 
     const artifactsPanel = page.locator("#artifacts");
@@ -636,10 +646,9 @@ test.describe("Artifact preview stability", () => {
     );
     await expect(artifactsPanel).toBeVisible();
     await expect(previewFrame).toBeVisible();
-    await expect(previewFrame).toHaveAttribute(
-      "src",
-      `/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf${PRESENTED_PDF_PATH}`,
-    );
+    expect(decodeURIComponent((await galleryRequest).url())).toContain(PRESENTED_PDF_PATH);
+    await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
+    await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
     await expect(previewFrame).toHaveAttribute("sandbox", "");
   });
 
@@ -688,10 +697,14 @@ test.describe("Artifact preview stability", () => {
         },
       ],
     });
+    let releaseGallery!: () => void;
+    const galleryReady = new Promise<void>((resolve) => {
+      releaseGallery = resolve;
+    });
     await page.route(`**/*20260820.preview.pdf`, async (route) => {
       const isHead = route.request().method() === "HEAD";
       if (!isHead) {
-        await new Promise((resolve) => setTimeout(resolve, 1_500));
+        await galleryReady;
       }
       await route.fulfill({
         status: 200,
@@ -702,6 +715,11 @@ test.describe("Artifact preview stability", () => {
       });
     });
 
+    const galleryRequest = page.waitForRequest(
+      (request) => request.method() === "GET" &&
+        decodeURIComponent(new URL(request.url()).pathname) ===
+          `/api/threads/${PRESENTED_DOCX_THREAD_ID}/artifact-previews/pdf${PRESENTED_DOCX_PREVIEW_PATH}`,
+    );
     await page.goto(`/workspace/chats/${PRESENTED_DOCX_THREAD_ID}`);
     await page
       .getByRole("link", { name: "勘探分析报告_20260820.docx" })
@@ -714,16 +732,17 @@ test.describe("Artifact preview stability", () => {
     const previewFrame = artifactsPanel.locator(
       'iframe[title="Artifact preview"]',
     );
-    await expect(previewFrame).toHaveClass(/invisible/);
+    await expect(previewFrame).toBeHidden();
+    releaseGallery();
     await expect(previewFrame).toBeVisible({ timeout: 10_000 });
     await expect(previewFrame).toHaveClass(/visible/);
     await expect(
       artifactsPanel.getByText("Loading preview pages...", { exact: true }),
     ).toHaveCount(0);
-    await expect(previewFrame).toHaveAttribute(
-      "src",
-      `/api/threads/${PRESENTED_DOCX_THREAD_ID}/artifact-previews/pdf${PRESENTED_DOCX_PREVIEW_PATH}`,
-    );
+    expect(decodeURIComponent((await galleryRequest).url())).toContain(PRESENTED_DOCX_PREVIEW_PATH);
+    await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
+    await expect(previewFrame).toHaveAttribute("sandbox", "");
+    await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
     await expect(
       page.locator(`[data-artifact-filepath="${PRESENTED_DOCX_PREVIEW_PATH}"]`),
     ).toHaveCount(0);
@@ -827,6 +846,19 @@ test.describe("Artifact preview stability", () => {
       },
     );
 
+    await page.route(
+      `**/api/threads/${transientThreadId}/artifact-previews/pdf${transientPreview}`,
+      (route) => route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: '<!doctype html><html><body><main><img alt="PDF page"></main></body></html>',
+      }),
+    );
+    const galleryRequest = page.waitForRequest(
+      (request) => request.method() === "GET" &&
+        decodeURIComponent(new URL(request.url()).pathname) ===
+          `/api/threads/${transientThreadId}/artifact-previews/pdf${transientPreview}`,
+    );
     await page.goto(`/workspace/chats/${transientThreadId}`);
     await page.getByRole("link", { name: "transient-report.pptx" }).click();
 
@@ -834,10 +866,10 @@ test.describe("Artifact preview stability", () => {
       .locator("#artifacts")
       .locator('iframe[title="Artifact preview"]');
     await expect(previewFrame).toBeVisible({ timeout: 10_000 });
-    await expect(previewFrame).toHaveAttribute(
-      "src",
-      /transient-report\.preview\.pdf$/,
-    );
+    expect((await galleryRequest).url()).toContain(transientPreview);
+    await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
+    await expect(previewFrame).toHaveAttribute("sandbox", "");
+    await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
     expect(previewProbeAttempts).toBeGreaterThanOrEqual(2);
   });
 

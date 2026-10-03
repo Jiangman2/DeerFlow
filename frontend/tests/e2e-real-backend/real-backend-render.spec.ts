@@ -82,7 +82,7 @@ test.describe("real backend render (replay, no API key)", () => {
 
     await page.goto("/workspace/chats/new");
 
-    const textarea = page.getByPlaceholder("随心输入");
+    const textarea = page.locator(".cnooc-composer-textarea");
     await expect(textarea).toBeVisible({ timeout: 30_000 });
     await textarea.fill(PROMPT);
     await textarea.press("Enter");
