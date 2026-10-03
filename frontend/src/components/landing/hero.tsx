@@ -10,12 +10,7 @@ import { AuroraText } from "@/components/ui/aurora-text";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const HERO_WORDS = [
-  "深度研究",
-  "专业报告",
-  "数据分析",
-  "智能办公",
-];
+const HERO_WORDS = ["深度研究", "专业报告", "数据分析", "智能办公"];
 
 export function Hero({ className }: { className?: string }) {
   return (
@@ -42,7 +37,7 @@ export function Hero({ className }: { className?: string }) {
         </p>
         <Link href="/api/v1/auth/iam/login?next=/workspace/chats/new">
           <Button
-            className="mt-9 h-12 rounded-xl border border-[#07569f] bg-[#0868bd] px-7 text-white shadow-[0_8px_20px_rgba(8,104,189,0.24)] hover:-translate-y-0.5 hover:bg-[#075aa5] hover:shadow-[0_12px_26px_rgba(8,104,189,0.3)] active:translate-y-0 active:bg-[#064c8c] focus-visible:ring-[#0868bd]/35"
+            className="mt-9 h-12 rounded-xl border border-[#07569f] bg-[#0868bd] px-7 text-white shadow-[0_8px_20px_rgba(8,104,189,0.24)] hover:-translate-y-0.5 hover:bg-[#075aa5] hover:shadow-[0_12px_26px_rgba(8,104,189,0.3)] focus-visible:ring-[#0868bd]/35 active:translate-y-0 active:bg-[#064c8c]"
             size="lg"
           >
             <span className="text-md">开始使用</span>

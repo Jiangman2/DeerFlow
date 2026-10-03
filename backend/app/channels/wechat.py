@@ -582,13 +582,22 @@ class WechatChannel(Channel):
 
                 self._update_longpoll_timeout(data)
 
+                for raw_message in data.get("msgs", []):
+                    try:
+                        await self._handle_update(raw_message)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception:
+                        message_id = str(raw_message.get("message_id") or "unknown")[:128] if isinstance(raw_message, dict) else "unknown"
+                        logger.exception("[WeChat] message %s failed; continuing batch", message_id)
+
+                # Commit the cursor only after every item has been attempted.
+                # Cancellation/crash mid-batch must not acknowledge unhandled
+                # siblings; a bad attachment must not discard later messages.
                 next_buf = data.get("get_updates_buf")
                 if isinstance(next_buf, str) and next_buf != self._get_updates_buf:
                     self._get_updates_buf = next_buf
                     await asyncio.to_thread(self._save_state)
-
-                for raw_message in data.get("msgs", []):
-                    await self._handle_update(raw_message)
             except asyncio.CancelledError:
                 raise
             except Exception:

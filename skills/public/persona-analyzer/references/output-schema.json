@@ -1,0 +1,552 @@
+{
+  "schema_name": "persona-analyzer-output",
+  "schema_version": "3.0",
+  "description": "每次人员分析完成后输出的标准化结构化数据，可持久化到后台数据库或文件系统，支持汇总查询。v3.0 新增：优先级矩阵、系统性分析、5 Why 根因链。",
+  "output_type": "json",
+
+  "root": {
+    "type": "object",
+    "required": ["analysis_id", "session_info", "position_info", "business_flow", "pain_points", "summary"],
+    "properties": {
+
+      "analysis_id": {
+        "type": "string",
+        "description": "本次分析的唯一标识，格式：YYYYMMDD-HHMMSS-岗位名-序号",
+        "example": "20260714-143000-勘探地质师-001"
+      },
+
+      "session_info": {
+        "type": "object",
+        "description": "会话信息",
+        "properties": {
+          "analysis_date": {
+            "type": "string",
+            "format": "date",
+            "description": "分析日期"
+          },
+          "analyst": {
+            "type": "string",
+            "description": "受访者姓名（可选，取决于平台权限）"
+          },
+          "session_status": {
+            "type": "string",
+            "enum": ["completed", "paused", "in_progress"],
+            "description": "会话状态：completed-全部完成/paused-阶段性暂停/in_progress-进行中"
+          },
+          "total_duration_minutes": {
+            "type": "integer",
+            "description": "本次对话总时长（分钟）"
+          },
+          "total_turns": {
+            "type": "integer",
+            "description": "对话轮次数量"
+          },
+          "fatigue_events": {
+            "type": "array",
+            "description": "疲劳事件记录列表（含情绪信号检测）",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": {"type": "string", "description": "疲劳触发时间"},
+                "level": {"type": "string", "enum": ["yellow", "orange", "red"]},
+                "trigger": {"type": "string", "description": "触发原因：short_answer / emotion_word / vague_response / explicit"},
+                "emotion_words_detected": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "检测到的负面情绪词汇（如有）"
+                },
+                "action_taken": {"type": "string", "description": "采取的应对措施"}
+              }
+            }
+          }
+        },
+        "required": ["analysis_date", "session_status"]
+      },
+
+      "position_info": {
+        "type": "object",
+        "description": "第一阶段输出的岗位信息",
+        "properties": {
+          "job_title": {
+            "type": "string",
+            "description": "岗位名称",
+            "example": "勘探地质师"
+          },
+          "domain": {
+            "type": "string",
+            "description": "业务归属",
+            "enum": ["勘探业务", "开发业务", "钻完井工程", "生产运营", "地面工程", "安全环保"]
+          },
+          "location": {
+            "type": "string",
+            "description": "工作地点与模式",
+            "example": "北京研究总院（线上办公）"
+          },
+          "tools_used": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "日常使用的工具/系统",
+            "example": ["Petrel", "GeoEast", "协同研究平台"]
+          },
+          "tags": {
+            "type": "object",
+            "description": "7维标签映射结果",
+            "properties": {
+              "DOM": {"type": "string", "example": "DOM-EXP"},
+              "ROL": {"type": "string", "example": "ROL-RSCH"},
+              "MOD": {"type": "string", "example": "MOD-ONLN"},
+              "DEP": {"type": "string", "example": "DEP-ANALYZE"},
+              "LVL": {"type": "string", "example": "LVL-OPER"},
+              "DAT": {"type": "string", "example": "DAT-GEO"},
+              "SKL": {"type": "array", "items": {"type": "string"}, "example": ["SKL-PETREL", "SKL-GEOEAST", "SKL-AI"]}
+            }
+          },
+          "summary": {
+            "type": "string",
+            "description": "岗位一句话总结",
+            "example": "使用Petrel/GeoEast进行地震解释与储层预测的线上研究人员"
+          }
+        },
+        "required": ["job_title", "domain", "tags", "summary"]
+      },
+
+      "business_flow": {
+        "type": "object",
+        "description": "第二阶段梳理的业务流程",
+        "properties": {
+          "work_description": {
+            "type": "string",
+            "description": "主要工作内容描述"
+          },
+          "nodes": {
+            "type": "array",
+            "description": "业务流程节点列表（按执行顺序）",
+            "items": {
+              "type": "object",
+              "properties": {
+                "node_id": {"type": "integer", "description": "节点序号"},
+                "node_name": {"type": "string", "description": "节点名称"},
+                "is_custom": {
+                  "type": "boolean",
+                  "description": "是否为自定义节点（未匹配到标准流程节点）",
+                  "default": false
+                },
+                "standard_node_ref": {
+                  "type": "string",
+                  "description": "匹配到的标准流程节点引用（如未匹配则为空）",
+                  "example": "勘探业务域 > 地震勘探 > 地震解释"
+                },
+                "participation_mode": {
+                  "type": "string",
+                  "enum": ["主导", "参与", "配合", "审批"],
+                  "description": "该岗位对此节点的参与方式"
+                },
+                "input": {"type": "string", "description": "输入/前置条件"},
+                "output": {"type": "string", "description": "输出/成果"},
+                "collaborators": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "协作方/上下游岗位"
+                }
+              },
+              "required": ["node_id", "node_name", "participation_mode", "is_custom"]
+            }
+          },
+          "flowchart_mermaid": {
+            "type": "string",
+            "description": "Mermaid流程图代码（备份）"
+          },
+          "flowchart_svg_generated": {
+            "type": "boolean",
+            "description": "是否已生成SVG可视化流程图",
+            "default": false
+          }
+        },
+        "required": ["work_description", "nodes"]
+      },
+
+      "pain_points": {
+        "type": "object",
+        "description": "第三阶段挖掘的痛点分析（v3.0 新增优先级矩阵和系统性分析）",
+        "properties": {
+          "summary_statistics": {
+            "type": "object",
+            "description": "痛点统计汇总",
+            "properties": {
+              "total_nodes_analyzed": {"type": "integer", "description": "已分析的节点数"},
+              "total_nodes_remaining": {"type": "integer", "description": "剩余待分析节点数"},
+              "total_pain_points": {"type": "integer", "description": "痛点总数"},
+              "by_type": {
+                "type": "object",
+                "description": "按类型统计",
+                "properties": {
+                  "技术痛点": {"type": "integer"},
+                  "流程痛点": {"type": "integer"},
+                  "数据痛点": {"type": "integer"},
+                  "协同痛点": {"type": "integer"},
+                  "管理痛点": {"type": "integer"}
+                }
+              },
+              "by_impact": {
+                "type": "object",
+                "description": "按影响程度统计",
+                "properties": {
+                  "高": {"type": "integer"},
+                  "中": {"type": "integer"},
+                  "低": {"type": "integer"}
+                }
+              }
+            },
+            "required": ["total_nodes_analyzed", "total_pain_points", "by_type"]
+          },
+          "priority_matrix": {
+            "type": "object",
+            "description": "痛点优先级矩阵（影响程度 × 解决难度）",
+            "properties": {
+              "quick_wins": {
+                "type": "array",
+                "description": "高影响+易解决",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "node_name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "impact": {"type": "string", "enum": ["高"]},
+                    "difficulty": {"type": "string", "enum": ["易"]}
+                  }
+                }
+              },
+              "focus_areas": {
+                "type": "array",
+                "description": "高影响+中等难度",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "node_name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "impact": {"type": "string", "enum": ["高"]},
+                    "difficulty": {"type": "string", "enum": ["中"]}
+                  }
+                }
+              },
+              "long_term": {
+                "type": "array",
+                "description": "高影响+难解决",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "node_name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "impact": {"type": "string", "enum": ["高"]},
+                    "difficulty": {"type": "string", "enum": ["难"]}
+                  }
+                }
+              }
+            }
+          },
+          "systemic_analysis": {
+            "type": "object",
+            "description": "系统性痛点关联分析",
+            "properties": {
+              "has_systemic_issues": {
+                "type": "boolean",
+                "description": "是否存在跨节点的系统性痛点"
+              },
+              "patterns": {
+                "type": "array",
+                "description": "系统性痛点模式列表",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "pain_type": {"type": "string", "enum": ["技术痛点", "流程痛点", "数据痛点", "协同痛点", "管理痛点"]},
+                    "affected_nodes": {
+                      "type": "array",
+                      "items": {"type": "string"},
+                      "description": "受影响的节点列表"
+                    },
+                    "pattern_description": {"type": "string", "description": "模式描述"},
+                    "systemic_root_cause_hypothesis": {"type": "string", "description": "系统性根因假设"}
+                  }
+                }
+              }
+            }
+          },
+          "details": {
+            "type": "array",
+            "description": "逐节点痛点详情",
+            "items": {
+              "type": "object",
+              "properties": {
+                "node_name": {"type": "string", "description": "业务节点名称"},
+                "node_id": {"type": "integer"},
+                "pain_points_list": {
+                  "type": "array",
+                  "description": "该节点的痛点列表",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "description": {"type": "string", "description": "痛点描述"},
+                      "type": {"type": "string", "enum": ["技术痛点", "流程痛点", "数据痛点", "协同痛点", "管理痛点"]},
+                      "impact": {"type": "string", "enum": ["高", "中", "低"]},
+                      "difficulty": {
+                        "type": "string",
+                        "enum": ["难", "中", "易"],
+                        "description": "解决难度（v3.0 新增）"
+                      },
+                      "frequency": {"type": "string", "description": "发生频率（用户描述）"},
+                      "current_approach": {"type": "string", "description": "当前做法"},
+                      "ideal_state": {"type": "string", "description": "理想状态"},
+                      "dialogue_excerpt": {"type": "string", "description": "关键对话摘录（供追溯）"},
+                      "five_why_applied": {
+                        "type": "boolean",
+                        "description": "是否应用了5 Why追问",
+                        "default": false
+                      },
+                      "root_cause_chain": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "5 Why根因链（仅当 five_why_applied=true 时有值）"
+                      },
+                      "root_cause": {
+                        "type": "string",
+                        "description": "最终根因（仅当 five_why_applied=true 时有值）"
+                      }
+                    },
+                    "required": ["description", "type", "impact", "difficulty"]
+                  }
+                }
+              },
+              "required": ["node_name", "pain_points_list"]
+            }
+          }
+        },
+        "required": ["summary_statistics", "details"]
+      },
+
+      "summary": {
+        "type": "object",
+        "description": "整体总结",
+        "properties": {
+          "key_findings": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "关键发现列表"
+          },
+          "quick_wins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "priority": {"type": "string", "const": "高"},
+                "suggestion": {"type": "string", "description": "改进建议"},
+                "target_node": {"type": "string", "description": "针对的业务节点"},
+                "expected_outcome": {"type": "string", "description": "预期效果"}
+              }
+            },
+            "description": "Quick Wins 建议列表（高影响+易解决）"
+          },
+          "recommendations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "priority": {"type": "string", "enum": ["高", "中", "低"]},
+                "suggestion": {"type": "string", "description": "改进建议"},
+                "target_node": {"type": "string", "description": "针对的业务节点"}
+              }
+            },
+            "description": "全部改进建议列表"
+          },
+          "systemic_recommendations": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "针对系统性痛点的改进建议"
+          },
+          "platform_optimization_directions": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "平台功能优化方向"
+          }
+        },
+        "required": ["key_findings", "recommendations"]
+      },
+
+      "progress": {
+        "type": "object",
+        "description": "分析进度（用于暂停续接）",
+        "properties": {
+          "completed_stages": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "已完成的阶段"
+          },
+          "completed_nodes": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "已完成痛点分析的节点"
+          },
+          "remaining_nodes": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "剩余待分析节点"
+          },
+          "next_resume_point": {
+            "type": "string",
+            "description": "下次续接位置"
+          }
+        }
+      }
+    }
+  },
+
+  "example_output": {
+    "analysis_id": "20260714-143000-勘探地质师-001",
+    "session_info": {
+      "analysis_date": "2026-07-14",
+      "analyst": "张三",
+      "session_status": "paused",
+      "total_duration_minutes": 25,
+      "total_turns": 18,
+      "fatigue_events": [
+        {
+          "timestamp": "2026-07-14T14:45:00",
+          "level": "yellow",
+          "trigger": "short_answer",
+          "emotion_words_detected": [],
+          "action_taken": "减少追问，转为确认式沟通"
+        }
+      ]
+    },
+    "position_info": {
+      "job_title": "勘探地质师",
+      "domain": "勘探业务",
+      "location": "北京研究总院（线上办公）",
+      "tools_used": ["Petrel", "协同研究平台"],
+      "tags": {
+        "DOM": "DOM-EXP",
+        "ROL": "ROL-RSCH",
+        "MOD": "MOD-ONLN",
+        "DEP": "DEP-ANALYZE",
+        "LVL": "LVL-OPER",
+        "DAT": "DAT-GEO",
+        "SKL": ["SKL-PETREL", "SKL-AI"]
+      },
+      "summary": "使用Petrel进行地震解释与储层预测的研究人员"
+    },
+    "business_flow": {
+      "work_description": "主要从事地震资料解释、储层预测、圈闭评价和井位论证工作",
+      "nodes": [
+        {"node_id": 1, "node_name": "构造解释", "is_custom": false, "standard_node_ref": "勘探业务域 > 地震勘探 > 地震解释", "participation_mode": "主导", "input": "地震偏移数据体", "output": "层位/断层解释成果", "collaborators": ["物探工程师"]},
+        {"node_id": 2, "node_name": "储层预测", "is_custom": false, "standard_node_ref": "勘探业务域 > 储层预测 > 属性分析", "participation_mode": "主导", "input": "解释成果+测井曲线", "output": "储层预测图件", "collaborators": ["测井工程师"]},
+        {"node_id": 3, "node_name": "圈闭评价", "is_custom": false, "standard_node_ref": "勘探业务域 > 圈闭评价与井位论证 > 圈闭成藏分析", "participation_mode": "主导", "input": "储层预测+构造成果", "output": "圈闭评价结论", "collaborators": []},
+        {"node_id": 4, "node_name": "井位论证", "is_custom": false, "standard_node_ref": "勘探业务域 > 圈闭评价与井位论证 > 井位论证", "participation_mode": "参与", "input": "圈闭评价结果", "output": "井位建议书", "collaborators": ["勘探主管"]}
+      ],
+      "flowchart_mermaid": "flowchart LR\n  A[构造解释] --> B[储层预测]\n  B --> C[圈闭评价]\n  C --> D[井位论证]",
+      "flowchart_svg_generated": true
+    },
+    "pain_points": {
+      "summary_statistics": {
+        "total_nodes_analyzed": 2,
+        "total_nodes_remaining": 2,
+        "total_pain_points": 3,
+        "by_type": {"技术痛点": 2, "流程痛点": 0, "数据痛点": 1, "协同痛点": 0, "管理痛点": 0},
+        "by_impact": {"高": 2, "中": 1, "低": 0}
+      },
+      "priority_matrix": {
+        "quick_wins": [],
+        "focus_areas": [
+          {"node_name": "构造解释", "description": "断层解释耗时长，复杂断块区一个断层需半天", "impact": "高", "difficulty": "中"}
+        ],
+        "long_term": [
+          {"node_name": "储层预测", "description": "现有反演工具GPU算力不足，大工区运算需要数天", "impact": "高", "difficulty": "难"}
+        ]
+      },
+      "systemic_analysis": {
+        "has_systemic_issues": false,
+        "patterns": []
+      },
+      "details": [
+        {
+          "node_name": "构造解释",
+          "node_id": 1,
+          "pain_points_list": [
+            {
+              "description": "断层解释耗时长，复杂断块区一个断层需半天",
+              "type": "技术痛点",
+              "impact": "高",
+              "difficulty": "中",
+              "frequency": "每个工区都会遇到",
+              "current_approach": "人工反复对比多剖面",
+              "ideal_state": "AI自动识别断层，人工仅做检查和调整",
+              "five_why_applied": true,
+              "root_cause_chain": [
+                "人工在多条剖面上反复对比断层",
+                "现有工具没有自动断层追踪功能",
+                "AI断层识别模型未集成到研究平台",
+                "AI模型与Petrel之间缺少API接口"
+              ],
+              "root_cause": "AI模型与专业软件的系统集成缺失"
+            }
+          ]
+        },
+        {
+          "node_name": "储层预测",
+          "node_id": 2,
+          "pain_points_list": [
+            {
+              "description": "反演需要从多个系统分别拉取测井数据，数据准备耗时",
+              "type": "数据痛点",
+              "impact": "中",
+              "difficulty": "易",
+              "frequency": "每次做反演都要处理",
+              "current_approach": "手动从不同系统导出再导入",
+              "ideal_state": "数据湖一键获取所有所需数据",
+              "five_why_applied": false,
+              "root_cause_chain": [],
+              "root_cause": ""
+            },
+            {
+              "description": "现有反演工具GPU算力不足，大工区运算需要数天",
+              "type": "技术痛点",
+              "impact": "高",
+              "difficulty": "难",
+              "frequency": "大数据体工区",
+              "current_approach": "缩小范围或降低分辨率",
+              "ideal_state": "云端高性能计算资源按需调度",
+              "five_why_applied": false,
+              "root_cause_chain": [],
+              "root_cause": ""
+            }
+          ]
+        }
+      ]
+    },
+    "summary": {
+      "key_findings": [
+        "断层解释效率是当前最大瓶颈，影响后续储层预测周期",
+        "数据获取分散是普遍问题，多个系统之间切换耗时严重",
+        "GPU算力不足限制了大数据体反演的应用"
+      ],
+      "quick_wins": [
+        {"priority": "高", "suggestion": "统一数据访问入口，实现数据湖一站式获取", "target_node": "储层预测", "expected_outcome": "数据准备时间从数小时减少到数分钟"}
+      ],
+      "recommendations": [
+        {"priority": "高", "suggestion": "引入AI断层自动识别工具", "target_node": "构造解释"},
+        {"priority": "高", "suggestion": "统一数据访问入口，实现数据湖一站式获取", "target_node": "储层预测"},
+        {"priority": "中", "suggestion": "HPC算力资源云化，按需弹性扩展", "target_node": "储层预测"}
+      ],
+      "systemic_recommendations": [],
+      "platform_optimization_directions": [
+        "AI断层识别工具集成到协同研究平台",
+        "数据湖一键数据获取能力",
+        "云端HPC算力弹性调度"
+      ]
+    },
+    "progress": {
+      "completed_stages": ["阶段一：定位岗位", "阶段二：摸清业务", "阶段三：挖掘痛点（部分）"],
+      "completed_nodes": ["构造解释", "储层预测"],
+      "remaining_nodes": ["圈闭评价", "井位论证"],
+      "next_resume_point": "从【圈闭评价】节点继续挖掘痛点"
+    }
+  }
+}

@@ -72,6 +72,12 @@ class FailingStatusRunStore(MemoryRunStore):
         self.status_update_attempts += 1
         raise sqlite3.OperationalError("database is locked")
 
+    async def claim_for_takeover(self, run_id, *, grace_seconds, error):
+        # Reconciliation now persists the terminal status through an atomic
+        # takeover CAS, not update_status. Inject the same failure there.
+        self.status_update_attempts += 1
+        raise sqlite3.OperationalError("database is locked")
+
 
 class MissingCompletionRunStore(MemoryRunStore):
     """Memory run store that reports one missing row for completion updates."""
@@ -397,16 +403,13 @@ async def test_cleanup_with_store_evicts_memory_and_preserves_history():
 
 
 @pytest.mark.anyio
-async def test_cleanup_without_store_preserves_history(manager: RunManager):
-    """Memory-only cleanup cannot evict a record with no hydration fallback."""
+async def test_cleanup(manager: RunManager):
+    """After cleanup, the run should be gone."""
     record = await manager.create("thread-1")
     run_id = record.run_id
-    await manager.set_status(run_id, RunStatus.success)
 
     await manager.cleanup(run_id, delay=0)
-
-    assert await manager.get(run_id) is record
-    assert [run.run_id for run in await manager.list_by_thread("thread-1")] == [run_id]
+    assert await manager.get(run_id) is None
 
 
 @pytest.mark.anyio

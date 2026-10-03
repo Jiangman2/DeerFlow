@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -48,7 +48,6 @@ export function ThreadDeleteDialogProvider({
   children: ReactNode;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
   const pathname = usePathname();
   const { thread_id: threadIdFromPath, agent_name: agentNameFromPath } =
     useParams<{ thread_id: string; agent_name?: string }>();
@@ -91,7 +90,11 @@ export function ThreadDeleteDialogProvider({
                 nextPath: nextThreadPath,
                 force: true,
               });
-              void router.replace(nextThreadPath);
+              // A new chat uses a native first-run history replacement.
+              // Returning to /new can therefore be a router no-op while the
+              // SDK still retains messages. Dispose that lifecycle only after
+              // both server deletion and local cleanup have succeeded.
+              window.location.replace(nextThreadPath);
             }
           : undefined,
       });
@@ -110,7 +113,6 @@ export function ThreadDeleteDialogProvider({
     agentNameFromPath,
     deleteThread,
     pathname,
-    router,
     target,
     threadIdFromPath,
     t.chats.deleteFailed,

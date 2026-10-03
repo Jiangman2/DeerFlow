@@ -43,6 +43,7 @@ from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
 from deerflow.config.token_budget_config import TokenBudgetConfig
+from deerflow.run_timing import time_middleware_after_agent
 
 logger = logging.getLogger(__name__)
 
@@ -144,9 +145,10 @@ class TokenBudgetMiddleware(AgentMiddleware[AgentState]):
 
     @override
     def after_agent(self, state: AgentState, runtime: Runtime) -> None:
-        if not self._config.enabled:
-            return
-        self._clear_run_state(self._get_run_id(runtime))
+        with time_middleware_after_agent(logger, middleware="token_budget"):
+            if not self._config.enabled:
+                return
+            self._clear_run_state(self._get_run_id(runtime))
 
     @override
     async def aafter_agent(self, state: AgentState, runtime: Runtime) -> None:

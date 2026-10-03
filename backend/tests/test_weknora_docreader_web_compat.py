@@ -242,9 +242,7 @@ def test_sitecustomize_hook_waits_until_docreader_module_becomes_importable(tmp_
         monkeypatch.delitem(sys.modules, name, raising=False)
 
     assert compat.install_docreader_web_compat_when_available() is True
-    assert any(
-        getattr(finder, compat._IMPORT_HOOK_MARKER, False) for finder in sys.meta_path
-    )
+    assert any(getattr(finder, compat._IMPORT_HOOK_MARKER, False) for finder in sys.meta_path)
 
     monkeypatch.syspath_prepend(str(package_root))
     importlib.invalidate_caches()
@@ -252,6 +250,4 @@ def test_sitecustomize_hook_waits_until_docreader_module_becomes_importable(tmp_
 
     assert getattr(web_parser.StdWebParser.scrape, compat._PATCH_MARKER, False)
     assert getattr(web_parser.StdWebParser.parse_into_text, compat._PATCH_MARKER, False)
-    assert not any(
-        getattr(finder, compat._IMPORT_HOOK_MARKER, False) for finder in sys.meta_path
-    )
+    assert not any(getattr(finder, compat._IMPORT_HOOK_MARKER, False) for finder in sys.meta_path)

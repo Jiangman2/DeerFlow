@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from fastapi import HTTPException, Request
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.messages.utils import convert_to_messages
 from langgraph.types import Command
 
@@ -30,6 +30,7 @@ from app.gateway.internal_auth import (
 )
 from app.gateway.utils import sanitize_log_param
 from app.gateway.weknora_identity import ensure_weknora_session_for_deerflow_user
+from deerflow.agents.human_input import read_human_input_response
 from deerflow.agents.middlewares.dynamic_context_middleware import _DYNAMIC_CONTEXT_REMINDER_KEY, _REMINDER_DATE_KEY
 from deerflow.config.app_config import get_app_config
 from deerflow.runtime import (
@@ -47,8 +48,9 @@ from deerflow.runtime import (
 from deerflow.runtime.goal import goal_thread_lock
 from deerflow.runtime.runs.naming import resolve_root_run_name
 from deerflow.runtime.secret_context import redact_config_secrets
+from deerflow.runtime.stream_bridge.base import StreamReplayGapError
 from deerflow.runtime.user_context import reset_current_user, set_current_user
-from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY
+from deerflow.utils.messages import ORIGINAL_USER_CONTENT_KEY, SUMMARY_MESSAGE_NAME, UNTRUSTED_INPUT_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,8 @@ _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS = frozenset(
         _REMINDER_DATE_KEY,
     }
 )
+
+_SERVER_OWNED_MESSAGE_METADATA_KEYS = _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS | frozenset({UNTRUSTED_INPUT_KEY})
 
 
 # ---------------------------------------------------------------------------
@@ -127,17 +131,68 @@ def normalize_stream_modes(raw: list[str] | str | None) -> list[str]:
     return raw if raw else ["values"]
 
 
+def _skips_input_guardrail(additional_kwargs: dict[str, Any], name: Any) -> bool:
+    """Return whether caller markers would make the input guardrail skip."""
+    if name == SUMMARY_MESSAGE_NAME:
+        return True
+    return bool(additional_kwargs.get("hide_from_ui")) and read_human_input_response(additional_kwargs) is None
+
+
+def _mark_untrusted_framework_markers(additional_kwargs: dict[str, Any], name: Any) -> dict[str, Any]:
+    """Keep caller presentation markers while preserving the trust boundary."""
+    if not _skips_input_guardrail(additional_kwargs, name):
+        return additional_kwargs
+    return {**additional_kwargs, UNTRUSTED_INPUT_KEY: True}
+
+
+def _is_human_message_like(message: Any) -> bool:
+    if isinstance(message, BaseMessage):
+        return isinstance(message, HumanMessage)
+    if isinstance(message, dict):
+        return (message.get("type") or message.get("role")) in {"human", "user"}
+    return False
+
+
 def _strip_external_message_metadata(message: Any) -> Any:
-    """Remove server-owned metadata from an untrusted input message."""
+    """Remove server-owned metadata and mark guardrail-skipping human input."""
     if not isinstance(message, BaseMessage):
         return message
     additional_kwargs = dict(message.additional_kwargs)
     additional_kwargs.pop(ORIGINAL_USER_CONTENT_KEY, None)
-    for key in _SERVER_OWNED_DYNAMIC_CONTEXT_KEYS:
+    for key in _SERVER_OWNED_MESSAGE_METADATA_KEYS:
         additional_kwargs.pop(key, None)
+    if _is_human_message_like(message):
+        additional_kwargs = _mark_untrusted_framework_markers(additional_kwargs, message.name)
     if additional_kwargs == message.additional_kwargs:
         return message
     return message.model_copy(update={"additional_kwargs": additional_kwargs})
+
+
+def _strip_external_metadata_from_message_like(item: Any) -> Any:
+    """Apply the same boundary to BaseMessage and raw checkpoint values."""
+    if isinstance(item, BaseMessage):
+        return _strip_external_message_metadata(item)
+    if not isinstance(item, dict):
+        return item
+    source_kwargs = item.get("additional_kwargs")
+    source_kwargs = source_kwargs if isinstance(source_kwargs, dict) else {}
+    additional_kwargs = {key: value for key, value in source_kwargs.items() if key not in _SERVER_OWNED_MESSAGE_METADATA_KEYS and key != ORIGINAL_USER_CONTENT_KEY}
+    if _is_human_message_like(item):
+        additional_kwargs = _mark_untrusted_framework_markers(additional_kwargs, item.get("name"))
+    if additional_kwargs == source_kwargs:
+        return item
+    return {**item, "additional_kwargs": additional_kwargs}
+
+
+def strip_server_owned_state_metadata(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Protect direct thread-state writes with the run-input trust boundary."""
+    stripped: dict[str, Any] = {}
+    for channel, value in values.items():
+        if isinstance(value, list):
+            stripped[channel] = [_strip_external_metadata_from_message_like(item) for item in value]
+        else:
+            stripped[channel] = _strip_external_metadata_from_message_like(value)
+    return stripped
 
 
 def normalize_input(raw_input: dict[str, Any] | None, *, trusted_internal: bool = False) -> dict[str, Any]:
@@ -154,9 +209,11 @@ def normalize_input(raw_input: dict[str, Any] | None, *, trusted_internal: bool 
     of bubbling up as a 500.  The gateway is a system boundary, so per-entry
     validation errors are the right shape for clients to retry against.
 
-    ``original_user_content`` and dynamic-context reminder markers are
-    server-owned. External callers cannot supply them; trusted internal channel
-    calls may preserve metadata they added before invoking this boundary.
+    ``original_user_content``, dynamic-context reminder markers, and
+    ``untrusted_input`` are server-owned. External callers cannot supply them.
+    Caller-owned ``hide_from_ui`` and human ``name=summary`` markers are kept
+    for presentation compatibility but stamped as untrusted so they cannot
+    bypass input sanitization.
     """
     if raw_input is None:
         return {}
@@ -342,6 +399,7 @@ def inject_authenticated_user_context(
     request: Request,
     *,
     internal_owner_user: Any | None = None,
+    request_context: Mapping[str, Any] | None = None,
 ) -> None:
     """Stamp the authenticated user into the run context for background tools.
 
@@ -349,6 +407,28 @@ def inject_authenticated_user_context(
     that persist user-scoped files should not rely only on ambient ContextVars.
     The value comes from server-side auth state, never from client context.
     """
+
+    runtime_context = config.setdefault("context", {})
+    if not isinstance(runtime_context, dict):
+        raise TypeError("run context must be a mapping")
+
+    # AuthMiddleware owns provenance. Neither a body.config section nor an
+    # earlier merge of body.context may mint these authorization attributes.
+    is_internal = getattr(getattr(request, "state", None), "auth_source", None) == AUTH_SOURCE_INTERNAL
+    for section in ("context", "configurable"):
+        values = config.get(section)
+        if isinstance(values, dict):
+            for key in ("is_internal", "authz_attributes", "channel_user_id"):
+                values.pop(key, None)
+    runtime_context["is_internal"] = is_internal
+
+    # Only an authenticated internal IM request's top-level context is the
+    # platform-sender source. In particular, setdefault would let body.config
+    # win over it, and reusing merged context would lose that distinction.
+    if is_internal and isinstance(request_context, Mapping):
+        channel_user_id = request_context.get("channel_user_id")
+        if isinstance(channel_user_id, str) and channel_user_id:
+            runtime_context["channel_user_id"] = channel_user_id
 
     user = getattr(request.state, "user", None)
     user_id = getattr(user, "id", None)
@@ -551,6 +631,9 @@ def build_run_config(
     # general-purpose subagent's max_turns.
     config: dict[str, Any] = {"recursion_limit": _DEFAULT_RECURSION_LIMIT}
     if request_config:
+        request_configurable = request_config.get("configurable")
+        if request_configurable is None:
+            request_configurable = {}
         # LangGraph >= 0.6.0 introduced ``context`` as the preferred way to
         # pass thread-level data and rejects requests that include both
         # ``configurable`` and ``context``.  If the caller already sends
@@ -560,7 +643,7 @@ def build_run_config(
                 logger.warning(
                     "build_run_config: client sent both 'context' and 'configurable'; preferring 'context' (LangGraph >= 0.6.0). thread_id=%s, caller_configurable keys=%s",
                     thread_id,
-                    list(request_config.get("configurable", {}).keys()),
+                    list(request_configurable.keys()),
                 )
             context_value = request_config["context"]
             if context_value is None:
@@ -587,7 +670,7 @@ def build_run_config(
             config["configurable"] = {"thread_id": thread_id}
         else:
             configurable = {"thread_id": thread_id}
-            configurable.update(request_config.get("configurable", {}))
+            configurable.update(request_configurable)
             config["configurable"] = configurable
         for k, v in request_config.items():
             if k not in ("configurable", "context"):
@@ -833,7 +916,12 @@ async def start_run(
             # ``build_run_config``; scrub internal-only keys smuggled there.
             strip_internal_context_keys(config)
         internal_owner_user = await resolve_trusted_internal_owner_for_attribution(request, owner_user_id)
-        inject_authenticated_user_context(config, request, internal_owner_user=internal_owner_user)
+        inject_authenticated_user_context(
+            config,
+            request,
+            internal_owner_user=internal_owner_user,
+            request_context=getattr(body, "context", None),
+        )
         await inject_weknora_user_context(config, request, internal_owner_user=internal_owner_user)
 
         stream_modes = normalize_stream_modes(body.stream_mode)
@@ -945,6 +1033,7 @@ async def sse_consumer(
     - ``continue``: let the task run; events are discarded.
     """
     last_event_id = request.headers.get("Last-Event-ID")
+    replay_gap_reported = False
     if await _terminal_record_stream_missing(bridge, record):
         yield format_sse("end", None)
         return
@@ -967,12 +1056,23 @@ async def sse_consumer(
 
             yield format_sse(entry.event, entry.data, event_id=entry.id or None)
 
+    except StreamReplayGapError:
+        replay_gap_reported = True
+        logger.warning("Run %s SSE replay cursor predates retained stream history", record.run_id)
+        yield format_sse(
+            "error",
+            {
+                "name": "StreamReplayGapError",
+                "message": "Stream replay history is no longer available; refresh the thread to load its latest state.",
+            },
+        )
+
     finally:
         # store_only records are cross-worker runs hydrated from the RunStore; this
         # worker holds no in-memory task/abort state for them, so run_mgr.cancel()
         # cannot stop the task (it would 409). Skip on_disconnect cancellation for
         # those and only act on runs this worker actually owns.
-        if not record.store_only and record.status in (RunStatus.pending, RunStatus.running):
+        if not replay_gap_reported and not record.store_only and record.status in (RunStatus.pending, RunStatus.running):
             if record.on_disconnect == DisconnectMode.cancel:
                 await run_mgr.cancel(record.run_id)
 

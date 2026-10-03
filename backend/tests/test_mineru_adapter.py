@@ -41,9 +41,7 @@ def _fake_docx_with_text(text: str = "大型文档恢复正文") -> bytes:
         archive.writestr("[Content_Types].xml", "<Types />")
         archive.writestr(
             "word/document.xml",
-            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-            f"<w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body>"
-            "</w:document>",
+            f'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>{text}</w:t></w:r></w:p></w:body></w:document>',
         )
     return data.getvalue()
 
@@ -632,9 +630,7 @@ def test_docx_workload_routes_on_expanded_document_xml(monkeypatch):
 
 
 def test_docx_streaming_recovery_extracts_text_without_images():
-    markdown, images = app._parse_docx_streaming_in_process(
-        _fake_docx_with_text("低内存流式正文")
-    )
+    markdown, images = app._parse_docx_streaming_in_process(_fake_docx_with_text("低内存流式正文"))
 
     assert markdown == "低内存流式正文"
     assert images == {}

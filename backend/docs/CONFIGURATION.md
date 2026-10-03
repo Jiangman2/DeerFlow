@@ -4,38 +4,13 @@ This guide explains how to configure DeerFlow for your environment.
 
 ## Model request admission
 
-For provider request-per-minute limits, opt into pacing on each relevant
-`models[]` entry:
-
-```yaml
-request_admission:
-  requests_per_minute: 60
-  group: shared-provider-account
-  max_wait_seconds: 300
-  max_queue_size: 256
-```
-
-Calls wait in a bounded FIFO before dispatch. At 60 RPM, admissions are spaced
-at least one second apart even after idle periods. The first call can proceed
-immediately. Async waiting is cancellable; cancellation, queue overflow, and
-wait expiry do not spend an admission permit.
-
-An explicit `group` shares one budget across model profiles that use the same
-provider quota. Omit it for a separate budget per configured model name. Every
-profile in a group must use identical settings, and the Gateway must be
-restarted after changing, disabling, or regrouping an active policy.
-
-When enabled, provider SDK retries are set to zero because they would bypass
-the LangChain admission hook. DeerFlow's model-call middleware retries remain
-available, and each attempt re-enters admission. A caller-supplied
-`rate_limiter` cannot be combined with `request_admission`.
-
-This is process-local RPM pacing, not token accounting or a cluster-wide quota
-service. In a multi-replica Gateway deployment, divide the provider allowance
-across replicas and keep headroom for other consumers. The existing
-`llm_call.max_concurrent_calls` remains independent; its slot is held while the
-model waits for admission. The feature is disabled unless explicitly
-configured.
+The incoming `request_admission` RPM feature is deferred in the dmdb
+2026-09-30 merge: `RequestAdmissionConfig` and the model-factory hook are absent.
+An extra model field must not be mistaken for an enforced quota. Do not add
+`request_admission` settings until a complete implementation and regression
+tests are reviewed together. Existing `llm_call.max_concurrent_calls` and the
+test environment's stream-admission controls remain independent and unchanged.
+See [the reconciliation record](ENTERPRISE_MERGE_20260930.md).
 
 ## Config Versioning
 
@@ -125,6 +100,45 @@ models:
 For OpenAI-compatible gateways (for example Novita or OpenRouter), keep using `langchain_openai:ChatOpenAI` and set `base_url`:
 
 > **Note:** for `langchain_openai:ChatOpenAI` the endpoint override key is `base_url` (not `api_base`). If you write `api_base` it is automatically normalized to `base_url`, and unrecognized keys are logged with a warning at model-build time. Some other model classes (e.g. `PatchedChatDeepSeek`) do use `api_base` — match the key to the class you configured.
+
+Alibaba Cloud Model Studio Qwen3.7-Plus is also an OpenAI-compatible **Chat
+Completions** model. Do not set `use_responses_api` for the Gateway model entry:
+the separate PPT runtime's Responses configuration is unrelated. Use
+`RobustChatOpenAI` so its streamed `reasoning_content` is retained and replayed
+for later tool-call turns:
+
+```yaml
+models:
+  - name: qwen3.7-plus
+    display_name: Qwen3.7-Plus
+    use: deerflow.models.robust_openai:RobustChatOpenAI
+    model: qwen3.7-plus
+    api_key: $DASHSCOPE_API_KEY
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    request_timeout: 900.0
+    max_retries: 2
+    max_tokens: 65536
+    supports_thinking: true
+    supports_reasoning_effort: true
+    supports_vision: false
+    when_thinking_enabled:
+      extra_body:
+        enable_thinking: true
+        preserve_thinking: true
+    when_thinking_disabled:
+      extra_body:
+        enable_thinking: false
+```
+
+If DashScope egress must traverse an HTTP(S) proxy, configure `HTTP_PROXY` and
+`HTTPS_PROXY` (plus lowercase aliases when your deployment convention uses
+them) on the **Gateway container** through its Kubernetes Secret. Do not add a
+`trust_env` field to this model configuration: it is not a Chat Completions
+request parameter. The local-PVC baseline intentionally clears proxy variables
+for Docker Desktop; use its opt-in
+`k8s/local-pvc/qwen3.7-dashscope-proxy-test-patch.yaml` overlay in a test
+cluster. Keep Kubernetes Service names and CIDRs in `NO_PROXY`, but do not add
+`dashscope.aliyuncs.com` there.
 
 ```yaml
 models:

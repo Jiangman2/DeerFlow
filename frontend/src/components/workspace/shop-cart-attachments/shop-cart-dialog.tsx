@@ -151,7 +151,7 @@ export function ShopCartDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-5 text-sm text-muted-foreground">
+        <div className="text-muted-foreground px-5 text-sm">
           {t.inputBox.shopCartWindowDescription}
         </div>
 

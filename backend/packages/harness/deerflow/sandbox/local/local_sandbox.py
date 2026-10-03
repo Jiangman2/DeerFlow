@@ -361,6 +361,16 @@ class LocalSandbox(Sandbox):
                 resolved = f"{mapping.container_path}/{relative}" if relative else mapping.container_path
                 return resolved
 
+        # A symlink may resolve outside every mount. Mask its lexical mount
+        # spelling for display only; forward reads/writes still resolve and
+        # reject the escaping target in _resolve_path_with_mapping.
+        lexical_path = os.path.abspath(normalized_path)
+        for mapping in self._mappings_by_local_specificity:
+            local_root = self._resolved_local_paths[mapping]
+            if lexical_path == local_root or lexical_path.startswith(local_root + os.sep):
+                relative = lexical_path[len(local_root) :].lstrip(os.sep).replace(os.sep, "/")
+                return f"{mapping.container_path}/{relative}" if relative else mapping.container_path
+
         # No mapping found, return original path
         return path_str
 
@@ -676,6 +686,10 @@ class LocalSandbox(Sandbox):
                     except OSError:
                         pass
 
+        # Preserve synthetic mount parents with real virtual children, but do
+        # not silently report a missing directory as an empty directory.
+        if not result and not Path(resolved_path).exists():
+            raise FileNotFoundError(errno.ENOENT, "No such directory", path)
         return sorted(result)
 
     def read_file(self, path: str) -> str:

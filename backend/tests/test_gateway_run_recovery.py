@@ -150,6 +150,12 @@ async def test_runtime_scopes_startup_recovery_to_ordinary_gateway(monkeypatch, 
 
 
 @pytest.mark.anyio
+async def test_sqlite_runtime_reconciles_orphaned_runs_on_startup(monkeypatch):
+    """Retain the original ordinary-Gateway recovery regression by name."""
+    await test_runtime_scopes_startup_recovery_to_ordinary_gateway(monkeypatch, "")
+
+
+@pytest.mark.anyio
 async def test_sqlite_runtime_does_not_mark_thread_error_when_newer_run_is_success(monkeypatch):
     """Startup recovery should not let an old orphaned run overwrite a newer terminal thread state."""
     app = FastAPI()

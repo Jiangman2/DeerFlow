@@ -355,6 +355,8 @@ class DeerFlowTUI(App):
 
     def _handle_builtin(self, name: str, args: str) -> None:
         if name == "quit":
+            if self._streaming:
+                self._interrupt_run()
             self.exit()
         elif name == "help":
             self._dispatch(SystemMessage(_HELP_TEXT))

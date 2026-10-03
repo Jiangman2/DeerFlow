@@ -26,6 +26,15 @@ beforeEach(() => {
 });
 
 describe("uploads api", () => {
+  test("keeps Unicode, percent signs and spaces in one encoded filename", async () => {
+    mockedFetch.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+    await deleteUploadedFile("thread-1", "报告 100%#1?.txt");
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/backend/api/threads/thread-1/uploads/%E6%8A%A5%E5%91%8A%20100%25%231%3F.txt",
+      { method: "DELETE" },
+    );
+  });
+
   test("encodes uploaded filenames in delete request paths", async () => {
     mockedFetch.mockResolvedValueOnce(
       jsonResponse(200, {

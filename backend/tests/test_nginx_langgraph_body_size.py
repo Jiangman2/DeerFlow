@@ -152,10 +152,7 @@ def test_threads_route_outlasts_blocking_gateway_calls(path):
 
     timeout_seconds = _parse_read_timeout_seconds(block)
 
-    assert timeout_seconds >= _MIN_BLOCKING_READ_TIMEOUT_SECONDS, (
-        f"{path}: the generic /api/threads location allows {timeout_seconds}s, "
-        f"expected at least {_MIN_BLOCKING_READ_TIMEOUT_SECONDS}s"
-    )
+    assert timeout_seconds >= _MIN_BLOCKING_READ_TIMEOUT_SECONDS, f"{path}: the generic /api/threads location allows {timeout_seconds}s, expected at least {_MIN_BLOCKING_READ_TIMEOUT_SECONDS}s"
 
 
 @pytest.mark.parametrize("path", NGINX_CONFIGS)
@@ -166,10 +163,7 @@ def test_skills_prefix_outlasts_the_llm_security_scan(path):
 
     timeout_seconds = _parse_read_timeout_seconds(block)
 
-    assert timeout_seconds >= _MIN_BLOCKING_READ_TIMEOUT_SECONDS, (
-        f"{path}: /api/skills allows {timeout_seconds}s, expected at least "
-        f"{_MIN_BLOCKING_READ_TIMEOUT_SECONDS}s"
-    )
+    assert timeout_seconds >= _MIN_BLOCKING_READ_TIMEOUT_SECONDS, f"{path}: /api/skills allows {timeout_seconds}s, expected at least {_MIN_BLOCKING_READ_TIMEOUT_SECONDS}s"
 
 
 @pytest.mark.parametrize("path", NGINX_CONFIGS)
@@ -180,7 +174,4 @@ def test_api_catchall_outlasts_blocking_gateway_calls(path):
 
     timeout_seconds = _parse_read_timeout_seconds(block)
 
-    assert timeout_seconds >= _MIN_BLOCKING_READ_TIMEOUT_SECONDS, (
-        f"{path}: the /api/ catch-all allows {timeout_seconds}s, expected at "
-        f"least {_MIN_BLOCKING_READ_TIMEOUT_SECONDS}s"
-    )
+    assert timeout_seconds >= _MIN_BLOCKING_READ_TIMEOUT_SECONDS, f"{path}: the /api/ catch-all allows {timeout_seconds}s, expected at least {_MIN_BLOCKING_READ_TIMEOUT_SECONDS}s"

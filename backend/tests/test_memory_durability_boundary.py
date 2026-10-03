@@ -6,10 +6,7 @@ from deerflow.agents.memory.backends.deermem.deermem.core.updater import (
 def test_one_turn_operational_instruction_is_not_durable_memory() -> None:
     fact = _normalize_memory_update_fact(
         {
-            "content": (
-                "User explicitly instructs the agent to avoid network access "
-                "during task execution."
-            ),
+            "content": ("User explicitly instructs the agent to avoid network access during task execution."),
             "category": "preference",
             "confidence": 0.99,
         }

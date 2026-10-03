@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 from collections.abc import Awaitable, Callable
@@ -16,6 +17,9 @@ from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
+from deerflow.run_timing import atime_middleware_after_agent, log_run_timing, time_middleware_after_agent
+
+logger = logging.getLogger(__name__)
 
 _OUTPUTS_PREFIX = "/mnt/user-data/outputs/"
 _MARKDOWN_OUTPUT_RE = re.compile(r"\]\(\s*(/mnt/user-data/outputs/[^)\r\n]+)\s*\)")
@@ -190,6 +194,7 @@ class ArtifactDeliveryMiddleware(AgentMiddleware[AgentState]):
                 self._pending_prompts[key] = True
 
         if retry_count < self.max_retries:
+            log_run_timing(logger, "artifact_delivery_retry_queued", retry_count=retry_count + 1)
             message_updates = [RemoveMessage(id=last.id)] if last.id else []
             return {"messages": message_updates, "jump_to": "model"}
 
@@ -206,6 +211,7 @@ class ArtifactDeliveryMiddleware(AgentMiddleware[AgentState]):
             self._pending_prompts.pop(key, None)
         if not pending:
             return request
+        log_run_timing(logger, "artifact_delivery_retry_injected")
         reminder = HumanMessage(
             content=_RECOVERY_PROMPT,
             name="artifact_delivery_recovery",
@@ -253,10 +259,12 @@ class ArtifactDeliveryMiddleware(AgentMiddleware[AgentState]):
 
     @override
     def after_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        self._clear(runtime)
-        return None
+        with time_middleware_after_agent(logger, middleware="artifact_delivery"):
+            self._clear(runtime)
+            return None
 
     @override
     async def aafter_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        self._clear(runtime)
-        return None
+        async with atime_middleware_after_agent(logger, middleware="artifact_delivery"):
+            self._clear(runtime)
+            return None

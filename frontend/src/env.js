@@ -12,6 +12,9 @@ export const env = createEnv({
     DEER_FLOW_SSO_ONLY: z.string().optional(),
     SHOP_CART_API_BASE_URL: z.string().optional(),
     SHOP_CART_DOWNLOAD_TLS_VERIFY: z.string().optional(),
+    HAINENG_MODEL_CALL_COUNT_URL: z.string().url().optional(),
+    HAINENG_MODEL_CALL_COUNT_APP_ID: z.string().optional(),
+    HAINENG_MODEL_CALL_COUNT_APP_KEY: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -53,6 +56,11 @@ export const env = createEnv({
     DEER_FLOW_SSO_ONLY: process.env.DEER_FLOW_SSO_ONLY,
     SHOP_CART_API_BASE_URL: process.env.SHOP_CART_API_BASE_URL,
     SHOP_CART_DOWNLOAD_TLS_VERIFY: process.env.SHOP_CART_DOWNLOAD_TLS_VERIFY,
+    HAINENG_MODEL_CALL_COUNT_URL: process.env.HAINENG_MODEL_CALL_COUNT_URL,
+    HAINENG_MODEL_CALL_COUNT_APP_ID:
+      process.env.HAINENG_MODEL_CALL_COUNT_APP_ID,
+    HAINENG_MODEL_CALL_COUNT_APP_KEY:
+      process.env.HAINENG_MODEL_CALL_COUNT_APP_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

@@ -366,6 +366,13 @@ class DingTalkChannel(Channel):
             msg_id = message.message_id or ""
             sender_nick = message.sender_nick or ""
 
+            # Validate the routing boundary before binding or publishing. A group
+            # can have an unknown sender, but must still have a conversation ID.
+            chat_id = conversation_id if conversation_type == _CONVERSATION_TYPE_GROUP else sender_staff_id
+            if not isinstance(chat_id, str) or not chat_id.strip():
+                logger.warning("[DingTalk] missing conversation routing identity, ignoring message")
+                return
+
             text = self._extract_text(message)
             if not text:
                 logger.info("[DingTalk] empty text, ignoring message")
@@ -413,9 +420,6 @@ class DingTalkChannel(Channel):
             # P2P: topic_id=None (single thread per user, like Telegram private chat)
             # Group: topic_id=msg_id (each new message starts a new topic, like Feishu)
             topic_id: str | None = msg_id if conversation_type == _CONVERSATION_TYPE_GROUP else None
-
-            # chat_id uses conversation_id for groups, sender_staff_id for P2P
-            chat_id = conversation_id if conversation_type == _CONVERSATION_TYPE_GROUP else sender_staff_id
 
             inbound = self._make_inbound(
                 chat_id=chat_id,

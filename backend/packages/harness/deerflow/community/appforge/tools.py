@@ -1,10 +1,10 @@
 """Secure CNOOC DataLake adapters for question answering.
 
 ``datalake_smart_qa`` uses the DataLake Retrieve API and returns only ranked
-source chunks for the DeerFlow model to analyze. The metrics and detail tools
-continue to use the internal AppForge SSE API. Credentials and workflow identity
-inputs are resolved only from server-side configuration; the model-visible tool
-schema contains only the business question.
+source chunks for the DeerFlow model to analyze. Metrics, detail, and master
+data search use internal AppForge SSE workflows. Credentials and workflow
+identity inputs are resolved only from server-side configuration; the
+model-visible tool schema contains only the business question.
 """
 
 from __future__ import annotations
@@ -88,7 +88,23 @@ _TOOL_DEFAULTS: dict[str, dict[str, str]] = {
         "hytoken_env": "APPFORGE_DETAIL_QA_HYTOKEN",
         "hyaccount_env": "APPFORGE_DETAIL_QA_HYACCOUNT",
     },
+    "datalake_md_search": {
+        "app_id": "app-1qdkpgka",
+        "app_id_env": "APPFORGE_MD_SEARCH_APP_ID",
+        "conversation_prefix": "SquareWorkflow_",
+        "conversation_prefix_env": "APPFORGE_MD_SEARCH_CONVERSATION_PREFIX",
+        "timeout_env": "APPFORGE_MD_SEARCH_TIMEOUT_SECONDS",
+        "hytoken_env": "APPFORGE_MD_SEARCH_HYTOKEN",
+        "hyaccount_env": "APPFORGE_MD_SEARCH_HYACCOUNT",
+    },
 }
+
+# These are the only AppForge workflows coupled to the user's Data Lake toggle.
+# ``datalake_md_search`` deliberately is not here: it is an independently
+# configured master-data service and must remain available when that toggle is
+# disabled. Keep this separate from ``DATALAKE_TOOL_NAMES`` to avoid importing
+# the tool registry into this provider module.
+_DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS = frozenset({"datalake_metrics_qa", "datalake_detail_qa"})
 
 
 def _tool_defaults(tool_name: str) -> dict[str, str]:
@@ -619,7 +635,7 @@ def _invoke_retrieve_tool(query: str, runtime: object | None) -> str:
 
 def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
     runtime_context = getattr(runtime, "context", None)
-    if isinstance(runtime_context, Mapping) and runtime_context.get("datalake_enabled") is False:
+    if tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS and isinstance(runtime_context, Mapping) and runtime_context.get("datalake_enabled") is False:
         return json.dumps(
             {
                 "error": "Data Lake use is disabled for this run",
@@ -730,3 +746,28 @@ def datalake_detail_qa_tool(runtime: Runtime, query: str) -> str:
     """
 
     return _invoke_tool("datalake_detail_qa", query, runtime)
+
+
+@tool("datalake_md_search", parse_docstring=True)
+def datalake_md_search_tool(runtime: Runtime, query: str) -> str:
+    """Query exploration and production master data and ownership relationships.
+
+    Use this only for companies, branches or operating organizations, oil and
+    gas fields, blocks, and wells: their ownership, object lists, and counts.
+    It can answer how many objects exist, which fields belong to a company or
+    branch, which company or branch owns a field/block/well, and which wells
+    belong to a field or block.
+
+    Do not use this for production, KPIs, trends, reports, calculations,
+    unstructured-document questions, arbitrary SQL, or unregistered complex
+    business-relationship inference. Use metrics QA, detail QA, or smart QA as
+    appropriate for those requests.
+
+    This service is independently configured and remains available when the
+    user's Data Lake toggle is disabled.
+
+    Args:
+        query: The user's complete master-data ownership, list, or count question.
+    """
+
+    return _invoke_tool("datalake_md_search", query, runtime)

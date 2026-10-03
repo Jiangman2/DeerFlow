@@ -71,9 +71,7 @@ async def test_proxy_streams_only_safe_images_without_environment_proxy(monkeypa
 
     monkeypatch.setattr(datalake.httpx, "AsyncClient", FakeClient)
 
-    response = await datalake.proxy_image_preview(
-        "http://10.77.124.142:30900/img-preview/document/image.png"
-    )
+    response = await datalake.proxy_image_preview("http://10.77.124.142:30900/img-preview/document/image.png")
     body = b"".join([chunk async for chunk in response.body_iterator])
 
     assert body == b"abcdef"
@@ -142,9 +140,7 @@ async def test_proxy_rejects_unsafe_upstream_responses_and_closes_resources(
     monkeypatch.setattr(datalake.httpx, "AsyncClient", FakeClient)
 
     with pytest.raises(HTTPException) as exc_info:
-        await datalake.proxy_image_preview(
-            "http://10.77.124.142:30900/img-preview/document/image.png"
-        )
+        await datalake.proxy_image_preview("http://10.77.124.142:30900/img-preview/document/image.png")
 
     assert exc_info.value.status_code == expected_status
     assert captured["response_closed"] is True
@@ -185,9 +181,7 @@ async def test_proxy_closes_resources_when_a_chunk_exceeds_the_stream_limit(
     monkeypatch.setattr(datalake.httpx, "AsyncClient", FakeClient)
     monkeypatch.setattr(datalake, "_MAX_IMAGE_BYTES", 6)
 
-    response = await datalake.proxy_image_preview(
-        "http://10.77.124.142:30900/img-preview/document/image.png"
-    )
+    response = await datalake.proxy_image_preview("http://10.77.124.142:30900/img-preview/document/image.png")
     with pytest.raises(RuntimeError, match="streaming size limit"):
         _ = [chunk async for chunk in response.body_iterator]
 

@@ -104,7 +104,12 @@ Create a new sandbox Pod + Service.
 }
 ```
 
-**Idempotent**: Calling with the same `sandbox_id` returns the existing sandbox info.
+**Idempotent**: Calling with the same `sandbox_id` returns existing information
+only when both a non-terminating Pod and its Service exist. Kubernetes deletion
+is asynchronous: if a fixed-name Pod is still terminating, the Provisioner
+waits (default `SANDBOX_POD_DELETE_WAIT_SECONDS=30`) for the name to be
+released before recreating it. It returns `503` on that bounded wait instead of
+publishing a Service with no Pod endpoint.
 
 ### `GET /api/sandboxes/{sandbox_id}`
 Get status and URL of a specific sandbox.
@@ -166,6 +171,7 @@ The provisioner is configured via environment variables (set in [docker-compose-
 | `NODE_HOST` | `host.docker.internal` | Hostname that backend containers use to reach host NodePorts; ignored when `SANDBOX_SERVICE_TYPE=ClusterIP` |
 | `K8S_API_SERVER` | (from kubeconfig) | Override K8s API server URL (e.g., `https://host.docker.internal:26443`) |
 | `SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS` | `5` | Inner HTTP timeout used by generated Pod probes |
+| `SANDBOX_POD_DELETE_WAIT_SECONDS` | `30` | Bounded wait for a terminating fixed-name Pod to disappear before recreation; timeout returns `503` rather than a Service-only result |
 | `SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS` | `10` | Kubelet exec timeout for the cold-start probe |
 | `SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD` | `60` | Startup probe failures allowed; with the default 5-second period this is 5 minutes |
 | `SANDBOX_READINESS_TIMEOUT_SECONDS` | `5` | Kubelet exec timeout for readiness checks |

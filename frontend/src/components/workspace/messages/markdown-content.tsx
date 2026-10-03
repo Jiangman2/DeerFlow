@@ -6,11 +6,7 @@ import {
   isValidElement,
   type ReactNode,
   useContext,
-  useDeferredValue,
-  useEffect,
   useMemo,
-  useRef,
-  useState,
 } from "react";
 
 import { type ClipboardSafeStreamdownProps } from "@/components/ai-elements/streamdown";
@@ -19,6 +15,7 @@ import {
   streamdownPluginsWithoutRawHtml,
 } from "@/core/streamdown";
 import { SafeMessageResponse } from "@/core/streamdown/components";
+import { useSmoothStreamingText } from "@/core/streamdown/use-smooth-streaming-text";
 import { cn } from "@/lib/utils";
 
 import { createMarkdownLinkComponent } from "./markdown-link";
@@ -26,6 +23,8 @@ import { createMarkdownLinkComponent } from "./markdown-link";
 export type MarkdownContentProps = {
   content: string;
   isLoading: boolean;
+  /** Opt in only for identified live assistant text, never tool/file state. */
+  streamingKey?: string;
   rehypePlugins?: ClipboardSafeStreamdownProps["rehypePlugins"];
   className?: string;
   remarkPlugins?: ClipboardSafeStreamdownProps["remarkPlugins"];
@@ -37,109 +36,7 @@ type StreamingCodeProps = ComponentProps<"code"> & {
   children?: ReactNode;
 };
 
-const SMOOTH_REVEAL_MIN_DELTA = 80;
-const SMOOTH_REVEAL_CADENCE_MS = 50;
-const SMOOTH_REVEAL_MIN_CHARS_PER_COMMIT = 64;
-const SMOOTH_REVEAL_DURATION_MS = 300;
-
 const StreamingCodeBlockContext = createContext(false);
-
-function useSmoothStreamingContent(content: string, isLoading: boolean) {
-  const initialContent =
-    isLoading && content.length >= SMOOTH_REVEAL_MIN_DELTA ? "" : content;
-  const [displayContent, setDisplayContent] = useState(initialContent);
-  const displayContentRef = useRef(initialContent);
-  const targetContentRef = useRef(content);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const revealStartedAtRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    targetContentRef.current = content;
-
-    const current = displayContentRef.current;
-    const prefersReducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const shouldSmoothReveal =
-      content !== current &&
-      content.startsWith(current) &&
-      !prefersReducedMotion &&
-      isLoading;
-
-    if (!shouldSmoothReveal) {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-      revealStartedAtRef.current = null;
-      if (current !== content) {
-        displayContentRef.current = content;
-        setDisplayContent(content);
-      }
-      return;
-    }
-
-    const tick = () => {
-      timerRef.current = null;
-      const target = targetContentRef.current;
-      const latest = displayContentRef.current;
-      if (!target.startsWith(latest) || latest.length >= target.length) {
-        revealStartedAtRef.current = null;
-        return;
-      }
-
-      const startedAt = revealStartedAtRef.current ?? performance.now();
-      revealStartedAtRef.current = startedAt;
-      const remainingDuration = Math.max(
-        SMOOTH_REVEAL_CADENCE_MS,
-        SMOOTH_REVEAL_DURATION_MS - (performance.now() - startedAt),
-      );
-      const remainingCommits = Math.max(
-        1,
-        Math.ceil(remainingDuration / SMOOTH_REVEAL_CADENCE_MS),
-      );
-      const nextLength = Math.min(
-        target.length,
-        latest.length +
-          Math.max(
-            SMOOTH_REVEAL_MIN_CHARS_PER_COMMIT,
-            Math.ceil((target.length - latest.length) / remainingCommits),
-          ),
-      );
-      const next = target.slice(0, nextLength);
-      displayContentRef.current = next;
-      setDisplayContent(next);
-
-      if (next.length < target.length) {
-        scheduleTick();
-      } else {
-        revealStartedAtRef.current = null;
-      }
-    };
-
-    const scheduleTick = () => {
-      if (timerRef.current !== null) return;
-      revealStartedAtRef.current ??= performance.now();
-      timerRef.current = setTimeout(tick, SMOOTH_REVEAL_CADENCE_MS);
-    };
-
-    scheduleTick();
-  }, [content, isLoading]);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, []);
-
-  return {
-    content: displayContent,
-    isRevealing: displayContent !== content,
-  };
-}
 
 function StreamingPre({ children }: ComponentProps<"pre">) {
   const childClassName = isValidElement<{ className?: string }>(children)
@@ -202,18 +99,18 @@ function StreamingCode({
 export function MarkdownContent({
   content,
   isLoading,
+  streamingKey,
   rehypePlugins,
   className,
   remarkPlugins = streamdownPluginsWithoutRawHtml.remarkPlugins,
   components: componentsFromProps,
 }: MarkdownContentProps) {
-  const deferredContent = useDeferredValue(content);
-  const targetContent = isLoading ? deferredContent : content;
-  const { content: displayContent, isRevealing } = useSmoothStreamingContent(
-    targetContent,
+  const displayContent = useSmoothStreamingText(
+    content,
     isLoading,
+    streamingKey,
   );
-  const isStreamingRender = isLoading || isRevealing;
+  const isStreamingRender = isLoading;
   const normalizedContent = useMemo(
     () => preprocessStreamdownMarkdown(displayContent),
     [displayContent],
@@ -242,6 +139,9 @@ export function MarkdownContent({
 
   return (
     <SafeMessageResponse
+      // Streamdown 1.4 memoizes unchanged text without comparing components.
+      // Remount once when settling so cached streaming code becomes a diagram.
+      key={isStreamingRender ? "streaming" : "settled"}
       className={className}
       remarkPlugins={remarkPlugins}
       rehypePlugins={effectiveRehypePlugins}

@@ -210,6 +210,10 @@ def _positive_int_env(name: str, default: int) -> int:
 SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS = _positive_int_env(
     "SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS", 5
 )
+SANDBOX_POD_DELETE_WAIT_SECONDS = _positive_int_env(
+    "SANDBOX_POD_DELETE_WAIT_SECONDS", 30
+)
+SANDBOX_POD_DELETE_POLL_SECONDS = 0.5
 
 
 SANDBOX_STARTUP_PROBE_PERIOD_SECONDS = _positive_int_env(
@@ -1156,13 +1160,56 @@ def _sandbox_access_url(
     return _url_from_service(svc, sandbox_id)
 
 
+def _read_sandbox_pod(sandbox_id: str):
+    """Return the named Pod, or ``None`` once Kubernetes no longer has it."""
+    try:
+        return core_v1.read_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
+    except ApiException as exc:
+        if exc.status == 404:
+            return None
+        raise
+
+
+def _pod_is_reusable(pod) -> bool:
+    """Whether *pod* is safe to expose as this sandbox's current instance."""
+    if pod is None or getattr(getattr(pod, "metadata", None), "deletion_timestamp", None) is not None:
+        return False
+    phase = getattr(getattr(pod, "status", None), "phase", None)
+    return phase not in {"Succeeded", "Failed"}
+
+
+def _wait_for_pod_deletion(sandbox_id: str) -> bool:
+    """Wait briefly for a terminating fixed-name Pod to disappear.
+
+    Kubernetes accepts DELETE before the name becomes reusable.  Returning a
+    Service URL during that interval creates a Service with no usable endpoint,
+    so creation must wait for the old Pod name to be released instead.
+    """
+    deadline = time.monotonic() + SANDBOX_POD_DELETE_WAIT_SECONDS
+    while True:
+        if _read_sandbox_pod(sandbox_id) is None:
+            logger.info("Sandbox Pod %s deletion completed before replacement", _pod_name(sandbox_id))
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            logger.warning(
+                "Sandbox Pod %s is still deleting after %ss; refusing to return a Service-only sandbox",
+                _pod_name(sandbox_id),
+                SANDBOX_POD_DELETE_WAIT_SECONDS,
+            )
+            return False
+        time.sleep(min(SANDBOX_POD_DELETE_POLL_SECONDS, remaining))
+
+
 def _get_pod_phase(sandbox_id: str) -> str:
     """Return the Pod phase (Pending / Running / Succeeded / Failed / Unknown)."""
     try:
-        pod = core_v1.read_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
-        return pod.status.phase or "Unknown"
+        pod = _read_sandbox_pod(sandbox_id)
     except ApiException:
         return "NotFound"
+    if pod is None:
+        return "NotFound"
+    return pod.status.phase or "Unknown"
 
 
 def _assert_existing_sandbox_identity(
@@ -1286,8 +1333,16 @@ def create_sandbox(req: CreateSandboxRequest):
         include_legacy_skills,
     )
 
-    # ── Fast path: sandbox already exists ────────────────────────────
-    existing_url = _sandbox_access_url(sandbox_id, tolerate_read_errors=True)
+    # ── Fast path: only a live Pod plus its Service is reusable. ──────
+    # A Kubernetes DELETE is asynchronous: an old fixed-name Pod can still
+    # exist with deletionTimestamp while a stale/new Service already has a URL.
+    # Returning that URL would make callers wait for a Pod that cannot exist.
+    existing_pod = _read_sandbox_pod(sandbox_id)
+    existing_url = (
+        _sandbox_access_url(sandbox_id, tolerate_read_errors=True)
+        if _pod_is_reusable(existing_pod)
+        else None
+    )
     if existing_url:
         _assert_existing_sandbox_identity(
             sandbox_id,
@@ -1298,25 +1353,78 @@ def create_sandbox(req: CreateSandboxRequest):
         return SandboxResponse(
             sandbox_id=sandbox_id,
             sandbox_url=existing_url,
-            status=_get_pod_phase(sandbox_id),
+            status=existing_pod.status.phase or "Unknown",
         )
 
-    # ── Create Pod ───────────────────────────────────────────────────
-    try:
-        core_v1.create_namespaced_pod(
-            K8S_NAMESPACE,
-            _build_pod(
-                sandbox_id,
-                thread_id,
-                user_id=user_id,
-                include_legacy_skills=include_legacy_skills,
-            ),
-        )
-        logger.info(f"Created Pod {_pod_name(sandbox_id)}")
-    except ApiException as exc:
-        if exc.status != 409:  # 409 = AlreadyExists
+    # ── Create or safely reuse the fixed-name Pod ─────────────────────
+    # A 409 is only idempotent when the existing Pod is still usable.  If it
+    # is terminating, wait for name release and retry once; never continue to
+    # create a Service while the Pod is absent.
+    pod_ready_for_service = _pod_is_reusable(existing_pod)
+    pod_created_by_request = False
+    for attempt in range(2):
+        if pod_ready_for_service:
+            break
+        try:
+            core_v1.create_namespaced_pod(
+                K8S_NAMESPACE,
+                _build_pod(
+                    sandbox_id,
+                    thread_id,
+                    user_id=user_id,
+                    include_legacy_skills=include_legacy_skills,
+                ),
+            )
+            logger.info(f"Created Pod {_pod_name(sandbox_id)}")
+            pod_ready_for_service = True
+            pod_created_by_request = True
+            break
+        except ApiException as exc:
+            if exc.status != 409:  # 409 = AlreadyExists
+                raise HTTPException(
+                    status_code=500, detail=f"Pod creation failed: {exc.reason}"
+                )
+
+            conflicting_pod = _read_sandbox_pod(sandbox_id)
+            if _pod_is_reusable(conflicting_pod):
+                logger.info(
+                    "Reusing existing Sandbox Pod %s after create conflict",
+                    _pod_name(sandbox_id),
+                )
+                pod_ready_for_service = True
+                break
+            if (
+                conflicting_pod is not None
+                and getattr(conflicting_pod.metadata, "deletion_timestamp", None)
+                is not None
+            ):
+                logger.info(
+                    "Waiting for terminating Sandbox Pod %s before replacement",
+                    _pod_name(sandbox_id),
+                )
+                if not _wait_for_pod_deletion(sandbox_id):
+                    if _pod_is_reusable(_read_sandbox_pod(sandbox_id)):
+                        logger.info(
+                            "Reusing replacement Sandbox Pod %s after deletion wait",
+                            _pod_name(sandbox_id),
+                        )
+                        pod_ready_for_service = True
+                        break
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Sandbox Pod deletion did not complete before replacement",
+                    )
+                continue
+
+            # A just-deleted Pod can disappear between create (409) and read
+            # (404).  Give that race one bounded retry; any other state is not
+            # safe to publish through the stable Service name.
+            if conflicting_pod is None and attempt == 0:
+                logger.info("Sandbox Pod %s disappeared after create conflict; retrying", _pod_name(sandbox_id))
+                continue
             raise HTTPException(
-                status_code=500, detail=f"Pod creation failed: {exc.reason}"
+                status_code=503,
+                detail="Sandbox Pod conflict was not reusable",
             )
         _assert_existing_sandbox_identity(
             sandbox_id,
@@ -1325,17 +1433,22 @@ def create_sandbox(req: CreateSandboxRequest):
             include_legacy_skills=include_legacy_skills,
         )
 
+    if not pod_ready_for_service:
+        raise HTTPException(status_code=503, detail="Sandbox Pod was not available for Service creation")
+
     # ── Create Service ───────────────────────────────────────────────
     try:
         core_v1.create_namespaced_service(K8S_NAMESPACE, _build_service(sandbox_id))
         logger.info(f"Created Service {_svc_name(sandbox_id)}")
     except ApiException as exc:
         if exc.status != 409:
-            # Roll back the Pod on failure
-            try:
-                core_v1.delete_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
-            except ApiException:
-                pass
+            # Roll back only a Pod created by this request.  A 409 may have
+            # legitimately reused another request's healthy fixed-name Pod.
+            if pod_created_by_request:
+                try:
+                    core_v1.delete_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
+                except ApiException:
+                    pass
             raise HTTPException(
                 status_code=500, detail=f"Service creation failed: {exc.reason}"
             )
@@ -1392,6 +1505,9 @@ def destroy_sandbox(sandbox_id: str):
 @app.get("/api/sandboxes/{sandbox_id}", response_model=SandboxResponse)
 def get_sandbox(sandbox_id: str):
     """Return current status and URL for a sandbox."""
+    pod = _read_sandbox_pod(sandbox_id)
+    if not _pod_is_reusable(pod):
+        raise HTTPException(status_code=404, detail=f"Sandbox '{sandbox_id}' not found")
     sandbox_url = _sandbox_access_url(sandbox_id)
     if not sandbox_url:
         raise HTTPException(status_code=404, detail=f"Sandbox '{sandbox_id}' not found")
@@ -1399,7 +1515,7 @@ def get_sandbox(sandbox_id: str):
     return SandboxResponse(
         sandbox_id=sandbox_id,
         sandbox_url=sandbox_url,
-        status=_get_pod_phase(sandbox_id),
+        status=pod.status.phase or "Unknown",
     )
 
 

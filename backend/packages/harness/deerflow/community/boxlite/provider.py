@@ -242,7 +242,7 @@ class BoxliteProvider(WarmPoolLifecycleMixin[BoxliteBox], SandboxProvider):
         """Return active BoxLite box count while ``_lock`` is held."""
         return len(self._boxes)
 
-    def _destroy_warm_entry(self, sandbox_id: str, entry: BoxliteBox, *, reason: str) -> None:
+    def _destroy_warm_entry(self, sandbox_id: str, entry: BoxliteBox, *, reason: str) -> bool:
         """Close a removed warm-pool entry and log with context."""
         with self._lock:
             self._skip_health_check_warm_ids.discard(sandbox_id)
@@ -254,6 +254,7 @@ class BoxliteProvider(WarmPoolLifecycleMixin[BoxliteBox], SandboxProvider):
                 logger.info("Replica enforcement evicted oldest warm-pool box %s", sandbox_id)
             else:
                 logger.info("Destroyed warm-pool box %s (reason=%s)", sandbox_id, reason)
+            return True
         except Exception as e:
             if reason == "idle_timeout":
                 logger.warning("Error closing expired BoxLite box %s: %s", sandbox_id, e)
@@ -261,6 +262,7 @@ class BoxliteProvider(WarmPoolLifecycleMixin[BoxliteBox], SandboxProvider):
                 logger.warning("Error closing evicted BoxLite box %s: %s", sandbox_id, e)
             else:
                 logger.warning("Error closing BoxLite box %s (reason=%s): %s", sandbox_id, reason, e)
+            return False
 
     def _invalidate_box(self, sandbox_id: str, reason: str) -> None:
         """Destroy and deregister a box after a terminal command-path failure."""

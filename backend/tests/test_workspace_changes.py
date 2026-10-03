@@ -209,6 +209,21 @@ def test_count_diff_lines_counts_content_starting_with_dashes_or_pluses():
     assert deletions == 1
 
 
+def test_count_diff_lines_handles_header_like_content_across_files_and_zero_ranges():
+    import difflib
+
+    from deerflow.workspace_changes.diff import _count_diff_lines
+
+    lines = []
+    for name, before, after in [
+        ("x.sql", ["-- get users", "same"], ["++ add users", "same"]),
+        ("empty.txt", [], ["++ added"]),
+        ("deleted.txt", ["-- removed"], []),
+    ]:
+        lines.extend(difflib.unified_diff(before, after, fromfile=f"a/{name}", tofile=f"b/{name}", lineterm=""))
+    assert _count_diff_lines(lines) == (2, 2)
+
+
 def test_scan_workspace_roots_skips_excluded_directories(tmp_path):
     roots = _roots(tmp_path)
     workspace = roots[0].host_path

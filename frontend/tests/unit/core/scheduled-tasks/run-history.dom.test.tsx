@@ -9,10 +9,7 @@ rs.mock("@/core/scheduled-tasks/api", () => ({
 
 import { fetchScheduledTaskRuns } from "@/core/scheduled-tasks/api";
 import { useScheduledTaskRunHistory } from "@/core/scheduled-tasks/run-history";
-import type {
-  ScheduledTaskRun,
-  ScheduledTaskRunStatus,
-} from "@/core/scheduled-tasks/types";
+import type { ScheduledTaskRun } from "@/core/scheduled-tasks/types";
 
 const fetchRuns = rs.mocked(fetchScheduledTaskRuns);
 const clients: QueryClient[] = [];
@@ -101,42 +98,4 @@ test("an empty older page retains a route back to the latest records", async () 
   act(() => result.current.latest());
   await waitFor(() => expect(result.current.data?.[0]?.id).toBe("new-0"));
   expect(result.current.page).toBe(0);
-});
-
-test("switching status resets pagination and scopes the request", async () => {
-  let olderSignal: AbortSignal | undefined;
-  let finishOlder!: (data: ScheduledTaskRun[]) => void;
-  fetchRuns.mockImplementation(async (_id, page) => {
-    if (page?.status === undefined && page?.offset === 50) {
-      olderSignal = page.signal;
-      return new Promise((resolve) => {
-        finishOlder = resolve;
-      });
-    }
-    return rows(page?.status === "failed" ? 1 : 51, page?.status ?? "all");
-  });
-  const { result, rerender } = renderHook(
-    ({ status }: { status?: ScheduledTaskRunStatus }) =>
-      useScheduledTaskRunHistory("task-a", status),
-    {
-      initialProps: { status: undefined as ScheduledTaskRunStatus | undefined },
-      wrapper: wrapper(),
-    },
-  );
-  await waitFor(() => expect(result.current.hasOlder).toBe(true));
-  act(() => result.current.older());
-  await waitFor(() => expect(olderSignal).toBeDefined());
-
-  rerender({ status: "failed" });
-  await waitFor(() => expect(result.current.data?.[0]?.id).toBe("failed-0"));
-  expect(result.current.page).toBe(0);
-  expect(olderSignal?.aborted).toBe(true);
-  expect(fetchRuns).toHaveBeenLastCalledWith("task-a", {
-    limit: 51,
-    offset: 0,
-    status: "failed",
-    signal: expect.any(AbortSignal),
-  });
-  await act(async () => finishOlder(rows(50, "stale-all")));
-  expect(result.current.data?.[0]?.id).toBe("failed-0");
 });

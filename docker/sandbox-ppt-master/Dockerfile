@@ -4,6 +4,7 @@ FROM ${SANDBOX_BASE_IMAGE}
 USER root
 
 ARG APT_MIRROR=
+ARG PIP_INDEX_URL=
 
 # CairoSVG needs native Cairo libraries at runtime.
 RUN --mount=type=secret,id=enterprise_proxy,required=false \
@@ -84,6 +85,7 @@ RUN --mount=type=secret,id=enterprise_proxy,required=false \
     if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
     set +a; \
     python3 -m pip install --no-cache-dir \
+    ${PIP_INDEX_URL:+--index-url "$PIP_INDEX_URL"} \
     --timeout 60 --retries 3 --prefer-binary --ignore-installed \
     -r /tmp/ppt-master-requirements.txt \
     "playwright>=1.50.0" "pydantic>=2.12.5,<3.0.0" "urllib3==2.5.0" \
@@ -99,6 +101,7 @@ RUN --mount=type=secret,id=enterprise_proxy,required=false \
     if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
     set +a; \
     python3 -m pip install --no-cache-dir --timeout 60 --retries 3 \
+        ${PIP_INDEX_URL:+--index-url "$PIP_INDEX_URL"} \
         "CairoSVG==2.7.1" \
         "duckdb>=1.3,<2" \
         "PyYAML>=6,<7" \

@@ -32,6 +32,7 @@ class _RecordingCoreV1:
         self.created_pods: list[str] = []
         self.created_pod_specs: dict[str, object] = {}
         self.existing_pod_specs: dict[str, object] = {}
+        self.pod_sandboxes: set[str] = set()
         self.created_services: list[str] = []
 
     def _record_k8s_call(self) -> None:
@@ -69,6 +70,8 @@ class _RecordingCoreV1:
             pod = self.existing_pod_specs[sandbox_id]
             pod.status = SimpleNamespace(phase="Running")
             return pod
+        if sandbox_id not in self.pod_sandboxes:
+            raise ApiException(status=404)
         return SimpleNamespace(status=SimpleNamespace(phase="Running"))
 
     def create_namespaced_pod(self, _namespace: str, pod) -> None:
@@ -285,9 +288,7 @@ def test_sandbox_api_key_secret_is_required_when_configured(monkeypatch, provisi
     assert entry.value_from.secret_key_ref.optional is False
 
 
-def test_sandbox_pod_mounts_runtime_tls_material_and_exports_tls_paths(
-    monkeypatch, provisioner_module
-) -> None:
+def test_sandbox_pod_mounts_runtime_tls_material_and_exports_tls_paths(monkeypatch, provisioner_module) -> None:
     monkeypatch.setattr(
         provisioner_module,
         "SANDBOX_CA_SECRET_NAME",
@@ -329,19 +330,12 @@ def test_sandbox_pod_mounts_runtime_tls_material_and_exports_tls_paths(
 
     ca_volume = volumes["enterprise-ca"]
     assert ca_volume.secret.secret_name == "deer-flow-enterprise-ca"
-    assert [(item.key, item.path) for item in ca_volume.secret.items] == [
-        ("ca-bundle.crt", "ca-bundle.crt")
-    ]
+    assert [(item.key, item.path) for item in ca_volume.secret.items] == [("ca-bundle.crt", "ca-bundle.crt")]
     assert mounts["enterprise-ca"].mount_path == "/etc/deerflow-ca"
     assert mounts["enterprise-ca"].read_only is True
     openssl_volume = volumes["openssl-compat"]
-    assert (
-        openssl_volume.config_map.name
-        == "deer-flow-gateway-openssl-compat"
-    )
-    assert [(item.key, item.path) for item in openssl_volume.config_map.items] == [
-        ("openssl.cnf", "openssl.cnf")
-    ]
+    assert openssl_volume.config_map.name == "deer-flow-gateway-openssl-compat"
+    assert [(item.key, item.path) for item in openssl_volume.config_map.items] == [("openssl.cnf", "openssl.cnf")]
     assert mounts["openssl-compat"].mount_path == "/etc/deerflow-openssl"
     assert mounts["openssl-compat"].read_only is True
     for name in (

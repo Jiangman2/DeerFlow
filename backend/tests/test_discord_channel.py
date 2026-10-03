@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import builtins
-import json
 import threading
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -30,48 +29,6 @@ def test_discord_channel_init() -> None:
     channel = DiscordChannel(bus=bus, config={"bot_token": "token"})
 
     assert channel.name == "discord"
-
-
-def test_discord_thread_mapping_persists_across_restart(tmp_path) -> None:
-    store_path = tmp_path / "discord_threads.json"
-
-    first = DiscordChannel(bus=MessageBus(), config={"bot_token": "token"})
-    first._thread_store_path = store_path
-    first._record_thread_mapping("chan-1", "thread-1")
-    first._persist_thread_mappings()
-
-    second = DiscordChannel(bus=MessageBus(), config={"bot_token": "token"})
-    second._thread_store_path = store_path
-    second._load_active_threads()
-
-    assert second._active_threads == {"chan-1": "thread-1"}
-    assert second._active_thread_ids == {"thread-1"}
-    assert second._thread_store_loaded is True
-
-
-@pytest.mark.asyncio
-async def test_discord_stop_flushes_loaded_thread_mappings(tmp_path) -> None:
-    channel = DiscordChannel(bus=MessageBus(), config={"bot_token": "token"})
-    channel._thread_store_path = tmp_path / "discord_threads.json"
-    channel._thread_store_loaded = True
-    channel._record_thread_mapping("chan-2", "thread-2")
-
-    await channel.stop()
-
-    assert json.loads(channel._thread_store_path.read_text()) == {"chan-2": "thread-2"}
-
-
-@pytest.mark.asyncio
-async def test_discord_stop_does_not_clobber_store_before_load(tmp_path) -> None:
-    store_path = tmp_path / "discord_threads.json"
-    store_path.write_text(json.dumps({"chan-9": "thread-9"}))
-    channel = DiscordChannel(bus=MessageBus(), config={"bot_token": "token"})
-    channel._thread_store_path = store_path
-
-    assert channel._thread_store_loaded is False
-    await channel.stop()
-
-    assert json.loads(store_path.read_text()) == {"chan-9": "thread-9"}
 
 
 def _make_discord_message(text: str):

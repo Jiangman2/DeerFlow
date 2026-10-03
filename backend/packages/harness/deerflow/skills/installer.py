@@ -68,6 +68,10 @@ def is_unsafe_zip_member(info: zipfile.ZipInfo) -> bool:
     if not name:
         return False
     normalized = name.replace("\\", "/")
+    # A colon can address an NTFS alternate data stream or drive-relative path.
+    # Reject it on every platform so directory scanners see every installed file.
+    if ":" in normalized:
+        return True
     if normalized.startswith("/"):
         return True
     path = PurePosixPath(normalized)
@@ -146,6 +150,7 @@ def safe_extract_skill_archive(
     zip_ref: zipfile.ZipFile,
     dest_path: Path,
     max_total_size: int = 512 * 1024 * 1024,
+    max_entries: int = 4096,
 ) -> None:
     """Safely extract a skill archive with security protections.
 
@@ -154,6 +159,7 @@ def safe_extract_skill_archive(
     - Reject symlink entries so accepted archives are never installed with
       silently missing scripts or reference files.
     - Enforce a hard limit on total uncompressed size (zip bomb defence).
+    - Enforce an entry-count cap even when optional security scanning is disabled.
     - Reject executable binaries (ELF/PE/Mach-O) by magic bytes.
 
     Raises:
@@ -161,8 +167,11 @@ def safe_extract_skill_archive(
     """
     dest_root = dest_path.resolve()
     total_written = 0
+    members = zip_ref.infolist()
+    if len(members) > max_entries:
+        raise ValueError("Skill archive contains too many entries.")
 
-    for info in zip_ref.infolist():
+    for info in members:
         if is_unsafe_zip_member(info):
             raise ValueError(f"Archive contains unsafe member path: {info.filename!r}")
 

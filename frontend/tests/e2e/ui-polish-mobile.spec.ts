@@ -14,10 +14,12 @@ test.describe("UI polish mobile regressions", () => {
       timeout: 15_000,
     });
 
-    await page.getByRole("button", { name: /toggle sidebar/i }).click();
+    await page.locator(".cnooc-mobile-menu-trigger").click();
 
     await expect(page.getByRole("link", { name: /new chat/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /agents/i })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /digital employees/i }),
+    ).toBeVisible();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(375);
