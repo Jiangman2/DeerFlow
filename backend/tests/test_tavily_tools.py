@@ -83,12 +83,6 @@ def test_tavily_client_receives_scoped_compat_session(monkeypatch):
     }
 
 
-
-
-
-
-
-
 def test_web_search_keeps_domain_filters_out_of_model_schema():
     parameters = convert_to_openai_tool(tools.web_search_tool)["function"]["parameters"]
 

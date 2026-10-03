@@ -258,7 +258,7 @@ export function RecentChatList() {
                 return (
                   <Fragment key={thread.thread_id}>
                     {(showDemoLabel || showRecentLabel) && (
-                      <div className="text-muted-foreground/70 mb-1 mt-3 px-2 text-[11px] font-medium tracking-wide first:mt-0">
+                      <div className="text-muted-foreground/70 mt-3 mb-1 px-2 text-[11px] font-medium tracking-wide first:mt-0">
                         {showDemoLabel ? "演示对话" : "最近对话"}
                       </div>
                     )}

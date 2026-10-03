@@ -319,7 +319,7 @@ export function AgentCard({
             <div className="flex items-center gap-4">
               <DigitalEmployeeAvatar agent={agent} className="size-24" />
               <div className="min-w-0">
-                <h2 className="break-words text-lg font-semibold">
+                <h2 className="text-lg font-semibold break-words">
                   {displayName}
                 </h2>
                 <div className="mt-2 flex flex-wrap gap-1.5">

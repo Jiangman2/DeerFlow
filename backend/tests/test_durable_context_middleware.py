@@ -414,7 +414,6 @@ class TestBeforeModelCapture:
         assert [entry["id"] for entry in out["delegations"]] == ["new-call"]
         assert out["delegations"][0]["run_id"] == "run-new"
 
-
     def test_new_user_turn_keeps_in_progress_delegation_without_run_id(self):
         """A legacy entry without a run id cannot safely be assigned to a run."""
         middleware = DurableContextMiddleware()
@@ -642,7 +641,6 @@ def fake_read_file(path: str) -> str:
 
 
 class TestGraphIntegration:
-
     def test_subagent_limit_counts_only_prior_delegations_in_real_middleware_chain(self):
         model = RecordingFakeModel(
             responses=[

@@ -21,7 +21,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
   return (
     <header
       className={cn(
-        "container-md fixed left-0 right-0 top-0 z-20 mx-auto flex h-20 items-center justify-between gap-3 bg-white/45 px-5 backdrop-blur-md sm:px-8",
+        "container-md fixed top-0 right-0 left-0 z-20 mx-auto flex h-20 items-center justify-between gap-3 bg-white/45 px-5 backdrop-blur-md sm:px-8",
         className,
       )}
     >
@@ -30,7 +30,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
           href={homeURL ?? brand.links.home}
           target={isExternalHome ? "_blank" : "_self"}
           rel={isExternalHome ? "noopener noreferrer" : undefined}
-          className="flex min-w-0 items-center whitespace-nowrap font-serif text-xl"
+          className="flex min-w-0 items-center font-serif text-xl whitespace-nowrap"
         >
           <BrandLogo
             variant="full"
@@ -62,7 +62,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
           { href: brand.links.login, label: t.sidebar.newChat },
         ]}
       />
-      <hr className="from-border/0 via-border/45 to-border/0 bg-linear-to-r absolute bottom-0 left-0 right-0 z-10 m-0 h-px w-full border-none" />
+      <hr className="from-border/0 via-border/45 to-border/0 absolute right-0 bottom-0 left-0 z-10 m-0 h-px w-full border-none bg-linear-to-r" />
     </header>
   );
 }

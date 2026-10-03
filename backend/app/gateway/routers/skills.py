@@ -260,10 +260,7 @@ def _raise_skillhub_install_error(error: Exception) -> None:
         if "Security scan unavailable" in str(error):
             raise HTTPException(
                 status_code=503,
-                detail=(
-                    "技能安全复核服务暂时不可用，系统未安装该技能。"
-                    "请稍后重试；若持续失败，请联系管理员检查安全复核模型。"
-                ),
+                detail=("技能安全复核服务暂时不可用，系统未安装该技能。请稍后重试；若持续失败，请联系管理员检查安全复核模型。"),
             ) from error
         if error.findings:
             raise HTTPException(

@@ -298,7 +298,6 @@ async def skill_manage_tool(
 skill_manage_tool.func = make_sync_tool_wrapper(_skill_manage_impl, "skill_manage")
 
 
-
 @tool("skill_create", parse_docstring=True)
 async def skill_create_tool(runtime: Runtime, name: str, content: str) -> str:
     """Create a persistent custom skill with a complete SKILL.md document.

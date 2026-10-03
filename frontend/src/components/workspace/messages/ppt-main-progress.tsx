@@ -191,7 +191,7 @@ export function PptMainProgress({
               <dt className="font-medium">
                 {copy.labels[key] ?? key.replaceAll("_", " ")}
               </dt>
-              <dd className="whitespace-pre-wrap break-words">
+              <dd className="break-words whitespace-pre-wrap">
                 {pptSummaryValue(copy, key, value)}
               </dd>
             </div>

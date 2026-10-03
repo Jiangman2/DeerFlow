@@ -76,14 +76,7 @@ def _configured_endpoint(env_name: str) -> str | None:
     if not raw:
         return None
     parsed = urlsplit(raw)
-    if (
-        parsed.scheme not in {"http", "https"}
-        or not parsed.hostname
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.query
-        or parsed.fragment
-    ):
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment:
         raise MediaGenerationError(
             f"{env_name} is not a valid operator-owned HTTP endpoint",
             code="invalid_configuration",
@@ -548,11 +541,14 @@ def _download_video_to_output(
     total = 0
     prefix = b""
     try:
-        with os.fdopen(fd, "wb") as stream, httpx.Client(
-            timeout=httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0),
-            trust_env=False,
-            follow_redirects=False,
-        ) as client:
+        with (
+            os.fdopen(fd, "wb") as stream,
+            httpx.Client(
+                timeout=httpx.Timeout(connect=10.0, read=600.0, write=30.0, pool=10.0),
+                trust_env=False,
+                follow_redirects=False,
+            ) as client,
+        ):
             with client.stream("GET", url, headers=headers) as response:
                 _raise_for_status(response, operation="Video download")
                 declared = response.headers.get("content-length", "").strip()

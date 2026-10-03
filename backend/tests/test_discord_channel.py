@@ -31,12 +31,6 @@ def test_discord_channel_init() -> None:
     assert channel.name == "discord"
 
 
-
-
-
-
-
-
 def _make_discord_message(text: str):
     return SimpleNamespace(
         id=111,

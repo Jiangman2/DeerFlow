@@ -236,9 +236,7 @@ def test_historical_tool_receipt_does_not_retry_a_new_plan_response():
             "context": {
                 "thread_id": "thread-history-boundary",
                 "run_id": "run-history-boundary",
-                "__deerflow_pre_run_message_ids": frozenset(
-                    {"historic-user", "historic-call", "historic-result"}
-                ),
+                "__deerflow_pre_run_message_ids": frozenset({"historic-user", "historic-call", "historic-result"}),
             }
         },
     )()

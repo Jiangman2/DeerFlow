@@ -462,6 +462,7 @@ class TestRunRepository:
                 async def execute(stmt):
                     captured.append(stmt)
                     return SimpleNamespace(all=lambda: [])
+
                 return SimpleNamespace(execute=execute)
 
             async def __aexit__(self, *args):

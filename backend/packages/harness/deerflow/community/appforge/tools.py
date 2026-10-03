@@ -104,9 +104,7 @@ _TOOL_DEFAULTS: dict[str, dict[str, str]] = {
 # configured master-data service and must remain available when that toggle is
 # disabled. Keep this separate from ``DATALAKE_TOOL_NAMES`` to avoid importing
 # the tool registry into this provider module.
-_DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS = frozenset(
-    {"datalake_metrics_qa", "datalake_detail_qa"}
-)
+_DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS = frozenset({"datalake_metrics_qa", "datalake_detail_qa"})
 
 
 def _tool_defaults(tool_name: str) -> dict[str, str]:
@@ -637,11 +635,7 @@ def _invoke_retrieve_tool(query: str, runtime: object | None) -> str:
 
 def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
     runtime_context = getattr(runtime, "context", None)
-    if (
-        tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS
-        and isinstance(runtime_context, Mapping)
-        and runtime_context.get("datalake_enabled") is False
-    ):
+    if tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS and isinstance(runtime_context, Mapping) and runtime_context.get("datalake_enabled") is False:
         return json.dumps(
             {
                 "error": "Data Lake use is disabled for this run",

@@ -474,7 +474,6 @@ class TestStream:
         call_kwargs = agent.stream.call_args.kwargs
         assert "messages" in call_kwargs["stream_mode"]
 
-
     def test_stream_emits_additional_kwargs_updates_for_streamed_ai_messages(self, client):
         """stream() emits a follow-up AI event when attribution metadata arrives via values."""
         assembled = AIMessage(
@@ -507,7 +506,6 @@ class TestStream:
         assert any(event.data.get("content") == "Hello!" for event in ai_events)
         assert any(event.data.get("additional_kwargs", {}).get("token_usage_attribution", {}).get("kind") == "final_answer" for event in ai_events)
 
-
     def test_stream_does_not_resend_non_extending_replacement(self, client):
         """A conflicting rewrite is not emitted as duplicate output."""
         sent = AIMessage(content="Let me look.", id="ai-1")
@@ -526,7 +524,6 @@ class TestStream:
             events = list(client.stream("hi", thread_id="t-stream-rewritten"))
 
         assert [event.data["content"] for event in _ai_events(events)] == ["Let me look."]
-
 
     def test_stream_emits_new_additional_kwargs_after_prior_metadata(self, client):
         """stream() emits later attribution metadata even after earlier kwargs for the same id."""

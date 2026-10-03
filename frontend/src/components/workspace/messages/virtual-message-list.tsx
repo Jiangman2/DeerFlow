@@ -221,7 +221,7 @@ export function VirtualMessageList({
             key={virtualRow.key}
             ref={virtualizer.measureElement}
             data-index={virtualRow.index}
-            className="absolute left-0 top-0 w-full pb-8"
+            className="absolute top-0 left-0 w-full pb-8"
             style={{ transform: `translateY(${virtualRow.start}px)` }}
           >
             {renderGroup(group, virtualRow.index)}

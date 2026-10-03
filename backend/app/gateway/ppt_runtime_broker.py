@@ -4,6 +4,7 @@ Mounted under the already self-authenticated enterprise relay router. A Runner
 may mint a short-lived capability only for an existing PPT run. Provider keys
 stay in Gateway. Numeric receipts reuse RunEventStore, never a parallel invoice.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -48,8 +49,7 @@ def _id(value):
 
 def encode_scope(run_id, thread_id, *, now=None):
     now = int(time.time() if now is None else now)
-    raw = json.dumps({"run": _id(run_id), "thread": _id(thread_id), "exp": now + 12 * 3600,
-                      "aud": "ppt-runtime-v1"}, sort_keys=True, separators=(",", ":")).encode()
+    raw = json.dumps({"run": _id(run_id), "thread": _id(thread_id), "exp": now + 12 * 3600, "aud": "ppt-runtime-v1"}, sort_keys=True, separators=(",", ":")).encode()
     body = base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
     signature = hmac.new(_key(), b"ppt-capability:" + body.encode(), hashlib.sha256).hexdigest()
     return body + "." + signature
@@ -91,6 +91,7 @@ async def _service_run_owner(request, run_id, thread_id):
     reads/writes use that owner, and the authoritative thread must match too.
     """
     from app.gateway.deps import get_run_store, get_thread_store
+
     run_id, thread_id = _id(run_id), _id(thread_id)
     row = await get_run_store(request).get(run_id, user_id=None)
     if not isinstance(row, dict) or row.get("run_id") != run_id or row.get("thread_id") != thread_id or row.get("assistant_id") != "ppt-master-runner":
@@ -111,6 +112,7 @@ def _receipt_owner_context(scope):
     The scope is internal state returned by require_scope, not a JSON body.
     """
     from deerflow.runtime.user_context import reset_current_user, set_current_user
+
     owner = _valid_owner(scope.get("owner"))
     token = set_current_user(SimpleNamespace(id=owner))
     try:
@@ -173,35 +175,40 @@ def numeric_usage(raw):
     cached = raw.get("prompt_cache_hit_tokens", details.get("cached_tokens", 0) if isinstance(details, dict) else 0)
     if type(cached) is not int or not 0 <= cached <= input_tokens:
         return None
-    return {"input_tokens": input_tokens, "output_tokens": output_tokens,
-            "total_tokens": total, "cache_read_tokens": cached}
+    return {"input_tokens": input_tokens, "output_tokens": output_tokens, "total_tokens": total, "cache_read_tokens": cached}
 
 
 async def persist_provider_receipt(request, scope, response_id, attempt, usage, *, model):
     from app.gateway.deps import get_run_event_store
+
     numeric = numeric_usage(usage)
     # Unknown cost is an audit receipt, not an invented zero-Token LLM call.
     source = "ppt-relay:" + scope["run"] + ":" + response_id + ":" + str(attempt)
-    content = {"source_run_id": source, "task_id": scope["run"], "thread_id": scope["thread"],
-               "model_name": model, "usage_state": "reported" if numeric else "unknown",
-               "caller": "subagent:ppt-master-agent-host", "llm_call_count": 1,
-               "scope": "current_run_all_codex_agents_not_session_cumulative"}
+    content = {
+        "source_run_id": source,
+        "task_id": scope["run"],
+        "thread_id": scope["thread"],
+        "model_name": model,
+        "usage_state": "reported" if numeric else "unknown",
+        "caller": "subagent:ppt-master-agent-host",
+        "llm_call_count": 1,
+        "scope": "current_run_all_codex_agents_not_session_cumulative",
+    }
     if numeric:
         content.update(numeric)
     # Await persistence BEFORE publishing function calls or starting correction.
     with _receipt_owner_context(scope):
-        await get_run_event_store(request).put(thread_id=scope["thread"], run_id=scope["run"],
-            event_type=EVENT, category="llm", content=content, metadata={"task_id": scope["run"]})
+        await get_run_event_store(request).put(thread_id=scope["thread"], run_id=scope["run"], event_type=EVENT, category="llm", content=content, metadata={"task_id": scope["run"]})
 
 
 async def receipts(request: Request, after_seq: int = 0):
     from app.gateway.deps import get_run_event_store
+
     scope = await require_scope(request, active=False)
     if not 0 <= after_seq < 2**63:
         raise HTTPException(400, "Invalid receipt cursor")
     with _receipt_owner_context(scope):
-        rows = await get_run_event_store(request).list_events(scope["thread"], scope["run"],
-            event_types=[EVENT], limit=500, after_seq=after_seq)
+        rows = await get_run_event_store(request).list_events(scope["thread"], scope["run"], event_types=[EVENT], limit=500, after_seq=after_seq)
     return JSONResponse({"run_id": scope["run"], "thread_id": scope["thread"], "rows": rows}, headers={"Cache-Control": "no-store"})
 
 
@@ -220,6 +227,7 @@ def public_url(value):
 def configured_tool(name):
     from deerflow.config import get_app_config
     from deerflow.reflection import resolve_variable
+
     config = get_app_config().get_tool_config(name)
     # Only the native vetted Tavily tools; no arbitrary reflected operator code.
     expected = "deerflow.community.tavily.tools:" + name + "_tool"
@@ -230,6 +238,7 @@ def configured_tool(name):
 
 async def research(request: Request):
     from app.gateway.deps import get_run_event_store
+
     scope = await require_scope(request)
     body = await bounded_body(request)
     name, args = body.get("name"), body.get("arguments")
@@ -249,8 +258,7 @@ async def research(request: Request):
             history = await store.list_events(scope["thread"], scope["run"], event_types=[RESEARCH], limit=65, after_seq=0)
             if len(history) >= 64 or sum((row.get("content") or {}).get("fingerprint") == fingerprint for row in history) >= 3:
                 raise HTTPException(429, "Research budget exhausted; report the failed source instead of looping")
-            await store.put(thread_id=scope["thread"], run_id=scope["run"], event_type=RESEARCH,
-                category="tool", content={"name": name, "fingerprint": fingerprint}, metadata={"task_id": scope["run"]})
+            await store.put(thread_id=scope["thread"], run_id=scope["run"], event_type=RESEARCH, category="tool", content={"name": name, "fingerprint": fingerprint}, metadata={"task_id": scope["run"]})
 
     def invoke():
         if field == "url":
@@ -265,10 +273,12 @@ async def research(request: Request):
     except TimeoutError:
         raise HTTPException(503, "Research service busy") from None
     task = asyncio.create_task(asyncio.to_thread(invoke))
+
     def finished(done):
         _slots.release()
         if not done.cancelled():
             done.exception()  # A timed-out OS thread still owns its slot.
+
     task.add_done_callback(finished)
     try:
         result = await asyncio.wait_for(asyncio.shield(task), timeout=35)

@@ -287,6 +287,7 @@ class TestBuildPreview:
         )
         assert "10000 chars" in preview
 
+
 class TestToolOutputSynopsis:
     def test_code_synopsis_extracts_imports_and_symbols(self):
         content = "import os\nfrom pathlib import Path\n\nclass Runner:\n    pass\n\ndef main():\n    return Path(os.getcwd())\n"

@@ -210,9 +210,7 @@ class SqlAgentStore(AgentStore):
         with self._Session() as session:
             row = self._row(session, name, effective_user)
             if row is None:
-                raise FileNotFoundError(
-                    f"Agent config not found: {name} (user {effective_user})"
-                )
+                raise FileNotFoundError(f"Agent config not found: {name} (user {effective_user})")
             document = dict(row.config or {})
             document.update(_config_document(updates))
             row.config = document

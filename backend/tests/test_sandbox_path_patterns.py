@@ -147,14 +147,14 @@ def test_colon_joined_paths_are_independent_matches_in_both_modes(base: str) -> 
         pattern = build_output_mask_pattern(base, separator_agnostic=agnostic)
         output = "PATH=" + ":".join([*paths, "/usr/bin"])
         assert [m.group(0) for m in pattern.finditer(output)] == paths
-        masked = pattern.sub(lambda m: "/mnt/skills" + m.group(0)[len(base):].replace("\\", "/"), output)
+        masked = pattern.sub(lambda m: "/mnt/skills" + m.group(0)[len(base) :].replace("\\", "/"), output)
         assert masked == "PATH=" + ":".join([*(f"/mnt/skills/s{i}/bin" for i in range(8)), "/usr/bin"])
 
 
 def test_colon_suffix_is_preserved_without_swallowing_the_next_root() -> None:
     pattern = build_output_mask_pattern("/host/skills")
     output = "/host/skills/pkg/name:part:/host/skills/next"
-    masked = pattern.sub(lambda m: "/mnt/skills" + m.group(0)[len("/host/skills"):], output)
+    masked = pattern.sub(lambda m: "/mnt/skills" + m.group(0)[len("/host/skills") :], output)
     assert masked == "/mnt/skills/pkg/name:part:/mnt/skills/next"
 
 

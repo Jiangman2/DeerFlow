@@ -110,6 +110,7 @@ def test_patch_config_preserves_unknown_raw_fields(store):
         "enabled": True,
     }
 
+
 def test_update_insert_race_recovers_via_upsert(store):
     """update()'s insert-on-missing branch is a true upsert under a write race.
 

@@ -168,10 +168,20 @@ def test_live_preview_ignores_browser_credentials_and_port_headers(monkeypatch) 
     monkeypatch.setattr(artifacts_router, "get_sandbox_provider", lambda: SimpleNamespace(get_for_thread=lambda _thread_id, **_kwargs: sandbox))
     monkeypatch.setattr(artifacts_router, "get_app_config", lambda: SimpleNamespace(sandbox=SimpleNamespace(sandbox_api_key="test-server-key")))
     monkeypatch.setattr(artifacts_router.httpx, "AsyncClient", lambda **_kwargs: client)
-    request = Request({"type": "http", "method": "GET", "path": "/", "query_string": b"", "headers": [
-        (b"authorization", b"Bearer browser-key"), (b"cookie", b"session=browser"),
-        (b"x-aio-proxy-port", b"9999"), (b"host", b"browser-controlled.invalid"),
-    ]})
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "query_string": b"",
+            "headers": [
+                (b"authorization", b"Bearer browser-key"),
+                (b"cookie", b"session=browser"),
+                (b"x-aio-proxy-port", b"9999"),
+                (b"host", b"browser-controlled.invalid"),
+            ],
+        }
+    )
     asyncio.run(call_unwrapped(artifacts_router.get_live_preview, "thread-1", 5050, "", request))
     headers = client.request_args[1]["headers"]
     assert headers["authorization"] == "Bearer test-server-key"

@@ -298,18 +298,6 @@ def test_execute_command_env_none_passes_no_envs_kwarg():
     assert "timeout" not in kwargs
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 def test_execute_command_forwards_env_as_envs():
     """Per-call ``env`` reaches the e2b SDK as ``envs`` so secrets like
     ``GITHUB_TOKEN`` are scoped to a single command without mutating shared

@@ -1484,18 +1484,14 @@ def test_dashscope_qwen37_plus_uses_chat_completions_and_preserves_thinking(monk
         supports_thinking=True,
         supports_reasoning_effort=True,
         supports_vision=False,
-        when_thinking_enabled={
-            "extra_body": {"enable_thinking": True, "preserve_thinking": True}
-        },
+        when_thinking_enabled={"extra_body": {"enable_thinking": True, "preserve_thinking": True}},
         when_thinking_disabled={"extra_body": {"enable_thinking": False}},
     )
     cfg = _make_app_config([model])
     captured: dict = {}
     _patch_factory(monkeypatch, cfg, model_class=_capturing_class(RobustChatOpenAI, captured))
 
-    factory_module.create_chat_model(
-        name="qwen3.7-plus", thinking_enabled=True, reasoning_effort="medium"
-    )
+    factory_module.create_chat_model(name="qwen3.7-plus", thinking_enabled=True, reasoning_effort="medium")
 
     assert captured["base_url"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
     assert captured["extra_body"] == {

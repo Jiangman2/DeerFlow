@@ -110,7 +110,7 @@ def _unlock_file(lock_file) -> None:
 
 
 def _open_lock_file(lock_path):
-    return open(lock_path, 'a+', encoding="utf-8")
+    return open(lock_path, "a+", encoding="utf-8")
 
 
 async def _acquire_thread_lock_async(lock: threading.Lock) -> None:

@@ -26,9 +26,7 @@ CHECKPOINT_TIMING_SLOW_MS_ENV: Final[str] = "DEERFLOW_CHECKPOINTER_TIMING_SLOW_M
 CHECKPOINT_DB_SESSION_LABELS_ENV: Final[str] = "DEERFLOW_CHECKPOINTER_DB_SESSION_LABELS"
 DEFAULT_CHECKPOINT_TIMING_SLOW_MS: Final[int] = 1000
 _SAFE_TOKEN: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
-SANDBOX_TOOL_NAMES: Final[frozenset[str]] = frozenset(
-    {"bash", "ls", "glob", "grep", "read_file", "write_file", "str_replace"}
-)
+SANDBOX_TOOL_NAMES: Final[frozenset[str]] = frozenset({"bash", "ls", "glob", "grep", "read_file", "write_file", "str_replace"})
 
 
 @dataclass(slots=True)
@@ -172,11 +170,7 @@ def _runtime_timing_ids(runtime: Any) -> tuple[str, str]:
 def _interval_overlap_ms(started_at: float, ended_at: float, intervals: list[tuple[float, float]]) -> int:
     """Return overlap with the union of intervals, in milliseconds."""
 
-    clipped = sorted(
-        (max(started_at, interval_start), min(ended_at, interval_end))
-        for interval_start, interval_end in intervals
-        if interval_end > started_at and interval_start < ended_at
-    )
+    clipped = sorted((max(started_at, interval_start), min(ended_at, interval_end)) for interval_start, interval_end in intervals if interval_end > started_at and interval_start < ended_at)
     if not clipped:
         return 0
 

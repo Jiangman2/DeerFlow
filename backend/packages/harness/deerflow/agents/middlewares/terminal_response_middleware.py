@@ -105,11 +105,7 @@ def _current_run_messages(messages: list[Any], runtime: Runtime | None) -> list[
     pre_existing_ids = _runtime_pre_existing_message_ids(runtime)
     if not pre_existing_ids:
         return messages
-    return [
-        message
-        for message in messages
-        if _message_id(message) not in pre_existing_ids and _message_id(message) is not None
-    ]
+    return [message for message in messages if _message_id(message) not in pre_existing_ids and _message_id(message) is not None]
 
 
 def _tool_result_in_current_turn(messages: list[Any], runtime: Runtime | None = None) -> bool:
@@ -130,9 +126,7 @@ def _tool_result_in_current_turn(messages: list[Any], runtime: Runtime | None = 
     return any(isinstance(message, ToolMessage) for message in messages[latest_user_index + 1 :])
 
 
-def _latest_tool_result_in_current_turn(
-    messages: list[Any], runtime: Runtime | None = None
-) -> ToolMessage | None:
+def _latest_tool_result_in_current_turn(messages: list[Any], runtime: Runtime | None = None) -> ToolMessage | None:
     """Return the latest tool receipt after the current visible user turn."""
     messages = _current_run_messages(messages, runtime)
     latest_user_index = -1
@@ -178,11 +172,7 @@ def _ppt_master_confirmation_recommendation_ready(
         return ""
     skill_path = str(workflow.get("skill_path") or "").replace("\\", "/")
     confirmation_url = str(workflow.get("confirmation_url") or "")
-    if (
-        not skill_path.endswith(_PPT_MASTER_SKILL_SUFFIX)
-        or not workflow.get("confirmation_ui_active")
-        or not confirmation_url
-    ):
+    if not skill_path.endswith(_PPT_MASTER_SKILL_SUFFIX) or not workflow.get("confirmation_ui_active") or not confirmation_url:
         return ""
 
     current_messages = _current_run_messages(messages, runtime)
@@ -274,10 +264,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
                 "messages": [
                     last.model_copy(
                         update={
-                            "content": (
-                                f"当前 PPT 设计确认页面已准备好，请在[确认页面]({confirmation_url})完成本阶段选择。"
-                                "确认后回到对话输入“继续”，任务将从已持久化的检查点继续。"
-                            ),
+                            "content": (f"当前 PPT 设计确认页面已准备好，请在[确认页面]({confirmation_url})完成本阶段选择。确认后回到对话输入“继续”，任务将从已持久化的检查点继续。"),
                             "additional_kwargs": additional_kwargs,
                         }
                     )
