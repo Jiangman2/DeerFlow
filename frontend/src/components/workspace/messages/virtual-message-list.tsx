@@ -72,28 +72,55 @@ export function VirtualMessageList({
   );
 
   useLayoutEffect(() => {
-    let settleFrame: number | undefined;
-    if (
-      shouldVirtualize &&
-      !positionedInitialVirtualWindowRef.current
-    ) {
-      const scrollToLatest = () => {
-        virtualizer.scrollToIndex(groups.length - 1, { align: "end" });
-      };
-      scrollToLatest();
-      // Dynamic row measurement changes the total after the first layout.
-      // Re-anchor once with measured sizes so a long restored conversation
-      // cannot land around the estimated midpoint.
-      settleFrame = requestAnimationFrame(() => {
-        scrollToLatest();
-        // A measurement render may cancel this frame. Only mark positioning
-        // complete after the measured re-anchor actually ran, so the next
-        // layout retries rather than leaving the restored history midway.
-        positionedInitialVirtualWindowRef.current = true;
-      });
-    } else if (!shouldVirtualize) {
+    if (!shouldVirtualize) {
       positionedInitialVirtualWindowRef.current = false;
+      return;
     }
+    if (positionedInitialVirtualWindowRef.current) return;
+
+    const element = scrollRef.current;
+    if (!element) return;
+    let frame = 0;
+    let attempts = 0;
+    let stableFrames = 0;
+    let previousHeight = -1;
+    let cancelled = false;
+    const cancelRestoration = () => {
+      cancelled = true;
+      positionedInitialVirtualWindowRef.current = true;
+      cancelAnimationFrame(frame);
+    };
+    const restoreBottom = () => {
+      if (cancelled) return;
+      // scrollToIndex uses estimates for rows outside the virtual window.
+      // Anchor to the real scroll extent while the final rows are measured.
+      element.scrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+      const height = element.scrollHeight;
+      const lastRow = virtualizer.getVirtualItems().at(-1);
+      stableFrames =
+        height === previousHeight && lastRow?.index === groups.length - 1
+          ? stableFrames + 1
+          : 0;
+      previousHeight = height;
+      attempts += 1;
+      if (stableFrames >= 8 || attempts >= 120) {
+        positionedInitialVirtualWindowRef.current = true;
+        return;
+      }
+      frame = requestAnimationFrame(restoreBottom);
+    };
+    element.addEventListener("wheel", cancelRestoration, { passive: true });
+    element.addEventListener("touchstart", cancelRestoration, { passive: true });
+    restoreBottom();
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      element.removeEventListener("wheel", cancelRestoration);
+      element.removeEventListener("touchstart", cancelRestoration);
+    };
+  }, [groups.length, scrollRef, shouldVirtualize, virtualizer]);
+
+  useLayoutEffect(() => {
     if (groups.length > previousCountRef.current && isAtBottom) {
       void scrollToBottom({
         animation: "instant",
@@ -101,16 +128,7 @@ export function VirtualMessageList({
       });
     }
     previousCountRef.current = groups.length;
-    return () => {
-      if (settleFrame !== undefined) cancelAnimationFrame(settleFrame);
-    };
-  }, [
-    groups.length,
-    isAtBottom,
-    scrollToBottom,
-    shouldVirtualize,
-    virtualizer,
-  ]);
+  }, [groups.length, isAtBottom, scrollToBottom]);
 
   useLayoutEffect(() => {
     const firstKey = getItemKey(0);

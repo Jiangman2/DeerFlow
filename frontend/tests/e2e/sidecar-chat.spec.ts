@@ -407,7 +407,9 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
         Math.abs(sample.top - (sample.height - sample.viewport)),
         JSON.stringify(scrollSamples),
       ).toBeLessThanOrEqual(1);
-      positions.add(sample.top);
+      // Bottom anchoring can round by one pixel after row measurement.
+      // Compare the stable bottom boundary, not that rounding correction.
+      positions.add(sample.height - sample.viewport);
     }
     positionsByGeometry.set(key, positions);
   }

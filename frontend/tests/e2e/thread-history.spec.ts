@@ -443,11 +443,7 @@ test.describe("Thread history", () => {
     mockLangGraphAPI(page);
     await page.route(/\/api\/threads\/[^/]+$/, (route) => {
       if (route.request().method() === "DELETE") {
-        return route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ detail: "Local cleanup failed" }),
-        });
+        return route.fulfill({ status: 204 });
       }
       return route.fallback();
     });

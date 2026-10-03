@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -48,6 +48,7 @@ export function ThreadDeleteDialogProvider({
   children: ReactNode;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const pathname = usePathname();
   const { thread_id: threadIdFromPath, agent_name: agentNameFromPath } =
     useParams<{ thread_id: string; agent_name?: string }>();
@@ -90,10 +91,7 @@ export function ThreadDeleteDialogProvider({
                 nextPath: nextThreadPath,
                 force: true,
               });
-              // The live SDK can still own buffered state after a native
-              // first-run URL replacement. A confirmed deletion must dispose
-              // that entire chat lifecycle before opening the blank composer.
-              window.location.replace(nextThreadPath);
+              void router.replace(nextThreadPath);
             }
           : undefined,
       });
@@ -112,6 +110,7 @@ export function ThreadDeleteDialogProvider({
     agentNameFromPath,
     deleteThread,
     pathname,
+    router,
     target,
     threadIdFromPath,
     t.chats.deleteFailed,
