@@ -5,6 +5,7 @@ const CNOOCCLAW_EXTERNAL_AGENT_KEYS = [
   "zdsczj",
   "dzsjtpzj",
   "yjzs",
+  "zwjkylxcczs",
 ] as const;
 
 const LEGACY_EXTERNAL_AGENT_KEYS = [

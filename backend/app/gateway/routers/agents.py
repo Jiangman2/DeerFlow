@@ -495,7 +495,7 @@ class ExternalPlatformAgentClickRequest(BaseModel):
 
 @router.post("/agent-analytics/external-click", status_code=204)
 async def record_external_agent_click(body: ExternalAgentClickRequest) -> None:
-    """Record a launch click for one of the six built-in external agents."""
+    """Record a launch click for a built-in external agent."""
     if body.agent_name not in EXTERNAL_AGENT_NAMES:
         raise HTTPException(status_code=422, detail="Unknown external agent")
     session_factory = get_session_factory()

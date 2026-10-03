@@ -1,4 +1,8 @@
 .env
+# Never send frontend runtime credentials to Docker build contexts.
+frontend/.env*
+!frontend/.env.example
+frontend/.next/**/.env*
 Dockerfile
 .dockerignore
 .git

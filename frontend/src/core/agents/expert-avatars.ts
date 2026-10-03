@@ -145,6 +145,7 @@ const externalAvatarIds: Record<string, string> = {
   "https://cnoocclaw.cnooc.com.cn/zjbgjszj/": "reservoir-development",
   "https://cnoocclaw.cnooc.com.cn/zdsczj/": "production-operations",
   "https://cnoocclaw.cnooc.com.cn/qqyjbgbxzj/": "intelligent-oilfield-data",
+  "https://cnoocclaw.cnooc.com.cn/zwjkylxcczs/": "drilling-completion",
 };
 
 const keywordAvatarIds: Array<[RegExp, string]> = [

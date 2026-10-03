@@ -893,6 +893,13 @@ class TestAgentsAPI:
         )
         assert response.status_code == 204
 
+    def test_external_agent_click_accepts_drilling_review_agent(self, agent_client):
+        response = agent_client.post(
+            "/api/agent-analytics/external-click",
+            json={"agent_name": "钻采技术查重智能体"},
+        )
+        assert response.status_code == 204
+
     def test_external_agent_click_rejects_unknown_agent(self, agent_client):
         response = agent_client.post(
             "/api/agent-analytics/external-click",

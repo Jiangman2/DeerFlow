@@ -27,6 +27,15 @@ https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18
 
 Learn more and see **real demos** on our [**official website**](https://deerflow.tech).
 
+### CNOOC Digital Employee catalog
+
+The authenticated `/workspace/agents` shared directory includes 12 additional
+link-based employees from the September 28, 2026 contest shortlist. Each opens
+its supplied application in a new tab; access still requires the destination's
+network and account permissions. Entries without an application URL are not
+listed. See [the catalog manifest](docs/contest-digital-employees-20260928.md)
+for the source-row mappings and business classifications.
+
 ## Sister Projects
 
 <img width="446" height="280" alt="image" align="middle" src="https://github.com/user-attachments/assets/077edef4-d560-41af-bb0d-d0a5f14fcc20" />
@@ -934,6 +943,15 @@ DeerFlow 2.0 is no longer a framework you wire together. It's a super agent harn
 Use it as-is. Or tear it apart and make it yours.
 
 ## Core Features
+
+### CNOOC Haineng Portal Integration
+
+The ordinary chat homepage links to the Haineng portal, shows model-call totals
+and today's usage, and provides a hover-only support contact card. The workspace
+sidebar also links to Haineng's Agent Square. Usage credentials stay server-side;
+configure them at runtime rather than embedding them in images. See
+[Haineng portal integration](docs/haineng-portal-integration.md) for configuration
+and release details.
 
 ### Skills & Tools
 

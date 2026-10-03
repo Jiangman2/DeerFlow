@@ -12,10 +12,11 @@ it. Keep the first-non-empty tool-result index and task-call suppression intact.
 The regular chat layout and legacy provider import share the custom-agent
 `ChatProviders` stack, without making the server layout a Client Component or
 changing static demo parameters. Upload deletion encodes the filename component
-and GFM disables only single-tilde strikethrough. Existing fixed employees retain
-the test hostname and precede the unchanged twelve contest entries. Do not change
-the runtime to production URLs to satisfy hardcoded test expectations: those two
-expectations are explicitly aligned with the test deployment. Incoming-only
+and GFM disables only single-tilde strikethrough. The enterprise PR6/PR7/PR8 integration retains the seven fixed employees on
+the production hostname, followed by the unchanged twelve contest entries.
+The earlier test-host-only catalog was specific to the dmdb test candidate and
+must not replace production entry points in this consolidation branch. Keep the
+catalog and its explicit URL regression tests aligned; no deployment is implied. Incoming-only
 reconnect-input hydration's three tests are deferred; the runtime and exact
 pre-merge reconnect tests remain unchanged. See
 `docs/FRONTEND_RECONCILIATION_BATCH2_20261002.md`; validation is still required
@@ -120,6 +121,15 @@ deterministic local suggestions. Browser Live is feature-gated and only appears
 for a custom employee when its tool-group allowlist is unset or includes
 `browser`; on mobile it is a bottom sheet, while desktop uses the side panel.
 Do not fork the conversational builder or weaken its existing save workflow.
+
+The September 28 contest catalog in `core/agents/contest-agents.ts` is appended
+to `SHARED_EXTERNAL_AGENTS`, preserving the original external employees and
+normal team/personal records. These are shared link cards, not model-backed
+personal Agents or database seed records. Keep source descriptions and full URL
+queries/fragments intact, use the existing category identifiers, and limit each
+entry to three tags. Rows with no application URL are omitted; a hidden source
+repository hyperlink on a cell labelled “暂无” is not an application URL.
+
 The UI must submit only the fixed category identifier and must not attempt to
 rewrite or migrate complete Agent configuration objects; persistence migration
 is a raw-field operation owned by Gateway.
@@ -596,6 +606,18 @@ The native App integration and release checklist live in
 `docs/mobile-webview-integration.md`.
 
 ## Environment
+
+### Haineng portal integration
+
+`HainengHomeFooter` and the portal header link belong only to the ordinary chat
+welcome surface. Preserve existing chat/auth routes and keep the support popup
+hover-driven, keyboard-accessible, and above the composer stacking context.
+The Agent Square sidebar link uses the existing icon/label layout.
+`/integrations/haineng/model-call-count` is a Next.js-owned authenticated GET
+route, not a Gateway API. Keep APP_ID/APP_KEY server-only, use per-request signed
+headers, HTTPS without redirects, a bounded timeout, and private no-store
+responses. Docker contexts must exclude frontend runtime environment files.
+See `docs/haineng-portal-integration.md` for the configuration contract.
 
 Backend API URLs are optional; an nginx proxy is used by default:
 

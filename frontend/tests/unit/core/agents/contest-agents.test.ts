@@ -88,7 +88,7 @@ test("publishes every contest entry once without replacing existing employees", 
       (agent) => agent.name === name,
     );
     expect(existing?.external_url).toMatch(
-      /^https:\/\/cnoocclawtest\.cnooc\.com\.cn\//,
+      /^https:\/\/cnoocclaw\.cnooc\.com\.cn\//,
     );
   }
 });
