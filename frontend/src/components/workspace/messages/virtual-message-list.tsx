@@ -37,7 +37,8 @@ export function VirtualMessageList({
   isLoading: boolean;
   renderGroup: (group: MessageGroup, index: number) => ReactNode;
 }) {
-  const { isAtBottom, scrollRef, scrollToBottom } = useStickToBottomContext();
+  const { isAtBottom, scrollRef, scrollToBottom, state, stopScroll } =
+    useStickToBottomContext();
   const activeIndex = isLoading ? groups.length - 1 : -1;
   const getItemKey = useCallback(
     (index: number) => groupKey(groups[index], index),
@@ -85,16 +86,25 @@ export function VirtualMessageList({
     let stableFrames = 0;
     let previousHeight = -1;
     let cancelled = false;
+    let finishRestoration: () => void = () => undefined;
+    const restorationFinished = new Promise<void>((resolve) => {
+      finishRestoration = resolve;
+    });
+    // Keep one scroll owner while estimated rows become measured rows. Native
+    // scrollTop writes bypass the stick-to-bottom hook\'s resize/escape tracking.
+    void scrollToBottom({ animation: "instant", duration: restorationFinished });
     const cancelRestoration = () => {
       cancelled = true;
       positionedInitialVirtualWindowRef.current = true;
       cancelAnimationFrame(frame);
+      finishRestoration();
+      stopScroll();
     };
     const restoreBottom = () => {
       if (cancelled) return;
       // scrollToIndex uses estimates for rows outside the virtual window.
       // Anchor to the real scroll extent while the final rows are measured.
-      element.scrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+      state.scrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
       const height = element.scrollHeight;
       const lastRow = virtualizer.getVirtualItems().at(-1);
       stableFrames =
@@ -105,6 +115,7 @@ export function VirtualMessageList({
       attempts += 1;
       if (stableFrames >= 8 || attempts >= 120) {
         positionedInitialVirtualWindowRef.current = true;
+        finishRestoration();
         return;
       }
       frame = requestAnimationFrame(restoreBottom);
@@ -115,10 +126,19 @@ export function VirtualMessageList({
     return () => {
       cancelled = true;
       cancelAnimationFrame(frame);
+      finishRestoration();
       element.removeEventListener("wheel", cancelRestoration);
       element.removeEventListener("touchstart", cancelRestoration);
     };
-  }, [groups.length, scrollRef, shouldVirtualize, virtualizer]);
+  }, [
+    groups.length,
+    scrollRef,
+    scrollToBottom,
+    shouldVirtualize,
+    state,
+    stopScroll,
+    virtualizer,
+  ]);
 
   useLayoutEffect(() => {
     if (groups.length > previousCountRef.current && isAtBottom) {
