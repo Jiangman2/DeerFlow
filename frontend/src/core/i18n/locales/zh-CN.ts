@@ -95,17 +95,6 @@ export const zhCN: Translations = {
     createYourOwnSkill: "创建您的专属技能",
     createYourOwnSkillDescription:
       "描述您希望智能体完成的工作，我们会协助您搭建可复用的技能。",
-    hainengPortal: "“海能”人工智能平台",
-    totalUsage: "总使用量",
-    todayUsage: "今日使用量",
-    usageUnavailable: "使用量暂不可用",
-    contactUs: "联系我们",
-    feedback: "意见反馈",
-    supportPhone: "客服电话",
-    supportEmail: "客服邮箱",
-    businessOwner: "业务负责人",
-    operationsOwner: "运维负责人",
-    serviceHours: "服务时间",
   },
 
   // Clipboard
@@ -157,7 +146,7 @@ export const zhCN: Translations = {
 
   // Input Box
   inputBox: {
-    placeholder: "随心输入",
+    placeholder: "今天我能为你做些什么？",
     createSkillPrompt:
       "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
     addAttachments: "添加附件",
@@ -358,7 +347,6 @@ export const zhCN: Translations = {
     recentChats: "最近的对话",
     demoChats: "演示对话",
     agents: "数字员工",
-    agentSquare: "智能体广场",
     knowledge: "知识库",
     skillCenter: "技能中心",
     openSkillCenter: "在新窗口打开技能中心",

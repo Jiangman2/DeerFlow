@@ -46,7 +46,7 @@ describe("bundled static demo", () => {
     expect(existsSync(resolve(root, previewHtml))).toBe(true);
 
     const html = readFileSync(resolve(root, previewHtml), "utf8");
-    const pageImages = [...html.matchAll(/<img\s+src="([^"]+)"/g)].map(
+    const pageImages = [...html.matchAll(/<img src="([^"]+)"/g)].map(
       (match) => match[1]!,
     );
     expect(pageImages).toHaveLength(5);

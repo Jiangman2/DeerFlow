@@ -106,9 +106,7 @@ export function NewShopCartDialog({
             variant="outline"
             onClick={onRefresh}
           >
-            <RefreshCwIcon
-              className={cn("size-4", loading && "animate-spin")}
-            />
+            <RefreshCwIcon className={cn("size-4", loading && "animate-spin")} />
             {t.inputBox.newShopCartRefresh}
           </Button>
         </div>
@@ -116,7 +114,7 @@ export function NewShopCartDialog({
         <ScrollArea className="min-h-0 flex-1">
           <div className="divide-y">
             {files.length === 0 ? (
-              <div className="text-muted-foreground flex h-48 items-center justify-center px-5 text-sm">
+              <div className="flex h-48 items-center justify-center px-5 text-sm text-muted-foreground">
                 {loading
                   ? t.inputBox.newShopCartLoading
                   : t.inputBox.newShopCartEmpty}
@@ -151,16 +149,16 @@ export function NewShopCartDialog({
                     </span>
                     <span className="min-w-0">
                       <span className="flex min-w-0 items-center gap-2">
-                        <FileIcon className="text-muted-foreground size-4 shrink-0" />
+                        <FileIcon className="size-4 shrink-0 text-muted-foreground" />
                         <span className="truncate text-sm font-medium">
                           {file.fileName}
                         </span>
                       </span>
-                      <span className="text-muted-foreground mt-1 block text-xs">
+                      <span className="mt-1 block text-xs text-muted-foreground">
                         {file.createDate}
                       </span>
                     </span>
-                    <span className="text-muted-foreground text-xs">
+                    <span className="text-xs text-muted-foreground">
                       {file.isComplete === 1
                         ? t.inputBox.newShopCartComplete
                         : t.inputBox.newShopCartProcessing}
@@ -186,9 +184,7 @@ export function NewShopCartDialog({
             type="button"
             onClick={addSelectedFiles}
           >
-            {adding
-              ? t.inputBox.shopCartAdding
-              : t.inputBox.shopCartAddSelected}
+            {adding ? t.inputBox.shopCartAdding : t.inputBox.shopCartAddSelected}
           </Button>
         </DialogFooter>
       </DialogContent>

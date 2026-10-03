@@ -39,18 +39,20 @@ describe("Gateway voice transcription helpers", () => {
   });
 
   it("uses the current DeerFlow origin and websocket scheme", () => {
-    expect(
-      buildVoiceGatewayUrl("https://deerflow.example/workspace/chats/new"),
-    ).toBe("wss://deerflow.example/api/voice-input/stream?language=auto");
-    expect(
-      buildVoiceGatewayUrl("http://127.0.0.1:2026/workspace/chats/new"),
-    ).toBe("ws://127.0.0.1:2026/api/voice-input/stream?language=auto");
+    expect(buildVoiceGatewayUrl("https://deerflow.example/workspace/chats/new"))
+      .toBe("wss://deerflow.example/api/voice-input/stream?language=auto");
+    expect(buildVoiceGatewayUrl("http://127.0.0.1:2026/workspace/chats/new"))
+      .toBe("ws://127.0.0.1:2026/api/voice-input/stream?language=auto");
   });
 
   it("converts normalized audio samples to little-endian PCM16", () => {
     const pcm = float32ToPcm16(new Float32Array([-1, -0.5, 0, 0.5, 1]));
     expect(Array.from(new Int16Array(pcm))).toEqual([
-      -32768, -16384, 0, 16384, 32767,
+      -32768,
+      -16384,
+      0,
+      16384,
+      32767,
     ]);
   });
 

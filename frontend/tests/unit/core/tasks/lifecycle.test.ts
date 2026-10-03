@@ -105,7 +105,9 @@ describe("taskEventToSubtaskUpdate", () => {
                 message_index: 1,
                 kind: "ai",
                 text: "Run the official validator",
-                tool_calls: [{ name: "bash", args: { command: "validate" } }],
+                tool_calls: [
+                  { name: "bash", args: { command: "validate" } },
+                ],
               },
               { message_index: "invalid", kind: "tool" },
             ],

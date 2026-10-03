@@ -33,9 +33,7 @@ test("long conversations render a virtual window and keep the composer responsiv
 
   await page.goto(`/workspace/chats/${MOCK_THREAD_ID}`);
 
-  await expect(
-    page.getByText(`Long thread answer ${TURN_COUNT - 1}`),
-  ).toBeVisible({
+  await expect(page.getByText(`Long thread answer ${TURN_COUNT - 1}`)).toBeVisible({
     timeout: 15_000,
   });
 
@@ -56,9 +54,7 @@ test("long conversations render a virtual window and keep the composer responsiv
       scrollTop: scrollElement.scrollTop,
     };
   });
-  expect(scrollMetrics.scrollHeight).toBeGreaterThan(
-    scrollMetrics.clientHeight,
-  );
+  expect(scrollMetrics.scrollHeight).toBeGreaterThan(scrollMetrics.clientHeight);
   expect(scrollMetrics.scrollTop).toBeGreaterThan(0);
 
   const textarea = page.locator("textarea[name='message']");

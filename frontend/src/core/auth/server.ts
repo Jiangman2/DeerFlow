@@ -53,7 +53,10 @@ export async function getServerSideUser(): Promise<AuthResult> {
     // No session — check whether the system has been initialised yet.
     const setupController = new AbortController();
     const timeoutMs = getSsrAuthTimeoutMs();
-    const setupTimeout = setTimeout(() => setupController.abort(), timeoutMs);
+    const setupTimeout = setTimeout(
+      () => setupController.abort(),
+      timeoutMs,
+    );
     try {
       const setupRes = await fetch(
         `${internalGatewayUrl}/api/v1/auth/setup-status`,
@@ -77,7 +80,10 @@ export async function getServerSideUser(): Promise<AuthResult> {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), getSsrAuthTimeoutMs());
+  const timeout = setTimeout(
+    () => controller.abort(),
+    getSsrAuthTimeoutMs(),
+  );
 
   try {
     const res = await fetch(`${internalGatewayUrl}/api/v1/auth/me`, {

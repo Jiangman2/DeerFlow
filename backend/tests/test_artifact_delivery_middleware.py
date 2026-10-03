@@ -48,7 +48,10 @@ def test_fabricated_artifact_api_link_is_retried(tmp_path: Path):
     middleware = ArtifactDeliveryMiddleware()
     message = AIMessage(
         id="fake-api-delivery",
-        content=("[report.pptx](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx)"),
+        content=(
+            "[report.pptx](/api/threads/thread-1/artifacts/"
+            "mnt/user-data/outputs/report.pptx)"
+        ),
     )
 
     result = middleware.after_model(_state(tmp_path, message), _runtime())

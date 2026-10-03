@@ -10,7 +10,6 @@ import pytest
 
 from app.channels.message_bus import MessageBus
 from app.channels.telegram import TelegramChannel
-from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 
 @pytest.fixture
@@ -69,7 +68,7 @@ async def test_start_with_deep_link_state_binds_telegram_chat(repo):
     assert connections[0]["workspace_id"] == "100"
     assert connections[0]["metadata"]["chat_type"] == "private"
     update.message.reply_text.assert_awaited_once()
-    assert update.message.reply_text.await_args.args[0] == f"Telegram已连接至{ENTERPRISE_PRODUCT_NAME}。"
+    assert "connected" in update.message.reply_text.await_args.args[0].lower()
 
 
 @pytest.mark.anyio
@@ -101,7 +100,7 @@ async def test_start_token_bypasses_allowed_users_filter(repo):
     connections = await repo.list_connections("deerflow-user-1")
     assert len(connections) == 1
     assert connections[0]["external_account_id"] == "42"
-    assert update.message.reply_text.await_args.args[0] == f"Telegram已连接至{ENTERPRISE_PRODUCT_NAME}。"
+    assert "connected" in update.message.reply_text.await_args.args[0].lower()
 
 
 @pytest.mark.anyio

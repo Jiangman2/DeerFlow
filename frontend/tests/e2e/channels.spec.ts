@@ -105,7 +105,7 @@ test.describe("IM channels", () => {
     await expect(sidebar.getByText("Telegram")).toBeVisible();
     await expect(sidebar.getByText("Slack")).toBeVisible();
     await expect(sidebar.getByText("Discord")).toBeVisible();
-    await expect(sidebar.getByText("海能 Work")).toBeVisible();
+    await expect(sidebar.getByText("Feishu")).toBeVisible();
     await expect(sidebar.getByText("DingTalk")).toBeVisible();
     await expect(sidebar.getByText("WeChat")).toBeVisible();
     await expect(sidebar.getByText("WeCom")).toBeVisible();
@@ -120,9 +120,7 @@ test.describe("IM channels", () => {
     await expect(page.getByText("Telegram direct messages")).toBeVisible();
     await expect(page.getByText("Slack workspace messages")).toBeVisible();
     await expect(page.getByText("Discord server messages")).toBeVisible();
-    await expect(
-      page.getByText("Messages through your 海能 Work app."),
-    ).toBeVisible();
+    await expect(page.getByText("Feishu and Lark messages")).toBeVisible();
     await expect(page.getByText("DingTalk Stream Push messages")).toBeVisible();
     await expect(page.getByText("WeChat iLink messages")).toBeVisible();
     await expect(page.getByText("WeCom messages")).toBeVisible();
@@ -441,12 +439,10 @@ test.describe("IM channels", () => {
     await page.goto("/workspace/chats/new");
 
     const sidebar = page.locator("[data-sidebar='sidebar']");
-    await expect(sidebar.getByText("海能 Work")).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(sidebar.getByText("Feishu")).toBeVisible({ timeout: 15_000 });
     await sidebar.getByRole("button", { name: "Connected" }).click();
 
-    const setupDialog = page.getByRole("dialog", { name: "Modify 海能 Work" });
+    const setupDialog = page.getByRole("dialog", { name: "Modify Feishu" });
     await expect(setupDialog).toBeVisible();
     await expect(setupDialog.getByLabel("App ID")).toHaveValue(
       "cli_feishu_app",

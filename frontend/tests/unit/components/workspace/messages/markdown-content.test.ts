@@ -84,20 +84,6 @@ describe("MarkdownContent streaming code blocks", () => {
   });
 });
 
-describe("MarkdownContent identified streaming hydration", () => {
-  it("keeps long server-rendered streaming text complete", () => {
-    const content = "已有回答".repeat(50);
-    const html = renderToStaticMarkup(
-      createElement(MarkdownContent, {
-        content,
-        isLoading: true,
-        streamingKey: "thread/message",
-      }),
-    );
-    expect(html).toContain(content);
-  });
-});
-
 describe("MarkdownContent strikethrough", () => {
   it("preserves single tildes in temperature ranges", () => {
     const html = renderMarkdown("周六23~30℃；周日22~30℃", false);

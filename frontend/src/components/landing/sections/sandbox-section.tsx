@@ -73,7 +73,11 @@ export function SandboxSection({ className }: { className?: string }) {
               Open-source
             </p>
             <h2 className="text-4xl font-bold tracking-tight lg:text-5xl">
-              <a href="#" target="_blank" rel="noopener noreferrer">
+              <a
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 AIO Sandbox
               </a>
             </h2>

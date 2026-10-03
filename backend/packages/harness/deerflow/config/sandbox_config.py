@@ -156,7 +156,11 @@ class SandboxConfig(BaseModel):
     )
     sandbox_api_key: str | None = Field(
         default=None,
-        description=("API key used to authenticate requests to the AIO sandbox API. The AIO runtime must receive the same value as SANDBOX_API_KEY; DeerFlow sends it as an Authorization: Bearer header."),
+        description=(
+            "API key used to authenticate requests to the AIO sandbox API. "
+            "The AIO runtime must receive the same value as SANDBOX_API_KEY; "
+            "DeerFlow sends it as an Authorization: Bearer header."
+        ),
     )
 
     model_config = ConfigDict(extra="allow")

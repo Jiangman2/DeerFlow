@@ -83,7 +83,10 @@ def _sanitize_text(text: str) -> str:
 
 def _require_embedded_cjk_font(text: str, font_name: str) -> None:
     if font_name == "Helvetica" and _CJK_RE.search(text):
-        raise RuntimeError("A compatible embedded CJK font is required to generate this PDF. Install WenQuanYi Zen Hei or Noto Sans CJK in the Gateway image.")
+        raise RuntimeError(
+            "A compatible embedded CJK font is required to generate this PDF. "
+            "Install WenQuanYi Zen Hei or Noto Sans CJK in the Gateway image."
+        )
 
 
 def markdown_to_pdf_bytes(markdown: str, *, title: str = "report") -> bytes:

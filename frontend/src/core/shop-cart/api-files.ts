@@ -39,8 +39,7 @@ function isNewShopCartFile(value: unknown): value is NewShopCartFile {
   const record = value as Record<string, unknown>;
   const hasDownloadFields =
     typeof record.fileId === "string" && typeof record.num === "number";
-  const hasPendingDownloadFields =
-    record.fileId === null && record.num === null;
+  const hasPendingDownloadFields = record.fileId === null && record.num === null;
   const hasValidDownloadState =
     record.isComplete === 1 ? hasDownloadFields : hasPendingDownloadFields;
 

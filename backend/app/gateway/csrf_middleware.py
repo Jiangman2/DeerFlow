@@ -22,7 +22,9 @@ CSRF_COOKIE_NAME = "csrf_token"
 CSRF_HEADER_NAME = "X-CSRF-Token"
 CSRF_TOKEN_LENGTH = 64  # bytes
 
-_LIVE_PREVIEW_MUTATION_PATH_RE = re.compile(r"^/api/threads/[^/]+/live-preview/5050(?:/|$)")
+_LIVE_PREVIEW_MUTATION_PATH_RE = re.compile(
+    r"^/api/threads/[^/]+/live-preview/5050(?:/|$)"
+)
 
 
 def is_secure_request(request: Request) -> bool:
@@ -68,7 +70,9 @@ def should_check_csrf(request: Request) -> bool:
     if request.url.path.startswith("/api/webhooks/"):
         return False
     # Group OA uses a scoped machine credential and never has a browser CSRF cookie.
-    if request.url.path == "/api/v1/integrations/oa/policy-flow/jobs" or request.url.path.startswith("/api/v1/integrations/oa/policy-flow/jobs/"):
+    if request.url.path == "/api/v1/integrations/oa/policy-flow/jobs" or request.url.path.startswith(
+        "/api/v1/integrations/oa/policy-flow/jobs/"
+    ):
         return False
     # IAM account synchronization is a server-to-server protocol protected by
     # its independently verified SM4/SM3 envelope and remote credentials.

@@ -8,8 +8,13 @@ import {
 describe("resolveLivePreviewURL", () => {
   test("maps Sandbox loopback links to the current thread proxy", () => {
     expect(
-      resolveLivePreviewURL("http://127.0.0.1:5050/?lang=zh-CN", "thread-1"),
-    ).toBe("/api/threads/thread-1/live-preview/5050/?lang=zh-CN");
+      resolveLivePreviewURL(
+        "http://127.0.0.1:5050/?lang=zh-CN",
+        "thread-1",
+      ),
+    ).toBe(
+      "/api/threads/thread-1/live-preview/5050/?lang=zh-CN",
+    );
   });
 
   test("does not rewrite ordinary external links or other ports", () => {
@@ -23,7 +28,11 @@ describe("resolveLivePreviewURL", () => {
   });
 
   test("thread-aware markdown renderer rewrites ordinary assistant messages", () => {
-    const Link = createMarkdownLinkComponent("thread-1", undefined, "Preview");
+    const Link = createMarkdownLinkComponent(
+      "thread-1",
+      undefined,
+      "Preview",
+    );
     const element = Link({
       href: "http://127.0.0.1:5050/",
       children: "http://127.0.0.1:5050",

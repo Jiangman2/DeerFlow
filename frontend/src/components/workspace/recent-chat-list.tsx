@@ -381,12 +381,8 @@ export function RecentChatList() {
                                 onSelect={() =>
                                   requestDelete({
                                     thread,
-                                    // The display list puts static demos and pinned chats
-                                    // first; neither identifies the newest live chat.
-                                    recentThreadId: threads.find(
-                                      (candidate) =>
-                                        candidate.metadata?.demo !== true,
-                                    )?.thread_id,
+                                    recentThreadId:
+                                      displayedThreads[0]?.thread_id,
                                   })
                                 }
                               >

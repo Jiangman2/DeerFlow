@@ -25,8 +25,8 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from deerflow.utils.messages import message_content_to_text
 
-from .ppt_usage_observation import observed_session_usage
 from .status_contract import normalize_token_usage
+from .ppt_usage_observation import observed_session_usage
 
 #: Default per-step character cap for the ``text`` field. Tool outputs (web
 #: search results, file contents) can be large; this cap bounds the persisted
@@ -220,12 +220,10 @@ def subagent_run_event(chunk: Any) -> dict[str, Any] | None:
         observation = observed_session_usage(chunk)
         usage = normalize_token_usage(chunk.get("usage"))
         if chunk.get("model_name") == "ppt-master-agent-host" and (observation is not None or usage is not None):
-            return {
-                "event_type": "subagent.usage",
-                "category": SUBAGENT_EVENT_CATEGORY,
-                "content": {"task_id": task_id, "model_name": "ppt-master-agent-host", **({"session_usage_observation": observation} if observation is not None else {}), **({"usage": usage} if usage is not None else {})},
-                "metadata": {"task_id": task_id},
-            }
+            return {"event_type": "subagent.usage", "category": SUBAGENT_EVENT_CATEGORY,
+                    "content": {"task_id": task_id, "model_name": "ppt-master-agent-host",
+                                **({"session_usage_observation": observation} if observation is not None else {}),
+                                **({"usage": usage} if usage is not None else {})}, "metadata": {"task_id": task_id}}
         message_index = chunk.get("message_index")
         if type(message_index) is not int or message_index < 0 or not isinstance(chunk.get("message"), dict):
             return None

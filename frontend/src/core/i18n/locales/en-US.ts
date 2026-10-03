@@ -96,17 +96,6 @@ export const enUS: Translations = {
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
       "Describe the work you want the agent to perform, and we will help you build a reusable skill.",
-    hainengPortal: "Haineng AI Platform",
-    totalUsage: "Total usage",
-    todayUsage: "Usage today",
-    usageUnavailable: "Usage unavailable",
-    contactUs: "Contact us",
-    feedback: "Feedback",
-    supportPhone: "Support phone",
-    supportEmail: "Support email",
-    businessOwner: "Business owner",
-    operationsOwner: "Operations owner",
-    serviceHours: "Service hours",
   },
 
   // Clipboard
@@ -387,7 +376,6 @@ export const enUS: Translations = {
     recentChats: "Recent chats",
     demoChats: "Demo chats",
     agents: "Digital Employees",
-    agentSquare: "Agent Square",
     knowledge: "Knowledge",
     skillCenter: "Skill Center",
     openSkillCenter: "Open Skill Center in a new window",

@@ -176,8 +176,8 @@ describe("recordExternalAgentClick", () => {
       jsonResponse(403, { detail: "CSRF validation failed" }),
     );
 
-    await expect(recordExternalAgentClick("专业文档解析专家")).rejects.toThrow(
-      "Failed to record external agent click: 403",
-    );
+    await expect(
+      recordExternalAgentClick("专业文档解析专家"),
+    ).rejects.toThrow("Failed to record external agent click: 403");
   });
 });

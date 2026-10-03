@@ -1,9 +1,7 @@
 """Focused unit coverage for the CNOOC IAM protocol boundary."""
 
 import asyncio
-from types import SimpleNamespace
 
-import pytest
 from starlette.requests import Request
 
 from app.gateway.auth.iam import account_email, is_legacy_account_email, legacy_account_email
@@ -31,18 +29,11 @@ def test_iam_sm4_response_round_trip_and_sm3_signature_material():
     assert len(sm3_hexdigest("a=x&b=false")) == 64
 
 
-def test_iam_account_mapping_is_corporate_and_legacy_address_is_recognized(monkeypatch):
-    monkeypatch.setattr("deerflow.config.app_config.get_app_config", lambda: SimpleNamespace(auth=SimpleNamespace(iam=SimpleNamespace(redirect_uri=""))))
+def test_iam_account_mapping_is_corporate_and_legacy_address_is_recognized():
     assert account_email("AD.User") == "ad.user@cnooc.com.cn"
     legacy = legacy_account_email("AD.User")
     assert is_legacy_account_email(legacy)
     assert _callback_path("iam") == "/api/v1/auth/iam/callback"
-
-
-@pytest.mark.parametrize("path", ["/api/v1/auth/iam/callback", "/api/v1/auth/callback/iam"])
-def test_iam_callback_cookie_path_respects_configured_registration(monkeypatch, path):
-    monkeypatch.setattr("deerflow.config.app_config.get_app_config", lambda: SimpleNamespace(auth=SimpleNamespace(iam=SimpleNamespace(redirect_uri=f"https://example.invalid{path}"))))
-    assert _callback_path("iam") == path
 
 
 def test_bim_sync_migrates_legacy_iam_identity_in_place():

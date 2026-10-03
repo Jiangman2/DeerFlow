@@ -84,7 +84,11 @@ async function readZipEntry(
       const localExtraFieldLength = readUint16(view, localHeaderOffset + 28);
       const dataStart =
         localHeaderOffset + 30 + localFileNameLength + localExtraFieldLength;
-      const compressedData = new Uint8Array(buffer, dataStart, compressedSize);
+      const compressedData = new Uint8Array(
+        buffer,
+        dataStart,
+        compressedSize,
+      );
 
       if (compressionMethod === 0) {
         return compressedData;

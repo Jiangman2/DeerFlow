@@ -1,26 +1,7 @@
 # DeerFlow Frontend
 
-The October 2 dmdb frontend follow-up hardens tool-result navigation and
-malformed argument rendering, presents clarification context once outside the
-processing panel, shares the ordinary/custom-agent provider stack, encodes
-upload deletion filenames, and preserves literal single-tilde temperature
-ranges. Fixed employees keep the test hostname and precede the twelve contest
-entries; production/test direct-link coverage is retained. Three incoming-only
-reconnect-input hydration tests are deferred because the captured runtime lacks
-that feature; the exact pre-merge reconnect test module is retained. See
-[the follow-up record](docs/FRONTEND_RECONCILIATION_BATCH2_20261002.md).
-This is not a completed merge or deployment acceptance.
-
 The 2026-09-28 production source alignment on the enterprise 7·16 branch is
 recorded in `../release/production-build-alignment-20260928/README.md`.
-
-The isolated September 30 dmdb reconciliation preserves the existing interval,
-custom-agent, duplicate-task, and paged-history workflows, together with their
-Gateway route and pinned DOM-test dependencies. Haineng integration and incoming
-PPT progress remain intact. Incomplete new status-filter, DST-edit/validation,
-task-search, and Markdown-tag increments are deferred individually; this does
-not remove preexisting tests or authorize deployment. See
-[the merge record](../backend/docs/ENTERPRISE_MERGE_20260930.md).
 
 Like the original DeerFlow 1.0, we would love to give the community a minimalistic and easy-to-use web interface with a more modern and flexible architecture.
 

@@ -85,9 +85,6 @@ class LocalSkillStorage(SkillStorage):
                 dir_names[:] = sorted(name for name in dir_names if not name.startswith("."))
                 if SKILL_MD_FILE not in file_names:
                     continue
-                # Namespace directories are recursive; a skill package is not.
-                # Descendant SKILL.md files are examples/resources of this skill.
-                dir_names.clear()
                 skill_file = Path(current_root) / SKILL_MD_FILE
                 if is_eval_fixture_skill_md(skill_file.relative_to(category_path)):
                     continue

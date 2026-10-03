@@ -29,7 +29,6 @@ def filter_tools_by_datalake_scope(tools: Iterable[BaseTool], *, enabled: bool |
         return tool_list
     return [tool for tool in tool_list if tool.name not in DATALAKE_TOOL_NAMES]
 
-
 BUILTIN_TOOLS = [
     present_file_tool,
     ask_clarification_tool,

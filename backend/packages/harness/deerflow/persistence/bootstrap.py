@@ -421,7 +421,6 @@ async def _postgres_lock(engine: AsyncEngine):
     async with engine.connect() as conn:
         await conn.execute(text("SET LOCAL idle_in_transaction_session_timeout = 0"))
         await conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": _PG_LOCK_KEY})
-        await conn.commit()
         try:
             logger.info("bootstrap: acquired postgres advisory lock key=0x%x", _PG_LOCK_KEY)
             yield

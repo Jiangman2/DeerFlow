@@ -282,11 +282,6 @@ test.describe("Thread history", () => {
     await inactiveThreadItem.hover();
     await inactiveThreadItem.getByRole("button", { name: /more/i }).click();
     await page.getByRole("menuitem", { name: /delete/i }).click();
-    const deleteDialog = page.getByRole("dialog", { name: "Delete chat" });
-    await expect(deleteDialog).toBeVisible();
-    await deleteDialog
-      .getByRole("button", { name: "Delete", exact: true })
-      .click();
 
     await expect(page).toHaveURL(new RegExp(MOCK_THREAD_ID));
     await expect(
@@ -445,7 +440,11 @@ test.describe("Thread history", () => {
     mockLangGraphAPI(page);
     await page.route(/\/api\/threads\/[^/]+$/, (route) => {
       if (route.request().method() === "DELETE") {
-        return route.fulfill({ status: 204 });
+        return route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Local cleanup failed" }),
+        });
       }
       return route.fallback();
     });
@@ -472,11 +471,6 @@ test.describe("Thread history", () => {
     await recentThreadItem.hover();
     await recentThreadItem.getByRole("button", { name: /more/i }).click();
     await page.getByRole("menuitem", { name: /delete/i }).click();
-    const deleteDialog = page.getByRole("dialog", { name: "Delete chat" });
-    await expect(deleteDialog).toBeVisible();
-    await deleteDialog
-      .getByRole("button", { name: "Delete", exact: true })
-      .click();
 
     await expect(page).toHaveURL(/\/workspace\/chats\/new$/);
     await expect(page.getByText("Previous question")).toHaveCount(0);
@@ -556,37 +550,6 @@ test.describe("Thread history", () => {
       },
     );
 
-    // This test owns its static demo fixture; published demo copy may change.
-    await page.route(`**/mock/api/threads/${DEMO_THREAD_ID}/history`, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify([
-          {
-            thread_id: DEMO_THREAD_ID,
-            created_at: "2025-06-01T12:00:00Z",
-            updated_at: "2025-06-01T12:00:00Z",
-            metadata: {},
-            status: "idle",
-            values: {
-              messages: [
-                {
-                  type: "human",
-                  id: "static-human",
-                  content:
-                    "What might be the trends and opportunities in 2026?",
-                },
-                {
-                  type: "ai",
-                  id: "static-ai",
-                  content: "I've created a modern, minimalist website",
-                },
-              ],
-            },
-          },
-        ]),
-      }),
-    );
     await page.goto(`/workspace/chats/${DEMO_THREAD_ID}?mock=true`);
 
     await expect(

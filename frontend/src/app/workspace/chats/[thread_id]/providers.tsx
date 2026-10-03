@@ -1,4 +1,22 @@
 "use client";
 
-// Preserve the old import path without maintaining a second provider stack.
-export { ChatProviders } from "@/components/workspace/chats/chat-providers";
+import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
+import { ArtifactsProvider } from "@/components/workspace/artifacts";
+import { BrowserViewProvider } from "@/components/workspace/browser-view";
+import { useThreadChat } from "@/components/workspace/chats";
+import { SubtasksProvider } from "@/core/tasks/context";
+
+export function ChatProviders({ children }: { children: React.ReactNode }) {
+  const { threadId, isNewThread } = useThreadChat();
+  const scopeKey = isNewThread ? "new" : (threadId ?? "unknown");
+
+  return (
+    <SubtasksProvider scopeKey={scopeKey}>
+      <ArtifactsProvider scopeKey={scopeKey}>
+        <BrowserViewProvider>
+          <PromptInputProvider>{children}</PromptInputProvider>
+        </BrowserViewProvider>
+      </ArtifactsProvider>
+    </SubtasksProvider>
+  );
+}

@@ -12,8 +12,6 @@ from typing import Any
 from unittest import mock
 from unittest.mock import AsyncMock
 
-import pytest
-
 from app.channels.message_bus import InboundMessageType, MessageBus, OutboundMessage
 
 
@@ -1366,72 +1364,6 @@ def test_poll_loop_one_bad_message_does_not_permanently_lose_its_siblings(monkey
         assert channel._get_updates_buf == "cursor-after-batch"
         persisted = json.loads((state_dir / "wechat-getupdates.json").read_text(encoding="utf-8"))
         assert persisted["get_updates_buf"] == "cursor-after-batch"
-
-    _run(go())
-
-
-@pytest.mark.parametrize("stop_after", [1, 2])
-def test_poll_cancellation_does_not_acknowledge_partially_attempted_batch(tmp_path: Path, stop_after):
-    from app.channels.wechat import WechatChannel
-
-    async def go():
-        channel = WechatChannel(bus=MessageBus(), config={"bot_token": "test-token", "state_dir": str(tmp_path), "polling_retry_delay": 0.001})
-        channel._get_updates_buf = "before-batch"
-        channel._running = True
-        channel._ensure_authenticated = AsyncMock(return_value=True)
-        channel._request_json = AsyncMock(return_value={"ret": 0, "get_updates_buf": "after-batch", "msgs": [{"message_id": str(i)} for i in range(3)]})
-        handled, saved = [], []
-        channel._save_state = lambda: saved.append(channel._get_updates_buf)
-
-        async def handle(raw):
-            handled.append(raw["message_id"])
-            assert channel._get_updates_buf == "before-batch"
-            if len(handled) == stop_after:
-                raise asyncio.CancelledError
-
-        channel._handle_update = handle
-        try:
-            await asyncio.wait_for(channel._poll_loop(), timeout=2)
-        except asyncio.CancelledError:
-            pass
-        else:
-            raise AssertionError("Poll cancellation was swallowed")
-        assert len(handled) == stop_after
-        assert channel._get_updates_buf == "before-batch"
-        assert saved == []
-
-    _run(go())
-
-
-def test_poll_commits_cursor_only_after_every_sibling_is_attempted(tmp_path: Path):
-    from app.channels.wechat import WechatChannel
-
-    async def go():
-        channel = WechatChannel(bus=MessageBus(), config={"bot_token": "test-token", "state_dir": str(tmp_path), "polling_retry_delay": 0.001})
-        channel._get_updates_buf = "before-batch"
-        channel._running = True
-        handled, saved = [], []
-
-        async def authenticate():
-            if handled:
-                channel._running = False
-                return False
-            return True
-
-        channel._ensure_authenticated = authenticate
-        channel._request_json = AsyncMock(return_value={"ret": 0, "get_updates_buf": "after-batch", "msgs": [{"message_id": str(i)} for i in range(3)]})
-        channel._save_state = lambda: saved.append((channel._get_updates_buf, list(handled)))
-
-        async def handle(raw):
-            assert channel._get_updates_buf == "before-batch"
-            handled.append(raw["message_id"])
-            if raw["message_id"] == "1":
-                raise ValueError("corrupt attachment")
-
-        channel._handle_update = handle
-        await asyncio.wait_for(channel._poll_loop(), timeout=2)
-        assert handled == ["0", "1", "2"]
-        assert saved == [("after-batch", ["0", "1", "2"])]
 
     _run(go())
 

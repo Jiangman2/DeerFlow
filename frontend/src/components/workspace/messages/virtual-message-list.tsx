@@ -37,8 +37,7 @@ export function VirtualMessageList({
   isLoading: boolean;
   renderGroup: (group: MessageGroup, index: number) => ReactNode;
 }) {
-  const { isAtBottom, scrollRef, scrollToBottom, state, stopScroll } =
-    useStickToBottomContext();
+  const { isAtBottom, scrollRef, scrollToBottom } = useStickToBottomContext();
   const activeIndex = isLoading ? groups.length - 1 : -1;
   const getItemKey = useCallback(
     (index: number) => groupKey(groups[index], index),
@@ -73,82 +72,24 @@ export function VirtualMessageList({
   );
 
   useLayoutEffect(() => {
-    if (!shouldVirtualize) {
-      positionedInitialVirtualWindowRef.current = false;
-      return;
-    }
-    if (positionedInitialVirtualWindowRef.current) return;
-
-    const element = scrollRef.current;
-    if (!element) return;
-    let frame = 0;
-    let attempts = 0;
-    let stableFrames = 0;
-    let previousHeight = -1;
-    let cancelled = false;
-    let finishRestoration: () => void = () => undefined;
-    const restorationFinished = new Promise<void>((resolve) => {
-      finishRestoration = resolve;
-    });
-    // Keep one scroll owner while estimated rows become measured rows. Native
-    // scrollTop writes bypass the stick-to-bottom hook's resize/escape tracking.
-    void scrollToBottom({
-      animation: "instant",
-      duration: restorationFinished,
-    });
-    const cancelRestoration = () => {
-      cancelled = true;
+    let settleFrame: number | undefined;
+    if (
+      shouldVirtualize &&
+      isAtBottom &&
+      !positionedInitialVirtualWindowRef.current
+    ) {
       positionedInitialVirtualWindowRef.current = true;
-      cancelAnimationFrame(frame);
-      finishRestoration();
-      stopScroll();
-    };
-    const restoreBottom = () => {
-      if (cancelled) return;
-      // scrollToIndex uses estimates for rows outside the virtual window.
-      // Anchor to the real scroll extent while the final rows are measured.
-      state.scrollTop = Math.max(
-        0,
-        element.scrollHeight - element.clientHeight,
-      );
-      const height = element.scrollHeight;
-      const lastRow = virtualizer.getVirtualItems().at(-1);
-      stableFrames =
-        height === previousHeight && lastRow?.index === groups.length - 1
-          ? stableFrames + 1
-          : 0;
-      previousHeight = height;
-      attempts += 1;
-      if (stableFrames >= 8 || attempts >= 120) {
-        positionedInitialVirtualWindowRef.current = true;
-        finishRestoration();
-        return;
-      }
-      frame = requestAnimationFrame(restoreBottom);
-    };
-    element.addEventListener("wheel", cancelRestoration, { passive: true });
-    element.addEventListener("touchstart", cancelRestoration, {
-      passive: true,
-    });
-    restoreBottom();
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-      finishRestoration();
-      element.removeEventListener("wheel", cancelRestoration);
-      element.removeEventListener("touchstart", cancelRestoration);
-    };
-  }, [
-    groups.length,
-    scrollRef,
-    scrollToBottom,
-    shouldVirtualize,
-    state,
-    stopScroll,
-    virtualizer,
-  ]);
-
-  useLayoutEffect(() => {
+      const scrollToLatest = () => {
+        virtualizer.scrollToIndex(groups.length - 1, { align: "end" });
+      };
+      scrollToLatest();
+      // Dynamic row measurement changes the total after the first layout.
+      // Re-anchor once with measured sizes so a long restored conversation
+      // cannot land around the estimated midpoint.
+      settleFrame = requestAnimationFrame(scrollToLatest);
+    } else if (!shouldVirtualize) {
+      positionedInitialVirtualWindowRef.current = false;
+    }
     if (groups.length > previousCountRef.current && isAtBottom) {
       void scrollToBottom({
         animation: "instant",
@@ -156,7 +97,16 @@ export function VirtualMessageList({
       });
     }
     previousCountRef.current = groups.length;
-  }, [groups.length, isAtBottom, scrollToBottom]);
+    return () => {
+      if (settleFrame !== undefined) cancelAnimationFrame(settleFrame);
+    };
+  }, [
+    groups.length,
+    isAtBottom,
+    scrollToBottom,
+    shouldVirtualize,
+    virtualizer,
+  ]);
 
   useLayoutEffect(() => {
     const firstKey = getItemKey(0);

@@ -135,14 +135,11 @@ async def test_wait_for_sandbox_ready_async_sends_bearer_api_key(monkeypatch: py
 
     monkeypatch.setattr(readiness.httpx, "AsyncClient", fake_client)
 
-    assert (
-        await readiness.wait_for_sandbox_ready_async(
-            "http://sandbox",
-            timeout=5,
-            api_key="sandbox-secret",
-        )
-        is True
-    )
+    assert await readiness.wait_for_sandbox_ready_async(
+        "http://sandbox",
+        timeout=5,
+        api_key="sandbox-secret",
+    ) is True
     assert calls == [
         (
             "http://sandbox/v1/sandbox",

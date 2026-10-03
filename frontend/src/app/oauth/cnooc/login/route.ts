@@ -19,10 +19,7 @@ export function GET(request: NextRequest) {
 
   const loginUrl = new URL("http://internal.local/api/v1/auth/cnooc/login");
   loginUrl.searchParams.set("token", token);
-  loginUrl.searchParams.set(
-    "next",
-    validateNextParam(request.nextUrl.searchParams.get("next")),
-  );
+  loginUrl.searchParams.set("next", validateNextParam(request.nextUrl.searchParams.get("next")));
   return new NextResponse(null, {
     status: 302,
     headers: { Location: `${loginUrl.pathname}${loginUrl.search}` },

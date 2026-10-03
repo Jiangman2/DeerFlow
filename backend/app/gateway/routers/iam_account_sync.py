@@ -80,7 +80,12 @@ def _verify_request(payload: Mapping[str, Any]) -> None:
     supplied_user = _string(payload, "bimRemoteUser")
     supplied_password = _string(payload, "bimRemotePwd")
     signature = _string(payload, "signature", required=False)
-    credentials_match = configured_user and configured_password and secrets.compare_digest(supplied_user, configured_user) and secrets.compare_digest(supplied_password, configured_password)
+    credentials_match = (
+        configured_user
+        and configured_password
+        and secrets.compare_digest(supplied_user, configured_user)
+        and secrets.compare_digest(supplied_password, configured_password)
+    )
     if not credentials_match:
         raise HTTPException(status_code=401, detail="IAM account synchronization authentication failed")
     # Existing BIM installations send a vendor signature whose canonicalisation

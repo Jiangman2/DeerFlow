@@ -34,7 +34,9 @@ describe("scheduled task model selection", () => {
   });
 
   it("falls back to the first available model when DeepSeek is unavailable", () => {
-    expect(resolveScheduledModelName(MODELS.slice(0, 1))).toBe("qwen-bailian");
+    expect(resolveScheduledModelName(MODELS.slice(0, 1))).toBe(
+      "qwen-bailian",
+    );
   });
 
   it("returns an empty selection while no models are available", () => {

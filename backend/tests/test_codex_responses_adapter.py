@@ -187,7 +187,6 @@ def test_namespace_tools_are_flattened_and_restored_without_losing_history() -> 
         kind="function",
         name="spawn_agent",
         namespace="multi_agent_v1",
-        parameters={"type": "object", "properties": {"message": {"type": "string"}}, "required": ["message"]},
     )
 
     completion = adapter.DeepSeekCompletion(model="DeepSeek-V4-Flash")

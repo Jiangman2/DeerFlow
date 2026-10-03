@@ -1,13 +1,12 @@
 """Unit tests for checkpointer config, packaging metadata, and factories."""
 
-import asyncio
 import sys
 import tomllib
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager, nullcontext
+from contextlib import nullcontext
 from pathlib import Path
 from threading import Barrier, Event, Lock
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -28,12 +27,8 @@ from deerflow.runtime.store.provider import POSTGRES_STORE_INSTALL
 
 
 @pytest.fixture(autouse=True)
-def reset_state(monkeypatch):
+def reset_state():
     """Reset singleton state before each test."""
-    monkeypatch.delenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE", raising=False)
-    monkeypatch.delenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE", raising=False)
-    monkeypatch.delenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_CONCURRENT_CURSOR", raising=False)
-    monkeypatch.delenv("DEERFLOW_CHECKPOINTER_DB_SESSION_LABELS", raising=False)
     app_config_module._app_config = None
     set_checkpointer_config(None)
     reset_checkpointer()
@@ -230,10 +225,7 @@ class TestGetCheckpointer:
         """get_checkpointer should return InMemorySaver when not configured."""
         from langgraph.checkpoint.memory import InMemorySaver
 
-        with (
-            patch("deerflow.config.app_config.get_app_config", side_effect=FileNotFoundError),
-            patch("deerflow.runtime.checkpointer.provider.get_app_config", side_effect=FileNotFoundError),
-        ):
+        with patch("deerflow.config.app_config.get_app_config", side_effect=FileNotFoundError):
             cp = get_checkpointer()
         assert cp is not None
         assert isinstance(cp, InMemorySaver)
@@ -541,309 +533,6 @@ class TestSyncSingletonThreadSafety:
 
 class TestAsyncCheckpointer:
     @pytest.mark.anyio
-    async def test_postgres_saver_timing_wrapper_measures_only_checkpoint_write_apis(self, monkeypatch):
-        """Timing must preserve the saver API and avoid retaining checkpoint state."""
-        from deerflow.llm_timing_context import reset_current_llm_timing_context, set_current_llm_timing_context
-        from deerflow.run_timing import consume_checkpoint_timing
-        from deerflow.runtime.checkpointer.async_provider import _instrument_postgres_saver_class
-
-        monkeypatch.setenv("DEERFLOW_RUN_TIMING_LOGS", "true")
-
-        class Saver:
-            async def aput(self, _config):
-                return {"checkpoint_id": "opaque"}
-
-            async def aput_writes(self, _config):
-                return None
-
-            async def aget_tuple(self, _config):
-                return {"checkpoint": "must-not-be-timed-as-a-write"}
-
-        token = set_current_llm_timing_context(thread_id="thread-123", run_id="run-456")
-        try:
-            timed_saver = _instrument_postgres_saver_class(Saver)()
-            assert isinstance(timed_saver, Saver)
-            assert await timed_saver.aput({"content": "never logged"}) == {"checkpoint_id": "opaque"}
-            assert await timed_saver.aput_writes({"content": "never logged"}) is None
-            assert await timed_saver.aget_tuple({"content": "never logged"}) == {"checkpoint": "must-not-be-timed-as-a-write"}
-        finally:
-            reset_current_llm_timing_context(token)
-
-        totals = consume_checkpoint_timing(thread_id="thread-123", run_id="run-456")
-        assert totals.checkpoint_aput_count == 1
-        assert totals.checkpoint_aput_writes_count == 1
-        assert totals.checkpoint_sql_execute_count == 0
-
-    def test_postgres_pool_size_environment(self, monkeypatch):
-        """The PostgreSQL checkpointer pool can be sized without changing a DSN."""
-        from deerflow.runtime.checkpointer.async_provider import _postgres_pool_sizes
-
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE", "8")
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE", "32")
-
-        assert _postgres_pool_sizes() == (8, 32)
-
-    def test_postgres_pool_size_environment_rejects_invalid_bounds(self, monkeypatch):
-        """A bad pool configuration must fail at startup instead of silently degrading."""
-        from deerflow.runtime.checkpointer.async_provider import _postgres_pool_sizes
-
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE", "25")
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE", "24")
-
-        with pytest.raises(ValueError, match="must be greater than or equal"):
-            _postgres_pool_sizes()
-
-    def test_postgres_pool_concurrent_cursor_defaults_to_disabled(self):
-        """The behavior-changing saver optimization must remain opt-in."""
-        from deerflow.runtime.checkpointer.async_provider import _postgres_pool_concurrent_cursor_enabled
-
-        assert _postgres_pool_concurrent_cursor_enabled() is False
-
-    @pytest.mark.parametrize(
-        ("value", "expected"),
-        [
-            ("1", True),
-            ("true", True),
-            ("TRUE", True),
-            ("yes", True),
-            ("on", True),
-            ("0", False),
-            ("false", False),
-            ("no", False),
-            ("off", False),
-        ],
-    )
-    def test_postgres_pool_concurrent_cursor_accepts_boolean_values(self, monkeypatch, value, expected):
-        from deerflow.runtime.checkpointer.async_provider import _postgres_pool_concurrent_cursor_enabled
-
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_CONCURRENT_CURSOR", value)
-
-        assert _postgres_pool_concurrent_cursor_enabled() is expected
-
-    def test_postgres_pool_concurrent_cursor_rejects_invalid_value(self, monkeypatch):
-        from deerflow.runtime.checkpointer.async_provider import _postgres_pool_concurrent_cursor_enabled
-
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_CONCURRENT_CURSOR", "sometimes")
-
-        with pytest.raises(ValueError, match="must be a boolean"):
-            _postgres_pool_concurrent_cursor_enabled()
-
-    @pytest.mark.asyncio
-    async def test_postgres_pool_concurrent_cursor_only_bypasses_lock_for_pooled_non_pipeline_saver(self, monkeypatch):
-        """Single-connection and pipeline saver protocols keep the upstream lock."""
-        from deerflow.runtime.checkpointer.async_provider import _instrument_pooled_postgres_saver_class
-
-        class Pool:
-            pass
-
-        class Saver:
-            def __init__(self, conn, pipe=None, serde=None):
-                self.conn = conn
-                self.pipe = pipe
-                self.serde = serde
-                self.lock = asyncio.Lock()
-
-        async def peak_contexts(lock) -> int:
-            active = 0
-            peak = 0
-
-            async def use_lock():
-                nonlocal active, peak
-                async with lock:
-                    active += 1
-                    peak = max(peak, active)
-                    await asyncio.sleep(0)
-                    active -= 1
-
-            await asyncio.gather(*(use_lock() for _ in range(8)))
-            return peak
-
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_CONCURRENT_CURSOR", "true")
-        ConcurrentSaver = _instrument_pooled_postgres_saver_class(Saver, Pool)
-
-        pooled_saver = ConcurrentSaver(conn=Pool())
-        assert await peak_contexts(pooled_saver.lock) == 8
-
-        positional_saver = ConcurrentSaver(Pool(), None, "serializer")
-        assert positional_saver.serde == "serializer"
-        assert await peak_contexts(positional_saver.lock) == 8
-
-        single_connection_saver = ConcurrentSaver(conn=object())
-        assert isinstance(single_connection_saver.lock, asyncio.Lock)
-        assert await peak_contexts(single_connection_saver.lock) == 1
-
-        # AsyncPostgresSaver itself rejects this topology, but retain the lock
-        # defensively if a future version ever permits a pool + pipeline.
-        pipeline_saver = ConcurrentSaver(conn=Pool(), pipe=object())
-        assert isinstance(pipeline_saver.lock, asyncio.Lock)
-        assert await peak_contexts(pipeline_saver.lock) == 1
-
-    def test_postgres_pool_adds_content_free_instrumentation_only_when_enabled(self, monkeypatch):
-        """The diagnostic path keeps the normal pool API but supplies timed subclasses."""
-        from deerflow.runtime.checkpointer.async_provider import _build_postgres_pool
-
-        class Cursor:
-            async def execute(self, *_args, **_kwargs):
-                return None
-
-            async def executemany(self, *_args, **_kwargs):
-                return None
-
-        class Pool:
-            check_connection = object()
-
-            def __init__(self, *args, **kwargs):
-                self.args = args
-                self.kwargs = kwargs
-
-        psycopg_module = ModuleType("psycopg")
-        psycopg_module.AsyncCursor = Cursor
-        psycopg_rows_module = ModuleType("psycopg.rows")
-        psycopg_rows_module.dict_row = object()
-        psycopg_pool_module = ModuleType("psycopg_pool")
-        psycopg_pool_module.AsyncConnectionPool = Pool
-
-        monkeypatch.setenv("DEERFLOW_RUN_TIMING_LOGS", "true")
-        with patch.dict(
-            sys.modules,
-            {
-                "psycopg": psycopg_module,
-                "psycopg.rows": psycopg_rows_module,
-                "psycopg_pool": psycopg_pool_module,
-            },
-        ):
-            pool = _build_postgres_pool("postgresql://localhost/deerflow")
-
-        assert isinstance(pool, Pool)
-        assert type(pool) is not Pool
-        assert issubclass(pool.kwargs["kwargs"]["cursor_factory"], Cursor)
-        assert pool.kwargs["check"] is Pool.check_connection
-
-    @pytest.mark.anyio
-    async def test_postgres_pool_can_label_an_active_session_with_its_run_only(self, monkeypatch):
-        """The opt-in PostgreSQL label correlates a borrow to a Run, not user data."""
-        from deerflow.llm_timing_context import reset_current_llm_timing_context, set_current_llm_timing_context
-        from deerflow.runtime.checkpointer.async_provider import _build_postgres_pool
-
-        class Connection:
-            def __init__(self):
-                self.commands = []
-
-        class Cursor:
-            def __init__(self, connection):
-                self.connection = connection
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *_args):
-                return False
-
-            async def execute(self, statement, parameters):
-                self.connection.commands.append((statement, parameters))
-
-            async def executemany(self, *_args, **_kwargs):
-                return None
-
-        class Pool:
-            check_connection = object()
-
-            def __init__(self, *args, **kwargs):
-                self.args = args
-                self.kwargs = kwargs
-                self.connection_instance = Connection()
-
-            @asynccontextmanager
-            async def connection(self, timeout=None):
-                yield self.connection_instance
-
-        psycopg_module = ModuleType("psycopg")
-        psycopg_module.AsyncCursor = Cursor
-        psycopg_rows_module = ModuleType("psycopg.rows")
-        psycopg_rows_module.dict_row = object()
-        psycopg_pool_module = ModuleType("psycopg_pool")
-        psycopg_pool_module.AsyncConnectionPool = Pool
-
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_DB_SESSION_LABELS", "true")
-        with patch.dict(
-            sys.modules,
-            {
-                "psycopg": psycopg_module,
-                "psycopg.rows": psycopg_rows_module,
-                "psycopg_pool": psycopg_pool_module,
-            },
-        ):
-            pool = _build_postgres_pool("postgresql://localhost/deerflow")
-            token = set_current_llm_timing_context(thread_id="thread-secret", run_id="run-456")
-            try:
-                async with pool.connection():
-                    pass
-            finally:
-                reset_current_llm_timing_context(token)
-
-        assert pool.connection_instance.commands == [("SELECT set_config('application_name', %s, false)", ("dfcp:run-456",))]
-        assert "cursor_factory" not in pool.kwargs["kwargs"]
-
-    @pytest.mark.anyio
-    async def test_postgres_pool_keeps_checkpoint_borrow_working_when_labeling_fails(self, monkeypatch, caplog):
-        """Diagnostic session labels must never turn a checkpoint write into an outage."""
-        from deerflow.runtime.checkpointer.async_provider import _build_postgres_pool
-
-        class Connection:
-            pass
-
-        class Cursor:
-            def __init__(self, _connection):
-                pass
-
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *_args):
-                return False
-
-            async def execute(self, *_args, **_kwargs):
-                raise RuntimeError("diagnostic label unavailable")
-
-            async def executemany(self, *_args, **_kwargs):
-                return None
-
-        class Pool:
-            check_connection = object()
-
-            def __init__(self, *args, **kwargs):
-                self.args = args
-                self.kwargs = kwargs
-                self.connection_instance = Connection()
-
-            @asynccontextmanager
-            async def connection(self, timeout=None):
-                yield self.connection_instance
-
-        psycopg_module = ModuleType("psycopg")
-        psycopg_module.AsyncCursor = Cursor
-        psycopg_rows_module = ModuleType("psycopg.rows")
-        psycopg_rows_module.dict_row = object()
-        psycopg_pool_module = ModuleType("psycopg_pool")
-        psycopg_pool_module.AsyncConnectionPool = Pool
-
-        caplog.set_level("WARNING", logger="deerflow.runtime.checkpointer.async_provider")
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_DB_SESSION_LABELS", "true")
-        with patch.dict(
-            sys.modules,
-            {
-                "psycopg": psycopg_module,
-                "psycopg.rows": psycopg_rows_module,
-                "psycopg_pool": psycopg_pool_module,
-            },
-        ):
-            pool = _build_postgres_pool("postgresql://localhost/deerflow")
-            async with pool.connection() as connection:
-                assert connection is pool.connection_instance
-
-        assert "Could not apply PostgreSQL checkpointer session label" in caplog.text
-
-    @pytest.mark.anyio
     async def test_sqlite_creates_parent_dir_via_to_thread(self):
         """Async SQLite setup should move mkdir off the event loop."""
         from deerflow.runtime.checkpointer.async_provider import _prepare_sqlite_checkpointer_path, make_checkpointer
@@ -882,12 +571,9 @@ class TestAsyncCheckpointer:
         mock_saver.setup.assert_awaited_once()
 
     @pytest.mark.anyio
-    async def test_postgres_uses_connection_pool(self, monkeypatch):
+    async def test_postgres_uses_connection_pool(self):
         """Async postgres checkpointer should use AsyncConnectionPool, not a single connection."""
         from deerflow.runtime.checkpointer.async_provider import make_checkpointer
-
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE", "8")
-        monkeypatch.setenv("DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE", "32")
 
         mock_config = MagicMock()
         mock_config.checkpointer = CheckpointerConfig(type="postgres", connection_string="postgresql://localhost/db")
@@ -926,8 +612,6 @@ class TestAsyncCheckpointer:
         call_kwargs = mock_pool_cls.call_args
         assert call_kwargs[0][0] == "postgresql://localhost/db"
         assert call_kwargs[1]["check"] is mock_pool_cls.check_connection
-        assert call_kwargs[1]["min_size"] == 8
-        assert call_kwargs[1]["max_size"] == 32
 
         # Verify saver was constructed with the pool (not via from_conn_string)
         mock_saver_cls.assert_called_once_with(conn=mock_pool_instance)
@@ -975,8 +659,6 @@ class TestAsyncCheckpointer:
         call_kwargs = mock_pool_cls.call_args
         assert call_kwargs[0][0] == "postgresql://localhost/db"
         assert call_kwargs[1]["check"] is mock_pool_cls.check_connection
-        assert call_kwargs[1]["min_size"] == 4
-        assert call_kwargs[1]["max_size"] == 4
 
         mock_saver_cls.assert_called_once_with(conn=mock_pool_instance)
         mock_saver.setup.assert_awaited_once()

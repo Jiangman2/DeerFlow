@@ -17,9 +17,6 @@ FROM ${PYTHON_IMAGE} AS builder
 ARG NODE_MAJOR=22
 ARG APT_MIRROR
 ARG UV_INDEX_URL
-# Restricted enterprise egress can take longer than uv's 30-second default to
-# fetch ARM64 wheels. The value is build-only and remains configurable.
-ARG UV_HTTP_TIMEOUT=300
 # Production/Kubernetes Gateway deployments use PostgreSQL. Keep it as the safe
 # direct-build default while still allowing callers to replace or extend the
 # comma-separated list (for example UV_EXTRAS=postgres,discord).
@@ -52,8 +49,6 @@ RUN --mount=type=secret,id=enterprise_proxy,required=false \
     ca-certificates \
     && if [ -s /run/secrets/enterprise_ca ]; then \
          cp /run/secrets/enterprise_ca /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
-         cp /run/secrets/enterprise_ca /usr/local/share/ca-certificates/deerflow-enterprise-ca-bundle.crt; \
-         update-ca-certificates; \
        else \
          cp /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
        fi \
@@ -89,7 +84,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     export CURL_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
     export REQUESTS_CA_BUNDLE=/etc/ssl/certs/deerflow-enterprise-ca-bundle.crt; \
     export UV_NATIVE_TLS=true; \
-    export UV_HTTP_TIMEOUT="${UV_HTTP_TIMEOUT:-300}"; \
     set -f; \
     extras_flags=""; \
     for extra in $(printf "%s" "$UV_EXTRAS" | tr "," " "); do \

@@ -7,11 +7,7 @@ import {
   resetManagedUserPassword,
   updateManagedUser,
 } from "./api";
-import type {
-  CreateUserInput,
-  ResetPasswordInput,
-  UpdateUserInput,
-} from "./types";
+import type { CreateUserInput, ResetPasswordInput, UpdateUserInput } from "./types";
 
 export const managedUsersQueryKey = ["admin-users"] as const;
 
@@ -37,13 +33,8 @@ export function useCreateManagedUser() {
 export function useUpdateManagedUser() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      userId,
-      input,
-    }: {
-      userId: string;
-      input: UpdateUserInput;
-    }) => updateManagedUser(userId, input),
+    mutationFn: ({ userId, input }: { userId: string; input: UpdateUserInput }) =>
+      updateManagedUser(userId, input),
     onSuccess: () => invalidateUsers(queryClient),
   });
 }

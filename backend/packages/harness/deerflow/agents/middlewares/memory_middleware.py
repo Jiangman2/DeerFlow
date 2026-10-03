@@ -1,7 +1,6 @@
 """Middleware for memory mechanism."""
 
 import logging
-import time
 from typing import TYPE_CHECKING, override
 
 from langchain.agents import AgentState
@@ -11,7 +10,6 @@ from langgraph.runtime import Runtime
 
 from deerflow.agents.memory import get_memory_manager
 from deerflow.config.memory_config import get_memory_config
-from deerflow.run_timing import log_run_timing, time_middleware_after_agent
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.runtime.weknora_context import has_weknora_scope
 from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
@@ -63,10 +61,6 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         Returns:
             None (no state changes needed from this middleware).
         """
-        with time_middleware_after_agent(logger, middleware="memory"):
-            return self._after_agent(state, runtime)
-
-    def _after_agent(self, state: MemoryMiddlewareState, runtime: Runtime) -> dict | None:
         config = self._memory_config or get_memory_config()
         if not config.enabled:
             return None
@@ -115,30 +109,12 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
 
         # Hand raw messages to the manager; the backend filters to user + final-AI
         # turns, validates, detects correction/reinforcement, and enqueues.
-        started_at = time.monotonic()
-        log_run_timing(logger, "memory_enqueue_start")
-        try:
-            get_memory_manager().add(
-                thread_id,
-                messages,
-                agent_name=self._agent_name,
-                user_id=user_id,
-                trace_id=trace_id,
-            )
-        except Exception as exc:
-            log_run_timing(
-                logger,
-                "memory_enqueue_end",
-                elapsed_ms=(time.monotonic() - started_at) * 1000,
-                outcome="error",
-                error_type=type(exc).__name__,
-            )
-            raise
-        log_run_timing(
-            logger,
-            "memory_enqueue_end",
-            elapsed_ms=(time.monotonic() - started_at) * 1000,
-            outcome="completed",
+        get_memory_manager().add(
+            thread_id,
+            messages,
+            agent_name=self._agent_name,
+            user_id=user_id,
+            trace_id=trace_id,
         )
 
         return None

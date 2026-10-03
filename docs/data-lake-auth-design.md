@@ -121,12 +121,6 @@ sequenceDiagram
 - `datalake_metrics_qa`
 - `datalake_detail_qa`
 
-`datalake_md_search` is not a Data Lake-toggle tool. It uses its own
-Gateway-only AppForge credential to query registered exploration-and-production
-master data and ownership relations, and therefore remains available when
-`datalake_enabled=false`. It must not receive the browser platform Token or be
-added to this filtered set.
-
 ### 4.5 登出
 
 登出流程执行以下动作：

@@ -69,13 +69,11 @@ class JsonlRunEventStore(RunEventStore):
 
     def _compute_max_seq(self, thread_id: str) -> int:
         """Scan all run files for a thread and return the current max seq (blocking I/O)."""
-        # JSONL uses physical LF framing. str.splitlines() also splits valid
-        # U+0085/U+2028/U+2029 characters inside ensure_ascii=False JSON strings.
         max_seq = 0
         thread_dir = self._thread_dir(thread_id)
         if thread_dir.exists():
             for f in thread_dir.glob("*.jsonl"):
-                for line in f.read_text(encoding="utf-8").strip().split("\n"):
+                for line in f.read_text(encoding="utf-8").strip().splitlines():
                     try:
                         record = json.loads(line)
                         max_seq = max(max_seq, record.get("seq", 0))
@@ -103,7 +101,7 @@ class JsonlRunEventStore(RunEventStore):
         if not thread_dir.exists():
             return events
         for f in sorted(thread_dir.glob("*.jsonl")):
-            for line in f.read_text(encoding="utf-8").strip().split("\n"):
+            for line in f.read_text(encoding="utf-8").strip().splitlines():
                 if not line:
                     continue
                 try:
@@ -119,7 +117,7 @@ class JsonlRunEventStore(RunEventStore):
         if not path.exists():
             return []
         events = []
-        for line in path.read_text(encoding="utf-8").strip().split("\n"):
+        for line in path.read_text(encoding="utf-8").strip().splitlines():
             if not line:
                 continue
             try:

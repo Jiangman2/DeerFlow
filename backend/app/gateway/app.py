@@ -54,7 +54,6 @@ from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
 from app.gateway.upload_document_parser import close_conversation_document_parser_client
 from deerflow.config import app_config as deerflow_app_config
 from deerflow.logging_config import DEFAULT_LOG_DATE_FORMAT, DEFAULT_LOG_FORMAT, configure_logging
-from deerflow.models.stream_admission import validate_stream_admission_config
 from deerflow.tracing.monocle import setup_monocle_tracing_if_enabled
 from deerflow.uploads.manager import cleanup_stale_upload_staging_files
 
@@ -212,9 +211,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         configure_logging(startup_config)
         ensure_browser_runtime_available(startup_config)
         logger.info("Configuration loaded successfully")
-        admission = validate_stream_admission_config()
-        if admission is not None:
-            logger.info("LLM stream admission enabled for model=%s limit_per_process=%d", *admission)
         warn_if_auth_disabled_enabled()
     except Exception as e:
         error_msg = f"Failed to load configuration during gateway startup: {e}"

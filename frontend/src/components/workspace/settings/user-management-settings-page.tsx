@@ -74,10 +74,10 @@ function TemporaryPasswordNotice({
 }) {
   if (!password) return null;
   return (
-    <div className="bg-muted/40 rounded-md border p-3 text-sm">
+    <div className="rounded-md border bg-muted/40 p-3 text-sm">
       <div className="font-medium">临时密码只会显示这一次</div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <code className="bg-background rounded px-2 py-1 text-xs break-all">
+        <code className="rounded bg-background px-2 py-1 text-xs break-all">
           {password}
         </code>
         <Button type="button" size="sm" variant="outline" onClick={onClear}>
@@ -116,9 +116,7 @@ function UserRow({
           )}
           <span className="font-medium break-all">{item.email}</span>
           {isCurrentUser ? <Badge variant="secondary">当前账号</Badge> : null}
-          {item.is_disabled ? (
-            <Badge variant="destructive">已禁用</Badge>
-          ) : null}
+          {item.is_disabled ? <Badge variant="destructive">已禁用</Badge> : null}
           {item.oauth_provider ? (
             <Badge variant="outline">{item.oauth_provider}</Badge>
           ) : null}
@@ -205,10 +203,10 @@ export function UserManagementSettingsPage() {
   const sortedUsers = useMemo(() => {
     const users = usersQuery.data?.items ?? [];
     return [...users].sort((a, b) => {
-      if (a.id === currentUserId) return -1;
-      if (b.id === currentUserId) return 1;
-      return a.email.localeCompare(b.email);
-    });
+        if (a.id === currentUserId) return -1;
+        if (b.id === currentUserId) return 1;
+        return a.email.localeCompare(b.email);
+      });
   }, [currentUserId, usersQuery.data?.items]);
 
   const createUser = async () => {
@@ -348,7 +346,9 @@ export function UserManagementSettingsPage() {
         </div>
 
         <div className="space-y-2">
-          <div className="text-muted-foreground text-sm">共 {total} 个用户</div>
+          <div className="text-muted-foreground text-sm">
+            共 {total} 个用户
+          </div>
           {usersQuery.isLoading ? (
             <div className="text-muted-foreground flex items-center gap-2 rounded-md border border-dashed p-4 text-sm">
               <LoaderCircleIcon className="size-4 animate-spin" />

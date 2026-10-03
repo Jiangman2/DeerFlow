@@ -1,6 +1,10 @@
 import type { ScheduleValue } from "@/components/workspace/scheduled-task-schedule-input";
 
-export type RecipeTitleKey = "trending" | "news" | "energyIntel" | "weekly";
+export type RecipeTitleKey =
+  | "trending"
+  | "news"
+  | "energyIntel"
+  | "weekly";
 
 export type Recipe = {
   id: string;

@@ -20,7 +20,11 @@ export function CommunitySection() {
     >
       <div className="flex justify-center">
         <Button className="text-xl" size="lg" asChild>
-          <Link href="#" target="_blank" rel="noopener noreferrer">
+          <Link
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <LightbulbIcon />
             Contribute Now
           </Link>

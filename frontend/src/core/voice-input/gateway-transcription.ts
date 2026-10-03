@@ -36,9 +36,7 @@ export type GatewayVoiceSessionOptions = {
   locationHref?: string;
 };
 
-type AudioContextConstructor = new (
-  options?: AudioContextOptions,
-) => AudioContext;
+type AudioContextConstructor = new (options?: AudioContextOptions) => AudioContext;
 type VoiceWindow = Window &
   typeof globalThis & {
     webkitAudioContext?: AudioContextConstructor;
@@ -61,7 +59,8 @@ export function detectVoiceGatewaySupport(input?: {
       hasAudioContext:
         typeof window !== "undefined" &&
         Boolean(
-          window.AudioContext || (window as VoiceWindow).webkitAudioContext,
+          window.AudioContext ||
+            (window as VoiceWindow).webkitAudioContext,
         ),
       hasWebSocket: typeof WebSocket !== "undefined",
     } satisfies Parameters<typeof detectVoiceGatewaySupport>[0]);
@@ -168,7 +167,8 @@ export function parseVoiceGatewayEvent(raw: string): VoiceGatewayEvent | null {
     return {
       type: event.type,
       text: typeof event.text === "string" ? event.text : "",
-      fullText: typeof event.full_text === "string" ? event.full_text : "",
+      fullText:
+        typeof event.full_text === "string" ? event.full_text : "",
       language: typeof event.language === "string" ? event.language : "",
       isFinal: event.type === "final",
     };

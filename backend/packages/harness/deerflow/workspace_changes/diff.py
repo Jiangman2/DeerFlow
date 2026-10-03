@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import difflib
-import re
 
 from .types import (
     DiffUnavailableReason,
@@ -184,25 +183,14 @@ def _snapshot_text(file: FileSnapshot | None) -> str | None:
 def _count_diff_lines(lines: list[str]) -> tuple[int, int]:
     additions = 0
     deletions = 0
-    old_remaining = new_remaining = 0
     for line in lines:
-        hunk = re.match(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@", line)
-        if hunk:
-            old_remaining = int(hunk.group(1) or "1")
-            new_remaining = int(hunk.group(2) or "1")
-            continue
-        in_hunk = old_remaining > 0 or new_remaining > 0
-        # Header-like text is real content inside a hunk. Remaining counts
-        # also let a following file's actual ---/+++ headers be ignored.
-        if not in_hunk and (line.startswith("+++ ") or line.startswith("--- ")):
+        # Unified-diff file headers are "+++ " / "--- " with a trailing space;
+        # a bare "+++"/"---" prefix would also swallow real content lines whose
+        # text begins with those sequences (e.g. an added line "+++foo").
+        if line.startswith("+++ ") or line.startswith("--- "):
             continue
         if line.startswith("+"):
             additions += 1
-            new_remaining = max(0, new_remaining - 1)
         elif line.startswith("-"):
             deletions += 1
-            old_remaining = max(0, old_remaining - 1)
-        elif line.startswith(" "):
-            old_remaining = max(0, old_remaining - 1)
-            new_remaining = max(0, new_remaining - 1)
     return additions, deletions

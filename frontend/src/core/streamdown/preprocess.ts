@@ -5,9 +5,9 @@ const MERMAID_BLOCK_HINT_RE = /mermaid/i;
 // marked's blockquote tokenizer (used by Streamdown to split content into
 // memoizable blocks) recurses once per nesting level and overflows the call
 // stack at roughly 2,000 levels, replacing the whole chat route with an error
-// page. A much smaller rendering bound also avoids the tokenizer's expensive
-// repeated parsing below that crash threshold in the browser.
-const MAX_BLOCKQUOTE_DEPTH = 16;
+// page. 100 levels is far beyond any legitimate content while keeping a wide
+// margin below the crash threshold.
+const MAX_BLOCKQUOTE_DEPTH = 100;
 const DEEP_BLOCKQUOTE_HINT_RE = new RegExp(
   `^(?:[ \\t]*>){${MAX_BLOCKQUOTE_DEPTH + 1}}`,
   "m",

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRightIcon, MenuIcon, MonitorIcon } from "lucide-react";
+import { MenuIcon } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -19,7 +19,6 @@ import {
 } from "@/components/workspace/chats";
 import { ExportTrigger } from "@/components/workspace/export-trigger";
 import { GoalStatus } from "@/components/workspace/goal-status";
-import { HainengHomeFooter } from "@/components/workspace/haineng-home-footer";
 import {
   InputBox,
   type InputBoxSubmitOptions,
@@ -365,15 +364,6 @@ export default function ChatPage() {
                       onSelect={handleModeSelect}
                     />
                   </div>
-                  <a
-                    aria-label={t.welcome.hainengPortal}
-                    className="cnooc-haineng-mobile-link"
-                    href="https://ai.cnooc.com.cn/"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    <MonitorIcon aria-hidden="true" />
-                  </a>
                 </>
               )}
               <div
@@ -387,19 +377,6 @@ export default function ChatPage() {
               <div className="cnooc-header-actions flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-2">
                 {!isAdminReview && !isNewThread && (
                   <ThreadScheduledTasksLink threadId={threadId} />
-                )}
-                {isWelcomeMode && (
-                  <a
-                    aria-label={t.welcome.hainengPortal}
-                    className="cnooc-haineng-portal-link"
-                    href="https://ai.cnooc.com.cn/"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    <MonitorIcon aria-hidden="true" />
-                    <span>{t.welcome.hainengPortal}</span>
-                    <ChevronRightIcon aria-hidden="true" />
-                  </a>
                 )}
                 <TokenUsageIndicator
                   className="cnooc-token-usage-link"
@@ -557,7 +534,16 @@ export default function ChatPage() {
                   )}
                 </div>
               </div>
-              {isWelcomeMode && <HainengHomeFooter />}
+              {isWelcomeMode && (
+                <footer
+                  aria-label="版权信息"
+                  className="cnooc-welcome-copyright"
+                >
+                  Copyright © 2026-2027 中海油研究总院有限责任公司 版权所有
+                  <span aria-hidden="true">　</span>
+                  地址：北京市朝阳区太阳宫南街6号院
+                </footer>
+              )}
             </main>
           </div>
         </ChatBox>

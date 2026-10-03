@@ -111,15 +111,14 @@ def test_goal_builtin_takes_precedence_over_skill():
 
 
 def test_registry_excludes_reserved_skill_names_except_context():
-    candidates = RESERVED_SLASH_SKILL_NAMES | {"context"}
-    registry = build_registry([{"name": name, "description": "reserved", "enabled": True} for name in candidates])
+    registry = build_registry([{"name": name, "description": "reserved", "enabled": True} for name in RESERVED_SLASH_SKILL_NAMES])
 
     skill_names = {command.name for command in registry if command.category == "skill"}
     assert skill_names == {"context"}
 
 
 def test_resolve_rejects_reserved_skill_commands_but_keeps_context_tasks():
-    reserved_names = sorted(RESERVED_SLASH_SKILL_NAMES | {"context"})
+    reserved_names = sorted(RESERVED_SLASH_SKILL_NAMES)
 
     for name in reserved_names:
         resolved = resolve(f"/{name} task", skills=reserved_names)
@@ -129,10 +128,3 @@ def test_resolve_rejects_reserved_skill_commands_but_keeps_context_tasks():
             assert resolved.kind != "skill", name
 
     assert resolve("/context compact", skills=["context"]).kind == "unknown"
-
-
-def test_context_compact_control_is_not_sent_as_a_skill_with_arguments():
-    assert "context" not in RESERVED_SLASH_SKILL_NAMES
-    assert resolve("/context compact retain decisions", skills=["context"]).kind == "unknown"
-    assert resolve("/context write the task", skills=["context"]).kind == "skill"
-    assert resolve("/context compactly explain the task", skills=["context"]).kind == "skill"

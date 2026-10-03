@@ -111,27 +111,6 @@ class TestWaitForRunCompletion:
 
         asyncio.run(run())
 
-    def test_sse_replay_gap_is_visible_without_cancelling_the_run(self) -> None:
-        from app.gateway.services import sse_consumer
-        from deerflow.runtime.stream_bridge.base import StreamReplayGapError
-
-        class GapBridge(MemoryStreamBridge):
-            async def subscribe(self, run_id, *, last_event_id=None, heartbeat_interval=15.0):
-                raise StreamReplayGapError("trimmed")
-                yield  # pragma: no cover - keeps this an async iterator
-
-        async def run() -> None:
-            mgr = RunManager()
-            record = await _create_running_record(mgr, on_disconnect=DisconnectMode.cancel)
-            request = _FakeRequest(headers={"Last-Event-ID": "1-0"})
-            frames = [frame async for frame in sse_consumer(GapBridge(), record, request, mgr)]
-            assert len(frames) == 1
-            assert "event: error" in frames[0]
-            assert "StreamReplayGapError" in frames[0]
-            assert record.status == RunStatus.running
-
-        asyncio.run(run())
-
     def test_cancels_run_on_disconnect_when_cancel_mode(self) -> None:
         """on_disconnect=cancel: real disconnect must call run_mgr.cancel()."""
         from app.gateway.services import wait_for_run_completion

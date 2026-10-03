@@ -104,7 +104,6 @@ def _python_environment_read_is_sensitive(command: str) -> bool:
         return True
     return any(_SECRET_ENV_NAME.search(match.group(1)) for match in _PYTHON_ENV_ACCESS.finditer(command))
 
-
 _ENV_ENUMERATION = re.compile(
     r"^\s*(?:printenv|env|set|export\s+-p|declare\s+-x)\s*$",
     re.IGNORECASE,

@@ -2021,7 +2021,7 @@ export function InputBox({
             <PromptInputTextarea
               className="cnooc-composer-textarea min-h-6! w-full min-w-0 p-0! leading-6!"
               disabled={composerLocked}
-              placeholder={t.inputBox.placeholder}
+              placeholder="随心输入"
               autoFocus={autoFocus}
               defaultValue={initialValue}
               onBlur={() => setTextareaFocused(false)}

@@ -24,6 +24,7 @@ import {
   PromptInputActionMenuTrigger,
   PromptInputAttachment,
   PromptInputAttachments,
+  PromptInputBody,
   PromptInputButton,
   PromptInputFooter,
   PromptInputHeader,
@@ -613,7 +614,7 @@ export function SidecarPanel({ className }: { className?: string }) {
       <div className="bg-background/95 shrink-0 px-3 pt-3 pb-4 sm:px-4">
         <PromptInputProvider key={sidecar.parentThreadId}>
           <PromptInput
-            className="bg-background/85 rounded-2xl border backdrop-blur-sm *:data-[slot='input-group']:rounded-2xl"
+            className="bg-background/85 rounded-2xl backdrop-blur-sm *:data-[slot='input-group']:rounded-2xl"
             disabled={disabled}
             multiple
             onSubmit={handleSubmit}
@@ -634,14 +635,14 @@ export function SidecarPanel({ className }: { className?: string }) {
                 />
               )}
             </PromptInputHeader>
-            <div className="min-h-14 min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
+            <PromptInputBody>
               <PromptInputTextarea
-                className="max-h-36 min-h-6! w-full min-w-0 p-0! text-sm leading-6!"
+                className="max-h-36 min-h-16 text-sm"
                 disabled={disabled}
                 placeholder={t.sidecar.placeholder}
               />
-            </div>
-            <PromptInputFooter className="@container flex flex-nowrap gap-1 px-2 pb-2 sm:gap-2 sm:px-3 sm:pb-3">
+            </PromptInputBody>
+            <PromptInputFooter className="@container flex flex-nowrap gap-2">
               <PromptInputTools className="min-w-0 flex-1 flex-nowrap overflow-hidden">
                 <SidecarAddAttachmentsButton uploadLimits={uploadLimits} />
                 <SidecarModeMenu
@@ -662,7 +663,7 @@ export function SidecarPanel({ className }: { className?: string }) {
                 />
                 <Tooltip content={t.sidecar.send}>
                   <PromptInputSubmit
-                    className="size-[38px] rounded-full"
+                    className="rounded-full"
                     disabled={disabled}
                     status={
                       thread.isLoading || creatingThread || queuedSubmit

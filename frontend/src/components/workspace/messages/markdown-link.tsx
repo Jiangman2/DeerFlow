@@ -75,7 +75,9 @@ export function createMarkdownLinkComponent(
         );
       }
     }
-    const artifactPath = threadId ? artifactPathFromHref(href, threadId) : null;
+    const artifactPath = threadId
+      ? artifactPathFromHref(href, threadId)
+      : null;
     if (threadId && artifactPath) {
       const artifactURL = resolveArtifactURL(artifactPath, threadId);
       return (

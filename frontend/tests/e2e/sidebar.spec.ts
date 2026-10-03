@@ -52,9 +52,7 @@ test.describe("Sidebar navigation", () => {
     await expect(sidebar.locator("a[href='/workspace/agents']")).toHaveCount(0);
 
     // The disabled Agents button is rendered and announces its disabled state.
-    const agentsButton = sidebar.getByRole("button", {
-      name: "Digital Employees",
-    });
+    const agentsButton = sidebar.getByRole("button", { name: "Agents" });
     await expect(agentsButton).toHaveAttribute("aria-disabled", "true");
 
     // The button itself has pointer-events suppressed; force the hover so the
@@ -89,24 +87,18 @@ test.describe("Sidebar navigation", () => {
       locator: ReturnType<typeof page.locator>,
     ) => {
       await expect(locator).toBeVisible({ timeout: 15_000 });
-      await expect
-        .poll(async () => {
-          const box = await locator.boundingBox();
-          return Boolean(
-            box && box.x >= -1 && box.x + box.width <= viewportWidth + 1,
-          );
-        })
-        .toBe(true);
+      const box = await locator.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(-1);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth + 1);
     };
 
-    await expectInsideViewport(page.locator(".cnooc-mobile-welcome-copy h1"));
+    await expectInsideViewport(page.getByText(/Welcome to|欢迎使用/).first());
     await expectInsideViewport(page.getByRole("textbox").first());
-    // The mobile quick actions intentionally scroll horizontally. Check their
-    // clipping viewport, not the wider inner content strip.
-    await expectInsideViewport(page.locator(".cnooc-welcome-actions"));
+    await expectInsideViewport(page.locator("[data-slot='suggestions-list']"));
 
     const mobileSidebarTrigger = page
-      .locator(".cnooc-mobile-menu-trigger:visible")
+      .locator("[data-sidebar='trigger']:visible")
       .first();
     await expect(mobileSidebarTrigger).toBeVisible();
     await mobileSidebarTrigger.click();

@@ -12,7 +12,6 @@ from langgraph.runtime import Runtime
 from langgraph.types import Command
 
 from deerflow.agents.thread_state import SandboxStateField, ThreadDataState
-from deerflow.run_timing import atime_middleware_after_agent, time_middleware_after_agent
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox import get_sandbox_provider
 
@@ -100,41 +99,39 @@ class SandboxMiddleware(AgentMiddleware[SandboxMiddlewareState]):
 
     @override
     def after_agent(self, state: SandboxMiddlewareState, runtime: Runtime) -> dict | None:
-        with time_middleware_after_agent(logger, middleware="sandbox"):
-            sandbox = state.get("sandbox")
-            if sandbox is not None:
-                sandbox_id = sandbox["sandbox_id"]
-                logger.info(f"Releasing sandbox {sandbox_id}")
-                get_sandbox_provider().release(sandbox_id)
-                return None
+        sandbox = state.get("sandbox")
+        if sandbox is not None:
+            sandbox_id = sandbox["sandbox_id"]
+            logger.info(f"Releasing sandbox {sandbox_id}")
+            get_sandbox_provider().release(sandbox_id)
+            return None
 
-            if (runtime.context or {}).get("sandbox_id") is not None:
-                sandbox_id = runtime.context.get("sandbox_id")
-                logger.info(f"Releasing sandbox {sandbox_id} from context")
-                get_sandbox_provider().release(sandbox_id)
-                return None
+        if (runtime.context or {}).get("sandbox_id") is not None:
+            sandbox_id = runtime.context.get("sandbox_id")
+            logger.info(f"Releasing sandbox {sandbox_id} from context")
+            get_sandbox_provider().release(sandbox_id)
+            return None
 
-            # No sandbox to release
-            return super().after_agent(state, runtime)
+        # No sandbox to release
+        return super().after_agent(state, runtime)
 
     @override
     async def aafter_agent(self, state: SandboxMiddlewareState, runtime: Runtime) -> dict | None:
-        async with atime_middleware_after_agent(logger, middleware="sandbox"):
-            sandbox = state.get("sandbox")
-            if sandbox is not None:
-                sandbox_id = sandbox["sandbox_id"]
-                logger.info(f"Releasing sandbox {sandbox_id}")
-                await self._release_sandbox_async(sandbox_id)
-                return None
+        sandbox = state.get("sandbox")
+        if sandbox is not None:
+            sandbox_id = sandbox["sandbox_id"]
+            logger.info(f"Releasing sandbox {sandbox_id}")
+            await self._release_sandbox_async(sandbox_id)
+            return None
 
-            if (runtime.context or {}).get("sandbox_id") is not None:
-                sandbox_id = runtime.context.get("sandbox_id")
-                logger.info(f"Releasing sandbox {sandbox_id} from context")
-                await self._release_sandbox_async(sandbox_id)
-                return None
+        if (runtime.context or {}).get("sandbox_id") is not None:
+            sandbox_id = runtime.context.get("sandbox_id")
+            logger.info(f"Releasing sandbox {sandbox_id} from context")
+            await self._release_sandbox_async(sandbox_id)
+            return None
 
-            # No sandbox to release
-            return await super().aafter_agent(state, runtime)
+        # No sandbox to release
+        return await super().aafter_agent(state, runtime)
 
     # ------------------------------------------------------------------
     # Tool-call wrappers: persist lazily-acquired sandbox state into the

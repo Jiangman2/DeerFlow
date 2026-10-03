@@ -47,6 +47,10 @@ Nginx is the single public entry: it serves the frontend and proxies `/api/langg
 to the Gateway's LangGraph runtime, rewriting it to Gateway's native `/api/*` routes; all
 other `/api/*` go straight to the Gateway REST routers. See
 [backend/AGENTS.md](backend/AGENTS.md) for the runtime and router detail.
+The machine-to-machine OA policy-flow submit, status, and result routes under
+`/api/v1/integrations/oa/policy-flow/jobs` are explicit Gateway exceptions that
+must appear ahead of WeKnora's native `/api/v1/` catch-all and preserve the
+`Authorization` header across Nginx.
 The Next.js-owned `/api/runtime-config`, `/api/cnooc/external-agents/*`, and
 `/api/shop-cart/*` routes are exceptions and must be proxied to Frontend before the
 Gateway `/api/*` catch-all.
@@ -65,6 +69,9 @@ the event loop. LibreOffice's direct first-page destination
 `OpenAction` is inert only when it matches the strict page-reference array;
 indirect or executable actions remain download-only. Do not rely on filename
 MIME guessing or frontend validation alone.
+Treat all base XML and structured `+xml` MIME types as active content for both
+ordinary artifacts and members read from `.skill` packages; they must be
+attachments, never authenticated-origin inline responses.
 After artifact read authorization succeeds, resolve the storage bucket from the
 trusted `threads_meta.user_id` owner record rather than the current viewer. This
 keeps owner and administrator read-only views on the same thread files while
@@ -83,9 +90,19 @@ large media file in memory. The public image/video Skills call these tools and
 must not bypass them with provider SDKs, shell commands, or direct HTTP.
 Conversation PDF/DOC/DOCX/PPT/PPTX uploads reuse the configured WeKnora/MinerU
 adapter to write a same-stem Markdown companion without creating
-knowledge-base records. Searchable and scanned PDFs retain their
-adapter-specific routing, Word uses its native-plus-visual path, and
-presentations use its presentation conversion path. The frontend marks PPT/PPTX
+knowledge-base records. The dispatcher marks only interactive DeerFlow uploads
+with the trusted `conversation` parse profile; WeKnora knowledge ingestion
+retains explicit `knowledge` routes. Conversation DOCX uses pinned local
+AnyDoc first; only structurally large knowledge DOCX may use the same fast path.
+Those large files bypass `StdMarkitdownParser` for official DocReader v0.8's
+native parser and retain isolated low-memory text recovery without weakening
+AnyDoc's XML-node limit. LibreOffice and MinerU remain bounded fallbacks, while
+legacy DOC starts at DocReader. Searchable and scanned PDFs retain their
+adapter-specific routing, and presentations use their strict presentation
+conversion path. A hung local parser must be terminated with its process group
+without failing the worker's liveness endpoint. Keep the complete interactive
+adapter envelope below the Nginx upload timeout and do not repeat the same
+unbounded local conversion in Gateway after that chain fails. The frontend marks PPT/PPTX
 files submitted with an explicit `/ppt-master` request as
 `presentation_template`; Gateway preserves those originals for the Skill and
 skips both MinerU and local Markdown conversion. Ordinary presentation uploads
@@ -103,7 +120,11 @@ shown to browser users, and Chinese tasks publish a Chinese topic filename with
 a date/time suffix instead of exposing the internal pinyin project slug.
 New explicit `/ppt-master` tasks are routed through Nginx
 `/api/ppt-master-runtime/*` to the dedicated `ppt-master-runner` transport
-process on Gateway Pod port 8003. Its graph is one external-process relay node:
+Service on port 8003. The runner has its own Deployment and Pod failure domain;
+it must never be restored as a Gateway sidecar. Its startup gate requires three
+consecutive database connection samples, so a transient Kubernetes DNS or
+PostgreSQL readiness failure delays only the runner and cannot remove the
+ordinary Gateway endpoint. Its graph is one external-process relay node:
 it must never construct a LangChain model/Agent or attach DeerFlow Agent
 middleware. The real Agent CLI runs in the `ppt-master-agent-host` container of
 the thread's provisioned Sandbox Pod on authenticated ClusterIP port 8788. That
@@ -118,19 +139,14 @@ Sandbox containers start. The Agent host revalidates those roots immediately
 before every fresh or repair process launch and rebuilds its writable Skill and
 Codex runtime if the workspace had to be restored; a missing directory must not
 abort the task and leave the browser polling a state that was never persisted.
-Provisioner Sandbox names remain stable per thread so the persistent workspace,
-execution lease, and cleanup identity agree. A Kubernetes Pod DELETE is
-asynchronous: on a same-name create conflict, reuse only a non-terminating Pod;
-otherwise wait for the old Pod name to disappear (bounded by
-`SANDBOX_POD_DELETE_WAIT_SECONDS`) before recreating it. Never expose a
-Service-only Sandbox URL.
 After the Sandbox command API is ready, the PPT Bridge must independently wait
 for the Agent host `/health` endpoint because the two containers do not become
 ready atomically. Treat bounded DNS/connect/read failures during startup and
 polling as transient, but fail visibly after the configured deadline rather
 than leaking a raw Kubernetes resolver exception to the browser.
-The ordinary Gateway and `ppt-master-runner` have independent in-memory Sandbox
-registries. Hold a shared cross-process execution lease for the entire external
+The ordinary Gateway and `ppt-master-runner` run in separate Pods and have
+independent in-memory Sandbox registries. Hold a shared cross-process execution
+lease for the entire external
 Agent turn; every idle, capacity, unhealthy, explicit, and shutdown destruction
 path must obtain the corresponding non-blocking exclusive lease first. A busy
 Sandbox is deferred and remains tracked, never deleted from another process.
@@ -402,13 +418,58 @@ Publish Integrations > Sharing Management so owners can share their knowledge ba
 to a shared space with native read-only or editable permissions. Deployment defaults
 supply the other hidden configuration. System
 administrators retain the expandable complete navigation and full editor.
+
+The phase-1 iFLYTEK SkillHub integration presents native SkillHub content as a
+DeerFlow module, not as a standalone application or DeerFlow reimplementation.
+The workspace entry `/workspace/skills` owns the visible header, role-aware
+secondary navigation, embedded DeerFlow theme, loading state, and removal of
+SkillHub's standalone header/footer; its iframe starts on native search under
+the same-origin `/platform/skillhub/` prefix. Nginx routes that prefix to the
+stable `skillhub-web` Service name. Keep that exact location more specific than
+the generic WeKnora `/platform/` route, and keep SkillHub's `publicBaseUrl`, web
+base path, and API base URL aligned with it. SkillHub owns authentication,
+RBAC, publishing, review, governance, versioning, and withdrawal behavior.
+Use `/api/v1/auth/me` roles only for navigation presentation: ordinary users
+see discovery, stars, and subscriptions; native operator roles expose their
+matching management entries. SkillHub's server remains the authorization
+boundary. Reuse the authenticated DeerFlow user only through the exact Nginx
+passive-bootstrap route: Gateway issues a short-lived role-free HMAC assertion,
+Nginx overwrites browser-supplied identity headers, and the customized SkillHub
+v0.2.18 server verifies it before creating a native session. Roles must still
+come only from SkillHub's database; do not start the workspace iframe on
+SkillHub's public landing page or account dashboard.
+Because the passive-bootstrap request creates the first SkillHub browser
+session, the customized server exempts only the exact
+`POST /api/v1/auth/session/bootstrap` route from SkillHub CSRF validation while
+the DeerFlow session plus short-lived HMAC assertion remain mandatory. Never
+broaden that exemption to another SkillHub write route.
+The workspace owner must explicitly POST that passive-bootstrap route before it
+renders the iframe or calls a protected SkillHub API. Repeat the idempotent
+bootstrap whenever the current DeerFlow identity changes and on every fresh
+Skill Center mount so first-time accounts are created and returning profile
+fields are reconciled. Never expose SkillHub's raw 401 response as a page; keep
+the iframe unmounted on bootstrap failure and offer a bounded retry. On mobile,
+place the native-role-derived management entry outside the horizontally
+scrolling personal navigation so an operator cannot lose access merely because
+the viewport is narrow.
+DeerFlow must not infer SkillHub administrator rights from a DeerFlow session.
+The detail-page runtime adapter downloads through the browser's native SkillHub
+session, but the Gateway independently resolves the DeerFlow identity, limits
+and hashes the uploaded archive, requires the registry slug to match
+`SKILL.md`, runs safe extraction plus deterministic and LLM security scans, and
+atomically installs only under that user's `skills/custom` tree. Record
+namespace/version/SHA-256 provenance outside the installed tree and refuse to
+overwrite an unmanaged custom skill. Install, upgrade, enable/disable, and
+uninstall invalidate only the affected user's prompt cache. An unavailable LLM
+scanner fails closed. A role expert with `skills: null` discovers the new skill
+on its next run; an explicit whitelist or `skills: []` remains authoritative.
+See `docs/skillhub-integration.md`.
 When `TAVILY_API_KEY` is present, Gateway SSO also idempotently provisions a
 native default `DeerFlow Tavily` provider in every workspace the user owns or
 administers. The key must remain a runtime secret and must never be exposed in
 the browser or committed to Kubernetes manifests.
 The six built-in external-agent cards use their fixed same-origin HTTPS entry
-points under the active DeerFlow hostname (`cnoocclawtest.cnooc.com.cn` in test
-and `cnoocclaw.cnooc.com.cn` in production) directly. Keep those six aliases on a
+points under `cnoocclaw.cnooc.com.cn` directly. Keep those six aliases on a
 strict allowlist and do not rewrite them through the legacy launch API. Legacy
 `datalake.cnooc` card records may still use the server launch route under
 `/api/cnooc/external-agents/<agent>/launch`; that route reads the validated
@@ -455,6 +516,57 @@ Gateway normalizes the legacy five agent names and stores events in PostgreSQL
 audit logs. Dashboard totals preserve Haineng and collaboration as independent
 sources, exclude `通用智能体平台`, use the Asia/Shanghai calendar day, and show a
 fixed latest-30-natural-day trend independent of the dashboard's main range.
+The administrator dashboard uses bounded time-indexed projections, a
+single-flight response cache, and an optional shared Redis cache. Its compact
+frontend summary excludes WeKnora and unused structured-event detail; WeKnora
+loads through the independent `/api/admin/dashboard/knowledge` route. Keep
+browser responses `private, no-store`, keep cache keys deployment-scoped, and
+retain `0015_dashboard_query_indexes` for online-safe server upgrades. Short
+rolling windows refresh once per minute, while fixed or greater-than-seven-day
+ranges are manual-only.
+Large compact ranges use versioned daily dashboard facts from migration
+`0016_dashboard_daily_rollups`; migration `0017_dashboard_hourly_rollups`
+adds a 72-hour hot window so rolling 24-hour queries read completed-hour facts
+and only fractional edge-hour raw data. Applying those additive migrations must
+not switch an existing installation. With
+`DEER_FLOW_DASHBOARD_ROLLUPS_ENABLED=false` (the default), the bounded cached
+compatibility path continues reading source history. Enable the flag only after
+daily/hourly backfill, readiness, and scheduled maintenance are verified. Once
+enabled, incomplete required facts fail fast instead of triggering a full
+historical scan. Daily boundary slices recursively use available hourly facts.
+Gateway startup and HTTP requests never maintain these facts; the suspended-by-
+default, CPU/memory-limited CronJob invokes the single-connection maintenance
+CLI in bounded day/hour batches. Preserve its advisory lock, SQL timeouts,
+durable late-change backlogs, admin-only readiness endpoint, and isolated
+`DEER_FLOW_DASHBOARD_DATABASE_URL` read pool. Enterprise strongest-isolation
+mode requires and verifies a transaction-read-only physical standby; it must
+disable only the dashboard rather than falling back to the primary. Dashboard
+failure or read-replica misconfiguration must not prevent normal DeerFlow
+startup, chat, or role-expert execution. In that mode the maintenance CLI reads
+source rows and EXPLAIN plans from the standby and uses the primary only for
+small atomic fact/state upserts; its change cursor must never advance beyond
+`pg_last_xact_replay_timestamp()`.
+Slow-run and high-token dashboard cards use the bounded
+`/api/admin/dashboard/run-rankings` top-N projection rather than the legacy
+full-window observability analytics response.
+External-platform cumulative clicks and its fixed 30-day trend use the projected
+compatibility audit stream while rollups are disabled. Once enabled they use
+daily facts plus today's bounded slice; missing history then degrades only that
+panel and must never trigger an all-history audit-log scan.
+
+Group OA policy-to-JointJS requests enter only through the dedicated
+machine-authenticated `/api/v1/integrations/oa/policy-flow/jobs` API. Pin the
+target owner and personal custom Agent in Gateway runtime Secrets. Polling-only
+mode sets `OA_POLICY_FLOW_CALLBACK_ENABLED=false`; callback URL and callback
+credentials are then optional, terminal jobs use `callback_status=disabled`,
+and no callback attempt is scheduled. When callback delivery is enabled, keep
+its target and credentials operator-owned. Callers may submit only one document, a business request ID, and
+bounded JSON fields. The durable SQL job must launch through the existing
+Gateway run path as the real owner, require exactly one valid JSON artifact
+from `present_files`, and always keep authenticated status/result polling.
+Never let OA select an owner, Agent, callback URL,
+internal thread/run endpoint, or filesystem path. See
+`docs/oa-policy-flow-integration.md`.
 
 ## Repository Map
 
@@ -471,7 +583,7 @@ deer-flow/
 ├── docker/                         # docker-compose files, nginx config, provisioner
 ├── skills/                         # Agent skills: public/ (committed), custom/ (gitignored)
 ├── contracts/                      # Cross-component JSON contracts (e.g. subagent status, skill review)
-├── scripts/                        # Root orchestration scripts plus `deerflow_timing_report.py` for content-free per-Run load-test summaries
+├── scripts/                        # Root orchestration scripts invoked by the Makefile (check, configure, doctor, support_bundle, serve, nginx, docker, deploy, setup_wizard)
 ├── tests/                          # Root-level tests (currently tests/skills/ — public skill tests)
 └── docs/                           # Cross-cutting docs, plans, and design notes
 ```
@@ -481,14 +593,6 @@ Runtime config lives at the **repo root**: copy `config.example.yaml` → `confi
 servers + skills). Both real files are gitignored and may be edited at runtime via the
 Gateway API. Config schema and resolution order are documented in
 [backend/AGENTS.md](backend/AGENTS.md).
-
-For a Gateway conversation entry using Alibaba Cloud Model Studio Qwen3.7-Plus,
-configure `qwen3.7-plus` through DashScope's OpenAI-compatible Chat Completions
-endpoint (`https://dashscope.aliyuncs.com/compatible-mode/v1`) with
-`$DASHSCOPE_API_KEY`. This is separate from the isolated PPT Agent's native
-Responses provider. Use `RobustChatOpenAI`, enable `preserve_thinking` together
-with `enable_thinking`, and set `when_thinking_disabled.extra_body.enable_thinking`
-to `false` so multi-turn tool calls retain their reasoning payloads.
 
 Skill quality review note:
 - `skills/public/skill-reviewer/` is the built-in read-only skill quality reviewer.
@@ -505,6 +609,11 @@ Skill quality review note:
   keeps deterministic SkillScan plus fail-closed LLM moderation in front of
   every write. Normalize moderation output through the shared LLM text helper:
   Responses reasoning/tool blocks are not trusted decision text.
+- SkillScan and Skill Review share one code/executable-file classifier. Review
+  snapshots retain binary bytes as base64, scan every non-symlink file except
+  deliberately unsafe eval-fixture `SKILL.md` samples, analyze undecodable code
+  through a lossy decode with an explicit finding, and fail closed on missing or
+  colliding snapshot content.
 
 Durable-memory boundary note:
 - Long-term memory is descriptive background, not task authority. One-turn
@@ -586,7 +695,7 @@ Academic research skill note:
   separate DeerFlow public skills.
 
 Scheduled-task note:
-- The scheduled-task MVP adds a workspace page at `/workspace/scheduled-tasks` plus a background scheduler service gated by `config.yaml -> scheduler.enabled`.
+- Scheduled tasks add a workspace page at `/workspace/scheduled-tasks` plus a background scheduler service gated by `config.yaml -> scheduler.enabled`. Keep `once`, `cron`, and minimum-60-second `interval` schedules aligned across API schemas, persistence, and the UI; cron previews are computed by the Gateway.
 - Scheduled background runs are intentionally non-interactive: they execute through the normal run lifecycle, but the lead-agent toolset excludes `ask_clarification` when `context.non_interactive=true`. The key is honored only for internally-authenticated callers (the scheduler launch path); client-supplied `context.non_interactive` is dropped.
 - Scheduled tasks persist an allowlisted run context (model, mode, reasoning, subagent, and WeKnora scope) and pass it through the normal Gateway run path. The creation UI prefers the enterprise `deepseek-v4-flash` model when available, lets users choose another configured model, and does not inherit later chat-page model changes. Never persist caller identity, internal execution flags, runtime-only credentials, or arbitrary client context on the task row.
 - Scheduled occurrences use durable `queued`/`launching`/`running` admission, one active occurrence per task, a global concurrency budget shared with manual triggers, and atomic terminal bookkeeping. Do not restore the former `skip` overlap default. Multi-instance mode is opt-in and requires PostgreSQL, database run events, and run-ownership heartbeats.
@@ -615,48 +724,6 @@ Enterprise Kubernetes storage note:
   tiktoken cache and sets `TIKTOKEN_CACHE_DIR`; keep this cache in release
   source packages so Gateway startup and memory token budgeting never depend
   on downloading BPE data through the enterprise proxy.
-- For a bounded performance investigation, Gateway can emit content-free,
-  run-correlated `RUN_TIMING` records when `DEERFLOW_RUN_TIMING_LOGS=true`.
-  Idle graph waits include bounded coroutine-label counts, while PostgreSQL
-  checkpointers add aggregate checkpoint API, pool-borrow, and SQL-round-trip
-  timing with no SQL, parameters, checkpoint state, or user content.
-  They cover run start/end, complete worker streams, checkpoint-lock waits,
-  in-lock graph streaming, content-free graph-task lifecycle, Sandbox
-  acquire/create/ready, tool start/end,
-  active-goal evaluation/checkpoint reads, hidden middleware retry/injection
-  markers, hidden summary/title calls, memory queue handoff, and post-graph
-  finalization. DeerFlow-owned `after_agent` / `aafter_agent` hooks additionally
-  emit uniform `middleware_after_agent_*` spans with a fixed middleware name,
-  so cleanup or Sandbox-release time inside a graph `after_agent` node is not
-  hidden. The nested `checkpoint_lock_wait_*` and
-  `agent_graph_stream_*` stages distinguish a queued thread lock from time
-  actually inside `agent.astream()`; `agent_graph_stream_tail.elapsed_ms`
-  measures the silent period after its final published graph update and before
-  exit. While enabled, Gateway privately consumes LangGraph `tasks` events and
-  emits node name/local task-index lifecycle pairs without logging or sending
-  graph state to the browser. `stream_kind=initial` is the user turn and
-  `stream_kind=goal` is a goal continuation. The
-  finalization boundary also exposes journal flush, run-completion persistence,
-  title sync, duration persistence, thread-status update, and optional
-  completion-hook sub-stages;
-  pair them with `DEERFLOW_LLM_TIMING_LOGS=true` for model request timing. Each
-  model request's start/first/end records share `llm_call_id`; non-stream goal
-  evaluation uses `mode=async_nonstream`, where `first_chunk_ms` is response
-  completion latency. Attribution first
-  uses task-local state and falls back to inherited LangChain metadata so child
-  tasks do not lose the DeerFlow run IDs. `run_end` additionally splits true
-  Sandbox API execution duration/count (including shell and file operations)
-  from Gateway/external tools. An acquisition interval nested inside a first
-  Sandbox tool is excluded from execution and reported separately as
-  `sandbox_tool_acquire_overlap_ms`, never their text or arguments. Do
-  not add prompts, tool arguments, command text, paths, URLs, headers, or
-  secrets to either stream, and disable both flags after the test. Run
-  `python3 scripts/deerflow_timing_report.py <captured-gateway-log>` to render
-  per-Run totals, cumulative model, Sandbox/external tool, coverage, and
-  uncovered wall time. Its `COV%` is based only on matching `llm_call_id`
-  start/end pairs; unmatched end records are surfaced separately as
-  `LLM_ORPHAN#`.
-  See `docs/run-timing-logs.md`.
 - Apply `k8s/enterprise/weknora-mineru-defaults.sql` after creating a new WeKnora database. Its trigger routes missing PDF/PPT/PPTX rules to the in-cluster adapter for knowledge bases created through the native WeKnora UI while preserving every explicit file-type parser choice.
 - Keep `k8s/weknora/enterprise-model-feature-defaults-job.yaml` and its versioned Job name aligned with `enterprise-model-feature-defaults.sql`. The Job waits for the built-in model rows, applies the SQL once, and remains completed so routine re-applies do not overwrite later user choices. Bump the Job name only when a revised initializer must run. It makes internal `DeepSeek-V4-Flash` the enterprise KnowledgeQA default, switches empty and future knowledge bases to the dedicated internal embedding model, normalizes database-backed agent overrides to the internal rerank plus enterprise VLM/ASR built-ins, and installs insert/model-write guards so later objects start ready without per-user setup. Populated knowledge bases must be re-parsed successfully before their embedding model is switched and old external embedding rows are hidden. Keep the mounted `k8s/weknora/builtin_agents.yaml` aligned with those defaults so runtime-generated built-in agents are also ready in every existing and future personal workspace.
 - The enterprise Gateway uses the runtime proxy for external model providers, but its `NO_PROXY` and `no_proxy` values must retain the bare Kubernetes Service names (especially `weknora-app`) as well as `.svc` and `.cluster.local`. Otherwise Gateway-to-WeKnora calls are sent through the enterprise proxy and surface as HTTP 302/502 failures. Keep proxy URLs and credentials in the runtime-created `deer-flow-env` Secret; do not commit them.
@@ -723,11 +790,7 @@ Enterprise Kubernetes storage note:
   `public` and `third_party` trees after archive extraction. Source archives can
   preserve `0640 root:root`, which Gateway can read but the sandbox file API
   cannot. Keep generated Sandbox mounts read-only and do not broaden permissions
-  on user-owned `custom` Skills. For a one-Skill public release, do not reapply
-  the entire local-PVC Kustomize environment: build and import a versioned
-  `deer-flow-skills` seed image, then use a target-scoped one-off sync Job that
-  validates and copies only that public Skill. The operational procedure is in
-  `docs/public-skill-update-deployment.zh-CN.md`.
+  on user-owned `custom` Skills.
 - Gateway's effective `extensions_config.json` must be the writable runtime copy
   under the existing user-data PVC. Keep the ConfigMap-mounted file as a
   read-only release seed; the init container adds missing shipped MCP/Skill
@@ -747,7 +810,7 @@ Enterprise Kubernetes storage note:
   substitute stock footage, or fall back to Gemini/MiniMax. Its asynchronous
   entry point ignores stale provider-selection variables, and CLI invocation
   without `--submit-only` or `--status-only` is rejected.
-- The audited enterprise TLS proxy presents a CA-validated legacy RSA certificate that OpenSSL 3 rejects at its default security level. Keep `gateway-openssl-compat.yaml` scoped to the Gateway Pod through `OPENSSL_CONF`, retain `WEKNORA_BAILIAN_TLS_COMPAT=true` for the authenticated Bailian embedding/ASR adapter clients, and retain `TAVILY_TLS_COMPAT=true` for DeerFlow's Tavily-only verified HTTPS session. These clients construct explicit `DEFAULT:@SECLEVEL=1` SSL contexts while CA-chain and hostname verification remain enabled. Never replace this with `verify=false`/`--insecure` or a host/cluster-wide downgrade, and remove the compatibility flags after the proxy certificate is modernized.
+- The audited enterprise TLS proxy presents a CA-validated legacy RSA certificate that OpenSSL 3 rejects at its default security level. Keep `gateway-openssl-compat.yaml` scoped to the Gateway and PPT Runner Pods through `OPENSSL_CONF`, retain `WEKNORA_BAILIAN_TLS_COMPAT=true` for the authenticated Bailian embedding/ASR adapter clients, and retain `TAVILY_TLS_COMPAT=true` for DeerFlow's Tavily-only verified HTTPS session. These clients construct explicit `DEFAULT:@SECLEVEL=1` SSL contexts while CA-chain and hostname verification remain enabled. Never replace this with `verify=false`/`--insecure` or a host/cluster-wide downgrade, and remove the compatibility flags after the proxy certificate is modernized.
 - Keep the internal model host `model.ai.cnooc` in both Gateway proxy-bypass variables. Its streamed chat endpoints are direct-only in the audited enterprise network; sending them through the outbound proxy causes connection resets.
 - Configure the internal DeepSeek chat endpoint with
   `deerflow.models.robust_openai:RobustChatOpenAI`. The enterprise gateway can
@@ -758,11 +821,7 @@ Enterprise Kubernetes storage note:
   gateway rejects non-streaming OpenAI tool-call completions with business code
   `20009`, while the equivalent streamed tool call succeeds. The adapter
   normalizes JSON-encoded streamed chunks before LangChain consumes them so a
-  scalar compatibility response cannot regress to `str.model_dump()`. For the
-  updated DeepSeek-V4-Flash API, it also preserves streamed
-  `delta.reasoning_content` and replays it in later tool-call turns. Configure
-  the reasoning switch with explicit `when_thinking_enabled` and
-  `when_thinking_disabled` `extra_body.enable_thinking` booleans. The
+  scalar compatibility response cannot regress to `str.model_dump()`. The
   enterprise DeepSeek model also sets `cumulative_stream_usage: true` because
   its stream repeats cumulative token snapshots; the adapter converts those
   snapshots to completion-scoped deltas before LangChain aggregation. Never
@@ -788,12 +847,6 @@ Enterprise Kubernetes storage note:
   arguments or return raw upstream errors. A single document store is referenced
   from `config.yaml` as `$DATALAKE_RETRIEVE_DOCUMENT_STORE_ID`; the code also
   accepts comma-separated `DATALAKE_RETRIEVE_DOCUMENT_STORE_IDS`.
-- `datalake_md_search` is a separate Gateway-only AppForge tool for registered
-  exploration-and-production master data (companies, branches/operating
-  organizations, fields, blocks, wells) and their ownership, lists, and counts.
-  Configure its distinct `APPFORGE_MD_SEARCH_API_KEY` in `deer-flow-env`; never
-  use a browser platform Token, return the credential, or add this tool to
-  `DATALAKE_TOOL_NAMES`. It remains available when `datalake_enabled=false`.
 - AppForge knowledge results may contain image URLs served from the reviewed
   internal image-preview address. Gateway rewrites only that exact HTTP origin
   to the authenticated same-origin `/api/datalake/image-preview` route, which
@@ -804,11 +857,11 @@ Enterprise Kubernetes storage note:
   fetch and never replace it with a broad private-network CIDR.
 - The WeKnora built-in Bailian ASR model points to the internal Gateway adapter because WeKnora 0.7.0 and `qwen3-asr-flash` use different request shapes. Keep the bare `gateway` Service name in the WeKnora App proxy-bypass variables; the adapter reuses the Bailian LLM key and never persists uploaded audio.
 - The WeKnora built-in `text-embedding-v4` model also points to `http://gateway:8001/api/weknora/bailian/v1`. Gateway validates `EMBEDDING_API_KEY` and relays `/embeddings` through its scoped enterprise proxy/CA/OpenSSL compatibility path without persisting document text; do not restore a direct DashScope URL in the WeKnora database.
-- Enterprise PDF/DOC/DOCX/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It keeps searchable PDF/Word text on the bundled WeKnora parsers, merges native Word text/images with a temporary PDF visual pass, adds captioned full-page evidence for searchable pages containing images/vector figures, converts presentations to PDF, and sends scanned or mixed documents to the internal MinerU API. The approved upstream is MinerU-2605 and production uses its supported synchronous REST contract: Bearer-authenticated multipart `POST /file_parse` with `return_md=true`, `return_images=true`, and a bounded 1800-second timeout; the configured URL may be the service root or a legacy full `/file_parse` or `/tasks` endpoint. The current provider does not guarantee that IDs returned by `/tasks` remain queryable, so keep enterprise `MINERU_REQUEST_MODE=sync`. Losslessly split large PDFs into configured page batches before synchronous submission, then merge Markdown/images in page order so one provider connection does not need to survive an entire large visual document. Retry only early transient connection failures; never resubmit a whole document after a late disconnect. Once native Word extraction succeeds, failure of its optional MinerU visual supplement preserves native text/tables/images plus locally rendered page evidence instead of failing the document. The reusable client retains asynchronous compatibility for other reviewed providers: treat HTTP-200 `success=false` envelopes as failures except for transient status/result code `20006`, and retry that code or a short-lived polling HTTP 404 with bounded backoff against the same locally constructed task URL. Reject untrusted task/result URLs, never submit a duplicate task, and never fall back from an accepted asynchronous task to a second synchronous submission. Before returning Markdown to WeKnora, demote implausibly large ATX headings to ordinary text while preserving their complete content and all image references; otherwise WeKnora repeats a malformed page-sized heading in every child chunk and can exceed the embedding provider's per-input limit. Keep `MINERU_TRUST_ENV=false` on the direct internal route, but explicitly assign the mounted enterprise CA bundle to the Requests session because disabling `trust_env` also disables environment CA merging; a configured missing CA path must fail closed, and certificate/hostname verification must never be disabled. WeKnora 0.7.0 can forward legacy OLE2 files with the generic multipart filename `document`; identify `.doc` and `.ppt` from their root compound-document streams and never regress to requiring the lost extension or blindly guessing an unknown/encrypted container. The PDF detector uses text length plus image-area coverage. If PDFium rejects a browser-readable document during routing inspection, the adapter first attempts the independent builtin parser and otherwise continues to MinerU; source-page rendering failures must not discard already recovered text. The Word PDF pass is also optional after a successful native parse: if LibreOffice fails to export that supplement, return the recovered Word text, tables, and native images rather than failing the whole document. Keep presentation conversion strict. MinerU inline images and all visual evidence are extracted into WeKnora's persistent `images` contract with Markdown references. The MinerU-2605 service admits 20 concurrent requests, but the adapter intentionally serializes every PDFium/DocReader parse in one process because those native libraries are not concurrency-safe; its threaded HTTP server keeps `/health` responsive and reports active/waiting parser counts while uploads queue. Do not bypass that coordinator, raise in-process parser concurrency to 20, or multiply WeKnora workers without a separate memory/capacity review. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; documents indexed by an older parser release must be re-parsed before their missing images can be retrieved.
-- Strict visual-completeness override: do not apply the older optional-Word-visual clauses above. Enterprise knowledge-base publication requires Word's converted visual PDF, every required MinerU batch, and required source-page evidence to succeed before native Word text/tables/images are merged and returned. Split MinerU work into ordered 20-page batches, retry only the failed batch at most twice (including a delayed provider disconnect), and never repeat already completed batches. A final failed visual stage must fail the document rather than publish incomplete text-only success.
+- Enterprise PDF/DOC/DOCX/PPT/PPTX parsing runs through `docker/mineru_adapter/`. It keeps searchable PDF and native Word text on the bundled WeKnora parsers, returns a non-empty native Word result immediately by default, adds captioned full-page evidence for searchable PDF pages containing images/vector figures, converts presentations to PDF, and sends scanned or mixed documents to the internal MinerU API. The approved upstream is MinerU-2605 and production uses its supported synchronous REST contract: Bearer-authenticated multipart `POST /file_parse` with `return_md=true`, `return_images=true`, and a bounded 1800-second timeout; the configured URL may be the service root or a legacy full `/file_parse` or `/tasks` endpoint. The current provider does not guarantee that IDs returned by `/tasks` remain queryable, so keep enterprise `MINERU_REQUEST_MODE=sync`. Losslessly split large PDFs into configured page batches before synchronous submission, then merge Markdown/images in page order so one provider connection does not need to survive an entire large visual document. Retry only early transient connection failures; never resubmit a whole document after a late disconnect. An explicitly enabled Word visual supplement is best-effort: once native extraction succeeds, supplement failure preserves native text/tables/images instead of failing the document. The reusable client retains asynchronous compatibility for other reviewed providers: treat HTTP-200 `success=false` envelopes as failures except for transient status/result code `20006`, and retry that code or a short-lived polling HTTP 404 with bounded backoff against the same locally constructed task URL. Reject untrusted task/result URLs, never submit a duplicate task, and never fall back from an accepted asynchronous task to a second synchronous submission. Before returning Markdown to WeKnora, demote implausibly large ATX headings to ordinary text while preserving their complete content and all image references; otherwise WeKnora repeats a malformed page-sized heading in every child chunk and can exceed the embedding provider's per-input limit. Keep `MINERU_TRUST_ENV=false` on the direct internal route, but explicitly assign the mounted enterprise CA bundle to the Requests session because disabling `trust_env` also disables environment CA merging; a configured missing CA path must fail closed, and certificate/hostname verification must never be disabled. WeKnora 0.7.0 can forward legacy OLE2 files with the generic multipart filename `document`; identify `.doc` and `.ppt` from their root compound-document streams and never regress to requiring the lost extension or blindly guessing an unknown/encrypted container. The PDF detector uses text length plus image-area coverage. If PDFium rejects a browser-readable document during routing inspection, the adapter first attempts the independent builtin parser and otherwise continues to MinerU; source-page rendering failures must not discard already recovered text. Keep presentation conversion strict. MinerU inline images and all visual evidence are extracted into WeKnora's persistent `images` contract with Markdown references. The MinerU-2605 service admits 20 concurrent requests, but the adapter intentionally serializes every PDFium/DocReader parse in one process because those native libraries are not concurrency-safe; its threaded HTTP server keeps `/live` responsive and reports parser availability through `/ready`. Do not bypass that coordinator, raise in-process parser concurrency to 20, or multiply WeKnora workers without a separate memory/capacity review. Keep the upstream URL and Bearer token only in the runtime `deer-flow-mineru` Secret; documents indexed by an older parser release must be re-parsed before their missing images can be retrieved.
+- Word production policy: ordinary WeKnora knowledge ingestion and legacy DOC remain native-first. A dispatcher-authenticated DeerFlow `conversation` DOCX uses pinned local AnyDoc first, and only structurally large knowledge-base DOCX may use that same fast path. Inspect compressed, expanded, and main-XML sizes first. Large DOCX bypasses `StdMarkitdownParser` for official DocReader v0.8's native parser and has a separately killable low-memory text recovery; never weaken AnyDoc's XML-node safety limit. A successful result returns immediately; a thin, failed, or timed-out result retains the LibreOffice → MinerU fallbacks. Run AnyDoc and DocReader in bounded isolated subprocesses, and keep Word-specific LibreOffice and MinerU timeouts bounded. `MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED=true` remains best-effort for native success and cannot invalidate recovered text/tables/images. Presentation conversion remains strict.
 - MinerU-2605 asynchronous production override: the reviewed provider now guarantees the `/tasks` lifecycle, so this supersedes the older synchronous-production clause above. Keep `MINERU_REQUEST_MODE=async`, submit exactly one `POST /tasks`, and poll only its locally constructed `/tasks/{task_id}` and `/tasks/{task_id}/result` URLs within the shared 1800-second deadline. Retry transient business code `20006`, short-lived HTTP 404, and transient status/result connection or read-timeout failures with bounded backoff against that same task ID. Never repeat the accepted submission or fall back to a second synchronous request. Keep synchronous 20-page batching only as an explicit emergency rollback path.
-- Enterprise conversation uploads set `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860`, which leaves 60 seconds beyond the Adapter's bounded 1800-second upstream wait for response transfer and atomic Markdown persistence. They also set `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true`, so an unavailable or unsuccessful Adapter call falls back once to DeerFlow's local `convert_file_to_markdown()` path. Keep the Adapter as the primary parser; the fallback runs in Gateway and provides explicitly warned text recovery rather than the Adapter's complete OCR and visual-evidence contract, and must never be represented as complete visual parsing. MarkItDown does not understand legacy binary `.doc`, so that one format may use the task sandbox's LibreOffice to create a request-scoped temporary DOCX before it re-enters `convert_file_to_markdown()`; never retain the temporary office file or add LibreOffice to Gateway. A user-visible processing warning is required whenever the complete Adapter path fails.
-- The audited three-node enterprise layout runs six MinerU Adapter worker replicas, spread evenly at two independent processes per node. Every worker remains internally serialized through `ParseCoordinator`; never add in-process parser concurrency. A separate dispatcher resolves the worker headless Service, owns the bounded cross-Pod queue, round-robins free workers, and gives `X-DeerFlow-Parse-Priority: interactive` conversation uploads priority over knowledge-base batch work that has not started. Keep the public `deer-flow-mineru-adapter` Service pointed only at that dispatcher. Keep the single WeKnora App replica at `WEKNORA_ASYNQ_CORE_CONCURRENCY=4` plus `WEKNORA_ASYNQ_SHARED_CONCURRENCY=2`, so at most six parser calls are active and later uploads stay durable in Redis/Asynq. WeKnora 0.7.0 isolates post-processing and model-heavy enrichment from that parser pool; keep `WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY=2`, `WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY=12`, and `WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY=4`. Increasing core/shared or the WeKnora replica count requires a matching serialized-worker capacity review and 3/10/30-document acceptance run. Keep worker topology `maxSkew: 1`, RollingUpdate `maxSurge: 1`/`maxUnavailable: 1`, worker PDB `minAvailable: 4`, and dispatcher PDB `minAvailable: 1`.
+- Enterprise conversation uploads set `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=570`; the dispatcher uses a 45-second admission wait and a 550-second interactive response timeout, all below Nginx's 600-second upload timeout. Each conversation Word fallback stage is bounded at 120 seconds, including child-process termination grace within the shared envelope. `DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED=false` prevents Gateway from repeating a potentially unbounded local parse after the Adapter has exhausted AnyDoc, DocReader, LibreOffice, and MinerU. Keep `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED=true` for deployments without a reachable enterprise Adapter and preserve the code-default fallback for upstream compatibility. A user-visible controlled failure is required when the complete enterprise chain fails; never surface an unexplained proxy 504 as the intended parser result.
+- The audited three-node enterprise layout runs six MinerU Adapter worker replicas, spread evenly at two independent processes per node. Every worker admits exactly one parse through `ParseCoordinator`; a busy worker returns retryable HTTP 429 and never keeps an in-process queue. `/live` checks only the HTTP process and owns Kubernetes readiness/liveness, while `/ready` returns 503 during parsing and is used only for dispatcher admission. LibreOffice runs in its own POSIX process group; timeout handling must terminate the whole group and retain Linux child-subreaper cleanup so orphaned `soffice.bin` processes and zombies cannot accumulate. A separate dispatcher resolves the worker headless Service, probes `/ready` before assignment, owns the bounded cross-Pod queue, round-robins free workers, quarantines timeout/5xx workers until they prove idle, and gives `X-DeerFlow-Parse-Priority: interactive` conversation uploads priority over knowledge-base batch work that has not started. Keep its single Deployment replica on the `Recreate` strategy because admission state is process-local. Keep the public `deer-flow-mineru-adapter` Service pointed only at that dispatcher. Keep the single WeKnora App replica at `WEKNORA_ASYNQ_CORE_CONCURRENCY=4` plus `WEKNORA_ASYNQ_SHARED_CONCURRENCY=2`, so at most six parser calls are active and later uploads stay durable in Redis/Asynq. WeKnora 0.7.0 isolates post-processing and model-heavy enrichment from that parser pool; keep `WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY=2`, `WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY=12`, and `WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY=4`. Increasing core/shared or the WeKnora replica count requires a matching serialized-worker capacity review and 3/10/30-document acceptance run. Keep worker topology `maxSkew: 1`, RollingUpdate `maxSurge: 1`/`maxUnavailable: 1`, worker PDB `minAvailable: 4`, and dispatcher PDB `minAvailable: 1`.
 
 ## Commands: Root vs. Module
 
@@ -847,6 +900,14 @@ cd frontend && pnpm test      # Unit tests
 
 Rule of thumb: **root `make` = the full application**; **`backend/Makefile` and `frontend/`
 (`pnpm`) = per-module work.**
+
+Personal Digital Employee definitions may use the configured `agent_storage`
+backend. The `db` backend stores configuration and SOUL in the unified SQL
+database with strict user ownership; custom avatars, administrator-managed
+category definitions, and team-published snapshots remain on the shared data
+volume. Browser Live sessions are Gateway-process-local, so keep one Gateway
+replica and one uvicorn worker while Browser Live is enabled unless sticky
+thread routing or a distributed session broker is added.
 
 ## Where to Go Next
 

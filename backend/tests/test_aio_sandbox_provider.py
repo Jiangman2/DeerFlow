@@ -51,8 +51,6 @@ def _make_provider(tmp_path):
         provider = aio_mod.AioSandboxProvider.__new__(aio_mod.AioSandboxProvider)
         provider._config = {}
         provider._sandboxes = {}
-        provider._sandbox_infos = {}
-        provider._warm_pool = {}
         provider._lock = MagicMock()
         provider._idle_checker_stop = MagicMock()
     return provider
@@ -531,67 +529,6 @@ def test_cross_process_execution_lease_blocks_warm_pool_eviction(tmp_path, monke
         is True
     )
     gateway._backend.destroy.assert_called_once_with(info)
-
-
-def test_gateway_run_lease_protects_lazy_sandbox_before_local_tracking(tmp_path, monkeypatch):
-    """Another Pod cannot evict a Sandbox while its owner run is still active."""
-
-    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
-    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
-    running = _make_provider(tmp_path)
-    gateway = _make_provider(tmp_path)
-    gateway._lock = aio_mod.threading.Lock()
-    gateway._backend = SimpleNamespace(destroy=MagicMock())
-
-    sandbox_id, lease = running.acquire_thread_execution_lease("thread-1", user_id="user-1")
-    info = aio_mod.SandboxInfo(sandbox_id=sandbox_id, sandbox_url="http://sandbox-host")
-    gateway._warm_pool = {sandbox_id: (info, 0.0)}
-    try:
-        # The owner has not created/tracked the Sandbox yet (lazy init), but
-        # another Gateway's reconciliation has already adopted it as warm.
-        assert running._sandboxes == {}
-        assert gateway._destroy_warm_entry(sandbox_id, info, reason="replica_enforcement") is False
-        gateway._backend.destroy.assert_not_called()
-    finally:
-        running.release_execution_lease(lease, sandbox_id)
-
-    assert gateway._destroy_warm_entry(sandbox_id, info, reason="replica_enforcement") is True
-    gateway._backend.destroy.assert_called_once_with(info)
-
-
-def test_gateway_run_lease_defers_another_providers_active_idle_cleanup(tmp_path, monkeypatch):
-    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
-    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
-    owner = _make_provider(tmp_path)
-    sandbox_id, lease = owner.acquire_thread_execution_lease("thread-1", user_id="user-1")
-    other, sandbox, _ = _make_provider_with_active_sandbox(tmp_path, sandbox_id)
-    try:
-        other._cleanup_idle_sandboxes(1)
-        other._backend.destroy.assert_not_called()
-        sandbox.close.assert_not_called()
-        assert sandbox_id in other._sandboxes
-    finally:
-        owner.release_execution_lease(lease, sandbox_id)
-
-    other._cleanup_idle_sandboxes(1)
-    other._backend.destroy.assert_called_once()
-
-
-def test_gateway_run_lease_cleans_dead_cached_sandbox_before_shared_lock(tmp_path, monkeypatch):
-    aio_mod = importlib.import_module("deerflow.community.aio_sandbox.aio_sandbox_provider")
-    monkeypatch.setattr(aio_mod, "get_paths", lambda: Paths(base_dir=tmp_path))
-    sandbox_id = aio_mod.AioSandboxProvider._deterministic_sandbox_id("thread-1", "user-1")
-    provider, sandbox, _ = _make_provider_with_active_sandbox(tmp_path, sandbox_id)
-    provider._backend.is_alive = MagicMock(return_value=False)
-
-    acquired_id, lease = provider.acquire_thread_execution_lease("thread-1", user_id="user-1")
-    try:
-        assert acquired_id == sandbox_id
-        sandbox.close.assert_called_once()
-        provider._backend.destroy.assert_called_once()
-        assert sandbox_id not in provider._sandboxes
-    finally:
-        provider.release_execution_lease(lease, sandbox_id)
 
 
 def test_execution_lease_file_is_readable_writable_and_non_truncating(tmp_path):

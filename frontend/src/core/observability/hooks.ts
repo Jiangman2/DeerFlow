@@ -39,7 +39,11 @@ export function useObservabilityAnalytics(
   });
 }
 
-export function useUserActivity(hours = 24, startAt?: string, endAt?: string) {
+export function useUserActivity(
+  hours = 24,
+  startAt?: string,
+  endAt?: string,
+) {
   return useQuery({
     queryKey: ["observability", "user-activity", hours, startAt, endAt],
     queryFn: () => getUserActivity(hours, startAt, endAt),

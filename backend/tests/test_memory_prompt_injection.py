@@ -26,10 +26,19 @@ def test_format_memory_includes_facts_section() -> None:
 
 def test_format_memory_hides_old_non_durable_operational_directives() -> None:
     memory_data = {
-        "user": {"topOfMind": {"summary": ("User requires the agent to avoid network access while making PPT files.")}},
+        "user": {
+            "topOfMind": {
+                "summary": (
+                    "User requires the agent to avoid network access while making PPT files."
+                )
+            }
+        },
         "facts": [
             {
-                "content": ("User explicitly instructs the agent to avoid network access during task execution."),
+                "content": (
+                    "User explicitly instructs the agent to avoid network access "
+                    "during task execution."
+                ),
                 "category": "preference",
                 "confidence": 0.99,
             },
@@ -51,7 +60,9 @@ def test_format_memory_keeps_explicitly_durable_operational_preference() -> None
     memory_data = {
         "facts": [
             {
-                "content": ("User always prefers offline-first tools across all future tasks."),
+                "content": (
+                    "User always prefers offline-first tools across all future tasks."
+                ),
                 "category": "preference",
                 "confidence": 0.99,
             }

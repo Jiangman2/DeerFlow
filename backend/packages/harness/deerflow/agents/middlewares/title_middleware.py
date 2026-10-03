@@ -2,7 +2,6 @@
 
 import logging
 import re
-import time
 from typing import TYPE_CHECKING, Any, NotRequired, override
 
 from langchain.agents import AgentState
@@ -14,7 +13,6 @@ from langgraph.runtime import Runtime
 from deerflow.agents.middlewares.dynamic_context_middleware import is_dynamic_context_reminder
 from deerflow.config.title_config import get_title_config
 from deerflow.models import create_chat_model
-from deerflow.run_timing import log_run_timing
 
 if TYPE_CHECKING:
     from deerflow.config.app_config import AppConfig
@@ -209,8 +207,6 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
             return None
 
         config = self._get_title_config()
-        started_at = time.monotonic()
-        log_run_timing(logger, "title_generation_start")
 
         try:
             prompt, user_msg = self._build_title_prompt(state)
@@ -228,29 +224,9 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
             response = await model.ainvoke(prompt, config=self._get_runnable_config())
             title = self._parse_title(response.content)
             if title:
-                log_run_timing(
-                    logger,
-                    "title_generation_end",
-                    elapsed_ms=(time.monotonic() - started_at) * 1000,
-                    outcome="completed",
-                )
                 return {"title": title}
-        except Exception as exc:
-            log_run_timing(
-                logger,
-                "title_generation_end",
-                elapsed_ms=(time.monotonic() - started_at) * 1000,
-                outcome="error",
-                error_type=type(exc).__name__,
-            )
+        except Exception:
             logger.debug("Failed to generate async title; falling back to local title", exc_info=True)
-        else:
-            log_run_timing(
-                logger,
-                "title_generation_end",
-                elapsed_ms=(time.monotonic() - started_at) * 1000,
-                outcome="empty",
-            )
         user_msg = self._get_title_user_message(state)
         return {"title": self._fallback_title(user_msg)}
 

@@ -7,10 +7,9 @@ import logging
 import os
 import threading
 import uuid
-from collections.abc import AsyncIterator, Callable, Coroutine
+from collections.abc import Callable, Coroutine
 from concurrent.futures import Future, ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
-from contextlib import asynccontextmanager
 from contextvars import Context, copy_context
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -187,14 +186,14 @@ def _extract_final_result(final_state: Any, *, trace_id: str, name: str) -> str:
             break
 
     if last_ai_message is not None:
-        text = message_content_to_text(last_ai_message.content) if last_ai_message.content is not None else ""
+        text = message_content_to_text(last_ai_message.content)
         return text if text else "No response generated"
 
     if messages:
         last_message = messages[-1]
         logger.warning(f"[trace={trace_id}] Subagent {name} no AIMessage found, using last message: {type(last_message)}")
         raw_content = last_message.content if hasattr(last_message, "content") else str(last_message)
-        text = message_content_to_text(raw_content) if raw_content is not None else ""
+        text = message_content_to_text(raw_content)
         return text if text else "No response generated"
 
     logger.warning(f"[trace={trace_id}] Subagent {name} no messages in final state")
@@ -236,7 +235,7 @@ def _extract_llm_error_fallback(final_state: Any) -> str | None:
         if metadata.get("deerflow_error_fallback") is not True:
             return None
 
-        content = message_content_to_text(message.content).strip() if message.content is not None else ""
+        content = message_content_to_text(message.content).strip()
         if content:
             return content
 
@@ -250,25 +249,6 @@ def _extract_llm_error_fallback(final_state: Any) -> str | None:
         return "LLM request failed"
 
     return None
-
-
-@asynccontextmanager
-async def _managed_subagent_stream(stream: AsyncIterator[Any]) -> AsyncIterator[Any]:
-    """Close the owned stream without replacing an active execution failure."""
-    try:
-        yield stream
-    except BaseException:
-        close = getattr(stream, "aclose", None)
-        if callable(close):
-            try:
-                await close()
-            except Exception:
-                logger.warning("Subagent stream cleanup also failed; preserving the execution error", exc_info=True)
-        raise
-    else:
-        close = getattr(stream, "aclose", None)
-        if callable(close):
-            await close()
 
 
 # Global storage for background task results
@@ -837,34 +817,33 @@ class SubagentExecutor:
                 )
                 return result
 
-            async with _managed_subagent_stream(agent.astream(state, config=run_config, context=context, stream_mode="values")) as stream:  # type: ignore[arg-type]
-                async for chunk in stream:
-                    # Cooperative cancellation: check if parent requested stop.
-                    # Note: cancellation is only detected at astream iteration boundaries,
-                    # so long-running tool calls within a single iteration will not be
-                    # interrupted until the next chunk is yielded.
-                    if result.cancel_event.is_set():
-                        logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} cancelled by parent")
-                        result.try_set_terminal(
-                            SubagentStatus.CANCELLED,
-                            error="Cancelled by user",
-                            token_usage_records=collector.snapshot_records(),
-                        )
-                        return result
+            async for chunk in agent.astream(state, config=run_config, context=context, stream_mode="values"):  # type: ignore[arg-type]
+                # Cooperative cancellation: check if parent requested stop.
+                # Note: cancellation is only detected at astream iteration boundaries,
+                # so long-running tool calls within a single iteration will not be
+                # interrupted until the next chunk is yielded.
+                if result.cancel_event.is_set():
+                    logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} cancelled by parent")
+                    result.try_set_terminal(
+                        SubagentStatus.CANCELLED,
+                        error="Cancelled by user",
+                        token_usage_records=collector.snapshot_records(),
+                    )
+                    return result
 
-                    final_state = chunk
-                    result.update_token_usage_records(collector.snapshot_records())
+                final_state = chunk
+                result.update_token_usage_records(collector.snapshot_records())
 
-                    # Capture every step message (assistant turns AND tool outputs)
-                    # appended since the last chunk. A single super-step can append
-                    # several ToolMessages when the model emits multiple tool calls in
-                    # one turn, so capturing only messages[-1] would drop all but the
-                    # last output (#3779). Dedup/serialization live in capture_step_message.
-                    messages = chunk.get("messages", [])
-                    previous_count = len(ai_messages)
-                    processed_message_count = capture_new_step_messages(messages, ai_messages, seen_message_ids, processed_message_count)
-                    if len(ai_messages) > previous_count:
-                        logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} captured {len(ai_messages) - previous_count} step message(s); total #{len(ai_messages)}")
+                # Capture every step message (assistant turns AND tool outputs)
+                # appended since the last chunk. A single super-step can append
+                # several ToolMessages when the model emits multiple tool calls in
+                # one turn, so capturing only messages[-1] would drop all but the
+                # last output (#3779). Dedup/serialization live in capture_step_message.
+                messages = chunk.get("messages", [])
+                previous_count = len(ai_messages)
+                processed_message_count = capture_new_step_messages(messages, ai_messages, seen_message_ids, processed_message_count)
+                if len(ai_messages) > previous_count:
+                    logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} captured {len(ai_messages) - previous_count} step message(s); total #{len(ai_messages)}")
 
             logger.info(f"[trace={self.trace_id}] Subagent {self.config.name} completed async execution")
             token_usage_records = collector.snapshot_records()
@@ -934,7 +913,7 @@ class SubagentExecutor:
                 usable_partial: str | None = None
                 for m in reversed(messages):
                     if isinstance(m, AIMessage):
-                        text = message_content_to_text(m.content).strip() if m.content is not None else ""
+                        text = message_content_to_text(m.content).strip()
                         if text:
                             usable_partial = text
                         break

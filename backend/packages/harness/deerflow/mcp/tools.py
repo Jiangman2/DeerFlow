@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 from collections.abc import Iterable, Mapping
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
-from urllib.request import url2pathname
+from urllib.parse import unquote, urlparse
 
 from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.config import get_config
@@ -70,28 +68,14 @@ def _local_path_from_uri(uri: str, *, base_dir: Path | None = None) -> Path | No
     (``http``/``https``/``data``/...) return ``None`` so the caller leaves them
     untouched. Relative paths are resolved only when *base_dir* is supplied.
     """
-    if not uri or "\x00" in uri:
+    if not uri:
         return None
-    try:
-        if os.name == "nt" and re.match(r"^[A-Za-z]:[/\\]", uri):
-            return Path(uri)
-        parsed = urlparse(uri)
-        if parsed.scheme == "file":
-            if os.name == "nt" and re.fullmatch(r"[A-Za-z]:", parsed.netloc):
-                raw = url2pathname("/" + parsed.netloc + parsed.path)
-            elif parsed.netloc.lower() in ("", "localhost"):
-                raw = url2pathname(parsed.path)
-            else:
-                return None
-            if not Path(raw).is_absolute():
-                return None
-        elif parsed.scheme == "" and not parsed.netloc:
-            raw = uri
-        else:
-            return None
-    except (ValueError, OSError):
-        # External MCP responses are untrusted; malformed references are not
-        # local files and must not abort result conversion.
+    parsed = urlparse(uri)
+    if parsed.scheme == "file":
+        raw = unquote(parsed.path)
+    elif parsed.scheme == "":
+        raw = uri
+    else:
         return None
     if not raw:
         return None
@@ -259,8 +243,7 @@ def _rewrite_unique_bare_filenames(
         # Do not rewrite inside longer paths/words. A final sentence period is
         # allowed, but ".bak" or another path segment is not.
         pattern = re.compile(rf"(?<![\w./-]){re.escape(name)}(?!(?:[\w/-]|\.[\w]))")
-        # A path is literal replacement data, not a regex replacement template.
-        rewritten_text, count = pattern.subn(lambda _match: unique[name], rewritten)
+        rewritten_text, count = pattern.subn(unique[name], rewritten)
         if count:
             logger.debug("MCP bare filename rewrite: %s -> %s", name, unique[name])
         rewritten = rewritten_text

@@ -15,7 +15,6 @@ of being persisted into graph state as a normal user-visible message.
 
 from __future__ import annotations
 
-import logging
 import threading
 from collections.abc import Awaitable, Callable
 from typing import Any, override
@@ -27,9 +26,6 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.thread_state import ThreadState
-from deerflow.run_timing import atime_middleware_after_agent, log_run_timing, time_middleware_after_agent
-
-logger = logging.getLogger(__name__)
 
 
 def _todos_in_messages(messages: list[Any]) -> bool:
@@ -152,7 +148,6 @@ class TodoMiddleware(TodoListMiddleware):
                 "</system_reminder>"
             ),
         )
-        log_run_timing(logger, "todo_context_reminder_injected")
         return {"messages": [reminder]}
 
     @override
@@ -306,11 +301,6 @@ class TodoMiddleware(TodoListMiddleware):
         # not persist this control prompt as a normal HumanMessage, otherwise it
         # can leak into user-visible message streams and saved transcripts.
         self._queue_completion_reminder(runtime, _format_completion_reminder(todos))
-        log_run_timing(
-            logger,
-            "todo_completion_retry_queued",
-            retry_count=self._completion_reminder_count_for_runtime(runtime),
-        )
         return {"jump_to": "model"}
 
     @override
@@ -331,7 +321,6 @@ class TodoMiddleware(TodoListMiddleware):
         reminders = self._drain_completion_reminders(request.runtime)
         if not reminders:
             return request
-        log_run_timing(logger, "todo_completion_retry_injected", reminder_count=len(reminders))
         new_messages = [
             *request.messages,
             HumanMessage(
@@ -360,12 +349,10 @@ class TodoMiddleware(TodoListMiddleware):
 
     @override
     def after_agent(self, state: ThreadState, runtime: Runtime) -> dict[str, Any] | None:
-        with time_middleware_after_agent(logger, middleware="todo"):
-            self._clear_current_run_completion_reminders(runtime)
-            return None
+        self._clear_current_run_completion_reminders(runtime)
+        return None
 
     @override
     async def aafter_agent(self, state: ThreadState, runtime: Runtime) -> dict[str, Any] | None:
-        async with atime_middleware_after_agent(logger, middleware="todo"):
-            self._clear_current_run_completion_reminders(runtime)
-            return None
+        self._clear_current_run_completion_reminders(runtime)
+        return None

@@ -137,9 +137,7 @@ export function AgentCard({
   }
 
   function handleChat() {
-    router.push(
-      `/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`,
-    );
+    router.push(`/workspace/agents/${encodeURIComponent(agent.name)}/chats/new`);
   }
 
   async function handleDelete() {
@@ -198,7 +196,7 @@ export function AgentCard({
     <>
       <article
         data-testid="digital-employee-card"
-        className="bg-card hover:border-primary/45 hover:shadow-primary/5 group flex min-w-0 flex-col gap-3 rounded-xl border p-3.5 shadow-sm transition-[border-color,box-shadow] duration-200 sm:flex-row sm:items-center sm:gap-4 sm:px-4 sm:py-3"
+        className="group bg-card hover:border-primary/45 hover:shadow-primary/5 flex min-w-0 flex-col gap-3 rounded-xl border p-3.5 shadow-sm transition-[border-color,box-shadow] duration-200 sm:flex-row sm:items-center sm:gap-4 sm:px-4 sm:py-3"
       >
         <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
           <DigitalEmployeeAvatar agent={agent} className="size-14 sm:size-16" />

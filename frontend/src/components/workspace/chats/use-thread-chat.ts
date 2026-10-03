@@ -7,8 +7,7 @@ import { isStaticDemoThreadId } from "@/core/threads/static-demo";
 import { uuid } from "@/core/utils/uuid";
 
 export const THREAD_CHAT_RESET_EVENT = "platform:thread-chat-reset";
-export const THREAD_CHAT_ROUTE_CHANGE_EVENT =
-  "platform:thread-chat-route-change";
+export const THREAD_CHAT_ROUTE_CHANGE_EVENT = "platform:thread-chat-route-change";
 
 type ThreadChatResetDetail = {
   deletedThreadId: string;
@@ -63,17 +62,22 @@ export function useThreadChat() {
         setNativePathname(nextPathname);
       }
     };
-    window.addEventListener(THREAD_CHAT_ROUTE_CHANGE_EVENT, handleRouteChange);
+    window.addEventListener(
+      THREAD_CHAT_ROUTE_CHANGE_EVENT,
+      handleRouteChange,
+    );
     return () =>
       window.removeEventListener(
         THREAD_CHAT_ROUTE_CHANGE_EVENT,
         handleRouteChange,
       );
   }, []);
-  // Also honor an explicit delete reset before its router transition commits.
-  // A native first-run URL replacement can leave Next on /new already, making
-  // that router transition a no-op; its local override must be reset as well.
-  const effectivePathname = nativePathname ?? pathname;
+  const effectivePathname =
+    typeof window === "undefined"
+      ? pathname
+      : nativePathname && window.location.pathname === nativePathname
+        ? nativePathname
+        : pathname;
   const pathThreadId =
     effectivePathname.split("/").filter(Boolean).at(-1) ?? threadIdFromPath;
   const isNewPath = pathThreadId === "new";
@@ -137,7 +141,6 @@ export function useThreadChat() {
       // URL replacement is owned by the caller's Next router action; this hook
       // only resets local chat state so the router state and browser URL stay
       // in sync.
-      setNativePathname(detail.nextPath);
       resetToNewThread();
     };
 

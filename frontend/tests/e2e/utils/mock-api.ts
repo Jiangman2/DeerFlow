@@ -641,7 +641,7 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
     return route.fallback();
   });
 
-  void page.route(/\/api\/scheduled-tasks\/[^/]+\/runs(?:\?|$)/, (route) => {
+  void page.route("**/api/scheduled-tasks/*/runs", (route) => {
     if (route.request().method() === "GET") {
       const url = new URL(route.request().url());
       const taskId = decodeURIComponent(url.pathname.split("/").at(-2) ?? "");

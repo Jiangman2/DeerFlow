@@ -110,14 +110,19 @@ def test_aio_sandbox_env_routes_through_bash_exec() -> None:
     captured: dict = {}
 
     class _FakeBash:
+        def create_session(self, *, session_id, **kwargs):
+            captured["session_id"] = session_id
+
         def exec(self, *, command, env=None, **kwargs):
             captured["command"] = command
             captured["env"] = env
-            captured["exec_kwargs"] = kwargs
+            captured["exec_session_id"] = kwargs.get("session_id")
             return SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None))
 
+        def close_session(self, session_id, **kwargs):
+            captured["closed_session_id"] = session_id
+
     sbx = AioSandbox.__new__(AioSandbox)
-    sbx._default_env = {}
     sbx._lock = __import__("threading").Lock()
     sbx._client = SimpleNamespace(bash=_FakeBash())
     sbx._DEFAULT_NO_CHANGE_TIMEOUT = 30
@@ -130,8 +135,8 @@ def test_aio_sandbox_env_routes_through_bash_exec() -> None:
     assert captured["command"].startswith("gh pr create\n")
     assert "__DEERFLOW_BASH_EXIT_CODE__=" in captured["command"]
     assert captured["env"] == {"GH_TOKEN": "tok-123"}
-    assert "session_id" not in captured["exec_kwargs"]
-    assert "tok-123" not in captured["command"]
+    assert captured["exec_session_id"] == captured["session_id"]
+    assert captured["closed_session_id"] == captured["session_id"]
 
 
 def test_aio_sandbox_no_env_leaves_command_unchanged() -> None:
@@ -151,7 +156,6 @@ def test_aio_sandbox_no_env_leaves_command_unchanged() -> None:
             return _FakeResult()
 
     sbx = AioSandbox.__new__(AioSandbox)
-    sbx._default_env = {}
     sbx._lock = __import__("threading").Lock()
     sbx._client = SimpleNamespace(shell=_FakeShell())
     sbx._DEFAULT_NO_CHANGE_TIMEOUT = 30
@@ -282,7 +286,6 @@ def test_aio_sandbox_rejects_invalid_env_key() -> None:
             return SimpleNamespace(data=SimpleNamespace(output="ok"))
 
     sbx = AioSandbox.__new__(AioSandbox)
-    sbx._default_env = {}
     sbx._lock = __import__("threading").Lock()
     sbx._client = SimpleNamespace(shell=_FakeShell())
     sbx._DEFAULT_NO_CHANGE_TIMEOUT = 30

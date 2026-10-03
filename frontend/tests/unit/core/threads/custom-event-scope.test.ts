@@ -12,9 +12,9 @@ describe("streamed custom-event thread scope", () => {
   });
 
   test("reads a wrapped metadata thread id", () => {
-    expect(customEventThreadId({ metadata: { thread_id: "thread-a" } })).toBe(
-      "thread-a",
-    );
+    expect(
+      customEventThreadId({ metadata: { thread_id: "thread-a" } }),
+    ).toBe("thread-a");
   });
 
   test("rejects a late event from the previous conversation", () => {

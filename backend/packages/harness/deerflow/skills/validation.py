@@ -35,8 +35,7 @@ def _validate_skill_frontmatter(skill_dir: Path) -> tuple[bool, str, str | None]
     # Check for unexpected properties
     unexpected_keys = set(frontmatter.keys()) - ALLOWED_FRONTMATTER_PROPERTIES
     if unexpected_keys:
-        unexpected_names = sorted(str(key) for key in unexpected_keys)
-        return False, f"Unexpected key(s) in SKILL.md frontmatter: {', '.join(unexpected_names)}", None
+        return False, f"Unexpected key(s) in SKILL.md frontmatter: {', '.join(sorted(unexpected_keys))}", None
 
     # Check required fields
     if "name" not in frontmatter:

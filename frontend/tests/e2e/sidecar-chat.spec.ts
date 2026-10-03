@@ -325,11 +325,7 @@ async function expectSidecarScrollDoesNotAnimateAfterOpen(page: Page) {
 async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
   await page.evaluate(() => {
     const targetWindow = window as Window & {
-      __sidecarScrollSamples?: Array<{
-        top: number;
-        height: number;
-        viewport: number;
-      }>;
+      __sidecarScrollTops?: number[];
       __sidecarScrollListener?: (event: Event) => void;
     };
     if (targetWindow.__sidecarScrollListener) {
@@ -339,7 +335,7 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
         true,
       );
     }
-    targetWindow.__sidecarScrollSamples = [];
+    targetWindow.__sidecarScrollTops = [];
     Reflect.set(targetWindow, "__sidecarPanelTransforms", []);
     targetWindow.__sidecarScrollListener = (event: Event) => {
       const target = event.target;
@@ -347,11 +343,7 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
         target instanceof HTMLElement &&
         target.parentElement?.matches('[data-testid="sidecar-message-list"]')
       ) {
-        targetWindow.__sidecarScrollSamples?.push({
-          top: Math.round(target.scrollTop),
-          height: target.scrollHeight,
-          viewport: target.clientHeight,
-        });
+        targetWindow.__sidecarScrollTops?.push(Math.round(target.scrollTop));
       }
     };
     document.addEventListener(
@@ -379,30 +371,9 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
     });
   }
 
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => {
-          const list = document.querySelector(
-            '[data-testid="sidecar-message-list"]',
-          );
-          const scroller = list?.firstElementChild;
-          if (!(scroller instanceof HTMLElement)) return null;
-          return Math.abs(
-            scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
-          );
-        }),
-      { timeout: 5_000 },
-    )
-    .toBeLessThanOrEqual(1);
-
-  const { scrollSamples, panelTransforms } = await page.evaluate(() => {
+  const { distinctScrollTops, panelTransforms } = await page.evaluate(() => {
     const targetWindow = window as Window & {
-      __sidecarScrollSamples?: Array<{
-        top: number;
-        height: number;
-        viewport: number;
-      }>;
+      __sidecarScrollTops?: number[];
       __sidecarScrollListener?: (event: Event) => void;
       __sidecarPanelTransforms?: string[];
     };
@@ -415,38 +386,14 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
       targetWindow.__sidecarScrollListener = undefined;
     }
     return {
-      scrollSamples: targetWindow.__sidecarScrollSamples ?? [],
+      distinctScrollTops: Array.from(
+        new Set(targetWindow.__sidecarScrollTops ?? []),
+      ),
       panelTransforms: targetWindow.__sidecarPanelTransforms ?? [],
     };
   });
 
-  // A geometry change can deliver a scroll event with the old offset before
-  // ResizeObserver re-anchors the new measured extent. Ignore that first sample
-  // only; further samples at the same geometry must already be at the bottom.
-  // A smooth/spring animation produces intermediate offsets and fails this.
-  const seenGeometry = new Set<string>();
-  const positionsByGeometry = new Map<string, number[]>();
-  for (const sample of scrollSamples) {
-    const key = `${sample.height}:${sample.viewport}`;
-    if (!seenGeometry.has(key)) {
-      seenGeometry.add(key);
-      continue;
-    }
-    if (sample.top === 0) continue;
-    expect(
-      Math.abs(sample.top - (sample.height - sample.viewport)),
-      JSON.stringify(scrollSamples),
-    ).toBeLessThanOrEqual(1);
-    const positions = positionsByGeometry.get(key) ?? [];
-    positions.push(sample.top);
-    positionsByGeometry.set(key, positions);
-  }
-  for (const positions of positionsByGeometry.values()) {
-    expect(
-      Math.max(...positions) - Math.min(...positions),
-      JSON.stringify(scrollSamples),
-    ).toBeLessThanOrEqual(1);
-  }
+  expect(distinctScrollTops.length).toBeLessThanOrEqual(1);
   expect(
     panelTransforms.every(
       (transform) =>
@@ -459,14 +406,6 @@ test.describe("Side chat", () => {
   test("creates a hidden sidecar thread from selected quoted text", async ({
     page,
   }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        "platform.local-settings",
-        JSON.stringify({
-          context: { mode: "pro", model_name: "deepseek-v4-pro" },
-        }),
-      );
-    });
     const parentMessages = [
       {
         type: "human",
@@ -927,7 +866,7 @@ test.describe("Side chat", () => {
     await expect
       .poll(() => createdThreadBody?.metadata, { timeout: 10_000 })
       .toMatchObject({
-        platform_sidecar: true,
+        deerflow_sidecar: true,
         parent_thread_id: MOCK_THREAD_ID,
         sidecar_context_type: "referenced_message",
         sidecar_context_label: "Selected assistant text #2",

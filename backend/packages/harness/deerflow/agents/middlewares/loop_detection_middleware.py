@@ -69,7 +69,6 @@ from langchain_core.messages import HumanMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
-from deerflow.run_timing import atime_middleware_after_agent, time_middleware_after_agent
 
 if TYPE_CHECKING:
     from deerflow.config.loop_detection_config import LoopDetectionConfig
@@ -122,22 +121,22 @@ def _stable_tool_key(name: str, args: dict, fallback_key: str | None) -> str:
         start_line = args.get("start_line")
         end_line = args.get("end_line")
 
+        bucket_size = 200
         try:
             start_line = int(start_line) if start_line is not None else 1
         except (TypeError, ValueError):
             start_line = 1
         try:
-            end_line = int(end_line) if end_line is not None else None
+            end_line = int(end_line) if end_line is not None else start_line
         except (TypeError, ValueError):
-            end_line = None
-
-        # Different pages are different operations, not one 200-line bucket.
-        # An omitted/unparseable end denotes EOF, never a single-line read.
-        if end_line is None:
-            return f"{path}:{max(start_line, 1)}-EOF"
+            end_line = start_line
 
         start_line, end_line = sorted((start_line, end_line))
-        return f"{path}:{max(start_line, 1)}-{max(end_line, 1)}"
+        bucket_start = max(start_line, 1)
+        bucket_end = max(end_line, 1)
+        bucket_start = (bucket_start - 1) // bucket_size
+        bucket_end = (bucket_end - 1) // bucket_size
+        return f"{path}:{bucket_start}-{bucket_end}"
 
     # write_file / str_replace are content-sensitive: same path may be updated
     # with different payloads during iteration. Using only salient fields (path)
@@ -182,11 +181,14 @@ def _hash_tool_calls(tool_calls: list[dict]) -> str:
 _WARNING_MSG = "[LOOP DETECTED] You are repeating the same tool calls. Stop calling tools and produce your final answer now. If you cannot complete the task, summarize what you accomplished so far."
 
 _NO_PROGRESS_WARNING_MSG = (
-    "[NO PROGRESS DETECTED] The same tool failure has recurred across repair attempts. Re-read the owning input/output, change the repair strategy, or report a concrete blocking reason; do not repeat an unchanged validation cycle."
+    "[NO PROGRESS DETECTED] The same tool failure has recurred across repair attempts. "
+    "Re-read the owning input/output, change the repair strategy, or report a concrete "
+    "blocking reason; do not repeat an unchanged validation cycle."
 )
-_NO_PROGRESS_HARD_STOP_MSG = "[FORCED STOP] The same tool failure recurred after the bounded repair limit. Producing a final answer with the last known state and blocking reason."
-
-
+_NO_PROGRESS_HARD_STOP_MSG = (
+    "[FORCED STOP] The same tool failure recurred after the bounded repair limit. "
+    "Producing a final answer with the last known state and blocking reason."
+)
 def _problem_result_signature(result: object) -> str | None:
     """Return a stable fingerprint for a repeated failing tool result.
 
@@ -296,7 +298,6 @@ def _successful_changed_file_mutation(messages: list, result: object) -> tuple[s
     if not isinstance(old_str, str) or not isinstance(new_str, str) or old_str == new_str:
         return None
     return name, path
-
 
 _TOOL_FREQ_WARNING_MSG = (
     "[LOOP DETECTED] You have called {tool_name} {count} times without producing a final answer. Stop calling tools and produce your final answer now. If you cannot complete the task, summarize what you accomplished so far."
@@ -614,7 +615,9 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
         key = self._pending_key(runtime)
         marker = str(getattr(last_tool, "id", None) or "")
         if not marker:
-            marker = hashlib.sha256(f"{getattr(last_tool, 'name', '')}\n{getattr(last_tool, 'content', '')}".encode("utf-8", errors="replace")).hexdigest()
+            marker = hashlib.sha256(
+                f"{getattr(last_tool, 'name', '')}\n{getattr(last_tool, 'content', '')}".encode("utf-8", errors="replace")
+            ).hexdigest()
         with self._lock:
             if self._last_result_marker.get(key) == marker:
                 return
@@ -922,17 +925,15 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
 
     @override
     def after_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        with time_middleware_after_agent(logger, middleware="loop_detection"):
-            self._clear_current_run_pending_warnings(runtime)
-            self._clear_current_run_progress(runtime)
-            return None
+        self._clear_current_run_pending_warnings(runtime)
+        self._clear_current_run_progress(runtime)
+        return None
 
     @override
     async def aafter_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        async with atime_middleware_after_agent(logger, middleware="loop_detection"):
-            self._clear_current_run_pending_warnings(runtime)
-            self._clear_current_run_progress(runtime)
-            return None
+        self._clear_current_run_pending_warnings(runtime)
+        self._clear_current_run_progress(runtime)
+        return None
 
     def _drain_pending_warnings(self, runtime: Runtime) -> list[str]:
         """Pop and return all queued warnings for *runtime*'s thread/run."""

@@ -69,9 +69,8 @@ describe("HumanInputCard", () => {
       value: "staging",
     };
     const html = renderCard({ answeredResponse: response });
-    const icon = /<div class="([^"]+)" data-testid="human-input-icon">/.exec(
-      html,
-    )?.[1];
+    const icon =
+      /<div class="([^"]+)" data-testid="human-input-icon">/.exec(html)?.[1];
     const status =
       /<span[^>]*class="([^"]+)"[^>]*data-testid="human-input-status">/.exec(
         html,

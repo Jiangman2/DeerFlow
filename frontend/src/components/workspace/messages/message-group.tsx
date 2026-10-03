@@ -25,13 +25,7 @@ import {
 } from "@/components/ai-elements/chain-of-thought";
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { Button } from "@/components/ui/button";
-import { isSandboxInternalURL } from "@/core/artifacts/live-preview";
 import { useI18n } from "@/core/i18n/hooks";
-import {
-  toolDisplayRecord,
-  toolDisplayText,
-  toolWebHref,
-} from "@/core/messages/tool-display";
 import { formatTokenCount } from "@/core/messages/usage";
 import type { TokenDebugStep } from "@/core/messages/usage-model";
 import {
@@ -50,7 +44,6 @@ import { Tooltip } from "../tooltip";
 
 import { MarkdownContent } from "./markdown-content";
 import { createMarkdownLinkComponent } from "./markdown-link";
-import { ToolResultLink } from "./tool-result-link";
 
 export function MessageGroup({
   className,
@@ -74,22 +67,7 @@ export function MessageGroup({
   const [showLastThinking, setShowLastThinking] = useState(
     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
   );
-  const allSteps = useMemo(() => convertToSteps(messages), [messages]);
-  const clarificationContextSteps = useMemo(
-    () =>
-      allSteps.filter(
-        (step): step is CoTAssistantTextStep =>
-          step.type === "assistantText" && Boolean(step.clarificationContext),
-      ),
-    [allSteps],
-  );
-  const steps = useMemo(
-    () =>
-      allSteps.filter(
-        (step) => step.type !== "assistantText" || !step.clarificationContext,
-      ),
-    [allSteps],
-  );
+  const steps = useMemo(() => convertToSteps(messages), [messages]);
   const debugStepByMessageId = useMemo(
     () =>
       new Map(
@@ -255,7 +233,6 @@ export function MessageGroup({
       <ToolCall
         key={step.id}
         {...step}
-        threadId={threadId}
         tokenDebugStep={
           debugStep && !debugStep.sharedAttribution ? debugStep : undefined
         }
@@ -271,7 +248,6 @@ export function MessageGroup({
         <MarkdownContent
           content={step.content}
           isLoading={isLoading}
-          streamingKey={`${threadId}/${step.messageId ?? step.id}/text`}
           rehypePlugins={rehypePlugins}
           components={threadMarkdownComponents}
         />
@@ -316,137 +292,124 @@ export function MessageGroup({
       : undefined;
 
   return (
-    <>
-      {clarificationContextSteps.map((step) => (
-        <MarkdownContent
-          key={step.id}
-          className="mb-2 min-w-0"
-          content={step.content}
-          isLoading={isLoading}
-          streamingKey={`${threadId}/${step.messageId ?? step.id}/clarification`}
-          rehypePlugins={rehypePlugins}
-          components={threadMarkdownComponents}
-        />
-      ))}
-      <ChainOfThought
-        className={cn("w-full gap-2 rounded-lg border p-0.5", className)}
-        open={true}
-      >
-        {collapsibleAboveLastToolCallSteps.length > 0 && (
+    <ChainOfThought
+      className={cn("w-full gap-2 rounded-lg border p-0.5", className)}
+      open={true}
+    >
+      {collapsibleAboveLastToolCallSteps.length > 0 && (
+        <Button
+          key="above"
+          className="w-full items-start justify-start text-left"
+          variant="ghost"
+          onClick={() => setShowAbove(!showAbove)}
+        >
+          <ChainOfThoughtStep
+            label={
+              <span className="opacity-60">
+                {showAbove
+                  ? t.toolCalls.lessSteps
+                  : t.toolCalls.moreSteps(
+                      collapsibleAboveLastToolCallSteps.length,
+                    )}
+              </span>
+            }
+            icon={
+              <ChevronUp
+                className={cn(
+                  "size-4 opacity-60 transition-transform duration-200",
+                  showAbove ? "rotate-180" : "",
+                )}
+              />
+            }
+          ></ChainOfThoughtStep>
+        </Button>
+      )}
+      {(lastToolCallStep ??
+        steps.some((step) => step.type === "assistantText")) && (
+        <ChainOfThoughtContent className="px-4 pb-2">
+          {(lastToolCallStep
+            ? showAbove
+              ? aboveLastToolCallSteps
+              : aboveLastToolCallSteps.filter(
+                  (step) => step.type === "assistantText",
+                )
+            : steps.filter((step) => step.type === "assistantText")
+          ).flatMap(renderStep)}
+          {lastToolCallStep && (
+            <>
+              {renderDebugSummary(
+                lastToolCallStep.messageId,
+                steps.indexOf(lastToolCallStep),
+              )}
+              <FlipDisplay uniqueKey={lastToolCallStep.id ?? ""}>
+                {renderToolCall(lastToolCallStep)}
+              </FlipDisplay>
+              {afterLastToolCallAssistantTextSteps.flatMap(renderStep)}
+            </>
+          )}
+        </ChainOfThoughtContent>
+      )}
+      {lastReasoningStep && (
+        <>
+          {renderDebugSummary(
+            lastReasoningStep.messageId,
+            steps.indexOf(lastReasoningStep),
+          )}
           <Button
-            key="above"
+            key={lastReasoningStep.id}
             className="w-full items-start justify-start text-left"
             variant="ghost"
-            onClick={() => setShowAbove(!showAbove)}
+            onClick={() => setShowLastThinking(!showLastThinking)}
           >
-            <ChainOfThoughtStep
-              label={
-                <span className="opacity-60">
-                  {showAbove
-                    ? t.toolCalls.lessSteps
-                    : t.toolCalls.moreSteps(
-                        collapsibleAboveLastToolCallSteps.length,
-                      )}
-                </span>
-              }
-              icon={
+            <div className="flex w-full items-center justify-between">
+              <ChainOfThoughtStep
+                className="font-normal"
+                label={
+                  <DebugStepLabel
+                    label={t.common.thinking}
+                    token={shouldInlineThinkingToken({
+                      debugStep: lastReasoningDebugStep,
+                      toolCallCount: lastReasoningStep.messageId
+                        ? (toolCallCountByMessageId.get(
+                            lastReasoningStep.messageId,
+                          ) ?? 0)
+                        : 0,
+                      enabled: showTokenDebugSummaries,
+                      thinkingLabel: t.common.thinking,
+                      t,
+                    })}
+                  />
+                }
+                icon={LightbulbIcon}
+              ></ChainOfThoughtStep>
+              <div>
                 <ChevronUp
                   className={cn(
-                    "size-4 opacity-60 transition-transform duration-200",
-                    showAbove ? "rotate-180" : "",
+                    "text-muted-foreground size-4",
+                    showLastThinking ? "" : "rotate-180",
                   )}
                 />
-              }
-            ></ChainOfThoughtStep>
-          </Button>
-        )}
-        {(lastToolCallStep ??
-          steps.some((step) => step.type === "assistantText")) && (
-          <ChainOfThoughtContent className="px-4 pb-2">
-            {(lastToolCallStep
-              ? showAbove
-                ? aboveLastToolCallSteps
-                : aboveLastToolCallSteps.filter(
-                    (step) => step.type === "assistantText",
-                  )
-              : steps.filter((step) => step.type === "assistantText")
-            ).flatMap(renderStep)}
-            {lastToolCallStep && (
-              <>
-                {renderDebugSummary(
-                  lastToolCallStep.messageId,
-                  steps.indexOf(lastToolCallStep),
-                )}
-                <FlipDisplay uniqueKey={lastToolCallStep.id ?? ""}>
-                  {renderToolCall(lastToolCallStep)}
-                </FlipDisplay>
-                {afterLastToolCallAssistantTextSteps.flatMap(renderStep)}
-              </>
-            )}
-          </ChainOfThoughtContent>
-        )}
-        {lastReasoningStep && (
-          <>
-            {renderDebugSummary(
-              lastReasoningStep.messageId,
-              steps.indexOf(lastReasoningStep),
-            )}
-            <Button
-              key={lastReasoningStep.id}
-              className="w-full items-start justify-start text-left"
-              variant="ghost"
-              onClick={() => setShowLastThinking(!showLastThinking)}
-            >
-              <div className="flex w-full items-center justify-between">
-                <ChainOfThoughtStep
-                  className="font-normal"
-                  label={
-                    <DebugStepLabel
-                      label={t.common.thinking}
-                      token={shouldInlineThinkingToken({
-                        debugStep: lastReasoningDebugStep,
-                        toolCallCount: lastReasoningStep.messageId
-                          ? (toolCallCountByMessageId.get(
-                              lastReasoningStep.messageId,
-                            ) ?? 0)
-                          : 0,
-                        enabled: showTokenDebugSummaries,
-                        thinkingLabel: t.common.thinking,
-                        t,
-                      })}
-                    />
-                  }
-                  icon={LightbulbIcon}
-                ></ChainOfThoughtStep>
-                <div>
-                  <ChevronUp
-                    className={cn(
-                      "text-muted-foreground size-4",
-                      showLastThinking ? "" : "rotate-180",
-                    )}
-                  />
-                </div>
               </div>
-            </Button>
-            {showLastThinking && (
-              <ChainOfThoughtContent className="px-4 pb-2">
-                <ChainOfThoughtStep
-                  key={lastReasoningStep.id}
-                  label={
-                    <MarkdownContent
-                      content={lastReasoningStep.reasoning ?? ""}
-                      isLoading={isLoading}
-                      rehypePlugins={rehypePlugins}
-                      components={threadMarkdownComponents}
-                    />
-                  }
-                ></ChainOfThoughtStep>
-              </ChainOfThoughtContent>
-            )}
-          </>
-        )}
-      </ChainOfThought>
-    </>
+            </div>
+          </Button>
+          {showLastThinking && (
+            <ChainOfThoughtContent className="px-4 pb-2">
+              <ChainOfThoughtStep
+                key={lastReasoningStep.id}
+                label={
+                  <MarkdownContent
+                    content={lastReasoningStep.reasoning ?? ""}
+                    isLoading={isLoading}
+                    rehypePlugins={rehypePlugins}
+                    components={threadMarkdownComponents}
+                  />
+                }
+              ></ChainOfThoughtStep>
+            </ChainOfThoughtContent>
+          )}
+        </>
+      )}
+    </ChainOfThought>
   );
 }
 
@@ -510,7 +473,6 @@ function ToolCall({
   name,
   args,
   result,
-  threadId,
   tokenDebugStep,
 }: {
   id?: string;
@@ -518,7 +480,6 @@ function ToolCall({
   name: string;
   args: Record<string, unknown>;
   result?: string | Record<string, unknown>;
-  threadId?: string;
   tokenDebugStep?: TokenDebugStep;
 }) {
   const { t } = useI18n();
@@ -535,9 +496,8 @@ function ToolCall({
 
   if (name === "web_search") {
     let label: React.ReactNode = t.toolCalls.searchForRelatedInfo;
-    const query = toolDisplayText(args, "query");
-    if (query) {
-      label = t.toolCalls.searchOnWebFor(query);
+    if (typeof args.query === "string") {
+      label = t.toolCalls.searchOnWebFor(args.query);
     }
     return (
       <ChainOfThoughtStep
@@ -547,34 +507,32 @@ function ToolCall({
       >
         {Array.isArray(result) && (
           <ChainOfThoughtSearchResults>
-            {result.map((raw: unknown, index: number) => {
-              const item = toolDisplayRecord(raw);
-              const title = toolDisplayText(item, "title");
-              const url = toolDisplayText(item, "url");
-              if (!title && !url) return null;
-              return (
-                <ChainOfThoughtSearchResult key={`${url ?? "source"}-${index}`}>
-                  <ToolResultLink
-                    href={url}
-                    threadId={threadId}
-                    previewLabel={t.common.preview}
-                  >
-                    {title ?? url}
-                  </ToolResultLink>
-                </ChainOfThoughtSearchResult>
-              );
-            })}
+            {result.map((item) => (
+              <ChainOfThoughtSearchResult key={item.url}>
+                <a href={item.url} target="_blank" rel="noopener noreferrer">
+                  {item.title}
+                </a>
+              </ChainOfThoughtSearchResult>
+            ))}
           </ChainOfThoughtSearchResults>
         )}
       </ChainOfThoughtStep>
     );
   } else if (name === "image_search") {
     let label: React.ReactNode = t.toolCalls.searchForRelatedImages;
-    const query = toolDisplayText(args, "query");
-    if (query) {
-      label = t.toolCalls.searchForRelatedImagesFor(query);
+    if (typeof args.query === "string") {
+      label = t.toolCalls.searchForRelatedImagesFor(args.query);
     }
-    const results = toolDisplayRecord(result).results;
+    const results = (
+      result as {
+        results: {
+          source_url: string;
+          thumbnail_url: string;
+          image_url: string;
+          title: string;
+        }[];
+      }
+    )?.results;
     return (
       <ChainOfThoughtStep
         key={id}
@@ -583,38 +541,33 @@ function ToolCall({
       >
         {Array.isArray(results) && (
           <ChainOfThoughtSearchResults>
-            {results.map((raw: unknown, index: number) => {
-              const item = toolDisplayRecord(raw);
-              const title = toolDisplayText(item, "title") ?? "";
-              const thumbnail = toolWebHref(item.thumbnail_url);
-              if (!thumbnail || isSandboxInternalURL(thumbnail)) return null;
-              return (
-                <Tooltip key={`${thumbnail}-${index}`} content={title}>
-                  <ToolResultLink
+            {Array.isArray(results) &&
+              results.map((item) => (
+                <Tooltip key={item.image_url} content={item.title}>
+                  <a
                     className="size-24 overflow-hidden rounded-lg object-cover"
                     href={item.source_url}
-                    threadId={threadId}
-                    previewLabel={t.common.preview}
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
                     <div className="bg-accent size-24">
                       <img
                         className="size-full object-cover"
-                        src={thumbnail}
-                        alt={title}
+                        src={item.thumbnail_url}
+                        alt={item.title}
                         width={100}
                         height={100}
                       />
                     </div>
-                  </ToolResultLink>
+                  </a>
                 </Tooltip>
-              );
-            })}
+              ))}
           </ChainOfThoughtSearchResults>
         )}
       </ChainOfThoughtStep>
     );
   } else if (name === "web_fetch") {
-    const url = toolDisplayText(args, "url");
+    const url = (args as { url: string })?.url;
     let title = url;
     if (typeof result === "string") {
       const potentialTitle = extractTitleFromMarkdown(result);
@@ -630,24 +583,25 @@ function ToolCall({
       >
         <ChainOfThoughtSearchResult>
           {url && (
-            <ToolResultLink
+            <a
               href={url}
-              threadId={threadId}
-              previewLabel={t.common.preview}
+              target="_blank"
+              rel="noopener noreferrer"
               className="cursor-pointer"
             >
               {title}
-            </ToolResultLink>
+            </a>
           )}
         </ChainOfThoughtSearchResult>
       </ChainOfThoughtStep>
     );
   } else if (name === "ls") {
-    let description = toolDisplayText(args, "description") ?? "";
-    if (description.length === 0) {
+    let description: string | undefined = (args as { description: string })
+      ?.description;
+    if (!description) {
       description = t.toolCalls.listFolder;
     }
-    const path = toolDisplayText(args, "path");
+    const path: string | undefined = (args as { path: string })?.path;
     return (
       <ChainOfThoughtStep
         key={id}
@@ -662,11 +616,12 @@ function ToolCall({
       </ChainOfThoughtStep>
     );
   } else if (name === "read_file") {
-    let description = toolDisplayText(args, "description") ?? "";
-    if (description.length === 0) {
+    let description: string | undefined = (args as { description: string })
+      ?.description;
+    if (!description) {
       description = t.toolCalls.readFile;
     }
-    const path = toolDisplayText(args, "path");
+    const { path } = args as { path: string; content: string };
     return (
       <ChainOfThoughtStep
         key={id}
@@ -681,11 +636,12 @@ function ToolCall({
       </ChainOfThoughtStep>
     );
   } else if (name === "write_file" || name === "str_replace") {
-    let description = toolDisplayText(args, "description") ?? "";
-    if (description.length === 0) {
+    let description: string | undefined = (args as { description: string })
+      ?.description;
+    if (!description) {
       description = t.toolCalls.writeFile;
     }
-    const path = toolDisplayText(args, "path");
+    const path: string | undefined = (args as { path: string })?.path;
     return (
       <ChainOfThoughtStep
         key={id}
@@ -693,7 +649,6 @@ function ToolCall({
         label={resolveLabel(description)}
         icon={NotebookPenIcon}
         onClick={() => {
-          if (!path) return;
           select(
             new URL(
               `write-file:${path}?message_id=${messageId}&tool_call_id=${id}`,
@@ -710,7 +665,8 @@ function ToolCall({
       </ChainOfThoughtStep>
     );
   } else if (name === "bash") {
-    const description = toolDisplayText(args, "description");
+    const description: string | undefined = (args as { description: string })
+      ?.description;
     if (!description) {
       return (
         <ChainOfThoughtStep
@@ -720,7 +676,7 @@ function ToolCall({
         />
       );
     }
-    const command = toolDisplayText(args, "command");
+    const command: string | undefined = (args as { command: string })?.command;
     return (
       <ChainOfThoughtStep
         key={id}
@@ -754,7 +710,8 @@ function ToolCall({
       ></ChainOfThoughtStep>
     );
   } else {
-    const description = toolDisplayText(args, "description");
+    const description: string | undefined = (args as { description: string })
+      ?.description;
     return (
       <ChainOfThoughtStep
         key={id}
@@ -783,7 +740,6 @@ interface CoTToolCallStep extends GenericCoTStep<"toolCall"> {
 
 interface CoTAssistantTextStep extends GenericCoTStep<"assistantText"> {
   content: string;
-  clarificationContext?: boolean;
 }
 
 type CoTStep = CoTAssistantTextStep | CoTReasoningStep | CoTToolCallStep;
@@ -819,9 +775,6 @@ function convertToSteps(messages: Message[]): CoTStep[] {
           messageId: message.id,
           type: "assistantText",
           content,
-          clarificationContext: message.tool_calls?.some(
-            (call) => call.name === "ask_clarification",
-          ),
         });
       }
       const reasoning = extractReasoningContentFromMessage(message);
@@ -843,7 +796,7 @@ function convertToSteps(messages: Message[]): CoTStep[] {
           messageId: message.id,
           type: "toolCall",
           name: tool_call.name,
-          args: toolDisplayRecord(tool_call.args),
+          args: tool_call.args,
         };
         const toolCallId = tool_call.id;
         if (toolCallId) {

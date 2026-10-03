@@ -161,7 +161,7 @@ export default function SetupPage() {
     return (
       <div className="bg-background flex min-h-screen items-center justify-center">
         <div className="absolute inset-0 z-0 bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat opacity-70" />
-        <div className="bg-background/70 absolute inset-0 z-0 backdrop-blur-sm" />
+        <div className="absolute inset-0 z-0 bg-background/70 backdrop-blur-sm" />
         <div className="border-border/20 bg-background/5 relative z-10 w-full max-w-md space-y-5 rounded-3xl border p-6 backdrop-blur-sm sm:space-y-6 sm:p-8">
           <div className="flex flex-col items-center text-center">
             <BrandLogo variant="full" priority className="h-12 w-auto" />
@@ -229,14 +229,16 @@ export default function SetupPage() {
   return (
     <div className="bg-background flex min-h-screen items-center justify-center">
       <div className="absolute inset-0 z-0 bg-[url('/images/workspace-bg-light.png')] bg-cover bg-center bg-no-repeat opacity-70" />
-      <div className="bg-background/70 absolute inset-0 z-0 backdrop-blur-sm" />
+      <div className="absolute inset-0 z-0 bg-background/70 backdrop-blur-sm" />
       <div className="border-border/20 bg-background/5 relative z-10 w-full max-w-md space-y-5 rounded-3xl border p-6 backdrop-blur-sm sm:space-y-6 sm:p-8">
         <div className="flex flex-col items-center text-center">
           <BrandLogo variant="full" priority className="h-12 w-auto" />
           <h1 className="text-foreground mt-5 text-xl font-semibold">
             {brand.shortName}
           </h1>
-          <p className="text-muted-foreground mt-2">完成管理员账号设置</p>
+          <p className="text-muted-foreground mt-2">
+            完成管理员账号设置
+          </p>
           <p className="text-muted-foreground mt-1 text-xs">
             请设置真实邮箱和新密码。
           </p>

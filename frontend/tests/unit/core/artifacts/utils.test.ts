@@ -137,12 +137,10 @@ describe("artifact URL helpers", () => {
       "/mnt/user-data/outputs/report.preview.pdf",
       "/mnt/user-data/outputs/report.pdf",
     ]);
-    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/metrics.xlsx")).toEqual(
-      [
-        "/mnt/user-data/outputs/metrics.preview.pdf",
-        "/mnt/user-data/outputs/metrics.pdf",
-      ],
-    );
+    expect(guessPreviewPdfPaths("/mnt/user-data/outputs/metrics.xlsx")).toEqual([
+      "/mnt/user-data/outputs/metrics.preview.pdf",
+      "/mnt/user-data/outputs/metrics.pdf",
+    ]);
     expect(guessPreviewPdfPaths("/mnt/user-data/outputs/notes.txt")).toEqual(
       [],
     );

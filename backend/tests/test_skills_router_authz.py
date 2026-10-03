@@ -56,7 +56,7 @@ def _make_app(*, system_role: str) -> FastAPI:
 # tenant's injected skill set.
 _GUARDED_ENDPOINTS = [
     ("post", "/api/skills/install", {"thread_id": "t1", "path": "mnt/user-data/outputs/x.skill"}),
-    # /skills/reload is still deferred: no matching endpoint exists in this baseline.
+    ("post", "/api/skills/reload", None),
     ("get", "/api/skills/custom/demo", None),
     ("put", "/api/skills/custom/demo", {"content": "---\nname: demo\ndescription: hijacked\n---\n"}),
     ("delete", "/api/skills/custom/demo", None),

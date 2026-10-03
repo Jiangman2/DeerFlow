@@ -8,8 +8,6 @@ required.
 
 from __future__ import annotations
 
-import re
-
 KNOWN_CHANNEL_COMMANDS: frozenset[str] = frozenset(
     {
         "/bootstrap",
@@ -23,26 +21,13 @@ KNOWN_CHANNEL_COMMANDS: frozenset[str] = frozenset(
 )
 
 
-_LEADING_MENTION = re.compile(r"(?:@[^\s<>@]+|<@!?[^\s<>|]+(?:\|[^\s<>]+)?>)")
-
-
-def strip_leading_mentions(text: str) -> str:
-    """Drop only complete, flush-leading platform mentions, not chat prefixes."""
-    while text and not text[0].isspace():
-        parts = text.split(maxsplit=1)
-        if not _LEADING_MENTION.fullmatch(parts[0]):
-            break
-        text = parts[1] if len(parts) == 2 else ""
-    return text
-
-
 def extract_connect_code(text: str) -> str | None:
     """Extract the one-time channel binding code from a connect command."""
-    parts = strip_leading_mentions(text.strip()).split()
+    parts = text.strip().split()
     if len(parts) < 2:
         return None
     command = parts[0].lower()
-    if command == "/connect":
+    if command in {"/connect", "connect"}:
         return parts[1]
     return None
 

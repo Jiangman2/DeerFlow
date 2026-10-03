@@ -6,7 +6,8 @@ export const CNOOC_EXTERNAL_AGENT_TARGETS = {
   dzsjtpzj: "https://datalake.cnooc/dzsjtpzj",
 } as const;
 
-export type CnoocExternalAgentKey = keyof typeof CNOOC_EXTERNAL_AGENT_TARGETS;
+export type CnoocExternalAgentKey =
+  keyof typeof CNOOC_EXTERNAL_AGENT_TARGETS;
 
 export function isCnoocExternalAgentKey(
   value: string,

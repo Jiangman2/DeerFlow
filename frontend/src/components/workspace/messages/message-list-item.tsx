@@ -525,11 +525,6 @@ function MessageContent_({
       <MarkdownContent
         content={markdownContentToDisplay}
         isLoading={isLoading}
-        streamingKey={
-          message.type === "ai" && message.id
-            ? `${threadId}/${message.id}`
-            : undefined
-        }
         rehypePlugins={rehypePlugins}
         className="my-3"
         components={components}

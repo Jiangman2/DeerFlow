@@ -3,7 +3,7 @@ import copy
 from contextlib import suppress
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, call
+from unittest.mock import AsyncMock, call
 
 import pytest
 from langchain_core.messages import AIMessage
@@ -15,7 +15,6 @@ from deerflow.runtime.runs.manager import ConflictError, RunManager
 from deerflow.runtime.runs.schemas import RunStatus
 from deerflow.runtime.runs.worker import (
     RunContext,
-    _acquire_gateway_sandbox_lease,
     _agent_factory_supports_app_config,
     _build_runtime_context,
     _bump_channel_version,
@@ -126,106 +125,6 @@ async def test_run_agent_threads_explicit_app_config_into_config_only_factory():
     assert fetched.status == RunStatus.success
     bridge.publish_end.assert_awaited_once_with(record.run_id)
     bridge.cleanup.assert_awaited_once_with(record.run_id, delay=60)
-
-
-@pytest.mark.anyio
-async def test_remote_gateway_run_holds_sandbox_lease_through_graph(monkeypatch):
-    from deerflow.runtime.runs import worker
-
-    provider = SimpleNamespace(
-        acquire_thread_execution_lease=MagicMock(return_value=("sandbox-1", "lease-1")),
-        release_execution_lease=MagicMock(),
-    )
-    monkeypatch.setattr(worker, "get_sandbox_provider", lambda: provider)
-    run_manager = RunManager()
-    record = await run_manager.create("thread-1")
-    bridge = SimpleNamespace(publish=AsyncMock(), publish_end=AsyncMock(), cleanup=AsyncMock())
-
-    class DummyAgent:
-        async def astream(self, graph_input, config=None, stream_mode=None, subgraphs=False):
-            provider.acquire_thread_execution_lease.assert_called_once_with("thread-1", user_id="user-1")
-            provider.release_execution_lease.assert_not_called()
-            yield {"messages": []}
-
-    await run_agent(
-        bridge,
-        run_manager,
-        record,
-        ctx=RunContext(
-            checkpointer=None,
-            app_config=SimpleNamespace(sandbox=SimpleNamespace(provisioner_url="http://provisioner:8002")),
-        ),
-        agent_factory=lambda config: DummyAgent(),
-        graph_input={},
-        config={"context": {"user_id": "user-1"}},
-    )
-
-    assert record.status == RunStatus.success
-    provider.release_execution_lease.assert_called_once_with("lease-1", "sandbox-1")
-
-
-@pytest.mark.anyio
-async def test_remote_gateway_run_releases_sandbox_lease_on_graph_error(monkeypatch):
-    from deerflow.runtime.runs import worker
-
-    provider = SimpleNamespace(
-        acquire_thread_execution_lease=MagicMock(return_value=("sandbox-1", "lease-1")),
-        release_execution_lease=MagicMock(),
-    )
-    monkeypatch.setattr(worker, "get_sandbox_provider", lambda: provider)
-    run_manager = RunManager()
-    record = await run_manager.create("thread-1")
-    bridge = SimpleNamespace(publish=AsyncMock(), publish_end=AsyncMock(), cleanup=AsyncMock())
-
-    class FailingAgent:
-        async def astream(self, graph_input, config=None, stream_mode=None, subgraphs=False):
-            raise RuntimeError("graph failed")
-            yield  # Make this an async iterator for the worker.
-
-    await run_agent(
-        bridge,
-        run_manager,
-        record,
-        ctx=RunContext(
-            checkpointer=None,
-            app_config=SimpleNamespace(sandbox=SimpleNamespace(provisioner_url="http://provisioner:8002")),
-        ),
-        agent_factory=lambda config: FailingAgent(),
-        graph_input={},
-        config={},
-    )
-
-    assert record.status == RunStatus.error
-    provider.release_execution_lease.assert_called_once_with("lease-1", "sandbox-1")
-
-
-@pytest.mark.anyio
-async def test_cancelled_gateway_lease_waiter_releases_late_acquisition():
-    import threading
-
-    started = threading.Event()
-    finish = threading.Event()
-
-    def acquire(thread_id, *, user_id):
-        started.set()
-        finish.wait(timeout=5)
-        return "sandbox-1", "lease-1"
-
-    provider = SimpleNamespace(
-        acquire_thread_execution_lease=acquire,
-        release_execution_lease=MagicMock(),
-    )
-    waiter = asyncio.create_task(_acquire_gateway_sandbox_lease(provider, "thread-1", "user-1"))
-    assert await asyncio.to_thread(started.wait, 5)
-    waiter.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await waiter
-    finish.set()
-    for _ in range(100):
-        if provider.release_execution_lease.called:
-            break
-        await asyncio.sleep(0.01)
-    provider.release_execution_lease.assert_called_once_with("lease-1", "sandbox-1")
 
 
 @pytest.mark.anyio
