@@ -76,16 +76,18 @@ export function MessageGroup({
   );
   const allSteps = useMemo(() => convertToSteps(messages), [messages]);
   const clarificationContextSteps = useMemo(
-    () => allSteps.filter(
-      (step): step is CoTAssistantTextStep =>
-        step.type === "assistantText" && Boolean(step.clarificationContext),
-    ),
+    () =>
+      allSteps.filter(
+        (step): step is CoTAssistantTextStep =>
+          step.type === "assistantText" && Boolean(step.clarificationContext),
+      ),
     [allSteps],
   );
   const steps = useMemo(
-    () => allSteps.filter(
-      (step) => step.type !== "assistantText" || !step.clarificationContext,
-    ),
+    () =>
+      allSteps.filter(
+        (step) => step.type !== "assistantText" || !step.clarificationContext,
+      ),
     [allSteps],
   );
   const debugStepByMessageId = useMemo(
@@ -269,6 +271,7 @@ export function MessageGroup({
         <MarkdownContent
           content={step.content}
           isLoading={isLoading}
+          streamingKey={`${threadId}/${step.messageId ?? step.id}/text`}
           rehypePlugins={rehypePlugins}
           components={threadMarkdownComponents}
         />
@@ -320,6 +323,7 @@ export function MessageGroup({
           className="mb-2 min-w-0"
           content={step.content}
           isLoading={isLoading}
+          streamingKey={`${threadId}/${step.messageId ?? step.id}/clarification`}
           rehypePlugins={rehypePlugins}
           components={threadMarkdownComponents}
         />
@@ -341,8 +345,8 @@ export function MessageGroup({
                   {showAbove
                     ? t.toolCalls.lessSteps
                     : t.toolCalls.moreSteps(
-                      collapsibleAboveLastToolCallSteps.length,
-                    )}
+                        collapsibleAboveLastToolCallSteps.length,
+                      )}
                 </span>
               }
               icon={
@@ -358,29 +362,29 @@ export function MessageGroup({
         )}
         {(lastToolCallStep ??
           steps.some((step) => step.type === "assistantText")) && (
-            <ChainOfThoughtContent className="px-4 pb-2">
-              {(lastToolCallStep
-                ? showAbove
-                  ? aboveLastToolCallSteps
-                  : aboveLastToolCallSteps.filter(
+          <ChainOfThoughtContent className="px-4 pb-2">
+            {(lastToolCallStep
+              ? showAbove
+                ? aboveLastToolCallSteps
+                : aboveLastToolCallSteps.filter(
                     (step) => step.type === "assistantText",
                   )
-                : steps.filter((step) => step.type === "assistantText")
-              ).flatMap(renderStep)}
-              {lastToolCallStep && (
-                <>
-                  {renderDebugSummary(
-                    lastToolCallStep.messageId,
-                    steps.indexOf(lastToolCallStep),
-                  )}
-                  <FlipDisplay uniqueKey={lastToolCallStep.id ?? ""}>
-                    {renderToolCall(lastToolCallStep)}
-                  </FlipDisplay>
-                  {afterLastToolCallAssistantTextSteps.flatMap(renderStep)}
-                </>
-              )}
-            </ChainOfThoughtContent>
-          )}
+              : steps.filter((step) => step.type === "assistantText")
+            ).flatMap(renderStep)}
+            {lastToolCallStep && (
+              <>
+                {renderDebugSummary(
+                  lastToolCallStep.messageId,
+                  steps.indexOf(lastToolCallStep),
+                )}
+                <FlipDisplay uniqueKey={lastToolCallStep.id ?? ""}>
+                  {renderToolCall(lastToolCallStep)}
+                </FlipDisplay>
+                {afterLastToolCallAssistantTextSteps.flatMap(renderStep)}
+              </>
+            )}
+          </ChainOfThoughtContent>
+        )}
         {lastReasoningStep && (
           <>
             {renderDebugSummary(
@@ -403,8 +407,8 @@ export function MessageGroup({
                         debugStep: lastReasoningDebugStep,
                         toolCallCount: lastReasoningStep.messageId
                           ? (toolCallCountByMessageId.get(
-                            lastReasoningStep.messageId,
-                          ) ?? 0)
+                              lastReasoningStep.messageId,
+                            ) ?? 0)
                           : 0,
                         enabled: showTokenDebugSummaries,
                         thinkingLabel: t.common.thinking,
@@ -550,7 +554,11 @@ function ToolCall({
               if (!title && !url) return null;
               return (
                 <ChainOfThoughtSearchResult key={`${url ?? "source"}-${index}`}>
-                  <ToolResultLink href={url} threadId={threadId} previewLabel={t.common.preview}>
+                  <ToolResultLink
+                    href={url}
+                    threadId={threadId}
+                    previewLabel={t.common.preview}
+                  >
                     {title ?? url}
                   </ToolResultLink>
                 </ChainOfThoughtSearchResult>

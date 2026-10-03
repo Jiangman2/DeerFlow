@@ -351,6 +351,19 @@ access to sidecars created before the metadata rename.
 
 ### Key Patterns
 
+Live assistant Markdown opts into `core/streamdown/use-smooth-streaming-text.ts`
+with a thread/message `streamingKey`. Preserve the existing deferred scheduling
+and 50 ms reveal cadence, but do not impose a minimum 64-character display batch.
+The presentation buffer reveals small incoming batches within a 300 ms window
+without restarting pending frames or extending the deadline, and bounds animated
+tails to 256 UTF-16 units with grapheme-safe boundaries when supported. Initial
+hydration, identity changes, replacement, stop/completion, hidden tabs and
+reduced-motion preferences show all received text immediately. Never defer a
+different message's snapshot across a thread/key change. Keep raw SDK/history/
+copy state, tool/file/error state, Markdown security, history virtualization,
+stable group/usage references, and Redis/SSE publication unchanged. Cancel timers
+and media/visibility listeners on unmount.
+
 - **Server Components by default**, `"use client"` only for interactive components
 - **Thread hooks** (`useThreadStream`, `useSubmitThread`, `useThreads`) are the primary API interface
 - **LangGraph client** is a singleton obtained via `getAPIClient()` in `core/api/`
