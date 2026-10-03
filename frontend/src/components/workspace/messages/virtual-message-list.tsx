@@ -91,7 +91,7 @@ export function VirtualMessageList({
       finishRestoration = resolve;
     });
     // Keep one scroll owner while estimated rows become measured rows. Native
-    // scrollTop writes bypass the stick-to-bottom hook\'s resize/escape tracking.
+    // scrollTop writes bypass the stick-to-bottom hook's resize/escape tracking.
     void scrollToBottom({ animation: "instant", duration: restorationFinished });
     const cancelRestoration = () => {
       cancelled = true;
