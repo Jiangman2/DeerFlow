@@ -83,7 +83,9 @@ test.describe("Thread list infinite scroll (issue #3482)", () => {
     // observer and never interferes with routing.
     let searchRequestCount = 0;
     page.on("request", (request) => {
-      if (/\/api\/(?:langgraph\/)?threads\/search(?:\?|$)/.test(request.url())) {
+      if (
+        /\/api\/(?:langgraph\/)?threads\/search(?:\?|$)/.test(request.url())
+      ) {
         searchRequestCount += 1;
       }
     });

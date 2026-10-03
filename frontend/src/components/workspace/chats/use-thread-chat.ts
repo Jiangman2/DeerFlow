@@ -7,7 +7,8 @@ import { isStaticDemoThreadId } from "@/core/threads/static-demo";
 import { uuid } from "@/core/utils/uuid";
 
 export const THREAD_CHAT_RESET_EVENT = "platform:thread-chat-reset";
-export const THREAD_CHAT_ROUTE_CHANGE_EVENT = "platform:thread-chat-route-change";
+export const THREAD_CHAT_ROUTE_CHANGE_EVENT =
+  "platform:thread-chat-route-change";
 
 type ThreadChatResetDetail = {
   deletedThreadId: string;
@@ -62,10 +63,7 @@ export function useThreadChat() {
         setNativePathname(nextPathname);
       }
     };
-    window.addEventListener(
-      THREAD_CHAT_ROUTE_CHANGE_EVENT,
-      handleRouteChange,
-    );
+    window.addEventListener(THREAD_CHAT_ROUTE_CHANGE_EVENT, handleRouteChange);
     return () =>
       window.removeEventListener(
         THREAD_CHAT_ROUTE_CHANGE_EVENT,

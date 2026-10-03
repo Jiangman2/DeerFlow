@@ -26,27 +26,27 @@ test.describe("Chat workspace", () => {
   });
 
   const pptRoutes = [
-      {
-        id: "generate",
-        prompt:
-          "/ppt-master Create a high-quality 5-slide presentation about [topic].",
-      },
-      {
-        id: "create-template",
-        prompt:
-          "/ppt-master Convert my uploaded PPTX into a reusable Deck template workspace.",
-      },
-      {
-        id: "fill-native",
-        prompt:
-          "/ppt-master Use my uploaded PPTX template, preserve its native master, layouts, and slide structure, and replace the content with [topic].",
-      },
-      {
-        id: "enhance-native",
-        prompt:
-          "/ppt-master Keep my uploaded PPTX's visible content and design unchanged, and add speaker notes, narration, auto-advance timings, and slide transitions.",
-      },
-    ] as const;
+    {
+      id: "generate",
+      prompt:
+        "/ppt-master Create a high-quality 5-slide presentation about [topic].",
+    },
+    {
+      id: "create-template",
+      prompt:
+        "/ppt-master Convert my uploaded PPTX into a reusable Deck template workspace.",
+    },
+    {
+      id: "fill-native",
+      prompt:
+        "/ppt-master Use my uploaded PPTX template, preserve its native master, layouts, and slide structure, and replace the content with [topic].",
+    },
+    {
+      id: "enhance-native",
+      prompt:
+        "/ppt-master Keep my uploaded PPTX's visible content and design unchanged, and add speaker notes, narration, auto-advance timings, and slide transitions.",
+    },
+  ] as const;
 
   for (const route of pptRoutes) {
     test(`fills the ${route.id} ppt-master shortcut`, async ({ page }) => {

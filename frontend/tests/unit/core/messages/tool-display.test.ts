@@ -23,11 +23,24 @@ describe("untrusted tool display values", () => {
   });
 
   it.each([
-    undefined, null, {}, [], 7, "", "/api/files", "//example.com",
-    "javascript:alert(1)", "file:///etc/passwd", "vscode://file/etc/passwd",
-    "ms-msdt:/id PCWDiagnostic", "data:text/html,test", "https://",
-    "https://user:password@example.com", "https://safe.example\\@evil.example",
-    "https://safe.example\n/path", "https://safe.example\u0000/path",
+    undefined,
+    null,
+    {},
+    [],
+    7,
+    "",
+    "/api/files",
+    "//example.com",
+    "javascript:alert(1)",
+    "file:///etc/passwd",
+    "vscode://file/etc/passwd",
+    "ms-msdt:/id PCWDiagnostic",
+    "data:text/html,test",
+    "https://",
+    "https://user:password@example.com",
+    "https://safe.example\\@evil.example",
+    "https://safe.example\n/path",
+    "https://safe.example\u0000/path",
   ])("does not navigate an unsafe or malformed URL %s", (value) => {
     expect(toolWebHref(value)).toBeNull();
   });

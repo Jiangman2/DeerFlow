@@ -18,7 +18,6 @@ from deerflow.agents.middlewares._bounded_dict import BoundedDict
 from deerflow.run_timing import atime_middleware_after_agent, log_run_timing, time_middleware_after_agent
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
 
-
 logger = logging.getLogger(__name__)
 
 _RECOVERY_PROMPT = "<system_reminder>\n你在工具执行后的上一条回复为空。请检查对话中已有的工具结果，并给出简洁、用户可见的简体中文最终回复。除非确有必要，否则不要再次调用工具。\n</system_reminder>"

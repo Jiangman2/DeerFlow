@@ -7,8 +7,6 @@ stay in Gateway. Numeric receipts reuse RunEventStore, never a parallel invoice.
 from __future__ import annotations
 
 import asyncio
-from contextlib import contextmanager
-from types import SimpleNamespace
 import base64
 import hashlib
 import hmac
@@ -18,6 +16,8 @@ import os
 import socket
 import time
 import uuid
+from contextlib import contextmanager
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException, Request

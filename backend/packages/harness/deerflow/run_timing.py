@@ -21,7 +21,6 @@ from typing import Any, Final
 
 from deerflow.llm_timing_context import get_current_llm_timing_context
 
-
 RUN_TIMING_LOGS_ENV: Final[str] = "DEERFLOW_RUN_TIMING_LOGS"
 CHECKPOINT_TIMING_SLOW_MS_ENV: Final[str] = "DEERFLOW_CHECKPOINTER_TIMING_SLOW_MS"
 CHECKPOINT_DB_SESSION_LABELS_ENV: Final[str] = "DEERFLOW_CHECKPOINTER_DB_SESSION_LABELS"

@@ -25,8 +25,8 @@ from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from deerflow.utils.messages import message_content_to_text
 
-from .status_contract import normalize_token_usage
 from .ppt_usage_observation import observed_session_usage
+from .status_contract import normalize_token_usage
 
 #: Default per-step character cap for the ``text`` field. Tool outputs (web
 #: search results, file contents) can be large; this cap bounds the persisted

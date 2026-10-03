@@ -92,7 +92,10 @@ export function VirtualMessageList({
     });
     // Keep one scroll owner while estimated rows become measured rows. Native
     // scrollTop writes bypass the stick-to-bottom hook's resize/escape tracking.
-    void scrollToBottom({ animation: "instant", duration: restorationFinished });
+    void scrollToBottom({
+      animation: "instant",
+      duration: restorationFinished,
+    });
     const cancelRestoration = () => {
       cancelled = true;
       positionedInitialVirtualWindowRef.current = true;
@@ -104,7 +107,10 @@ export function VirtualMessageList({
       if (cancelled) return;
       // scrollToIndex uses estimates for rows outside the virtual window.
       // Anchor to the real scroll extent while the final rows are measured.
-      state.scrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+      state.scrollTop = Math.max(
+        0,
+        element.scrollHeight - element.clientHeight,
+      );
       const height = element.scrollHeight;
       const lastRow = virtualizer.getVirtualItems().at(-1);
       stableFrames =
@@ -121,7 +127,9 @@ export function VirtualMessageList({
       frame = requestAnimationFrame(restoreBottom);
     };
     element.addEventListener("wheel", cancelRestoration, { passive: true });
-    element.addEventListener("touchstart", cancelRestoration, { passive: true });
+    element.addEventListener("touchstart", cancelRestoration, {
+      passive: true,
+    });
     restoreBottom();
     return () => {
       cancelled = true;
@@ -213,7 +221,7 @@ export function VirtualMessageList({
             key={virtualRow.key}
             ref={virtualizer.measureElement}
             data-index={virtualRow.index}
-            className="absolute top-0 left-0 w-full pb-8"
+            className="absolute left-0 top-0 w-full pb-8"
             style={{ transform: `translateY(${virtualRow.start}px)` }}
           >
             {renderGroup(group, virtualRow.index)}

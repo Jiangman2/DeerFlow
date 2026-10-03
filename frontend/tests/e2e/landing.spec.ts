@@ -7,7 +7,9 @@ test.describe("Enterprise entry page", () => {
     mockLangGraphAPI(page);
   });
 
-  test("opens a ready workspace composer from the root URL", async ({ page }) => {
+  test("opens a ready workspace composer from the root URL", async ({
+    page,
+  }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/workspace\/chats\/new$/);
     await expect(page.getByTestId("welcome-panel")).toBeVisible();

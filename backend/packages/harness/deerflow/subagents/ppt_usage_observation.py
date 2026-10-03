@@ -1,6 +1,7 @@
 """Fixed metadata only; never a billing or model callback."""
-from typing import Any
 import re
+from typing import Any
+
 
 def observed_session_usage(payload: dict[str, Any]) -> dict[str, Any] | None:
     """Only fixed, reported root/Worker metadata; never journal/billing input."""

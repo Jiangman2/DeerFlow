@@ -384,7 +384,9 @@ test.describe("mobile WebView workspace", () => {
     // Measure after the dialog's zoom transition, not different animation
     // frames in parallel bounding-box calls.
     await dialog.evaluate(async (element) => {
-      await Promise.all(element.getAnimations().map((animation) => animation.finished));
+      await Promise.all(
+        element.getAnimations().map((animation) => animation.finished),
+      );
     });
     const [dialogBox, frameBox, headerBox, navigationBox, contentBox] =
       await Promise.all([
@@ -511,7 +513,9 @@ test.describe("mobile WebView workspace", () => {
     await expectNoPageOverflow(page, 320);
 
     await page.goto("/workspace/agents", { waitUntil: "domcontentloaded" });
-    await page.getByRole("tab", { name: "My digital employees", exact: true }).click();
+    await page
+      .getByRole("tab", { name: "My digital employees", exact: true })
+      .click();
     await expect(page.getByText("mobile-agent")).toBeVisible({
       timeout: 15_000,
     });

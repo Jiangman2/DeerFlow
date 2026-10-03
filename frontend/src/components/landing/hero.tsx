@@ -10,12 +10,7 @@ import { AuroraText } from "@/components/ui/aurora-text";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const HERO_WORDS = [
-  "深度研究",
-  "专业报告",
-  "数据分析",
-  "智能办公",
-];
+const HERO_WORDS = ["深度研究", "专业报告", "数据分析", "智能办公"];
 
 export function Hero({ className }: { className?: string }) {
   return (
@@ -26,12 +21,12 @@ export function Hero({ className }: { className?: string }) {
       )}
     >
       <div className="absolute inset-0 bg-[url('/images/home-bg-light.png')] bg-cover bg-center bg-no-repeat" />
-      <div className="absolute inset-0 bg-linear-to-b from-white/72 via-white/34 to-white/62" />
-      <div className="container-md relative z-10 mx-auto flex min-h-svh flex-col items-center justify-center px-5 pt-24 pb-16 sm:px-8">
-        <h1 className="max-w-6xl text-center text-4xl leading-[1.15] font-bold tracking-tight break-words text-slate-950 sm:text-5xl md:text-6xl lg:text-7xl">
+      <div className="bg-linear-to-b from-white/72 via-white/34 to-white/62 absolute inset-0" />
+      <div className="container-md relative z-10 mx-auto flex min-h-svh flex-col items-center justify-center px-5 pb-16 pt-24 sm:px-8">
+        <h1 className="max-w-6xl break-words text-center text-4xl font-bold leading-[1.15] tracking-tight text-slate-950 sm:text-5xl md:text-6xl lg:text-7xl">
           {brand.productName}
         </h1>
-        <div className="mt-5 flex w-full max-w-5xl min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xl font-semibold sm:text-2xl md:text-4xl">
+        <div className="mt-5 flex w-full min-w-0 max-w-5xl flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xl font-semibold sm:text-2xl md:text-4xl">
           <HeroWordRotate words={HERO_WORDS} />
           <span className="whitespace-nowrap text-slate-900">
             多智能体业务工作平台
@@ -42,7 +37,7 @@ export function Hero({ className }: { className?: string }) {
         </p>
         <Link href="/api/v1/auth/iam/login?next=/workspace/chats/new">
           <Button
-            className="mt-9 h-12 rounded-xl border border-[#07569f] bg-[#0868bd] px-7 text-white shadow-[0_8px_20px_rgba(8,104,189,0.24)] hover:-translate-y-0.5 hover:bg-[#075aa5] hover:shadow-[0_12px_26px_rgba(8,104,189,0.3)] active:translate-y-0 active:bg-[#064c8c] focus-visible:ring-[#0868bd]/35"
+            className="mt-9 h-12 rounded-xl border border-[#07569f] bg-[#0868bd] px-7 text-white shadow-[0_8px_20px_rgba(8,104,189,0.24)] hover:-translate-y-0.5 hover:bg-[#075aa5] hover:shadow-[0_12px_26px_rgba(8,104,189,0.3)] focus-visible:ring-[#0868bd]/35 active:translate-y-0 active:bg-[#064c8c]"
             size="lg"
           >
             <span className="text-md">开始使用</span>
@@ -72,7 +67,7 @@ function HeroWordRotate({
   }, [words, duration]);
 
   return (
-    <div className="relative max-w-full min-w-0 overflow-hidden py-2">
+    <div className="relative min-w-0 max-w-full overflow-hidden py-2">
       <AnimatePresence mode="popLayout">
         <motion.div
           key={index}
@@ -83,7 +78,7 @@ function HeroWordRotate({
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
           <AuroraText
-            className="max-w-full [overflow-wrap:anywhere] whitespace-normal"
+            className="max-w-full whitespace-normal [overflow-wrap:anywhere]"
             speed={3}
             colors={["#07569f", "#1687c9", "#35a7c9"]}
           >

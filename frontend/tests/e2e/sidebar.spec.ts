@@ -52,7 +52,9 @@ test.describe("Sidebar navigation", () => {
     await expect(sidebar.locator("a[href='/workspace/agents']")).toHaveCount(0);
 
     // The disabled Agents button is rendered and announces its disabled state.
-    const agentsButton = sidebar.getByRole("button", { name: "Digital Employees" });
+    const agentsButton = sidebar.getByRole("button", {
+      name: "Digital Employees",
+    });
     await expect(agentsButton).toHaveAttribute("aria-disabled", "true");
 
     // The button itself has pointer-events suppressed; force the hover so the

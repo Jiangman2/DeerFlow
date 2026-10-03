@@ -8,7 +8,10 @@ import {
   useState,
 } from "react";
 
-import { mergePptUsageObservation, type PptUsageCarrier } from "./ppt-usage-observation";
+import {
+  mergePptUsageObservation,
+  type PptUsageCarrier,
+} from "./ppt-usage-observation";
 import { computeNextSubtask, subtaskNotification } from "./subtask-update";
 import type { Subtask } from "./types";
 
@@ -56,10 +59,7 @@ function ScopedSubtasksProvider({
     // conversation, not a thread switch; preserve its live task timeline
     // across that identity handoff. A real existing->new or existing->existing
     // transition still clears the old conversation before paint.
-    if (
-      previousScopeKeyRef.current === "new" &&
-      scopeKey !== "new"
-    ) {
+    if (previousScopeKeyRef.current === "new" && scopeKey !== "new") {
       previousScopeKeyRef.current = scopeKey;
       return;
     }
@@ -135,7 +135,11 @@ export function useUpdateSubtask() {
         task,
       );
 
-      const observationTransition = mergePptUsageObservation(current[task.id], next, task);
+      const observationTransition = mergePptUsageObservation(
+        current[task.id],
+        next,
+        task,
+      );
       const observationChanged = observationTransition.changed;
       current[task.id] = observationTransition.next;
 
@@ -146,7 +150,9 @@ export function useUpdateSubtask() {
       // terminal transition through the deferred (after-render) path and skips
       // no-op re-parses entirely.
       const notify = observationChanged
-        ? (becameTerminal || (task.status && task.status !== "in_progress") ? "deferred" : "eager")
+        ? becameTerminal || (task.status && task.status !== "in_progress")
+          ? "deferred"
+          : "eager"
         : subtaskNotification(task, { becameTerminal, changed });
       if (options?.eager && (changed || observationChanged)) {
         setTasks({ ...current });

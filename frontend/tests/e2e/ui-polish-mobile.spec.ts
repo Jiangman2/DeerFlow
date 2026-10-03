@@ -17,7 +17,9 @@ test.describe("UI polish mobile regressions", () => {
     await page.locator(".cnooc-mobile-menu-trigger").click();
 
     await expect(page.getByRole("link", { name: /new chat/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /digital employees/i })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /digital employees/i }),
+    ).toBeVisible();
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
       .toBeLessThanOrEqual(375);

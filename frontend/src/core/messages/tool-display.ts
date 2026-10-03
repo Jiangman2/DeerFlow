@@ -17,7 +17,8 @@ export function toolWebHref(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const href = value.trim();
   const hasControlOrBackslash = [...href].some(
-    (char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127 || char === "\\",
+    (char) =>
+      char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127 || char === "\\",
   );
   if (!/^https?:\/\//i.test(href) || hasControlOrBackslash) {
     return null;
@@ -25,7 +26,9 @@ export function toolWebHref(value: unknown): string | null {
   try {
     const url = new URL(href);
     return (url.protocol === "http:" || url.protocol === "https:") &&
-      url.hostname && !url.username && !url.password
+      url.hostname &&
+      !url.username &&
+      !url.password
       ? href
       : null;
   } catch {

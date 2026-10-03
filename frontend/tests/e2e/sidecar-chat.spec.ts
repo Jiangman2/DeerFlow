@@ -325,7 +325,11 @@ async function expectSidecarScrollDoesNotAnimateAfterOpen(page: Page) {
 async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
   await page.evaluate(() => {
     const targetWindow = window as Window & {
-      __sidecarScrollSamples?: Array<{ top: number; height: number; viewport: number }>;
+      __sidecarScrollSamples?: Array<{
+        top: number;
+        height: number;
+        viewport: number;
+      }>;
       __sidecarScrollListener?: (event: Event) => void;
     };
     if (targetWindow.__sidecarScrollListener) {
@@ -375,16 +379,30 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
     });
   }
 
-  await expect.poll(() => page.evaluate(() => {
-    const list = document.querySelector('[data-testid="sidecar-message-list"]');
-    const scroller = list?.firstElementChild;
-    if (!(scroller instanceof HTMLElement)) return null;
-    return Math.abs(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop);
-  }), { timeout: 5_000 }).toBeLessThanOrEqual(1);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const list = document.querySelector(
+            '[data-testid="sidecar-message-list"]',
+          );
+          const scroller = list?.firstElementChild;
+          if (!(scroller instanceof HTMLElement)) return null;
+          return Math.abs(
+            scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop,
+          );
+        }),
+      { timeout: 5_000 },
+    )
+    .toBeLessThanOrEqual(1);
 
   const { scrollSamples, panelTransforms } = await page.evaluate(() => {
     const targetWindow = window as Window & {
-      __sidecarScrollSamples?: Array<{ top: number; height: number; viewport: number }>;
+      __sidecarScrollSamples?: Array<{
+        top: number;
+        height: number;
+        viewport: number;
+      }>;
       __sidecarScrollListener?: (event: Event) => void;
       __sidecarPanelTransforms?: string[];
     };
@@ -444,7 +462,9 @@ test.describe("Side chat", () => {
     await page.addInitScript(() => {
       localStorage.setItem(
         "platform.local-settings",
-        JSON.stringify({ context: { mode: "pro", model_name: "deepseek-v4-pro" } }),
+        JSON.stringify({
+          context: { mode: "pro", model_name: "deepseek-v4-pro" },
+        }),
       );
     });
     const parentMessages = [

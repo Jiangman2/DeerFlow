@@ -27,8 +27,8 @@ from langgraph.types import Command
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
 from deerflow.agents.thread_state import SkillWorkflowEvidence, SkillWorkflowState, ThreadState
-from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
 from deerflow.run_timing import log_run_timing, time_middleware_after_agent
+from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
 
 logger = logging.getLogger(__name__)
 

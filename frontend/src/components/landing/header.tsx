@@ -21,7 +21,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
   return (
     <header
       className={cn(
-        "container-md fixed top-0 right-0 left-0 z-20 mx-auto flex h-20 items-center justify-between gap-3 bg-white/45 px-5 backdrop-blur-md sm:px-8",
+        "container-md fixed left-0 right-0 top-0 z-20 mx-auto flex h-20 items-center justify-between gap-3 bg-white/45 px-5 backdrop-blur-md sm:px-8",
         className,
       )}
     >
@@ -30,7 +30,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
           href={homeURL ?? brand.links.home}
           target={isExternalHome ? "_blank" : "_self"}
           rel={isExternalHome ? "noopener noreferrer" : undefined}
-          className="flex min-w-0 items-center font-serif text-xl whitespace-nowrap"
+          className="flex min-w-0 items-center whitespace-nowrap font-serif text-xl"
         >
           <BrandLogo
             variant="full"
@@ -50,7 +50,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
         </Button>
         <Button
           size="sm"
-          className="h-9 rounded-lg border border-[#07569f] bg-[#0868bd] px-4 text-white shadow-[0_5px_14px_rgba(8,104,189,0.22)] hover:-translate-y-px hover:bg-[#075aa5] hover:shadow-[0_7px_18px_rgba(8,104,189,0.28)] active:translate-y-0 active:bg-[#064c8c] focus-visible:ring-[#0868bd]/30"
+          className="h-9 rounded-lg border border-[#07569f] bg-[#0868bd] px-4 text-white shadow-[0_5px_14px_rgba(8,104,189,0.22)] hover:-translate-y-px hover:bg-[#075aa5] hover:shadow-[0_7px_18px_rgba(8,104,189,0.28)] focus-visible:ring-[#0868bd]/30 active:translate-y-0 active:bg-[#064c8c]"
           asChild
         >
           <Link href={brand.links.login}>{t.sidebar.newChat}</Link>
@@ -62,7 +62,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
           { href: brand.links.login, label: t.sidebar.newChat },
         ]}
       />
-      <hr className="from-border/0 via-border/45 to-border/0 absolute right-0 bottom-0 left-0 z-10 m-0 h-px w-full border-none bg-linear-to-r" />
+      <hr className="from-border/0 via-border/45 to-border/0 bg-linear-to-r absolute bottom-0 left-0 right-0 z-10 m-0 h-px w-full border-none" />
     </header>
   );
 }

@@ -120,7 +120,9 @@ test.describe("IM channels", () => {
     await expect(page.getByText("Telegram direct messages")).toBeVisible();
     await expect(page.getByText("Slack workspace messages")).toBeVisible();
     await expect(page.getByText("Discord server messages")).toBeVisible();
-    await expect(page.getByText("Messages through your 海能 Work app.")).toBeVisible();
+    await expect(
+      page.getByText("Messages through your 海能 Work app."),
+    ).toBeVisible();
     await expect(page.getByText("DingTalk Stream Push messages")).toBeVisible();
     await expect(page.getByText("WeChat iLink messages")).toBeVisible();
     await expect(page.getByText("WeCom messages")).toBeVisible();
@@ -439,7 +441,9 @@ test.describe("IM channels", () => {
     await page.goto("/workspace/chats/new");
 
     const sidebar = page.locator("[data-sidebar='sidebar']");
-    await expect(sidebar.getByText("海能 Work")).toBeVisible({ timeout: 15_000 });
+    await expect(sidebar.getByText("海能 Work")).toBeVisible({
+      timeout: 15_000,
+    });
     await sidebar.getByRole("button", { name: "Connected" }).click();
 
     const setupDialog = page.getByRole("dialog", { name: "Modify 海能 Work" });

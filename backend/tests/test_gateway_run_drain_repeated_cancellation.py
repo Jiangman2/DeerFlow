@@ -7,8 +7,6 @@ import asyncio
 import pytest
 
 
-
-
 @pytest.mark.asyncio
 async def test_run_drain_logs_failure_and_returns_without_cancellation(caplog) -> None:
     """A drain failure alone keeps the helper's existing best-effort contract."""

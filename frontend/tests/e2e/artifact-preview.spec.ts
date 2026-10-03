@@ -541,7 +541,8 @@ test.describe("Artifact preview stability", () => {
       ),
     );
     const galleryRequest = page.waitForRequest(
-      (request) => request.method() === "GET" &&
+      (request) =>
+        request.method() === "GET" &&
         decodeURIComponent(new URL(request.url()).pathname) ===
           `/api/threads/${PRESENTED_PPTX_THREAD_ID}/artifact-previews/pdf${PRESENTED_PPTX_PREVIEW_PATH}`,
     );
@@ -551,7 +552,9 @@ test.describe("Artifact preview stability", () => {
       .locator("#artifacts")
       .locator('iframe[title="Artifact preview"]');
     await expect(previewFrame).toBeVisible();
-    expect(decodeURIComponent((await galleryRequest).url())).toContain(PRESENTED_PPTX_PREVIEW_PATH);
+    expect(decodeURIComponent((await galleryRequest).url())).toContain(
+      PRESENTED_PPTX_PREVIEW_PATH,
+    );
     await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
     await expect(previewFrame).toHaveAttribute("sandbox", "");
     await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
@@ -634,7 +637,8 @@ test.describe("Artifact preview stability", () => {
 
     await page.goto(`/workspace/chats/${PRESENTED_PDF_THREAD_ID}`);
     const galleryRequest = page.waitForRequest(
-      (request) => request.method() === "GET" &&
+      (request) =>
+        request.method() === "GET" &&
         decodeURIComponent(new URL(request.url()).pathname) ===
           `/api/threads/${PRESENTED_PDF_THREAD_ID}/artifact-previews/pdf${PRESENTED_PDF_PATH}`,
     );
@@ -646,7 +650,9 @@ test.describe("Artifact preview stability", () => {
     );
     await expect(artifactsPanel).toBeVisible();
     await expect(previewFrame).toBeVisible();
-    expect(decodeURIComponent((await galleryRequest).url())).toContain(PRESENTED_PDF_PATH);
+    expect(decodeURIComponent((await galleryRequest).url())).toContain(
+      PRESENTED_PDF_PATH,
+    );
     await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
     await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
     await expect(previewFrame).toHaveAttribute("sandbox", "");
@@ -716,7 +722,8 @@ test.describe("Artifact preview stability", () => {
     });
 
     const galleryRequest = page.waitForRequest(
-      (request) => request.method() === "GET" &&
+      (request) =>
+        request.method() === "GET" &&
         decodeURIComponent(new URL(request.url()).pathname) ===
           `/api/threads/${PRESENTED_DOCX_THREAD_ID}/artifact-previews/pdf${PRESENTED_DOCX_PREVIEW_PATH}`,
     );
@@ -739,7 +746,9 @@ test.describe("Artifact preview stability", () => {
     await expect(
       artifactsPanel.getByText("Loading preview pages...", { exact: true }),
     ).toHaveCount(0);
-    expect(decodeURIComponent((await galleryRequest).url())).toContain(PRESENTED_DOCX_PREVIEW_PATH);
+    expect(decodeURIComponent((await galleryRequest).url())).toContain(
+      PRESENTED_DOCX_PREVIEW_PATH,
+    );
     await expect(previewFrame).toHaveAttribute("srcdoc", /PDF page/);
     await expect(previewFrame).toHaveAttribute("sandbox", "");
     await expect(previewFrame).toHaveAttribute("referrerpolicy", "no-referrer");
@@ -848,14 +857,16 @@ test.describe("Artifact preview stability", () => {
 
     await page.route(
       `**/api/threads/${transientThreadId}/artifact-previews/pdf${transientPreview}`,
-      (route) => route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: '<!doctype html><html><body><main><img alt="PDF page"></main></body></html>',
-      }),
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "text/html",
+          body: '<!doctype html><html><body><main><img alt="PDF page"></main></body></html>',
+        }),
     );
     const galleryRequest = page.waitForRequest(
-      (request) => request.method() === "GET" &&
+      (request) =>
+        request.method() === "GET" &&
         decodeURIComponent(new URL(request.url()).pathname) ===
           `/api/threads/${transientThreadId}/artifact-previews/pdf${transientPreview}`,
     );

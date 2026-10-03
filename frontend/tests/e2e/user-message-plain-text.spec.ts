@@ -113,7 +113,9 @@ test.describe("User message plain-text rendering", () => {
     // The capped blockquote chain still renders (100 levels of indentation can
     // squeeze the innermost element to zero width, so assert presence, not
     // visibility).
-    await expect(page.getByTestId("main-message-list").getByText("deep", { exact: true })).toBeAttached();
+    await expect(
+      page.getByTestId("main-message-list").getByText("deep", { exact: true }),
+    ).toBeAttached();
   });
 
   test("list-prefixed deep nesting in an AI message falls back to plain text instead of crashing", async ({
