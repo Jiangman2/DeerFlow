@@ -72,12 +72,10 @@ export function useThreadChat() {
         handleRouteChange,
       );
   }, []);
-  const effectivePathname =
-    typeof window === "undefined"
-      ? pathname
-      : nativePathname && window.location.pathname === nativePathname
-        ? nativePathname
-        : pathname;
+  // Also honor an explicit delete reset before its router transition commits.
+  // A native first-run URL replacement can leave Next on /new already, making
+  // that router transition a no-op; its local override must be reset as well.
+  const effectivePathname = nativePathname ?? pathname;
   const pathThreadId =
     effectivePathname.split("/").filter(Boolean).at(-1) ?? threadIdFromPath;
   const isNewPath = pathThreadId === "new";
@@ -141,6 +139,7 @@ export function useThreadChat() {
       // URL replacement is owned by the caller's Next router action; this hook
       // only resets local chat state so the router state and browser URL stay
       // in sync.
+      setNativePathname(detail.nextPath);
       resetToNewThread();
     };
 

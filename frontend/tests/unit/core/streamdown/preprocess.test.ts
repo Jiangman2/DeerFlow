@@ -15,19 +15,19 @@ test("capBlockquoteNesting returns normal content unchanged", () => {
 });
 
 test("capBlockquoteNesting keeps nesting at or below the cap untouched", () => {
-  const input = "> ".repeat(100) + "hi";
+  const input = "> ".repeat(16) + "hi";
   expect(capBlockquoteNesting(input)).toBe(input);
 });
 
 test("capBlockquoteNesting caps pathological nesting and preserves content", () => {
   const result = capBlockquoteNesting("> ".repeat(5000) + "hi");
-  expect((result.match(/>/g) ?? []).length).toBe(100);
+  expect((result.match(/>/g) ?? []).length).toBe(16);
   expect(result.endsWith("hi")).toBe(true);
 });
 
 test("capBlockquoteNesting handles markers without spaces", () => {
   const result = capBlockquoteNesting(">".repeat(5000) + "hi");
-  expect((result.match(/>/g) ?? []).length).toBe(100);
+  expect((result.match(/>/g) ?? []).length).toBe(16);
   expect(result.endsWith("hi")).toBe(true);
 });
 
@@ -51,7 +51,7 @@ test("capBlockquoteNesting only rewrites pathological lines", () => {
   const result = capBlockquoteNesting(`${normal}\n${deep}\nplain`);
   const lines = result.split("\n");
   expect(lines[0]).toBe(normal);
-  expect((lines[1]?.match(/>/g) ?? []).length).toBe(100);
+  expect((lines[1]?.match(/>/g) ?? []).length).toBe(16);
   expect(lines[2]).toBe("plain");
 });
 
@@ -98,7 +98,7 @@ test("capMarkdownNesting caps both blockquote and list nesting", () => {
   const input = `${"> ".repeat(3000)}quote\n${" ".repeat(500)}- item`;
   const result = capMarkdownNesting(input);
   const lines = result.split("\n");
-  expect((lines[0]?.match(/>/g) ?? []).length).toBe(100);
+  expect((lines[0]?.match(/>/g) ?? []).length).toBe(16);
   expect(/^[ \t]*/.exec(lines[1]!)![0].length).toBe(200);
 });
 

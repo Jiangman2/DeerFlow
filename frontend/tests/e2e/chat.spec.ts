@@ -25,16 +25,7 @@ test.describe("Chat workspace", () => {
     await expect(textarea).toHaveValue("Hello, DeerFlow!");
   });
 
-  test("offers four ppt-master workflow prompts from the presentation shortcut", async ({
-    page,
-  }) => {
-    await page.goto("/workspace/chats/new");
-
-    const textarea = page.getByPlaceholder(/how can i assist you/i);
-    const trigger = page.getByTestId("ppt-generation-menu-trigger");
-    await expect(trigger).toBeVisible({ timeout: 15_000 });
-
-    const routes = [
+  const pptRoutes = [
       {
         id: "generate",
         prompt:
@@ -57,15 +48,19 @@ test.describe("Chat workspace", () => {
       },
     ] as const;
 
-    for (const route of routes) {
+  for (const route of pptRoutes) {
+    test(`fills the ${route.id} ppt-master shortcut`, async ({ page }) => {
+      await page.goto("/workspace/chats/new");
+      const textarea = page.getByPlaceholder(/how can i assist you/i);
+      const trigger = page.getByTestId("ppt-generation-menu-trigger");
+      await expect(textarea).toBeEditable({ timeout: 15_000 });
       await trigger.click();
       const item = page.getByTestId(`ppt-route-${route.id}`);
       await expect(item).toBeVisible();
       await item.click();
       await expect(textarea).toHaveValue(route.prompt);
-      await textarea.fill("");
-    }
-  });
+    });
+  }
 
   test("fills slash skill prompts from every other welcome shortcut", async ({
     page,

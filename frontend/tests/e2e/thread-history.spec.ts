@@ -557,11 +557,11 @@ test.describe("Thread history", () => {
     );
 
     // This test owns its static demo fixture; published demo copy may change.
-    await page.route(`**/demo/threads/${DEMO_THREAD_ID}/thread.json`, (route) =>
+    await page.route(`**/mock/api/threads/${DEMO_THREAD_ID}/history`, (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: JSON.stringify([{
           thread_id: DEMO_THREAD_ID,
           created_at: "2025-06-01T12:00:00Z",
           updated_at: "2025-06-01T12:00:00Z",
@@ -573,7 +573,7 @@ test.describe("Thread history", () => {
               { type: "ai", id: "static-ai", content: "I've created a modern, minimalist website" },
             ],
           },
-        }),
+        }]),
       }),
     );
     await page.goto(`/workspace/chats/${DEMO_THREAD_ID}?mock=true`);

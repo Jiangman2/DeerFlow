@@ -262,7 +262,7 @@ test.describe("Subtask card", () => {
       .click();
     await expect(page.getByText("Tool output")).toBeVisible();
 
-    const previewLink = page.locator(
+    const previewLink = page.getByTestId("ppt-main-progress").locator(
       `a[href="/api/threads/${MOCK_THREAD_ID}/live-preview/5050/"]`,
     );
     await expect(previewLink).toBeVisible();

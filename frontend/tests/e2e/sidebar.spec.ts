@@ -87,10 +87,14 @@ test.describe("Sidebar navigation", () => {
       locator: ReturnType<typeof page.locator>,
     ) => {
       await expect(locator).toBeVisible({ timeout: 15_000 });
-      const box = await locator.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.x).toBeGreaterThanOrEqual(-1);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth + 1);
+      await expect
+        .poll(async () => {
+          const box = await locator.boundingBox();
+          return Boolean(
+            box && box.x >= -1 && box.x + box.width <= viewportWidth + 1,
+          );
+        })
+        .toBe(true);
     };
 
     await expectInsideViewport(page.locator(".cnooc-mobile-welcome-copy h1"));

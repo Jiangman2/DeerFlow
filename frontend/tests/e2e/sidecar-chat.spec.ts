@@ -325,7 +325,7 @@ async function expectSidecarScrollDoesNotAnimateAfterOpen(page: Page) {
 async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
   await page.evaluate(() => {
     const targetWindow = window as Window & {
-      __sidecarScrollTops?: number[];
+      __sidecarScrollSamples?: Array<{ top: number; height: number; viewport: number }>;
       __sidecarScrollListener?: (event: Event) => void;
     };
     if (targetWindow.__sidecarScrollListener) {
@@ -335,7 +335,7 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
         true,
       );
     }
-    targetWindow.__sidecarScrollTops = [];
+    targetWindow.__sidecarScrollSamples = [];
     Reflect.set(targetWindow, "__sidecarPanelTransforms", []);
     targetWindow.__sidecarScrollListener = (event: Event) => {
       const target = event.target;
@@ -343,7 +343,11 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
         target instanceof HTMLElement &&
         target.parentElement?.matches('[data-testid="sidecar-message-list"]')
       ) {
-        targetWindow.__sidecarScrollTops?.push(Math.round(target.scrollTop));
+        targetWindow.__sidecarScrollSamples?.push({
+          top: Math.round(target.scrollTop),
+          height: target.scrollHeight,
+          viewport: target.clientHeight,
+        });
       }
     };
     document.addEventListener(
@@ -371,9 +375,9 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
     });
   }
 
-  const { distinctScrollTops, panelTransforms } = await page.evaluate(() => {
+  const { scrollSamples, panelTransforms } = await page.evaluate(() => {
     const targetWindow = window as Window & {
-      __sidecarScrollTops?: number[];
+      __sidecarScrollSamples?: Array<{ top: number; height: number; viewport: number }>;
       __sidecarScrollListener?: (event: Event) => void;
       __sidecarPanelTransforms?: string[];
     };
@@ -386,14 +390,23 @@ async function openSidecarAndExpectNoAnimatedScroll(page: Page) {
       targetWindow.__sidecarScrollListener = undefined;
     }
     return {
-      distinctScrollTops: Array.from(
-        new Set(targetWindow.__sidecarScrollTops ?? []),
-      ),
+      scrollSamples: targetWindow.__sidecarScrollSamples ?? [],
       panelTransforms: targetWindow.__sidecarPanelTransforms ?? [],
     };
   });
 
-  expect(distinctScrollTops.length).toBeLessThanOrEqual(1);
+  // Instant corrections may move again when restored content or panel width
+  // changes. Intermediate positions within fixed geometry are animation.
+  const positionsByGeometry = new Map<string, Set<number>>();
+  for (const sample of scrollSamples) {
+    const key = `${sample.height}:${sample.viewport}`;
+    const positions = positionsByGeometry.get(key) ?? new Set<number>();
+    positions.add(sample.top);
+    positionsByGeometry.set(key, positions);
+  }
+  for (const positions of positionsByGeometry.values()) {
+    expect([...positions], JSON.stringify(scrollSamples)).toHaveLength(1);
+  }
   expect(
     panelTransforms.every(
       (transform) =>
@@ -406,6 +419,12 @@ test.describe("Side chat", () => {
   test("creates a hidden sidecar thread from selected quoted text", async ({
     page,
   }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "platform.local-settings",
+        JSON.stringify({ context: { mode: "pro", model_name: "deepseek-v4-pro" } }),
+      );
+    });
     const parentMessages = [
       {
         type: "human",
