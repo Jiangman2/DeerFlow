@@ -27,6 +27,7 @@ from sqlalchemy.exc import IntegrityError
 from app.gateway.authz import require_permission
 from app.gateway.deps import get_authorized_read_scope_user_id, get_checkpointer, get_run_manager
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
+from app.gateway.services import strip_server_owned_state_metadata
 from app.gateway.utils import sanitize_log_param
 from deerflow.config.paths import Paths, get_paths
 from deerflow.config.summarization_config import ContextSize
@@ -1056,7 +1057,7 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
     channel_values: dict[str, Any] = dict(checkpoint.get("channel_values", {}))
 
     if body.values:
-        channel_values.update(body.values)
+        channel_values.update(strip_server_owned_state_metadata(body.values))
 
     checkpoint["channel_values"] = channel_values
     metadata["updated_at"] = now_iso()

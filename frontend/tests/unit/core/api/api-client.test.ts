@@ -235,117 +235,6 @@ test("short-circuits reconnect to a terminal run", async () => {
   expect(sessionStorage.removeItem).toHaveBeenCalledWith("lg:stream:thread-1");
 });
 
-test("hydrates active run input before replaying incremental events", async () => {
-  const sessionStorage = makeSessionStorage();
-  sessionStorage.setItem("lg:stream:thread-input", "run-input");
-  const fetchFn = rs.fn(async (url: string | URL) => {
-    const path = new URL(url.toString()).pathname;
-    if (path.endsWith("/runs/run-input")) {
-      return new Response(
-        JSON.stringify({
-          status: "running",
-          kwargs: {
-            input: {
-              messages: [
-                { id: "human-2", type: "human", content: "Second question" },
-              ],
-            },
-          },
-        }),
-        { status: 200 },
-      );
-    }
-    if (path.endsWith("/threads/thread-input/state")) {
-      return new Response(
-        JSON.stringify({
-          values: {
-            messages: [
-              { id: "human-1", type: "human", content: "First question" },
-              { id: "human-2", type: "human", content: "Second question" },
-            ],
-          },
-        }),
-        { status: 200 },
-      );
-    }
-    return new Response(
-      JSON.stringify({
-        detail:
-          "Run run-input is not active on this worker and cannot be streamed",
-      }),
-      { status: 409 },
-    );
-  });
-  rs.stubGlobal("window", {
-    location: { origin: "http://localhost:2026" },
-    sessionStorage,
-  });
-  rs.stubGlobal("fetch", fetchFn);
-
-  const stream = getAPIClient(true).runs.joinStream(
-    "thread-input",
-    "run-input",
-  );
-  await expect(stream.next()).resolves.toMatchObject({
-    value: {
-      event: "values",
-      data: {
-        messages: [
-          { id: "human-1", content: "First question" },
-          { id: "human-2", content: "Second question" },
-        ],
-      },
-    },
-    done: false,
-  });
-  await expect(stream.next()).resolves.toMatchObject({ done: true });
-
-  expect(fetchFn).toHaveBeenCalledTimes(3);
-  expect(sessionStorage.removeItem).toHaveBeenCalledWith(
-    "lg:stream:thread-input",
-  );
-});
-
-test("continues reconnect when input hydration state is unavailable", async () => {
-  const fetchFn = rs.fn(async (url: string | URL) => {
-    const path = new URL(url.toString()).pathname;
-    if (path.endsWith("/runs/run-no-state")) {
-      return new Response(
-        JSON.stringify({
-          status: "running",
-          kwargs: {
-            input: {
-              messages: [{ id: "human-2", type: "human", content: "Second" }],
-            },
-          },
-        }),
-        { status: 200 },
-      );
-    }
-    if (path.endsWith("/threads/thread-no-state/state")) {
-      return new Response(JSON.stringify({ detail: "state unavailable" }), {
-        status: 404,
-      });
-    }
-    return new Response(
-      JSON.stringify({
-        detail:
-          "Run run-no-state is not active on this worker and cannot be streamed",
-      }),
-      { status: 409 },
-    );
-  });
-  rs.stubGlobal("fetch", fetchFn);
-
-  await expect(
-    getAPIClient(true)
-      .runs.joinStream("thread-no-state", "run-no-state")
-      .next(),
-  ).resolves.toMatchObject({ done: true });
-
-  expect(fetchFn).toHaveBeenCalledTimes(3);
-});
-
 test("falls back to join when preflight cannot resolve the run", async () => {
   const sessionStorage = makeSessionStorage();
   sessionStorage.setItem("lg:stream:thread-1", "run-1");
@@ -411,8 +300,7 @@ test("proceeds to join when the run is still active", async () => {
     getAPIClient(true).runs.joinStream("thread-1", "run-1").next(),
   ).resolves.toMatchObject({ done: true });
 
-  // With no input in the run record, hydration requires no state read: one
-  // preflight GET plus the real join. A short-circuit would be one request.
+  // Two requests: preflight GET + the real join. A short-circuit would be one.
   expect(fetchFn).toHaveBeenCalledTimes(2);
   expect(sessionStorage.removeItem).toHaveBeenCalledWith("lg:stream:thread-1");
 });
@@ -481,87 +369,6 @@ test("reads ppt-master checkpoint state from the isolated runtime", async () => 
   expect(String(fetchFn.mock.calls[0]?.[0])).toContain(
     "/api/ppt-master-runtime/threads/thread-ppt/state",
   );
-});
-
-test("hydrates ppt-master reconnect input from the isolated runtime", async () => {
-  const sessionStorage = makeSessionStorage();
-  sessionStorage.setItem(
-    "deerflow:ppt-master-runtime:thread-ppt-reconnect",
-    "ppt-master-runner",
-  );
-  const fetchFn = rs.fn(async (url: string | URL) => {
-    const path = url.toString();
-    if (
-      path.includes(
-        "/api/ppt-master-runtime/threads/thread-ppt-reconnect/runs/run-ppt-input/stream",
-      )
-    ) {
-      return new Response(
-        JSON.stringify({
-          detail:
-            "Run run-ppt-input is not active on this worker and cannot be streamed",
-        }),
-        { status: 409 },
-      );
-    }
-    if (
-      path.includes(
-        "/api/ppt-master-runtime/threads/thread-ppt-reconnect/runs/run-ppt-input",
-      )
-    ) {
-      return new Response(
-        JSON.stringify({
-          status: "running",
-          kwargs: {
-            input: {
-              messages: [
-                { id: "ppt-human", type: "human", content: "/ppt-master" },
-              ],
-            },
-          },
-        }),
-        { status: 200 },
-      );
-    }
-    if (
-      path.includes(
-        "/api/ppt-master-runtime/threads/thread-ppt-reconnect/state",
-      )
-    ) {
-      return new Response(
-        JSON.stringify({ values: { messages: [] }, next: [], tasks: [] }),
-        { status: 200 },
-      );
-    }
-    return new Response(JSON.stringify({ detail: "wrong runtime" }), {
-      status: 404,
-    });
-  });
-  rs.stubGlobal("window", {
-    location: { origin: "http://localhost:2026" },
-    sessionStorage,
-  });
-  rs.stubGlobal("fetch", fetchFn);
-
-  const stream = getAPIClient().runs.joinStream(
-    "thread-ppt-reconnect",
-    "run-ppt-input",
-  );
-  await expect(stream.next()).resolves.toMatchObject({
-    value: {
-      event: "values",
-      data: {
-        messages: [{ id: "ppt-human", content: "/ppt-master" }],
-      },
-    },
-    done: false,
-  });
-  await expect(stream.next()).resolves.toMatchObject({ done: true });
-
-  expect(fetchFn).toHaveBeenCalledTimes(3);
-  for (const call of fetchFn.mock.calls) {
-    expect(String(call[0])).toContain("/api/ppt-master-runtime/");
-  }
 });
 
 test("routes an authoritative runner thread id without ordinary 404 probes", async () => {

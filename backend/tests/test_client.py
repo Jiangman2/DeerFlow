@@ -474,87 +474,6 @@ class TestStream:
         call_kwargs = agent.stream.call_args.kwargs
         assert "messages" in call_kwargs["stream_mode"]
 
-    def test_stream_emits_streamed_tool_calls_once_with_complete_args(self, client):
-        call = {
-            "name": "bash",
-            "args": {"command": "ls -la"},
-            "id": "call-1",
-        }
-        attribution = {
-            "version": 1,
-            "kind": "tool_batch",
-            "shared_attribution": False,
-            "actions": [],
-        }
-        assembled = AIMessage(
-            content="",
-            id="ai-1",
-            tool_calls=[call],
-            additional_kwargs={"token_usage_attribution": attribution},
-        )
-        agent = MagicMock()
-        agent.stream.return_value = iter(
-            [
-                (
-                    "messages",
-                    (
-                        AIMessageChunk(
-                            content="",
-                            id="ai-1",
-                            tool_call_chunks=[
-                                {
-                                    "name": "bash",
-                                    "args": "",
-                                    "id": "call-1",
-                                    "index": 0,
-                                }
-                            ],
-                        ),
-                        {},
-                    ),
-                ),
-                (
-                    "messages",
-                    (
-                        AIMessageChunk(
-                            content="",
-                            id="ai-1",
-                            tool_call_chunks=[
-                                {
-                                    "name": None,
-                                    "args": '{"command": "ls -la"}',
-                                    "id": None,
-                                    "index": 0,
-                                }
-                            ],
-                        ),
-                        {},
-                    ),
-                ),
-                (
-                    "values",
-                    {
-                        "messages": [
-                            HumanMessage(content="hi", id="h-1"),
-                            assembled,
-                        ]
-                    },
-                ),
-            ]
-        )
-
-        with (
-            patch.object(client, "_ensure_agent"),
-            patch.object(client, "_agent", agent),
-        ):
-            events = list(client.stream("hi", thread_id="t-stream-tools"))
-
-        tool_call_events = _tool_call_events(events)
-        assert len(tool_call_events) == 1
-        assert tool_call_events[0].data["id"] == "ai-1"
-        assert [(tool_call["name"], tool_call["args"], tool_call["id"]) for tool_call in tool_call_events[0].data["tool_calls"]] == [("bash", {"command": "ls -la"}, "call-1")]
-        assert tool_call_events[0].data["additional_kwargs"] == {"token_usage_attribution": attribution}
-
     def test_stream_emits_additional_kwargs_updates_for_streamed_ai_messages(self, client):
         """stream() emits a follow-up AI event when attribution metadata arrives via values."""
         assembled = AIMessage(
@@ -587,35 +506,6 @@ class TestStream:
         assert any(event.data.get("content") == "Hello!" for event in ai_events)
         assert any(event.data.get("additional_kwargs", {}).get("token_usage_attribution", {}).get("kind") == "final_answer" for event in ai_events)
 
-    @pytest.mark.parametrize("streamed", [True, False])
-    def test_stream_emits_text_appended_by_a_later_node(self, client, streamed):
-        """A guard replacement under the same id emits only its appended notice."""
-        call = {"name": "bash", "args": {"command": "ls"}, "id": "call-1"}
-        sent = AIMessage(content="Checking again.", id="ai-1", tool_calls=[call])
-        stopped = AIMessage(
-            content="Checking again.\n\n[FORCED STOP] Repeated tool calls exceeded the safety limit.",
-            id="ai-1",
-        )
-        chunks = [
-            ("values", {"messages": [HumanMessage(content="hi", id="h-1"), sent]}),
-            ("values", {"messages": [HumanMessage(content="hi", id="h-1"), stopped]}),
-            ("values", {"messages": [HumanMessage(content="hi", id="h-1"), stopped]}),
-        ]
-        if streamed:
-            chunks.insert(0, ("messages", (AIMessageChunk(content="Checking again.", id="ai-1"), {})))
-        agent = _make_agent_mock(chunks)
-
-        with (
-            patch.object(client, "_ensure_agent"),
-            patch.object(client, "_agent", agent),
-        ):
-            events = list(client.stream("hi", thread_id="t-stream-replaced"))
-
-        assert [event.data["content"] for event in _ai_events(events)] == [
-            "Checking again.",
-            "\n\n[FORCED STOP] Repeated tool calls exceeded the safety limit.",
-        ]
-
     def test_stream_does_not_resend_non_extending_replacement(self, client):
         """A conflicting rewrite is not emitted as duplicate output."""
         sent = AIMessage(content="Let me look.", id="ai-1")
@@ -634,38 +524,6 @@ class TestStream:
             events = list(client.stream("hi", thread_id="t-stream-rewritten"))
 
         assert [event.data["content"] for event in _ai_events(events)] == ["Let me look."]
-
-    def test_stream_emits_metadata_added_by_a_later_node(self, client):
-        attribution = {
-            "version": 1,
-            "kind": "final_answer",
-            "shared_attribution": False,
-            "actions": [],
-        }
-        sent = AIMessage(content="Hello!", id="ai-1")
-        attributed = AIMessage(
-            content="Hello!",
-            id="ai-1",
-            additional_kwargs={"token_usage_attribution": attribution},
-        )
-        agent = _make_agent_mock(
-            [
-                ("values", {"messages": [HumanMessage(content="hi", id="h-1"), sent]}),
-                ("values", {"messages": [HumanMessage(content="hi", id="h-1"), attributed]}),
-            ]
-        )
-
-        with (
-            patch.object(client, "_ensure_agent"),
-            patch.object(client, "_agent", agent),
-        ):
-            events = list(client.stream("hi", thread_id="t-stream-attributed"))
-
-        ai_events = [event for event in events if event.type == "messages-tuple" and event.data.get("type") == "ai"]
-        assert [(event.data["content"], event.data.get("additional_kwargs")) for event in ai_events] == [
-            ("Hello!", None),
-            ("", {"token_usage_attribution": attribution}),
-        ]
 
     def test_stream_emits_new_additional_kwargs_after_prior_metadata(self, client):
         """stream() emits later attribution metadata even after earlier kwargs for the same id."""

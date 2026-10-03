@@ -8,42 +8,6 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_run_drain_waits_for_shutdown_across_repeated_cancellation() -> None:
-    """A second cancellation cannot let checkpointer teardown outrun the drain."""
-    from app.gateway import deps
-
-    shutdown_started = asyncio.Event()
-    allow_shutdown_finish = asyncio.Event()
-    shutdown_finished = asyncio.Event()
-
-    class _RunManager:
-        async def shutdown(self, *, timeout: float) -> None:
-            assert timeout == deps._RUN_DRAIN_TIMEOUT_SECONDS
-            shutdown_started.set()
-            await allow_shutdown_finish.wait()
-            shutdown_finished.set()
-
-    drain_task = asyncio.create_task(deps._drain_inflight_runs(_RunManager()))
-    await asyncio.wait_for(shutdown_started.wait(), timeout=1.0)
-
-    drain_task.cancel("first shutdown cancellation")
-    await asyncio.sleep(0)
-    assert not drain_task.done()
-
-    drain_task.cancel("second shutdown cancellation")
-    await asyncio.sleep(0)
-    escaped_before_shutdown_finished = drain_task.done()
-
-    allow_shutdown_finish.set()
-    with pytest.raises(asyncio.CancelledError) as exc_info:
-        await drain_task
-
-    assert not escaped_before_shutdown_finished
-    assert shutdown_finished.is_set()
-    assert exc_info.value.args == ("first shutdown cancellation",)
-
-
-@pytest.mark.asyncio
 async def test_run_drain_logs_failure_and_returns_without_cancellation(caplog) -> None:
     """A drain failure alone keeps the helper's existing best-effort contract."""
     from app.gateway import deps

@@ -6,6 +6,7 @@ loop: keypress -> submit -> worker thread -> stream_actions -> reducer -> state.
 
 import asyncio
 import threading
+from types import SimpleNamespace
 
 import pytest
 
@@ -25,6 +26,18 @@ class _FakeClient:
         yield StreamEvent(type="messages-tuple", data={"type": "ai", "content": "Hello ", "id": "m1"})
         yield StreamEvent(type="messages-tuple", data={"type": "ai", "content": "world", "id": "m1"})
         yield StreamEvent(type="end", data={"usage": {"total_tokens": 3}})
+
+
+@pytest.mark.parametrize("streaming", [True, False])
+def test_quit_orders_interruption_before_exit_only_when_streaming(streaming):
+    calls = []
+    app = SimpleNamespace(
+        _streaming=streaming,
+        _interrupt_run=lambda: calls.append("interrupt"),
+        exit=lambda: calls.append("exit"),
+    )
+    DeerFlowTUI._handle_builtin(app, "quit", "")
+    assert calls == (["interrupt", "exit"] if streaming else ["exit"])
 
 
 class _FakeSession:

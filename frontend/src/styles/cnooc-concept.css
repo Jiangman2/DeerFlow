@@ -3875,6 +3875,230 @@
   flex: 0 0 auto;
 }
 
+/* Haineng portal integration is scoped to the ordinary chat welcome screen. */
+.cnooc-header-actions > .cnooc-haineng-portal-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  background: rgba(218, 233, 255, 0.9) !important;
+  color: #2f69cb !important;
+  white-space: nowrap;
+}
+
+.cnooc-haineng-portal-link svg:last-child {
+  width: 15px;
+  height: 15px;
+}
+
+.cnooc-haineng-mobile-link {
+  display: none;
+}
+
+.cnooc-welcome-copyright.cnooc-home-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px clamp(8px, 1vw, 18px);
+  overflow: visible;
+  white-space: normal;
+}
+
+.cnooc-home-footer-tools,
+.cnooc-home-usage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1vw, 18px);
+}
+
+.cnooc-home-usage strong {
+  color: var(--cnooc-blue-dark);
+  font-weight: 700;
+}
+
+.cnooc-home-contact {
+  position: relative;
+  color: var(--cnooc-blue-dark);
+}
+
+.cnooc-home-contact button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cnooc-home-contact button:hover {
+  text-decoration: underline;
+}
+
+.cnooc-home-contact-card {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  z-index: 60;
+  display: none;
+  width: min(288px, 88vw);
+  border: 1px solid var(--cnooc-line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--cnooc-shadow);
+  color: #414a56;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+}
+
+.cnooc-home-contact:hover .cnooc-home-contact-card,
+.cnooc-home-contact:has(> button:focus-visible) .cnooc-home-contact-card,
+.cnooc-home-contact-card:has(:focus-visible) {
+  display: block;
+}
+
+/* The composer dock sits at z-index: 30; lift the footer stacking context
+   while the contact card is open so quick-action buttons cannot cover it. */
+.cnooc-welcome-copyright.cnooc-home-footer:has(.cnooc-home-contact:hover),
+.cnooc-welcome-copyright.cnooc-home-footer:has(
+    .cnooc-home-contact:focus-within
+  ) {
+  z-index: 50;
+}
+
+.cnooc-home-contact-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e8edf4;
+}
+
+.cnooc-home-contact-card-header strong {
+  color: #303946;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cnooc-home-contact-card-header a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cnooc-blue-dark);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cnooc-home-contact-card-header a:hover {
+  text-decoration: underline;
+}
+
+.cnooc-home-contact-card-header svg {
+  width: 13px;
+  height: 13px;
+}
+
+.cnooc-home-contact-details {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px 17px;
+}
+
+.cnooc-home-contact-details > div {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px;
+}
+
+.cnooc-home-contact-details dt,
+.cnooc-home-contact-details dd {
+  margin: 0;
+}
+
+.cnooc-home-contact-details a {
+  color: inherit;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.cnooc-home-contact-details a:hover {
+  color: var(--cnooc-blue-dark);
+  text-decoration: underline;
+}
+
+.cnooc-home-copyright-text,
+.cnooc-home-address {
+  white-space: nowrap;
+}
+
+@media (min-width: 48rem) and (max-width: 78rem) {
+  .cnooc-haineng-portal-link span {
+    display: none;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .cnooc-haineng-mobile-link {
+    position: absolute;
+    top: calc(16px + env(safe-area-inset-top));
+    right: 16px;
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--cnooc-line);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.76);
+    color: var(--cnooc-blue-dark);
+  }
+
+  .cnooc-haineng-mobile-link svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .cnooc-welcome-copyright.cnooc-home-footer {
+    position: absolute;
+    top: calc(
+      76px + env(safe-area-inset-top) + 40px +
+        clamp(245px, calc((100vw - 32px) * 0.685), 275px) + 16px
+    );
+    right: 12px;
+    bottom: auto;
+    left: 12px;
+    z-index: 10;
+    flex-direction: column;
+    color: var(--cnooc-copy);
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .cnooc-home-footer-tools,
+  .cnooc-home-usage {
+    gap: 10px;
+  }
+
+  .cnooc-home-copyright-text,
+  .cnooc-home-address {
+    display: none;
+  }
+}
+
+@media (max-width: 47.999rem) and (max-height: 40rem) {
+  .cnooc-welcome-copyright.cnooc-home-footer {
+    display: none;
+  }
+}
+
 @media (max-width: 47.999rem) {
   .cnooc-workspace-shell .cnooc-knowledge-scope-count {
     display: none !important;

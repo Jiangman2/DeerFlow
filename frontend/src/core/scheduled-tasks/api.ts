@@ -36,10 +36,18 @@ export async function fetchThreadScheduledTasks(
 
 export async function fetchScheduledTaskRuns(
   taskId: string,
+  page?: { limit: number; offset: number; signal?: AbortSignal },
 ): Promise<ScheduledTaskRun[]> {
-  const response = await fetch(
-    scheduledTasksUrl(`/${encodeURIComponent(taskId)}/runs`),
-  );
+  const url = scheduledTasksUrl(`/${encodeURIComponent(taskId)}/runs`);
+  const response = page
+    ? await fetch(
+        `${url}?${new URLSearchParams({
+          limit: String(page.limit),
+          offset: String(page.offset),
+        })}`,
+        { signal: page.signal },
+      )
+    : await fetch(url);
   if (!response.ok) {
     await throwGatewayApiError(
       response,
@@ -52,10 +60,11 @@ export async function fetchScheduledTaskRuns(
 export type ScheduledTaskPayload = {
   context_mode: "fresh_thread_per_run" | "reuse_thread";
   thread_id?: string | null;
+  assistant_id?: string | null;
   title: string;
   prompt: string;
   run_context?: Record<string, unknown>;
-  schedule_type: "once" | "cron";
+  schedule_type: "once" | "cron" | "interval";
   schedule_spec: Record<string, unknown>;
   timezone: string;
 };

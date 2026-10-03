@@ -235,9 +235,7 @@ def test_citation_middleware_restores_unique_weknora_search_image_dropped_by_mod
     )
 
     assert result is not None
-    assert result["messages"][0].content == (
-        f"我已经找到四维元数据体系（图6），如下所示：\n\n{markdown}"
-    )
+    assert result["messages"][0].content == (f"我已经找到四维元数据体系（图6），如下所示：\n\n{markdown}")
 
 
 def test_citation_middleware_does_not_guess_between_multiple_search_images():

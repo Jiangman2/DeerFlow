@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol, override, runtime_checkable
 
@@ -18,6 +19,7 @@ from langgraph.runtime import Runtime
 from deerflow.agents.middlewares.dynamic_context_middleware import is_dynamic_context_reminder
 from deerflow.config.app_config import get_app_config
 from deerflow.models import create_chat_model
+from deerflow.run_timing import log_run_timing
 
 logger = logging.getLogger(__name__)
 _SUMMARY_TRIGGER_MESSAGE_NAME = "summary"
@@ -120,13 +122,28 @@ class DeerFlowSummarizationMiddleware(SummarizationMiddleware):
         prompt = self._build_summary_prompt(messages_to_summarize, previous_summary=previous_summary)
         if prompt is None:
             return "Previous conversation was too long to summarize."
+        started_at = time.monotonic()
+        log_run_timing(logger, "context_summarize_start")
         try:
             response = self._summary_model.invoke(
                 prompt,
                 config={"metadata": {"lc_source": "summarization"}},
             )
+            log_run_timing(
+                logger,
+                "context_summarize_end",
+                elapsed_ms=(time.monotonic() - started_at) * 1000,
+                outcome="completed",
+            )
             return response.text.strip()
-        except Exception:
+        except Exception as exc:
+            log_run_timing(
+                logger,
+                "context_summarize_end",
+                elapsed_ms=(time.monotonic() - started_at) * 1000,
+                outcome="error",
+                error_type=type(exc).__name__,
+            )
             logger.exception("Summary generation failed; skipping compaction this turn")
             return None
 
@@ -137,13 +154,28 @@ class DeerFlowSummarizationMiddleware(SummarizationMiddleware):
         prompt = self._build_summary_prompt(messages_to_summarize, previous_summary=previous_summary)
         if prompt is None:
             return "Previous conversation was too long to summarize."
+        started_at = time.monotonic()
+        log_run_timing(logger, "context_summarize_start")
         try:
             response = await self._summary_model.ainvoke(
                 prompt,
                 config={"metadata": {"lc_source": "summarization"}},
             )
+            log_run_timing(
+                logger,
+                "context_summarize_end",
+                elapsed_ms=(time.monotonic() - started_at) * 1000,
+                outcome="completed",
+            )
             return response.text.strip()
-        except Exception:
+        except Exception as exc:
+            log_run_timing(
+                logger,
+                "context_summarize_end",
+                elapsed_ms=(time.monotonic() - started_at) * 1000,
+                outcome="error",
+                error_type=type(exc).__name__,
+            )
             logger.exception("Summary generation failed; skipping compaction this turn")
             return None
 

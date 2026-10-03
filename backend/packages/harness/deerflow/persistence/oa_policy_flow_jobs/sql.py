@@ -45,9 +45,7 @@ class OAPolicyFlowJobRepository:
                 await session.commit()
             except IntegrityError:
                 await session.rollback()
-                stmt = select(OAPolicyFlowJobRow).where(
-                    OAPolicyFlowJobRow.idempotency_key_hash == values["idempotency_key_hash"]
-                )
+                stmt = select(OAPolicyFlowJobRow).where(OAPolicyFlowJobRow.idempotency_key_hash == values["idempotency_key_hash"])
                 existing = (await session.execute(stmt)).scalar_one_or_none()
                 if existing is None:
                     raise
@@ -62,13 +60,7 @@ class OAPolicyFlowJobRepository:
 
     async def get_by_idempotency_hash(self, key_hash: str) -> dict[str, Any] | None:
         async with self._sf() as session:
-            row = (
-                await session.execute(
-                    select(OAPolicyFlowJobRow).where(
-                        OAPolicyFlowJobRow.idempotency_key_hash == key_hash
-                    )
-                )
-            ).scalar_one_or_none()
+            row = (await session.execute(select(OAPolicyFlowJobRow).where(OAPolicyFlowJobRow.idempotency_key_hash == key_hash))).scalar_one_or_none()
             return self._row_to_dict(row) if row is not None else None
 
     async def claim_due(
@@ -96,16 +88,7 @@ class OAPolicyFlowJobRepository:
             ),
         )
         async with self._sf() as session:
-            ids = list(
-                (
-                    await session.execute(
-                        select(OAPolicyFlowJobRow.id)
-                        .where(due)
-                        .order_by(OAPolicyFlowJobRow.next_attempt_at, OAPolicyFlowJobRow.created_at)
-                        .limit(limit)
-                    )
-                ).scalars()
-            )
+            ids = list((await session.execute(select(OAPolicyFlowJobRow.id).where(due).order_by(OAPolicyFlowJobRow.next_attempt_at, OAPolicyFlowJobRow.created_at).limit(limit))).scalars())
             claimed_ids: list[str] = []
             for job_id in ids:
                 result = await session.execute(
@@ -128,13 +111,7 @@ class OAPolicyFlowJobRepository:
             await session.commit()
             if not claimed_ids:
                 return []
-            rows = (
-                await session.execute(
-                    select(OAPolicyFlowJobRow)
-                    .where(OAPolicyFlowJobRow.id.in_(claimed_ids))
-                    .order_by(OAPolicyFlowJobRow.created_at)
-                )
-            ).scalars()
+            rows = (await session.execute(select(OAPolicyFlowJobRow).where(OAPolicyFlowJobRow.id.in_(claimed_ids)).order_by(OAPolicyFlowJobRow.created_at))).scalars()
             return [self._row_to_dict(row) for row in rows]
 
     async def patch(

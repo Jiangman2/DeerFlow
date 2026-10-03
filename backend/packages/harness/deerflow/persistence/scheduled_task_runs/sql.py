@@ -311,6 +311,11 @@ class ScheduledTaskRunRepository:
                     text("SELECT pg_advisory_xact_lock(:lock_key)"),
                     {"lock_key": _SCHEDULER_BUDGET_LOCK_KEY},
                 )
+            elif session.get_bind().dialect.name == "sqlite":
+                # Serialize the count and claim together across connections.
+                # A deferred read transaction lets distinct rows oversubscribe
+                # the global budget before either claim is committed.
+                await session.execute(text("BEGIN IMMEDIATE"))
             executing = await session.scalar(select(func.count()).select_from(ScheduledTaskRunRow).where(ScheduledTaskRunRow.status.in_(EXECUTING_RUN_STATUSES)))
             if int(executing or 0) >= global_max_concurrent_runs:
                 await session.rollback()

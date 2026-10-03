@@ -107,6 +107,7 @@ def _invoke_with_retrieve(app, response_payload: dict):
 def test_public_tool_schemas_expose_only_the_business_query():
     from deerflow.community.appforge.tools import (
         datalake_detail_qa_tool,
+        datalake_md_search_tool,
         datalake_metrics_qa_tool,
         datalake_smart_qa_tool,
     )
@@ -115,6 +116,7 @@ def test_public_tool_schemas_expose_only_the_business_query():
         datalake_smart_qa_tool,
         datalake_metrics_qa_tool,
         datalake_detail_qa_tool,
+        datalake_md_search_tool,
     ):
         assert set(tool.tool_call_schema.model_json_schema()["properties"]) == {"query"}
 
@@ -199,6 +201,45 @@ def test_metrics_qa_invocation_uses_secret_config_and_parses_sse():
     assert call.kwargs["json"]["conversationId"].startswith("WorkflowAgent_")
     assert "secret-key" not in json.dumps(result, ensure_ascii=False)
     assert "server-side-hytoken" not in json.dumps(result, ensure_ascii=False)
+
+
+def test_master_data_search_uses_its_own_workflow_and_is_not_toggle_gated():
+    app = _app_config(
+        datalake_md_search={
+            "api_url": "http://appforge.internal:9080",
+            "api_key": "master-data-secret",
+            "app_id": "app-1qdkpgka",
+            "trust_env": False,
+        }
+    )
+    result, call, _ = _invoke_with_stream(
+        "datalake_md_search",
+        app,
+        ['data: {"type":"answer","content":"中海油有两家分公司。"}'],
+    )
+
+    assert result["answer"] == "中海油有两家分公司。"
+    assert call.args[:2] == (
+        "POST",
+        "http://appforge.internal:9080/appforge/openapi/v1/InvokeApp/app-1qdkpgka",
+    )
+    assert call.kwargs["headers"]["Authorization"] == "Bearer master-data-secret"
+    assert call.kwargs["json"]["inputs"] == {"hytoken": "", "hyaccount": ""}
+    assert call.kwargs["json"]["conversationId"].startswith("SquareWorkflow_")
+    assert "master-data-secret" not in json.dumps(result, ensure_ascii=False)
+
+    import deerflow.community.appforge.tools as module
+
+    with patch.object(module, "get_app_config", return_value=app):
+        with patch.object(module, "_stream_invoke", return_value={"answer": "可用"}):
+            enabled = json.loads(
+                module._invoke_tool(
+                    "datalake_md_search",
+                    "中海油有哪些分公司",
+                    SimpleNamespace(context={"datalake_enabled": False}),
+                )
+            )
+    assert enabled["answer"] == "可用"
 
 
 def test_smart_qa_uses_retrieve_without_appforge_credentials():

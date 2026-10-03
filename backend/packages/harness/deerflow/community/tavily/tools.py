@@ -44,16 +44,11 @@ def _build_tavily_session() -> requests.Session | None:
                 "SSL_CERT_FILE",
                 "CURL_CA_BUNDLE",
             )
-            if (value := os.getenv(name, "").strip())
-            and os.path.isfile(value)
+            if (value := os.getenv(name, "").strip()) and os.path.isfile(value)
         ),
         None,
     )
-    context = (
-        ssl.create_default_context(cafile=ca_file)
-        if ca_file
-        else ssl.create_default_context()
-    )
+    context = ssl.create_default_context(cafile=ca_file) if ca_file else ssl.create_default_context()
     context.set_ciphers("DEFAULT:@SECLEVEL=1")
 
     session = requests.Session()

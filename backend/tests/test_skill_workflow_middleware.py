@@ -167,13 +167,8 @@ def _template_contract_sandbox_files():
                 ],
             }
         ),
-        f"{project}/confirm_ui/template_handoff.json": json.dumps(
-            {"status": "ready", "mode": "templates", "selection_sha256": "hash"}
-        ),
-        f"{project}/design_spec.md": (
-            "| Page Count | 1 |\n"
-            "- **Template Application**: P01 使用 01_cover.svg\n"
-        ),
+        f"{project}/confirm_ui/template_handoff.json": json.dumps({"status": "ready", "mode": "templates", "selection_sha256": "hash"}),
+        f"{project}/design_spec.md": ("| Page Count | 1 |\n- **Template Application**: P01 使用 01_cover.svg\n"),
         f"{project}/spec_lock.md": (
             "## pptx_structure\n"
             "- mode: structured\n"
@@ -231,30 +226,15 @@ def test_failed_template_completion_gate_allows_official_read_only_workspace_val
         status="blocked",
         gate_status="failed",
         gate_owner_tool="bash",
-        gate_owner_action=(
-            "export SKILL_DIR='/mnt/skills/public/ppt-master' && "
-            f"python3 ${{SKILL_DIR}}/scripts/confirm_ui/server.py {project} --complete-template-phase"
-        ),
+        gate_owner_action=(f"export SKILL_DIR='/mnt/skills/public/ppt-master' && python3 ${{SKILL_DIR}}/scripts/confirm_ui/server.py {project} --complete-template-phase"),
     )
     validator = {
         "name": "bash",
-        "args": {
-            "command": (
-                "export SKILL_DIR='/mnt/skills/public/ppt-master' && "
-                "python3 ${SKILL_DIR}/scripts/svg_quality_checker.py "
-                '"/mnt/skills/public/ppt-master/templates/decks/中国海油/templates" --template-mode'
-            )
-        },
+        "args": {"command": ("export SKILL_DIR='/mnt/skills/public/ppt-master' && python3 ${SKILL_DIR}/scripts/svg_quality_checker.py \"/mnt/skills/public/ppt-master/templates/decks/中国海油/templates\" --template-mode")},
     }
     mutating_validator = {
         "name": "bash",
-        "args": {
-            "command": (
-                "export SKILL_DIR='/mnt/skills/public/ppt-master' && "
-                "python3 ${SKILL_DIR}/scripts/svg_quality_checker.py "
-                '"/mnt/skills/public/ppt-master/templates/decks/中国海油/templates" --template-mode --fix'
-            )
-        },
+        "args": {"command": ("export SKILL_DIR='/mnt/skills/public/ppt-master' && python3 ${SKILL_DIR}/scripts/svg_quality_checker.py \"/mnt/skills/public/ppt-master/templates/decks/中国海油/templates\" --template-mode --fix")},
     }
 
     assert _failed_gate_call_allowed(validator, workflow) is True
@@ -758,11 +738,7 @@ def test_ppt_master_closure_does_not_affect_other_skills():
 def test_skill_owner_command_drops_terminal_head_pipe_to_preserve_real_exit_status():
     middleware = SkillWorkflowMiddleware()
     project = "/mnt/user-data/workspace/projects/demo"
-    command = (
-        "export SKILL_DIR='/mnt/skills/public/ppt-master' && "
-        f"cd {project} && python3 ${{SKILL_DIR}}/scripts/image_gen.py "
-        "--manifest images/prompts.json --output images 2>&1 | head -50"
-    )
+    command = f"export SKILL_DIR='/mnt/skills/public/ppt-master' && cd {project} && python3 ${{SKILL_DIR}}/scripts/image_gen.py --manifest images/prompts.json --output images 2>&1 | head -50"
     result = middleware.after_model(
         {
             "messages": [
@@ -1262,10 +1238,7 @@ def test_failed_gate_allows_read_only_diagnosis_in_selected_skill_root():
         gate_owner_action=failed,
         resume_pointer=failed,
     )
-    diagnostic = (
-        "export SKILL_DIR='/mnt/skills/public/ppt-master' && "
-        'rg --files "${SKILL_DIR}/templates/icons/tabler-outline" -g \'*database*.svg\''
-    )
+    diagnostic = "export SKILL_DIR='/mnt/skills/public/ppt-master' && rg --files \"${SKILL_DIR}/templates/icons/tabler-outline\" -g '*database*.svg'"
     state = {
         "messages": [
             AIMessage(
@@ -1587,10 +1560,7 @@ def test_ppt_master_consolidated_repair_cannot_reread_stale_validation_report():
 def test_stale_failed_gate_replays_checkpointed_read_only_validator():
     middleware = SkillWorkflowMiddleware()
     project = "/mnt/user-data/workspace/projects/demo"
-    command = (
-        "export SKILL_DIR='/mnt/skills/public/ppt-master' && "
-        f"python3 ${{SKILL_DIR}}/scripts/project_manager.py validate {project}"
-    )
+    command = f"export SKILL_DIR='/mnt/skills/public/ppt-master' && python3 ${{SKILL_DIR}}/scripts/project_manager.py validate {project}"
     workflow = _workflow(
         project_path=project,
         status="blocked",
@@ -2518,12 +2488,7 @@ def test_active_page_confirmation_blocks_unrequested_owner_shutdown():
                     {
                         "id": "shutdown",
                         "name": "bash",
-                        "args": {
-                            "command": (
-                                "python3 /mnt/skills/public/ppt-master/scripts/confirm_ui/server.py "
-                                f"{project} --shutdown"
-                            )
-                        },
+                        "args": {"command": (f"python3 /mnt/skills/public/ppt-master/scripts/confirm_ui/server.py {project} --shutdown")},
                     }
                 ],
             ),
@@ -2770,10 +2735,7 @@ def test_managed_receipt_gate_transfers_to_failed_owner_wait_and_allows_project_
     middleware = SkillWorkflowMiddleware()
     project = "/mnt/user-data/workspace/projects/demo"
     receipt = f"{project}/confirm_ui/result.json"
-    command = (
-        "python3 /mnt/skills/public/ppt-master/scripts/confirm_ui/server.py "
-        f"{project} --wait-only --wait-stage stage1 --timeout 600"
-    )
+    command = f"python3 /mnt/skills/public/ppt-master/scripts/confirm_ui/server.py {project} --wait-only --wait-stage stage1 --timeout 600"
     update = middleware.before_model(
         {
             "messages": [
@@ -2782,10 +2744,7 @@ def test_managed_receipt_gate_transfers_to_failed_owner_wait_and_allows_project_
                     tool_calls=[{"id": "owner-wait", "name": "bash", "args": {"command": command}}],
                 ),
                 ToolMessage(
-                    content=(
-                        "Error: [PPT_TEMPLATE_CONTRACT] the confirmed template workspace has not been "
-                        "atomically installed into project-local templates/images/icons"
-                    ),
+                    content=("Error: [PPT_TEMPLATE_CONTRACT] the confirmed template workspace has not been atomically installed into project-local templates/images/icons"),
                     tool_call_id="owner-wait",
                     status="error",
                 ),
@@ -2810,27 +2769,22 @@ def test_managed_receipt_gate_transfers_to_failed_owner_wait_and_allows_project_
     repair_call = {
         "id": "install-workspace",
         "name": "bash",
-        "args": {
-            "command": (
-                "cp -R /mnt/skills/public/ppt-master/templates/decks/demo/templates/. "
-                f"{project}/templates/"
-            )
-        },
+        "args": {"command": (f"cp -R /mnt/skills/public/ppt-master/templates/decks/demo/templates/. {project}/templates/")},
     }
 
-    assert _failed_gate_call_allowed(
-        repair_call,
-        {**_workflow(project_path=project), **update},
-    ) is True
+    assert (
+        _failed_gate_call_allowed(
+            repair_call,
+            {**_workflow(project_path=project), **update},
+        )
+        is True
+    )
 
 
 def test_non_timeout_confirmation_failure_does_not_enable_chat_fallback():
     middleware = SkillWorkflowMiddleware()
     project = "/mnt/user-data/workspace/projects/demo"
-    command = (
-        "python3 /mnt/skills/public/ppt-master/scripts/confirm_ui/server.py "
-        f"{project} --wait-only --wait-stage stage1 --timeout 600"
-    )
+    command = f"python3 /mnt/skills/public/ppt-master/scripts/confirm_ui/server.py {project} --wait-only --wait-stage stage1 --timeout 600"
     update = middleware.before_model(
         {
             "messages": [
@@ -2862,14 +2816,8 @@ def test_non_timeout_confirmation_failure_does_not_enable_chat_fallback():
 def test_successful_template_copy_is_a_durable_project_mutation_receipt():
     middleware = SkillWorkflowMiddleware()
     project = "/mnt/user-data/workspace/projects/demo"
-    owner = (
-        "python3 /mnt/skills/public/ppt-master/scripts/confirm_ui/server.py "
-        f"{project} --wait-only --wait-stage stage1 --timeout 600"
-    )
-    copy_command = (
-        "cp /mnt/skills/public/ppt-master/templates/decks/demo/images/image9.png "
-        f"{project}/images/"
-    )
+    owner = f"python3 /mnt/skills/public/ppt-master/scripts/confirm_ui/server.py {project} --wait-only --wait-stage stage1 --timeout 600"
+    copy_command = f"cp /mnt/skills/public/ppt-master/templates/decks/demo/images/image9.png {project}/images/"
     update = middleware.before_model(
         {
             "messages": [
@@ -3764,16 +3712,8 @@ def test_template_contract_blocks_flat_spec_lock_that_discards_confirmed_prototy
 @pytest.mark.parametrize(
     "command",
     [
-        (
-            "export SKILL_DIR='/mnt/skills/public/ppt-master' && "
-            "python3 ${SKILL_DIR}/scripts/confirm_ui/server.py "
-            "/mnt/user-data/workspace/projects/demo --complete-template-phase"
-        ),
-        (
-            "export SKILL_DIR='/mnt/skills/public/ppt-master' && "
-            "python3 ${SKILL_DIR}/scripts/confirm_ui/server.py "
-            "/mnt/user-data/workspace/projects/demo --wait-only --wait-stage stage1"
-        ),
+        ("export SKILL_DIR='/mnt/skills/public/ppt-master' && python3 ${SKILL_DIR}/scripts/confirm_ui/server.py /mnt/user-data/workspace/projects/demo --complete-template-phase"),
+        ("export SKILL_DIR='/mnt/skills/public/ppt-master' && python3 ${SKILL_DIR}/scripts/confirm_ui/server.py /mnt/user-data/workspace/projects/demo --wait-only --wait-stage stage1"),
     ],
 )
 def test_template_completion_and_stage1_block_partial_single_workspace_install(command):
@@ -3790,9 +3730,7 @@ def test_template_completion_and_stage1_block_partial_single_workspace_install(c
     sandbox = MagicMock()
     _attach_template_manifest_execution(sandbox, files)
     sandbox.read_file.side_effect = lambda path: files[path]
-    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(
-        key for key in files if key.startswith(path.rstrip("/") + "/")
-    )
+    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(key for key in files if key.startswith(path.rstrip("/") + "/"))
 
     def download(path):
         if path not in files:
@@ -3828,9 +3766,7 @@ def test_template_contract_authoring_blocks_partial_single_workspace_install():
     sandbox = MagicMock()
     _attach_template_manifest_execution(sandbox, files)
     sandbox.read_file.side_effect = lambda path: files[path]
-    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(
-        key for key in files if key.startswith(path.rstrip("/") + "/")
-    )
+    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(key for key in files if key.startswith(path.rstrip("/") + "/"))
 
     def download(path):
         if path not in files:
@@ -3872,9 +3808,7 @@ def test_partial_template_copy_reports_remaining_install_files():
     sandbox = MagicMock()
     _attach_template_manifest_execution(sandbox, files)
     sandbox.read_file.side_effect = lambda path: files[path]
-    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(
-        key for key in files if key.startswith(path.rstrip("/") + "/")
-    )
+    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(key for key in files if key.startswith(path.rstrip("/") + "/"))
 
     def download(path):
         if path not in files:
@@ -3927,9 +3861,7 @@ def test_template_contract_blocks_direct_svg_that_drops_inherited_deck_structure
     sandbox = MagicMock()
     _attach_template_manifest_execution(sandbox, files)
     sandbox.read_file.side_effect = lambda path: files[path]
-    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(
-        key for key in files if key.startswith(path.rstrip("/") + "/")
-    )
+    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(key for key in files if key.startswith(path.rstrip("/") + "/"))
     sandbox.download_file.side_effect = lambda path: files[path].encode("utf-8")
     handler = MagicMock(return_value=ToolMessage(content="OK", tool_call_id="template-contract"))
 
@@ -3970,9 +3902,7 @@ def test_template_contract_allows_slot_content_change_while_preserving_deck_atom
     files[f"{source}/templates/01_cover.svg"] = files[f"{project}/templates/01_cover.svg"]
     _attach_template_manifest_execution(sandbox, files)
     sandbox.read_file.side_effect = lambda path: files[path]
-    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(
-        key for key in files if key.startswith(path.rstrip("/") + "/")
-    )
+    sandbox.list_dir.side_effect = lambda path, max_depth=2: sorted(key for key in files if key.startswith(path.rstrip("/") + "/"))
     sandbox.download_file.side_effect = lambda path: files[path].encode("utf-8")
     handler = MagicMock(return_value=ToolMessage(content="OK", tool_call_id="template-contract"))
 

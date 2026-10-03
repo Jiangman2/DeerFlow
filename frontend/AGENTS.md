@@ -1,5 +1,26 @@
 # AGENTS.md
 
+October 2 dmdb frontend reconciliation: `MessageGroup` normalizes unknown tool
+argument/result records before using string display fields. Every tool-result
+link permits only absolute HTTP(S), rejects controls/backslashes and embedded
+credentials, and renders blocked navigation as an inert label plus the unsafe
+link marker. Safe links reuse the thread-aware Markdown preview renderer;
+never expose a Sandbox loopback navigation. Image thumbnails are likewise
+HTTP(S)-only. Clarification message content is displayed once outside the
+processing panel, while ordinary tool-bearing progress remains visible within
+it. Keep the first-non-empty tool-result index and task-call suppression intact.
+The regular chat layout and legacy provider import share the custom-agent
+`ChatProviders` stack, without making the server layout a Client Component or
+changing static demo parameters. Upload deletion encodes the filename component
+and GFM disables only single-tilde strikethrough. Existing fixed employees retain
+the test hostname and precede the unchanged twelve contest entries. Do not change
+the runtime to production URLs to satisfy hardcoded test expectations: those two
+expectations are explicitly aligned with the test deployment. Incoming-only
+reconnect-input hydration's three tests are deferred; the runtime and exact
+pre-merge reconnect tests remain unchanged. See
+`docs/FRONTEND_RECONCILIATION_BATCH2_20261002.md`; validation is still required
+before completing the merge or deploying.
+
 The enterprise 7·16 production source alignment is recorded in
 `../release/production-build-alignment-20260928/README.md`. For production
 comparisons, use the captured Frontend image source rather than later local
@@ -330,6 +351,19 @@ access to sidecars created before the metadata rename.
 
 ### Key Patterns
 
+Live assistant Markdown opts into `core/streamdown/use-smooth-streaming-text.ts`
+with a thread/message `streamingKey`. Preserve the existing deferred scheduling
+and 50 ms reveal cadence, but do not impose a minimum 64-character display batch.
+The presentation buffer reveals small incoming batches within a 300 ms window
+without restarting pending frames or extending the deadline, and bounds animated
+tails to 256 UTF-16 units with grapheme-safe boundaries when supported. Initial
+hydration, identity changes, replacement, stop/completion, hidden tabs and
+reduced-motion preferences show all received text immediately. Never defer a
+different message's snapshot across a thread/key change. Keep raw SDK/history/
+copy state, tool/file/error state, Markdown security, history virtualization,
+stable group/usage references, and Redis/SSE publication unchanged. Cancel timers
+and media/visibility listeners on unmount.
+
 - **Server Components by default**, `"use client"` only for interactive components
 - **Thread hooks** (`useThreadStream`, `useSubmitThread`, `useThreads`) are the primary API interface
 - **LangGraph client** is a singleton obtained via `getAPIClient()` in `core/api/`
@@ -420,7 +454,9 @@ or alpha-color syntax so the audited enterprise browser renders them reliably.
 The backend remains the authoritative enforcement boundary. The panel must not mix runs from deleted
 conversations into that current-session view.
 The six built-in external-agent cards navigate directly to their fixed
-same-origin HTTPS aliases under `cnoocclaw.cnooc.com.cn`; do not rewrite those
+same-origin HTTPS aliases under the active DeerFlow hostname
+(`cnoocclawtest.cnooc.com.cn` in test and `cnoocclaw.cnooc.com.cn` in production);
+do not rewrite those
 current aliases through the legacy launch API. Legacy `datalake.cnooc` card
 records may still use `/api/cnooc/external-agents/<agent>/launch`. Those routes
 read the HttpOnly `cnooc.platform_token` cookie, validate its current-user
@@ -480,28 +516,30 @@ is available, falls back to the first available model elsewhere, and persists th
 selection in `run_context`. Editing a task may change that saved model; switching
 models in a chat must not mutate scheduled tasks. Keep create/edit/duplicate flows
 aligned for `once`, `cron`, and minimum-60-second `interval` schedules and for the
-pinned custom-agent selection. Run history uses server pagination and an optional
-canonical occurrence-status filter applied before pagination; status and task ID are
-part of the query/cache identity. Older pages pause live refresh and must not be
-merged with the latest-page cache.
-Single-run edits retain the mounted task's original `run_at` while its displayed
-wall time and timezone remain unchanged. Keep that snapshot stable across parent
-feedback, and reset the parent draft before a task-keyed remount so DST folds and
-sub-minute timestamp precision cannot be changed by title-only edits or task
-switches.
-One-time schedule input uses `validZonedLocalToUtcIso` to reject wall times that
-do not round-trip in the selected timezone. Invalid input emits an empty spec and
-localized inline feedback; both create and edit must block submission. Keep this
-validation separate from the API payload, and restore the exact original instant
-when a changed wall time is reverted.
-Scheduled-task search is a literal, case-insensitive title/prompt filter over the
-already authorized and thread-scoped client result. Compose it with status and
-schedule-type filters; never use search text to broaden server scope or trigger a
-write, and do not leave stale detail actions mounted when no task matches.
+pinned custom-agent selection. Run history uses server pagination; task ID and
+page belong to the query/cache identity. Older pages pause live refresh and must
+not be merged with the latest-page cache. The September 30 isolated merge
+restores these pre-merge implementations and the matching Gateway route; keep
+their existing regression tests and pinned DOM-test dependencies intact.
+Incoming occurrence-status filtering, exact-instant preservation on one-time
+edits, nonexistent-wall-time validation, and task-text search remain deferred:
+their required implementations or UI integration are absent from the incoming
+production baseline. The existing timezone offset correction stays active, but
+must not be described as a DST-gap validator. Existing task status/type filters
+remain supported. New leaked-system-tag Markdown handling is likewise deferred;
+retain the existing nesting/math/Mermaid preprocessing and all its original tests.
+See `../backend/docs/ENTERPRISE_MERGE_20260930.md` for the deferral inventory and
+required frontend/backend acceptance gates. Do not delete or skip old tests to
+make this reconciliation pass.
 The scheduled-task page's enterprise card grid and modal detail/edit workflow are
 an owned customization, not an upstream mirror. Adapt useful official behavior to
 those surfaces and their tests; do not replace the page wholesale or assume the
 official side-by-side detail layout.
+
+PPT confirmation summary values use `pptSummaryValue` in the locale-owned copy
+module. Preserve the fallback for both empty and missing values, plus literal
+nonempty values such as `"0"`; a blind `||` to `??` replacement changes empty
+string behavior. Existing PPT confirmation transport and acceptance are unchanged.
 
 ### Workspace announcements
 

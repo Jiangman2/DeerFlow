@@ -31,10 +31,7 @@ class _Checkpointer:
 async def test_interrupted_fake_artifact_api_link_is_reconciled(tmp_path: Path):
     message = AIMessage(
         id="final-answer",
-        content=(
-            "[report.pptx](/api/threads/thread-1/artifacts/"
-            "mnt/user-data/outputs/report.pptx)"
-        ),
+        content=("[report.pptx](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx)"),
     )
     journal = _Journal(message)
     checkpointer = _Checkpointer(
@@ -62,10 +59,7 @@ async def test_interrupted_published_artifact_is_kept(tmp_path: Path):
     virtual_path = "/mnt/user-data/outputs/report.pptx"
     message = AIMessage(
         id="real-answer",
-        content=(
-            "[report.pptx](/api/threads/thread-1/artifacts/"
-            "mnt/user-data/outputs/report.pptx)"
-        ),
+        content=("[report.pptx](/api/threads/thread-1/artifacts/mnt/user-data/outputs/report.pptx)"),
     )
     journal = _Journal(message)
     checkpointer = _Checkpointer(

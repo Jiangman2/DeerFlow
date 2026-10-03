@@ -36,15 +36,11 @@ def _human_input_response(request_id: str) -> HumanMessage:
 
 
 def test_open_clarification_is_cleared_by_matching_response() -> None:
-    assert not worker._has_open_clarification(
-        [_clarification_tool_message("req-1"), _human_input_response("req-1")]
-    )
+    assert not worker._has_open_clarification([_clarification_tool_message("req-1"), _human_input_response("req-1")])
 
 
 def test_open_clarification_detects_nested_stream_chunk() -> None:
-    assert worker._chunk_has_open_clarification(
-        {"lead_agent": {"messages": [_clarification_tool_message("req-1")]}}
-    )
+    assert worker._chunk_has_open_clarification({"lead_agent": {"messages": [_clarification_tool_message("req-1")]}})
 
 
 @pytest.mark.asyncio

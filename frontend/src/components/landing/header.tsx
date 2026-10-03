@@ -50,7 +50,7 @@ export async function Header({ className, homeURL, locale }: HeaderProps) {
         </Button>
         <Button
           size="sm"
-          className="h-9 rounded-lg border border-[#07569f] bg-[#0868bd] px-4 text-white shadow-[0_5px_14px_rgba(8,104,189,0.22)] hover:-translate-y-px hover:bg-[#075aa5] hover:shadow-[0_7px_18px_rgba(8,104,189,0.28)] active:translate-y-0 active:bg-[#064c8c] focus-visible:ring-[#0868bd]/30"
+          className="h-9 rounded-lg border border-[#07569f] bg-[#0868bd] px-4 text-white shadow-[0_5px_14px_rgba(8,104,189,0.22)] hover:-translate-y-px hover:bg-[#075aa5] hover:shadow-[0_7px_18px_rgba(8,104,189,0.28)] focus-visible:ring-[#0868bd]/30 active:translate-y-0 active:bg-[#064c8c]"
           asChild
         >
           <Link href={brand.links.login}>{t.sidebar.newChat}</Link>

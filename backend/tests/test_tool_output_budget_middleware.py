@@ -261,7 +261,7 @@ class TestNeedsBudget:
 
 
 class TestBuildPreview:
-    def test_contains_typed_summary_and_reference(self):
+    def test_contains_head_and_tail_and_reference(self):
         content = "HEAD_" + "x" * 5000 + "_TAIL"
         preview = _build_preview(
             content,
@@ -270,9 +270,8 @@ class TestBuildPreview:
             head_chars=100,
             tail_chars=50,
         )
-        assert preview.startswith("[Full bash output saved to /mnt/test/bash-abc.log")
-        assert "Preview kind: text" in preview
-        assert "Text output" in preview
+        assert preview.startswith("HEAD_")
+        assert "_TAIL" in preview
         assert "/mnt/test/bash-abc.log" in preview
         assert "read_file" in preview
         assert "start_line and end_line" in preview
@@ -287,82 +286,6 @@ class TestBuildPreview:
             tail_chars=100,
         )
         assert "10000 chars" in preview
-
-    def test_json_preview_includes_structure_and_raw_sample(self):
-        content = '{"meta":{"source":"unit"},"items":[{"id":1,"name":"alpha"},{"id":2,"name":"beta"}],"payload":"' + "x" * 5000 + '","tail_marker":"SHOULD_NOT_NEED_TAIL"}'
-        preview = _build_preview(
-            content,
-            tool_name="mcp_json",
-            virtual_path="/mnt/test/result.json",
-            head_chars=80,
-            tail_chars=40,
-        )
-        assert "Preview kind: json" in preview
-        assert "JSON object with 4 top-level keys" in preview
-        assert "Top-level keys: meta, items, payload, tail_marker" in preview
-        assert "items: array length 2" in preview
-        assert '$.meta.source: "unit"' in preview
-        assert not preview.startswith('{"meta"')
-        # The synopsis no longer hides the raw head/tail bytes; the model
-        # gets the typed synopsis AND inline raw samples so it can read
-        # the file with a tighter start_line range.
-        assert "Raw sample (head + tail" in preview
-        # payload segment dominates the document, so even with head_chars=80
-        # the raw head sample is almost entirely 'x' characters.
-        assert preview.count("x") >= 50
-
-    def test_json_preview_reports_nested_paths_and_line_hints(self):
-        content = json.dumps(
-            {
-                "data": {
-                    "items": [{"id": idx, "name": f"item-{idx}"} for idx in range(47)],
-                    "next_cursor": "cursor-2",
-                },
-                "meta": {"source": "unit"},
-            },
-            indent=2,
-        )
-        preview = _build_preview(
-            content,
-            tool_name="api_tool",
-            virtual_path="/mnt/test/api.json",
-            head_chars=80,
-            tail_chars=40,
-        )
-        assert "$.data: object keys 2; keys items, next_cursor" in preview
-        assert "$.data.items: array length 47; first item object" in preview
-        # Location hints were removed: they are wrong when a key string also
-        # appears as a value earlier in the document, or when the same key
-        # recurs at multiple depths.
-        assert "line " not in preview.split("Access:")[0]
-        assert "byte offset " not in preview
-
-    def test_json_paths_are_emitted_without_line_hints(self):
-        content = "\n\n" + json.dumps({"data": {"items": [1, 2, 3]}}, indent=2)
-        preview = _build_preview(
-            content,
-            tool_name="api_tool",
-            virtual_path="/mnt/test/api.json",
-            head_chars=80,
-            tail_chars=40,
-        )
-        assert "$.data: object keys 1; keys items" in preview
-        assert "line " not in preview.split("Access:")[0]
-        assert "byte offset " not in preview
-
-    def test_table_preview_extracts_columns(self):
-        content = "name,score\n" + "\n".join(f"Ada{i},{90 + i}" for i in range(10)) + "\n"
-        preview = _build_preview(
-            content,
-            tool_name="csv_tool",
-            virtual_path="/mnt/test/table.csv",
-            head_chars=80,
-            tail_chars=40,
-        )
-        assert "Preview kind: csv" in preview
-        assert "CSV table with 10 data rows and 2 columns" in preview
-        assert "columns: name, score" in preview
-        assert "first data row: name=Ada0 | score=90" in preview
 
 
 class TestToolOutputSynopsis:
@@ -405,22 +328,6 @@ class TestToolOutputSynopsis:
         content = "INFO: starting service\nERROR: failed to connect\nWARN: retrying\nINFO: connected\n" * 200
         synopsis = build_tool_output_synopsis(content, tool_name="bash")
         assert synopsis.kind == "text", f"expected text, got {synopsis.kind!r}: {synopsis.summary}"
-
-    def test_review_6_json_paths_are_emitted_without_byte_offset(self):
-        # The previous _json_path_location anchored at the first textual
-        # occurrence of the key string, which is wrong when the key also
-        # appears as a value earlier in the document.
-        content = '{"label": "items", "items": {"id": 1, "name": "foo"}}'
-        preview = _build_preview(
-            content,
-            tool_name="api_tool",
-            virtual_path="/mnt/test/api.json",
-            head_chars=200,
-            tail_chars=200,
-        )
-        assert "byte offset" not in preview
-        # The path itself is still useful navigation.
-        assert "$.items" in preview
 
     def test_review_7_scalar_examples_respects_depth_cap(self):
         # build_tool_output_synopsis used to recurse without a depth cap
@@ -467,23 +374,6 @@ class TestToolOutputSynopsis:
         bash_out = "ls -l output:\n\ttotal 0\n" + "\n".join(f"\t{row}{i}" for i in range(1, 6)) + "\n"
         synopsis = build_tool_output_synopsis(bash_out, tool_name="bash")
         assert synopsis.kind == "text", f"expected text, got {synopsis.kind!r}: {synopsis.summary}"
-
-    def test_review_10_preview_includes_raw_head_and_tail_sample(self):
-        # Default behavior change in the PR removed the inline raw bytes
-        # for non-binary previews. The fix restores them so the model
-        # can see the actual first/last KB without a follow-up read_file.
-        content = "log line 1\n" * 200
-        preview = _build_preview(
-            content,
-            tool_name="bash",
-            virtual_path="/mnt/test/run.log",
-            head_chars=400,
-            tail_chars=400,
-        )
-        assert "Raw sample (head + tail" in preview
-        # head_chars=400 should capture the first 80 'log line 1' lines
-        # verbatim; tail_chars=400 should capture the last 80.
-        assert preview.count("log line 1") >= 70  # line snapping may lose a few
 
     def test_review_11_short_text_does_not_duplicate_excerpts(self):
         # For inputs shorter than 2 * _TEXT_EXCERPT_CHARS, the previous
@@ -620,7 +510,7 @@ class TestWrapToolCallExternalize:
             with open(os.path.join(storage_dir, files[0]), encoding="utf-8") as f:
                 assert f.read() == content
 
-    def test_preview_contains_typed_summary(self):
+    def test_preview_contains_head_and_tail(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             config = ToolOutputConfig(externalize_min_chars=50, preview_head_chars=20, preview_tail_chars=10)
             mw = ToolOutputBudgetMiddleware(config=config)
@@ -630,10 +520,8 @@ class TestWrapToolCallExternalize:
 
             result = mw.wrap_tool_call(req, lambda _: msg)
 
-            assert result.content.startswith("[Full web_search output saved to")
-            assert "Preview kind: text" in result.content
-            assert "Text output" in result.content
-            assert "HEADPART_" in result.content
+            assert result.content.startswith("HEADPART_")
+            assert "_TAILPART" in result.content
 
     def test_weknora_search_keeps_ranked_images_and_citations_inline(self):
         with tempfile.TemporaryDirectory() as tmpdir:

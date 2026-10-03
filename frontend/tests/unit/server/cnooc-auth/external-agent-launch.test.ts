@@ -30,9 +30,9 @@ describe("CNOOC external-agent launch", () => {
   });
 
   test("rejects empty or control-character tokens", () => {
-    expect(() =>
-      buildCnoocExternalAgentTargetUrl("zywdjxzj", "   "),
-    ).toThrow("platform token is missing");
+    expect(() => buildCnoocExternalAgentTargetUrl("zywdjxzj", "   ")).toThrow(
+      "platform token is missing",
+    );
     expect(() =>
       buildCnoocExternalAgentTargetUrl("zywdjxzj", "bad\ntoken"),
     ).toThrow("platform token is invalid");

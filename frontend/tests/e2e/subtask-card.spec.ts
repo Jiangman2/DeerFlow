@@ -262,10 +262,11 @@ test.describe("Subtask card", () => {
       .click();
     await expect(page.getByText("Tool output")).toBeVisible();
 
-    const previewLink = page.getByRole("link", {
-      name: "http://127.0.0.1:5050",
-    });
+    const previewLink = page
+      .getByTestId("ppt-main-progress")
+      .getByRole("link", { name: "Preview", exact: true });
     await expect(previewLink).toBeVisible();
+    await expect(previewLink).not.toContainText(/127\.0\.0\.1|localhost/);
     await expect(previewLink).toHaveAttribute(
       "href",
       `/api/threads/${MOCK_THREAD_ID}/live-preview/5050/`,

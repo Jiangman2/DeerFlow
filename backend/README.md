@@ -1,7 +1,160 @@
 # DeerFlow Backend
 
+Batch fourteen repairs active TUI quit, reserved-command handling, contentless
+message extraction, WeChat batch failure/cancellation handling and diff totals.
+WeChat now attempts remaining messages after a bad attachment and advances its
+cursor only after that batch; interrupted partial batches remain replayable.
+Ordinary context Skills remain available, while unsupported TUI compaction
+controls are not sent to the agent. No additional tests are deferred. See
+[the reconciliation scope](docs/BACKEND_RECONCILIATION_BATCH14_20261002.md).
+Server backend/frontend acceptance is still required before final merge/deploy.
+
+Batch thirteen restores test-environment thread/run owner isolation and scoped
+usage reads, completes the SQL token-aggregation user filter, and rejects
+non-positive message/event pagination parameters. Hidden confirmation-answer
+regeneration and the unmatched typed-preview integration remain deferred;
+existing regeneration and raw head/tail behavior, WeKnora citations/images and
+all pre-merge tests are preserved. See
+[the reconciliation scope](docs/BACKEND_RECONCILIATION_BATCH13_20261002.md).
+Do not finalize or deploy this unfinished merge until server acceptance passes.
+
+Batch twelve reconciles subagent stream cleanup and contentless-result
+diagnostics, makes SSO provider tests independent of live config, and aligns
+Telegram reply checks with the existing Chinese product text. The incomplete
+incoming attribution/Tavily expansion remains deferred; production identity,
+SSO/IAM, TLS credentials and deployment configuration are unchanged. See
+[the reconciliation scope](docs/BACKEND_RECONCILIATION_BATCH12_20261002.md).
+Focused and complete server validation are still required before final merge.
+
+The shared Slash contract now matches both unchanged runtime/display parsers.
+Only its unmatched incoming context entry and the unsupported new frontend
+Skill-parser test are deferred; all pre-merge tests and composer compact behavior
+are preserved. See [the contract follow-up](docs/SLASH_CONTRACT_FOLLOWUP_20261002.md).
+Run backend/frontend contract regressions before continuing full acceptance.
+
+Batch eleven repairs unconditional archive entry limits, NTFS stream-name
+rejection, skill package discovery and mixed frontmatter diagnostics. It restores
+all pre-merge Slash tests and admin endpoint assertions without changing the
+production activation chain or enabling the deferred reload endpoint. See
+[the batch-eleven audit](docs/BACKEND_RECONCILIATION_BATCH11_20261002.md).
+The shared Slash contract drift remains pending exact-file reconciliation.
+
+Batch ten restores byte-preserving package review and reconciles Run API,
+stream cancellation, SQLite scheduler-budget and malformed-URL boundaries.
+It preserves every preexisting test and records narrow incoming-only deferrals.
+See [the batch-ten audit](docs/BACKEND_RECONCILIATION_BATCH10_20261002.md).
+
+Bounded empty search results now explicitly report incompleteness. AIO directory
+glob results distinguish exactly-full output from an omitted eligible match,
+including zero-cap and filtered-tail cases. See
+[the search follow-up](docs/SEARCH_FOLLOWUP_20261002.md).
+
+The path-mask follow-up stops the shared output matcher at PATH-list colons,
+so every mapped entry is masked independently. Existing security tests and I/O
+gates are preserved. See [the follow-up record](docs/PATH_MASK_FOLLOWUP_20261002.md).
+
+The r10 reconciliation repairs MCP URI/replacement handling, cross-loop OAuth
+locking, MindIE tool-result framing and OpenAPI method IDs, and restores the
+pre-merge memory token user filter. The exact read continuation increment is
+explicitly deferred, not fixed. See [the r10 record](docs/BACKEND_BATCH9_MERGE_20261001.md).
+No final merge or deployment is permitted before the remaining release gates.
+
+The batch-eight follow-up isolates stream-bridge mock capabilities and scopes
+enterprise identity assertions to the role block while retaining native-tool
+guidance and all four persisted stop-reason integration checks. It changes no
+runtime code. See [the follow-up record](docs/BACKEND_BATCH8_FOLLOWUP_20261001.md).
+
+The batch-eight follow-up separates exact read-file page identities, masks
+escaping symlink spellings for display without relaxing I/O containment, and
+reports missing directory listings explicitly. Existing Windows command tests
+and the shared subagent floor of two are retained; unsupported incoming Windows
+runner and single-subagent increments are deferred. See
+[the batch-eight record](docs/BACKEND_BATCH8_MERGE_20261001.md) for limitations
+and the mandatory full-suite/release gates.
+
+The batch-seven follow-up accepts UTF-8 BOM headings and preserves Unicode
+separators inside physical JSONL records. Only the ordinary Gateway performs
+startup orphan recovery; the dedicated PPT Runner still starts heartbeat and
+retains normal shutdown, but cannot reclaim the Gateway's runs on its restart.
+AIO token and IAM cookie tests use complete fake initialization/configuration.
+Unimplemented repeated-cancellation and lock-generation increments remain
+explicitly deferred. See [the batch-seven record](docs/BACKEND_BATCH7_MERGE_20261001.md)
+for known limitations, preserved coverage, and deployment gates.
+
+The batch-six merge follow-up hardens DingTalk routing identity and handles
+Feishu mentions before recognized commands, preserving ordinary chat text.
+Dashboard coverage names all six currently implemented external cards. Build
+tests exercise the Python timeout patcher and tracked proxy/CA examples, not
+real runtime credentials. Selected incoming-only Discord, event-lock, delegation,
+and E2B tests are deferred with their unsupported behavior explicitly recorded.
+See [the batch-six record](docs/BACKEND_BATCH6_MERGE_20261001.md); passing these
+tests is not final full-suite or release-config validation.
+
 The 2026-09-28 production source alignment on the enterprise 7·16 branch is
 recorded in `../release/production-build-alignment-20260928/README.md`.
+
+The isolated 2026-09-30 dmdb merge restores the pre-merge input trust boundary,
+thread-state metadata filtering, and deterministic SkillScan fixes. Incomplete
+incoming RPM pacing, sandbox path-mask extensions, scheduled-run status filtering,
+and SkillScan instance-client analysis are deferred, not advertised as working.
+Existing stream-admission and Redis batching optimizations remain unchanged.
+See [the reconciliation record](docs/ENTERPRISE_MERGE_20260930.md) for scope and
+required regression gates; this record does not authorize deployment.
+
+The frontend follow-up additionally restores the matching pre-merge
+scheduled-task API route, including its permission and queue-mutation guards.
+The scheduler service, repositories, and migrations remain unchanged. Validate
+the restored UI and API together before completing the merge.
+
+The 2026-10-01 full-suite follow-up offloads custom Skill history I/O and fixes
+explicit channel binding parsing without changing deployed Chinese branding.
+Incomplete ACP deadlines, the absent Skill reload endpoint, and unmatched AIO
+test increments are individually deferred; all pre-merge tests are retained.
+See [the batch-two record](docs/BACKEND_BATCH2_MERGE_20261001.md). The earlier
+full-suite wait is not yet localized, so this merge is not ready for deployment.
+
+The artifact follow-up restores download-only handling of XML/XSL/RDF and all
+`+xml` MIME subtypes for ordinary artifacts and Skill archive members. It keeps
+the incoming server-owned preview credentials, Runner port forwarding, media
+streaming, and PDF snapshot/security checks. Preview tests use explicit fake
+configuration rather than loading runtime secrets. See
+[the artifact reconciliation record](docs/ARTIFACT_MERGE_20261001.md).
+
+The next full-suite batch validates assistant search pagination (`limit` 1–1000,
+non-negative `offset`) while preserving defaults and filtering. Unimplemented
+extended Guardrail identity propagation and BoxLite status-marker expectations
+are individually deferred by restoring all pre-merge tests, not disabling
+authorization or changing Sandbox protocols. See
+[the batch-three record](docs/BACKEND_BATCH3_MERGE_20261001.md).
+
+The BoxLite lifecycle follow-up restores its pre-merge boolean result for warm
+entry destruction. Previously a normal close returned `None`, causing shared
+cleanup to repark a closed resource. All existing tests, AIO lease protections,
+and the shared lifecycle mixin remain unchanged. See
+[the lifecycle record](docs/BOXLITE_LIFECYCLE_MERGE_20261001.md).
+
+The full-suite wait at Browserless web-fetch success was traced to the real
+ReadabiliPy parser starting a first-use `npm install`. Unit tests now isolate
+the third-party parser and external DNS while retaining real tool invocation,
+ReadabilityExtractor/Article wiring, Markdown conversion and SSRF validation.
+Runtime code and parser dependencies are unchanged; extraction integration in
+a dependency-prepared environment remains a separate release check. See
+[the test isolation record](docs/BROWSERLESS_TEST_ISOLATION_20261001.md).
+
+Batch four restores pre-merge factory durable-context/system-message middleware
+and explicit token-budget opt-in, plus Codex invalid-call/placeholder pairing.
+Channel tests retain Chinese enterprise branding and native binding/auth checks;
+Responses namespace tests retain the schema now stored for argument validation.
+Unimplemented incoming channel rollback/lock-generation/business-response checks
+and SDK stream increments are individually deferred, not claimed as fixed.
+See [the batch-four scope and recovery list](docs/BACKEND_BATCH4_MERGE_20261001.md).
+
+Batch five rejects malformed JSON/OAuth containers in Claude credential files
+without exposing their contents, preserving the existing default-file fallback
+and all credential tests. Incoming blank/missing tool-call ID recovery has tests
+but no implementation; only its new test class is deferred. Existing tool-call
+sanitization, pairing and timing instrumentation remain unchanged. See
+[the batch-five record](docs/BACKEND_BATCH5_MERGE_20261001.md) for recovery scope.
 
 DeerFlow is a LangGraph-based AI super agent with sandbox execution, persistent memory, and extensible tool integration. The backend enables AI agents to execute code, browse the web, manage files, delegate tasks to subagents, and retain context across conversations - all in isolated, per-thread environments.
 

@@ -6,6 +6,7 @@ Uses a temp SQLite DB to test ORM-backed CRUD operations.
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import event
 from sqlalchemy.dialects import postgresql
 
 from deerflow.persistence.run import RunRepository
@@ -387,21 +388,6 @@ class TestRunRepository:
         await _cleanup()
 
     @pytest.mark.anyio
-    async def test_aggregate_tokens_by_thread_scopes_to_user(self, tmp_path):
-        repo = await _make_repo(tmp_path)
-        await repo.put("owner-run", thread_id="t1", status="running", user_id="owner-a")
-        await repo.update_run_completion("owner-run", status="success", total_tokens=10)
-        await repo.put("other-run", thread_id="t1", status="running", user_id="owner-b")
-        await repo.update_run_completion("other-run", status="success", total_tokens=90)
-
-        scoped = await repo.aggregate_tokens_by_thread("t1", user_id="owner-a")
-        unscoped = await repo.aggregate_tokens_by_thread("t1", user_id=None)
-
-        assert (scoped["total_runs"], scoped["total_tokens"]) == (1, 10)
-        assert (unscoped["total_runs"], unscoped["total_tokens"]) == (2, 100)
-        await _cleanup()
-
-    @pytest.mark.anyio
     async def test_aggregate_tokens_by_thread_can_include_active_runs(self, tmp_path):
         repo = await _make_repo(tmp_path)
         await repo.put("success-run", thread_id="t1", status="running")
@@ -422,6 +408,74 @@ class TestRunRepository:
             "middleware": 0,
         }
         await _cleanup()
+
+    @pytest.mark.anyio
+    async def test_thread_token_aggregation_filters_owner_before_all_breakdowns(self, tmp_path):
+        repo = await _make_repo(tmp_path)
+        try:
+            for run_id, thread_id, owner, status, tokens in [
+                ("a-success", "t1", "owner-a", "success", 7),
+                ("a-error", "t1", "owner-a", "error", 5),
+                ("b-success", "t1", "owner-b", "success", 100),
+                ("unowned", "t1", None, "success", 11),
+                ("a-other-thread", "t2", "owner-a", "success", 40),
+                ("b-active", "t1", "owner-b", "running", 13),
+            ]:
+                await repo.put(run_id, thread_id=thread_id, user_id=owner, status="running", model_name="fallback-model")
+                await repo.update_run_completion(
+                    run_id,
+                    status=status,
+                    total_tokens=tokens,
+                    total_input_tokens=tokens - 1,
+                    total_output_tokens=1,
+                    lead_agent_tokens=tokens - 1,
+                    subagent_tokens=1,
+                    token_usage_by_model={"actual-model": {"total_tokens": tokens}},
+                )
+            owner_a = await repo.aggregate_tokens_by_thread("t1", user_id="owner-a", include_active=True)
+            assert owner_a == {
+                "total_tokens": 12,
+                "total_input_tokens": 10,
+                "total_output_tokens": 2,
+                "total_runs": 2,
+                "by_model": {"actual-model": {"tokens": 12, "runs": 2}},
+                "by_caller": {"lead_agent": 10, "subagent": 2, "middleware": 0},
+            }
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id="owner-b"))["total_tokens"] == 100
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id="owner-b", include_active=True))["total_tokens"] == 113
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id=None))["total_tokens"] == 123
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id=None, include_active=True))["total_tokens"] == 136
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id="missing"))["total_runs"] == 0
+            assert (await repo.aggregate_tokens_by_thread("t1", user_id=""))["total_runs"] == 0
+        finally:
+            await _cleanup()
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("owner", ["owner-a", "", None])
+    async def test_scoped_token_aggregation_predicate_compiles_on_postgres(self, owner):
+        from types import SimpleNamespace
+
+        captured = []
+
+        class FakeSessionContext:
+            async def __aenter__(self):
+                async def execute(stmt):
+                    captured.append(stmt)
+                    return SimpleNamespace(all=lambda: [])
+
+                return SimpleNamespace(execute=execute)
+
+            async def __aexit__(self, *args):
+                return None
+
+        await RunRepository(lambda: FakeSessionContext()).aggregate_tokens_by_thread("t1", user_id=owner)
+        compiled = captured[0].compile(dialect=postgresql.dialect())
+        where = str(compiled).split("WHERE", 1)[1]
+        assert ("runs.user_id =" in where) is (owner is not None)
+        if owner is not None:
+            assert owner in compiled.params.values()
+        assert "token_usage_by_model" in str(compiled)
+        assert len(captured) == 1
 
     @pytest.mark.anyio
     async def test_list_by_thread_ordered_desc(self, tmp_path):
@@ -837,6 +891,44 @@ class TestRunRepository:
                 created_at=datetime.now(UTC).isoformat(),
             )
 
+        await _cleanup()
+
+    @pytest.mark.anyio
+    async def test_renew_leases_updates_only_active_rows_of_requested_owner(self, tmp_path):
+        from deerflow.persistence.engine import get_engine
+
+        repo = await _make_repo(tmp_path)
+        old_expiry = (datetime.now(UTC) - timedelta(seconds=10)).isoformat()
+        new_expiry = (datetime.now(UTC) + timedelta(seconds=30)).isoformat()
+        await repo.put("owned-pending", thread_id="t1", status="pending", owner_worker_id="worker-a", lease_expires_at=old_expiry)
+        await repo.put("owned-running", thread_id="t2", status="running", owner_worker_id="worker-a", lease_expires_at=old_expiry)
+        await repo.put("other-owner", thread_id="t3", status="running", owner_worker_id="worker-b", lease_expires_at=old_expiry)
+        await repo.put("terminal", thread_id="t4", status="success", owner_worker_id="worker-a", lease_expires_at=old_expiry)
+
+        statements: list[str] = []
+
+        def capture_update(_connection, _cursor, statement, _parameters, _context, _executemany):
+            if statement.lstrip().lower().startswith("update runs"):
+                statements.append(statement)
+
+        engine = get_engine()
+        assert engine is not None
+        event.listen(engine.sync_engine, "before_cursor_execute", capture_update)
+        try:
+            renewed = await repo.renew_leases(
+                ["owned-pending", "owned-running", "owned-pending", "other-owner", "terminal", "missing"],
+                owner_worker_id="worker-a",
+                lease_expires_at=new_expiry,
+            )
+        finally:
+            event.remove(engine.sync_engine, "before_cursor_execute", capture_update)
+
+        assert len(statements) == 1
+        assert renewed == {"owned-pending", "owned-running"}
+        assert (await repo.get("owned-pending"))["lease_expires_at"] == new_expiry
+        assert (await repo.get("owned-running"))["lease_expires_at"] == new_expiry
+        assert (await repo.get("other-owner"))["lease_expires_at"] == old_expiry
+        assert (await repo.get("terminal"))["lease_expires_at"] == old_expiry
         await _cleanup()
 
     # ------------------------------------------------------------------

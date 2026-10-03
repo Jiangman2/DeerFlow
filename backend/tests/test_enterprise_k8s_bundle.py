@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import re
+import runpy
 import ssl
 import tomllib
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -199,13 +202,62 @@ def test_enterprise_sandbox_image_pins_arm64_websocat_and_cairosvg():
     assert "Version(pydantic.__version__) >= Version('2.12.5')" in dockerfile
 
 
-def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands():
+@pytest.mark.parametrize("port", ["${AUTH_BACKEND_PORT}", "8081"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands(port, newline):
     dockerfile = _read("docker/sandbox-ppt-master/Dockerfile")
 
-    assert "nginx-server-with-auth.conf" in dockerfile
-    assert "grep -cF 'proxy_pass http://127.0.0.1:${AUTH_BACKEND_PORT};'" in dockerfile
-    assert "proxy_read_timeout 86400s;" in dockerfile
-    assert "proxy_send_timeout 86400s;" in dockerfile
+    assert "COPY docker/sandbox-ppt-master/patch_nginx_timeouts.py /tmp/patch_nginx_timeouts.py" in dockerfile
+    assert "RUN python3 /tmp/patch_nginx_timeouts.py /opt/gem/nginx-server-with-auth.conf" in dockerfile
+    patch_text = runpy.run_path(str(REPO_ROOT / "docker/sandbox-ppt-master/patch_nginx_timeouts.py"))["patch_text"]
+    source = "\n".join(
+        [
+            "server {",
+            "    location /command {",
+            "        proxy_read_timeout 60s;",
+            f"        proxy_pass http://127.0.0.1:{port};",
+            "        proxy_send_timeout 60s;",
+            "    }",
+            "    location /stream {",
+            f"        proxy_pass http://127.0.0.1:{port};",
+            "        proxy_connect_timeout 30s;",
+            "    }",
+            "    location /external {",
+            "        proxy_pass http://example.invalid:8000;",
+            "        proxy_read_timeout 90s;",
+            "    }",
+            "}",
+            "",
+        ]
+    ).replace("\n", newline)
+    patched, mode = patch_text(source)
+    assert mode == "patched"
+    assert patched.count("proxy_connect_timeout 5s;") == 2
+    assert patched.count("proxy_read_timeout 86400s;") == 2
+    assert patched.count("proxy_send_timeout 86400s;") == 2
+    assert patched.count(f"proxy_pass http://127.0.0.1:{port};") == 2
+    assert "proxy_read_timeout 60s;" not in patched
+    assert "proxy_send_timeout 60s;" not in patched
+    assert "proxy_connect_timeout 30s;" not in patched
+    assert "proxy_read_timeout 90s;" in patched
+    assert patch_text(patched) == (patched, "already-compatible")
+    if newline == "\r\n":
+        assert "\n" not in patched.replace("\r\n", "")
+
+
+@pytest.mark.parametrize("routes", [0, 1, 3])
+def test_enterprise_sandbox_nginx_patch_rejects_unexpected_route_counts(routes):
+    patch_text = runpy.run_path(str(REPO_ROOT / "docker/sandbox-ppt-master/patch_nginx_timeouts.py"))["patch_text"]
+    source = "server {\n" + "".join(f"    location /route{index} {{\n        proxy_pass http://127.0.0.1:8081;\n    }}\n" for index in range(routes)) + "}\n"
+    with pytest.raises(ValueError, match="expected_two_loopback_proxy_routes"):
+        patch_text(source)
+
+
+def test_enterprise_sandbox_nginx_patch_rejects_duplicate_routes_in_one_block():
+    patch_text = runpy.run_path(str(REPO_ROOT / "docker/sandbox-ppt-master/patch_nginx_timeouts.py"))["patch_text"]
+    source = "server {\n    location /command {\n        proxy_pass http://127.0.0.1:8081;\n        proxy_pass http://127.0.0.1:8081;\n    }\n}\n"
+    with pytest.raises(ValueError, match="multiple_loopback_proxy_routes_in_one_block"):
+        patch_text(source)
 
 
 def test_ppt_master_runner_is_an_independent_failure_domain():
@@ -1052,7 +1104,12 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
         ".tavily.com",
     }.isdisjoint(set(gateway_values["NO_PROXY"].split(",")))
 
-    config = yaml.safe_load(_read("config.yaml"))
+    # Repository tests verify the tracked example contract, never a developer's
+    # gitignored runtime secrets. The actual release config has its separate
+    # scripts/validate_enterprise_release.py gate before deployment.
+    examples = re.findall(r"```yaml\n(sandbox:\n  environment:.*?\n)```", _read("k8s/enterprise/README.md"), re.DOTALL)
+    assert len(examples) == 1
+    config = yaml.safe_load(examples[0])
     sandbox_environment = config["sandbox"]["environment"]
     assert sandbox_environment["HTTP_PROXY"] == "$HTTP_PROXY"
     assert sandbox_environment["HTTPS_PROXY"] == "$HTTPS_PROXY"
@@ -1060,6 +1117,9 @@ def test_enterprise_bundle_has_one_public_nodeport_and_deletes_weknora_nodeports
     assert sandbox_environment["NODE_EXTRA_CA_CERTS"] == "$NODE_EXTRA_CA_CERTS"
     assert sandbox_environment["OPENSSL_CONF"] == "$OPENSSL_CONF"
     assert sandbox_environment["DASHSCOPE_TLS_COMPAT"] == "$DASHSCOPE_TLS_COMPAT"
+    template = _read("config.example.yaml")
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS", "OPENSSL_CONF", "DASHSCOPE_TLS_COMPAT"):
+        assert f"#   #   {name}: {sandbox_environment[name]}" in template
 
 
 def test_enterprise_local_volumes_are_pinned_to_known_nodes():

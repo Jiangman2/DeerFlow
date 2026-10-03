@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
-from langchain_core.messages import AIMessageChunk
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+from langchain_openai import ChatOpenAI
 
+from deerflow.llm_timing_context import reset_current_llm_timing_context, set_current_llm_timing_context
 from deerflow.models.robust_openai import (
     OpenAICompatibleResponseError,
     RobustChatOpenAI,
+    _ModelStreamTiming,
+    _safe_endpoint_for_log,
     _StreamFrameGuard,
 )
 
@@ -64,6 +70,187 @@ def _assert_usage(message, *, input_tokens: int, output_tokens: int, total_token
 
 def test_streaming_remains_enabled_for_enterprise_tool_calls() -> None:
     assert _model().disable_streaming is False
+
+
+def test_streaming_deepseek_reasoning_content_is_preserved() -> None:
+    chunk = _convert_stream_chunk(
+        _model(),
+        {
+            "choices": [
+                {
+                    "delta": {"role": "assistant", "reasoning_content": "先分析。"},
+                    "finish_reason": None,
+                }
+            ]
+        },
+    )
+
+    assert chunk is not None
+    assert chunk.message.additional_kwargs["reasoning_content"] == "先分析。"
+
+
+def test_non_streaming_deepseek_reasoning_content_is_preserved() -> None:
+    result = _model()._create_chat_result(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "最终回答。",
+                        "reasoning_content": "先分析问题。",
+                    },
+                    "finish_reason": "stop",
+                }
+            ]
+        }
+    )
+
+    assert result.generations[0].message.content == "最终回答。"
+    assert result.generations[0].message.additional_kwargs["reasoning_content"] == "先分析问题。"
+
+
+def test_deepseek_reasoning_content_is_replayed_for_tool_call_history() -> None:
+    human = HumanMessage(content="查天气")
+    assistant = AIMessage(
+        content="",
+        additional_kwargs={"reasoning_content": "需要先调用天气工具。"},
+        tool_calls=[{"id": "call_weather", "name": "weather", "args": {}}],
+    )
+
+    payload = _model()._get_request_payload([human, assistant])
+
+    assert payload["messages"][1]["reasoning_content"] == "需要先调用天气工具。"
+
+
+def test_timing_endpoint_strips_query_and_credentials() -> None:
+    assert _safe_endpoint_for_log("https://user:secret@model.example.internal:8443/v1?api_key=leak") == "https://model.example.internal:8443/v1"
+
+
+def test_timing_logs_are_metadata_only_when_enabled(caplog) -> None:
+    caplog.set_level("INFO", logger="deerflow.models.robust_openai")
+    timing = _ModelStreamTiming(
+        enabled=True,
+        model="DeepSeek-V4-Flash",
+        endpoint="http://model.ai.cnooc/member1/v1",
+        langchain_run_id="langchain-run-1",
+        mode="async",
+    )
+
+    timing.start()
+    timing.finish(outcome="completed")
+
+    rendered = "\n".join(record.getMessage() for record in caplog.records)
+    assert "LLM_TIMING start" in rendered
+    assert "LLM_TIMING end" in rendered
+    assert "DeepSeek-V4-Flash" in rendered
+    assert "prompt" not in rendered
+    assert "response" not in rendered
+
+
+def test_timing_logs_include_current_deerflow_run_context(monkeypatch, caplog) -> None:
+    monkeypatch.setenv("DEERFLOW_LLM_TIMING_LOGS", "true")
+    caplog.set_level("INFO", logger="deerflow.models.robust_openai")
+    token = set_current_llm_timing_context(thread_id="thread-123", run_id="run-456")
+    try:
+        timing = _ModelStreamTiming.for_invocation(_model(), None, mode="async")
+        timing.start()
+        timing.finish(outcome="completed")
+    finally:
+        reset_current_llm_timing_context(token)
+
+    rendered = "\n".join(record.getMessage() for record in caplog.records)
+    assert "deerflow_thread_id=thread-123" in rendered
+    assert "deerflow_run_id=run-456" in rendered
+
+
+def test_timing_uses_inheritable_metadata_when_task_context_is_unavailable(monkeypatch) -> None:
+    monkeypatch.setenv("DEERFLOW_LLM_TIMING_LOGS", "true")
+
+    class _RunManager:
+        run_id = "langchain-789"
+        inheritable_metadata = {
+            "deerflow_timing_thread_id": "thread-123",
+            "deerflow_timing_run_id": "run-456",
+        }
+
+    timing = _ModelStreamTiming.for_invocation(_model(), _RunManager(), mode="async")
+
+    assert timing.deerflow_thread_id == "thread-123"
+    assert timing.deerflow_run_id == "run-456"
+
+
+def test_timing_log_records_share_one_llm_call_id(caplog) -> None:
+    caplog.set_level("INFO", logger="deerflow.models.robust_openai")
+    timing = _ModelStreamTiming(
+        enabled=True,
+        model="DeepSeek-V4-Flash",
+        endpoint="http://model.ai.cnooc/member1/v1",
+        langchain_run_id="langchain-run-1",
+        mode="async",
+    )
+
+    timing.start()
+    timing.observe_chunk(ChatGenerationChunk(message=AIMessageChunk(content="first")))
+    timing.finish(outcome="completed")
+
+    rendered = "\n".join(record.getMessage() for record in caplog.records)
+    call_ids = re.findall(r"llm_call_id=([a-f0-9]{32})", rendered)
+    assert len(call_ids) == 4
+    assert set(call_ids) == {timing.llm_call_id}
+
+
+def test_nonstream_timing_records_result_latency_and_usage(caplog) -> None:
+    caplog.set_level("INFO", logger="deerflow.models.robust_openai")
+    timing = _ModelStreamTiming(
+        enabled=True,
+        model="DeepSeek-V4-Flash",
+        endpoint="http://model.ai.cnooc/member1/v1",
+        langchain_run_id="langchain-run-nonstream",
+        mode="async_nonstream",
+    )
+    result = ChatResult(
+        generations=[
+            ChatGeneration(
+                message=AIMessage(
+                    content="complete",
+                    usage_metadata={
+                        "input_tokens": 10,
+                        "output_tokens": 4,
+                        "total_tokens": 14,
+                    },
+                )
+            )
+        ]
+    )
+
+    timing.start()
+    timing.observe_result(result)
+    timing.finish(outcome="completed")
+
+    rendered = "\n".join(record.getMessage() for record in caplog.records)
+    assert "mode=async_nonstream" in rendered
+    assert "first_chunk_ms=" in rendered
+    assert "chunks=1" in rendered
+    assert "'input_tokens': 10" in rendered
+
+
+@pytest.mark.asyncio
+async def test_async_nonstream_invocation_emits_timing(monkeypatch, caplog) -> None:
+    monkeypatch.setenv("DEERFLOW_LLM_TIMING_LOGS", "true")
+    caplog.set_level("INFO", logger="deerflow.models.robust_openai")
+
+    async def fake_agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        del self, messages, stop, run_manager, kwargs
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content="complete"))])
+
+    monkeypatch.setattr(ChatOpenAI, "_agenerate", fake_agenerate)
+
+    await _model()._agenerate([HumanMessage(content="evaluate goal")])
+
+    rendered = "\n".join(record.getMessage() for record in caplog.records)
+    assert "LLM_TIMING start" in rendered
+    assert "mode=async_nonstream" in rendered
+    assert "LLM_TIMING end" in rendered
 
 
 def test_cumulative_stream_usage_prevents_1024x_cache_inflation() -> None:

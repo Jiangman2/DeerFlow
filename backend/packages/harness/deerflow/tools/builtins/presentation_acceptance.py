@@ -89,10 +89,7 @@ except Exception as exc:
     raise SystemExit(2)
 print(MARKER + json.dumps({{"ok": True, "roots": roots}}, sort_keys=True))
 """.strip()
-    command = (
-        f"python3 -c {shlex.quote(script)} {shlex.quote(source_root)} {shlex.quote(project)} "
-        f"# __SOURCE_ROOT__{source_root}____TARGET_ROOT__{project}__"
-    )
+    command = f"python3 -c {shlex.quote(script)} {shlex.quote(source_root)} {shlex.quote(project)} # __SOURCE_ROOT__{source_root}____TARGET_ROOT__{project}__"
     try:
         output = sandbox.execute_command(command, timeout=15)
     except Exception as exc:
@@ -160,11 +157,7 @@ def _section_rows(text: str, section: str) -> list[str]:
         if match.group(1) != section:
             continue
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        return [
-            line
-            for line in text[match.end() : end].splitlines()
-            if line.lstrip().startswith("-")
-        ]
+        return [line for line in text[match.end() : end].splitlines() if line.lstrip().startswith("-")]
     return []
 
 
@@ -203,26 +196,18 @@ def _confirmed_structural_template_selection(
     generated package can be accepted.
     """
 
-    selection = _json_object(
-        _safe_read(sandbox, f"{project}/confirm_ui/template_selection.json")
-    )
+    selection = _json_object(_safe_read(sandbox, f"{project}/confirm_ui/template_selection.json"))
     if not selection or selection.get("status") != "confirmed":
         return False, []
     if selection.get("mode") != "templates":
         return False, []
     selections = selection.get("selections")
-    structural = [
-        item
-        for item in selections
-        if isinstance(item, dict) and str(item.get("kind") or "").casefold() in {"deck", "layout"}
-    ] if isinstance(selections, list) else []
+    structural = [item for item in selections if isinstance(item, dict) and str(item.get("kind") or "").casefold() in {"deck", "layout"}] if isinstance(selections, list) else []
     if not structural:
         return False, []
 
     issues: list[str] = []
-    handoff = _json_object(
-        _safe_read(sandbox, f"{project}/confirm_ui/template_handoff.json")
-    )
+    handoff = _json_object(_safe_read(sandbox, f"{project}/confirm_ui/template_handoff.json"))
     if not handoff or handoff.get("status") != "ready":
         issues.append("已确认的 Deck/Layout 模板尚未形成 ready 的 template_handoff.json")
     else:
@@ -308,11 +293,7 @@ def ppt_master_template_contract_issues(
     if not structural_selected:
         return issues
 
-    loaded_documents = {
-        str(path).replace("\\", "/")
-        for path in (workflow.get("loaded_authority_documents") or [])
-        if isinstance(path, str)
-    }
+    loaded_documents = {str(path).replace("\\", "/") for path in (workflow.get("loaded_authority_documents") or []) if isinstance(path, str)}
     if require_current_run_authority:
         skill_path = str(workflow.get("skill_path") or "").replace("\\", "/")
         skill_root = str(PurePosixPath(skill_path).parent)
@@ -355,9 +336,7 @@ def ppt_master_template_contract_issues(
         if mode != "flat":
             issues.append("template_reuse_scope: style requires pptx_structure.mode: flat")
         if prototype_refs:
-            issues.append(
-                "Template Application explicitly names Deck/Layout prototypes, so template_reuse_scope: style contradicts the confirmed structural plan"
-            )
+            issues.append("Template Application explicitly names Deck/Layout prototypes, so template_reuse_scope: style contradicts the confirmed structural plan")
         return issues
 
     if reuse_scope not in {"layout", "mirror"}:
@@ -371,10 +350,7 @@ def ppt_master_template_contract_issues(
     if reuse_scope == "mirror" and adherence and adherence != "strict":
         issues.append("template_reuse_scope: mirror requires template_adherence: strict")
 
-    section_rows = {
-        section: _section_values(spec_lock, section)
-        for section in ("pptx_masters", "pptx_layouts", "page_pptx_layouts", "page_layouts")
-    }
+    section_rows = {section: _section_values(spec_lock, section) for section in ("pptx_masters", "pptx_layouts", "page_pptx_layouts", "page_layouts")}
     for section, rows in section_rows.items():
         if not rows:
             issues.append(f"structured template reuse is missing non-empty {section} mappings")
@@ -390,17 +366,10 @@ def ppt_master_template_contract_issues(
             if count and count != expected_slides:
                 issues.append(f"{section} must cover every page: expected {expected_slides}, found {count}")
 
-    mapped_prototypes = {
-        PurePosixPath(value.strip().strip('"\'')).stem
-        for value in section_rows["page_layouts"].values()
-        if value.strip()
-    }
+    mapped_prototypes = {PurePosixPath(value.strip().strip("\"'")).stem for value in section_rows["page_layouts"].values() if value.strip()}
     missing_from_plan = sorted(prototype_refs - mapped_prototypes)
     if missing_from_plan:
-        issues.append(
-            "page_layouts does not realize Template Application prototype(s): "
-            + ", ".join(missing_from_plan)
-        )
+        issues.append("page_layouts does not realize Template Application prototype(s): " + ", ".join(missing_from_plan))
     if verify_prototype_files:
         for prototype in sorted(mapped_prototypes):
             if _safe_read(sandbox, f"{project}/templates/{prototype}.svg") is None:
@@ -424,11 +393,7 @@ def _xml_signature(element: ET.Element) -> tuple[Any, ...]:
 
 
 def _svg_by_id(root: ET.Element) -> dict[str, ET.Element]:
-    return {
-        element.attrib["id"]: element
-        for element in root.iter()
-        if element.attrib.get("id")
-    }
+    return {element.attrib["id"]: element for element in root.iter() if element.attrib.get("id")}
 
 
 def ppt_master_template_svg_issues(
@@ -458,7 +423,7 @@ def ppt_master_template_svg_issues(
         return [f"structured SVG target cannot be mapped to a page key: {basename}"]
     page_key = f"P{int(page_match.group(1)):02d}"
     page_layouts = _section_values(spec_lock_text, "page_layouts")
-    prototype_value = page_layouts.get(page_key, "").strip().strip('"\'')
+    prototype_value = page_layouts.get(page_key, "").strip().strip("\"'")
     if not prototype_value:
         return [f"page_layouts is missing the prototype mapping for {page_key}"]
     prototype = PurePosixPath(prototype_value).stem
@@ -579,11 +544,7 @@ def _design_requirements(
 
 def _chart_count(path: Path) -> int:
     with zipfile.ZipFile(path, "r") as archive:
-        return sum(
-            1
-            for name in archive.namelist()
-            if re.fullmatch(r"ppt/charts/chart[1-9]\d*\.xml", name)
-        )
+        return sum(1 for name in archive.namelist() if re.fullmatch(r"ppt/charts/chart[1-9]\d*\.xml", name))
 
 
 def _final_svg_report_ok(report_text: str | None) -> bool:
@@ -594,12 +555,7 @@ def _final_svg_report_ok(report_text: str | None) -> bool:
     except json.JSONDecodeError:
         return False
     summary = report.get("summary") if isinstance(report, dict) else None
-    return (
-        isinstance(report, dict)
-        and report.get("stage") == "final"
-        and isinstance(summary, dict)
-        and summary.get("errors") == 0
-    )
+    return isinstance(report, dict) and report.get("stage") == "final" and isinstance(summary, dict) and summary.get("errors") == 0
 
 
 def validate_ppt_master_delivery(
@@ -642,10 +598,7 @@ def validate_ppt_master_delivery(
     required, expected = _design_requirements(
         design_spec,
         spec_lock,
-        {
-            str(name): bool(value)
-            for name, value in (workflow.get("required_capabilities") or {}).items()
-        },
+        {str(name): bool(value) for name, value in (workflow.get("required_capabilities") or {}).items()},
     )
 
     structure = _section_values(spec_lock, "pptx_structure")
@@ -705,9 +658,7 @@ def validate_ppt_master_delivery(
     if required.get("ai_images") and image_count < max(1, expected.get("ai_images", 1)):
         issues.append("AI 图片未按设计契约嵌入 PPTX")
     if required.get("native_charts") and chart_count < max(1, expected.get("charts", 1)):
-        issues.append(
-            f"原生图表数量不足：要求至少 {max(1, expected.get('charts', 1))}，实际 {chart_count}"
-        )
+        issues.append(f"原生图表数量不足：要求至少 {max(1, expected.get('charts', 1))}，实际 {chart_count}")
     if required.get("template"):
         if int(parts.get("masters") or 0) < max(1, expected.get("masters", 1)):
             issues.append("PPTX 母版数量不满足模板契约")

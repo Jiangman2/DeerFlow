@@ -1,9 +1,11 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeftIcon,
   CalendarClockIcon,
   ClockIcon,
+  CopyIcon,
   HelpCircleIcon,
   HistoryIcon,
   ListFilterIcon,
@@ -11,11 +13,13 @@ import {
   PencilIcon,
   PlayIcon,
   PlusIcon,
+  TriangleAlertIcon,
   Trash2Icon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,15 +47,17 @@ import {
   WorkspaceBody,
   WorkspaceContainer,
 } from "@/components/workspace/workspace-container";
+import { listAgents } from "@/core/agents/api";
+import { useAgentsApiEnabled } from "@/core/agents/hooks";
 import { useI18n } from "@/core/i18n/hooks";
 import { useModels } from "@/core/models/hooks";
+import { hasScheduleSpec } from "@/core/scheduled-tasks/cron";
 import {
   useCreateScheduledTask,
   useUpdateScheduledTask,
   useDeleteScheduledTask,
   usePauseScheduledTask,
   useResumeScheduledTask,
-  useScheduledTaskRuns,
   useScheduledTasks,
   useTriggerScheduledTask,
   useThreadScheduledTasks,
@@ -61,6 +67,7 @@ import {
   resolveScheduledModelName,
 } from "@/core/scheduled-tasks/model-selection";
 import { RECIPES, type Recipe } from "@/core/scheduled-tasks/recipes";
+import { useScheduledTaskRunHistory } from "@/core/scheduled-tasks/run-history";
 import type {
   ScheduledTask,
   ScheduledTaskRun,
@@ -69,6 +76,33 @@ import { getLocalSettings } from "@/core/settings/local";
 import { cn } from "@/lib/utils";
 
 const NONE = "—";
+const DEFAULT_ASSISTANT_ID = "lead_agent";
+
+function agentDisplayName(
+  assistantId: string | null | undefined,
+  leadLabel: string,
+): string {
+  if (!assistantId || assistantId === DEFAULT_ASSISTANT_ID) {
+    return leadLabel;
+  }
+  return assistantId;
+}
+
+function ReuseThreadNotice({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <Alert className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+      <TriangleAlertIcon className="text-amber-600 dark:text-amber-400" />
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>{description}</AlertDescription>
+    </Alert>
+  );
+}
 
 function formatTimestamp(value: string | null, locale: string): string {
   if (!value) {
@@ -98,6 +132,14 @@ export default function ScheduledTasksPage() {
   const allTasksQuery = useScheduledTasks();
   const threadTasksQuery = useThreadScheduledTasks(threadId);
   const { models } = useModels();
+  const { enabled: agentsApiEnabled, isLoading: agentsApiLoading } =
+    useAgentsApiEnabled();
+  const agentsQuery = useQuery({
+    queryKey: ["agents"],
+    queryFn: listAgents,
+    enabled: !agentsApiLoading && agentsApiEnabled,
+    retry: false,
+  });
   const data = threadId ? threadTasksQuery.data : allTasksQuery.data;
   const queryError = threadId ? threadTasksQuery.error : allTasksQuery.error;
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -108,6 +150,8 @@ export default function ScheduledTasksPage() {
   const [targetThreadId, setTargetThreadId] = useState(threadId ?? "");
   const [title, setTitle] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [createAssistantId, setCreateAssistantId] =
+    useState(DEFAULT_ASSISTANT_ID);
   const [createModelName, setCreateModelName] = useState(
     DEFAULT_SCHEDULED_MODEL_NAME,
   );
@@ -119,7 +163,9 @@ export default function ScheduledTasksPage() {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "enabled" | "paused" | "running" | "completed" | "failed"
   >("all");
-  const [typeFilter, setTypeFilter] = useState<"all" | "once" | "cron">("all");
+  const [typeFilter, setTypeFilter] = useState<
+    "all" | "once" | "cron" | "interval"
+  >("all");
   const [formError, setFormError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [adviceOpen, setAdviceOpen] = useState(false);
@@ -127,6 +173,7 @@ export default function ScheduledTasksPage() {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
+  const [editAssistantId, setEditAssistantId] = useState(DEFAULT_ASSISTANT_ID);
   const [editModelName, setEditModelName] = useState(
     DEFAULT_SCHEDULED_MODEL_NAME,
   );
@@ -136,6 +183,27 @@ export default function ScheduledTasksPage() {
     timezone: "UTC",
   });
   const [createNonce, setCreateNonce] = useState(0);
+  const agentOptions = useMemo(() => {
+    const names = new Set((agentsQuery.data ?? []).map((agent) => agent.name));
+    const options = [
+      { value: DEFAULT_ASSISTANT_ID, label: st.create.leadAgent },
+      ...(agentsQuery.data ?? [])
+        .filter((agent) => agent.name !== DEFAULT_ASSISTANT_ID)
+        .map((agent) => ({ value: agent.name, label: agent.name })),
+    ];
+    for (const extra of [createAssistantId, editAssistantId]) {
+      if (extra && extra !== DEFAULT_ASSISTANT_ID && !names.has(extra)) {
+        options.push({ value: extra, label: extra });
+        names.add(extra);
+      }
+    }
+    return options;
+  }, [
+    agentsQuery.data,
+    createAssistantId,
+    editAssistantId,
+    st.create.leadAgent,
+  ]);
   const filteredData = (data ?? []).filter((task) => {
     const statusPass = statusFilter === "all" || task.status === statusFilter;
     const typePass = typeFilter === "all" || task.schedule_type === typeFilter;
@@ -147,7 +215,7 @@ export default function ScheduledTasksPage() {
     typeof selectedTask?.run_context?.model_name === "string"
       ? selectedTask.run_context.model_name
       : undefined;
-  const taskRunsQuery = useScheduledTaskRuns(selectedTask?.id);
+  const taskRunsQuery = useScheduledTaskRunHistory(selectedTask?.id);
   const createTask = useCreateScheduledTask();
   const updateTask = useUpdateScheduledTask(selectedTask?.id ?? "");
   const pauseTask = usePauseScheduledTask();
@@ -196,7 +264,9 @@ export default function ScheduledTasksPage() {
       ? st.scheduleType.cron
       : v === "once"
         ? st.scheduleType.once
-        : v;
+        : v === "interval"
+          ? st.scheduleType.interval
+          : v;
   const statusLabel = (v: string) =>
     (st.status as Record<string, string>)[v] ?? v;
   const statusTone = (v: string) =>
@@ -225,9 +295,15 @@ export default function ScheduledTasksPage() {
     const spec = task.schedule_spec as {
       cron?: unknown;
       run_at?: unknown;
+      every_seconds?: unknown;
     };
     if (task.schedule_type === "cron") {
       return `cron: ${typeof spec.cron === "string" ? spec.cron : NONE}`;
+    }
+    if (task.schedule_type === "interval") {
+      return `every_seconds: ${
+        typeof spec.every_seconds === "number" ? spec.every_seconds : NONE
+      }`;
     }
     return `run_at: ${
       typeof spec.run_at === "string"
@@ -242,6 +318,30 @@ export default function ScheduledTasksPage() {
     setCreateSchedule(recipe.schedule);
     setContextMode("fresh_thread_per_run");
     setCreateNonce((n) => n + 1);
+  };
+  const duplicateTask = (task: ScheduledTask) => {
+    setTitle(`${task.title}${st.actions.duplicateTitleSuffix}`);
+    setPrompt(task.prompt);
+    setContextMode(task.context_mode);
+    setTargetThreadId(task.thread_id ?? "");
+    setCreateAssistantId(task.assistant_id ?? DEFAULT_ASSISTANT_ID);
+    setCreateModelName(
+      resolveScheduledModelName(
+        models,
+        typeof task.run_context?.model_name === "string"
+          ? task.run_context.model_name
+          : undefined,
+      ),
+    );
+    setCreateSchedule({
+      schedule_type: task.schedule_type,
+      schedule_spec: { ...task.schedule_spec },
+      timezone: task.timezone,
+    });
+    setFormError(null);
+    setCreateNonce((nonce) => nonce + 1);
+    setDetailOpen(false);
+    setCreateOpen(true);
   };
   const openTaskDetail = (task: ScheduledTask, startEditing = false) => {
     setSelectedTaskId(task.id);
@@ -280,15 +380,21 @@ export default function ScheduledTasksPage() {
     }
     setEditTitle(selectedTask.title);
     setEditPrompt(selectedTask.prompt);
+    setEditAssistantId(selectedTask.assistant_id ?? DEFAULT_ASSISTANT_ID);
     const spec = selectedTask.schedule_spec as {
       cron?: string;
       run_at?: string;
+      every_seconds?: number;
     };
     setEditSchedule({
       schedule_type: selectedTask.schedule_type,
       schedule_spec: {
         cron: typeof spec.cron === "string" ? spec.cron : undefined,
         run_at: typeof spec.run_at === "string" ? spec.run_at : undefined,
+        every_seconds:
+          typeof spec.every_seconds === "number"
+            ? spec.every_seconds
+            : undefined,
       },
       timezone: selectedTask.timezone || "UTC",
     });
@@ -439,13 +545,19 @@ export default function ScheduledTasksPage() {
                       </Button>
                     </div>
                     {contextMode === "reuse_thread" && (
-                      <Input
-                        value={targetThreadId}
-                        onChange={(event) =>
-                          setTargetThreadId(event.target.value)
-                        }
-                        placeholder={st.context.threadIdPlaceholder}
-                      />
+                      <>
+                        <Input
+                          value={targetThreadId}
+                          onChange={(event) =>
+                            setTargetThreadId(event.target.value)
+                          }
+                          placeholder={st.context.threadIdPlaceholder}
+                        />
+                        <ReuseThreadNotice
+                          title={st.context.reuseNoticeTitle}
+                          description={st.context.reuseNoticeDescription}
+                        />
+                      </>
                     )}
                     <Input
                       className="h-10"
@@ -460,6 +572,33 @@ export default function ScheduledTasksPage() {
                       onChange={(event) => setPrompt(event.target.value)}
                       placeholder={st.create.prompt}
                     />
+                    <div className="grid gap-1.5">
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor="scheduled-task-agent"
+                      >
+                        {st.create.agent}
+                      </label>
+                      <Select
+                        value={createAssistantId}
+                        onValueChange={setCreateAssistantId}
+                      >
+                        <SelectTrigger
+                          id="scheduled-task-agent"
+                          className="w-full"
+                          data-testid="scheduled-task-create-agent"
+                        >
+                          <SelectValue placeholder={st.create.agent} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {agentOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="grid gap-1.5">
                       <label
                         className="text-sm font-medium"
@@ -513,9 +652,9 @@ export default function ScheduledTasksPage() {
                 </Button>
                 <Button
                   onClick={() => {
-                    const hasSchedule =
-                      Boolean(createSchedule.schedule_spec.cron) ||
-                      Boolean(createSchedule.schedule_spec.run_at);
+                    const hasSchedule = hasScheduleSpec(
+                      createSchedule.schedule_spec,
+                    );
                     if (
                       !title ||
                       !prompt ||
@@ -534,6 +673,7 @@ export default function ScheduledTasksPage() {
                           contextMode === "reuse_thread"
                             ? targetThreadId
                             : null,
+                        assistant_id: createAssistantId,
                         title,
                         prompt,
                         run_context: buildRunContext(createModelName),
@@ -546,6 +686,7 @@ export default function ScheduledTasksPage() {
                           // Clear the form so a follow-up task starts fresh.
                           setTitle("");
                           setPrompt("");
+                          setCreateAssistantId(DEFAULT_ASSISTANT_ID);
                           setCreateModelName(resolveScheduledModelName(models));
                           setTargetThreadId("");
                           setContextMode("fresh_thread_per_run");
@@ -564,8 +705,7 @@ export default function ScheduledTasksPage() {
                     !title ||
                     !prompt ||
                     !createModelName ||
-                    (!createSchedule.schedule_spec.cron &&
-                      !createSchedule.schedule_spec.run_at) ||
+                    !hasScheduleSpec(createSchedule.schedule_spec) ||
                     (contextMode === "reuse_thread" && !targetThreadId) ||
                     createTask.isPending
                   }
@@ -650,6 +790,13 @@ export default function ScheduledTasksPage() {
                   onClick={() => setTypeFilter("once")}
                 >
                   {st.filters.once}
+                </Button>
+                <Button
+                  variant={typeFilter === "interval" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTypeFilter("interval")}
+                >
+                  {st.filters.interval}
                 </Button>
               </div>
               {filteredData.length === 0 ? (
@@ -770,6 +917,10 @@ export default function ScheduledTasksPage() {
                                   ? resumeTask.mutate(task.id)
                                   : pauseTask.mutate(task.id)
                               }
+                              disabled={
+                                task.status !== "enabled" &&
+                                task.status !== "paused"
+                              }
                             >
                               {task.status === "paused" ? (
                                 <PlayIcon className="size-3.5" />
@@ -785,6 +936,15 @@ export default function ScheduledTasksPage() {
                               onClick={() => openTaskDetail(task, true)}
                             >
                               <PencilIcon className="size-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              title={st.actions.duplicate}
+                              onClick={() => duplicateTask(task)}
+                            >
+                              <CopyIcon className="size-3.5" />
                             </Button>
                             <Button
                               size="icon"
@@ -978,6 +1138,15 @@ export default function ScheduledTasksPage() {
                     </span>
                   </div>
                   <div className="text-muted-foreground">
+                    {st.detail.agent}:{" "}
+                    <span className="text-foreground">
+                      {agentDisplayName(
+                        selectedTask.assistant_id,
+                        st.create.leadAgent,
+                      )}
+                    </span>
+                  </div>
+                  <div className="text-muted-foreground">
                     {st.detail.lastRun}:{" "}
                     <span className="text-foreground">
                       {formatTimestamp(selectedTask.last_run_at, locale)}
@@ -1002,6 +1171,12 @@ export default function ScheduledTasksPage() {
                     {selectedTask.last_error ?? NONE}
                   </span>
                 </div>
+                {selectedTask.context_mode === "reuse_thread" && (
+                  <ReuseThreadNotice
+                    title={st.context.reuseNoticeTitle}
+                    description={st.context.reuseNoticeDescription}
+                  />
+                )}
               </div>
 
               {editing ? (
@@ -1017,6 +1192,33 @@ export default function ScheduledTasksPage() {
                     onChange={(event) => setEditPrompt(event.target.value)}
                     placeholder={st.edit.promptPlaceholder}
                   />
+                  <div className="grid gap-1.5">
+                    <label
+                      className="text-sm font-medium"
+                      htmlFor="scheduled-task-edit-agent"
+                    >
+                      {st.create.agent}
+                    </label>
+                    <Select
+                      value={editAssistantId}
+                      onValueChange={setEditAssistantId}
+                    >
+                      <SelectTrigger
+                        id="scheduled-task-edit-agent"
+                        className="w-full"
+                        data-testid="scheduled-task-edit-agent"
+                      >
+                        <SelectValue placeholder={st.create.agent} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agentOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="grid gap-1.5">
                     <label
                       className="text-sm font-medium"
@@ -1061,6 +1263,7 @@ export default function ScheduledTasksPage() {
                           {
                             title: editTitle,
                             prompt: editPrompt,
+                            assistant_id: editAssistantId,
                             run_context: buildRunContext(
                               editModelName,
                               selectedTask.run_context,
@@ -1092,6 +1295,10 @@ export default function ScheduledTasksPage() {
                       ? resumeTask.mutate(selectedTask.id)
                       : pauseTask.mutate(selectedTask.id)
                   }
+                  disabled={
+                    selectedTask.status !== "enabled" &&
+                    selectedTask.status !== "paused"
+                  }
                 >
                   {selectedTask.status === "paused"
                     ? st.actions.resume
@@ -1112,6 +1319,14 @@ export default function ScheduledTasksPage() {
                   {editing ? st.actions.cancelEdit : st.actions.edit}
                 </Button>
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => duplicateTask(selectedTask)}
+                >
+                  <CopyIcon className="size-3.5" />
+                  {st.actions.duplicate}
+                </Button>
+                <Button
                   variant="destructive"
                   size="sm"
                   onClick={() => setDeleteOpen(true)}
@@ -1121,6 +1336,69 @@ export default function ScheduledTasksPage() {
               </div>
 
               <div className="grid gap-2">
+                <nav
+                  aria-label={st.history.navigation}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      taskRunsQuery.page === 0 || taskRunsQuery.isFetching
+                    }
+                    onClick={taskRunsQuery.newer}
+                  >
+                    {st.history.newer}
+                  </Button>
+                  <span className="text-muted-foreground text-sm">
+                    {st.history.page.replace(
+                      "{page}",
+                      String(taskRunsQuery.page + 1),
+                    )}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      !taskRunsQuery.hasOlder || taskRunsQuery.isFetching
+                    }
+                    onClick={taskRunsQuery.older}
+                  >
+                    {st.history.older}
+                  </Button>
+                  {taskRunsQuery.page > 0 ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={taskRunsQuery.latest}
+                    >
+                      {st.history.latest}
+                    </Button>
+                  ) : null}
+                </nav>
+                {taskRunsQuery.page > 0 ? (
+                  <p className="text-muted-foreground text-xs">
+                    {st.history.paused}
+                  </p>
+                ) : null}
+                {taskRunsQuery.isPending ? (
+                  <p role="status" className="text-muted-foreground text-sm">
+                    {st.history.loading}
+                  </p>
+                ) : null}
+                {taskRunsQuery.isError ? (
+                  <div role="alert" className="text-destructive text-sm">
+                    <p>{st.history.loadFailed}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={taskRunsQuery.isFetching}
+                      onClick={() => void taskRunsQuery.refetch()}
+                    >
+                      {st.history.retry}
+                    </Button>
+                  </div>
+                ) : null}
                 <div
                   className="text-sm font-medium"
                   data-testid="scheduled-task-runs"

@@ -361,7 +361,7 @@ class RunRepository(RunStore):
             await session.execute(update(RunRow).where(RunRow.run_id == run_id, RunRow.status == "running").values(**values))
             await session.commit()
 
-    async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False) -> dict[str, Any]:
+    async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False, user_id: str | None = None) -> dict[str, Any]:
         """Aggregate token usage for a thread.
 
         ``by_model`` is reduced in Python from each row's ``token_usage_by_model``
@@ -373,7 +373,8 @@ class RunRepository(RunStore):
         Headline totals (``total_tokens``, ``total_input_tokens``,
         ``total_output_tokens``) and the ``by_caller`` bucket are summed from
         their own columns and are therefore unaffected by the JSON column being
-        empty.
+        empty. A non-None ``user_id`` restricts the rows before any aggregation;
+        authorized administrative reads pass None explicitly.
         """
         statuses = ("success", "error", "running") if include_active else ("success", "error")
         _completed = RunRow.status.in_(statuses)
@@ -389,6 +390,8 @@ class RunRepository(RunStore):
             RunRow.middleware_tokens,
             RunRow.token_usage_by_model,
         ).where(_thread, _completed)
+        if user_id is not None:
+            stmt = stmt.where(RunRow.user_id == user_id)
 
         async with self._sf() as session:
             rows = (await session.execute(stmt)).all()
@@ -454,6 +457,38 @@ class RunRepository(RunStore):
             result = await session.execute(update(RunRow).where(RunRow.run_id == run_id, RunRow.owner_worker_id == owner_worker_id, RunRow.status.in_(("pending", "running"))).values(**values))
             await session.commit()
             return result.rowcount != 0
+
+    async def renew_leases(
+        self,
+        run_ids: list[str],
+        *,
+        owner_worker_id: str,
+        lease_expires_at: str,
+    ) -> set[str]:
+        """Renew a worker's active leases with one transaction, not one per run."""
+        unique_ids = list(dict.fromkeys(run_ids))
+        if not unique_ids:
+            return set()
+        lease_dt = datetime.fromisoformat(lease_expires_at)
+        now = datetime.now(UTC)
+        updated: set[str] = set()
+        async with self._sf() as session:
+            # Keep the IN list below SQLite's older parameter limit while
+            # committing the entire worker batch only once.
+            for offset in range(0, len(unique_ids), 256):
+                result = await session.execute(
+                    update(RunRow)
+                    .where(
+                        RunRow.run_id.in_(unique_ids[offset : offset + 256]),
+                        RunRow.owner_worker_id == owner_worker_id,
+                        RunRow.status.in_(("pending", "running")),
+                    )
+                    .values(lease_expires_at=lease_dt, updated_at=now)
+                    .returning(RunRow.run_id)
+                )
+                updated.update(result.scalars())
+            await session.commit()
+        return updated
 
     async def claim_for_takeover(
         self,
