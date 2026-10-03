@@ -114,6 +114,7 @@ def test_agent_host_writes_valid_operator_model_catalog(tmp_path: Path, monkeypa
         {
             "CODEX_CONFIG_TOML": config,
             "CODEX_MODEL_CATALOG_JSON": __import__("json").dumps(catalog),
+            "CODEX_AUTH_PATH": str(tmp_path / "absent-auth.json"),
         }
     )
 
