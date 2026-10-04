@@ -5,7 +5,7 @@ RunEventStore. It standardizes callback data into RunEvent records and
 handles token usage accumulation.
 
 Key design decisions:
-- on_llm_new_token is NOT implemented -- only complete messages via on_llm_end
+- No per-token database writes; explicit interruption retains display-only partial text
 - on_chat_model_start captures structured prompts as llm_request (OpenAI format) and
   extracts the first human message for run.input, because it is more reliable than
   on_chain_start (fires on every node) — messages here are fully structured.
@@ -30,6 +30,7 @@ from langchain_core.messages import AIMessage, AnyMessage, BaseMessage, HumanMes
 from langgraph.types import Command
 
 from deerflow.agents.human_input import read_human_input_response
+from deerflow.runtime.interrupted_history import InterruptedCapture, InterruptedJournalMethods
 from deerflow.utils.messages import message_to_text, restore_original_human_message
 
 if TYPE_CHECKING:
@@ -53,7 +54,7 @@ def _should_persist_human_input_message(message: BaseMessage) -> bool:
     return response is not None and response["source"] in _PERSISTED_HIDDEN_HUMAN_INPUT_RESPONSE_SOURCES
 
 
-class RunJournal(BaseCallbackHandler):
+class RunJournal(InterruptedJournalMethods, BaseCallbackHandler):
     """LangChain callback handler that captures events to RunEventStore."""
 
     def __init__(
@@ -71,6 +72,7 @@ class RunJournal(BaseCallbackHandler):
         self.run_id = run_id
         self.thread_id = thread_id
         self._store = event_store
+        self._interrupted_history = InterruptedCapture()
         self._track_tokens = track_token_usage
         self._flush_threshold = flush_threshold
         self._progress_reporter = progress_reporter
@@ -228,6 +230,7 @@ class RunJournal(BaseCallbackHandler):
         # Capture the first user message sent to the lead agent in this run.
         caller = self._identify_caller(tags, metadata)
         self._llm_callers_by_run_id[rid] = caller
+        self._start_interrupted_capture(caller, rid, tags, metadata)
         if caller == "lead_agent" and not self._first_human_msg and messages:
             for batch in reversed(messages):
                 for m in reversed(batch):
@@ -271,6 +274,7 @@ class RunJournal(BaseCallbackHandler):
                 else:
                     logger.warning(f"on_llm_end {run_id}: generation has no message attribute: {gen}")
 
+        self._complete_interrupted_capture(rid, messages)
         for message in messages:
             self._remember_current_run_tool_calls(message, caller=caller)
             if caller == "lead_agent" and isinstance(message, AIMessage):
@@ -354,6 +358,7 @@ class RunJournal(BaseCallbackHandler):
             self._counted_message_llm_run_ids.add(str(run_id))
 
     def on_llm_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
+        self._capture_interrupted_error(error, str(run_id), kwargs.get("response"), kwargs)
         self._llm_start_times.pop(str(run_id), None)
         self._put(event_type="llm.error", category="trace", content=str(error))
 

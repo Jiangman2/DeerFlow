@@ -1,5 +1,7 @@
 # 🦌 DeerFlow - 2.0
 
+The 2026-10-04 multi-Gateway stop-routing and interrupted-history repairs are documented in [the production source reconciliation](docs/production-gateway-reconciliation-20261004.md). Git publication does not deploy or restart services.
+
 The 7·16 enterprise branch's 2026-09-28 production source alignment and its
 rebuild limits are documented in
 [`release/production-build-alignment-20260928/README.md`](release/production-build-alignment-20260928/README.md).

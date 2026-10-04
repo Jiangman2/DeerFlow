@@ -1114,6 +1114,8 @@ async def run_agent(
                             _observe_graph_tasks(chunk, stream_kind=stream_kind)
                         llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
                         stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
+                        if journal is not None and single_mode == "messages":
+                            journal.observe_stream_message(chunk)
                         sse_event = _lg_mode_to_sse_event(single_mode)
                         await message_batch.publish(sse_event, serialize(chunk, mode=single_mode), single_mode)
                         last_graph_event_at = time.monotonic()
@@ -1146,6 +1148,8 @@ async def run_agent(
 
                     llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
                     stream_clarification_seen = stream_clarification_seen or _chunk_has_open_clarification(chunk)
+                    if journal is not None and mode == "messages":
+                        journal.observe_stream_message(chunk)
                     sse_event = _lg_mode_to_sse_event(mode)
                     await message_batch.publish(sse_event, serialize(chunk, mode=mode), mode)
                     last_graph_event_at = time.monotonic()
@@ -1444,6 +1448,12 @@ async def run_agent(
                 checkpointer=checkpointer,
                 thread_id=thread_id,
             )
+
+        # Graph children have drained. Retain display history only for an
+        # explicit interrupt, with the ordinary artifact publication validator.
+        from deerflow.runtime.interrupted_history import persist_interrupted_history
+
+        await persist_interrupted_history(journal=journal, record=record, checkpointer=checkpointer, thread_id=thread_id)
 
         # Flush any buffered journal events and persist completion data
         if journal is not None:
