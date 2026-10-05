@@ -189,6 +189,59 @@ except ValueError as exc:
 NODE_HOST = os.environ.get("NODE_HOST", "host.docker.internal")
 
 
+def _parse_sandbox_node_pool(raw: str | None) -> tuple[str, ...]:
+    """Read an operator-only hostname-label allowlist; invalid input fails closed."""
+    if raw is None:
+        return ()
+    error = (
+        "Invalid SANDBOX_NODE_POOL; expected 1-64 unique comma-separated "
+        "lowercase DNS labels (1-63 characters each); unset to disable"
+    )
+    if len(raw) > 4096:
+        raise RuntimeError(error)
+    names = tuple(part.strip() for part in raw.split(","))
+    if not 1 <= len(names) <= 64 or len(set(names)) != len(names):
+        raise RuntimeError(error)
+    if any(
+        re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", name) is None
+        for name in names
+    ):
+        raise RuntimeError(error)
+    return names
+
+
+# Read once at process startup, never from a Sandbox creation request.
+SANDBOX_NODE_POOL = _parse_sandbox_node_pool(os.environ.get("SANDBOX_NODE_POOL"))
+if SANDBOX_NODE_POOL and (not SKILLS_PVC_NAME.strip() or not USERDATA_PVC_NAME.strip()):
+    raise RuntimeError(
+        "SANDBOX_NODE_POOL requires SKILLS_PVC_NAME and USERDATA_PVC_NAME; "
+        "verify shared PVC access modes before enabling cross-node scheduling"
+    )
+
+
+def _sandbox_node_affinity() -> k8s_client.V1Affinity | None:
+    """Constrain only newly built Pods; retain normal scheduler/taint handling."""
+    if not SANDBOX_NODE_POOL:
+        return None
+    return k8s_client.V1Affinity(
+        node_affinity=k8s_client.V1NodeAffinity(
+            required_during_scheduling_ignored_during_execution=k8s_client.V1NodeSelector(
+                node_selector_terms=[
+                    k8s_client.V1NodeSelectorTerm(
+                        match_expressions=[
+                            k8s_client.V1NodeSelectorRequirement(
+                                key="kubernetes.io/hostname",
+                                operator="In",
+                                values=list(SANDBOX_NODE_POOL),
+                            )
+                        ]
+                    )
+                ]
+            )
+        )
+    )
+
+
 def _sandbox_healthcheck_exec() -> k8s_client.V1ExecAction:
     """Probe AIO without placing its Secret value in the Pod specification."""
     return k8s_client.V1ExecAction(command=["python3", "-c", _SANDBOX_HEALTHCHECK_CODE])
@@ -1003,6 +1056,7 @@ def _build_pod(
                 user_id=user_id,
                 include_legacy_skills=include_legacy_skills,
             ),
+            affinity=_sandbox_node_affinity(),
             restart_policy="Always",
         ),
     )
