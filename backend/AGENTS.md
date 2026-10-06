@@ -1,5 +1,7 @@
 # AGENTS.md
 
+The 2026-10-04 production Gateway reconciliation is documented in `../docs/production-gateway-reconciliation-20261004.md`. Preserve metadata-only owner routing and Gateway authentication/CSRF enforcement. Persist partial history only for explicit client interrupts, never lease takeover, shutdown, rollback or model failure; do not write unfinished text to model checkpoints. The regression tests use repository sources, not release archives or fake harness modules.
+
 Batch-fourteen reconciliation is recorded in
 `docs/BACKEND_RECONCILIATION_BATCH14_20261002.md`. TUI quit must interrupt an
 active stream before exit and registry/submission must reuse the existing

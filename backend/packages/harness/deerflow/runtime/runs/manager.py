@@ -190,6 +190,7 @@ class RunRecord:
     owner_worker_id: str | None = None
     lease_expires_at: str | None = None
     stop_reason: str | None = None
+    abort_requested_by_client: bool = False  # in-memory only; excludes shutdown/lease loss
 
 
 class RunManager:
@@ -827,6 +828,7 @@ class RunManager:
                 if record.status not in (RunStatus.pending, RunStatus.running):
                     return CancelOutcome.not_cancellable
                 record.abort_action = action
+                record.abort_requested_by_client = True
                 record.abort_event.set()
                 task_active = record.task is not None and not record.task.done()
                 record.finalizing = task_active
@@ -1096,6 +1098,7 @@ class RunManager:
                         if r.finalizing or r.status not in (RunStatus.pending, RunStatus.running):
                             continue
                         r.abort_action = multitask_strategy
+                        r.abort_requested_by_client = True
                         r.abort_event.set()
                         task_active = r.task is not None and not r.task.done()
                         r.finalizing = task_active
