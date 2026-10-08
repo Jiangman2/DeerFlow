@@ -48,10 +48,7 @@ export function HainengHomeFooter() {
       className="cnooc-welcome-copyright cnooc-home-footer"
     >
       <span className="cnooc-home-copyright-text">
-        Copyright © 2026-2027 中海油研究总院有限责任公司 版权所有
-      </span>
-      <span className="cnooc-home-address">
-        地址：北京市朝阳区太阳宫南街6号院
+        Copyright © 2024–2026 CNOOC. All rights reserved.中国海洋石油集团有限公司版权所有
       </span>
       <div className="cnooc-home-footer-tools">
         <div
@@ -82,7 +79,7 @@ export function HainengHomeFooter() {
               <div>
                 <dt>{t.welcome.supportPhone}：</dt>
                 <dd>
-                  <a href="tel:18810388532">18810388532</a>
+                  <a href="tel:84523602">8452-3602</a>
                 </dd>
               </div>
               <div>

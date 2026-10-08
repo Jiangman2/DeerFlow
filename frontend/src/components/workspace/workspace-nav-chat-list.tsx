@@ -198,7 +198,7 @@ export function WorkspaceNavChatList() {
             asChild
           >
             <a
-              href="https://ai-dev.cnooc.com.cn/#/inferencePlatform/hyAppSquare"
+              href="https://ai.cnooc.com.cn/#/inferencePlatform/hyAppSquare"
               target="_blank"
               rel="noopener noreferrer"
               onClick={closeMobileSidebar}
