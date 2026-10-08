@@ -1773,6 +1773,10 @@ DeerFlow has key high-privilege capabilities including **system command executio
 
 ### Security Recommendations
 
+See [scan and configuration baseline remediation](docs/security-scan-baseline-remediation.md) for the enterprise evidence collector, Nginx hardening, and on-host rollout checks.
+
+
+
 **Note: We strongly recommend deploying DeerFlow in a local trusted network environment.** If you need cross-device or cross-network deployment, you must implement strict security measures, such as:
 
 - **IP allowlist**: Use `iptables`, or deploy hardware firewalls / switches with Access Control Lists (ACL), to **configure IP allowlist rules** and deny access from all other IP addresses.

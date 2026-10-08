@@ -14,6 +14,10 @@ NodePort `32026`. WeKnora remains behind the same-origin
 `/platform/knowledge-bases` route and is addressed by the stable
 `weknora-frontend` Service DNS name.
 
+## Security scan and configuration baseline
+
+Follow [the remediation runbook](../../docs/security-scan-baseline-remediation.md). The shared Nginx template bounds client idle time and concurrency and restricts TLS 1.2 ciphers. Collect evidence separately for every report asset; repository configuration does not prove deployed patch status. Preserve required Kubernetes forwarding and NFS dependencies.
+
 ## Dashboard database isolation
 
 The enterprise dashboard fails closed onto a physical PostgreSQL standby.

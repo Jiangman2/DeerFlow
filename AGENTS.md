@@ -896,6 +896,10 @@ volume. Browser Live sessions are Gateway-process-local, so keep one Gateway
 replica and one uvicorn worker while Browser Live is enabled unless sticky
 thread routing or a distributed session broker is added.
 
+## Security baseline remediation
+
+`docs/security-scan-baseline-remediation.md` tracks initial scan and configuration findings. `scripts/audit_security_baseline.py` collects read-only evidence, never an automatic compliance verdict. Preserve Agent/SSE proxy timeouts, upstream JSON errors and TLS loopback client-address handling when hardening Nginx. Do not disable required Kubernetes forwarding or active NFS dependencies. Host patches, exact ingress allowlists, metrics exposure and ARM64 image digests require deployment evidence; repository changes alone do not close findings.
+
 ## Where to Go Next
 
 - Backend work → **[backend/AGENTS.md](backend/AGENTS.md)**
