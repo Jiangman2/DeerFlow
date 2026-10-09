@@ -1777,7 +1777,7 @@ See [scan and configuration baseline remediation](docs/security-scan-baseline-re
 
 For exposed host ports, use the [operator-run port guard](docs/high-risk-port-guard.md) with a reviewed per-node allowlist and timed rollback.
 
-See [HTTP security remediation](docs/http-security-remediation.md) for the ingress method policy and server acceptance checks.
+See [HTTP security remediation](docs/http-security-remediation.md) for the ingress method policy, exact Host allowlist (`cnoocclaw.cnooc.com.cn` and loopback development), forwarded-host sanitization, and server acceptance checks. Other public authorities require an explicit allowlist update; IP/NodePort checks must send an approved Host.
 
 
 

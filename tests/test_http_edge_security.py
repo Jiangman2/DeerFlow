@@ -113,6 +113,15 @@ class NginxInstance:
             self.directory.cleanup()
 
 
+class ProbeConfigurationTests(unittest.TestCase):
+    def test_kubernetes_health_probes_use_allowed_host(self):
+        deployment = (ROOT / "k8s/local-pvc/deer-flow-pvc-stack.yaml").read_text(encoding="utf-8")
+        nginx = deployment.split("  name: nginx\n", 1)[1].split("\n---", 1)[0]
+        for probe in ("readinessProbe", "livenessProbe", "startupProbe"):
+            block = nginx.split(probe + ":", 1)[1].split("Seconds:", 1)[0]
+            self.assertIn("name: Host\n                  value: localhost", block)
+
+
 @unittest.skipUnless(os.environ.get("NGINX_TEST_BINARY"), "Set NGINX_TEST_BINARY for live Nginx tests")
 class EdgeSecurityTests(unittest.TestCase):
     @classmethod
@@ -157,6 +166,51 @@ class EdgeSecurityTests(unittest.TestCase):
         instance = self.instances[0]
         for method in ("TRACE", "PROPFIND"):
             self.assertEqual(instance.request(method, tls=True)[0], 405)
+
+    def test_foreign_hosts_never_reach_upstream_or_redirect(self):
+        for instance in self.instances:
+            for host in ("attacker.example", "cnoocclaw.cnooc.com.cn.attacker.example", "cnoocclaw.cnooc.com.cn:9999"):
+                for path in ("/api/threads/test", "/platform/skillhub"):
+                    with self.subTest(config=instance.relative, host=host, path=path):
+                        before = len(self.upstream.receipts)
+                        status, headers, _ = instance.request("GET", path, {"Host": host})
+                        self.assertEqual(status, 400)
+                        self.assertNotIn("location", headers)
+                        self.assertEqual(before, len(self.upstream.receipts))
+
+    def test_forwarded_host_injection_is_removed(self):
+        for instance in self.instances:
+            status, _, body = instance.request("GET", headers={
+                "Host": "cnoocclaw.cnooc.com.cn",
+                "Forwarded": 'host="attacker.example";proto=https',
+                "X-Forwarded-Host": "attacker.example",
+                "X-Forwarded-Port": "9999"})
+            self.assertEqual(status, 200)
+            receipt = json.loads(body)
+            self.assertEqual(receipt["host"], "cnoocclaw.cnooc.com.cn")
+            self.assertEqual(receipt["forwarded_host"], "cnoocclaw.cnooc.com.cn")
+            self.assertIsNone(receipt["forwarded"])
+            self.assertIsNone(receipt["forwarded_port"])
+
+    def test_absolute_uri_cannot_override_valid_host(self):
+        for instance in self.instances:
+            self.assertEqual(instance.request("GET", "http://attacker.example/platform/skillhub",
+                                              {"Host": "cnoocclaw.cnooc.com.cn"})[0], 400)
+
+    def test_corporate_and_local_hosts_keep_relative_redirects(self):
+        for instance in self.instances:
+            for host in ("cnoocclaw.cnooc.com.cn", "CNOOCCLAW.CNOOC.COM.CN:443", "localhost:2026", "127.0.0.1:2026", "[::1]:2026"):
+                status, headers, _ = instance.request("GET", "/platform/skillhub", {"Host": host})
+                self.assertEqual(status, 308)
+                self.assertEqual(headers["location"], "/platform/skillhub/")
+
+    def test_tls_rejects_foreign_host_and_cleans_forwarded_headers(self):
+        instance = self.instances[0]
+        self.assertEqual(instance.request("GET", headers={"Host": "attacker.example"}, tls=True)[0], 400)
+        status, _, body = instance.request("GET", headers={"Host": "cnoocclaw.cnooc.com.cn",
+                                                          "Forwarded": "host=attacker.example"}, tls=True)
+        self.assertEqual(status, 200)
+        self.assertIsNone(json.loads(body)["forwarded"])
 
 
 if __name__ == "__main__":
