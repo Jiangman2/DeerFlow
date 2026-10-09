@@ -1777,6 +1777,8 @@ See [scan and configuration baseline remediation](docs/security-scan-baseline-re
 
 For exposed host ports, use the [operator-run port guard](docs/high-risk-port-guard.md) with a reviewed per-node allowlist and timed rollback.
 
+See [HTTP security remediation](docs/http-security-remediation.md) for the ingress method policy and server acceptance checks.
+
 
 
 **Note: We strongly recommend deploying DeerFlow in a local trusted network environment.** If you need cross-device or cross-network deployment, you must implement strict security measures, such as:
