@@ -532,6 +532,8 @@ The native App integration and release checklist live in
 
 ## Environment
 
+`next.config.js` disables `poweredByHeader` at the application source. Preserve this after the Nextra wrapper; `tests/unit/config/http-identification.test.ts` loads the actual Next configuration and verifies both identification suppression and the API fallback rewrite ordering. Nginx suppresses upstream framework headers separately, so frontend rebuild/deployment remains required.
+
 Backend API URLs are optional; an nginx proxy is used by default:
 
 ```

@@ -36,3 +36,19 @@ curl -i https://cnoocclaw.cnooc.com.cn/platform/skillhub \
 ```
 
 部署后验证登录、IAM/OIDC 回调、SkillHub/知识库跳转、HTTPS Cookie 和三个健康探针。保持原域名并清除注入头，不能通过修改已有回调配置来掩盖攻击。
+
+## 中间件版本信息泄露
+
+全部 Nginx 模式启用 `server_tokens off`，隐藏响应头和默认错误页的 Nginx 数字版本。每个代理 location 隐藏 `X-Powered-By`、`X-AspNet-Version`、`X-AspNetMvc-Version`，包括前端入口、API、上游错误和 TLS 二次代理。必须保留 location 级设置：某些路由已有 `proxy_hide_header Cache-Control`，不会继承 http 级隐藏列表。不要因此删除业务所需的 Cache-Control/Set-Cookie/CSP 处理。
+
+Next.js 自身设置 `poweredByHeader: false`，通过 Next 的真实配置加载器检查 Nextra 包装后该设置仍然生效且 API fallback 路由保留。前端需要重新构建镜像并部署，单独更新 Nginx 不能替代前端发布；企业 overlay 的旧镜像标签不会自动变成新代码，应按现有发布流程选择构建产物。
+
+```bash
+curl -sS -D headers.txt -o body.txt https://cnoocclaw.cnooc.com.cn/
+curl -i https://cnoocclaw.cnooc.com.cn/api/不存在的接口
+curl -i -X PROPFIND https://cnoocclaw.cnooc.com.cn/
+```
+
+检查首页、接口、重定向及 400/401/403/404/405 等实际可触发错误，响应头不得出现具体版本或以上框架标识，正文不得出现 `nginx/数字版本`、异常堆栈、安装路径及组件版本。标准 Nginx 仍可能返回 `Server: nginx`；若验收要求连软件名称也删除，需要另选支持清除自有 Server 头的已批准模块或入口产品，`proxy_hide_header Server` 只能影响上游头，不能删除 Nginx 自己生成的头。
+
+部署链路中的外层代理也需要版本隐藏和复测。已知漏洞的组件仍需单独升级，隐藏响应信息不等于组件漏洞修复。内部后端端口继续按端口来源策略限制，不能通过绕过入口获取框架响应。记录请求、响应、部署版本和复测结论后再关闭整改项。

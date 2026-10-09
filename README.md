@@ -1779,6 +1779,8 @@ For exposed host ports, use the [operator-run port guard](docs/high-risk-port-gu
 
 See [HTTP security remediation](docs/http-security-remediation.md) for the ingress method policy, exact Host allowlist (`cnoocclaw.cnooc.com.cn` and loopback development), forwarded-host sanitization, and server acceptance checks. Other public authorities require an explicit allowlist update; IP/NodePort checks must send an approved Host.
 
+All proxy modes suppress Nginx numeric versions and upstream framework identification headers; Next.js also disables its own powered-by header. Apply the proxy configuration and rebuild/redeploy the frontend before verifying the public responses.
+
 
 
 **Note: We strongly recommend deploying DeerFlow in a local trusted network environment.** If you need cross-device or cross-network deployment, you must implement strict security measures, such as:

@@ -39,6 +39,8 @@ class Upstream(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Powered-By", "test-framework/1.2.3")
+        self.send_header("X-AspNet-Version", "4.0.30319")
+        self.send_header("X-AspNetMvc-Version", "5.2")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
@@ -211,6 +213,31 @@ class EdgeSecurityTests(unittest.TestCase):
                                                           "Forwarded": "host=attacker.example"}, tls=True)
         self.assertEqual(status, 200)
         self.assertIsNone(json.loads(body)["forwarded"])
+
+    def test_framework_headers_hidden_on_frontend_and_api_routes(self):
+        for instance in self.instances:
+            for path in ("/", "/api/models", "/api/runtime-config", "/api/threads/test", "/api/langgraph/threads"):
+                with self.subTest(config=instance.relative, path=path):
+                    status, headers, _ = instance.request("GET", path)
+                    self.assertEqual(status, 200)
+                    for header in ("x-powered-by", "x-aspnet-version", "x-aspnetmvc-version"):
+                        self.assertNotIn(header, headers)
+                    self.assertNotRegex(headers.get("server", ""), r"[0-9]+\.[0-9]+")
+
+    def test_versions_hidden_on_native_and_upstream_error_responses(self):
+        for instance in self.instances:
+            for method, headers in (("GET", {"Host": "attacker.example"}), ("PROPFIND", {}), ("DELETE", {})):
+                status, response_headers, body = instance.request(method, headers=headers)
+                self.assertIn(status, (400, 401, 405))
+                self.assertNotRegex(response_headers.get("server", ""), r"[0-9]+\.[0-9]+")
+                self.assertNotRegex(body.decode(errors="replace"), r"nginx/[0-9]")
+                self.assertNotIn("x-powered-by", response_headers)
+
+    def test_tls_also_hides_framework_headers(self):
+        status, headers, _ = self.instances[0].request("GET", tls=True)
+        self.assertEqual(status, 200)
+        self.assertNotIn("x-powered-by", headers)
+        self.assertNotIn("x-aspnet-version", headers)
 
 
 if __name__ == "__main__":
