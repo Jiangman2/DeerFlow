@@ -1,5 +1,22 @@
 # AGENTS.md
 
+Digital Employee Square governance lives in the agents router and
+`deerflow.persistence.digital_employee_square`. `GET/PUT
+/api/digital-employee-square/settings` stores versioned presentation overrides;
+admin-only edits/order/restoration use the existing authenticated system role.
+Only an exact `hidden=true` patch additionally permits the actual team publisher,
+checked from server-owned config against the authenticated user id. Never trust
+caller-supplied ownership/role or allow synthetic/internal admin sessions to
+manage the catalog. Legacy DELETE is a soft withdrawal with the same checks.
+Regular publishing remains available. Original publishers may replace their
+withdrawn snapshots; after copying, clear hidden with the captured settings
+version (CAS), preserving metadata/order. Online or cross-owner overwrites still
+require admin. Publication conflicts must not report success or undo a newer
+admin withdrawal. Never clear hidden before snapshot publication succeeds.
+Private CRUD and execution config are unaffected. Register migration 0020 in
+every service image that bootstraps the shared DB. Tests:
+`test_digital_employee_square.py`, `test_custom_agent.py`, SQL/migration regressions.
+
 The 2026-10-04 production Gateway reconciliation is documented in `../docs/production-gateway-reconciliation-20261004.md`. Preserve metadata-only owner routing and Gateway authentication/CSRF enforcement. Persist partial history only for explicit client interrupts, never lease takeover, shutdown, rollback or model failure; do not write unfinished text to model checkpoints. The regression tests use repository sources, not release archives or fake harness modules.
 
 Batch-fourteen reconciliation is recorded in

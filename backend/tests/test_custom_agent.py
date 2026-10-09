@@ -613,11 +613,17 @@ class TestMemoryFilePath:
 
 def _make_test_app(tmp_path: Path):
     """Create a FastAPI app with the agents router, patching paths to tmp_path."""
-    from fastapi import FastAPI
+    from _router_auth_helpers import make_authed_test_app
 
     from app.gateway.routers.agents import router
 
-    app = FastAPI()
+    app = make_authed_test_app()
+
+    @app.middleware("http")
+    async def session_source(request, call_next):
+        request.state.auth_source = "session"
+        return await call_next(request)
+
     app.include_router(router)
     return app
 
@@ -1223,7 +1229,7 @@ class TestAgentsAPI:
         assert agent["source"] == "team"
         assert agent["soul"] == "Review documents carefully."
 
-    def test_publish_and_unpublish_team_agent(self, agent_client, tmp_path):
+    def test_publish_and_non_publisher_unpublish_is_denied(self, agent_client, tmp_path):
         agent_client.post(
             "/api/agents",
             json={
@@ -1246,9 +1252,13 @@ class TestAgentsAPI:
         assert (team_dir / "config.yaml").exists()
         assert (team_dir / "SOUL.md").read_text(encoding="utf-8") == "Shared soul"
 
+        config = yaml.safe_load((team_dir / "config.yaml").read_text(encoding="utf-8"))
+        config["published_by_user_id"] = "another-publisher"
+        (team_dir / "config.yaml").write_text(yaml.safe_dump(config), encoding="utf-8")
+
         unpublish_response = agent_client.delete("/api/team-agents/publish-me")
-        assert unpublish_response.status_code == 204
-        assert not team_dir.exists()
+        assert unpublish_response.status_code == 403
+        assert team_dir.exists()
 
     def test_personal_delete_does_not_remove_team_agent(self, agent_client, tmp_path):
         _write_team_agent(tmp_path, "team-only", {"description": "Shared"})

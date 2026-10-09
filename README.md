@@ -1,5 +1,21 @@
 # 🦌 DeerFlow - 2.0
 
+Digital Employee Square governance: signed-in `admin` accounts can edit public
+profiles, change global ordering, and withdraw any employee (including bundled
+external/contest cards). Ordinary accounts can still publish new employees and
+withdraw their own published snapshots, but cannot edit public profiles/order
+or withdraw another publisher's employees. Private employee editing is unchanged.
+Withdrawals are reversible presentation changes, not deletion of private agents.
+Administrators can show withdrawn employees and restore them. Public overrides
+are persisted in the application database (`digital_employee_square`, migration
+`0020_digital_employee_square`); no role assignment UI or client-side allowlist
+is introduced. Assigning `admin` grants existing platform-wide administrator
+rights, not only these employee permissions. Original publishers can republish
+their withdrawn snapshots, even after admin withdrawal; successful publication
+restores visibility and refreshes the private snapshot while preserving admin
+presentation/order overrides. Overwriting an online snapshot or another user's
+snapshot remains restricted to admins.
+
 The 2026-10-04 multi-Gateway stop-routing and interrupted-history repairs are documented in [the production source reconciliation](docs/production-gateway-reconciliation-20261004.md). Git publication does not deploy or restart services.
 
 The 7·16 enterprise branch's 2026-09-28 production source alignment and its

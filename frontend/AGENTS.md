@@ -1,5 +1,18 @@
 # AGENTS.md
 
+Digital Employee Square governance: `useSquareSettings` reads server-owned SQL
+overrides for both bundled external cards and runtime-published employees. Apply
+stable `external/team/legacy:<original name>` keys and global sorting before
+filtering/pagination; never mutate the source roster or use localStorage for
+admin settings. Fail closed on governance reads rather than re-showing withdrawn
+cards. The trusted auth user `system_role=admin` shows public edit/order/withdraw
+menus and a withdrawn-entry view/restoration. Regular users retain only their
+own published employee withdrawal; their private editing/new publishing is
+unchanged. The backend independently authorizes every write and rejects stale
+versions. Public editing changes presentation, not model/skill/SOUL settings.
+After publishing, invalidate and await both team-agent and square-settings
+queries; otherwise a republished employee stays hidden by cached overrides.
+
 October 2 dmdb frontend reconciliation: `MessageGroup` normalizes unknown tool
 argument/result records before using string display fields. Every tool-result
 link permits only absolute HTTP(S), rejects controls/backslashes and embedded

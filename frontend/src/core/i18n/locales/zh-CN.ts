@@ -574,6 +574,21 @@ export const zhCN: Translations = {
     unpublishConfirm: "确定要将这位数字员工从广场移除吗？",
     publishSuccess: "数字员工已发布到广场",
     unpublishSuccess: "数字员工已从广场移除",
+    squareEdit: "编辑广场资料",
+    squareEditHint:
+      "仅调整广场展示资料，不改动发布者的私有员工、模型、技能和提示词。",
+    squareSort: "变更排序",
+    squareSortValue: "排序值",
+    squareSortHint:
+      "数值越小越靠前；默认顺序按 10、20、30…排列。同值保持原始顺序，留空恢复默认。设置作用于整个广场。",
+    squareExternalUrl: "跳转链接",
+    squareRestore: "恢复到广场",
+    squareRestoreSuccess: "数字员工已恢复到广场",
+    squareWithdrawn: "已下架",
+    squareShowWithdrawn: "显示已下架员工",
+    squareLoadError:
+      "广场管理数据加载失败。为避免展示已下架员工，暂不显示列表。请刷新重试。",
+    squareRetry: "重新加载",
     chat: "开始工作",
     viewProfile: "查看档案",
     profileTitle: "数字员工档案",

@@ -462,6 +462,18 @@ export interface Translations {
     unpublishConfirm: string;
     publishSuccess: string;
     unpublishSuccess: string;
+    squareEdit: string;
+    squareEditHint: string;
+    squareSort: string;
+    squareSortValue: string;
+    squareSortHint: string;
+    squareExternalUrl: string;
+    squareRestore: string;
+    squareRestoreSuccess: string;
+    squareWithdrawn: string;
+    squareShowWithdrawn: string;
+    squareLoadError: string;
+    squareRetry: string;
     chat: string;
     viewProfile: string;
     profileTitle: string;

@@ -28,6 +28,7 @@ from deerflow.persistence.dashboard_rollup.model import (
     DashboardRollupStateRow,
 )
 from deerflow.persistence.data_lake_auth.model import DataLakeAuthChallengeRow
+from deerflow.persistence.digital_employee_square import DigitalEmployeeSquareRow
 from deerflow.persistence.feedback.model import FeedbackRow
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.persistence.oa_policy_flow_jobs.model import OAPolicyFlowJobRow
@@ -46,6 +47,7 @@ __all__ = [
     "ChannelCredentialRow",
     "ChannelOAuthStateRow",
     "DataLakeAuthChallengeRow",
+    "DigitalEmployeeSquareRow",
     "DashboardDailyRollupRow",
     "DashboardHourlyRollupRow",
     "DashboardRollupStateRow",
