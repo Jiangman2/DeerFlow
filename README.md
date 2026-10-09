@@ -1775,6 +1775,8 @@ DeerFlow has key high-privilege capabilities including **system command executio
 
 See [scan and configuration baseline remediation](docs/security-scan-baseline-remediation.md) for the enterprise evidence collector, Nginx hardening, and on-host rollout checks.
 
+For exposed host ports, use the [operator-run port guard](docs/high-risk-port-guard.md) with a reviewed per-node allowlist and timed rollback.
+
 
 
 **Note: We strongly recommend deploying DeerFlow in a local trusted network environment.** If you need cross-device or cross-network deployment, you must implement strict security measures, such as:

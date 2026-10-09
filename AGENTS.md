@@ -898,6 +898,8 @@ thread routing or a distributed session broker is added.
 
 ## Security baseline remediation
 
+`scripts/guard_high_risk_ports.py` is an operator-run Linux nftables guard with explicit per-node policy, SSH source checks, preflight validation and systemd timed rollback. Keep it audit-only by default; preserve existing firewall/CNI rules and verify NodePort from external sources. Runtime confirmation is not persistence or proof that a finding is closed. See `docs/high-risk-port-guard.md`.
+
 `docs/security-scan-baseline-remediation.md` tracks initial scan and configuration findings. `scripts/audit_security_baseline.py` collects read-only evidence, never an automatic compliance verdict. Preserve Agent/SSE proxy timeouts, upstream JSON errors and TLS loopback client-address handling when hardening Nginx. Do not disable required Kubernetes forwarding or active NFS dependencies. Host patches, exact ingress allowlists, metrics exposure and ARM64 image digests require deployment evidence; repository changes alone do not close findings.
 
 ## Where to Go Next
