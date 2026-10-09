@@ -1193,6 +1193,16 @@ Use `/compact` in the Web UI composer to summarize older context for the current
 
 ### Sub-Agents
 
+The Digital Employee shared gallery includes 18 external-link entries from the
+October 8 contest/scenario roster, in addition to the six existing fixed
+employees. The roster lives in
+[`frontend/src/core/agents/contest-agents.ts`](frontend/src/core/agents/contest-agents.ts).
+Entries use the latest suggested names, original descriptions, business-domain
+categories, up to three tags, and complete application URLs. Linkless scenarios
+are not duplicated as external employees. Updating this frontend configuration
+does not modify personal or published team employee storage; target applications
+still enforce their own network and access permissions.
+
 The Web UI's custom-agent builder follows the selected interface language when
 it saves `SOUL.md` and the one-line card description. Simplified Chinese is the
 platform default; a user can still explicitly request another language. Lead

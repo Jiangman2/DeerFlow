@@ -13,13 +13,21 @@ The regular chat layout and legacy provider import share the custom-agent
 `ChatProviders` stack, without making the server layout a Client Component or
 changing static demo parameters. Upload deletion encodes the filename component
 and GFM disables only single-tilde strikethrough. Existing fixed employees retain
-the test hostname and precede the unchanged twelve contest entries. Do not change
+the test hostname and precede the contest entries. Do not change
 the runtime to production URLs to satisfy hardcoded test expectations: those two
 expectations are explicitly aligned with the test deployment. Incoming-only
 reconnect-input hydration's three tests are deferred; the runtime and exact
 pre-merge reconnect tests remain unchanged. See
 `docs/FRONTEND_RECONCILIATION_BATCH2_20261002.md`; validation is still required
 before completing the merge or deploying.
+
+October 9 contest roster refresh: `core/agents/contest-agents.ts` contains 18
+external-link employees from `数字员工1008.xlsx`, in Sheet1 row order. Prefer
+the revised name in column Q over column F. Column M supplies application URLs,
+except the explicit latest links in P11/P21. Preserve descriptions and complete
+URL queries/fragments, omit linkless rows, and leave the six fixed employees and
+personal/team persistence unchanged. Update the roster regression test alongside
+any future source-sheet refresh.
 
 The enterprise 7·16 production source alignment is recorded in
 `../release/production-build-alignment-20260928/README.md`. For production
