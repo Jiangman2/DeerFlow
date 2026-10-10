@@ -83,6 +83,12 @@ export interface Translations {
     hainengPortal: string;
     totalUsage: string;
     todayUsage: string;
+    todayUsers: string;
+    todayTasks: string;
+    supportGroupTitle: string;
+    supportGroupName: string;
+    supportGroupQrAlt: string;
+    supportGroupScan: string;
     usageUnavailable: string;
     contactUs: string;
     feedback: string;

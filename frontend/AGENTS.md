@@ -1,5 +1,13 @@
 # AGENTS.md
 
+Haineng home footer has four counters. Fetch existing signed Haineng usage and
+authenticated `/api/home/statistics` independently every minute; one failing
+source must not erase the other, and unavailable counters show a dash, not zero.
+Deploy Frontend and Gateway together so both new counters have their endpoint.
+Keep hover-only contact visibility and the raised footer stacking context.
+Contact/feedback share `sh_tyznt@cnooc.com.cn`. Preserve the original support QR
+pixels in `public/images/haineng-work-support-qr.png`; never regenerate its code.
+
 Digital Employee Square governance: `useSquareSettings` reads server-owned SQL
 overrides for both bundled external cards and runtime-published employees. Apply
 stable `external/team/legacy:<original name>` keys and global sorting before

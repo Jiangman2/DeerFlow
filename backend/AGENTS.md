@@ -1,5 +1,12 @@
 # AGENTS.md
 
+Homepage `/api/home/statistics` requires login but not admin. Return only the
+two global aggregate counters; never relax `/api/admin/dashboard` authorization.
+Use the same Shanghai daily bounds, read replica policy, query limits, cache,
+rollup contribution and raw run/creation-ledger semantics as the dashboard.
+All run statuses count; unique active users include thread-creation users even
+after conversation deletion. Regression tests: `tests/test_home_statistics.py`.
+
 Digital Employee Square governance lives in the agents router and
 `deerflow.persistence.digital_employee_square`. `GET/PUT
 /api/digital-employee-square/settings` stores versioned presentation overrides;

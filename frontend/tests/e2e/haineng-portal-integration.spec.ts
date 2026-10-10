@@ -6,6 +6,12 @@ test("homepage shows Haineng links, model usage and contact details", async ({
   page,
 }) => {
   mockLangGraphAPI(page);
+  await page.route("**/api/home/statistics", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ todayUsers: 2, todayTasks: 4 }),
+    }),
+  );
   await page.route("**/integrations/haineng/model-call-count", (route) =>
     route.fulfill({
       contentType: "application/json",
@@ -24,11 +30,13 @@ test("homepage shows Haineng links, model usage and contact details", async ({
   );
   await expect(page.locator(".cnooc-home-usage")).toContainText("1,234");
   await expect(page.locator(".cnooc-home-usage")).toContainText("12");
-  const address = await page.locator(".cnooc-home-address").boundingBox();
-  const usage = await page.locator(".cnooc-home-usage").boundingBox();
-  expect(address).not.toBeNull();
-  expect(usage).not.toBeNull();
-  expect(Math.abs(address!.y - usage!.y)).toBeLessThan(8);
+  await expect(page.locator(".cnooc-home-usage > span")).toHaveCount(4);
+  await expect(page.locator(".cnooc-home-usage")).toContainText(
+    /今日用户|Today's users/,
+  );
+  await expect(page.locator(".cnooc-home-usage")).toContainText(
+    /今日任务数|Today's tasks/,
+  );
 
   await page.locator(".cnooc-home-contact button").hover();
   await expect
@@ -38,20 +46,19 @@ test("homepage shows Haineng links, model usage and contact details", async ({
         .evaluate((footer) => Number(getComputedStyle(footer).zIndex)),
     )
     .toBeGreaterThan(30);
-  await expect(page.getByText("shiyl19@cnooc.com.cn")).toBeVisible();
-  await expect(page.getByText("姜彬")).toBeVisible();
-  await expect(page.getByText("18810388532")).toBeVisible();
+  await expect(page.getByText("sh_tyznt@cnooc.com.cn")).toBeVisible();
+  await expect(page.locator(".cnooc-home-contact-details > div")).toHaveCount(
+    2,
+  );
   await expect(page.getByText("8:30 ～ 17:30")).toBeVisible();
   await expect(
     page.locator(".cnooc-home-contact-card-header a"),
-  ).toHaveAttribute("href", /mailto:shiyl19@cnooc\.com\.cn\?subject=/);
-  await expect(page.locator(".cnooc-home-contact-card")).not.toContainText(
-    "服务群",
-  );
-  await page.locator(".cnooc-home-address").hover();
+  ).toHaveAttribute("href", /mailto:sh_tyznt@cnooc\.com\.cn\?subject=/);
+  await expect(page.locator(".cnooc-home-support-qr img")).toBeVisible();
+  await page.mouse.move(0, 0);
   await expect(page.locator(".cnooc-home-contact-card")).toBeHidden();
   await page.locator(".cnooc-home-contact button").click();
-  await page.locator(".cnooc-home-address").hover();
+  await page.mouse.move(0, 0);
   await expect(page.locator(".cnooc-home-contact-card")).toBeHidden();
 
   const agentSquare = page.getByRole("link", {

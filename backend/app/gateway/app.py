@@ -32,6 +32,7 @@ from app.gateway.routers import (
     features,
     feedback,
     github_webhooks,
+    home_statistics,
     iam_account_sync,
     input_polish,
     mcp,
@@ -640,6 +641,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     app.include_router(observability.router)
     app.include_router(dashboard.router)
+    app.include_router(home_statistics.router)
     app.include_router(announcements.router)
     app.include_router(admin_users.router)
     # Authenticated same-origin proxy for reviewed DataLake preview images.

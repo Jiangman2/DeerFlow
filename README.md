@@ -1,5 +1,12 @@
 # 🦌 DeerFlow - 2.0
 
+Homepage portal footer: total/today model usage remains supplied by Haineng;
+today's users/tasks use the business dashboard's active-user/started-run
+definitions for Shanghai midnight through the current minute. The authenticated
+`/api/home/statistics` endpoint returns only those two aggregate counts, not
+administrator details. Contact and feedback use `sh_tyznt@cnooc.com.cn`; the
+Haineng Work support group uses the supplied QR asset.
+
 Digital Employee Square governance: signed-in `admin` accounts can edit public
 profiles, change global ordering, and withdraw any employee (including bundled
 external/contest cards). Ordinary accounts can still publish new employees and
