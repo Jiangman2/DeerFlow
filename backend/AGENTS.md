@@ -1963,3 +1963,8 @@ See `docs/` directory for detailed documentation:
 - [summarization.md](docs/summarization.md) - Context summarization
 - [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
 - [run-timing-logs.md](../docs/run-timing-logs.md) - Content-free run-stage performance diagnostics
+
+
+## Production Work channel and private title streaming (2026-10-10)
+
+See ../docs/production-work-title-source-sync-20261010.md for the pinned release, operator domain/NO_PROXY settings, cooperative shared-file locking/CAS, private title streaming semantics, and regression commands. Runtime credentials and PVC configuration remain outside Git.

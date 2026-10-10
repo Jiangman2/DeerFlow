@@ -159,7 +159,7 @@ async def _get_channel_connections_config(request: Request) -> ChannelConnection
     config = getattr(request.app.state, "channel_connections_config", None)
     if not isinstance(config, ChannelConnectionsConfig):
         config = _get_app_config().channel_connections
-    config = apply_runtime_connection_config(config, store=await _get_runtime_config_store(request))
+    config = await asyncio.to_thread(apply_runtime_connection_config, config, store=await _get_runtime_config_store(request))
     request.app.state.channel_connections_config = config
     return config
 
@@ -179,7 +179,7 @@ async def _load_channels_config(request: Request, config: ChannelConnectionsConf
     extra = app_config.model_extra or {}
     channels_config = extra.get("channels")
     result = dict(channels_config) if isinstance(channels_config, dict) else {}
-    merge_runtime_channel_configs(
+    await asyncio.to_thread(merge_runtime_channel_configs, 
         result,
         config,
         store=await _get_runtime_config_store(request),
@@ -650,47 +650,43 @@ async def configure_channel_provider_runtime(
     body: ChannelRuntimeConfigRequest,
     request: Request,
 ) -> ChannelProviderResponse:
+    from app.channels.runtime_config_store import ChannelRuntimeConfigConflict
+
     await require_admin_user(request, detail=_ADMIN_REQUIRED_DETAIL)
     config = await _get_channel_connections_config(request)
     if not config.enabled:
         raise HTTPException(status_code=400, detail="Channel connections are disabled")
-
-    provider_config = _provider_config(config, provider)
-    if not provider_config.enabled:
+    if not _provider_config(config, provider).enabled:
         raise HTTPException(status_code=400, detail="Channel provider is not enabled")
 
+    store = await _get_runtime_config_store(request)
+    expected = await asyncio.to_thread(store.get_provider_config, provider)
     channels_config = await _get_channels_config(request)
     existing = channels_config.get(provider)
     runtime_config = dict(existing) if isinstance(existing, dict) else {}
+    if expected is not None:
+        runtime_config.update(expected)
     values = _required_runtime_values(provider, body.values, runtime_config)
     runtime_config["enabled"] = True
-
+    runtime_config.pop("_runtime_disabled", None)
     for key in _RUNTIME_REQUIREMENTS[provider]:
         runtime_config[key] = values[key]
-
     if provider == "telegram":
-        # The deep-link username is persisted with the runtime channel config
-        # (set_provider_config below) and applied to future requests via
-        # apply_runtime_connection_config; never mutate the config instance
-        # cached by get_app_config().
         runtime_config["bot_username"] = values["bot_username"]
 
-    candidate_channels_config = dict(channels_config)
-    candidate_channels_config[provider] = runtime_config
+    # Commit under the shared-file lock before starting any new connection.
+    # A conflict must not restart the channel with stale credentials.
+    try:
+        runtime_config = await asyncio.to_thread(store.commit_provider_config, provider, runtime_config, expected)
+    except ChannelRuntimeConfigConflict:
+        raise HTTPException(status_code=409, detail="Channel configuration changed. Reload settings before saving.") from None
 
-    started = await _restart_runtime_channel_if_available(provider, runtime_config)
-    if started is False:
-        display_name = _PROVIDER_META[provider]["display_name"]
-        raise HTTPException(status_code=400, detail=f"Failed to start {display_name} channel. Check the values and try again.")
-
-    store = await _get_runtime_config_store(request)
-    await asyncio.to_thread(store.set_provider_config, provider, runtime_config)
-
-    # Re-read the live cached config and apply only this provider's change so a
-    # concurrent mutation for a different provider is not clobbered. No await
-    # may occur between this read and the reassignment.
-    live_channels_config = await _get_channels_config(request)
+    live_channels_config = dict(await _get_channels_config(request))
     live_channels_config[provider] = runtime_config
     request.app.state.channels_config = live_channels_config
-
+    started = await _restart_runtime_channel_if_available(provider, runtime_config)
+    if started is False:
+        # Persistence succeeded. Never roll back over another writer's update.
+        raise HTTPException(status_code=503, detail="Channel configuration saved, but local channel restart failed. Other workers were not reloaded.")
     return _provider_response(config, live_channels_config, provider, _PROVIDER_META[provider])
+
