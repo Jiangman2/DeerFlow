@@ -618,21 +618,6 @@ export const enUS: Translations = {
       "Are you sure you want to remove this digital employee from the square?",
     publishSuccess: "Digital employee published to the square",
     unpublishSuccess: "Digital employee removed from the square",
-    squareEdit: "Edit square profile",
-    squareEditHint:
-      "Changes only the public profile, not the creator's private employee, model, skills, or instructions.",
-    squareSort: "Change order",
-    squareSortValue: "Order value",
-    squareSortHint:
-      "Lower values appear first. Defaults are 10, 20, 30…; ties retain original order. Leave blank to restore the default. Applies to the entire square.",
-    squareExternalUrl: "Launch URL",
-    squareRestore: "Restore to square",
-    squareRestoreSuccess: "Digital employee restored to the square",
-    squareWithdrawn: "Withdrawn",
-    squareShowWithdrawn: "Show withdrawn employees",
-    squareLoadError:
-      "Unable to load square settings. The list is hidden to avoid showing withdrawn employees. Please retry.",
-    squareRetry: "Reload",
     chat: "Start work",
     viewProfile: "View profile",
     profileTitle: "Digital employee profile",

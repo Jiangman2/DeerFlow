@@ -1,28 +1,5 @@
 # 🦌 DeerFlow - 2.0
 
-Homepage portal footer: total/today model usage remains supplied by Haineng;
-today's users/tasks use the business dashboard's active-user/started-run
-definitions for Shanghai midnight through the current minute. The authenticated
-`/api/home/statistics` endpoint returns only those two aggregate counts, not
-administrator details. Contact and feedback use `sh_tyznt@cnooc.com.cn`; the
-Haineng Work support group uses the supplied QR asset.
-
-Digital Employee Square governance: signed-in `admin` accounts can edit public
-profiles, change global ordering, and withdraw any employee (including bundled
-external/contest cards). Ordinary accounts can still publish new employees and
-withdraw their own published snapshots, but cannot edit public profiles/order
-or withdraw another publisher's employees. Private employee editing is unchanged.
-Withdrawals are reversible presentation changes, not deletion of private agents.
-Administrators can show withdrawn employees and restore them. Public overrides
-are persisted in the application database (`digital_employee_square`, migration
-`0020_digital_employee_square`); no role assignment UI or client-side allowlist
-is introduced. Assigning `admin` grants existing platform-wide administrator
-rights, not only these employee permissions. Original publishers can republish
-their withdrawn snapshots, even after admin withdrawal; successful publication
-restores visibility and refreshes the private snapshot while preserving admin
-presentation/order overrides. Overwriting an online snapshot or another user's
-snapshot remains restricted to admins.
-
 The 2026-10-04 multi-Gateway stop-routing and interrupted-history repairs are documented in [the production source reconciliation](docs/production-gateway-reconciliation-20261004.md). Git publication does not deploy or restart services.
 
 The 7·16 enterprise branch's 2026-09-28 production source alignment and its
@@ -1216,16 +1193,6 @@ Use `/compact` in the Web UI composer to summarize older context for the current
 
 ### Sub-Agents
 
-The Digital Employee shared gallery includes 18 external-link entries from the
-October 8 contest/scenario roster, in addition to the six existing fixed
-employees. The roster lives in
-[`frontend/src/core/agents/contest-agents.ts`](frontend/src/core/agents/contest-agents.ts).
-Entries use the latest suggested names, original descriptions, business-domain
-categories, up to three tags, and complete application URLs. Linkless scenarios
-are not duplicated as external employees. Updating this frontend configuration
-does not modify personal or published team employee storage; target applications
-still enforce their own network and access permissions.
-
 The Web UI's custom-agent builder follows the selected interface language when
 it saves `SOUL.md` and the one-line card description. Simplified Chinese is the
 platform default; a user can still explicitly request another language. Lead
@@ -1992,3 +1959,27 @@ Your unwavering commitment and expertise have been the driving force behind Deer
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=bytedance/deer-flow&type=Date)](https://star-history.com/#bytedance/deer-flow&Date)
+
+## 2026-10-11: catalogue and homepage scope (no new database schema)
+
+Retain six additional contest employees and four existing-name updates, with
+the updated e-AnDa link. The contest catalogue contains 18 entries; preexisting
+fixed employee routes are unchanged. Keep the homepage's two existing Haineng
+usage counters and add today's users and today's started tasks. These new
+counters use the existing dashboard's Asia/Shanghai day, minute boundary,
+run/thread-creation data or configured rollups; tasks include all run statuses,
+not only successful completions. Require login and retain the bounded queries,
+60-second cache, and unavailable-value placeholders.
+
+Keep Contact Us: sh_tyznt@cnooc.com.cn, service hours 8:30-17:30, the supplied
+Haineng Work feedback-group QR image, feedback email link and matching styles.
+Do not change the QR pixels. Retain both language definitions and scoped tests.
+
+Remove the newly merged square profile/order/withdrawal/settings feature and
+its digital_employee_square persistence and 0020 migration. Existing baseline
+agent/gallery permissions and publish flows remain unchanged. Persistence and
+migrations must match baseline 917c8bb2; retain the earlier Work/title fixes.
+No database upgrade, downgrade, table deletion, push or deployment is performed
+by source candidate preparation. This candidate supersedes catalogue-only tree
+345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
+Previous broader-tree test results are historical, not acceptance of this tree.

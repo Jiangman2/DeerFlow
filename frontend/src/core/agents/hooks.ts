@@ -14,19 +14,13 @@ import {
   unpublishTeamAgent,
   uploadAgentAvatar,
   updateAgent,
-  listSquareSettings,
-  updateSquareSettings,
 } from "./api";
 import {
   readCachedAgentsApiEnabled,
   resolveAgentsApiEnabled,
   writeCachedAgentsApiEnabled,
 } from "./feature-cache";
-import type {
-  CreateAgentRequest,
-  UpdateAgentRequest,
-  SquareSettingsUpdate,
-} from "./types";
+import type { CreateAgentRequest, UpdateAgentRequest } from "./types";
 
 export function useAgentsApiEnabled() {
   const { data, isPending } = useQuery({
@@ -84,38 +78,12 @@ export function useAgent(name: string | null | undefined) {
   return { agent: data ?? null, isLoading, error };
 }
 
-export function useTeamAgents(includeHidden = false) {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ["team-agents", includeHidden],
-    queryFn: () => listTeamAgents(includeHidden),
+export function useTeamAgents() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["team-agents"],
+    queryFn: () => listTeamAgents(),
   });
-  return { agents: data ?? [], isLoading, error, refetch };
-}
-
-export function useSquareSettings() {
-  return useQuery({
-    queryKey: ["square-settings"],
-    queryFn: listSquareSettings,
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-    refetchInterval: 30_000,
-  });
-}
-
-export function useUpdateSquareSettings() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (request: SquareSettingsUpdate) =>
-      updateSquareSettings(request),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["square-settings"] });
-      void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
-    },
-    onError: () => {
-      void queryClient.invalidateQueries({ queryKey: ["square-settings"] });
-    },
-  });
+  return { agents: data ?? [], isLoading, error };
 }
 
 export function useDigitalEmployeeCategories() {
@@ -168,11 +136,8 @@ export function usePublishAgent() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (name: string) => publishAgent(name),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["team-agents"] }),
-        queryClient.invalidateQueries({ queryKey: ["square-settings"] }),
-      ]);
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["team-agents"] });
     },
   });
 }

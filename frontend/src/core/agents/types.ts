@@ -24,35 +24,7 @@ export interface Agent {
   published_by_user_id?: string | null;
   published_by_current_user?: boolean;
   external_url?: string | null;
-  square_key?: string;
-  square_hidden?: boolean;
-  square_version?: number;
-  square_sort_order?: number | null;
-  square_base_order?: number | null;
 }
-
-export type SquareMetadata = Pick<
-  Agent,
-  | "display_name"
-  | "description"
-  | "category_id"
-  | "tags"
-  | "avatar_id"
-  | "external_url"
->;
-export interface SquareSettings {
-  key: string;
-  metadata: Partial<SquareMetadata>;
-  hidden: boolean;
-  sort_order: number | null;
-  version: number;
-}
-export type SquareSettingsUpdate = Partial<SquareMetadata> & {
-  key: string;
-  version: number;
-  hidden?: boolean;
-  sort_order?: number | null;
-};
 
 export interface CreateAgentRequest {
   name: string;

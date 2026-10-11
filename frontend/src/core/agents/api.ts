@@ -6,8 +6,6 @@ import type {
   CreateAgentRequest,
   DigitalEmployeeCategory,
   UpdateAgentRequest,
-  SquareSettings,
-  SquareSettingsUpdate,
 } from "./types";
 
 const BACKEND_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
@@ -49,10 +47,8 @@ export async function listAgents(): Promise<Agent[]> {
   return data.agents;
 }
 
-export async function listTeamAgents(includeHidden = false): Promise<Agent[]> {
-  const res = await fetch(
-    `${getBackendBaseURL()}/api/team-agents${includeHidden ? "?include_hidden=true" : ""}`,
-  );
+export async function listTeamAgents(): Promise<Agent[]> {
+  const res = await fetch(`${getBackendBaseURL()}/api/team-agents`);
   if (!res.ok) {
     const err = (await res.json().catch(() => ({}))) as { detail?: string };
     throw new Error(
@@ -61,36 +57,6 @@ export async function listTeamAgents(includeHidden = false): Promise<Agent[]> {
   }
   const data = (await res.json()) as { agents: Agent[] };
   return data.agents;
-}
-
-export async function listSquareSettings(): Promise<SquareSettings[]> {
-  const res = await fetch(
-    `${getBackendBaseURL()}/api/digital-employee-square/settings`,
-  );
-  if (!res.ok) throw new Error(`Failed to load square settings: ${res.status}`);
-  return ((await res.json()) as { items: SquareSettings[] }).items;
-}
-
-export async function updateSquareSettings(
-  request: SquareSettingsUpdate,
-): Promise<SquareSettings> {
-  const res = await fetch(
-    `${getBackendBaseURL()}/api/digital-employee-square/settings`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    },
-  );
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { detail?: unknown };
-    throw new Error(
-      typeof err.detail === "string"
-        ? err.detail
-        : `Failed to update square: ${res.status}`,
-    );
-  }
-  return ((await res.json()) as { item: SquareSettings }).item;
 }
 
 export async function getAgent(name: string): Promise<Agent> {

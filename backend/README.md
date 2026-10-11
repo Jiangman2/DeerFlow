@@ -767,31 +767,26 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 
 See ../docs/production-work-title-source-sync-20261010.md for the pinned release, operator domain/NO_PROXY settings, cooperative shared-file locking/CAS, private title streaming semantics, and regression commands. Runtime credentials and PVC configuration remain outside Git.
 
+## 2026-10-11: catalogue and homepage scope (no new database schema)
 
-## Digital Employee Square merge review (2026-10-10)
+Retain six additional contest employees and four existing-name updates, with
+the updated e-AnDa link. The contest catalogue contains 18 entries; preexisting
+fixed employee routes are unchanged. Keep the homepage's two existing Haineng
+usage counters and add today's users and today's started tasks. These new
+counters use the existing dashboard's Asia/Shanghai day, minute boundary,
+run/thread-creation data or configured rollups; tasks include all run statuses,
+not only successful completions. Require login and retain the bounded queries,
+60-second cache, and unavailable-value placeholders.
 
-The isolated contest merge adds cooperative publication/settings serialization.
-PostgreSQL transaction advisory locks (bounded five-second acquisition) cover
-both existing and absent catalog keys. SQLite reserves its database writer before
-permission reads. Restoration/withdrawal and snapshot publication share the same
-guard; publisher ownership is rechecked under it. Cancellation waits for the
-owned filesystem worker to finish before releasing that guard.
+Keep Contact Us: sh_tyznt@cnooc.com.cn, service hours 8:30-17:30, the supplied
+Haineng Work feedback-group QR image, feedback email link and matching styles.
+Do not change the QR pixels. Retain both language definitions and scoped tests.
 
-This is not an atomic PostgreSQL/NFS transaction. Process crashes, filesystem
-copy failure, database commit failure, and old/non-cooperating writers require
-separate recovery/release review. Do not mix the new writer code with old Pods
-and infer cross-version safety. The gallery retry refreshes settings and the
-employee list together.
-
-Run the full backend suite before and after candidate changes, including
-test_digital_employee_square.py and test_square_publication_guard.py. Run frontend
-pnpm check, unit and relevant E2E tests. Isolated real PostgreSQL multi-session,
-migration upgrade/downgrade on synthetic data, and shared-storage acceptance are
-pending. Do not use production credentials or execute migrations against the
-production database during candidate tests. No merge/commit/image/release action
-is authorized by preparing or applying this candidate-only patch.
-
-
-## Isolated contest merge revision-test maintenance (2026-10-11)
-
-Five legacy migration upgrade-to-head tests now expect `0020_digital_employee_square`, matching the contest migration head. Their data, schema, index and constraint assertions are unchanged. This source correction is not migration or release acceptance; targeted and complete backend regression, frontend tests and PostgreSQL multi-session checks remain pending. The test-tool progress observer must retain its own original clock callable so application tests that mock time.monotonic cannot consume the instrumentation clock.
+Remove the newly merged square profile/order/withdrawal/settings feature and
+its digital_employee_square persistence and 0020 migration. Existing baseline
+agent/gallery permissions and publish flows remain unchanged. Persistence and
+migrations must match baseline 917c8bb2; retain the earlier Work/title fixes.
+No database upgrade, downgrade, table deletion, push or deployment is performed
+by source candidate preparation. This candidate supersedes catalogue-only tree
+345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
+Previous broader-tree test results are historical, not acceptance of this tree.
