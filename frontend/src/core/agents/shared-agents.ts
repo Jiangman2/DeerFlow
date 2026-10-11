@@ -22,7 +22,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tags: ["知识检索", "图件检索", "勘探开发"],
     avatar_id: "exploration-geologist",
     source: "team",
-    external_url: "https://cnoocclawtest.cnooc.com.cn/zywdjxzj/",
+    external_url: "https://cnoocclaw.cnooc.com.cn/zywdjxzj/",
   },
   {
     name: "地震数据提频专家",
@@ -34,7 +34,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tags: ["地震", "SEGY", "提频"],
     avatar_id: "seismic-processing",
     source: "team",
-    external_url: "https://cnoocclawtest.cnooc.com.cn/dzsjtpzj/",
+    external_url: "https://cnoocclaw.cnooc.com.cn/dzsjtpzj/",
   },
   {
     name: "专业报告校审专家",
@@ -46,7 +46,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tags: ["报告", "校审", "文档"],
     avatar_id: "report-research",
     source: "team",
-    external_url: "https://cnoocclawtest.cnooc.com.cn/zjbgjszj/",
+    external_url: "https://cnoocclaw.cnooc.com.cn/zjbgjszj/",
   },
   {
     name: "自动数采专家",
@@ -58,7 +58,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tags: ["数据采集", "结构化", "自动化"],
     avatar_id: "intelligent-oilfield-data",
     source: "team",
-    external_url: "https://cnoocclawtest.cnooc.com.cn/zdsczj/",
+    external_url: "https://cnoocclaw.cnooc.com.cn/zdsczj/",
   },
   {
     name: "前期研究报告编写专家",
@@ -70,7 +70,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tags: ["科研报告", "内容生成", "PPT"],
     avatar_id: "knowledge-service",
     source: "team",
-    external_url: "https://cnoocclawtest.cnooc.com.cn/qqyjbgbxzj/",
+    external_url: "https://cnoocclaw.cnooc.com.cn/qqyjbgbxzj/",
   },
   {
     name: "邮件智能整理助手",
@@ -83,7 +83,7 @@ export const SHARED_EXTERNAL_AGENTS: Agent[] = [
     tags: ["邮件", "会议", "待办", "智能提醒"],
     avatar_id: "knowledge-service",
     source: "team",
-    external_url: "https://cnoocclawtest.cnooc.com.cn/yjzs/",
+    external_url: "https://cnoocclaw.cnooc.com.cn/yjzs/",
   },
   ...CONTEST_EXTERNAL_AGENTS,
 ];
