@@ -43,14 +43,18 @@ import {
   useAgents,
   useDigitalEmployeeCategories,
   useTeamAgents,
+  useSquareSettings,
+  applySquareSettings,
 } from "@/core/agents";
 import type { Agent, DigitalEmployeeCategory } from "@/core/agents";
+import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
 import { AgentCard } from "./agent-card";
 import { BusinessDomainBadge } from "./business-domain-badge";
 import { DigitalEmployeeSettingsDialog } from "./digital-employee-settings-dialog";
+import { SquareSettingsDialog } from "./square-settings-dialog";
 
 type GalleryTab = "square" | "mine";
 const PAGE_SIZE = 6;
@@ -282,12 +286,21 @@ function FilterPanel({
 export function AgentGallery() {
   const { t } = useI18n();
   const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = user?.system_role === "admin";
+  const squareSettings = useSquareSettings();
+  const [showHidden, setShowHidden] = useState(false);
+  const [managingAgent, setManagingAgent] = useState<{
+    agent: Agent;
+    mode: "edit" | "sort";
+  } | null>(null);
   const { agents, isLoading, error } = useAgents();
   const {
     agents: teamAgents,
     isLoading: isTeamLoading,
     error: teamError,
-  } = useTeamAgents();
+    refetch: refetchTeamAgents,
+  } = useTeamAgents(isAdmin);
   const { categories } = useDigitalEmployeeCategories();
   const [tab, setTab] = useState<GalleryTab>("square");
   const [query, setQuery] = useState("");
@@ -304,10 +317,16 @@ export function AgentGallery() {
       SHARED_EXTERNAL_AGENT_NAME_ALIASES,
     ),
   );
-  const squareAgents = [
-    ...SHARED_EXTERNAL_AGENTS,
-    ...teamAgents.filter((agent) => !sharedAgentNames.has(agent.name)),
-  ];
+  const squareAgents = squareSettings.isSuccess
+    ? applySquareSettings(
+        [
+          ...SHARED_EXTERNAL_AGENTS,
+          ...teamAgents.filter((agent) => !sharedAgentNames.has(agent.name)),
+        ],
+        squareSettings.data,
+        isAdmin && showHidden,
+      )
+    : [];
   const currentAgents = tab === "mine" ? agents : squareAgents;
   const categoryById = new Map(
     categories.map((category) => [category.id, category.name]),
@@ -328,11 +347,12 @@ export function AgentGallery() {
   const paginationItems = getPaginationItems(currentPage, totalPages);
   const activeFilterCount =
     selectedTags.size + (selectedCategory === "all" ? 0 : 1);
-  const isLoadingCurrent = tab === "mine" ? isLoading : isTeamLoading;
+  const isLoadingCurrent =
+    tab === "mine" ? isLoading : isTeamLoading || squareSettings.isPending;
 
   useEffect(() => {
     setPage(1);
-  }, [query, selectedCategory, selectedTags, tab]);
+  }, [query, selectedCategory, selectedTags, tab, showHidden]);
 
   function goToPage(nextPage: number) {
     setPage(Math.min(Math.max(nextPage, 1), totalPages));
@@ -457,6 +477,16 @@ export function AgentGallery() {
                   String(filteredAgents.length),
                 )}
               </p>
+              {isAdmin && tab === "square" ? (
+                <Button
+                  variant={showHidden ? "secondary" : "outline"}
+                  size="sm"
+                  aria-pressed={showHidden}
+                  onClick={() => setShowHidden((value) => !value)}
+                >
+                  {t.agents.squareShowWithdrawn}
+                </Button>
+              ) : null}
               {query || activeFilterCount > 0 ? (
                 <Button
                   size="sm"
@@ -472,7 +502,28 @@ export function AgentGallery() {
               ) : null}
             </div>
 
-            {agentsApiDisabled && tab === "mine" ? (
+            {tab === "square" && (squareSettings.isError || teamError) ? (
+              <div
+                className="bg-card rounded-xl border p-5 text-sm"
+                role="alert"
+              >
+                <p>{t.agents.squareLoadError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3"
+                  data-testid="square-retry"
+                  onClick={() => {
+                    void Promise.all([
+                      squareSettings.refetch(),
+                      refetchTeamAgents(),
+                    ]);
+                  }}
+                >
+                  {t.agents.squareRetry}
+                </Button>
+              </div>
+            ) : agentsApiDisabled && tab === "mine" ? (
               <EmptyState
                 icon={BotIcon}
                 title={t.agents.featureDisabledTitle}
@@ -513,12 +564,30 @@ export function AgentGallery() {
                     }
                     showPublish={tab === "mine"}
                     showDelete={tab === "mine"}
-                    onEdit={tab === "mine" ? setEditingAgent : undefined}
+                    onEdit={
+                      tab === "mine"
+                        ? setEditingAgent
+                        : isAdmin
+                          ? (agent) => setManagingAgent({ agent, mode: "edit" })
+                          : undefined
+                    }
+                    onSort={
+                      tab === "square" && isAdmin
+                        ? (agent) => setManagingAgent({ agent, mode: "sort" })
+                        : undefined
+                    }
+                    showRestore={
+                      tab === "square" &&
+                      isAdmin &&
+                      agent.square_hidden === true
+                    }
                     showUnpublish={
                       tab === "square" &&
                       !teamAgentsApiDisabled &&
-                      agent.external_url == null &&
-                      agent.published_by_current_user === true
+                      (isAdmin ||
+                        (agent.external_url == null &&
+                          agent.published_by_current_user === true)) &&
+                      !agent.square_hidden
                     }
                   />
                 ))}
@@ -616,6 +685,14 @@ export function AgentGallery() {
           if (!open) setEditingAgent(null);
         }}
       />
+      {managingAgent && isAdmin ? (
+        <SquareSettingsDialog
+          agent={managingAgent.agent}
+          mode={managingAgent.mode}
+          categories={categories}
+          onClose={() => setManagingAgent(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,28 @@
 # AGENTS.md
 
+Haineng home footer has four counters. Fetch existing signed Haineng usage and
+authenticated `/api/home/statistics` independently every minute; one failing
+source must not erase the other, and unavailable counters show a dash, not zero.
+Deploy Frontend and Gateway together so both new counters have their endpoint.
+Keep hover-only contact visibility and the raised footer stacking context.
+Contact/feedback share `sh_tyznt@cnooc.com.cn`. Preserve the original support QR
+pixels in `public/images/haineng-work-support-qr.png`; never regenerate its code.
+
+Digital Employee Square governance: `useSquareSettings` reads server-owned SQL
+overrides for both bundled external cards and runtime-published employees. Apply
+stable `external/team/legacy:<original name>` keys and global sorting before
+filtering/pagination; never mutate the source roster or use localStorage for
+admin settings. Fail closed on governance reads rather than re-showing withdrawn
+cards. The trusted auth user `system_role=admin` shows public edit/order/withdraw
+menus and a withdrawn-entry view/restoration. Regular users retain only their
+own published employee withdrawal; their private editing/new publishing is
+unchanged. The backend independently authorizes every write and rejects stale
+versions. Public editing changes presentation, not model/skill/SOUL settings.
+After publishing, invalidate and await both team-agent and square-settings
+queries; otherwise a republished employee stays hidden by cached overrides.
+The gallery's error retry must refetch both square settings and team agents;
+refreshing settings alone cannot recover a failed employee-list request.
+
 October 2 dmdb frontend reconciliation: `MessageGroup` normalizes unknown tool
 argument/result records before using string display fields. Every tool-result
 link permits only absolute HTTP(S), rejects controls/backslashes and embedded
@@ -13,13 +36,21 @@ The regular chat layout and legacy provider import share the custom-agent
 `ChatProviders` stack, without making the server layout a Client Component or
 changing static demo parameters. Upload deletion encodes the filename component
 and GFM disables only single-tilde strikethrough. Existing fixed employees retain
-the test hostname and precede the unchanged twelve contest entries. Do not change
+the test hostname and precede the contest entries. Do not change
 the runtime to production URLs to satisfy hardcoded test expectations: those two
 expectations are explicitly aligned with the test deployment. Incoming-only
 reconnect-input hydration's three tests are deferred; the runtime and exact
 pre-merge reconnect tests remain unchanged. See
 `docs/FRONTEND_RECONCILIATION_BATCH2_20261002.md`; validation is still required
 before completing the merge or deploying.
+
+October 9 contest roster refresh: `core/agents/contest-agents.ts` contains 18
+external-link employees from `数字员工1008.xlsx`, in Sheet1 row order. Prefer
+the revised name in column Q over column F. Column M supplies application URLs,
+except the explicit latest links in P11/P21. Preserve descriptions and complete
+URL queries/fragments, omit linkless rows, and leave the six fixed employees and
+personal/team persistence unchanged. Update the roster regression test alongside
+any future source-sheet refresh.
 
 The enterprise 7·16 production source alignment is recorded in
 `../release/production-build-alignment-20260928/README.md`. For production

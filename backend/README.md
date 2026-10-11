@@ -766,3 +766,32 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
 ## Production Work channel and private title streaming (2026-10-10)
 
 See ../docs/production-work-title-source-sync-20261010.md for the pinned release, operator domain/NO_PROXY settings, cooperative shared-file locking/CAS, private title streaming semantics, and regression commands. Runtime credentials and PVC configuration remain outside Git.
+
+
+## Digital Employee Square merge review (2026-10-10)
+
+The isolated contest merge adds cooperative publication/settings serialization.
+PostgreSQL transaction advisory locks (bounded five-second acquisition) cover
+both existing and absent catalog keys. SQLite reserves its database writer before
+permission reads. Restoration/withdrawal and snapshot publication share the same
+guard; publisher ownership is rechecked under it. Cancellation waits for the
+owned filesystem worker to finish before releasing that guard.
+
+This is not an atomic PostgreSQL/NFS transaction. Process crashes, filesystem
+copy failure, database commit failure, and old/non-cooperating writers require
+separate recovery/release review. Do not mix the new writer code with old Pods
+and infer cross-version safety. The gallery retry refreshes settings and the
+employee list together.
+
+Run the full backend suite before and after candidate changes, including
+test_digital_employee_square.py and test_square_publication_guard.py. Run frontend
+pnpm check, unit and relevant E2E tests. Isolated real PostgreSQL multi-session,
+migration upgrade/downgrade on synthetic data, and shared-storage acceptance are
+pending. Do not use production credentials or execute migrations against the
+production database during candidate tests. No merge/commit/image/release action
+is authorized by preparing or applying this candidate-only patch.
+
+
+## Isolated contest merge revision-test maintenance (2026-10-11)
+
+Five legacy migration upgrade-to-head tests now expect `0020_digital_employee_square`, matching the contest migration head. Their data, schema, index and constraint assertions are unchanged. This source correction is not migration or release acceptance; targeted and complete backend regression, frontend tests and PostgreSQL multi-session checks remain pending. The test-tool progress observer must retain its own original clock callable so application tests that mock time.monotonic cannot consume the instrumentation clock.

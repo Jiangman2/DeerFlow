@@ -8,16 +8,18 @@ import re
 import secrets
 import shutil
 import unicodedata
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import yaml
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.gateway.deps import get_current_user_from_request, require_admin_user
 from app.gateway.external_agent_analytics import (
     EXTERNAL_PLATFORM_AGENT_NAMES,
     EXTERNAL_PLATFORM_CLICK_ACTION,
@@ -42,6 +44,7 @@ from deerflow.config.agents_config import (
 from deerflow.config.app_config import get_app_config
 from deerflow.config.paths import get_paths
 from deerflow.persistence.agents import AgentExistsError, get_agent_store
+from deerflow.persistence.digital_employee_square import DigitalEmployeeSquareRepository, SquareSettingsBusy, SquareSettingsConflict
 from deerflow.persistence.engine import get_session_factory
 from deerflow.persistence.observability.model import AuditLogRow
 from deerflow.runtime.user_context import get_effective_user_id
@@ -153,6 +156,7 @@ class AgentResponse(BaseModel):
     source: str | None = Field(default=None, description="Agent source: personal, team, or legacy")
     published_by_user_id: str | None = Field(default=None, description="User id that published this team agent")
     published_by_current_user: bool = Field(default=False, description="Whether the current user published this team agent")
+    square_base_order: int | None = Field(default=None, description="Stable default catalog position before withdrawn entries are filtered")
 
 
 class AgentsListResponse(BaseModel):
@@ -216,6 +220,160 @@ class AgentUpdateRequest(BaseModel):
     _clean_avatar_id = field_validator("avatar_id")(_validate_avatar_id)
     _clean_category_id = field_validator("category_id")(_validate_category_id)
     _clean_display_name = field_validator("display_name")(validate_agent_display_name)
+
+
+class SquareSettingsRequest(BaseModel):
+    """Only public presentation fields, never private execution configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(min_length=1, max_length=256)
+    version: int = Field(ge=0)
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=500)
+    category_id: str | None = Field(default=None, max_length=64)
+    tags: list[str] | None = None
+    external_url: str | None = Field(default=None, max_length=2048)
+    avatar_id: str | None = None
+    hidden: bool | None = None
+    sort_order: int | None = Field(default=None, ge=0, le=1_000_000)
+
+    _clean_tags = field_validator("tags")(_normalize_tags)
+    _clean_avatar_id = field_validator("avatar_id")(_validate_avatar_id)
+    _clean_category_id = field_validator("category_id")(_validate_category_id)
+
+    @field_validator("display_name")
+    @classmethod
+    def clean_display_name(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError("Display name must not be blank")
+        return validate_agent_display_name(value)
+
+    @field_validator("key")
+    @classmethod
+    def clean_key(cls, value):
+        source, _, name = value.partition(":")
+        if source not in {"external", "team", "legacy"} or not name.strip() or any(ord(char) < 32 for char in value):
+            raise ValueError("Invalid public employee key")
+        return value
+
+    @field_validator("external_url")
+    @classmethod
+    def clean_url(cls, value):
+        if value is None:
+            return value
+        value = value.strip()
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"https", "http"} or not parsed.hostname or parsed.username or parsed.password or any(char.isspace() for char in value):
+            raise ValueError("External URL must be an HTTP(S) URL without credentials or whitespace")
+        return value
+
+
+def _square_repo():
+    sf = get_session_factory()
+    if sf is None:
+        raise HTTPException(status_code=503, detail="Digital employee governance requires a persistent database")
+    return DigitalEmployeeSquareRepository(sf)
+
+
+@asynccontextmanager
+async def _publication_square_edit(key: str):
+    if get_session_factory() is None:
+        # Keep standalone memory-mode new publishing available. It has no
+        # persistent governance/withdrawal state and is not the multi-Pod mode.
+        yield None
+    else:
+        async with _square_repo().edit(key) as edit:
+            yield edit
+
+
+async def _publication_file_io(function):
+    """Do not release the DB guard while a cancelled thread still writes files."""
+    task = asyncio.create_task(asyncio.to_thread(function))
+    cancelled = False
+    while True:
+        try:
+            result = await asyncio.shield(task)
+            break
+        except asyncio.CancelledError:
+            if task.cancelled():
+                raise
+            cancelled = True
+        except Exception:
+            if cancelled:
+                raise asyncio.CancelledError from None
+            raise
+    if cancelled:
+        raise asyncio.CancelledError
+    return result
+
+
+async def _require_square_admin(request: Request):
+    await require_admin_user(request, detail="Only administrators can manage the digital employee square")
+    if getattr(request.state, "auth_source", None) in {"auth_disabled", "internal"}:
+        raise HTTPException(status_code=403, detail="A signed-in administrator account is required")
+
+
+async def _require_square_withdrawal(key: str, request: Request):
+    """Admins manage any entry; ordinary accounts withdraw their own snapshot."""
+    user = await get_current_user_from_request(request)
+    if user.system_role == "admin":
+        await _require_square_admin(request)
+        return
+    source, _, name = key.partition(":")
+    if source != "team" or getattr(request.state, "auth_source", None) in {"auth_disabled", "internal"}:
+        raise HTTPException(status_code=403, detail="Only the publisher or an administrator can withdraw this employee")
+    _validate_agent_name(name)
+
+    def _publisher():
+        config_file = get_paths().team_agent_dir(name) / "config.yaml"
+        if not config_file.is_file():
+            return None
+        with config_file.open(encoding="utf-8") as file:
+            return (yaml.safe_load(file) or {}).get("published_by_user_id")
+
+    publisher = await asyncio.to_thread(_publisher)
+    if publisher is None or str(publisher) != str(user.id):
+        raise HTTPException(status_code=403, detail="Only the publisher or an administrator can withdraw this employee")
+
+
+@router.get("/digital-employee-square/settings")
+async def list_square_settings(request: Request):
+    _require_agents_api_enabled()
+    await get_current_user_from_request(request)
+    return {"items": await _square_repo().list()}
+
+
+@router.put("/digital-employee-square/settings")
+async def update_square_settings(body: SquareSettingsRequest, request: Request):
+    _require_agents_api_enabled()
+    # Publisher exception is deliberately narrow: only hidden=true, with no
+    # metadata/order changes, no restoring, and no caller-supplied ownership.
+    if body.model_fields_set == {"key", "version", "hidden"} and body.hidden is True:
+        await _require_square_withdrawal(body.key, request)
+    else:
+        await _require_square_admin(request)
+    user = await get_current_user_from_request(request)
+    values = body.model_dump(exclude_unset=True, exclude={"key", "version"})
+    if "category_id" in values:
+        await asyncio.to_thread(_ensure_category_exists, values["category_id"])
+    changes = {key: values.pop(key) for key in ("hidden", "sort_order") if key in values}
+    if changes.get("hidden", False) is None:
+        raise HTTPException(status_code=422, detail="hidden cannot be null")
+    # Null metadata removes an override and falls back to the original catalog.
+    if "external_url" in values and not body.key.startswith("external:"):
+        raise HTTPException(status_code=422, detail="Only external employees can change their launch URL")
+    try:
+        async with _square_repo().edit(body.key) as edit:
+            # Publication can change the server-owned publisher. Recheck it
+            # after taking the same guard rather than trusting an earlier read.
+            if body.model_fields_set == {"key", "version", "hidden"} and body.hidden is True:
+                await _require_square_withdrawal(body.key, request)
+            item = await edit.patch(version=body.version, metadata=values, updated_by=str(user.id), **changes)
+    except SquareSettingsConflict:
+        raise HTTPException(status_code=409, detail="This employee was changed by another administrator. Refresh and try again.")
+    except SquareSettingsBusy:
+        raise HTTPException(status_code=503, detail="This employee is being changed. Try again shortly.")
+    return {"item": item}
 
 
 class DigitalEmployeeCategory(BaseModel):
@@ -945,16 +1103,28 @@ async def list_agents() -> AgentsListResponse:
     summary="List Team Agents",
     description="List the shared enterprise agent square, including legacy shared agents.",
 )
-async def list_team_agents_endpoint() -> AgentsListResponse:
+async def list_team_agents_endpoint(request: Request, include_hidden: bool = False) -> AgentsListResponse:
     """List team-shared agents that are available to every user."""
     _require_agents_api_enabled()
+    if include_hidden:
+        await _require_square_admin(request)
     current_user_id = get_effective_user_id()
 
     def _list() -> list[AgentResponse]:
         return [_shared_agent_response(agent.name, current_user_id=current_user_id) for agent in list_team_agents()]
 
     try:
-        return AgentsListResponse(agents=await asyncio.to_thread(_list))
+        entries = await asyncio.to_thread(_list)
+        settings = await _square_repo().list() if get_session_factory() is not None else []
+        by_key = {item["key"]: item for item in settings}
+        visible = []
+        for index, entry in enumerate(entries):
+            setting = by_key.get(f"{entry.source}:{entry.name}", {})
+            if setting.get("hidden") and not include_hidden:
+                continue
+            metadata = {key: value for key, value in setting.get("metadata", {}).items() if value is not None}
+            visible.append(entry.model_copy(update={**metadata, "square_base_order": index}))
+        return AgentsListResponse(agents=visible)
     except Exception as e:
         logger.error("Failed to list team agents", exc_info=True)
         raise HTTPException(
@@ -1232,7 +1402,7 @@ async def create_agent_endpoint(request: AgentCreateRequest) -> AgentResponse:
     summary="Publish Custom Agent",
     description="Publish a personal custom agent to the enterprise agent square.",
 )
-async def publish_agent(name: str, request: AgentPublishRequest) -> AgentResponse:
+async def publish_agent(name: str, request: AgentPublishRequest, http_request: Request) -> AgentResponse:
     """Copy a personal agent into the shared team-agent catalog."""
     _require_agents_api_enabled()
     _validate_agent_name(name)
@@ -1240,13 +1410,28 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
     user_id = get_effective_user_id()
     paths = get_paths()
 
+    # New publications remain open. A withdrawn snapshot may also be replaced
+    # by its original publisher, but an online snapshot still requires admin.
+    actor = await get_current_user_from_request(http_request)
+    is_admin = actor.system_role == "admin" and getattr(http_request.state, "auth_source", None) not in {"auth_disabled", "internal"}
+    square_key = f"team:{name}"
+    was_withdrawn = False
+
     def _publish() -> AgentResponse | None:
         source_dir = paths.user_agent_dir(user_id, name)
         if not is_personal_agent(name, user_id=user_id):
             raise FileNotFoundError(name)
 
         team_dir = paths.team_agent_dir(name)
+        if (paths.agent_dir(name) / "config.yaml").exists() and not is_admin:
+            raise PermissionError(name)
         if team_dir.exists():
+            if not is_admin:
+                config_file = team_dir / "config.yaml"
+                with config_file.open(encoding="utf-8") as file:
+                    publisher = (yaml.safe_load(file) or {}).get("published_by_user_id")
+                if not was_withdrawn or publisher is None or str(publisher) != str(actor.id) or getattr(http_request.state, "auth_source", None) in {"auth_disabled", "internal"}:
+                    raise PermissionError(name)
             if not request.overwrite:
                 return None
             shutil.rmtree(team_dir)
@@ -1270,7 +1455,26 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
         return _shared_agent_response(name, current_user_id=user_id)
 
     try:
-        response = await asyncio.to_thread(_publish)
+        async with _publication_square_edit(square_key) as edit:
+            # Read permission state only after locking. All settings mutations
+            # use this guard too, including restoring an absent/new entry.
+            square_setting = await edit.get() if edit is not None else None
+            was_withdrawn = bool(square_setting and square_setting["hidden"])
+            response = await _publication_file_io(_publish)
+            if response is None:
+                raise HTTPException(status_code=409, detail=f"Team agent '{name}' already exists")
+            if was_withdrawn:
+                # Files are complete before visibility changes. The guard stays
+                # held until this CAS commits, preserving metadata and order.
+                await edit.patch(version=square_setting["version"], metadata={}, updated_by=str(actor.id), hidden=False)
+    except HTTPException:
+        raise
+    except SquareSettingsConflict:
+        raise HTTPException(status_code=409, detail="The square status changed during publication. Refresh and try again.")
+    except SquareSettingsBusy:
+        raise HTTPException(status_code=503, detail="This employee is being changed. Try again shortly.")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Only administrators can replace an online employee; a withdrawn employee can also be republished by its original publisher")
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Personal agent '{name}' not found")
     except Exception as e:
@@ -1280,8 +1484,6 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
             detail=f"Failed to publish agent: {str(e)}",
         )
 
-    if response is None:
-        raise HTTPException(status_code=409, detail=f"Team agent '{name}' already exists")
     return response
 
 
@@ -1291,48 +1493,19 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
     summary="Unpublish Team Agent",
     description="Remove a team-published agent from the enterprise agent square.",
 )
-async def unpublish_team_agent(name: str) -> None:
-    """Remove a shared agent, limited to the user who published it."""
+async def unpublish_team_agent(name: str, request: Request) -> None:
+    """Publisher/admin soft withdrawal; never delete the private copy."""
     _require_agents_api_enabled()
     _validate_agent_name(name)
+    await _require_square_withdrawal(f"team:{name}", request)
     name = _normalize_agent_name(name)
-    user_id = get_effective_user_id()
     paths = get_paths()
-
-    def _unpublish() -> str:
-        team_dir = paths.team_agent_dir(name)
-        config_file = team_dir / "config.yaml"
-        if not config_file.exists():
-            return "legacy" if (paths.agent_dir(name) / "config.yaml").exists() else "missing"
-        with open(config_file, encoding="utf-8") as file:
-            config_data = yaml.safe_load(file) or {}
-        published_by = config_data.get("published_by_user_id")
-        if published_by is not None and str(published_by) != user_id:
-            return "forbidden"
-        shutil.rmtree(team_dir)
-        return "deleted"
-
-    try:
-        outcome = await asyncio.to_thread(_unpublish)
-    except Exception as e:
-        logger.error("Failed to unpublish team agent '%s'", name, exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to unpublish team agent: {str(e)}",
-        )
-
-    if outcome == "missing":
+    source = await asyncio.to_thread(lambda: "team" if (paths.team_agent_dir(name) / "config.yaml").exists() else "legacy" if (paths.agent_dir(name) / "config.yaml").exists() else None)
+    if source is None:
         raise HTTPException(status_code=404, detail=f"Team agent '{name}' not found")
-    if outcome == "legacy":
-        raise HTTPException(
-            status_code=409,
-            detail="Legacy shared agents cannot be unpublished through the team square.",
-        )
-    if outcome == "forbidden":
-        raise HTTPException(
-            status_code=403,
-            detail=f"Only the publisher can unpublish team agent '{name}'",
-        )
+    key = f"{source}:{name}"
+    existing = next((item for item in await _square_repo().list() if item["key"] == key), None)
+    await update_square_settings(SquareSettingsRequest(key=key, version=existing["version"] if existing else 0, hidden=True), request)
 
 
 @router.put(

@@ -10,6 +10,7 @@ import {
   Share2Icon,
   Trash2Icon,
   Undo2Icon,
+  ArrowDownUpIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -51,6 +52,8 @@ import {
   useDeleteAgent,
   usePublishAgent,
   useUnpublishTeamAgent,
+  useUpdateSquareSettings,
+  squareKey,
 } from "@/core/agents";
 import type { Agent } from "@/core/agents";
 import { useI18n } from "@/core/i18n/hooks";
@@ -63,6 +66,8 @@ interface AgentCardProps {
   showPublish?: boolean;
   showUnpublish?: boolean;
   onEdit?: (agent: Agent) => void;
+  onSort?: (agent: Agent) => void;
+  showRestore?: boolean;
 }
 
 function DigitalEmployeeAvatar({
@@ -107,12 +112,15 @@ export function AgentCard({
   showPublish = false,
   showUnpublish = false,
   onEdit,
+  onSort,
+  showRestore = false,
 }: AgentCardProps) {
   const { t } = useI18n();
   const router = useRouter();
   const deleteAgent = useDeleteAgent();
   const publishAgent = usePublishAgent();
   const unpublishTeamAgent = useUnpublishTeamAgent();
+  const updateSquare = useUpdateSquareSettings();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [unpublishOpen, setUnpublishOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -163,9 +171,30 @@ export function AgentCard({
 
   async function handleUnpublish() {
     try {
-      await unpublishTeamAgent.mutateAsync(agent.name);
+      if (agent.square_key) {
+        await updateSquare.mutateAsync({
+          key: squareKey(agent),
+          version: agent.square_version ?? 0,
+          hidden: true,
+        });
+      } else {
+        await unpublishTeamAgent.mutateAsync(agent.name);
+      }
       toast.success(t.agents.unpublishSuccess);
       setUnpublishOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function handleRestore() {
+    try {
+      await updateSquare.mutateAsync({
+        key: squareKey(agent),
+        version: agent.square_version ?? 0,
+        hidden: false,
+      });
+      toast.success(t.agents.squareRestoreSuccess);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error));
     }
@@ -207,6 +236,9 @@ export function AgentCard({
               <h2 className="max-w-full truncate text-sm font-semibold tracking-tight sm:text-[15px]">
                 {displayName}
               </h2>
+              {agent.square_hidden ? (
+                <Badge variant="secondary">{t.agents.squareWithdrawn}</Badge>
+              ) : null}
               <Badge
                 variant="outline"
                 className={cn(
@@ -290,6 +322,21 @@ export function AgentCard({
                 <DropdownMenuItem onSelect={() => setUnpublishOpen(true)}>
                   <Undo2Icon />
                   {t.agents.unpublishFromSquare}
+                </DropdownMenuItem>
+              ) : null}
+              {onSort ? (
+                <DropdownMenuItem onSelect={() => onSort(agent)}>
+                  <ArrowDownUpIcon />
+                  {t.agents.squareSort}
+                </DropdownMenuItem>
+              ) : null}
+              {showRestore ? (
+                <DropdownMenuItem
+                  disabled={updateSquare.isPending}
+                  onSelect={() => void handleRestore()}
+                >
+                  <Share2Icon />
+                  {t.agents.squareRestore}
                 </DropdownMenuItem>
               ) : null}
               {showDelete ? (
@@ -387,9 +434,9 @@ export function AgentCard({
             <Button
               variant="destructive"
               onClick={() => void handleUnpublish()}
-              disabled={unpublishTeamAgent.isPending}
+              disabled={unpublishTeamAgent.isPending || updateSquare.isPending}
             >
-              {unpublishTeamAgent.isPending
+              {unpublishTeamAgent.isPending || updateSquare.isPending
                 ? t.common.loading
                 : t.agents.unpublishFromSquare}
             </Button>

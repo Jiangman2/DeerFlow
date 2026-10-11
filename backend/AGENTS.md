@@ -1,5 +1,38 @@
 # AGENTS.md
 
+Homepage `/api/home/statistics` requires login but not admin. Return only the
+two global aggregate counters; never relax `/api/admin/dashboard` authorization.
+Use the same Shanghai daily bounds, read replica policy, query limits, cache,
+rollup contribution and raw run/creation-ledger semantics as the dashboard.
+All run statuses count; unique active users include thread-creation users even
+after conversation deletion. Regression tests: `tests/test_home_statistics.py`.
+
+Digital Employee Square governance lives in the agents router and
+`deerflow.persistence.digital_employee_square`. `GET/PUT
+/api/digital-employee-square/settings` stores versioned presentation overrides;
+admin-only edits/order/restoration use the existing authenticated system role.
+Only an exact `hidden=true` patch additionally permits the actual team publisher,
+checked from server-owned config against the authenticated user id. Never trust
+caller-supplied ownership/role or allow synthetic/internal admin sessions to
+manage the catalog. Legacy DELETE is a soft withdrawal with the same checks.
+Regular publishing remains available. Original publishers may replace their
+withdrawn snapshots. Acquire `DigitalEmployeeSquareRepository.edit(key)` before
+reading withdrawal/ownership permissions, hold it across offloaded copying and
+visibility CAS/commit, and use that same guard for every settings write. Recheck
+publisher ownership within it. PostgreSQL uses transaction advisory locks even
+for absent rows; SQLite reserves its writer with BEGIN IMMEDIATE. Online or
+cross-owner overwrites still require admin. Request cancellation must not release
+the guard while its filesystem worker is still writing. Never clear hidden before
+snapshot publication succeeds. This is cooperative writer serialization, not an
+atomic DB/NFS transaction: crash/commit-failure and non-cooperating legacy writers
+still require release/recovery review; do not claim those cases were proven safe.
+Private CRUD and execution config are unaffected. Register migration 0020 in
+every service image that bootstraps the shared DB. Tests:
+`test_digital_employee_square.py`, `test_custom_agent.py`, SQL/migration regressions.
+`test_square_publication_guard.py` covers restoration before publication,
+cooperative serialization, cancellation and absent-row locking. Real PostgreSQL
+multi-session acceptance remains required before release.
+
 The 2026-10-04 production Gateway reconciliation is documented in `../docs/production-gateway-reconciliation-20261004.md`. Preserve metadata-only owner routing and Gateway authentication/CSRF enforcement. Persist partial history only for explicit client interrupts, never lease takeover, shutdown, rollback or model failure; do not write unfinished text to model checkpoints. The regression tests use repository sources, not release archives or fake harness modules.
 
 Batch-fourteen reconciliation is recorded in
@@ -1968,3 +2001,8 @@ See `docs/` directory for detailed documentation:
 ## Production Work channel and private title streaming (2026-10-10)
 
 See ../docs/production-work-title-source-sync-20261010.md for the pinned release, operator domain/NO_PROXY settings, cooperative shared-file locking/CAS, private title streaming semantics, and regression commands. Runtime credentials and PVC configuration remain outside Git.
+
+
+## Isolated contest merge revision-test maintenance (2026-10-11)
+
+Five legacy migration upgrade-to-head tests now expect `0020_digital_employee_square`, matching the contest migration head. Their data, schema, index and constraint assertions are unchanged. This source correction is not migration or release acceptance; targeted and complete backend regression, frontend tests and PostgreSQL multi-session checks remain pending. The test-tool progress observer must retain its own original clock callable so application tests that mock time.monotonic cannot consume the instrumentation clock.
