@@ -108,19 +108,20 @@ test("publishes every contest entry once without replacing existing employees", 
   );
   expect(SHARED_EXTERNAL_AGENTS).toHaveLength(24);
   expect(SHARED_EXTERNAL_AGENTS.slice(-18)).toEqual(CONTEST_EXTERNAL_AGENTS);
-  for (const name of [
-    "专业文档解析专家",
-    "地震数据提频专家",
-    "专业报告校审专家",
-    "自动数采专家",
-    "前期研究报告编写专家",
-    "邮件智能整理助手",
-  ]) {
-    const existing = SHARED_EXTERNAL_AGENTS.find(
+  for (const [name, pathname] of [
+    ["专业文档解析专家", "/zywdjxzj/"],
+    ["地震数据提频专家", "/dzsjtpzj/"],
+    ["专业报告校审专家", "/zjbgjszj/"],
+    ["自动数采专家", "/zdsczj/"],
+    ["前期研究报告编写专家", "/qqyjbgbxzj/"],
+    ["邮件智能整理助手", "/yjzs/"],
+  ] as const) {
+    const existing = SHARED_EXTERNAL_AGENTS.filter(
       (agent) => agent.name === name,
     );
-    expect(existing?.external_url).toMatch(
-      /^https:\/\/cnoocclawtest\.cnooc\.com\.cn\//,
+    expect(existing).toHaveLength(1);
+    expect(existing[0]?.external_url).toBe(
+      `https://cnoocclaw.cnooc.com.cn${pathname}`,
     );
   }
 });
