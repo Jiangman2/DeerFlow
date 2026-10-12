@@ -194,6 +194,24 @@ export function WorkspaceNavChatList() {
         </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton
+            className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&>svg]:text-current"
+            asChild
+          >
+            <a
+              href="https://ai.cnooc.com.cn/#/inferencePlatform/hyAppSquare"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={closeMobileSidebar}
+            >
+              <span aria-hidden="true" className="cnooc-sidebar-icon-tile">
+                <AgentSquareIcon />
+              </span>
+              <span>{t.sidebar.agentSquare}</span>
+            </a>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
             isActive={pathname.startsWith("/workspace/scheduled-tasks")}
             className="text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-primary data-[active=true]:shadow-sm [&>svg]:text-current"
             asChild
@@ -211,5 +229,26 @@ export function WorkspaceNavChatList() {
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarGroup>
+  );
+}
+
+function AgentSquareIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      // Match the 24-unit scale of the other sidebar icons instead of
+      // shrinking the drawing inside a padded 32-unit canvas.
+      viewBox="4 3 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M11 13v-3a5 5 0 0 1 10 0v3" />
+      <path d="M9.5 13h13a2 2 0 0 1 2 1.8l.8 9.2a2 2 0 0 1-2 2H8.7a2 2 0 0 1-2-2l.8-9.2a2 2 0 0 1 2-1.8Z" />
+      <circle cx="12.5" cy="18.5" r=".9" fill="currentColor" stroke="none" />
+      <circle cx="19.5" cy="18.5" r=".9" fill="currentColor" stroke="none" />
+      <path d="M13.5 22a3.5 3.5 0 0 0 5 0" />
+    </svg>
   );
 }

@@ -125,13 +125,13 @@ def _iter_claude_code_credential_paths() -> list[Path]:
     return paths
 
 
-def _extract_claude_code_credential(data: dict[str, Any], source: str) -> ClaudeCodeCredential | None:
+def _extract_claude_code_credential(data: Any, source: str) -> ClaudeCodeCredential | None:
     if not isinstance(data, dict):
-        logger.debug("Claude Code credentials source %s is not a JSON object; skipping", source)
+        logger.debug("Claude Code credentials container is not a JSON object")
         return None
-    oauth = data.get("claudeAiOauth")
+    oauth = data.get("claudeAiOauth", {})
     if not isinstance(oauth, dict):
-        logger.debug("Claude Code credentials source %s has a non-object claudeAiOauth container; skipping", source)
+        logger.debug("Claude Code OAuth container is not a JSON object")
         return None
     access_token = oauth.get("accessToken", "")
     if not access_token:

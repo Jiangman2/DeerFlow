@@ -2,6 +2,16 @@
 
 This guide explains how to configure DeerFlow for your environment.
 
+## Model request admission
+
+The incoming `request_admission` RPM feature is deferred in the dmdb
+2026-09-30 merge: `RequestAdmissionConfig` and the model-factory hook are absent.
+An extra model field must not be mistaken for an enforced quota. Do not add
+`request_admission` settings until a complete implementation and regression
+tests are reviewed together. Existing `llm_call.max_concurrent_calls` and the
+test environment's stream-admission controls remain independent and unchanged.
+See [the reconciliation record](ENTERPRISE_MERGE_20260930.md).
+
 ## Config Versioning
 
 `config.example.yaml` contains a `config_version` field that tracks schema changes. When the example version is higher than your local `config.yaml`, the application emits a startup warning:
@@ -90,6 +100,45 @@ models:
 For OpenAI-compatible gateways (for example Novita or OpenRouter), keep using `langchain_openai:ChatOpenAI` and set `base_url`:
 
 > **Note:** for `langchain_openai:ChatOpenAI` the endpoint override key is `base_url` (not `api_base`). If you write `api_base` it is automatically normalized to `base_url`, and unrecognized keys are logged with a warning at model-build time. Some other model classes (e.g. `PatchedChatDeepSeek`) do use `api_base` — match the key to the class you configured.
+
+Alibaba Cloud Model Studio Qwen3.7-Plus is also an OpenAI-compatible **Chat
+Completions** model. Do not set `use_responses_api` for the Gateway model entry:
+the separate PPT runtime's Responses configuration is unrelated. Use
+`RobustChatOpenAI` so its streamed `reasoning_content` is retained and replayed
+for later tool-call turns:
+
+```yaml
+models:
+  - name: qwen3.7-plus
+    display_name: Qwen3.7-Plus
+    use: deerflow.models.robust_openai:RobustChatOpenAI
+    model: qwen3.7-plus
+    api_key: $DASHSCOPE_API_KEY
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    request_timeout: 900.0
+    max_retries: 2
+    max_tokens: 65536
+    supports_thinking: true
+    supports_reasoning_effort: true
+    supports_vision: false
+    when_thinking_enabled:
+      extra_body:
+        enable_thinking: true
+        preserve_thinking: true
+    when_thinking_disabled:
+      extra_body:
+        enable_thinking: false
+```
+
+If DashScope egress must traverse an HTTP(S) proxy, configure `HTTP_PROXY` and
+`HTTPS_PROXY` (plus lowercase aliases when your deployment convention uses
+them) on the **Gateway container** through its Kubernetes Secret. Do not add a
+`trust_env` field to this model configuration: it is not a Chat Completions
+request parameter. The local-PVC baseline intentionally clears proxy variables
+for Docker Desktop; use its opt-in
+`k8s/local-pvc/qwen3.7-dashscope-proxy-test-patch.yaml` overlay in a test
+cluster. Keep Kubernetes Service names and CIDRs in `NO_PROXY`, but do not add
+`dashscope.aliyuncs.com` there.
 
 ```yaml
 models:
@@ -264,8 +313,19 @@ tools:
     group: web
     use: deerflow.community.tavily.tools:web_search_tool
     max_results: 5
+    include_domains:             # Optional: restrict Tavily results to these domains
+      - docs.python.org
+      - developer.mozilla.org
+    exclude_domains: []         # Optional: domains Tavily must exclude
     # api_key: $TAVILY_API_KEY  # Optional
 ```
+
+Tavily reads `include_domains` and `exclude_domains` only from the operator's
+`web_search` entry; they are not exposed as model arguments. A non-empty
+`include_domains` list uses Tavily's filtering mode. Omitted options are not
+sent, while explicit empty lists are forwarded as no restriction of that kind.
+`web_search` and `web_fetch` each read their own `api_key`, falling back to
+`TAVILY_API_KEY` when omitted, so deployments may configure different keys.
 
 **Built-in Tools**:
 - `web_search` - Search the web (DuckDuckGo, Tavily, Brave, Exa, InfoQuest, Firecrawl, fastCRW, GroundRoute)
@@ -569,6 +629,8 @@ Custom agents can restrict which skills they load by defining a `skills` field i
 - **Omitted or `null`**: Loads all globally enabled skills (default fallback).
 - **`[]` (empty list)**: Disables all skills for this specific agent.
 - **`["skill-name"]`**: Loads only the explicitly specified skills.
+
+This field is a discovery and activation allowlist; it does not activate every listed skill's `allowed-tools` policy when the agent is constructed. Use `tool_groups` to define the agent's baseline tools. A listed skill's policy applies only after slash activation or an actual `SKILL.md` load.
 
 ### Title Generation
 

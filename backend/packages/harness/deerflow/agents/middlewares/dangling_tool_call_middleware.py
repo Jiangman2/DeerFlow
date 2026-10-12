@@ -32,6 +32,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
+from deerflow.run_timing import atime_middleware_after_agent, time_middleware_after_agent
 
 logger = logging.getLogger(__name__)
 
@@ -455,10 +456,12 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
 
     @override
     def after_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        self._clear_runtime(runtime)
-        return None
+        with time_middleware_after_agent(logger, middleware="dangling_tool_call"):
+            self._clear_runtime(runtime)
+            return None
 
     @override
     async def aafter_agent(self, state: AgentState, runtime: Runtime) -> dict | None:
-        self._clear_runtime(runtime)
-        return None
+        async with atime_middleware_after_agent(logger, middleware="dangling_tool_call"):
+            self._clear_runtime(runtime)
+            return None

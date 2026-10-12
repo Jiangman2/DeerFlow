@@ -104,7 +104,12 @@ Create a new sandbox Pod + Service.
 }
 ```
 
-**Idempotent**: Calling with the same `sandbox_id` returns the existing sandbox info.
+**Idempotent**: Calling with the same `sandbox_id` returns existing information
+only when both a non-terminating Pod and its Service exist. Kubernetes deletion
+is asynchronous: if a fixed-name Pod is still terminating, the Provisioner
+waits (default `SANDBOX_POD_DELETE_WAIT_SECONDS=30`) for the name to be
+released before recreating it. It returns `503` on that bounded wait instead of
+publishing a Service with no Pod endpoint.
 
 ### `GET /api/sandboxes/{sandbox_id}`
 Get status and URL of a specific sandbox.
@@ -166,6 +171,7 @@ The provisioner is configured via environment variables (set in [docker-compose-
 | `NODE_HOST` | `host.docker.internal` | Hostname that backend containers use to reach host NodePorts; ignored when `SANDBOX_SERVICE_TYPE=ClusterIP` |
 | `K8S_API_SERVER` | (from kubeconfig) | Override K8s API server URL (e.g., `https://host.docker.internal:26443`) |
 | `SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS` | `5` | Inner HTTP timeout used by generated Pod probes |
+| `SANDBOX_POD_DELETE_WAIT_SECONDS` | `30` | Bounded wait for a terminating fixed-name Pod to disappear before recreation; timeout returns `503` rather than a Service-only result |
 | `SANDBOX_STARTUP_PROBE_TIMEOUT_SECONDS` | `10` | Kubelet exec timeout for the cold-start probe |
 | `SANDBOX_STARTUP_PROBE_FAILURE_THRESHOLD` | `60` | Startup probe failures allowed; with the default 5-second period this is 5 minutes |
 | `SANDBOX_READINESS_TIMEOUT_SECONDS` | `5` | Kubelet exec timeout for readiness checks |
@@ -384,3 +390,43 @@ docker exec deer-flow-gateway curl -s $SANDBOX_URL/v1/sandbox
 - [ ] Multi-cluster support (route to different K8s clusters)
 - [ ] Pod affinity/anti-affinity rules for better placement
 - [ ] NetworkPolicy templates for sandbox isolation
+
+
+## Sandbox node pool
+
+SANDBOX_NODE_POOL is an optional operator-controlled comma-separated
+allowlist of kubernetes.io/hostname label values, such as worker-a,worker-b.
+It is read once when Provisioner starts.
+
+- Unset preserves existing Pod and Service manifests.
+- When set, require 1-64 unique lowercase DNS-label values, each 1-63
+  characters. Surrounding whitespace is trimmed. Empty, duplicate or
+  invalid values fail startup without echoing the supplied value.
+- SKILLS_PVC_NAME and USERDATA_PVC_NAME must both be nonempty.
+  Operators must independently verify shared storage access modes,
+  permissions, image availability and cross-node networking.
+- Newly created Pods receive required hostname node affinity only.
+  This does not add nodeName, tolerations, resource changes or fallback
+  outside the pool.
+- Existing reusable Sandboxes are not migrated. Ownership validation
+  and bounded deletion/recreation handling remain unchanged.
+- Eligible nodes that are unavailable, cordoned or resource-exhausted
+  can leave Pods Pending. This is not an admission-security boundary.
+- Keep deployment-specific node lists in runtime configuration.
+
+### Offline node-pool tests
+
+Use Python 3.10+ with Provisioner dependencies installed.
+Tests use real Kubernetes models with mocked API operations, block
+network/config loading, and never enter application lifespan.
+
+From the repository root:
+
+    baseline_dir=$(mktemp -d)
+    git show a963fc0a:docker/provisioner/app.py > "$baseline_dir/app.py"
+    python -B docker/provisioner/test_node_pool.py --baseline "$baseline_dir/app.py" --baseline-sha 8a4d89276a9caf3cd234431d3bd0949a0135256b64895ccaca60b29d63a26d3c --candidate docker/provisioner/app.py -v
+
+The initial integration passed all 17 tests in an isolated,
+network-disabled container. AST and full-manifest comparisons verify
+that this feature preserves other repository baseline behavior.
+These tests do not certify cluster capacity or a new production image.

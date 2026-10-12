@@ -161,7 +161,7 @@ def _analyze_skill_md(content: str, *, profile: ProfileName, findings: list[dict
         return None
 
     metadata = parts.metadata
-    unexpected = sorted(set(metadata) - ALLOWED_FRONTMATTER_PROPERTIES)
+    unexpected = sorted(str(key) for key in set(metadata) - ALLOWED_FRONTMATTER_PROPERTIES)
     if unexpected:
         findings.append(
             make_finding(

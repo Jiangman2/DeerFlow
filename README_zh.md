@@ -706,13 +706,14 @@ DeerFlow 在 workspace 中内置了一等的定时任务能力；当前分支进
 当前 MVP 能力：
 
 - 在 `/workspace/scheduled-tasks` 管理任务
+- 在当前用户有权查看的任务列表中按标题或提示词搜索，并与线程、状态和调度类型筛选组合使用
 - 每个定时任务可以选择复用同一个 thread，也可以选择每次运行新建一个 thread
 - 支持 `once`、`cron` 和固定 `interval` 三种调度方式（最短 60 秒），并提供服务端 cron 运行时间预览
 - 每个任务可独立选择或修改执行模型，并保存模型、模式、推理、子智能体和知识库范围；企业环境存在 `deepseek-v4-flash` 时，新任务默认选择该模型
 - 每个任务可固定使用默认主智能体或一个指定的自定义智能体
 - 后台定时执行以非交互式 DeerFlow run 运行（那里不会暴露 `ask_clarification`）
 - 重叠的到期执行会进入持久化队列；每个任务同时只允许一个活跃执行，排队超过 `scheduler.queue_timeout_seconds` 的记录会失败退出
-- 自动执行和手动触发共同受 `scheduler.max_concurrent_runs` 全局并发预算约束
+- 自动执行和手动触发共同受 `scheduler.max_concurrent_runs` 全局并发预算约束，SQLite 开发与验证环境中的并发领取同样严格遵守该上限
 - 支持暂停、恢复、手动触发、复制、分页查看历史和删除任务
 - 可选择启用基于数据库租约和原子完成记账的多调度器实例模式
 - 定时任务通过正常的 DeerFlow run 生命周期执行

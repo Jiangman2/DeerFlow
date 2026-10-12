@@ -14,7 +14,6 @@ import stat
 import zipfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
-from deerflow.skills.package_files import is_code_path, is_executable_binary_prefix
 from deerflow.skills.permissions import make_skill_tree_sandbox_readable
 from deerflow.skills.security_scanner import scan_skill_content
 from deerflow.skills.security_static_scanner import (
@@ -30,6 +29,21 @@ logger = logging.getLogger(__name__)
 
 _PROMPT_INPUT_DIRS = {"references", "templates"}
 _PROMPT_INPUT_SUFFIXES = frozenset({".json", ".markdown", ".md", ".rst", ".txt", ".yaml", ".yml"})
+_CODE_SUFFIXES = frozenset({".bash", ".cjs", ".js", ".mjs", ".php", ".pl", ".ps1", ".py", ".rb", ".sh", ".ts", ".zsh"})
+# Full magics per variant — a shorter shared prefix would also match
+# non-executable data files.
+_EXECUTABLE_MAGIC_PREFIXES = (
+    b"\x7fELF",  # ELF
+    b"MZ",  # PE/DOS
+    b"\xfe\xed\xfa\xce",  # Mach-O 32-bit big-endian
+    b"\xfe\xed\xfa\xcf",  # Mach-O 64-bit big-endian
+    b"\xce\xfa\xed\xfe",  # Mach-O 32-bit little-endian
+    b"\xcf\xfa\xed\xfe",  # Mach-O 64-bit little-endian
+    b"\xca\xfe\xba\xbe",  # Mach-O fat binary big-endian
+    b"\xbe\xba\xfe\xca",  # Mach-O fat binary little-endian
+    b"\xca\xfe\xba\xbf",  # Mach-O fat64 binary big-endian
+    b"\xbf\xba\xfe\xca",  # Mach-O fat64 binary little-endian
+)
 
 
 class SkillAlreadyExistsError(ValueError):
@@ -54,6 +68,10 @@ def is_unsafe_zip_member(info: zipfile.ZipInfo) -> bool:
     if not name:
         return False
     normalized = name.replace("\\", "/")
+    # A colon can address an NTFS alternate data stream or drive-relative path.
+    # Reject it on every platform so directory scanners see every installed file.
+    if ":" in normalized:
+        return True
     if normalized.startswith("/"):
         return True
     path = PurePosixPath(normalized)
@@ -70,6 +88,11 @@ def is_symlink_member(info: zipfile.ZipInfo) -> bool:
     """Detect symlinks based on the external attributes stored in the ZipInfo."""
     mode = info.external_attr >> 16
     return stat.S_ISLNK(mode)
+
+
+def is_executable_binary_prefix(prefix: bytes) -> bool:
+    """Detect ELF, PE, and Mach-O executables by magic bytes."""
+    return prefix.startswith(_EXECUTABLE_MAGIC_PREFIXES)
 
 
 def should_ignore_archive_entry(path: Path) -> bool:
@@ -127,6 +150,7 @@ def safe_extract_skill_archive(
     zip_ref: zipfile.ZipFile,
     dest_path: Path,
     max_total_size: int = 512 * 1024 * 1024,
+    max_entries: int = 4096,
 ) -> None:
     """Safely extract a skill archive with security protections.
 
@@ -135,6 +159,7 @@ def safe_extract_skill_archive(
     - Reject symlink entries so accepted archives are never installed with
       silently missing scripts or reference files.
     - Enforce a hard limit on total uncompressed size (zip bomb defence).
+    - Enforce an entry-count cap even when optional security scanning is disabled.
     - Reject executable binaries (ELF/PE/Mach-O) by magic bytes.
 
     Raises:
@@ -142,8 +167,11 @@ def safe_extract_skill_archive(
     """
     dest_root = dest_path.resolve()
     total_written = 0
+    members = zip_ref.infolist()
+    if len(members) > max_entries:
+        raise ValueError("Skill archive contains too many entries.")
 
-    for info in zip_ref.infolist():
+    for info in members:
         if is_unsafe_zip_member(info):
             raise ValueError(f"Archive contains unsafe member path: {info.filename!r}")
 
@@ -190,13 +218,20 @@ def _has_shebang(path: Path) -> bool:
         return False
 
 
+def _is_code_file_by_name(rel_path: Path) -> bool:
+    """Pure name-based code classification: scripts/ members and code suffixes."""
+    if _is_script_support_file(rel_path):
+        return True
+    return rel_path.suffix.lower() in _CODE_SUFFIXES
+
+
 async def _is_code_file(path: Path, rel_path: Path) -> bool:
     """Classify code files anywhere in the tree for the executable scan policy.
 
-    Applies the shared rule lazily: name checks are pure and stay on the event
-    loop; only the shebang sniff for extensionless files reads the file.
+    Name checks are pure and stay on the event loop; only the shebang
+    sniff for extensionless files reads the file and is offloaded.
     """
-    if is_code_path(rel_path):
+    if _is_code_file_by_name(rel_path):
         return True
     return not rel_path.suffix and await asyncio.to_thread(_has_shebang, path)
 

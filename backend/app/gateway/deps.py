@@ -349,14 +349,13 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
             )
             from deerflow.persistence.scheduled_tasks import ScheduledTaskRepository
 
-            app.state.scheduled_task_repo = ScheduledTaskRepository(
-                sf,
-                run_repository=app.state.run_store,
-            )
-            app.state.scheduled_task_run_repo = ScheduledTaskRunRepository(
-                sf,
-                run_repository=app.state.run_store,
-            )
+            # Keep this overlay compatible with the frozen production base.
+            # Newer repositories accept an optional shared RunRepository, while
+            # the production RC15 classes accept only the session factory.  The
+            # newer implementations create the same RunRepository internally
+            # when it is omitted, so the one-argument form is valid on both.
+            app.state.scheduled_task_repo = ScheduledTaskRepository(sf)
+            app.state.scheduled_task_run_repo = ScheduledTaskRunRepository(sf)
             app.state.oa_policy_flow_job_repo = OAPolicyFlowJobRepository(sf)
         else:
             app.state.scheduled_task_repo = None
@@ -384,22 +383,17 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
         # owned by another live worker are skipped.
         from deerflow.utils.time import now_iso
 
-        if os.environ.get("DEER_FLOW_RUNTIME_PROFILE", "").strip().lower() == "ppt-master-runner":
-            # The bridge shares SQL storage with the ordinary Gateway, but not
-            # its in-memory registry. NULL leases cannot prove peer death.
-            # Leave global orphan recovery to Gateway rather than failing live
-            # ordinary runs merely because the separate bridge starts.
-            recovered_runs = []
-            logger.info("PPT runner startup: shared run reconciliation skipped")
-        else:
+        # The dedicated bridge shares storage, but does not own ordinary Gateway
+        # startup recovery. Its restart must not reclaim another process's runs.
+        if os.environ.get("DEER_FLOW_RUNTIME_PROFILE", "").strip().lower() != "ppt-master-runner":
             recovered_runs = await app.state.run_manager.reconcile_orphaned_inflight_runs(
                 error="Gateway restarted before this run reached a durable final state.",
                 before=now_iso(),
             )
-        sb_config = getattr(config, "stream_bridge", None)
-        cleanup_delay = getattr(sb_config, "recovered_stream_cleanup_delay_seconds", 60.0) if sb_config else 60.0
-        await _publish_recovered_run_stream_end(app.state.stream_bridge, recovered_runs, cleanup_delay=cleanup_delay)
-        await _mark_latest_recovered_threads_error(app.state.run_manager, app.state.thread_store, recovered_runs)
+            sb_config = getattr(config, "stream_bridge", None)
+            cleanup_delay = getattr(sb_config, "recovered_stream_cleanup_delay_seconds", 60.0) if sb_config else 60.0
+            await _publish_recovered_run_stream_end(app.state.stream_bridge, recovered_runs, cleanup_delay=cleanup_delay)
+            await _mark_latest_recovered_threads_error(app.state.run_manager, app.state.thread_store, recovered_runs)
 
         # Start the lease heartbeat if enabled (multi-worker deployments).
         await app.state.run_manager.start_heartbeat()

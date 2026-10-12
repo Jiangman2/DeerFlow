@@ -60,6 +60,10 @@ class TestClampSubagentLimit:
         assert _clamp_subagent_limit(10) == MAX_SUBAGENT_LIMIT
         assert _clamp_subagent_limit(100) == MAX_SUBAGENT_LIMIT
 
+    def test_above_max_clamped_to_four(self):
+        assert MAX_SUBAGENT_LIMIT == 4
+        assert _clamp_subagent_limit(5) == 4
+
     def test_within_range_unchanged(self):
         assert _clamp_subagent_limit(2) == 2
         assert _clamp_subagent_limit(3) == 3

@@ -26,6 +26,8 @@ Nginx 自身重定向使用相对 Location；每个代理 location 都丢弃客�
 
 Nginx 的三个 Kubernetes 健康探针显式发送 `Host: localhost`，防止默认 Pod IP Host 在白名单启用后使探针失败。其余外部负载均衡/监控探针也应发送批准域名。
 
+合并企业数字员工代理后，七条工具入口同样清除客户端 Forwarded/转发端口并隐藏框架响应头，保留原会话认证及登录跳转。`/zwjkylxcczs/` 和 `/yjzs/` 使用服务要求的固定上游 Host/X-Forwarded-Host；这些值来自部署配置，不取自浏览器输入。新增路由不得遗漏同样的安全处理。
+
 ```bash
 # 应返回400且没有指向恶意域名的Location
 curl -i https://cnoocclaw.cnooc.com.cn/platform/skillhub -H 'Host: attacker.example'

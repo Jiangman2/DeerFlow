@@ -515,18 +515,58 @@ function ArtifactBrowserPreview({
   const [status, setStatus] = useState<"loading" | "loaded" | "failed">(
     "loading",
   );
+  const isPdfGallery = isPdf && src.includes("/artifact-previews/pdf/");
+  const [previewHtml, setPreviewHtml] = useState<string>();
+  const previewRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!isPdfGallery) {
+      return;
+    }
+    const controller = new AbortController();
+    previewRequest.current = controller;
+    void (async () => {
+      try {
+        // iframe.onload also fires for HTTP errors. Check the real response
+        // first, then display the scriptless gallery without a second render.
+        const response = await fetch(src, {
+          credentials: "same-origin",
+          cache: "no-store",
+          redirect: "error",
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error("PDF preview request failed");
+        }
+        if (!response.headers.get("content-type")?.startsWith("text/html")) {
+          throw new Error("PDF preview response is not a gallery");
+        }
+        const html = await response.text();
+        if (!controller.signal.aborted) {
+          setPreviewHtml(html);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setStatus("failed");
+        }
+      }
+    })();
+    return () => controller.abort();
+  }, [attempt, isPdfGallery, src]);
 
   useEffect(() => {
     if (status !== "loading") {
       return;
     }
     const timeout = window.setTimeout(() => {
+      previewRequest.current?.abort();
       setStatus("failed");
     }, ARTIFACT_PREVIEW_LOAD_TIMEOUT_MS);
     return () => window.clearTimeout(timeout);
   }, [attempt, status]);
 
   const retry = useCallback(() => {
+    setPreviewHtml(undefined);
     setStatus("loading");
     setAttempt((current) => current + 1);
   }, []);
@@ -560,19 +600,24 @@ function ArtifactBrowserPreview({
           </div>
         </div>
       )}
-      <iframe
-        key={attempt}
-        className={cn(
-          "size-full",
-          status === "loaded" ? "visible" : "invisible",
-        )}
-        src={src}
-        referrerPolicy="no-referrer"
-        sandbox={isPdf ? "" : undefined}
-        title="Artifact preview"
-        onLoad={() => setStatus("loaded")}
-        onError={() => setStatus("failed")}
-      />
+      {(!isPdfGallery || previewHtml !== undefined) && status !== "failed" && (
+        <iframe
+          key={attempt}
+          className={cn(
+            "size-full",
+            status === "loaded" ? "visible" : "invisible",
+          )}
+          src={isPdfGallery ? undefined : src}
+          srcDoc={isPdfGallery ? previewHtml : undefined}
+          referrerPolicy="no-referrer"
+          sandbox={isPdf ? "" : undefined}
+          title="Artifact preview"
+          onLoad={() =>
+            setStatus((current) => (current === "loading" ? "loaded" : current))
+          }
+          onError={() => setStatus("failed")}
+        />
+      )}
     </div>
   );
 }

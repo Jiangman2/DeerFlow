@@ -83,3 +83,32 @@ describe("MarkdownContent streaming code blocks", () => {
     expect(html).toContain("data-streaming-code-block");
   });
 });
+
+describe("MarkdownContent identified streaming hydration", () => {
+  it("keeps long server-rendered streaming text complete", () => {
+    const content = "已有回答".repeat(50);
+    const html = renderToStaticMarkup(
+      createElement(MarkdownContent, {
+        content,
+        isLoading: true,
+        streamingKey: "thread/message",
+      }),
+    );
+    expect(html).toContain(content);
+  });
+});
+
+describe("MarkdownContent strikethrough", () => {
+  it("preserves single tildes in temperature ranges", () => {
+    const html = renderMarkdown("周六23~30℃；周日22~30℃", false);
+
+    expect(html).toContain("周六23~30℃；周日22~30℃");
+    expect(html).not.toContain("<del>");
+  });
+
+  it("continues to render double-tilde strikethrough", () => {
+    const html = renderMarkdown("状态：~~已取消~~", false);
+
+    expect(html).toContain("<del>已取消</del>");
+  });
+});

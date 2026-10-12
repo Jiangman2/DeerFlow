@@ -211,6 +211,41 @@ def test_unfinished_plan_after_tool_result_is_retried_once():
     assert augmented["messages"][-1].name == "unfinished_plan_recovery"
 
 
+def test_historical_tool_receipt_does_not_retry_a_new_plan_response():
+    """Compacted history must not make a plan-only response look post-tool."""
+    middleware = TerminalResponseMiddleware()
+    historic_user = HumanMessage(id="historic-user", content="Edit the source file")
+    historic_call = AIMessage(
+        id="historic-call",
+        content="",
+        tool_calls=[{"id": "historic-tool-call", "name": "lookup_status", "args": {}}],
+    )
+    historic_result = ToolMessage(
+        id="historic-result",
+        content="tool completed",
+        tool_call_id="historic-tool-call",
+    )
+    current_plan = AIMessage(
+        id="current-plan",
+        content="I will now inspect the uploaded file and make the change.",
+    )
+    runtime = type(
+        "RuntimeStub",
+        (),
+        {
+            "context": {
+                "thread_id": "thread-history-boundary",
+                "run_id": "run-history-boundary",
+                "__deerflow_pre_run_message_ids": frozenset({"historic-user", "historic-call", "historic-result"}),
+            }
+        },
+    )()
+
+    state = {"messages": [historic_user, historic_call, historic_result, current_plan]}
+    assert middleware.after_model(state, runtime) is None
+    assert not middleware._pending_prompts
+
+
 def test_repeated_unfinished_plan_becomes_visible_failure():
     middleware = TerminalResponseMiddleware()
     runtime = type("RuntimeStub", (), {"context": {"thread_id": "thread-plan-2", "run_id": "run-plan-2"}})()

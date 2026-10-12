@@ -7,6 +7,8 @@ import sys
 from types import ModuleType
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from deerflow.utils.file_conversion import (
     _ASYNC_THRESHOLD_BYTES,
     _MIN_CHARS_PER_PAGE,
@@ -368,6 +370,19 @@ class TestExtractOutline:
     def test_missing_file_returns_empty(self, tmp_path):
         """Non-existent path returns [] without raising."""
         assert extract_outline(tmp_path / "nonexistent.md") == []
+
+    @pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+    def test_first_heading_is_preserved_with_or_without_bom(self, tmp_path, encoding):
+        """An optional UTF-8 BOM must not hide the first physical heading."""
+        md = tmp_path / "report.md"
+        md.write_text("# 概述\n\n## Next section\n", encoding=encoding)
+        original = md.read_bytes()
+
+        assert extract_outline(md) == [
+            {"title": "概述", "line": 1},
+            {"title": "Next section", "line": 3},
+        ]
+        assert md.read_bytes() == original
 
     def test_standard_markdown_headings(self, tmp_path):
         """# / ## / ### headings are all recognised."""

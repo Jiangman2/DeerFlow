@@ -207,6 +207,29 @@ def test_mask_local_paths_still_matches_base_before_non_slash_boundaries(boundar
         assert "/home/user/deer-flow/skills" not in masked
 
 
+def test_mask_local_paths_masks_every_colon_joined_host_path() -> None:
+    skills = "/home/user/deer-flow/skills"
+    hosts = [f"{skills}/s{index}/bin" for index in range(8)]
+    expected = [f"/mnt/skills/s{index}/bin" for index in range(8)]
+
+    with (
+        patch(
+            "deerflow.sandbox.tools._get_skills_container_path",
+            return_value="/mnt/skills",
+        ),
+        patch(
+            "deerflow.sandbox.tools._get_skills_host_path",
+            return_value=skills,
+        ),
+    ):
+        masked = mask_local_paths_in_output(
+            "PATH=" + ":".join([*hosts, "/usr/bin"]),
+            None,
+        )
+
+    assert masked == "PATH=" + ":".join([*expected, "/usr/bin"])
+
+
 @pytest.mark.parametrize("prefix", ["", "cwd: ", "see "])
 def test_mask_local_paths_translates_a_bare_base_at_end_of_output(prefix: str) -> None:
     """``$`` is load-bearing: output ending exactly at a host base still masks.

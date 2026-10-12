@@ -72,6 +72,12 @@ class FailingStatusRunStore(MemoryRunStore):
         self.status_update_attempts += 1
         raise sqlite3.OperationalError("database is locked")
 
+    async def claim_for_takeover(self, run_id, *, grace_seconds, error):
+        # Reconciliation now persists the terminal status through an atomic
+        # takeover CAS, not update_status. Inject the same failure there.
+        self.status_update_attempts += 1
+        raise sqlite3.OperationalError("database is locked")
+
 
 class MissingCompletionRunStore(MemoryRunStore):
     """Memory run store that reports one missing row for completion updates."""
@@ -332,8 +338,19 @@ async def test_cancel_not_inflight(manager: RunManager):
 
 
 @pytest.mark.anyio
-async def test_list_by_thread(manager: RunManager):
+async def test_list_by_thread(manager: RunManager, monkeypatch: pytest.MonkeyPatch):
     """Same thread should return multiple runs."""
+    timestamps = iter(
+        [
+            "2026-01-01T00:00:00+00:00",
+            "2026-01-01T00:00:01+00:00",
+            "2026-01-01T00:00:02+00:00",
+        ]
+    )
+    monkeypatch.setattr(
+        "deerflow.runtime.runs.manager._now_iso",
+        lambda: next(timestamps),
+    )
     r1 = await manager.create("thread-1")
     r2 = await manager.create("thread-1")
     await manager.create("thread-2")
@@ -365,6 +382,24 @@ async def test_has_inflight(manager: RunManager):
 
     await manager.set_status(record.run_id, RunStatus.success)
     assert await manager.has_inflight("thread-1") is False
+
+
+@pytest.mark.anyio
+async def test_cleanup_with_store_evicts_memory_and_preserves_history():
+    """Store-backed cleanup releases memory without losing terminal history."""
+    store = MemoryRunStore()
+    manager = RunManager(store=store)
+    record = await manager.create("thread-1")
+    run_id = record.run_id
+    await manager.set_status(run_id, RunStatus.success)
+
+    await manager.cleanup(run_id, delay=0)
+
+    assert run_id not in manager._runs
+    hydrated = await manager.get(run_id, user_id=record.user_id)
+    assert hydrated is not None
+    assert hydrated.run_id == run_id
+    assert hydrated.status is RunStatus.success
 
 
 @pytest.mark.anyio
@@ -916,7 +951,8 @@ async def test_thread_index_preserves_insertion_order(manager: RunManager):
 
 
 @pytest.mark.anyio
-async def test_thread_index_cleanup_prunes_run_and_empty_bucket(manager: RunManager):
+async def test_thread_index_cleanup_prunes_run_and_empty_bucket():
+    manager = RunManager(store=MemoryRunStore())
     a1 = await manager.create("thread-a")
     a2 = await manager.create("thread-a")
 
@@ -927,7 +963,12 @@ async def test_thread_index_cleanup_prunes_run_and_empty_bucket(manager: RunMana
     await manager.cleanup(a2.run_id, delay=0)
     # Empty buckets are pruned so the index cannot grow without bound.
     assert "thread-a" not in manager._runs_by_thread
-    assert await manager.list_by_thread("thread-a") == []
+    # Both records remain available from the store; its ordering is not part
+    # of this index-cleanup assertion.
+    assert {run.run_id for run in await manager.list_by_thread("thread-a")} == {
+        a1.run_id,
+        a2.run_id,
+    }
 
 
 @pytest.mark.anyio

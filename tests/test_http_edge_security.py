@@ -31,6 +31,8 @@ class Upstream(BaseHTTPRequestHandler):
     def respond(self):
         self.server.receipts.append(self.command)
         status = 401 if self.command == "DELETE" and not self.headers.get("Authorization") else 200
+        if self.path == "/api/v1/auth/me" and not self.headers.get("Authorization"):
+            status = 401
         body = json.dumps({"method": self.command, "host": self.headers.get("Host"),
                            "forwarded": self.headers.get("Forwarded"),
                            "forwarded_host": self.headers.get("X-Forwarded-Host"),
@@ -70,6 +72,7 @@ class NginxInstance:
                         "skillhub-web:80", "weknora-frontend:80", "weknora-app:8080",
                         "127.0.0.1:8001", "127.0.0.1:3000", "127.0.0.1:8088"):
             config = config.replace(address, "127.0.0.1:" + str(upstream))
+        config = re.sub(r"http://10\.57\.128\.79:[0-9]+", "http://127.0.0.1:" + str(upstream), config)
         config = config.replace("/etc/nginx/tls/tls.crt", os.environ.get("NGINX_TEST_CERT", "missing.crt").replace("\\", "/"))
         config = config.replace("/etc/nginx/tls/tls.key", os.environ.get("NGINX_TEST_KEY", "missing.key").replace("\\", "/"))
         (root / "test.conf").write_text(config, encoding="utf-8")
@@ -238,6 +241,31 @@ class EdgeSecurityTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertNotIn("x-powered-by", headers)
         self.assertNotIn("x-aspnet-version", headers)
+
+    def test_merged_external_agents_preserve_auth_and_filter_identification(self):
+        instance = self.instances[0]
+        for path in ("/zywdjxzj/", "/dzsjtpzj/", "/zjbgjszj/", "/zdsczj/",
+                     "/qqyjbgbxzj/", "/zwjkylxcczs/", "/yjzs/"):
+            with self.subTest(path=path):
+                status, headers, _ = instance.request("GET", path, {"Host": "cnoocclaw.cnooc.com.cn"})
+                self.assertEqual(status, 302)
+                self.assertEqual(headers["location"], "https://cnoocclaw.cnooc.com.cn/")
+                status, headers, body = instance.request("GET", path, {
+                    "Host": "cnoocclaw.cnooc.com.cn", "Authorization": "Bearer test",
+                    "Forwarded": "host=attacker.example", "X-Forwarded-Host": "attacker.example",
+                    "X-Forwarded-Port": "9999"})
+                self.assertEqual(status, 200)
+                self.assertNotIn("x-powered-by", headers)
+                self.assertNotIn("x-aspnet-version", headers)
+                receipt = json.loads(body)
+                self.assertIsNone(receipt["forwarded"])
+                self.assertIsNone(receipt["forwarded_port"])
+                self.assertNotEqual(receipt["forwarded_host"], "attacker.example")
+                if path == "/zwjkylxcczs/":
+                    self.assertEqual(receipt["host"], "10.57.128.79:5010")
+                elif path == "/yjzs/":
+                    self.assertEqual(receipt["host"], "10.57.128.79:10086")
+                self.assertEqual(instance.request("GET", path, {"Host": "attacker.example"})[0], 400)
 
 
 if __name__ == "__main__":

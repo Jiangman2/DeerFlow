@@ -219,6 +219,15 @@ class TestErrorObservationRetry:
         assert result == "all good"
         assert call_count == 1
 
+    def test_unrelated_shell_404_is_not_treated_as_missing_session(self, sandbox):
+        """Only the structured session-not-found response rotates a session."""
+        from agent_sandbox.core.api_error import ApiError
+
+        sandbox._client.shell.exec_command = MagicMock(side_effect=ApiError(status_code=404, body={"message": "Not Found"}))
+
+        assert sandbox.execute_command("test").startswith("Error:")
+        sandbox._client.shell.create_session.assert_not_called()
+
 
 class TestBashExecUnsupportedFailFast:
     """Regression tests for #3921: sandbox images older than all-in-one-sandbox
@@ -472,13 +481,7 @@ class TestReadFileFallback:
     def test_file_api_parse_error_falls_back_to_shell(self, sandbox):
         """A malformed remote error response must not hide a readable file."""
         sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
-        sandbox._client.shell.exec_command = MagicMock(
-            return_value=SimpleNamespace(
-                data=SimpleNamespace(
-                    output=f"<svg>content</svg>\n{_BASH_EXIT_SENTINEL}0\n"
-                )
-            )
-        )
+        sandbox._client.shell.exec_command = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(output=f"<svg>content</svg>\n{_BASH_EXIT_SENTINEL}0\n")))
 
         result = sandbox.read_file("/mnt/user-data/workspace/svg_output/01.svg")
 
@@ -488,13 +491,7 @@ class TestReadFileFallback:
     def test_file_api_parse_error_returns_normalized_shell_failure(self, sandbox):
         """A missing file should become an actionable Error string."""
         sandbox._client.file.read_file = MagicMock(side_effect=ValueError("invalid response"))
-        sandbox._client.shell.exec_command = MagicMock(
-            return_value=SimpleNamespace(
-                data=SimpleNamespace(
-                    output=f"cat: /mnt/user-data/workspace/missing.svg: No such file\n{_BASH_EXIT_SENTINEL}1\n"
-                )
-            )
-        )
+        sandbox._client.shell.exec_command = MagicMock(return_value=SimpleNamespace(data=SimpleNamespace(output=f"cat: /mnt/user-data/workspace/missing.svg: No such file\n{_BASH_EXIT_SENTINEL}1\n")))
 
         result = sandbox.read_file("/mnt/user-data/workspace/missing.svg")
 

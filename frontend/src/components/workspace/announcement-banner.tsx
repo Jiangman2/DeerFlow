@@ -58,7 +58,7 @@ export function AnnouncementBanner() {
   }
 
   const canDismiss = !announcement || announcement.dismissible;
-  const dialogTitle = "中海油勘探开发通用智能体公告";
+  const dialogTitle = "中国海油通用智能体公告";
   const dialogContent = announcement?.content ?? "当前暂无公告。";
 
   const closeAnnouncement = () => {

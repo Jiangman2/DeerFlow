@@ -60,6 +60,7 @@ SANDBOX_IMAGE = os.environ.get(
     "SANDBOX_IMAGE",
     "enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest",
 )
+PPT_MASTER_AGENT_HOST_IMAGE = os.environ.get("PPT_MASTER_AGENT_HOST_IMAGE", "").strip()
 SKILLS_HOST_PATH = os.environ.get("SKILLS_HOST_PATH", "/skills")
 THREADS_HOST_PATH = os.environ.get("THREADS_HOST_PATH", "/.deer-flow/threads")
 DEER_FLOW_HOST_BASE_DIR = os.environ.get("DEER_FLOW_HOST_BASE_DIR", "/.deer-flow")
@@ -105,11 +106,12 @@ SANDBOX_PASSTHROUGH_ENV_KEYS = tuple(
         "DASHSCOPE_BASE_URL,DASHSCOPE_IMAGE_MODEL,"
         "VIDEO_GENERATION_PROVIDER,DASHSCOPE_VIDEO_MODEL,"
         "DASHSCOPE_VIDEO_DURATION,DASHSCOPE_VIDEO_RESOLUTION,"
-        "PODCAST_GENERATION_PROVIDER,DASHSCOPE_TTS_MODEL,"
+        "PODCAST_GENERATION_PROVIDER,QWEN_TTS_BASE_URL,DASHSCOPE_TTS_MODEL,"
         "DASHSCOPE_TTS_VOICE_MALE,DASHSCOPE_TTS_VOICE_FEMALE,"
         "MUSIC_GENERATION_PROVIDER,DASHSCOPE_MUSIC_MODEL,"
         "DASHSCOPE_MUSIC_GENDER,DASHSCOPE_MUSIC_FORMAT,"
-        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT",
+        "IMAGE_CONCURRENCY,IMAGE_SEARCH_CONCURRENCY,DASHSCOPE_TLS_COMPAT,"
+        "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED",
     ).split(",")
     if key.strip()
 )
@@ -187,6 +189,59 @@ except ValueError as exc:
 NODE_HOST = os.environ.get("NODE_HOST", "host.docker.internal")
 
 
+def _parse_sandbox_node_pool(raw: str | None) -> tuple[str, ...]:
+    """Read an operator-only hostname-label allowlist; invalid input fails closed."""
+    if raw is None:
+        return ()
+    error = (
+        "Invalid SANDBOX_NODE_POOL; expected 1-64 unique comma-separated "
+        "lowercase DNS labels (1-63 characters each); unset to disable"
+    )
+    if len(raw) > 4096:
+        raise RuntimeError(error)
+    names = tuple(part.strip() for part in raw.split(","))
+    if not 1 <= len(names) <= 64 or len(set(names)) != len(names):
+        raise RuntimeError(error)
+    if any(
+        re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", name) is None
+        for name in names
+    ):
+        raise RuntimeError(error)
+    return names
+
+
+# Read once at process startup, never from a Sandbox creation request.
+SANDBOX_NODE_POOL = _parse_sandbox_node_pool(os.environ.get("SANDBOX_NODE_POOL"))
+if SANDBOX_NODE_POOL and (not SKILLS_PVC_NAME.strip() or not USERDATA_PVC_NAME.strip()):
+    raise RuntimeError(
+        "SANDBOX_NODE_POOL requires SKILLS_PVC_NAME and USERDATA_PVC_NAME; "
+        "verify shared PVC access modes before enabling cross-node scheduling"
+    )
+
+
+def _sandbox_node_affinity() -> k8s_client.V1Affinity | None:
+    """Constrain only newly built Pods; retain normal scheduler/taint handling."""
+    if not SANDBOX_NODE_POOL:
+        return None
+    return k8s_client.V1Affinity(
+        node_affinity=k8s_client.V1NodeAffinity(
+            required_during_scheduling_ignored_during_execution=k8s_client.V1NodeSelector(
+                node_selector_terms=[
+                    k8s_client.V1NodeSelectorTerm(
+                        match_expressions=[
+                            k8s_client.V1NodeSelectorRequirement(
+                                key="kubernetes.io/hostname",
+                                operator="In",
+                                values=list(SANDBOX_NODE_POOL),
+                            )
+                        ]
+                    )
+                ]
+            )
+        )
+    )
+
+
 def _sandbox_healthcheck_exec() -> k8s_client.V1ExecAction:
     """Probe AIO without placing its Secret value in the Pod specification."""
     return k8s_client.V1ExecAction(command=["python3", "-c", _SANDBOX_HEALTHCHECK_CODE])
@@ -208,6 +263,10 @@ def _positive_int_env(name: str, default: int) -> int:
 SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS = _positive_int_env(
     "SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS", 5
 )
+SANDBOX_POD_DELETE_WAIT_SECONDS = _positive_int_env(
+    "SANDBOX_POD_DELETE_WAIT_SECONDS", 30
+)
+SANDBOX_POD_DELETE_POLL_SECONDS = 0.5
 
 
 SANDBOX_STARTUP_PROBE_PERIOD_SECONDS = _positive_int_env(
@@ -877,10 +936,20 @@ def _build_pod(
         )
     ]
     if PPT_MASTER_AGENT_HOST_ENABLED:
+        relay_required = os.environ.get(
+            "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", ""
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        if relay_required and (
+            not PPT_MASTER_AGENT_HOST_IMAGE
+            or PPT_MASTER_AGENT_HOST_IMAGE == SANDBOX_IMAGE
+        ):
+            raise RuntimeError(
+                "enterprise PPT Agent requires a distinct PPT_MASTER_AGENT_HOST_IMAGE"
+            )
         containers.append(
             k8s_client.V1Container(
                 name="ppt-master-agent-host",
-                image=SANDBOX_IMAGE,
+                image=PPT_MASTER_AGENT_HOST_IMAGE or SANDBOX_IMAGE,
                 image_pull_policy="IfNotPresent",
                 command=["python3", "/opt/ppt-master-agent-host/agent_host.py"],
                 ports=[
@@ -890,15 +959,25 @@ def _build_pod(
                         protocol="TCP",
                     )
                 ],
+                startup_probe=k8s_client.V1Probe(
+                    http_get=k8s_client.V1HTTPGetAction(
+                        path="/health",
+                        port=PPT_MASTER_AGENT_HOST_PORT,
+                        scheme="HTTP",
+                    ),
+                    period_seconds=5,
+                    timeout_seconds=5,
+                    failure_threshold=60,
+                ),
                 readiness_probe=k8s_client.V1Probe(
                     http_get=k8s_client.V1HTTPGetAction(
                         path="/health",
                         port=PPT_MASTER_AGENT_HOST_PORT,
                         scheme="HTTP",
                     ),
-                    initial_delay_seconds=2,
+                    initial_delay_seconds=0,
                     period_seconds=5,
-                    timeout_seconds=3,
+                    timeout_seconds=5,
                     failure_threshold=12,
                 ),
                 liveness_probe=k8s_client.V1Probe(
@@ -907,17 +986,17 @@ def _build_pod(
                         port=PPT_MASTER_AGENT_HOST_PORT,
                         scheme="HTTP",
                     ),
-                    initial_delay_seconds=10,
+                    initial_delay_seconds=0,
                     period_seconds=15,
-                    timeout_seconds=3,
-                    failure_threshold=4,
+                    timeout_seconds=5,
+                    failure_threshold=6,
                 ),
                 resources=k8s_client.V1ResourceRequirements(
-                    requests={"cpu": "100m", "memory": "256Mi"},
+                    requests={"cpu": "250m", "memory": "512Mi"},
                     limits={"cpu": "2", "memory": "4Gi"},
                 ),
                 env=[
-                    *_build_sandbox_env(include_agent_only_secrets=True),
+                    *_build_ppt_agent_host_env(),
                     k8s_client.V1EnvVar(
                         name="PPT_MASTER_AGENT_HOST_PORT",
                         value=str(PPT_MASTER_AGENT_HOST_PORT),
@@ -977,6 +1056,7 @@ def _build_pod(
                 user_id=user_id,
                 include_legacy_skills=include_legacy_skills,
             ),
+            affinity=_sandbox_node_affinity(),
             restart_policy="Always",
         ),
     )
@@ -1030,6 +1110,34 @@ def _build_sandbox_env(
                 value=SANDBOX_OPENSSL_CONFIG_FILE,
             )
         )
+    return env
+
+
+def _build_ppt_agent_host_env() -> list[k8s_client.V1EnvVar]:
+    """Override Codex profile only in the PPT Agent Host container.
+
+    Ordinary sandbox commands retain the operator's existing Codex profile.
+    The relay credential remains a Secret reference, never a literal Pod env.
+    """
+    env = _build_sandbox_env(include_agent_only_secrets=True)
+    overrides = {
+        "CODEX_CONFIG_TOML": os.environ.get("PPT_MASTER_AGENT_CODEX_CONFIG_TOML", ""),
+        "CODEX_MODEL_CATALOG_JSON": os.environ.get(
+            "PPT_MASTER_AGENT_CODEX_MODEL_CATALOG_JSON", ""
+        ),
+    }
+    relay_required = os.environ.get(
+        "PPT_MASTER_ENTERPRISE_RELAY_REQUIRED", ""
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    if relay_required and not all(overrides.values()):
+        raise RuntimeError(
+            "enterprise PPT Agent requires its own Codex profile and model catalog"
+        )
+    for name, value in overrides.items():
+        if not value:
+            continue
+        env = [item for item in env if item.name != name]
+        env.append(k8s_client.V1EnvVar(name=name, value=value))
     return env
 
 
@@ -1106,13 +1214,56 @@ def _sandbox_access_url(
     return _url_from_service(svc, sandbox_id)
 
 
+def _read_sandbox_pod(sandbox_id: str):
+    """Return the named Pod, or ``None`` once Kubernetes no longer has it."""
+    try:
+        return core_v1.read_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
+    except ApiException as exc:
+        if exc.status == 404:
+            return None
+        raise
+
+
+def _pod_is_reusable(pod) -> bool:
+    """Whether *pod* is safe to expose as this sandbox's current instance."""
+    if pod is None or getattr(getattr(pod, "metadata", None), "deletion_timestamp", None) is not None:
+        return False
+    phase = getattr(getattr(pod, "status", None), "phase", None)
+    return phase not in {"Succeeded", "Failed"}
+
+
+def _wait_for_pod_deletion(sandbox_id: str) -> bool:
+    """Wait briefly for a terminating fixed-name Pod to disappear.
+
+    Kubernetes accepts DELETE before the name becomes reusable.  Returning a
+    Service URL during that interval creates a Service with no usable endpoint,
+    so creation must wait for the old Pod name to be released instead.
+    """
+    deadline = time.monotonic() + SANDBOX_POD_DELETE_WAIT_SECONDS
+    while True:
+        if _read_sandbox_pod(sandbox_id) is None:
+            logger.info("Sandbox Pod %s deletion completed before replacement", _pod_name(sandbox_id))
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            logger.warning(
+                "Sandbox Pod %s is still deleting after %ss; refusing to return a Service-only sandbox",
+                _pod_name(sandbox_id),
+                SANDBOX_POD_DELETE_WAIT_SECONDS,
+            )
+            return False
+        time.sleep(min(SANDBOX_POD_DELETE_POLL_SECONDS, remaining))
+
+
 def _get_pod_phase(sandbox_id: str) -> str:
     """Return the Pod phase (Pending / Running / Succeeded / Failed / Unknown)."""
     try:
-        pod = core_v1.read_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
-        return pod.status.phase or "Unknown"
+        pod = _read_sandbox_pod(sandbox_id)
     except ApiException:
         return "NotFound"
+    if pod is None:
+        return "NotFound"
+    return pod.status.phase or "Unknown"
 
 
 def _assert_existing_sandbox_identity(
@@ -1236,8 +1387,16 @@ def create_sandbox(req: CreateSandboxRequest):
         include_legacy_skills,
     )
 
-    # ── Fast path: sandbox already exists ────────────────────────────
-    existing_url = _sandbox_access_url(sandbox_id, tolerate_read_errors=True)
+    # ── Fast path: only a live Pod plus its Service is reusable. ──────
+    # A Kubernetes DELETE is asynchronous: an old fixed-name Pod can still
+    # exist with deletionTimestamp while a stale/new Service already has a URL.
+    # Returning that URL would make callers wait for a Pod that cannot exist.
+    existing_pod = _read_sandbox_pod(sandbox_id)
+    existing_url = (
+        _sandbox_access_url(sandbox_id, tolerate_read_errors=True)
+        if _pod_is_reusable(existing_pod)
+        else None
+    )
     if existing_url:
         _assert_existing_sandbox_identity(
             sandbox_id,
@@ -1248,25 +1407,78 @@ def create_sandbox(req: CreateSandboxRequest):
         return SandboxResponse(
             sandbox_id=sandbox_id,
             sandbox_url=existing_url,
-            status=_get_pod_phase(sandbox_id),
+            status=existing_pod.status.phase or "Unknown",
         )
 
-    # ── Create Pod ───────────────────────────────────────────────────
-    try:
-        core_v1.create_namespaced_pod(
-            K8S_NAMESPACE,
-            _build_pod(
-                sandbox_id,
-                thread_id,
-                user_id=user_id,
-                include_legacy_skills=include_legacy_skills,
-            ),
-        )
-        logger.info(f"Created Pod {_pod_name(sandbox_id)}")
-    except ApiException as exc:
-        if exc.status != 409:  # 409 = AlreadyExists
+    # ── Create or safely reuse the fixed-name Pod ─────────────────────
+    # A 409 is only idempotent when the existing Pod is still usable.  If it
+    # is terminating, wait for name release and retry once; never continue to
+    # create a Service while the Pod is absent.
+    pod_ready_for_service = _pod_is_reusable(existing_pod)
+    pod_created_by_request = False
+    for attempt in range(2):
+        if pod_ready_for_service:
+            break
+        try:
+            core_v1.create_namespaced_pod(
+                K8S_NAMESPACE,
+                _build_pod(
+                    sandbox_id,
+                    thread_id,
+                    user_id=user_id,
+                    include_legacy_skills=include_legacy_skills,
+                ),
+            )
+            logger.info(f"Created Pod {_pod_name(sandbox_id)}")
+            pod_ready_for_service = True
+            pod_created_by_request = True
+            break
+        except ApiException as exc:
+            if exc.status != 409:  # 409 = AlreadyExists
+                raise HTTPException(
+                    status_code=500, detail=f"Pod creation failed: {exc.reason}"
+                )
+
+            conflicting_pod = _read_sandbox_pod(sandbox_id)
+            if _pod_is_reusable(conflicting_pod):
+                logger.info(
+                    "Reusing existing Sandbox Pod %s after create conflict",
+                    _pod_name(sandbox_id),
+                )
+                pod_ready_for_service = True
+                break
+            if (
+                conflicting_pod is not None
+                and getattr(conflicting_pod.metadata, "deletion_timestamp", None)
+                is not None
+            ):
+                logger.info(
+                    "Waiting for terminating Sandbox Pod %s before replacement",
+                    _pod_name(sandbox_id),
+                )
+                if not _wait_for_pod_deletion(sandbox_id):
+                    if _pod_is_reusable(_read_sandbox_pod(sandbox_id)):
+                        logger.info(
+                            "Reusing replacement Sandbox Pod %s after deletion wait",
+                            _pod_name(sandbox_id),
+                        )
+                        pod_ready_for_service = True
+                        break
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Sandbox Pod deletion did not complete before replacement",
+                    )
+                continue
+
+            # A just-deleted Pod can disappear between create (409) and read
+            # (404).  Give that race one bounded retry; any other state is not
+            # safe to publish through the stable Service name.
+            if conflicting_pod is None and attempt == 0:
+                logger.info("Sandbox Pod %s disappeared after create conflict; retrying", _pod_name(sandbox_id))
+                continue
             raise HTTPException(
-                status_code=500, detail=f"Pod creation failed: {exc.reason}"
+                status_code=503,
+                detail="Sandbox Pod conflict was not reusable",
             )
         _assert_existing_sandbox_identity(
             sandbox_id,
@@ -1275,17 +1487,22 @@ def create_sandbox(req: CreateSandboxRequest):
             include_legacy_skills=include_legacy_skills,
         )
 
+    if not pod_ready_for_service:
+        raise HTTPException(status_code=503, detail="Sandbox Pod was not available for Service creation")
+
     # ── Create Service ───────────────────────────────────────────────
     try:
         core_v1.create_namespaced_service(K8S_NAMESPACE, _build_service(sandbox_id))
         logger.info(f"Created Service {_svc_name(sandbox_id)}")
     except ApiException as exc:
         if exc.status != 409:
-            # Roll back the Pod on failure
-            try:
-                core_v1.delete_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
-            except ApiException:
-                pass
+            # Roll back only a Pod created by this request.  A 409 may have
+            # legitimately reused another request's healthy fixed-name Pod.
+            if pod_created_by_request:
+                try:
+                    core_v1.delete_namespaced_pod(_pod_name(sandbox_id), K8S_NAMESPACE)
+                except ApiException:
+                    pass
             raise HTTPException(
                 status_code=500, detail=f"Service creation failed: {exc.reason}"
             )
@@ -1342,6 +1559,9 @@ def destroy_sandbox(sandbox_id: str):
 @app.get("/api/sandboxes/{sandbox_id}", response_model=SandboxResponse)
 def get_sandbox(sandbox_id: str):
     """Return current status and URL for a sandbox."""
+    pod = _read_sandbox_pod(sandbox_id)
+    if not _pod_is_reusable(pod):
+        raise HTTPException(status_code=404, detail=f"Sandbox '{sandbox_id}' not found")
     sandbox_url = _sandbox_access_url(sandbox_id)
     if not sandbox_url:
         raise HTTPException(status_code=404, detail=f"Sandbox '{sandbox_id}' not found")
@@ -1349,7 +1569,7 @@ def get_sandbox(sandbox_id: str):
     return SandboxResponse(
         sandbox_id=sandbox_id,
         sandbox_url=sandbox_url,
-        status=_get_pod_phase(sandbox_id),
+        status=pod.status.phase or "Unknown",
     )
 
 

@@ -16,6 +16,7 @@ from app.gateway.auth.models import User
 from app.gateway.routers import channel_connections
 from deerflow.config.app_config import AppConfig, reset_app_config, set_app_config
 from deerflow.config.channel_connections_config import ChannelConnectionsConfig
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 
 
 @pytest.fixture(autouse=True)
@@ -252,7 +253,7 @@ def test_get_providers_reports_unconfigured_when_runtime_channel_is_missing(tmp_
     assert by_provider["discord"]["configured"] is False
     assert "Discord credentials" in by_provider["discord"]["unavailable_reason"]
     assert by_provider["feishu"]["configured"] is False
-    assert "Feishu credentials" in by_provider["feishu"]["unavailable_reason"]
+    assert "海能 Work credentials" in by_provider["feishu"]["unavailable_reason"]
     assert by_provider["dingtalk"]["configured"] is False
     assert "DingTalk credentials" in by_provider["dingtalk"]["unavailable_reason"]
     assert by_provider["wechat"]["configured"] is False
@@ -494,7 +495,7 @@ def test_connect_slack_returns_binding_command_and_persists_state(tmp_path):
     assert body["mode"] == "binding_code"
     assert body["url"] is None
     assert len(body["code"]) >= 22
-    assert body["instruction"] == f"Send /connect {body['code']} to the DeerFlow Slack bot."
+    assert body["instruction"] == f"请向{ENTERPRISE_PRODUCT_NAME}的Slack机器人发送 /connect {body['code']}。"
 
     async def count_states():
         return await repo.count_oauth_states(owner_user_id=str(_user().id), provider="slack")
@@ -540,7 +541,7 @@ def test_connect_discord_returns_binding_command_and_persists_state(tmp_path):
     assert body["mode"] == "binding_code"
     assert body["url"] is None
     assert body["code"]
-    assert body["instruction"] == f"Send /connect {body['code']} to the DeerFlow Discord bot."
+    assert body["instruction"] == f"请向{ENTERPRISE_PRODUCT_NAME}的Discord机器人发送 /connect {body['code']}。"
 
     async def count_states():
         return await repo.count_oauth_states(owner_user_id=str(_user().id), provider="discord")
@@ -562,7 +563,7 @@ def test_connect_existing_binding_code_channels_return_command_and_persist_state
 
     for provider, response in responses.items():
         expected_display_name = {
-            "feishu": "Feishu",
+            "feishu": "海能 Work",
             "dingtalk": "DingTalk",
             "wechat": "WeChat",
             "wecom": "WeCom",
@@ -573,7 +574,7 @@ def test_connect_existing_binding_code_channels_return_command_and_persist_state
         assert body["mode"] == "binding_code"
         assert body["url"] is None
         assert len(body["code"]) >= 22
-        assert body["instruction"] == f"Send /connect {body['code']} to the DeerFlow {expected_display_name} bot."
+        assert body["instruction"] == f"请向{ENTERPRISE_PRODUCT_NAME}的{expected_display_name}机器人发送 /connect {body['code']}。"
 
         async def count_states(provider=provider):
             return await repo.count_oauth_states(owner_user_id=str(_user().id), provider=provider)

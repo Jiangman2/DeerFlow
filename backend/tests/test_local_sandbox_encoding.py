@@ -2,13 +2,19 @@ import builtins
 from types import SimpleNamespace
 
 import deerflow.sandbox.local.local_sandbox as local_sandbox
-from deerflow.sandbox.local.local_sandbox import LocalSandbox
+from deerflow.sandbox.local.local_sandbox import LocalSandbox, _BoundedPipeCapture
 
 
 def _open(base, file, mode="r", *args, **kwargs):
     if "b" in mode:
         return base(file, mode, *args, **kwargs)
     return base(file, mode, *args, encoding=kwargs.pop("encoding", "gbk"), **kwargs)
+
+
+def test_bounded_pipe_capture_preserves_posix_newlines_by_default():
+    capture = _BoundedPipeCapture()
+    capture.append(b"crlf\r\nbare-cr\rlf\n")
+    assert capture.read() == "crlf\r\nbare-cr\rlf\n"
 
 
 def test_read_file_uses_utf8_on_windows_locale(tmp_path, monkeypatch):

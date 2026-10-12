@@ -1,4 +1,6 @@
 import type { Skill } from "@/core/skills";
+import { RESERVED_SLASH_SKILL_NAMES } from "@/core/skills/slash";
+
 export {
   SUGGESTION_TEMPLATE_PLACEHOLDER_PATTERN,
   findSuggestionTemplatePlaceholder,
@@ -145,7 +147,10 @@ export function getMatchingSkillSuggestions(
       if (!skill.enabled) {
         return false;
       }
-      if (builtinCommandNames.has(name)) {
+      if (
+        builtinCommandNames.has(name) ||
+        RESERVED_SLASH_SKILL_NAMES.has(name)
+      ) {
         return false;
       }
       return !normalizedQuery || name.includes(normalizedQuery);

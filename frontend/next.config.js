@@ -27,6 +27,17 @@ const config = {
     defaultLocale: "en",
   },
   devIndicators: false,
+  async redirects() {
+    // These retired public documentation entries already redirect to the
+    // enterprise workspace at page level. Resolve them before Nextra/locale
+    // rendering, which can otherwise fail before that redirect is reached.
+    return ["en", "zh"].map((language) => ({
+      source: `/${language}/docs/:path*`,
+      destination: "/workspace/chats/new",
+      permanent: false,
+      locale: false,
+    }));
+  },
   async rewrites() {
     const gatewayFallbackRewrites = [];
     const gatewayURL = getInternalServiceURL(

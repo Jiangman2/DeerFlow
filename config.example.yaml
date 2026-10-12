@@ -15,7 +15,12 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 30
+config_version: 31
+
+# Per-model request_admission RPM pacing is deferred in the dmdb 2026-09-30
+# merge: its typed config and model-factory hook are not implemented here.
+# Do not configure it as an effective limit. Existing stream-admission controls
+# remain independent. See backend/docs/ENTERPRISE_MERGE_20260930.md.
 
 # ============================================================================
 # Logging
@@ -180,6 +185,31 @@ models:
   #   use_responses_api: true
   #   output_version: responses/v1
   #   supports_vision: true
+
+  # Example: Alibaba Cloud Model Studio Qwen3.7-Plus (Chat Completions)
+  # DashScope uses its OpenAI-compatible Chat Completions endpoint here, not
+  # the Responses API used by the isolated PPT Agent runtime.
+  # RobustChatOpenAI keeps streamed reasoning_content available for later
+  # tool-call turns and emits the standard LLM_TIMING diagnostics.
+  # - name: qwen3.7-plus
+  #   display_name: Qwen3.7-Plus
+  #   use: deerflow.models.robust_openai:RobustChatOpenAI
+  #   model: qwen3.7-plus
+  #   api_key: $DASHSCOPE_API_KEY
+  #   base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+  #   request_timeout: 900.0
+  #   max_retries: 2
+  #   max_tokens: 65536
+  #   supports_thinking: true
+  #   supports_reasoning_effort: true
+  #   supports_vision: false
+  #   when_thinking_enabled:
+  #     extra_body:
+  #       enable_thinking: true
+  #       preserve_thinking: true
+  #   when_thinking_disabled:
+  #     extra_body:
+  #       enable_thinking: false
 
   # Example: Ollama (native provider — preserves thinking/reasoning content)
   #
@@ -645,7 +675,6 @@ tool_groups:
   - name: file:read
   - name: file:write
   - name: bash
-  - name: browser
 
 # ============================================================================
 # Tools Configuration
@@ -653,40 +682,6 @@ tool_groups:
 # Configure available tools for the agent to use
 
 tools:
-  # Stateful browser control for digital employees. Install once with:
-  #   cd backend && uv sync --extra browser && uv run playwright install chromium
-  # Keep GATEWAY_WORKERS=1 while enabled because sessions are process-local.
-  # - name: browser_navigate
-  #   group: browser
-  #   use: deerflow.community.browser_automation.tools:browser_navigate_tool
-  #   headless: true
-  #   timeout_ms: 30000
-  #   viewport_width: 1280
-  #   viewport_height: 720
-  #   # allow_private_addresses: false
-  # - name: browser_snapshot
-  #   group: browser
-  #   use: deerflow.community.browser_automation.tools:browser_snapshot_tool
-  # - name: browser_click
-  #   group: browser
-  #   use: deerflow.community.browser_automation.tools:browser_click_tool
-  # - name: browser_type
-  #   group: browser
-  #   use: deerflow.community.browser_automation.tools:browser_type_tool
-  # - name: browser_get_text
-  #   group: browser
-  #   use: deerflow.community.browser_automation.tools:browser_get_text_tool
-  #   max_chars: 8000
-  # - name: browser_back
-  #   group: browser
-  #   use: deerflow.community.browser_automation.tools:browser_back_tool
-  # - name: browser_screenshot
-  #   group: browser
-  #   use: deerflow.community.browser_automation.tools:browser_screenshot_tool
-  # - name: browser_close
-  #   group: browser
-  #   use: deerflow.community.browser_automation.tools:browser_close_tool
-
   # WeKnora's permission-scoped read/agent surface. Browser runs use a
   # server-derived per-user bearer token; WEKNORA_API_KEY is only a fallback
   # for trusted background runs. Every tool remains hidden unless the current
@@ -772,6 +767,17 @@ tools:
   #   api_key: $APPFORGE_API_KEY
   #   app_id: $APPFORGE_DETAIL_QA_APP_ID
   #   trust_env: false
+  # Master-data search is an independent AppForge workflow. It is intentionally
+  # not controlled by the user's Data Lake toggle. Keep its API key in the
+  # runtime Secret; never put a literal credential in config.yaml.
+  # - name: datalake_md_search
+  #   group: knowledge
+  #   use: deerflow.community.appforge.tools:datalake_md_search_tool
+  #   api_url: $APPFORGE_API_URL
+  #   api_key: $APPFORGE_MD_SEARCH_API_KEY
+  #   app_id: app-1qdkpgka
+  #   conversation_prefix: SquareWorkflow_
+  #   trust_env: false
 
   # Web search tool (uses DuckDuckGo, no API key required)
   - name: web_search
@@ -817,6 +823,11 @@ tools:
   #   group: web
   #   use: deerflow.community.tavily.tools:web_search_tool
   #   max_results: 5
+  #   # Optional deployment-side source filters. Omit or use [] for no restriction.
+  #   # include_domains:
+  #   #   - docs.python.org
+  #   #   - developer.mozilla.org
+  #   # exclude_domains: []
   #   # api_key: $TAVILY_API_KEY  # Set if needed
 
   # Web search tool (uses InfoQuest, requires InfoQuest API key)
@@ -1069,8 +1080,8 @@ tool_search:
 # ============================================================================
 # Prevents oversized tool results from blowing the model context window.
 # Outputs exceeding `externalize_min_chars` are persisted to disk and replaced
-# with a compact preview + file reference. The model can read the full output
-# via read_file.  When disk persistence is unavailable, outputs exceeding
+# with a compact typed synopsis + file reference. The model can read the full output
+# via read_file. When disk persistence is unavailable, outputs exceeding
 # `fallback_max_chars` are head+tail truncated instead.
 #
 # `exempt_tools` prevents persist→read→persist infinite loops for read tools.
@@ -1079,6 +1090,8 @@ tool_search:
 tool_output:
   enabled: true
   externalize_min_chars: 12000
+  # Sampling budget for the inline raw head/tail sample appended to every
+  # typed synopsis; ignored for binary-like output, which carries its own sample.
   preview_head_chars: 2000
   preview_tail_chars: 1000
   fallback_max_chars: 30000
@@ -1259,6 +1272,8 @@ sandbox:
   # Tool output truncation limits (characters).
   # bash uses middle-truncation (head + tail) since errors can appear anywhere in the output.
   # read_file and ls use head-truncation since their content is front-loaded.
+  # A read_file cut prefers a complete line and names the exact next start_line,
+  # so long files can be paged without gaps, overlaps, or continuation loops.
   # Set to 0 to disable truncation.
   bash_output_max_chars: 20000
   read_file_output_max_chars: 50000
@@ -1496,6 +1511,7 @@ sandbox:
 #     description: Claude Code for implementation, refactoring, and debugging
 #     model: null
 #     # auto_approve_permissions: false  # Set to true to auto-approve ACP permission requests
+#     # timeout_seconds: 1800            # Abort + kill the subprocess if it doesn't respond in time (default: 1800 = 30 min)
 #     # env:                             # Optional: inject environment variables into the agent subprocess
 #     #   ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY  # $VAR resolves from host environment
 #
@@ -1540,8 +1556,10 @@ skills:
 # Native deterministic skill safety scanning. This runs before the LLM skill
 # scanner on skill install/update and agent-managed skill writes.
 skill_scan:
-  # Set false to disable the new deterministic analyzers. Safe archive
-  # extraction and the LLM skill scanner still run.
+  # Set false to disable the new deterministic analyzers (nested-archive,
+  # secret-pattern, and other content-level checks). Safe archive extraction
+  # (path traversal, symlinks, executable-binary, total-size, and entry-count
+  # limits) and the LLM skill scanner still run unconditionally.
   enabled: true
 
 # Note: To restrict which skills are loaded for a specific custom agent,
@@ -1751,15 +1769,6 @@ memory:
 agents_api:
   enabled: false
 
-# Personal digital-employee definitions (metadata, model settings and SOUL)
-# are stored in the same durable SQL database as the application.  Existing
-# file-backed agents can be imported once with:
-#   cd backend && uv run python scripts/migrate_agents_to_db.py
-# Custom avatar binaries and team-published snapshots remain on the existing
-# shared data volume so the browser can serve them through the authenticated API.
-agent_storage:
-  backend: db
-
 # ============================================================================
 # Skill Self-Evolution Configuration
 # ============================================================================
@@ -1786,6 +1795,21 @@ skill_evolution:
 # checkpointer:
 #   type: postgres
 #   connection_string: postgresql://user:password@localhost:5432/deerflow
+#
+# PostgreSQL checkpointer connection-pool sizing is controlled at process start
+# through environment variables. Both default to 4, preserving historic behavior.
+# Set MAX_SIZE greater than or equal to MIN_SIZE; load-tested production may use
+# 8 and 32 respectively when PostgreSQL has sufficient connection capacity.
+# DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE=8
+# DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE=32
+#
+# Experimental, restart-required concurrency optimization. It is disabled by
+# default. When true, only an AsyncPostgresSaver backed by AsyncConnectionPool
+# (and no pipeline) may borrow concurrent cursors; single-connection and
+# pipeline savers retain LangGraph's original instance lock. Enable only after
+# a representative checkpoint durability/load test, and roll back by setting
+# it to false and restarting Gateway.
+# DEERFLOW_CHECKPOINTER_POSTGRES_POOL_CONCURRENT_CURSOR=true
 
 # ============================================================================
 # Database
@@ -1883,9 +1907,7 @@ scheduler:
   lease_seconds: 120
   max_concurrent_runs: 3
   min_once_delay_seconds: 60
-  recursion_limit: 1000
-  queue_timeout_seconds: 3600  # Fail queued occurrences that cannot launch within this window.
-  multi_instance: false       # Requires PostgreSQL, DB run events, and run-ownership heartbeats.
+  recursion_limit: 300
 
 # ============================================================================
 # Run Ownership Configuration

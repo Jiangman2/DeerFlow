@@ -1,6 +1,7 @@
 """Tool error handling middleware and shared runtime middleware builders."""
 
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, override
 
@@ -23,6 +24,11 @@ from deerflow.agents.middlewares.tool_result_meta import (
 from deerflow.config.app_config import AppConfig
 from deerflow.config.summarization_config import DEFAULT_SKILL_FILE_READ_TOOL_NAMES
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
+from deerflow.run_timing import (
+    log_run_timing,
+    record_tool_timing,
+    run_timing_logs_enabled,
+)
 from deerflow.subagents.status_contract import (
     format_subagent_result_message,
     make_subagent_additional_kwargs,
@@ -124,14 +130,53 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], ToolMessage | Command],
     ) -> ToolMessage | Command:
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        tool_name = str(request.tool_call.get("name") or "unknown_tool")
+        if timing_enabled:
+            log_run_timing(logger, "tool_start", tool_name=tool_name)
         try:
             result = handler(request)
         except GraphBubbleUp:
             # Preserve LangGraph control-flow signals (interrupt/pause/resume).
+            if timing_enabled:
+                elapsed_ms = round((time.monotonic() - started_at) * 1000)
+                log_run_timing(logger, "tool_end", elapsed_ms=elapsed_ms, tool_name=tool_name, outcome="interrupted")
+                record_tool_timing(
+                    getattr(request, "runtime", None),
+                    tool_name=tool_name,
+                    elapsed_ms=elapsed_ms,
+                    outcome="interrupted",
+                )
             raise
         except Exception as exc:
             logger.exception("Tool execution failed (sync): name=%s id=%s", request.tool_call.get("name"), request.tool_call.get("id"))
+            if timing_enabled:
+                elapsed_ms = round((time.monotonic() - started_at) * 1000)
+                log_run_timing(
+                    logger,
+                    "tool_end",
+                    elapsed_ms=elapsed_ms,
+                    tool_name=tool_name,
+                    outcome="error",
+                    error_type=type(exc).__name__,
+                )
+                record_tool_timing(
+                    getattr(request, "runtime", None),
+                    tool_name=tool_name,
+                    elapsed_ms=elapsed_ms,
+                    outcome="error",
+                )
             return self._build_error_message(request, exc)
+        if timing_enabled:
+            elapsed_ms = round((time.monotonic() - started_at) * 1000)
+            log_run_timing(logger, "tool_end", elapsed_ms=elapsed_ms, tool_name=tool_name, outcome="completed")
+            record_tool_timing(
+                getattr(request, "runtime", None),
+                tool_name=tool_name,
+                elapsed_ms=elapsed_ms,
+                outcome="completed",
+            )
         return normalize_tool_result(self._maybe_stamp(result, request))
 
     @override
@@ -140,14 +185,53 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command]],
     ) -> ToolMessage | Command:
+        timing_enabled = run_timing_logs_enabled()
+        started_at = time.monotonic() if timing_enabled else 0.0
+        tool_name = str(request.tool_call.get("name") or "unknown_tool")
+        if timing_enabled:
+            log_run_timing(logger, "tool_start", tool_name=tool_name)
         try:
             result = await handler(request)
         except GraphBubbleUp:
             # Preserve LangGraph control-flow signals (interrupt/pause/resume).
+            if timing_enabled:
+                elapsed_ms = round((time.monotonic() - started_at) * 1000)
+                log_run_timing(logger, "tool_end", elapsed_ms=elapsed_ms, tool_name=tool_name, outcome="interrupted")
+                record_tool_timing(
+                    getattr(request, "runtime", None),
+                    tool_name=tool_name,
+                    elapsed_ms=elapsed_ms,
+                    outcome="interrupted",
+                )
             raise
         except Exception as exc:
             logger.exception("Tool execution failed (async): name=%s id=%s", request.tool_call.get("name"), request.tool_call.get("id"))
+            if timing_enabled:
+                elapsed_ms = round((time.monotonic() - started_at) * 1000)
+                log_run_timing(
+                    logger,
+                    "tool_end",
+                    elapsed_ms=elapsed_ms,
+                    tool_name=tool_name,
+                    outcome="error",
+                    error_type=type(exc).__name__,
+                )
+                record_tool_timing(
+                    getattr(request, "runtime", None),
+                    tool_name=tool_name,
+                    elapsed_ms=elapsed_ms,
+                    outcome="error",
+                )
             return self._build_error_message(request, exc)
+        if timing_enabled:
+            elapsed_ms = round((time.monotonic() - started_at) * 1000)
+            log_run_timing(logger, "tool_end", elapsed_ms=elapsed_ms, tool_name=tool_name, outcome="completed")
+            record_tool_timing(
+                getattr(request, "runtime", None),
+                tool_name=tool_name,
+                elapsed_ms=elapsed_ms,
+                outcome="completed",
+            )
         return normalize_tool_result(self._maybe_stamp(result, request))
 
 

@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from typing import Annotated
 
+import pytest
 from _agent_e2e_helpers import FakeToolCallingModel
 from langchain.agents import create_agent
 from langchain.tools import InjectedToolCallId
@@ -412,6 +413,78 @@ class TestBeforeModelCapture:
         assert out is not None
         assert [entry["id"] for entry in out["delegations"]] == ["new-call"]
         assert out["delegations"][0]["run_id"] == "run-new"
+
+    def test_new_user_turn_keeps_in_progress_delegation_without_run_id(self):
+        """A legacy entry without a run id cannot safely be assigned to a run."""
+        middleware = DurableContextMiddleware()
+        runtime = SimpleNamespace(context={"run_id": "run-new"})
+        messages = [
+            HumanMessage(content="old request"),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "task",
+                        "args": {"description": "research auth", "prompt": "do it", "subagent_type": "general-purpose"},
+                        "id": "legacy-call",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            HumanMessage(content="please continue", additional_kwargs={"run_id": "run-new"}),
+        ]
+        existing = [
+            {
+                "id": "legacy-call",
+                "description": "research auth",
+                "subagent_type": "general-purpose",
+                "status": "in_progress",
+                "created_at": "2026-07-11T00:00:00Z",
+            }
+        ]
+
+        assert middleware.before_model({"messages": messages, "delegations": existing}, runtime) is None
+
+    @pytest.mark.parametrize(
+        "result_metadata",
+        [
+            pytest.param(make_subagent_additional_kwargs("completed", result="partial notes"), id="structured-completed"),
+            pytest.param(make_subagent_additional_kwargs("failed", error="task failed"), id="structured-failed"),
+            pytest.param({}, id="legacy-without-status-metadata"),
+        ],
+    )
+    def test_new_user_turn_keeps_earlier_delegation_that_has_a_result(self, result_metadata):
+        """Any recorded reply rules out inferring that the task was cancelled."""
+        middleware = DurableContextMiddleware()
+        runtime = SimpleNamespace(context={"run_id": "run-new"})
+        messages = [
+            HumanMessage(content="old request", additional_kwargs={"run_id": "run-old"}),
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "task",
+                        "args": {"description": "research auth", "prompt": "do it", "subagent_type": "general-purpose"},
+                        "id": "old-call",
+                        "type": "tool_call",
+                    }
+                ],
+            ),
+            ToolMessage(content="partial notes", tool_call_id="old-call", name="task", additional_kwargs=result_metadata),
+            HumanMessage(content="please continue", additional_kwargs={"run_id": "run-new"}),
+        ]
+        existing = [
+            {
+                "id": "old-call",
+                "run_id": "run-old",
+                "description": "research auth",
+                "subagent_type": "general-purpose",
+                "status": "in_progress",
+                "created_at": "2026-07-11T00:00:00Z",
+            }
+        ]
+
+        assert middleware.before_model({"messages": messages, "delegations": existing}, runtime) is None
 
     def test_returns_none_when_no_delegations(self):
         middleware = DurableContextMiddleware()
@@ -859,11 +932,7 @@ class TestDurableContextInjection:
             }
         )
 
-        data = [
-            message
-            for message in model.received[-1]
-            if isinstance(message, HumanMessage) and message.additional_kwargs.get("durable_context_data")
-        ]
+        data = [message for message in model.received[-1] if isinstance(message, HumanMessage) and message.additional_kwargs.get("durable_context_data")]
         assert data, "checkpointed skill workflow was not injected"
         assert "ppt-master" in data[0].content
         assert "generate-pptx.md" in data[0].content

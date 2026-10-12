@@ -7,8 +7,7 @@ async function useChineseLocale(page: Page) {
     {
       name: "locale",
       value: "zh-CN",
-      domain: "127.0.0.1",
-      path: "/",
+      url: test.info().project.use.baseURL ?? "http://localhost:3000",
     },
   ]);
 }
@@ -872,14 +871,15 @@ test.describe("CNOOC concept layout", () => {
     expect(mobileMetrics.scrollWidth).toBeGreaterThan(
       mobileMetrics.clientWidth,
     );
-    await header.evaluate((element) => {
-      element.scrollLeft = element.scrollWidth;
-    });
-    const lastMaterialBox = await materials.last().boundingBox();
-    expect(lastMaterialBox).not.toBeNull();
-    expect(lastMaterialBox!.x + lastMaterialBox!.width).toBeLessThanOrEqual(
-      390,
-    );
+    await expect
+      .poll(async () => {
+        await header.evaluate((element) => {
+          element.scrollLeft = element.scrollWidth;
+        });
+        const box = await materials.last().boundingBox();
+        return box ? box.x + box.width : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(390);
     await page.screenshot({
       path: "test-results/cnooc-concept-mobile-materials-many.png",
       fullPage: true,

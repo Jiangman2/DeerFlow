@@ -2,6 +2,8 @@
 
 import logging
 import re
+import time
+from contextlib import aclosing
 from typing import TYPE_CHECKING, Any, NotRequired, override
 
 from langchain.agents import AgentState
@@ -13,6 +15,7 @@ from langgraph.runtime import Runtime
 from deerflow.agents.middlewares.dynamic_context_middleware import is_dynamic_context_reminder
 from deerflow.config.title_config import get_title_config
 from deerflow.models import create_chat_model
+from deerflow.run_timing import log_run_timing
 
 if TYPE_CHECKING:
     from deerflow.config.app_config import AppConfig
@@ -179,6 +182,8 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
 
         This ensures RunJournal identifies LLM calls from this middleware
         as ``middleware:title`` instead of ``lead_agent``.
+        TAG_NOSTREAM hides title tokens from the graph's public messages stream;
+        it does not disable the private upstream model stream.
         """
         try:
             parent = get_config()
@@ -202,11 +207,13 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
         return {"title": self._fallback_title(user_msg)}
 
     async def _agenerate_title_result(self, state: TitleMiddlewareState) -> dict | None:
-        """Generate an LLM title asynchronously and fall back locally."""
+        """Collect a private LLM stream into one title and fall back locally."""
         if not self._should_generate_title(state):
             return None
 
         config = self._get_title_config()
+        started_at = time.monotonic()
+        log_run_timing(logger, "title_generation_start")
 
         try:
             prompt, user_msg = self._build_title_prompt(state)
@@ -221,12 +228,42 @@ class TitleMiddleware(AgentMiddleware[TitleMiddlewareState]):
                 model = create_chat_model(name=config.model_name, **model_kwargs)
             else:
                 model = create_chat_model(**model_kwargs)
-            response = await model.ainvoke(prompt, config=self._get_runnable_config())
-            title = self._parse_title(response.content)
+            # This model instance belongs only to this title call. Force the
+            # streaming path even if the configured model normally disables it.
+            model.disable_streaming = False
+            if "streaming" in getattr(type(model), "model_fields", {}):
+                model.streaming = True
+            response = None
+            async with aclosing(model.astream(prompt, config=self._get_runnable_config(), stream=True)) as stream:
+                async for chunk in stream:
+                    response = chunk if response is None else response + chunk
+            # Parse only after EOF: think tags / quotes may span chunks, and a
+            # failed partial stream must never become the persisted title.
+            title = self._parse_title(response.content if response is not None else "")
             if title:
+                log_run_timing(
+                    logger,
+                    "title_generation_end",
+                    elapsed_ms=(time.monotonic() - started_at) * 1000,
+                    outcome="completed",
+                )
                 return {"title": title}
-        except Exception:
+        except Exception as exc:
+            log_run_timing(
+                logger,
+                "title_generation_end",
+                elapsed_ms=(time.monotonic() - started_at) * 1000,
+                outcome="error",
+                error_type=type(exc).__name__,
+            )
             logger.debug("Failed to generate async title; falling back to local title", exc_info=True)
+        else:
+            log_run_timing(
+                logger,
+                "title_generation_end",
+                elapsed_ms=(time.monotonic() - started_at) * 1000,
+                outcome="empty",
+            )
         user_msg = self._get_title_user_message(state)
         return {"title": self._fallback_title(user_msg)}
 

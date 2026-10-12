@@ -96,6 +96,23 @@ export const enUS: Translations = {
     createYourOwnSkill: "Create Your Own Skill",
     createYourOwnSkillDescription:
       "Describe the work you want the agent to perform, and we will help you build a reusable skill.",
+    hainengPortal: "Haineng AI Platform",
+    totalUsage: "Total usage",
+    todayUsage: "Usage today",
+    todayUsers: "Today's users",
+    todayTasks: "Today's tasks",
+    supportGroupTitle: "Haineng Work support group",
+    supportGroupName: "CNOOC general-purpose agent feedback group",
+    supportGroupQrAlt: "Haineng Work support group QR code",
+    supportGroupScan: "Scan with mobile Haineng Work to join",
+    usageUnavailable: "Usage unavailable",
+    contactUs: "Contact us",
+    feedback: "Feedback",
+    supportPhone: "Support phone",
+    supportEmail: "Support email",
+    businessOwner: "Business owner",
+    operationsOwner: "Operations owner",
+    serviceHours: "Service hours",
   },
 
   // Clipboard
@@ -376,6 +393,7 @@ export const enUS: Translations = {
     recentChats: "Recent chats",
     demoChats: "Demo chats",
     agents: "Digital Employees",
+    agentSquare: "Agent Square",
     knowledge: "Knowledge",
     skillCenter: "Skill Center",
     openSkillCenter: "Open Skill Center in a new window",
@@ -842,7 +860,7 @@ export const enUS: Translations = {
       telegram: "Telegram direct messages through your 本平台 bot.",
       slack: "Slack workspace messages and mentions.",
       discord: "Discord server messages through your 本平台 bot.",
-      feishu: "Feishu and Lark messages through your 本平台 app.",
+      feishu: "Messages through your 海能 Work app.",
       dingtalk: "DingTalk Stream Push messages through your 本平台 bot.",
       wechat: "WeChat iLink messages through your 本平台 bot.",
       wecom: "WeCom messages through your 本平台 AI bot.",
@@ -852,7 +870,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中海油勘探开发智能体",
+    appName: "中国海油通用智能体",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",

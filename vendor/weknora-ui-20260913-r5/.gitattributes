@@ -1,0 +1,4 @@
+* -text whitespace=cr-at-eol
+** -text whitespace=cr-at-eol
+frontend/** whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol
+LICENSE.upstream whitespace=-blank-at-eol,-blank-at-eof,cr-at-eol

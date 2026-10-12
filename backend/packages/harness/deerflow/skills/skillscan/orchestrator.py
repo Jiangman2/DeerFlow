@@ -43,6 +43,7 @@ _MAX_ARCHIVE_MEMBERS = 4096
 _TEXT_PROBE_BYTES = 4096
 
 _SPECS = [
+    RuleSpec("package-ads-stream-name", "CRITICAL", "Archive member name contains an NTFS alternate data stream or drive separator.", "Remove colons from archive member names."),
     RuleSpec("package-path-traversal", "CRITICAL", "Archive member path traverses outside the skill root.", "Remove parent-directory traversal from the package path."),
     RuleSpec("package-absolute-path", "CRITICAL", "Archive member path is absolute.", "Use relative paths inside the skill archive."),
     RuleSpec("package-symlink", "HIGH", "Package contains a symlink entry.", "Remove symlinks from the skill package."),
@@ -253,6 +254,8 @@ def scan_skill_dir(skill_dir: Path) -> ScanResult:
 
 def _scan_archive_member_metadata(info: zipfile.ZipInfo, normalized: str) -> list[SecurityFinding]:
     findings: list[SecurityFinding] = []
+    if ":" in info.filename:
+        findings.append(_finding("package-ads-stream-name", file=normalized, evidence=info.filename))
     if _archive_member_is_absolute(info.filename):
         findings.append(_finding("package-absolute-path", file=normalized, evidence=info.filename))
     elif _archive_member_traverses(info.filename):

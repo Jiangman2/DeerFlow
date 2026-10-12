@@ -106,9 +106,7 @@ async def test_internal_embedding_relay_normalizes_weknora_request(monkeypatch, 
         "truncate_prompt_tokens": 511,
     }
 
-    response = await weknora.cnooc_embeddings(
-        _request("/api/weknora/internal-models/v1/embeddings", payload, "relay-secret")
-    )
+    response = await weknora.cnooc_embeddings(_request("/api/weknora/internal-models/v1/embeddings", payload, "relay-secret"))
 
     response_payload = json.loads(response.body)
     assert [len(row["embedding"]) for row in response_payload["data"]] == [1024, 1024]
@@ -272,9 +270,7 @@ async def test_internal_rerank_relay_normalizes_weknora_request(monkeypatch, int
         "additional_data": {},
     }
 
-    response = await weknora.cnooc_rerank(
-        _request("/api/weknora/internal-models/v1/rerank", payload, "relay-secret")
-    )
+    response = await weknora.cnooc_rerank(_request("/api/weknora/internal-models/v1/rerank", payload, "relay-secret"))
 
     assert json.loads(response.body) == upstream
     url, kwargs = calls[0]

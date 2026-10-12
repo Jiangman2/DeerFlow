@@ -89,12 +89,29 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用中海油勘探开发智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
+      "欢迎使用中国海油通用智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
     mobileDescription: "面向油气业务的智能研究与协作助手",
 
     createYourOwnSkill: "创建您的专属技能",
     createYourOwnSkillDescription:
       "描述您希望智能体完成的工作，我们会协助您搭建可复用的技能。",
+    hainengPortal: "“海能”人工智能平台",
+    totalUsage: "总使用量",
+    todayUsage: "今日使用量",
+    todayUsers: "今日用户",
+    todayTasks: "今日任务数",
+    supportGroupTitle: "海能Work服务支持群",
+    supportGroupName: "中国海油通用智能体-问题反馈交流群",
+    supportGroupQrAlt: "海能Work服务支持群二维码",
+    supportGroupScan: "请使用移动海能Work扫码入群",
+    usageUnavailable: "使用量暂不可用",
+    contactUs: "联系我们",
+    feedback: "意见反馈",
+    supportPhone: "客服电话",
+    supportEmail: "客服邮箱",
+    businessOwner: "业务负责人",
+    operationsOwner: "运维负责人",
+    serviceHours: "服务时间",
   },
 
   // Clipboard
@@ -146,7 +163,7 @@ export const zhCN: Translations = {
 
   // Input Box
   inputBox: {
-    placeholder: "今天我能为你做些什么？",
+    placeholder: "随心输入",
     createSkillPrompt:
       "我们一起用 skill-creator 技能来创建一个技能吧。先问问我希望这个技能能做什么。",
     addAttachments: "添加附件",
@@ -347,6 +364,7 @@ export const zhCN: Translations = {
     recentChats: "最近的对话",
     demoChats: "演示对话",
     agents: "数字员工",
+    agentSquare: "智能体广场",
     knowledge: "知识库",
     skillCenter: "技能中心",
     openSkillCenter: "在新窗口打开技能中心",
@@ -792,7 +810,7 @@ export const zhCN: Translations = {
       telegram: "通过本平台 Bot 接收 Telegram 私聊消息。",
       slack: "接收 Slack 工作区消息和提及。",
       discord: "通过本平台 Bot 接收 Discord 服务器消息。",
-      feishu: "通过本平台应用接收飞书和 Lark 消息。",
+      feishu: "通过海能 Work 应用接收消息。",
       dingtalk: "通过本平台 Bot 接收钉钉 Stream Push 消息。",
       wechat: "通过本平台 Bot 接收微信 iLink 消息。",
       wecom: "通过本平台 AI Bot 接收企业微信消息。",
@@ -802,7 +820,7 @@ export const zhCN: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中海油勘探开发智能体",
+    appName: "中国海油通用智能体",
     chats: "对话",
     newChat: "新对话",
     untitled: "未命名",

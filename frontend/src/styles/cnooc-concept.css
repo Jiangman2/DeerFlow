@@ -915,7 +915,7 @@
   /* Collapsed rail: icon tile and label are separate grid rows. */
   [data-collapsible="icon"]
     .cnooc-workspace-sidebar[data-slot="sidebar-container"] {
-    padding: 30px 14px !important;
+    padding: 30px 4px !important;
   }
 
   [data-collapsible="icon"] .cnooc-workspace-sidebar [data-sidebar="sidebar"] {
@@ -925,15 +925,40 @@
   [data-collapsible="icon"] .cnooc-workspace-sidebar [data-sidebar="header"] {
     width: 100% !important;
     align-items: center !important;
-    gap: 36px !important;
-    padding: 43px 8px 20px !important;
+    gap: 24px !important;
+    padding: 32px 8px 16px !important;
   }
 
   [data-collapsible="icon"] .cnooc-workspace-sidebar [data-sidebar="content"] {
     width: 100% !important;
     align-items: center !important;
-    overflow: hidden !important;
-    padding: 0 7px 8px !important;
+    min-height: 0;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding: 0 0 8px !important;
+  }
+
+  /* Legacy Chromium ignores scrollbar-width: thin. Bound its native gutter
+     too, so five-character labels fit beside the scrollbar at 90% zoom. */
+  [data-collapsible="icon"]
+    .cnooc-workspace-sidebar
+    [data-sidebar="content"]::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  [data-collapsible="icon"]
+    .cnooc-workspace-sidebar
+    [data-sidebar="content"]::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: rgba(112, 132, 163, 0.45);
+  }
+
+  /* Keep every navigation item reachable on short/zoomed desktop viewports. */
+  [data-collapsible="icon"]
+    .cnooc-workspace-sidebar
+    [data-sidebar="content"]
+    > [data-sidebar="group"] {
+    flex-shrink: 0;
   }
 
   [data-collapsible="icon"] .cnooc-workspace-sidebar [data-sidebar="footer"] {
@@ -953,7 +978,7 @@
     align-items: center;
     margin-right: auto !important;
     margin-left: auto !important;
-    gap: 20px !important;
+    gap: 14px !important;
   }
 
   [data-collapsible="icon"]
@@ -971,12 +996,13 @@
     [data-sidebar="menu-button"] {
     position: relative;
     display: grid !important;
-    grid-template-rows: 56px 24px !important;
+    grid-template-rows: 52px 22px !important;
     place-items: center !important;
-    row-gap: 8px !important;
+    row-gap: 6px !important;
     width: 86px !important;
-    height: 88px !important;
-    min-height: 88px !important;
+    max-width: 100% !important;
+    height: 80px !important;
+    min-height: 80px !important;
     padding: 0 !important;
     margin-right: auto !important;
     margin-left: auto !important;
@@ -1005,10 +1031,10 @@
     grid-row: 1;
     z-index: 1;
     display: grid !important;
-    width: 56px !important;
-    height: 56px !important;
-    min-width: 56px !important;
-    min-height: 56px !important;
+    width: 52px !important;
+    height: 52px !important;
+    min-width: 52px !important;
+    min-height: 52px !important;
     place-items: center !important;
     align-self: center !important;
     justify-self: center !important;
@@ -1029,8 +1055,8 @@
     [data-sidebar="menu-button"]
     > .cnooc-sidebar-icon-tile
     > svg {
-    width: 27px !important;
-    height: 27px !important;
+    width: 25px !important;
+    height: 25px !important;
     margin: 0 !important;
     flex: none !important;
   }
@@ -1801,16 +1827,16 @@
   (min-width: 48rem) and (max-height: 900px) {
   [data-collapsible="icon"]
     .cnooc-workspace-sidebar[data-slot="sidebar-container"] {
-    padding: 18px 10px !important;
+    padding: 14px 10px !important;
   }
 
   [data-collapsible="icon"] .cnooc-workspace-sidebar [data-sidebar="header"] {
-    gap: 20px !important;
-    padding: 22px 6px 24px !important;
+    gap: 12px !important;
+    padding: 16px 6px 14px !important;
   }
 
   [data-collapsible="icon"] .cnooc-workspace-sidebar [data-sidebar="content"] {
-    padding: 0 5px 6px !important;
+    padding: 0 0 6px !important;
   }
 
   [data-collapsible="icon"] .cnooc-workspace-sidebar [data-sidebar="footer"] {
@@ -1818,7 +1844,7 @@
   }
 
   [data-collapsible="icon"] .cnooc-workspace-sidebar [data-sidebar="menu"] {
-    gap: 10px !important;
+    gap: 8px !important;
   }
 
   html
@@ -1826,11 +1852,11 @@
     [data-collapsible="icon"]
     .cnooc-workspace-sidebar
     [data-sidebar="menu-button"] {
-    grid-template-rows: 48px 20px !important;
-    row-gap: 4px !important;
+    grid-template-rows: 44px 20px !important;
+    row-gap: 2px !important;
     width: 76px !important;
-    height: 72px !important;
-    min-height: 72px !important;
+    height: 66px !important;
+    min-height: 66px !important;
     font-size: 14px !important;
   }
 
@@ -1840,10 +1866,10 @@
     .cnooc-workspace-sidebar
     [data-sidebar="menu-button"]
     > .cnooc-sidebar-icon-tile {
-    width: 48px !important;
-    height: 48px !important;
-    min-width: 48px !important;
-    min-height: 48px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
     border-radius: 14px !important;
   }
 
@@ -1852,8 +1878,8 @@
     [data-sidebar="menu-button"]
     > .cnooc-sidebar-icon-tile
     > svg {
-    width: 23px !important;
-    height: 23px !important;
+    width: 22px !important;
+    height: 22px !important;
   }
 
   [data-collapsible="icon"]
@@ -3873,6 +3899,257 @@
 .cnooc-workspace-shell .cnooc-model-selector .cnooc-model-name {
   width: max-content;
   flex: 0 0 auto;
+}
+
+/* Haineng portal integration is scoped to the ordinary chat welcome screen. */
+.cnooc-header-actions > .cnooc-haineng-portal-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  background: rgba(218, 233, 255, 0.9) !important;
+  color: #2f69cb !important;
+  white-space: nowrap;
+}
+
+.cnooc-haineng-portal-link svg:last-child {
+  width: 15px;
+  height: 15px;
+}
+
+.cnooc-haineng-mobile-link {
+  display: none;
+}
+
+.cnooc-welcome-copyright.cnooc-home-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px clamp(8px, 1vw, 18px);
+  overflow: visible;
+  white-space: normal;
+}
+
+.cnooc-home-footer-tools,
+.cnooc-home-usage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1vw, 18px);
+  flex-wrap: wrap;
+}
+
+.cnooc-home-usage > span {
+  white-space: nowrap;
+}
+
+.cnooc-home-usage strong {
+  color: var(--cnooc-blue-dark);
+  font-weight: 700;
+}
+
+.cnooc-home-contact {
+  position: relative;
+  color: var(--cnooc-blue-dark);
+}
+
+.cnooc-home-contact button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cnooc-home-contact button:hover {
+  text-decoration: underline;
+}
+
+.cnooc-home-contact-card {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  z-index: 60;
+  display: none;
+  width: min(288px, 88vw);
+  max-height: calc(100dvh - 100px);
+  overflow-y: auto;
+  border: 1px solid var(--cnooc-line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--cnooc-shadow);
+  color: #414a56;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+}
+
+.cnooc-home-contact:hover .cnooc-home-contact-card,
+.cnooc-home-contact:has(> button:focus-visible) .cnooc-home-contact-card,
+.cnooc-home-contact-card:has(:focus-visible) {
+  display: block;
+}
+
+/* The composer dock sits at z-index: 30; lift the footer stacking context
+   while the contact card is open so quick-action buttons cannot cover it. */
+.cnooc-welcome-copyright.cnooc-home-footer:has(.cnooc-home-contact:hover),
+.cnooc-welcome-copyright.cnooc-home-footer:has(
+    .cnooc-home-contact:focus-within
+  ) {
+  z-index: 50;
+}
+
+.cnooc-home-contact-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e8edf4;
+}
+
+.cnooc-home-contact-card-header strong {
+  color: #303946;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cnooc-home-contact-card-header a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cnooc-blue-dark);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cnooc-home-contact-card-header a:hover {
+  text-decoration: underline;
+}
+
+.cnooc-home-contact-card-header svg {
+  width: 13px;
+  height: 13px;
+}
+
+.cnooc-home-contact-details {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 16px 17px;
+}
+
+.cnooc-home-contact-details > div {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px;
+}
+
+.cnooc-home-contact-details dt,
+.cnooc-home-contact-details dd {
+  margin: 0;
+}
+
+.cnooc-home-contact-details a {
+  color: inherit;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
+.cnooc-home-contact-details a:hover {
+  color: var(--cnooc-blue-dark);
+  text-decoration: underline;
+}
+
+.cnooc-home-support-group {
+  padding: 0 12px 12px;
+}
+
+.cnooc-home-support-group > strong {
+  color: #303946;
+  font-size: 16px;
+}
+
+.cnooc-home-support-group > p {
+  margin: 5px 0 8px;
+  color: #3888cb;
+  font-size: 12px;
+}
+
+.cnooc-home-support-qr {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #e0efff;
+  font-size: 12px;
+}
+
+.cnooc-home-support-qr img {
+  display: block;
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.cnooc-home-copyright-text,
+.cnooc-home-address {
+  white-space: nowrap;
+}
+
+@media (min-width: 48rem) and (max-width: 78rem) {
+  .cnooc-haineng-portal-link span {
+    display: none;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .cnooc-haineng-mobile-link {
+    position: absolute;
+    top: calc(16px + env(safe-area-inset-top));
+    right: 16px;
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--cnooc-line);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.76);
+    color: var(--cnooc-blue-dark);
+  }
+
+  .cnooc-haineng-mobile-link svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .cnooc-welcome-copyright.cnooc-home-footer {
+    display: none;
+  }
+
+  .cnooc-home-footer-tools,
+  .cnooc-home-usage {
+    gap: 10px;
+  }
+
+  .cnooc-home-copyright-text,
+  .cnooc-home-address {
+    display: none;
+  }
+}
+
+@media (max-width: 47.999rem) and (max-height: 40rem) {
+  .cnooc-welcome-copyright.cnooc-home-footer {
+    display: none;
+  }
 }
 
 @media (max-width: 47.999rem) {

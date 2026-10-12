@@ -14,9 +14,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_ROOT = REPO_ROOT / "skills" / "public" / "research-fund-settlement"
 SCRIPTS = SKILL_ROOT / "scripts"
-STANDARD_WORKBOOK = (
-    SKILL_ROOT / "assets" / "reference-examples" / "group-company-standard-input.xlsx"
-)
+STANDARD_WORKBOOK = SKILL_ROOT / "assets" / "reference-examples" / "group-company-standard-input.xlsx"
 
 
 @pytest.fixture()
@@ -34,11 +32,14 @@ def _rewrite_xlsx(
     extra: tuple[str, bytes] | None = None,
 ) -> None:
     rewrite = rewrite or {}
-    with zipfile.ZipFile(source) as input_archive, zipfile.ZipFile(
-        target,
-        "w",
-        compression=zipfile.ZIP_DEFLATED,
-    ) as output_archive:
+    with (
+        zipfile.ZipFile(source) as input_archive,
+        zipfile.ZipFile(
+            target,
+            "w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as output_archive,
+    ):
         for info in input_archive.infolist():
             payload = input_archive.read(info.filename)
             if info.filename in rewrite:
@@ -55,17 +56,9 @@ def _filled_sheet_xml(standard_input, payload: bytes) -> bytes:
 
     def set_value(ref: str, value: str | int | float) -> None:
         row_number = int("".join(character for character in ref if character.isdigit()))
-        row = next(
-            node
-            for node in sheet_data.findall(f"{{{standard_input.SS}}}row")
-            if node.attrib.get("r") == str(row_number)
-        )
+        row = next(node for node in sheet_data.findall(f"{{{standard_input.SS}}}row") if node.attrib.get("r") == str(row_number))
         cell = next(
-            (
-                node
-                for node in row.findall(f"{{{standard_input.SS}}}c")
-                if node.attrib.get("r") == ref
-            ),
+            (node for node in row.findall(f"{{{standard_input.SS}}}c") if node.attrib.get("r") == ref),
             None,
         )
         if cell is None:
@@ -177,11 +170,7 @@ def test_changed_merge_layout_is_rejected(standard_input, tmp_path):
         root = ET.fromstring(payload)
         merge_cells = root.find(f"{{{standard_input.SS}}}mergeCells")
         assert merge_cells is not None
-        victim = next(
-            node
-            for node in merge_cells.findall(f"{{{standard_input.SS}}}mergeCell")
-            if node.attrib.get("ref") == "B2:E2"
-        )
+        victim = next(node for node in merge_cells.findall(f"{{{standard_input.SS}}}mergeCell") if node.attrib.get("ref") == "B2:E2")
         merge_cells.remove(victim)
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
@@ -202,11 +191,7 @@ def test_worksheet_relationship_cannot_escape_safe_directory(
 ):
     def escape_target(payload: bytes) -> bytes:
         root = ET.fromstring(payload)
-        relationship = next(
-            node
-            for node in root.findall(f"{{{standard_input.PKG_REL}}}Relationship")
-            if node.attrib.get("Type") == standard_input.WORKSHEET_REL
-        )
+        relationship = next(node for node in root.findall(f"{{{standard_input.PKG_REL}}}Relationship") if node.attrib.get("Type") == standard_input.WORKSHEET_REL)
         relationship.set("Target", "../evil.xml")
         return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
@@ -223,11 +208,7 @@ def test_worksheet_relationship_cannot_escape_safe_directory(
 
 def test_zip_member_path_traversal_is_rejected(standard_input, tmp_path):
     mutated = tmp_path / "zip-traversal.xlsx"
-    _rewrite_xlsx(
-        STANDARD_WORKBOOK,
-        mutated,
-        extra=("../outside.xml", b"<outside/>")
-    )
+    _rewrite_xlsx(STANDARD_WORKBOOK, mutated, extra=("../outside.xml", b"<outside/>"))
 
     with pytest.raises(ValueError, match="不安全部件路径"):
         standard_input.FixedWorkbook(mutated)

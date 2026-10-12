@@ -22,6 +22,11 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from jsonschema import Draft202012Validator, SchemaError
+from referencing import Registry
+from referencing.exceptions import NoSuchResource, Unresolvable
+
+from app.gateway.ppt_runtime_broker import dispatch_runtime, persist_provider_receipt, require_scope
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +36,7 @@ _DEFAULT_MODEL = "DeepSeek-V4-Flash"
 _DEFAULT_UPSTREAM_URL = "https://aiapi.cnooc.com.cn/DeepSeek-V4-Flash/FEAT-511-001/v1/chat/completions"
 _DEFAULT_MAX_REQUEST_BYTES = 32 * 1024 * 1024
 _DEFAULT_MAX_OUTPUT_TOKENS = 65536
+_MAX_TOOL_ARGUMENT_REPAIRS = 2
 _RETRYABLE_HTTP_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 _RETRYABLE_BUSINESS_CODES = frozenset(
     {
@@ -69,11 +75,24 @@ class DeepSeekUpstreamError(RuntimeError):
         self.retryable = retryable
 
 
+class ToolArgumentsError(DeepSeekUpstreamError):
+    """Rejected before publication; a bounded model regeneration is safe."""
+
+    def __init__(self, constraint: str, *, diagnostic: dict[str, int | str] | None = None) -> None:
+        # Do not expose arguments, validator instance values, or provider secrets.
+        super().__init__(
+            "Enterprise DeepSeek tool arguments failed validation (" + constraint + "). No tools from this response were dispatched.",
+            code="invalid_tool_arguments",
+        )
+        self.diagnostic = diagnostic or {}
+
+
 @dataclass(frozen=True)
 class ResponseToolTarget:
     kind: str
     name: str
     namespace: str | None = None
+    parameters: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -446,6 +465,7 @@ def _chat_function_definition(tool: dict[str, Any], *, kind: str, name: str, des
         parameters = tool.get("parameters")
         if not isinstance(parameters, dict):
             parameters = {"type": "object", "properties": {}}
+    _check_tool_schema(parameters)
     return {
         "type": "function",
         "function": {
@@ -454,6 +474,41 @@ def _chat_function_definition(tool: dict[str, Any], *, kind: str, name: str, des
             "parameters": parameters,
         },
     }
+
+
+def _deny_schema_retrieval(uri: str):
+    # A tool schema must never become an outbound request or local-file reader.
+    raise NoSuchResource(ref=uri)
+
+
+def _check_tool_schema(parameters: dict[str, Any]) -> None:
+    def check_refs(value: Any, depth: int = 0) -> None:
+        if depth > 64:
+            raise ValueError("schema too deep")
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if key in {"$ref", "$dynamicRef"} and (not isinstance(child, str) or not child.startswith("#")):
+                    raise ValueError("non-local schema reference")
+                # Only schema positions: properties or examples named "$ref"
+                # are ordinary data and must not be mistaken for references.
+                if key in {"properties", "patternProperties", "$defs", "definitions", "dependentSchemas", "dependencies"} and isinstance(child, dict):
+                    for schema in child.values():
+                        check_refs(schema, depth + 1)
+                elif key in {"allOf", "anyOf", "oneOf", "prefixItems"} and isinstance(child, list):
+                    for schema in child:
+                        check_refs(schema, depth + 1)
+                elif key in {"items", "additionalItems", "additionalProperties", "unevaluatedProperties", "unevaluatedItems", "propertyNames", "contains", "not", "if", "then", "else"}:
+                    if isinstance(child, list):
+                        for schema in child:
+                            check_refs(schema, depth + 1)
+                    else:
+                        check_refs(child, depth + 1)
+
+    try:
+        check_refs(parameters)
+        Draft202012Validator.check_schema(parameters)
+    except (ValueError, SchemaError, RecursionError) as exc:
+        raise AdapterRequestError("Tool parameter schema is invalid or requires an external reference.", param="tools") from exc
 
 
 def _convert_tools(
@@ -491,8 +546,9 @@ def _convert_tools(
             if identity in response_identities or name in tool_targets:
                 raise AdapterRequestError("Tool names must be unique.", param=f"{param}.name")
             response_identities.add(identity)
-            tool_targets[name] = ResponseToolTarget(kind=tool_type, name=name)
-            tools.append(_chat_function_definition(tool, kind=tool_type, name=name, description=description))
+            definition = _chat_function_definition(tool, kind=tool_type, name=name, description=description)
+            tool_targets[name] = ResponseToolTarget(kind=tool_type, name=name, parameters=definition["function"]["parameters"])
+            tools.append(definition)
             continue
 
         namespace_tools = tool.get("tools")
@@ -519,19 +575,14 @@ def _convert_tools(
             response_identities.add(identity)
             child_description = child.get("description") if isinstance(child.get("description"), str) else ""
             qualified_description = f"Namespace `{name}`. {description}\n{child_description}".strip()
+            definition = _chat_function_definition(child, kind=child_type, name=upstream_name, description=qualified_description)
             tool_targets[upstream_name] = ResponseToolTarget(
                 kind=child_type,
                 name=child_name,
                 namespace=name,
+                parameters=definition["function"]["parameters"],
             )
-            tools.append(
-                _chat_function_definition(
-                    child,
-                    kind=child_type,
-                    name=upstream_name,
-                    description=qualified_description,
-                )
-            )
+            tools.append(definition)
     return tools, tool_targets, tuple(ignored_hosted_tool_types)
 
 
@@ -681,6 +732,8 @@ def _validate_completion(completion: DeepSeekCompletion) -> None:
             "Enterprise DeepSeek exhausted max_tokens before completing the turn.",
             code="max_output_tokens",
         )
+    if completion.finish_reason not in {"stop", "tool_calls"}:
+        raise DeepSeekUpstreamError("Enterprise DeepSeek stream ended without a completed turn.", code="incomplete_response", retryable=True)
     if not completion.content and not completion.tool_calls:
         raise DeepSeekUpstreamError(
             "Enterprise DeepSeek completed without text or tool calls.",
@@ -690,18 +743,64 @@ def _validate_completion(completion: DeepSeekCompletion) -> None:
     for tool_call in completion.tool_calls.values():
         if not tool_call.name or not tool_call.call_id:
             raise DeepSeekUpstreamError("Enterprise DeepSeek returned an incomplete tool call.", code="invalid_tool_call")
+        _parse_tool_arguments(tool_call.arguments_text)
+
+
+def _parse_tool_arguments(text: str) -> dict[str, Any]:
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError("duplicate key")
+            result[key] = value
+        return result
+
+    def reject_constant(_):
+        raise ValueError("non-finite constant")
+
+    try:
+        arguments = json.loads(text, object_pairs_hook=pairs, parse_constant=reject_constant)
+    except json.JSONDecodeError as exc:
+        # Keep positions, never the offending argument text/key/value.
+        raise ToolArgumentsError("JSON syntax", diagnostic={"kind": "json_decode", "position": exc.pos, "line": exc.lineno, "column": exc.colno}) from exc
+    except (ValueError, RecursionError) as exc:
+        kind = "nesting_limit" if isinstance(exc, RecursionError) else "noncanonical_json"
+        raise ToolArgumentsError("JSON syntax", diagnostic={"kind": kind}) from exc
+    if not isinstance(arguments, dict):
+        raise ToolArgumentsError("object required")
+    return arguments
+
+
+def _validate_tool_arguments(tool_call: ToolCallBuffer, target: ResponseToolTarget) -> dict[str, Any]:
+    arguments = _parse_tool_arguments(tool_call.arguments_text)
+    if target.parameters is not None:
         try:
-            arguments = json.loads(tool_call.arguments_text)
-        except json.JSONDecodeError as exc:
-            raise DeepSeekUpstreamError(
-                "Enterprise DeepSeek returned malformed tool arguments.",
-                code="invalid_tool_arguments",
-            ) from exc
-        if not isinstance(arguments, dict):
-            raise DeepSeekUpstreamError(
-                "Enterprise DeepSeek tool arguments must be a JSON object.",
-                code="invalid_tool_arguments",
-            )
+            validator = Draft202012Validator(target.parameters, registry=Registry(retrieve=_deny_schema_retrieval))
+            error = next(validator.iter_errors(arguments), None)
+        except (Unresolvable, RecursionError) as exc:
+            raise DeepSeekUpstreamError("Tool schema cannot be resolved locally.", code="invalid_tool_schema") from exc
+        if error is not None:
+            # error.message contains instance data. Log only the known validator keyword.
+            constraint = str(error.validator)[:40]
+            if error.validator == "required" and isinstance(error.instance, dict):
+                missing = [name for name in error.validator_value if name not in error.instance]
+                # Field names come from the caller's schema, never from argument values.
+                constraint += "; missing fields=" + json.dumps([name[:80] for name in missing[:8]], ensure_ascii=True)
+            raise ToolArgumentsError("schema " + constraint)
+    return arguments
+
+
+def _total_attempt_usage(attempts: list[dict[str, Any]]) -> dict[str, Any]:
+    total = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    reasoning = 0
+    for attempt in attempts:
+        usage = _usage_payload(attempt)
+        total["prompt_tokens"] += usage["input_tokens"]
+        total["completion_tokens"] += usage["output_tokens"]
+        total["total_tokens"] += usage["total_tokens"]
+        reasoning += usage.get("output_tokens_details", {}).get("reasoning_tokens", 0)
+    total["completion_tokens_details"] = {"reasoning_tokens": reasoning}
+    return total
 
 
 def _usage_payload(usage: dict[str, Any]) -> dict[str, Any]:
@@ -749,9 +848,9 @@ def _response_output(
                 "Enterprise DeepSeek called an unknown tool.",
                 code="unknown_tool_call",
             )
+        arguments = _validate_tool_arguments(tool_call, target)
         namespace = {"namespace": target.namespace} if target.namespace is not None else {}
         if target.kind == "custom":
-            arguments = json.loads(tool_call.arguments_text)
             raw_input = arguments.get("input")
             if not isinstance(raw_input, str):
                 raise DeepSeekUpstreamError(
@@ -817,6 +916,8 @@ def _completed_events(
         added["status"] = "in_progress"
         if added["type"] == "message":
             added["content"] = []
+        elif added["type"] == "function_call":
+            added["arguments"] = ""
         events.append(
             _sse(
                 {
@@ -828,6 +929,23 @@ def _completed_events(
             )
         )
         sequence += 1
+        if item["type"] == "function_call":
+            for event_type, field_name in (
+                ("response.function_call_arguments.delta", "delta"),
+                ("response.function_call_arguments.done", "arguments"),
+            ):
+                events.append(
+                    _sse(
+                        {
+                            "type": event_type,
+                            "sequence_number": sequence,
+                            "item_id": item["id"],
+                            "output_index": output_index,
+                            field_name: item["arguments"],
+                        }
+                    )
+                )
+                sequence += 1
         events.append(
             _sse(
                 {
@@ -854,13 +972,15 @@ def _completed_events(
     return events
 
 
-def _failed_event(response_id: str, model: str, error: DeepSeekUpstreamError, sequence_number: int) -> str:
+def _failed_event(response_id: str, model: str, error: DeepSeekUpstreamError, sequence_number: int, usage: dict[str, Any] | None = None) -> str:
     response = _base_response(response_id, model, status="failed", output=[])
     response["error"] = {
         "code": error.code,
         "message": str(error),
         "type": "server_error",
     }
+    if usage is not None:
+        response["usage"] = _usage_payload(usage)
     return _sse(
         {
             "type": "response.failed",
@@ -870,7 +990,7 @@ def _failed_event(response_id: str, model: str, error: DeepSeekUpstreamError, se
     )
 
 
-async def stream_deepseek_responses(converted: ConvertedRequest):
+async def stream_deepseek_responses(converted: ConvertedRequest, *, receipt_request=None, receipt_scope=None):
     """Yield one Responses SSE turn while consuming DeepSeek's streamed chat turn."""
 
     response_id = f"resp_{uuid.uuid4().hex}"
@@ -883,7 +1003,7 @@ async def stream_deepseek_responses(converted: ConvertedRequest):
     sequence += 1
 
     upstream_url = os.getenv("PPT_MASTER_DEEPSEEK_UPSTREAM_URL", _DEFAULT_UPSTREAM_URL).strip()
-    attempts = _int_env("PPT_MASTER_DEEPSEEK_ATTEMPTS", 2)
+    attempts = min(_int_env("PPT_MASTER_DEEPSEEK_ATTEMPTS", 2), 3)
     timeout = httpx.Timeout(
         connect=_float_env("PPT_MASTER_DEEPSEEK_CONNECT_TIMEOUT_SECONDS", 15.0),
         read=_float_env("PPT_MASTER_DEEPSEEK_READ_TIMEOUT_SECONDS", 900.0),
@@ -891,11 +1011,20 @@ async def stream_deepseek_responses(converted: ConvertedRequest):
         pool=_float_env("PPT_MASTER_DEEPSEEK_POOL_TIMEOUT_SECONDS", 15.0),
     )
     last_error: DeepSeekUpstreamError | None = None
-    for attempt in range(1, attempts + 1):
+    repairs = 0
+    transient_failures = 0
+    attempt_usage: list[dict[str, Any]] = []
+    request_payload = converted.payload
+    # Include repairs in one total budget; provider keepalives cannot extend it.
+    deadline = time.monotonic() + min(_float_env("PPT_MASTER_DEEPSEEK_TURN_TIMEOUT_SECONDS", 540.0), 540.0)
+    for attempt in range(1, attempts + _MAX_TOOL_ARGUMENT_REPAIRS + 1):
         completion = DeepSeekCompletion(model=model)
+        usage_recorded = False
+        provider_persisted = False
         last_progress = time.monotonic()
+        turn_budget = asyncio.timeout(max(0.001, deadline - time.monotonic()))
         try:
-            async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+            async with turn_budget, httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
                 async with client.stream(
                     "POST",
                     upstream_url,
@@ -905,7 +1034,7 @@ async def stream_deepseek_responses(converted: ConvertedRequest):
                         "Accept": "text/event-stream",
                         "Accept-Encoding": "identity",
                     },
-                    json=converted.payload,
+                    json=request_payload,
                 ) as response:
                     if response.status_code >= 400:
                         await response.aread()
@@ -922,31 +1051,93 @@ async def stream_deepseek_responses(converted: ConvertedRequest):
                         if now - last_progress >= 15.0:
                             yield ": deepseek-progress\n\n"
                             last_progress = now
+            attempt_usage.append(completion.usage)
+            usage_recorded = True
+            if receipt_scope is not None:
+                await persist_provider_receipt(receipt_request, receipt_scope, response_id, attempt, completion.usage, model=model)
+                provider_persisted = True
             _validate_completion(completion)
+            # Build the entire batch before publishing; a rejected sibling must
+            # never leave an executed prefix.
+            completion.usage = _total_attempt_usage(attempt_usage)
             for event in _completed_events(response_id, completion, converted.tool_targets, sequence):
                 yield event
             return
+        except ToolArgumentsError as exc:
+            last_error = exc
+            logger.warning(
+                "Enterprise tool batch rejected response=%s diagnostic=%s calls=%s",
+                response_id,
+                exc.diagnostic,
+                [
+                    {
+                        "tool_hash": hashlib.sha256(call.name.encode()).hexdigest()[:12],
+                        "fragments": len(call.arguments),
+                        "argument_bytes": len(call.arguments_text.encode("utf-8")),
+                        "prefix_snapshots": sum(fragment.lstrip().startswith("{") for fragment in call.arguments),
+                    }
+                    for call in list(completion.tool_calls.values())[:16]
+                ],
+            )
+            if not usage_recorded:
+                attempt_usage.append(completion.usage)
+            if repairs >= _MAX_TOOL_ARGUMENT_REPAIRS:
+                break
+            repairs += 1
+            # Only regenerate an unpublished turn; preserve earlier receipts.
+            feedback = (
+                "Protocol validation rejected your previous response before dispatch. "
+                "No tool from that response has executed. Regenerate the complete next response "
+                "from the original conversation using only the supplied tools and their exact parameter schemas. "
+                "Every function arguments value must be one complete JSON object with all required fields "
+                "and correct field names and types. Do not put command text in a different field. "
+                "Serialize nested quotes, backslashes and newlines using valid JSON string escaping; "
+                "do not wrap arguments in Markdown or concatenate multiple JSON objects. "
+                "Do not repeat tools whose outputs are already in the original conversation. " + str(exc)
+            )
+            request_payload = {**converted.payload, "messages": [*converted.payload["messages"], {"role": "system", "content": feedback}]}
+            logger.warning("Enterprise DeepSeek tool arguments rejected before dispatch; correction=%s/%s.", repairs, _MAX_TOOL_ARGUMENT_REPAIRS)
+            yield ": deepseek-tool-arguments-correction\n\n"
         except DeepSeekUpstreamError as exc:
             last_error = exc
-            if not exc.retryable or attempt >= attempts:
+            if not usage_recorded:
+                attempt_usage.append(completion.usage)
+            transient_failures += 1
+            if not exc.retryable or transient_failures >= attempts:
                 break
             logger.warning("Retrying enterprise DeepSeek Responses bridge after %s.", exc.code)
             yield ": deepseek-retry\n\n"
             await asyncio.sleep(min(2.0, float(attempt)))
         except (httpx.RequestError, TimeoutError):
+            if not usage_recorded:
+                attempt_usage.append(completion.usage)
+            if turn_budget.expired() or time.monotonic() >= deadline:
+                last_error = DeepSeekUpstreamError("Enterprise DeepSeek exceeded the total turn deadline.", code="upstream_deadline")
+                break
             last_error = DeepSeekUpstreamError(
                 "Enterprise DeepSeek is temporarily unavailable.",
                 code="upstream_unavailable",
                 retryable=True,
             )
-            if attempt >= attempts:
+            transient_failures += 1
+            if transient_failures >= attempts:
                 logger.warning("Enterprise DeepSeek Responses bridge failed.", exc_info=True)
                 break
             yield ": deepseek-retry\n\n"
             await asyncio.sleep(min(2.0, float(attempt)))
 
+        finally:
+            if receipt_scope is not None and not provider_persisted:
+                operation = asyncio.create_task(persist_provider_receipt(receipt_request, receipt_scope, response_id, attempt, completion.usage, model=model))
+                while not operation.done():
+                    try:
+                        await asyncio.shield(operation)
+                    except asyncio.CancelledError:
+                        continue
+                operation.result()
+
     assert last_error is not None
-    yield _failed_event(response_id, model, last_error, sequence)
+    yield _failed_event(response_id, model, last_error, sequence, _total_attempt_usage(attempt_usage))
 
 
 @router.post("/responses")
@@ -954,13 +1145,17 @@ async def create_response(request: Request):
     """Translate one authenticated Codex Responses turn to enterprise DeepSeek."""
 
     try:
+        operation = request.headers.get("X-Ppt-Runtime-Operation")
+        if operation is not None:
+            return await dispatch_runtime(request, operation)
         _require_relay_auth(request)
         payload = await _read_request_json(request)
+        receipt_scope = await require_scope(request) if request.headers.get("X-Ppt-Capability") else None
         converted = convert_responses_request(payload)
     except AdapterRequestError as exc:
         return _error_response(exc)
     return StreamingResponse(
-        stream_deepseek_responses(converted),
+        stream_deepseek_responses(converted, receipt_request=request, receipt_scope=receipt_scope),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-store",

@@ -1,5 +1,187 @@
 # AGENTS.md
 
+The 2026-10-04 production Gateway reconciliation is documented in `../docs/production-gateway-reconciliation-20261004.md`. Preserve metadata-only owner routing and Gateway authentication/CSRF enforcement. Persist partial history only for explicit client interrupts, never lease takeover, shutdown, rollback or model failure; do not write unfinished text to model checkpoints. The regression tests use repository sources, not release archives or fake harness modules.
+
+Batch-fourteen reconciliation is recorded in
+`docs/BACKEND_RECONCILIATION_BATCH14_20261002.md`. TUI quit must interrupt an
+active stream before exit and registry/submission must reuse the existing
+reserved-Slash set without reserving context tasks. Keep unsupported TUI
+compaction controls out of Skill activation. Contentless messages yield empty
+text, not literal None. WeChat must isolate failed batch items, log their IDs,
+propagate cancellation and persist its cursor only after the entire batch was
+attempted. Keep auth, ownership, decryption and offloaded persistence unchanged.
+Diff counters distinguish true file headers from header-like hunk content using
+declared ranges. No additional test deferrals are made in this batch.
+
+Batch-thirteen reconciliation is recorded in
+`docs/BACKEND_RECONCILIATION_BATCH13_20261002.md`. Preserve the pre-merge
+thread/run internal owner gates and every call site; never equate an internal
+token with cross-user permission. Usage aggregations must propagate the resolved
+scope into SQL and memory stores before reducing counters, including active
+runs. Retain positive cursor/limit constraints and existing upper bounds. Hidden
+confirmation-answer replay and the unwired typed-preview renderer remain
+explicitly deferred, while all pre-merge tests/assertions and standalone
+synopsis helper tests remain. Do not change the WeKnora inline JSON/image budget
+or generic raw head/tail runtime to make those missing integrations appear done.
+
+Batch-twelve reconciliation is recorded in
+`docs/BACKEND_RECONCILIATION_BATCH12_20261002.md`. Subagent execution owns and
+closes its async stream on exhaustion, cancellation and error; a secondary
+cleanup failure must not replace the primary exception or a first terminal
+status. Treat missing message content as empty only in subagent diagnostics.
+Keep the existing constructor, task-tool identity forwarding and guardrail
+pipeline unchanged: the incoming is_internal/authz_attributes expansion and
+unsupported Tavily extensions remain deferred. SSO tests must supply explicit
+non-secret config fixtures without copying live config, and retain IAM while
+hiding generic OIDC providers in SSO-only mode. Telegram binding tests assert
+the exact existing localized reply and preserve every identity/security check.
+
+The shared Slash contract follow-up is recorded in
+`docs/SLASH_CONTRACT_FOLLOWUP_20261002.md`. Keep the fixture aligned with the
+unchanged backend/frontend seven-name reserved sets. A context-specific Skill
+parser exception has no matching implementation and remains deferred; do not
+alter runtime parsers or weaken contract assertions to hide drift. Preserve the
+existing composer interception of /compact and /context compact, its API,
+abort/thread/in-flight guards and all pre-merge tests. The batch-eleven contract
+review is now resolved at the source/fixture level, pending server regressions.
+
+Batch-eleven reconciliation is documented in
+`docs/BACKEND_RECONCILIATION_BATCH11_20261002.md`. ZIP extraction must enforce
+its 4096-member cap independently of optional scanning and reject colon names
+on every platform. Native archive preflight reports those names as CRITICAL.
+Stop skill discovery at the first package SKILL.md while preserving recursive
+namespace discovery. Format mixed YAML keys as strings without accepting them.
+Keep the production skill activation/secret/workflow chain unchanged: owner-token
+and reload endpoint increments remain deferred. Tests use their own Python 3
+interpreter, not an ambiguous host PATH alias. The shared Slash contract drift
+requires its separate exact-file review before acceptance; this package does
+not reconcile or verify that contract.
+
+Batch-ten reconciliation is documented in
+`docs/BACKEND_RECONCILIATION_BATCH10_20261002.md`: preserve binary SkillScan
+bytes/exclusive materialization, positive Run cursors, null config handling,
+owned stream-child cancellation and SQLite global-budget transaction ordering.
+Keep atomic takeover fault injection aligned with the actual CAS. Do not
+silently enable moderation tracing or unbounded memory-only Run retention;
+their incoming-only tests remain explicitly deferred, not claimed as fixed.
+
+Search observation limits are recorded in `docs/SEARCH_FOLLOWUP_20261002.md`.
+Never present an empty truncated provider result as a completed no-match scan.
+For AIO directory globbing, check caps after all eligibility filters and before
+append; only another eligible result proves truncation. Preserve SDK transport,
+search roots, disabled-skill filtering, path masking and all authorization gates.
+
+The shared output-mask tail stops at colons; keep every PATH-list root as an
+independent match without changing root escaping, separator-mode asymmetry or
+I/O containment. The legacy pattern tests allow only this explicit tail delta.
+See `docs/PATH_MASK_FOLLOWUP_20261002.md`. Do not delete the colon-list security
+regression or restore unmatched scanner APIs to accommodate its assertions.
+
+The r10 merge reconciliation is recorded in `docs/BACKEND_BATCH9_MERGE_20261001.md`.
+Preserve the pre-merge memory token user filter, artifact authorization and
+separate visible HTTP-method registrations. OAuth locks must work across caller
+loops and release on cancellation without blocking event loops. Treat tool XML
+payloads and URI/path replacements as untrusted data. Exact read continuation
+markers are deferred; do not claim that generic range hints guarantee gap-free
+walks. No preexisting tests may be removed to conceal a regression.
+
+The enterprise 7·16 production source alignment and its rebuild limits are
+recorded in `../release/production-build-alignment-20260928/README.md`.
+The isolated PPT Agent Host uses the vendored v6.6.0 Skill build input, while
+the shared Skills volume has its own separate `ppt-master` tree.
+The current dedicated Runner's R3 source and base-image lock are under
+`../docker/ppt-master-runner/`; its `agent.py` must not replace the ordinary
+Gateway's copy.
+
+The isolated merge's first full-suite reconciliation is documented in
+`docs/BACKEND_BATCH2_MERGE_20261001.md`. Preserve the pre-merge ACP and AIO
+contracts while deferring their unmatched new test increments. Skill history
+must authorize on the event loop before offloading all storage I/O with owner
+ContextVars preserved. Binding requires explicit `/connect`; stripping leading
+mentions must not change the shared control-command classifier's authority.
+
+Artifact reconciliation is recorded in `docs/ARTIFACT_MERGE_20261001.md`.
+Both ordinary files and Skill archive members must use the shared active-MIME
+predicate for HTML, XML, XSL, and every `+xml` subtype, including case/parameter
+normalization. Preserve server-owned AIO credentials, direct preview transport,
+Runner port forwarding, owner authorization, and the PDF snapshot protections;
+unit tests must supply fake preview configuration, not copy runtime secrets.
+
+`docs/BACKEND_BATCH3_MERGE_20261001.md` records the next isolated-merge batch.
+Assistant search uses Pydantic bounds for pagination. Do not enable extended
+Guardrail identity propagation by adding dataclass fields alone: middleware,
+adapter, authenticated provenance, and both sync/async enforcement must agree.
+Retain the pre-merge adapter and BoxLite contracts until their full increments
+are implemented and reviewed. Previously repaired Gateway context scrubbing
+and artifact active-content defenses must remain intact.
+
+`docs/BOXLITE_LIFECYCLE_MERGE_20261001.md` restores the BoxLite warm-pool
+destruction callback's boolean contract. Successful close must return `True`;
+an escaping close exception returns `False` so shared lifecycle code retains
+the resource for retry. Do not change the shared mixin to treat `None` as
+success: that would weaken AIO's execution-lease deferral. Keep original
+warm-pool and BoxLite tests and validate both providers before deployment.
+
+For Browserless unit tests, mock the third-party parser entry point and public
+DNS resolution explicitly; do not let a success test invoke first-use npm
+installation or require live internet. Keep the real URL safety validation and
+off-event-loop extraction/Article conversion chain exercised, and retain
+private-address rejection tests unchanged. This test-only isolation does not
+prove readiness of the actual ReadabiliPy Node dependencies in release images;
+record and verify that independently. See
+`docs/BROWSERLESS_TEST_ISOLATION_20261001.md`.
+
+`docs/BACKEND_BATCH4_MERGE_20261001.md` records restored pre-merge factory and
+Codex invariants. Factory-built agents must project durable context and coalesce
+system messages before summarization; an explicit token-budget feature opt-in
+must enable its config. Codex must serialize named invalid calls with IDs when
+the dangling-call middleware supplies a paired placeholder result. Retain
+Responses schema validation and Chinese enterprise channel branding. Deferred
+incoming channel/SDK increments require complete runtime work and reinstatement
+of their recorded tests; this reconciliation does not advertise them as fixed.
+
+`docs/BACKEND_BATCH5_MERGE_20261001.md` records two type guards for malformed
+Claude credential containers. Never log raw credential values or JSON bodies;
+non-object containers are unavailable credentials and retain existing fallback
+ordering. Keep every credential test. The incoming-only malformed tool-call ID
+recovery class remains deferred until its causal pairing implementation is
+complete; preserve all preexisting dangling-call tests and runtime/timing hooks.
+
+`docs/BACKEND_BATCH6_MERGE_20261001.md` records the next full-suite reconciliation.
+Reject DingTalk messages without their P2P sender/group conversation routing key
+before binding or publishing. Feishu strips leading mentions only for recognized
+control commands; ordinary chat mentions and the shared classifier stay intact.
+Build tests exercise the tracked Python Nginx timeout patcher and verify the
+documented proxy/CA template without reading gitignored runtime configuration.
+Actual release config validation remains a separate mandatory deployment gate.
+Incoming-only lock-handoff, Discord restart/flush, earlier-run delegation closure,
+and E2B status-marker increments remain deferred, not advertised as repaired.
+
+`docs/BACKEND_BATCH7_MERGE_20261001.md` records BOM/JSONL framing fixes and the
+PPT Runner startup-recovery ownership boundary. Only ordinary Gateway startup
+may reclaim orphan runs and mark their retained streams/threads as error.
+Retain lease heartbeat and shutdown on both profiles. Test AIO instances made
+with `__new__` must initialize `_default_env`; secrets stay in structured env,
+never command text. IAM callback tests supply fake registered redirect URIs.
+The unused incoming memory-shutdown helper and unmatched repeated-cancellation
+tests are deferred; legacy shutdown and file-I/O behavior remain unchanged.
+Do not describe cancellation draining or JSONL/DB lock handoff as fixed.
+
+`docs/BACKEND_BATCH8_MERGE_20261001.md` records exact read-file loop identities
+and display-only symlink masking. Never use the lexical output mapping to
+authorize a read/write; resolved target containment remains mandatory.
+Preserve same-range loop hard stops and terminal stop ownership. The shared
+subagent floor remains two and Windows command execution remains subprocess.run;
+the incoming single-subagent and Windows bounded-runner increments are deferred.
+All preexisting platform tests remain, with no broad skips or module removals.
+
+`docs/BACKEND_BATCH8_FOLLOWUP_20261001.md` records fixture-only repairs after
+the 264-pass focused run. Stop-reason integration bridge mocks must expose real
+boolean/integer batching capabilities; do not change production batcher or
+worker behavior to accept fabricated mock values. Enterprise identity checks
+target the role block, preserving native read_file tool guidance and the
+no-inferred-branding guard. Retain all four real-guard persisted-stop assertions.
+
 This file provides guidance to AI coding agents (Claude Code, Codex, and others) when working with code in this repository. It is the source of truth; the sibling `CLAUDE.md` imports it via `@AGENTS.md`.
 
 ## Project Overview
@@ -9,14 +191,14 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
 **Architecture**:
 
 - **Gateway API** (port 8001): REST API plus embedded LangGraph-compatible agent runtime
-- **PPT Master Bridge** (port 8003): independently deployed transport/checkpoint service for the external Sandbox Agent
+- **PPT Master Bridge** (port 8003): transport/checkpoint sidecar for the external Sandbox Agent
 - **Frontend** (port 3000): Next.js web interface
 - **Nginx** (port 2026): Unified reverse proxy entry point
 - **Provisioner** (port 8002, optional in Docker dev): Started only when sandbox is configured for provisioner/Kubernetes mode
 
 **Runtime**:
 
-- `make dev`, Docker dev, and production all run the agent runtime in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Nginx exposes that runtime at `/api/langgraph/*` and rewrites it to Gateway's native `/api/*` routers.
+- `make dev`, Docker dev, and production all run the agent runtime in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Nginx exposes that runtime at `/api/langgraph/*` and rewrites it to Gateway's native `/api/*` routers. Every maintained Nginx config keeps that route at a bounded 20 MiB request-body limit with request buffering disabled, so long JSON prompts stream to Gateway without temporary-file failures.
 - Kubernetes starts `ppt-master-runner` from its independently pinned image as a
   separate Deployment and ClusterIP Service. It must not share the ordinary
   Gateway Pod failure domain. Nginx rewrites `/api/ppt-master-runtime/*` to that
@@ -56,7 +238,7 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   readiness of the host sidecar on port 8788. Bounded transient DNS/connect/read
   failures are retried during startup and task polling, while a missed deadline
   remains a visible host-startup failure. Because Gateway and the runner are
-  separate Pods with separate warm-pool maps, the runner must also hold a
+  separate processes with separate warm-pool maps, the runner must also hold a
   shared filesystem execution lease for the whole Agent turn. Every AIO Sandbox
   destruction path requires a non-blocking exclusive lease and defers deletion
   without dropping tracking when another process is executing. Open the lease
@@ -102,7 +284,7 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
   Ordinary function/custom tools and namespace children remain available, and
   unknown future hosted tool types still fail closed instead of being silently
   discarded.
-- Scheduled-task executions must reuse that same Gateway run lifecycle. The scheduler may decide _when_ work runs, but it must dispatch through the existing run path rather than introducing a parallel execution stack. Scheduled and manual occurrences share one global concurrency budget; durable queue admission, per-task active-run uniqueness, leases, and atomic terminal bookkeeping remain repository-owned so optional multi-instance scheduling is race-safe.
+- Scheduled-task executions must reuse that same Gateway run lifecycle. The scheduler may decide _when_ work runs, but it must dispatch through the existing run path rather than introducing a parallel execution stack. Scheduled and manual occurrences share one global concurrency budget; durable queue admission, per-task active-run uniqueness, leases, and atomic terminal bookkeeping remain repository-owned so optional multi-instance scheduling is race-safe. PostgreSQL serializes launch-budget claims with an advisory transaction lock; SQLite must reserve its database-wide writer with `BEGIN IMMEDIATE` before counting and promoting a queued occurrence, or claims for distinct rows can exceed that shared budget.
 - The enterprise single-replica Gateway reserves 2 CPU / 4Gi and is limited to
   4 CPU / 16Gi. Preserve this production saturation baseline in
   `k8s/enterprise/runtime-patches.yaml`; a scheduler or parser hotfix that
@@ -246,7 +428,7 @@ Regression tests related to Docker/provisioner behavior:
 - `tests/test_mineru_adapter.py` (locks the enterprise PDF API protocol, the
   searchable/scanned routing decision, multilingual figure capture, searchable
   visual-page evidence, content-based legacy OLE2 Word/PowerPoint detection,
-  native-first Word parsing with visual fallback, and the
+  native Word plus rendered-visual merging, and the
   WeKnora-compatible response envelope used by the PDF/DOC/DOCX/PPT/PPTX
   adapter)
 
@@ -255,8 +437,8 @@ The WeKnora Gateway upload proxy reads `WEKNORA_PRESENTATION_PARSER_ENGINE`
 sets them to `mineru` and the in-cluster adapter Service. With
 `WEKNORA_MINERU_DOCUMENT_VISUAL_FALLBACK=true`, PDF/DOC/DOCX/PPT/PPTX uploads
 use that adapter. Searchable PDF/Word text stays on the bundled native parsers;
-a non-empty native Word parse returns immediately, while empty/failed native
-Word parses fall back to a temporary PDF visual pass. Searchable pages containing images, vector graphics, or multilingual figure
+Word's native text/images are merged with a temporary PDF visual pass, and
+searchable pages containing images, vector graphics, or multilingual figure
 captions receive captioned full-page visual evidence. Scanned/mixed documents
 and presentations use MinerU. Other uploads omit parser overrides and preserve
 the knowledge base defaults.
@@ -290,25 +472,17 @@ client must explicitly assign the reviewed mounted CA bundle (preferring
 `MINERU_CA_BUNDLE`, then `REQUESTS_CA_BUNDLE`, then `SSL_CERT_FILE`) to the
 session's `verify` setting. A configured missing CA path is a startup error;
 never replace this binding with `verify=false` or disable hostname validation.
-The adapter uses a threaded HTTP server but admits exactly one complete
-PDFium/DocReader parse through `ParseCoordinator`. This is required because the
-native parser stack can corrupt its allocator state when two documents enter it
-concurrently. A busy worker returns retryable HTTP 429 instead of queueing in
-process. `/health` remains observational, `/live` stays responsive during a
-long parse and owns Kubernetes readiness/liveness, and `/ready` returns 503
-until the worker is idle; do not bypass the coordinator or increase in-process
-parser concurrency. Run LibreOffice in its
-own POSIX process group, kill the entire group on timeout, and retain Linux
-subreaper cleanup so `soffice.bin` descendants cannot survive as orphans or
-zombies after the request ends.
+The adapter uses a threaded HTTP server but serializes the complete
+PDFium/DocReader parse pipeline through `ParseCoordinator`. This is required
+because the native parser stack can corrupt its allocator state when two
+documents enter it concurrently. `/health` remains responsive during a long
+parse and reports `parser.active` plus `parser.waiting`; do not bypass the
+coordinator or increase in-process parser concurrency.
 The enterprise three-node overlay obtains safe parallelism from six adapter
 worker Pods, evenly spread two per node, rather than from threads inside one
 process. A separate bounded dispatcher routes only to free worker Pod IPs and
 prioritizes interactive conversation uploads over batch work that has not yet
-started. It must probe `/ready` before assignment and keep a timed-out/5xx
-worker quarantined until a later readiness probe proves it idle. Keep the
-dispatcher Deployment at one `Recreate` replica because its admission state is
-process-local. Keep the single WeKnora App replica at four core Asynq workers plus two
+started. Keep the single WeKnora App replica at four core Asynq workers plus two
 shared workers, so no more than six document requests leave its durable Redis
 queue at once. MinerU-2605's 20-request upstream capacity is reserve headroom
 and does not override this local native-parser safety boundary.
@@ -362,9 +536,12 @@ CNOOC SSO stores the validated upstream platform Token in the HttpOnly
 `cnooc.platform_token` cookie and stores only its SHA-256 digest in the nullable,
 unique `users.cnooc_platform_token_hash` binding. Token login must commit that
 binding before issuing either login cookie. The frontend's same-origin server
-launch routes read the cookie only for the five allowlisted data-lake external
-agents and add the current Token to the final redirect URL. Before any launch,
-file-list, or download route consumes the Token, it calls the authenticated
+launch routes read the cookie only for four allowlisted data-lake external
+agents and add the current Token to the final redirect URL. The **专业文档解析专家**
+card is an explicit direct-link exception and opens
+`https://cnoocclaw.cnooc.com.cn/zywdjxzj/`, whose destination owns its data-lake
+session handling. Before any launch, file-list, or download route consumes the
+Token, it calls the authenticated
 `GET /api/v1/data-lake/auth/session` endpoint, which compares the Cookie digest
 with the current user's binding in constant time. A mismatch clears the stale
 Cookie; temporary validation failure remains fail-closed without deleting a
@@ -484,36 +661,6 @@ The backend is split into two layers with a strict dependency direction:
 
 **Dependency rule**: App imports deerflow, but deerflow never imports app. This boundary is enforced by `tests/test_harness_boundary.py` which runs in CI.
 
-The SkillHub runtime adapter lives in the App layer. Its Gateway routes accept
-an authenticated package upload, derive `UserScopedSkillStorage` from the
-server-side DeerFlow user, and delegate archive preparation/scanning/atomic
-tree replacement to Harness storage. Keep the per-user provenance registry
-outside installed skill trees, reject collisions with unmanaged custom skills,
-and invalidate only the affected user's prompt cache after successful install,
-upgrade, state change, or uninstall. Never let Harness import SkillHub/App code,
-never fetch an arbitrary client URL from Gateway, and never bypass fail-closed
-static plus LLM package review.
-
-Registry installation is also a runtime file-availability contract. Accepted
-archives may contain only regular files/directories; reject symbolic links
-rather than silently omitting them, and compare deterministic path/size/SHA-256
-manifests before the staged tree is committed. In Provisioner PVC mode, mount
-shared `public` (and optional legacy `custom`) subpaths from `SKILLS_PVC_NAME`,
-but mount `deer-flow/users/<user_id>/skills/custom` from
-`USERDATA_PVC_NAME` at `/mnt/skills/custom`. The first init container must
-create both the thread user-data and current-user custom-skill subpaths; a
-second init container must open every regular file through the final
-`/mnt/skills/{public,custom,legacy}` paths before the sandbox runtime starts.
-Do not restore a single `/mnt/skills` PVC fallback: Gateway writes SkillHub
-installs to the user-data PVC, so that fallback makes prompt-visible skills
-unreadable to execution tools.
-Treat a Sandbox ID as a storage identity, not merely a network handle. Before
-reusing an existing Service/Pod, Provisioner must verify its user ID, thread ID,
-legacy-skill mode, and the exact public/custom/legacy/user-data mounts. Legacy
-unannotated Pods are reusable only when those live mounts match exactly. Runtime
-acceptance must execute an installed script through the Sandbox command API;
-`kubectl exec cat` proves PVC visibility but not Skill discovery or execution.
-
 **Import conventions**:
 
 ```python
@@ -570,12 +717,12 @@ Lead-agent middlewares are assembled in strict order across three functions: the
 
 **Shared runtime base** (`build_lead_runtime_middlewares`; subagents reuse most of this via `build_subagent_runtime_middlewares`):
 
-1. **InputSanitizationMiddleware** - First, so it is the outermost `wrap_model_call` wrapper; every inner middleware (including LLM retries) sees sanitized messages. It sanitizes every untrusted historical HumanMessage on every model call because the transformation is request-only; sanitizing only the newest turn lets an older payload reappear verbatim on the next turn. `additional_kwargs.original_user_content` and the untrusted marker are server-owned provenance: Gateway strips caller-supplied values from external run and direct thread-state writes. Caller `hide_from_ui` / `name=summary` presentation markers that would bypass the guardrail are retained only with the server-owned untrusted stamp. Trusted IM calls may carry the validated original string they captured before adding transport/file context, and the middleware replaces any non-string value before wrapping.
+1. **InputSanitizationMiddleware** - First, so it is the outermost `wrap_model_call` wrapper; every inner middleware (including LLM retries) sees sanitized messages. `additional_kwargs.original_user_content` is server-owned provenance: Gateway strips caller-supplied values for non-internal run requests, trusted IM calls may carry the string they captured before adding transport/file context, and the middleware replaces any non-string value before wrapping. Uploads and sanitization retain first-writer-wins only for validated strings.
    1a. **PlatformConfidentialityMiddleware** - Runs immediately inside input sanitization as an advisory-only disclosure policy. It never keyword-classifies or pre-emptively refuses a request; platform diagnostics, deployment guidance, logs, configuration, network checks, code work, and user-provided data all reach the model. The policy narrowly prohibits disclosure of actual system prompts or credential values and assistance bypassing access controls. Concrete enforcement belongs to `SandboxAuditMiddleware`, sandbox environment filtering, bash-output masking, and observable/persisted-context redaction.
 2. **ToolOutputBudgetMiddleware** - Caps tool output size (per app config) before it re-enters the model context
 3. **ToolResultSanitizationMiddleware** - Neutralizes framework/injection tags (e.g. `<system-reminder>`) and boundary markers in _remote-content_ tool results (`web_fetch`/`web_search`/`image_search`/`web_capture`) so attacker-controlled fetched pages cannot forge trusted framework context. Mirrors `InputSanitizationMiddleware`'s user-input guardrail for the other untrusted-content entry point; sits inner of `ToolOutputBudgetMiddleware` (neutralizes the raw output, then the budget truncates). Local tool output (bash/read_file) is left untouched. Scope is a name-based allowlist, so MCP remote-content tools registered under other names (e.g. `fetch_url`) are not yet covered — a metadata-tagging follow-up is tracked in the middleware source
 4. **ThreadDataMiddleware** - Creates per-thread directories under the user's isolation scope (`backend/.deer-flow/users/{user_id}/threads/{thread_id}/user-data/{workspace,uploads,outputs}`); resolves `user_id` via `get_effective_user_id()` (falls back to `"default"` in no-auth mode)
-5. **UploadsMiddleware** - Tracks and injects newly uploaded files into conversation (lead agent only)
+5. **UploadsMiddleware** - Tracks and injects newly uploaded files into conversation (lead agent only). Same-stem Markdown outlines and fallback previews use `utf-8-sig`, so an optional leading BOM cannot hide the first heading or occupy a preview line; physical line numbers, embedded U+FEFF characters, and original bytes remain unchanged.
 6. **SandboxMiddleware** - Acquires sandbox, stores `sandbox_id` in state
 7. **DanglingToolCallMiddleware** - Injects placeholder ToolMessages for AIMessage tool_calls that lack responses (e.g., user interruption), preserving raw provider tool-call payloads in `additional_kwargs["tool_calls"]`; malformed tool-call names and arguments are sanitized in the model-bound request so strict OpenAI-compatible providers do not reject the next request. A newly returned `invalid_tool_calls` response is automatically routed back to the model once with the synthetic parser error, then becomes a visible error fallback if the retry is also malformed.
 8. **LLMErrorHandlingMiddleware** - Normalizes provider/model invocation failures into recoverable assistant-facing errors before later stages run
@@ -589,15 +736,20 @@ Lead-agent middlewares are assembled in strict order across three functions: the
     and may still stop Bash.
 13. **ToolErrorHandlingMiddleware** - Receives `AppConfig`, converts tool exceptions into error `ToolMessage`s so the run can continue instead of aborting, stamps every result with `deerflow_tool_meta` (status / error_type / recoverable_by_model / recommended_next_action / source) via `tool_result_meta.normalize_tool_result`, stamps structured metadata for task exception wrappers, and stamps skill-read metadata for downstream durable-context capture. Task tool result text is generated from the same status/result/error inputs as the structured metadata so callers do not hand-write a second protocol string.
 
+Authorization identity plumbing is independent of whether authorization enforcement is enabled. Gateway removes client-supplied `is_internal` / `authz_attributes` / `channel_user_id`, derives `is_internal` only from the server-owned `request.state.auth_source`, and accepts `channel_user_id` only from an internally authenticated IM caller's top-level `body.context`; free-form `body.config` can never supply it. `build_principal_from_context` is the shared Principal builder for assembly-time authorization and `GuardrailAuthorizationAdapter`; it applies `default_role`, strict-boolean internal provenance, and copy-on-read `authz_attributes`. Task delegation carries `is_internal` plus copied attributes through `SubagentExecutor`, while `GuardrailMiddleware` maps the same runtime fields into `GuardrailRequest`. Phase 1A provides this trusted identity chain only; automatic Layer 1 filtering and Layer 2 authorization middleware wiring remain separate enforcement work.
+
+Before changing a later authorization phase, read the [authorization RFC](../docs/plans/2026-07-10-pluggable-authorization-rfc.md) and its [implementation notes](../docs/plans/2026-07-10-pluggable-authorization-implementation-notes.md). The notes are the cumulative handoff record for merged PR behavior, reviewer feedback, trust-boundary decisions, deferred scope, and required regression coverage.
+
 **Lead-only middlewares** (`build_middlewares`, appended after the base):
 
 14. **DynamicContextMiddleware** - Injects the current date (and optionally memory) as a `<system-reminder>` into the first HumanMessage, keeping the base system prompt fully static for prefix-cache reuse
 15. **WeKnoraScopeMiddleware** - Injects the selected `weknora_knowledge_base_ids` as hidden current-turn guidance requiring the complete permission-scoped `weknora_*` family to use that exact scope. It documents the read/search/ask/agent split, requires agent discovery before invocation, and never auto-approves WeKnora pending actions
 16. **SkillActivationMiddleware** - Detects strict `/skill-name task` syntax on the latest real user message, resolves only enabled and runtime-allowed skills, records one `middleware:skill_activation` audit event, and checkpoints the selected Skill identity, content hash, original task, and deterministic completion requirements. The complete `SKILL.md` is injected on the activation call; later tool-loop calls receive a bounded continuation contract. A later user `继续`/`确认`/resume reply restores the same enabled Skill from the checkpoint, rebinds its normal declared secrets, and reinjects both the original task and current Skill body even though the reply does not repeat the Slash command. This middleware adapts blocking chat fallback instructions to DeerFlow's structured `ask_clarification`; it does not recreate a Skill's schemas, validators, stage machine, or reference-order gates in DeerFlow code.
+16a. **Deferred activation-scoped tool policy** - The September 30 test-environment merge does not include the incoming, incompletely integrated permission middleware. Keep `SkillActivationMiddleware` followed by `SkillWorkflowMiddleware` and the durable-context chain as in the verified production image. Do not claim per-activation schema/execution enforcement until its context contract, shared-token plumbing, redaction, and end-to-end tests are implemented together. See `../docs/enterprise-merge-20260930-deferred-skill-policy.md`.
 17. **SkillWorkflowMiddleware** - Observes explicit-Skill tool calls/results and stores bounded, tool-backed receipts in `ThreadState.skill_workflow`: selected top-level workflow/profile, the latest supporting authority documents, writable project root, current command or script stage, confirmation surface, gate result, exact failed-command resume pointer, requirements parsed from the Skill's own design contract, and delivered artifacts. It does not infer or invent Skill stages. This main-Agent middleware is retained for ordinary Skills and legacy presentation threads only; new explicit `/ppt-master` tasks bypass the complete lead middleware chain through the isolated runner, so no new PPT workflow semantics belong here. On a new run it blocks non-read actions until the selected route and latest stage documents have been re-read, so a compact path reminder cannot silently replace their full contract. A legacy `ppt-master` workflow without a persisted route serializes the package's declared bootstrap as a successful `attribution_guard.py` receipt, `routing.md`, and exactly one selected top-level route. If a model batches a valid current prerequisite with a redundant integrity call or later read, the middleware preserves only the current prerequisite and lets the normal tool node create its real receipt instead of discarding the complete batch and consuming sequence retries. Default Generate also reloads its durable `design_spec.md` and `spec_lock.md`. Managed confirmation receipts named by the loaded authority cannot be fabricated through generic file/shell writes; the Skill's user/server command remains their owner. Successful page template selection is checkpointed independently of the bounded receipt tail. While that page owner remains active and its wait has not failed, a plain-text chat confirmation request is also rejected as a confirmation-surface switch. Failed owning Skill receipts may run active-project repairs, but those repairs do not clear the gate; the same semantic owner operation must succeed, and Confirm UI wait/reset/daemon/template-completion modes are distinct operations. A presentation workflow is complete only after its real deck passes delivery acceptance and `present_files` succeeds. The acceptance adapter reconciles confirmed Deck/Layout handoffs with the official `template_reuse_scope` contract: `style` stays flat, while `layout`/`mirror` require structured mode, adherence, complete prototype/Master/Layout/page mappings, and matching package counts. Failed delivery acceptance permits only active-project repair plus another delivery attempt, and only successful `present_files` clears it. A model message that claims completion while still calling inspection/repair tools keeps those tools but has its unverified completion prose removed from history. Unchanged sequence violations stop after three attempts with the exact gate/resume pointer. One unsupported explicit completion claim is retried; a repeated no-progress completion claim becomes a visible bounded failure.
     A forbidden generic confirmation-receipt write remains blocked. If the official owner wait or template-completion command subsequently fails on a real project precondition, that command becomes the durable failed owner so its documented project repair and same-owner retry can proceed without weakening the managed-artifact boundary.
     For one selected template workspace, template completion, Strategist contract authoring, and SVG execution require the complete portable `templates`/`images`/`icons` mapping. Each template-copy command is postflight-checked; only a complete successful copy becomes a durable project mutation receipt. A live page confirmation owner cannot be shut down or silently replaced with chat unless its bounded wait actually times out or the user explicitly requests the surface switch.
-18. **DurableContextMiddleware** - Captures `task` delegations into `ThreadState.delegations`, loaded skill-file references into `ThreadState.skill_context`, and projects the checkpointed `skill_workflow` before summarization can erase the corresponding tool history. Static authority rules are injected as a `SystemMessage`; untrusted field values (`summary_text`, delegation results, skill descriptions, original Skill task, paths, commands, and receipts) are injected separately as a hidden `HumanMessage` data block. `build_subagent_runtime_middlewares` also attaches this middleware immediately before subagent summarization so a compacted `summary_text` is projected ahead of a preserved assistant/tool tail instead of leaving strict providers with an assistant-first request.
+18. **DurableContextMiddleware** - Captures `task` delegations into `ThreadState.delegations`, loaded skill-file references into `ThreadState.skill_context`, and projects the checkpointed `skill_workflow` before summarization can erase the corresponding tool history. On a new user turn, an earlier-run `in_progress` delegation with a run id and no matching `ToolMessage` is marked `cancelled`; resumed runs, same-run entries, entries without run ids, and entries with any structured or legacy reply are preserved. Static authority rules are injected as a `SystemMessage`; untrusted field values (`summary_text`, delegation results, skill descriptions, original Skill task, paths, commands, and receipts) are injected separately as a hidden `HumanMessage` data block. `build_subagent_runtime_middlewares` also attaches this middleware immediately before subagent summarization so a compacted `summary_text` is projected ahead of a preserved assistant/tool tail instead of leaving strict providers with an assistant-first request.
 19. **SummarizationMiddleware** - _(optional, if enabled)_ Context reduction when approaching token limits
 20. **TodoListMiddleware** - _(optional, if `is_plan_mode`)_ Task tracking with the `write_todos` tool
 21. **TokenUsageMiddleware** - _(optional, if `token_usage.enabled`)_ Records token usage metrics; subagent usage is merged back into the dispatching AIMessage by message position
@@ -607,12 +759,12 @@ Lead-agent middlewares are assembled in strict order across three functions: the
 25. **McpRoutingMiddleware** - _(optional, if `tool_search.enabled` and PR1 MCP routing metadata produce a routing index)_ Auto-promotes matching deferred MCP tool schemas before the model call by writing a minimal `promoted` state update. It matches only the latest real `HumanMessage`, uses the global `tool_search.auto_promote_top_k` limit (default 3, clamped to 1..5), never executes tools, and must be installed before `DeferredToolFilterMiddleware`
 26. **DeferredToolFilterMiddleware** - _(optional, if `tool_search.enabled`)_ Hides deferred (MCP) tool schemas from the bound model until `tool_search` or `McpRoutingMiddleware` promotes them (reads per-thread promotions from `ThreadState.promoted`, hash-scoped)
 27. **SystemMessageCoalescingMiddleware** - Merges every SystemMessage into a single leading SystemMessage per request; provider-agnostic fix for strict backends (vLLM/SGLang/Qwen/Anthropic) that reject non-leading system messages. Touches the per-request payload only (checkpoint state unchanged); on midnight crossings only the latest `dynamic_context_reminder` SystemMessage survives
-28. **SubagentLimitMiddleware** - _(optional, if `subagent_enabled`)_ Truncates excess `task` tool calls to enforce both the per-response concurrency limit (`max_concurrent_subagents`, clamped to 2-4) and the per-run total delegation cap (`max_total_subagents` runtime override or `subagents.max_total_per_run`, default 6, clamped to 1-50). The total cap counts current-run entries in the durable delegation ledger (entries are tagged with `run_id` when captured), so repeated planning checkpoints in one run cannot keep launching legal-sized batches indefinitely, while later user turns in the same thread get a fresh run budget. If the cap is exhausted, the middleware strips remaining `task` calls, forces `finish_reason="stop"`, and appends a visible limit note so the run can synthesize existing results instead of ending with an empty tool-call response.
-29. **LoopDetectionMiddleware** - _(optional, if `loop_detection.enabled`)_ Detects repeated tool-call loops; hard-stop clears both structured `tool_calls` and raw provider tool-call metadata before forcing a final text answer; stamps `loop_capped` via `consume_stop_reason` (#3875 Phase 2), symmetric to `TokenBudgetMiddleware`. Repetition accounting is run-scoped even though one middleware instance serves many turns in the same thread. A successful `write_file`/`str_replace` that demonstrably changes durable content resets the exact-call and per-tool repetition windows, so the required `read_file -> edit -> read_file -> edit` version-gated workflow is not mistaken for a loop; an unchanged full-file write does not reset them. Keep bounded 120/240 frequency overrides for both `bash` and `read_file`: long artifact workflows legitimately cross the global 30/50 frequency threshold, while the independent identical-call hash guard still catches an actual no-progress same-call loop at 3/5.
+28. **SubagentLimitMiddleware** - _(optional, if `subagent_enabled`)_ Truncates excess `task` tool calls to enforce both the per-response concurrency limit (`max_concurrent_subagents`, clamped to 1-4) and the per-run total delegation cap (`max_total_subagents` runtime override or `subagents.max_total_per_run`, default 6, clamped to 1-50). The total cap counts current-run entries in the durable delegation ledger (entries are tagged with `run_id` when captured), so repeated planning checkpoints in one run cannot keep launching legal-sized batches indefinitely, while later user turns in the same thread get a fresh run budget. If the cap is exhausted, the middleware strips remaining `task` calls, forces `finish_reason="stop"`, and appends a visible limit note so the run can synthesize existing results instead of ending with an empty tool-call response.
+29. **LoopDetectionMiddleware** - _(optional, if `loop_detection.enabled`)_ Detects repeated tool-call loops; hard-stop clears both structured `tool_calls` and raw provider tool-call metadata before forcing a final text answer; stamps `loop_capped` via `consume_stop_reason` (#3875 Phase 2), symmetric to `TokenBudgetMiddleware`. Repetition accounting is run-scoped even though one middleware instance serves many turns in the same thread. A successful `write_file`/`str_replace` that demonstrably changes durable content resets the exact-call and per-tool repetition windows, so the required `read_file -> edit -> read_file -> edit` version-gated workflow is not mistaken for a loop; an unchanged full-file write does not reset them. `read_file` repetition keys use the exact normalized line window—an omitted `end_line` is open-ended—so adjacent continuation pages are progress while the same page still trips the 3/5 identical-call guard. Keep bounded 120/240 frequency overrides for both `bash` and `read_file`: long artifact workflows legitimately cross the global 30/50 frequency threshold, while the independent identical-call hash guard still catches an actual no-progress same-call loop at 3/5.
 30. **TokenBudgetMiddleware** - _(optional, if `token_budget.enabled`)_ Enforces per-run token limits
 31. **Custom middlewares** - _(optional)_ Any `custom_middlewares` passed to `build_middlewares` are injected here, before the artifact-delivery/terminal-response/safety/clarification tail
 32. **ArtifactDeliveryMiddleware** - Rejects final responses that reference `/mnt/user-data/outputs/...` or the corresponding `/api/threads/.../artifacts/mnt/user-data/outputs/...` URL unless every referenced file exists in the current thread outputs directory and is present in `ThreadState.artifacts` after a successful `present_files` call. It removes the invalid answer and retries once with hidden instructions requiring real shell execution, file validation, and publication; a repeated invalid claim becomes a visible error fallback with no fabricated link. The run worker applies the same validator when an in-flight provider response is interrupted before normal middleware/checkpoint finalization, then journals a same-ID fallback so paginated history cannot resurrect the uncommitted link.
-33. **TerminalResponseMiddleware** - When a provider returns an empty terminal `AIMessage` after tool execution, injects a hidden recovery prompt and retries the model once; a second empty response is replaced in checkpoint state by a visible error fallback marked for the run worker, so the run finishes as an error instead of a silent success. The scoped `ppt-master` exception recognizes a successful `recommendations.stage1/2/3.json` write while its Confirm UI is active as a durable user-wait boundary and returns a resumable page handoff instead of applying the generic unfinished-plan failure.
+33. **TerminalResponseMiddleware** - When a provider returns an empty terminal `AIMessage` after tool execution, injects a hidden recovery prompt and retries the model once; a second empty response is replaced in checkpoint state by a visible error fallback marked for the run worker, so the run finishes as an error instead of a silent success. Tool receipts are scoped to the worker-supplied pre-run message-ID boundary, so compacted historical tools cannot make a plan-only current response eligible for automatic retry. The scoped `ppt-master` exception recognizes a successful `recommendations.stage1/2/3.json` write while its Confirm UI is active as a durable user-wait boundary and returns a resumable page handoff instead of applying the generic unfinished-plan failure.
 34. **WeKnoraCitationMiddleware** - Canonicalizes WeKnora 0.7 native `<kb>` tags and repairs model-truncated bare citation labels only from unique, same-origin references in the current user turn. The subagent runtime installs the same middleware before returning delegated knowledge results; the lead may recover only already-canonical `/platform/knowledge-bases/...` links from the current `task` result. Ambiguous same-named documents, historical references, arbitrary links, and code examples are never rewritten.
 35. **SafetyFinishReasonMiddleware** - _(optional, if `safety_finish_reason.enabled`)_ Suppresses tool execution when the provider safety-terminated the response (e.g. `finish_reason=content_filter`); registered after terminal-response/custom middlewares so LangChain's reverse-order `after_model` dispatch runs it first
 36. **ClarificationMiddleware** - Intercepts `ask_clarification` tool calls, writes a readable `ToolMessage.content` fallback plus structured `ToolMessage.artifact.human_input` request payload, and interrupts via `Command(goto=END)` (must be last). Because this middleware can short-circuit tool execution before LangChain emits `on_tool_end`, `RunJournal` performs a root-run final reconciliation for allowlisted clarification `ToolMessage`s whose `tool_call_id` was produced by the current run, so human-input request cards remain recoverable from `run_events` after checkpoint compaction. Human Input Card replies are submitted as `hide_from_ui` `HumanMessage`s with `additional_kwargs.human_input_response`; `RunJournal` persists only allowlisted hidden response sources (currently `ask_clarification`) as `llm.human.input`, which preserves answered-card state after compaction without exposing generic internal hidden context.
@@ -775,6 +927,16 @@ The deprecated `checkpointer` section remains backward compatible and, when
 present, overrides `database` for the LangGraph checkpointer and Store only;
 application repositories continue to use `database`.
 
+**PostgreSQL checkpointer capacity**: the process-wide asynchronous
+checkpointer pool is independent of the SQLAlchemy application pool. It keeps
+the historical `min_size=4` / `max_size=4` unless
+`DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MIN_SIZE` and
+`DEERFLOW_CHECKPOINTER_POSTGRES_POOL_MAX_SIZE` are set before startup. Values
+must be positive and `max >= min`; log the resolved values without logging the
+DSN. For the enterprise 100-concurrent-run profile, start at `8/32` only after
+checking PostgreSQL connection headroom, then use graph idle-wait timing events
+and database connection statistics to validate the change.
+
 Configuration priority:
 
 1. Explicit `config_path` argument
@@ -784,6 +946,18 @@ Configuration priority:
 
 Config values starting with `$` are resolved as environment variables (e.g., `$OPENAI_API_KEY`).
 `ModelConfig` also declares `use_responses_api` and `output_version` so OpenAI `/v1/responses` can be enabled explicitly while still using `langchain_openai:ChatOpenAI`.
+
+**DashScope Qwen3.7 Gateway model**: `qwen3.7-plus` is configured as an
+OpenAI-compatible Chat Completions model with
+`base_url: https://dashscope.aliyuncs.com/compatible-mode/v1` and
+`api_key: $DASHSCOPE_API_KEY`; do not copy the separate PPT Agent's native
+Responses provider settings into this entry. Use
+`deerflow.models.robust_openai:RobustChatOpenAI` with
+`when_thinking_enabled.extra_body.enable_thinking: true` and
+`preserve_thinking: true`, then explicitly disable with
+`when_thinking_disabled.extra_body.enable_thinking: false`. The robust adapter
+retains and replays `reasoning_content` for tool-call continuations and keeps
+standard LLM timing diagnostics.
 
 **Extensions Configuration** (`extensions_config.json`):
 
@@ -868,7 +1042,7 @@ because the long poll timed out.
 | **Console** (`/api/console`)                           | Read-only cross-thread observability for the current user (the data layer for an operations dashboard or external monitoring): `GET /stats` - headline counters (runs/threads/agents/tokens/cost); `GET /runs` - paginated run history joined with thread titles (per-run cost); `GET /usage` - zero-filled daily token series + per-model breakdown with spend. Queries `runs`/`threads_meta` directly as a reporting layer (no new `RunStore` methods); requires a SQL database backend — returns 503 on `database.backend: memory`. Real-cost estimation reads optional `models[*].pricing` (`currency`, `input_per_million`, `output_per_million`, `input_cache_hit_per_million`; `ModelConfig` is `extra="allow"`, so no schema change) and prices each run from its `token_usage_by_model` input/output split. Pricing is **cache-aware**: `RunJournal` accumulates prompt-cache hits from `usage_metadata.input_token_details.cache_read` into a sparse `cache_read_tokens` bucket key (also threaded through `SubagentTokenCollector` → `record_external_llm_usage_records`), and cache-hit input tokens are billed at `input_cache_hit_per_million` (omitted → billed at the miss price, a conservative upper bound). Legacy rows fall back to run-level totals at `model_name`; unpriced models yield `cost: null` and cost fields are null when no pricing is configured                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | **Admin Dashboard** (`/api/admin/dashboard`)           | Admin-only business reporting from SQL-backed users, threads, runs, feedback, audit clicks, scheduled tasks, and structured run events. Success/error rates and duration metrics use terminal runs only; active runs remain visible in run totals. Activity uses `Asia/Shanghai` and adaptively groups arbitrary selected ranges into start-anchored daily, seven-day, 30-day, or 365-day buckets. The headline conversation count and activity bars both use append-only `thread_creations` records inside the selected window; separate fields expose the all-time creation ledger and current `threads_meta` count. Deleting a thread therefore changes only the current count, never historical creation totals. `GET /users` pages every registered account and aggregates only runs joined to its current `threads_meta`; `GET /users/{user_id}/sessions` pages every current thread with run status counts and chat links, excluding runs whose thread was deleted. `GET /failures` pages all historical failures, includes the owner's SSO display name/account, and supports case-insensitive `q` filtering by either field; detailed diagnostics stay on the existing read-only observability endpoint. The authorization decorator permits administrators to pass cross-user ownership checks for read actions only; create, write, cancel, and delete remain owner-scoped. Dashboard summary and observability rankings accept the same arbitrary custom date range. Knowledge-base usage is read directly and read-only from WeKnora users, knowledge bases, documents, sessions, messages, organizations, organization tenant members, knowledge-base shares, and join requests; soft-deleted rows remain in selected-range history and `weknora_search`/`weknora_ask` counts are not used as a proxy. DeerFlow SSO display names override WeKnora username fallbacks by normalized email without changing native WeKnora data. Per-message knowledge scope is preferred for per-KB conversation attribution and aggregate conversation/question totals; when WeKnora 0.7.0 leaves those message fields empty, only those unscoped messages fall back to the session's current knowledge-base scope. The per-user knowledge ranking has no SQL row limit, excludes accounts with no inventory/activity, and is paginated by the frontend. Scheduled-task creation writes a best-effort append-only `scheduled_task.create` audit so later task deletion does not erase history; the dashboard combines it with current task inventory and run rows. File, sandbox, PPT, image, and artifact usage continues to be classified from actual structured tool calls (legacy tool rows remain supported), never from `run.end` prompt/history payloads or assistant prose. Artifact instances deduplicate by `(thread_id, path)`, and aggregate queries must not use silent row limits. |
 | **MCP** (`/api/mcp`)                                   | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **Skills** (`/api/skills`)                             | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Skills** (`/api/skills`)                             | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`); `POST /reload` - admin-only process-local prompt-cache invalidation after trusted external filesystem changes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **Memory** (`/api/memory`)                             | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | **Uploads** (`/api/threads/{id}/uploads`)              | `POST /` - upload files (auto-converts PDF/PPT/Excel/Word); browser-active/server-executable extensions are rejected before write, and staged PDFs require a valid signature with no active actions, embedded executable content, or uninspectable encryption; `GET /list` - list; `DELETE /{filename}` - delete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Threads** (`/api/threads/{id}`)                      | `DELETE /` - remove DeerFlow-managed local thread data after LangGraph thread deletion; `POST /branches` - create a new main-thread branch from a completed assistant turn checkpoint. Workspace files are not checkpointed, so the branch only best-effort copies the current workspace when branching from the **latest** turn (`workspace_clone_mode="current_thread_best_effort"`); branching from an older/historical turn skips the copy (`workspace_clone_mode="skipped_historical_turn"`) so the branch never inherits files that only exist in a later timeline; `GET /goal`, `PUT /goal`, `DELETE /goal` - read, set, and clear the active thread goal; `POST /compact` - manually summarize older active context into `summary_text` and retain the recent message window, blocked while a run is in flight; unexpected failures are logged server-side and return a generic 500 detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -892,8 +1066,9 @@ metadata only.
 **RunManager / RunStore contract**:
 
 - `RunManager.get()` is async; direct callers must `await` it.
+- Gateway shutdown remembers the first cancellation request and continues draining `RunManager.shutdown()` through repeated cancellation before the checkpointer and database engines close. Drain failure remains best-effort without cancellation; after cancellation it is logged and the original cancellation is propagated only at the safe terminal boundary.
+- Regenerate preparation treats a protocol-valid hidden `human_input_response` as confirmed user replay input and preserves its hidden/correlation metadata. Summaries, malformed responses, goal continuations, and every other hidden/control human remain excluded.
 - The history batch helpers `list_successful_regenerate_sources()` and `get_many_by_thread()` default to `user_id=AUTO`: they resolve the request user and fail closed when no user context exists. Migration/admin callers that intentionally need an unscoped read must pass `user_id=None` explicitly.
-- Thread run/message read filters use the persistence data identity after route authorization, not blindly the synthetic authorization identity. Ordinary users remain owner-scoped and enterprise administrators retain read-only unscoped review. Trusted internal callers become unscoped only when `threads_meta` has a concrete owner; missing or NULL-owner legacy rows stay scoped to the raw acting owner. Run-id subresources (cancel/join/stream/messages/events/workspace changes) and token aggregation enforce the same fallback boundary.
 - When a persistent `RunStore` is configured, `get()` and `list_by_thread()` hydrate historical runs from the store. In-memory records win for the same `run_id` so task, abort, and stream-control state stays attached to active local runs.
 - `cancel()` returns a :class:`~deerflow.runtime.CancelOutcome` enum: `cancelled` (local cancel), `taken_over` (non-owning worker claimed the run because the owner's lease expired — marks it as `error`), `lease_valid_elsewhere` (owner's lease is still alive — caller should return 409 + `Retry-After`), `not_active_locally` (heartbeat disabled, preserving the old 409 path), `not_cancellable` (terminal state), or `unknown` (not found in memory or store). `create_or_reject(..., multitask_strategy="interrupt"|"rollback")` persists interrupted status through `RunStore.update_status()`, matching normal `set_status()` transitions.
 - Store-only hydrated runs are readable history. In multi-worker mode with heartbeat enabled, cancel on a store-only run can take over (mark `error`) when the owner's lease has expired past the grace window; otherwise it fails with 409 + `Retry-After`. In single-worker mode (heartbeat off), store-only runs still return 409.
@@ -901,57 +1076,6 @@ metadata only.
 - Redis `StreamBridge` keys use a rolling retained-buffer TTL (`stream_bridge.stream_ttl_seconds`, refreshed on `publish()` / `publish_end()`) as a leak safety net, not as a run timeout. Startup orphan recovery publishes `END_SENTINEL` and schedules stream cleanup for recovered runs; malformed `Last-Event-ID` reconnect values live-tail new Redis events rather than replaying the retained buffer. Do not broaden this into a shared-database multi-pod reaper without adding worker ownership/liveness first.
 - Thread-scoped run creation accepts `checkpoint` / `checkpoint_id`; Gateway validates the checkpoint belongs to the request thread before writing `checkpoint_id` / `checkpoint_ns` into `config.configurable` for LangGraph branching.
 - Thread-scoped Gateway runs evaluate an active `ThreadState.goal` after the visible turn completes. `runtime/goal.py` asks a non-thinking evaluator model to judge only visible conversation evidence and return a typed blocker; the evaluator model is created once per run and reused across hidden continuation checks. The evaluator runs after the graph root's tracing scope has already closed, so `create_goal_evaluator_model`/`evaluate_goal_completion` attach their own model-level tracing callbacks (`attach_tracing=True`) and inject Langfuse trace metadata (`thread_id`/`user_id`/`deerflow_trace_id`) directly onto the `ainvoke` call — the same standalone-caller pattern as `oneshot_llm.run_oneshot_llm` and `MemoryUpdater` (see Tracing System below). Satisfied goals are cleared; every non-satisfied evaluation — continuable or stand-down — is persisted with `last_evaluation` (the blocker, reason, and evidence summary; outcomes that stop the loop additionally record a `stand_down_reason` for observability), but only `goal_not_met_yet` evaluations are streamed as hidden `HumanMessage` continuations, and only when a durable assistant end-of-turn checkpoint exists, the run has not been aborted, the thread did not change during evaluation, and the no-progress breaker has not fired. The continuation cap is 8 — a hard maximum in the `0`–`8` range; callers requesting more are clamped (`set_goal`/TUI) or rejected with 422 (`PUT /goal`). The no-progress breaker keys on the latest visible assistant evidence (not the evaluator's free-text reason, which an LLM rewords every turn), so two consecutive continuations that add no new visible assistant output stop the loop after 2 attempts. Model-response cleanup helpers such as think-block stripping and code-fence stripping live in `deerflow.utils.llm_text` so `runtime/goal.py` and Gateway suggestion parsing share the same JSON-prep behavior.
-
-**Dashboard performance contract**: `/api/admin/dashboard/summary` retains its
-complete backward-compatible response by default. The workspace UI requests
-`include_knowledge=false&include_business_details=false`, while native WeKnora
-analytics load independently from `/api/admin/dashboard/knowledge`. Both routes
-use a bounded local single-flight cache and use Redis when
-`DEER_FLOW_DASHBOARD_REDIS_URL` or `DEER_FLOW_STREAM_BRIDGE_REDIS_URL` is
-configured. Redis keys are scoped by `DEER_FLOW_DASHBOARD_CACHE_NAMESPACE` or a
-hash of `DATABASE_URL`; cache failures never make analytics unavailable.
-Responses carry `private, no-store`, `X-Dashboard-Cache`, and `Server-Timing`.
-Keep dashboard event reads streamed and projected to only required columns;
-never restore unbounded full-ORM materialization. Migration
-`0015_dashboard_query_indexes` creates the time/composite indexes online on
-PostgreSQL and must remain in the server upgrade path.
-Migration `0016_dashboard_daily_rollups` adds versioned, atomically replaced
-Asia/Shanghai daily facts plus a durable late-change backlog. The additive
-migrations never select the new read path by themselves. Existing installations
-default `DEER_FLOW_DASHBOARD_ROLLUPS_ENABLED=false` and retain the bounded,
-cached source-history path until an operator completes backfill, readiness, and
-scheduled-maintenance validation. Only then set the flag to `true`; the compact
-summary switches to facts at `DEER_FLOW_DASHBOARD_ROLLUP_MIN_DAYS`.
-Migration `0017_dashboard_hourly_rollups` adds completed-hour facts retained for
-`DEER_FLOW_DASHBOARD_HOURLY_RETENTION_HOURS`; a 24-hour window reads those
-facts and only fractional edge-hour source slices. Daily edge slices recurse
-through hourly facts when available. After rollups are enabled, a missing or
-version-mismatched required day/hour fails fast; never add a wide raw fallback
-to that enabled mode. Gateway startup and dashboard
-HTTP handlers must never build or repair facts. Only
-`scripts/manage_dashboard_rollups.py` may do so, with a single connection,
-PostgreSQL advisory lock, statement/lock timeouts, and bounded day/hour batches.
-Keep the Kubernetes CronJob suspended by default until an operator verifies
-status and initial backfill. Cache-miss admission is one query by default, and
-`DEER_FLOW_DASHBOARD_DATABASE_URL` supplies a dashboard-only one-connection
-pool/read replica. When `DEER_FLOW_DASHBOARD_REQUIRE_READ_REPLICA=true`, verify
-transaction read-only mode and `pg_is_in_recovery()` and never fall back to the
-primary; failure disables only analytics and must never become a normal-service
-startup dependency. The enterprise standby lives on a separate node and local
-PV, uses a SELECT-only login, and bounds retained WAL with
-`max_slot_wal_keep_size`. In strict replica mode the maintenance CLI must read
-source rows and EXPLAIN plans from that standby and write only fact/state rows
-to the primary. Bound its change-scan cursor by
-`pg_last_xact_replay_timestamp()` so replay lag cannot skip late source rows.
-The workspace slow/high-run cards call `/api/admin/dashboard/run-rankings`;
-keep its two top-N SQL queries, cache, admission gate, and projected response.
-Do not reconnect those cards to `ObservabilityRepository.analytics()`, which
-builds the complete current/comparison analytics document.
-Before activation, external-platform all-time totals retain their projected,
-streamed compatibility audit read. After activation they read daily facts plus
-today's bounded audit slice. Missing history then produces the panel's
-unavailable/preparing state; never fall back to all-history scanning in enabled
-mode.
 
 Proxied through nginx: `/api/langgraph/*` → Gateway LangGraph-compatible runtime, all other `/api/*` → Gateway REST APIs.
 
@@ -978,7 +1102,7 @@ reading large files into Gateway memory.
 **Implementations**:
 
 - `LocalSandboxProvider` - Local filesystem execution. `acquire(thread_id)` returns a per-thread `LocalSandbox` (id `local:{thread_id}`) whose `path_mappings` resolve `/mnt/user-data/{workspace,uploads,outputs}` and `/mnt/acp-workspace` to that thread's host directories, so the public `Sandbox` API honours the `/mnt/user-data` contract uniformly with AIO. `acquire()` / `acquire(None)` keeps the legacy generic singleton (id `local`) for callers without a thread context. Per-thread sandboxes are held in an LRU cache (default 256 entries) guarded by a `threading.Lock`. Legacy global-custom mounts are gated by the same user-scoped skill discovery rule used for prompt/list visibility; providers must not infer visibility from raw directory presence alone.
-- `AioSandboxProvider` (`packages/harness/deerflow/community/`) - Docker-based isolation. Active-cache and warm-pool entries are checked with the backend during acquire/reuse; definitively dead containers are dropped from all in-process maps so the thread can discover or create a fresh sandbox instead of reusing a stale client. Backend health-check failures are treated as unknown, not dead; local discovery likewise treats an unverifiable container as not adoptable and falls through to create rather than failing acquire. `get()` remains an in-memory lookup for event-loop-safe tool paths. Legacy global-custom mounts follow the same shared visibility helper as local and remote providers. Because the AIO shell APIs expose text but not a reliable structured process status, `AioSandbox.execute_command()` appends and strips a private exit-code marker; non-zero commands return an explicit `Error:` plus active-skill/`--help` recovery guidance so tool progress cannot count a failed CLI call as success. Provisioner/Kubernetes deployments may set `sandbox.shared_thread_data_mounts: true` only when Gateway and every sandbox mount the same thread-data volume at `/mnt/user-data`; uploads are then written once through the Gateway instead of cold-starting a sandbox and copying the bytes over its API. The local single-node PVC stack satisfies this with `ReadWriteOnce`; multi-node deployments require storage that provides `ReadWriteMany` (or an equivalent shared filesystem) before enabling the flag.
+- `AioSandboxProvider` (`packages/harness/deerflow/community/`) - Docker-based isolation. Keep the `agent-sandbox` SDK floor at `0.0.30` or newer so rebuilt environments cannot resolve an older client that lacks the current AIO API contract. Active-cache and warm-pool entries are checked with the backend during acquire/reuse; definitively dead containers are dropped from all in-process maps so the thread can discover or create a fresh sandbox instead of reusing a stale client. Backend health-check failures are treated as unknown, not dead; local discovery likewise treats an unverifiable container as not adoptable and falls through to create rather than failing acquire. `get()` remains an in-memory lookup for event-loop-safe tool paths. Legacy global-custom mounts follow the same shared visibility helper as local and remote providers. Because the AIO shell APIs expose text but not a reliable structured process status, `AioSandbox.execute_command()` appends and strips a private exit-code marker; non-zero commands return an explicit `Error:` plus active-skill/`--help` recovery guidance so tool progress cannot count a failed CLI call as success. Provisioner/Kubernetes deployments may set `sandbox.shared_thread_data_mounts: true` only when Gateway and every sandbox mount the same thread-data volume at `/mnt/user-data`; uploads are then written once through the Gateway instead of cold-starting a sandbox and copying the bytes over its API. The local single-node PVC stack satisfies this with `ReadWriteOnce`; multi-node deployments require storage that provides `ReadWriteMany` (or an equivalent shared filesystem) before enabling the flag.
 - In the enterprise K8s profile, Provisioner projects provider credentials and
   both cases of the proxy variables from `deer-flow-env` into each generated
   Sandbox Pod, and mounts the current `deer-flow-enterprise-ca` Secret. The
@@ -992,7 +1116,7 @@ reading large files into Gateway memory.
   these settings runtime-injected so CA rotation and proxy credential changes
   do not require rebuilding the large Sandbox image. Never disable CA or
   hostname verification.
-- **Provisioner-generated Pod health/resources**: `docker/provisioner/app.py` reads startup/readiness/liveness timing from `SANDBOX_*_PROBE_*` environment variables, the inner AIO HTTP timeout from `SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS`, and CPU/memory requests/limits from `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}`. Keep the startup window at least five minutes for cold AIO images, and keep the kubelet exec timeout longer than the inner HTTP timeout. Liveness must tolerate roughly one minute of transient unresponsiveness for browser/PPT workloads; readiness may remain faster because it does not restart the container. The local/enterprise K8S overlays use a 5-second inner timeout, 10-second probe timeout, 10-minute startup window, and 1 CPU/1Gi requests with 2 CPU/4Gi limits; tune those values only with measured node capacity.
+- **Provisioner-generated Pod health/resources**: `docker/provisioner/app.py` reads startup/readiness/liveness timing from `SANDBOX_*_PROBE_*` environment variables, the inner AIO HTTP timeout from `SANDBOX_HEALTHCHECK_TIMEOUT_SECONDS`, and CPU/memory requests/limits from `SANDBOX_{CPU,MEMORY}_{REQUEST,LIMIT}`. Keep the startup window at least five minutes for cold AIO images, and keep the kubelet exec timeout longer than the inner HTTP timeout. Liveness must tolerate roughly one minute of transient unresponsiveness for browser/PPT workloads; readiness may remain faster because it does not restart the container. The local/enterprise K8S overlays use a 5-second inner timeout, 10-second probe timeout, 10-minute startup window, and 1 CPU/1Gi requests with 2 CPU/4Gi limits; tune those values only with measured node capacity. Stable per-thread Sandbox names are intentional: on Pod-create `409`, reuse only a non-terminating Pod; wait up to `SANDBOX_POD_DELETE_WAIT_SECONDS` (default 30) for a terminating predecessor to disappear, then recreate. Never return a Service URL without a usable Pod.
 - `BoxliteProvider` (`packages/harness/deerflow/community/boxlite/`) - BoxLite micro-VM isolation. The `boxlite` runtime is optional (`deerflow-harness[boxlite]`) and lazy-imported only when this provider is selected. The provider owns one private asyncio event loop on a daemon thread because BoxLite handles are loop-affine; sync `Sandbox` calls marshal onto that loop with `run_coroutine_threadsafe`.
   Boxes are named deterministically from `user_id:thread_id`, released into an in-process warm pool after each agent turn, and reclaimed only by the same user/thread. Warm-pool health checks use a short explicit timeout and forward that timeout through both BoxLite `exec(timeout=...)` and the private-loop `.result(timeout)` bridge so a hung VM cannot pin the per-thread acquire lock indefinitely.
   `sandbox.replicas` caps active + warm VMs per gateway process; if capacity is exhausted, only warm-pool VMs are evicted. `sandbox.idle_timeout` stops idle warm VMs after the configured seconds. `reset()` is intentionally a lightweight registry clear for `reset_sandbox_provider()` and does not close boxes, stop the idle reaper, or close the private loop; full teardown remains `shutdown()`.
@@ -1018,7 +1142,7 @@ reading large files into Gateway memory.
 
 **Built-in Agents**: `general-purpose` (all tools except `task`) and `bash` (command specialist)
 **Execution**: Dual thread pool - `_scheduler_pool` (3 workers) + `_execution_pool` (3 workers)
-**Concurrency and total delegation cap**: `MAX_CONCURRENT_SUBAGENTS = 3` is enforced by `SubagentLimitMiddleware` (truncates excess tool calls in `after_model`; runtime `max_concurrent_subagents` is clamped to 2-4). The same middleware also enforces `subagents.max_total_per_run` (default 6, config schema 1-50, runtime override `max_total_subagents` clamped to the same range) against current-run entries in the durable delegation ledger, so a long lead-agent run cannot bypass concurrency limits by launching repeated legal-sized batches at each planning checkpoint, but historical delegations from previous runs in the same thread do not consume the new run's budget. The lead-agent prompt uses the same clamped values, so model-visible limits match enforcement. Gateway `run_agent()` and embedded `DeerFlowClient.stream()` both provide a per-invocation `run_id` in runtime context; `DeerFlowClient.stream()` also tags its input `HumanMessage` with that same id so durable-context capture can identify the current request boundary. Gateway resume paths may not append a new `HumanMessage`, so the worker also exposes the pre-run checkpoint's message ids in runtime context; durable-context capture uses that as the current-run boundary and never re-tags older task calls as the resumed run. When no delegation slots remain, task calls are stripped, provider raw tool-call metadata is synced, `finish_reason` is forced to `stop`, and a visible "subagent delegation limit" note is appended so the agent can synthesize already-collected results. Default subagent timeout `subagents.timeout_seconds=1800` (30 min) and built-in `general-purpose` `max_turns=150` (raised from 100/15-min so deep-research subtasks stop hitting `GraphRecursionError` out of the box)
+**Concurrency and total delegation cap**: `MAX_CONCURRENT_SUBAGENTS = 3` is enforced by `SubagentLimitMiddleware` (truncates excess tool calls in `after_model`; runtime `max_concurrent_subagents` is clamped to 1-4). The same middleware also enforces `subagents.max_total_per_run` (default 6, config schema 1-50, runtime override `max_total_subagents` clamped to the same range) against current-run entries in the durable delegation ledger, so a long lead-agent run cannot bypass concurrency limits by launching repeated legal-sized batches at each planning checkpoint, but historical delegations from previous runs in the same thread do not consume the new run's budget. The lead-agent prompt uses the same clamped values, so model-visible limits match enforcement. Gateway `run_agent()` and embedded `DeerFlowClient.stream()` both provide a per-invocation `run_id` in runtime context; `DeerFlowClient.stream()` also tags its input `HumanMessage` with that same id so durable-context capture can identify the current request boundary. Gateway resume paths may not append a new `HumanMessage`, so the worker also exposes the pre-run checkpoint's message ids in runtime context; durable-context capture uses that as the current-run boundary and never re-tags older task calls as the resumed run. When no delegation slots remain, task calls are stripped, provider raw tool-call metadata is synced, `finish_reason` is forced to `stop`, and a visible "subagent delegation limit" note is appended so the agent can synthesize already-collected results. Default subagent timeout `subagents.timeout_seconds=1800` (30 min) and built-in `general-purpose` `max_turns=150` (raised from 100/15-min so deep-research subtasks stop hitting `GraphRecursionError` out of the box)
 **Flow**: `task()` tool → `SubagentExecutor` → background thread → poll 5s → SSE events → result. `task_started` carries the resolved effective model name. The per-subagent `SubagentTokenCollector` publishes a cumulative usage snapshot to the shared `SubagentResult` after every completed LLM response; the next `task_running` event carries that snapshot, so collapsed workspace cards can update without re-accounting parent-run totals. Terminal ToolMessage metadata (`subagent_model_name`, `subagent_token_usage`) and the persisted `subagent.end` event retain the model/usage after reload; absent provider usage stays absent rather than being estimated as zero.
 **Events**: `task_started`, `task_running`, `task_completed`/`task_failed`/`task_timed_out`
 **Handled LLM failures**: `LLMErrorHandlingMiddleware` deliberately converts provider/model exceptions into an `AIMessage` so the graph can end cleanly, stamping `additional_kwargs.deerflow_error_fallback=true` plus error metadata. Clean graph termination does not imply subagent success: `SubagentExecutor` inspects the last assistant message at terminalization and maps a marked fallback to `SubagentStatus.FAILED`, which then emits `task_failed` and the existing structured `subagent_error`. Only the marker is authoritative — error-looking assistant prose without it remains a normal completed result, so neither the executor nor frontend parses display text as a status protocol.
@@ -1040,7 +1164,7 @@ reading large files into Gateway memory.
    - `ask_clarification` - Request clarification (intercepted by ClarificationMiddleware, which preserves text fallback and adds `artifact.human_input` for Web UI Human Input Cards)
    - `view_image` - Read image as base64 (added only if model supports vision)
    - `setup_agent` - Bootstrap-only: persist a brand-new custom agent's `SOUL.md` and `config.yaml`. Bound only when `is_bootstrap=True`.
-   - `update_agent` - Personal-custom-agent-only: persist self-updates to the current user's `SOUL.md` / `config.yaml` from inside a normal chat (partial update + atomic write). The lead factory binds it and emits the model-facing `<self_update>` guidance only when the current user owns a real personal `config.yaml`; team-square and legacy shared agents are read-only and receive neither. The tool repeats the ownership check before loading and writing so a custom factory cannot turn a shared chat into a same-name personal shadow. Publishing is snapshot-based: update the personal source and republish to change the team copy.
+   - `update_agent` - Custom-agent-only: persist self-updates to the current agent's `SOUL.md` / `config.yaml` from inside a normal chat (partial update + atomic write). Bound when `agent_name` is set and `is_bootstrap=False`.
    - Model-facing lead and subagent prompts share `agents/language_policy.py`.
      Simplified Chinese is the default for user-visible answers, titles,
      descriptions, summaries, and reports unless the current user request
@@ -1052,9 +1176,19 @@ reading large files into Gateway memory.
 
 Scheduled-task runtime note:
 
+- The September 30 reconciliation also restores the pre-merge
+  `app/gateway/routers/scheduled_tasks.py`: interval/custom-agent validation,
+  cron preview, runs:create checks, ThreadId validation, active-occurrence
+  mutation guards, and atomic queued-run cancellation on pause/delete. Its
+  scheduler service, persistence, and migrations were already retained; do not
+  replace them or deploy schema changes as part of this narrow restoration.
+
 - Scheduled background runs set `context.non_interactive=true` and therefore exclude `ask_clarification` from the lead-agent tool list. The lead-agent system prompt also tells unattended runs to stop safely when required inputs/approvals are missing and to avoid unapproved destructive side effects. This keeps scheduler-triggered runs from stalling or guessing through a human confirmation mid-execution. `non_interactive` is an internal-only context key: it is merged from `body.context` only when the request authenticated as the process-internal user (the scheduler path), never from arbitrary HTTP/IM clients. `GET /api/scheduled-tasks/capabilities` reports the current process poller's actual `scheduler_enabled` state plus these non-interactive semantics so the frontend does not imply that saved tasks will auto-run while the poller is stopped.
 - The scheduled-task row stores only the allowlisted user-configurable run context needed to reproduce the chosen model, mode, reasoning, subagent, and WeKnora scope. The scheduler passes that context into `launch_scheduled_thread_run`, which filters it again before forcing the internal `non_interactive` and authenticated owner fields. Do not persist or forward runtime-only secrets, client-supplied identity, or internal flags.
 - `once`, `cron`, and minimum-60-second `interval` schedules share the same occurrence projection. Overlaps enqueue instead of being silently skipped; queue timeout, occurrence ordering, and one active occurrence per task are persistence invariants. Multi-instance mode must fail closed unless PostgreSQL, database run events, and run-ownership heartbeats are configured.
+- The incoming scheduled-task run-history status filter is deferred in the dmdb 2026-09-30 merge: its enum and SQL/API predicate are absent. Preserve the existing ownership and pagination behavior; review a future filter as one complete backend/frontend contract.
+
+JSONL development event stores are framed only by physical LF delimiters. Do not use Python `splitlines()` to read records: Unicode NEL/line/paragraph separators are valid inside JSON string values and must round-trip without becoming false record boundaries. Production PostgreSQL event storage is unaffected by this local-store rule.
 
 **Community tools** (`packages/harness/deerflow/community/`): optional integrations, each in its own subpackage and wired through `config.yaml`. Documented examples:
 
@@ -1099,6 +1233,14 @@ contexts and apply the same filter defensively. The DataLake boundaries still
 returns a bounded `datalake_disabled` result for stale direct references before
 configuration, credentials, or network access.
 
+`datalake_md_search` is a distinct AppForge master-data workflow. It is limited
+to companies, branches/operating organizations, fields, blocks, wells, and
+their registered ownership/list/count relationships; it must not be used for
+metrics, production, reports, document QA, arbitrary SQL, or inferred complex
+relationships. Its `APPFORGE_MD_SEARCH_API_KEY` is Gateway Secret-only. It is
+intentionally absent from `DATALAKE_TOOL_NAMES`, so the Data Lake toggle does
+not hide it or block its direct invocation.
+
 **ACP agent tools**:
 
 - `invoke_acp_agent` - Invokes external ACP-compatible agents from `config.yaml`
@@ -1129,16 +1271,18 @@ configuration, credentials, or network access.
 
 - **Location**: `deer-flow/skills/{public,custom}/`
 - **Format**: Directory with `SKILL.md` (YAML frontmatter: name, description, license, allowed-tools, required-secrets)
-- **Loading**: `load_skills()` recursively scans `skills/{public,custom}` for `SKILL.md`, parses metadata, and reads enabled state from extensions_config.json
+- **Loading**: `load_skills()` recursively scans namespace directories under `skills/{public,custom}`, but stops descending once it finds a `SKILL.md`; that directory is a package boundary, so no nested `SKILL.md` is registered as a runtime skill. SkillScan has a deliberately narrower packaging rule: known eval fixtures are permitted as support data, while other nested `SKILL.md` files are reported as package defects. It parses runtime metadata and reads enabled state from extensions_config.json.
 - **Progressive-read budget**: `read_file` applies `sandbox.skill_file_output_max_chars` and `sandbox.skill_reference_output_max_chars` (both default 150,000) to canonical entry files and supporting resources under `skills.container_path`; ordinary files keep `read_file_output_max_chars`. This prevents long workflows and references from silently losing mandatory later phases, schemas, or examples while avoiding a global context-budget increase.
 - **Vendored runtime packages**: Third-party packages containing nested `SKILL.md` files must live outside the scanned `public`, `custom`, and `legacy` category roots. For example, `skills/third_party/academic-research-skills/` is runtime content reached through the single public `academic-research` adapter; its internal components are not independently registered platform skills.
+- **External reload**: `POST /api/skills/reload` is an admin-only, process-local invalidation hook for trusted MinIO/NFS/CSI writes. `SkillStorage` instances do not cache a catalog — `load_skills()` scans on every call — so the route clears all `(app_config, user_id)` entries and the rendered prompt-section LRU, then waits up to the shared refresh timeout for the existing off-loop single-flight refresh. Each invalidation receives a generation-bound result handle; a successful scan atomically replaces the global enabled-skills cache, while a loader-level failure propagates to the HTTP waiter and preserves the last-known-good global cache. Per-user/config scans capture the refresh version and cannot repopulate shared caches if invalidation occurs while they are loading. A timed-out HTTP wait fails generically while the daemon refresh worker continues. Subsequent runs rescan after a successful reload; active runs keep their existing snapshot. Each Uvicorn worker/Kubernetes Pod must be targeted separately. Direct mount writes bypass install/edit validation, SkillScan, and history, so mounted roots are an operator-controlled trust boundary.
+- **Tool policy**: Preserve the production construction-time lead-agent `allowed-tools` filtering for custom/bootstrap agents that declare a finite skill allowlist. Merely discoverable default-agent skills do not narrow the global toolset. Slash activation and durable `skill_context` continue to provide instructions and workflow context, but this baseline does not enforce the deferred activation-scoped model-schema/execution policy. Subagents retain their existing static filtering; do not change existing authorization, secret binding, or SkillScan boundaries as part of this deferral.
 - **Injection (legacy / default)**: Enabled skills are listed in the agent system prompt with full metadata and container paths (`<available_skills>` block). Controlled by `skills.deferred_discovery: false` (default).
 - **Deferred discovery** (`skills.deferred_discovery: true`): Skills are listed by name only in a compact `<skill_index>` block, keeping the system prompt prefix-cache friendly. The agent calls the `describe_skill` tool at runtime to fetch full metadata for skills it wants to use, then loads the SKILL.md via `read_file`. Two new modules support this path:
   - `skills/catalog.py` — `SkillCatalog` (immutable, searchable; query forms: `select:a,b`, `+prefix`, free-text regex); `select:` returns all requested skills without a result cap; other modes cap at `MAX_RESULTS=5`.
   - `skills/describe.py` — `build_describe_skill_tool(catalog)` builds the `describe_skill` tool as a closure; `build_skill_search_setup(skills, enabled, ...)` produces a `SkillSearchSetup(describe_skill_tool, skill_names)` that is wired into both the LangGraph agent factory (`agent.py`) and the embedded client (`client.py`).
 - **Slash activation**: `/skill-name task` loads that enabled skill's complete `SKILL.md` on the first model call. Ordinary skills then use a compact validated continuation contract; strict serial workflows with hard-stop user-confirmation gates keep the complete body visible across the tool loop, matching the effective legacy read-result behavior at the cost of higher cached input-token usage. The per-run cache is keyed to the activating user message, redacted from traces/persistence, and cannot leak into a later non-slash message. The resolver rejects leading whitespace, missing separators, reserved channel commands (`/new`, `/help`, `/bootstrap`, `/status`, `/models`, `/memory`, `/goal`), disabled skills, and skills outside a custom agent's whitelist. Large skill/reference workflows should run on a context window sized for the combined instructions, artifacts, and tool history.
 - **Installation**: `POST /api/skills/install` extracts .skill ZIP archive to custom/ directory
-- **SkillScan**: `packages/harness/deerflow/skills/skillscan/` is the native deterministic scanner for `.skill` archives and agent-managed skill writes. It runs offline before the LLM scanner, emits structured findings (`rule_id`, `severity`, `file`, `line`, `message`, `remediation`, redacted `evidence` — category/analyzer are encoded in the `rule_id` prefix), blocks `CRITICAL`, and passes warning findings into `scan_skill_content()`. `skills/package_files.py` is the shared definition of code paths and executable magic for the installer and scanner. NUL/non-UTF-8 code raises `package-undecodable-script` and is still analyzed with replacement decoding; executable binaries skip noisy string-table text rules after their blocking binary finding. `scan_archive_preflight()` / `scan_skill_dir()` are pure sync functions (dispatch off the event loop); `enforce_static_scan()` applies the blocking policy and the `skill_scan.enabled` kill switch. Do not add Semgrep/OpenGrep or YAML rule-engine dependencies to the core path; Phase 1 rule specs live in Python constants next to their analyzers in `skillscan/orchestrator.py`.
+- **SkillScan**: `packages/harness/deerflow/skills/skillscan/` is the native deterministic scanner for `.skill` archives and agent-managed skill writes. It runs offline before the LLM scanner, emits structured findings (`rule_id`, `severity`, `file`, `line`, `message`, `remediation`, redacted `evidence` — category/analyzer are encoded in the `rule_id` prefix), blocks `CRITICAL`, and passes warning findings into `scan_skill_content()`. `skills/package_files.py` is the shared definition of code paths and executable magic for the installer and scanner. Installer path checks remain intact. NUL/non-UTF-8 code raises `package-undecodable-script` and is still analyzed with replacement decoding; executable binaries skip noisy string-table text rules after their blocking binary finding. The dmdb 2026-09-30 merge restores these existing protections and defers incomplete instance-client/scope/work-budget analysis and scanner-side ADS preflight increments. `scan_archive_preflight()` / `scan_skill_dir()` are pure sync functions (dispatch off the event loop); `enforce_static_scan()` applies the blocking policy and the `skill_scan.enabled` kill switch. Do not add Semgrep/OpenGrep or YAML rule-engine dependencies to the core path; Phase 1 rule specs live in Python constants next to their analyzers in `skillscan/orchestrator.py`. See `docs/ENTERPRISE_MERGE_20260930.md`; preserve all pre-merge regression definitions when reconciling incomplete incoming tests.
 - **Agent-managed creation**: `skill_evolution.enabled` registers the
   `skill_manage` tool used by the public `skill-creator`. Writes resolve the
   runtime user and persist below
@@ -1149,7 +1293,7 @@ configuration, credentials, or network access.
   `utils.llm_text.extract_response_text` so Responses API `text` and
   `output_text` blocks are accepted while reasoning and tool blocks are ignored.
 - **Skill Review Core**: `packages/harness/deerflow/skills/review/` provides read-only package snapshots, deterministic facts, resource/eval analysis, report rendering, and the CLI (`python -m deerflow.skills.review.cli`). It reuses the shared frontmatter helper and SkillScan; it must not import `app.*`, execute target scripts, install dependencies, or call networks. JSON contracts live in `contracts/skill_review/`. Snapshots retain binary content as base64 and materialize every non-symlink file byte-for-byte for SkillScan; only eval-fixture `SKILL.md` samples are excluded. Exclusive creation and required content bytes make duplicate/case-folded paths and incomplete untruncated snapshots fail closed. The `review_skill_package` built-in tool labels results with `review_subject_entry` and never `skill_context_entry`, so reviewing a target does not activate it, bind its secrets, execute scripts, or apply its `allowed-tools`. Its model-visible `ToolMessage.content` is a compact JSON payload with untrusted control tags neutralized; the full raw review payload, including Markdown renders, stays in `ToolMessage.artifact`. CI should run the CLI with `--fail-on error --fail-on-incomplete` so blocker/error findings and truncated/not-assessed packages fail the gate. The public `skills/public/skill-reviewer` skill owns semantic readiness review and suggestions only; mutation and runtime experiments remain owned by `skill-creator`.
-- **Default-agent tool policy**: skills that are merely discoverable by the default agent do not statically narrow its tool set. `allowed-tools` is applied at agent construction only when a custom/bootstrap agent declares a finite skill allowlist; otherwise one narrow public helper could accidentally remove `bash`, `write_file`, and `present_files` from unrelated tasks.
+- **Default-agent tool policy**: Skills that are merely discoverable by the default agent do not statically narrow its tool set. Lead-agent `allowed-tools` is applied at construction only when a custom/bootstrap agent declares a finite skill allowlist; otherwise one narrow public helper could remove `bash`, `write_file`, and `present_files` from unrelated tasks. Activation-scoped enforcement remains deferred as described above.
 
 #### Request-Scoped Secrets (`required-secrets`)
 
@@ -1191,7 +1335,7 @@ Bridges external messaging platforms (Feishu, Slack, Telegram, Discord, DingTalk
 - `store.py` - JSON-file persistence mapping `channel_name:chat_id[:topic_id]` → `thread_id` (keys are `channel:chat` for root conversations and `channel:chat:topic` for threaded conversations)
 - `manager.py` - Core dispatcher: creates threads via `client.threads.create()`, routes commands including `/goal` (setting a goal persists it through Gateway and then routes the objective as a chat turn), keeps Slack/Discord on `client.runs.wait()`, uses `client.runs.stream(["messages-tuple", "values"])` for Feishu/Telegram incremental outbound updates, serializes same-thread Feishu turns in-manager when the channel's `ChannelRunPolicy.serialize_thread_runs=True` so rapid follow-ups queue instead of tripping the runtime busy reply, and switches to `client.runs.create()` (fire-and-forget, returns once the run is `pending`) for channels whose `ChannelRunPolicy.fire_and_forget=True` so long autonomous runs do not hit the SDK default 300s `httpx.ReadTimeout`
 - `base.py` - Abstract `Channel` base class (start/stop/send lifecycle)
-- `service.py` - Manages lifecycle of all configured channels from `config.yaml`
+- `service.py` - Manages lifecycle of all configured channels from `config.yaml`. A failed or cancelled startup drains `ChannelService.stop()` before propagating and clears the singleton only after successful rollback, so no half-started channel workers survive Gateway startup cancellation.
 - `slack.py` / `feishu.py` / `telegram.py` / `discord.py` / `dingtalk.py` - Platform-specific implementations (`feishu.py` tracks the running card `message_id` in memory and patches the same card in place; `telegram.py` registers the "Working on it..." placeholder as the stream target and edits it in place via `editMessageText`; `dingtalk.py` optionally uses AI Card streaming for in-place updates when `card_template_id` is configured)
 - `github.py` - Webhook-driven GitHub channel. Inbound messages come from `POST /api/webhooks/github`; outbound is log-only because GitHub agents post explicitly with `gh` from their sandbox when they choose to comment or create a PR
 - `app/gateway/routers/channel_connections.py` - Browser-facing user connection and disconnect APIs
@@ -1202,7 +1346,7 @@ Bridges external messaging platforms (Feishu, Slack, Telegram, Discord, DingTalk
 1. External platform -> Channel impl -> `MessageBus.publish_inbound()`
    - For GitHub, the webhook router verifies the delivery then calls `fanout_event(bus, ...)`; matching agent bindings publish one `InboundMessage` each instead of a long-polling channel worker.
 2. `ChannelManager._dispatch_loop()` consumes from queue
-3. For user-owned channel connections, incoming messages carry `connection_id`, `owner_user_id`, and `workspace_id`; `owner_user_id` becomes the DeerFlow run `user_id`, while the raw platform user id remains `channel_user_id`. The Gateway forwards `channel_user_id` from `body.context` into the runtime context only (never `configurable`, which is checkpointed), and `bash_tool` exposes it to sandbox commands as the fixed env var `DEERFLOW_CHANNEL_USER_ID` — via a shell-quoted command-string prefix, NOT the `execute_command(env=...)` channel, which is reserved for request-scoped secrets and would switch `AioSandbox` onto the `bash.exec` path (image >= 1.9.3, fresh session per call). Per-call injection keeps group-chat identity correct (one thread/sandbox, many senders) **without depending on the AIO shell's session semantics**: every IM-channel command carries an explicit `export VAR=<id>; ` (valid id) or `unset VAR; ` (empty / non-str / over the 256-char cap, since `body.context` is client-writable). The AIO no-env path reuses a persistent shell session (the reason for the class lock, #1433), so a bare command could otherwise resolve a stale id an earlier sender exported; the `unset` closes the window the length/type guard would open (a dropped id would inherit the previous sender's value). Non-IM runs (no `channel_user_id` in context) are left untouched. Not injected on the Windows local sandbox (its PowerShell/cmd.exe fallback has no `export`/`unset`). Propagates across `task` delegation: `task_tool` captures the dispatching turn's id and the subagent executor forwards it into the subagent's runtime context, same as the guardrail attribution fields. The var is informational, never authorization-grade: any bash command can overwrite it (and web clients can set `body.context.channel_user_id`), so skills must not treat it as authenticated identity. Tests: `tests/test_channel_user_id_env.py`
+3. For user-owned channel connections, incoming messages carry `connection_id`, `owner_user_id`, and `workspace_id`; `owner_user_id` becomes the DeerFlow run `user_id`, while the raw platform user id remains `channel_user_id`. The Gateway accepts `channel_user_id` only from an internally authenticated channel caller's top-level `body.context`, clears it from both free-form `body.config` sections, and writes it into runtime context only (never `configurable`, which is checkpointed). `bash_tool` exposes it to sandbox commands as the fixed env var `DEERFLOW_CHANNEL_USER_ID` — via a shell-quoted command-string prefix, NOT the `execute_command(env=...)` channel, which is reserved for request-scoped secrets and would switch `AioSandbox` onto the `bash.exec` path (image >= 1.9.3, fresh session per call). Per-call injection keeps group-chat identity correct (one thread/sandbox, many senders) **without depending on the AIO shell's session semantics**: every IM-channel command carries an explicit `export VAR=<id>; ` (valid id) or `unset VAR; ` (empty / non-str / over the 256-char cap). The AIO no-env path reuses a persistent shell session (the reason for the class lock, #1433), so a bare command could otherwise resolve a stale id an earlier sender exported; the `unset` closes the window the length/type guard would open (a dropped id would inherit the previous sender's value). Non-IM runs (no `channel_user_id` in context) are left untouched. Not injected on the Windows local sandbox (its PowerShell/cmd.exe fallback has no `export`/`unset`). Propagates across `task` delegation: `task_tool` captures the dispatching turn's id and the subagent executor forwards it into the subagent's runtime context, same as the guardrail attribution fields. The runtime-context value is authorization-grade at the Gateway/guardrail boundary, but the exported shell variable remains informational because any bash command can overwrite its own environment; skills must not treat the shell variable itself as authenticated identity. Tests: `tests/test_gateway_services.py`, `tests/test_channel_user_id_env.py`
 4. For chat: look up/create thread through Gateway's LangGraph-compatible API
 5. Feishu/Telegram chat: `runs.stream()` → accumulate AI text → publish multiple outbound updates (`is_final=False`) → publish final outbound (`is_final=True`)
 6. Slack/Discord chat: `runs.wait()` → extract final response → publish outbound
@@ -1327,7 +1471,7 @@ new deployment manifests and ConfigMaps must use the nested form.
 - `mode` - Operation mode: `middleware` (default passive background extraction) or `tool` (experimental model-driven memory tools). Modes are mutually exclusive.
 - `storage_path` - Path to memory.json (absolute path opts out of per-user isolation)
 - `debounce_seconds` - Wait time before processing (default: 30)
-- `shutdown_flush_timeout_seconds` - Host-shared hard budget (seconds) to drain the memory backend's pending-update buffer on Gateway graceful shutdown (default: 30; 1–300). Each pending item does one LLM call, so large IM batches may need more. The Gateway lifespan calls `MemoryManager.shutdown_flush(timeout)` after channels/scheduler stop; the backend short-circuits on an idle buffer, so the host calls it unconditionally (no pending/processing gate). Must fit inside the pod's K8s `terminationGracePeriodSeconds` (gateway Helm chart sets this; default 45s) or K8s SIGKILLs the drain mid-flight.
+- `shutdown_flush_timeout_seconds` - Host-shared hard budget (seconds) to drain the memory backend's pending-update buffer on Gateway graceful shutdown (default: 30; 1–300). Each pending item does one LLM call, so large IM batches may need more. The Gateway lifespan resolves configuration and the backend off the event loop, calls `MemoryManager.shutdown_flush(timeout)` after channels/scheduler stop, and drains that entire owned operation before propagating lifespan cancellation. The backend short-circuits on an idle buffer, so the host calls it unconditionally (no pending/processing gate). Must fit inside the pod's K8s `terminationGracePeriodSeconds` (gateway Helm chart sets this; default 45s), including resolution and surrounding shutdown work, or K8s SIGKILLs the drain mid-flight.
 - `model_name` - LLM for updates (null = default model)
 - `max_facts` / `fact_confidence_threshold` - Fact storage limits (100 / 0.7)
 - `max_injection_tokens` - Token limit for prompt injection (2000)
@@ -1471,7 +1615,12 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
   audited enterprise endpoint: its safety gateway returns business code
   `20009` for non-streaming tool-call completions but accepts the equivalent
   streamed protocol. The adapter normalizes JSON-encoded streamed chunks before
-  LangChain conversion. It may quarantine an isolated malformed scalar frame
+  LangChain conversion. DeepSeek-V4-Flash's separate
+  `delta.reasoning_content` is retained in `additional_kwargs` and replayed
+  for subsequent tool-call requests; pair
+  `when_thinking_enabled.extra_body.enable_thinking: true` with the explicit
+  false counterpart under `when_thinking_disabled`. It may quarantine an
+  isolated malformed scalar frame
   only when a later normal chunk contains a terminal `finish_reason`; otherwise
   the incomplete stream remains a typed `MALFORMED_RESPONSE` failure. That exact
   transport defect may use up to three fresh request attempts, bounded by the
@@ -1490,6 +1639,7 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
   original run aggregates, and `run_events` always remains immutable. Never
   replace this with an unbacked bulk reset or an arbitrary estimated divisor.
 - `logging.enhance` - Optional request trace correlation (`enabled`, `format`) for Gateway `X-Trace-Id`, log `trace_id`, and Langfuse `deerflow_trace_id`
+- `DEERFLOW_RUN_TIMING_LOGS=true` - Temporary, content-free performance diagnostics. Emits `RUN_TIMING` records for run start/end, complete worker streams, per-thread checkpoint-lock waits, in-lock graph streaming, content-free graph-task lifecycle, DeerFlow-owned `after_agent`/`aafter_agent` spans, Sandbox acquire/create/ready, tool start/end, active-goal evaluation/checkpoint reads, hidden middleware retry/injection markers, hidden summary/title calls, memory queue handoff, and post-graph finalization. `agent_stream_*` brackets the whole worker turn; its nested `checkpoint_lock_wait_*` and `agent_graph_stream_*` distinguish lock contention from time actually inside `agent.astream()`. `agent_graph_stream_tail.elapsed_ms` measures the silent interval after the final published graph update and before graph exit. When all observed graph tasks have ended but the next `agent.astream()` item still has not arrived after 30 seconds, `agent_graph_stream_idle_wait_watchdog` records only the number, bounded coroutine implementation labels, and bounded per-label task counts; `agent_graph_stream_idle_wait_end` gives the eventual wait outcome. The positive `DEERFLOW_RUN_TIMING_IDLE_WAIT_SECONDS` override changes that diagnostic threshold without cancelling the graph. Browser bridge publication logs only error/cancelled calls and successful calls slower than one second (`agent_stream_bridge_publish_slow`); `DEERFLOW_RUN_TIMING_SLOW_BRIDGE_PUBLISH_MS` is its positive override. Do not add a publish log per token: it would alter load-test behavior. While enabled, Gateway privately consumes LangGraph `tasks` mode and emits `graph_task_start` / `graph_task_end` pairs with a fixed node name and local task index only; task state, inputs, outputs, and task ids are never forwarded to the browser or log. `middleware_after_agent_*` uses a fixed DeerFlow middleware name and outcome only, exposing cleanup or Sandbox-release delay inside a graph `after_agent` node without recording hook state. `stream_kind=initial` denotes the user turn and `stream_kind=goal` a goal continuation. Todo, artifact-delivery, terminal-response, and Skill workflow markers record only a retry/injection decision, not content. Finalization separately brackets journal flush, run-completion persistence, title sync, duration persistence, thread-status update, and the optional completion hook; an optional pair appears only when its dependency and code path run. PostgreSQL checkpointers additionally aggregate checkpoint API calls, connection-pool borrow waits, checked-out connection holds, and awaited SQL execution at `run_end`; each group reports the peak same-Run in-flight operation count, and slow records identify the in-flight count present when they began. This is not an exact LangGraph predecessor-chain queue length. `DEERFLOW_CHECKPOINTER_DB_SESSION_LABELS=true` additionally labels each borrowed PostgreSQL checkpointer session with only `dfcp:<run-id>` so a bounded `pg_stat_activity` sample can separate active database work from upstream application waiting; it is disabled by default and adds one diagnostic SQL command per borrow. Never log SQL, parameters, checkpoint state, user/thread data, or a connection identity. It is independent of `DEERFLOW_LLM_TIMING_LOGS`, which adds the model request/first-chunk/end records. Non-stream goal-evaluator requests use `mode=async_nonstream`; their `first_chunk_ms` is response-completion latency because the provider exposes no chunks. Each model request's three records share an `llm_call_id`; model attribution first uses the current task context and falls back to reserved inheritable LangChain metadata (`deerflow_timing_thread_id` / `deerflow_timing_run_id`) so callback child tasks retain the parent DeerFlow IDs. `run_end` separates true execution time/count of built-in Sandbox API tools (`sandbox_tool_execution_total_ms` / `sandbox_tool_count`: `bash`, `ls`, `glob`, `grep`, `read_file`, `write_file`, `str_replace`) from Gateway/external tools (`non_sandbox_tool_*`). Any acquisition nested inside a first Sandbox tool is removed from the execution total and reported as `sandbox_tool_acquire_overlap_ms`; individual `tool_end` records retain every tool's full duration. Neither path records tool arguments, command text, or paths. Enable both only for a bounded investigation and remove them afterwards. See `docs/run-timing-logs.md`.
 - vLLM reasoning models should use `deerflow.models.vllm_provider:VllmChatModel`; for Qwen-style parsers prefer `when_thinking_enabled.extra_body.chat_template_kwargs.enable_thinking`, and DeerFlow will also normalize the older `thinking` alias
 - `tools[]` - Tool configs with `use` variable path and `group`
 - `tool_groups[]` - Logical groupings for tools
@@ -1509,7 +1659,7 @@ Config is env-driven like the others — `MonocleTracingConfig`, built in `get_t
 **`extensions_config.json`**:
 
 - `mcpServers` - Map of server name → config (enabled, type, command, args, env, url, headers, oauth, description, `routing`, `tools`, `tool_call_timeout`). `routing.mode="prefer"` emits `<mcp_routing_hints>` prompt guidance; if `tool_search` defers the hinted tool, `McpRoutingMiddleware` can also auto-promote matching deferred schemas before the model call. It does not hard-disable other tools.
-- `tool_search.auto_promote_top_k` - Global MCP routing auto-promote breadth. Default `3`, clamped to `1..5`; applies only when `tool_search.enabled=true` and only to policy-filtered deferred MCP tools with `routing.mode="prefer"` and non-empty keywords.
+- `tool_search.auto_promote_top_k` - Global MCP routing auto-promote breadth. Default `3`, clamped to `1..5`; applies only when `tool_search.enabled=true` and only to deferred MCP tools with `routing.mode="prefer"` and non-empty keywords. For lead agents the deferred catalog is built from the full configured MCP set; auto-promotion never grants authority because an active skill's runtime policy still filters model-visible schemas, `tool_search` results, and execution.
 - `skills` - Map of skill name → state (enabled)
 
 Both can be modified at runtime via Gateway API endpoints or `DeerFlowClient` methods.
@@ -1638,7 +1788,7 @@ Multi-file upload with automatic document conversion:
 - Gateway HTTP uploads stage bytes as `.upload-*.part` files and atomically replace the destination only after size validation. These staging files are hidden from upload listings, agent upload context, and sandbox listing/search tools, and swept on Gateway startup if a hard crash leaves one behind.
 - Before the atomic replacement, the Gateway rejects browser-active/server-executable extensions and validates PDF identity plus active-content indicators. This check runs on the staged file so a rejected replacement cannot destroy an existing upload.
 - Direct artifact access never renders original uploaded PDFs or active web content in the authenticated origin. Generated inert PDFs keep inline preview with CSP; this includes LibreOffice's tightly validated direct first-page destination `OpenAction` but excludes indirect or executable actions. Suspicious PDFs and explicit downloads use hardened attachment responses.
-- When `WEKNORA_MINERU_ENDPOINT` (or `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`) is available and `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED` is not false, PDF/DOC/DOCX/PPT/PPTX conversation uploads call the in-cluster `/file_parse` adapter and atomically write a same-stem Markdown companion. This reuses WeKnora's searchable/scanned PDF routing, enterprise OCR, and presentation conversion without creating a knowledge-base record. The dispatcher assigns a trusted `conversation` profile only to interactive DeerFlow uploads; ordinary WeKnora knowledge ingestion retains the `knowledge` profile and explicit parser rules. A conversation DOCX tries pinned local AnyDoc first; structurally large knowledge-base DOCX may use the same bounded fast path. Inspect compressed, expanded, and `word/document.xml` sizes before parsing. Large DOCX must bypass `StdMarkitdownParser`, enter official DocReader v0.8's native `DocxParser`, and retain a separately killable low-memory XML text recovery after rich parsing fails; never raise AnyDoc's fixed XML-node safety limit to accept such input. Legacy DOC remains native-first. AnyDoc or DocReader hangs must terminate only their child process/process group and must not fail worker liveness. A non-empty result returns immediately, with Word-specific LibreOffice and MinerU fallback retained. The optional `MINERU_WORD_PDF_VISUAL_SUPPLEMENT_ENABLED=true` supplement remains best-effort for native success and cannot invalidate recovered text/tables/images. PPT/PPTX visual processing remains strict. The enterprise manifest explicitly enables this bridge with a 45-second dispatcher wait, 550-second interactive Adapter timeout, and `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=570`, all below Nginx's 600-second upload timeout; the local Docker/PVC overlay keeps the bridge disabled because it cannot reach the enterprise MinerU service. The legacy `DEERFLOW_UPLOAD_PDF_*` variables remain accepted. Enterprise sets `DEERFLOW_UPLOAD_DOCUMENT_LOCAL_FALLBACK_AFTER_ENTERPRISE_ENABLED=false` because the Adapter already owns the complete bounded fallback chain; repeating Gateway's local `convert_file_to_markdown()` after it fails can outlive the proxy timeout. The code default remains true for upstream-compatible deployments without this complete Adapter. Whitespace-only Markdown is always a parse failure and is never persisted as a successful companion. The original document is retained or transactionally restored on failure, and the client and agent must not silently claim parsing succeeded.
+- When `WEKNORA_MINERU_ENDPOINT` (or `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENDPOINT`) is available and `DEERFLOW_UPLOAD_DOCUMENT_PARSER_ENABLED` is not false, PDF/DOC/DOCX/PPT/PPTX conversation uploads call the in-cluster `/file_parse` adapter and atomically write a same-stem Markdown companion. This reuses WeKnora's searchable/scanned PDF routing, Word native-plus-visual path, enterprise OCR, and presentation conversion without creating a knowledge-base record. Word native text/tables/images remain part of the merged result, but its LibreOffice visual PDF, required MinerU enhancement, and page evidence are strict; incomplete visual processing is an adapter failure, as it is for PPT/PPTX. The enterprise manifest explicitly enables this bridge and sets `DEERFLOW_UPLOAD_DOCUMENT_PARSE_TIMEOUT_SECONDS=1860`, leaving 60 seconds beyond the Adapter's bounded 1800-second upstream wait for response transfer and atomic persistence; the local Docker/PVC overlay keeps the bridge disabled because it cannot reach the enterprise MinerU service, and other development deployments retain the shorter code default unless they opt in explicitly. The legacy `DEERFLOW_UPLOAD_PDF_*` variables remain accepted. If `uploads.auto_convert_documents` or the explicit enterprise `DEERFLOW_UPLOAD_DOCUMENT_FALLBACK_ENABLED` override is true, adapter failure falls back to `convert_file_to_markdown()` with a visible `processing_warning`; that text-only fallback must never be represented as complete visual parsing. Because MarkItDown does not support legacy OLE `.doc`, that format alone may use the task sandbox's LibreOffice to produce a temporary DOCX and then re-enter `convert_file_to_markdown()`; the request-unique sandbox and Gateway temporary files are removed afterwards. A `processing_warning` is returned only if the adapter path did not complete visually. The original document is retained in every case, and the client and agent must not silently claim visual parsing succeeded.
 - `/ppt-master` submissions with an attached PPT/PPTX send the validated multipart purpose `presentation_template`. Gateway skips MinerU and local Markdown conversion only for those presentation files, while retaining all upload extension, staged-write, ownership, and size checks. Unmarked PPT/PPTX uploads continue through the configured enterprise parser.
 - Gateway HTTP upload/list/delete handlers offload filesystem work through `deerflow.utils.file_io.run_file_io`, a dedicated ContextVar-preserving file IO executor. Non-mounted sandbox uploads acquire sandboxes with `SandboxProvider.acquire_async()` and offload `read_bytes()` plus `sandbox.update_file()` together.
 - Agent receives uploaded file list via `UploadsMiddleware`
@@ -1674,12 +1824,7 @@ See [docs/summarization.md](docs/summarization.md) for details.
 ### WeKnora identity bridge
 
 `app/gateway/weknora_identity.py` provisions or reuses a WeKnora account with
-the DeerFlow user's email and a deterministic service-managed credential. New
-registrations use a 32-character credential with guaranteed uppercase,
-lowercase, digit, and special-character classes so both WeKnora 0.7 and 0.8
-accept it. Login tries that current credential and then the exact legacy
-46-character derivation, preserving accounts created before the 0.8 policy was
-enforced without resetting their password or tenant. Each
+the DeerFlow user's email and a deterministic service-managed credential. Each
 successful SSO login mirrors DeerFlow `system_role=admin` to WeKnora's
 `is_system_admin` and `can_access_all_tenants` flags; regular users are
 explicitly kept non-admin. Keep this role sync covered by
@@ -1757,14 +1902,6 @@ as both the default and hard Gateway ceiling while retaining WeKnora's 2+1
 document worker limits. Gateway retries transient business code `10020` with bounded backoff
 to absorb brief shared-capacity races while rerank requests retain their
 independent path.
-Gateway and Nginx readiness must remain process-local. Gateway startup may use
-the database-backed setup-status route, but steady-state readiness uses
-`/health` with enough consecutive-failure tolerance to avoid removing the only
-endpoint during a brief event-loop stall. Nginx startup/readiness also use its
-own `/health`; never make the proxy Pod readiness transitively depend on
-Gateway or PostgreSQL. Until scheduler multi-instance safety permits at least
-two Gateway replicas, this separation is the production 502 containment
-boundary and must be preserved by hotfix renderers.
 The workspace knowledge-base adapter refreshes `/auth/me` memberships before
 listing, queries each membership with `X-Tenant-ID`, classifies ownership using
 WeKnora's `creator_id`, and keeps an `access_tenant_id` distinct from the
@@ -1806,36 +1943,6 @@ For models with `supports_vision: true`:
 - `view_image_tool` added to agent's toolset
 - Images automatically converted to base64 and injected into state
 
-### Digital Employee persistence and Browser Live
-
-`agent_storage.backend` selects file or SQL persistence for personal Digital
-Employee configuration and SOUL. SQL records are always scoped by effective
-`user_id`; migration from files is explicit, idempotent, and non-destructive.
-Digital Employee categories are the fixed corporate “统/分” business-domain
-taxonomy returned by `GET /api/digital-employee-categories`; never restore the
-administrator mutation endpoint or runtime `digital_employee_categories.yaml`
-loading. Gateway startup idempotently maps legacy personal SQL/file records and
-team/legacy shared files into the taxonomy. Read responses must still normalize
-legacy values so one failed record migration cannot expose retired categories.
-Category migration must patch the raw persisted `category_id` field. Never
-round-trip a whole SQL JSON or YAML record through `AgentConfig` for this narrow
-migration, because fields unknown to the running model must survive unchanged.
-Team publication and avatar binaries keep their existing shared-volume
-protocols. Per-employee model settings form an
-explicit allowlist (`temperature` and `max_tokens`) and layer below
-request-supplied model/thinking/reasoning values.
-Async Agent router handlers must resolve the configured store and perform its
-CRUD operation inside `asyncio.to_thread`. Do not pass an eagerly evaluated
-`get_agent_store().method` into `to_thread`: selecting the backend can read
-configuration, resolve filesystem paths, or initialize a database-backed store.
-
-Browser automation is an optional dependency and its live sessions belong to
-the Gateway process. The router must continue to enforce authenticated thread
-ownership, WebSocket Origin checks, capacity/idle teardown, and private-address
-SSRF blocking. Fail startup closed when Browser Live is enabled with more than
-one uvicorn worker; multi-replica deployments require sticky thread routing or
-a distributed browser-session broker before enabling the feature.
-
 ## Code Style
 
 - Uses `ruff` for linting and formatting
@@ -1855,3 +1962,33 @@ See `docs/` directory for detailed documentation:
 - [PATH_EXAMPLES.md](docs/PATH_EXAMPLES.md) - Path types and usage
 - [summarization.md](docs/summarization.md) - Context summarization
 - [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
+- [run-timing-logs.md](../docs/run-timing-logs.md) - Content-free run-stage performance diagnostics
+
+
+## Production Work channel and private title streaming (2026-10-10)
+
+See ../docs/production-work-title-source-sync-20261010.md for the pinned release, operator domain/NO_PROXY settings, cooperative shared-file locking/CAS, private title streaming semantics, and regression commands. Runtime credentials and PVC configuration remain outside Git.
+
+## 2026-10-11: catalogue and homepage scope (no new database schema)
+
+Retain six additional contest employees and four existing-name updates, with
+the updated e-AnDa link. The contest catalogue contains 18 entries; preexisting
+fixed employee routes are unchanged. Keep the homepage's two existing Haineng
+usage counters and add today's users and today's started tasks. These new
+counters use the existing dashboard's Asia/Shanghai day, minute boundary,
+run/thread-creation data or configured rollups; tasks include all run statuses,
+not only successful completions. Require login and retain the bounded queries,
+60-second cache, and unavailable-value placeholders.
+
+Keep Contact Us: sh_tyznt@cnooc.com.cn, service hours 8:30-17:30, the supplied
+Haineng Work feedback-group QR image, feedback email link and matching styles.
+Do not change the QR pixels. Retain both language definitions and scoped tests.
+
+Remove the newly merged square profile/order/withdrawal/settings feature and
+its digital_employee_square persistence and 0020 migration. Existing baseline
+agent/gallery permissions and publish flows remain unchanged. Persistence and
+migrations must match baseline 917c8bb2; retain the earlier Work/title fixes.
+No database upgrade, downgrade, table deletion, push or deployment is performed
+by source candidate preparation. This candidate supersedes catalogue-only tree
+345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
+Previous broader-tree test results are historical, not acceptance of this tree.

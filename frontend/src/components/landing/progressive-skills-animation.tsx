@@ -429,7 +429,7 @@ export default function ProgressiveSkillsAnimation() {
                       item.done
                         ? "text-green-500"
                         : item.highlight
-                        ? "text-purple-400"
+                          ? "text-purple-400"
                           : ""
                     }
                   />
@@ -440,7 +440,7 @@ export default function ProgressiveSkillsAnimation() {
                       item.done
                         ? "text-green-500"
                         : item.highlight
-                        ? "text-purple-400"
+                          ? "text-purple-400"
                           : ""
                     }
                   />
@@ -461,7 +461,7 @@ export default function ProgressiveSkillsAnimation() {
           <div className="border-b border-zinc-800 p-4">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-green-500" />
-              <span className="text-sm text-zinc-400">中海油勘探开发智能体</span>
+              <span className="text-sm text-zinc-400">中国海油通用智能体</span>
             </div>
           </div>
 

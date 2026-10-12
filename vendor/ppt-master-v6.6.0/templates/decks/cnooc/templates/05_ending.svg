@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+  width="1280" height="720" viewBox="0 0 1280 720"
+  data-pptx-master="cnooc_corporate_master" data-pptx-master-name="CNOOC Corporate"
+  data-pptx-layout="closing" data-pptx-layout-name="Closing">
+  <rect id="cnooc-master-background" x="0" y="0" width="1280" height="720" fill="#FFFFFF"
+    data-pptx-layer="master" data-pptx-editable="false"/>
+
+  <image id="closing-background" x="0" y="0" width="1280" height="720"
+    href="../images/ending_bg.png" preserveAspectRatio="xMidYMid slice"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="closing-info-card" x="72" y="184" width="626" height="334" rx="28"
+    fill="#003B6F" fill-opacity="0.62" stroke="#FFFFFF" stroke-opacity="0.24"
+    stroke-width="1" data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="closing-accent-blue" x="108" y="238" width="112" height="5" rx="2.5" fill="#54B7E9"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+  <rect id="closing-accent-red" x="220" y="238" width="40" height="5" rx="2.5" fill="#DE002B"
+    data-pptx-layer="layout" data-pptx-editable="false"/>
+
+  <g id="closing-title-slot" data-pptx-placeholder="title"
+    data-pptx-bounds="108 268 536 84">
+    <text id="closing-title-carrier" data-pptx-carrier="true"
+      x="108" y="326" fill="#FFFFFF"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="46" font-weight="700">{{THANK_YOU}}</text>
+  </g>
+  <g id="closing-subtitle-slot" data-pptx-placeholder="subtitle" data-pptx-idx="1"
+    data-pptx-bounds="108 358 536 48">
+    <text id="closing-subtitle-carrier" data-pptx-carrier="true"
+      x="108" y="392" fill="#DDEAF6"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="22">{{ENDING_SUBTITLE}}</text>
+  </g>
+  <g id="closing-contact-slot" data-pptx-placeholder="body" data-pptx-idx="2"
+    data-pptx-bounds="108 420 536 48">
+    <text id="closing-contact-carrier" data-pptx-carrier="true"
+      x="108" y="452" fill="#EAF2F9"
+      font-family="Microsoft YaHei, PingFang SC, Arial, sans-serif"
+      font-size="18">{{CONTACT_INFO}}</text>
+  </g>
+  <g id="closing-slide-number-slot" data-pptx-placeholder="slide-number"
+    data-pptx-idx="3" data-pptx-bounds="1128 658 80 28">
+    <text id="closing-slide-number-carrier" data-pptx-carrier="true"
+      x="1208" y="678" text-anchor="end" fill="#FFFFFF"
+      font-family="Arial, sans-serif" font-size="13">{{PAGE_NUM}}</text>
+  </g>
+</svg>

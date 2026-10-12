@@ -121,10 +121,8 @@ def get_available_tools(
     if getattr(skill_evolution_config, "enabled", False):
         from deerflow.tools.skill_manage_tool import SKILL_AUTHORING_TOOLS
 
-        # Bind action-specific schemas instead of the legacy multi-action
-        # ``skill_manage`` schema.  The latter necessarily marks action-only
-        # parameters such as ``content`` and ``path`` optional, which lets a
-        # model emit structurally valid but unusable write_file calls.
+        # Action-specific schemas make content/path structurally required for
+        # the operations that need them and prevent incomplete write calls.
         builtin_tools.extend(SKILL_AUTHORING_TOOLS)
 
     # Add subagent tools only if enabled via runtime parameter

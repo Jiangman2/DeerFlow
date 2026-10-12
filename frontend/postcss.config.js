@@ -1,7 +1,8 @@
-import tailwindcss from "@tailwindcss/postcss";
-
-import semanticAlphaFallback from "./scripts/postcss-semantic-alpha-fallback.mjs";
+import { fileURLToPath } from "node:url";
 
 export default {
-  plugins: [tailwindcss(), semanticAlphaFallback()],
+  plugins: {
+    "@tailwindcss/postcss": {},
+    [fileURLToPath(new URL("./scripts/postcss-semantic-alpha-fallback-webpack.cjs", import.meta.url))]: {},
+  },
 };

@@ -17,6 +17,7 @@ concurrent runs on different repos from clobbering each other's token.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -59,7 +60,8 @@ def test_local_sandbox_env_overlay_reaches_subprocess(monkeypatch: pytest.Monkey
         captured["env"] = env
         return ("", "", 0, False)
 
-    monkeypatch.setattr(LocalSandbox, "_run_posix_command", staticmethod(fake_run_posix))
+    runner = "_run_windows_command" if os.name == "nt" else "_run_posix_command"
+    monkeypatch.setattr(LocalSandbox, runner, staticmethod(fake_run_posix))
     monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: "/bin/bash"))
     monkeypatch.setattr(local_sandbox.os, "environ", {"PATH": "/usr/bin", "EXISTING": "kept"})
 
@@ -82,7 +84,8 @@ def test_local_sandbox_no_env_passes_sanitized_environ(monkeypatch: pytest.Monke
         captured["env"] = env
         return ("", "", 0, False)
 
-    monkeypatch.setattr(LocalSandbox, "_run_posix_command", staticmethod(fake_run_posix))
+    runner = "_run_windows_command" if os.name == "nt" else "_run_posix_command"
+    monkeypatch.setattr(LocalSandbox, runner, staticmethod(fake_run_posix))
     monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: "/bin/bash"))
     monkeypatch.setattr(local_sandbox.os, "environ", {"PATH": "/usr/bin", "OPENAI_API_KEY": "sk-leak"})
 
@@ -110,9 +113,11 @@ def test_aio_sandbox_env_routes_through_bash_exec() -> None:
         def exec(self, *, command, env=None, **kwargs):
             captured["command"] = command
             captured["env"] = env
+            captured["exec_kwargs"] = kwargs
             return SimpleNamespace(data=SimpleNamespace(stdout="ok", stderr=None))
 
     sbx = AioSandbox.__new__(AioSandbox)
+    sbx._default_env = {}
     sbx._lock = __import__("threading").Lock()
     sbx._client = SimpleNamespace(bash=_FakeBash())
     sbx._DEFAULT_NO_CHANGE_TIMEOUT = 30
@@ -122,8 +127,11 @@ def test_aio_sandbox_env_routes_through_bash_exec() -> None:
     out = sbx.execute_command("gh pr create", env={"GH_TOKEN": "tok-123"})
 
     assert out == "ok"
-    assert captured["command"] == "gh pr create"
+    assert captured["command"].startswith("gh pr create\n")
+    assert "__DEERFLOW_BASH_EXIT_CODE__=" in captured["command"]
     assert captured["env"] == {"GH_TOKEN": "tok-123"}
+    assert "session_id" not in captured["exec_kwargs"]
+    assert "tok-123" not in captured["command"]
 
 
 def test_aio_sandbox_no_env_leaves_command_unchanged() -> None:
@@ -143,13 +151,15 @@ def test_aio_sandbox_no_env_leaves_command_unchanged() -> None:
             return _FakeResult()
 
     sbx = AioSandbox.__new__(AioSandbox)
+    sbx._default_env = {}
     sbx._lock = __import__("threading").Lock()
     sbx._client = SimpleNamespace(shell=_FakeShell())
     sbx._DEFAULT_NO_CHANGE_TIMEOUT = 30
 
     sbx.execute_command("echo hello")
 
-    assert captured["command"] == "echo hello"
+    assert captured["command"].startswith("echo hello\n")
+    assert "__DEERFLOW_BASH_EXIT_CODE__=" in captured["command"]
 
 
 # ---------------------------------------------------------------------------
@@ -272,6 +282,7 @@ def test_aio_sandbox_rejects_invalid_env_key() -> None:
             return SimpleNamespace(data=SimpleNamespace(output="ok"))
 
     sbx = AioSandbox.__new__(AioSandbox)
+    sbx._default_env = {}
     sbx._lock = __import__("threading").Lock()
     sbx._client = SimpleNamespace(shell=_FakeShell())
     sbx._DEFAULT_NO_CHANGE_TIMEOUT = 30

@@ -1,5 +1,9 @@
 import { normalizeTokenUsage } from "../messages/usage";
 
+import {
+  normalizePptUsageObservation,
+  type PptUsageCarrier,
+} from "./ppt-usage-observation";
 import type { Subtask } from "./types";
 
 type TaskStartedEvent = {
@@ -14,6 +18,7 @@ type TaskRunningEvent = {
   task_id: string;
   model_name?: unknown;
   usage?: unknown;
+  session_usage_observation?: unknown;
 };
 
 type TaskTerminalEvent = {
@@ -22,12 +27,14 @@ type TaskTerminalEvent = {
   result?: unknown;
   error?: unknown;
   model_name?: unknown;
+  usage?: unknown;
+  session_usage_observation?: unknown;
 };
 
 /** Convert an additive task lifecycle event into a task-state update. */
 export function taskEventToSubtaskUpdate(
   event: unknown,
-): (Partial<Subtask> & { id: string }) | null {
+): (Partial<Subtask> & PptUsageCarrier & { id: string }) | null {
   if (!isRecord(event)) {
     return null;
   }
@@ -56,11 +63,15 @@ export function taskEventToSubtaskUpdate(
     const running = event as TaskRunningEvent;
     const usage = normalizeTokenUsage(running.usage);
     const modelName = normalizeModelName(running.model_name);
-    return usage || modelName
+    const observation = normalizePptUsageObservation(
+      running.session_usage_observation,
+    );
+    return usage || modelName || observation
       ? {
           id: taskId,
           ...(modelName ? { modelName } : {}),
           ...(usage ? { usage } : {}),
+          ...(observation ? { sessionUsageObservation: observation } : {}),
         }
       : null;
   }
@@ -72,6 +83,10 @@ export function taskEventToSubtaskUpdate(
   ) {
     const terminal = event as TaskTerminalEvent;
     const modelName = normalizeModelName(terminal.model_name);
+    const usage = normalizeTokenUsage(terminal.usage);
+    const observation = normalizePptUsageObservation(
+      terminal.session_usage_observation,
+    );
     const result = normalizeText(terminal.result);
     const error = normalizeText(terminal.error);
     return {
@@ -83,6 +98,8 @@ export function taskEventToSubtaskUpdate(
             ? "incomplete"
             : "failed",
       ...(modelName ? { modelName } : {}),
+      ...(usage ? { usage } : {}),
+      ...(observation ? { sessionUsageObservation: observation } : {}),
       ...(result ? { result } : {}),
       ...(error ? { error } : {}),
     };
@@ -94,7 +111,7 @@ export function taskEventToSubtaskUpdate(
 /** Restore the external ppt-master task card from durable AI-message metadata. */
 export function pptMasterTaskMessageToSubtaskUpdate(
   message: unknown,
-): (Partial<Subtask> & { id: string }) | null {
+): (Partial<Subtask> & PptUsageCarrier & { id: string }) | null {
   if (!isRecord(message) || !isRecord(message.additional_kwargs)) {
     return null;
   }
@@ -113,6 +130,10 @@ export function pptMasterTaskMessageToSubtaskUpdate(
   const result = normalizeText(pointer.result);
   const error = normalizeText(pointer.error);
   const steps = normalizeSteps(pointer.steps);
+  const usage = normalizeTokenUsage(pointer.usage);
+  const observation = normalizePptUsageObservation(
+    pointer.session_usage_observation,
+  );
   return {
     id: taskId,
     status,
@@ -123,10 +144,14 @@ export function pptMasterTaskMessageToSubtaskUpdate(
     ...(result ? { result } : {}),
     ...(error ? { error } : {}),
     ...(steps ? { steps } : {}),
+    ...(usage ? { usage } : {}),
+    ...(observation ? { sessionUsageObservation: observation } : {}),
   };
 }
 
-function normalizeSteps(value: unknown): NonNullable<Subtask["steps"]> | undefined {
+function normalizeSteps(
+  value: unknown,
+): NonNullable<Subtask["steps"]> | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
@@ -147,12 +172,10 @@ function normalizeSteps(value: unknown): NonNullable<Subtask["steps"]> | undefin
     }
 
     const toolCalls = Array.isArray(rawStep.tool_calls)
-      ? rawStep.tool_calls
-          .filter(isRecord)
-          .map((call) => ({
-            ...(typeof call.name === "string" ? { name: call.name } : {}),
-            ...(Object.hasOwn(call, "args") ? { args: call.args } : {}),
-          }))
+      ? rawStep.tool_calls.filter(isRecord).map((call) => ({
+          ...(typeof call.name === "string" ? { name: call.name } : {}),
+          ...(Object.hasOwn(call, "args") ? { args: call.args } : {}),
+        }))
       : undefined;
     steps.push({
       message_index: messageIndex,

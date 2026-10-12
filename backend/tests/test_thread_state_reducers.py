@@ -304,18 +304,14 @@ class TestMergeSkillWorkflow:
             "status": "active",
             "required_capabilities": {"speaker_notes": True},
             "artifact_authority_dependencies": {"design_spec.md": "/mnt/skills/example/design_spec_reference.md"},
-            "evidence": [
-                {"id": "t1", "tool": "read_file", "status": "passed", "action": "routing.md"}
-            ],
+            "evidence": [{"id": "t1", "tool": "read_file", "status": "passed", "action": "routing.md"}],
         }
         update = {
             "activation_id": "a1",
             "current_stage": "svg_quality_checker.py:final",
             "required_capabilities": {"narration_audio": True},
             "artifact_authority_dependencies": {"spec_lock.md": "/mnt/skills/example/spec_lock_reference.md"},
-            "evidence": [
-                {"id": "t2", "tool": "bash", "status": "passed", "action": "quality"}
-            ],
+            "evidence": [{"id": "t2", "tool": "bash", "status": "passed", "action": "quality"}],
         }
 
         merged = merge_skill_workflow(existing, update)
@@ -337,9 +333,7 @@ class TestMergeSkillWorkflow:
         existing = {
             "activation_id": "old",
             "status": "completed",
-            "evidence": [
-                {"id": "old-tool", "tool": "bash", "status": "passed", "action": "old"}
-            ],
+            "evidence": [{"id": "old-tool", "tool": "bash", "status": "passed", "action": "old"}],
         }
         new = {"activation_id": "new", "status": "active", "evidence": []}
 

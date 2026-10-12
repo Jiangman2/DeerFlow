@@ -8,7 +8,7 @@ architecture.
 from __future__ import annotations
 
 import abc
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,14 +34,24 @@ HEARTBEAT_SENTINEL = StreamEvent(id="", event="__heartbeat__", data=None)
 END_SENTINEL = StreamEvent(id="", event="__end__", data=None)
 
 
+class StreamReplayGapError(RuntimeError):
+    """The requested SSE cursor can no longer be replayed from retention."""
+
+
 class StreamBridge(abc.ABC):
     """Abstract base for stream bridges."""
 
     supports_cross_process: bool = False
+    supports_batched_publish: bool = False
 
     @abc.abstractmethod
     async def publish(self, run_id: str, event: str, data: Any) -> None:
         """Enqueue a single event for *run_id* (producer side)."""
+
+    async def publish_many(self, run_id: str, events: Sequence[tuple[str, Any]]) -> None:
+        """Publish ordered events; backends may commit them in one request."""
+        for event, data in events:
+            await self.publish(run_id, event, data)
 
     @abc.abstractmethod
     async def publish_end(self, run_id: str) -> None:

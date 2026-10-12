@@ -33,6 +33,7 @@ import {
   prepareConnectWindow,
 } from "@/core/channels/open-connect-url";
 import {
+  getChannelDisplayName,
   providerCanConnect,
   providerCanEditRuntimeConfig,
   providerNeedsRuntimeConfig,
@@ -50,7 +51,7 @@ function getProviderDescription(
   provider: ChannelProvider,
   descriptions: Record<string, string>,
 ): string {
-  return descriptions[provider.provider] ?? provider.display_name;
+  return descriptions[provider.provider] ?? getChannelDisplayName(provider);
 }
 
 function getConnectionLabel(connection: ChannelConnection): string | null {
@@ -177,7 +178,7 @@ function ChannelProviderItem({
         </ItemMedia>
         <ItemContent className="min-w-0">
           <ItemTitle className="w-full">
-            <span className="truncate">{provider.display_name}</span>
+            <span className="truncate">{getChannelDisplayName(provider)}</span>
             <Badge
               variant={isConnected ? "default" : "outline"}
               className={cn(!isConnected && "text-muted-foreground")}

@@ -11,7 +11,7 @@ import time
 from typing import Any, Literal
 
 from app.channels.base import Channel
-from app.channels.commands import is_known_channel_command
+from app.channels.commands import is_known_channel_command, strip_leading_mentions
 from app.channels.connection_identity import attach_connection_identity
 from app.channels.message_bus import (
     PENDING_CLARIFICATION_METADATA_KEY,
@@ -23,6 +23,7 @@ from app.channels.message_bus import (
     ResolvedAttachment,
 )
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, get_paths
+from deerflow.constants import ENTERPRISE_PRODUCT_NAME
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.sandbox.sandbox_provider import get_sandbox_provider
 
@@ -930,11 +931,11 @@ class FeishuChannel(Channel):
 
         state = await self._connection_repo.consume_oauth_state(provider="feishu", state=code)
         if state is None:
-            await self._reply_card(message_id, "Feishu connection code is invalid or expired.")
+            await self._reply_card(message_id, "海能 Work连接码无效或已过期。")
             return True
 
         if not user_id or not chat_id:
-            await self._reply_card(message_id, "Feishu connection could not be completed from this message.")
+            await self._reply_card(message_id, "无法通过此消息完成海能 Work连接。")
             return True
 
         await self._connection_repo.upsert_connection(
@@ -948,7 +949,7 @@ class FeishuChannel(Channel):
             },
             status="connected",
         )
-        await self._reply_card(message_id, "Feishu connected to DeerFlow.")
+        await self._reply_card(message_id, f"海能 Work已连接至{ENTERPRISE_PRODUCT_NAME}。")
         return True
 
     def _on_message(self, event) -> None:
@@ -1058,8 +1059,10 @@ class FeishuChannel(Channel):
 
             # Only treat known slash commands as commands; absolute paths and
             # other slash-prefixed text should be handled as normal chat.
-            if _is_feishu_command(text):
+            command_text = strip_leading_mentions(text)
+            if _is_feishu_command(command_text):
                 msg_type = InboundMessageType.COMMAND
+                text = command_text
             else:
                 msg_type = InboundMessageType.CHAT
 

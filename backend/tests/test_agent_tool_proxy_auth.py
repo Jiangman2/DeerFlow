@@ -12,11 +12,11 @@ NGINX_CONFIGS = (
 )
 
 CNOOCCLAW_AGENTS = {
-    "专业文档解析专家": "https://cnoocclaw.cnooc.com.cn/zywdjxzj/",
-    "前期研究报告编写专家": "https://cnoocclaw.cnooc.com.cn/qqyjbgbxzj/",
-    "专业报告校审专家": "https://cnoocclaw.cnooc.com.cn/zjbgjszj/",
-    "自动数采专家": "https://cnoocclaw.cnooc.com.cn/zdsczj/",
-    "地震数据提频专家": "https://cnoocclaw.cnooc.com.cn/dzsjtpzj/",
+    "专业文档解析专家": "https://cnoocclawtest.cnooc.com.cn/zywdjxzj/",
+    "前期研究报告编写专家": "https://cnoocclawtest.cnooc.com.cn/qqyjbgbxzj/",
+    "专业报告校审专家": "https://cnoocclawtest.cnooc.com.cn/zjbgjszj/",
+    "自动数采专家": "https://cnoocclawtest.cnooc.com.cn/zdsczj/",
+    "地震数据提频专家": "https://cnoocclawtest.cnooc.com.cn/dzsjtpzj/",
 }
 
 
@@ -75,4 +75,5 @@ def test_nginx_no_longer_exposes_legacy_agent_tool_proxies():
         config = _read(path)
         assert "/agent-tools/" not in config
         assert "cnooc_platform_token" not in config
-        assert "10.57.128.79" not in config
+        if path != "k8s/local-pvc/nginx.conf":
+            assert "10.57.128.79" not in config

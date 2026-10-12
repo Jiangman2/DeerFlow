@@ -8,6 +8,10 @@ import {
   useState,
 } from "react";
 
+import {
+  mergePptUsageObservation,
+  type PptUsageCarrier,
+} from "./ppt-usage-observation";
 import { computeNextSubtask, subtaskNotification } from "./subtask-update";
 import type { Subtask } from "./types";
 
@@ -55,10 +59,7 @@ function ScopedSubtasksProvider({
     // conversation, not a thread switch; preserve its live task timeline
     // across that identity handoff. A real existing->new or existing->existing
     // transition still clears the old conversation before paint.
-    if (
-      previousScopeKeyRef.current === "new" &&
-      scopeKey !== "new"
-    ) {
+    if (previousScopeKeyRef.current === "new" && scopeKey !== "new") {
       previousScopeKeyRef.current = scopeKey;
       return;
     }
@@ -121,7 +122,7 @@ export function useUpdateSubtask() {
 
   const updateSubtask = useCallback(
     (
-      task: Partial<Subtask> & { id: string },
+      task: Partial<Subtask> & PptUsageCarrier & { id: string },
       options?: { eager?: boolean },
     ) => {
       // Read the *latest* state via the ref, never a `tasks` snapshot captured in
@@ -134,7 +135,13 @@ export function useUpdateSubtask() {
         task,
       );
 
-      current[task.id] = next;
+      const observationTransition = mergePptUsageObservation(
+        current[task.id],
+        next,
+        task,
+      );
+      const observationChanged = observationTransition.changed;
+      current[task.id] = observationTransition.next;
 
       // Gate on an actual state change, not mere field presence. The terminal
       // ToolMessage is re-parsed on every MessageList render and always carries
@@ -142,8 +149,12 @@ export function useUpdateSubtask() {
       // reference each render — an infinite loop. `subtaskNotification` routes a
       // terminal transition through the deferred (after-render) path and skips
       // no-op re-parses entirely.
-      const notify = subtaskNotification(task, { becameTerminal, changed });
-      if (options?.eager && changed) {
+      const notify = observationChanged
+        ? becameTerminal || (task.status && task.status !== "in_progress")
+          ? "deferred"
+          : "eager"
+        : subtaskNotification(task, { becameTerminal, changed });
+      if (options?.eager && (changed || observationChanged)) {
         setTasks({ ...current });
       } else if (notify === "eager") {
         setTasks({ ...current });

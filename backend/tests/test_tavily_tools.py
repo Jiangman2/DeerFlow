@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+from langchain_core.utils.function_calling import convert_to_openai_tool
+
 from deerflow.community.tavily import tools
 
 
@@ -8,9 +10,7 @@ def test_tavily_tls_compat_is_disabled_by_default(monkeypatch):
     monkeypatch.setattr(
         tools.ssl,
         "create_default_context",
-        lambda **kwargs: (_ for _ in ()).throw(
-            AssertionError("default mode must not create a custom TLS context")
-        ),
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("default mode must not create a custom TLS context")),
     )
 
     assert tools._build_tavily_session() is None
@@ -66,11 +66,7 @@ def test_tavily_client_receives_scoped_compat_session(monkeypatch):
     monkeypatch.setattr(
         tools,
         "get_app_config",
-        lambda: SimpleNamespace(
-            get_tool_config=lambda _name: SimpleNamespace(
-                model_extra={"api_key": "tavily-secret"}
-            )
-        ),
+        lambda: SimpleNamespace(get_tool_config=lambda _name: SimpleNamespace(model_extra={"api_key": "tavily-secret"})),
     )
     monkeypatch.setattr(
         tools,
@@ -85,3 +81,10 @@ def test_tavily_client_receives_scoped_compat_session(monkeypatch):
         "api_key": "tavily-secret",
         "session": compat_session,
     }
+
+
+def test_web_search_keeps_domain_filters_out_of_model_schema():
+    parameters = convert_to_openai_tool(tools.web_search_tool)["function"]["parameters"]
+
+    assert set(parameters["properties"]) == {"query"}
+    assert parameters["required"] == ["query"]
