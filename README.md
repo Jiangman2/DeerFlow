@@ -8,6 +8,12 @@ administrator details. Contact shows the general agent (`sh_tyznt@cnooc.com.cn`)
 and AI platform (`sh_ai@cnooc.com.cn`) emails; feedback uses the former. The
 Haineng Work support group uses the supplied October 12 QR asset.
 
+Enterprise SkillHub requires authentication for skill discovery, labels,
+version/file inspection and downloads. Browser access uses the current DeerFlow
+session plus SkillHub authorization; API clients use a validated native token.
+The workspace shows a recovery screen while authentication is unavailable.
+Deployment and checks: [SkillHub registry authentication](docs/skillhub-registry-auth-remediation.md).
+
 Digital Employee Square governance: signed-in `admin` accounts can edit public
 profiles, change global ordering, and withdraw any employee (including bundled
 external/contest cards). Ordinary accounts can still publish new employees and

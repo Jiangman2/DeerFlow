@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { GatewayOfflineFallback } from "@/components/workspace/gateway-offline-fallback";
+import { WorkspaceAuthRecovery } from "@/components/workspace/workspace-auth-recovery";
 import { AuthProvider } from "@/core/auth/AuthProvider";
 import { getServerSideUser } from "@/core/auth/server";
 import { assertNever } from "@/core/auth/types";
@@ -28,12 +29,10 @@ export default async function WorkspaceLayout({
     case "unauthenticated":
       redirect("/api/v1/auth/iam/login?next=%2Fworkspace%2Fchats%2Fnew");
     case "gateway_unavailable":
-      // GatewayOfflineFallback supplies the AuthProvider; WorkspaceContent
-      // already mounts the banner inside its sidebar layout, so renderBanner
-      // stays false here to avoid double-mounting.
+      // Failed authentication probes must not expose the workspace or its children.
       return (
-        <GatewayOfflineFallback>
-          <WorkspaceContent gatewayUnavailable>{children}</WorkspaceContent>
+        <GatewayOfflineFallback renderBanner>
+          <WorkspaceAuthRecovery />
         </GatewayOfflineFallback>
       );
     case "config_error":

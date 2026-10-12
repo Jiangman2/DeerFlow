@@ -572,6 +572,11 @@ module. Preserve the fallback for both empty and missing values, plus literal
 nonempty values such as `"0"`; a blind `||` to `??` replacement changes empty
 string behavior. Existing PPT confirmation transport and acceptance are unchanged.
 
+Workspace authentication is fail-closed: on `gateway_unavailable`, render only
+the recovery screen and auth probe banner, never WorkspaceContent or its private
+children. After a valid identity is recovered, refresh the server layout so it
+rechecks authentication before rendering business pages.
+
 ### Workspace announcements
 
 Administrators manage announcements in Settings > Announcement Management. `WorkspaceContent` mounts the active announcement above workspace pages, and the presentation uses a severity-aware animated card with reduced-motion fallbacks. Dismissal is stored per announcement revision, so editing and republishing an announcement makes the updated content visible again.
