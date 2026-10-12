@@ -7,6 +7,7 @@
 - 企业路由策略将原生公开业务读取接口改为需要认证，保留原有角色权限、token 校验、scope 限制、CSRF 和登录初始化规则。
 - 企业集成开启时，禁用原生高优先级公开标签/兼容注册过滤链。这些链会绕过普通路由策略，所以只修改 permitAll 路由清单不足以修复。
 - Nginx 的 SkillHub 页面和浏览器 API 检查当前 DeerFlow 会话。页面匿名访问进入 `/login`，API 返回 401。SSE 和 bootstrap 的独立 location 也保留相应校验。
+- 三份 Nginx 配置的新增 API 路由和两个内部鉴权路由均清除客户端 `Forwarded`、`X-Forwarded-Port`，覆盖 `X-Forwarded-Host` 并隐藏三个框架版本响应头，避免覆盖既有整改防护。
 - bearer 请求只跳过 Nginx 的浏览器会话检查，由修复后的 SkillHub 独立验证 token、账户状态和权限。伪造 bearer 字符串不能获得业务数据。
 - 工作区鉴权服务不可用时，仅显示恢复界面，不渲染工作区菜单或业务 children；恢复有效身份后重新执行服务端布局鉴权。
 
@@ -65,3 +66,15 @@ SkillHub 基于对应的审核源码构建，不能只重新使用旧镜像。�
 - 29 项真实 HTTP 检查全部通过：报告接口匿名 401、伪造 Cookie/bearer/身份头/内部头 401、匿名页面进入登录页、匿名 SSE 401、登录与下载 200、有效 token 200、普通用户管理员接口及只读 token 越权 403、撤销 token 401、仅保留 SkillHub 会话的浏览器入口 401。
 - 后端 50 项安全测试、前端 24 项相关测试通过；完整 TypeScript 检查及修改文件 ESLint 检查通过。
 - 临时测试 token 已撤销，临时后端验证转发已关闭；既有本地预览仍可访问。未连接或修改生产服务器。
+
+## 合并安全回归
+
+`tests/test_skillhub_edge_security.py` 用本地真实 Nginx 和模拟上游检查三种入口配置：有效模拟 token 的转发头清理/版本头隐藏、浏览器及 API 鉴权子请求、匿名 API/SSE、仅原生 SESSION、无效 bearer 和登录跳转。模拟上游只验证入口行为，不代替原生后端 token、scope、RBAC 或生产验收。
+
+设置 `NGINX_TEST_BINARY`，以及 Kubernetes TLS 测试所需的 `NGINX_TEST_CERT`、`NGINX_TEST_KEY`，运行：
+
+```bash
+python -m unittest discover -s tests -p test_skillhub_edge_security.py -v
+```
+
+合入 HTTP 安全整改分支后，还须运行 `test_http_edge_security.py`，确认两个生产域名、危险方法、Host 校验和既有路由没有回退。此源码补丁不更新生产配置，也不替代生产 ARM64 镜像构建与发布。

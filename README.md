@@ -11,6 +11,8 @@ Haineng Work support group uses the supplied October 12 QR asset.
 Enterprise SkillHub requires authentication for skill discovery, labels,
 version/file inspection and downloads. Browser access uses the current DeerFlow
 session plus SkillHub authorization; API clients use a validated native token.
+The proxy strips caller-supplied forwarding authority and framework version
+headers on the new SkillHub routes.
 The workspace shows a recovery screen while authentication is unavailable.
 Deployment and checks: [SkillHub registry authentication](docs/skillhub-registry-auth-remediation.md).
 

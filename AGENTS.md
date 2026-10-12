@@ -58,6 +58,9 @@ upstream public label/compatibility filter chains must be disabled in that mode.
 Native sessions, bearer validation, scopes and role checks remain authoritative.
 The Nginx browser mount also checks the current DeerFlow session; API bearer
 requests bypass only that edge session check and still require native validation.
+Every new SkillHub proxy location, including auth subrequests, must clear
+caller Forwarded/port headers, overwrite X-Forwarded-Host and hide framework
+version headers. Keep API/SSE/bootstrap authentication and native RBAC intact.
 See `docs/skillhub-registry-auth-remediation.md` for deployment and verification.
 
 Gateway file security is the enforcement boundary for browser uploads and
