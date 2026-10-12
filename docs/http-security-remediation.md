@@ -20,7 +20,17 @@ TRACE/扩展方法不能到达上游；无登录凭据的删除不能成功（40
 
 ## HTTP Host 头攻击
 
-三个 Nginx 配置对原始 Host 和 absolute-form 请求目标解析出的主机名分别校验。企业公开域名为操作者确认的 `cnoocclaw.cnooc.com.cn`，允许不带端口及显式 80/443；本地调试保留 `localhost`、`127.0.0.1`、`[::1]`。其他主机及未经批准的企业域名端口返回 400，不生成 Location，也不转发。新域名/IP 必须经过运维确认后修改两个 map，禁止恢复通配白名单。通过 IP/NodePort 运维检查时，应携带批准域名 Host，例如 `curl -H 'Host: cnoocclaw.cnooc.com.cn' http://节点IP:32026/health`。
+三个 Nginx 配置对原始 Host 和 absolute-form 请求目标解析出的主机名分别校验。企业公开域名为操作者确认的 `cnoocclaw.cnooc.com.cn` 和 `heai.cnooc.com.cn`，两个域名都允许不带端口及显式 80/443；本地调试保留 `localhost`、`127.0.0.1`、`[::1]`。其他主机及未经批准的企业域名端口返回 400，不生成 Location，也不转发。新域名/IP 必须经过运维确认后修改两个 map，禁止恢复通配白名单。通过 IP/NodePort 运维检查时，应携带批准域名 Host，例如 `curl -H 'Host: heai.cnooc.com.cn' http://节点IP:32026/health`。
+
+宿主机外层 TLS 站点 `/etc/nginx/conf.d/cnoocclaw.conf` 独立于这三份内层配置管理，需要在现有 `server` 块中同步以下域名规则，保留其余路由、鉴权、证书、方法限制和版本隐藏配置：
+
+```nginx
+server_name cnoocclaw.cnooc.com.cn heai.cnooc.com.cn;
+if ($http_host !~* "^(?:cnoocclaw|heai)[.]cnooc[.]com[.]cn(?::(?:80|443))?$") { return 400; }
+if ($host !~* "^(?:cnoocclaw|heai)[.]cnooc[.]com[.]cn$") { return 400; }
+```
+
+两个域名指向同一 IP、TLS 证书校验通过，不代表两个 Host 都在白名单内。只修改外层仍会被内层拒绝；只修改内层仍会被外层拒绝。候选预检、部署及回退必须保留这两个已批准域名，不得重新使用仅允许原域名的配置。外层只更新对应站点并先检查语法再平滑加载，不覆盖承载其他服务的主配置。分别验证两个域名的 `/health`、首页、SkillHub 跳转、非法 Host 和扩展方法，再做浏览器登录及业务验收。
 
 Nginx 自身重定向使用相对 Location；每个代理 location 都丢弃客户端 `Forwarded`、`X-Forwarded-Port`，覆盖 `X-Forwarded-Host` 为已经校验的 Host。设置必须在各 location 生效，不能只依赖 http 层的 `proxy_set_header`，因为 location 内已有该类指令会阻断继承。现有 TLS scheme 传递保持不变，外层反向代理也必须覆盖浏览器输入的转发头并使用批准 Host 转发；后端直接端口只允许可信代理/内部调用来源。
 

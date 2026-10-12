@@ -1843,7 +1843,7 @@ See [scan and configuration baseline remediation](docs/security-scan-baseline-re
 
 For exposed host ports, use the [operator-run port guard](docs/high-risk-port-guard.md) with a reviewed per-node allowlist and timed rollback.
 
-See [HTTP security remediation](docs/http-security-remediation.md) for the ingress method policy, exact Host allowlist (`cnoocclaw.cnooc.com.cn` and loopback development), forwarded-host sanitization, and server acceptance checks. Other public authorities require an explicit allowlist update; IP/NodePort checks must send an approved Host.
+See [HTTP security remediation](docs/http-security-remediation.md) for the ingress method policy, exact Host allowlist (`cnoocclaw.cnooc.com.cn`, `heai.cnooc.com.cn`, and loopback development), forwarded-host sanitization, and server acceptance checks. Keep both approved public domains in the inner proxy and the separately managed outer TLS proxy, including during redeployment or rollback. Other public authorities require an explicit allowlist update; IP/NodePort checks must send an approved Host.
 
 All proxy modes suppress Nginx numeric versions and upstream framework identification headers; Next.js also disables its own powered-by header. Apply the proxy configuration and rebuild/redeploy the frontend before verifying the public responses.
 

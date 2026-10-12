@@ -19,6 +19,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIGS = ["k8s/local-pvc/nginx.conf", "docker/nginx/nginx.conf", "docker/nginx/nginx.local.conf"]
+CORPORATE_HOSTS = ("cnoocclaw.cnooc.com.cn", "heai.cnooc.com.cn")
 
 
 def free_port():
@@ -174,7 +175,9 @@ class EdgeSecurityTests(unittest.TestCase):
 
     def test_foreign_hosts_never_reach_upstream_or_redirect(self):
         for instance in self.instances:
-            for host in ("attacker.example", "cnoocclaw.cnooc.com.cn.attacker.example", "cnoocclaw.cnooc.com.cn:9999"):
+            for host in ("attacker.example", "cnoocclaw.cnooc.com.cn.attacker.example", "cnoocclaw.cnooc.com.cn:9999",
+                         "heai.cnooc.com.cn.attacker.example", "heai.cnooc.com.cn:9999",
+                         "heai.cnooc.com.cn:443.attacker.example"):
                 for path in ("/api/threads/test", "/platform/skillhub"):
                     with self.subTest(config=instance.relative, host=host, path=path):
                         before = len(self.upstream.receipts)
@@ -199,12 +202,37 @@ class EdgeSecurityTests(unittest.TestCase):
 
     def test_absolute_uri_cannot_override_valid_host(self):
         for instance in self.instances:
-            self.assertEqual(instance.request("GET", "http://attacker.example/platform/skillhub",
-                                              {"Host": "cnoocclaw.cnooc.com.cn"})[0], 400)
+            for host in CORPORATE_HOSTS:
+                with self.subTest(config=instance.relative, host=host):
+                    before = len(self.upstream.receipts)
+                    self.assertEqual(instance.request("GET", "http://attacker.example/platform/skillhub",
+                                                      {"Host": host})[0], 400)
+                    self.assertEqual(before, len(self.upstream.receipts))
+
+    def test_both_corporate_hosts_preserve_forwarding_and_security(self):
+        for instance in self.instances:
+            for host in CORPORATE_HOSTS:
+                with self.subTest(config=instance.relative, host=host):
+                    status, headers, body = instance.request("GET", headers={
+                        "Host": host, "Forwarded": "host=attacker.example;proto=http",
+                        "X-Forwarded-Host": "attacker.example", "X-Forwarded-Port": "9999"})
+                    self.assertEqual(status, 200)
+                    receipt = json.loads(body)
+                    self.assertEqual(receipt["host"], host)
+                    self.assertEqual(receipt["forwarded_host"], host)
+                    self.assertIsNone(receipt["forwarded"])
+                    self.assertIsNone(receipt["forwarded_port"])
+                    self.assertNotIn("x-powered-by", headers)
+                    self.assertNotRegex(headers.get("server", ""), r"[0-9]+\.[0-9]+")
+                    self.assertEqual(instance.request("DELETE", headers={"Host": host})[0], 401)
+                    for method in ("TRACE", "PROPFIND", "TRACK"):
+                        self.assertEqual(instance.request(method, headers={"Host": host})[0], 405)
 
     def test_corporate_and_local_hosts_keep_relative_redirects(self):
         for instance in self.instances:
-            for host in ("cnoocclaw.cnooc.com.cn", "CNOOCCLAW.CNOOC.COM.CN:443", "localhost:2026", "127.0.0.1:2026", "[::1]:2026"):
+            for host in ("cnoocclaw.cnooc.com.cn", "CNOOCCLAW.CNOOC.COM.CN:443", "heai.cnooc.com.cn",
+                         "heai.cnooc.com.cn:80", "heai.cnooc.com.cn:443", "HEAI.CNOOC.COM.CN:443",
+                         "localhost:2026", "127.0.0.1:2026", "[::1]:2026"):
                 status, headers, _ = instance.request("GET", "/platform/skillhub", {"Host": host})
                 self.assertEqual(status, 308)
                 self.assertEqual(headers["location"], "/platform/skillhub/")
@@ -241,6 +269,17 @@ class EdgeSecurityTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertNotIn("x-powered-by", headers)
         self.assertNotIn("x-aspnet-version", headers)
+
+    def test_tls_accepts_both_corporate_hosts_and_preserves_security(self):
+        instance = self.instances[0]
+        for host in CORPORATE_HOSTS:
+            with self.subTest(host=host):
+                status, headers, body = instance.request("GET", headers={"Host": host}, tls=True)
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)["host"], host)
+                self.assertNotIn("x-powered-by", headers)
+                self.assertEqual(instance.request("PROPFIND", headers={"Host": host}, tls=True)[0], 405)
+                self.assertEqual(instance.request("GET", headers={"Host": host + ".attacker.example"}, tls=True)[0], 400)
 
     def test_merged_external_agents_preserve_auth_and_filter_identification(self):
         instance = self.instances[0]
