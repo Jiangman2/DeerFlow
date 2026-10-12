@@ -1,12 +1,13 @@
 package com.iflytek.skillhub.integration.deerflow;
 
 import com.iflytek.skillhub.auth.policy.RouteSecurityPolicyRegistry;
+import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
- * Extends SkillHub's CSRF policy for the passive DeerFlow session bootstrap.
+ * Requires authentication for enterprise registry reads and preserves bootstrap CSRF.
  *
  * <p>The bootstrap request is the operation that creates the first SkillHub
  * browser session, so the caller cannot already possess a SkillHub CSRF token.
@@ -24,6 +25,31 @@ import org.springframework.stereotype.Component;
 public final class DeerFlowRouteSecurityPolicyRegistry extends RouteSecurityPolicyRegistry {
 
     static final String SESSION_BOOTSTRAP_PATH = "/api/v1/auth/session/bootstrap";
+
+    @Override
+    public List<RouteAuthorizationPolicy> authorizationPolicies() {
+        return super.authorizationPolicies().stream()
+            .map(policy -> policy.accessLevel() == AccessLevel.PERMIT_ALL
+                && isRegistryDataPath(policy.pattern())
+                    ? RouteAuthorizationPolicy.authenticated(policy.method(), policy.pattern())
+                    : policy)
+            .toList();
+    }
+
+    private static boolean isRegistryDataPath(String path) {
+        return path.equals("/api/v1/check")
+            || path.equals("/api/v1/search")
+            || path.startsWith("/api/v1/resolve/")
+            || path.startsWith("/api/v1/download/")
+            || path.equals("/api/v1/download")
+            || path.equals("/api/v1/skills")
+            || path.startsWith("/api/v1/skills/")
+            || path.equals("/api/v1/labels")
+            || path.equals("/api/web/skills")
+            || path.startsWith("/api/web/skills/")
+            || path.equals("/api/web/labels")
+            || path.startsWith("/api/cli/v1/skills/");
+    }
 
     @Override
     public boolean shouldIgnoreCsrf(

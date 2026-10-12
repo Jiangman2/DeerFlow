@@ -1,5 +1,28 @@
 # AGENTS.md
 
+Haineng home footer has four counters. Fetch existing signed Haineng usage and
+authenticated `/api/home/statistics` independently every minute; one failing
+source must not erase the other, and unavailable counters show a dash, not zero.
+Deploy Frontend and Gateway together so both new counters have their endpoint.
+Keep hover-only contact visibility and the raised footer stacking context.
+Contact shows 通用智能体 (`sh_tyznt@cnooc.com.cn`) and 人工智能平台
+(`sh_ai@cnooc.com.cn`); feedback still uses the agent email. Preserve the supplied
+QR pixels in `public/images/haineng-work-support-qr-20261012.jpg`; never regenerate
+its code. Announcement behavior is unchanged by this contact-only update.
+
+Digital Employee Square governance: `useSquareSettings` reads server-owned SQL
+overrides for both bundled external cards and runtime-published employees. Apply
+stable `external/team/legacy:<original name>` keys and global sorting before
+filtering/pagination; never mutate the source roster or use localStorage for
+admin settings. Fail closed on governance reads rather than re-showing withdrawn
+cards. The trusted auth user `system_role=admin` shows public edit/order/withdraw
+menus and a withdrawn-entry view/restoration. Regular users retain only their
+own published employee withdrawal; their private editing/new publishing is
+unchanged. The backend independently authorizes every write and rejects stale
+versions. Public editing changes presentation, not model/skill/SOUL settings.
+After publishing, invalidate and await both team-agent and square-settings
+queries; otherwise a republished employee stays hidden by cached overrides.
+
 October 2 dmdb frontend reconciliation: `MessageGroup` normalizes unknown tool
 argument/result records before using string display fields. Every tool-result
 link permits only absolute HTTP(S), rejects controls/backslashes and embedded
@@ -542,6 +565,11 @@ PPT confirmation summary values use `pptSummaryValue` in the locale-owned copy
 module. Preserve the fallback for both empty and missing values, plus literal
 nonempty values such as `"0"`; a blind `||` to `??` replacement changes empty
 string behavior. Existing PPT confirmation transport and acceptance are unchanged.
+
+Workspace authentication is fail-closed: on `gateway_unavailable`, render only
+the recovery screen and auth probe banner, never WorkspaceContent or its private
+children. After a valid identity is recovered, refresh the server layout so it
+rechecks authentication before rendering business pages.
 
 ### Workspace announcements
 

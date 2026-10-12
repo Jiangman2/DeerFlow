@@ -110,6 +110,8 @@ export const enUS: Translations = {
     feedback: "Feedback",
     supportPhone: "Support phone",
     supportEmail: "Support email",
+    generalAgentEmail: "General-purpose agent",
+    aiPlatformEmail: "AI platform",
     businessOwner: "Business owner",
     operationsOwner: "Operations owner",
     serviceHours: "Service hours",

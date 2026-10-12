@@ -51,6 +51,18 @@ The Next.js-owned `/api/runtime-config`, `/api/cnooc/external-agents/*`, and
 `/api/shop-cart/*` routes are exceptions and must be proxied to Frontend before the
 Gateway `/api/*` catch-all.
 
+Enterprise SkillHub registry reads require authentication when
+`skillhub.auth.deerflow-session.enabled=true`. Build both the integration and
+`compat/ClawHubRegistrySecurityConfig.java` overlays into skillhub-app; the
+upstream public label/compatibility filter chains must be disabled in that mode.
+Native sessions, bearer validation, scopes and role checks remain authoritative.
+The Nginx browser mount also checks the current DeerFlow session; API bearer
+requests bypass only that edge session check and still require native validation.
+Every new SkillHub proxy location, including auth subrequests, must clear
+caller Forwarded/port headers, overwrite X-Forwarded-Host and hide framework
+version headers. Keep API/SSE/bootstrap authentication and native RBAC intact.
+See `docs/skillhub-registry-auth-remediation.md` for deployment and verification.
+
 Gateway file security is the enforcement boundary for browser uploads and
 artifact delivery. Reject active/server-executable upload extensions before
 write, validate staged PDFs before atomic replacement, force original uploaded

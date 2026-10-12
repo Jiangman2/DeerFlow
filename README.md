@@ -1,5 +1,37 @@
 # 🦌 DeerFlow - 2.0
 
+Homepage portal footer: total/today model usage remains supplied by Haineng;
+today's users/tasks use the business dashboard's active-user/started-run
+definitions for Shanghai midnight through the current minute. The authenticated
+`/api/home/statistics` endpoint returns only those two aggregate counts, not
+administrator details. Contact shows the general agent (`sh_tyznt@cnooc.com.cn`)
+and AI platform (`sh_ai@cnooc.com.cn`) emails; feedback uses the former. The
+Haineng Work support group uses the supplied October 12 QR asset.
+
+Enterprise SkillHub requires authentication for skill discovery, labels,
+version/file inspection and downloads. Browser access uses the current DeerFlow
+session plus SkillHub authorization; API clients use a validated native token.
+The proxy strips caller-supplied forwarding authority and framework version
+headers on the new SkillHub routes.
+The workspace shows a recovery screen while authentication is unavailable.
+Deployment and checks: [SkillHub registry authentication](docs/skillhub-registry-auth-remediation.md).
+
+Digital Employee Square governance: signed-in `admin` accounts can edit public
+profiles, change global ordering, and withdraw any employee (including bundled
+external/contest cards). Ordinary accounts can still publish new employees and
+withdraw their own published snapshots, but cannot edit public profiles/order
+or withdraw another publisher's employees. Private employee editing is unchanged.
+Withdrawals are reversible presentation changes, not deletion of private agents.
+Administrators can show withdrawn employees and restore them. Public overrides
+are persisted in the application database (`digital_employee_square`, migration
+`0020_digital_employee_square`); no role assignment UI or client-side allowlist
+is introduced. Assigning `admin` grants existing platform-wide administrator
+rights, not only these employee permissions. Original publishers can republish
+their withdrawn snapshots, even after admin withdrawal; successful publication
+restores visibility and refreshes the private snapshot while preserving admin
+presentation/order overrides. Overwriting an online snapshot or another user's
+snapshot remains restricted to admins.
+
 The 2026-10-04 multi-Gateway stop-routing and interrupted-history repairs are documented in [the production source reconciliation](docs/production-gateway-reconciliation-20261004.md). Git publication does not deploy or restart services.
 
 The 7·16 enterprise branch's 2026-09-28 production source alignment and its
