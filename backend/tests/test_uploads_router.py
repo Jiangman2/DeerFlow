@@ -184,7 +184,10 @@ def test_upload_files_does_not_auto_convert_documents_by_default(tmp_path):
     assert not (thread_uploads_dir / "report.md").exists()
 
 
-@pytest.mark.parametrize("filename", ["probe.html", "probe.php", "probe.jsp", "probe.py"])
+@pytest.mark.parametrize(
+    "filename",
+    ["probe.html", "probe.php", "probe.jsp", "probe.jspf", "probe.JSPF", "probe.JsPf", "probe.jspx", "probe.tag", "probe.TAG", "probe.tagf", "probe.TAGF", "probe.tagx", "probe.TAGX", "probe.py"],
+)
 def test_upload_files_rejects_active_or_server_executable_extensions(tmp_path, filename):
     thread_uploads_dir = tmp_path / "uploads"
     thread_uploads_dir.mkdir(parents=True)
