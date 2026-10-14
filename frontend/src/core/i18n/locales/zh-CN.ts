@@ -109,6 +109,8 @@ export const zhCN: Translations = {
     feedback: "意见反馈",
     supportPhone: "客服电话",
     supportEmail: "客服邮箱",
+    generalAgentEmail: "通用智能体",
+    aiPlatformEmail: "人工智能平台",
     businessOwner: "业务负责人",
     operationsOwner: "运维负责人",
     serviceHours: "服务时间",

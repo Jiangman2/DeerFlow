@@ -1,0 +1,104 @@
+{
+  "reviewed": false,
+  "interfaces": [
+    "REPLACE_IFACE"
+  ],
+  "services": [
+    {
+      "name": "ssh",
+      "protocol": "tcp",
+      "ports": [
+        22
+      ],
+      "sources": [
+        "REPLACE_ADMIN_IP/32"
+      ]
+    },
+    {
+      "name": "https",
+      "protocol": "tcp",
+      "ports": [
+        443
+      ],
+      "sources": [
+        "REPLACE_BUSINESS_CIDR"
+      ]
+    },
+    {
+      "name": "deerflow_nodeport",
+      "protocol": "tcp",
+      "ports": [
+        32026
+      ],
+      "sources": [
+        "REPLACE_PROXY_IP/32"
+      ]
+    },
+    {
+      "name": "cluster",
+      "protocol": "tcp",
+      "ports": [
+        2379,
+        2380,
+        6443,
+        10250
+      ],
+      "sources": [
+        "REPLACE_NODE_IP/32",
+        "REPLACE_POD_CIDR"
+      ]
+    },
+    {
+      "name": "monitoring",
+      "protocol": "tcp",
+      "ports": [
+        9100,
+        10256
+      ],
+      "sources": [
+        "REPLACE_MONITOR_IP/32",
+        "REPLACE_NODE_IP/32"
+      ]
+    },
+    {
+      "name": "nfs_tcp",
+      "protocol": "tcp",
+      "ports": [
+        111,
+        2049,
+        20048,
+        1297,
+        8655
+      ],
+      "sources": [
+        "REPLACE_NFS_CLIENT_IP/32"
+      ]
+    },
+    {
+      "name": "nfs_udp",
+      "protocol": "udp",
+      "ports": [
+        111,
+        2049,
+        20048,
+        1297,
+        8655
+      ],
+      "sources": [
+        "REPLACE_NFS_CLIENT_IP/32"
+      ]
+    },
+    {
+      "name": "other",
+      "protocol": "tcp",
+      "ports": [
+        135,
+        9090,
+        38001,
+        38002,
+        38003
+      ],
+      "sources": []
+    }
+  ]
+}

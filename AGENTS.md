@@ -51,6 +51,18 @@ The Next.js-owned `/api/runtime-config`, `/api/cnooc/external-agents/*`, and
 `/api/shop-cart/*` routes are exceptions and must be proxied to Frontend before the
 Gateway `/api/*` catch-all.
 
+Enterprise SkillHub registry reads require authentication when
+`skillhub.auth.deerflow-session.enabled=true`. Build both the integration and
+`compat/ClawHubRegistrySecurityConfig.java` overlays into skillhub-app; the
+upstream public label/compatibility filter chains must be disabled in that mode.
+Native sessions, bearer validation, scopes and role checks remain authoritative.
+The Nginx browser mount also checks the current DeerFlow session; API bearer
+requests bypass only that edge session check and still require native validation.
+Every new SkillHub proxy location, including auth subrequests, must clear
+caller Forwarded/port headers, overwrite X-Forwarded-Host and hide framework
+version headers. Keep API/SSE/bootstrap authentication and native RBAC intact.
+See `docs/skillhub-registry-auth-remediation.md` for deployment and verification.
+
 Gateway file security is the enforcement boundary for browser uploads and
 artifact delivery. Reject active/server-executable upload extensions before
 write, validate staged PDFs before atomic replacement, force original uploaded
@@ -847,6 +859,20 @@ cd frontend && pnpm test      # Unit tests
 
 Rule of thumb: **root `make` = the full application**; **`backend/Makefile` and `frontend/`
 (`pnpm`) = per-module work.**
+
+## Security baseline remediation
+
+All three Nginx modes restrict requests to GET/HEAD/POST/PUT/PATCH/DELETE/OPTIONS. Keep legitimate REST mutations behind their existing authentication, authorization and CSRF checks; never globally block DELETE as a substitute for access control. `tests/test_http_edge_security.py` exercises the actual proxy configurations with a local upstream. See `docs/http-security-remediation.md`.
+
+All Nginx modes validate both raw Host authority and absolute-form `$host`, allow the confirmed `cnoocclaw.cnooc.com.cn` and `heai.cnooc.com.cn` authorities (without a port or with explicit 80/443) plus explicit loopback development, and use relative native redirects. Keep both authorities in both maps and in the separately managed outer TLS proxy; a single-domain rollback or redeployment must not remove the other approved entrance. Every proxy location must strip `Forwarded`/`X-Forwarded-Port` and overwrite `X-Forwarded-Host`; location-level proxy directives do not inherit the http-level set. Kubernetes Nginx HTTP probes send `Host: localhost`; maintain this when changing the whitelist.
+
+Keep `server_tokens off` in all Nginx modes and framework-header suppression in every proxy location, including locations that override Cache-Control hiding. Next's wrapped configuration must retain `poweredByHeader: false`. Proxy runtime tests cover success/error/TLS headers, and the frontend config-loader test protects suppression plus API fallback routing.
+
+Enterprise external-employee proxies retain their session-auth subrequest and inherit these safety requirements. The two tools that require operator-fixed upstream Host/X-Forwarded-Host keep those fixed authorities; still discard caller Forwarded/port headers and hide framework versions. Include all seven tool prefixes in the edge regression tests when merging new enterprise routes.
+
+`scripts/guard_high_risk_ports.py` is an operator-run Linux nftables guard with explicit per-node policy, SSH source checks, preflight validation and systemd timed rollback. Keep it audit-only by default; preserve existing firewall/CNI rules and verify NodePort from external sources. Runtime confirmation is not persistence or proof that a finding is closed. See `docs/high-risk-port-guard.md`.
+
+`docs/security-scan-baseline-remediation.md` tracks initial scan and configuration findings. `scripts/audit_security_baseline.py` collects read-only evidence, never an automatic compliance verdict. Preserve Agent/SSE proxy timeouts, upstream JSON errors and TLS loopback client-address handling when hardening Nginx. Do not disable required Kubernetes forwarding or active NFS dependencies. Host patches, exact ingress allowlists, metrics exposure and ARM64 image digests require deployment evidence; repository changes alone do not close findings.
 
 ## Where to Go Next
 

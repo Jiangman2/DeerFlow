@@ -12,6 +12,7 @@ type Counts = {
 
 type ActivityCounts = { todayUsers: number; todayTasks: number };
 const SUPPORT_EMAIL = "sh_tyznt@cnooc.com.cn";
+const PLATFORM_EMAIL = "sh_ai@cnooc.com.cn";
 
 export function HainengHomeFooter() {
   const { t } = useI18n();
@@ -112,9 +113,15 @@ export function HainengHomeFooter() {
             </div>
             <dl className="cnooc-home-contact-details">
               <div>
-                <dt>{t.welcome.supportEmail}：</dt>
+                <dt>{t.welcome.generalAgentEmail}：</dt>
                 <dd>
                   <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+                </dd>
+              </div>
+              <div>
+                <dt>{t.welcome.aiPlatformEmail}：</dt>
+                <dd>
+                  <a href={`mailto:${PLATFORM_EMAIL}`}>{PLATFORM_EMAIL}</a>
                 </dd>
               </div>
               <div>
@@ -128,7 +135,7 @@ export function HainengHomeFooter() {
               <div className="cnooc-home-support-qr">
                 {/* Preserve the supplied QR pixels; do not optimize or regenerate. */}
                 <img
-                  src="/images/haineng-work-support-qr.png"
+                  src="/images/haineng-work-support-qr-20261012.jpg"
                   width={120}
                   height={120}
                   alt={t.welcome.supportGroupQrAlt}

@@ -1,5 +1,28 @@
 # AGENTS.md
 
+Haineng home footer has four counters. Fetch existing signed Haineng usage and
+authenticated `/api/home/statistics` independently every minute; one failing
+source must not erase the other, and unavailable counters show a dash, not zero.
+Deploy Frontend and Gateway together so both new counters have their endpoint.
+Keep hover-only contact visibility and the raised footer stacking context.
+Contact shows 通用智能体 (`sh_tyznt@cnooc.com.cn`) and 人工智能平台
+(`sh_ai@cnooc.com.cn`); feedback still uses the agent email. Preserve the supplied
+QR pixels in `public/images/haineng-work-support-qr-20261012.jpg`; never regenerate
+its code. Announcement behavior is unchanged by this contact-only update.
+
+Digital Employee Square governance: `useSquareSettings` reads server-owned SQL
+overrides for both bundled external cards and runtime-published employees. Apply
+stable `external/team/legacy:<original name>` keys and global sorting before
+filtering/pagination; never mutate the source roster or use localStorage for
+admin settings. Fail closed on governance reads rather than re-showing withdrawn
+cards. The trusted auth user `system_role=admin` shows public edit/order/withdraw
+menus and a withdrawn-entry view/restoration. Regular users retain only their
+own published employee withdrawal; their private editing/new publishing is
+unchanged. The backend independently authorizes every write and rejects stale
+versions. Public editing changes presentation, not model/skill/SOUL settings.
+After publishing, invalidate and await both team-agent and square-settings
+queries; otherwise a republished employee stays hidden by cached overrides.
+
 October 2 dmdb frontend reconciliation: `MessageGroup` normalizes unknown tool
 argument/result records before using string display fields. Every tool-result
 link permits only absolute HTTP(S), rejects controls/backslashes and embedded
@@ -12,10 +35,12 @@ it. Keep the first-non-empty tool-result index and task-call suppression intact.
 The regular chat layout and legacy provider import share the custom-agent
 `ChatProviders` stack, without making the server layout a Client Component or
 changing static demo parameters. Upload deletion encodes the filename component
-and GFM disables only single-tilde strikethrough. Existing fixed employees retain
-the test hostname and precede the eighteen contest entries (six additions and four renamed entries). Do not change
-the runtime to production URLs to satisfy hardcoded test expectations: those two
-expectations are explicitly aligned with the test deployment. Incoming-only
+and GFM disables only single-tilde strikethrough. Existing fixed employees precede
+the eighteen contest entries (six additions and four renamed entries). The latest
+enterprise production-link commits (975c8cd72 and ff96696ae) supersede the earlier
+test-host alignment: all six built-in entries now use cnoocclaw.cnooc.com.cn.
+Keep both catalogue and launch tests on those reviewed production URLs; do not
+change the runtime merely to satisfy stale test-host assertions. Incoming-only
 reconnect-input hydration's three tests are deferred; the runtime and exact
 pre-merge reconnect tests remain unchanged. See
 `docs/FRONTEND_RECONCILIATION_BATCH2_20261002.md`; validation is still required
@@ -541,6 +566,11 @@ module. Preserve the fallback for both empty and missing values, plus literal
 nonempty values such as `"0"`; a blind `||` to `??` replacement changes empty
 string behavior. Existing PPT confirmation transport and acceptance are unchanged.
 
+Workspace authentication is fail-closed: on `gateway_unavailable`, render only
+the recovery screen and auth probe banner, never WorkspaceContent or its private
+children. After a valid identity is recovered, refresh the server layout so it
+rechecks authentication before rendering business pages.
+
 ### Workspace announcements
 
 Administrators manage announcements in Settings > Announcement Management. `WorkspaceContent` mounts the active announcement above workspace pages, and the presentation uses a severity-aware animated card with reduced-motion fallbacks. Dismissal is stored per announcement revision, so editing and republishing an announcement makes the updated content visible again.
@@ -596,6 +626,8 @@ The native App integration and release checklist live in
 `docs/mobile-webview-integration.md`.
 
 ## Environment
+
+`next.config.js` disables `poweredByHeader` at the application source. Preserve this after the Nextra wrapper; `tests/unit/config/http-identification.test.ts` loads the actual Next configuration and verifies both identification suppression and the API fallback rewrite ordering. Nginx suppresses upstream framework headers separately, so frontend rebuild/deployment remains required.
 
 Backend API URLs are optional; an nginx proxy is used by default:
 
