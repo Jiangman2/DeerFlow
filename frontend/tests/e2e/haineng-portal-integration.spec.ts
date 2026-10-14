@@ -47,8 +47,9 @@ test("homepage shows Haineng links, model usage and contact details", async ({
     )
     .toBeGreaterThan(30);
   await expect(page.getByText("sh_tyznt@cnooc.com.cn")).toBeVisible();
+  await expect(page.getByText("sh_ai@cnooc.com.cn")).toBeVisible();
   await expect(page.locator(".cnooc-home-contact-details > div")).toHaveCount(
-    2,
+    3,
   );
   await expect(page.getByText("8:30 ～ 17:30")).toBeVisible();
   await expect(

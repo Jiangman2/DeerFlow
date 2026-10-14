@@ -46,11 +46,17 @@ test("shows four independent counters and the updated contact/group details", as
   expect(screen.getByText("sh_tyznt@cnooc.com.cn").getAttribute("href")).toBe(
     "mailto:sh_tyznt@cnooc.com.cn",
   );
+  expect(screen.getByText("sh_ai@cnooc.com.cn").getAttribute("href")).toBe(
+    "mailto:sh_ai@cnooc.com.cn",
+  );
+  expect(screen.getByText("通用智能体：")).toBeTruthy();
+  expect(screen.getByText("人工智能平台：")).toBeTruthy();
   expect(screen.getByText("意见反馈").getAttribute("href")).toContain(
     "mailto:sh_tyznt@cnooc.com.cn?subject=",
   );
   for (const label of [
     "客服电话",
+    "客服邮箱",
     "业务负责人",
     "运维负责人",
     "shiyl19@cnooc.com.cn",
@@ -60,7 +66,7 @@ test("shows four independent counters and the updated contact/group details", as
   expect(screen.getByText("中国海油通用智能体-问题反馈交流群")).toBeTruthy();
   expect(
     screen.getByAltText("海能Work服务支持群二维码").getAttribute("src"),
-  ).toBe("/images/haineng-work-support-qr.png");
+  ).toBe("/images/haineng-work-support-qr-20261012.jpg");
 });
 
 test("a statistics error does not hide successful Haineng usage, and zero is not unavailable", async () => {

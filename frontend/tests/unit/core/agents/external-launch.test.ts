@@ -27,7 +27,7 @@ test("publishes the email assistant as the sixth fixed external employee", () =>
     description:
       "邮件智能整理助手，支持会议与待办一键写入海能work日历和待办，并进行智能提醒。",
     category_id: "comprehensive-management",
-    external_url: "https://cnoocclawtest.cnooc.com.cn/yjzs/",
+    external_url: "https://cnoocclaw.cnooc.com.cn/yjzs/",
   });
   expect(SHARED_EXTERNAL_AGENTS[5]).toBe(assistant);
 });

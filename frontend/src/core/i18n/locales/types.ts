@@ -94,6 +94,8 @@ export interface Translations {
     feedback: string;
     supportPhone: string;
     supportEmail: string;
+    generalAgentEmail: string;
+    aiPlatformEmail: string;
     businessOwner: string;
     operationsOwner: string;
     serviceHours: string;

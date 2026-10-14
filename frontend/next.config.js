@@ -17,6 +17,7 @@ const withNextra = nextra({});
 
 /** @type {import("next").NextConfig} */
 const config = {
+  poweredByHeader: false,
   output:
     process.env.NEXT_CONFIG_BUILD_OUTPUT === "standalone"
       ? "standalone"
