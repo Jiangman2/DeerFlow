@@ -44,6 +44,7 @@ import { ThreadTitle } from "@/components/workspace/thread-title";
 import { TodoList } from "@/components/workspace/todo-list";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { useActiveGoal } from "@/components/workspace/use-active-goal";
+import { UserGuideButton } from "@/components/workspace/user-guide-button";
 import { Welcome } from "@/components/workspace/welcome";
 import { useBrowserControlEnabled } from "@/core/features";
 import { useI18n } from "@/core/i18n/hooks";
@@ -354,7 +355,7 @@ export default function ChatPage() {
                     <span aria-hidden="true">|</span>
                     <span>海能 AI</span>
                   </div>
-                  <div className="cnooc-mobile-product-title">
+                  <div className="cnooc-mobile-product-title cnooc-mobile-product-title-with-guide">
                     <strong>中国海油通用智能体</strong>
                     <ModeSelector
                       className="cnooc-mobile-mode-pill"
@@ -365,6 +366,7 @@ export default function ChatPage() {
                       onSelect={handleModeSelect}
                     />
                   </div>
+                  <UserGuideButton className="cnooc-mobile-user-guide" />
                   <a
                     aria-label={t.welcome.hainengPortal}
                     className="cnooc-haineng-mobile-link"
@@ -414,6 +416,7 @@ export default function ChatPage() {
                   }
                 />
                 {isWelcomeMode && <AnnouncementNotificationButton />}
+                {isWelcomeMode && <UserGuideButton />}
                 {!isAdminReview && <SidecarTrigger />}
                 {browserEnabled && <BrowserTrigger />}
                 <ExportTrigger threadId={threadId} />

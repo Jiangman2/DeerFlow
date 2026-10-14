@@ -1,6 +1,17 @@
 import type { LucideIcon } from "lucide-react";
 
 export interface Translations {
+  portalTools: {
+    title: string;
+    userGuide: string;
+    ppt: string;
+    proofread: string;
+    translate: string;
+    liveTranscribe: string;
+    convert: string;
+    recordTranscribe: string;
+    speech: string;
+  };
   // Locale meta
   locale: {
     localName: string;

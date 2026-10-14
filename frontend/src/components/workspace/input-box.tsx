@@ -9,7 +9,6 @@ import {
   Loader2Icon,
   MicIcon,
   PaperclipIcon,
-  SquarePlusIcon,
   SparklesIcon,
   SquareIcon,
   TargetIcon,
@@ -51,7 +50,6 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
-import { ConfettiButton } from "@/components/ui/confetti-button";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +70,7 @@ import { polishInputDraft } from "@/core/input-polish/api";
 import { hasOpenHumanInputRequest } from "@/core/messages/human-input";
 import { isHiddenFromUIMessage } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
+import { PORTAL_QUICK_TOOLS, PPT_ASSISTANT_TOOL } from "@/core/portal-links";
 import {
   buildReferenceMessageMetadata,
   type SidecarContext,
@@ -143,24 +142,22 @@ import {
   reasoningEffortForMode,
   resolveAgentMode,
 } from "./mode-selector";
+import {
+  PortalQuickAction,
+  PortalToolMenuItem,
+  PortalToolsMenu,
+} from "./portal-tools-menu";
 import { ShopCartAttachmentButton } from "./shop-cart-attachments";
 import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { SlashSkillChip } from "./slash-skill-chip";
 import { Tooltip } from "./tooltip";
 
 const QUICK_ACTION_ARTWORK = {
-  surprise: "/images/action-surprise.png",
   suggestions: [
     "/images/action-image.png",
     "/images/action-ppt.png",
     "/images/action-research.png",
     "/images/action-analysis.png",
-  ],
-  createTrigger: "/images/action-create.svg",
-  create: [
-    "/images/action-web.png",
-    "/images/action-video.png",
-    "/images/action-skill.png",
   ],
 } as const;
 
@@ -2413,7 +2410,9 @@ function SuggestionList({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="center"
-              className="w-80 max-w-[calc(100vw-2rem)]"
+              className="cnooc-portal-menu w-80 max-w-[calc(100vw-2rem)]"
+              data-testid="ppt-generation-menu"
+              collisionPadding={12}
               sideOffset={8}
             >
               <DropdownMenuLabel className="text-muted-foreground text-xs">
@@ -2439,6 +2438,10 @@ function SuggestionList({
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <PortalToolMenuItem tool={PPT_ASSISTANT_TOOL} />
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
@@ -2456,59 +2459,10 @@ function SuggestionList({
           </Suggestion>
         ),
       )}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Suggestion
-            className="whitespace-nowrap"
-            data-testid="create-menu-trigger"
-            icon={SquarePlusIcon}
-            suggestion={t.common.create}
-          >
-            <QuickActionArtwork src={QUICK_ACTION_ARTWORK.createTrigger} />
-            <span>{t.common.create}</span>
-          </Suggestion>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
-          align="end"
-          className="cnooc-create-menu w-56"
-          sideOffset={8}
-        >
-          {t.inputBox.suggestionsCreate.map((suggestion, suggestionIndex) => {
-            if ("type" in suggestion) {
-              return (
-                <DropdownMenuSeparator key={`separator-${suggestionIndex}`} />
-              );
-            }
-            const artworkIndex = t.inputBox.suggestionsCreate
-              .slice(0, suggestionIndex)
-              .filter((entry) => !("type" in entry)).length;
-            return (
-              <DropdownMenuItem
-                className="gap-3 py-2.5"
-                data-testid={`create-option-${artworkIndex}`}
-                key={suggestion.suggestion}
-                onClick={() => handleSuggestionClick(suggestion.prompt)}
-              >
-                <QuickActionArtwork
-                  src={QUICK_ACTION_ARTWORK.create[artworkIndex]!}
-                />
-                <span>{suggestion.suggestion}</span>
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <ConfettiButton
-        className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal whitespace-nowrap"
-        data-slot="suggestion"
-        data-testid="surprise-suggestion"
-        variant="outline"
-        size="sm"
-        onClick={() => handleSuggestionClick(t.inputBox.surpriseMePrompt)}
-      >
-        <QuickActionArtwork src={QUICK_ACTION_ARTWORK.surprise} />
-        <span>{t.inputBox.surpriseMe}</span>
-      </ConfettiButton>
+      {PORTAL_QUICK_TOOLS.map((tool) => (
+        <PortalQuickAction key={tool.id} tool={tool} />
+      ))}
+      <PortalToolsMenu />
     </Suggestions>
   );
 }

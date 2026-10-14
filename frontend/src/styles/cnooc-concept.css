@@ -361,7 +361,7 @@
 }
 
 .cnooc-composer button,
-.cnooc-welcome-actions button,
+.cnooc-welcome-actions :is(button, a[data-slot="suggestion"]),
 .cnooc-header-actions button,
 .cnooc-header-actions a,
 .cnooc-workspace-sidebar [data-sidebar="menu-button"],
@@ -375,7 +375,8 @@
 }
 
 .cnooc-composer button:not(:disabled):hover,
-.cnooc-welcome-actions button:not(:disabled):hover,
+.cnooc-welcome-actions
+  :is(button, a[data-slot="suggestion"]):not(:disabled):hover,
 .cnooc-header-actions button:not(:disabled):hover,
 .cnooc-header-actions a:hover {
   border-color: rgba(57, 117, 232, 0.45) !important;
@@ -1721,7 +1722,7 @@
 
   .cnooc-welcome-actions [data-slot="suggestions-list"] {
     display: grid !important;
-    grid-template-columns: 0.95fr 1.08fr 1fr 1.04fr 1.06fr 0.87fr;
+    grid-template-columns: repeat(7, minmax(116px, 1fr));
     width: 100% !important;
     height: 54px;
     gap: 16px !important;
@@ -1733,15 +1734,17 @@
     min-width: 0 !important;
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]) {
     display: flex !important;
     width: 100% !important;
     height: 50px !important;
     min-width: 0 !important;
     align-items: center !important;
-    gap: 10px !important;
+    gap: 6px !important;
     justify-content: center !important;
-    padding: 0 18px !important;
+    padding: 0 10px !important;
     border: 1px solid rgba(205, 219, 238, 0.94) !important;
     border-radius: 25px !important;
     background: rgba(255, 255, 255, 0.82) !important;
@@ -1751,13 +1754,18 @@
     box-shadow: 0 12px 25px rgba(53, 92, 148, 0.1);
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button > span {
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"])
+    > span {
     display: inline-flex;
     align-items: center;
     line-height: 1.2 !important;
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button:hover {
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]):hover {
     border-color: rgba(57, 117, 232, 0.48) !important;
     background: white !important;
     color: #2d66cf !important;
@@ -1766,7 +1774,7 @@
   .cnooc-workspace-shell
     .cnooc-welcome-actions
     [data-slot="suggestion-item"]
-    > button
+    > :is(button, a[data-slot="suggestion"])
     .cnooc-action-artwork {
     display: block !important;
     width: 42px !important;
@@ -2089,10 +2097,12 @@
     gap: 12px !important;
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]) {
     height: 46px !important;
-    gap: 8px !important;
-    padding: 0 14px !important;
+    gap: 6px !important;
+    padding: 0 8px !important;
     border-radius: 23px !important;
     font-size: 15px !important;
   }
@@ -2100,7 +2110,7 @@
   .cnooc-workspace-shell
     .cnooc-welcome-actions
     [data-slot="suggestion-item"]
-    > button
+    > :is(button, a[data-slot="suggestion"])
     .cnooc-action-artwork {
     width: 38px !important;
     height: 38px !important;
@@ -2147,8 +2157,10 @@
     gap: 8px !important;
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
-    padding: 0 12px !important;
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]) {
+    padding: 0 6px !important;
     font-size: 15px !important;
   }
 }
@@ -2221,7 +2233,9 @@
     height: 42px !important;
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]) {
     height: 40px !important;
   }
 
@@ -3201,7 +3215,9 @@
     scroll-snap-align: start;
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]) {
     display: flex !important;
     width: 100% !important;
     min-width: 0 !important;
@@ -3220,14 +3236,16 @@
     box-shadow: 0 10px 22px rgba(59, 94, 143, 0.08);
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button:active {
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]):active {
     transform: scale(0.98);
   }
 
   .cnooc-workspace-shell
     .cnooc-welcome-actions
     [data-slot="suggestion-item"]
-    > button
+    > :is(button, a[data-slot="suggestion"])
     .cnooc-action-artwork {
     display: block !important;
     width: 48px !important;
@@ -3593,7 +3611,9 @@
     margin-top: 12px;
   }
 
-  .cnooc-welcome-actions [data-slot="suggestion-item"] > button {
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]) {
     font-size: 10.5px !important;
   }
 
@@ -3622,7 +3642,7 @@
   .cnooc-workspace-shell
     .cnooc-welcome-actions
     [data-slot="suggestion-item"]
-    > button
+    > :is(button, a[data-slot="suggestion"])
     .cnooc-action-artwork {
     width: 44px !important;
     height: 44px !important;
@@ -4176,5 +4196,114 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+.cnooc-mobile-user-guide {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  /* The desktop grid already fits its container. Keep Radix's fractional
+     scroll viewport from clipping the last button; mobile remains scrollable. */
+  .cnooc-welcome-actions [data-slot="scroll-area-viewport"] {
+    overflow: visible !important;
+  }
+
+  /* A viewport resize must not animate the old, taller composer through the
+     newly shortened canvas and temporarily push the action rail offscreen. */
+  .cnooc-welcome-composer.cnooc-composer {
+    transition-property: color, background-color, border-color, box-shadow;
+  }
+}
+
+/* Seven peer actions still fit at desktop 175–200% zoom. Stack each icon
+   over its label in the narrow desktop range; retain the mobile scroll rail. */
+@media (min-width: 48rem) and (max-width: 74.99rem) {
+  .cnooc-welcome-actions,
+  .cnooc-welcome-actions [data-slot="suggestions-list"] {
+    height: 68px !important;
+  }
+
+  .cnooc-welcome-actions [data-slot="suggestions-list"] {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"]) {
+    height: 64px !important;
+    flex-direction: column;
+    gap: 0 !important;
+    padding: 2px 4px !important;
+    border-radius: 16px !important;
+    font-size: 12px !important;
+  }
+
+  .cnooc-welcome-actions
+    [data-slot="suggestion-item"]
+    > :is(button, a[data-slot="suggestion"])
+    > span:not(.cnooc-action-artwork):not(.sr-only) {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Same icon canvas as the existing quick actions. The inner image scale
+   normalizes the new artwork's opaque bounds to the existing PPT artwork. */
+.cnooc-portal-artwork {
+  display: inline-flex;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 48rem) and (max-width: 100rem),
+  (min-width: 48rem) and (max-height: 900px) {
+  .cnooc-portal-menu .cnooc-portal-artwork {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .cnooc-portal-menu .cnooc-portal-artwork {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
+  }
+}
+
+@media (max-width: 25rem) {
+  .cnooc-portal-menu .cnooc-portal-artwork {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .cnooc-mobile-product-title-with-guide {
+    left: 64px;
+    max-width: calc(100vw - 176px);
+    transform: none;
+  }
+
+  .cnooc-mobile-user-guide {
+    position: absolute;
+    top: calc(16px + env(safe-area-inset-top));
+    right: 64px;
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--cnooc-line);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.76);
+    color: var(--cnooc-blue-dark);
   }
 }

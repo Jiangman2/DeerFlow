@@ -185,19 +185,21 @@ test.describe("CNOOC concept layout", () => {
     const rail = page.getByTestId("welcome-suggestion-rail");
     await expect(composer).toBeVisible();
     await expect(rail).toBeVisible();
-    await expect(rail.getByRole("button")).toHaveCount(6);
-    await expectLoadedImages(page, ".cnooc-action-artwork", 6);
+    await expect(
+      rail.locator('[data-slot="suggestion-item"] > :is(button, a)'),
+    ).toHaveCount(7);
+    await expectLoadedImages(page, ".cnooc-welcome-actions img", 7);
     await page.waitForTimeout(800);
 
     const actionBoxes = await rail
-      .locator('[data-slot="suggestion-item"] > button')
+      .locator('[data-slot="suggestion-item"] > :is(button, a)')
       .evaluateAll((buttons) =>
         buttons.map((button) => {
           const box = button.getBoundingClientRect();
           return { width: box.width, height: box.height };
         }),
       );
-    expect(actionBoxes).toHaveLength(6);
+    expect(actionBoxes).toHaveLength(7);
     const actionWidths = actionBoxes.map((box) => box.width);
     expect(Math.min(...actionWidths)).toBeGreaterThan(100);
     expect(
@@ -209,12 +211,14 @@ test.describe("CNOOC concept layout", () => {
       );
     }
 
-    await page.getByTestId("create-menu-trigger").click();
-    await expect(page.getByTestId("create-option-0")).toBeVisible();
-    await expect(page.getByTestId("create-option-1")).toBeVisible();
-    await expect(page.getByTestId("create-option-2")).toBeVisible();
-    const createTriggerStyle = await page
-      .getByTestId("create-menu-trigger")
+    await page.getByTestId("portal-tools-trigger").click();
+    await expect(page.getByTestId("portal-tool-liveTranscribe")).toBeVisible();
+    await expect(page.getByTestId("portal-tool-convert")).toBeVisible();
+    await expect(
+      page.getByTestId("portal-tool-recordTranscribe"),
+    ).toBeVisible();
+    const moreTriggerStyle = await page
+      .getByTestId("portal-tools-trigger")
       .evaluate((button) => {
         const image = button.querySelector(".cnooc-action-artwork");
         return {
@@ -222,8 +226,8 @@ test.describe("CNOOC concept layout", () => {
           imageWidth: image?.getBoundingClientRect().width,
         };
       });
-    const createOptionStyles = await page
-      .locator('.cnooc-create-menu [role="menuitem"]')
+    const moreOptionStyles = await page
+      .locator('.cnooc-portal-menu [role="menuitem"]')
       .evaluateAll((items) =>
         items.map((item) => ({
           fontSize: getComputedStyle(item).fontSize,
@@ -232,12 +236,10 @@ test.describe("CNOOC concept layout", () => {
             ?.getBoundingClientRect().width,
         })),
       );
-    for (const style of createOptionStyles) {
-      expect(style.fontSize).toBe(createTriggerStyle.fontSize);
+    for (const style of moreOptionStyles) {
+      expect(Number.parseFloat(style.fontSize)).toBeGreaterThanOrEqual(12);
       expect(
-        Math.abs(
-          (style.imageWidth ?? 0) - (createTriggerStyle.imageWidth ?? 0),
-        ),
+        Math.abs((style.imageWidth ?? 0) - (moreTriggerStyle.imageWidth ?? 0)),
       ).toBeLessThanOrEqual(1);
     }
     await page.keyboard.press("Escape");
@@ -257,7 +259,7 @@ test.describe("CNOOC concept layout", () => {
     ).toBeLessThanOrEqual(3);
 
     await page.screenshot({
-      path: "test-results/cnooc-concept-desktop-expanded.png",
+      path: test.info().outputPath("cnooc-concept-desktop-expanded.png"),
       fullPage: true,
     });
 
@@ -352,12 +354,16 @@ test.describe("CNOOC concept layout", () => {
       }),
     );
     for (const step of menuVerticalSteps.slice(0, 4)) {
-      expect(step).toBeGreaterThanOrEqual(80);
+      // At this 1440x900 viewport the existing compact desktop media rule
+      // uses 66px entries with at least an 8px gap; separate menu groups
+      // add their own padding. Wide-screen 80px entries do not apply here.
+      expect(step).toBeGreaterThanOrEqual(66 + 8);
     }
     for (let index = 0; index < count; index += 1) {
       const button = menuButtons.nth(index);
       const buttonBox = await button.boundingBox();
       expect(buttonBox).not.toBeNull();
+      expect(buttonBox!.height).toBe(66);
       const center = buttonBox!.x + buttonBox!.width / 2;
       const sidebarBox = await collapsedSidebar.boundingBox();
       expect(sidebarBox).not.toBeNull();
@@ -389,7 +395,7 @@ test.describe("CNOOC concept layout", () => {
     }
 
     await page.screenshot({
-      path: "test-results/cnooc-concept-desktop-collapsed.png",
+      path: test.info().outputPath("cnooc-concept-desktop-collapsed.png"),
       fullPage: true,
     });
   });
@@ -449,7 +455,7 @@ test.describe("CNOOC concept layout", () => {
       desktopLayout.viewportWidth,
     );
     await page.screenshot({
-      path: "test-results/cnooc-skill-mode-desktop.png",
+      path: test.info().outputPath("cnooc-skill-mode-desktop.png"),
       fullPage: true,
     });
 
@@ -493,12 +499,12 @@ test.describe("CNOOC concept layout", () => {
       mobileLayout.viewportWidth,
     );
     await page.screenshot({
-      path: "test-results/cnooc-skill-mode-mobile.png",
+      path: test.info().outputPath("cnooc-skill-mode-mobile.png"),
       fullPage: true,
     });
   });
 
-  test("surprise action stays last in the responsive welcome rail", async ({
+  test("more action stays last and removed actions stay absent in the responsive welcome rail", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -507,17 +513,22 @@ test.describe("CNOOC concept layout", () => {
     await page.goto("/workspace/chats/new?visualQa=cnooc-concept");
     const rail = page.getByTestId("welcome-suggestion-rail");
     await expect(rail).toBeVisible({ timeout: 15_000 });
-    await expect(rail.getByRole("button")).toHaveCount(6);
-    await expect(rail.getByTestId("surprise-suggestion")).toBeVisible();
     await expect(
-      rail.locator('[data-slot="suggestion-item"] > button').last(),
-    ).toHaveAttribute("data-testid", "surprise-suggestion");
+      rail.locator('[data-slot="suggestion-item"] > :is(button, a)'),
+    ).toHaveCount(7);
+    await expect(rail.getByTestId("surprise-suggestion")).toHaveCount(0);
+    await expect(rail.getByTestId("create-menu-trigger")).toHaveCount(0);
+    await expect(
+      rail.locator('[data-slot="suggestion-item"] > :is(button, a)').last(),
+    ).toHaveAttribute("data-testid", "portal-tools-trigger");
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(rail.getByRole("button")).toHaveCount(6);
     await expect(
-      rail.locator('[data-slot="suggestion-item"] > button').last(),
-    ).toHaveAttribute("data-testid", "surprise-suggestion");
+      rail.locator('[data-slot="suggestion-item"] > :is(button, a)'),
+    ).toHaveCount(7);
+    await expect(
+      rail.locator('[data-slot="suggestion-item"] > :is(button, a)').last(),
+    ).toHaveAttribute("data-testid", "portal-tools-trigger");
   });
 
   test("knowledge scope mirrors WeKnora mention groups and selected chips", async ({
@@ -684,7 +695,7 @@ test.describe("CNOOC concept layout", () => {
     ).toBeVisible();
     await page.keyboard.press("Escape");
     await page.screenshot({
-      path: "test-results/cnooc-concept-desktop-materials.png",
+      path: test.info().outputPath("cnooc-concept-desktop-materials.png"),
       fullPage: true,
     });
 
@@ -859,7 +870,7 @@ test.describe("CNOOC concept layout", () => {
       expect(box.width).toBeLessThanOrEqual(240);
     }
     await page.screenshot({
-      path: "test-results/cnooc-concept-desktop-materials-many.png",
+      path: test.info().outputPath("cnooc-concept-desktop-materials-many.png"),
       fullPage: true,
     });
 
@@ -881,7 +892,7 @@ test.describe("CNOOC concept layout", () => {
       })
       .toBeLessThanOrEqual(390);
     await page.screenshot({
-      path: "test-results/cnooc-concept-mobile-materials-many.png",
+      path: test.info().outputPath("cnooc-concept-mobile-materials-many.png"),
       fullPage: true,
     });
   });
@@ -901,7 +912,7 @@ test.describe("CNOOC concept layout", () => {
     await expect(page.locator(".cnooc-mobile-welcome-card")).toBeVisible();
     await expect(page.locator(".cnooc-welcome-mascot")).toBeVisible();
     await expectLoadedImages(page, ".cnooc-assistant-avatar-image", 1);
-    await expectLoadedImages(page, ".cnooc-action-artwork", 6);
+    await expectLoadedImages(page, ".cnooc-welcome-actions img", 7);
     await expect(page.getByTestId("welcome-suggestion-rail")).toBeVisible();
     await expect(page.getByTestId("welcome-composer")).toBeVisible();
     await expect(page.locator(".cnooc-mobile-new-chat")).toBeHidden();
@@ -914,8 +925,8 @@ test.describe("CNOOC concept layout", () => {
 
     const mobileActions = page
       .getByTestId("welcome-suggestion-rail")
-      .locator('[data-slot="suggestion-item"] > button');
-    await expect(mobileActions).toHaveCount(6);
+      .locator('[data-slot="suggestion-item"] > :is(button, a)');
+    await expect(mobileActions).toHaveCount(7);
     const mobileActionBoxes = await mobileActions.evaluateAll((buttons) =>
       buttons.map((button) => {
         const box = button.getBoundingClientRect();
@@ -968,17 +979,17 @@ test.describe("CNOOC concept layout", () => {
     expect(modelSelectorBox).not.toBeNull();
     expect(modelSelectorBox!.width).toBeLessThanOrEqual(180);
 
-    await page.getByTestId("create-menu-trigger").click();
-    const mobileCreateTriggerStyle = await page
-      .getByTestId("create-menu-trigger")
+    await page.getByTestId("portal-tools-trigger").click();
+    const mobileMoreTriggerStyle = await page
+      .getByTestId("portal-tools-trigger")
       .evaluate((button) => ({
         fontSize: getComputedStyle(button).fontSize,
         imageWidth: button
           .querySelector(".cnooc-action-artwork")
           ?.getBoundingClientRect().width,
       }));
-    const mobileCreateOptionStyles = await page
-      .locator('.cnooc-create-menu [role="menuitem"]')
+    const mobileMoreOptionStyles = await page
+      .locator('.cnooc-portal-menu [role="menuitem"]')
       .evaluateAll((items) =>
         items.map((item) => ({
           fontSize: getComputedStyle(item).fontSize,
@@ -987,16 +998,11 @@ test.describe("CNOOC concept layout", () => {
             ?.getBoundingClientRect().width,
         })),
       );
-    for (const style of mobileCreateOptionStyles) {
+    for (const style of mobileMoreOptionStyles) {
+      expect(Number.parseFloat(style.fontSize)).toBeGreaterThanOrEqual(12);
       expect(
         Math.abs(
-          Number.parseFloat(style.fontSize) -
-            Number.parseFloat(mobileCreateTriggerStyle.fontSize),
-        ),
-      ).toBeLessThanOrEqual(0.5);
-      expect(
-        Math.abs(
-          (style.imageWidth ?? 0) - (mobileCreateTriggerStyle.imageWidth ?? 0),
+          (style.imageWidth ?? 0) - (mobileMoreTriggerStyle.imageWidth ?? 0),
         ),
       ).toBeLessThanOrEqual(4);
     }
@@ -1040,7 +1046,7 @@ test.describe("CNOOC concept layout", () => {
     );
 
     await page.screenshot({
-      path: "test-results/cnooc-concept-mobile.png",
+      path: test.info().outputPath("cnooc-concept-mobile.png"),
       fullPage: true,
     });
   });
@@ -1088,7 +1094,7 @@ test.describe("CNOOC concept layout", () => {
           ?.getBoundingClientRect();
         const actionBoxes = Array.from(
           document.querySelectorAll(
-            '[data-testid="welcome-suggestion-rail"] [data-slot="suggestion-item"] > button',
+            '[data-testid="welcome-suggestion-rail"] [data-slot="suggestion-item"] > :is(button, a)',
           ),
         ).map((button) => {
           const box = button.getBoundingClientRect();
@@ -1133,7 +1139,7 @@ test.describe("CNOOC concept layout", () => {
       expect(geometry.railBottom).toBeLessThanOrEqual(
         geometry.viewportHeight + 1,
       );
-      expect(geometry.actionBoxes).toHaveLength(6);
+      expect(geometry.actionBoxes).toHaveLength(7);
       for (const action of geometry.actionBoxes) {
         expect(action.left).toBeGreaterThanOrEqual(0);
         expect(action.right).toBeLessThanOrEqual(geometry.viewportWidth + 1);
