@@ -1,5 +1,16 @@
 # DeerFlow Backend
 
+Model-output recovery now distinguishes malformed tool JSON, short plan-only
+responses, provider length truncation, visible repetition, and excessive hidden
+reasoning. It preserves delivered prose containing future-tense words, provides
+content-free JSON syntax diagnostics for one regeneration attempt, and stops
+pathological output without automatically spending another full model budget.
+Earlier successful tool operations are not rolled back.
+The lead-agent thinking prompt also discourages circular reasoning and
+no-progress searches while preserving evidence, clarification and Skill gates.
+See [model-output incident recovery](docs/model-output-recovery.md) for scope,
+adapter-local thresholds, regression commands, and rollout limitations.
+
 Batch fourteen repairs active TUI quit, reserved-command handling, contentless
 message extraction, WeChat batch failure/cancellation handling and diff totals.
 WeChat now attempts remaining messages after a bad attachment and advances its

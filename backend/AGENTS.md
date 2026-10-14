@@ -1,5 +1,33 @@
 # AGENTS.md
 
+## Model-output recovery guardrails (2026-10-14)
+
+The lead-agent thinking-style prompt carries soft efficiency guidance: reuse
+evidence, stop no-progress repetition, and report concrete blockers without
+fabricating results or bypassing clarification/Skill gates. It must not claim
+that models can precisely count their hidden reasoning tokens or characters.
+For this recovery package the operator explicitly requests related tests only:
+use the fixed file list in the package runner, not the full backend suite.
+
+Preserve the terminal boundary across middleware: an AIMessage marked
+`deerflow_terminal_stop` must not be re-engaged by Todo, artifact-delivery,
+terminal-response or Skill workflow recovery. Length-truncated responses must
+never dispatch partial tool calls or consume a fresh automatic continuation
+budget. Keep genuine short plan-only and empty post-tool retries bounded.
+Future-tense words embedded in documents/code/quotations are not completion
+state. Do not remove the existing Skill-owned confirmation boundaries.
+
+`models/output_safety.py` is a per-invocation, bounded-memory guard used by
+`RobustChatOpenAI` before streaming callbacks/yields. Guard exceptions are
+non-retriable and contain no user/model content. Close the upstream stream on
+failure/cancellation. The local reasoning limit counts characters, NOT tokens;
+never claim that local cancellation guarantees upstream billing cancellation.
+Tool argument JSON is not visible prose and must not enter repetition detection.
+Malformed arguments receive local syntax/position diagnostics; never trim away
+trailing fields, repair executable arguments, or expose their values in logs.
+See `docs/model-output-recovery.md` and the regression tests
+`test_model_output_incidents.py` / `test_model_output_safety.py`.
+
 The 2026-10-04 production Gateway reconciliation is documented in `../docs/production-gateway-reconciliation-20261004.md`. Preserve metadata-only owner routing and Gateway authentication/CSRF enforcement. Persist partial history only for explicit client interrupts, never lease takeover, shutdown, rollback or model failure; do not write unfinished text to model checkpoints. The regression tests use repository sources, not release archives or fake harness modules.
 
 Batch-fourteen reconciliation is recorded in

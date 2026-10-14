@@ -58,6 +58,7 @@ from deerflow.models.assistant_payload_replay import (
     restore_assistant_payloads,
     restore_reasoning_content,
 )
+from deerflow.models.output_safety import ModelOutputGuard, visible_text
 from deerflow.models.stream_admission import admit_model_stream
 
 _MAX_PROVIDER_MESSAGE_CHARS = 1000
@@ -605,6 +606,8 @@ class RobustChatOpenAI(ChatOpenAI):
     """
 
     disable_streaming: bool | Literal["tool_calling"] = False
+    repetition_guard_enabled: bool = Field(default=True, description="Stop severe exact repetition in visible prose, not tool arguments.")
+    max_reasoning_chars: int = Field(default=65536, ge=0, description="Per-call reasoning_content character budget; zero disables this local guard.")
     cumulative_stream_usage: bool = Field(
         default=False,
         description=("Treat streaming usage snapshots from an OpenAI-compatible provider as cumulative per completion and convert them to per-chunk deltas."),
@@ -797,7 +800,9 @@ class RobustChatOpenAI(ChatOpenAI):
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         base_generation_info: dict[str, Any] = {}
         response: Any = None
+        completion_id: str | None = None
         frame_guard = _StreamFrameGuard(self._normalize_stream_chunk)
+        output_guard = ModelOutputGuard(repetition_enabled=self.repetition_guard_enabled, max_reasoning_chars=self.max_reasoning_chars)
         timing = _ModelStreamTiming.for_invocation(self, run_manager, mode="sync")
         timing.start()
 
@@ -824,6 +829,7 @@ class RobustChatOpenAI(ChatOpenAI):
                     chunk = frame_guard.normalize(raw_chunk)
                     if chunk is None:
                         continue
+                    completion_id = _get_completion_id(chunk) or completion_id
                     generation_chunk = self._convert_chunk_to_generation_chunk(
                         chunk,
                         default_chunk_class,
@@ -833,6 +839,7 @@ class RobustChatOpenAI(ChatOpenAI):
                         continue
                     default_chunk_class = generation_chunk.message.__class__
                     timing.observe_chunk(generation_chunk)
+                    output_guard.observe(generation_chunk.message)
                     logprobs = (generation_chunk.generation_info or {}).get("logprobs")
                     if run_manager:
                         run_manager.on_llm_new_token(
@@ -854,6 +861,9 @@ class RobustChatOpenAI(ChatOpenAI):
         except BaseException as exc:
             timing.finish(outcome="error", error=exc)
             raise
+        finally:
+            if completion_id is not None:
+                self._clear_usage_snapshot(completion_id)
 
         try:
             if hasattr(response, "get_final_completion") and "response_format" in payload:
@@ -917,7 +927,9 @@ class RobustChatOpenAI(ChatOpenAI):
         default_chunk_class: type[BaseMessageChunk] = AIMessageChunk
         base_generation_info: dict[str, Any] = {}
         response: Any = None
+        completion_id: str | None = None
         frame_guard = _StreamFrameGuard(self._normalize_stream_chunk)
+        output_guard = ModelOutputGuard(repetition_enabled=self.repetition_guard_enabled, max_reasoning_chars=self.max_reasoning_chars)
         timing = _ModelStreamTiming.for_invocation(self, run_manager, mode="async")
         timing.start()
 
@@ -947,11 +959,12 @@ class RobustChatOpenAI(ChatOpenAI):
                 )
                 if timing.enabled:
                     source_chunks = _timed_async_stream_chunks(source_chunks, timing)
-                async with _closing_async_iterator(source_chunks, close_on_exit=timing.enabled) as raw_chunks:
+                async with _closing_async_iterator(source_chunks, close_on_exit=True) as raw_chunks:
                     async for raw_chunk in raw_chunks:
                         chunk = frame_guard.normalize(raw_chunk)
                         if chunk is None:
                             continue
+                        completion_id = _get_completion_id(chunk) or completion_id
                         generation_chunk = self._convert_chunk_to_generation_chunk(
                             chunk,
                             default_chunk_class,
@@ -961,6 +974,7 @@ class RobustChatOpenAI(ChatOpenAI):
                             continue
                         default_chunk_class = generation_chunk.message.__class__
                         timing.observe_chunk(generation_chunk)
+                        output_guard.observe(generation_chunk.message)
                         logprobs = (generation_chunk.generation_info or {}).get("logprobs")
                         if run_manager:
                             callback_started = time.monotonic() if timing.enabled else None
@@ -992,6 +1006,9 @@ class RobustChatOpenAI(ChatOpenAI):
         except BaseException as exc:
             timing.finish(outcome="error", error=exc)
             raise
+        finally:
+            if completion_id is not None:
+                self._clear_usage_snapshot(completion_id)
 
         try:
             if hasattr(response, "get_final_completion") and "response_format" in payload:
@@ -1053,6 +1070,13 @@ class RobustChatOpenAI(ChatOpenAI):
                 generation_info=generation.generation_info,
             )
 
+        for generation in patched_generations or result.generations:
+            # A completed non-streaming answer is already paid for. Do not
+            # discard useful output solely because its hidden reasoning was
+            # long; early reasoning limits apply while streaming or when no
+            # visible answer was returned.
+            reasoning_limit = 0 if visible_text(generation.message.content).strip() else self.max_reasoning_chars
+            ModelOutputGuard(repetition_enabled=self.repetition_guard_enabled, max_reasoning_chars=reasoning_limit).observe(generation.message)
         return ChatResult(
             generations=patched_generations or result.generations,
             llm_output=result.llm_output,

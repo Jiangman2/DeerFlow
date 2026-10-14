@@ -21,6 +21,7 @@ from langchain_core.messages import AIMessage
 from langgraph.errors import GraphBubbleUp
 
 from deerflow.config.app_config import AppConfig
+from deerflow.models.output_safety import OUTPUT_STOP_MESSAGES, PARTIAL_WORK_NOTICE, ModelOutputSafetyError
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +219,8 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                 self._circuit_probe_in_flight = False
 
     def _classify_error(self, exc: BaseException) -> tuple[bool, str]:
+        if isinstance(exc, ModelOutputSafetyError):
+            return False, exc.reason
         detail = _extract_error_detail(exc)
         lowered = detail.lower()
         error_code = _extract_error_code(exc)
@@ -304,6 +307,8 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         )
 
     def _build_user_message(self, exc: BaseException, reason: str) -> str:
+        if isinstance(exc, ModelOutputSafetyError):
+            return OUTPUT_STOP_MESSAGES[reason] + PARTIAL_WORK_NOTICE
         detail = _extract_error_detail(exc)
         if reason == "quota":
             return "The configured LLM provider rejected the request because the account is out of quota, billing is unavailable, or usage is restricted. Please fix the provider account and try again."
@@ -330,12 +335,15 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
         return f"LLM request failed: {detail}"
 
     def _build_user_fallback_message(self, exc: BaseException, reason: str) -> AIMessage:
-        return self._build_error_fallback_message(
+        message = self._build_error_fallback_message(
             self._build_user_message(exc, reason),
             error_type=type(exc).__name__,
             reason=reason,
             detail=_extract_error_detail(exc),
         )
+        if isinstance(exc, ModelOutputSafetyError):
+            message.additional_kwargs["deerflow_terminal_stop"] = True
+        return message
 
     def _emit_retry_event(
         self,

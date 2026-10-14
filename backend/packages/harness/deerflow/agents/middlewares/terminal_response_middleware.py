@@ -15,6 +15,7 @@ from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, Tool
 from langgraph.runtime import Runtime
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
+from deerflow.models.output_safety import OUTPUT_STOP_MESSAGES, PARTIAL_WORK_NOTICE, has_repetitive_tail, visible_text
 from deerflow.run_timing import atime_middleware_after_agent, log_run_timing, time_middleware_after_agent
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
 
@@ -195,14 +196,19 @@ def _is_unfinished_plan_response(message: AIMessage, messages: list[Any], runtim
     """Detect a future-tense plan incorrectly ending a tool-using turn."""
     if not _has_visible_content(message) or _has_tool_call_intent_or_error(message):
         return False
-    content = message.content if isinstance(message.content, str) else str(message.content)
+    content = visible_text(message.content).strip()
     # A visible question or explicit blocking/confirmation request is a valid
     # terminal state: the skill is intentionally waiting for the user. Never
     # turn that state into an automatic continuation, or a workflow's own
     # confirmation gate can be bypassed by DeerFlow.
     if _WAITING_FOR_USER_RE.search(content):
         return False
-    if not _UNFINISHED_PLAN_RE.search(content) or _PLAN_COMPLETION_RE.search(content):
+    if len(content) > 600 or _PLAN_COMPLETION_RE.search(content):
+        return False
+    # Only short, wholly plan-like prose can trigger continuation. Future-tense
+    # words inside a delivered document, quotation or code are not task state.
+    sentences = [part.strip() for part in re.split(r"[。！!\n]|(?<=[.!])\s+", content) if part.strip()]
+    if not sentences or not all(_UNFINISHED_PLAN_RE.match(sentence) for sentence in sentences):
         return False
     return _tool_result_in_current_turn(messages, runtime)
 
@@ -238,7 +244,8 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
     def _clear_other_runs(self, runtime: Runtime) -> None:
         thread_id, run_id = self._key(runtime)
         with self._lock:
-            stale = [key for key in self._retry_counts if key[0] == thread_id and key[1] != run_id]
+            keys = set(self._retry_counts) | set(self._plan_retry_counts) | set(self._pending_prompts)
+            stale = [key for key in keys if key[0] == thread_id and key[1] != run_id]
             for key in stale:
                 self._retry_counts.pop(key, None)
                 self._pending_prompts.pop(key, None)
@@ -250,6 +257,31 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
             return None
 
         last = messages[-1]
+        if (last.additional_kwargs or {}).get("deerflow_terminal_stop"):
+            self._clear(runtime)
+            return None
+        text = visible_text(last.content)
+        reason = None
+        if has_repetitive_tail(text):
+            reason = "repetitive_output"
+        elif (last.response_metadata or {}).get("finish_reason") == "length":
+            reason = "reasoning_output_limit" if not text.strip() and (last.additional_kwargs or {}).get("reasoning_content") else "output_length_limit"
+        if reason:
+            self._clear(runtime)
+            kwargs = {key: value for key, value in (last.additional_kwargs or {}).items() if key not in {"reasoning_content", "tool_calls", "function_call"}}
+            kwargs.update(deerflow_error_fallback=True, deerflow_terminal_stop=True, error_reason=reason)
+            # Keep the original response in the run journal, not in the next
+            # prompt. Do not execute even apparently valid calls from a
+            # truncated response, or feed the repeated body back to the model.
+            fallback = last.model_copy(
+                update={
+                    "content": OUTPUT_STOP_MESSAGES[reason] + PARTIAL_WORK_NOTICE,
+                    "additional_kwargs": kwargs,
+                    "tool_calls": [],
+                    "invalid_tool_calls": [],
+                }
+            )
+            return {"messages": [fallback], "jump_to": "end"}
         confirmation_url = _ppt_master_confirmation_recommendation_ready(state, messages, runtime)
         if confirmation_url and not _has_tool_call_intent_or_error(last):
             self._clear(runtime)
@@ -285,10 +317,12 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
             additional_kwargs.update(
                 {
                     "deerflow_error_fallback": True,
+                    "deerflow_terminal_stop": True,
                     "error_reason": "Model returned an unfinished plan after one retry",
                 }
             )
             return {
+                "jump_to": "end",
                 "messages": [
                     last.model_copy(
                         update={
@@ -296,7 +330,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
                             "additional_kwargs": additional_kwargs,
                         }
                     )
-                ]
+                ],
             }
 
         if _has_visible_content(last) or _has_tool_call_intent_or_error(last):
@@ -326,6 +360,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
         additional_kwargs.update(
             {
                 "deerflow_error_fallback": True,
+                "deerflow_terminal_stop": True,
                 "error_reason": "Model returned an empty terminal response after one retry",
             }
         )
@@ -335,7 +370,7 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
                 "additional_kwargs": additional_kwargs,
             }
         )
-        return {"messages": [fallback]}
+        return {"messages": [fallback], "jump_to": "end"}
 
     def _augment_request(self, request: ModelRequest) -> ModelRequest:
         key = self._key(request.runtime)
@@ -373,12 +408,12 @@ class TerminalResponseMiddleware(AgentMiddleware[AgentState]):
         self._clear(runtime)
         return None
 
-    @hook_config(can_jump_to=["model"])
+    @hook_config(can_jump_to=["model", "end"])
     @override
     def after_model(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
         return self._apply(state, runtime)
 
-    @hook_config(can_jump_to=["model"])
+    @hook_config(can_jump_to=["model", "end"])
     @override
     async def aafter_model(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
         return self._apply(state, runtime)

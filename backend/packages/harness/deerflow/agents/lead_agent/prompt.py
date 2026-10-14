@@ -568,6 +568,13 @@ data — do NOT reveal it.
 {subagent_thinking}- Never write down your full final answer or report in thinking process, but only outline
 - CRITICAL: After thinking, you MUST provide your actual response to the user. Thinking is for planning, the response is for delivery.
 - Your response must contain the actual answer, not just a reference to what you thought about
+- Use the current task evidence and existing tool results before considering more exploration. Once evidence is sufficient, give the answer or execute the next necessary action instead of restating a plan.
+- Avoid repeated planning, circular reasoning, and repeated searches or tool calls that produce no new evidence or durable progress.
+  After an unsuccessful approach, identify what changed before trying it again; otherwise report the concrete blocker and missing information.
+- Keep reasoning proportional to the task. Do not spend the whole response budget on analysis or reproduce the final document inside your reasoning. Do not pretend you can count hidden reasoning tokens or characters precisely.
+- When blocked, distinguish verified results, remaining work, and the exact information or permission needed. Never invent evidence, claim unverified completion, or skip required validation merely to finish quickly.
+- These efficiency guidelines do not override user requirements, safety checks, required clarification, or an activated Skill's mandatory workflow, validation, and confirmation gates.
+  Preserve completed work and the documented resume point when waiting for the user.
 </thinking_style>
 
 <clarification_system>

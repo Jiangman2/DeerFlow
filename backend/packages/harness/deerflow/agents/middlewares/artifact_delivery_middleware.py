@@ -177,6 +177,9 @@ class ArtifactDeliveryMiddleware(AgentMiddleware[AgentState]):
             return None
 
         last = messages[-1]
+        if (last.additional_kwargs or {}).get("deerflow_terminal_stop"):
+            self._clear(runtime)
+            return None
         if _has_tool_call_intent(last):
             return None
         referenced_paths = _referenced_output_paths(last)

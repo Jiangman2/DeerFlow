@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 _MAX_RECOVERY_ERROR_DETAIL_LEN = 500
 _UNKNOWN_TOOL_NAME = "unknown_tool"
 _EMPTY_TOOL_NAME_ERROR = "Tool call could not be executed because its name was missing or empty."
-_INVALID_TOOL_CALL_FALLBACK = "模型连续两次生成了无法解析的工具参数，因此本次操作没有执行。请重试该步骤或切换模型。"
+_INVALID_TOOL_CALL_FALLBACK = "模型连续两次生成了无法解析的工具参数，已停止本轮任务。这两次无效调用未执行；此前成功的操作不会自动回滚，请核对已有结果后再继续。"
 
 
 def _valid_tool_name(name: object) -> bool:
@@ -63,7 +63,7 @@ def _parse_json_object(value: object) -> dict | None:
         return None
     try:
         parsed = json.loads(value)
-    except ValueError:
+    except (ValueError, RecursionError):
         return None
     return parsed if isinstance(parsed, dict) else None
 
@@ -76,6 +76,27 @@ def _normalize_tool_arguments(arguments: object) -> str:
         except (TypeError, ValueError):
             return "{}"
     return arguments if _parse_json_object(arguments) is not None else "{}"
+
+
+def _argument_diagnostic(arguments: object) -> str:
+    """Diagnose locally without exposing values or repairing executable arguments."""
+    if not isinstance(arguments, str):
+        return "Tool arguments must be one JSON object."
+    try:
+        parsed = json.loads(arguments)
+    except json.JSONDecodeError as exc:
+        # JSONDecodeError.msg/positions describe syntax, never the source document.
+        return (
+            f"Failed to parse tool arguments: {exc.msg} at line {exc.lineno}, column {exc.colno} (offset {exc.pos}). "
+            "Regenerate one JSON object containing ALL required fields inside the same braces. "
+            "Do not append fields after the closing brace, concatenate objects, or add code fences. "
+            "Escape quotes and newlines inside string values; do not repeat the malformed payload."
+        )
+    except (ValueError, RecursionError):
+        return "Tool arguments could not be decoded; regenerate one JSON object."
+    if not isinstance(parsed, dict):
+        return "Tool arguments must be one JSON object, not a scalar or array."
+    return "Arguments are JSON but were rejected by the adapter; check the tool schema and regenerate the complete call."
 
 
 class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
@@ -112,6 +133,8 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
         if not messages or not isinstance(messages[-1], AIMessage):
             return None
         last = messages[-1]
+        if last.additional_kwargs.get("deerflow_terminal_stop"):
+            return None
         invalid_tool_calls = list(getattr(last, "invalid_tool_calls", None) or [])
         key = self._runtime_key(runtime)
         if not invalid_tool_calls:
@@ -138,6 +161,7 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
             {
                 "deerflow_error_fallback": True,
                 "error_reason": "Model returned invalid tool-call arguments twice",
+                "deerflow_terminal_stop": True,
             }
         )
         response_metadata = dict(last.response_metadata or {})
@@ -152,7 +176,7 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
             }
         )
         self._clear_runtime(runtime)
-        return {"messages": [fallback]}
+        return {"messages": [fallback], "jump_to": "end"}
 
     @staticmethod
     def _message_tool_calls(msg) -> list[dict]:
@@ -179,10 +203,16 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
                 normalized_call["invalid_tool_name"] = True
             normalized.append(normalized_call)
 
+        invalid_calls = getattr(msg, "invalid_tool_calls", None) or []
+        invalid_ids = {call.get("id") for call in invalid_calls if isinstance(call, dict) and call.get("id")}
         raw_tool_calls = (getattr(msg, "additional_kwargs", None) or {}).get("tool_calls") or []
         if not tool_calls:
             for raw_tc in raw_tool_calls:
                 if not isinstance(raw_tc, dict):
+                    continue
+                if raw_tc.get("id") in invalid_ids:
+                    # One failed call must get one diagnostic ToolMessage, not
+                    # a generic interrupted receipt followed by a duplicate ID.
                     continue
 
                 function = raw_tc.get("function")
@@ -213,7 +243,7 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
                 "name": _normalize_tool_name(original_name),
                 "args": {},
                 "invalid": True,
-                "error": invalid_tc.get("error"),
+                "error": _argument_diagnostic(invalid_tc.get("args")),
             }
             if _has_invalid_tool_name(original_name):
                 normalized_call["invalid_tool_name"] = True
@@ -444,12 +474,12 @@ class DanglingToolCallMiddleware(AgentMiddleware[AgentState]):
         self._clear_runtime(runtime)
         return None
 
-    @hook_config(can_jump_to=["model"])
+    @hook_config(can_jump_to=["model", "end"])
     @override
     def after_model(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
         return self._recover_invalid_tool_call(state, runtime)
 
-    @hook_config(can_jump_to=["model"])
+    @hook_config(can_jump_to=["model", "end"])
     @override
     async def aafter_model(self, state: AgentState, runtime: Runtime) -> dict[str, Any] | None:
         return self._recover_invalid_tool_call(state, runtime)

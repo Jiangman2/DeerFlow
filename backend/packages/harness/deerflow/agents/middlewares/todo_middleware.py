@@ -98,6 +98,8 @@ def _has_tool_call_intent_or_error(message: AIMessage) -> bool:
     # if that test fails after a LangChain upgrade, review this helper so new
     # tool-call/error fields are not silently treated as clean final answers.
     additional_kwargs = getattr(message, "additional_kwargs", {}) or {}
+    if additional_kwargs.get("deerflow_terminal_stop"):
+        return True
     if additional_kwargs.get("tool_calls") or additional_kwargs.get("function_call"):
         return True
 

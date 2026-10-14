@@ -26,6 +26,18 @@ def test_build_self_update_section_empty_for_default_agent():
     assert prompt_module._build_self_update_section(None) == ""
 
 
+def test_thinking_guidance_limits_no_progress_without_bypassing_required_work():
+    guidance = prompt_module.SYSTEM_PROMPT_TEMPLATE.split("<thinking_style>", 1)[1].split("</thinking_style>", 1)[0]
+    assert "existing tool results" in guidance
+    assert "Once evidence is sufficient" in guidance
+    assert "circular reasoning" in guidance
+    assert "no new evidence or durable progress" in guidance
+    assert "Do not pretend you can count hidden reasoning tokens or characters precisely" in guidance
+    assert "Never invent evidence, claim unverified completion" in guidance
+    assert "mandatory workflow, validation, and confirmation gates" in guidance
+    assert "documented resume point" in guidance
+
+
 def test_build_self_update_section_present_for_custom_agent():
     section = prompt_module._build_self_update_section("my-agent")
 
