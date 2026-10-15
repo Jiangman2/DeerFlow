@@ -1,10 +1,24 @@
 "use client";
 
-import { DatabaseIcon, DatabaseZapIcon, ListIcon } from "lucide-react";
+import {
+  DatabaseIcon,
+  DatabaseZapIcon,
+  ListIcon,
+  Loader2Icon,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PromptInputButton } from "@/components/ai-elements/prompt-input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ensureDataLakeAuthorization } from "@/core/data-lake/auth";
 import { useI18n } from "@/core/i18n/hooks";
 import type {
@@ -57,6 +71,10 @@ export function ShopCartAttachmentButton({
   );
   const [newShopCartLoading, setNewShopCartLoading] = useState(false);
   const [authorizing, setAuthorizing] = useState(false);
+  const [loginAction, setLoginAction] = useState<"enable" | "files" | null>(
+    null,
+  );
+  const authorizationPending = useRef(false);
   const requestSequence = useRef(0);
   const onAddFilesRef = useRef(onAddFiles);
   const onContextChangeRef = useRef(onContextChange);
@@ -130,13 +148,16 @@ export function ShopCartAttachmentButton({
   );
 
   const loadNewShopCartFiles = useCallback(async () => {
-    if (!dataLakeEnabled) {
+    if (!contextRef.current.datalake_enabled) {
       return;
     }
     const sequence = ++requestSequence.current;
     setNewShopCartLoading(true);
     const result = await fetchNewShopCartFiles();
-    if (sequence !== requestSequence.current || !dataLakeEnabled) {
+    if (
+      sequence !== requestSequence.current ||
+      !contextRef.current.datalake_enabled
+    ) {
       return;
     }
     setNewShopCartLoading(false);
@@ -146,6 +167,10 @@ export function ShopCartAttachmentButton({
       if (result.status === 401 && !loginRequired) {
         resetDataLakeUi();
         commitDataLakeEnabled(false);
+      }
+      if (loginRequired) {
+        setNewShopCartOpen(false);
+        setLoginAction("files");
       }
       toast.error(
         loginRequired
@@ -158,21 +183,33 @@ export function ShopCartAttachmentButton({
     setNewShopCartFiles(result.files);
   }, [
     commitDataLakeEnabled,
-    dataLakeEnabled,
     resetDataLakeUi,
     t.inputBox.dataLakeLoginRequired,
     t.inputBox.newShopCartLoadFailed,
   ]);
 
-  const openShopCartWindow = useCallback(async () => {
-    if (!dataLakeEnabled || authorizing) {
-      return;
-    }
-
-    setAuthorizing(true);
-    try {
-      const authorized = await ensureDataLakeAuthorization();
+  const authorizeDataLake = useCallback(
+    async (action: "enable" | "files") => {
+      if (authorizationPending.current || disabled) return;
+      authorizationPending.current = true;
+      setAuthorizing(true);
+      const toastId = toast.loading(t.inputBox.dataLakeAuthorizingDescription);
+      let authorized;
+      try {
+        authorized = await ensureDataLakeAuthorization();
+      } finally {
+        toast.dismiss(toastId);
+        authorizationPending.current = false;
+        setAuthorizing(false);
+      }
       if (!authorized.ok) {
+        if (authorized.code === "data_lake_login_required") {
+          setNewShopCartOpen(false);
+          setLoginAction(action);
+          toast.error(t.inputBox.dataLakeLoginRequired);
+          return;
+        }
+        setLoginAction(null);
         if (authorized.status === 401 || authorized.status === 403) {
           resetDataLakeUi();
           commitDataLakeEnabled(false);
@@ -180,59 +217,39 @@ export function ShopCartAttachmentButton({
         toast.error(
           authorized.code === "data_lake_permission_denied"
             ? t.inputBox.dataLakePermissionDenied
-            : authorized.code === "data_lake_login_required"
-              ? t.inputBox.dataLakeLoginRequired
+            : authorized.code === "data_lake_authorization_timeout"
+              ? t.inputBox.dataLakeAuthorizationTimeout
               : (authorized.message ?? t.inputBox.dataLakeAuthorizationFailed),
         );
         return;
       }
-
-      setNewShopCartOpen(true);
-      await loadNewShopCartFiles();
-    } finally {
-      setAuthorizing(false);
-    }
-  }, [
-    authorizing,
-    commitDataLakeEnabled,
-    dataLakeEnabled,
-    loadNewShopCartFiles,
-    resetDataLakeUi,
-    t.inputBox.dataLakeAuthorizationFailed,
-    t.inputBox.dataLakeLoginRequired,
-    t.inputBox.dataLakePermissionDenied,
-  ]);
-
-  const updateDataLakeEnabled = useCallback(
-    async (enabled: boolean) => {
-      if (!enabled) {
-        resetDataLakeUi();
-        commitDataLakeEnabled(false);
-        return;
-      }
-
-      setAuthorizing(true);
-      const authorized = await ensureDataLakeAuthorization();
-      setAuthorizing(false);
-      if (!authorized.ok) {
-        toast.error(
-          authorized.code === "data_lake_permission_denied"
-            ? t.inputBox.dataLakePermissionDenied
-            : authorized.code === "data_lake_login_required"
-              ? t.inputBox.dataLakeLoginRequired
-              : (authorized.message ?? t.inputBox.dataLakeAuthorizationFailed),
-        );
-        return;
-      }
+      setLoginAction(null);
       commitDataLakeEnabled(true);
+      if (action === "files") {
+        setNewShopCartOpen(true);
+        await loadNewShopCartFiles();
+      }
     },
     [
       commitDataLakeEnabled,
+      disabled,
+      loadNewShopCartFiles,
       resetDataLakeUi,
-      t.inputBox.dataLakeAuthorizationFailed,
-      t.inputBox.dataLakeLoginRequired,
-      t.inputBox.dataLakePermissionDenied,
+      t.inputBox,
     ],
+  );
+
+  const updateDataLakeEnabled = useCallback(
+    async (enabled: boolean) => {
+      if (enabled) {
+        await authorizeDataLake("enable");
+      } else {
+        setLoginAction(null);
+        resetDataLakeUi();
+        commitDataLakeEnabled(false);
+      }
+    },
+    [authorizeDataLake, commitDataLakeEnabled, resetDataLakeUi],
   );
 
   return (
@@ -247,10 +264,19 @@ export function ShopCartAttachmentButton({
                 className,
               )}
               data-active={dataLakeEnabled}
+              aria-busy={authorizing}
               disabled={disabled || authorizing}
             >
-              <DatabaseIcon className="size-3" />
-              <span className="text-xs font-normal">{t.inputBox.shopCart}</span>
+              {authorizing ? (
+                <Loader2Icon className="size-3 animate-spin motion-reduce:animate-none" />
+              ) : (
+                <DatabaseIcon className="size-3" />
+              )}
+              <span className="text-xs font-normal" aria-live="polite">
+                {authorizing
+                  ? t.inputBox.dataLakeAuthorizing
+                  : t.inputBox.shopCart}
+              </span>
             </PromptInputButton>
           </DropdownMenuTrigger>
         </Tooltip>
@@ -259,15 +285,13 @@ export function ShopCartAttachmentButton({
             <>
               <DropdownMenuItem
                 disabled={authorizing}
-                onSelect={() => void openShopCartWindow()}
+                onSelect={() => authorizeDataLake("files")}
               >
                 <ListIcon />
                 {t.inputBox.dataLakeFileList}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => void updateDataLakeEnabled(false)}
-              >
+              <DropdownMenuItem onSelect={() => updateDataLakeEnabled(false)}>
                 <DatabaseZapIcon />
                 {t.inputBox.disableDataLake}
               </DropdownMenuItem>
@@ -275,7 +299,7 @@ export function ShopCartAttachmentButton({
           ) : (
             <DropdownMenuItem
               disabled={authorizing}
-              onSelect={() => void updateDataLakeEnabled(true)}
+              onSelect={() => updateDataLakeEnabled(true)}
             >
               <DatabaseIcon />
               {t.inputBox.enableDataLake}
@@ -283,6 +307,51 @@ export function ShopCartAttachmentButton({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      <Dialog
+        open={loginAction !== null}
+        onOpenChange={(open) => {
+          if (!open && !authorizing) setLoginAction(null);
+        }}
+      >
+        <DialogContent showCloseButton={!authorizing}>
+          <DialogHeader>
+            <DialogTitle>{t.inputBox.dataLakeLoginRequired}</DialogTitle>
+            <DialogDescription>
+              {t.inputBox.dataLakeLoginDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:flex-wrap">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={authorizing}
+              onClick={() => setLoginAction(null)}
+            >
+              {t.inputBox.dataLakeLoginLater}
+            </Button>
+            <Button variant="outline" asChild>
+              <a
+                href="https://datalake.cnooc/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t.inputBox.dataLakeOpenLogin}
+              </a>
+            </Button>
+            <Button
+              type="button"
+              disabled={authorizing || disabled}
+              onClick={() => {
+                if (loginAction) void authorizeDataLake(loginAction);
+              }}
+            >
+              {authorizing
+                ? t.inputBox.dataLakeAuthorizing
+                : t.inputBox.dataLakeLoginRetry}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {dataLakeEnabled ? (
         <NewShopCartDialog
           files={newShopCartFiles}

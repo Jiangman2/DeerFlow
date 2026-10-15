@@ -180,6 +180,15 @@ export const enUS: Translations = {
     dataLakeAuthorizationFailed:
       "Could not obtain Data Lake access. Please try again.",
     dataLakePermissionDenied: "No Data Lake permission",
+    dataLakeAuthorizing: "Authorizing…",
+    dataLakeAuthorizingDescription: "Verifying Data Lake access. Please wait.",
+    dataLakeAuthorizationTimeout:
+      "Data Lake authorization timed out. Please try again.",
+    dataLakeLoginDescription:
+      "You are not signed in to Data Lake, or your session has expired. Open Data Lake to sign in, then return to this chat and retry.",
+    dataLakeOpenLogin: "Open Data Lake",
+    dataLakeLoginRetry: "I have signed in, retry",
+    dataLakeLoginLater: "Later",
     dataLakeLoginRequired: "Please sign in to Data Lake first.",
     shopCartDialogTitle: "Select attachments from Data Lake",
     shopCartDialogDescription:

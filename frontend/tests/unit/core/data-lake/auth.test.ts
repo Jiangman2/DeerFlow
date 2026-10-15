@@ -20,7 +20,7 @@ describe("ensureDataLakeAuthorization", () => {
     await expect(ensureDataLakeAuthorization()).resolves.toEqual({ ok: true });
     expect(fetchWithAuth).toHaveBeenCalledWith(
       "/api/v1/data-lake/auth/token",
-      { method: "POST" },
+      { method: "POST", signal: expect.any(AbortSignal) },
       { redirectOnUnauthorized: false },
     );
   });
@@ -75,5 +75,32 @@ describe("ensureDataLakeAuthorization", () => {
       code: "data_lake_login_required",
       message: "Please sign in to Data Lake first.",
     });
+  });
+  it("bounds an unresponsive authorization request and allows a later retry", async () => {
+    rs.useFakeTimers();
+    try {
+      rs.mocked(fetchWithAuth).mockImplementationOnce(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new Error("Aborted")),
+            );
+          }),
+      );
+      const pending = ensureDataLakeAuthorization();
+      await rs.advanceTimersByTimeAsync(60_000);
+      await expect(pending).resolves.toEqual({
+        ok: false,
+        code: "data_lake_authorization_timeout",
+      });
+      rs.mocked(fetchWithAuth).mockResolvedValueOnce(
+        new Response("{}", { status: 200 }),
+      );
+      await expect(ensureDataLakeAuthorization()).resolves.toEqual({
+        ok: true,
+      });
+    } finally {
+      rs.useRealTimers();
+    }
   });
 });
