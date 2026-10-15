@@ -1103,19 +1103,27 @@ def replace_virtual_paths_in_command(command: str, thread_data: ThreadDataState 
     return result
 
 
-def _apply_cwd_prefix(command: str, thread_data: ThreadDataState | None) -> str:
-    """Prepend 'cd <workspace> &&' so relative paths are anchored to the thread workspace.
+def _apply_cwd_prefix(command: str, thread_data: ThreadDataState | None, sandbox: object | None = None) -> str:
+    """Prepend 'cd <workspace> <sep>' so relative paths are anchored to the thread workspace.
 
     Args:
         command: The bash command to execute.
         thread_data: The thread data containing the workspace path.
+        sandbox: Optional sandbox used to choose a shell-compatible statement
+            separator. Windows PowerShell 5.1 does not accept ``&&``; when the
+            sandbox exposes ``command_chainer()`` its separator (e.g. ``;``) is
+            used. Defaults to ``&&`` for POSIX shells and when no sandbox is given.
 
     Returns:
-        The command prefixed with 'cd <workspace> &&' if workspace_path is available,
-        otherwise the original command unchanged.
+        The command prefixed with 'cd <workspace> <sep>' if workspace_path is
+        available, otherwise the original command unchanged.
     """
     if thread_data and (workspace := thread_data.get("workspace_path")):
-        return f"cd {shlex.quote(workspace)} && {command}"
+        chainer = "&&"
+        chainer_fn = getattr(sandbox, "command_chainer", None)
+        if callable(chainer_fn):
+            chainer = chainer_fn()
+        return f"cd {shlex.quote(workspace)} {chainer} {command}"
     return command
 
 
@@ -1433,7 +1441,7 @@ def bash_tool(runtime: Runtime, description: str, command: str) -> str:
             thread_data = get_thread_data(runtime)
             validate_local_bash_command_paths(command, thread_data)
             command = replace_virtual_paths_in_command(command, thread_data)
-            command = _apply_cwd_prefix(command, thread_data)
+            command = _apply_cwd_prefix(command, thread_data, sandbox)
             output = sandbox.execute_command(command)
             try:
                 from deerflow.config.app_config import get_app_config

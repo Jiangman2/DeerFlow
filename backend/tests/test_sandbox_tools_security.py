@@ -821,6 +821,21 @@ def test_apply_cwd_prefix_quotes_path_with_spaces() -> None:
     assert result == "cd '/tmp/my workspace/t1' && echo hello"
 
 
+def test_apply_cwd_prefix_uses_sandbox_command_chainer() -> None:
+    """When the sandbox reports a PowerShell-style chainer, use ';' instead of '&&'."""
+    thread_data = {**_THREAD_DATA, "workspace_path": "/tmp/my workspace/t1"}
+    sandbox = SimpleNamespace(command_chainer=lambda: ";")
+    result = _apply_cwd_prefix("echo hello", thread_data, sandbox)
+    assert result == "cd '/tmp/my workspace/t1' ; echo hello"
+
+
+def test_apply_cwd_prefix_defaults_to_and_without_sandbox() -> None:
+    """No sandbox (or one without command_chainer) keeps the portable '&&' default."""
+    thread_data = {**_THREAD_DATA, "workspace_path": "/tmp/my workspace/t1"}
+    assert _apply_cwd_prefix("echo hello", thread_data) == "cd '/tmp/my workspace/t1' && echo hello"
+    assert _apply_cwd_prefix("echo hello", thread_data, SimpleNamespace()) == "cd '/tmp/my workspace/t1' && echo hello"
+
+
 def test_normalize_remote_sandbox_path_anchors_relative_paths_to_workspace() -> None:
     assert _normalize_remote_sandbox_path("projects/deck/01.svg") == "/mnt/user-data/workspace/projects/deck/01.svg"
     assert _normalize_remote_sandbox_path("./projects/deck") == "/mnt/user-data/workspace/projects/deck"

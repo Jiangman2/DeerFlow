@@ -327,6 +327,22 @@ class LocalSandbox(Sandbox):
 
         raise RuntimeError("No suitable shell executable found. Tried /bin/zsh, /bin/bash, /bin/sh, and `sh` on PATH.")
 
+    def command_chainer(self) -> str:
+        """Return a shell-compatible statement separator for ``cd <dir> <sep> <cmd>``.
+
+        Windows PowerShell 5.1 rejects ``&&`` as a statement separator (only
+        PowerShell 7+ accepts it). When the host-bash tool prefixes a command
+        with ``cd <workspace> && ...`` and the selected shell is PowerShell 5.1,
+        every command fails at parse time with Exit Code 1 before the real
+        command ever runs. Use ``;`` for PowerShell; POSIX shells and cmd.exe
+        keep ``&&`` (which also short-circuits on a failed ``cd``).
+        """
+        try:
+            shell = self._get_shell()
+        except RuntimeError:
+            return "&&"
+        return ";" if self._is_powershell(shell) else "&&"
+
     def execute_command(self, command: str) -> str:
         # Resolve container paths in command before execution
         resolved_command = self._resolve_paths_in_command(command)

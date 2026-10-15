@@ -187,3 +187,32 @@ def test_execute_command_uses_cmd_command_mode_on_windows(monkeypatch):
             },
         )
     ]
+
+
+def test_command_chainer_uses_semicolon_for_powershell(monkeypatch):
+    """PowerShell 5.1 rejects '&&'; the chainer must fall back to ';'."""
+    monkeypatch.setattr(local_sandbox.os, "name", "nt")
+    monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"))
+    assert LocalSandbox("t").command_chainer() == ";"
+
+
+def test_command_chainer_uses_and_for_posix_shell(monkeypatch):
+    """POSIX shells accept '&&' (and short-circuit on a failed cd)."""
+    monkeypatch.setattr(local_sandbox.os, "name", "nt")
+    monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\Program Files\Git\bin\sh.exe"))
+    assert LocalSandbox("t").command_chainer() == "&&"
+
+
+def test_command_chainer_uses_and_for_cmd_shell(monkeypatch):
+    """cmd.exe accepts '&&' as a statement separator."""
+    monkeypatch.setattr(local_sandbox.os, "name", "nt")
+    monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(lambda: r"C:\Windows\System32\cmd.exe"))
+    assert LocalSandbox("t").command_chainer() == "&&"
+
+
+def test_command_chainer_falls_back_to_and_when_no_shell(monkeypatch):
+    """When no shell can be resolved, keep the portable '&&' default."""
+    def _raise() -> str:
+        raise RuntimeError("no shell")
+    monkeypatch.setattr(LocalSandbox, "_get_shell", staticmethod(_raise))
+    assert LocalSandbox("t").command_chainer() == "&&"
