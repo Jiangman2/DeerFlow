@@ -187,6 +187,14 @@ export const zhCN: Translations = {
     enableDataLake: "使用数据湖",
     dataLakeAuthorizationFailed: "数据湖权限获取失败，请重试",
     dataLakePermissionDenied: "无数据湖权限",
+    dataLakeAuthorizing: "正在鉴权…",
+    dataLakeAuthorizingDescription: "正在验证数据湖访问权限，请稍候。",
+    dataLakeAuthorizationTimeout: "数据湖鉴权超时，请稍后重试。",
+    dataLakeLoginDescription:
+      "您尚未登录数据湖，或登录状态已失效。请打开数据湖完成登录，再回到当前对话重试。",
+    dataLakeOpenLogin: "打开数据湖",
+    dataLakeLoginRetry: "我已登录，重试",
+    dataLakeLoginLater: "稍后处理",
     dataLakeLoginRequired: "请先登录数据湖",
     shopCartDialogTitle: "从数据湖选择附件",
     shopCartDialogDescription:
