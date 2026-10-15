@@ -74,7 +74,7 @@ export function HainengHomeFooter() {
     >
       <span className="cnooc-home-copyright-text">
         Copyright © 2024–2026 CNOOC. All rights
-        reserved.中国海洋石油集团有限公司版权所有
+        reserved.中海油研究总院/中国海油集团信息技术中心版权所有
       </span>
       <div className="cnooc-home-footer-tools">
         <div
