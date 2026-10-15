@@ -11,6 +11,17 @@ import {
 import type { Translations } from "./types";
 
 export const zhCN: Translations = {
+  portalTools: {
+    title: "更多办公工具",
+    userGuide: "用户指南（新窗口打开）",
+    ppt: "PPT助手",
+    proofread: "文档校对",
+    translate: "智能翻译",
+    liveTranscribe: "实时语音转写",
+    convert: "PDF格式转换",
+    recordTranscribe: "录音转写",
+    speech: "音频合成",
+  },
   // Locale meta
   locale: {
     localName: "中文",

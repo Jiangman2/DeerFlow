@@ -3,8 +3,15 @@ import { expect, test } from "@playwright/test";
 import { handleRunStream, mockLangGraphAPI } from "./utils/mock-api";
 
 test.describe("Chat workspace", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page }, info) => {
     mockLangGraphAPI(page);
+    await page.context().addCookies([
+      {
+        name: "locale",
+        value: "en-US",
+        url: String(info.project.use.baseURL),
+      },
+    ]);
   });
 
   test("new chat page loads with input box", async ({ page }) => {
@@ -69,7 +76,6 @@ test.describe("Chat workspace", () => {
 
     const textarea = page.getByPlaceholder(/how can i assist you/i);
     const directShortcuts = [
-      { label: "Surprise", slash: "/surprise-me" },
       { label: "Image Generation", slash: "/image-generation" },
       { label: "Deep Research", slash: "/deep-research" },
       { label: "Data Analysis", slash: "/data-analysis" },
@@ -85,26 +91,20 @@ test.describe("Chat workspace", () => {
       await textarea.fill("");
     }
 
-    const createShortcuts = [
-      { label: "Webpage", slash: "/frontend-design" },
-      { label: "Video", slash: "/video-generation" },
-      { label: "Skill", slash: "/skill-creator" },
-    ] as const;
-    const createTrigger = page.getByRole("button", {
-      name: "Create",
-      exact: true,
-    });
-
-    for (const shortcut of createShortcuts) {
-      await createTrigger.click();
-      await page
-        .getByRole("menuitem", { name: shortcut.label, exact: true })
-        .click();
-      await expect(textarea).toHaveValue(
-        new RegExp(`^${shortcut.slash.replace("/", "\\/")}\\s`),
-      );
-      await textarea.fill("");
-    }
+    await expect(
+      page.getByRole("button", { name: "Create", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Surprise", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("portal-tool-proofread")).toHaveAttribute(
+      "target",
+      "_blank",
+    );
+    await expect(page.getByTestId("portal-tool-translate")).toHaveAttribute(
+      "target",
+      "_blank",
+    );
   });
 
   test("polishes draft input before sending", async ({ page }) => {

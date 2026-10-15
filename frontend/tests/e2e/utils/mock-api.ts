@@ -328,6 +328,25 @@ export function mockLangGraphAPI(page: Page, options?: MockAPIOptions) {
     return updated;
   };
 
+  // Shared workspace reads must remain offline too. More specific fixtures
+  // registered by a test afterwards override these defaults.
+  for (const [pattern, json] of [
+    ["**/api/announcements/active", { announcement: null }],
+    ["**/api/home/statistics", { todayUsers: 0, todayTasks: 0 }],
+    [
+      "**/integrations/haineng/model-call-count",
+      { todayModelCallCount: 0, totalModelCallCount: 0 },
+    ],
+    ["**/api/weknora/knowledge-bases", { items: [], total: 0 }],
+  ] as const) {
+    void page.route(pattern, (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({ json });
+      }
+      return route.fallback();
+    });
+  }
+
   // Auth — keep workspace tests independent from a real gateway session.
   void page.route("**/api/v1/auth/me", (route) => {
     if (route.request().method() === "GET") {

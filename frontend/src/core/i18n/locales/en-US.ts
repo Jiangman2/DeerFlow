@@ -11,6 +11,17 @@ import {
 import type { Translations } from "./types";
 
 export const enUS: Translations = {
+  portalTools: {
+    title: "More office tools",
+    userGuide: "User guide (opens in a new tab)",
+    ppt: "PPT Assistant",
+    proofread: "Proofreading",
+    translate: "Translation",
+    liveTranscribe: "Live Transcription",
+    convert: "PDF Conversion",
+    recordTranscribe: "Audio Transcription",
+    speech: "Speech Synthesis",
+  },
   // Locale meta
   locale: {
     localName: "English",
