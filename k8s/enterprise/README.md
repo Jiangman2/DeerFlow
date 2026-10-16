@@ -445,13 +445,18 @@ XLSX and a representative affected XLSX before retrying failed documents.
 Gateway conversational uploads take a separate path: they are converted by
 `markitdown` inside ``deerflow.utils.file_conversion`` (the XlsxConverter), not
 by the DocReader Pod. The same `defaultColWidthPt` workbook is therefore also
-rejected there, which the `DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARsed_TEXT` guard
-surfaces as a 503. `backend/sitecustomize.py` — auto-imported because the
-Gateway runs `cd backend && PYTHONPATH=.` — installs the same narrow,
-marker-guarded openpyxl shim so those uploads parse successfully. It ignores
-only the formatting attribute and does not alter standard workbooks. No
-ConfigMap change or rollout is needed; the Gateway picks the shim up on its next
-container start.
+rejected there, which the `DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARSED_TEXT` guard
+surfaces as a 503. `deerflow.utils.file_conversion` lazily installs a narrow,
+marker-guarded openpyxl shim immediately before XLSX conversion through
+MarkItDown. It ignores only the formatting attribute and does not alter the
+uploaded workbook. Python startup and non-XLSX conversions do not install it;
+after the first XLSX conversion the constructor remains patched in that process.
+No ConfigMap or Python startup-path customization is required. Build an immutable
+Gateway image containing the updated harness conversion module, distribute it
+to every eligible ARM64 node, and update the Gateway Deployment image through
+the controlled release process. Restarting the old image does not install the
+fix. Validate non-empty Markdown from both standard and affected XLSX uploads
+before accepting the rollout; keep the parsed-text guard enabled.
 
 URL knowledge imports also remain in the official DocReader Pod. The enterprise
 overlay injects `DOCREADER_EXTERNAL_HTTP_PROXY`,
