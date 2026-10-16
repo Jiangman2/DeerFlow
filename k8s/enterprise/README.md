@@ -442,6 +442,17 @@ does not mutate the original workbook. After applying or updating the
 ConfigMap, restart `deployment/weknora-docreader` and validate both a standard
 XLSX and a representative affected XLSX before retrying failed documents.
 
+Gateway conversational uploads take a separate path: they are converted by
+`markitdown` inside ``deerflow.utils.file_conversion`` (the XlsxConverter), not
+by the DocReader Pod. The same `defaultColWidthPt` workbook is therefore also
+rejected there, which the `DEERFLOW_UPLOAD_DOCUMENT_REQUIRE_PARsed_TEXT` guard
+surfaces as a 503. `backend/sitecustomize.py` — auto-imported because the
+Gateway runs `cd backend && PYTHONPATH=.` — installs the same narrow,
+marker-guarded openpyxl shim so those uploads parse successfully. It ignores
+only the formatting attribute and does not alter standard workbooks. No
+ConfigMap change or rollout is needed; the Gateway picks the shim up on its next
+container start.
+
 URL knowledge imports also remain in the official DocReader Pod. The enterprise
 overlay injects `DOCREADER_EXTERNAL_HTTP_PROXY`,
 `DOCREADER_EXTERNAL_HTTPS_PROXY`, and the mounted enterprise CA paths. The

@@ -273,6 +273,13 @@ backend/.deer-flow/threads/
 1. 检查 markitdown 是否正确安装：`uv run python -c "import markitdown"`
 2. 查看日志中的具体错误信息
 3. 某些损坏或加密的文档可能无法转换，但原文件仍会保存
+4. 若 XLSX 报
+   `XlsxConverter threw TypeError: SheetFormatProperties.__init__() got an
+   unexpected keyword argument 'defaultColWidthPt'`（企业上传表现为 503），是
+   新版 Excel/WPS 保存路径写入了非标准的 `defaultColWidthPt` 格式属性，而
+   openpyxl 3.x 无法识别。`backend/sitecustomize.py` 在启动时安装了狭窄的
+   兼容补丁（忽略该仅格式属性），网关下次容器启动后即可修复；临时绕过可在
+   本地用 Excel/WPS 重新“另存为”一份新 XLSX 再上传。
 
 ### Agent 看不到上传的文件
 
