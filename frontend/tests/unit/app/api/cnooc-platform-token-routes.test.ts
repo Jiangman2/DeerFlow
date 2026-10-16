@@ -102,6 +102,33 @@ describe("routes that consume cnooc.platform_token", () => {
     );
   });
 
+  test("new shop-cart list accepts upstream rows with null shopType", async () => {
+    rs.stubGlobal(
+      "fetch",
+      rs.fn(() =>
+        Promise.resolve(Response.json({ authorized: true }, { status: 200 })),
+      ),
+    );
+    const files = [
+      { ...DOWNLOADABLE_FILE, shopType: null },
+      { ...DOWNLOADABLE_FILE, shopType: 2 },
+    ];
+    const { requestDataLakeJson } = await import("@/server/shop-cart/new-api");
+    rs.mocked(requestDataLakeJson).mockResolvedValue(
+      Response.json({ code: 0, msg: null, data: files }),
+    );
+
+    const { GET } = await import("@/app/api/shop-cart/new/list/route");
+    const response = await GET(
+      new NextRequest("http://deerflow.local/api/shop-cart/new/list", {
+        headers: { cookie: COOKIE },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ files });
+  });
+
   test("new shop-cart list reports when the upstream Data Lake login is missing", async () => {
     rs.stubGlobal(
       "fetch",

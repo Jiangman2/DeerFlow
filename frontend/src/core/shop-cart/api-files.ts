@@ -14,7 +14,7 @@ export type NewShopCartFile = {
   tipsInfo: string | null;
   extra: string | null;
   errorInfo: string | null;
-  shopType: number;
+  shopType: number | null;
 };
 
 export type DownloadableNewShopCartFile = NewShopCartFile & {
@@ -55,7 +55,7 @@ function isNewShopCartFile(value: unknown): value is NewShopCartFile {
     typeof record.ptCode === "string" &&
     typeof record.isStore === "number" &&
     (typeof record.extra === "string" || record.extra === null) &&
-    typeof record.shopType === "number"
+    (typeof record.shopType === "number" || record.shopType === null)
   );
 }
 
