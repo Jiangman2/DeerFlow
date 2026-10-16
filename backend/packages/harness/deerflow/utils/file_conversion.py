@@ -19,7 +19,9 @@ import logging
 import os
 import re
 import tempfile
+from functools import wraps
 from pathlib import Path
+from threading import Lock
 
 from deerflow.config.app_config import get_app_config
 
@@ -47,6 +49,8 @@ _ASYNC_THRESHOLD_BYTES = 1 * 1024 * 1024  # 1 MB
 # yield close to 0. 50 chars/page gives a wide safety margin.
 # Falls back to absolute 200-char check when page count is unavailable.
 _MIN_CHARS_PER_PAGE = 50
+
+_XLSX_COMPAT_LOCK = Lock()
 
 
 def _pymupdf_output_too_sparse(text: str, file_path: Path) -> bool:
@@ -96,9 +100,37 @@ def _convert_pdf_with_pymupdf4llm(file_path: Path) -> str | None:
         return None
 
 
+def _install_openpyxl_default_col_width_pt_compat() -> None:
+    """Ignore only the observed formatting extension when converting XLSX.
+
+    Install lazily rather than at Python startup. The constructor remains
+    patched in this process; the lock prevents concurrent conversions from
+    stacking wrappers. Other workbook errors still propagate to the normal
+    conversion failure handler, and the uploaded workbook is never rewritten.
+    """
+    from openpyxl.worksheet.dimensions import SheetFormatProperties
+
+    marker = "__deerflow_default_col_width_pt_compat__"
+    with _XLSX_COMPAT_LOCK:
+        current_init = SheetFormatProperties.__init__
+        if getattr(current_init, marker, False):
+            return
+
+        @wraps(current_init)
+        def compatible_init(self, *args, **kwargs):
+            kwargs.pop("defaultColWidthPt", None)
+            return current_init(self, *args, **kwargs)
+
+        setattr(compatible_init, marker, True)
+        SheetFormatProperties.__init__ = compatible_init
+
+
 def _convert_with_markitdown(file_path: Path) -> str:
     """Convert any supported file to markdown text using MarkItDown."""
     from markitdown import MarkItDown
+
+    if file_path.suffix.lower() == ".xlsx":
+        _install_openpyxl_default_col_width_pt_compat()
 
     md = MarkItDown()
     return md.convert(str(file_path)).text_content
