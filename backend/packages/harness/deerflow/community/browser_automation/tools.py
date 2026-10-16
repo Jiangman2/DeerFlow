@@ -32,6 +32,7 @@ from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.constants import BROWSER_FRAMES_DIRNAME
 from deerflow.tools.types import Runtime
 
+from .async_guard import run_url_guard
 from .session import BrowserSession, BrowserSessionManager, PageSnapshot, get_browser_session_manager
 
 logger = logging.getLogger(__name__)
@@ -155,6 +156,11 @@ def _validate_url(tool_name: str, url: str) -> str | None:
     return validate_browser_url(url, tool_name=tool_name)
 
 
+async def validate_browser_url_async(url: str) -> str | None:
+    """Use the existing policy off-loop with bounded, fail-closed DNS work."""
+    return await run_url_guard(validate_browser_url, url)
+
+
 def _snapshot_message(snapshot: PageSnapshot, prefix: str = "") -> str:
     body = snapshot.render()
     return f"{prefix}\n\n{body}" if prefix else body
@@ -227,7 +233,7 @@ async def navigate_and_capture(*, thread_id: str | None, url: str, outputs_path:
     Returns ``{"screenshot": virtual_path|None, "url": str, "title": str}``.
     Raises :class:`ValueError` when the URL fails SSRF validation.
     """
-    url_error = _validate_url("browser_navigate", url)
+    url_error = await validate_browser_url_async(url)
     if url_error:
         raise ValueError(url_error)
     cfg = _get_tool_config("browser_navigate")
@@ -271,7 +277,7 @@ async def browser_navigate_tool(runtime: Runtime, url: str, tool_call_id: Annota
         url: The http(s) URL to open.
     """
     try:
-        url_error = _validate_url("browser_navigate", url)
+        url_error = await validate_browser_url_async(url)
         if url_error:
             return _tool_message(url_error, tool_call_id)
         with _resolve_session(runtime, "browser_navigate") as session:

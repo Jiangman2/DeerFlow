@@ -1,5 +1,41 @@
 # AGENTS.md
 
+## Combined Gateway release: OA / DNS / XLSX (2026-10-16)
+
+The additional runtime change is the exact lazy XLSX conversion shim from
+`b0ec3261069d8eed2a65707451990ccdc74179d4`. Install it immediately before
+MarkItDown only for `.xlsx`; ignore only `defaultColWidthPt`, retain other
+errors, never rewrite original workbook bytes, and keep installation locked
+and idempotent. Do not restore the superseded startup/sitecustomize patch.
+Gateway and DocReader tests must restore the constructor independently.
+The release tests additionally check all 12,037 synthetic rows, two sheets,
+uppercase extensions, concurrent installation and malformed workbook rejection.
+Synthetic acceptance does not substitute for the original incident workbook.
+No frontend shop-cart change, dependency upgrade or deployment is bundled.
+
+## OA internal streaming and browser DNS guard (2026-10-16)
+
+OA policy-flow explicitly requests `values` + `messages` from the shared run
+launcher; do not change ordinary scheduler defaults or the OA submit/poll/result
+contract. Verify the SDK request's `stream: true` through the real LangGraph
+messages handler and RobustChatOpenAI, including fragmented tool arguments and
+usage aggregation. Do not replace the guarded adapter with a direct SDK call.
+This does not guarantee that an upstream proxy will never return 504.
+
+All async browser navigation checks (tools, live WebSocket input/seed and
+Playwright request routing) use the shared bounded off-loop URL guard. Preserve
+SSRF policy, per-request checks and explicit trusted-CDP behavior. The guard
+pool is process-wide and cross-event-loop safe: eight workers, at most 64
+outstanding checks including queued work, and a five-second caller deadline
+including queue time. Cancellation/timeout cannot kill libc DNS;
+shield queued Futures from caller cancellation and release admission only when
+work is actually consumed by a worker (or removed during executor shutdown).
+Skip abandoned queued checks before initiating DNS. Otherwise cancelled queue
+entries can accumulate despite a semaphore. Carry ContextVars into workers, fail closed without exposing
+URLs on exception, and never cache a DNS allow decision to bypass later checks.
+Regression anchors: `tests/test_oa_model_streaming.py` and
+`tests/test_browser_async_guard.py`. Tests must use fake DNS/HTTP transports.
+
 ## Model-output recovery guardrails (2026-10-14)
 
 The lead-agent thinking-style prompt carries soft efficiency guidance: reuse

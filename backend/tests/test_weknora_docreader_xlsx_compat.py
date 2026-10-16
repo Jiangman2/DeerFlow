@@ -48,6 +48,17 @@ def _inject_default_col_width_pt(payload: bytes) -> bytes:
     return output.getvalue()
 
 
+@pytest.fixture(autouse=True)
+def _restore_unpatched_constructor(monkeypatch):
+    """Keep DocReader tests independent of the Gateway startup shim."""
+    from openpyxl.worksheet.dimensions import SheetFormatProperties
+
+    original_init = SheetFormatProperties.__init__
+    while getattr(original_init, "__deerflow_default_col_width_pt_compat__", False):
+        original_init = original_init.__wrapped__
+    monkeypatch.setattr(SheetFormatProperties, "__init__", original_init)
+
+
 def test_unpatched_openpyxl_reproduces_production_failure():
     payload = _inject_default_col_width_pt(_workbook_bytes())
 
@@ -55,11 +66,7 @@ def test_unpatched_openpyxl_reproduces_production_failure():
         load_workbook(BytesIO(payload))
 
 
-def test_compatibility_shim_ignores_only_unsupported_formatting_attribute(monkeypatch):
-    from openpyxl.worksheet.dimensions import SheetFormatProperties
-
-    original_init = SheetFormatProperties.__init__
-    monkeypatch.setattr(SheetFormatProperties, "__init__", original_init)
+def test_compatibility_shim_ignores_only_unsupported_formatting_attribute():
     compat = _load_compat_module()
 
     assert compat.install_openpyxl_sheet_format_compat() is True
@@ -70,11 +77,7 @@ def test_compatibility_shim_ignores_only_unsupported_formatting_attribute(monkey
     assert workbook["生产数据"]["B1"].value == "NB27-1-1"
 
 
-def test_compatibility_shim_preserves_standard_workbooks(monkeypatch):
-    from openpyxl.worksheet.dimensions import SheetFormatProperties
-
-    original_init = SheetFormatProperties.__init__
-    monkeypatch.setattr(SheetFormatProperties, "__init__", original_init)
+def test_compatibility_shim_preserves_standard_workbooks():
     compat = _load_compat_module()
     compat.install_openpyxl_sheet_format_compat()
 

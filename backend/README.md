@@ -1,5 +1,29 @@
 # DeerFlow Backend
 
+### Combined Gateway repair (2026-10-16)
+
+The OA streaming / bounded DNS candidate also includes the Gateway XLSX
+`defaultColWidthPt` compatibility fix from commit `b0ec3261`. It activates
+lazily during XLSX conversion, retains the original file and all data rows,
+and does not change dependency versions, startup hooks or parsed-text guards.
+Rebuild and test the combined image before deployment; earlier OA-only test
+receipts are not acceptance of this combined candidate. The actual incident
+workbook and production HTTP upload still require separate acceptance.
+
+OA policy-flow jobs opt into internal LangGraph `values` + `messages` streaming,
+so supported chat models use their existing streaming adapter while the OA
+submit/poll/result contract still delivers one complete validated JSON file.
+Ordinary scheduled runs retain their default stream modes. Streaming reduces
+long silent response periods but does not eliminate upstream 504s or first-token
+timeouts; no retry/deadline/agent-prompt setting is changed.
+
+Browser URL safety checks now run off both the Gateway and Playwright event
+loops, with eight resolver workers per process, at most 64 outstanding checks,
+and a five-second caller deadline including queue time.
+Busy, timed-out or failed validation blocks the request. Running DNS operations
+retain their capacity slot after caller timeout/cancellation; the existing SSRF
+policy and redirect/subresource screening remain in place.
+
 Model-output recovery now distinguishes malformed tool JSON, short plan-only
 responses, provider length truncation, visible repetition, and excessive hidden
 reasoning. It preserves delivered prose containing future-tense words, provides

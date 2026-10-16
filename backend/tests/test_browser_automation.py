@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import gc
+import ipaddress
 import sys
 from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -65,6 +66,11 @@ class TestSnapshotRendering:
 
 @pytest.mark.asyncio
 class TestBrowserTools:
+    @pytest.fixture(autouse=True)
+    def mock_dns(self, monkeypatch):
+        # Browserless unit tests keep the real SSRF validator, not live DNS.
+        monkeypatch.setattr(tools, "_resolve_host_addresses", lambda _: [ipaddress.ip_address("8.8.8.8")])
+
     async def _patch_session(self, session):
         manager = MagicMock()
         manager.get_session.return_value = session

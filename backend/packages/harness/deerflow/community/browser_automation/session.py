@@ -28,6 +28,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlparse
 
+from .async_guard import run_url_guard
+
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Page, Playwright
 
@@ -514,7 +516,7 @@ class BrowserSession:
             url = ""
             with contextlib.suppress(Exception):
                 url = route.request.url
-            if url.startswith(("http://", "https://")) and guard(url) is not None:
+            if url.startswith(("http://", "https://")) and await run_url_guard(guard, url) is not None:
                 logger.warning("browser request blocked by SSRF guard: %s", redact_browser_url(url))
                 with contextlib.suppress(Exception):
                     await route.abort("blockedbyclient")

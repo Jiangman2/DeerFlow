@@ -352,6 +352,10 @@ class OAPolicyFlowService:
                 assistant_id=job["assistant_id"],
                 prompt=prompt,
                 owner_user_id=job["owner_user_id"],
+                # LangGraph's messages handler drives streaming even when the
+                # agent node awaits model.ainvoke(). OA still receives only the
+                # completed, validated JSON artifact through its existing API.
+                stream_mode=["values", "messages"],
                 metadata={
                     "source": "oa_policy_flow",
                     "oa_policy_flow_job_id": job["id"],

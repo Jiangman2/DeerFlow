@@ -26,6 +26,19 @@ OA_POLICY_FLOW_AGENT_NAME=制度文生图智能体
 Do not expose DeerFlow's internal thread, run, sandbox, or artifact APIs to OA.
 The three routes below are the complete OA contract.
 
+### Internal model transport
+
+OA launches request both LangGraph `values` and `messages` stream modes. The
+messages handler enables the supported model's guarded streaming adapter even
+though agent nodes await `ainvoke`; final values still contain assembled tool
+calls and usage. OA itself does not need an SSE connection and must continue
+polling for the accepted JSON artifact. This is scoped to OA launches, not a
+global scheduler/model setting. Existing model disable-streaming overrides, if
+configured, still take precedence and must be checked during release acceptance.
+Streaming is not a guarantee against upstream 504: first-token latency, proxy
+buffering, inference outages and upstream total deadlines can still fail a run.
+Keep current cancellation, retry, ownership and artifact-validation boundaries.
+
 ## 1. Submit a job
 
 ```http

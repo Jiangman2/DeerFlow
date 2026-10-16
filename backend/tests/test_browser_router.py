@@ -321,11 +321,14 @@ def test_validate_browser_url_rejects_private_and_non_http(monkeypatch):
     loopback / metadata / non-http targets, so the live stream cannot be steered
     at internal infrastructure.
     """
+    import ipaddress
+
     from deerflow.community.browser_automation import tools as browser_tools
     from deerflow.community.browser_automation import validate_browser_url
 
     # Isolate from any local config.yaml that may set allow_private_addresses.
     monkeypatch.setattr(browser_tools, "_get_tool_config", lambda _tool_name: {})
+    monkeypatch.setattr(browser_tools, "_resolve_host_addresses", lambda _: [ipaddress.ip_address("8.8.8.8")])
 
     assert validate_browser_url("http://169.254.169.254/latest/meta-data/") is not None
     assert validate_browser_url("http://127.0.0.1:8001/") is not None
@@ -333,3 +336,37 @@ def test_validate_browser_url_rejects_private_and_non_http(monkeypatch):
     assert validate_browser_url("ftp://example.com") is not None
     # A normal public URL passes (returns None = allowed).
     assert validate_browser_url("https://github.com/bytedance/deer-flow") is None
+
+
+def test_live_seed_and_navigation_await_async_validation(monkeypatch):
+    import deerflow.community.browser_automation as browser_api
+    import deerflow.config as config
+
+    store = SimpleNamespace(
+        check_access=AsyncMock(return_value=True),
+        get=AsyncMock(return_value={"thread_id": "thread-1", "user_id": "browser-user"}),
+    )
+    session = SimpleNamespace(
+        current_url=AsyncMock(return_value="about:blank"), tabs=AsyncMock(return_value=[]),
+        start_screencast=AsyncMock(), stop_screencast=AsyncMock(),
+        navigate=AsyncMock(), dispatch_input=AsyncMock(),
+    )
+    manager = MagicMock()
+    manager.acquire_session.return_value.__enter__.return_value = session
+    validator = AsyncMock(return_value="Error: URL safety validation timed out; request blocked")
+    monkeypatch.setattr(browser_api, "get_browser_session_manager", lambda: manager)
+    monkeypatch.setattr(browser_api, "validate_browser_url_async", validator)
+    monkeypatch.setattr(config, "get_app_config", lambda: SimpleNamespace(get_tool_config=lambda _: None))
+    with (
+        patch.object(browser_router, "_authenticate_ws", AsyncMock(return_value=_user())),
+        patch.object(browser_router, "_browser_tools_enabled", return_value=True),
+        TestClient(_browser_ws_app(store)) as client,
+        client.websocket_connect("/api/threads/thread-1/browser/stream?seed=https://example.test/seed") as ws,
+    ):
+        assert ws.receive_json()["type"] == "url"
+        assert ws.receive_json()["type"] == "tabs"
+        ws.send_json({"type": "navigate", "url": "https://example.test/input"})
+        assert ws.receive_json()["type"] == "nav_rejected"
+    assert [call.args[0] for call in validator.await_args_list] == ["https://example.test/seed", "https://example.test/input"]
+    session.navigate.assert_not_awaited()
+    session.dispatch_input.assert_not_awaited()

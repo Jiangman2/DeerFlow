@@ -22,6 +22,7 @@ from .tools import (
     browser_type_tool,
     navigate_and_capture,
     validate_browser_url,
+    validate_browser_url_async,
 )
 
 __all__ = [
@@ -46,4 +47,5 @@ __all__ = [
     "redact_browser_url",
     "reset_browser_session_manager",
     "validate_browser_url",
+    "validate_browser_url_async",
 ]

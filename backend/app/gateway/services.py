@@ -963,6 +963,7 @@ async def launch_scheduled_thread_run(
     owner_user_id: str | None = None,
     run_context: Mapping[str, Any] | None = None,
     metadata: dict[str, Any] | None = None,
+    stream_mode: list[str] | None = None,
 ) -> dict[str, Any]:
     if request is None:
         if app is None:
@@ -1006,7 +1007,9 @@ async def launch_scheduled_thread_run(
         checkpoint=None,
         interrupt_before=None,
         interrupt_after=None,
-        stream_mode=None,
+        # Background callers may opt into model-message streaming without
+        # changing their external submit/poll API. Preserve scheduler defaults.
+        stream_mode=stream_mode,
         stream_subgraphs=False,
         stream_resumable=None,
         on_disconnect="continue",

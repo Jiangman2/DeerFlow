@@ -247,6 +247,7 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
             BrowserSessionCapacityError,
             get_browser_session_manager,
             validate_browser_url,
+            validate_browser_url_async,
         )
     except ImportError:
         await websocket.close(code=4501)
@@ -441,7 +442,7 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
                     # SSRF-screen client-driven navigations with the same policy
                     # the agent tools enforce; reject rather than dispatch.
                     url = event.get("url")
-                    reason = validate_browser_url(url) if isinstance(url, str) else "Error: invalid navigation URL"
+                    reason = await validate_browser_url_async(url) if isinstance(url, str) else "Error: invalid navigation URL"
                     if reason is not None:
                         await _send_payload({"type": "nav_rejected", "url": url, "message": reason})
                         continue
@@ -465,7 +466,7 @@ async def browser_stream(websocket: WebSocket, thread_id: ThreadId) -> None:
         # page differs from the latest visible browser artifact, align Live with
         # what the user expects instead of requiring an off/on reconnect.
         seed = websocket.query_params.get("seed")
-        if seed and validate_browser_url(seed) is None:
+        if seed and await validate_browser_url_async(seed) is None:
             with contextlib.suppress(Exception):
                 current = await session.current_url()
                 if _should_apply_browser_seed(current, seed):
