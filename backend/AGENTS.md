@@ -1290,11 +1290,18 @@ download the source through Sandbox or publish a duplicate artifact.
 
 The web run context may carry the strict JSON boolean `datalake_enabled` only
 under `body.context`; Gateway keeps it runtime-only and rejects low-level
-`config.context`/`config.configurable` occurrences or non-boolean values. A
-disabled run filters all three DataLake tools before deferred assembly. The
+`config.context`/`config.configurable` occurrences or non-boolean values. Before
+dispatch, Gateway intersects explicit `true` with the authenticated user's
+HttpOnly platform-token cookie matching their persisted token hash (the same
+proof used by the Data Lake session endpoint). A client flag, owner attribution,
+or internal service credential alone never grants access. Missing opt-in or
+session proof denies access, including legacy and non-web runs. Never copy raw
+platform tokens into run context or checkpoints. A disabled run filters all
+three DataLake tools before deferred assembly. The
 `task` tool and `SubagentExecutor` propagate the effective flag to child runtime
 contexts and apply the same filter defensively. The DataLake boundaries still
-returns a bounded `datalake_disabled` result for stale direct references before
+return a bounded `datalake_disabled` result unless the effective flag is exactly
+`true`, including stale direct references and absent/malformed context, before
 configuration, credentials, or network access.
 
 `datalake_md_search` is a distinct AppForge master-data workflow. It is limited

@@ -67,7 +67,7 @@ def _app_config(**extras_by_tool: dict):
 
 def _runtime(*, user_id: str = "user-1", thread_id: str = "thread-1"):
     return SimpleNamespace(
-        context={"user_id": user_id, "thread_id": thread_id},
+        context={"user_id": user_id, "thread_id": thread_id, "datalake_enabled": True},
         config={"configurable": {"user_id": user_id, "thread_id": thread_id}},
     )
 
@@ -121,16 +121,21 @@ def test_public_tool_schemas_expose_only_the_business_query():
         assert set(tool.tool_call_schema.model_json_schema()["properties"]) == {"query"}
 
 
-def test_disabled_data_lake_context_rejects_before_configuration_or_network():
+@pytest.mark.parametrize("context", [None, {}, {"datalake_enabled": False}, {"datalake_enabled": None}, {"datalake_enabled": "true"}, {"datalake_enabled": 1}])
+@pytest.mark.parametrize("tool_name", ["datalake_smart_qa", "datalake_metrics_qa", "datalake_detail_qa"])
+def test_disabled_data_lake_context_rejects_before_configuration_or_network(context, tool_name):
     import deerflow.community.appforge.tools as module
 
     runtime = SimpleNamespace(
-        context={"datalake_enabled": False},
-        config={"configurable": {}},
+        context=context,
+        config={"configurable": {"datalake_enabled": True}},
     )
     with patch.object(module, "get_app_config", side_effect=AssertionError("config must not be read")):
         with patch.object(module.httpx, "Client", side_effect=AssertionError("network must not start")):
-            result = json.loads(module._invoke_retrieve_tool("问题", runtime))
+            if tool_name == "datalake_smart_qa":
+                result = json.loads(module._invoke_retrieve_tool("问题", runtime))
+            else:
+                result = json.loads(module._invoke_tool(tool_name, "问题", runtime))
 
     assert result == {
         "error": "Data Lake use is disabled for this run",

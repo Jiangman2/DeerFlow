@@ -893,6 +893,45 @@ def test_merge_run_context_overrides_keeps_data_lake_flag_runtime_only():
     assert "datalake_enabled" not in config["configurable"]
 
 
+@pytest.mark.parametrize(
+    "context,session,internal,expected",
+    [
+        (None, "matching", False, False),
+        ({}, "matching", False, False),
+        ({"datalake_enabled": False}, "matching", False, False),
+        ({"datalake_enabled": True}, "missing", False, False),
+        ({"datalake_enabled": True}, "other-user", False, False),
+        ({"datalake_enabled": True}, "unbound", False, False),
+        ({"datalake_enabled": True}, "matching", True, False),
+        ({"datalake_enabled": True}, "matching", False, True),
+    ],
+)
+def test_data_lake_run_requires_opt_in_and_current_user_session(context, session, internal, expected):
+    from types import SimpleNamespace
+
+    from starlette.requests import Request
+
+    from app.gateway.auth.cnooc import hash_cnooc_platform_token
+    from app.gateway.auth.platform_token_cookie import CNOOC_PLATFORM_TOKEN_COOKIE_NAME
+    from app.gateway.services import build_run_config, inject_data_lake_access_context, merge_run_context_overrides
+
+    token = "test-session" if session != "other-user" else "another-users-session"
+    headers = [] if session == "missing" else [(b"cookie", f"{CNOOC_PLATFORM_TOKEN_COOKIE_NAME}={token}".encode())]
+    request = Request({"type": "http", "headers": headers})
+    request.state.user = SimpleNamespace(
+        id="user-1",
+        cnooc_platform_token_hash=None if session == "unbound" else hash_cnooc_platform_token("test-session"),
+    )
+    request.state.auth_source = AUTH_SOURCE_INTERNAL if internal else "session"
+    config = build_run_config("thread-1", None, None)
+    merge_run_context_overrides(config, context)
+    inject_data_lake_access_context(config, request)
+
+    assert config["context"]["datalake_enabled"] is expected
+    assert "datalake_enabled" not in config["configurable"]
+    assert token not in json.dumps(config)
+
+
 def test_merge_run_context_overrides_rejects_invalid_data_lake_context():
     from fastapi import HTTPException
 
@@ -1210,6 +1249,7 @@ async def _capture_start_run_graph_input(body, *, auth_source=None):
     )
     request = SimpleNamespace(
         headers={},
+        cookies={},
         state=SimpleNamespace(auth_source=auth_source),
         app=SimpleNamespace(state=state),
     )
@@ -1355,6 +1395,7 @@ def test_start_run_uses_internal_owner_header_for_persistence(_stub_app_config):
         )
         request = SimpleNamespace(
             headers={INTERNAL_OWNER_USER_ID_HEADER_NAME: "owner-1"},
+            cookies={},
             state=SimpleNamespace(
                 auth_source=AUTH_SOURCE_INTERNAL,
                 user=SimpleNamespace(id="default", system_role=INTERNAL_SYSTEM_ROLE),
@@ -1444,6 +1485,7 @@ def test_start_run_stamps_internal_owner_guardrail_attribution(_stub_app_config)
         )
         request = SimpleNamespace(
             headers={INTERNAL_OWNER_USER_ID_HEADER_NAME: "owner-1"},
+            cookies={},
             state=SimpleNamespace(
                 auth_source=AUTH_SOURCE_INTERNAL,
                 user=SimpleNamespace(id="default", system_role=INTERNAL_SYSTEM_ROLE),
@@ -1526,6 +1568,7 @@ def test_start_run_session_caller_anti_forgery(_stub_app_config):
         )
         request = SimpleNamespace(
             headers={},
+            cookies={},
             state=SimpleNamespace(
                 auth_source="session",
                 user=SimpleNamespace(id="u1", system_role="user"),

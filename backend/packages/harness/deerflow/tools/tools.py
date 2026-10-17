@@ -23,9 +23,9 @@ DATALAKE_TOOL_NAMES = frozenset(
 
 
 def filter_tools_by_datalake_scope(tools: Iterable[BaseTool], *, enabled: bool | None) -> list[BaseTool]:
-    """Hide AppForge DataLake tools only for an explicitly disabled run."""
+    """Expose DataLake tools only for an explicitly authorized run."""
     tool_list = list(tools)
-    if enabled is not False:
+    if enabled is True:
         return tool_list
     return [tool for tool in tool_list if tool.name not in DATALAKE_TOOL_NAMES]
 

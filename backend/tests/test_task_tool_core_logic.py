@@ -348,7 +348,7 @@ def test_task_tool_threads_runtime_app_config_to_subagent_dependencies(monkeypat
 
     def fake_get_available_tools(**kwargs):
         captured["tools_kwargs"] = kwargs
-        return ["tool-a"]
+        return [SimpleNamespace(name="tool-a")]
 
     monkeypatch.setattr(task_tool_module, "SubagentStatus", FakeSubagentStatus)
     monkeypatch.setattr(task_tool_module, "SubagentExecutor", DummyExecutor)
@@ -379,7 +379,7 @@ def test_task_tool_threads_runtime_app_config_to_subagent_dependencies(monkeypat
     assert captured["bash_gate_app_config"] is app_config
     assert captured["tools_kwargs"]["app_config"] is app_config
     assert captured["executor_kwargs"]["app_config"] is app_config
-    assert captured["executor_kwargs"]["tools"] == ["tool-a"]
+    assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == ["tool-a"]
 
 
 def test_task_tool_gates_weknora_tools_using_parent_run_scope(monkeypatch):
@@ -424,9 +424,11 @@ def test_task_tool_gates_weknora_tools_using_parent_run_scope(monkeypatch):
     assert [tool.name for tool in captured["tools"]] == ["web_search"]
 
 
-def test_task_tool_propagates_disabled_data_lake_scope_to_subagent(monkeypatch):
+@pytest.mark.parametrize("enabled", [False, None, "true", 1, True])
+def test_task_tool_propagates_data_lake_scope_to_subagent(monkeypatch, enabled):
     runtime = _make_runtime()
-    runtime.context["datalake_enabled"] = False
+    if enabled is not None:
+        runtime.context["datalake_enabled"] = enabled
     captured = {}
 
     class DummyExecutor:
@@ -464,8 +466,10 @@ def test_task_tool_propagates_disabled_data_lake_scope_to_subagent(monkeypatch):
     )
 
     assert _task_tool_message(output).content == "Task Succeeded. Result: done"
-    assert captured["executor_kwargs"]["datalake_enabled"] is False
-    assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == ["web_search"]
+    assert captured["executor_kwargs"]["datalake_enabled"] is (enabled is True)
+    assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == (
+        ["datalake_smart_qa", "web_search"] if enabled is True else ["web_search"]
+    )
 
 
 def test_task_tool_emits_running_and_completed_events(monkeypatch):
@@ -474,7 +478,7 @@ def test_task_tool_emits_running_and_completed_events(monkeypatch):
     runtime.context["deerflow_trace_id"] = "task-trace-1"
     events = []
     captured = {}
-    get_available_tools = MagicMock(return_value=["tool-a", "tool-b"])
+    get_available_tools = MagicMock(return_value=[SimpleNamespace(name="tool-a"), SimpleNamespace(name="tool-b")])
 
     class DummyExecutor:
         def __init__(self, **kwargs):
@@ -606,7 +610,7 @@ def test_task_tool_propagates_tool_groups_to_subagent(monkeypatch):
         config={"metadata": {"model_name": "ark-model", "trace_id": "trace-1", "tool_groups": parent_tool_groups}},
     )
     events = []
-    get_available_tools = MagicMock(return_value=["tool-a"])
+    get_available_tools = MagicMock(return_value=[SimpleNamespace(name="tool-a")])
 
     class DummyExecutor:
         def __init__(self, **kwargs):

@@ -431,7 +431,7 @@ class SubagentExecutor:
         run_id: str | None = None,
         channel_user_id: str | None = None,
         deerflow_trace_id: str | None = None,
-        datalake_enabled: bool = True,
+        datalake_enabled: bool = False,
     ):
         """Initialize the executor.
 
@@ -485,7 +485,7 @@ class SubagentExecutor:
         # must export the dispatching turn's id, not none at all.
         self.channel_user_id = channel_user_id
         self.deerflow_trace_id = deerflow_trace_id
-        self.datalake_enabled = datalake_enabled is not False
+        self.datalake_enabled = datalake_enabled is True
 
         self._base_tools = _filter_tools(
             tools,

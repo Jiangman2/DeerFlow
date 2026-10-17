@@ -20,6 +20,8 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from langchain_core.messages.utils import convert_to_messages
 from langgraph.types import Command
 
+from app.gateway.auth.cnooc import platform_token_matches_user
+from app.gateway.auth.platform_token_cookie import CNOOC_PLATFORM_TOKEN_COOKIE_NAME
 from app.gateway.auth_disabled import AUTH_SOURCE_INTERNAL
 from app.gateway.deps import get_checkpointer, get_local_provider, get_run_context, get_run_manager, get_stream_bridge
 from app.gateway.internal_auth import (
@@ -315,6 +317,22 @@ def _validate_datalake_context(
                 status_code=400,
                 detail=dict(_INVALID_DATALAKE_CONTEXT_DETAIL),
             )
+
+
+def inject_data_lake_access_context(config: dict[str, Any], request: Request) -> None:
+    """Intersect explicit opt-in with the authenticated user's Data Lake session.
+
+    Never infer permission from model text, persisted state, owner attribution,
+    or a client-supplied enabled flag alone. Raw credentials stay out of runs.
+    """
+    runtime_context = config.setdefault("context", {})
+    user = getattr(request.state, "user", None)
+    token = request.cookies.get(CNOOC_PLATFORM_TOKEN_COOKIE_NAME, "").strip()
+    runtime_context[_DATALAKE_CONTEXT_KEY] = (
+        runtime_context.get(_DATALAKE_CONTEXT_KEY) is True
+        and getattr(request.state, "auth_source", None) != AUTH_SOURCE_INTERNAL
+        and platform_token_matches_user(user, token)
+    )
 
 
 def strip_internal_context_keys(config: dict[str, Any]) -> None:
@@ -922,6 +940,7 @@ async def start_run(
             internal_owner_user=internal_owner_user,
             request_context=getattr(body, "context", None),
         )
+        inject_data_lake_access_context(config, request)
         await inject_weknora_user_context(config, request, internal_owner_user=internal_owner_user)
 
         stream_modes = normalize_stream_modes(body.stream_mode)

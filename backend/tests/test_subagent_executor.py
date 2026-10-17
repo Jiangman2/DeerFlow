@@ -278,6 +278,16 @@ def msg(classes):
 class TestAgentConstruction:
     """Test _create_agent() wiring before execution starts."""
 
+    @pytest.mark.parametrize("enabled", [None, False, "true", 1, True])
+    def test_data_lake_requires_explicit_authorized_parent(self, classes, base_config, enabled):
+        kwargs = {} if enabled is None else {"datalake_enabled": enabled}
+        tools = [NamedTool("datalake_detail_qa"), NamedTool("web_search")]
+        executor = classes["SubagentExecutor"](config=base_config, tools=tools, **kwargs)
+        assert executor.datalake_enabled is (enabled is True)
+        assert [tool.name for tool in executor._base_tools] == (
+            ["datalake_detail_qa", "web_search"] if enabled is True else ["web_search"]
+        )
+
     def test_create_agent_threads_explicit_app_config_to_model_and_middlewares(
         self,
         classes,
