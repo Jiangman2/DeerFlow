@@ -1,0 +1,49 @@
+WeKnora GLM104 controlled switch, 2026-10-17 r1
+
+Operator approved the current maintenance window after reviewing GLM104 PASS.
+Scope: only enrichment48 ->64 (aggregate88 ->104). Core16, postprocess4,
+maintenance4, shared4, wiki12, model default128 and MinerU16 are unchanged.
+Keep the accepted image, GLM defaults/reference policies, schema90, single App
+replica, Recreate strategy, local-PV placement and stored credentials unchanged.
+No builds, imports, SQL writes, task resubmissions or model probes.
+
+Only run the hash-checked standalone tool on datax-01 as root using --apply-once.
+Do not run concurrent WeKnora maintenance or change dependency deployments.
+Avoid additional test uploads; the existing real backlog supplies acceptance load.
+First bind the exact GLM104 review/proposal, current App executable/process,
+GLM/config/PG/dependency identities, fresh node/DB resources and MinerU16 health.
+The new tool uses88 current pools, never the obsolete56 waiter's capacity check.
+
+One journalled SIGTSTP closes six pools' claiming. Require three consecutive
+stopped, zero-active snapshots of the exact process; pending tasks may remain.
+Wait is bounded to30 minutes and must NOT kill, restart, delete or resubmit work
+to make the drain pass. Every10 seconds a safe aggregate progress receipt is
+printed. Not all pools stopped after90 seconds is a visible failure.
+
+After drain, recheck strict eligibility and dry-run, then ONE env-only JSON CAS
+tests Deployment UID/resourceVersion/full spec before replacing the env list.
+Only the enrichment literal differs. Recreate briefly interrupts knowledge
+page/API access; in-flight interactive Q&A may be interrupted. Other services
+are not intentionally restarted. Keep this terminal open; do not press Ctrl+C.
+
+Require the same accepted image in a new ready zero-restart Pod, three exact104
+active pool samples, per-model distributed128 startup evidence, exact Service
+endpoint, unchanged GLM/PG/placement/dependency identities and resource checks.
+Runtime PASS does not demonstrate throughput improvement. Observe real backlog
+and resources after cutover; do not immediately enlarge MinerU or model limits.
+
+Every mutation request is saved durably BEFORE transmission. No automatic retry
+or rollback. If interrupted, timeout, failure or lost response: use the printed
+--status command and send output. Do not rerun --apply-once, delete state, send
+signals yourself or force-terminate. A stopped-but-unpatched App needs reviewed
+recovery; status alone does not resume it. --reconcile is for explicitly reviewed
+recovery only: it never resends a recorded signal/patch; it may finish an already
+signalled drain and send the FIRST patch after fresh eligibility. A recorded
+uncertain patch that is not live is never replayed.
+
+Do not use old88 or image-only rollback tools. If lowering104 back to88 becomes
+necessary, separately review an exact GLM-preserving lowering plan and claimed
+work drain. No backward transition is included or automatically performed here.
+Private plan and patch files may contain private config: do not export them.
+--status is read-only (no locks/files/signal/model traffic), showing live config,
+pool state and queue counts. Active-but-idle pools are NOT labelled drained.

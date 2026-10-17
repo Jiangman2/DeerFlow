@@ -1,0 +1,61 @@
+GLM88 bottleneck diagnosis / 2026-10-17 r1
+
+Purpose: follow up the second real mixed PDF/WORD load, not increase concurrency.
+Retain WeKnora88/model128/MinerU16 and existing GLM/Embedding configuration.
+No signals, queue writes, task resubmission, model probes, schema changes, new
+Pods, restarts, image import or build. Only new private host evidence is written.
+Normal health GETs may invoke an existing due readiness/quarantine recheck;
+this tool does not explicitly reset quarantine or interrupt any running work.
+
+Prerequisites: root on datax-01, the exact accepted GLM88 Pod and retained frozen
+helper chain. Current process/dependency/GLM configuration is checked before and
+after collection. A changed process requires a fresh review; do not edit pins.
+This tool never invokes the obsolete pre-GLM88 mutation entry points.
+
+Pinned second load summary:
+ /var/lib/weknora-glm88-load-8dc4h31h/SUMMARY.json
+ SHA256 a638d73e8c25e16a083fd0ba59cb76e8d7b8377f581608cfceab333a85548a00
+Accepted GLM88 Pod UID cdd90c71-8027-4e5c-997e-67808128ba0c.
+Accepted switch receipt SHA256
+ 00291105b7491a556ab58cdf8e8e21659cf9ed27fab14d310b072a396ce28f4c
+
+--diagnose:
+ 1. Read bounded retained logs first, since 2026-10-17 06:50 UTC (14:50 Shanghai).
+    Each MinerU Pod <=1MiB and App <=2MiB, <=10000 lines, 4 concurrent reads.
+    Save only numeric timings, fixed error categories and known worker identities.
+    No document names/text, task IDs, raw errors, command arguments or credentials.
+    Rotation, caps, missing timestamps and errors limit attribution. History is
+    never represented as complete or as exact current quarantine membership.
+ 2. Read only eight explicit numeric timeout environment settings. Missing means
+    compiled default, not zero; no environment dump or API credentials are read.
+ 3. Five queue/model/health samples nominally15s apart (60s plus read overhead).
+    Redis TIME and ZCOUNT count unexpired leases for four known model IDs without
+    pruning leases. These are not GPU jobs or provider actual concurrency; stale
+    unexpired leases may remain. Local limiter waiter count is not instrumented.
+    Worker /ready 503 while active is expected; health/readiness are distinct.
+ 4. At first/last sample, read indexed newest<=20000 span records, aggregate only
+    known stage categories, status and duration statistics since the cutoff.
+    Enforce READ ONLY transactions, 5s statement timeout and1s lock timeout.
+    Require the reviewed schema and EXPLAIN-without-ANALYZE indexed LIMIT plan.
+    No document identity, input/output JSON, prompts or error text is selected.
+    Large histories may exclude earlier batch records. Running span age may
+    include queue/retry time. Stages overlap and must not be added together.
+    A whole-image span includes image read, optional OCR, caption and indexing;
+    it does NOT separately measure GLM, Embedding or resource wait wall time.
+ 5. Read fresh CPU core measurements and top5 Pod consumers on each of the six
+    reviewed ECS worker nodes. Compare against allocatable cores; asynchronous
+    node/Pod samples cannot produce an exact host-CPU remainder. No /proc scan.
+
+SUMMARY.json is safe aggregate evidence, not tuning approval. Unknown values are
+not zero. Runtime/configuration drift leaves INCOMPLETE even if some samples were
+collected. COMPLETE_WITH_UNAVAILABLE_CHECKS preserves unavailable fields and
+reasons; neither COMPLETE result proves health, business success or spare capacity.
+Failed task counters and error marker lines are not unique failed-document counts.
+
+Send the final glm88_diagnostic_summary output, or the safe SUMMARY.json file.
+--status /var/lib/weknora-glm88-diagnostic-XXXXXXXX reprints stored summary only:
+no live read, new collection, write or retry. Do not chmod private evidence to777.
+No additional upload batch is necessary to read the retained history. If it has
+rotated, report that gap and arrange the next observation before submitting work.
+Do not overlap collectors unnecessarily. Stopping this diagnostic does not stop
+production; local offline tests do not substitute for server results.

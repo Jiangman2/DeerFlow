@@ -1,0 +1,58 @@
+WeKnora GLM exact base / private transfer / 20261016-r1
+
+Run on datax-01 only. Source: datax-03 / 192.168.111.18, cnooc SSH account.
+The source archive and report have already passed the 20-layer export audit.
+The new script does NOT re-export, import, pull, build, restart, signal, change
+permissions on existing files, call a provider, or alter production configuration.
+
+Expected source files (remain root:root 0600 in their 0700 directory):
+  /var/lib/weknora-glm-base-export-20261016-r1/BASE-EXPORT.json
+  /var/lib/weknora-glm-base-export-20261016-r1/weknora.base.oci.tar
+Expected archive: 624964608 bytes, SHA256
+  d5bc9a5235a99d2d37218cc0b20a65ad650ce44d0764c2bdf6fb2cefab7943d7
+
+New destination (root-only, never an SFTP download directory):
+  /opt/weknora-glm-base-input-20261016-r1/
+Verify the separately provided script SHA and install a private copy on datax-01.
+Run it with python3 -I -B -u /EXACT_TOOL/transfer.py --pull-once.
+
+Authentication:
+1. ECDSA keyscan is accepted only if it matches the datax-03 fingerprint that
+   the operator previously read directly on that machine:
+   SHA256:w+TfO7/FUed/JhJVBHY/ms4FqSx1cj0CVOXdJK3GRl8
+   SSH uses a new operation-private known_hosts, StrictHostKeyChecking=yes,
+   an explicit HostKeyAlias, no global/ordinary user SSH config and no TTY.
+   System known_hosts and authorized_keys are not changed.
+2. The tool asks for the datax-03 cnooc sudo password using hidden terminal input.
+   It is forwarded only through the verified SSH connection to sudo -S, never
+   stored, printed, embedded in a command argument, or included in a report.
+3. SSH may separately request cnooc's login password for datax-03. Enter it in
+   that prompt as normal. Do not send either password or the GLM key in chat.
+   sudo requires authorization for the exact Python read command. If local policy
+   requires a remote TTY or rejects it, this transfer stops; do not weaken sudo
+   policy or host-key checking to work around that failure.
+
+The source process opens only the two fixed files, checks owner/type/link/size,
+validates the pinned report hash, streams without a pseudo-terminal, validates
+the exact archive SHA and unchanged file identity, then exits. There is no
+source write or source configuration change. stderr is shown directly on the
+terminal, not saved by the tool; raw provider/credential data are never emitted.
+The destination refuses an altered report, extra/truncated/corrupt bytes or a
+nonzero remote exit; it re-verifies every layer hash and diff ID before rename.
+This is a local-filesystem copy, not a containerd image import.
+
+Success: private_base_transfer=PASS and TRANSFER-PASS.json with a report SHA.
+Send the final safe output only. Keep all image bytes private on the servers.
+Typical transfer time is on the order of minutes at the 16MiB/s source cap;
+authentication, storage and layer validation can add time. SSH keepalives are
+enabled and the transfer phase is bounded to 15 minutes.
+
+Failure/interruption: no automatic retry; partial files retained. Use the SAME
+private tool with --status. It reads local metadata/report hashes only and does
+not open a connection or repeat the transfer. Do not delete the operation folder.
+
+Remaining: compatible isolated C/C++ builder / AnyDoc dependency qualification,
+full ARM64 image build and regression, native GLM intranet + enrichment E2E.
+BUILD-INPUT-LOCK.json pins public Go/Rust download identities only; it is NOT
+evidence that these artifacts were fetched, linked with the runtime, or tested.
+WeKnora stays at recovered56 and its existing visual-model configuration.

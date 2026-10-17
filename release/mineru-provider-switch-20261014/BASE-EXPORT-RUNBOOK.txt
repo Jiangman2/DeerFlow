@@ -1,0 +1,42 @@
+MinerU exact production base export -- 2026-10-14 r1
+
+Run on datax-01 as root after verifying the supplied archive checksum.
+python3 -B -u export_base.py --export-only
+
+Scope: export the existing exact baseline image from local containerd to a new
+root-private /opt/mineru-base-20261014-* directory. Check all 26 compressed blob
+digests, all uncompressed diffIDs, total bytes, config and ARM64 identity. Nothing
+is extracted from layer tar streams or executed from the image. The source tag
+is rechecked before and after. All output files remain private, mode 0600.
+
+No provider requests or API key; no Secret read/write; no image import, pull,
+label/pin change, live source edit, Deployment edit, restart, database change,
+or cleanup. This is NOT candidate construction or rollout acceptance. Recheck
+the live Kubernetes baseline before construction; runtime mounts are not in
+an OCI export and must be preserved separately in the eventual rollout.
+
+Resource scope: reserve the larger of 20 GiB or 20% of /opt plus 3 GiB for this
+operation; require /opt to be a separate filesystem with safe ancestors. Export
+stdout is paced at 40 MiB/s with pipe backpressure; verification is paced at
+40 MiB/s compressed, 80 MiB/s expanded. Nice is a priority, NOT a CPU/I/O quota.
+No full layer extraction. Export deadline 15 minutes; entire command 40 minutes.
+Only this ctr client is terminated on interruption; containerd is never stopped.
+The tool takes its own nonblocking lock; do not start another heavy build/export
+at the same time. A failed operation retains its private directory and partial
+archive; do not blindly rerun or remove evidence.
+
+Expected terminal result:
+base_export=PASS (JSON), layers_verified=26, uncompressed_diffids=PASS,
+archive_sha256, archive byte length, compressed/uncompressed totals and report.
+Send the final JSON summary. Do not upload the OCI image or its embedded config
+to chat/GitHub. Send only the safe terminal summary or BASE-EXPORT.json receipt.
+
+ctr command semantics verified against official source:
+https://raw.githubusercontent.com/containerd/containerd/v2.3.3/cmd/ctr/commands/images/export.go
+Use --local so transfer progress cannot enter the stdout OCI tar stream; use
+--skip-manifest-json to keep the archive restricted to OCI layout entries.
+The script checks these flags exist and fails instead of changing export mode.
+
+The reported source metadata and async provider smoke are recorded separately
+in BASE-INPUT-PRODUCTION-RECEIPT.json and ASYNC-SMOKE-PRODUCTION-RECEIPT.json.
+Neither is a load-64 or complete application acceptance receipt.

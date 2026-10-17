@@ -1,0 +1,61 @@
+WeKnora GLM56 -> 88 fresh preparation, 2026-10-17 r1
+
+READ-ONLY PRODUCTION REVIEW. No apply, stop, restart, rollback or continue mode.
+Only new root-private host evidence and Kubernetes server-side dry-run are used.
+No provider probe, document upload, task resubmission or queue/payload write.
+Do not rerun the old tune88 mutation or GLM activation tool.
+
+Accepted predecessor:
+ /var/lib/weknora-glm-activate56-20261017-r1/
+ RESULT-46744846381e492a92e1e93791327ee3.json
+ SHA256 85cb2a512e407a913d82702f00412cd41c7e256f9cf4798253c160049b32b05c
+ Pod weknora-app-555f64bd5-zlsrv
+ UID 6b05f3d1-931b-48f3-83f3-02b3c724fbd8
+The operator also reported successful production image description/enrichment.
+This statement is user-reported acceptance, not a replayed synthetic test.
+
+Exact frozen reader dependency (already installed on datax-01):
+ /var/lib/weknora-glm-activate56-tool-sYzAva0R/activate.py
+ SHA256 cf76e0dc1b1a9179ee3234562332847bfae3201be8070a4f0f042e981ee04580
+Load definitions in a non-main namespace; never invoke its apply/reconcile code.
+Its exact frozen full-enrichment/tune reader dependencies remain hash checked.
+
+Keep live configuration at56/model64/MinerU16 during this review. Only propose:
+ core8 ->16; enrichment24 ->48; postprocess4/maintenance4/shared4/wiki12 unchanged.
+ Total88; local model default64 ->128. No model-row/API key/endpoint changes.
+ This is not a promise of128 upstream jobs,88 OCR jobs or doubled throughput.
+ Core16 + shared4 can occupy up to20 parse handlers behind16 serialized MinerU
+ workers. The extra handlers can wait; there is no strict interactive reservation.
+
+Checks:
+ - Bind exact successful GLM activation and current process/container identity.
+ - Recheck default/reference policies, encrypted-model projection, mounted GLM
+   config, zero legacy/inline document overrides, image, local storage and endpoint.
+ - Reuse exact-Pod startup evidence for model64; no source log or key export.
+ - Five non-atomic Redis/17-Pod health samples, nominal15s spacing. Report all
+   queue counters, including pending/retry and processed/failed counter deltas.
+   Counters describe tasks/attempts, not documents or independent model timings.
+   Counter reset/rollover is explicitly marked; never treat it as negative throughput.
+ - Require16 discovered/live MinerU workers, zero quarantine and readable
+   serialized worker state. Degraded56 recovery criteria cannot qualify expansion.
+ - Three fresh App-node resource/DB samples. Existing reviewed gates: >=24GiB
+   node memory available, CPU<80%, disk>=max(10GiB,15%), App working set<=16GiB,
+   DB client connections<60% of usable limit, no lock waiters/idle transactions.
+   These are conservative preflight gates, not measured safe capacity under88.
+ - Recheck whole dependency baseline and GLM config after observation.
+ - If no blockers, server-dry-run a UID/resourceVersion/full-spec guarded change
+   to only the three concurrency environment values; save a private proposal.
+
+Run --review once and send the final summary. It cannot stop working consumers,
+even if resource or MinerU gates fail. No download directory/chmod777 workaround
+is used. Root-private proposal/config evidence must not be exported.
+
+PASS means ready_for_controlled_upgrade_review=true, NOT ready_to_apply=true.
+A separate mutation tool must freshly revalidate before one stop/drain/CAS and
+must retain pending queues, recovery receipts and the accepted GLM configuration.
+88 performance acceptance still needs post-upgrade observation and3/10/30 real
+document tests. Idle queues cannot demonstrate an expansion throughput benefit.
+
+The output prints a --status <exact-evidence-directory> command. It only reads
+the stored review, not current cluster state; use --review for a new authorized
+fresh collection. Do not delete failed evidence or reuse it as an apply plan.

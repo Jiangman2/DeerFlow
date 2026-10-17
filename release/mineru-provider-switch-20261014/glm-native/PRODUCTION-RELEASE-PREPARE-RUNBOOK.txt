@@ -1,0 +1,45 @@
+WeKnora GLM production preparation 2026-10-17 r1
+
+Run the single Python delivery as root on datax-01 with --prepare-once.
+Copy it with mode0600 into a new root-private directory and verify its published
+SHA256 first. Use --status after interruption/failure; never delete state to retry.
+
+Scope:
+* Bind the exact successful full native GLM + real1024D Embedding/vector receipts.
+* Require the unchanged recovered56 App Pod/binary/spec and datax-03 placement.
+* Save root-private deployment/Pod snapshots. Do not download those snapshots.
+* Read fixed model references/counters using existing configured PostgreSQL
+  identity, BEGIN READ ONLY, 5s statement/1s lock timeout. No model credentials,
+  document content, KB titles or user names selected; no database grants/DDL.
+* Check every ready Gateway endpoint's safe VLM provisioning projection.
+  No Gateway import/provisioning function runs and no Gateway config is patched.
+* Verify datax-03 ECDSA fingerprint against the previously approved fingerprint.
+  The password prompts are SSH and remote sudo, not a GLM API key. Passwords are
+  never saved; no system known_hosts changes or host checking bypass.
+* Copy only the exact accepted737000448-byte candidate archive, rate16MiB/s,
+  from datax-01 to a new0700 directory on datax-03's /var/lib (not user-owned /opt).
+* Rehash all24 layers/DiffIDs, cold-import storage budget incl retained archive,
+  20%/20GiB reserve, memory headroom; verify original running container/image.
+* Import candidate once, verify content/unpack/CRI/pin. An existing complete
+  candidate is reused without transfer/reimport. No image removal, pull or build.
+* Keep original image and production App running. No Pod creation, signal,
+  restart, deployment patch, model edit, queue drain or consumer-slot change.
+
+Expected final weknora_release_prepare=PASS and production_node_preload=PASS.
+This is preparation, NOT rollout or88-slot approval. Production GLM activation
+requires review of model lifecycle (including Gateway SSO reconciliation).
+Fresh production task drain, rollback plan and business document checks remain.
+
+Source state: /var/lib/weknora-glm-release-prepare-20261017-r1
+Source status: installed script --status (local reads only, no SSH connection).
+Remote state: /var/lib/weknora-glm-production-preload-20261017-r1
+Remote status, on datax-03:
+sudo python3 -I -B /var/lib/weknora-glm-production-preload-20261017-r1/status.py
+The remote status.py is read-only and installed before transfer/import.
+If it does not exist, report that; do not rerun preparation blindly.
+
+An unknown remote outcome may have imported the image already. Do not repeat
+--prepare-once or remove the journal. No automatic rollback is performed.
+No model/provider acceptance is repeated by this tool. The production database
+connection is intentional, read-only, and separate from the earlier isolated
+acceptance's zero-production-store-connection guarantee.

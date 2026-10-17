@@ -1,0 +1,65 @@
+WeKnora full enrichment: Gateway 70-replica pre-fixture recovery
+
+DIAGNOSIS
+The original tool incorrectly limited Gateway to 1..4 replicas. The operator's
+read-only receipt shows generation=observedGeneration=373 and all desired/current/
+updated/ready/available counts=70. This is not an image build or Gateway rollout failure.
+
+SCOPE
+Use only on datax-01, root, Linux ARM64. No production rollout, configuration,
+replica, database, Redis, routing or model writes. No rebuild/import.
+Keep the original script and RESULT.json unchanged. The recovery pins both hashes
+and requires the original directory contain only that exact failure report: no
+namespace, fixture, credentials or submission boundary was reached.
+
+The original full-App orchestration and embedded runtime are loaded from:
+  /var/lib/weknora-full-enrichment-tool-dunIcgBN/accept.py
+SHA256 a880111601819c65f813c806cbb28fb1adab42a931132b1e004a6886e85bc2c3
+The new tool replaces only Gateway baseline collection and the fresh state path.
+
+GATEWAY REVIEW
+- All endpoints must be ready, distinct, belong to the Gateway Deployment through
+  its ReplicaSet, and have one image/revision. Stable rollout counters remain mandatory.
+- Bulk Pod/ReplicaSet lists replace individual Pod GETs. Output is bounded.
+- Read the allowlisted runtime Embedding fields on EVERY endpoint, at most 4 concurrent
+  read-only execs. No model call, no raw environment dump, no upstream key export.
+- After the first scan, recheck the complete identity set. Later checks reuse contracts
+  ONLY for unchanged deployment/service/Pod spec, UID, container ID, restart and image
+  identities. Any drift aborts rather than silently selecting a new baseline.
+- 128 endpoints is a tool workload guard, not a recommendation or production capacity
+  limit. No Gateway replica count is changed. Tool summaries never include raw env values.
+
+UNCHANGED ACCEPTANCE
+One synthetic PNG upload and at most one real vector-only search through the existing
+Gateway internal Embedding route. Native GLM OCR/caption, real Asynq children, fresh
+test schema and actual 1024D vectors must pass. No production stores are connected.
+Expected GLM/Embedding call counts are NOT hard caps: native bounded retries remain.
+GLM key is entered hidden and is temporarily stored with the scoped relay key in the
+disposable test DB; no key in argv/host reports/Kubernetes Secret. Only the scoped relay
+key is read from Gateway; CNOOC_RETRIEVAL_API_KEY value remains Gateway-only.
+The CNI NetworkPolicy's enforcement is NOT independently verified. Clean child env,
+loopback-only new stores, no production store credentials, no host/PVC mounts and no
+test public Service remain mandatory. UID-bound cleanup removes this test namespace;
+it is not a forensic secure erase guarantee.
+
+MODES
+  --recover-once  one fresh attempt, refuses any previous recovery/new attempt state
+  --status        read-only records and namespace state; no exec/model calls/retry
+  --cleanup-only  only saved new fixture namespace with exact UID; no model calls
+
+Recovery state: /var/lib/weknora-enrichment-gateway-recovery-20261017-r1
+Acceptance state: /var/lib/weknora-full-enrichment-20261017-r1-fix1
+After interruption/failure use --status. Do not repeat recovery or old --accept-once;
+do not delete state, chmod 777, change Gateway replicas, or force-stop production.
+
+SUCCESS
+native_enrichment_acceptance=PASS, real_asynq_glm_enrichment=PASS,
+real_embedding_1024d_index=PASS, vector_only_retrieval=PASS,
+cleanup=NAMESPACE_ABSENT_VERIFIED, production_baseline=UNCHANGED.
+ready_for_rollout=false remains correct: isolated synthetic acceptance is not production
+deployment, business-document/load acceptance or approval for the 88-consumer upgrade.
+
+LOCAL QUALIFICATION
+Offline simulated control-flow tests cover 70 endpoints, bounded parallelism, cache
+invalidation, incomplete readiness, foreign owners, uncertain attempts and preserved
+old receipts. They do not execute the native ARM64 App or enterprise model services.

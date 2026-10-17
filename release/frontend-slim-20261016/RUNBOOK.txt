@@ -1,0 +1,151 @@
+FRONTEND BUILD / RELEASE SLIMMING — opt-in, not production release approval
+
+Implemented boundaries
+----------------------
+frontend/Dockerfile.slim builds dependencies and the Next standalone application
+separately. Every runtime starts from the pinned clean Node base, NOT from the
+previous DeerFlow frontend image. It copies standalone dependencies, static,
+public, a public CA bundle and the small verification program. It does not copy
+the source tree, full development node_modules, .next/cache or operator .env.
+Old frontend/Dockerfile and all frozen production build/rollout scripts are
+unchanged. No production Deployment, Service, credentials or database is changed.
+
+Production switches from pnpm start to node server.js with this image. The old
+container command/args, probes, working directory and mounts MUST be reconciled
+before rollout. Do not assume an image-only patch is sufficient. In particular,
+do not mount an old full /app/frontend tree over the standalone application.
+Next rewrite destinations and NEXT_PUBLIC variables are build-time inputs;
+runtime-config and the checked login URL remain runtime inputs. Pin the actual
+enterprise internal Gateway URL during the enterprise build. No real SSO,
+Gateway interaction, knowledge workspace or enterprise browser was qualified by
+the local synthetic HTTP checks.
+
+Local measured evidence (2026-10-16, linux/amd64 only)
+---------------------------------------------------
+Source snapshot: 871 files, 39,692,087 bytes.
+Snapshot SHA256:
+62e90ea9d153e9ba8be6c75c2225b0d88b2e8564a5df1f34cbf82b39456401bc
+Runtime: 11 filesystem layers = 4 pinned Node base + 7 application layers.
+Docker reported Size: 444,311,779 bytes (engine accounting).
+Uncompressed OCI filesystem layers: 305,193,472 bytes.
+Visible application files: 131,338,187 bytes.
+OCI archive: 125,709,824 bytes; compressed layers: 125,684,936 bytes.
+Archive SHA256:
+432f065a36c632e2677634e1b160752b0dd2f8480a53f15b84499bb4be1ca644
+
+Current source build with existing dependency/Next caches: 40.01 seconds.
+Unchanged-source cache reuse: 10.03 seconds; OCI export: 20.05 seconds.
+Timers sample every 10 seconds. These are NOT cold-build promises. Earlier cold
+dependency installation took about 230 seconds and first compilation about 88
+seconds. A fully cold final-source build and native ARM64 build remain untested.
+The old production receipt (343 layers, about 8.98GB OCI / 20.07GB uncompressed)
+is a historical comparison, not a same-platform controlled speed benchmark.
+
+Checks passed: Next production compilation/typecheck, standalone tracing scope,
+static JS/CSS byte delivery, /api/runtime-config runtime values, synthetic login
+redirect, external-agent unauthenticated rejection, OCI compressed hashes and
+uncompressed diffIDs matching the exact locally tested image.
+The mock artifact route now traces only public/demo/threads and rejects cross-
+thread path traversal and symlink escapes. It no longer traces arbitrary cwd.
+
+Persistent bounded build pool
+-----------------------------
+scripts/build_pool.py is for a DEDICATED Linux Docker build host or local Docker
+Desktop. It intentionally refuses known production node names and hosts with
+/etc/kubernetes/admin.conf. Python 3.9+, Git, Docker Linux engine and Buildx are
+required. It is NOT a drop-in replacement for the production systemd/cgroup-v1
+isolated BuildKit launcher. Do not delete the existing global production lock or
+simply remove other_image_operation_active checks.
+
+The tested pool has two independent persistent builders/cache volumes:
+frontend and backend, each limited to 2 CPUs and 5GiB RAM, with equal memory-swap
+and memory limits. Host reserve: 2 CPUs and 4GiB. Each solver max-parallelism=2.
+Aggregate configured budget must fit Docker's available CPU/RAM. This solves
+two different concerns: separate lanes allow multiple image builds; solver
+parallelism allows independent build steps within ONE lane. Two dependent steps
+cannot be made parallel by increasing that setting.
+
+Local simultaneous RUN qualification passed: 20,021ms overlap; 10 live executor
+samples per lane confirmed the bounded parent cgroup. No model requests or
+production writes. This is a synthetic image concurrency test, NOT simultaneous
+full frontend/Gateway compilation or native cgroup-v1 qualification.
+
+All operators sharing this build host must use ONE pool directory. One kernel
+lease permits one job per lane. Give every job a different output directory and
+image tag, including across lanes. Direct Docker access, another daemon and
+native buildctl can bypass these leases: organizational coordination is still
+required. The pool rejects other running buildx builder containers; that is not
+a complete host-wide scheduler or a security boundary against Docker admins.
+
+Example — initialize ONCE on a reviewed dedicated build host
+-----------------------------------------------------------
+Substitute an absolute private path on the build disk. The pinned images must
+be available from an approved registry/mirror or be preloaded. Never disable
+TLS verification. The scripts do not install Docker or fetch host packages.
+
+python scripts/build_pool.py init --root <POOL_ABS> --name team-build --buildkit-image moby/buildkit@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea --lanes frontend,backend --cpu 2 --memory-gib 5 --reserve-cpu 2 --reserve-gib 4 --parallelism 2
+python scripts/build_pool.py status --root <POOL_ABS>
+
+Example — frontend lane (run in the repository root)
+---------------------------------------------------
+Use fresh absolute output paths OUTSIDE the source checkout. On an ARM64 build
+host choose linux/arm64 and qualify that output natively. The following example
+uses the locally qualified architecture and an explicit enterprise Gateway DNS:
+
+python scripts/frontend_slim.py --source <REPO_ABS> --out <NEW_JOB_ABS> --pool <POOL_ABS> --lane frontend --node-image node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 --platform linux/amd64 --tag deerflow.local/deer-flow-frontend:slim-unique-release-id --gateway-url http://gateway:8001 --build --export-oci
+
+Omit --build to prepare only a stable source snapshot. Optional --enterprise-ca
+and --enterprise-proxy refer to private files OUTSIDE the context. The proxy
+file is an operator-owned shell export fragment, not a document/user input.
+Do not put credentials in --npm-registry, --gateway-url, ARGs, source files or
+the Dockerfile. A file-name exclusion list cannot detect all embedded secrets;
+review source content before delivery. The CA file contains certificates only,
+never a private key. Dependency cache credentials must not be persisted.
+
+Example — independent second lane, reviewed existing recipe/context
+-----------------------------------------------------------------
+python scripts/build_pool.py run --root <POOL_ABS> --lane backend --context <SNAPSHOT_ABS> --dockerfile <SNAPSHOT_ABS>/Dockerfile --output <OTHER_NEW_JOB_ABS> --tag deerflow.local/reviewed-component:unique-release-id --platform linux/amd64
+
+This generic command loads a LOCAL image only. It does NOT qualify the runtime,
+create a production package, push an image or deploy it. Prepare an immutable,
+secret-free context and component-specific acceptance separately. Foreign job
+arguments cannot be injected through the frontend release script.
+
+Cache lifecycle
+---------------
+Keep each lane and its cache between releases. Lockfile/Node digest/architecture
+scope dependency caches; Next caches contain only .next/cache. Failed job logs
+and original receipts remain immutable. Never make a new app image FROM the
+last app image and never use --no-cache as the default retry mechanism.
+BuildKit GC is configured per lane (20GB target used space, 2GB reserved and
+10GB minimum free space); those are cache GC policies, NOT hard disk quotas or
+an aggregate I/O limiter. Review free disk and stop admitting jobs when unsafe.
+Stopping a named owned builder preserves its cache:
+  docker buildx stop deerflow-pool-team-build-frontend
+  docker buildx stop deerflow-pool-team-build-backend
+To explicitly resume an existing lane, bootstrap its exact recorded name and
+run pool status before admitting jobs:
+  docker buildx inspect deerflow-pool-team-build-frontend --bootstrap
+  docker buildx inspect deerflow-pool-team-build-backend --bootstrap
+Do not re-run init, prune caches, delete containers or remove volumes to resume.
+If init partly fails, preserve receipts and inspect exact created names; no
+automatic deletion or broad retry is implemented.
+
+Release gates still required
+---------------------------
+1. After the colleague's Frontend/Gateway release is finished, snapshot the
+   current production baseline and merge this build path into that exact source.
+2. Pin ARM64 Node, registry/CA, build-time Gateway URL and enterprise runtime
+   mounts/env/command/probes. Build and run the same checks on native ARM64.
+3. Use the existing image audit/preload/canary discipline, but update source-
+   inspection checks that assumed the full source tree existed in production.
+   Replace them with immutable source/build provenance plus runtime receipts;
+   never silently skip a failed old source check.
+4. Validate real SSO, all protected API routes, buttons, user guide, chat/PPT,
+   uploads and browser asset caching. Preserve old-image rollback coverage.
+5. Only then prepare a separately approved controlled rollout.
+
+For multi-image builds on datax-01 itself, FIRST port the existing native
+systemd resource controls to multiple leased lanes under a shared aggregate
+CPU/RAM/I/O/disk budget, then run a real cgroup-v1 executor canary. This local
+Docker pool does not authorize concurrent heavy builds on that production node.

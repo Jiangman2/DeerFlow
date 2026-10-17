@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-14",
+  "scope": "READ_ONLY_LOCAL_CONTAINERD_METADATA_AND_FILESYSTEM_INVENTORY",
+  "script": "inspect_build_input.py",
+  "python37_syntax": "PASS",
+  "local_tests": {"passed": 16, "failed": 0},
+  "isolated_linux_tests": {"passed": 16, "failed": 0, "network": "NONE", "rootfs": "READ_ONLY"},
+  "checks": [
+    "exact_tag_and_config_digest",
+    "one_linux_arm64_manifest",
+    "metadata_digest_and_size",
+    "no_external_layer_urls",
+    "layer_diffid_count",
+    "tag_stability",
+    "no_image_env_output",
+    "mutating_commands_rejected",
+    "missing_image_does_not_trigger_pull",
+    "raw_command_errors_not_printed"
+  ],
+  "does_not_verify": ["all_layer_bytes", "uncompressed_size", "live_cluster_baseline", "capacity_or_load_acceptance"],
+  "production_execution": "PENDING_USER",
+  "build_started": false,
+  "ready_for_rollout": false
+}

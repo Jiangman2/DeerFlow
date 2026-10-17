@@ -1,0 +1,55 @@
+WeKnora isolated native startup diagnostic — 2026-10-17 r1
+
+CURRENT EVIDENCE
+The fix1 full-App attempt passed the Gateway inventory/contract review and
+started fresh PostgreSQL and Redis. The WeKnora bootstrap child exited 2 with
+one panic before HTTP health. The original diagnostic preserved counters only;
+it does not establish the panic's cause. The test namespace was removed with
+UID-bound cleanup. No document/provider submission boundary was reached.
+
+SCOPE
+One new disposable fixture on datax-01, reusing the three already preloaded
+images. No rebuild, image import, production restart, production database/Redis
+connection, model credential prompt, model request, document or search.
+The exact old failure and recovery tool hashes are checked first. Old records
+are not modified. Native startup receives the same clean test configuration,
+fresh loopback-only PostgreSQL/Redis, and no production environment inheritance.
+Only the diagnostic log projection changes: fixed error categories and at most
+40 allowlisted Go function names plus filename/line. Raw logs, stack arguments,
+DSNs and passwords are not saved/exported.
+
+The diagnostic policy declares no ingress or egress. Host aliases are removed,
+DNS remains loopback, and no provider keys are loaded. CNI NetworkPolicy
+enforcement is not independently verified; do not claim this test proves it.
+Gateway is not revalidated or contacted by this startup-only diagnostic.
+If bootstrap is healthy, a read-only schema query is recorded and execution
+stops BEFORE application-role grants, model setup, uploads or search.
+
+EXECUTION
+Upload only weknora-enrichment-startup-diagnostic-20261017-r1.py to /home/cnooc.
+Use the supplied hash-checked root launcher on datax-01 with --diagnose-once.
+The launcher prints the exact --status path. Run only once. Temporary resources
+have a 600-second Pod deadline, startup waits are bounded, and namespace cleanup
+uses the exact recorded UID and verifies namespace absence.
+
+EXPECTED OUTPUT
+startup_diagnostic=COMPLETE means diagnostic collection completed, NOT native
+enrichment acceptance or rollout approval.
+native_bootstrap=FAILED_PANIC_CAPTURED includes the safe startup_evidence.stack.
+native_bootstrap=HEALTHY_NOT_FULL_ACCEPTANCE means the isolated startup did not
+reproduce this panic; full native enrichment remains NOT_TESTED.
+Both keep ready_for_rollout=false and provider_requests=0.
+
+On failure/interruption use the printed --status command; do not rerun
+--diagnose-once, old recovery, or old acceptance commands, and do not erase state.
+If cleanup remains unconfirmed, --cleanup-only targets solely the fresh fixture's
+recorded namespace/UID; never clean an unrelated namespace or production Pod.
+Send the complete safe final JSON or status output for source-level diagnosis.
+
+STATE
+/var/lib/weknora-enrichment-startup-diagnostic-20261017-r1
+/var/lib/weknora-enrichment-startup-fixture-20261017-r1
+
+Local tests are network-disabled and use mocks/synthetic child processes.
+They establish packaging and control-flow behavior, not actual ARM64 cluster
+startup or GLM/Embedding compatibility.

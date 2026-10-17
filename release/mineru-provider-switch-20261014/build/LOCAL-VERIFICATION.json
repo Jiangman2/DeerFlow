@@ -1,0 +1,22 @@
+{
+  "status": "LOCAL_OFFLINE_TESTS_PASS_NOT_RELEASE_ACCEPTANCE",
+  "revision": "20261015-fix1",
+  "candidate_source_sha256": "a509a7e145ba3d5d72ba86036437a9e5da2e46678054558522a6d61b66a22e74",
+  "linux_adapter_and_async_pytest": {"passed": 134, "failed": 0},
+  "linux_build_package_unittest": {"passed": 37, "failed": 0, "cluster_and_artifacts": "SYNTHETIC"},
+  "candidate_fixture_unittest": {"passed": 13, "failed": 0, "transport": "SYNTHETIC_NO_PROVIDER"},
+  "local_test_images": [
+    {"image_id": "sha256:6dd025cdc46eb8d5e0ebeb9e6f1f32a4347b362c6650e5aa1c594759c499f947", "scope": "PYTEST_AND_BUILD_PACKAGE_TESTS"},
+    {"image_id": "sha256:59e26f98f17c296c5f4bd216404558f51d31991b580cfef1d204903a01e4b46b", "scope": "HISTORICAL_DOCREADER_PYTHON310_COMPATIBILITY_NOT_PRODUCTION_BASE"}
+  ],
+  "host_control_python37_syntax": "PASS",
+  "source_permission_contract": "EXACT_PINNED_LEGACY_0666_TO_CANDIDATE_0644",
+  "legacy_permission_evidence": "USER_READONLY_OCI_LAYER25_AND_7_OWNED_READY_PODS_ALL_MATCH",
+  "production_arm64_candidate_fixture": "REQUIRED_DURING_SERVER_BUILD",
+  "live_systemd_build_resource_canary": "REQUIRED_DURING_SERVER_BUILD",
+  "business_document_quality": "NOT_TESTED",
+  "mixed_load_64_concurrency": "NOT_TESTED",
+  "provider_requests": 0,
+  "production_build_executed_locally": false,
+  "ready_for_rollout": false
+}

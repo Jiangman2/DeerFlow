@@ -1,0 +1,69 @@
+MinerU post-switch old-pool observation, 2026-10-16 r1-fix1
+
+Fix1: the operator's three exact Failed worker Pod records on datax-01 are
+classified separately. Do not delete them, equate ContainerStatusUnknown with
+an exited process, or broadly ignore Failed Pods. Bind their owning Deployment,
+current Pod UID, node, observed reason and known container IDs. Collect two
+local runtime snapshots using the explicit containerd socket: CRI Pod/container
+list, containerd task list, and bounded /proc/*/cgroup matching. No raw runtime
+metadata is saved or printed. A missing record may have been garbage-collected;
+absence from CRI alone is not considered sufficient. Sandbox processes are
+counted conservatively, not automatically classified as parser activity.
+If runtime inspection is unavailable or contradictory, continue collecting the
+seven live old-process observations but retain the runtime gap as a blocker:
+OBSERVATIONS_COLLECTED_WITH_RUNTIME_GAP, never retirement acceptance.
+The original delivered script/package and failed receipt remain unchanged.
+
+Run only on datax-01, root, Python3.7+. This is NOT retirement or expansion.
+Requires the exact already-installed switch tool and pinned prior receipts.
+Only Kubernetes GET, bounded Pod exec diagnostics and local runtime/process
+reads are called. The Pod code
+reads the locked old Adapter source and /proc/net/tcp{,6}, then performs GET
+/health on loopback. No provider HTTP, document submission, Secret value output,
+request-body/log output, scale, signal, image import or network-rule mutation.
+The normal dispatcher health endpoint may probe its own worker health endpoints.
+It does not parse documents.
+
+Creates a NEW root-private /var/lib/mineru-old-pool-audit-* evidence directory.
+Existing production files, historical receipts and packages remain unchanged.
+No copying private reports to world-writable download directories. Send the
+safe terminal summaries. Do not chmod777 anything.
+
+Checks before/after: prior release chain, exact old/new Deployment specs,
+Service selector, owned EndpointSlice target, candidate Pod/container identity,
+old source/image identities, existing policy/control bindings. Reports related
+selector-based Services in deer-flow. Direct Pod-IP users, selectorless aliases
+and old clients are NOT proven absent by this limited route inventory.
+
+Three sequential per-Pod snapshots separated by ten seconds include active,
+busy/waiting and TCP state/queue summaries. This is not one atomic snapshot.
+TCP snapshots cover both IPv4/IPv6, before and after our localhost health GET.
+TIME_WAIT is recorded separately; half-closed, SYN and active sockets count
+conservatively. Kubelet and dispatcher health connections may be included.
+No address, raw request, filename, token or raw application log is printed.
+Pending image-missing Pods are reported separately, not treated as running.
+Container/process replacement or unreviewed Pod states stop the audit. Missing
+terminal runtime data never becomes a zero count or a retirement permission.
+
+COMPLETE means the observations were collected and baseline remained bound.
+Even QUIET_SAMPLES_ONLY NEVER grants retirement: no admission barrier has been
+installed, and future arrivals cannot be ruled out. ready_to_retire and
+ready_to_expand_16 are always false. Review the result to select the exact old
+admission-closure/retirement procedure, then separately review final16 capacity.
+Do not run kubectl scale to0 or increase new capacity based on this alone.
+
+The operator reported successful real uploads through WeKnora and new chat;
+this is retained as user-reported acceptance, not an automated retest or speed
+benchmark. Existing footer/chart quality warnings remain unchanged.
+The old switch rollback command is valid only while its original pool/spec
+assumptions still hold. A later retirement must include a new restore plan.
+
+Local tests are Windows unit/mock tests, Python3.7 syntax and packaging checks.
+They are not production Linux process/TCP acceptance. No Docker or upgrade
+workspace changes are required. Script failures print safe labels, retain
+evidence and never retry production changes (there are none in this tool).
+
+Runtime read contract references:
+https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/
+https://github.com/kubernetes/cri-api/blob/master/pkg/apis/runtime/v1/api.proto
+https://github.com/containerd/containerd/blob/main/cmd/ctr/commands/tasks/list.go

@@ -1,0 +1,52 @@
+MinerU blue/green stage permission recovery, 20261015-r1
+
+Scope: exactly /var/lib/mineru-bluegreen16-prepare-1kye80k4 and its
+27 expected regular files. Root ownership, link count, stable inode identity,
+bounded bytes, pinned RESULT SHA and all proposed/admitted specs are required.
+Directory becomes 0700; files become 0600 via file descriptors, never chmod -R.
+No private manifests, credentials or raw provider responses are exported.
+This repair does not claim historically writable, unpinned bytes were always safe.
+The pinned report, full spec bindings and live reconstruction are still mandatory.
+
+Previous stage failure is verified with SHA
+231c5ae2fb88a39d619a2551c4848b841656d89dae9737201f264108d50531dc
+and all zero-write fields. That directory and original failure are never edited.
+Prepared RESULT SHA remains
+bafea93f168585cfb5ea7ed7ad3eaf6e60ee7b44bcb1117132a559d47593a7d6.
+
+The original reviewed stage implementation, prepare module and runtime probe
+are bundled byte-for-byte unchanged and rechecked. The wrapper selects a NEW
+operation directory /var/lib/mineru-bluegreen16-stage-20261015-r1-fix1.
+The old frozen helper tool /var/lib/mineru-stepped-load-fix1-tool-xnk0Pett
+is still required; its previously pinned manifest/source hashes are checked.
+
+Run only on datax-01 as root, after uploading this archive and unique START script
+to /home/cnooc. The START script checks the archive SHA and inner manifest.
+Never chmod private evidence to 777 to download it. Return only safe console
+output; do not export *.private.json.
+
+One-shot --recover-and-stage:
+1. Verify frozen helpers and previous no-write failure.
+2. Create a new recovery receipt directory; restrict/validate the exact snapshot.
+3. Read-only reconcile the four old deployment baselines, public Service, absent
+   nine new names and absent new-release Pods.
+4. Run the unchanged staging program in the NEW operation directory: fresh
+   resources/policies/baselines, nine server dry runs, then new-only creations.
+5. Verify six one-slot Workers and one Dispatcher, exact images/config/CA,
+   owned readiness/endpoints and private health/TLS. No document submissions.
+
+NO public selector switch, old Deployment patch, Pod restart, queue drain,
+workload deletion, load retest or full-16 expansion occurs here. Old pool reserve
+10 + new initial6 =16 local parser slots; these are not provider job counts.
+Only stage PASS allows the next SWITCH REVIEW. Production cutover is not done.
+
+If any step fails or SSH is interrupted, do not repeat START or recover-and-stage.
+Use the exact status_command printed by START (recover_stage_permissions.py
+--status). Status only reads; it cannot repair, adopt resources or resume writes.
+Send the console report. Partial permission repair and new resources are retained.
+No automatic retry, rollback or cleanup is performed. If the old snapshot content
+or live baseline differs, stop and review; do not suppress the checks.
+
+Local Windows unit tests/grammar checks are NOT production Linux acceptance.
+No production writes, provider requests or changes to the upgrade worktree were
+made while packaging. The candidate image itself is unchanged.

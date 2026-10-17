@@ -1,0 +1,68 @@
+WeKnora + MinerU pipeline observation — 20261016-r1
+
+Scope
+  datax-01, Python 3.7+, root, existing kubectl/admin.conf.
+  Does not restart services, change concurrency, mutate Redis queues, create
+  cluster resources, access Secret API objects or submit documents/provider jobs.
+  It creates new local private evidence and a separate cnooc-readable RESULT.json.
+  No chmod of previous evidence, home directories or production configuration.
+
+Preconditions
+  Exact successful 16-slot expansion receipt remains in its private location.
+  Expected six Worker Deployments remain 3,3,3,3,2,2, dispatcher remains one.
+  Old pools remain retired. Public Service endpoints point to candidate dispatcher.
+  WeKnora app, DocReader and Redis remain single-container/single-replica workloads.
+  Unexpected layout is reported, not automatically corrected.
+
+Collection
+  Seven rounds approximately 30 seconds apart (three-minute observation window),
+  plus initial/final baseline and bounded resource/log reads: normally 4–6 minutes.
+  Best run with existing queued knowledge work. Do not bulk resubmit documents.
+  Redis LLEN/ZCARD/counters/oldest-pending timestamp plus ServerInfo heartbeat only.
+  No TaskMessage, WorkerInfo task payload, task body, queue deletion or Inspector
+  Lua cleanup. Password is used only from existing Redis container environment;
+  it is never an argv argument, returned to this host or exported.
+  Known queues: default, chat_attachment, postprocess, summary, multimodal,
+  graph, question, memory, sync, low, wiki. Other topology is unresolved, not
+  assumed equivalent. Six effective pools are inferred from heartbeat queue maps,
+  not merely Deployment env. Duplicate/stopped/missing pool heartbeats give null.
+  Health calls use the existing local GET /health, not busy-sensitive /ready.
+  Pod UIDs/container IDs/spec hashes must remain stable across observation.
+  Logs: bounded last ten minutes, at most 2000 lines/256 KiB per target; only
+  numeric aggregates leave memory. WeKnora error-marker counts are indications,
+  not attribution to a particular model/provider or complete error accounting.
+  Missing metrics/Redis reads are retained as unavailable; zero is not substituted.
+
+Interpretation
+  COMPLETE means the observation completed with a stable baseline. It is NOT
+  approval to scale, and sub-read coverage must be reviewed in RESULT.json.
+  Core/shared Asynq concurrency is not MinerU slot count or provider GPU count.
+  Active tasks include stages other than OCR. Shared capacity is not dedicated
+  parsing capacity. Processed counters count attempts/tasks, not unique documents.
+  Latency aggregates are bounded completed-log samples, not overall document
+  latency, provider GPU timing, embeddings or indexing timings. Queue samples are
+  non-atomic and heartbeat updates lag. In-flight long work can miss the log window.
+  All six pools are in scope for the next configuration plan, but no blind doubling:
+  compare backlog age, saturation, available resources and model/vector/DB limits.
+  Keep MinerU at the currently accepted 16 while evaluating WeKnora changes.
+  If there is no workload, this is an idle observation, not a throughput benchmark.
+
+Output
+  Private: /var/lib/mineru-pipeline-observe-*/RESULT.json (root 0600).
+  Safe copy: /home/cnooc/mineru-pipeline-download-*/RESULT.json (cnooc 0400).
+  Send that safe JSON and final console receipt. Never chmod 777 or export private
+  deployment manifests, credentials, raw logs or Redis values to obtain a report.
+  If download export is unavailable, the private report remains; send its path
+  and final receipt first. No need to repeat the observation immediately.
+
+Verification boundaries
+  Local tests cover Python 3.7 grammar, six-pool protobuf decoding, Redis read-only
+  shell mocked command allowlist, binary framing, non-atomic/missing timestamps,
+  counter resets, duplicate/stopped heartbeats, redaction and no automatic tuning.
+  No connection to production, no live Redis integration or Linux cluster run
+  has been performed locally. Docker daemon was unavailable; not started by us.
+
+Protocol references (read-only projection, not imported dependency):
+  github.com/hibiken/asynq v0.26.0 internal/proto/asynq.proto (ServerInfo)
+  github.com/hibiken/asynq v0.26.0 internal/rdb/inspect.go (queue counters/timestamp)
+  Local WeKnora task.go queue definitions and runtime SystemSetting overrides.
