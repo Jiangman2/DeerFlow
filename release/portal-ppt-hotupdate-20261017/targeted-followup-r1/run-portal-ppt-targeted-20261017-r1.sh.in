@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Fixed, read-only follow-up of the reviewed R2 evidence; no build or rollout.
+set -Eeuo pipefail
+umask 077
+test "$(id -u)" -eq 0
+test "$(hostname -s)" = datax-01
+id -u cnooc >/dev/null
+HELPER_SOURCE=/home/cnooc/portal-ppt-baseline-helper-20261017-r1.py
+COLLECTOR_SOURCE=/home/cnooc/portal-ppt-targeted-20261017-r1.py
+REFERENCE_SOURCE=/var/lib/portal-ppt-refresh-tool-TeLN6c6D/baseline/REPORT.json
+for source in "$HELPER_SOURCE" "$COLLECTOR_SOURCE" "$REFERENCE_SOURCE"; do
+  test -f "$source" && test ! -L "$source"
+done
+CONTROL=$(mktemp -d /var/lib/portal-ppt-targeted-tool-XXXXXXXX)
+install -o root -g root -m 0600 -- "$HELPER_SOURCE" "$CONTROL/refresh_baseline_v3.py"
+install -o root -g root -m 0600 -- "$COLLECTOR_SOURCE" "$CONTROL/collector.py"
+install -o root -g root -m 0600 -- "$REFERENCE_SOURCE" "$CONTROL/baseline.json"
+printf '%s  %s\n' __HELPER_SHA256__ "$CONTROL/refresh_baseline_v3.py" | sha256sum --check --status
+printf '%s  %s\n' __COLLECTOR_SHA256__ "$CONTROL/collector.py" | sha256sum --check --status
+printf '%s  %s\n' __BASELINE_REPORT_SHA256__ "$CONTROL/baseline.json" | sha256sum --check --status
+set +e
+python3 -I -B -u "$CONTROL/collector.py" --collect --baseline "$CONTROL/baseline.json" --out "$CONTROL/report"
+COLLECTION_EXIT=$?
+set -e
+if test -f "$CONTROL/report/REPORT.json" && test ! -L "$CONTROL/report/REPORT.json"; then
+  set +e
+  python3 -I -B - "$CONTROL/report/REPORT.json" <<'PY'
+import hashlib, os, pwd, stat, sys, tempfile
+try:
+    # Read only the redacted report in the root-owned private control directory.
+    fd = os.open(sys.argv[1], os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ValueError('unsafe_private_report')
+        raw = stream.read(16 * 1024 * 1024 + 1)
+        if len(raw) > 16 * 1024 * 1024:
+            raise ValueError('report_too_large')
+    operator = pwd.getpwnam('cnooc')
+    os.setgroups([])
+    os.setgid(operator.pw_gid)
+    os.setuid(operator.pw_uid)
+    # Every creation beneath the operator-writable home happens after dropping root.
+    export = tempfile.mkdtemp(prefix='portal-ppt-targeted-20261017-r1-', dir='/home/cnooc')
+    directory = os.open(export, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fd = os.open('REPORT.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(raw)
+        current, opened = os.stat(export, follow_symlinks=False), os.fstat(directory)
+        if (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino):
+            raise ValueError('export_directory_changed')
+    finally:
+        os.close(directory)
+    report = export + '/REPORT.json'
+    print('download_report=' + report)
+    print(hashlib.sha256(raw).hexdigest() + '  ' + report)
+except Exception:
+    print('export_failed=true; private_report_preserved=true')
+    sys.exit(1)
+PY
+  EXPORT_EXIT=$?
+  set -e
+  if test "$EXPORT_EXIT" -ne 0 && test "$COLLECTION_EXIT" -eq 0; then COLLECTION_EXIT=1; fi
+else
+  printf '%s\n' 'report_unavailable=true'
+  if test "$COLLECTION_EXIT" -eq 0; then COLLECTION_EXIT=1; fi
+fi
+printf 'collection_exit_code=%s\ncontrol_directory=%s\n' "$COLLECTION_EXIT" "$CONTROL"
+printf '%s\n' 'Return REPORT.json and the terminal summary. Preserve failures for review; do not rerun automatically.'
+exit "$COLLECTION_EXIT"

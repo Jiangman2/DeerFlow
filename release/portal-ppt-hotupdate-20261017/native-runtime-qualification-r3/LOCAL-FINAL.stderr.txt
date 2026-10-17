@@ -1,0 +1,18 @@
+test_actual_create_decorates_business_once_before_owned_uid_adoption (__main__.LinkControllerTests.test_actual_create_decorates_business_once_before_owned_uid_adoption) ... ok
+test_actual_r2_timing_projection_reduced_cli_cost_without_deadline_relaxation (__main__.LinkControllerTests.test_actual_r2_timing_projection_reduced_cli_cost_without_deadline_relaxation) ... ok
+test_business_guard_first_in_all_stages_and_pg_sidecar_order (__main__.LinkControllerTests.test_business_guard_first_in_all_stages_and_pg_sidecar_order) ... ok
+test_combined_read_replacement_or_ip_drift_blocks_exec (__main__.LinkControllerTests.test_combined_read_replacement_or_ip_drift_blocks_exec) ... ok
+test_failed_round_retains_both_health_before_and_partial_packet_boundary (__main__.LinkControllerTests.test_failed_round_retains_both_health_before_and_partial_packet_boundary) ... ok
+test_fixed_r2_failure_and_new_once_boundary (__main__.LinkControllerTests.test_fixed_r2_failure_and_new_once_boundary) ... ok
+test_guard_failure_stops_before_post_guard_rounds (__main__.LinkControllerTests.test_guard_failure_stops_before_post_guard_rounds) ... ok
+test_guard_runtime_image_and_container_identity_are_part_of_actual_gate (__main__.LinkControllerTests.test_guard_runtime_image_and_container_identity_are_part_of_actual_gate) ... ok
+test_one_direction_or_reachable_cross_cannot_pass (__main__.LinkControllerTests.test_one_direction_or_reachable_cross_cannot_pass) ... ok
+test_only_proof_subject_gets_net_admin_frozen_peer_and_adapter_preserved (__main__.LinkControllerTests.test_only_proof_subject_gets_net_admin_frozen_peer_and_adapter_preserved) ... ok
+test_successful_guarded_three_rounds_preserve_global_barriers_and_mechanism (__main__.LinkControllerTests.test_successful_guarded_three_rounds_preserve_global_barriers_and_mechanism) ... ok
+test_terminal_guard_receipt_is_required_even_when_original_main_succeeded (__main__.LinkControllerTests.test_terminal_guard_receipt_is_required_even_when_original_main_succeeded) ... ok
+test_typed_list_exact_shape_and_single_transport_start (__main__.LinkControllerTests.test_typed_list_exact_shape_and_single_transport_start) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.597s
+
+OK

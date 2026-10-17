@@ -1,0 +1,13 @@
+test_complete_name_index_enumeration_includes_unaddressed_link (__main__.GuardTests.test_complete_name_index_enumeration_includes_unaddressed_link) ... ok
+test_guard_is_ordinary_first_before_pg_restartable_init (__main__.GuardTests.test_guard_is_ordinary_first_before_pg_restartable_init) ... ok
+test_ioctl_uses_forty_bytes_preserves_flags_and_disables_every_nonlo (__main__.GuardTests.test_ioctl_uses_forty_bytes_preserves_flags_and_disables_every_nonlo) ... ok
+test_mutated_guard_or_writable_business_receipt_or_extra_cap_rejected (__main__.GuardTests.test_mutated_guard_or_writable_business_receipt_or_extra_cap_rejected) ... ok
+test_proof_only_subject_changes_security_and_checks_live_uid_before_guard (__main__.GuardTests.test_proof_only_subject_changes_security_and_checks_live_uid_before_guard) ... ok
+test_receipt_requires_exact_owner_code_image_namespace_complete_down_state (__main__.GuardTests.test_receipt_requires_exact_owner_code_image_namespace_complete_down_state) ... ok
+test_topology_change_or_initial_loopback_down_fails_closed (__main__.GuardTests.test_topology_change_or_initial_loopback_down_fails_closed) ... ok
+test_wrap_preserves_original_uid_argv_and_downward_expansion_tokens (__main__.GuardTests.test_wrap_preserves_original_uid_argv_and_downward_expansion_tokens) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.021s
+
+OK

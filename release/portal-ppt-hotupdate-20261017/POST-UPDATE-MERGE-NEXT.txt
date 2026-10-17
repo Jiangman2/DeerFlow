@@ -1,0 +1,42 @@
+2026-10-17 更新后热更合并结果
+
+已完成
+收到并核验 EVIDENCE.tar.gz，外层 SHA256 与操作员终端完全一致。
+所有 1761 个采集源码文件的长度、摘要和内嵌清单均匹配。解包与完整性核验没有
+执行附件代码；合并后的候选随后仅在明确记录的本地测试环境中执行。
+Gateway 新基线标签为 20261017-background-stream-953eb97e4aaf。
+采集窗口内 Gateway70、Frontend2、Runner1、Provisioner1 活动实例 Ready，
+另一个 Provisioner 为保留的 Failed/Evicted API 对象，无需为此删除资源。
+
+隔离候选位于：
+C:/Users/15285/Documents/deer-flow/portal-ppt-merge-20261017/candidate
+最终生产输入清单为 1806 个文件：1728 个基底文件原样保留，33 个明确修改，
+45 个明确新增。未发现未声明变化、缺失或哈希漂移。测试与 node_modules 不计入。
+逐文件证据见同级 MERGED-SOURCE-MANIFEST.json。
+
+本轮保留了同事的后台流、OA/DNS/XLSX、模型输出保护、异步 DNS 线程池，
+以及前端购物车类型、登录恢复等修改；在此基础上合入待发布的员工、聊天 GLM、
+内网浏览器、PPT 确认和前端瘦身增量。Runner 使用独立源码树补齐确认模块依赖。
+复核还修复了 WebSocket 成功连接分支中同步方法被 await 的问题。
+
+本轮本地验证
+- Gateway：401 项测试与 42 项子测试通过，含真实本地 Chromium/WebSocket。
+- 前端：61 项单测、9 项 standalone 校验器测试及 TypeScript 检查通过。
+- Runner 独立包：3 项检查通过，11 个实际模块均从 Runner 自己的源码树加载。
+- Runner → Gateway → 临时 PostgreSQL：13 项测试与 3 项子测试通过，隔离资源已清理。
+所有早期测试资源/解释器问题及 WebSocket 红绿回归均保留在证据中。
+测试使用现有本地 QA 环境；没有新建生产镜像、调用模型、执行生产迁移或发布。
+完整范围与限制见 POST-UPDATE-MERGE-QUALIFICATION.json。
+
+下一步
+执行专用只读补证包，补齐实际数据库迁移头、Runner 三个挂载文件、Gateway 七个
+新增关键源码路径、当前本机镜像元数据和两个 Sandbox 镜像引用。
+工具先绑定本次 R2 的精确部署/Pod 身份；发生漂移或必要证据缺失会保留失败报告。
+不会再次对 70 个 Gateway 全量执行源码采样，不创建 Sandbox、不迁移、不重启。
+操作方式以新交付包内 README.txt 为准；回传 REPORT.json 和终端摘要后继续对账。
+
+尚未核销
+实际数据库修订、生产运行挂载、Sandbox/Agent Host 当前源码与完整构建输入、
+新候选原生 ARM64 构建与完整企业登录/管理/浏览器/PPTX/PDF 验收。
+本地 PASS 不代表生产已发布；ready_for_build 和 ready_for_rollout 均为 false。
+原任务继续处理 WeKnora；本候选不包含主工作区无关改动或 Provisioner 更新。

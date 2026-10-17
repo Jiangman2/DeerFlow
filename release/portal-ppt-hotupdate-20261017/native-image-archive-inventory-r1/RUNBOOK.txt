@@ -1,0 +1,16 @@
+用途：只读采集 datax-02 本地镜像库存、全部 CRI 容器的镜像引用、空间和原 r3 阶段回执。
+当前已经完成六档 Phase A 内容导入；Phase B 解压尚未开始。不要重跑原 r3 或 local-resume。
+
+把 collect-portal-ppt-image-inventory-20261017-r1.py 手动复制到 datax-02 的 /home/cnooc/。
+在 datax-02 执行一整行：
+sudo python3 -I -B -u /home/cnooc/collect-portal-ppt-image-inventory-20261017-r1.py --collect
+
+工具只运行4条有界只读 CRI/containerd 清单命令，读取小型回执并查看文件系统可用空间。
+不访问数据库或模型，不读取大镜像包，不导出/导入/删除镜像，不执行 prune，不修改工作负载。
+输出不含容器环境变量、启动参数、原始标签/注解；完整安全报告会交付到 download_report 路径。
+完成后把完整终端摘要发回，并带回 download_report 指向的 REPORT.json。
+失败时保留输出，不自动重跑；PARTIAL_REVIEW_REQUIRED 表示部分字段尚未取得，先审已有证据。
+
+datax-01 的当前工作负载及保留历史修订已有103个镜像引用，已另行记录为保护集合。
+这里的库存不是可删除名单：显示的镜像大小也不等于可回收空间，仍需排除当前容器、回滚、别名和共享内容。
+后续会按已经完成的 Phase A 续接 Phase B，不重新传输或重复内容导入。

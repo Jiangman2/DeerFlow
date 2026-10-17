@@ -1,0 +1,44 @@
+Portal/PPT native preload r3 — manual single-file continuation
+
+Copy only preload-portal-ppt-native-20261017-r3.py into datax-01 /home/cnooc.
+The Windows computer does not need a network route to either server.
+Reuse the six verified source seals already on datax-01 /opt. Do not copy
+the original multi-gigabyte offline bundle again or run an earlier installer.
+
+On datax-01 run exactly once:
+sudo python3 -I -B -u /home/cnooc/preload-portal-ppt-native-20261017-r3.py --distribute
+
+If prompted, enter the cnooc password for datax-02 in that server terminal.
+The script uses the previously pinned SSH host key. It checks the target
+node, original failure receipts, source plan, six image identities, cache,
+filesystem identity, and current available space before proceeding.
+
+Target staging and private sealed archives are on /opt. The script imports
+the exact six candidate/compatible-rollback images in two phases:
+A. Original full OCI files, content only, with --no-unpack.
+B. Small OCI files containing the original index/manifest/config bytes,
+   unpacking the exact content already checked in the local store.
+Each phase is requested once. Missing base snapshots, changed image tags,
+insufficient live space, missing content, or any import failure stop the run.
+It retains original evidence and any partial results for review.
+
+This is image preloading. It does not switch Kubernetes Deployments, start
+test workloads, change a database, contact a model, delete old images, or
+change production services. Native runtime qualification is still pending.
+
+The two-phase disk allowance retains max(20GiB, 20% of filesystem capacity)
+plus 2GiB headroom. It uses the verified layer data, 4KiB file rounding,
+directory/link/object allowances, a Host-tail allowance, and 64MiB metadata.
+This is a conservative estimate checked against live space, not a reservation
+or a strict upper bound for arbitrary filesystem behavior. A running monitor
+stops the owned import process if the live headroom boundary is reached.
+
+After completion, return the complete terminal summary and the small report
+named by download_report. Keep image archives on the servers. If any step
+fails or the session disconnects, preserve all files and return the output;
+do not rerun this or an older script automatically.
+
+Old-image archiving remains an authorized fallback. No old image has been
+archived or deleted by this continuation. Any later cleanup must first identify
+unused images outside the current-production and rollback sets, verify their
+archives on /opt, and establish what storage can actually be released.

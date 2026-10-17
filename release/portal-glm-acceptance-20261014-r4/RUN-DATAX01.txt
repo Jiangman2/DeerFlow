@@ -1,0 +1,31 @@
+将 portal-glm-acceptance-20261014-r4.tar.gz 上传到 datax-01:/home/cnooc。
+执行下面完整命令。仅新建模拟测试子目录，保留旧失败现场；不改业务配置。
+本次 --shared-only 不访问 GLM 或目标网站，只采样两个不同节点 Gateway。
+不重启、不导入镜像、不迁移、不发布；原共享数据目录 0770 保持不变。
+
+sudo bash -se <<'BASH'
+set -Eeuo pipefail
+umask 077
+test "$(hostname -s)" = datax-01
+export KUBECONFIG=/etc/kubernetes/admin.conf
+cd /home/cnooc
+PACKAGE=portal-glm-acceptance-20261014-r4.tar.gz
+test -f "$PACKAGE" && test ! -L "$PACKAGE"
+CONTROL=$(mktemp -d /run/portal-shared-r4-XXXXXXXX)
+install -o root -g root -m 0600 "$PACKAGE" "$CONTROL/package.tar.gz"
+test "$(sha256sum "$CONTROL/package.tar.gz" | awk '{print $1}')" = \
+  128dab4f553c3eb800d0104ebecbbebe1996c33d5d4c9174be7b286fe4bd1cd5
+tar --no-same-owner --no-same-permissions \
+  -xzf "$CONTROL/package.tar.gz" -C "$CONTROL"
+cd "$CONTROL"
+sha256sum -c PACKAGE.SHA256
+bash ./run-datax01-acceptance.sh \
+  --shared-only --shared-fixture \
+  --shared-parent /app/backend/.deer-flow/portal-acceptance-parent-uo0946dg
+BASH
+
+请下载并回传最后输出的 safe_result 与 safe_log。
+应看到 initialize、hold_ready、contend、hold、两次 write_ready、两次 write、
+两次 verify 的真实回执。shared_storage.result=PASS 及报告中前后基线不变才说明
+本次共享存储补测通过；退出 0/collection=COMPLETE 不等于验收全部通过。
+若有失败或不确定，不要反复重跑、删除现场或修改目录/挂载权限。

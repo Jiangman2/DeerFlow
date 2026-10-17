@@ -1,0 +1,87 @@
+Portal PPT native preload r1 — six exact candidates, one target node
+
+Run only after the Windows transfer step has uploaded the five local archives
+and these three files into the fresh directory:
+  /home/cnooc/portal-ppt-native-preload-20261017-r1/
+  preload_native.py, PROFILE.json, RUNBOOK.txt
+
+The five archive basenames are preserved:
+  frontend.oci.tar
+  gateway.candidate.oci.tar
+  gateway-rollback-compatible.candidate.oci.tar
+  runner.candidate.oci.tar
+  runner-rollback-compatible.candidate.oci.tar
+
+The sixth archive is already on datax-01:
+  /var/lib/portal-ppt-host-oci-bound-r1-output-bf5f67d679944a64861f8394e38f8584/candidate.oci.tar
+It is never transferred through Windows. Do not relocate or delete this file.
+
+From the existing cnooc terminal on datax-01, run ONCE:
+
+  sudo python3 -I -B -u /home/cnooc/portal-ppt-native-preload-20261017-r1/preload_native.py --distribute
+
+The final safe JSON prints directly to the terminal. Enter the existing SSH/sudo
+passwords when prompted. The tool preserves the historical ssh -tt interaction;
+binary archives travel only through scp. Do not pipe passwords into it.
+
+The exact single target is datax-02, UID
+3148d4c1-6a97-42ed-a78c-950dcea5cbec, InternalIP 192.168.111.37, pinned ECDSA
+fingerprint SHA256:VIGU1xEuM2WSdXfS2dCu0qqZjSgbl1UeIXDjZEOPWMI.
+The source rechecks its Kubernetes Node identity using the already established
+/etc/kubernetes/admin.conf. This is not another full cluster/source inventory.
+
+Each source archive is copied and SHA256-verified into a new root-private
+directory on datax-01. A root-private control directory and cnooc-owned unique
+/opt upload directory are created on datax-02; root seals every uploaded archive
+by anchored nofollow descriptors and rechecks exact hash/size/index metadata.
+All existing candidate tags AND repository@manifest aliases must be absent or
+already resolve to the exact manifest. Any conflict stops the attempt.
+
+The six archives are imported/unpacked serially into containerd k8s.io using
+the explicit /run/containerd/containerd.sock endpoint and overlayfs snapshotter.
+Only the exact candidate records receive io.cri-containerd.image=managed.
+No pinned/GC-retention label is added. No pull, push, delete, force tag overwrite,
+Kubernetes workload change, database connection, browser/model request, or
+candidate process execution occurs. Imported candidates may subsequently be
+garbage-collected under normal node policy; native qualification must recheck.
+
+Disk guards use actual filesystem/device/free-space/inode observations at each
+stage, including a full sealed archive copy, full content-store ingestion upper
+bound, twice the recorded expanded-layer upper bound, largest-archive scratch,
+2GiB fixed margin and the larger of 20GiB or 20 percent of filesystem capacity.
+Existing shared blobs/snapshots receive no space credit. Split image/snapshot
+devices fail closed in this version. Import also monitors the storage reserve.
+Old archives, caches and evidence are never removed to make space.
+
+Source/target command timeouts, output limits and a six-hour total bound apply.
+Failure stops the attempt, preserves partial files/import state and emits an
+INCOMPLETE report. Do not automatically rerun the distribution or target import.
+Send the report for review; this tool has no implicit cleanup/resume command.
+
+Paste the complete terminal output, including the final safe JSON and its
+byte count/SHA256. No additional small-report download, OCI archive or raw image
+config upload is needed. Progress and the exact final report byte count/SHA256
+go to stderr. The root-private REPORT.json and per-step evidence are retained;
+the safe final stdout report includes the necessary target result.
+
+COMPLETE_PRELOAD requires all six image rows to pass both reference checks,
+manifest/config hashes and linux/arm64 identity, CRI inspect visibility, and
+containerd content-and-unpack checks. It does not mean native runtime success.
+
+PostgreSQL metadata is read ONLY from the target node's existing fixed cache
+reference m.daocloud.io/docker.io/library/postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20.
+If it is an index, one linux/arm64/v8 manifest and its config are verified.
+Its safe known-launcher/User/PG_MAJOR projection is reported. No PG import,
+content/unpack readiness, version execution or database connectivity is claimed.
+A cache miss is NOT_COLLECTED, not proof of cluster-wide absence.
+
+Host runtime input output contains only the fixed candidate config digest,
+validated PATH/HOME/XDG_CACHE_HOME/PLAYWRIGHT_BROWSERS_PATH values and a tiny
+Codex executable selector enum. Other Env values and arbitrary command strings
+are never printed or persisted. Unsupported path/launcher input is a declared
+gap. Raw image config remains only in bounded process memory.
+
+capacity_pass and ready_for_rollout remain false. CPU/memory headroom remains
+UNDETERMINED; subsequent isolated native fixtures use normal scheduler admission,
+the fixed nodeSelector and Never preemption. This preload is not production
+rollout authorization or native browser/Codex/database qualification.
