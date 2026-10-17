@@ -59,6 +59,10 @@ class RouteTests(unittest.IsolatedAsyncioTestCase):
         modules = {"app.gateway.deps": dependencies, "app.gateway.routers.artifacts": artifacts,
                    "app.gateway.auth.config": config, "app.gateway.internal_auth": internals,
                    "app.gateway.auth_disabled": auth_disabled}
+        # Preserve real capability/ORM imports across patch.dict restoration.
+        # Removing only their module-cache entries leaves SQLAlchemy metadata
+        # registered and makes the next isolated route test redefine tables.
+        importlib.import_module("app.gateway.browser_capability")
         self.modules = patch.dict(sys.modules, modules)
         self.modules.start()
         self.addCleanup(self.modules.stop)
