@@ -371,9 +371,7 @@ async def task_tool(
     if resolved_app_config is not None:
         available_tools_kwargs["app_config"] = resolved_app_config
     tools = get_available_tools(**available_tools_kwargs)
-    datalake_enabled = parent_context.get("datalake_enabled", True)
-    if type(datalake_enabled) is not bool:
-        datalake_enabled = True
+    datalake_enabled = parent_context.get("datalake_enabled") is True
     tools = filter_tools_by_datalake_scope(tools, enabled=datalake_enabled)
     from deerflow.runtime.weknora_context import gate_weknora_tools_for_scope
 

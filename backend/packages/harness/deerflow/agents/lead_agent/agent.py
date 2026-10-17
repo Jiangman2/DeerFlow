@@ -525,7 +525,7 @@ def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
 
     cfg = _get_runtime_config(config)
     runtime_context = config.get("context")
-    datalake_enabled = runtime_context.get("datalake_enabled", True) if isinstance(runtime_context, dict) else True
+    datalake_enabled = isinstance(runtime_context, dict) and runtime_context.get("datalake_enabled") is True
     resolved_app_config = app_config
 
     # Extract user_id for user-scoped skill loading.

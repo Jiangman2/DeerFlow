@@ -16,9 +16,9 @@ from starlette.responses import JSONResponse
 from app.gateway.auth.cnooc import (
     CnoocAuthError,
     check_cnooc_token,
-    hash_cnooc_platform_token,
     issue_data_lake_token,
 )
+from app.gateway.auth.cnooc import platform_token_matches_user as _platform_token_matches_user
 from app.gateway.auth.platform_token_cookie import (
     CNOOC_PLATFORM_TOKEN_COOKIE_NAME,
     clear_cnooc_platform_token_cookie,
@@ -99,13 +99,6 @@ class DataLakeCallbackErrorResponse(BaseModel):
 
 def _challenge_hash(challenge: str) -> str:
     return hashlib.sha256(challenge.encode("utf-8")).hexdigest()
-
-
-def _platform_token_matches_user(user, token: str) -> bool:
-    stored_hash = getattr(user, "cnooc_platform_token_hash", None)
-    if not token or not stored_hash:
-        return False
-    return secrets.compare_digest(hash_cnooc_platform_token(token), stored_hash)
 
 
 def _canonical_cnooc_email(value: object) -> str | None:

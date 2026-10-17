@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -247,6 +248,14 @@ def _load_data_lake_exchange_config() -> CnoocDataLakeExchangeConfig:
         login_user_code=_require_env("CNOOC_DATALAKE_TOKEN_LOGIN_USER_CODE"),
         callback_id=os.getenv("CNOOC_DATALAKE_CALLBACK_ID", "deerflow").strip() or "deerflow",
     )
+
+
+def platform_token_matches_user(user: Any, token: str) -> bool:
+    """Use the same user-bound Data Lake session proof for UI and agent runs."""
+    stored_hash = getattr(user, "cnooc_platform_token_hash", None)
+    if not token or not isinstance(stored_hash, str) or not stored_hash:
+        return False
+    return secrets.compare_digest(hash_cnooc_platform_token(token), stored_hash)
 
 
 def hash_cnooc_platform_token(token: str) -> str:
