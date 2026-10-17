@@ -3,8 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, SystemMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, RemoveMessage, SystemMessage
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from pydantic import Field
 
 from deerflow.agents.middlewares.dynamic_context_middleware import _DYNAMIC_CONTEXT_REMINDER_KEY
@@ -30,6 +30,10 @@ class _RaisingChatModel(BaseChatModel):
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         raise RuntimeError("summary model boom")
 
+    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        response = self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        yield ChatGenerationChunk(message=AIMessageChunk(content=response.generations[0].message.content))
+
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
         return self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
 
@@ -46,6 +50,10 @@ class _StaticChatModel(BaseChatModel):
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self.text))])
+
+    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        response = self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        yield ChatGenerationChunk(message=AIMessageChunk(content=response.generations[0].message.content))
 
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
         return self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)

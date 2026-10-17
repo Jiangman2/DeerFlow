@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage, SystemMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, RemoveMessage, SystemMessage
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langgraph.constants import TAG_NOSTREAM
 
 from deerflow.agents.memory.summarization_hook import memory_flush_hook
@@ -40,6 +40,10 @@ class _StaticChatModel(BaseChatModel):
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs):
         return ChatResult(generations=[ChatGeneration(message=AIMessage(content=self.text))])
+
+    def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+        response = self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        yield ChatGenerationChunk(message=AIMessageChunk(content=response.generations[0].message.content))
 
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
         return self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
@@ -77,7 +81,7 @@ def _middleware(
     keep=("messages", 2),
 ) -> DeerFlowSummarizationMiddleware:
     model = MagicMock()
-    model.invoke.return_value = SimpleNamespace(text="compressed summary")
+    model.stream.side_effect = lambda *args, **kwargs: (AIMessageChunk(content="compressed summary") for _ in range(1))
     model.with_config.return_value = model
     return DeerFlowSummarizationMiddleware(
         model=model,
@@ -135,9 +139,9 @@ def test_summary_model_is_tagged_nostream_to_avoid_stream_pollution() -> None:
     tags_during_summary: list[list[str]] = []
 
     class _RecordingChatModel(_StaticChatModel):
-        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-            tags_during_summary.append(list(run_manager.tags) if run_manager else [])
-            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+        def stream(self, messages, config=None, **kwargs):
+            tags_during_summary.append(list((config or {}).get("tags", [])))
+            yield from super().stream(messages, config=config, **kwargs)
 
     model = _RecordingChatModel(text="compressed summary")
     middleware = DeerFlowSummarizationMiddleware(
@@ -178,11 +182,16 @@ def test_summarization_does_not_mutate_shared_model_across_concurrent_runs() -> 
     release = asyncio.Event()
 
     class _BlockingChatModel(_StaticChatModel):
-        async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        def _stream(self, messages, stop=None, run_manager=None, **kwargs):
+            response = self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+            yield ChatGenerationChunk(message=AIMessageChunk(content=response.generations[0].message.content))
+
+        async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
             # Hold the summary call open so a concurrent run can inspect self.model.
             started.set()
             await release.wait()
-            return self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+            response = self._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+            yield ChatGenerationChunk(message=AIMessageChunk(content=response.generations[0].message.content))
 
     model = _BlockingChatModel(text="compressed summary")
     middleware = DeerFlowSummarizationMiddleware(

@@ -26,6 +26,63 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def stream_memory_response(model: Any, prompt: Any, *, config: dict) -> Any:
+    """Consume synchronous streaming without depending on host deerflow modules.
+
+    Memory's worker must not create an event loop or touch the host's cached
+    async HTTP client. Preserve the original shared model and tracing callbacks.
+    """
+    from contextlib import closing
+
+    from langchain_core.language_models import BaseChatModel
+    from langchain_core.messages import AIMessageChunk
+    from langchain_core.runnables import RunnableBinding
+
+    def prepare(value):
+        if isinstance(value, RunnableBinding):
+            kwargs = dict(value.kwargs)
+            if isinstance(kwargs.get("extra_body"), dict) and "stream" in kwargs["extra_body"]:
+                kwargs["extra_body"] = {**kwargs["extra_body"], "stream": True}
+            return value.model_copy(update={"bound": prepare(value.bound), "kwargs": kwargs})
+        if isinstance(value, BaseChatModel):
+            if type(value)._stream is BaseChatModel._stream:
+                raise TypeError("Memory model must implement synchronous streaming")
+            updates = {"disable_streaming": False}
+            if "streaming" in type(value).model_fields:
+                updates["streaming"] = True
+            if isinstance(getattr(value, "extra_body", None), dict) and "stream" in value.extra_body:
+                updates["extra_body"] = {**value.extra_body, "stream": True}
+            return value.model_copy(update=updates)
+        return value
+
+    model = prepare(model)
+    # LangGraph's documented tag string; do not add a host/LangGraph dependency
+    # to standalone DeerMem. This suppresses public tokens, not HTTP streaming.
+    stream_config = dict(config)
+    stream_config["tags"] = list(dict.fromkeys([*(stream_config.get("tags") or []), "nostream"]))
+    response = None
+    with closing(model.stream(prompt, config=stream_config, stream=True)) as chunks:
+        for chunk in chunks:
+            if not isinstance(chunk, AIMessageChunk):
+                raise TypeError("Memory model must return AIMessageChunk")
+            response = chunk if response is None else response + chunk
+    content = response.content if response is not None else ""
+    text = content if isinstance(content, str) else "".join(item if isinstance(item, str) else str(item.get("text", "")) for item in content if isinstance(item, str) or isinstance(item, dict) and item.get("type") in {"text", "output_text"})
+    if not text.strip():
+        raise ValueError("Memory model returned an empty stream")
+    reason = response.response_metadata.get("finish_reason")
+    status = response.response_metadata.get("status")
+    while isinstance(model, RunnableBinding):
+        model = model.bound
+    if reason is not None and reason != "stop":
+        raise ValueError("Memory model stream did not finish normally")
+    if status is not None and status != "completed":
+        raise ValueError("Memory model response is incomplete")
+    if isinstance(model, BaseChatModel) and model._llm_type == "openai-chat" and reason != "stop" and status != "completed":
+        raise ValueError("Memory model stream is missing its terminal marker")
+    return response
+
+
 def build_llm(model_config: DeerMemModelConfig | None) -> Any:
     """Build a langchain ChatModel from DeerMem's model config (DI).
 

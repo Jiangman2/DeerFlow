@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.messages import AIMessageChunk
 
 from deerflow.skills.security_scanner import _extract_json_object, scan_skill_content
 
@@ -10,10 +11,10 @@ def _make_env(monkeypatch, response_content):
     fake_response = SimpleNamespace(content=response_content)
 
     class FakeModel:
-        async def ainvoke(self, *args, **kwargs):
+        async def astream(self, *args, **kwargs):
             self.args = args
             self.kwargs = kwargs
-            return fake_response
+            yield AIMessageChunk(content=fake_response.content)
 
     model = FakeModel()
 
@@ -77,7 +78,7 @@ async def test_scan_skill_content_passes_run_name_to_model(monkeypatch):
     model = _make_env(monkeypatch, '{"decision":"allow","reason":"ok"}')
     result = await scan_skill_content(SKILL_CONTENT, executable=False)
     assert result.decision == "allow"
-    assert model.kwargs["config"] == {"run_name": "security_agent"}
+    assert model.kwargs["config"] == {"run_name": "security_agent", "tags": ["nostream"]}
 
 
 @pytest.mark.anyio
@@ -130,12 +131,12 @@ async def test_scan_skill_content_retries_transient_model_failure(monkeypatch):
     create_kwargs = []
 
     class FakeModel:
-        async def ainvoke(self, *args, **kwargs):
+        async def astream(self, *args, **kwargs):
             nonlocal attempts
             attempts += 1
             if attempts == 1:
                 raise RuntimeError("temporary provider failure")
-            return SimpleNamespace(content='{"decision":"allow","reason":"ok"}')
+            yield AIMessageChunk(content='{"decision":"allow","reason":"ok"}')
 
     monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
     monkeypatch.setattr(
@@ -158,12 +159,13 @@ async def test_scan_skill_content_retries_unparseable_model_response(monkeypatch
     attempts = 0
 
     class FakeModel:
-        async def ainvoke(self, *args, **kwargs):
+        async def astream(self, *args, **kwargs):
             nonlocal attempts
             attempts += 1
             if attempts == 1:
-                return SimpleNamespace(content="temporarily truncated")
-            return SimpleNamespace(content='{"decision":"allow","reason":"ok"}')
+                yield AIMessageChunk(content="temporarily truncated")
+                return
+            yield AIMessageChunk(content='{"decision":"allow","reason":"ok"}')
 
     monkeypatch.setattr("deerflow.skills.security_scanner.get_app_config", lambda: config)
     monkeypatch.setattr("deerflow.skills.security_scanner.create_chat_model", lambda **kwargs: FakeModel())

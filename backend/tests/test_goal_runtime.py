@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -92,7 +92,7 @@ def test_make_goal_continuation_message_is_hidden_from_ui():
 
 def test_evaluate_goal_completion_uses_non_thinking_model(monkeypatch):
     fake_model = MagicMock()
-    fake_model.ainvoke = AsyncMock(return_value=SimpleNamespace(content='{"satisfied": true, "reason": "Done", "evidence_summary": "Done"}'))
+    fake_model.astream = _stream_mock(return_value=SimpleNamespace(content='{"satisfied": true, "reason": "Done", "evidence_summary": "Done"}'))
     captured = {}
 
     def fake_create_chat_model(**kwargs):
@@ -124,13 +124,13 @@ def test_evaluate_goal_completion_uses_non_thinking_model(monkeypatch):
     # own model-level tracing callbacks, same as the other standalone,
     # non-graph callers (oneshot_llm.run_oneshot_llm, MemoryUpdater).
     assert captured["attach_tracing"] is True
-    fake_model.ainvoke.assert_awaited_once()
+    fake_model.astream.assert_called_once()
     # No thread_id/user_id supplied here, and Langfuse is not enabled in the
     # ambient test env, so inject_langfuse_metadata() is a no-op and the
     # config is unchanged from the plain run_name — see
     # test_evaluate_goal_completion_injects_langfuse_metadata below for the
     # Langfuse-enabled case.
-    assert fake_model.ainvoke.await_args.kwargs["config"] == {"run_name": "goal_evaluator"}
+    assert fake_model.astream.call_args.kwargs["config"] == {"run_name": "goal_evaluator", "tags": ["nostream"]}
 
 
 def test_evaluate_goal_completion_injects_langfuse_metadata(monkeypatch):
@@ -150,7 +150,7 @@ def test_evaluate_goal_completion_injects_langfuse_metadata(monkeypatch):
     reset_tracing_config()
 
     fake_model = MagicMock()
-    fake_model.ainvoke = AsyncMock(return_value=SimpleNamespace(content='{"satisfied": true, "reason": "Done", "evidence_summary": "Done"}'))
+    fake_model.astream = _stream_mock(return_value=SimpleNamespace(content='{"satisfied": true, "reason": "Done", "evidence_summary": "Done"}'))
     state = goal.build_goal_state("Finish")
 
     try:
@@ -173,8 +173,8 @@ def test_evaluate_goal_completion_injects_langfuse_metadata(monkeypatch):
         reset_tracing_config()
 
     assert result["satisfied"] is True
-    fake_model.ainvoke.assert_awaited_once()
-    config = fake_model.ainvoke.await_args.kwargs["config"]
+    fake_model.astream.assert_called_once()
+    config = fake_model.astream.call_args.kwargs["config"]
     assert config["run_name"] == "goal_evaluator"
     metadata = config.get("metadata") or {}
     assert metadata.get("langfuse_session_id") == "thread-xyz", "goal evaluator trace must group under the thread's session"
@@ -187,7 +187,7 @@ def test_evaluate_goal_completion_injects_langfuse_metadata(monkeypatch):
 
 def test_evaluate_goal_completion_uses_injected_model(monkeypatch):
     fake_model = MagicMock()
-    fake_model.ainvoke = AsyncMock(return_value=SimpleNamespace(content='{"satisfied": true, "reason": "Done", "evidence_summary": "Done"}'))
+    fake_model.astream = _stream_mock(return_value=SimpleNamespace(content='{"satisfied": true, "reason": "Done", "evidence_summary": "Done"}'))
     create_chat_model = MagicMock()
     monkeypatch.setattr(goal, "create_chat_model", create_chat_model)
     state = goal.build_goal_state("Finish")
@@ -206,12 +206,12 @@ def test_evaluate_goal_completion_uses_injected_model(monkeypatch):
 
     assert result["satisfied"] is True
     create_chat_model.assert_not_called()
-    fake_model.ainvoke.assert_awaited_once()
+    fake_model.astream.assert_called_once()
 
 
 def test_evaluate_goal_completion_fails_closed_without_assistant_evidence(monkeypatch):
     fake_model = MagicMock()
-    fake_model.ainvoke = AsyncMock()
+    fake_model.astream = _stream_mock()
     monkeypatch.setattr(goal, "create_chat_model", lambda **_kwargs: fake_model)
     state = goal.build_goal_state("Finish")
 
@@ -219,7 +219,7 @@ def test_evaluate_goal_completion_fails_closed_without_assistant_evidence(monkey
 
     assert result["satisfied"] is False
     assert result["blocker"] == "missing_evidence"
-    fake_model.ainvoke.assert_not_called()
+    fake_model.astream.assert_not_called()
 
 
 def test_attach_goal_evaluation_records_blocker_progress_and_stand_down_reason():
@@ -298,3 +298,15 @@ def test_parse_goal_command_set_trims_and_preserves_objective():
     assert goal.parse_goal_command("  finish the work  ") == goal.GoalCommand("set", "finish the work")
     # A multi-word objective that merely starts with an alias is a set, not a clear.
     assert goal.parse_goal_command("clear the build cache") == goal.GoalCommand("set", "clear the build cache")
+
+
+def _stream_mock(return_value=None, side_effect=None):
+    from langchain_core.messages import AIMessageChunk
+
+    async def chunks(*args, **kwargs):
+        assert kwargs["stream"] is True
+        if side_effect is not None:
+            raise side_effect
+        yield AIMessageChunk(content=return_value.content)
+
+    return MagicMock(side_effect=chunks)

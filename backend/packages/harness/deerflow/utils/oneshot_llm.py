@@ -24,6 +24,7 @@ from deerflow.models import create_chat_model
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.tracing import inject_langfuse_metadata
 from deerflow.utils.llm_text import extract_response_text
+from deerflow.utils.streaming_llm import astream_response
 
 
 def _resolve_environment() -> str | None:
@@ -62,7 +63,8 @@ async def run_oneshot_llm(
         model_name=model_name,
         environment=_resolve_environment(),
     )
-    response = await model.ainvoke(
+    response = await astream_response(
+        model,
         [
             SystemMessage(content=system_instruction),
             HumanMessage(content=user_content),

@@ -28,6 +28,7 @@ from deerflow.agents.goal_state import GoalBlocker, GoalEvaluation, GoalState
 from deerflow.models import create_chat_model
 from deerflow.tracing import inject_langfuse_metadata
 from deerflow.utils.messages import message_to_text
+from deerflow.utils.streaming_llm import astream_response
 from deerflow.utils.time import now_iso
 
 logger = logging.getLogger(__name__)
@@ -320,7 +321,8 @@ async def evaluate_goal_completion(
         environment=_resolve_environment(),
         deerflow_trace_id=deerflow_trace_id,
     )
-    response = await model.ainvoke(
+    response = await astream_response(
+        model,
         [SystemMessage(content=system_instruction), HumanMessage(content=user_content)],
         config=invoke_config,
     )

@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from ..config import DeerMemConfig
+from .llm import stream_memory_response
 from .prompt import (
     CONSOLIDATION_PROMPT,
     MEMORY_UPDATE_PROMPT,
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # Thread pool for offloading sync memory updates when called from an async
 # context.  Unlike the previous asyncio.run() approach, this runs *sync*
-# model.invoke() calls — no event loop is created, so the langchain async
+# model.stream() calls — no event loop is created, so the langchain async
 # httpx client pool (globally cached via @lru_cache) is never touched and
 # cross-loop connection reuse is impossible.
 _SYNC_MEMORY_UPDATER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
@@ -900,7 +901,7 @@ class MemoryUpdater:
     ) -> bool:
         """Update memory asynchronously by delegating to the sync path.
 
-        Uses ``asyncio.to_thread`` to run the *sync* ``model.invoke()`` path
+        Uses ``asyncio.to_thread`` to run the *sync* ``model.stream()`` path
         in a worker thread so no second event loop is created and the
         langchain async httpx client pool (shared with the lead agent) is
         never touched.  This eliminates the cross-loop connection-reuse bug
@@ -970,7 +971,7 @@ class MemoryUpdater:
         user_id: str | None = None,
         trace_id: str | None = None,
     ) -> bool:
-        """Pure-sync memory update using ``model.invoke()``.
+        """Pure-sync memory update using ``model.stream()``.
 
         Uses the *sync* LLM call path so no event loop is created.  This
         guarantees that the langchain provider's globally cached async
@@ -1007,7 +1008,7 @@ class MemoryUpdater:
                     model_name=model_name,
                 )
             logger.info("Invoking memory-update LLM (thread=%s trace_id=%s)", thread_id, trace_id)
-            response = model.invoke(prompt, config=invoke_config)
+            response = stream_memory_response(model, prompt, config=invoke_config)
             return self._finalize_update(
                 current_memory=current_memory,
                 response_content=response.content,
@@ -1034,7 +1035,7 @@ class MemoryUpdater:
     ) -> bool:
         """Synchronously update memory using the sync LLM path.
 
-        Uses ``model.invoke()`` (sync HTTP) which operates on a completely
+        Uses ``model.stream()`` (sync HTTP) which operates on a completely
         separate connection pool from the async ``AsyncClient`` shared by
         the lead agent.  This eliminates the cross-loop connection-reuse
         bug described in issue #2615.

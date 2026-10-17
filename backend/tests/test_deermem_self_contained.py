@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
 from deerflow.agents.memory.backends.deermem.deer_mem import DeerMem
 from deerflow.agents.memory.backends.deermem.deermem.core.message_processing import (
@@ -46,8 +46,9 @@ class _FakeLLM:
     def __init__(self, payload: str | None = None) -> None:
         self._payload = payload or '{"user":{},"history":{},"newFacts":[],"factsToRemove":[]}'
 
-    def invoke(self, prompt, config=None):
-        return type("R", (), {"content": self._payload})()
+    def stream(self, prompt, config=None, **kwargs):
+        assert kwargs["stream"] is True
+        yield AIMessageChunk(content=self._payload)
 
 
 def _deermem_with_fake_llm(backend_config=None, payload=None) -> DeerMem:

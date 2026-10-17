@@ -20,6 +20,7 @@ from deerflow.agents.middlewares.dynamic_context_middleware import is_dynamic_co
 from deerflow.config.app_config import get_app_config
 from deerflow.models import create_chat_model
 from deerflow.run_timing import log_run_timing
+from deerflow.utils.streaming_llm import astream_response, stream_response
 
 logger = logging.getLogger(__name__)
 _SUMMARY_TRIGGER_MESSAGE_NAME = "summary"
@@ -125,7 +126,8 @@ class DeerFlowSummarizationMiddleware(SummarizationMiddleware):
         started_at = time.monotonic()
         log_run_timing(logger, "context_summarize_start")
         try:
-            response = self._summary_model.invoke(
+            response = stream_response(
+                self._summary_model,
                 prompt,
                 config={"metadata": {"lc_source": "summarization"}},
             )
@@ -157,7 +159,8 @@ class DeerFlowSummarizationMiddleware(SummarizationMiddleware):
         started_at = time.monotonic()
         log_run_timing(logger, "context_summarize_start")
         try:
-            response = await self._summary_model.ainvoke(
+            response = await astream_response(
+                self._summary_model,
                 prompt,
                 config={"metadata": {"lc_source": "summarization"}},
             )

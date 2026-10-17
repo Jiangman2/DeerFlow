@@ -1,6 +1,6 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import HTTPException
@@ -44,7 +44,7 @@ def test_polish_input_uses_config_model_and_preserves_response(monkeypatch):
         thread_id="thread-1",
     )
     fake_model = MagicMock()
-    fake_model.ainvoke = AsyncMock(return_value=MagicMock(content="/web-dev 请设计并实现一个视觉精致的页面。"))
+    fake_model.astream = _stream_mock(return_value=MagicMock(content="/web-dev 请设计并实现一个视觉精致的页面。"))
 
     create_chat_model = MagicMock(return_value=fake_model)
     monkeypatch.setattr(oneshot_llm, "create_chat_model", create_chat_model)
@@ -65,14 +65,14 @@ def test_polish_input_uses_config_model_and_preserves_response(monkeypatch):
         thinking_enabled=False,
         app_config=config,
     )
-    fake_model.ainvoke.assert_awaited_once()
-    assert fake_model.ainvoke.await_args.kwargs["config"]["run_name"] == "input_polish"
+    fake_model.astream.assert_called_once()
+    assert fake_model.astream.call_args.kwargs["config"]["run_name"] == "input_polish"
 
 
 def test_polish_input_uses_default_model_when_config_model_is_missing(monkeypatch):
     request = input_polish.InputPolishRequest(text="make this clearer")
     fake_model = MagicMock()
-    fake_model.ainvoke = AsyncMock(return_value=MagicMock(content="Make this clearer."))
+    fake_model.astream = _stream_mock(return_value=MagicMock(content="Make this clearer."))
 
     create_chat_model = MagicMock(return_value=fake_model)
     monkeypatch.setattr(oneshot_llm, "create_chat_model", create_chat_model)
@@ -137,7 +137,7 @@ def test_polish_input_rejects_empty_or_too_long_input(monkeypatch):
 def test_polish_input_returns_503_on_model_error(monkeypatch):
     request = input_polish.InputPolishRequest(text="hello")
     fake_model = MagicMock()
-    fake_model.ainvoke = AsyncMock(side_effect=RuntimeError("boom"))
+    fake_model.astream = _stream_mock(side_effect=RuntimeError("boom"))
     monkeypatch.setattr(oneshot_llm, "create_chat_model", MagicMock(return_value=fake_model))
 
     with pytest.raises(HTTPException) as exc_info:
@@ -177,7 +177,7 @@ def test_polish_input_validates_and_sends_normalized_text(monkeypatch):
     # (strip fits), and the model receives the stripped text, not the padding.
     raw_draft = "   summarize report   "  # 22 chars raw, 16 chars stripped
     fake_model = MagicMock()
-    fake_model.ainvoke = AsyncMock(return_value=MagicMock(content="Please summarize the report clearly."))
+    fake_model.astream = _stream_mock(return_value=MagicMock(content="Please summarize the report clearly."))
     monkeypatch.setattr(oneshot_llm, "create_chat_model", MagicMock(return_value=fake_model))
 
     result = asyncio.run(
@@ -189,7 +189,19 @@ def test_polish_input_validates_and_sends_normalized_text(monkeypatch):
     )
 
     assert result.rewritten_text == "Please summarize the report clearly."
-    messages = fake_model.ainvoke.await_args.args[0]
+    messages = fake_model.astream.call_args.args[0]
     human_content = messages[-1].content
     assert "summarize report" in human_content
     assert "   summarize report   " not in human_content
+
+
+def _stream_mock(return_value=None, side_effect=None):
+    from langchain_core.messages import AIMessageChunk
+
+    async def chunks(*args, **kwargs):
+        assert kwargs["stream"] is True
+        if side_effect is not None:
+            raise side_effect
+        yield AIMessageChunk(content=return_value.content)
+
+    return MagicMock(side_effect=chunks)

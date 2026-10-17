@@ -14,6 +14,7 @@ from deerflow.config.app_config import AppConfig
 from deerflow.models import create_chat_model
 from deerflow.skills.types import SKILL_MD_FILE
 from deerflow.utils.llm_text import extract_response_text
+from deerflow.utils.streaming_llm import astream_response
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +134,8 @@ async def scan_skill_content(
                 model_kwargs["name"] = model_name
             model = create_chat_model(**model_kwargs)
             async with asyncio.timeout(_MODEL_CALL_TIMEOUT_SECONDS):
-                response = await model.ainvoke(
+                response = await astream_response(
+                    model,
                     messages,
                     config={"run_name": "security_agent"},
                 )
