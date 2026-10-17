@@ -6,14 +6,18 @@ with 403. Reads through ``get_config`` so edits to ``config.yaml`` take effect
 on the next request without a restart (config hot-reload boundary).
 """
 
+import os
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.gateway.browser_capability import browser_capability
 from app.gateway.deps import get_config
+from app.gateway.routers.ppt_confirmations import router as ppt_confirmations_router
 from deerflow.config.app_config import AppConfig
 
 router = APIRouter(prefix="/api", tags=["features"])
+router.include_router(ppt_confirmations_router)
 
 
 class AgentsApiFeature(BaseModel):
@@ -28,11 +32,19 @@ class BrowserControlFeature(BaseModel):
     enabled: bool = Field(..., description="Whether the live browser routes and UI are available")
 
 
+class PptConfirmationFeature(BaseModel):
+    """Availability, never a global automatic-consent setting."""
+
+    enabled: bool
+    protocol: str = "ppt-confirmation-v1"
+
+
 class FeaturesResponse(BaseModel):
     """Frontend-facing feature availability flags."""
 
     agents_api: AgentsApiFeature
     browser_control: BrowserControlFeature
+    ppt_confirmation: PptConfirmationFeature
 
 
 @router.get(
@@ -47,4 +59,5 @@ async def list_features(config: AppConfig = Depends(get_config)) -> FeaturesResp
     return FeaturesResponse(
         agents_api=AgentsApiFeature(enabled=config.agents_api.enabled),
         browser_control=BrowserControlFeature(enabled=browser.available),
+        ppt_confirmation=PptConfirmationFeature(enabled=os.environ.get("PPT_CONFIRMATION_TRANSPORT_ENABLED") == "true"),
     )

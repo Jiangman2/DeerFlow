@@ -420,6 +420,7 @@ export default function AgentChatPage() {
                       isWelcomeMode && "cnooc-welcome-composer",
                     )}
                     isWelcomeMode={isWelcomeMode}
+                    isNewThread={isNewThread}
                     threadId={threadId}
                     autoFocus={isWelcomeMode}
                     status={

@@ -1,6 +1,22 @@
 import type { LucideIcon } from "lucide-react";
 
 export interface Translations {
+  employeeDiscovery: {
+    hot: string;
+    hotOnly: string;
+    showAll: string;
+    markHot: string;
+    unmarkHot: string;
+    emptyTitle: string;
+    emptyHint: string;
+    creator: string;
+    creatorUnknown: string;
+    loadError: string;
+    saveError: string;
+    conflict: string;
+    saved: string;
+    retry: string;
+  };
   portalTools: {
     title: string;
     userGuide: string;

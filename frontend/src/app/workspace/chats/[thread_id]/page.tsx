@@ -113,11 +113,20 @@ export default function ChatPage() {
     (mode: AgentMode) => {
       setSettings("context", {
         ...settings.context,
-        mode: resolveAgentMode(mode, supportsThinking),
+        mode: resolveAgentMode(
+          mode,
+          supportsThinking,
+          selectedModel?.thinking_always_on,
+        ),
         reasoning_effort: reasoningEffortForMode(mode),
       });
     },
-    [setSettings, settings.context, supportsThinking],
+    [
+      setSettings,
+      settings.context,
+      supportsThinking,
+      selectedModel?.thinking_always_on,
+    ],
   );
   const [isMounted, setIsMounted] = useState(false);
   const createdThreadIdRef = useRef<string | null>(null);
@@ -362,6 +371,7 @@ export default function ChatPage() {
                       disabled={isAdminReview}
                       mode={settings.context.mode}
                       supportsThinking={supportsThinking}
+                      thinkingAlwaysOn={selectedModel?.thinking_always_on}
                       variant="mobile-header"
                       onSelect={handleModeSelect}
                     />
@@ -513,6 +523,7 @@ export default function ChatPage() {
                   )}
                   {isMounted ? (
                     <InputBox
+                      isNewThread={isNewThread}
                       className={cn(
                         "bg-background/5 w-full",
                         isWelcomeMode && "cnooc-welcome-composer",

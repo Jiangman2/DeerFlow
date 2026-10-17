@@ -636,6 +636,27 @@ The native App integration and release checklist live in
 
 `next.config.js` disables `poweredByHeader` at the application source. Preserve this after the Nextra wrapper; `tests/unit/config/http-identification.test.ts` loads the actual Next configuration and verifies both identification suppression and the API fallback rewrite ordering. Nginx suppresses upstream framework headers separately, so frontend rebuild/deployment remains required.
 
+### Opt-in slim build and release qualification
+
+`Dockerfile.slim` is a separate build path; it does not replace the legacy
+Compose Dockerfile or its `pnpm start` command override. It builds standalone
+output on a digest-pinned clean Node base and runs `node server.js` from
+`/app/frontend`. Never base a new slim release on the previous application image.
+Only standalone runtime dependencies, static assets and public assets belong in
+the final stage; retain type checking and `scripts/verify-standalone.mjs`.
+The demo artifact route must remain statically scoped to `public/demo/threads`:
+resolving request paths against `process.cwd()` makes Next trace the whole source
+tree. Preserve the demo mapping and reject path/symlink escapes.
+
+`python scripts/frontend_slim.py` (repository root) snapshots frontend inputs,
+excludes credentials/cache/output, checks image layer/size budgets, and runs
+isolated HTTP checks. It never deploys or pushes. `scripts/build_pool.py` creates
+separate persistent Docker-container builder lanes with CPU/memory budgets and
+per-lane locks. Do not bypass the frozen enterprise systemd BuildKit lock or
+claim Docker-lane qualification covers those native cgroup-v1 controls.
+See `release/frontend-slim-20261016/RUNBOOK.txt`; ARM64 and production integration
+acceptance remain separate from a local AMD64 pass.
+
 Backend API URLs are optional; an nginx proxy is used by default:
 
 ```
@@ -695,3 +716,33 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
+
+## 2026-10-13: compact office menu and curated discovery
+
+Welcome actions remove Surprise and Create. Proofreading and Translation are
+direct sibling actions, PPT Assistant belongs only in the PPT Generation menu
+(preserving all four editable Skill prompts), and `PortalToolsMenu` holds only
+the four remaining tools. Keep the seven exact
+destinations in `core/portal-links.ts`, preserve URL fragments, and use external
+anchors with noopener/noreferrer. Normalize new artwork's opaque bounds to the
+existing PPT icon, while reusing the desktop/mobile action canvas sizes. The
+two-column menu must remain viewport-bounded and compact without shrinking touch
+targets. The user-guide link is visible beside header actions on desktop and in
+the existing mobile header, not a second navigation/state implementation.
+
+Square discovery defaults to admin-curated hot flags. An explicit release-only
+snapshot marks existing public employees hot once; newly published employees also
+default hot. Explicit admin removal survives republication by the same publisher.
+Publish/unpublish success refreshes both the team catalogue and employee metadata
+before reporting completion so the current page never needs a manual refresh.
+Show all clears query/category/tag filters. Personal employees remain unfiltered by
+hot status. Ordinary `tags` cannot grant a hot badge. Query metadata per signed-in
+user, disable management on errors or missing identity tokens, invalidate after writes/conflicts, and keep
+backend admin authorization authoritative. Creator names come only from metadata.
+Preserve the existing personal editor and publishing permissions. Fixed-thinking
+models hide Flash and normalize stale Flash preferences to Thinking; other models
+retain all existing modes. UI contract tests do not prove production provider,
+SSO destination or network accessibility.
+The portal E2E suite verifies GLM selection and submitted thinking/model context
+at desktop and mobile widths using mock APIs only. Real GLM is enterprise-only;
+do not make local UI tests call its endpoint or embed credentials in fixtures.

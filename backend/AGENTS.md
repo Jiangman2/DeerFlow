@@ -2063,3 +2063,84 @@ No database upgrade, downgrade, table deletion, push or deployment is performed
 by source candidate preparation. This candidate supersedes catalogue-only tree
 345ad067e6df94dbf4b3e1f8d7c5e79d71509e5b, which removed too much homepage code.
 Previous broader-tree test results are historical, not acceptance of this tree.
+
+## 2026-10-13: portal/GLM candidate boundaries
+
+Hot-employee flags live only in the operator-configured shared JSON store
+`DEERFLOW_EMPLOYEE_FEATURED_PATH`; this feature adds no SQL tables or revisions.
+Do not reuse the channel configuration. Explicit release initialization freezes
+all currently public identities as hot, exactly once. New public employees
+default hot, while private drafts do not. Curation keys use source/name/publisher
+so the same publisher's updates and republication preserve admin removal.
+Publication-specific tokens separately reject stale browser edits. Gateway
+GET/startup must never initialize or recreate the file. Mutations require admin
+authorization, identity plus version CAS, bounded cross-process locks, fresh
+reads and fsynced atomic replacement. Each mutation and its bounded change record
+are one JSON transaction; the latest 256 changes are retained, not an unlimited
+audit log. Fail closed on missing/corrupt/unsafe storage and lock timeout. Linux
+flock/rename must be verified on the actual shared filesystem across nodes before
+release; Windows locks only qualify local development. Resolve creator display
+names in batches from trusted user records, never email or guessed identities.
+Operator maintenance is available only through `employee_directory_maintenance`.
+Never expose restore through the public API. Verify backup content against the
+explicit hash, compare the whole-document revision under lock, save a private
+exclusive preimage, and restore as a new transaction with increasing entry
+versions. A raw file copy can reauthorize stale admin edits and is not rollback.
+An unrelated PPT migration still needs its own qualification in every DB client
+image. Never downgrade production as a code rollback.
+
+`EnterpriseGLMChat` implements only the supplied GLM-5.3-Flash Chat Completions
+contract: fixed thinking, omitted/high/max effort, one base64 image before text,
+reasoning replay and bounded async wall time. Keep `thinking_always_on` and
+`supports_vision` out of provider payloads and credentials out of model metadata.
+The server Secret/config addition and real provider acceptance remain release
+gates; no default model, OCR service or isolated PPT provider is changed here.
+Reject Responses protocol overrides and immediately close the upstream iterator
+when GLM streaming is closed/cancelled. SDK-wire tests must stay offline. The
+explicit `enterprise_glm_probe --run` requires enterprise-network execution and a
+server-side environment key; at most four synthetic calls, no business tools,
+automatic retry, raw model output or credentials in receipts. Keep TLS enabled.
+
+Browser `private_origins` are operator-owned exact scheme/host/port plus audited
+private address ranges. Never populate them from a model or browser request,
+guess production ranges, allow metadata/loopback targets, or disable TLS checks.
+Application DNS checking does not prevent Chromium DNS rebinding or prove safe
+redirect/worker egress; independently validate deployment network controls and
+the actual failing URL before enabling a private exception. An empty diagnostic
+result is not proof of DNS, proxy, certificate or authorization health.
+
+Server acceptance packaging is allowlist-only (`deploy/enterprise/package-acceptance.py`).
+No keys, private configs or production source snapshots belong in that archive.
+Use hidden terminal input and stdin, not argv, for optional live GLM credentials.
+Only a new isolated synthetic directory may be mutated by the shared-volume probe;
+never initialize the real featured store or change existing directory permissions.
+Report incomplete checks and deferred candidate/PPT acceptance explicitly.
+Linux channel regression must exercise actual inter-process flock and timeout,
+permission failure before publication, and CAS conflicts. Do not mock away flock
+to manufacture a Windows pass. After a committed config save, local restart failure
+is 503 and must not roll back another writer's shared configuration.
+Known active artifact suffixes must remain attachment-only even if the Linux MIME
+database is missing or misclassifies them; keep both ordinary and .skill paths covered.
+
+The r3 server probe permits static directory subPath only with equal shared-volume
+and subPath identities, followed by successful read-only parent checks on both
+nodes before any fixture creation. Never infer directory safety from the name or
+repair permissions automatically. Keep single-file/dynamic/readonly/local-volume
+rejection and real cross-process lock/CAS tests. GLM diagnostic `length` must fail
+acceptance even if an expected marker appears; separately record incomplete and
+unattempted stages. Its 1000-token request setting follows the supplied streaming
+example, not a guaranteed bound on hidden reasoning; retain total deadlines,
+byte/frame caps, no retries and no raw content in exported receipts.
+
+The r4 shared-filesystem diagnostic synchronizes only through bounded kubectl
+stdin/stdout control frames. Do not use filesystem existence markers as a
+cross-node barrier: their visibility can be delayed independently of the data
+transaction under test. A holder acknowledges after acquiring real flock; both
+writers acknowledge before either receives an explicit nonce/action/index-bound
+GO. EOF or wrong control identity must fail without that write. Remote gated
+workers have a 45-second hard lifetime; controller transport waits are bounded.
+Keep every completed/failing phase receipt in both logs and the result, including
+partial/uncertain outcomes. Never weaken actual shared JSON freshness, lock/CAS,
+lost-update or atomic-failure assertions, flush caches or retry to manufacture a
+PASS. Shared-only mode forbids GLM and reports its two-node source scope honestly;
+it is not an all-replica production audit or rollout authorization.

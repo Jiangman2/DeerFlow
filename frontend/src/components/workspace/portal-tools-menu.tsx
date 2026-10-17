@@ -1,6 +1,6 @@
 "use client";
 
-import { Grid2X2Icon } from "lucide-react";
+import { ExternalLinkIcon, Grid2X2Icon } from "lucide-react";
 import Image from "next/image";
 
 import { Suggestion } from "@/components/ai-elements/suggestion";
@@ -16,7 +16,15 @@ import {
 import { useI18n } from "@/core/i18n/hooks";
 import { PORTAL_MORE_TOOLS, type PortalTool } from "@/core/portal-links";
 
-function PortalArtwork({ src, scale }: { src: string; scale: number }) {
+function PortalArtwork({
+  src,
+  scale,
+  external = false,
+}: {
+  src: string;
+  scale: number;
+  external?: boolean;
+}) {
   return (
     <span
       className="cnooc-action-artwork cnooc-portal-artwork"
@@ -30,7 +38,18 @@ function PortalArtwork({ src, scale }: { src: string; scale: number }) {
         className="size-full object-contain"
         style={{ transform: `scale(${scale})` }}
       />
+      {external && <ExternalNavigationMarker />}
     </span>
+  );
+}
+
+function ExternalNavigationMarker() {
+  return (
+    <ExternalLinkIcon
+      aria-hidden="true"
+      className="cnooc-external-marker size-3"
+      data-testid="external-navigation-marker"
+    />
   );
 }
 
@@ -48,9 +67,10 @@ export function PortalQuickAction({ tool }: { tool: PortalTool }) {
         href={tool.href}
         target="_blank"
         rel="noopener noreferrer"
+        title={t.common.openInNewWindow}
         data-testid={`portal-tool-${tool.id}`}
       >
-        <PortalArtwork src={tool.artwork} scale={tool.artworkScale} />
+        <PortalArtwork src={tool.artwork} scale={tool.artworkScale} external />
         <span>{t.portalTools[tool.id]}</span>
         <span className="sr-only">{t.common.openInNewWindow}</span>
       </a>
@@ -69,10 +89,11 @@ export function PortalToolMenuItem({ tool }: { tool: PortalTool }) {
         href={tool.href}
         target="_blank"
         rel="noopener noreferrer"
+        title={t.common.openInNewWindow}
         data-testid={`portal-tool-${tool.id}`}
       >
-        <PortalArtwork src={tool.artwork} scale={tool.artworkScale} />
-        <span className="min-w-0 text-xs leading-4 whitespace-normal">
+        <PortalArtwork src={tool.artwork} scale={tool.artworkScale} external />
+        <span className="min-w-0 text-xs leading-4 text-balance whitespace-normal">
           {t.portalTools[tool.id]}
         </span>
         <span className="sr-only">{t.common.openInNewWindow}</span>

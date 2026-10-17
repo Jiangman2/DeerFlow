@@ -65,12 +65,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
+import { usePptConfirmationEnabled } from "@/core/features/hooks";
 import { useI18n } from "@/core/i18n/hooks";
+import { pptConfirmationMessages } from "@/core/i18n/ppt-confirmation";
 import { polishInputDraft } from "@/core/input-polish/api";
 import { hasOpenHumanInputRequest } from "@/core/messages/human-input";
 import { isHiddenFromUIMessage } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import { PORTAL_QUICK_TOOLS, PPT_ASSISTANT_TOOL } from "@/core/portal-links";
+import {
+  confirmationSubmission,
+  isPptConfirmationRequest,
+} from "@/core/ppt-confirmation/consent";
 import {
   buildReferenceMessageMetadata,
   type SidecarContext,
@@ -147,6 +153,7 @@ import {
   PortalToolMenuItem,
   PortalToolsMenu,
 } from "./portal-tools-menu";
+import { PptConfirmationOptIn } from "./ppt-confirmation-opt-in";
 import { ShopCartAttachmentButton } from "./shop-cart-attachments";
 import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { SlashSkillChip } from "./slash-skill-chip";
@@ -279,6 +286,7 @@ export function InputBox({
   context,
   extraHeader,
   isWelcomeMode,
+  isNewThread = false,
   threadId,
   initialValue,
   onContextChange,
@@ -299,6 +307,8 @@ export function InputBox({
    * decoupled from "the backend has created the thread" — see issue #2746.
    */
   isWelcomeMode?: boolean;
+  /** Server-thread creation state, not the visual welcome mode. */
+  isNewThread?: boolean;
   threadId: string;
   initialValue?: string;
   onContextChange?: (context: InputBoxContext) => void;
@@ -437,6 +447,13 @@ export function InputBox({
   const [skillSuggestionIndex, setSkillSuggestionIndex] = useState(0);
   const [selectedSlashSkill, setSelectedSlashSkill] =
     useState<SlashSuggestion | null>(null);
+  const [pptAutoThreadId, setPptAutoThreadId] = useState<string | null>(null);
+  const isPptDraft = selectedSlashSkill
+    ? selectedSlashSkill.name === "ppt-master"
+    : isPptConfirmationRequest(textInput.value);
+  const pptConfirmationAvailable = usePptConfirmationEnabled(
+    isNewThread && isPptDraft && !isMock,
+  );
   const [dismissedSkillSuggestionValue, setDismissedSkillSuggestionValue] =
     useState<string | null>(null);
   const lastGeneratedForAiIdRef = useRef<string | null>(null);
@@ -581,7 +598,11 @@ export function InputBox({
     const fallbackModel = currentModel ?? models[0]!;
     const supportsThinking = fallbackModel.supports_thinking ?? false;
     const nextModelName = fallbackModel.name;
-    const nextMode = resolveAgentMode(context.mode, supportsThinking);
+    const nextMode = resolveAgentMode(
+      context.mode,
+      supportsThinking,
+      fallbackModel.thinking_always_on,
+    );
 
     if (context.model_name === nextModelName && context.mode === nextMode) {
       return;
@@ -685,7 +706,11 @@ export function InputBox({
       onContextChange?.({
         ...context,
         model_name,
-        mode: resolveAgentMode(context.mode, model.supports_thinking ?? false),
+        mode: resolveAgentMode(
+          context.mode,
+          model.supports_thinking ?? false,
+          model.thinking_always_on,
+        ),
         reasoning_effort: context.reasoning_effort,
       });
       setModelDialogOpen(false);
@@ -700,11 +725,22 @@ export function InputBox({
       }
       onContextChange?.({
         ...context,
-        mode: resolveAgentMode(mode, supportThinking),
+        mode: resolveAgentMode(
+          mode,
+          supportThinking,
+          selectedModel?.thinking_always_on,
+        ),
         reasoning_effort: reasoningEffortForMode(mode),
       });
     },
-    [disabled, onContextChange, context, polishingInput, supportThinking],
+    [
+      disabled,
+      onContextChange,
+      context,
+      polishingInput,
+      supportThinking,
+      selectedModel?.thinking_always_on,
+    ],
   );
 
   const handleReasoningEffortSelect = useCallback(
@@ -929,9 +965,23 @@ export function InputBox({
       setFollowupsHidden(false);
       setFollowupsLoading(false);
       const quotes = sidecar?.conversationQuotes ?? [];
+      let confirmationMetadata: Record<string, unknown> | undefined;
+      try {
+        confirmationMetadata = confirmationSubmission({
+          text: message.text,
+          threadId,
+          optedInThreadId: pptAutoThreadId,
+          isNewThread,
+          available: pptConfirmationAvailable,
+          quoteCount: quotes.length,
+        });
+      } catch {
+        toast.error(pptConfirmationMessages(locale).unavailable);
+        return Promise.reject(new Error("ppt_confirmation_opt_in_unavailable"));
+      }
       const quoteIds = quotes.map((quote) => quote.id);
       const quoteContexts = quotes.map((quote) => quote.context);
-      const submitOptions: InputBoxSubmitOptions | undefined = quotes.length
+      const quoteOptions: InputBoxSubmitOptions | undefined = quotes.length
         ? {
             additionalKwargs: buildReferenceMessageMetadata(quoteContexts),
             additionalInputMessages: [
@@ -947,6 +997,17 @@ export function InputBox({
             },
           }
         : undefined;
+      const submitOptions: InputBoxSubmitOptions = {
+        ...quoteOptions,
+        additionalKwargs: {
+          ...quoteOptions?.additionalKwargs,
+          ...confirmationMetadata,
+        },
+        onSent: () => {
+          quoteOptions?.onSent?.();
+          setPptAutoThreadId(null);
+        },
+      };
       const submit = () => onSubmit?.(message, submitOptions);
 
       // Guard against submitting before the initial model auto-selection
@@ -958,6 +1019,7 @@ export function InputBox({
           mode: resolveAgentMode(
             context.mode,
             selectedModel?.supports_thinking ?? false,
+            selectedModel?.thinking_always_on,
           ),
         });
         return new Promise<void>((resolve, reject) => {
@@ -976,6 +1038,12 @@ export function InputBox({
       reportUploadLimitViolations,
       resolvedModelName,
       selectedModel?.supports_thinking,
+      selectedModel?.thinking_always_on,
+      threadId,
+      isNewThread,
+      pptAutoThreadId,
+      pptConfirmationAvailable,
+      locale,
       sidecar,
       t.inputBox.suggestionPlaceholderRequired,
       uploadLimits,
@@ -1968,6 +2036,19 @@ export function InputBox({
             />
           )}
         </PromptInputHeader>
+        {isNewThread &&
+          isPptDraft &&
+          (pptConfirmationAvailable || pptAutoThreadId === threadId) && (
+            <PptConfirmationOptIn
+              locale={locale}
+              checked={pptAutoThreadId === threadId}
+              disabled={composerLocked}
+              hasQuotes={Boolean(sidecar?.conversationQuotes.length)}
+              onCheckedChange={(checked) =>
+                setPptAutoThreadId(checked ? threadId : null)
+              }
+            />
+          )}
         <div className="cnooc-composer-input min-h-14 min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
           {selectedSlashSkill ? (
             <div
@@ -2077,6 +2158,7 @@ export function InputBox({
               disabled={composerLocked}
               mode={context.mode}
               supportsThinking={supportThinking}
+              thinkingAlwaysOn={selectedModel?.thinking_always_on}
               onSelect={handleModeSelect}
             />
             {supportReasoningEffort && context.mode !== "flash" && (

@@ -1257,6 +1257,9 @@ async def publish_agent(name: str, request: AgentPublishRequest) -> AgentRespons
         config_data["name"] = name
         config_data["category_id"] = resolve_digital_employee_category(personal)
         config_data["published_by_user_id"] = user_id
+        # Reject stale admin edits from a previous publication. Curation remains
+        # keyed by source/name/publisher so republishing cannot undo admin removal.
+        config_data["publication_id"] = secrets.token_hex(16)
         with open(team_dir / "config.yaml", "w", encoding="utf-8") as file:
             yaml.safe_dump(config_data, file, default_flow_style=False, allow_unicode=True)
 

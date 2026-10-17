@@ -21,6 +21,8 @@ import {
 } from "@/core/tasks/ppt-confirmation";
 import type { Subtask } from "@/core/tasks/types";
 
+import { PptConfirmationState } from "../ppt-confirmation-state";
+
 import { MarkdownContent } from "./markdown-content";
 import { createMarkdownLinkComponent } from "./markdown-link";
 
@@ -171,6 +173,7 @@ export function PptMainProgress({
       data-testid="ppt-main-progress"
       aria-label={copy.region}
     >
+      <PptConfirmationState key={`${threadId}:${task.id}`} threadId={threadId} taskId={task.id} />
       {notice && (
         <div
           role={noticeCode === "turn_ended" ? "status" : "alert"}

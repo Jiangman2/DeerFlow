@@ -15,7 +15,7 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 31
+config_version: 32
 
 # Per-model request_admission RPM pacing is deferred in the dmdb 2026-09-30
 # merge: its typed config and model-factory hook are not implemented here.

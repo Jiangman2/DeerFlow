@@ -34,6 +34,7 @@ from deerflow.tools.types import Runtime
 
 from .async_guard import run_url_guard
 from .session import BrowserSession, BrowserSessionManager, PageSnapshot, get_browser_session_manager
+from .url_policy import validate_browser_url_policy
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,8 @@ def validate_browser_url(url: str, *, tool_name: str = "browser_navigate") -> st
     policy (``allow_private_addresses`` from the ``browser_navigate`` tool config).
     """
     cfg = _get_tool_config(tool_name)
+    if cfg.get("private_origins") is not None:
+        return validate_browser_url_policy(url, cfg["private_origins"], resolver=_resolve_host_addresses)
     allow_private = _as_bool(cfg.get("allow_private_addresses"), False)
     return validate_public_http_url(
         url,

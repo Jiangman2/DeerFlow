@@ -11,6 +11,23 @@ import {
 import type { Translations } from "./types";
 
 export const zhCN: Translations = {
+  employeeDiscovery: {
+    hot: "热门",
+    hotOnly: "只看热门",
+    showAll: "展示全部",
+    markHot: "设为热门",
+    unmarkHot: "取消热门",
+    emptyTitle: "暂无符合条件的热门数字员工",
+    emptyHint:
+      "热门由管理员配置。你可以点击“展示全部”浏览广场上的全部数字员工。",
+    creator: "创建者",
+    creatorUnknown: "暂无创建者记录",
+    loadError: "热门状态加载失败，暂无法判断哪些员工为热门。仍可展示全部。",
+    saveError: "热门设置保存失败，请稍后重试。",
+    conflict: "其他管理员已修改此设置，已重新加载，请确认后再操作。",
+    saved: "热门设置已保存",
+    retry: "重新加载",
+  },
   portalTools: {
     title: "更多办公工具",
     userGuide: "用户指南（新窗口打开）",
