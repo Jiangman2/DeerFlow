@@ -20,6 +20,7 @@ COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflo
 COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/continuation.py /app/backend/packages/harness/deerflow/ppt_confirmation/continuation.py
 COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/controller.py /app/backend/packages/harness/deerflow/ppt_confirmation/controller.py
 COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/host_owner.py /app/backend/packages/harness/deerflow/ppt_confirmation/host_owner.py
+COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/host_protocol.py /app/backend/packages/harness/deerflow/ppt_confirmation/host_protocol.py
 COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/lifecycle.py /app/backend/packages/harness/deerflow/ppt_confirmation/lifecycle.py
 COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/monitor.py /app/backend/packages/harness/deerflow/ppt_confirmation/monitor.py
 COPY docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/proposal.py /app/backend/packages/harness/deerflow/ppt_confirmation/proposal.py

@@ -32,6 +32,7 @@ from deerflow.agents.middlewares.title_middleware import fallback_title_from_tex
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.title_config import TitleConfig
+from deerflow.ppt_confirmation.host_protocol import ConfirmationHostCompatibilityError, require_confirmation_host
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox import get_sandbox_provider
 
@@ -1014,6 +1015,8 @@ async def _run_external_ppt_master(
             trust_env=False,
         ) as client:
             await _wait_for_agent_host(client=client, host_url=host_url)
+            if admission.get("confirmation_protocol") == "ppt-confirmation-v1":
+                await require_confirmation_host(client=client, host_url=host_url, task_id=run_id)
             task_start_attempted = True
             response = await _start_agent_task_with_retry(
                 client=client,
@@ -1073,7 +1076,12 @@ async def _run_external_ppt_master(
                     "error": "当前轮次收到停止请求，但无法核实外部 Agent 已退出；请先检查任务状态，不要反复启动。"})
         raise
     except Exception as exc:
-        if task_start_attempted:
+        if isinstance(exc, ConfirmationHostCompatibilityError) and exc.reason == "existing_task" and execution_lease is not None:
+            # Observe only this exact prior run's terminal cleanup; a collision
+            # never authorizes cancellation, reposting or idle eviction.
+            _retain_ppt_cleanup_guard(provider, execution_lease, sandbox_id, host_url, run_id, thread_id, app_config.sandbox.sandbox_api_key or "")
+            cleanup_guard_retained = True
+        elif task_start_attempted:
             try:
                 async with httpx.AsyncClient(headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""), timeout=httpx.Timeout(5.0), trust_env=False) as stop_client:
                     stopped = await _cancel_agent_turn(client=stop_client, host_url=host_url, task_id=run_id, thread_id=thread_id)
@@ -1083,6 +1091,7 @@ async def _run_external_ppt_master(
                     _retain_ppt_cleanup_guard(provider, execution_lease, sandbox_id, host_url, run_id, thread_id, app_config.sandbox.sandbox_api_key or "")
                     cleanup_guard_retained = True
         failure_kind = _transport_failure_kind(exc)
+        failure_message = str(exc) if isinstance(exc, ConfirmationHostCompatibilityError) else f"PPT Agent host transport failed before task completion ({failure_kind})"
         logger.exception(
             "External ppt-master transport failed (thread=%s run=%s sandbox=%s kind=%s)",
             thread_id,
@@ -1095,10 +1104,10 @@ async def _run_external_ppt_master(
                 "type": "task_failed",
                 "task_id": run_id,
                 "thread_id": thread_id,
-                "error": f"PPT Agent host transport failed before task completion ({failure_kind})",
+                "error": failure_message,
             }
         )
-        raise RuntimeError(f"PPT Agent host transport failed before task completion ({failure_kind})") from exc
+        raise RuntimeError(failure_message) from exc
     finally:
         if not cleanup_guard_retained:
             await _release_ppt_resources(provider, execution_lease, sandbox_id)

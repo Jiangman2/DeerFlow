@@ -28,6 +28,7 @@ EXPECTED_FILES = frozenset(
         "backend/packages/harness/deerflow/ppt_confirmation/continuation.py",
         "backend/packages/harness/deerflow/ppt_confirmation/controller.py",
         "backend/packages/harness/deerflow/ppt_confirmation/host_owner.py",
+        "backend/packages/harness/deerflow/ppt_confirmation/host_protocol.py",
         "backend/packages/harness/deerflow/ppt_confirmation/lifecycle.py",
         "backend/packages/harness/deerflow/ppt_confirmation/monitor.py",
         "backend/packages/harness/deerflow/ppt_confirmation/proposal.py",

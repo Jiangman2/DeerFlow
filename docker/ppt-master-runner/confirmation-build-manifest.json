@@ -24,8 +24,8 @@
       "target": "backend/app/gateway/routers/ppt_confirmations.py"
     },
     {
-      "bytes": 59718,
-      "sha256": "1917084a6e011d85dbd21e2b2efe400b5c30c5fdafe2ed67711af6b60758ec77",
+      "bytes": 60537,
+      "sha256": "41a35d4d6b15100cd76a0a9917e89c6132dd28649dfff5f55c84bf8cfa44731c",
       "source": "docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py",
       "target": "backend/packages/harness/deerflow/agents/ppt_master_runner/agent.py"
     },
@@ -100,6 +100,12 @@
       "sha256": "8ac379399a660ecbdc033bd4e4afa96aebda6e8e19f1d4cf9dccbdff7e33295a",
       "source": "docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/host_owner.py",
       "target": "backend/packages/harness/deerflow/ppt_confirmation/host_owner.py"
+    },
+    {
+      "bytes": 4711,
+      "sha256": "2906186bb9ed5f978927f10444d025fce99696464d76bc1492d38e42f634face",
+      "source": "docker/ppt-master-runner/production-source/backend/packages/harness/deerflow/ppt_confirmation/host_protocol.py",
+      "target": "backend/packages/harness/deerflow/ppt_confirmation/host_protocol.py"
     },
     {
       "bytes": 12329,

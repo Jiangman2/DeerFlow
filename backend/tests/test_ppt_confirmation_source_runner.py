@@ -13,6 +13,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
+from deerflow.ppt_confirmation.host_protocol import ConfirmationHostCompatibilityError
+
 SOURCE = Path(__file__).resolve().parents[1] / "packages/harness/deerflow/agents/ppt_master_runner/agent.py"
 
 
@@ -36,6 +38,7 @@ def source_namespace():
         "_CONFIRMATION_SLOTS": threading.BoundedSemaphore(8),
         "contextmanager": contextmanager,
         "nullcontext": __import__("contextlib").nullcontext,
+        "ConfirmationHostCompatibilityError": ConfirmationHostCompatibilityError,
     }
     exec(compile(ast.fix_missing_locations(module), str(SOURCE), "exec"), namespace)
     return namespace
@@ -102,6 +105,7 @@ class SourceRunnerHooks(unittest.IsolatedAsyncioTestCase):
                 "get_stream_writer": lambda: events.append,
                 "_auth_headers": lambda key: {},
                 "_wait_for_agent_host": AsyncMock(),
+                "require_confirmation_host": AsyncMock(),
                 "_start_agent_task_with_retry": start,
                 "_poll_agent_turn": poll,
                 "requested_delivery_contract": lambda request: {},

@@ -32,6 +32,7 @@ from deerflow.agents.middlewares.title_middleware import fallback_title_from_tex
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.title_config import TitleConfig
+from deerflow.ppt_confirmation.host_protocol import ConfirmationHostCompatibilityError, require_confirmation_host
 from deerflow.ppt_confirmation.monitor import create_monitor
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox import get_sandbox_provider
@@ -649,6 +650,8 @@ async def _run_external_ppt_master_once(
             **({"trust_env": False} if confirmation_enabled else {}),
         ) as client:
             await _wait_for_agent_host(client=client, host_url=host_url)
+            if admission.get("confirmation_protocol") == "ppt-confirmation-v1":
+                await require_confirmation_host(client=client, host_url=host_url, task_id=run_id)
             confirmation = create_monitor(client, host_url, resolve_runtime_user_id(runtime), thread_id, run_id) if admission.get("confirmation_protocol") else None
             task_start_attempted = True
             response = await _start_agent_task_with_retry(
@@ -713,6 +716,13 @@ async def _run_external_ppt_master_once(
         )
         raise
     except Exception as exc:
+        if isinstance(exc, ConfirmationHostCompatibilityError) and exc.reason == "existing_task" and execution_lease is not None:
+            # A prior worker may have left this task alive without another
+            # descriptor. Do not park its Sandbox or authorize idle eviction.
+            _CONFIRMATION_CLEANUP_LEASES.append((provider, execution_lease, sandbox_id))
+            cleanup_guard_retained = True
+            if confirmation_slot is not None:
+                confirmation_slot["retained"] = True
         if confirmation_enabled and task_start_attempted:
             try:
                 async with httpx.AsyncClient(headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""), timeout=httpx.Timeout(5.0), trust_env=False) as client:
@@ -725,6 +735,7 @@ async def _run_external_ppt_master_once(
                         confirmation_slot["retained"] = True
                     logger.warning("PPT cleanup unresolved; retaining execution lease (run=%s sandbox=%s)", run_id, sandbox_id)
         failure_kind = _transport_failure_kind(exc)
+        failure_message = str(exc) if isinstance(exc, ConfirmationHostCompatibilityError) else f"PPT Agent host transport failed before task completion ({failure_kind})"
         logger.exception(
             "External ppt-master transport failed (thread=%s run=%s sandbox=%s kind=%s)",
             thread_id,
@@ -737,10 +748,10 @@ async def _run_external_ppt_master_once(
                 "type": "task_failed",
                 "task_id": run_id,
                 "thread_id": thread_id,
-                "error": f"PPT Agent host transport failed before task completion ({failure_kind})",
+                "error": failure_message,
             }
         )
-        raise RuntimeError(f"PPT Agent host transport failed before task completion ({failure_kind})") from exc
+        raise RuntimeError(failure_message) from exc
     finally:
         if execution_lease is not None and not cleanup_guard_retained:
             release_execution_lease = getattr(provider, "release_execution_lease", None)
