@@ -152,11 +152,20 @@ class HostNativeTests(unittest.TestCase):
         task = self.manager.start(task_id="live", thread_id="thread", prompt="fixture", resume=False)
         task.set_state(status="running")
         calls = []
-        self.manager.confirmation_control.observe = lambda *args, **kw: calls.append(args) or {
-            "task_id": "live", "thread_id": "thread", "confirmation_submitted": False,
-            "version": "a" * 64, "owner_version": "b" * 64, "source_digest": "c" * 64,
-            "payload_digest": "d" * 64, "project_id": "project", "stage": "stage1",
-        }
+        self.manager.confirmation_control.observe = lambda *args, **kw: (
+            calls.append(args)
+            or {
+                "task_id": "live",
+                "thread_id": "thread",
+                "confirmation_submitted": False,
+                "version": "a" * 64,
+                "owner_version": "b" * 64,
+                "source_digest": "c" * 64,
+                "payload_digest": "d" * 64,
+                "project_id": "project",
+                "stage": "stage1",
+            }
+        )
         base = self.server()
         path = "/v1/tasks/live/confirmation/observation"
         self.assertEqual(self.request(base, path, authorized=False)[0], 401)
@@ -321,9 +330,16 @@ class HostNativeTests(unittest.TestCase):
         project = self.host.WORKSPACE_ROOT / "project"
         (project / "confirm_ui").mkdir(parents=True)
         task = self.manager.start(task_id="discovered", thread_id="thread", prompt="fixture", resume=False)
-        event = {"type": "item.completed", "item": {"id": "cmd1", "type": "command_execution", "exit_code": 0,
-                 "command": 'python3 "' + str(self.host.RUNTIME_ROOT / "scripts/confirm_ui/server.py") + '" "' + str(project) + '" --daemon',
-                 "aggregated_output": "running at http://127.0.0.1:5050"}}
+        event = {
+            "type": "item.completed",
+            "item": {
+                "id": "cmd1",
+                "type": "command_execution",
+                "exit_code": 0,
+                "command": 'python3 "' + str(self.host.RUNTIME_ROOT / "scripts/confirm_ui/server.py") + '" "' + str(project) + '" --daemon',
+                "aggregated_output": "running at http://127.0.0.1:5050",
+            },
+        }
         task.record_public_progress(event)
         self.assertEqual(task.state["confirmation_owner_candidate"]["port"], 5050)
         self.assertNotIn("confirmation_owner_candidate", task.snapshot())

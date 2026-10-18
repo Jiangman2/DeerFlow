@@ -457,7 +457,8 @@ export default function AgentChatPage() {
                   aria-label="版权信息"
                   className="cnooc-welcome-copyright"
                 >
-                  Copyright © 2024–2026 CNOOC. All rights reserved.中国海洋石油集团有限公司版权所有
+                  Copyright © 2024–2026 CNOOC. All rights
+                  reserved.中国海洋石油集团有限公司版权所有
                 </footer>
               )}
             </main>

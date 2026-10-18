@@ -17,15 +17,16 @@ from deerflow.community.browser_automation.async_guard import BoundedURLGuard
 @pytest.mark.asyncio
 @pytest.mark.parametrize("error", [None, "Error: DNS capacity exhausted"])
 async def test_context_http_and_websocket_use_same_bounded_policy(monkeypatch, error):
-    policy = lambda _: None
+    def policy(_):
+        return None
+
     bounded = AsyncMock(return_value=error)
     monkeypatch.setattr(session, "run_url_guard", bounded)
     browser = session.BrowserSession(None, headless=True, timeout_ms=1000, viewport={}, url_guard=policy)
     context = SimpleNamespace(route=AsyncMock(), route_web_socket=AsyncMock())
     browser._context = context
     await browser._install_request_guard()
-    route = SimpleNamespace(request=SimpleNamespace(url="https://fixture.invalid/path"),
-                            abort=AsyncMock(), continue_=AsyncMock())
+    route = SimpleNamespace(request=SimpleNamespace(url="https://fixture.invalid/path"), abort=AsyncMock(), continue_=AsyncMock())
     await context.route.await_args.args[1](route)
     # Playwright's async API intentionally exposes this method synchronously.
     websocket = SimpleNamespace(url="wss://fixture.invalid/socket", connect_to_server=Mock(), close=AsyncMock())
@@ -44,8 +45,7 @@ async def test_chromium_redirect_guard_fails_closed_on_pool_saturation(monkeypat
     guard._send = AsyncMock()
     await guard._request(("target",), {"requestId": "request", "request": {"url": "https://fixture.invalid"}})
     bounded.assert_awaited_once()
-    guard._send.assert_awaited_once_with(("target",), "Fetch.failRequest",
-                                        {"requestId": "request", "errorReason": "BlockedByClient"})
+    guard._send.assert_awaited_once_with(("target",), "Fetch.failRequest", {"requestId": "request", "errorReason": "BlockedByClient"})
 
 
 @pytest.mark.asyncio

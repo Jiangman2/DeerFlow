@@ -21,7 +21,7 @@ SPEC.loader.exec_module(capture)
 
 class CaptureProcessTests(unittest.TestCase):
     def setUp(self):
-        self.snapshot = proposal.PageSnapshot(1, "a" * 64, "b" * 64, b'{}', MappingProxyType({"/api/recommendations": b'{}'}), MappingProxyType({"/": b'<html></html>'}), "c" * 64)
+        self.snapshot = proposal.PageSnapshot(1, "a" * 64, "b" * 64, b"{}", MappingProxyType({"/api/recommendations": b"{}"}), MappingProxyType({"/": b"<html></html>"}), "c" * 64)
         self.child = MagicMock()
         self.child.returncode = 0
         self.child.poll.return_value = 0

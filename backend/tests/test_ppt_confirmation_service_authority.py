@@ -100,22 +100,19 @@ class ServiceAuthorityTests(unittest.IsolatedAsyncioTestCase):
     async def test_continuation_requires_committed_original_run_claim_even_when_manual(self):
         self.snapshot["policy"]["auto_enabled"] = False
         gate = self.snapshot["gate"]
-        gate.update(state="continuation_pending", receipt_digest="f" * 64,
-                    continuation={"run_id": "run", "action": "resume_same_session"})
+        gate.update(state="continuation_pending", receipt_digest="f" * 64, continuation={"run_id": "run", "action": "resume_same_session"})
         value = await self.invoke("confirmation-continuation", {"gate_id": gate["gate_id"]})
         self.assertEqual(value["claim"]["continuation"]["run_id"], "run")
         self.assertNotIn("submission", value["claim"])
         original = json.loads(json.dumps(gate))
-        for change in ({"state": "confirmed"}, {"state": "continuation_unknown"}, {"task_id": "different"},
-                       {"receipt_digest": None}, {"continuation": {"run_id": "different", "action": "resume_same_session"}}):
+        for change in ({"state": "confirmed"}, {"state": "continuation_unknown"}, {"task_id": "different"}, {"receipt_digest": None}, {"continuation": {"run_id": "different", "action": "resume_same_session"}}):
             self.snapshot["gate"] = {**original, **change}
             with self.subTest(change=change), self.assertRaises(broker.HTTPException) as failed:
                 await self.invoke("confirmation-continuation", {"gate_id": original["gate_id"]})
             self.assertEqual(failed.exception.status_code, 409)
 
     async def test_continuation_request_cannot_override_session_prompt_or_choice(self):
-        for body in ({"gate_id": "invalid"}, {"gate_id": "e" * 64, "session_id": "another"},
-                     {"gate_id": "e" * 64, "prompt": "override"}, {"gate_id": "e" * 64, "auto_enabled": True}):
+        for body in ({"gate_id": "invalid"}, {"gate_id": "e" * 64, "session_id": "another"}, {"gate_id": "e" * 64, "prompt": "override"}, {"gate_id": "e" * 64, "auto_enabled": True}):
             with self.assertRaises(broker.HTTPException) as failed:
                 await self.invoke("confirmation-continuation", body)
             self.assertEqual(failed.exception.status_code, 400)

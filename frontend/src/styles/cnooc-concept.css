@@ -4287,7 +4287,8 @@
     font-size: 12px !important;
   }
 
-  .cnooc-workspace-shell .cnooc-welcome-actions
+  .cnooc-workspace-shell
+    .cnooc-welcome-actions
     [data-slot="suggestion-item"]
     > :is(button, a[data-slot="suggestion"])
     .cnooc-action-artwork {

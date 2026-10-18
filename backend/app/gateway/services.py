@@ -328,11 +328,7 @@ def inject_data_lake_access_context(config: dict[str, Any], request: Request) ->
     runtime_context = config.setdefault("context", {})
     user = getattr(request.state, "user", None)
     token = request.cookies.get(CNOOC_PLATFORM_TOKEN_COOKIE_NAME, "").strip()
-    runtime_context[_DATALAKE_CONTEXT_KEY] = (
-        runtime_context.get(_DATALAKE_CONTEXT_KEY) is True
-        and getattr(request.state, "auth_source", None) != AUTH_SOURCE_INTERNAL
-        and platform_token_matches_user(user, token)
-    )
+    runtime_context[_DATALAKE_CONTEXT_KEY] = runtime_context.get(_DATALAKE_CONTEXT_KEY) is True and getattr(request.state, "auth_source", None) != AUTH_SOURCE_INTERNAL and platform_token_matches_user(user, token)
 
 
 def strip_internal_context_keys(config: dict[str, Any]) -> None:

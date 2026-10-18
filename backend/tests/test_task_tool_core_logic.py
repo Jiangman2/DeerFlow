@@ -467,9 +467,7 @@ def test_task_tool_propagates_data_lake_scope_to_subagent(monkeypatch, enabled):
 
     assert _task_tool_message(output).content == "Task Succeeded. Result: done"
     assert captured["executor_kwargs"]["datalake_enabled"] is (enabled is True)
-    assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == (
-        ["datalake_smart_qa", "web_search"] if enabled is True else ["web_search"]
-    )
+    assert [tool.name for tool in captured["executor_kwargs"]["tools"]] == (["datalake_smart_qa", "web_search"] if enabled is True else ["web_search"])
 
 
 def test_task_tool_emits_running_and_completed_events(monkeypatch):

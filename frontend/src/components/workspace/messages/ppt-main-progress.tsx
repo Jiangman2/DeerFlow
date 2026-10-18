@@ -173,7 +173,11 @@ export function PptMainProgress({
       data-testid="ppt-main-progress"
       aria-label={copy.region}
     >
-      <PptConfirmationState key={`${threadId}:${task.id}`} threadId={threadId} taskId={task.id} />
+      <PptConfirmationState
+        key={`${threadId}:${task.id}`}
+        threadId={threadId}
+        taskId={task.id}
+      />
       {notice && (
         <div
           role={noticeCode === "turn_ended" ? "status" : "alert"}

@@ -104,9 +104,13 @@ class ChromiumRequestGuard:
         # Browser-level auto-attach requires flat mode. Keep that target paused
         # while creating our addressable session, then release the pause only
         # after Fetch interception is installed.
-        attached = await self.cdp.send("Target.attachToTarget", {
-            "targetId": event["targetInfo"]["targetId"], "flatten": False,
-        })
+        attached = await self.cdp.send(
+            "Target.attachToTarget",
+            {
+                "targetId": event["targetInfo"]["targetId"],
+                "flatten": False,
+            },
+        )
         await self._initialize((attached["sessionId"],), resume=False)
         await self.cdp.send("Target.detachFromTarget", {"sessionId": event["sessionId"]})
         await self._send((attached["sessionId"],), "Runtime.runIfWaitingForDebugger", {})
@@ -116,7 +120,7 @@ class ChromiumRequestGuard:
         chain = parent + (event["sessionId"],)
         self.detached.add(chain)
         for (pending_chain, _), future in self.pending.items():
-            if pending_chain[:len(chain)] == chain and not future.done():
+            if pending_chain[: len(chain)] == chain and not future.done():
                 future.cancel()
 
     def _received(self, parent: tuple[str, ...], event: dict) -> None:
@@ -144,7 +148,7 @@ class ChromiumRequestGuard:
     async def _send(self, chain: tuple[str, ...], method: str, params: dict) -> dict:
         if self.closed or self.failed:
             raise RuntimeError("Browser request guard unavailable")
-        if any(chain[:len(item)] == item for item in self.detached):
+        if any(chain[: len(item)] == item for item in self.detached):
             raise asyncio.CancelledError
         if not chain:
             async with asyncio.timeout(10):
@@ -155,9 +159,14 @@ class ChromiumRequestGuard:
         self.pending[key] = future
         try:
             async with asyncio.timeout(10):
-                await self._send(chain[:-1], "Target.sendMessageToTarget", {
-                    "sessionId": chain[-1], "message": json.dumps({"id": key[1], "method": method, "params": params}),
-                })
+                await self._send(
+                    chain[:-1],
+                    "Target.sendMessageToTarget",
+                    {
+                        "sessionId": chain[-1],
+                        "message": json.dumps({"id": key[1], "method": method, "params": params}),
+                    },
+                )
                 return await future
         finally:
             self.pending.pop(key, None)
@@ -165,10 +174,16 @@ class ChromiumRequestGuard:
                 future.cancel()
 
     async def _initialize(self, chain: tuple[str, ...], *, resume: bool = True) -> None:
-        await self._send(chain, "Fetch.enable", {"patterns": [
-            {"urlPattern": "http://*", "requestStage": "Request"},
-            {"urlPattern": "https://*", "requestStage": "Request"},
-        ]})
+        await self._send(
+            chain,
+            "Fetch.enable",
+            {
+                "patterns": [
+                    {"urlPattern": "http://*", "requestStage": "Request"},
+                    {"urlPattern": "https://*", "requestStage": "Request"},
+                ]
+            },
+        )
         await self._send(chain, "Target.setAutoAttach", self._attach_options())
         if resume:
             await self._send(chain, "Runtime.runIfWaitingForDebugger", {})

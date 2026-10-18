@@ -80,9 +80,9 @@ def website():
                     self.send_header("Sec-WebSocket-Accept", accept)
                     self.end_headers()
                     head = self.rfile.read(2)
-                    if len(head) == 2 and head[0] == 0x81 and head[1] & 0x80 and head[1] & 0x7f < 126:
+                    if len(head) == 2 and head[0] == 0x81 and head[1] & 0x80 and head[1] & 0x7F < 126:
                         mask = self.rfile.read(4)
-                        payload = self.rfile.read(head[1] & 0x7f)
+                        payload = self.rfile.read(head[1] & 0x7F)
                         decoded = bytes(value ^ mask[i % 4] for i, value in enumerate(payload))
                         self.wfile.write(bytes([0x81, len(decoded)]) + decoded)
                         self.wfile.flush()
@@ -127,9 +127,14 @@ def website():
 @asynccontextmanager
 async def guarded_browser(monkeypatch, port):
     pytest.importorskip("playwright.async_api")
-    monkeypatch.setattr(session_mod, "_browser_ca_launch_args", lambda: [
-        "--no-proxy-server", "--host-resolver-rules=MAP *.example.test 127.0.0.1",
-    ])
+    monkeypatch.setattr(
+        session_mod,
+        "_browser_ca_launch_args",
+        lambda: [
+            "--no-proxy-server",
+            "--host-resolver-rules=MAP *.example.test 127.0.0.1",
+        ],
+    )
     policy = [{"origin": f"http://allowed.example.test:{port}", "cidrs": ["10.56.10.20/32"]}]
     observed = []
 
@@ -177,6 +182,7 @@ async def test_real_direct_navigation_never_reaches_unapproved_origin(website, m
     port, hits = website
     async with guarded_browser(monkeypatch, port) as (session, observed):
         from playwright.async_api import Error
+
         with pytest.raises(Error):
             await session._navigate(f"http://blocked.example.test:{port}/must-not-receive")
         assert any("blocked.example.test" in url and outcome for url, outcome in observed)
@@ -189,6 +195,7 @@ async def test_real_http_redirect_never_reaches_unapproved_origin(website, monke
     port, hits = website
     async with guarded_browser(monkeypatch, port) as (session, _):
         from playwright.async_api import Error
+
         try:
             await session._navigate(f"http://allowed.example.test:{port}/redirect/{code}")
         except Error:
@@ -217,13 +224,16 @@ async def test_real_websocket_allowed_origin_echoes(website, monkeypatch):
     port, hits = website
     async with guarded_browser(monkeypatch, port) as (session, observed):
         await session._navigate(f"http://allowed.example.test:{port}/")
-        outcome = await session._page.evaluate("""url => new Promise(resolve => {
+        outcome = await session._page.evaluate(
+            """url => new Promise(resolve => {
             const ws = new WebSocket(url);
             const timer = setTimeout(() => { ws.close(); resolve('timeout'); }, 3000);
             ws.onerror = () => { clearTimeout(timer); resolve('error'); };
             ws.onopen = () => ws.send('merge-echo');
             ws.onmessage = event => { clearTimeout(timer); ws.close(); resolve(event.data); };
-        })""", f"ws://allowed.example.test:{port}/socket")
+        })""",
+            f"ws://allowed.example.test:{port}/socket",
+        )
         assert outcome == "merge-echo"
         assert hits[("allowed.example.test", "/socket")] == 1
         assert any(url.endswith("/socket") and result is None for url, result in observed)
@@ -234,10 +244,13 @@ async def test_real_websocket_never_reaches_unapproved_origin(website, monkeypat
     port, hits = website
     async with guarded_browser(monkeypatch, port) as (session, _):
         await session._navigate(f"http://allowed.example.test:{port}/")
-        await session._page.evaluate("""url => new Promise(resolve => {
+        await session._page.evaluate(
+            """url => new Promise(resolve => {
             const ws = new WebSocket(url);
             ws.onerror = () => resolve('error');
             ws.onopen = () => { ws.close(); resolve('opened'); };
             setTimeout(() => { ws.close(); resolve('timeout'); }, 1500);
-        })""", f"ws://blocked.example.test:{port}/socket")
+        })""",
+            f"ws://blocked.example.test:{port}/socket",
+        )
         assert hits[("blocked.example.test", "/socket")] == 0, "Denied WebSocket handshake reached fixture"

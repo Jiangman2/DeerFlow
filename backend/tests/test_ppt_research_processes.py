@@ -56,8 +56,7 @@ print(count)
             children = []
             try:
                 for _ in range(8):
-                    children.append(subprocess.Popen([sys.executable, "-B", "-c", code, str(SOURCE), str(ledger.path)],
-                                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+                    children.append(subprocess.Popen([sys.executable, "-B", "-c", code, str(SOURCE), str(ledger.path)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
                 admitted = 0
                 for child in children:
                     out, err = child.communicate(timeout=20)
@@ -77,8 +76,7 @@ print(count)
         guard_module = load("ppt_research_guard")
         with tempfile.TemporaryDirectory() as folder:
             ledger = guard_module.ResearchGuard.create(Path(folder) / "guard.sqlite", "fixture-capability")
-            env = {**os.environ, "PPT_RUNTIME_CAPABILITY": "fixture-capability",
-                   "PPT_RESEARCH_GUARD_PATH": str(ledger.path), "PPT_RESEARCH_GUARD_REQUIRED": "1"}
+            env = {**os.environ, "PPT_RUNTIME_CAPABILITY": "fixture-capability", "PPT_RESEARCH_GUARD_PATH": str(ledger.path), "PPT_RESEARCH_GUARD_REQUIRED": "1"}
             # Real adapter stdio and real process inheritance; fixed in-process
             # HTTP fixture instead of any network access or deployed service.
             code = """
@@ -91,12 +89,10 @@ def fail(params):
 adapter.call_tool = fail
 adapter.main()
 """
-            request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-                                  "params": {"name": "web_search", "arguments": {"query": "public fixture"}}}) + "\n"
+            request = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "web_search", "arguments": {"query": "public fixture"}}}) + "\n"
             actual_calls = 0
             for _ in range(4):
-                child = subprocess.run([sys.executable, "-B", "-c", code, str(SOURCE)],
-                                       input=request, text=True, capture_output=True, env=env, timeout=15)
+                child = subprocess.run([sys.executable, "-B", "-c", code, str(SOURCE)], input=request, text=True, capture_output=True, env=env, timeout=15)
                 self.assertEqual(child.returncode, 0, child.stderr)
                 self.assertTrue(json.loads(child.stdout)["result"]["isError"])
                 self.assertNotIn("private detail", child.stdout)
@@ -127,8 +123,7 @@ p = subprocess.Popen([sys.executable, '-c', sys.argv[1]], stdout=subprocess.DEVN
 print(p.pid, flush=True)
 if sys.argv[2] == 'wait': time.sleep(60)
 """
-            process = subprocess.Popen([sys.executable, "-c", code, child_code, "exit" if leader_exits else "wait"],
-                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+            process = subprocess.Popen([sys.executable, "-c", code, child_code, "exit" if leader_exits else "wait"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
             pid = None
             try:
                 pid = int(process.stdout.readline())

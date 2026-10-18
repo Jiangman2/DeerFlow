@@ -125,9 +125,16 @@ class ConfirmationRepositoryTests(unittest.IsolatedAsyncioTestCase):
             async with self.engine.begin() as blocker:
                 await blocker.execute(update(ConfirmationTaskRow).values(updated_at=self.now))
                 with self.assertRaisesRegex(ConsentConflict, "confirmation_store_busy"):
-                    await repo.transition(self.scope, expected_revision=ready["revision"], gate_id=ready["gate"]["gate_id"],
-                                          expected_gate_revision=ready["gate"]["revision"], action="claim_submission",
-                                          operation_id="blocked-claim", mode="automatic", **self.binding())
+                    await repo.transition(
+                        self.scope,
+                        expected_revision=ready["revision"],
+                        gate_id=ready["gate"]["gate_id"],
+                        expected_gate_revision=ready["gate"]["revision"],
+                        action="claim_submission",
+                        operation_id="blocked-claim",
+                        mode="automatic",
+                        **self.binding(),
+                    )
         finally:
             await contender.dispose()
         self.assertEqual(len(attempts), 1)
@@ -147,9 +154,16 @@ class ConfirmationRepositoryTests(unittest.IsolatedAsyncioTestCase):
 
         repo = ConfirmationRepository(async_sessionmaker(self.engine, class_=LostCommitAcknowledgement, expire_on_commit=False), clock=lambda: self.now)
         with self.assertRaises(OperationalError):
-            await repo.transition(self.scope, expected_revision=ready["revision"], gate_id=ready["gate"]["gate_id"],
-                                  expected_gate_revision=ready["gate"]["revision"], action="claim_submission",
-                                  operation_id="uncertain-claim", mode="automatic", **self.binding())
+            await repo.transition(
+                self.scope,
+                expected_revision=ready["revision"],
+                gate_id=ready["gate"]["gate_id"],
+                expected_gate_revision=ready["gate"]["revision"],
+                action="claim_submission",
+                operation_id="uncertain-claim",
+                mode="automatic",
+                **self.binding(),
+            )
         stored = await self.repo.get(self.scope)
         self.assertEqual(stored["gate"]["state"], "submission_pending")
         self.assertEqual(stored["gate"]["submission"]["id"], "uncertain-claim")

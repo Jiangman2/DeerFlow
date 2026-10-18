@@ -284,9 +284,7 @@ class TestAgentConstruction:
         tools = [NamedTool("datalake_detail_qa"), NamedTool("web_search")]
         executor = classes["SubagentExecutor"](config=base_config, tools=tools, **kwargs)
         assert executor.datalake_enabled is (enabled is True)
-        assert [tool.name for tool in executor._base_tools] == (
-            ["datalake_detail_qa", "web_search"] if enabled is True else ["web_search"]
-        )
+        assert [tool.name for tool in executor._base_tools] == (["datalake_detail_qa", "web_search"] if enabled is True else ["web_search"])
 
     def test_create_agent_threads_explicit_app_config_to_model_and_middlewares(
         self,

@@ -118,16 +118,14 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_completed_cli_is_not_a_completed_deck_while_confirmation_waits(self):
         await self.monitor.step()
-        self.monitor.observe_task({"task_id": self.scope.task_id, "thread_id": self.scope.thread_id,
-                                   "status": "completed", "artifacts": [], "process_cleanup_complete": True})
+        self.monitor.observe_task({"task_id": self.scope.task_id, "thread_id": self.scope.thread_id, "status": "completed", "artifacts": [], "process_cleanup_complete": True})
         with patch("deerflow.ppt_confirmation.monitor.time.monotonic", return_value=100):
             self.assertTrue(self.monitor.hold_completed())
         with patch("deerflow.ppt_confirmation.monitor.time.monotonic", return_value=10000):
             self.assertTrue(self.monitor.hold_completed())
 
     async def test_missing_verified_gate_fails_after_bounded_grace(self):
-        self.monitor.observe_task({"task_id": self.scope.task_id, "thread_id": self.scope.thread_id,
-                                   "status": "completed", "artifacts": []})
+        self.monitor.observe_task({"task_id": self.scope.task_id, "thread_id": self.scope.thread_id, "status": "completed", "artifacts": []})
         with patch("deerflow.ppt_confirmation.monitor.time.monotonic", return_value=100):
             self.assertTrue(self.monitor.hold_completed())
         with patch("deerflow.ppt_confirmation.monitor.time.monotonic", return_value=146), self.assertRaises(RuntimeError):

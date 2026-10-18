@@ -43,8 +43,7 @@ class HostContinuationTests(unittest.TestCase):
 
     def test_cancelled_failed_busy_delivered_or_unclean_original_cannot_continue(self):
         original = dict(self.task.state)
-        for change in ({"status": "failed"}, {"cancel_requested": True}, {"status": "running"},
-                       {"artifacts": ["deck.pptx"]}, {"process_cleanup_complete": False}):
+        for change in ({"status": "failed"}, {"cancel_requested": True}, {"status": "running"}, {"artifacts": ["deck.pptx"]}, {"process_cleanup_complete": False}):
             self.task.state = dict(original)
             self.task.set_state(**change)
             with self.subTest(change=change), self.assertRaises(RuntimeError):

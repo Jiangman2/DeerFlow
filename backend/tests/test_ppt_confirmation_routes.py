@@ -14,10 +14,10 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import httpx
+import test_ppt_confirmation_controller as fixtures
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-import test_ppt_confirmation_controller as fixtures
 from app.gateway.authz import AuthContext
 
 
@@ -28,11 +28,9 @@ class RouteTests(unittest.IsolatedAsyncioTestCase):
         asyncio.get_running_loop().set_debug(False)
         await self.repo.admit(self.scope, runtime_profile="ppt-master-runner", skill_name="ppt-master", opted_in=True)
         await self.controller.tick(self.scope)
-        self.row = {"run_id": self.scope.task_id, "thread_id": self.scope.thread_id, "user_id": self.scope.owner_id,
-                    "assistant_id": "ppt-master-runner", "status": "running"}
+        self.row = {"run_id": self.scope.task_id, "thread_id": self.scope.thread_id, "user_id": self.scope.owner_id, "assistant_id": "ppt-master-runner", "status": "running"}
         self.runs = SimpleNamespace(get=AsyncMock(side_effect=lambda *_args, **_kw: self.row))
-        self.threads = SimpleNamespace(check_access=AsyncMock(side_effect=lambda tid, uid, **kw:
-            tid == self.scope.thread_id and uid == self.scope.owner_id and kw.get("require_existing") is True))
+        self.threads = SimpleNamespace(check_access=AsyncMock(side_effect=lambda tid, uid, **kw: tid == self.scope.thread_id and uid == self.scope.owner_id and kw.get("require_existing") is True))
         dependencies = ModuleType("app.gateway.deps")
         dependencies.get_run_store = lambda _: self.runs
         dependencies.get_thread_store = lambda _: self.threads
@@ -45,8 +43,7 @@ class RouteTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await request.body(), b"{}")
             self.assertEqual(request.headers["x-csrf-token"], "fixture-token")
             self.assertFalse((await self.repo.get(self.scope))["policy"]["auto_enabled"])
-            return JSONResponse({"url": "/api/threads/thread-one/live-preview/5050/", "auto_enabled": False,
-                                 "confirmation_submitted": False, "agent_started": False})
+            return JSONResponse({"url": "/api/threads/thread-one/live-preview/5050/", "auto_enabled": False, "confirmation_submitted": False, "agent_started": False})
 
         self.forward = artifacts._forward_live_preview_to_runner = AsyncMock(side_effect=forward)
         config = ModuleType("app.gateway.auth.config")
@@ -56,9 +53,7 @@ class RouteTests(unittest.IsolatedAsyncioTestCase):
         internals = ModuleType("app.gateway.internal_auth")
         internals.INTERNAL_OWNER_USER_ID_HEADER_NAME = "X-DeerFlow-Owner-User-Id"
         internals.INTERNAL_SYSTEM_ROLE = "internal"
-        modules = {"app.gateway.deps": dependencies, "app.gateway.routers.artifacts": artifacts,
-                   "app.gateway.auth.config": config, "app.gateway.internal_auth": internals,
-                   "app.gateway.auth_disabled": auth_disabled}
+        modules = {"app.gateway.deps": dependencies, "app.gateway.routers.artifacts": artifacts, "app.gateway.auth.config": config, "app.gateway.internal_auth": internals, "app.gateway.auth_disabled": auth_disabled}
         # Preserve real capability/ORM imports across patch.dict restoration.
         # Removing only their module-cache entries leaves SQLAlchemy metadata
         # registered and makes the next isolated route test redefine tables.
@@ -95,8 +90,7 @@ class RouteTests(unittest.IsolatedAsyncioTestCase):
             request.state.auth = AuthContext(user, ["threads:read", "threads:write"])
             return await call_next(request)
 
-        self.client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture.invalid",
-                                       cookies={"csrf_token": "fixture-token"})
+        self.client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture.invalid", cookies={"csrf_token": "fixture-token"})
         self.addAsyncCleanup(self.client.aclose)
         self.base = f"/api/threads/{self.scope.thread_id}/ppt-confirmations/{self.scope.task_id}"
 
@@ -140,7 +134,7 @@ class RouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.client.get(self.base + "/state")).status_code, 404)
 
     async def test_invalid_parameters_or_inactive_task_never_opens(self):
-        for body in ('{"port":6060}', '""', 'x' * 10000):
+        for body in ('{"port":6060}', '""', "x" * 10000):
             response = await self.client.post(self.base + "/open", content=body, headers={"x-csrf-token": "fixture-token"})
             self.assertEqual(response.status_code, 400)
         self.row["status"] = "error"

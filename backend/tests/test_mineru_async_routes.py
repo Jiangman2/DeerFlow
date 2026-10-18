@@ -25,14 +25,35 @@ class Response:
 class Session:
     def __init__(self, statuses=None, results=None, submission=None):
         self.calls = []
-        self.submission = submission if submission is not None else Response(202, {
-            "task_id": "task-1", "status_url": "https://untrusted.invalid/private",
-            "result_url": "https://untrusted.invalid/private/result",
-        })
+        self.submission = (
+            submission
+            if submission is not None
+            else Response(
+                202,
+                {
+                    "task_id": "task-1",
+                    "status_url": "https://untrusted.invalid/private",
+                    "result_url": "https://untrusted.invalid/private/result",
+                },
+            )
+        )
         self.statuses = list(statuses or [Response(200, {"status": "completed"})])
-        self.results = list(results or [Response(200, {"results": {"document": {
-            "md_content": "Parsed test", "images": {},
-        }}})])
+        self.results = list(
+            results
+            or [
+                Response(
+                    200,
+                    {
+                        "results": {
+                            "document": {
+                                "md_content": "Parsed test",
+                                "images": {},
+                            }
+                        }
+                    },
+                )
+            ]
+        )
 
     @staticmethod
     def reply(value):
@@ -56,10 +77,7 @@ def isolate_query_config(monkeypatch):
 
 
 def client(session, **kwargs):
-    return app.EnterpriseMinerUClient(api_url=BASE, api_token="test-token-not-a-secret",
-                                    request_mode="async", timeout_seconds=30,
-                                    poll_interval_seconds=0.001, transient_poll_retries=2,
-                                    session=session, **kwargs)
+    return app.EnterpriseMinerUClient(api_url=BASE, api_token="test-token-not-a-secret", request_mode="async", timeout_seconds=30, poll_interval_seconds=0.001, transient_poll_retries=2, session=session, **kwargs)
 
 
 def test_new_query_base_from_environment_keeps_submission_once(monkeypatch):
@@ -68,7 +86,8 @@ def test_new_query_base_from_environment_keeps_submission_once(monkeypatch):
     result = client(session).parse_pdf(b"%PDF-synthetic", "sample.pdf")
     assert result["results"]["document"]["md_content"] == "Parsed test"
     assert [(m, u) for m, u, _ in session.calls] == [
-        ("POST", BASE + "/tasks"), ("GET", QUERY + "/task-1"),
+        ("POST", BASE + "/tasks"),
+        ("GET", QUERY + "/task-1"),
         ("GET", QUERY + "/task-1/result"),
     ]
     assert all(c[2]["allow_redirects"] is False for c in session.calls)
@@ -93,17 +112,31 @@ def test_absent_or_empty_query_url_preserves_original_contract(monkeypatch, valu
     assert session.calls[1][1] == BASE + "/tasks/task-1"
 
 
-@pytest.mark.parametrize("url", [
-    "https://outside.invalid/tasks", "http://aiapi.cnooc.com.cn/tasks",
-    "https://aiapi.cnooc.com.cn:444/tasks", "https://aiapi.cnooc.com.cn:0/tasks",
-    "https://user:private@aiapi.cnooc.com.cn/tasks",
-    "https://aiapi.cnooc.com.cn/tasks?token=private", "https://aiapi.cnooc.com.cn/tasks#private",
-    "//aiapi.cnooc.com.cn/tasks", "/dynamic/tasks", "https://aiapi.cnooc.com.cn/task",
-    BASE + "/../tasks", BASE + "/./tasks", BASE + "/%2e%2e/tasks",
-    BASE + "//tasks", BASE + "/tasks/{task_id}", BASE + "/\\private/tasks",
-    BASE + "/\nprivate/tasks", BASE + "/private space/tasks", BASE + "/tasks?",
-    BASE + "/tasks#",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://outside.invalid/tasks",
+        "http://aiapi.cnooc.com.cn/tasks",
+        "https://aiapi.cnooc.com.cn:444/tasks",
+        "https://aiapi.cnooc.com.cn:0/tasks",
+        "https://user:private@aiapi.cnooc.com.cn/tasks",
+        "https://aiapi.cnooc.com.cn/tasks?token=private",
+        "https://aiapi.cnooc.com.cn/tasks#private",
+        "//aiapi.cnooc.com.cn/tasks",
+        "/dynamic/tasks",
+        "https://aiapi.cnooc.com.cn/task",
+        BASE + "/../tasks",
+        BASE + "/./tasks",
+        BASE + "/%2e%2e/tasks",
+        BASE + "//tasks",
+        BASE + "/tasks/{task_id}",
+        BASE + "/\\private/tasks",
+        BASE + "/\nprivate/tasks",
+        BASE + "/private space/tasks",
+        BASE + "/tasks?",
+        BASE + "/tasks#",
+    ],
+)
 def test_invalid_query_config_fails_before_network_without_disclosing_value(monkeypatch, url):
     monkeypatch.setenv("MINERU_TASK_QUERY_URL", url)
     session = Session()
@@ -123,15 +156,14 @@ def test_same_origin_default_https_port_is_accepted():
 
 def test_old_http_base_cannot_receive_new_https_query_override():
     with pytest.raises(ValueError, match="task query URL"):
-        app.EnterpriseMinerUClient(api_url="http://aiapi.cnooc.com.cn/old", api_token="test",
-                                  task_query_url=QUERY, session=Session())
+        app.EnterpriseMinerUClient(api_url="http://aiapi.cnooc.com.cn/old", api_token="test", task_query_url=QUERY, session=Session())
 
 
 def test_transient_new_route_polling_retries_only_same_task():
-    session = Session(statuses=[app.requests.ReadTimeout("synthetic"), Response(404, {}),
-                               Response(200, {"data": {"status": "completed"}})],
-                      results=[Response(200, {"success": False, "code": 20006}),
-                               Response(200, {"data": {"results": {"document": {"md_content": "ok"}}}})])
+    session = Session(
+        statuses=[app.requests.ReadTimeout("synthetic"), Response(404, {}), Response(200, {"data": {"status": "completed"}})],
+        results=[Response(200, {"success": False, "code": 20006}), Response(200, {"data": {"results": {"document": {"md_content": "ok"}}}})],
+    )
     client(session, task_query_url=QUERY).parse_pdf(b"%PDF-synthetic", "sample.pdf")
     assert sum(m == "POST" for m, _, _ in session.calls) == 1
     assert {u for m, u, _ in session.calls if m == "GET"} == {QUERY + "/task-1", QUERY + "/task-1/result"}
@@ -141,8 +173,7 @@ def test_transient_new_route_polling_retries_only_same_task():
 @pytest.mark.parametrize("status", [301, 302, 307, 308])
 def test_redirects_are_rejected_without_retry(stage, status):
     redirect = Response(status, {"task_id": "task-1", "status": "completed", "results": {}})
-    session = Session(**({"submission": redirect} if stage == "submit" else
-                         {"statuses": [redirect]} if stage == "status" else {"results": [redirect]}))
+    session = Session(**({"submission": redirect} if stage == "submit" else {"statuses": [redirect]} if stage == "status" else {"results": [redirect]}))
     with pytest.raises(RuntimeError, match="redirect"):
         client(session, task_query_url=QUERY).parse_pdf(b"%PDF-synthetic", "sample.pdf")
     assert sum(m == "POST" for m, _, _ in session.calls) == 1

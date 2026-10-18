@@ -61,7 +61,8 @@ def test_data_lake_tool_filter_preserves_independent_master_data_search():
     ]
     assert filter_tools_by_datalake_scope(tools, enabled=True) == tools
     assert [tool.name for tool in filter_tools_by_datalake_scope(tools, enabled=None)] == [
-        "datalake_md_search", "present_files",
+        "datalake_md_search",
+        "present_files",
     ]
 
 

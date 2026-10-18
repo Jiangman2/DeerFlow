@@ -47,9 +47,14 @@ class RenewalAuthorityTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("auto_enabled", value)
 
     async def test_missing_cancelled_inactive_and_untrusted_requests_refused(self):
-        for state, options in ((None, {}), ({"cancelled": True}, {}), ({"cancelled": False}, {"status": "completed"}),
-                               ({"cancelled": False}, {"cancel": True}), ({"cancelled": False}, {"authenticated": False}),
-                               ({"cancelled": False}, {"extra": {"auto_enabled": True}})):
+        for state, options in (
+            (None, {}),
+            ({"cancelled": True}, {}),
+            ({"cancelled": False}, {"status": "completed"}),
+            ({"cancelled": False}, {"cancel": True}),
+            ({"cancelled": False}, {"authenticated": False}),
+            ({"cancelled": False}, {"extra": {"auto_enabled": True}}),
+        ):
             with self.subTest(options=options), self.assertRaises(broker.HTTPException):
                 await self.invoke(state, **options)
 
@@ -59,12 +64,10 @@ class HostRenewalTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("confirmation_renewal_control", HOST / "ppt_confirmation_control.py")
         self.control = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.control)
-        self.task = SimpleNamespace(task_id=RUN, thread_id=THREAD, env={"PPT_RUNTIME_CAPABILITY": "old.capability"},
-                                    secret_values=["old.capability"], state={"status": "completed"})
+        self.task = SimpleNamespace(task_id=RUN, thread_id=THREAD, env={"PPT_RUNTIME_CAPABILITY": "old.capability"}, secret_values=["old.capability"], state={"status": "completed"})
 
     def renew(self, **changes):
-        value = {"capability": "new.capability", "task_id": RUN, "thread_id": THREAD,
-                 "confirmation_protocol": "ppt-confirmation-v1", **changes}
+        value = {"capability": "new.capability", "task_id": RUN, "thread_id": THREAD, "confirmation_protocol": "ppt-confirmation-v1", **changes}
         with patch.dict(os.environ, {"SANDBOX_API_KEY": "fixture-service"}), patch.object(self.control, "request_json", return_value=value) as rpc:
             result = self.control.refresh_capability(self.task)
         self.assertEqual(rpc.call_args.kwargs["body"], {"run_id": RUN, "thread_id": THREAD})
@@ -93,8 +96,7 @@ class HostRenewalTests(unittest.TestCase):
             from ppt_research_guard import ResearchGuard
 
             ledger = ResearchGuard.create(Path(folder) / "guard.sqlite", "old.capability")
-            environment = {"PPT_RESEARCH_GUARD_PATH": str(ledger.path), "PPT_RESEARCH_GUARD_REQUIRED": "1",
-                           "PPT_RESEARCH_GUARD_KEY": "old.capability", "PPT_RUNTIME_CAPABILITY": "old.capability"}
+            environment = {"PPT_RESEARCH_GUARD_PATH": str(ledger.path), "PPT_RESEARCH_GUARD_REQUIRED": "1", "PPT_RESEARCH_GUARD_KEY": "old.capability", "PPT_RUNTIME_CAPABILITY": "old.capability"}
             with patch.dict(os.environ, environment), patch.object(stdio, "call_tool", side_effect=TimeoutError()) as provider:
                 stdio.guarded_call({"name": "web_search", "arguments": {"query": "public fixture"}})
                 self.renew()

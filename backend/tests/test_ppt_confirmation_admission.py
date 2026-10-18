@@ -14,10 +14,12 @@ class AdmissionTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.scope = Scope("owner", "thread", "run")
         self.row = {
-            "run_id": "run", "thread_id": "thread", "user_id": "owner",
-            "assistant_id": "ppt-master-runner", "status": "running",
-            "kwargs": {"input": {"messages": [{"type": "human", "content": "/ppt-master test",
-                "additional_kwargs": {"ppt_confirmation_mode": "auto_after_60s"}}]}},
+            "run_id": "run",
+            "thread_id": "thread",
+            "user_id": "owner",
+            "assistant_id": "ppt-master-runner",
+            "status": "running",
+            "kwargs": {"input": {"messages": [{"type": "human", "content": "/ppt-master test", "additional_kwargs": {"ppt_confirmation_mode": "auto_after_60s"}}]}},
         }
         self.runs = SimpleNamespace(list_by_thread=AsyncMock(return_value=[self.row]))
         self.repo = SimpleNamespace(get=AsyncMock(return_value=None), admit=AsyncMock(return_value={"policy": {"auto_enabled": True}, "cancelled": False}))

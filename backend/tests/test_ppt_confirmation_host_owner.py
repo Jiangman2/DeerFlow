@@ -14,9 +14,18 @@ class HostOwnerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.scope = Scope("owner", "thread", "task")
         raw = b'{"stage":"stage1"}'
-        self.body = {"task_id": "task", "thread_id": "thread", "project_id": "project", "stage": "stage1", "payload": {"stage": "stage1"},
-                     "payload_digest": hashlib.sha256(raw).hexdigest(), "version": "a" * 64, "owner_version": "b" * 64,
-                     "source_digest": "c" * 64, "confirmation_submitted": False}
+        self.body = {
+            "task_id": "task",
+            "thread_id": "thread",
+            "project_id": "project",
+            "stage": "stage1",
+            "payload": {"stage": "stage1"},
+            "payload_digest": hashlib.sha256(raw).hexdigest(),
+            "version": "a" * 64,
+            "owner_version": "b" * 64,
+            "source_digest": "c" * 64,
+            "confirmation_submitted": False,
+        }
         self.calls = []
         self.status = 200
         self.raw = None

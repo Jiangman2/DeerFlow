@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import AsyncMock
 
 import test_ppt_confirmation_controller as fixtures
+
 from deerflow.ppt_confirmation.continuation import ConfirmationContinuation
 from deerflow.ppt_confirmation.lifecycle import ConsentConflict
 
@@ -14,10 +15,16 @@ class ContinuationTests(unittest.IsolatedAsyncioTestCase):
         await self.repo.admit(self.scope, runtime_profile="ppt-master-runner", skill_name="ppt-master", opted_in=True)
         for self.now in range(1000, 1065, 5):
             self.snapshot = await self.controller.tick(self.scope)
-        self.task = {"task_id": self.scope.task_id, "thread_id": self.scope.thread_id, "session_id": "original-session",
-            "status": "completed", "process_cleanup_complete": True, "artifacts": [], "confirmation_protocol": "ppt-confirmation-v1"}
-        self.proof = {"state": "dispatched", "task_id": self.scope.task_id, "thread_id": self.scope.thread_id,
-            "gate_id": self.snapshot["gate"]["gate_id"], "receipt_digest": "d" * 64, "retry_permitted": False}
+        self.task = {
+            "task_id": self.scope.task_id,
+            "thread_id": self.scope.thread_id,
+            "session_id": "original-session",
+            "status": "completed",
+            "process_cleanup_complete": True,
+            "artifacts": [],
+            "confirmation_protocol": "ppt-confirmation-v1",
+        }
+        self.proof = {"state": "dispatched", "task_id": self.scope.task_id, "thread_id": self.scope.thread_id, "gate_id": self.snapshot["gate"]["gate_id"], "receipt_digest": "d" * 64, "retry_permitted": False}
         self.owner.continue_guarded = AsyncMock()
         self.owner.continuation_receipt = AsyncMock(side_effect=lambda *_: self.proof)
         self.flow = ConfirmationContinuation(self.repo, self.owner)
@@ -35,8 +42,7 @@ class ContinuationTests(unittest.IsolatedAsyncioTestCase):
         self.owner.continue_guarded.assert_awaited_once()
 
     async def test_running_failed_cancelled_delivered_or_unclean_task_never_restarted(self):
-        for change in ({"status": "running"}, {"status": "failed"}, {"status": "cancelled"},
-                       {"artifacts": ["deck.pptx"]}, {"process_cleanup_complete": False}):
+        for change in ({"status": "running"}, {"status": "failed"}, {"status": "cancelled"}, {"artifacts": ["deck.pptx"]}, {"process_cleanup_complete": False}):
             state = await self.flow.tick(self.scope, self.snapshot, {**self.task, **change})
             self.assertEqual(state["gate"]["state"], "confirmed")
         self.owner.continue_guarded.assert_not_awaited()
@@ -69,6 +75,7 @@ class ContinuationTests(unittest.IsolatedAsyncioTestCase):
         async def cancel(*_):
             row = await self.repo.get(self.scope)
             await self.repo.cancel_task(self.scope, expected_revision=row["revision"])
+
         self.owner.continue_guarded.side_effect = cancel
         state = await self.flow.tick(self.scope, self.snapshot, self.task)
         self.assertTrue(state["cancelled"])

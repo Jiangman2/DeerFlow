@@ -635,9 +635,7 @@ def _invoke_retrieve_tool(query: str, runtime: object | None) -> str:
 
 def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
     runtime_context = getattr(runtime, "context", None)
-    if tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS and (
-        not isinstance(runtime_context, Mapping) or runtime_context.get("datalake_enabled") is not True
-    ):
+    if tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS and (not isinstance(runtime_context, Mapping) or runtime_context.get("datalake_enabled") is not True):
         return json.dumps(
             {
                 "error": "Data Lake use is disabled for this run",

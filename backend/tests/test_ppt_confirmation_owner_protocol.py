@@ -24,7 +24,9 @@ class OwnerProtocolTests(unittest.TestCase):
     def payload(self, operation="op-one"):
         rec = self.fixture.get("/api/recommendations")
         return {
-            "stage": "stage1", "primary_language": "zh-CN", "canvas": "ppt169",
+            "stage": "stage1",
+            "primary_language": "zh-CN",
+            "canvas": "ppt169",
             "template_selection": {"mode": "free_design", "selection_keys": []},
             "options_sha256": rec["template_options"]["options_sha256"],
             "_confirmation_request": {"protocol": 1, "version": rec["confirmation_protocol"]["version"], "operation_id": operation},
@@ -58,8 +60,7 @@ class OwnerProtocolTests(unittest.TestCase):
 
     def test_strict_owner_requires_version_and_has_no_write_on_missing_version(self):
         rec = self.fixture.get("/api/recommendations")
-        reply = self.fixture.submit({"stage": "stage1", "template_selection": {"mode": "free_design", "selection_keys": []},
-                                     "options_sha256": rec["template_options"]["options_sha256"]})
+        reply = self.fixture.submit({"stage": "stage1", "template_selection": {"mode": "free_design", "selection_keys": []}, "options_sha256": rec["template_options"]["options_sha256"]})
         self.assertEqual(reply.status_code, 409)
         self.assertFalse((self.fixture.confirm / "result.json").exists())
         self.assertFalse((self.fixture.confirm / "template_selection.json").exists())
@@ -109,9 +110,11 @@ class OwnerProtocolTests(unittest.TestCase):
         first = self.payload("manual")
         second = copy.deepcopy(first)
         second["_confirmation_request"]["operation_id"] = "automatic"
+
         def submit(value):
             with self.fixture.app.test_client() as client:
                 return client.post("/api/confirm", json=value).status_code
+
         with ThreadPoolExecutor(max_workers=2) as pool:
             results = list(pool.map(submit, [first, second]))
         self.assertEqual(sorted(results), [200, 409])
@@ -119,10 +122,12 @@ class OwnerProtocolTests(unittest.TestCase):
     def test_change_inside_validator_cannot_create_accepted_receipt(self):
         payload = self.payload()
         original = self.fixture.module._custom_selection_error
+
         def concurrent_edit(value):
             self.fixture.stage1["audience"]["value"] = "changed while validating"
             self.fixture.write("recommendations.stage1.json", self.fixture.stage1)
             return original(value)
+
         with patch.object(self.fixture.module, "_custom_selection_error", side_effect=concurrent_edit):
             reply = self.fixture.submit(payload)
         self.assertEqual(reply.status_code, 409)
@@ -131,10 +136,12 @@ class OwnerProtocolTests(unittest.TestCase):
     def test_partial_commit_may_not_release_waiter_or_replay(self):
         payload = self.payload()
         writer = self.fixture.module._write_json_atomic
+
         def fail_result(path, data):
             if path.name == "result.json":
                 raise OSError("simulated disk failure private detail")
             return writer(path, data)
+
         with patch.object(self.fixture.module, "_write_json_atomic", side_effect=fail_result):
             reply = self.fixture.submit(payload)
         self.assertEqual(reply.status_code, 409)
@@ -147,8 +154,7 @@ class OwnerProtocolTests(unittest.TestCase):
             fixture = OfficialFixture(tmp)
             rec = fixture.get("/api/recommendations")
             self.assertNotIn("confirmation_protocol", rec)
-            reply = fixture.submit({"stage": "stage1", "template_selection": {"mode": "free_design", "selection_keys": []},
-                                    "options_sha256": rec["template_options"]["options_sha256"]})
+            reply = fixture.submit({"stage": "stage1", "template_selection": {"mode": "free_design", "selection_keys": []}, "options_sha256": rec["template_options"]["options_sha256"]})
             self.assertEqual(reply.status_code, 200, reply.json)
 
     def test_receipt_tampering_is_not_completion(self):
@@ -187,11 +193,13 @@ class OwnerProtocolTests(unittest.TestCase):
     def test_concurrent_edit_after_result_write_keeps_wait_blocked(self):
         payload = self.payload()
         original = self.fixture.module._write_json_atomic
+
         def edit_after_write(path, data):
             original(path, data)
             if path.name == "result.json":
                 self.fixture.stage1["audience"]["value"] = "concurrent edit before commit acknowledgement"
                 self.fixture.write("recommendations.stage1.json", self.fixture.stage1)
+
         with patch.object(self.fixture.module, "_write_json_atomic", side_effect=edit_after_write):
             reply = self.fixture.submit(payload)
         self.assertEqual(reply.status_code, 409)

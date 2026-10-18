@@ -36,29 +36,34 @@ def fixture(pages, tmp_path):
     project.mkdir()
     (project / "confirm_ui").mkdir()
     candidate = {"project": str(project), "port": 5050, "item_id": "command1"}
-    item = {"id": "command1", "type": "command_execution", "exit_code": 0,
-            "command": 'python3 -B "' + str(runtime / "scripts/confirm_ui/server.py") + '" "' + str(project) + '" --daemon --no-browser',
-            "aggregated_output": "running at http://127.0.0.1:5050"}
-    health = {"service": "confirm_ui", "status": "ok", "project": str(project), "pid": 123,
-              "stage": 1, "recommendations": True,
-              "session": {"phase": "strategist", "status": "ready_user", "current_stage": "stage1", "recommendation_version": "a" * 64,
-                          "template_error": None, "recommendation_error": None}}
+    item = {
+        "id": "command1",
+        "type": "command_execution",
+        "exit_code": 0,
+        "command": 'python3 -B "' + str(runtime / "scripts/confirm_ui/server.py") + '" "' + str(project) + '" --daemon --no-browser',
+        "aggregated_output": "running at http://127.0.0.1:5050",
+    }
+    health = {
+        "service": "confirm_ui",
+        "status": "ok",
+        "project": str(project),
+        "pid": 123,
+        "stage": 1,
+        "recommendations": True,
+        "session": {"phase": "strategist", "status": "ready_user", "current_stage": "stage1", "recommendation_version": "a" * 64, "template_error": None, "recommendation_error": None},
+    }
     return SimpleNamespace(workspace=workspace, runtime=runtime, project=project, candidate=candidate, item=item, health=health)
 
 
 def test_only_actual_successful_native_daemon_command_discovers_owner(pages, fixture):
     assert pages.candidate_from_event({"type": "item.completed", "item": fixture.item}, fixture.workspace, fixture.runtime) == fixture.candidate
-    for changes in ({"exit_code": 1}, {"exit_code": True}, {"type": "agent_message"}, {"command": "echo " + fixture.item["command"]},
-                    {"command": fixture.item["command"] + "; echo injected"}, {"aggregated_output": "http://127.0.0.1:6060"}):
+    for changes in ({"exit_code": 1}, {"exit_code": True}, {"type": "agent_message"}, {"command": "echo " + fixture.item["command"]}, {"command": fixture.item["command"] + "; echo injected"}, {"aggregated_output": "http://127.0.0.1:6060"}):
         item = {**fixture.item, **changes}
         assert pages.candidate_from_event({"type": "item.completed", "item": item}, fixture.workspace, fixture.runtime) is None
 
 
 def test_discovery_cannot_use_an_unrelated_script_or_project(pages, fixture):
-    for command in (fixture.item["command"].replace("server.py", "other.py"),
-                    fixture.item["command"].replace(str(fixture.project), str(fixture.workspace.parent)),
-                    fixture.item["command"] + " --reset",
-                    fixture.item["command"] + " --wait"):
+    for command in (fixture.item["command"].replace("server.py", "other.py"), fixture.item["command"].replace(str(fixture.project), str(fixture.workspace.parent)), fixture.item["command"] + " --reset", fixture.item["command"] + " --wait"):
         assert pages.candidate_from_event({"type": "item.completed", "item": {**fixture.item, "command": command}}, fixture.workspace, fixture.runtime) is None
 
 
@@ -67,8 +72,7 @@ def test_codex_single_shell_envelope_is_discovery_only(pages, fixture):
         command = shell + " -lc " + shlex.quote(fixture.item["command"])
         event = {"type": "item.completed", "item": {**fixture.item, "command": command}}
         assert pages.candidate_from_event(event, fixture.workspace, fixture.runtime) == fixture.candidate
-    for command in ("bash -lc " + shlex.quote(fixture.item["command"] + "; echo fake"),
-                    "bash -lc " + shlex.quote("bash -lc " + shlex.quote(fixture.item["command"]))):
+    for command in ("bash -lc " + shlex.quote(fixture.item["command"] + "; echo fake"), "bash -lc " + shlex.quote("bash -lc " + shlex.quote(fixture.item["command"]))):
         event = {"type": "item.completed", "item": {**fixture.item, "command": command}}
         assert pages.candidate_from_event(event, fixture.workspace, fixture.runtime) is None
 
@@ -147,8 +151,7 @@ def test_timeout_redacts_and_retains_uncertain_operation(pages, fixture, tmp_pat
     records = []
     task = SimpleNamespace(task_id="original", state={"confirmation_owner_candidate": fixture.candidate}, task_dir=tmp_path)
     receipts = SimpleNamespace(atomic_json=lambda path, data: records.append(data.copy()))
-    with patch.object(pages, "verify_source"), patch.object(pages, "probe", return_value=None), \
-         patch.object(pages.subprocess, "run", side_effect=subprocess.TimeoutExpired("private", 15, output="secret")):
+    with patch.object(pages, "verify_source"), patch.object(pages, "probe", return_value=None), patch.object(pages.subprocess, "run", side_effect=subprocess.TimeoutExpired("private", 15, output="secret")):
         result = pages.restore(task, workspace=fixture.workspace, source_root=ROOT, receipts=receipts)
     assert records[0]["state"] == "requested"
     assert result["state"] == "recovery_unconfirmed"
@@ -177,8 +180,7 @@ def test_later_expiry_is_a_new_restore_only_after_previous_success(pages, fixtur
     marker.write_text('{"schema":1,"task_id":"original","state":"ready"}')
     records = []
     receipts = SimpleNamespace(atomic_json=lambda path, data: records.append(data.copy()))
-    with patch.object(pages, "verify_source"), patch.object(pages, "probe", side_effect=[None, fixture.health]), \
-         patch.object(pages.subprocess, "run", return_value=SimpleNamespace(returncode=0)) as run:
+    with patch.object(pages, "verify_source"), patch.object(pages, "probe", side_effect=[None, fixture.health]), patch.object(pages.subprocess, "run", return_value=SimpleNamespace(returncode=0)) as run:
         result = pages.restore(task, workspace=fixture.workspace, source_root=ROOT, receipts=receipts)
     assert result["state"] == "waiting_user" and run.call_count == 1
     assert [record["state"] for record in records] == ["requested", "ready"]

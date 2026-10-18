@@ -26,8 +26,7 @@ def public_status(snapshot: dict | None) -> dict | None:
     state = gate["state"]
     if state == "waiting_user":
         automatic = snapshot["policy"]["auto_enabled"] and gate["auto_block_reason"] is None and gate["due_at"] is not None
-        message = ("PPT 已到达官方确认阶段；本次任务已开启自动模式，完整等待 60 秒后按页面默认选项确认，无需打开预览。"
-                   if automatic else "PPT 已到达官方确认阶段，当前需要人工确认；任务尚未完成。")
+        message = "PPT 已到达官方确认阶段；本次任务已开启自动模式，完整等待 60 秒后按页面默认选项确认，无需打开预览。" if automatic else "PPT 已到达官方确认阶段，当前需要人工确认；任务尚未完成。"
         if gate["auto_block_reason"] not in {None, "manual_policy"}:
             message += " 自动确认已暂停，请检查当前内容并人工确认。"
     elif state in {"submission_pending", "submission_unknown"}:
@@ -40,8 +39,7 @@ def public_status(snapshot: dict | None) -> dict | None:
         message = "PPT 已确认，原任务已继续执行。"
     else:
         message = "PPT 确认内容或任务状态已改变，请查看当前确认状态。"
-    return {"gate_id": gate["gate_id"], "stage": gate["stage"], "state": state,
-            "due_at": gate["due_at"], "auto_block_reason": gate["auto_block_reason"], "message": message}
+    return {"gate_id": gate["gate_id"], "stage": gate["stage"], "state": state, "due_at": gate["due_at"], "auto_block_reason": gate["auto_block_reason"], "message": message}
 
 
 class ConfirmationMonitor:
@@ -61,8 +59,7 @@ class ConfirmationMonitor:
     def observe_task(self, payload):
         if not isinstance(payload, dict) or payload.get("task_id") != self.scope.task_id or payload.get("thread_id") != self.scope.thread_id:
             raise RuntimeError("confirmation_task_scope_mismatch")
-        keys = ("task_id", "thread_id", "status", "artifacts", "process_cleanup_complete", "cancel_requested", "session_id",
-                "confirmation_protocol", "last_continuation_gate")
+        keys = ("task_id", "thread_id", "status", "artifacts", "process_cleanup_complete", "cancel_requested", "session_id", "confirmation_protocol", "last_continuation_gate")
         self._task_receipt = {key: payload.get(key) for key in keys}
         if payload.get("status") != "completed":
             self._completed_wait_since = None
@@ -84,8 +81,7 @@ class ConfirmationMonitor:
         gate = (self.snapshot or {}).get("gate")
         if self.snapshot and self.snapshot["cancelled"]:
             raise RuntimeError("confirmation_task_cancelled")
-        if gate and gate["state"] in {"waiting_user", "submission_pending", "submission_unknown", "confirmed",
-                                     "continuation_pending", "continuation_unknown"}:
+        if gate and gate["state"] in {"waiting_user", "submission_pending", "submission_unknown", "confirmed", "continuation_pending", "continuation_unknown"}:
             return True
         if gate and gate["state"] == "continuing" and task.get("last_continuation_gate") != gate["gate_id"]:
             return True  # The latest Host response predates the acknowledged resume.

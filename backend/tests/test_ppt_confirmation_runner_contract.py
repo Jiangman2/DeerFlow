@@ -60,8 +60,7 @@ class RunnerContractTests(unittest.IsolatedAsyncioTestCase):
 
         def client(**options):
             self.assertIs(options["trust_env"], False)
-            self.assertEqual(options["headers"]["X-Ppt-Runtime-Operation"],
-                             "confirmation-capability-refresh" if kwargs.get("refresh_confirmation") else "capability")
+            self.assertEqual(options["headers"]["X-Ppt-Runtime-Operation"], "confirmation-capability-refresh" if kwargs.get("refresh_confirmation") else "capability")
             return Client()
 
         namespace = {"httpx": SimpleNamespace(AsyncClient=client, Timeout=lambda value: value), "_auth_headers": lambda key: {"Authorization": "Bearer fixture"}}
