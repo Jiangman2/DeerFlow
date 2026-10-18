@@ -1,5 +1,6 @@
 """File-backed hot flags: frozen seed, durable CAS and independent writers."""
 
+import errno
 import json
 import multiprocessing
 import os
@@ -157,3 +158,120 @@ def test_posix_permissions_links_and_lock_timeout(tmp_path):
     link.symlink_to(path)
     with pytest.raises(FeaturedUnavailable, match="unsafe_featured_path"):
         FeaturedStore(link).snapshot()
+
+
+def test_stale_parent_lookup_is_revalidated_before_reading(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    store = FeaturedStore(tmp_path / "hot.json")
+    store.initialize([OLD], actor="release")
+    original = Path.is_symlink
+    lookups = []
+
+    def stale_once(path):
+        if path == store.path:
+            lookups.append(path)
+            if len(lookups) == 1:
+                raise OSError(errno.ESTALE, "synthetic stale lookup")
+        return original(path)
+
+    monkeypatch.setattr(Path, "is_symlink", stale_once)
+    assert store.snapshot().flag(OLD) == (True, 1)
+    assert len(lookups) == 2
+
+
+def test_stale_data_open_reopens_then_commits_exactly_once(tmp_path, monkeypatch):
+    import app.gateway.employee_featured_store as module
+
+    store = FeaturedStore(tmp_path / "hot.json")
+    store.initialize([OLD], actor="release")
+    original_open, original_replace = module.os.open, module.os.replace
+    opens, commits = [], []
+
+    def stale_once(path, flags, *args, **kwargs):
+        if path == store.path and not flags & (os.O_WRONLY | os.O_RDWR):
+            opens.append(path)
+            if len(opens) == 1:
+                raise OSError(errno.ESTALE, "synthetic stale data handle")
+        return original_open(path, flags, *args, **kwargs)
+
+    def commit(*args, **kwargs):
+        commits.append(args)
+        return original_replace(*args, **kwargs)
+
+    monkeypatch.setattr(module.os, "open", stale_once)
+    monkeypatch.setattr(module.os, "replace", commit)
+    assert store.set_hot(OLD, False, expected_version=1, actor="admin") == 2
+    assert len(opens) == 2
+    assert len(commits) == 1
+    document = json.loads(store.path.read_bytes())
+    assert document["revision"] == 2
+    assert document["entries"][OLD.selection_key]["version"] == 2
+
+
+@pytest.mark.parametrize("number,attempts", [(errno.ESTALE, 3), (errno.EIO, 1), (errno.EACCES, 1)])
+def test_read_recovery_is_bounded_and_does_not_retry_other_errors(tmp_path, monkeypatch, number, attempts):
+    import app.gateway.employee_featured_store as module
+
+    store = FeaturedStore(tmp_path / "hot.json")
+    store.initialize([OLD], actor="release")
+    before = store.path.read_bytes()
+    original = module.os.open
+    calls = []
+
+    def failed_open(path, flags, *args, **kwargs):
+        if path == store.path:
+            calls.append(path)
+            raise OSError(number, "synthetic read failure")
+        return original(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(module.os, "open", failed_open)
+    with pytest.raises(FeaturedUnavailable):
+        store.set_hot(OLD, False, expected_version=1, actor="admin")
+    assert len(calls) == attempts
+    assert store.path.read_bytes() == before
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Production POSIX permission contract")
+def test_recovered_stale_read_keeps_permission_checks(tmp_path, monkeypatch):
+    store = FeaturedStore(tmp_path / "hot.json")
+    store.initialize([OLD], actor="release")
+    store.path.chmod(0o666)
+    original = store._read_bytes
+    calls = []
+
+    def stale_once():
+        calls.append(True)
+        if len(calls) == 1:
+            raise OSError(errno.ESTALE, "synthetic stale read")
+        return original()
+
+    monkeypatch.setattr(store, "_read_bytes", stale_once)
+    with pytest.raises(FeaturedUnavailable, match="unsafe_featured_permissions"):
+        store.snapshot()
+    assert len(calls) == 2
+
+
+def test_uncertain_atomic_replace_is_never_replayed(tmp_path, monkeypatch):
+    import app.gateway.employee_featured_store as module
+
+    store = FeaturedStore(tmp_path / "hot.json")
+    store.initialize([OLD], actor="release")
+    original = module.os.replace
+    commits = []
+
+    def uncertain_replace(*args, **kwargs):
+        commits.append(args)
+        original(*args, **kwargs)
+        raise OSError(errno.ESTALE, "synthetic reply lost after rename")
+
+    monkeypatch.setattr(module.os, "replace", uncertain_replace)
+    with pytest.raises(FeaturedUnavailable):
+        store.set_hot(OLD, False, expected_version=1, actor="admin")
+    assert len(commits) == 1
+    data = json.loads(store.path.read_bytes())
+    assert data["revision"] == 2
+    assert len(data["changes"]) == 1
+    with pytest.raises(FeaturedConflict):
+        store.set_hot(OLD, True, expected_version=1, actor="stale-browser")
+    assert len(commits) == 1

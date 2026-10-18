@@ -108,6 +108,22 @@ class FeaturedStore:
         self.lock_timeout = lock_timeout
 
     def _check_parent(self):
+        self._retry_stale_read(self._check_parent_once)
+
+    @staticmethod
+    def _retry_stale_read(operation):
+        # Another NFS client can atomically replace the JSON while this client
+        # still has its old dentry. Re-resolve only read-only checks/opens; never
+        # replay a transaction or an uncertain rename/fsync after a write.
+        for attempt in range(3):
+            try:
+                return operation()
+            except OSError as exc:
+                if exc.errno != getattr(errno, "ESTALE", -1) or attempt == 2:
+                    raise
+                time.sleep(0.025)
+
+    def _check_parent_once(self):
         parent = self.path.parent
         if parent.resolve() != parent or not parent.is_dir() or self.path.is_symlink():
             raise FeaturedUnavailable("unsafe_featured_path")
@@ -169,6 +185,9 @@ class FeaturedStore:
                 os.close(fd)
 
     def _load(self):
+        return self._decode(self._retry_stale_read(self._read_bytes))
+
+    def _read_bytes(self):
         try:
             fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         except FileNotFoundError:
@@ -176,7 +195,7 @@ class FeaturedStore:
         with os.fdopen(fd, "rb") as stream:
             self._check_file(stream.fileno())
             raw = stream.read(MAX_BYTES + 1)
-        return self._decode(raw)
+        return raw
 
     @staticmethod
     def _decode(raw):
