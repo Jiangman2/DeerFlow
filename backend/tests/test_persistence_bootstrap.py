@@ -48,8 +48,10 @@ from deerflow.persistence.migrations._helpers import _normalize_default
 asyncio_test = pytest.mark.asyncio
 
 
-HEAD = "0019_digital_employee_agents"
+HEAD = "0020_ppt_confirmation"
 BASELINE = "0001_baseline"
+PRE_CONFIRMATION_HEAD = "0019_digital_employee_agents"
+CONFIRMATION_TABLES = frozenset({"ppt_confirmation_tasks", "ppt_confirmation_gates"})
 
 
 def _url(tmp_path: Path, name: str = "test.db") -> str:
@@ -97,9 +99,8 @@ async def _alembic_version(engine) -> str | None:
 
 
 async def _seed_legacy_without_column(engine) -> None:
-    """Build the pre-#3658 schema: create_all, then drop the new column."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """Build the legacy token-column shape without inventing future tables."""
+    await _seed_legacy_with_column(engine)
     async with engine.begin() as conn:
         # SQLite supports DROP COLUMN from 3.35.0; the test runner pins recent
         # Python which bundles a 3.40+ sqlite, so this is safe.
@@ -107,8 +108,13 @@ async def _seed_legacy_without_column(engine) -> None:
 
 
 async def _seed_legacy_with_column(engine) -> None:
+    # Historical DDL, rather than today's Base.metadata, must own this seed:
+    # an old database cannot already contain 0020's confirmation tables.
+    await asyncio.to_thread(_upgrade, _get_alembic_config(engine), PRE_CONFIRMATION_HEAD)
+    assert await _alembic_version(engine) == PRE_CONFIRMATION_HEAD
+    assert not CONFIRMATION_TABLES & await _table_names(engine)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.execute(sa.text("DROP TABLE alembic_version"))
 
 
 async def _seed_legacy_missing_channel_tables(engine) -> None:
@@ -116,12 +122,11 @@ async def _seed_legacy_missing_channel_tables(engine) -> None:
 
     Models the worst-case legacy DB the bootstrap layer has to repair -- a
     user who upgraded across multiple releases and never had the channel_*
-    tables provisioned in the first place. We achieve it by running the full
-    ``create_all`` and then dropping the channel_* tables in FK-dependency
+    tables provisioned in the first place. We use the fixed historical
+    schema and then drop the channel_* tables in FK-dependency
     order (credentials/conversations reference channel_connections).
     """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await _seed_legacy_with_column(engine)
     async with engine.begin() as conn:
         for table in (
             "channel_credentials",
@@ -160,6 +165,7 @@ async def test_empty_branch_creates_all_and_stamps_head(tmp_path: Path) -> None:
         assert "cnooc_platform_token_hash" in await _users_columns(engine)
         assert "uq_users_cnooc_platform_token_hash" in await _users_index_names(engine)
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
         # The partial unique index on (thread_id WHERE status IN pending/running)
         # must exist on a fresh DB because the empty-branch stamps head without
         # running migrations, so the index has to come from ``Base.metadata``.
@@ -187,6 +193,7 @@ async def test_legacy_without_column_branch_upgrades(tmp_path: Path) -> None:
 
         assert "token_usage_by_model" in await _runs_columns(engine)
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
     finally:
         await engine.dispose()
 
@@ -230,6 +237,7 @@ async def test_legacy_missing_channel_tables_get_backfilled(tmp_path: Path) -> N
         }:
             assert required in tables, f"legacy backfill missed: {required}"
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
     finally:
         await engine.dispose()
 
@@ -257,6 +265,7 @@ async def test_legacy_with_column_branch_upgrade_is_idempotent(tmp_path: Path) -
         cols_after = await _runs_columns(engine)
         assert cols_after == cols_before, "idempotent upgrade should not alter schema"
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
     finally:
         await engine.dispose()
 
@@ -293,6 +302,7 @@ async def test_legacy_with_manual_workaround_column_warns_on_drift(
 
         # Bootstrap still completes -- the helper does not block on drift.
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
         # And the manually-added column survives untouched (no auto-repair).
         col = await _runs_column_meta(engine, "token_usage_by_model")
         assert col["nullable"] is True
@@ -332,6 +342,7 @@ async def test_legacy_with_wrong_type_workaround_warns_on_type_drift(
             await bootstrap_schema(engine, backend="sqlite")
 
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
         # No auto-repair: the TEXT column survives unchanged so the operator
         # can decide whether to ALTER it themselves.
         col = await _runs_column_meta(engine, "token_usage_by_model")
@@ -402,6 +413,29 @@ def test_type_equivalent_returns_true_on_missing_info() -> None:
 
 
 @asyncio_test
+async def test_pre_confirmation_versioned_database_preserves_users_and_creates_new_tables(tmp_path: Path) -> None:
+    engine = create_async_engine(_url(tmp_path))
+    try:
+        await asyncio.to_thread(_upgrade, _get_alembic_config(engine), PRE_CONFIRMATION_HEAD)
+        assert await _alembic_version(engine) == PRE_CONFIRMATION_HEAD
+        before = await _table_names(engine)
+        assert not CONFIRMATION_TABLES & before
+        async with engine.begin() as conn:
+            await conn.execute(sa.text("INSERT INTO users (id, email, system_role, created_at, needs_setup, token_version) VALUES ('historical-user', 'history@example.invalid', 'user', '2026-01-01T00:00:00', 0, 7)"))
+
+        # Exercise the unchanged production versioned path, then its no-op retry.
+        for _ in range(2):
+            await bootstrap_schema(engine, backend="sqlite")
+            assert await _alembic_version(engine) == HEAD
+            assert await _table_names(engine) == before | CONFIRMATION_TABLES
+            async with engine.connect() as conn:
+                row = (await conn.execute(sa.text("SELECT id, email, system_role, token_version FROM users"))).one()
+            assert tuple(row) == ("historical-user", "history@example.invalid", "user", 7)
+    finally:
+        await engine.dispose()
+
+
+@asyncio_test
 async def test_versioned_branch_is_noop_at_head(tmp_path: Path) -> None:
     engine = create_async_engine(_url(tmp_path))
     try:
@@ -413,6 +447,7 @@ async def test_versioned_branch_is_noop_at_head(tmp_path: Path) -> None:
         cols_after = await _runs_columns(engine)
         assert cols_after == cols_before
         assert await _alembic_version(engine) == HEAD
+        assert CONFIRMATION_TABLES <= await _table_names(engine)
     finally:
         await engine.dispose()
 
@@ -859,7 +894,7 @@ class TestDecideState:
 # ---------------------------------------------------------------------------
 
 
-def test_head_revision_is_oa_policy_flow_revision() -> None:
+def test_head_revision_is_ppt_confirmation_revision() -> None:
     assert _get_head_revision() == HEAD
 
 

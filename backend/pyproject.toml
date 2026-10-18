@@ -39,6 +39,8 @@ dev = [
     # The confirmation tests exercise the real vendored Flask page owner.
     "flask>=3.0.0,<4",
     "jsonschema>=4.26.0",
+    # The same owner tests drive Chromium through the already-locked SDK.
+    "playwright>=1.40",
     "prompt-toolkit>=3.0.0",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",

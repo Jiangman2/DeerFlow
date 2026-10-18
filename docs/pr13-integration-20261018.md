@@ -117,6 +117,24 @@ vendored Skill 从当前 Git index 重建完整 tree，仅把三个授权路径�
 前后端单元测试工作流现在也在 Draft PR 上执行，使修补提交获得实际 GitHub
 测试结果。发布状态仍由独立的备份、恢复和现场验收决定。
 
+完整 GitHub 后端执行还发现历史迁移测试用当前 ORM 创建所有表、再标成旧版本的
+夹具失真：这会提前创建 0020 的表，随后重放迁移时发生重复建表。旧库夹具改为
+通过真实 Alembic 历史修订生成，再保留原有去重、字段、漂移和并发断言，明确
+要求升级到 `0020_ppt_confirmation`。产品迁移和 bootstrap 不因这些夹具调整而改变。
+
+默认后端测试包含真实 Flask 确认页面的浏览器用例。Playwright 已在原锁文件的
+可选依赖中，现也声明为 dev 依赖；未更新其版本或其他已锁定包。开发机首次运行
+这些测试时，在 `backend` 下执行：
+
+```bash
+uv sync --group dev
+uv run --no-sync python -m playwright install chromium
+make test
+```
+
+Linux CI 使用 `playwright install --with-deps chromium` 准备浏览器及系统库，
+保留这五项浏览器测试实际执行。上述命令用于开发机或 CI，不是生产热更步骤。
+
 ## 本轮验证及范围
 
 以下定向和本机记录不替代完整单元测试；完整结果以 PR 对应提交的 GitHub

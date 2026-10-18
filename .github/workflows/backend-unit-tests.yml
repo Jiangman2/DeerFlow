@@ -16,7 +16,7 @@ permissions:
 jobs:
   backend-unit-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -33,6 +33,10 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: uv sync --group dev
+
+      - name: Install Chromium for confirmation owner tests
+        working-directory: backend
+        run: uv run --no-sync python -m playwright install --with-deps chromium
 
       - name: Run unit tests of backend
         working-directory: backend
