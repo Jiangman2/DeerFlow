@@ -1,11 +1,11 @@
 """Combined authorized research/confirmation patch, never the paused switch."""
 
 import ast
-import subprocess
 from pathlib import Path
 
+from support.ppt_patch_provenance import original_source
+
 ROOT = Path(__file__).resolve().parents[2]
-BEFORE = "0044d221d4338ddf455f57c46435920d896a5824"
 
 
 def definitions(source):
@@ -62,7 +62,7 @@ def test_only_approved_runtime_functions_changed():
         },
         "docker/sandbox-ppt-master/ppt_research_stdio.py": {"error_category", "guarded_call", "call_tool", "dispatch"},
     }.items():
-        original = subprocess.run(["git", "show", BEFORE + ":" + path], cwd=ROOT, capture_output=True, check=True, timeout=15).stdout
+        original = original_source(path)
         before, after = definitions(original), definitions((ROOT / path).read_bytes())
         changed = {name for name in set(before) | set(after) if before.get(name) != after.get(name)}
         assert changed <= allowed, (path, changed - allowed)
