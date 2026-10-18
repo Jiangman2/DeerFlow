@@ -139,6 +139,7 @@ class FeaturedStore:
             raise FeaturedUnavailable("unsafe_featured_file")
         if os.name != "nt" and (metadata.st_uid not in (0, os.geteuid()) or metadata.st_mode & 0o077):
             raise FeaturedUnavailable("unsafe_featured_permissions")
+        return metadata
 
     @contextmanager
     def _transaction(self):
@@ -189,11 +190,18 @@ class FeaturedStore:
 
     def _read_bytes(self):
         try:
+            # Revalidate the name after acquiring the stable lock. The parent
+            # check runs before flock, so a competing NFS client may replace
+            # that dentry while this client is waiting. Path-based stat can
+            # revalidate a stale lookup; fstat on an old handle cannot do so.
+            expected = self.path.stat(follow_symlinks=False)
             fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
         except FileNotFoundError:
             raise FeaturedUnavailable("featured_store_not_initialized") from None
         with os.fdopen(fd, "rb") as stream:
-            self._check_file(stream.fileno())
+            actual = self._check_file(stream.fileno())
+            if (actual.st_dev, actual.st_ino) != (expected.st_dev, expected.st_ino):
+                raise FeaturedUnavailable("featured_file_changed_during_read")
             raw = stream.read(MAX_BYTES + 1)
         return raw
 

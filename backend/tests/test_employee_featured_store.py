@@ -275,3 +275,71 @@ def test_uncertain_atomic_replace_is_never_replayed(tmp_path, monkeypatch):
     with pytest.raises(FeaturedConflict):
         store.set_hot(OLD, True, expected_version=1, actor="stale-browser")
     assert len(commits) == 1
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Production NFS/POSIX lock ordering")
+def test_path_is_revalidated_under_lock_before_opening_cached_nfs_handle(tmp_path, monkeypatch):
+    import fcntl
+
+    import app.gateway.employee_featured_store as module
+
+    store = FeaturedStore(tmp_path / "hot.json")
+    store.initialize([OLD], actor="release")
+    original_stat, original_open, original_fstat = module.os.stat, module.os.open, module.os.fstat
+    original_flock = fcntl.flock
+    state = {"locked": False, "refreshed": False}
+    data_fds, events = set(), []
+
+    def lock(fd, mode):
+        result = original_flock(fd, mode)
+        if mode & fcntl.LOCK_EX:
+            state["locked"] = True
+            events.append("locked")
+        return result
+
+    def stat_name(path, *args, **kwargs):
+        if path == store.path and kwargs.get("follow_symlinks") is False and state["locked"]:
+            state["refreshed"] = True
+            events.append("lookup-under-lock")
+        return original_stat(path, *args, **kwargs)
+
+    def open_file(path, flags, *args, **kwargs):
+        fd = original_open(path, flags, *args, **kwargs)
+        if path == store.path:
+            data_fds.add(fd)
+            events.append("data-open")
+        return fd
+
+    def fstat_handle(fd):
+        if fd in data_fds and not state["refreshed"]:
+            raise OSError(errno.ESTALE, "cached handle requires name revalidation")
+        return original_fstat(fd)
+
+    monkeypatch.setattr(fcntl, "flock", lock)
+    monkeypatch.setattr(module.os, "stat", stat_name)
+    monkeypatch.setattr(module.os, "open", open_file)
+    monkeypatch.setattr(module.os, "fstat", fstat_handle)
+    assert store.set_hot(OLD, False, expected_version=1, actor="admin") == 2
+    assert events.index("locked") < events.index("lookup-under-lock") < events.index("data-open")
+    assert json.loads(store.path.read_bytes())["revision"] == 2
+
+
+def test_named_file_and_opened_file_identity_must_match_before_update(tmp_path, monkeypatch):
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    store = FeaturedStore(tmp_path / "hot.json")
+    store.initialize([OLD], actor="release")
+    original = Path.stat
+    before = store.path.read_bytes()
+
+    def different_identity(path, *args, **kwargs):
+        result = original(path, *args, **kwargs)
+        if path == store.path and kwargs.get("follow_symlinks") is False:
+            return SimpleNamespace(st_dev=result.st_dev, st_ino=result.st_ino + 1, st_mode=result.st_mode)
+        return result
+
+    monkeypatch.setattr(Path, "stat", different_identity)
+    with pytest.raises(FeaturedUnavailable, match="featured_file_changed_during_read"):
+        store.set_hot(OLD, False, expected_version=1, actor="admin")
+    assert store.path.read_bytes() == before
