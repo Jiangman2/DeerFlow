@@ -85,4 +85,31 @@ describe("demo artifact bounded tracing root", () => {
     expect((await request(["mnt", "a.txt"])).status).toBe(404);
     expect(read).not.toHaveBeenCalled();
   });
+
+  it("reads a projected file through a timestamp directory inside the thread", async () => {
+    const root = path.resolve(process.cwd(), "public/demo/threads", "demo-123");
+    rs.spyOn(fs, "existsSync").mockReturnValue(true);
+    rs.spyOn(fs, "realpathSync").mockImplementation((file) =>
+      String(file).endsWith("a.txt")
+        ? path.join(root, "..2026_10_17_12_00_00", "a.txt")
+        : root,
+    );
+    rs.spyOn(fs, "statSync").mockReturnValue({
+      isFile: () => true,
+    } as fs.Stats);
+    rs.spyOn(fs, "readFileSync").mockReturnValue(Buffer.from("projected deck"));
+    const result = await request(["mnt", "a.txt"]);
+    expect(result.status).toBe(200);
+    expect(await result.text()).toBe("projected deck");
+  });
+
+  it("accepts an ordinary filename beginning with two dots inside the thread", async () => {
+    rs.spyOn(fs, "existsSync").mockReturnValue(true);
+    rs.spyOn(fs, "realpathSync").mockImplementation((file) => String(file));
+    rs.spyOn(fs, "statSync").mockReturnValue({
+      isFile: () => true,
+    } as fs.Stats);
+    rs.spyOn(fs, "readFileSync").mockReturnValue(Buffer.from("local deck"));
+    expect((await request(["mnt", "..report.txt"])).status).toBe(200);
+  });
 });

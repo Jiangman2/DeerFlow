@@ -39,7 +39,8 @@ export async function GET(
     );
     const relative = path.relative(threadRoot, artifactPath);
     if (
-      !relative.startsWith("..") &&
+      relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relative) &&
       fs.existsSync(artifactPath)
     ) {
@@ -48,7 +49,10 @@ export async function GET(
         fs.realpathSync(artifactPath),
       );
       if (
-        realRelative.startsWith("..") ||
+        // Kubernetes projected files resolve through a legal ..timestamp directory.
+        // Only a complete parent segment escapes this thread root.
+        realRelative === ".." ||
+        realRelative.startsWith(`..${path.sep}`) ||
         path.isAbsolute(realRelative) ||
         !fs.statSync(artifactPath).isFile()
       ) {

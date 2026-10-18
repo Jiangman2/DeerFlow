@@ -1,8 +1,15 @@
 # Isolated PPT Master Agent Host
 
-Explicit `/ppt-master` tasks use the vendored upstream `ppt-master` v4.5.0
+Explicit `/ppt-master` tasks use the vendored upstream `ppt-master` v6.6.0
 package through a real external Agent CLI. DeerFlow does not reinterpret that
 Skill as a second LangChain Agent.
+
+For the confirmation-enabled source build, use the current
+[Runner build entry](../docker/ppt-master-runner/CURRENT-BUILD.md) and review the
+[integration and deployment prerequisites](pr13-integration-20261018.md).
+Historical R3 overlay files retain their original pins and do not build the
+current confirmation transport. Build verification and local test results do not
+replace the separately pinned production image and database release checks.
 
 ## Runtime boundary
 

@@ -14,7 +14,9 @@ import asyncio
 import logging
 import os
 import re
+import threading
 from collections.abc import Callable
+from contextlib import contextmanager, nullcontext
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -30,6 +32,7 @@ from deerflow.agents.middlewares.title_middleware import fallback_title_from_tex
 from deerflow.agents.thread_state import ThreadState
 from deerflow.config.app_config import AppConfig, get_app_config
 from deerflow.config.title_config import TitleConfig
+from deerflow.ppt_confirmation.monitor import create_monitor
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox import get_sandbox_provider
 
@@ -42,6 +45,8 @@ PPT_MASTER_AGENT_HOST_REQUEST_RETRY_ATTEMPTS = int(os.environ.get("PPT_MASTER_AG
 _POLL_INTERVAL_SECONDS = 0.5
 _TRANSIENT_RETRY_BASE_SECONDS = 0.5
 _TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
+_CONFIRMATION_CLEANUP_LEASES: list[tuple[Any, Any, str]] = []
+_CONFIRMATION_SLOTS = threading.BoundedSemaphore(8)
 _PPT_MASTER_SLASH_PREFIX = re.compile(r"^\s*/ppt-master(?:\s+|$)", re.IGNORECASE)
 _CHINESE_BOOK_TITLE = re.compile(r"《([^》\r\n]{2,100})》")
 
@@ -440,10 +445,17 @@ async def _poll_agent_turn(
     writer,
     thread_id: str | None = None,
     keep_sandbox_alive: Callable[[], bool] | None = None,
+    confirmation_monitor=None,
 ) -> dict[str, Any]:
     after_seq = 0
     message_index = 0
+    cleanup_started_at = None
     while True:
+        if confirmation_monitor is not None:
+            notice = confirmation_monitor.take_notice()
+            if notice is not None:
+                message_index += 1
+                writer({"type": "task_running", "task_id": task_id, "thread_id": thread_id, "message": {"type": "ai", "content": notice["message"]}, "message_index": message_index, "ppt_confirmation": notice})
         # The external Agent can legitimately spend much longer than the AIO
         # sandbox idle timeout building and validating a deck.  Host polling
         # bypasses the normal Sandbox client, so explicitly renew the provider
@@ -460,6 +472,10 @@ async def _poll_agent_turn(
         )
         response.raise_for_status()
         payload = response.json()
+        if confirmation_monitor is not None:
+            if not isinstance(payload, dict) or payload.get("task_id") != task_id or payload.get("thread_id") != thread_id:
+                raise RuntimeError("PPT confirmation task receipt identity mismatch")
+            confirmation_monitor.observe_task(payload)
         events = payload.get("events")
         if isinstance(events, list):
             for envelope in events:
@@ -490,16 +506,95 @@ async def _poll_agent_turn(
 
         status = payload.get("status")
         if status in _TERMINAL_STATUSES:
-            return payload
+            if confirmation_monitor is None:
+                return payload
+            if payload.get("process_cleanup_complete") is True:
+                if not confirmation_monitor.hold_completed():
+                    return payload
+                cleanup_started_at = None
+            elif cleanup_started_at is None:
+                cleanup_started_at = asyncio.get_running_loop().time()
+            elif asyncio.get_running_loop().time() - cleanup_started_at >= 20:
+                raise RuntimeError("PPT terminal process cleanup could not be confirmed")
         await asyncio.sleep(_POLL_INTERVAL_SECONDS)
 
 
-async def _run_external_ppt_master(
+def _confirmation_mode(messages) -> tuple[bool, bool]:
+    """Availability hint only; persisted Gateway admission owns actual consent."""
+    human = [message for message in messages if isinstance(message, HumanMessage)]
+    marked = any("ppt_confirmation_mode" in (message.additional_kwargs or {}) for message in human)
+    strict_auto = bool(human and (human[-1].additional_kwargs or {}).get("ppt_confirmation_mode") == "auto_after_60s")
+    return os.environ.get("PPT_CONFIRMATION_TRANSPORT_ENABLED") == "true" or marked, strict_auto
+
+
+async def _confirmation_admission(run_id: str, thread_id: str, api_key: str, *, strict_auto: bool) -> dict:
+    if not api_key:
+        raise RuntimeError("PPT confirmation internal authentication unavailable")
+    async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=httpx.Timeout(10.0), headers={**_auth_headers(api_key), "X-Ppt-Runtime-Operation": "capability"}) as client:
+        response = await client.post("http://gateway:8001/api/codex/deepseek/v1/responses", json={"run_id": run_id, "thread_id": thread_id})
+        response.raise_for_status()
+        body = response.json()
+    if not isinstance(body, dict) or not isinstance(body.get("capability"), str) or not 1 <= len(body["capability"]) <= 1024 or "." not in body["capability"]:
+        raise RuntimeError("PPT runtime capability unavailable")
+    protocol = body.get("confirmation_protocol")
+    if protocol is not None and protocol != "ppt-confirmation-v1":
+        raise RuntimeError("Unsupported PPT confirmation protocol")
+    if strict_auto and protocol != "ppt-confirmation-v1":
+        raise RuntimeError("PPT automatic confirmation transport unavailable")
+    return {"runtime_capability": body["capability"], **({"confirmation_protocol": protocol} if protocol else {})}
+
+
+async def _stop_confirmation_task(client, host_url: str, task_id: str, thread_id: str) -> None:
+    """One cancel intent; retain the lease unless exact terminal cleanup is read."""
+
+    async def stop():
+        response = await client.post(f"{host_url}/v1/tasks/{task_id}/cancel")
+        response.raise_for_status()
+        while True:
+            response = await client.get(f"{host_url}/v1/tasks/{task_id}", params={"after_seq": 2147483647})
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict) or payload.get("task_id") != task_id or payload.get("thread_id") != thread_id:
+                raise RuntimeError("PPT cancellation receipt identity mismatch")
+            if payload.get("status") in _TERMINAL_STATUSES and payload.get("process_cleanup_complete") is True:
+                return
+            await asyncio.sleep(0.25)
+
+    operation = asyncio.create_task(asyncio.wait_for(stop(), timeout=20))
+    # Repeated Stop cannot release the lease while the owned cancel read is live.
+    while not operation.done():
+        try:
+            await asyncio.shield(operation)
+        except asyncio.CancelledError:
+            continue
+    operation.result()
+
+
+@contextmanager
+def _confirmation_slot(enabled: bool):
+    if enabled and not _CONFIRMATION_SLOTS.acquire(blocking=False):
+        raise RuntimeError("PPT confirmation capacity unavailable; unresolved cleanup requires operator review")
+    slot = {"retained": False}
+    try:
+        yield slot
+    finally:
+        if enabled and not slot["retained"]:
+            _CONFIRMATION_SLOTS.release()
+
+
+async def _run_external_ppt_master(state, config, runtime, *, app_config):
+    enabled, _ = _confirmation_mode(list(state.get("messages") or []))
+    with _confirmation_slot(enabled) as slot:
+        return await _run_external_ppt_master_once(state, config, runtime, app_config=app_config, confirmation_slot=slot)
+
+
+async def _run_external_ppt_master_once(
     state: ThreadState,
     config: RunnableConfig,
     runtime: Runtime,
     *,
     app_config: AppConfig,
+    confirmation_slot=None,
 ) -> dict[str, Any]:
     configurable = config.get("configurable", {}) or {}
     context = runtime.context or {}
@@ -517,6 +612,8 @@ async def _run_external_ppt_master(
         original_request=original_request,
         resumed=resume,
     )
+    confirmation_enabled, strict_auto = _confirmation_mode(messages)
+    admission = await _confirmation_admission(run_id, thread_id, app_config.sandbox.sandbox_api_key or "", strict_auto=strict_auto) if confirmation_enabled else {}
     provider = get_sandbox_provider()
     sandbox_id = await provider.acquire_async(thread_id, user_id=resolve_runtime_user_id(runtime))
     sandbox = provider.get(sandbox_id)
@@ -539,6 +636,8 @@ async def _run_external_ppt_master(
 
     timeout = httpx.Timeout(connect=10.0, read=35.0, write=30.0, pool=10.0)
     execution_lease = None
+    task_start_attempted = False
+    cleanup_guard_retained = False
     try:
         acquire_execution_lease = getattr(provider, "acquire_execution_lease", None)
         if not callable(acquire_execution_lease):
@@ -547,8 +646,11 @@ async def _run_external_ppt_master(
         async with httpx.AsyncClient(
             headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""),
             timeout=timeout,
+            **({"trust_env": False} if confirmation_enabled else {}),
         ) as client:
             await _wait_for_agent_host(client=client, host_url=host_url)
+            confirmation = create_monitor(client, host_url, resolve_runtime_user_id(runtime), thread_id, run_id) if admission.get("confirmation_protocol") else None
+            task_start_attempted = True
             response = await _start_agent_task_with_retry(
                 client=client,
                 host_url=host_url,
@@ -558,29 +660,70 @@ async def _run_external_ppt_master(
                     "prompt": prompt,
                     "resume": resume,
                     "delivery_contract": requested_delivery_contract(original_request),
+                    **admission,
                 },
             )
             response.raise_for_status()
-            result = await _poll_agent_turn(
-                client=client,
-                host_url=host_url,
-                task_id=run_id,
-                thread_id=thread_id,
-                writer=writer,
-                keep_sandbox_alive=lambda: provider.get(sandbox_id) is not None,
-            )
+            async with confirmation if confirmation is not None else nullcontext():
+                result = await _poll_agent_turn(
+                    client=client,
+                    host_url=host_url,
+                    task_id=run_id,
+                    thread_id=thread_id,
+                    writer=writer,
+                    keep_sandbox_alive=lambda: provider.get(sandbox_id) is not None,
+                    **({"confirmation_monitor": confirmation} if confirmation is not None else {}),
+                )
     except asyncio.CancelledError:
         try:
-            async with httpx.AsyncClient(
-                headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""),
-                timeout=httpx.Timeout(5.0),
-            ) as client:
-                await client.post(f"{host_url}/v1/tasks/{run_id}/cancel")
-        except Exception:
+            if not confirmation_enabled or task_start_attempted:
+                async with httpx.AsyncClient(
+                    headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""),
+                    timeout=httpx.Timeout(5.0),
+                    **({"trust_env": False} if confirmation_enabled else {}),
+                ) as client:
+                    if confirmation_enabled:
+                        await _stop_confirmation_task(client, host_url, run_id, thread_id)
+                    else:
+                        await client.post(f"{host_url}/v1/tasks/{run_id}/cancel")
+        except BaseException as stop_error:
+            if confirmation_enabled and task_start_attempted and execution_lease is not None:
+                _CONFIRMATION_CLEANUP_LEASES.append((provider, execution_lease, sandbox_id))
+                cleanup_guard_retained = True
+                if confirmation_slot is not None:
+                    confirmation_slot["retained"] = True
+                logger.warning("PPT cleanup unresolved; retaining execution lease (run=%s sandbox=%s)", run_id, sandbox_id)
+            elif not isinstance(stop_error, Exception):
+                raise
             logger.warning("Failed to cancel external ppt-master Agent task %s", run_id, exc_info=True)
-        writer({"type": "task_cancelled", "task_id": run_id, "thread_id": thread_id})
+        writer(
+            {
+                "type": "task_cancelled",
+                "task_id": run_id,
+                "thread_id": thread_id,
+                **(
+                    {
+                        "model_name": "ppt-master-agent-host",
+                        "error": "当前轮次收到停止请求，但无法核实外部 Agent 已退出；请先检查任务状态，不要反复启动。",
+                    }
+                    if cleanup_guard_retained
+                    else {}
+                ),
+            }
+        )
         raise
     except Exception as exc:
+        if confirmation_enabled and task_start_attempted:
+            try:
+                async with httpx.AsyncClient(headers=_auth_headers(app_config.sandbox.sandbox_api_key or ""), timeout=httpx.Timeout(5.0), trust_env=False) as client:
+                    await _stop_confirmation_task(client, host_url, run_id, thread_id)
+            except BaseException:
+                if execution_lease is not None:
+                    _CONFIRMATION_CLEANUP_LEASES.append((provider, execution_lease, sandbox_id))
+                    cleanup_guard_retained = True
+                    if confirmation_slot is not None:
+                        confirmation_slot["retained"] = True
+                    logger.warning("PPT cleanup unresolved; retaining execution lease (run=%s sandbox=%s)", run_id, sandbox_id)
         failure_kind = _transport_failure_kind(exc)
         logger.exception(
             "External ppt-master transport failed (thread=%s run=%s sandbox=%s kind=%s)",
@@ -599,11 +742,12 @@ async def _run_external_ppt_master(
         )
         raise RuntimeError(f"PPT Agent host transport failed before task completion ({failure_kind})") from exc
     finally:
-        if execution_lease is not None:
+        if execution_lease is not None and not cleanup_guard_retained:
             release_execution_lease = getattr(provider, "release_execution_lease", None)
             if callable(release_execution_lease):
                 await asyncio.to_thread(release_execution_lease, execution_lease, sandbox_id)
-        await asyncio.to_thread(provider.release, sandbox_id)
+        if not cleanup_guard_retained:
+            await asyncio.to_thread(provider.release, sandbox_id)
 
     status = result.get("status")
     final_message = str(result.get("final_message") or "").strip()

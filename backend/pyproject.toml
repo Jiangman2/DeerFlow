@@ -36,6 +36,8 @@ browser = ["deerflow-harness[browser]"]
 [dependency-groups]
 dev = [
     "blockbuster>=1.5.26,<1.6",
+    # The confirmation tests exercise the real vendored Flask page owner.
+    "flask>=3.0.0,<4",
     "jsonschema>=4.26.0",
     "prompt-toolkit>=3.0.0",
     "pytest>=9.0.3",
