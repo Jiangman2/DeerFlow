@@ -113,7 +113,11 @@ load event fires, with a bounded retry state instead of an unexplained blank
 panel. Hosted sandbox loopback URLs must never be
 shown to browser users, and Chinese tasks publish a Chinese topic filename with
 a date/time suffix instead of exposing the internal pinyin project slug.
-New explicit `/ppt-master` tasks are routed through Nginx
+New explicit `/ppt-master` tasks use the ordinary Agent, the page-selected
+model, and the existing enabled `skills/public/ppt-master` Skill with its native
+confirmation workflow. Existing isolated Runner conversations keep their
+persisted owner and checkpoint; do not migrate or remove their transport.
+Those existing conversations are routed through Nginx
 `/api/ppt-master-runtime/*` to the dedicated `ppt-master-runner` transport
 process on Gateway Pod port 8003. Its graph is one external-process relay node:
 it must never construct a LangChain model/Agent or attach DeerFlow Agent

@@ -17,6 +17,7 @@ import {
   getPptMasterRuntimeBaseURL,
   PPT_MASTER_RUNTIME_ASSISTANT_ID,
   PPT_MASTER_RUNTIME_METADATA_KEY,
+  rememberPptMasterRuntimeThread,
   shouldUsePptMasterRuntime,
 } from "./ppt-master-runtime";
 import { sanitizeRunStreamOptions } from "./stream-mode";
@@ -200,7 +201,7 @@ function createCompatibleClient(
 
   const originalRunStream = client.runs.stream.bind(client.runs);
 
-  // Explicit ppt-master threads are checkpointed by the isolated runtime on
+  // Existing runner threads are checkpointed by the isolated runtime on
   // port 8003.  Keep read-side state/history on that same namespace.  Sending
   // these reads to the ordinary LangGraph runtime produces misleading 404s
   // and prevents artifact/history hydration after a page reload even while
@@ -212,9 +213,11 @@ function createCompatibleClient(
       threadId &&
       (await shouldUsePptMasterRuntime(client, threadId)),
     );
-    return usePptMaster && pptMasterClient
+    const thread = await (usePptMaster && pptMasterClient
       ? pptMasterClient.threads.get(threadId, options)
-      : originalGetThread(threadId, options);
+      : originalGetThread(threadId, options));
+    rememberPptMasterRuntimeThread(threadId, thread);
+    return thread;
   }) as typeof client.threads.get;
 
   const originalGetState = client.threads.getState.bind(client.threads);
@@ -243,11 +246,10 @@ function createCompatibleClient(
 
   client.runs.stream = async function* (threadId, assistantId, payload) {
     const sanitized = sanitizeRunStreamOptions(payload);
-    const input = Reflect.get(sanitized as object, "input");
     const usePptMaster = Boolean(
       pptMasterClient &&
       threadId &&
-      (await shouldUsePptMasterRuntime(client, threadId, input)),
+      (await shouldUsePptMasterRuntime(client, threadId, { submitting: true })),
     );
     if (usePptMaster && pptMasterClient) {
       const metadata = Reflect.get(sanitized as object, "metadata");

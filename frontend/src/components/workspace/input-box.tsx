@@ -65,18 +65,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { fetch } from "@/core/api/fetcher";
 import { getBackendBaseURL } from "@/core/config";
-import { usePptConfirmationEnabled } from "@/core/features/hooks";
 import { useI18n } from "@/core/i18n/hooks";
-import { pptConfirmationMessages } from "@/core/i18n/ppt-confirmation";
 import { polishInputDraft } from "@/core/input-polish/api";
 import { hasOpenHumanInputRequest } from "@/core/messages/human-input";
 import { isHiddenFromUIMessage } from "@/core/messages/utils";
 import { useModels } from "@/core/models/hooks";
 import { PORTAL_QUICK_TOOLS, PPT_ASSISTANT_TOOL } from "@/core/portal-links";
-import {
-  confirmationSubmission,
-  isPptConfirmationRequest,
-} from "@/core/ppt-confirmation/consent";
 import {
   buildReferenceMessageMetadata,
   type SidecarContext,
@@ -154,7 +148,6 @@ import {
   PortalToolMenuItem,
   PortalToolsMenu,
 } from "./portal-tools-menu";
-import { usePptSubmissionChoice } from "./ppt-submission-choice";
 import { ShopCartAttachmentButton } from "./shop-cart-attachments";
 import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { SlashSkillChip } from "./slash-skill-chip";
@@ -285,7 +278,7 @@ export function InputBox({
   context,
   extraHeader,
   isWelcomeMode,
-  isNewThread = false,
+  isNewThread: _isNewThread = false,
   threadId,
   initialValue,
   onContextChange,
@@ -446,13 +439,6 @@ export function InputBox({
   const [skillSuggestionIndex, setSkillSuggestionIndex] = useState(0);
   const [selectedSlashSkill, setSelectedSlashSkill] =
     useState<SlashSuggestion | null>(null);
-  const pptChoice = usePptSubmissionChoice();
-  const isPptDraft = selectedSlashSkill
-    ? selectedSlashSkill.name === "ppt-master"
-    : isPptConfirmationRequest(textInput.value);
-  const pptConfirmationAvailable = usePptConfirmationEnabled(
-    isNewThread && isPptDraft && !isMock,
-  );
   const [dismissedSkillSuggestionValue, setDismissedSkillSuggestionValue] =
     useState<string | null>(null);
   const lastGeneratedForAiIdRef = useRef<string | null>(null);
@@ -933,7 +919,7 @@ export function InputBox({
   ]);
 
   const submitThreadMessage = useCallback(
-    (message: PromptInputMessage, autoConfirm = false) => {
+    (message: PromptInputMessage) => {
       const files = message.files.flatMap((file) =>
         file.file instanceof File ? [file.file] : [],
       );
@@ -964,20 +950,6 @@ export function InputBox({
       setFollowupsHidden(false);
       setFollowupsLoading(false);
       const quotes = sidecar?.conversationQuotes ?? [];
-      let confirmationMetadata: Record<string, unknown> | undefined;
-      try {
-        confirmationMetadata = confirmationSubmission({
-          text: message.text,
-          threadId,
-          optedInThreadId: autoConfirm ? threadId : null,
-          isNewThread,
-          available: pptConfirmationAvailable,
-          quoteCount: quotes.length,
-        });
-      } catch {
-        toast.error(pptConfirmationMessages(locale).unavailable);
-        return Promise.reject(new Error("ppt_confirmation_opt_in_unavailable"));
-      }
       const quoteIds = quotes.map((quote) => quote.id);
       const quoteContexts = quotes.map((quote) => quote.context);
       const quoteOptions: InputBoxSubmitOptions | undefined = quotes.length
@@ -1000,7 +972,6 @@ export function InputBox({
         ...quoteOptions,
         additionalKwargs: {
           ...quoteOptions?.additionalKwargs,
-          ...confirmationMetadata,
         },
         onSent: () => {
           quoteOptions?.onSent?.();
@@ -1037,20 +1008,11 @@ export function InputBox({
       resolvedModelName,
       selectedModel?.supports_thinking,
       selectedModel?.thinking_always_on,
-      threadId,
-      isNewThread,
-      pptConfirmationAvailable,
-      locale,
       sidecar,
       t.inputBox.suggestionPlaceholderRequired,
       uploadLimits,
     ],
   );
-
-  // A choice may remain open while feature availability is refreshed. Recheck
-  // with the current submit callback; never dispatch a captured stale opt-in.
-  const submitThreadMessageRef = useRef(submitThreadMessage);
-  submitThreadMessageRef.current = submitThreadMessage;
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
@@ -1100,31 +1062,9 @@ export function InputBox({
       if (submitAction.kind === "empty") {
         return;
       }
-      let autoConfirm = false;
-      if (
-        isNewThread &&
-        isPptConfirmationRequest(messageWithSlashSkill.text) &&
-        !isMock
-      ) {
-        if (!pptChoice) throw new Error("ppt_choice_surface_unavailable");
-        const decision = await pptChoice.request({
-          text: messageWithSlashSkill.text,
-          fileCount: messageWithSlashSkill.files.length,
-          hasQuotes: Boolean(sidecar?.conversationQuotes.length),
-        });
-        if (!decision.mode || !decision.isCurrent()) {
-          if (decision.isCurrent()) {
-            requestAnimationFrame(() => {
-              if (selectedSlashSkill)
-                focusContentEditableEnd(inlineSkillTextRef.current);
-              else textareaRef.current?.focus({ preventScroll: true });
-            });
-          }
-          throw new Error("ppt_submission_cancelled"); // Keep the exact draft/files.
-        }
-        autoConfirm = decision.mode === "auto_after_60s";
-      }
-      await submitThreadMessageRef.current(messageWithSlashSkill, autoConfirm);
+      // The ordinary Agent loads the public Skill and owns its native gates.
+      // Do not attach Runner confirmation preferences to new Skill requests.
+      await submitThreadMessage(messageWithSlashSkill);
       if (selectedSlashSkill) {
         setSelectedSlashSkill(null);
       }
@@ -1139,10 +1079,6 @@ export function InputBox({
       status,
       submitThreadMessage,
       t.inputBox.pleaseWaitStreaming,
-      isNewThread,
-      isMock,
-      pptChoice,
-      sidecar,
     ],
   );
 
@@ -1229,8 +1165,7 @@ export function InputBox({
       ),
     [thread.messages],
   );
-  const composerLocked =
-    isComposerDisabled || polishingInput || Boolean(pptChoice?.pending);
+  const composerLocked = isComposerDisabled || polishingInput;
   const inputPolishUndoAvailable =
     !polishingInput &&
     inputPolishUndo !== null &&

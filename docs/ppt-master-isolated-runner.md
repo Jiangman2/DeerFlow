@@ -1,6 +1,12 @@
 # Isolated PPT Master Agent Host
 
-Explicit `/ppt-master` tasks use the vendored upstream `ppt-master` v6.6.0
+New browser `/ppt-master` requests now use the ordinary Agent and the existing
+public Skill with native confirmation. The isolated transport remains deployed
+for existing Runner conversations; its history, continuation, cancellation and
+reconnect must retain their original owner. This document describes that
+retained runtime, not the new browser-task default.
+
+Existing Runner tasks use the vendored upstream `ppt-master` v6.6.0
 package through a real external Agent CLI. DeerFlow does not reinterpret that
 Skill as a second LangChain Agent.
 

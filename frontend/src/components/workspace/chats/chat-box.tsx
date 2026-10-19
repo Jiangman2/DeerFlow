@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/sheet";
 import { getAPIClient } from "@/core/api/api-client";
 import { extractArtifactsFromStateSnapshot } from "@/core/artifacts/utils";
-import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 import { env } from "@/env";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -26,10 +25,6 @@ import {
 } from "../artifacts";
 import { BrowserViewPanel, useMaybeBrowserView } from "../browser-view";
 import { useThread } from "../messages/context";
-import {
-  PptSubmissionChoiceProvider,
-  usePptSubmissionChoice,
-} from "../ppt-submission-choice";
 import { SidecarPanel, useMaybeSidecar } from "../sidecar";
 
 const RIGHT_PANEL_ANIMATION_MS = 280;
@@ -43,25 +38,13 @@ type ChatBoxProps = {
   browserEnabled?: boolean;
 };
 
-const ChatBox: React.FC<ChatBoxProps> = (props) => {
-  const { user } = useAuth();
-  return (
-    <PptSubmissionChoiceProvider
-      scope={`${user?.id ?? "unauthenticated"}:${props.threadId}`}
-    >
-      <ChatBoxLayout {...props} />
-    </PptSubmissionChoiceProvider>
-  );
-};
-
-const ChatBoxLayout: React.FC<ChatBoxProps> = ({
+const ChatBox: React.FC<ChatBoxProps> = ({
   children,
   threadId,
   canHydratePersistedArtifacts = true,
   browserEnabled = true,
 }) => {
   const { thread } = useThread();
-  const pptChoice = usePptSubmissionChoice();
   const isMobile = useIsMobile();
   const pathname = usePathname();
   const isNewChatPath = pathname.endsWith("/new");
@@ -271,10 +254,7 @@ const ChatBoxLayout: React.FC<ChatBoxProps> = ({
   if (isMobile) {
     return (
       <>
-        <div
-          className="cnooc-chat-box relative size-full min-w-0"
-          data-ppt-choice-pending={Boolean(pptChoice?.pending)}
-        >
+        <div className="cnooc-chat-box relative size-full min-w-0">
           {children}
         </div>
         <Sheet
@@ -322,7 +302,6 @@ const ChatBoxLayout: React.FC<ChatBoxProps> = ({
   return (
     <div
       id={`${resizableIdBase}-panels`}
-      data-ppt-choice-pending={Boolean(pptChoice?.pending)}
       className={cn(
         "cnooc-chat-box [container-type:inline-size] size-full min-h-0",
         artifactsOverlayOpen

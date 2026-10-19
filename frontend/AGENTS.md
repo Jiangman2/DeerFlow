@@ -9,12 +9,13 @@ silhouettes are 44 by 42 pixels on 144-pixel canvases; size complete bitmaps
 without separate arrow overlays. Keep original ordinary-action artwork;
 normalize transparent padding and center the
 visible icon plus label as one group in quick buttons and portal menu items.
-The new-task PPT confirmation choice appears in the conversation only after
-Send, before any thread/run submission. Manual is the default; explicit Start
-admits that one reviewed request, while Edit/unmount/account or thread changes
-cancel it without clearing its draft/files. Keep the composer controls hidden
-and locked during that choice and preserve Gateway's first-input authority.
-This choice is distinct from the official per-stage confirmation UI.
+New `/ppt-master` requests use the ordinary Agent with the page-selected model
+and the existing enabled `skills/public/ppt-master` Skill. Preserve the Slash
+request and the Skill's native confirmation gates; do not attach Runner's
+60-second confirmation preference or show its new-task choice. Existing Runner
+threads retain their persisted runtime owner for reads, continuation, cancel
+and reconnect, including after a refresh with blocked sessionStorage. Never
+infer runtime ownership from new message text or move an old checkpoint.
 Model choices remain server-owned `/api/models` results; shipping GLM adapter
 code alone cannot enable a model without operator configuration and credentials.
 
@@ -313,7 +314,7 @@ DeerFlow owns runtime installation and its security result.
 
 ### Data Flow
 
-1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission. `core/voice-input` records microphone input only in a secure browser context, converts it to 16 kHz mono PCM16, and streams it over the same-origin authenticated `/api/voice-input/stream` WebSocket; Gateway returns partial/final text into that same local draft. Do not restore browser-vendor `SpeechRecognition` as an implicit fallback. Confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming. When that draft explicitly starts with `/ppt-master`, `core/api/ppt-master-runtime.ts` marks the thread with `runtime_profile=ppt-master-runner` **before** `useStream.submit()` can start state hydration, then routes stream, reconnect, cancel, and LangGraph checkpoint state/history through `/api/ppt-master-runtime`; paged conversation history, uploads, metadata, and artifact APIs remain on the main Gateway. Delaying the marker until the wrapped `runs.stream()` call creates a first-submit race in which `useStream` can query the ordinary checkpoint namespace and log misleading 404s. If the same request includes a PPT/PPTX attachment, the pre-submit upload uses `upload_purpose=presentation_template` so Gateway preserves the original template instead of routing it through the document parser.
+1. Optional composer helpers such as `core/input-polish` can rewrite the local draft before submission. `core/voice-input` records microphone input only in a secure browser context, converts it to 16 kHz mono PCM16, and streams it over the same-origin authenticated `/api/voice-input/stream` WebSocket; Gateway returns partial/final text into that same local draft. Do not restore browser-vendor `SpeechRecognition` as an implicit fallback. Confirmed user input then flows to thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming. New `/ppt-master` requests follow this ordinary Agent path and activate the public Skill. `core/api/ppt-master-runtime.ts` uses persisted runtime ownership, never new Slash text, to retain existing Runner conversations on `/api/ppt-master-runtime` for stream, reconnect, cancel and checkpoint state/history. It checks shared run history before an unclassified continuation; a failed owner lookup must not dispatch to a different runtime. Paged conversation history, uploads, metadata and artifact APIs remain on the main Gateway. The hooks create new threads before first submission. PPT/PPTX attachments in explicit `/ppt-master` requests still use `upload_purpose=presentation_template` to preserve the original template instead of routing it through the document parser.
    Welcome-page quick actions fill editable prompts that begin with their real
    Slash Skill name. The PPT action is a four-item route menu for Generate
    PPTX, Create Template, Fill Native PPTX, and Enhance Native PPTX; selecting

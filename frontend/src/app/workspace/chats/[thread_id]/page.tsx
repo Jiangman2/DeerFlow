@@ -35,7 +35,6 @@ import {
   reasoningEffortForMode,
   resolveAgentMode,
 } from "@/components/workspace/mode-selector";
-import { PptSubmissionChoiceSurface } from "@/components/workspace/ppt-submission-choice";
 import {
   SidecarProvider,
   SidecarTrigger,
@@ -440,7 +439,6 @@ export default function ChatPage() {
                 !isWelcomeMode && "cnooc-chat-main-task",
               )}
             >
-              <PptSubmissionChoiceSurface />
               {isWelcomeMode && !hasGoal && !hasTodos && (
                 <div className="cnooc-welcome-stage">
                   <Welcome mode={settings.context.mode} />

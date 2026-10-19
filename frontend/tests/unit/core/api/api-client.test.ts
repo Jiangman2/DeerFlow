@@ -28,6 +28,141 @@ afterEach(() => {
   rs.unstubAllGlobals();
 });
 
+test("new /ppt-master submits the public Skill to the ordinary Agent with its selected model", async () => {
+  const requests: { url: string; body: unknown }[] = [];
+  const sessionStorage = makeSessionStorage();
+  rs.stubGlobal("window", {
+    location: { origin: "http://localhost:2026" },
+    sessionStorage,
+  });
+  rs.stubGlobal(
+    "fetch",
+    rs.fn(async (url: string | URL, init?: RequestInit) => {
+      requests.push({
+        url: String(url),
+        body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
+      });
+      if (new URL(String(url)).pathname.endsWith("/runs"))
+        return Response.json([]);
+      return new Response("event: end\ndata: {}\n\n", {
+        headers: { "content-type": "text/event-stream" },
+      });
+    }),
+  );
+  const input = {
+    messages: [{ role: "user" as const, content: "/ppt-master 制作汇报" }],
+  };
+  for await (const _ of getAPIClient().runs.stream(
+    "new-public-ppt-skill",
+    "lead_agent",
+    { input, context: { model_name: "glm-5.3-flash" }, streamMode: ["values"] },
+  )) {
+    void _; // Drain the SDK stream to exercise its routing.
+  }
+  expect(requests.map((r) => r.url)).toEqual([
+    expect.stringContaining("/api/langgraph/threads/new-public-ppt-skill/runs"),
+    expect.stringContaining(
+      "/api/langgraph/threads/new-public-ppt-skill/runs/stream",
+    ),
+  ]);
+  expect(requests[1]?.body).toMatchObject({
+    assistant_id: "lead_agent",
+    input,
+    context: { model_name: "glm-5.3-flash" },
+  });
+  expect(JSON.stringify(requests[1]?.body)).not.toContain(
+    "ppt_confirmation_mode",
+  );
+  expect(JSON.stringify(requests[1]?.body)).not.toContain("ppt-master-runner");
+  expect(sessionStorage.setItem).not.toHaveBeenCalled();
+});
+
+for (const operation of [
+  "continue",
+  "history",
+  "cancel",
+  "reconnect",
+] as const) {
+  test(`retains the old Runner owner for ${operation} before hydration with storage blocked`, async () => {
+    const threadId = `legacy-runner-${operation}-no-storage`;
+    const requests: { url: string; body: unknown }[] = [];
+    rs.stubGlobal("window", {
+      location: { origin: "http://localhost:2026" },
+      get sessionStorage() {
+        throw new DOMException("Blocked", "SecurityError");
+      },
+    });
+    rs.stubGlobal(
+      "fetch",
+      rs.fn(async (url: string | URL, init?: RequestInit) => {
+        const path = new URL(String(url)).pathname;
+        requests.push({
+          url: String(url),
+          body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
+        });
+        if (path.endsWith("/runs"))
+          return Response.json([{ assistant_id: "ppt-master-runner" }]);
+        if (path.endsWith("/runs/old-run"))
+          return Response.json({ status: "running" });
+        if (path.endsWith("/history")) return Response.json([]);
+        if (path.endsWith("/cancel")) return Response.json({});
+        return new Response("event: end\ndata: {}\n\n", {
+          headers: { "content-type": "text/event-stream" },
+        });
+      }),
+    );
+    const client = getAPIClient();
+    if (operation === "continue") {
+      for await (const _ of client.runs.stream(threadId, "lead_agent", {
+        input: { messages: [{ role: "user", content: "继续" }] },
+      })) {
+        void _;
+      }
+      expect(requests[1]?.body).toMatchObject({
+        assistant_id: "ppt-master-runner",
+        metadata: { runtime_profile: "ppt-master-runner" },
+      });
+    } else if (operation === "history")
+      await client.threads.getHistory(threadId);
+    else if (operation === "cancel")
+      await client.runs.cancel(threadId, "old-run");
+    else
+      for await (const _ of client.runs.joinStream(threadId, "old-run")) {
+        void _;
+      }
+    expect(requests[0]?.url).toContain(
+      `/api/langgraph/threads/${threadId}/runs`,
+    );
+    expect(requests.length).toBeGreaterThan(1);
+    expect(
+      requests
+        .slice(1)
+        .every((r) =>
+          r.url.includes(`/api/ppt-master-runtime/threads/${threadId}`),
+        ),
+    ).toBe(true);
+  });
+}
+
+test("failed owner lookup never dispatches a continuation to the ordinary Agent", async () => {
+  rs.stubGlobal("window", {
+    location: { origin: "http://localhost:2026" },
+    sessionStorage: makeSessionStorage(),
+  });
+  const fetchFn = rs.fn(async () =>
+    Response.json({ detail: "forbidden" }, { status: 403 }),
+  );
+  rs.stubGlobal("fetch", fetchFn);
+  await expect(
+    getAPIClient()
+      .runs.stream("unknown-ppt-owner", "lead_agent", {
+        input: { messages: [{ role: "user", content: "继续" }] },
+      })
+      .next(),
+  ).rejects.toThrow();
+  expect(fetchFn).toHaveBeenCalledTimes(1);
+});
+
 test("identifies inactive run stream errors", () => {
   const error = Object.assign(
     new Error(
@@ -394,7 +529,7 @@ test("routes an authoritative runner thread id without ordinary 404 probes", asy
   rs.stubGlobal("fetch", fetchFn);
 
   rememberPptMasterRuntimeThread("welcome-thread-ppt", {
-    messages: [{ role: "user", content: "/ppt-master 创建演示文稿" }],
+    metadata: { runtime_profile: "ppt-master-runner" },
   });
   expect(
     inheritPptMasterRuntimeThread("welcome-thread-ppt", "runner-thread-ppt"),

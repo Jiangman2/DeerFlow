@@ -110,11 +110,16 @@ for (const width of [1440, 390]) {
         request.method() === "POST" && request.url().endsWith("/runs/stream"),
     );
     const input = page.locator('textarea[name="message"]');
-    await input.fill("GLM 离线界面测试");
+    await input.fill("/ppt-master GLM 离线界面测试");
     await input.press("Enter");
-    const payload = (await submission).postDataJSON() as {
+    const request = await submission;
+    const payload = request.postDataJSON() as {
       context: { model_name: string; thinking_enabled: boolean };
     };
+    expect(request.url()).toContain("/api/langgraph/threads/");
+    expect(payload).toMatchObject({ assistant_id: "lead_agent" });
+    expect(JSON.stringify(payload)).not.toContain("ppt_confirmation_mode");
+    await expect(page.getByTestId("ppt-submission-choice")).toHaveCount(0);
     expect(payload.context.model_name).toBe("glm-5.3-flash");
     expect(payload.context.thinking_enabled).toBe(true);
     expect(errors).toEqual([]);

@@ -4235,40 +4235,6 @@
   flex-shrink: 0;
 }
 
-.cnooc-chat-box[data-ppt-choice-pending="true"] .cnooc-composer-dock,
-.cnooc-chat-box[data-ppt-choice-pending="true"] .cnooc-home-footer,
-.cnooc-chat-box[data-ppt-choice-pending="true"] .cnooc-welcome-stage {
-  display: none !important;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.cnooc-chat-main > .cnooc-ppt-submission-card {
-  position: absolute;
-  top: 100px;
-  right: 20px;
-  left: 20px;
-  width: auto;
-  max-width: 680px;
-  max-height: calc(var(--app-viewport-height, 100dvh) - 150px);
-  margin-inline: auto;
-  overflow-y: auto;
-  z-index: 20;
-  overscroll-behavior: contain;
-  pointer-events: auto;
-}
-
-@media (max-width: 47.999rem) {
-  .cnooc-chat-main > .cnooc-ppt-submission-card {
-    top: calc(92px + env(safe-area-inset-top));
-    right: 12px;
-    left: 12px;
-    max-height: calc(
-      var(--app-viewport-height, 100dvh) - 120px - env(safe-area-inset-bottom)
-    );
-  }
-}
-
 /* Narrow desktop and mobile retain a touch/keyboard-scrollable rail instead
    of wrapping the navigation marker or shrinking the established icon canvas. */
 @media (max-width: 74.99rem) {

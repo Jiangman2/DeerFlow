@@ -9,11 +9,16 @@ import { handleRunStream, mockLangGraphAPI } from "./utils/mock-api";
 
 test.setTimeout(90_000);
 test.beforeEach(async ({ page }, info) => {
-  mockLangGraphAPI(page);
-  // This suite has no live PPT runner; post-submission SDK history stays local.
-  await page.route("**/api/ppt-master-runtime/threads/*/history", (r) =>
-    r.fulfill({ json: [] }),
-  );
+  mockLangGraphAPI(page, {
+    skills: [
+      {
+        name: "ppt-master",
+        category: "public",
+        enabled: true,
+        description: "PPT Skill",
+      },
+    ],
+  });
   await page.route("**/api/announcements/active", (r) =>
     r.fulfill({ json: { announcement: null } }),
   );
@@ -121,60 +126,52 @@ for (const { width, height } of [
     });
   });
 
-  test(`PPT choice appears in conversation only after send at ${width}x${height}`, async ({
+  test(`PPT submits to the ordinary Agent without Runner choices at ${width}x${height}`, async ({
     page,
   }, info) => {
-    const runs: unknown[] = [];
+    const runs: { url: string; body: unknown }[] = [];
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route(/\/runs\/stream$/, (r) => {
-      runs.push(r.request().postDataJSON());
+      runs.push({ url: r.request().url(), body: r.request().postDataJSON() });
       return handleRunStream(r);
     });
     await page.setViewportSize({ width, height });
     await page.goto("/workspace/chats/new");
     const input = page.locator('textarea[name="message"]');
-    const featureReady = page.waitForResponse((r) =>
-      r.url().endsWith("/api/features"),
-    );
     await input.fill("/ppt-master 制作一份年度汇报演示文稿");
     await expect(page.getByTestId("ppt-confirmation-opt-in")).toHaveCount(0);
     await expect(page.getByTestId("ppt-submission-choice")).toHaveCount(0);
-    // The feature query must settle before this initial send is eligible.
-    await featureReady;
     await input.press("Enter");
-    const card = page.getByTestId("ppt-submission-choice");
-    await expect(card).toBeVisible();
-    await expect(page.getByTestId("welcome-composer")).toBeHidden();
-    expect(runs).toHaveLength(0);
-    expect(await card.evaluate((e) => e.closest("form") === null)).toBe(true);
-    await expect(card.getByRole("radio", { name: /^人工确认/ })).toBeChecked();
-    await card.getByRole("button", { name: "返回修改" }).click();
-    await expect(card).toHaveCount(0);
-    await expect(input).toHaveValue("/ppt-master 制作一份年度汇报演示文稿");
-    expect(runs).toHaveLength(0);
-    await input.press("Enter");
-    await expect(card).toBeVisible();
-    const box = await card.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.y).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
-    expect(box!.y + box!.height).toBeLessThanOrEqual(height);
-    await page.screenshot({ path: info.outputPath(`ppt-choice-${width}.png`) });
-    const automatic = width === 1440 || width === 390;
-    if (automatic) await card.getByRole("radio", { name: /^60 秒/ }).check();
-    await card.getByRole("button", { name: "开始任务" }).click();
     await expect.poll(() => runs.length).toBe(1);
-    const payload = JSON.stringify(runs[0]);
-    expect(payload.includes('"ppt_confirmation_mode":"auto_after_60s"')).toBe(
-      automatic,
-    );
+    expect(runs[0]?.url).toContain("/api/langgraph/threads/");
+    expect(runs[0]?.body).toMatchObject({
+      assistant_id: "lead_agent",
+      input: {
+        messages: [
+          expect.objectContaining({
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                text: "/ppt-master 制作一份年度汇报演示文稿",
+              }),
+            ]),
+          }),
+        ],
+      },
+    });
+    const payload = JSON.stringify(runs[0]?.body);
+    expect(payload).not.toContain("ppt_confirmation_mode");
+    expect(payload).not.toContain("ppt-master-runner");
+    await expect(page.getByTestId("ppt-submission-choice")).toHaveCount(0);
+    await expect(page.getByTestId("ppt-confirmation-opt-in")).toHaveCount(0);
+    await page.screenshot({
+      path: info.outputPath(`ppt-public-skill-${width}.png`),
+    });
     expect(errors).toEqual([]);
   });
 }
 
-test("manual choice remains available when server automatic confirmation is disabled", async ({
+test("public Skill submission does not depend on Runner confirmation availability", async ({
   page,
 }) => {
   await page.route("**/api/features", (r) =>
@@ -189,38 +186,57 @@ test("manual choice remains available when server automatic confirmation is disa
   await page.goto("/workspace/chats/new", { waitUntil: "domcontentloaded" });
   const input = page.locator('textarea[name="message"]');
   await input.fill("/ppt-master 人工确认测试");
+  const run = page.waitForRequest(
+    (r) => r.method() === "POST" && r.url().endsWith("/runs/stream"),
+  );
   await input.press("Enter");
-  const card = page.getByTestId("ppt-submission-choice");
-  await expect(card).toBeVisible();
-  await expect(card.getByRole("radio", { name: /^60 秒/ })).toBeDisabled();
-  await expect(card.getByRole("radio", { name: /^人工确认/ })).toBeChecked();
-  await expect(card.getByRole("button", { name: "开始任务" })).toBeEnabled();
+  expect((await run).url()).toContain("/api/langgraph/threads/");
+  await expect(page.getByTestId("ppt-submission-choice")).toHaveCount(0);
 });
 
-test("returning to edit preserves the original file and sends no upload or run", async ({
+test("public PPT Skill keeps template originals and the exact slash request", async ({
   page,
 }) => {
-  const writes: string[] = [];
-  page.on("request", (r) => {
-    if (r.method() === "POST" && /\/runs\/stream$|\/uploads/.test(r.url()))
-      writes.push(r.url());
+  const uploads: string[] = [];
+  await page.route("**/api/threads/*/uploads", async (r) => {
+    if (r.request().method() !== "POST") return r.fallback();
+    uploads.push(r.request().postData() ?? "");
+    return r.fulfill({
+      json: {
+        files: [
+          {
+            filename: "template.pptx",
+            size: 15,
+            path: "uploads/template.pptx",
+            artifact_url: "",
+          },
+        ],
+      },
+    });
   });
   await page.goto("/workspace/chats/new", { waitUntil: "domcontentloaded" });
   const input = page.locator('textarea[name="message"]');
-  await input.fill("/ppt-master 使用这份备注");
+  await input.fill("/ppt-master 使用这份模板");
   const composer = page.getByTestId("welcome-composer");
   await composer.locator('input[type="file"]').setInputFiles({
-    name: "notes.txt",
-    mimeType: "text/plain",
+    name: "template.pptx",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     buffer: Buffer.from("offline fixture"),
   });
-  await expect(composer.getByText("notes.txt", { exact: true })).toBeVisible();
+  await expect(
+    composer.getByText("template.pptx", { exact: true }),
+  ).toBeVisible();
+  const run = page.waitForRequest(
+    (r) => r.method() === "POST" && r.url().endsWith("/runs/stream"),
+  );
   await input.press("Enter");
-  const card = page.getByTestId("ppt-submission-choice");
-  await expect(card).toBeVisible();
-  await expect(card).toContainText("已附文件: 1");
-  await card.getByRole("button", { name: "返回修改" }).click();
-  await expect(input).toHaveValue("/ppt-master 使用这份备注");
-  await expect(composer.getByText("notes.txt", { exact: true })).toBeVisible();
-  expect(writes).toEqual([]);
+  const request = await run;
+  expect(request.url()).toContain("/api/langgraph/threads/");
+  expect(JSON.stringify(request.postDataJSON())).toContain(
+    "/ppt-master 使用这份模板",
+  );
+  expect(uploads).toHaveLength(1);
+  expect(uploads[0]).toContain("presentation_template");
+  await expect(page.getByTestId("ppt-submission-choice")).toHaveCount(0);
 });

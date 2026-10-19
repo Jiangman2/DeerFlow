@@ -16,10 +16,7 @@ import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
 import { getAPIClient } from "../api";
 import { fetch } from "../api/fetcher";
-import {
-  inheritPptMasterRuntimeThread,
-  rememberPptMasterRuntimeThread,
-} from "../api/ppt-master-runtime";
+import { inheritPptMasterRuntimeThread } from "../api/ppt-master-runtime";
 import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
 import { isHiddenFromUIMessage } from "../messages/utils";
@@ -2008,12 +2005,6 @@ export function useThreadStream({
             filesForSubmit,
           }),
         };
-        // useStream may hydrate state/history before it reaches the wrapped
-        // runs.stream call. Mark an explicit ppt-master thread before submit
-        // so every read in that first-submit window uses the isolated runtime
-        // instead of racing the ordinary LangGraph namespace and logging 404s.
-        rememberPptMasterRuntimeThread(threadId, submitInput);
-
         await thread.submit(submitInput, {
           threadId: threadId,
           // No streamSubgraphs: subtask progress arrives through root custom
