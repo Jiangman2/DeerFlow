@@ -10,6 +10,7 @@ import {
   inheritPptMasterRuntimeThread,
   rememberPptMasterRuntimeThread,
 } from "@/core/api/ppt-master-runtime";
+import { preparePublicPptRequest } from "@/core/skills/public-ppt-request";
 
 function makeSessionStorage() {
   const values = new Map<string, string>();
@@ -44,6 +45,8 @@ test("new /ppt-master submits the public Skill to the ordinary Agent with its se
       });
       if (new URL(String(url)).pathname.endsWith("/runs"))
         return Response.json([]);
+      if (new URL(String(url)).pathname.endsWith("/state"))
+        return Response.json({ values: {} });
       return new Response("event: end\ndata: {}\n\n", {
         headers: { "content-type": "text/event-stream" },
       });
@@ -62,19 +65,110 @@ test("new /ppt-master submits the public Skill to the ordinary Agent with its se
   expect(requests.map((r) => r.url)).toEqual([
     expect.stringContaining("/api/langgraph/threads/new-public-ppt-skill/runs"),
     expect.stringContaining(
+      "/api/langgraph/threads/new-public-ppt-skill/state",
+    ),
+    expect.stringContaining(
       "/api/langgraph/threads/new-public-ppt-skill/runs/stream",
     ),
   ]);
-  expect(requests[1]?.body).toMatchObject({
+  expect(requests[2]?.body).toMatchObject({
     assistant_id: "lead_agent",
-    input,
+    input: preparePublicPptRequest({ input }).input,
     context: { model_name: "glm-5.3-flash" },
   });
-  expect(JSON.stringify(requests[1]?.body)).not.toContain(
+  expect(JSON.stringify(requests[2]?.body)).not.toContain(
     "ppt_confirmation_mode",
   );
-  expect(JSON.stringify(requests[1]?.body)).not.toContain("ppt-master-runner");
+  expect(JSON.stringify(requests[2]?.body)).not.toContain("ppt-master-runner");
   expect(sessionStorage.setItem).not.toHaveBeenCalled();
+});
+
+for (const status of ["blocked", "completed", "lookup-failed", "new-thread"]) {
+  test(`ordinary PPT shortcut handles checkpoint state ${status} without changing it`, async () => {
+    const requests: { url: string; method: string; body: unknown }[] = [];
+    rs.stubGlobal("window", {
+      location: { origin: "http://localhost:2026" },
+      sessionStorage: makeSessionStorage(),
+    });
+    rs.stubGlobal(
+      "fetch",
+      rs.fn(async (url: string | URL, init?: RequestInit) => {
+        const path = new URL(String(url)).pathname;
+        requests.push({
+          url: path,
+          method: init?.method ?? "GET",
+          body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
+        });
+        if (path.endsWith("/runs")) return Response.json([]);
+        if (path.endsWith("/state")) {
+          if (status === "lookup-failed")
+            return Response.json({}, { status: 403 });
+          if (status === "new-thread")
+            return Response.json({}, { status: 404 });
+          return Response.json({
+            values: { skill_workflow: { status, skill_name: "ppt-master" } },
+          });
+        }
+        return new Response("event: end\ndata: {}\n\n", {
+          headers: { "content-type": "text/event-stream" },
+        });
+      }),
+    );
+    const stream = getAPIClient().runs.stream(
+      `ordinary-ppt-checkpoint-${status}`,
+      "lead_agent",
+      {
+        input: {
+          messages: [{ role: "user", content: "/ppt-master 制作汇报" }],
+        },
+      },
+    );
+    if (status === "new-thread") {
+      for await (const event of stream) void event;
+      expect(requests.filter((r) => r.method === "POST")).toHaveLength(1);
+      expect(JSON.stringify(requests.at(-1)?.body)).not.toContain(
+        '"skill_workflow"',
+      );
+    } else {
+      await expect(stream.next()).rejects.toThrow();
+      expect(requests.every((r) => r.method === "GET")).toBe(true);
+    }
+  });
+}
+
+test("old Runner receives the original slash request without the ordinary-input adapter", async () => {
+  const requests: { url: string; body: unknown }[] = [];
+  rs.stubGlobal("window", {
+    location: { origin: "http://localhost:2026" },
+    sessionStorage: makeSessionStorage(),
+  });
+  rs.stubGlobal(
+    "fetch",
+    rs.fn(async (url: string | URL, init?: RequestInit) => {
+      const path = new URL(String(url)).pathname;
+      requests.push({
+        url: path,
+        body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
+      });
+      if (path.endsWith("/runs"))
+        return Response.json([{ assistant_id: "ppt-master-runner" }]);
+      return new Response("event: end\ndata: {}\n\n", {
+        headers: { "content-type": "text/event-stream" },
+      });
+    }),
+  );
+  const input = {
+    messages: [{ role: "user" as const, content: "/ppt-master 继续旧任务" }],
+  };
+  for await (const event of getAPIClient().runs.stream(
+    "old-runner-slash-unchanged",
+    "lead_agent",
+    { input },
+  ))
+    void event;
+  expect(requests).toHaveLength(2);
+  expect(requests[1]?.url).toContain("/api/ppt-master-runtime/");
+  expect(requests[1]?.body).toMatchObject({ input });
 });
 
 for (const operation of [

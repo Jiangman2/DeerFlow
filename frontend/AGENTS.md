@@ -10,8 +10,15 @@ without separate arrow overlays. Keep original ordinary-action artwork;
 normalize transparent padding and center the
 visible icon plus label as one group in quick buttons and portal menu items.
 New `/ppt-master` requests use the ordinary Agent with the page-selected model
-and the existing enabled `skills/public/ppt-master` Skill. Preserve the Slash
-request and the Skill's native confirmation gates; do not attach Runner's
+and the existing enabled `skills/public/ppt-master` Skill. The UI accepts the
+Slash shortcut but sends an ordinary instruction to read that public Skill,
+without a leading slash in content or `original_user_content`. This intentionally
+avoids Gateway's explicit-Slash workflow checkpoint/sequence controller. Preserve
+the user's task and attachments and the Skill's native confirmation gates. Only
+the ordinary runtime submission branch performs this conversion; old Runner
+threads retain their exact input. Restore the shortcut for human-message display.
+An existing host Skill workflow requires a new conversation; never clear or
+rewrite its checkpoint from the browser. Do not attach Runner's
 60-second confirmation preference or show its new-task choice. Existing Runner
 threads retain their persisted runtime owner for reads, continuation, cancel
 and reconnect, including after a refresh with blocked sessionStorage. Never

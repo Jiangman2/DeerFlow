@@ -3,6 +3,10 @@
 import { Client as LangGraphClient } from "@langchain/langgraph-sdk/client";
 
 import { getLangGraphBaseURL } from "../config";
+import {
+  hasPersistedSkillWorkflow,
+  preparePublicPptRequest,
+} from "../skills/public-ppt-request";
 import { isStaticWebsiteOnly } from "../static-mode";
 import {
   loadStaticDemoThread,
@@ -269,7 +273,29 @@ function createCompatibleClient(
       );
       return;
     }
-    yield* originalRunStream(threadId, assistantId, sanitized);
+    const ordinaryPayload = preparePublicPptRequest(sanitized);
+    if (ordinaryPayload !== sanitized && threadId) {
+      let state: unknown;
+      try {
+        state = await originalGetState(threadId);
+      } catch (error) {
+        // A just-created thread has no checkpoint yet. All other failures
+        // must stop submission instead of guessing that no old gate exists.
+        if (
+          typeof error !== "object" ||
+          error === null ||
+          Reflect.get(error, "status") !== 404
+        ) {
+          throw error;
+        }
+      }
+      if (hasPersistedSkillWorkflow(state)) {
+        throw new Error(
+          "此对话保留了旧的 Skill 工作流检查点。请新建对话后使用 /ppt-master；原对话和文件会保留。",
+        );
+      }
+    }
+    yield* originalRunStream(threadId, assistantId, ordinaryPayload);
   } as typeof client.runs.stream;
 
   const originalCancel = client.runs.cancel.bind(client.runs);

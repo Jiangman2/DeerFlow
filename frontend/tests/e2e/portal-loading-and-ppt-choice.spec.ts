@@ -4,6 +4,7 @@ import {
   PORTAL_MORE_TOOLS,
   PORTAL_QUICK_TOOLS,
 } from "../../src/core/portal-links";
+import { preparePublicPptRequest } from "../../src/core/skills/public-ppt-request";
 
 import { handleRunStream, mockLangGraphAPI } from "./utils/mock-api";
 
@@ -134,7 +135,9 @@ for (const { width, height } of [
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route(/\/runs\/stream$/, (r) => {
       runs.push({ url: r.request().url(), body: r.request().postDataJSON() });
-      return handleRunStream(r);
+      // Use the stateful mock: it persists the actual submitted message for
+      // navigation, history pagination and refresh, as the server would.
+      return r.fallback();
     });
     await page.setViewportSize({ width, height });
     await page.goto("/workspace/chats/new");
@@ -152,7 +155,16 @@ for (const { width, height } of [
           expect.objectContaining({
             content: expect.arrayContaining([
               expect.objectContaining({
-                text: "/ppt-master 制作一份年度汇报演示文稿",
+                text: preparePublicPptRequest({
+                  input: {
+                    messages: [
+                      {
+                        type: "human",
+                        content: "/ppt-master 制作一份年度汇报演示文稿",
+                      },
+                    ],
+                  },
+                }).input.messages[0]!.content,
               }),
             ]),
           }),
@@ -162,14 +174,74 @@ for (const { width, height } of [
     const payload = JSON.stringify(runs[0]?.body);
     expect(payload).not.toContain("ppt_confirmation_mode");
     expect(payload).not.toContain("ppt-master-runner");
+    expect(payload).not.toContain("skill_workflow");
+    await expect(
+      page.getByText("制作一份年度汇报演示文稿", { exact: false }).last(),
+    ).toBeVisible();
+    await expect(
+      page.getByText("请使用已安装且启用的 public ppt-master Skill", {
+        exact: false,
+      }),
+    ).toHaveCount(0);
     await expect(page.getByTestId("ppt-submission-choice")).toHaveCount(0);
     await expect(page.getByTestId("ppt-confirmation-opt-in")).toHaveCount(0);
+    const threadId = /\/threads\/([^/]+)\/runs\/stream$/.exec(runs[0]!.url)?.[1];
+    expect(threadId).toBeTruthy();
+    await page.goto(`/workspace/chats/${threadId}`);
+    await page.reload();
+    await expect(
+      page.getByText("制作一份年度汇报演示文稿", { exact: false }).last(),
+    ).toBeVisible();
+    await expect(
+      page.getByText("请使用已安装且启用的 public ppt-master Skill", {
+        exact: false,
+      }),
+    ).toHaveCount(0);
     await page.screenshot({
       path: info.outputPath(`ppt-public-skill-${width}.png`),
     });
     expect(errors).toEqual([]);
   });
 }
+
+test("PPT shortcut preserves an existing workflow and requests a new chat", async ({
+  page,
+}) => {
+  let posted = 0;
+  await page.route("**/api/langgraph/threads/*/state", (r) =>
+    r.fulfill({
+      json: {
+        values: {
+          messages: [],
+          skill_workflow: {
+            skill_name: "ppt-master",
+            status: "blocked",
+            gate_status: "route-selection-required",
+          },
+        },
+        next: [],
+        metadata: {},
+      },
+    }),
+  );
+  await page.route(/\/runs\/stream$/, (r) => {
+    posted++;
+    return handleRunStream(r);
+  });
+  await page.goto("/workspace/chats/new");
+  const input = page.locator('textarea[name="message"]');
+  await input.fill("/ppt-master 继续制作演示文稿");
+  await input.press("Enter");
+  await expect(
+    page
+      .getByText(
+        "此对话保留了旧的 Skill 工作流检查点。请新建对话后使用 /ppt-master；原对话和文件会保留。",
+        { exact: true },
+      )
+      .first(),
+  ).toBeVisible();
+  expect(posted).toBe(0);
+});
 
 test("public Skill submission does not depend on Runner confirmation availability", async ({
   page,
@@ -194,7 +266,7 @@ test("public Skill submission does not depend on Runner confirmation availabilit
   await expect(page.getByTestId("ppt-submission-choice")).toHaveCount(0);
 });
 
-test("public PPT Skill keeps template originals and the exact slash request", async ({
+test("public PPT Skill keeps template originals and sends ordinary Skill instructions", async ({
   page,
 }) => {
   const uploads: string[] = [];
@@ -234,7 +306,7 @@ test("public PPT Skill keeps template originals and the exact slash request", as
   const request = await run;
   expect(request.url()).toContain("/api/langgraph/threads/");
   expect(JSON.stringify(request.postDataJSON())).toContain(
-    "/ppt-master 使用这份模板",
+    "/mnt/skills/public/ppt-master/SKILL.md",
   );
   expect(uploads).toHaveLength(1);
   expect(uploads[0]).toContain("presentation_template");
