@@ -336,7 +336,7 @@ def test_named_file_and_opened_file_identity_must_match_before_update(tmp_path, 
     def different_identity(path, *args, **kwargs):
         result = original(path, *args, **kwargs)
         if path == store.path and kwargs.get("follow_symlinks") is False:
-            return SimpleNamespace(st_dev=result.st_dev, st_ino=result.st_ino + 1, st_mode=result.st_mode)
+            return SimpleNamespace(**{k: getattr(result, k) + (1 if k == "st_ino" else 0) for k in ("st_dev", "st_ino", "st_mode", "st_uid", "st_gid", "st_nlink", "st_size", "st_mtime_ns", "st_ctime_ns")})
         return result
 
     monkeypatch.setattr(Path, "stat", different_identity)

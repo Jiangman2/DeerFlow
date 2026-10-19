@@ -5,16 +5,19 @@ and atomic rename. Provision and verify that mount before enabling this feature.
 Windows byte locks support local development, not a production NFS qualification.
 """
 
+import ctypes
 import errno
 import hashlib
 import json
 import os
 import stat
+import sys
 import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
@@ -26,6 +29,22 @@ MAX_ENTRIES = 10000
 
 class FeaturedUnavailable(RuntimeError):
     """Unsafe, unconfigured, busy or unreadable storage; never silently reset."""
+
+
+@lru_cache(maxsize=1)
+def _linux_statx():
+    # Resolve the already loaded C runtime, never a caller-selected library.
+    try:
+        function = ctypes.CDLL(None, use_errno=True).statx
+    except AttributeError:
+        raise FeaturedUnavailable("featured_metadata_sync_unavailable") from None
+    function.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_uint, ctypes.c_void_p)
+    function.restype = ctypes.c_int
+    return function
+
+
+class _ReadIdentityChanged(RuntimeError):
+    """Internal pre-commit read instability, never a write retry signal."""
 
 
 class FeaturedConflict(RuntimeError):
@@ -118,6 +137,10 @@ class FeaturedStore:
         for attempt in range(3):
             try:
                 return operation()
+            except _ReadIdentityChanged:
+                if attempt == 2:
+                    raise FeaturedUnavailable("featured_file_changed_during_read") from None
+                time.sleep(0.025)
             except OSError as exc:
                 if exc.errno != getattr(errno, "ESTALE", -1) or attempt == 2:
                     raise
@@ -133,13 +156,32 @@ class FeaturedStore:
                 raise FeaturedUnavailable("unsafe_featured_parent")
 
     @staticmethod
-    def _check_file(fd):
-        metadata = os.fstat(fd)
+    def _check_metadata(metadata):
         if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
             raise FeaturedUnavailable("unsafe_featured_file")
         if os.name != "nt" and (metadata.st_uid not in (0, os.geteuid()) or metadata.st_mode & 0o077):
             raise FeaturedUnavailable("unsafe_featured_permissions")
         return metadata
+
+    @staticmethod
+    def _check_file(fd):
+        return FeaturedStore._check_metadata(os.fstat(fd))
+
+    @staticmethod
+    def _read_stamp(metadata):
+        # Exclude atime: this read itself may update it. Identity and security
+        # attributes, plus data size/change times, must remain stable.
+        return (metadata.st_dev, metadata.st_ino, metadata.st_mode, metadata.st_uid, metadata.st_gid, metadata.st_nlink, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns)
+
+    @classmethod
+    def _same_read_file(cls, opened, named):
+        # Reject a newly named symlink/nonregular target rather than treating
+        # it as a recoverable rename. Validate permissions independently too.
+        cls._check_metadata(named)
+        if (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino):
+            raise _ReadIdentityChanged()
+        if cls._read_stamp(opened) != cls._read_stamp(named):
+            raise _ReadIdentityChanged()
 
     @contextmanager
     def _transaction(self):
@@ -188,21 +230,45 @@ class FeaturedStore:
     def _load(self):
         return self._decode(self._retry_stale_read(self._read_bytes))
 
+    def _refresh_path_metadata(self):
+        if not sys.platform.startswith("linux"):
+            return
+        # Linux UAPI statx is a fixed 256-byte buffer. Request only BASIC_STATS,
+        # with an aligned opaque result; ordinary stat/fstat below still own
+        # all identity, permission and data-stability validation.
+        result = (ctypes.c_uint64 * 32)()
+        # AT_FDCWD, SYMLINK_NOFOLLOW | NO_AUTOMOUNT | STATX_FORCE_SYNC.
+        rc = _linux_statx()(-100, os.fsencode(self.path), 0x2900, 0x7FF, ctypes.byref(result))
+        if rc != 0:
+            code = ctypes.get_errno() or errno.EIO
+            if code in (errno.ENOSYS, errno.EINVAL, errno.EOPNOTSUPP):
+                raise FeaturedUnavailable("featured_metadata_sync_unavailable")
+            raise OSError(code, "featured_metadata_sync_failed")
+        # Require all fields used for security/identity comparisons. Do not
+        # silently use approximate fallback metadata on an unsupported mount.
+        returned = ctypes.cast(ctypes.byref(result), ctypes.POINTER(ctypes.c_uint32))[0]
+        if returned & 0x3DF != 0x3DF:
+            raise FeaturedUnavailable("featured_metadata_sync_unavailable")
+
     def _read_bytes(self):
         try:
-            # Revalidate the name after acquiring the stable lock. The parent
-            # check runs before flock, so a competing NFS client may replace
-            # that dentry while this client is waiting. Path-based stat can
-            # revalidate a stale lookup; fstat on an old handle cannot do so.
-            expected = self.path.stat(follow_symlinks=False)
-            fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            # An ordinary cached stat/open can repeatedly select a removed
+            # NFS handle after another client atomically replaces the JSON.
+            # Force server attribute revalidation by pathname before opening.
+            # This is read-only, inside the existing bounded pre-commit retry.
+            self._refresh_path_metadata()
+            self.path.stat(follow_symlinks=False)
+            fd = os.open(self.path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
         except FileNotFoundError:
             raise FeaturedUnavailable("featured_store_not_initialized") from None
         with os.fdopen(fd, "rb") as stream:
-            actual = self._check_file(stream.fileno())
-            if (actual.st_dev, actual.st_ino) != (expected.st_dev, expected.st_ino):
-                raise FeaturedUnavailable("featured_file_changed_during_read")
+            opened = self._check_file(stream.fileno())
+            self._same_read_file(opened, self.path.stat(follow_symlinks=False))
             raw = stream.read(MAX_BYTES + 1)
+            after = self._check_file(stream.fileno())
+            if self._read_stamp(opened) != self._read_stamp(after):
+                raise _ReadIdentityChanged()
+            self._same_read_file(after, self.path.stat(follow_symlinks=False))
         return raw
 
     @staticmethod

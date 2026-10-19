@@ -1,5 +1,14 @@
 # AGENTS.md
 
+Employee featured-store reads use the field-qualified r6 source. On Linux,
+force pathname metadata refresh with statx before the bounded precommit open,
+then revalidate file identity, permissions and read stability. Do not turn an
+uncertain rename/fsync into a write retry, reseed on GET, or relax directory
+permissions. The exact qualified source is pinned in the enterprise source lock;
+local tests do not replace live shared-storage or rollout acceptance. The Git
+copy is formatted to repository style; its AST must match the hash-pinned field
+source. Do not confuse that semantic equivalence with identical source bytes.
+
 ## Combined Gateway release: OA / DNS / XLSX (2026-10-16)
 
 The additional runtime change is the exact lazy XLSX conversion shim from
