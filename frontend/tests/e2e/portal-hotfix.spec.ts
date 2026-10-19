@@ -229,7 +229,7 @@ for (const { width, height } of [
       );
     });
     const originalIcon = page
-      .locator('.cnooc-welcome-actions img[src*="action-ppt"]')
+      .locator('[data-testid="portal-icon-pptAction"] img')
       .first();
     const originalSize = await originalIcon.evaluate(
       (element) => element.getBoundingClientRect().width,
@@ -259,38 +259,51 @@ for (const { width, height } of [
       await expect(link).toHaveAttribute("target", "_blank");
       await expect(link).toHaveAttribute("rel", "noopener noreferrer");
       const canvas = link.locator(".cnooc-portal-artwork");
+      const centered = await link.evaluate((element) => {
+        const button = element.getBoundingClientRect();
+        const content = [...element.children]
+          .filter((child) => !child.classList.contains("sr-only"))
+          .map((child) => child.getBoundingClientRect());
+        const left = Math.min(...content.map((box) => box.left));
+        const right = Math.max(...content.map((box) => box.right));
+        const top = Math.min(...content.map((box) => box.top));
+        const bottom = Math.max(...content.map((box) => box.bottom));
+        return {
+          x: (left + right - button.left - button.right) / 2,
+          y: (top + bottom - button.top - button.bottom) / 2,
+        };
+      });
+      expect(Math.abs(centered.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(centered.y)).toBeLessThanOrEqual(1);
       expect(
         await canvas.evaluate(
           (element) => element.getBoundingClientRect().width,
         ),
       ).toBe(originalSize);
-      await expect
-        .poll(
-          () =>
-            link
-              .locator("img")
-              .evaluate(
-                (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
-              ),
-          { timeout: 30_000 },
-        )
-        .toBe(true);
+      await expect(link.locator("img")).toBeVisible();
+      await expect(link.locator("img")).toHaveAttribute(
+        "src",
+        /^data:image\/webp;base64,/,
+      );
+      await expect(link.locator("svg")).toHaveCount(0);
     }
     const bounds = await menu.boundingBox();
     for (const marker of await page
       .getByTestId("external-navigation-marker")
       .all()) {
-      const position = await marker.evaluate((element) => {
-        const badge = element.getBoundingClientRect();
-        const artwork = element.parentElement!.getBoundingClientRect();
-        return {
-          right: badge.right - (artwork.left + artwork.right) / 2,
-          bottom: badge.bottom - (artwork.top + artwork.bottom) / 2,
-        };
+      const contained = await marker.evaluate((element) => {
+        const mark = element.getBoundingClientRect();
+        const icon = element
+          .closest(".cnooc-portal-artwork")!
+          .getBoundingClientRect();
+        return (
+          mark.left >= icon.left &&
+          mark.top >= icon.top &&
+          mark.right <= icon.right &&
+          mark.bottom <= icon.bottom
+        );
       });
-      // Preserve the exact badge placement in the user's approved mobile image.
-      expect(position.right).toBeCloseTo(14, 0);
-      expect(position.bottom).toBeCloseTo(14, 0);
+      expect(contained).toBe(true);
     }
     expect(bounds?.x).toBeGreaterThanOrEqual(0);
     expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(width);
@@ -319,15 +332,12 @@ for (const { width, height } of [
     await expect(pptLink).toBeInViewport();
     await expect(pptLink).toHaveAttribute("href", PPT_ASSISTANT_TOOL.href);
     await expect(pptLink).toHaveAttribute("rel", "noopener noreferrer");
-    await expect
-      .poll(() =>
-        pptLink
-          .locator("img")
-          .evaluate(
-            (img: HTMLImageElement) => img.complete && img.naturalWidth > 0,
-          ),
-      )
-      .toBe(true);
+    await expect(pptLink.locator("img")).toBeVisible();
+    await expect(pptLink.locator("img")).toHaveAttribute(
+      "src",
+      /^data:image\/webp;base64,/,
+    );
+    await expect(pptLink.locator("svg")).toHaveCount(0);
     await page.screenshot({ path: info.outputPath(`ppt-menu-${width}.png`) });
     // Verify new-tab behavior without accessing the enterprise portal locally.
     await page

@@ -26,6 +26,7 @@ import {
   MESSAGE_LIST_DEFAULT_PADDING_BOTTOM,
 } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
+import { PptSubmissionChoiceSurface } from "@/components/workspace/ppt-submission-choice";
 import {
   SidecarProvider,
   SidecarTrigger,
@@ -341,6 +342,7 @@ export default function AgentChatPage() {
                 !isWelcomeMode && "cnooc-chat-main-task",
               )}
             >
+              <PptSubmissionChoiceSurface />
               {isWelcomeMode && !hasGoal && !hasTodos && (
                 <div className="cnooc-welcome-stage cnooc-agent-welcome-stage">
                   <AgentWelcome agent={agent} agentName={agentName} />

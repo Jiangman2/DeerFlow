@@ -1,5 +1,23 @@
 # AGENTS.md
 
+Portal navigation buttons use generated rounded blue 3D bitmaps containing their
+outbound arrow. Bundle the
+pre-sized transparent image data so it needs no image download or Next optimizer;
+ordinary action menus have no outbound arrow. Preserve the approved destinations.
+The jump arrow is warm orange with a white keyline. All seven orange arrow
+silhouettes are 44 by 42 pixels on 144-pixel canvases; size complete bitmaps
+without separate arrow overlays. Keep original ordinary-action artwork;
+normalize transparent padding and center the
+visible icon plus label as one group in quick buttons and portal menu items.
+The new-task PPT confirmation choice appears in the conversation only after
+Send, before any thread/run submission. Manual is the default; explicit Start
+admits that one reviewed request, while Edit/unmount/account or thread changes
+cancel it without clearing its draft/files. Keep the composer controls hidden
+and locked during that choice and preserve Gateway's first-input authority.
+This choice is distinct from the official per-stage confirmation UI.
+Model choices remain server-owned `/api/models` results; shipping GLM adapter
+code alone cannot enable a model without operator configuration and credentials.
+
 Haineng home footer has four counters. Fetch existing signed Haineng usage and
 authenticated `/api/home/statistics` independently every minute; one failing
 source must not erase the other, and unavailable counters show a dash, not zero.

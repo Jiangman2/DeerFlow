@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { getAPIClient } from "@/core/api/api-client";
 import { extractArtifactsFromStateSnapshot } from "@/core/artifacts/utils";
+import { useAuth } from "@/core/auth/AuthProvider";
 import { useI18n } from "@/core/i18n/hooks";
 import { env } from "@/env";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -25,24 +26,42 @@ import {
 } from "../artifacts";
 import { BrowserViewPanel, useMaybeBrowserView } from "../browser-view";
 import { useThread } from "../messages/context";
+import {
+  PptSubmissionChoiceProvider,
+  usePptSubmissionChoice,
+} from "../ppt-submission-choice";
 import { SidecarPanel, useMaybeSidecar } from "../sidecar";
 
 const RIGHT_PANEL_ANIMATION_MS = 280;
 
 type RightPanelKind = "sidecar" | "artifacts" | "browser";
 
-const ChatBox: React.FC<{
+type ChatBoxProps = {
   children: React.ReactNode;
   threadId: string;
   canHydratePersistedArtifacts?: boolean;
   browserEnabled?: boolean;
-}> = ({
+};
+
+const ChatBox: React.FC<ChatBoxProps> = (props) => {
+  const { user } = useAuth();
+  return (
+    <PptSubmissionChoiceProvider
+      scope={`${user?.id ?? "unauthenticated"}:${props.threadId}`}
+    >
+      <ChatBoxLayout {...props} />
+    </PptSubmissionChoiceProvider>
+  );
+};
+
+const ChatBoxLayout: React.FC<ChatBoxProps> = ({
   children,
   threadId,
   canHydratePersistedArtifacts = true,
   browserEnabled = true,
 }) => {
   const { thread } = useThread();
+  const pptChoice = usePptSubmissionChoice();
   const isMobile = useIsMobile();
   const pathname = usePathname();
   const isNewChatPath = pathname.endsWith("/new");
@@ -252,7 +271,12 @@ const ChatBox: React.FC<{
   if (isMobile) {
     return (
       <>
-        <div className="relative size-full min-w-0">{children}</div>
+        <div
+          className="cnooc-chat-box relative size-full min-w-0"
+          data-ppt-choice-pending={Boolean(pptChoice?.pending)}
+        >
+          {children}
+        </div>
         <Sheet
           open={rightPanelOpen}
           onOpenChange={(open) => {
@@ -298,8 +322,9 @@ const ChatBox: React.FC<{
   return (
     <div
       id={`${resizableIdBase}-panels`}
+      data-ppt-choice-pending={Boolean(pptChoice?.pending)}
       className={cn(
-        "[container-type:inline-size] size-full min-h-0",
+        "cnooc-chat-box [container-type:inline-size] size-full min-h-0",
         artifactsOverlayOpen
           ? "relative"
           : "grid transition-[grid-template-columns] duration-[280ms] ease-out motion-reduce:transition-none",

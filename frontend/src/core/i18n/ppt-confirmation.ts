@@ -1,5 +1,17 @@
 const messages = {
   "zh-CN": {
+    beforeStart: "任务尚未启动，请先选择本次任务的确认方式。",
+    chooseMode: "本次 PPT 如何确认？",
+    manualOption: "人工确认（默认）",
+    manualOptionHelp: "每个确认阶段由你查看内容并确认后继续。",
+    autoOption: "60 秒自动确认",
+    autoUnavailable:
+      "自动确认能力正在核对或暂不可用。你仍可选择人工确认后开始任务。",
+    autoOptionHelp:
+      "每个有效确认阶段等待 60 秒，未操作则采用官方页面当前默认选项继续。仅适用于本次任务。",
+    editRequest: "返回修改",
+    startTask: "开始任务",
+    attachedFiles: "已附文件",
     title: "PPT 确认与继续状态",
     entry: "打开稳定的确认入口",
     loading: "正在读取已保存的确认状态……",
@@ -33,6 +45,20 @@ const messages = {
       "无法按当前自动确认选项提交。请确认这是新 PPT 对话、移除引用并刷新功能状态，或关闭自动确认后重试。任务尚未提交。",
   },
   "en-US": {
+    beforeStart:
+      "The task has not started. Choose how to confirm this task first.",
+    chooseMode: "How should this PPT task be confirmed?",
+    manualOption: "Manual confirmation (default)",
+    manualOptionHelp:
+      "Review and confirm the content at each confirmation stage.",
+    autoOption: "Automatic confirmation after 60 seconds",
+    autoUnavailable:
+      "Automatic confirmation is being checked or unavailable. You can still start with manual confirmation.",
+    autoOptionHelp:
+      "Each valid stage waits 60 seconds, then uses the official page’s current defaults if you do not act. This task only.",
+    editRequest: "Edit request",
+    startTask: "Start task",
+    attachedFiles: "Attached files",
     title: "PPT confirmation and continuation",
     entry: "Open stable confirmation entry",
     loading: "Reading saved confirmation state…",

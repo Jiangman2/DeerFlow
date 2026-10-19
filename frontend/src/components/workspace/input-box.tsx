@@ -149,24 +149,23 @@ import {
   resolveAgentMode,
 } from "./mode-selector";
 import {
+  PortalArtwork,
   PortalQuickAction,
   PortalToolMenuItem,
   PortalToolsMenu,
 } from "./portal-tools-menu";
-import { PptConfirmationOptIn } from "./ppt-confirmation-opt-in";
+import { usePptSubmissionChoice } from "./ppt-submission-choice";
 import { ShopCartAttachmentButton } from "./shop-cart-attachments";
 import { ReferenceAttachmentSummary, useMaybeSidecar } from "./sidecar";
 import { SlashSkillChip } from "./slash-skill-chip";
 import { Tooltip } from "./tooltip";
 
-const QUICK_ACTION_ARTWORK = {
-  suggestions: [
-    "/images/action-image.png",
-    "/images/action-ppt.png",
-    "/images/action-research.png",
-    "/images/action-analysis.png",
-  ],
-} as const;
+const QUICK_ACTION_ICON_IDS = [
+  "image",
+  "pptAction",
+  "research",
+  "analysis",
+] as const;
 
 type InputBoxContext = Omit<
   AgentThreadContext,
@@ -447,7 +446,7 @@ export function InputBox({
   const [skillSuggestionIndex, setSkillSuggestionIndex] = useState(0);
   const [selectedSlashSkill, setSelectedSlashSkill] =
     useState<SlashSuggestion | null>(null);
-  const [pptAutoThreadId, setPptAutoThreadId] = useState<string | null>(null);
+  const pptChoice = usePptSubmissionChoice();
   const isPptDraft = selectedSlashSkill
     ? selectedSlashSkill.name === "ppt-master"
     : isPptConfirmationRequest(textInput.value);
@@ -934,7 +933,7 @@ export function InputBox({
   ]);
 
   const submitThreadMessage = useCallback(
-    (message: PromptInputMessage) => {
+    (message: PromptInputMessage, autoConfirm = false) => {
       const files = message.files.flatMap((file) =>
         file.file instanceof File ? [file.file] : [],
       );
@@ -970,7 +969,7 @@ export function InputBox({
         confirmationMetadata = confirmationSubmission({
           text: message.text,
           threadId,
-          optedInThreadId: pptAutoThreadId,
+          optedInThreadId: autoConfirm ? threadId : null,
           isNewThread,
           available: pptConfirmationAvailable,
           quoteCount: quotes.length,
@@ -1005,7 +1004,6 @@ export function InputBox({
         },
         onSent: () => {
           quoteOptions?.onSent?.();
-          setPptAutoThreadId(null);
         },
       };
       const submit = () => onSubmit?.(message, submitOptions);
@@ -1041,7 +1039,6 @@ export function InputBox({
       selectedModel?.thinking_always_on,
       threadId,
       isNewThread,
-      pptAutoThreadId,
       pptConfirmationAvailable,
       locale,
       sidecar,
@@ -1049,6 +1046,11 @@ export function InputBox({
       uploadLimits,
     ],
   );
+
+  // A choice may remain open while feature availability is refreshed. Recheck
+  // with the current submit callback; never dispatch a captured stale opt-in.
+  const submitThreadMessageRef = useRef(submitThreadMessage);
+  submitThreadMessageRef.current = submitThreadMessage;
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
@@ -1098,7 +1100,31 @@ export function InputBox({
       if (submitAction.kind === "empty") {
         return;
       }
-      await submitThreadMessage(messageWithSlashSkill);
+      let autoConfirm = false;
+      if (
+        isNewThread &&
+        isPptConfirmationRequest(messageWithSlashSkill.text) &&
+        !isMock
+      ) {
+        if (!pptChoice) throw new Error("ppt_choice_surface_unavailable");
+        const decision = await pptChoice.request({
+          text: messageWithSlashSkill.text,
+          fileCount: messageWithSlashSkill.files.length,
+          hasQuotes: Boolean(sidecar?.conversationQuotes.length),
+        });
+        if (!decision.mode || !decision.isCurrent()) {
+          if (decision.isCurrent()) {
+            requestAnimationFrame(() => {
+              if (selectedSlashSkill)
+                focusContentEditableEnd(inlineSkillTextRef.current);
+              else textareaRef.current?.focus({ preventScroll: true });
+            });
+          }
+          throw new Error("ppt_submission_cancelled"); // Keep the exact draft/files.
+        }
+        autoConfirm = decision.mode === "auto_after_60s";
+      }
+      await submitThreadMessageRef.current(messageWithSlashSkill, autoConfirm);
       if (selectedSlashSkill) {
         setSelectedSlashSkill(null);
       }
@@ -1113,6 +1139,10 @@ export function InputBox({
       status,
       submitThreadMessage,
       t.inputBox.pleaseWaitStreaming,
+      isNewThread,
+      isMock,
+      pptChoice,
+      sidecar,
     ],
   );
 
@@ -1199,7 +1229,8 @@ export function InputBox({
       ),
     [thread.messages],
   );
-  const composerLocked = isComposerDisabled || polishingInput;
+  const composerLocked =
+    isComposerDisabled || polishingInput || Boolean(pptChoice?.pending);
   const inputPolishUndoAvailable =
     !polishingInput &&
     inputPolishUndo !== null &&
@@ -2036,19 +2067,6 @@ export function InputBox({
             />
           )}
         </PromptInputHeader>
-        {isNewThread &&
-          isPptDraft &&
-          (pptConfirmationAvailable || pptAutoThreadId === threadId) && (
-            <PptConfirmationOptIn
-              locale={locale}
-              checked={pptAutoThreadId === threadId}
-              disabled={composerLocked}
-              hasQuotes={Boolean(sidecar?.conversationQuotes.length)}
-              onCheckedChange={(checked) =>
-                setPptAutoThreadId(checked ? threadId : null)
-              }
-            />
-          )}
         <div className="cnooc-composer-input min-h-14 min-w-0 px-3 py-2.5 sm:min-h-16 sm:py-3">
           {selectedSlashSkill ? (
             <div
@@ -2442,19 +2460,12 @@ function VoiceInputButton({
   );
 }
 
-function QuickActionArtwork({ src }: { src: string }) {
-  return (
-    <Image
-      aria-hidden="true"
-      alt=""
-      className="cnooc-action-artwork"
-      height={44}
-      loading="eager"
-      src={src}
-      unoptimized
-      width={44}
-    />
-  );
+function QuickActionArtwork({
+  id,
+}: {
+  id: (typeof QUICK_ACTION_ICON_IDS)[number];
+}) {
+  return <PortalArtwork id={id} />;
 }
 
 function SuggestionList({
@@ -2485,7 +2496,7 @@ function SuggestionList({
                 suggestion={suggestion.suggestion}
               >
                 <QuickActionArtwork
-                  src={QUICK_ACTION_ARTWORK.suggestions[suggestionIndex]!}
+                  id={QUICK_ACTION_ICON_IDS[suggestionIndex]!}
                 />
                 <span>{suggestion.suggestion}</span>
               </Suggestion>
@@ -2534,9 +2545,7 @@ function SuggestionList({
             suggestion={suggestion.suggestion}
             onClick={() => handleSuggestionClick(suggestion.prompt)}
           >
-            <QuickActionArtwork
-              src={QUICK_ACTION_ARTWORK.suggestions[suggestionIndex]!}
-            />
+            <QuickActionArtwork id={QUICK_ACTION_ICON_IDS[suggestionIndex]!} />
             <span>{suggestion.suggestion}</span>
           </Suggestion>
         ),

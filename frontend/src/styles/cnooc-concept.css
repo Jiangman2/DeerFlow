@@ -4214,7 +4214,7 @@
   }
 }
 
-/* The navigation badge belongs to the artwork, not a third layout column. */
+/* Navigation uses one generated bitmap with the arrow already in its pixels. */
 .cnooc-welcome-actions
   [data-slot="suggestion-item"]
   > :is(button, a[data-slot="suggestion"]) {
@@ -4227,19 +4227,46 @@
   text-align: center;
 }
 
-.cnooc-welcome-actions .cnooc-external-marker,
-.cnooc-portal-menu .cnooc-external-marker {
-  position: absolute;
-  right: calc(50% - 14px);
-  bottom: calc(50% - 14px);
-  width: 11px !important;
-  height: 11px !important;
-  flex: 0 0 11px;
-  border-radius: 2px;
-  background: white;
-  box-shadow: 0 0 0 1px white;
-  color: var(--cnooc-blue-dark);
+.cnooc-portal-artwork > span,
+.cnooc-portal-artwork img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  flex-shrink: 0;
+}
+
+.cnooc-chat-box[data-ppt-choice-pending="true"] .cnooc-composer-dock,
+.cnooc-chat-box[data-ppt-choice-pending="true"] .cnooc-home-footer,
+.cnooc-chat-box[data-ppt-choice-pending="true"] .cnooc-welcome-stage {
+  display: none !important;
+  visibility: hidden;
   pointer-events: none;
+}
+
+.cnooc-chat-main > .cnooc-ppt-submission-card {
+  position: absolute;
+  top: 100px;
+  right: 20px;
+  left: 20px;
+  width: auto;
+  max-width: 680px;
+  max-height: calc(var(--app-viewport-height, 100dvh) - 150px);
+  margin-inline: auto;
+  overflow-y: auto;
+  z-index: 20;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+}
+
+@media (max-width: 47.999rem) {
+  .cnooc-chat-main > .cnooc-ppt-submission-card {
+    top: calc(92px + env(safe-area-inset-top));
+    right: 12px;
+    left: 12px;
+    max-height: calc(
+      var(--app-viewport-height, 100dvh) - 120px - env(safe-area-inset-bottom)
+    );
+  }
 }
 
 /* Narrow desktop and mobile retain a touch/keyboard-scrollable rail instead
@@ -4296,8 +4323,8 @@
   }
 }
 
-/* Same icon canvas as the existing quick actions. The inner image scale
-   normalizes the new artwork's opaque bounds to the existing PPT artwork. */
+/* Same icon canvas as existing quick actions. Bitmap visible bounds are
+   normalized at asset build time; the small arrow is already in its pixels. */
 .cnooc-portal-artwork {
   position: relative;
   display: inline-flex;
@@ -4306,6 +4333,50 @@
   flex: 0 0 42px;
   align-items: center;
   justify-content: center;
+}
+
+/* Tight, normalized artwork bounds make the visible icon and label a centered
+   group. The PNG's former transparent half-canvas must not act as layout space. */
+.cnooc-workspace-shell,
+.cnooc-portal-menu {
+  --cnooc-action-icon-size: 24px;
+}
+
+.cnooc-workspace-shell
+  .cnooc-welcome-actions
+  [data-slot="suggestion-item"]
+  > :is(button, a[data-slot="suggestion"])
+  .cnooc-action-artwork,
+.cnooc-portal-menu .cnooc-action-artwork,
+.cnooc-create-menu .cnooc-action-artwork {
+  width: var(--cnooc-action-icon-size) !important;
+  height: var(--cnooc-action-icon-size) !important;
+  min-width: var(--cnooc-action-icon-size) !important;
+  max-width: var(--cnooc-action-icon-size) !important;
+  max-height: var(--cnooc-action-icon-size) !important;
+  flex: 0 0 var(--cnooc-action-icon-size) !important;
+}
+
+@media (min-width: 48rem) and (max-width: 100rem),
+  (min-width: 48rem) and (max-height: 900px) {
+  .cnooc-workspace-shell,
+  .cnooc-portal-menu {
+    --cnooc-action-icon-size: 22px;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .cnooc-workspace-shell,
+  .cnooc-portal-menu {
+    --cnooc-action-icon-size: 28px;
+  }
+}
+
+@media (max-width: 25rem) {
+  .cnooc-workspace-shell,
+  .cnooc-portal-menu {
+    --cnooc-action-icon-size: 26px;
+  }
 }
 
 @media (min-width: 48rem) and (max-width: 100rem),
