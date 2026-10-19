@@ -87,7 +87,8 @@ async def list_employee_metadata(request: Request, response: Response) -> Direct
     user = await get_current_user_from_request(request)
     _require_agents_api_enabled()
     sessions = _sessions()
-    identities = await asyncio.to_thread(_catalog, user.id)
+    # Authentication exposes UUIDs; persistence and featured identities use strings.
+    identities = await asyncio.to_thread(_catalog, str(user.id))
     try:
         snapshot = await asyncio.to_thread(lambda: FeaturedStore().snapshot())
     except FeaturedUnavailable:
@@ -121,14 +122,14 @@ async def set_employee_hot(source: SharedSource, name: str, body: HotUpdate, req
     await require_admin_user(request, detail="Only administrators can manage hot employees")
     user = await get_current_user_from_request(request)
     _require_agents_api_enabled()
-    identities = await asyncio.to_thread(_catalog, user.id)
+    identities = await asyncio.to_thread(_catalog, str(user.id))
     identity = next((entry for entry in identities if entry.source == source and entry.name == name), None)
     if identity is None:
         raise HTTPException(404, "Shared employee not found")
     if body.expected_identity != identity.token:
         raise HTTPException(409, "Employee identity changed; reload before saving")
     try:
-        version = await asyncio.to_thread(lambda: FeaturedStore().set_hot(identity, body.is_hot, expected_version=body.expected_version, actor=user.id))
+        version = await asyncio.to_thread(lambda: FeaturedStore().set_hot(identity, body.is_hot, expected_version=body.expected_version, actor=str(user.id)))
     except FeaturedConflict:
         raise HTTPException(409, "Employee selection changed; reload before saving") from None
     except FeaturedUnavailable:

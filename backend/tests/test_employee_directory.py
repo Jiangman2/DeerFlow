@@ -1,6 +1,7 @@
 """Shared hot configuration, real creator names and server authorization."""
 
-from types import SimpleNamespace
+import os
+from uuid import UUID
 
 import httpx
 import pytest
@@ -8,6 +9,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from app.gateway.auth.models import User
 from app.gateway.employee_featured_store import FeaturedStore
 from app.gateway.routers import employee_directory as directory
 from deerflow.persistence.user.model import UserRow
@@ -15,6 +17,8 @@ from deerflow.persistence.user.model import UserRow
 OLD = directory.EmployeeIdentity("team", "research", "creator")
 EXTERNAL = directory.EmployeeIdentity("external", "external", "")
 NEW = directory.EmployeeIdentity("team", "new-employee", "creator", "new-publication")
+REAL_CATALOG = directory._catalog
+VIEWER_ID = UUID("f2782962-19a2-43cf-8e96-4b8b843b7133")
 
 
 def body(*, is_hot=False, version=1, identity=OLD):
@@ -31,7 +35,7 @@ async def client(tmp_path, monkeypatch):
         session.add(UserRow(id="creator", email="private@example.test", display_name="张研究员"))
         await session.commit()
     monkeypatch.setattr(directory, "get_session_factory", lambda: sessions)
-    monkeypatch.setattr(directory, "_catalog", lambda _user: [OLD, EXTERNAL, NEW, directory.EmployeeIdentity("personal", "mine", "viewer")])
+    monkeypatch.setattr(directory, "_catalog", lambda _user: [OLD, EXTERNAL, NEW, directory.EmployeeIdentity("personal", "mine", str(VIEWER_ID))])
     monkeypatch.setattr(directory, "_require_agents_api_enabled", lambda: None)
     monkeypatch.setenv("DEERFLOW_EMPLOYEE_FEATURED_PATH", str(tmp_path / "hot.json"))
     FeaturedStore().initialize([OLD, EXTERNAL], actor="release")
@@ -43,7 +47,7 @@ async def client(tmp_path, monkeypatch):
             from app.gateway.auth_disabled import AUTH_SOURCE_SESSION
 
             request.state.auth_source = AUTH_SOURCE_SESSION
-            request.state.user = SimpleNamespace(id="viewer", system_role=request.headers["x-role"])
+            request.state.user = User(id=VIEWER_ID, email="viewer@example.com", system_role=request.headers["x-role"])
         return await call_next(request)
 
     app.include_router(directory.router)
@@ -74,7 +78,7 @@ async def test_admin_remove_add_version_conflict_and_durable_audit(client):
     second = await client.put(url, json=body(is_hot=True, version=2), headers={"x-role": "admin"})
     assert second.status_code == 200 and second.json()["version"] == 3
     audits = FeaturedStore().snapshot().document["changes"]
-    assert len(audits) == 2 and audits[0]["actor"] == "viewer" and audits[0]["is_hot"] is False
+    assert len(audits) == 2 and audits[0]["actor"] == str(VIEWER_ID) and audits[0]["is_hot"] is False
 
 
 @pytest.mark.asyncio
@@ -143,3 +147,61 @@ def test_hot_feature_adds_no_sql_schema():
     from deerflow.persistence.base import Base
 
     assert "employee_featured" not in Base.metadata.tables
+
+
+@pytest.mark.asyncio
+async def test_uuid_login_normalized_for_catalog_identity_and_audit(client, monkeypatch):
+    from deerflow.config.agents_config import AgentConfig
+
+    calls = []
+
+    def personal_store(*, user_id):
+        calls.append(user_id)
+        assert user_id == str(VIEWER_ID)
+        return [AgentConfig(name="mine")]
+
+    monkeypatch.setattr(directory, "_catalog", REAL_CATALOG)
+    monkeypatch.setattr(directory, "list_custom_agents", personal_store)
+    monkeypatch.setattr(directory, "list_team_agents", lambda: [])
+    monkeypatch.setattr(directory, "EXTERNAL_EMPLOYEE_NAMES", {EXTERNAL.name})
+    response = await client.get("/api/employee-directory", headers={"x-role": "admin"})
+    assert response.status_code == 200
+    assert response.json()["employees"][0]["is_hot"] is True
+    personal = response.json()["employees"][1]
+    assert personal["source"] == "personal" and personal["is_hot"] is False
+    assert personal["identity_token"] == directory.EmployeeIdentity("personal", "mine", str(VIEWER_ID)).token
+    saved = await client.put("/api/employee-directory/external/external/hot", json=body(identity=EXTERNAL), headers={"x-role": "admin"})
+    assert saved.status_code == 200 and saved.json()["is_hot"] is False
+    refreshed = await client.get("/api/employee-directory", headers={"x-role": "user"})
+    assert refreshed.status_code == 200 and refreshed.json()["employees"][0]["is_hot"] is False
+    assert calls == [str(VIEWER_ID)] * 3
+    assert FeaturedStore().snapshot().document["changes"][-1]["actor"] == str(VIEWER_ID)
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not os.environ.get("PORTAL_HOT_TEST_POSTGRES_URL"), reason="Dedicated disposable PostgreSQL required")
+async def test_uuid_login_with_real_postgres_personal_store(client, monkeypatch):
+    from deerflow.persistence.agents.model import AgentRow
+    from deerflow.persistence.agents.sql import SqlAgentStore
+
+    # A disposable test database only; the SQL types/query match production.
+    store = SqlAgentStore(os.environ["PORTAL_HOT_TEST_POSTGRES_URL"])
+    engine = store._Session.kw["bind"]
+    AgentRow.__table__.create(engine)
+    try:
+        store.create("mine", {}, "", user_id=str(VIEWER_ID))
+        monkeypatch.setattr(directory, "_catalog", REAL_CATALOG)
+        monkeypatch.setattr(directory, "list_custom_agents", store.list)
+        monkeypatch.setattr(directory, "list_team_agents", lambda: [])
+        monkeypatch.setattr(directory, "EXTERNAL_EMPLOYEE_NAMES", {EXTERNAL.name})
+        response = await client.get("/api/employee-directory", headers={"x-role": "admin"})
+        assert response.status_code == 200
+        assert [entry["source"] for entry in response.json()["employees"]] == ["external", "personal"]
+        saved = await client.put("/api/employee-directory/external/external/hot", json=body(identity=EXTERNAL), headers={"x-role": "admin"})
+        assert saved.status_code == 200 and saved.json()["is_hot"] is False
+        refreshed = await client.get("/api/employee-directory", headers={"x-role": "user"})
+        assert refreshed.status_code == 200 and refreshed.json()["employees"][0]["is_hot"] is False
+        assert FeaturedStore().snapshot().document["changes"][-1]["actor"] == str(VIEWER_ID)
+    finally:
+        AgentRow.__table__.drop(engine)
+        engine.dispose()
