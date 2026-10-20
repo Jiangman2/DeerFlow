@@ -117,7 +117,7 @@ export const zhCN: Translations = {
   welcome: {
     greeting: "你好，欢迎回来！",
     description:
-      "欢迎使用中国海油通用智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
+      "欢迎使用海能通用智能体。\n这是一个面向油气业务的智能研究与协同作业平台。\n通过内置和自定义 Skills，本平台可以帮助你开展资料检索、数据分析、报告生成与文档审查，将复杂任务沉淀为可复用的业务成果。",
     mobileDescription: "面向油气业务的智能研究与协作助手",
 
     createYourOwnSkill: "创建您的专属技能",
@@ -129,7 +129,7 @@ export const zhCN: Translations = {
     todayUsers: "今日用户",
     todayTasks: "今日任务数",
     supportGroupTitle: "海能Work服务支持群",
-    supportGroupName: "中国海油通用智能体-问题反馈交流群",
+    supportGroupName: "海能通用智能体-问题反馈交流群",
     supportGroupQrAlt: "海能Work服务支持群二维码",
     supportGroupScan: "请使用移动海能Work扫码入群",
     usageUnavailable: "使用量暂不可用",
@@ -858,7 +858,7 @@ export const zhCN: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中国海油通用智能体",
+    appName: "海能通用智能体",
     chats: "对话",
     newChat: "新对话",
     untitled: "未命名",

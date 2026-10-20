@@ -911,7 +911,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "中国海油通用智能体",
+    appName: "海能通用智能体",
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",
