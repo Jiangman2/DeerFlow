@@ -1,5 +1,16 @@
 # 🦌 DeerFlow - 2.0
 
+Enterprise DeepSeek-V4.1-Flash is available as an opt-in
+[model profile](deploy/enterprise/deepseek-v4.1-flash.model.yaml). Append it to
+the existing server model list and inject `DEEPSEEK_V4_1_FLASH_API_KEY` from a
+Gateway Secret. The selector reads `/api/models`; no frontend rebuild is needed.
+Flash mode sends `enable_thinking: false`, thinking mode sends `true`; image and
+tool inputs use the existing Chat Completions adapter. Live provider acceptance
+and a Gateway configuration rollout are required before it appears online.
+Preserve the existing default model, GLM, OCR and isolated PPT provider.
+See [enterprise preparation and acceptance](docs/enterprise-deepseek-v41.md)
+for the hidden-key entry tool and the distinction between preparation and rollout.
+
 Homepage portal footer: total/today model usage remains supplied by Haineng;
 today's users/tasks use the business dashboard's active-user/started-run
 definitions for Shanghai midnight through the current minute. The authenticated
