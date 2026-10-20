@@ -23,7 +23,7 @@ SharedSource = Literal["external", "team", "legacy"]
 # A parity test pins these names against both frontend source catalogs.
 EXTERNAL_EMPLOYEE_NAMES = frozenset(EXTERNAL_PLATFORM_AGENT_NAMES) | {
     "储小亮",
-    "研究总院水驱可采储量计算专家",
+    "智能穿透审计助手",
     "海油发展井控全周期智能管家",
     "海油发展新能源生产运维智能助手",
     "设备全周期健康管理专员",
