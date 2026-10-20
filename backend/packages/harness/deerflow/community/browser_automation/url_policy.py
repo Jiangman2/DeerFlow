@@ -5,6 +5,7 @@ resolved again by Chromium; restrict network egress to prevent DNS rebinding.
 """
 
 import ipaddress
+import re
 from urllib.parse import urlsplit
 
 from deerflow.community.url_safety import resolve_host_addresses, validate_public_http_url
@@ -46,6 +47,29 @@ def _parse_policy(entries):
     return policy
 
 
+def _parse_suffix_policy(entries):
+    """Explicit operator-owned base domains, distinct from exact-origin entries."""
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 64:
+        raise ValueError("Invalid private origin suffixes")
+    exact_entries = []
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {"origin_suffix", "cidrs"}:
+            raise ValueError("Invalid private origin suffix")
+        origin, _ = _origin(entry["origin_suffix"])
+        host = origin[1]
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
+            pass
+        else:
+            raise ValueError("Suffix must be a DNS domain")
+        labels = host.split(".")
+        if len(labels) < 2 or len(host) > 253 or any(not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label) for label in labels):
+            raise ValueError("Invalid base domain")
+        exact_entries.append({"origin": entry["origin_suffix"], "cidrs": entry["cidrs"]})
+    return _parse_policy(exact_entries)
+
+
 def _check_addresses(origin, networks, resolver):
     hostname = origin[1]
     if hostname == "localhost" or hostname.endswith(".localhost") or hostname == "metadata.google.internal":
@@ -75,12 +99,21 @@ def validate_private_origin(url, entries, *, resolver=resolve_host_addresses):
         return "Error: Invalid enterprise browser URL or private_origins configuration"
 
 
-def validate_browser_url_policy(url, entries, *, resolver=resolve_host_addresses):
+def validate_browser_url_policy(url, entries=None, *, private_origin_suffixes=None, resolver=resolve_host_addresses):
     try:
         origin, _ = _origin(url)
-        policy = _parse_policy(entries)
+        if entries is None and private_origin_suffixes is None:
+            raise ValueError("Missing browser policy")
+        policy = _parse_policy(entries) if entries is not None else {}
+        suffixes = _parse_suffix_policy(private_origin_suffixes) if private_origin_suffixes is not None else {}
+        # An explicit origin overrides a broader domain rule, including denials.
         if origin in policy:
             return _check_addresses(origin, policy[origin], resolver)
+        matching = [base for base in suffixes if origin[0] == base[0] and origin[2] == base[2] and (origin[1] == base[1] or origin[1].endswith("." + base[1]))]
+        if matching:
+            # Most-specific configured domain wins; never union its CIDRs with a parent.
+            base = max(matching, key=lambda item: len(item[1]))
+            return _check_addresses(origin, suffixes[base], resolver)
     except (ValueError, TypeError, UnicodeError):
-        return "Error: Invalid enterprise browser URL or private_origins configuration"
+        return "Error: Invalid enterprise browser URL or private origins configuration"
     return validate_public_http_url(url, action="browse", resolver=resolver)

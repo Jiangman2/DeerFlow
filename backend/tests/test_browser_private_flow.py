@@ -125,7 +125,7 @@ def website():
 
 
 @asynccontextmanager
-async def guarded_browser(monkeypatch, port):
+async def guarded_browser(monkeypatch, port, *, suffix=False):
     pytest.importorskip("playwright.async_api")
     monkeypatch.setattr(
         session_mod,
@@ -139,7 +139,12 @@ async def guarded_browser(monkeypatch, port):
     observed = []
 
     def guard(url):
-        outcome = validate_browser_url_policy(url, policy, resolver=lambda _: [ipaddress.ip_address("10.56.10.20")])
+        outcome = validate_browser_url_policy(
+            url,
+            None if suffix else policy,
+            private_origin_suffixes=[{"origin_suffix": policy[0]["origin"], "cidrs": policy[0]["cidrs"]}] if suffix else None,
+            resolver=lambda _: [ipaddress.ip_address("10.56.10.20")],
+        )
         observed.append((url, outcome))
         return outcome
 
@@ -149,6 +154,26 @@ async def guarded_browser(monkeypatch, port):
         yield session, observed
     finally:
         await session._close()
+
+
+@pytest.mark.asyncio
+async def test_real_suffix_subdomain_resources_and_redirect_boundary(website, monkeypatch):
+    port, hits = website
+    async with guarded_browser(monkeypatch, port, suffix=True) as (session, observed):
+        from playwright.async_api import Error
+
+        host = "portal.allowed.example.test"
+        snapshot = await session._navigate(f"http://{host}:{port}/login")
+        assert snapshot.title == "Isolated browser login"
+        assert await session._page.locator("#ready").inner_text() == "Resources ready"
+        assert hits[(host, "/style.css")] == 1
+        assert hits[(host, "/app.js")] == 1
+        try:
+            await session._navigate(f"http://{host}:{port}/redirect/302")
+        except Error:
+            pass
+        assert any("blocked.example.test" in url and outcome for url, outcome in observed)
+        assert hits[("blocked.example.test", "/must-not-receive")] == 0
 
 
 @pytest.mark.asyncio

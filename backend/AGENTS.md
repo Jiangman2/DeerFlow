@@ -2111,7 +2111,11 @@ server-side environment key; at most four synthetic calls, no business tools,
 automatic retry, raw model output or credentials in receipts. Keep TLS enabled.
 
 Browser `private_origins` are operator-owned exact scheme/host/port plus audited
-private address ranges. Never populate them from a model or browser request,
+private address ranges. Explicit `private_origin_suffixes` additionally permit a
+base DNS domain and its dot-boundary subdomains at the configured scheme/port;
+they still require audited CIDRs and independent network enforcement. Exact
+origins override suffix rules; the most-specific suffix wins without merging
+parent ranges. Never populate them from a model or browser request,
 guess production ranges, allow metadata/loopback targets, or disable TLS checks.
 Application DNS checking does not prevent Chromium DNS rebinding or prove safe
 redirect/worker egress; independently validate deployment network controls and
