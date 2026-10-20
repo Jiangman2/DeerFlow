@@ -864,11 +864,11 @@ def route_datalake_tool(question: str) -> dict:
         }
 
     allowed_tools = {
-        "curl_baidu",
-        "curl_sports",
-        "curl_tech",
+        "datalake_metrics_qa",
+        "datalake_detail_qa",
+        "datalake_md_search_tool",
+        "wisequery_query_tool"
     }
-
     payload = {
         "model": "typesafe/jev-1.13",
         "state": question,
