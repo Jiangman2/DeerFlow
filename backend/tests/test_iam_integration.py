@@ -4,7 +4,6 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
-
 from starlette.requests import Request
 
 from app.gateway.auth.iam import account_email, is_legacy_account_email, legacy_account_email

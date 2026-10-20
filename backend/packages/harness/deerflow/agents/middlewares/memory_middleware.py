@@ -11,9 +11,9 @@ from langgraph.runtime import Runtime
 
 from deerflow.agents.memory import get_memory_manager
 from deerflow.config.memory_config import get_memory_config
+from deerflow.run_timing import log_run_timing, time_middleware_after_agent
 from deerflow.runtime.user_context import get_effective_user_id
 from deerflow.runtime.weknora_context import has_weknora_scope
-from deerflow.run_timing import log_run_timing, time_middleware_after_agent
 from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY, get_current_trace_id, normalize_trace_id
 
 if TYPE_CHECKING:

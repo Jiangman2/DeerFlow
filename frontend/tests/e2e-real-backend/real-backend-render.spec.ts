@@ -53,7 +53,8 @@ const EXPECTED_SUGGESTION = ((): string => {
     return "";
   }
 })();
-const titleRaw = fixture.turns.find((t) => t.caller === "middleware:title")?.output.data.content;
+const titleRaw = fixture.turns.find((t) => t.caller === "middleware:title")
+  ?.output.data.content;
 const EXPECTED_TITLE = typeof titleRaw === "string" ? titleRaw : "";
 
 test.describe("real backend render (replay, no API key)", () => {
@@ -82,7 +83,7 @@ test.describe("real backend render (replay, no API key)", () => {
 
     await page.goto("/workspace/chats/new");
 
-    const textarea = page.getByPlaceholder("随心输入");
+    const textarea = page.locator(".cnooc-composer-textarea");
     await expect(textarea).toBeVisible({ timeout: 30_000 });
     await textarea.fill(PROMPT);
     await textarea.press("Enter");
@@ -106,9 +107,9 @@ test.describe("real backend render (replay, no API key)", () => {
           const threadId = new URL(page.url()).pathname.split("/").at(-1);
           if (!threadId || threadId === "new") return null;
 
-          const response = await page.context().request.get(
-            `${APP}/api/threads/${threadId}`,
-          );
+          const response = await page
+            .context()
+            .request.get(`${APP}/api/threads/${threadId}`);
           if (!response.ok()) return null;
 
           const payload = (await response.json()) as {

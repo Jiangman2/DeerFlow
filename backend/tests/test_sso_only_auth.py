@@ -84,16 +84,19 @@ def test_sso_only_mode_hides_generic_oidc_providers(
     client: TestClient,
     sso_only_config: AuthConfig,
 ) -> None:
-    with patch(
-        "app.gateway.routers.auth.get_auth_config",
-        return_value=sso_only_config,
-    ), patch(
-        "deerflow.config.app_config.get_app_config",
-        return_value=SimpleNamespace(
-            auth=SimpleNamespace(
-                iam=SimpleNamespace(enabled=False),
-                oidc=SimpleNamespace(enabled=True, providers={"github": SimpleNamespace(display_name="GitHub")}),
-            )
+    with (
+        patch(
+            "app.gateway.routers.auth.get_auth_config",
+            return_value=sso_only_config,
+        ),
+        patch(
+            "deerflow.config.app_config.get_app_config",
+            return_value=SimpleNamespace(
+                auth=SimpleNamespace(
+                    iam=SimpleNamespace(enabled=False),
+                    oidc=SimpleNamespace(enabled=True, providers={"github": SimpleNamespace(display_name="GitHub")}),
+                )
+            ),
         ),
     ):
         response = client.get("/api/v1/auth/providers")
@@ -106,16 +109,19 @@ def test_sso_only_mode_preserves_enabled_iam_provider(
     client: TestClient,
     sso_only_config: AuthConfig,
 ) -> None:
-    with patch(
-        "app.gateway.routers.auth.get_auth_config",
-        return_value=sso_only_config,
-    ), patch(
-        "deerflow.config.app_config.get_app_config",
-        return_value=SimpleNamespace(
-            auth=SimpleNamespace(
-                iam=SimpleNamespace(enabled=True),
-                oidc=SimpleNamespace(enabled=True, providers={"github": SimpleNamespace(display_name="GitHub")}),
-            )
+    with (
+        patch(
+            "app.gateway.routers.auth.get_auth_config",
+            return_value=sso_only_config,
+        ),
+        patch(
+            "deerflow.config.app_config.get_app_config",
+            return_value=SimpleNamespace(
+                auth=SimpleNamespace(
+                    iam=SimpleNamespace(enabled=True),
+                    oidc=SimpleNamespace(enabled=True, providers={"github": SimpleNamespace(display_name="GitHub")}),
+                )
+            ),
         ),
     ):
         response = client.get("/api/v1/auth/providers")

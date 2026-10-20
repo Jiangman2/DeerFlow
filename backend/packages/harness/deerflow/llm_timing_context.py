@@ -12,7 +12,6 @@ from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from typing import Final
 
-
 _MAX_TIMING_IDENTIFIER_LENGTH: Final[int] = 512
 
 

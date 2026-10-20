@@ -182,14 +182,11 @@ def _hash_tool_calls(tool_calls: list[dict]) -> str:
 _WARNING_MSG = "[LOOP DETECTED] You are repeating the same tool calls. Stop calling tools and produce your final answer now. If you cannot complete the task, summarize what you accomplished so far."
 
 _NO_PROGRESS_WARNING_MSG = (
-    "[NO PROGRESS DETECTED] The same tool failure has recurred across repair attempts. "
-    "Re-read the owning input/output, change the repair strategy, or report a concrete "
-    "blocking reason; do not repeat an unchanged validation cycle."
+    "[NO PROGRESS DETECTED] The same tool failure has recurred across repair attempts. Re-read the owning input/output, change the repair strategy, or report a concrete blocking reason; do not repeat an unchanged validation cycle."
 )
-_NO_PROGRESS_HARD_STOP_MSG = (
-    "[FORCED STOP] The same tool failure recurred after the bounded repair limit. "
-    "Producing a final answer with the last known state and blocking reason."
-)
+_NO_PROGRESS_HARD_STOP_MSG = "[FORCED STOP] The same tool failure recurred after the bounded repair limit. Producing a final answer with the last known state and blocking reason."
+
+
 def _problem_result_signature(result: object) -> str | None:
     """Return a stable fingerprint for a repeated failing tool result.
 
@@ -299,6 +296,7 @@ def _successful_changed_file_mutation(messages: list, result: object) -> tuple[s
     if not isinstance(old_str, str) or not isinstance(new_str, str) or old_str == new_str:
         return None
     return name, path
+
 
 _TOOL_FREQ_WARNING_MSG = (
     "[LOOP DETECTED] You have called {tool_name} {count} times without producing a final answer. Stop calling tools and produce your final answer now. If you cannot complete the task, summarize what you accomplished so far."
@@ -616,9 +614,7 @@ class LoopDetectionMiddleware(AgentMiddleware[AgentState]):
         key = self._pending_key(runtime)
         marker = str(getattr(last_tool, "id", None) or "")
         if not marker:
-            marker = hashlib.sha256(
-                f"{getattr(last_tool, 'name', '')}\n{getattr(last_tool, 'content', '')}".encode("utf-8", errors="replace")
-            ).hexdigest()
+            marker = hashlib.sha256(f"{getattr(last_tool, 'name', '')}\n{getattr(last_tool, 'content', '')}".encode("utf-8", errors="replace")).hexdigest()
         with self._lock:
             if self._last_result_marker.get(key) == marker:
                 return

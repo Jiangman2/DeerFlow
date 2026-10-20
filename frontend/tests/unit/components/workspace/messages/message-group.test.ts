@@ -411,45 +411,84 @@ describe("MessageGroup tool links", () => {
   });
 
   it("routes tool-result Sandbox preview links through the thread proxy", () => {
-    const html = renderGroup([
-      {
-        id: "ai-1", type: "ai", content: "",
-        tool_calls: [{ id: "call-1", name: "web_fetch", args: { url: "http://127.0.0.1:5050/" } }],
-      } as Message,
-    ], "thread-1");
+    const html = renderGroup(
+      [
+        {
+          id: "ai-1",
+          type: "ai",
+          content: "",
+          tool_calls: [
+            {
+              id: "call-1",
+              name: "web_fetch",
+              args: { url: "http://127.0.0.1:5050/" },
+            },
+          ],
+        } as Message,
+      ],
+      "thread-1",
+    );
     expect(html).toContain('href="/api/threads/thread-1/live-preview/5050/"');
     expect(html).not.toContain('href="http://127.0.0.1:5050/"');
   });
 
   it("ignores malformed search entries and never renders an object label", () => {
-    const html = renderToolCall("web_search", { query: {} }, JSON.stringify([
-      null, 4, {}, { title: {}, url: {} },
-      { title: "Safe source", url: "https://safe.example" },
-    ]));
+    const html = renderToolCall(
+      "web_search",
+      { query: {} },
+      JSON.stringify([
+        null,
+        4,
+        {},
+        { title: {}, url: {} },
+        { title: "Safe source", url: "https://safe.example" },
+      ]),
+    );
     expect(html).toContain("Safe source");
     expect(anchorCount(html)).toBe(1);
     expect(html).not.toContain("[object Object]");
   });
 
-  it.each(["file:///etc/passwd", "http://127.0.0.1:5050/image.png", "http://localhost/image.png"])("does not render local image thumbnails %s", (thumbnail) => {
-    const html = renderToolCall("image_search", {}, JSON.stringify({
-      results: [
-        null, { title: {}, thumbnail_url: {} },
-        { title: "Local image", thumbnail_url: thumbnail, source_url: "https://safe.example" },
-      ]
-    }));
+  it.each([
+    "file:///etc/passwd",
+    "http://127.0.0.1:5050/image.png",
+    "http://localhost/image.png",
+  ])("does not render local image thumbnails %s", (thumbnail) => {
+    const html = renderToolCall(
+      "image_search",
+      {},
+      JSON.stringify({
+        results: [
+          null,
+          { title: {}, thumbnail_url: {} },
+          {
+            title: "Local image",
+            thumbnail_url: thumbnail,
+            source_url: "https://safe.example",
+          },
+        ],
+      }),
+    );
     expect(html).not.toContain("<img");
     expect(html).not.toContain("<a");
   });
 
-  it.each(["ls", "read_file", "write_file", "str_replace", "bash", "mcp_lookup"])(
-    "renders a %s step whose display arguments are not strings",
-    (name) => {
-      expect(() => renderToolCall(name, {
-        description: { text: "bad" }, path: {}, command: [],
-      })).not.toThrow();
-    },
-  );
+  it.each([
+    "ls",
+    "read_file",
+    "write_file",
+    "str_replace",
+    "bash",
+    "mcp_lookup",
+  ])("renders a %s step whose display arguments are not strings", (name) => {
+    expect(() =>
+      renderToolCall(name, {
+        description: { text: "bad" },
+        path: {},
+        command: [],
+      }),
+    ).not.toThrow();
+  });
 
   // Persisted or mid-stream tool calls can arrive without an args object;
   // every specialized branch reads args, so none may throw on its absence.

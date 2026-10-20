@@ -429,7 +429,7 @@ export default function ProgressiveSkillsAnimation() {
                       item.done
                         ? "text-green-500"
                         : item.highlight
-                        ? "text-purple-400"
+                          ? "text-purple-400"
                           : ""
                     }
                   />
@@ -440,7 +440,7 @@ export default function ProgressiveSkillsAnimation() {
                       item.done
                         ? "text-green-500"
                         : item.highlight
-                        ? "text-purple-400"
+                          ? "text-purple-400"
                           : ""
                     }
                   />

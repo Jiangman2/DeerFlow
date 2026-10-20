@@ -27,8 +27,8 @@ from langgraph.types import Command
 
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
 from deerflow.agents.thread_state import SkillWorkflowEvidence, SkillWorkflowState, ThreadState
-from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
 from deerflow.run_timing import log_run_timing, time_middleware_after_agent
+from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -111,9 +111,7 @@ _CONFIRM_UI_OPERATION_FLAGS = (
     "--shutdown",
 )
 _SHELL_WRITE_RE = re.compile(r">|\btee\b|write_(?:text|bytes)\s*\(|json\.dump\s*\(|open\s*\([^)]*,\s*['\"]w", re.IGNORECASE)
-_SAFE_REPLAY_ENV_ASSIGNMENT_RE = re.compile(
-    r"^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|\"[^\"]*\"|[^\s;&|]+)$"
-)
+_SAFE_REPLAY_ENV_ASSIGNMENT_RE = re.compile(r"^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*=(?:'[^']*'|\"[^\"]*\"|[^\s;&|]+)$")
 _SAFE_REPLAY_PYTHON_SCRIPT_RE = re.compile(
     r"^python(?:3(?:\.\d+)?)?\s+(?:'[^']+\.py'|\"[^\"]+\.py\"|[^\s]+\.py)(?:\s|$)",
     re.IGNORECASE,
@@ -567,9 +565,7 @@ def _route_prerequisite_update(
 
     call = dict(tool_call)
     if not call.get("id"):
-        digest = hashlib.sha256(
-            f"{_runtime_run_id(runtime)}\0{resume_pointer}\0{detail}".encode()
-        ).hexdigest()[:16]
+        digest = hashlib.sha256(f"{_runtime_run_id(runtime)}\0{resume_pointer}\0{detail}".encode()).hexdigest()[:16]
         call["id"] = f"skill-route-prerequisite-{digest}"
     additional_kwargs = dict(message.additional_kwargs or {})
     additional_kwargs.pop("tool_calls", None)
@@ -716,11 +712,7 @@ def _artifact_authority_dependencies_from_authority(
     """
 
     normalized_skill_path = posixpath.normpath(skill_path) if skill_path else ""
-    skill_root = (
-        posixpath.dirname(normalized_skill_path).rstrip("/")
-        if posixpath.basename(normalized_skill_path).casefold() == "skill.md"
-        else normalized_skill_path.rstrip("/")
-    )
+    skill_root = posixpath.dirname(normalized_skill_path).rstrip("/") if posixpath.basename(normalized_skill_path).casefold() == "skill.md" else normalized_skill_path.rstrip("/")
     if not skill_root:
         return {}
     dependencies: dict[str, str] = {}
@@ -1285,11 +1277,7 @@ def _project_file_mutation(tool: str, action: str, project_path: str) -> bool:
     if not project_path:
         return False
     if tool == "bash":
-        return bool(
-            project_path in action
-            and "/templates/decks/" in action
-            and _TEMPLATE_INSTALL_MUTATION_RE.search(action)
-        )
+        return bool(project_path in action and "/templates/decks/" in action and _TEMPLATE_INSTALL_MUTATION_RE.search(action))
     if tool not in {"write_file", "str_replace"}:
         return False
     project = posixpath.normpath(project_path).rstrip("/")
@@ -1499,11 +1487,7 @@ def _confirmation_surface_switch_requested(messages: list[Any]) -> bool:
 
     for message in reversed(messages):
         if isinstance(message, HumanMessage):
-            return bool(
-                _CONFIRMATION_SURFACE_SWITCH_INTENT_RE.search(
-                    _conversation_message_text(message)
-                )
-            )
+            return bool(_CONFIRMATION_SURFACE_SWITCH_INTENT_RE.search(_conversation_message_text(message)))
     return False
 
 
@@ -2013,11 +1997,7 @@ def _ppt_master_authority_closure_pending(
             if path not in required:
                 required.append(path)
 
-    contract_names = {
-        name
-        for call in calls
-        if (name := _ppt_master_contract_authoring_name(call, workflow))
-    }
+    contract_names = {name for call in calls if (name := _ppt_master_contract_authoring_name(call, workflow))}
     if requirements.get("template") and "design_spec.md" in contract_names:
         extend(("references/strategist-template.md", "templates/design_spec_reference.md"))
     if requirements.get("template") and "spec_lock.md" in contract_names:
@@ -2117,10 +2097,7 @@ def _render_workflow_state(workflow: SkillWorkflowState | None) -> str:
         lines.append("- tool_or_user_managed_artifacts: " + ", ".join(managed_artifacts))
     artifact_dependencies = workflow.get("artifact_authority_dependencies") or {}
     if artifact_dependencies:
-        lines.append(
-            "- artifact_authority_dependencies: "
-            + ", ".join(f"{artifact} <- {reference}" for artifact, reference in sorted(artifact_dependencies.items()))
-        )
+        lines.append("- artifact_authority_dependencies: " + ", ".join(f"{artifact} <- {reference}" for artifact, reference in sorted(artifact_dependencies.items())))
     ppt_master_dynamic = workflow.get("ppt_master_dynamic_authority_documents") or []
     if ppt_master_dynamic:
         lines.append("- ppt_master_dynamic_authority_documents: " + ", ".join(ppt_master_dynamic))
@@ -2259,12 +2236,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
             update["guard_detail"] = ""
             update["resume_pointer"] = current_resume_pointer
             state_changed = True
-        if (
-            not workflow.get("template_selection_confirmed")
-            and not confirmation_wait_timed_out
-            and current_gate in {"managed-artifact-owner-required", "waiting-for-user"}
-            and _confirmation_timeout_from_evidence(workflow)
-        ):
+        if not workflow.get("template_selection_confirmed") and not confirmation_wait_timed_out and current_gate in {"managed-artifact-owner-required", "waiting-for-user"} and _confirmation_timeout_from_evidence(workflow):
             # Compatibility repair for checkpoints written before daemon
             # restarts preserved the owner's bounded-wait boundary.
             confirmation_surface_switch_allowed = True
@@ -2272,11 +2244,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
             update["confirmation_surface_switch_allowed"] = True
             update["confirmation_wait_timed_out"] = True
             state_changed = True
-        chat_fallback_allowed = current_gate not in {"failed", "managed-artifact-owner-required"} or (
-            current_gate == "managed-artifact-owner-required"
-            and confirmation_wait_timed_out
-            and confirmation_surface_switch_allowed
-        )
+        chat_fallback_allowed = current_gate not in {"failed", "managed-artifact-owner-required"} or (current_gate == "managed-artifact-owner-required" and confirmation_wait_timed_out and confirmation_surface_switch_allowed)
         if chat_fallback_allowed and not workflow.get("template_selection_chat_confirmed") and _chat_template_selection_confirmed(messages):
             update["template_selection_confirmed"] = True
             update["template_selection_chat_confirmed"] = True
@@ -2370,15 +2338,8 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
                     action,
                     active_gate_view,
                 )
-                managed_owner_attempt = (
-                    current_gate == "managed-artifact-owner-required"
-                    and tool == "bash"
-                    and bool(_CONFIRM_UI_SERVER_RE.search(action))
-                )
-                managed_owner_failure = (
-                    managed_owner_attempt
-                    and ("--wait-only" in action or "--complete-template-phase" in action)
-                )
+                managed_owner_attempt = current_gate == "managed-artifact-owner-required" and tool == "bash" and bool(_CONFIRM_UI_SERVER_RE.search(action))
+                managed_owner_failure = managed_owner_attempt and ("--wait-only" in action or "--complete-template-phase" in action)
                 new_enforced_failure = not blocking_gate_active and _failure_requires_convergence(tool, action, workflow)
                 if blocking_gate_active and not (same_active_owner or managed_owner_attempt):
                     # Diagnostic and repair receipts remain useful evidence, but
@@ -2735,13 +2696,17 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
             integrity_calls = [call for call in calls if _ppt_master_attribution_guard_call(call, workflow)]
 
             if not _ppt_master_attribution_guard_succeeded(workflow):
-                integrity_call = integrity_calls[0] if integrity_calls else {
-                    "name": "bash",
-                    "args": {
-                        "command": f"cd {skill_root} && python3 scripts/attribution_guard.py",
-                        "description": "Run the ppt-master attribution integrity gate",
-                    },
-                }
+                integrity_call = (
+                    integrity_calls[0]
+                    if integrity_calls
+                    else {
+                        "name": "bash",
+                        "args": {
+                            "command": f"cd {skill_root} && python3 scripts/attribution_guard.py",
+                            "description": "Run the ppt-master attribution integrity gate",
+                        },
+                    }
+                )
                 return _route_prerequisite_update(
                     last,
                     workflow,
@@ -2751,17 +2716,17 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
                     detail="Running ppt-master's mandatory attribution integrity gate before route selection.",
                 )
 
-            route_reads = [
-                (call, _route_selection_document(call, workflow))
-                for call in calls
-                if _route_selection_document(call, workflow)
-            ]
+            route_reads = [(call, _route_selection_document(call, workflow)) for call in calls if _route_selection_document(call, workflow)]
             if not _routing_authority_loaded(workflow, runtime):
                 routing_calls = [call for call, name in route_reads if name == "routing.md"]
-                routing_call = routing_calls[0] if routing_calls else {
-                    "name": "read_file",
-                    "args": {"path": routing_path},
-                }
+                routing_call = (
+                    routing_calls[0]
+                    if routing_calls
+                    else {
+                        "name": "read_file",
+                        "args": {"path": routing_path},
+                    }
+                )
                 return _route_prerequisite_update(
                     last,
                     workflow,
@@ -2772,9 +2737,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
                 )
 
             selected_route_calls = [call for call, name in route_reads if name != "routing.md"]
-            selected_route_names = {
-                name for _, name in route_reads if name != "routing.md"
-            }
+            selected_route_names = {name for _, name in route_reads if name != "routing.md"}
             if len(selected_route_calls) == 1 and len(selected_route_names) == 1:
                 selected_call = selected_route_calls[0]
                 selected_path = posixpath.normpath(str(_tool_call_args(selected_call).get("path") or ""))
@@ -2816,10 +2779,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
                     runtime,
                     gate_status="top-level-route-locked",
                     resume_pointer=selected_route,
-                    reason=(
-                        "The Skill has already selected one official top-level route. Supporting documents may refine "
-                        "that route, but another top-level route cannot be loaded without a new explicit Skill activation"
-                    ),
+                    reason=("The Skill has already selected one official top-level route. Supporting documents may refine that route, but another top-level route cannot be loaded without a new explicit Skill activation"),
                     status="blocked",
                 )
 
@@ -3353,11 +3313,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
         skill_path = str(workflow.get("skill_path") or "")
         authority = str(workflow.get("selected_authority") or "")
         project = str(workflow.get("project_path") or "").rstrip("/")
-        if not (
-            skill_path.endswith("/ppt-master/SKILL.md")
-            and authority.endswith("/workflows/generate-pptx.md")
-            and project
-        ):
+        if not (skill_path.endswith("/ppt-master/SKILL.md") and authority.endswith("/workflows/generate-pptx.md") and project):
             return None
 
         contract_name = _ppt_master_contract_authoring_name(request.tool_call, workflow)
@@ -3561,13 +3517,7 @@ class SkillWorkflowMiddleware(AgentMiddleware[ThreadState]):
             return None
         action = str(args.get("command") or "")
         project = str(workflow.get("project_path") or "").rstrip("/")
-        if not (
-            project
-            and project in action
-            and "/templates/decks/" in action
-            and _TEMPLATE_INSTALL_MUTATION_RE.search(action)
-            and _result_succeeded(result, tool=tool, action=action)
-        ):
+        if not (project and project in action and "/templates/decks/" in action and _TEMPLATE_INSTALL_MUTATION_RE.search(action) and _result_succeeded(result, tool=tool, action=action)):
             return None
         sandbox = _resolve_active_sandbox(request)
         if sandbox is None:

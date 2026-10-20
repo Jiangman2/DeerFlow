@@ -25,8 +25,11 @@ from langchain.tools import tool
 from deerflow.config import get_app_config
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.tools.types import Runtime
+import subprocess
+import time
+from html.parser import HTMLParser
+from urllib.parse import urljoin,urlparse
 
-logger = logging.getLogger(__name__)
 
 _DEFAULT_API_URL = "http://10.77.124.142:9080"
 _DEFAULT_TIMEOUT_S = 180.0
@@ -104,9 +107,7 @@ _TOOL_DEFAULTS: dict[str, dict[str, str]] = {
 # configured master-data service and must remain available when that toggle is
 # disabled. Keep this separate from ``DATALAKE_TOOL_NAMES`` to avoid importing
 # the tool registry into this provider module.
-_DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS = frozenset(
-    {"datalake_metrics_qa", "datalake_detail_qa"}
-)
+_DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS = frozenset({"datalake_metrics_qa", "datalake_detail_qa"})
 
 
 def _tool_defaults(tool_name: str) -> dict[str, str]:
@@ -637,11 +638,7 @@ def _invoke_retrieve_tool(query: str, runtime: object | None) -> str:
 
 def _invoke_tool(tool_name: str, query: str, runtime: object | None) -> str:
     runtime_context = getattr(runtime, "context", None)
-    if (
-        tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS
-        and isinstance(runtime_context, Mapping)
-        and runtime_context.get("datalake_enabled") is False
-    ):
+    if tool_name in _DATALAKE_CONTEXT_GATED_APPFORGE_TOOLS and isinstance(runtime_context, Mapping) and runtime_context.get("datalake_enabled") is False:
         return json.dumps(
             {
                 "error": "Data Lake use is disabled for this run",
@@ -777,3 +774,234 @@ def datalake_md_search_tool(runtime: Runtime, query: str) -> str:
     """
 
     return _invoke_tool("datalake_md_search", query, runtime)
+
+#datalake新工具智能问数
+@tool("wisequery_query", parse_docstring=True)
+def wisequery_query_tool(runtime: Runtime, query: str) -> str:
+    """Query oil and gas exploration and production business data.
+
+    Use this tool to query well attributes and other structured business
+    data through the WiseQuery service.
+
+    Args:
+        query: The user's complete natural-language data question.
+    """
+    try:
+        # 测试阶段使用固定 Token
+        token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhbmFseXN0LWEiLCJqdGkiOiIwNjM3MDFhNi04NDFjLTQ4ZWYtYjc1Yy1hMmQ4Y2M1YzYwNGIiLCJpYXQiOjE3OTIyMzI0OTMsImV4cCI6MTgyMzc2ODQ5MywiaXNzIjoid2lzZXF1ZXJ5LWdhdGV3YXkiLCJhdWQiOiJxdWVyeS1zZXJ2aWNlIn0.cbYCszXaIBf_Uo3IVXOmdTNSeuqCxK0E59Lr1RTA_lY"
+
+        payload = json.dumps(
+            {"question": query},
+            ensure_ascii=False,
+        )
+
+        result = subprocess.run(
+            [
+                "curl",
+                "--noproxy", "*",
+                "-sS",
+                "--max-time", "30",
+                "-X", "POST",
+                "http://10.77.80.3:8010/v1/query?include_plan=false",
+                "-H", f"Authorization: Bearer {token}",
+                "-H", "Content-Type: application/json",
+                "-d", payload,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=35,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return json.dumps(
+                {
+                    "status": "error",
+                    "message": "智能问数请求失败",
+                    "detail": result.stderr[:2000],
+                },
+                ensure_ascii=False,
+            )
+
+        if not result.stdout.strip():
+            return "请求成功，但返回内容为空。"
+
+        try:
+            data = json.loads(result.stdout)
+            return json.dumps(
+                data,
+                ensure_ascii=False,
+                indent=2,
+            )
+        except json.JSONDecodeError:
+            return result.stdout[:5000]
+
+    except subprocess.TimeoutExpired:
+        return "请求失败：智能问数接口调用超时。"
+
+    except Exception as exc:
+        logger.exception("WiseQuery request failed")
+        return f"执行异常：{type(exc).__name__}: {exc}"
+
+
+
+#路由
+@tool
+def route_datalake_tool(question: str) -> dict:
+    """
+    使用 JEV 对用户问题进行工具路由。
+
+    成功：返回选中的工具名称、置信度和耗时。
+    失败：返回 fallback 状态，由主智能体自行判断工具。
+    """
+    api_key = os.environ.get("JEV_API_KEY")
+
+    if not api_key:
+        return {
+            "status": "fallback",
+            "reason": "JEV_API_KEY_MISSING",
+            "message": "JEV API Key 未配置，请由主智能体自行选择合适的网站工具。",
+        }
+
+    allowed_tools = {
+        "datalake_metrics_qa",
+        "datalake_detail_qa",
+        "datalake_md_search_tool",
+        "wisequery_query_tool"
+     }
+
+    payload = {
+        "model": "typesafe/jev-1.13",
+        "state": question,
+        "questions": {
+            "tool_route": {
+                "type": "choice",
+                "instructions": (
+                    "根据用户问题选择最适合的网站工具。"
+                    "只能选择一个工具，不要回答用户的问题。"
+                ),
+                "criteria": {
+                    "datalake_metrics_qa": (
+                        "查询企业数据湖的业务指标和度量数据。"
+                        "用于具名指标、KPI、计划值、实际／完成值、排名、对比、总量、进度、成本、比率及时间序列。"
+                    ),
+                    "datalake_detail_qa": (
+                        "查询企业数据湖中记录级的表和字段。"
+                        "用于列表、记录数量、具体表字段、油田／平台／井的基本属性、坐标、设计深度及其他基于 SQL 的明细数据。具名指标使用 metrics QA；叙述性文档解读使用 smart QA。"
+                    ),
+                    "datalake_md_search_tool": (
+                        "从企业 DataLake 中检索叙事性井工程证据。"
+                        "用于文档、报告、井史、地质、完井及其他叙述性问题。"
+                    ),
+                    "wisequery_query_tool": (
+                        "企业数据湖的自然语言问答入口，一次性完成「生成执行计划 + 执行」两步并返回最终结果。接收自然语言问题（question），按 channel_hint 或路由策略自动分流到合适的后端通道（Cube 指标/属性、明细 SQL 或通用取数）。result 直接给出答案；include_plan=true 时额外附带本次执行的计划。若返回 status 非 ready（如需要澄清/反问），应按其中的澄清内容继续追问"
+                        "XX井的井别。"
+                    ),
+                },
+            }
+        },
+    }
+
+    cmd = [
+        "curl",
+        "-sS",
+        "--connect-timeout", "10",
+        "--max-time", "30",
+        "-w", "\n%{http_code}",
+        "https://jevaimodel.net/v1/systemone",
+        "-H", f"Authorization: Bearer {api_key}",
+        "-H", "Content-Type: application/json",
+        "--data-binary", "@-",
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            input=json.dumps(payload, ensure_ascii=False),
+            capture_output=True,
+            text=True,
+            timeout=35,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return {
+                "status": "fallback",
+                "reason": "CURL_EXECUTION_FAILED",
+                "message": "JEV 请求执行失败，请由主智能体自行选择网站工具。",
+            }
+
+        output = result.stdout
+
+        if "\n" not in output:
+            return {
+                "status": "fallback",
+                "reason": "INVALID_HTTP_RESPONSE",
+                "message": "JEV 响应格式异常，请由主智能体自行选择网站工具。",
+            }
+
+        body, http_status = output.rsplit("\n", 1)
+
+        if http_status != "200":
+            return {
+                "status": "fallback",
+                "reason": f"JEV_HTTP_{http_status}",
+                "message": "JEV 路由服务暂不可用，请由主智能体自行选择网站工具。",
+            }
+
+        data = json.loads(body)
+
+        if data.get("code") != 0:
+            return {
+                "status": "fallback",
+                "reason": "JEV_API_ERROR",
+                "message": "JEV 返回业务错误，请由主智能体自行选择网站工具。",
+            }
+
+        route = (
+            data.get("data", {})
+            .get("result", {})
+            .get("answers", {})
+            .get("tool_route", {})
+        )
+
+        selected_tool = route.get("choice")
+
+        if selected_tool not in allowed_tools:
+            return {
+                "status": "fallback",
+                "reason": "INVALID_TOOL_CHOICE",
+                "message": "JEV 返回了无效工具名称，请由主智能体自行选择网站工具。",
+            }
+
+        return {
+            "status": "ok",
+            "tool": selected_tool,
+            "confidence": route.get("confidence"),
+            "elapsed_ms": (
+                data.get("data", {})
+                .get("result", {})
+                .get("elapsedMs")
+            ),
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "fallback",
+            "reason": "JEV_TIMEOUT",
+            "message": "JEV 请求超时，请由主智能体自行选择网站工具。",
+        }
+
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return {
+            "status": "fallback",
+            "reason": "JEV_RESPONSE_PARSE_ERROR",
+            "message": "JEV 响应解析失败，请由主智能体自行选择网站工具。",
+        }
+
+    except OSError:
+        return {
+            "status": "fallback",
+            "reason": "CURL_NOT_AVAILABLE",
+            "message": "无法执行 curl，请由主智能体自行选择网站工具。",
+        }

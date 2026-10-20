@@ -210,24 +210,26 @@ def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands(port, newli
     assert "COPY docker/sandbox-ppt-master/patch_nginx_timeouts.py /tmp/patch_nginx_timeouts.py" in dockerfile
     assert "RUN python3 /tmp/patch_nginx_timeouts.py /opt/gem/nginx-server-with-auth.conf" in dockerfile
     patch_text = runpy.run_path(str(REPO_ROOT / "docker/sandbox-ppt-master/patch_nginx_timeouts.py"))["patch_text"]
-    source = "\n".join([
-        "server {",
-        "    location /command {",
-        "        proxy_read_timeout 60s;",
-        f"        proxy_pass http://127.0.0.1:{port};",
-        "        proxy_send_timeout 60s;",
-        "    }",
-        "    location /stream {",
-        f"        proxy_pass http://127.0.0.1:{port};",
-        "        proxy_connect_timeout 30s;",
-        "    }",
-        "    location /external {",
-        "        proxy_pass http://example.invalid:8000;",
-        "        proxy_read_timeout 90s;",
-        "    }",
-        "}",
-        "",
-    ]).replace("\n", newline)
+    source = "\n".join(
+        [
+            "server {",
+            "    location /command {",
+            "        proxy_read_timeout 60s;",
+            f"        proxy_pass http://127.0.0.1:{port};",
+            "        proxy_send_timeout 60s;",
+            "    }",
+            "    location /stream {",
+            f"        proxy_pass http://127.0.0.1:{port};",
+            "        proxy_connect_timeout 30s;",
+            "    }",
+            "    location /external {",
+            "        proxy_pass http://example.invalid:8000;",
+            "        proxy_read_timeout 90s;",
+            "    }",
+            "}",
+            "",
+        ]
+    ).replace("\n", newline)
     patched, mode = patch_text(source)
     assert mode == "patched"
     assert patched.count("proxy_connect_timeout 5s;") == 2
@@ -246,9 +248,7 @@ def test_enterprise_sandbox_outer_nginx_allows_bounded_long_commands(port, newli
 @pytest.mark.parametrize("routes", [0, 1, 3])
 def test_enterprise_sandbox_nginx_patch_rejects_unexpected_route_counts(routes):
     patch_text = runpy.run_path(str(REPO_ROOT / "docker/sandbox-ppt-master/patch_nginx_timeouts.py"))["patch_text"]
-    source = "server {\n" + "".join(
-        f"    location /route{index} {{\n        proxy_pass http://127.0.0.1:8081;\n    }}\n" for index in range(routes)
-    ) + "}\n"
+    source = "server {\n" + "".join(f"    location /route{index} {{\n        proxy_pass http://127.0.0.1:8081;\n    }}\n" for index in range(routes)) + "}\n"
     with pytest.raises(ValueError, match="expected_two_loopback_proxy_routes"):
         patch_text(source)
 

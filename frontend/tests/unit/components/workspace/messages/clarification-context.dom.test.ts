@@ -33,14 +33,24 @@ afterEach(() => {
 
 describe("Clarification context", () => {
   it("keeps ordinary tool-bearing assistant text in the processing panel", () => {
-    const html = renderGroup([{
-      id: "progress", type: "ai", content: "Inspecting the deployment plan.",
-      tool_calls: [{ id: "search", name: "web_search", args: { query: "deployment" } }],
-    } as Message]);
+    const html = renderGroup([
+      {
+        id: "progress",
+        type: "ai",
+        content: "Inspecting the deployment plan.",
+        tool_calls: [
+          { id: "search", name: "web_search", args: { query: "deployment" } },
+        ],
+      } as Message,
+    ]);
     const root = document.createElement("div");
     root.innerHTML = html;
-    expect(root.querySelector(".border")?.textContent).toContain("Inspecting the deployment plan.");
-    expect(root.textContent?.split("Inspecting the deployment plan.")).toHaveLength(2);
+    expect(root.querySelector(".border")?.textContent).toContain(
+      "Inspecting the deployment plan.",
+    );
+    expect(
+      root.textContent?.split("Inspecting the deployment plan."),
+    ).toHaveLength(2);
   });
 
   it("renders clarification context once outside the processing panel", () => {

@@ -70,10 +70,7 @@ def _postgres_pool_sizes() -> tuple[int, int]:
     min_size = _positive_int_env(_POSTGRES_POOL_MIN_SIZE_ENV, _DEFAULT_POSTGRES_POOL_SIZE)
     max_size = _positive_int_env(_POSTGRES_POOL_MAX_SIZE_ENV, _DEFAULT_POSTGRES_POOL_SIZE)
     if max_size < min_size:
-        raise ValueError(
-            f"{_POSTGRES_POOL_MAX_SIZE_ENV} ({max_size}) must be greater than or equal to "
-            f"{_POSTGRES_POOL_MIN_SIZE_ENV} ({min_size})"
-        )
+        raise ValueError(f"{_POSTGRES_POOL_MAX_SIZE_ENV} ({max_size}) must be greater than or equal to {_POSTGRES_POOL_MIN_SIZE_ENV} ({min_size})")
     return min_size, max_size
 
 

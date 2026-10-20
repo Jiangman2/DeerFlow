@@ -142,13 +142,7 @@ def _files():
     project = "/mnt/user-data/workspace/projects/demo"
     return {
         f"{project}/design_spec.md": (
-            "| Page Count | 5 |\n"
-            "| Speaker Notes | enabled |\n"
-            "| Custom Animations | enabled |\n"
-            "| Narration Audio | enabled |\n"
-            "| AI Image Acquisition Path | api |\n"
-            "- **Template Application**: 中国海油 Deck 模板\n"
-            "- **Native-ready**: yes\n"
+            "| Page Count | 5 |\n| Speaker Notes | enabled |\n| Custom Animations | enabled |\n| Narration Audio | enabled |\n| AI Image Acquisition Path | api |\n- **Template Application**: 中国海油 Deck 模板\n- **Native-ready**: yes\n"
         ),
         f"{project}/spec_lock.md": (
             "## pptx_structure\n- mode: structured\n\n"
@@ -158,9 +152,7 @@ def _files():
             "## images\n- ai1.png: images/ai1.png | source=ai\n- ai2.png: images/ai2.png | source=ai\n\n"
             "## page_charts\n- P03: column_chart\n- P04: donut_chart\n"
         ),
-        f"{project}/validation/svg_quality_report.json": json.dumps(
-            {"stage": "final", "summary": {"errors": 0}}
-        ),
+        f"{project}/validation/svg_quality_report.json": json.dumps({"stage": "final", "summary": {"errors": 0}}),
     }
 
 
@@ -331,9 +323,7 @@ def test_confirmed_deck_style_scope_remains_a_valid_flat_visual_reference(tmp_pa
     files = _with_confirmed_deck_selection(_files())
     project = "/mnt/user-data/workspace/projects/demo"
     files[f"{project}/spec_lock.md"] = (
-        "## pptx_structure\n- mode: flat\n- template_reuse_scope: style\n\n"
-        "## images\n- ai1.png: images/ai1.png | source=ai\n- ai2.png: images/ai2.png | source=ai\n\n"
-        "## page_charts\n- P03: column_chart\n- P04: donut_chart\n"
+        "## pptx_structure\n- mode: flat\n- template_reuse_scope: style\n\n## images\n- ai1.png: images/ai1.png | source=ai\n- ai2.png: images/ai2.png | source=ai\n\n## page_charts\n- P03: column_chart\n- P04: donut_chart\n"
     )
     sandbox = _Sandbox(files, _report())
 
@@ -424,13 +414,16 @@ def test_structured_svg_must_preserve_inherited_template_atoms_and_slots():
     valid_page = prototype.replace(">标题</text>", ">中国海油智能化</text>")
     imitation = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"><rect width="1280" height="720" fill="#1F497D"/></svg>'
 
-    assert ppt_master_template_svg_issues(
-        sandbox,
-        project,
-        spec_lock,
-        f"{project}/svg_output/01_cover.svg",
-        valid_page,
-    ) == []
+    assert (
+        ppt_master_template_svg_issues(
+            sandbox,
+            project,
+            spec_lock,
+            f"{project}/svg_output/01_cover.svg",
+            valid_page,
+        )
+        == []
+    )
     issues = ppt_master_template_svg_issues(
         sandbox,
         project,
@@ -505,7 +498,5 @@ def test_template_install_rejects_workspace_outside_ppt_master_template_library(
         _report(),
     )
 
-    assert ppt_master_template_install_issues(sandbox, project) == [
-        "confirmed template workspace_root is outside the ppt-master template library"
-    ]
+    assert ppt_master_template_install_issues(sandbox, project) == ["confirmed template workspace_root is outside the ppt-master template library"]
     assert sandbox.commands == []

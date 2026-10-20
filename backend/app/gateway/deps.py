@@ -118,19 +118,14 @@ def _validate_agent_storage(config: AppConfig) -> None:
     backend = getattr(getattr(config, "agent_storage", None), "backend", "file")
     database_backend = getattr(getattr(config, "database", None), "backend", None)
     if backend == "db" and database_backend not in {"sqlite", "postgres"}:
-        raise SystemExit(
-            "agent_storage.backend='db' requires database.backend='sqlite' or "
-            f"'postgres', but database.backend is '{database_backend}'."
-        )
+        raise SystemExit(f"agent_storage.backend='db' requires database.backend='sqlite' or 'postgres', but database.backend is '{database_backend}'.")
     try:
         workers = int(os.environ.get("GATEWAY_WORKERS", "1"))
     except (TypeError, ValueError):
         workers = 1
     if workers > 1 and database_backend == "postgres" and backend == "file":
         logger.warning(
-            "GATEWAY_WORKERS=%s uses file-backed digital employees; they are "
-            "not visible across workers. Set agent_storage.backend='db' so "
-            "definitions are shared across nodes.",
+            "GATEWAY_WORKERS=%s uses file-backed digital employees; they are not visible across workers. Set agent_storage.backend='db' so definitions are shared across nodes.",
             workers,
         )
 

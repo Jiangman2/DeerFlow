@@ -29,7 +29,6 @@ from langgraph.runtime import Runtime
 from deerflow.agents.thread_state import ThreadState
 from deerflow.run_timing import atime_middleware_after_agent, log_run_timing, time_middleware_after_agent
 
-
 logger = logging.getLogger(__name__)
 
 

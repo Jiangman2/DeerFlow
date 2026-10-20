@@ -155,15 +155,9 @@ def test_graph_task_events_retain_only_lifecycle_metadata() -> None:
         }
     )
 
-    assert [(event.task_id, event.node_name, event.terminal, event.outcome) for event in started] == [
-        ("task-1", "after_model", False, "completed")
-    ]
-    assert [(event.task_id, event.node_name, event.terminal, event.outcome) for event in completed] == [
-        ("task-1", "after_model", True, "completed")
-    ]
-    assert [(event.task_id, event.node_name, event.terminal, event.outcome) for event in failed] == [
-        ("task-2", "tools", True, "error")
-    ]
+    assert [(event.task_id, event.node_name, event.terminal, event.outcome) for event in started] == [("task-1", "after_model", False, "completed")]
+    assert [(event.task_id, event.node_name, event.terminal, event.outcome) for event in completed] == [("task-1", "after_model", True, "completed")]
+    assert [(event.task_id, event.node_name, event.terminal, event.outcome) for event in failed] == [("task-2", "tools", True, "error")]
 
 
 def test_worker_passes_stream_kind_to_the_private_graph_stream_consumer() -> None:

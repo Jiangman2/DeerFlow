@@ -710,7 +710,6 @@ class TestChannelManager:
 
         _run(go())
 
-
     def test_fetch_gateway_includes_internal_auth_headers(self, monkeypatch):
         from app.channels.manager import ChannelManager
 
@@ -4954,8 +4953,6 @@ class TestFeishuSendFileSuccessChecks:
     logged "file sent" and returned ``True`` exactly like a real success.
     """
 
-
-
     def test_send_file_returns_true_on_reply_business_success(self, tmp_path):
         """Control case: a genuinely successful response still returns True."""
         from lark_oapi.api.im.v1 import ReplyMessageRequest, ReplyMessageRequestBody
@@ -5010,10 +5007,6 @@ class TestFeishuCardSuccessChecks:
     ``_add_reaction`` did not, so a failed card send/update looked identical
     to a successful one to every caller.
     """
-
-
-
-
 
     def test_final_streaming_update_falls_back_to_new_card_when_update_card_fails(self):
         """``_send_card_message``'s ``try/except`` around ``_update_card``

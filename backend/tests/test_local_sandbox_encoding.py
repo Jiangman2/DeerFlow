@@ -2,8 +2,7 @@ import builtins
 from types import SimpleNamespace
 
 import deerflow.sandbox.local.local_sandbox as local_sandbox
-from deerflow.sandbox.local.local_sandbox import _BoundedPipeCapture
-from deerflow.sandbox.local.local_sandbox import LocalSandbox
+from deerflow.sandbox.local.local_sandbox import LocalSandbox, _BoundedPipeCapture
 
 
 def _open(base, file, mode="r", *args, **kwargs):

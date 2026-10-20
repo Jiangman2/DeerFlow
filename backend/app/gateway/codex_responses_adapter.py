@@ -26,7 +26,7 @@ from jsonschema import Draft202012Validator, SchemaError
 from referencing import Registry
 from referencing.exceptions import NoSuchResource, Unresolvable
 
-from app.gateway.ppt_runtime_broker import dispatch_runtime, require_scope, persist_provider_receipt
+from app.gateway.ppt_runtime_broker import dispatch_runtime, persist_provider_receipt, require_scope
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,10 @@ from types import SimpleNamespace
 
 import anyio
 import pytest
+
 from deerflow.agents.lead_agent import prompt as prompt_module
 from deerflow.skills.storage.local_skill_storage import LocalSkillStorage
+
 
 def _write_skill(root: Path, name: str, description: str) -> None:
     skill_dir = root / "public" / name

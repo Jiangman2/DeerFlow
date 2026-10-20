@@ -19,7 +19,6 @@ from langgraph.runtime import Runtime
 from deerflow.agents.middlewares._bounded_dict import BoundedDict
 from deerflow.run_timing import atime_middleware_after_agent, log_run_timing, time_middleware_after_agent
 
-
 logger = logging.getLogger(__name__)
 
 _OUTPUTS_PREFIX = "/mnt/user-data/outputs/"

@@ -548,6 +548,7 @@ class TestAsyncCheckpointer:
         from deerflow.runtime.checkpointer.async_provider import _instrument_postgres_saver_class
 
         monkeypatch.setenv("DEERFLOW_RUN_TIMING_LOGS", "true")
+
         class Saver:
             async def aput(self, _config):
                 return {"checkpoint_id": "opaque"}
@@ -780,9 +781,7 @@ class TestAsyncCheckpointer:
             finally:
                 reset_current_llm_timing_context(token)
 
-        assert pool.connection_instance.commands == [
-            ("SELECT set_config('application_name', %s, false)", ("dfcp:run-456",))
-        ]
+        assert pool.connection_instance.commands == [("SELECT set_config('application_name', %s, false)", ("dfcp:run-456",))]
         assert "cursor_factory" not in pool.kwargs["kwargs"]
 
     @pytest.mark.anyio

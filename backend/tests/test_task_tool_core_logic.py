@@ -300,14 +300,6 @@ def test_task_tool_forwards_channel_user_id_to_executor(monkeypatch):
     assert captured["executor_kwargs"]["channel_user_id"] == "ou_group_sender_1"
 
 
-
-
-
-
-
-
-
-
 def test_task_tool_rejects_bash_subagent_when_host_bash_disabled(monkeypatch):
     monkeypatch.setattr(task_tool_module, "get_subagent_config", lambda _: _make_subagent_config())
     monkeypatch.setattr(task_tool_module, "is_host_bash_allowed", lambda: False)

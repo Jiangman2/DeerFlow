@@ -139,6 +139,9 @@ export function MarkdownContent({
 
   return (
     <SafeMessageResponse
+      // Streamdown 1.4 memoizes unchanged text without comparing components.
+      // Remount once when settling so cached streaming code becomes a diagram.
+      key={isStreamingRender ? "streaming" : "settled"}
       className={className}
       remarkPlugins={remarkPlugins}
       rehypePlugins={effectiveRehypePlugins}

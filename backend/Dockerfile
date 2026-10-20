@@ -129,6 +129,29 @@ CMD ["sh", "-c", "cd backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app 
 # Clean image without build-essential — reduces size (~200 MB) and attack surface.
 FROM ${PYTHON_IMAGE}
 
+ARG APT_MIRROR
+
+# Install curl in the final runtime image.
+RUN --mount=type=secret,id=enterprise_proxy,required=false \
+    --mount=type=secret,id=enterprise_ca,required=false \
+    set -a; \
+    if [ -s /run/secrets/enterprise_proxy ]; then . /run/secrets/enterprise_proxy; fi; \
+    set +a; \
+    apt_ca_opt=""; \
+    if [ -s /run/secrets/enterprise_ca ]; then \
+      apt_ca_opt="-o Acquire::https::CaInfo=/run/secrets/enterprise_ca"; \
+      export SSL_CERT_FILE=/run/secrets/enterprise_ca; \
+      export CURL_CA_BUNDLE=/run/secrets/enterprise_ca; \
+    fi; \
+    if [ -n "${APT_MIRROR}" ]; then \
+      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources 2>/dev/null || true; \
+      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list 2>/dev/null || true; \
+    fi; \
+    apt-get ${apt_ca_opt} update && apt-get ${apt_ca_opt} install -y \
+      curl \
+      ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 ENV PYTHONIOENCODING=utf-8

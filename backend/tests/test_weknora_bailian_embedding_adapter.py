@@ -1,5 +1,4 @@
 import json
-import ssl
 
 import httpx
 import pytest
