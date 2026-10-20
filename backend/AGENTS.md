@@ -7,6 +7,10 @@ reasoning effort. Keep both thinking overrides explicit and selector capability
 metadata credential-free. Preserve the existing model list order/default and
 use a separate server Secret. Profile/SDK-wire tests run without network;
 provider availability and vision still need enterprise-network acceptance.
+Provider preparation reports Gateway readiness before refusing. Claim the once
+marker only after read-only preflight; recovery of an older consumed marker
+requires an exact hash-bound report proving no provider or Secret operation.
+Never clear an uncertain attempt or relax the rollout gate to make it pass.
 
 Employee featured-store reads use the field-qualified r6 source. On Linux,
 force pathname metadata refresh with statx before the bounded precommit open,

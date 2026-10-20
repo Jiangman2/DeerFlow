@@ -46,6 +46,17 @@ marker to repeat an uncertain Secret creation. The Secret name and UID are in
 the successful report. Preparation is not online activation or all-replica
 acceptance.
 
+Preparation records observed/desired/updated/ready/available replica counts
+before the readiness gate. It still requires a fully observed, stable 70-replica
+Gateway. Read-only readiness failures no longer consume the provider once
+marker. An old attempt that already consumed a marker can be resumed only by a
+package explicitly bound to that exact report's operation, byte size and SHA256
+(`--resume-noop-receipt`). The server checks the original private report and
+marker, requires all provider/Secret/workload activity flags to be false, retains
+both, and atomically claims a separate marker before the first provider request.
+Unknown or partially executed attempts cannot use this path. Wait for any other
+operator's Gateway rollout to finish before running preparation.
+
 For activation, bind the current successful Gateway/frontend reports, append the
 profile to a new configuration copy, add only the new required Secret reference,
 and preserve all existing configuration and list ordering. Check actual routing

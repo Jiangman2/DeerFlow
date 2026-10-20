@@ -22,6 +22,8 @@ PROBE_SOURCE = None
 NAMESPACE = "deer-flow"
 SECRET_KEY = "DEEPSEEK_V4_1_FLASH_API_KEY"
 GATEWAY_UID = "a62fc04c-7a82-4b57-8fbf-a8c7a3839ea1"
+PRIOR_ATTEMPT = None  # Optional pinned, no-provider/no-Secret failure receipt.
+ONCE_NAME = "portal-deepseek-v41-preparation-20261020-r1.once"
 
 
 class Refused(ValueError):
@@ -116,7 +118,50 @@ print(json.dumps(result,sort_keys=True))
 """
 
 
-def prepare(report):
+def read_private(parent, name, limit):
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=parent)
+    with os.fdopen(fd, "rb") as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == 0 and info.st_nlink == 1 and not info.st_mode & 0o077 and info.st_size <= limit, "prior_file_permissions_or_size")
+        data = stream.read(limit + 1)
+        require(len(data) <= limit, "prior_file_limit")
+        return data
+
+
+def verify_prior_attempt(parent, prior):
+    require(isinstance(prior, dict), "prior_binding_required")
+    operation = prior["operation"]
+    require(len(operation) == 32 and all(c in "0123456789abcdef" for c in operation), "prior_operation_invalid")
+    rootfd = os.open(str(parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        marker = json.loads(read_private(rootfd, ONCE_NAME, 4096))
+        require(marker == dict(operation=operation), "prior_once_identity_changed")
+        folderfd = os.open("portal-deepseek-v41-preparation-" + operation, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=rootfd)
+        try:
+            info = os.fstat(folderfd)
+            require(info.st_uid == 0 and not info.st_mode & 0o077, "prior_directory_permissions")
+            raw = read_private(folderfd, "REPORT.json", 65536)
+        finally:
+            os.close(folderfd)
+    finally:
+        os.close(rootfd)
+    require(len(raw) == prior["bytes"] and hashlib.sha256(raw).hexdigest() == prior["sha256"], "prior_report_mismatch")
+    value = json.loads(raw)
+    require(value.get("operation") == operation and value.get("status") == "INCOMPLETE" and value.get("error_code") == "gateway_rollout_in_progress", "prior_failure_mismatch")
+    require(all(value.get(k) is False for k in ("provider_probe_requested", "secret_creation_requested", "secret_creation_may_have_applied", "workload_modified", "configuration_modified", "gateway_restarted")), "prior_attempt_may_have_side_effects")
+    return operation
+
+
+def claim_once(parent, name, report):
+    fd = os.open(str(parent / name), os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "wb") as stream:
+        stream.write(canonical(dict(operation=report["operation"])))
+        stream.flush()
+        os.fsync(stream.fileno())
+    report["once_claimed"] = True
+
+
+def prepare(report, before_provider=None):
     require(
         isinstance(PROFILE, dict) and isinstance(PROBE_SOURCE, str),
         "use_packaged_script",
@@ -124,13 +169,17 @@ def prepare(report):
     initial = call(["get", "deployment", "gateway", "-o", "json"])
     require(initial["metadata"]["uid"] == GATEWAY_UID, "gateway_identity_changed")
     desired = initial["spec"]["replicas"]
+    report["gateway_before"] = binding(initial)
+    report["gateway_readiness"] = {k: initial.get("status", {}).get(k) for k in ("observedGeneration", "replicas", "updatedReplicas", "readyReplicas", "availableReplicas", "unavailableReplicas", "terminatingReplicas")}
+    report["gateway_readiness"]["desired"] = desired
+    require(desired == 70, "gateway_replica_count_changed")
     require(
-        desired == 70
-        and initial.get("status", {}).get("updatedReplicas") == desired
-        and initial["status"].get("readyReplicas") == desired,
+        initial.get("status", {}).get("observedGeneration") == initial["metadata"]["generation"]
+        and all(initial["status"].get(k) == desired for k in ("replicas", "updatedReplicas", "readyReplicas", "availableReplicas"))
+        and not initial["status"].get("unavailableReplicas", 0)
+        and not initial["status"].get("terminatingReplicas", 0),
         "gateway_rollout_in_progress",
     )
-    report["gateway_before"] = binding(initial)
     images = {
         c["image"]
         for c in initial["spec"]["template"]["spec"]["containers"]
@@ -164,6 +213,8 @@ def prepare(report):
         and not any(c.isspace() for c in key),
         "key_format",
     )
+    if before_provider is not None:
+        before_provider()
     report["provider_probe_requested"] = True
     print(
         json.dumps(
@@ -287,18 +338,16 @@ def main():
         )
         directory = parent / ("portal-deepseek-v41-preparation-" + report["operation"])
         directory.mkdir(mode=0o700)
-        # Shared once marker prevents uncertain model/Secret creation from automatic resubmission.
-        fd = os.open(
-            str(parent / "portal-deepseek-v41-preparation-20261020-r1.once"),
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-            0o600,
-        )
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(canonical(dict(operation=report["operation"])))
-            stream.flush()
-            os.fsync(stream.fileno())
+        once = ONCE_NAME
+        if PRIOR_ATTEMPT is not None:
+            prior_operation = verify_prior_attempt(parent, PRIOR_ATTEMPT)
+            report["resumed_noop_operation"] = prior_operation
+            once = "portal-deepseek-v41-resume-" + prior_operation + ".once"
+        require(not os.path.lexists(str(parent / once)), "preparation_already_claimed")
         report["profile_sha256"] = hashlib.sha256(canonical(PROFILE)).hexdigest()
-        prepare(report)
+        # Read-only readiness failures do not consume a new provider attempt.
+        # The exclusive marker is still created before any request or Secret write.
+        prepare(report, before_provider=lambda: claim_once(parent, once, report))
     except BaseException as exc:
         report["error_class"] = type(exc).__name__
         report["error_code"] = (
